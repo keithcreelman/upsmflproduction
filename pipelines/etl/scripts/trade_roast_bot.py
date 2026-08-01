@@ -32,12 +32,23 @@ from trade_grader import (
     load_players_map, load_rosters, load_rollover,
     load_auction_pool, load_team_caps, load_future_picks,
     load_trade_value_model,
+    # 3-way support: nav / production value for the net-value read, contract
+    # parsing for the salary schedule, and the MFL "Last, First" formatter.
+    estimate_production_value, nav_player, _parse_contract, display_name,
 )
 from trade_roast_context import (
     build_trade_roast_context, context_to_prompt_text,
     load_career_stats, load_discord_users,
+    # 3-way support: per-franchise owner context + dossier + anti-repetition.
+    build_franchise_context, load_trade_value_model_full,
+    format_owner_dossier, format_recent_bot_posts_section,
+    find_defending_champion,
 )
-from trade_announcement import build_announcement_embed
+from trade_announcement import (
+    build_announcement_embed,
+    # 3-way support: reuse the exact same asset renderers as the 2-party embed.
+    _format_player, _format_pick_with_sender, _fmt_dollars,
+)
 from content_engine import (
     generate_trade_roast, classify_reply, generate_clap_back,
     log_value_signal, log_data_error, save_to_archive,
@@ -715,6 +726,522 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
 # need the legacy version back (last live in commit ~8fd4087 era).
 
 
+# ── 3-Way (commish-processed multi-leg) trades ──────────────────────────────
+#
+# MFL only records TWO-party trades. When the commish processes a 3-team deal
+# it lands as THREE separate pairwise legs, each carrying a comment of the form
+#   "[Commish-processed: 3-way] 3-way <uuid> pair-N (pairwise)".
+# Two of those legs are ONE-SIDED (a team gives an asset "for nothing" because
+# its return arrives on a DIFFERENT leg). Roasting the legs standalone reads as
+# an absurd "gave away a star for free" — the 2026-07-22 incident. So we DETECT
+# the legs by their shared uuid, COLLAPSE them into per-franchise NET gives/gets,
+# and roast the whole deal ONCE. Normal 2-party trades are untouched.
+
+THREEWAY_MARKER = "[Commish-processed: 3-way]"
+_UUID_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+# Cross-poll completeness gate. A commish 3-way is committed atomically (its
+# legs share a timestamp-second), so by the time a 5-min poll fires all legs are
+# already present AND several seconds/minutes old — the normal path fires
+# immediately. The gate below is belt-and-suspenders for a hypothetical
+# eventually-consistent split across polls: on the FIRST sighting of a uuid whose
+# newest leg is still "fresh", defer ONE poll to collect stragglers; after that
+# we roast regardless (keyed on the uuid, never on the shared second) so we can
+# never hang forever waiting on a leg count we don't know in advance.
+MULTIWAY_SETTLE_SECS = 120
+_multiway_first_seen: dict = {}
+
+
+def _multiway_uuid(comments: str):
+    """Return the 3-way group uuid for a leg, or None for a normal trade."""
+    if not comments or THREEWAY_MARKER not in comments:
+        return None
+    m = _UUID_RE.search(comments)
+    return m.group(0).lower() if m else None
+
+
+def group_multiway_legs(trades: list) -> dict:
+    """{uuid: [legs]} for every commish-processed multi-way trade in `trades`."""
+    groups: dict = {}
+    for t in trades:
+        u = _multiway_uuid(t.get("comments", ""))
+        if u:
+            groups.setdefault(u, []).append(t)
+    return groups
+
+
+def _pick_key(pk) -> tuple:
+    return (pk.year, pk.round, (getattr(pk, "original_owner", "") or ""))
+
+
+def build_multiway_summary(legs: list) -> dict:
+    """Collapse the pairwise legs of one commish multi-way into per-franchise
+    NET movements. Returns the dict the announce-embed + roast-context builders
+    consume.
+
+    Every leg is analysed with the SAME analyze_trade the normal path uses, so
+    each PlayerInfo is fully enriched (salary, contract, PPG, ADP, Exp$). We then
+    route each side's `*_given` to gave[sender] / got[receiver]; because we only
+    ever read the *given* lists, no asset is double-counted. A defensive net pass
+    cancels any pure pass-through (a franchise that receives X on one leg and
+    gives the same X on another) so a conduit franchise shows a clean ledger.
+    """
+    players_map = load_players_map()
+    franchises = load_franchises()
+    rosters = load_rosters()
+    rollover = load_rollover()
+    auction_pool = load_auction_pool()
+    team_caps = load_team_caps()
+    future_picks = load_future_picks()
+    tv_model = load_trade_value_model()
+
+    analyses = [
+        analyze_trade(leg, players_map, franchises, rosters, rollover,
+                      auction_pool, team_caps, future_picks, tv_model)
+        for leg in legs
+    ]
+
+    from collections import OrderedDict
+    order: list = []
+    fr: "OrderedDict[str, dict]" = OrderedDict()
+
+    def _slot(fid, name, cap_space, total_salary):
+        if fid not in fr:
+            order.append(fid)
+            fr[fid] = {
+                "franchise_id": fid,
+                "name": name,
+                "cap_space": cap_space,
+                "total_salary": total_salary,
+                "gave": {"players": [], "picks": [], "bb": 0},
+                "got": {"players": [], "picks": [], "bb": 0},
+            }
+        return fr[fid]
+
+    ledger = []  # (asset_label, from_name, to_name) — one line per moved asset
+    for an in analyses:
+        for sender, receiver in ((an.side_a, an.side_b), (an.side_b, an.side_a)):
+            s = _slot(sender.franchise_id, sender.franchise_name,
+                      sender.cap_space, sender.total_roster_salary)
+            r = _slot(receiver.franchise_id, receiver.franchise_name,
+                      receiver.cap_space, receiver.total_roster_salary)
+            for p in sender.players_given:
+                s["gave"]["players"].append(p)
+                r["got"]["players"].append(p)
+                ledger.append((f"{display_name(p.name)} ({p.position})",
+                               sender.franchise_name, receiver.franchise_name))
+            for pk in sender.picks_given:
+                s["gave"]["picks"].append(pk)
+                r["got"]["picks"].append(pk)
+                ledger.append((f"{pk.year} R{pk.round} pick",
+                               sender.franchise_name, receiver.franchise_name))
+            if sender.salary_given:
+                s["gave"]["bb"] += sender.salary_given
+                r["got"]["bb"] += sender.salary_given
+                ledger.append((f"${sender.salary_given:,} budget bucks",
+                               sender.franchise_name, receiver.franchise_name))
+
+    def _net(gave, got, keyfn):
+        """Cancel items present in BOTH a franchise's gave and got (pass-through)."""
+        got_ct: dict = {}
+        for x in got:
+            got_ct[keyfn(x)] = got_ct.get(keyfn(x), 0) + 1
+        net_gave = []
+        for x in gave:
+            k = keyfn(x)
+            if got_ct.get(k, 0) > 0:
+                got_ct[k] -= 1
+            else:
+                net_gave.append(x)
+        gave_ct: dict = {}
+        for x in gave:
+            gave_ct[keyfn(x)] = gave_ct.get(keyfn(x), 0) + 1
+        net_got = []
+        for x in got:
+            k = keyfn(x)
+            if gave_ct.get(k, 0) > 0:
+                gave_ct[k] -= 1
+            else:
+                net_got.append(x)
+        return net_gave, net_got
+
+    for fid, d in fr.items():
+        d["gave"]["players"], d["got"]["players"] = _net(
+            d["gave"]["players"], d["got"]["players"], lambda p: p.player_id)
+        d["gave"]["picks"], d["got"]["picks"] = _net(
+            d["gave"]["picks"], d["got"]["picks"], _pick_key)
+        net_bb = d["gave"]["bb"] - d["got"]["bb"]
+        d["gave"]["bb"] = max(0, net_bb)
+        d["got"]["bb"] = max(0, -net_bb)
+
+        def _sv(side):
+            return (sum(nav_player(p) for p in side["players"])
+                    + sum(pk.estimated_value for pk in side["picks"])
+                    + side["bb"])
+        d["net_value"] = _sv(d["got"]) - _sv(d["gave"])
+
+    return {
+        "franchises": fr,
+        # Deterministic display order (by franchise id) so the embed/roast read
+        # the same regardless of the arbitrary order MFL returns the legs in.
+        "order": sorted(order),
+        "franchises_map": franchises,
+        "ledger": ledger,
+        "timestamp": max(int(l.get("timestamp", 0)) for l in legs),
+        "comment": next((l.get("comments", "") for l in legs), ""),
+    }
+
+
+def build_multiway_embed(summary: dict, trade_dt_iso: str = "") -> dict:
+    """Announcement embed for a 3-team deal: one field per franchise showing both
+    what it GIVES and what it GETS (net). Reuses the 2-party asset renderers so
+    the formatting matches the normal announcement exactly."""
+    from trade_announcement import _format_eastern  # local import (mirrors 2-party)
+    fr = summary["franchises"]
+    order = summary["order"]
+    franchises = summary["franchises_map"]
+    names = [fr[fid]["name"] for fid in order]
+
+    date_str = _format_eastern(trade_dt_iso) if trade_dt_iso else ""
+    desc = ["# 🤝 3-Team Trade Alert", "", " ↔ ".join(f"**{n}**" for n in names)]
+    if date_str:
+        desc.append(f"_{date_str}_")
+
+    fields = []
+    for fid in order:
+        d = fr[fid]
+        lines = ["**Gives up:**"]
+        gave = d["gave"]
+        any_g = False
+        for p in gave["players"]:
+            lines.append(_format_player(p)); any_g = True
+        for pk in gave["picks"]:
+            lines.append(f"  • {_format_pick_with_sender(pk, fid, franchises)}"); any_g = True
+        if gave["bb"]:
+            lines.append(f"  • {_fmt_dollars(gave['bb'])} Budget Bucks"); any_g = True
+        if not any_g:
+            lines.append("  • (nothing)")
+        lines.append("**Receives:**")
+        got = d["got"]
+        any_r = False
+        for p in got["players"]:
+            lines.append(_format_player(p)); any_r = True
+        for pk in got["picks"]:
+            lines.append(f"  • {_format_pick_with_sender(pk, fid, franchises)}"); any_r = True
+        if got["bb"]:
+            lines.append(f"  • {_fmt_dollars(got['bb'])} Budget Bucks"); any_r = True
+        if not any_r:
+            lines.append("  • (nothing)")
+        value = "\n".join(lines)
+        if len(value) > 1000:  # Discord field-value hard cap is 1024
+            value = value[:997] + "..."
+        fields.append({"name": d["name"][:256], "value": value, "inline": False})
+
+    return {
+        "title": "TRADE",
+        "description": "\n".join(desc),
+        "color": 0xc8a24d,  # gold — same as the 2-party announcement
+        "fields": fields,
+    }
+
+
+def build_multiway_context_text(summary: dict) -> str:
+    """Roast prompt/context for a 3-team deal. Mirrors context_to_prompt_text but
+    over N franchises: a strong 'roast as ONE deal' framing, an asset-direction
+    ledger, per-team net gives/gets, owner records, dossiers, and the recent-bot
+    ban list. Same builder feeds BOTH the Opus prompt AND the clap-back context."""
+    career_stats = load_career_stats()
+    tv_full = load_trade_value_model_full()
+    discord_users = load_discord_users()
+    fr = summary["franchises"]
+    order = summary["order"]
+    franchises = summary["franchises_map"]
+
+    fctx = {
+        fid: build_franchise_context(fid, career_stats, tv_full, discord_users,
+                                     live_franchise_name=fr[fid]["name"])
+        for fid in order
+    }
+    current_year = next((fctx[f].get("current_year") for f in order
+                         if fctx[f].get("current_year")), 0)
+
+    L: list = []
+    def ln(s=""):
+        L.append(s)
+
+    ln("=== THREE-TEAM TRADE (commish-processed) — ROAST IT AS ONE DEAL ===")
+    if current_year:
+        ln(f"CURRENT YEAR: {current_year} (offseason — {current_year} season has not started)")
+        ln(f"LAST COMPLETED SEASON: {current_year - 1}")
+    ln("")
+    ln("MFL can only store two-party trades, so the commish entered this ONE "
+       "three-team trade as three pairwise legs. Below is the NET result per "
+       "team. Roast it as a single coherent three-team deal — NOT three separate "
+       "trades. Every team's FULL return is listed, so NEVER say any team 'gave "
+       "X away for nothing' — nobody did.")
+    ln("Produce a GRADE + roast paragraph for EACH of the THREE teams (three "
+       "blocks in the FORMAT '[TEAM NAME] — GRADE: X'), then a VERDICT naming the "
+       "biggest winner and the team that came out worst, then the [GIF: ...] "
+       "line. There is NO canonical grader letter for a three-team trade — judge "
+       "each team's net haul yourself and assign a fair grade A+ through F.")
+    ln("")
+
+    dc = find_defending_champion(career_stats)
+    if dc and dc.get("franchise_id") in order:
+        ln(f"NOTE: {dc['owner_name']} ({dc['team_name']}) IS the defending "
+           f"champion — they won {dc['season']}.")
+        ln("")
+
+    ln("ASSET DIRECTION LEDGER (who ended up with what — read this, do not infer):")
+    for label, frm, to in summary["ledger"]:
+        ln(f"  {label}: {frm} → {to}")
+    ln("")
+
+    def render_player(p) -> str:
+        yrs, rem = _parse_contract(p.contract_info, p.contract_year, p.salary)
+        sal = f"${p.salary:,} salary"
+        if len(rem) > 1 and len(set(rem)) > 1:
+            sched = " → ".join(f"${s:,}" for s in rem)
+            sal = (f"${p.salary:,} salary (schedule {sched}; "
+                   f"${sum(rem):,} over {len(rem)} yrs)")
+        ppg = (f", {round(p.expected_ppg, 1)} PPG ({p.ppg_basis or 'proj'})"
+               if p.expected_ppg else "")
+        adp = ""
+        if getattr(p, "adp_overall", 0):
+            adp = (f", ADP {p.position}{p.adp_pos_rank} / #{p.adp_overall} overall "
+                   f"({p.adp_sources}-source consensus)")
+        cs = f", {p.contract_status}" if getattr(p, "contract_status", "") else ""
+        return f"    - {display_name(p.name)} ({p.position}) — {sal}{ppg}{adp}{cs}"
+
+    def render_pick(pk) -> str:
+        orig_raw = (getattr(pk, "original_owner", "") or "").strip()
+        oname = franchises.get(orig_raw.zfill(4) if orig_raw else "", "unknown")
+        return (f"    - {pk.year} Round {pk.round} pick (originally {oname}'s, "
+                f"est. value ${pk.estimated_value:,.0f})")
+
+    for fid in order:
+        d = fr[fid]
+        ln(f"{d['name']} — gives:")
+        gave = d["gave"]
+        any_g = False
+        for p in gave["players"]:
+            ln(render_player(p)); any_g = True
+        for pk in gave["picks"]:
+            ln(render_pick(pk)); any_g = True
+        if gave["bb"]:
+            ln(f"    - ${gave['bb']:,} in traded salary (budget bucks)"); any_g = True
+        if not any_g:
+            ln("    - (nothing)")
+        ln(f"{d['name']} — receives:")
+        got = d["got"]
+        any_r = False
+        for p in got["players"]:
+            ln(render_player(p)); any_r = True
+        for pk in got["picks"]:
+            ln(render_pick(pk)); any_r = True
+        if got["bb"]:
+            ln(f"    - ${got['bb']:,} in traded salary (budget bucks)"); any_r = True
+        if not any_r:
+            ln("    - (nothing)")
+        ln(f"    Post-trade cap space: ${d['cap_space']:,} (of $300K cap)")
+        ln("")
+
+    # NOTE: no canonical grader/value anchor is injected for a 3-team deal — a
+    # naive 2-side NAV blunt-scores a team that LANDS an elite-but-pricey asset
+    # as a "loser," which would fight the asset lists. Judge each team from the
+    # per-player PPG/ADP/salary + picks above, per the self-consistency rule.
+    ln('Trade comment: "commish-processed three-team trade"')
+
+    for fid in order:
+        f = fctx[fid]
+        d = fr[fid]
+        ln(f"\n=== TEAM: {d['name']} ===")
+        ln(f"  Owner: {f['owner_name']} (since {f['owner_since']}, {f['owner_seasons']} season(s))")
+        if f.get("owner_allplay_pct"):
+            ln(f"  {f['owner_name']}'s allplay: {f['owner_allplay_pct']:.3f}")
+        ln(f"  {f['owner_name']}'s championships: {f['owner_championships']}")
+        ln(f"  {f['owner_name']}'s playoff appearances: {f['owner_playoff_appearances']} "
+           f"in {f['owner_seasons']} season(s)")
+        if f.get("owner_best_finish"):
+            ln(f"  {f['owner_name']}'s best finish: #{f['owner_best_finish']}")
+        if f.get("owner_worst_finish"):
+            ln(f"  {f['owner_name']}'s worst finish: #{f['owner_worst_finish']}")
+        if (f.get("franchise_championship_drought") and f["franchise_championship_drought"] <= 5
+                and f.get("franchise_championships", 0) > 0):
+            ln(f"  Franchise's last championship: {f['franchise_last_championship']} "
+               f"({f['franchise_championship_drought']} years ago)")
+        ln(f"  Post-trade cap space: ${d['cap_space']:,} (of $300K cap)")
+        if f.get("trend"):
+            ln("  Recent trend (franchise, not necessarily current owner):")
+            for t in f["trend"]:
+                ln(f"    {t['season']}: allplay {t['allplay_pct']:.3f}, finish #{t['finish']}")
+
+    dossier = format_owner_dossier(order)
+    if dossier:
+        ln(dossier)
+    recent = format_recent_bot_posts_section()
+    if recent:
+        ln(recent)
+
+    return "\n".join(L)
+
+
+async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
+                                    uuid: str) -> dict:
+    """Post ONE combined roast for a commish-processed multi-way trade.
+
+    Mirrors analyze_and_post's announce-embed → thread → roast → GIF → tracker →
+    archive flow, but over the per-franchise NET movements collapsed from the
+    legs. Never posts the one-sided legs individually.
+    """
+    print(f"[{datetime.now()}] Building combined 3-way roast for {uuid} "
+          f"({len(legs)} legs)")
+
+    # Heavy prep (per-leg analyze_trade → net summary → embed dict → context
+    # text) is all sync + blocking (MFL API, file reads, worker calls), so it
+    # runs off-loop with a hard timeout — the 2026-07-11 frozen-loop lesson.
+    def _prep():
+        summary_ = build_multiway_summary(legs)
+        ts_int = summary_["timestamp"]
+        trade_iso = (datetime.fromtimestamp(ts_int, tz=timezone.utc).isoformat()
+                     if ts_int else "")
+        embed_ = build_multiway_embed(summary_, trade_iso)
+        ctx_text_ = build_multiway_context_text(summary_)
+        return summary_, embed_, ctx_text_
+    summary, announce_embed_dict, context_text = await _in_executor(
+        "multiway prepare", 240, _prep)
+
+    order = summary["order"]
+    fr = summary["franchises"]
+    names = [fr[fid]["name"] for fid in order]
+    announce_embed = discord.Embed.from_dict(announce_embed_dict)
+
+    print(f"[{datetime.now()}] Posting 3-way announcement to #{channel.name}")
+    announce_msg = await channel.send(
+        embed=announce_embed, allowed_mentions=discord.AllowedMentions.none())
+
+    thread_name = ("3-Team Trade — " + " ↔ ".join(names))[:100]
+    thread = await announce_msg.create_thread(name=thread_name,
+                                              auto_archive_duration=1440)
+
+    print(f"[{datetime.now()}] 3-way context built ({len(context_text)} chars). "
+          f"Calling Claude Opus...")
+    raw_roast = await _in_executor("generate_trade_roast", 300,
+                                   generate_trade_roast, context_text)
+    roast_clean, gif_query = _extract_gif_query(raw_roast)
+    print(f"[{datetime.now()}] 3-way roast generated ({len(roast_clean)} chars). "
+          f"GIF query: {gif_query!r}")
+
+    roast_embed = discord.Embed(title="🔥 Roast", description=roast_clean[:4096],
+                                color=0x5865F2)
+    roast_msg = await thread.send(
+        embed=roast_embed, allowed_mentions=discord.AllowedMentions.none())
+    try:
+        await roast_msg.edit(view=ReplyView(roast_msg.id))
+    except Exception as e:
+        print(f"[{datetime.now()}] failed to attach Reply view: {e}")
+
+    gif_url = ""
+    if gif_query:
+        try:
+            gif_url = await _in_executor("gif fetch", 20, _fetch_gif_via_worker, gif_query)
+        except Exception as e:
+            print(f"[{datetime.now()}] gif fetch skipped: {e}")
+    gif_msg = None
+    if gif_url:
+        gif_embed = discord.Embed(color=0x202225)
+        gif_embed.set_image(url=gif_url)
+        gif_msg = await thread.send(
+            embed=gif_embed, allowed_mentions=discord.AllowedMentions.none())
+
+    # Track for reply monitoring (both announcement + roast route to clap-back).
+    tracker_payload = {
+        "context_text": context_text,
+        "ctx": None,  # no 2-side ctx dict for a 3-way; clap-back uses context_text
+        "thread_id": thread.id,
+        "channel_id": channel.id,
+        "announcement_msg_id": announce_msg.id,
+        "roast_msg_id": roast_msg.id,
+        "timestamp": time.time(),
+    }
+    ROAST_TRACKER[announce_msg.id] = tracker_payload
+    ROAST_TRACKER[roast_msg.id] = tracker_payload
+    _save_tracker()
+
+    await _track_roast_async({
+        "roast_message_id": str(roast_msg.id),
+        "thread_id": str(thread.id),
+        "channel_id": str(channel.id),
+        "announcement_message_id": str(announce_msg.id),
+        "context_text": context_text[:16384],
+        "roast_text": roast_clean[:8000],
+        "trade_id": uuid,
+        "trade_franchises": ",".join(order),
+        "posted_at": int(time.time()),
+    })
+
+    save_to_archive({
+        "id": f"trade-3way-{uuid}",
+        "type": "trade_roast_3way",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "teams": list(order),
+        "discord_announcement_msg_id": announce_msg.id,
+        "discord_thread_id": thread.id,
+        "discord_roast_msg_id": roast_msg.id,
+        "discord_gif_msg_id": gif_msg.id if gif_msg else None,
+        "channel_id": channel.id,
+        "env": ROAST_BOT_ENV,
+        "content": {"roast": roast_clean, "gif_query": gif_query,
+                    "gif_url": gif_url, "uuid": uuid},
+        "replies": [],
+    })
+
+    print(f"[{datetime.now()}] Posted 3-way roast (env={ROAST_BOT_ENV}, "
+          f"announcement={announce_msg.id}, thread={thread.id}, "
+          f"roast={roast_msg.id}, gif={gif_msg.id if gif_msg else 'none'})")
+    return {"announcement_msg_id": announce_msg.id, "thread_id": thread.id,
+            "roast_msg_id": roast_msg.id, "roast_text": roast_clean,
+            "gif_url": gif_url}
+
+
+def dry_run_multiway(uuid: str):
+    """Print the collapsed net per-franchise gives/gets for a 3-way uuid and
+    exit. No Discord, no Claude — the pre-post verification the task asks for."""
+    trades = fetch_trades()
+    legs = group_multiway_legs(trades).get(uuid.lower())
+    if not legs:
+        print(f"No 3-way legs found for uuid {uuid}")
+        return
+    print(f"Found {len(legs)} legs for {uuid}")
+    summary = build_multiway_summary(legs)
+    fmap = summary["franchises_map"]
+    print("\n=== ASSET DIRECTION LEDGER ===")
+    for label, frm, to in summary["ledger"]:
+        print(f"  {label}: {frm} -> {to}")
+    print("\n=== NET PER-FRANCHISE ===")
+    for fid in summary["order"]:
+        d = summary["franchises"][fid]
+        print(f"\n{d['name']} ({fid})  [net_value={d['net_value']:,.0f}, "
+              f"cap_space=${d['cap_space']:,}]")
+        print("  GIVES:")
+        for p in d["gave"]["players"]:
+            print(f"    - {display_name(p.name)} ({p.position}) ${p.salary:,}")
+        for pk in d["gave"]["picks"]:
+            orig = (pk.original_owner or "").zfill(4)
+            print(f"    - {pk.year} R{pk.round} pick (orig {fmap.get(orig, '?')})")
+        if d["gave"]["bb"]:
+            print(f"    - ${d['gave']['bb']:,} budget bucks")
+        print("  GETS:")
+        for p in d["got"]["players"]:
+            print(f"    - {display_name(p.name)} ({p.position}) ${p.salary:,}")
+        for pk in d["got"]["picks"]:
+            orig = (pk.original_owner or "").zfill(4)
+            print(f"    - {pk.year} R{pk.round} pick (orig {fmap.get(orig, '?')})")
+        if d["got"]["bb"]:
+            print(f"    - ${d['got']['bb']:,} budget bucks")
+
+
 # ── Reply Monitoring ───────────────────────────────────────────────────────
 
 @bot.event
@@ -889,8 +1416,63 @@ async def poll_for_trades():
             (t for t in trades if int(t.get("timestamp", 0)) > last_ts),
             key=lambda t: int(t.get("timestamp", 0)),
         )
+        # 3-way groups are keyed off the FULL trades list (not just new_trades) so
+        # a leg that landed below the cursor in a prior poll still gets assembled
+        # into the complete combined roast. handled_uuids dedupes within a poll.
+        multiway_groups = group_multiway_legs(trades)
+        handled_uuids: set = set()
+
         for trade in new_trades:
             ts = int(trade.get("timestamp", 0))
+            uuid = _multiway_uuid(trade.get("comments", ""))
+
+            # ── Commish-processed 3-way leg → ONE combined roast ──────────────
+            if uuid:
+                if uuid in handled_uuids:
+                    # A sibling leg already rolled into this poll's combined roast;
+                    # just advance the cursor past this leg and move on.
+                    save_last_trade_ts(ts)
+                    continue
+                legs = multiway_groups.get(uuid) or [trade]
+                # Completeness gate (see MULTIWAY_SETTLE_SECS): defer at most one
+                # poll for stragglers on first sighting, then roast regardless.
+                now = time.time()
+                first_seen = _multiway_first_seen.setdefault(uuid, now)
+                newest_age = now - max(int(l.get("timestamp", 0)) for l in legs)
+                if newest_age < MULTIWAY_SETTLE_SECS and (now - first_seen) < POLL_INTERVAL_SECONDS:
+                    print(f"[{datetime.now()}] 3-way {uuid} still settling "
+                          f"({len(legs)} legs, newest {newest_age:.0f}s old) — "
+                          f"deferring to next poll (cursor held)")
+                    break  # leave the cursor so we re-see these legs next poll
+                print(f"[{datetime.now()}] 3-way trade detected! uuid={uuid} "
+                      f"legs={len(legs)}")
+                await _heartbeat("processing")
+                try:
+                    await analyze_and_post_multiway(channel, legs, uuid)
+                    handled_uuids.add(uuid)
+                    _multiway_first_seen.pop(uuid, None)
+                    _trade_attempts.pop(uuid, None)
+                    # Advance the cursor past EVERY leg of the group at once.
+                    max_leg_ts = max(int(l.get("timestamp", 0)) for l in legs)
+                    save_last_trade_ts(max(ts, max_leg_ts))
+                except Exception as e:
+                    n = _trade_attempts.get(uuid, 0) + 1
+                    _trade_attempts[uuid] = n
+                    print(f"[{datetime.now()}] 3-way {uuid} attempt "
+                          f"{n}/{MAX_TRADE_ATTEMPTS} failed: {e}")
+                    if n >= MAX_TRADE_ATTEMPTS:
+                        max_leg_ts = max(int(l.get("timestamp", 0)) for l in legs)
+                        save_last_trade_ts(max(ts, max_leg_ts))
+                        _trade_attempts.pop(uuid, None)
+                        _multiway_first_seen.pop(uuid, None)
+                        await _dm_commish(
+                            f"⚠️ Trade Roast bot: giving up on 3-way {uuid} after "
+                            f"{MAX_TRADE_ATTEMPTS} attempts (last error: {e}). "
+                            f"Cursor advanced — no combined roast was posted.")
+                    break  # retry (or skip) next poll; keep trades in order
+                continue
+
+            # ── Normal 2-party trade (unchanged) ─────────────────────────────
             print(f"[{datetime.now()}] New trade detected! ts={ts}")
             await _heartbeat("processing")   # long analyze ahead — keep the watchdog fed
             try:
@@ -1024,7 +1606,69 @@ def main():
                              "DISCORD_TRADE_CHANNEL_ID set (the launchd launcher "
                              "passes this so a misconfigured env fails loudly at "
                              "startup instead of silently posting to test)")
+    parser.add_argument("--dry-run-multiway", type=str, default="",
+                        help="Print the collapsed net per-franchise gives/gets "
+                             "for a 3-way uuid and exit (no Discord, no Claude)")
+    parser.add_argument("--post-multiway", type=str, default="",
+                        help="Post ONE combined roast for a 3-way uuid via the "
+                             "real machinery (announce embed + roast thread + "
+                             "tracker) to ROAST_CHANNEL_ID, then exit")
     args = parser.parse_args()
+
+    # Pure-data verification path — no Discord connection, no Claude call.
+    if args.dry_run_multiway:
+        dry_run_multiway(args.dry_run_multiway)
+        return
+
+    # One-off combined roast for a single 3-way uuid, then exit. Reuses the
+    # exact analyze_and_post_multiway machinery the poller uses. Does NOT start
+    # poll_for_trades, so it won't interfere with the running launchd bot.
+    if args.post_multiway:
+        uuid = args.post_multiway.strip().lower()
+
+        @bot.event
+        async def on_ready():
+            print(f"[{datetime.now()}] Bot connected as {bot.user} "
+                  f"(post-multiway one-off)")
+            print(f"[{datetime.now()}] Env: ROAST_BOT_ENV={ROAST_BOT_ENV}, "
+                  f"ROAST_CHANNEL_ID={ROAST_CHANNEL_ID}")
+            _load_tracker()
+            for k, v in list(ROAST_TRACKER.items()):
+                rid = v.get("roast_msg_id")
+                if rid:
+                    try:
+                        bot.add_view(ReplyView(int(rid)))
+                    except Exception:
+                        pass
+            try:
+                channel = bot.get_channel(ROAST_CHANNEL_ID)
+                if not channel:
+                    print(f"ERROR: channel {ROAST_CHANNEL_ID} not found")
+                    return
+                trades = await _in_executor("fetch_trades", 60, fetch_trades)
+                legs = group_multiway_legs(trades).get(uuid)
+                if not legs:
+                    print(f"ERROR: no 3-way legs found for uuid {uuid}")
+                    return
+                res = await analyze_and_post_multiway(channel, legs, uuid)
+                print("POSTED_MULTIWAY_RESULT: " + json.dumps({
+                    "announcement_msg_id": str(res["announcement_msg_id"]),
+                    "roast_msg_id": str(res["roast_msg_id"]),
+                    "thread_id": str(res["thread_id"]),
+                    "gif_url": res.get("gif_url", ""),
+                }))
+                print("ROAST_TEXT_BEGIN")
+                print(res["roast_text"])
+                print("ROAST_TEXT_END")
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(f"ERROR posting multiway: {e}")
+            finally:
+                await bot.close()
+
+        bot.run(BOT_TOKEN)
+        return
 
     if args.prod:
         if args.test or args.test_ts:
