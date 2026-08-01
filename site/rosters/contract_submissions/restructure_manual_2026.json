@@ -3,7 +3,7 @@
     "note": "Restructures recorded OUTSIDE the FO/worker submit path (e.g. the 'UPS Contracts Hub Bot' Discord posts, or manual MFL edits) that are not in contract_activity_2026.json or ups_restructure_submissions. The FO Restructures tab merges these into the per-team used count (canon §C5, 3/team/season). Add an entry here whenever a restructure happens off-path.",
     "season": "2026",
     "league_id": "74598",
-    "updated_at": "2026-06-05"
+    "updated_at": "2026-08-01"
   },
   "restructures": [
     {
@@ -42,20 +42,6 @@
       "player_id": "16594",
       "player_name": "Benson, Trey",
       "reason": "Testing only — NOT a real restructure (Keith 2026-06-05). Skip in the count and DELETE from D1."
-    },
-    {
-      "franchise_id": "0007",
-      "franchise_name": "Sex Manther",
-      "player_id": "16167",
-      "player_name": "Achane, De'Von",
-      "reason": "Testing only — NOT a real restructure (Keith 2026-06-06). Purged from D1 via restructure_repair_2026.json."
-    },
-    {
-      "franchise_id": "0007",
-      "franchise_name": "Sex Manther",
-      "player_id": "16194",
-      "player_name": "Rice, Rashee",
-      "reason": "Testing only — NOT a real restructure (Keith 2026-06-06). Purged from D1 via restructure_repair_2026.json (supersedes the 2026-06-05 revert-repair backfill)."
     }
   ]
 }
