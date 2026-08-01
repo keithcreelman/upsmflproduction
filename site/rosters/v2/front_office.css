@@ -866,3 +866,19 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
   cursor: default;
 }
 .fo-root .fo-cap-ml-input.derived.changed { color: var(--text); font-weight: 600; }
+
+/* Cap Planning is a modelling surface — it never writes to MFL. This replaces
+   the old Commit buttons so the boundary is stated where the action used to be,
+   rather than being something you have to know. */
+.fo-root .fo-cap-planonly {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: var(--panel-alt);
+  color: var(--muted);
+  font-size: 11px;
+}
+.fo-root .fo-cap-planonly strong { color: var(--text); font-weight: 600; }

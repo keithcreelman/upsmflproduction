@@ -5891,9 +5891,7 @@
             <div class="fo-cap-rs-actions">
               <button type="button" class="btn small secondary fo-cap-rs-balance" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Set ${yr0 + ev.years - 1} to whatever is left so Σ = TCV">Balance ${yr0 + ev.years - 1}</button>
               <button type="button" class="btn small secondary fo-cap-rs-reset" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Reset to current</button>
-              ${canCommit
-                ? `<button type="button" class="btn small fo-cap-rs-commit" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" ${ev.submittable ? "" : "disabled"} title="${escapeHtml(commitTitle)}"${ev.submittable ? "" : ' style="opacity:.45; cursor:not-allowed;"'}>${IS_DRY_RUN ? "Commit (dry-run)" : "Commit restructure"}</button>`
-                : `<span class="small fo-cap-rs-noauth" title="${escapeHtml(commitTitle)}">Preview only — not your franchise</span>`}
+              <span class="small fo-cap-planonly" title="Cap Planning models contracts; it never writes to MFL. Apply this on the Contracts tab.">Planning only — not written to MFL. Apply on <strong>Contracts</strong>.</span>
             </div>
           </div>
         </td>
@@ -5996,9 +5994,7 @@
             <div class="fo-cap-ml-actions">
               <button type="button" class="btn small secondary fo-cap-ml-balance" data-ml-key="${escapeHtml(ev.key)}" data-ml-years="${ev.years}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Set ${yr0 + ev.years - 1} to whatever is left so Σ = TCV">Balance ${yr0 + ev.years - 1}</button>
               <button type="button" class="btn small secondary fo-cap-ml-reset" data-ml-key="${escapeHtml(ev.key)}" data-ml-years="${ev.years}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Back to the even ${ev.years}-way split">Reset to flat</button>
-              ${canCommit
-                ? `<button type="button" class="btn small fo-cap-ml-commit" data-ml-key="${escapeHtml(ev.key)}" data-ml-years="${ev.years}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" ${ev.submittable ? "" : "disabled"} title="${escapeHtml(commitTitle)}"${ev.submittable ? "" : ' style="opacity:.45; cursor:not-allowed;"'}>${IS_DRY_RUN ? "Commit (dry-run)" : "Commit loaded MYAC"}</button>`
-                : `<span class="small fo-cap-ml-noauth" title="${escapeHtml(commitTitle)}">Preview only — not your franchise</span>`}
+              <span class="small fo-cap-planonly" title="Cap Planning models contracts; it never writes to MFL. Apply this on the Contracts tab.">Planning only — not written to MFL. Apply on <strong>Contracts</strong>.</span>
             </div>
           </div>
         </td>
@@ -6088,14 +6084,14 @@
         return;
       }
       // Restructure editor — Balance / Reset / Commit.
-      const rsBtn = e.target.closest(".fo-cap-rs-balance, .fo-cap-rs-reset, .fo-cap-rs-commit");
+      const rsBtn = e.target.closest(".fo-cap-rs-balance, .fo-cap-rs-reset");
       if (rsBtn && section.contains(rsBtn)) {
         e.stopPropagation();
         handleCapRestructureAction(rsBtn);
         return;
       }
       // Loaded-MYAC editor — Balance / Reset / Commit.
-      const mlBtn = e.target.closest(".fo-cap-ml-balance, .fo-cap-ml-reset, .fo-cap-ml-commit");
+      const mlBtn = e.target.closest(".fo-cap-ml-balance, .fo-cap-ml-reset");
       if (mlBtn && section.contains(mlBtn)) {
         e.stopPropagation();
         handleCapMyacLoadedAction(mlBtn);
@@ -6288,29 +6284,12 @@
       rerenderCapDetailPreservingFocus();
       return;
     }
-    // Commit — hand off to the EXISTING submit chain. submitRestructure owns
-    // validation, the AAV/GTD/TCV tokens, the FL/BL suffix, the 5-loaded cap
-    // check, the confirm dialog and the POST. Nothing is duplicated here.
-    if (!ev.submittable) {
-      flashToast(ev.legal && !ev.dirty
-        ? "Nothing to submit — this is the current contract. Move money between years first."
-        : (ev.err || "Balance the years first."), "err");
-      return;
-    }
-    const me = STATE.me || {};
-    if (!((me.franchise_id && pad4(me.franchise_id) === pad4(p.fid)) || me.isAdmin)) {
-      flashToast("Preview only — you can't commit a restructure for another franchise.", "err");
-      return;
-    }
-    Promise.resolve(submitRestructure(p, ev.years, ev.amounts.slice()))
-      .then(function () {
-        // submitRestructure reloads the roster on success (and simply returns on
-        // cancel/failure). Re-render so the grid re-projects against whatever
-        // the contract now is — the preview is left in place either way, so a
-        // cancelled confirm never throws the owner's draft away.
-        renderCapTab();
-      })
-      .catch(function (err) { console.error("[fo] cap-plan restructure commit failed:", err); });
+    // NO COMMIT PATH. Cap Planning models contracts; it never writes one
+    // (Keith 2026-08-01: "cap planning should be planning. ONLY"). The
+    // button is gone, the click delegation no longer matches it, and the
+    // submit call is removed outright rather than merely guarded — so a
+    // stale DOM node or a later edit cannot quietly re-open a write path
+    // from a planning surface. Applying it lives on the Contracts tab.
   }
 
   // Balance / Reset / Commit from the inline loaded-MYAC editor.
@@ -6339,48 +6318,12 @@
       rerenderCapDetailPreservingFocus();
       return;
     }
-    // Commit — hand off to the EXISTING submit chain. submitMyacContract owns
-    // the whole-$1,000 re-check, TCV/AAV, the FL/BL suffix, GTD, contractInfo,
-    // the confirm dialog and the POST. Nothing is duplicated here.
-    //
-    // Eligibility is re-read rather than trusted from the render: the roster can
-    // reload underneath an open editor (another commit, a background refresh),
-    // and §C2 only allows this on a 1-year default before the deadline.
-    let elig = null;
-    try { elig = rosterContractEligibility(p); } catch (_) { elig = null; }
-    if (!elig || !elig.myacEligible) {
-      flashToast(p.name + " is no longer MYAC-eligible (§C2) — reload before submitting.", "err");
-      renderCapTab();
-      return;
-    }
-    if (!ev.submittable) {
-      flashToast(ev.atLoadedCap
-        ? "At the " + LOADED_MAX + "-loaded cap (§C2) — free a slot before adding another loaded contract."
-        : (ev.legal && !ev.dirty
-            ? "Every year is the same — that's a flat MYAC. Move money between years, or use the MYAC" + ev.years + " button."
-            : (ev.err || "Balance the years first.")), "err");
-      return;
-    }
-    const me = STATE.me || {};
-    if (!((me.franchise_id && pad4(me.franchise_id) === pad4(p.fid)) || me.isAdmin)) {
-      flashToast("Preview only — you can't commit a MYAC for another franchise.", "err");
-      return;
-    }
-    Promise.resolve(submitMyacContract(p, ev.years, ev.amounts.slice(), ev.statusBase))
-      .then(function () {
-        // submitMyacContract reloads the roster on success (and simply returns
-        // on cancel/failure). A landed conversion leaves the player on a 2/3-yr
-        // contract, so the §C2 basis stops resolving — retire the preview and
-        // its draft. A cancelled confirm leaves the basis resolvable, so the
-        // draft survives exactly like the restructure editor's does.
-        const after = findPlayer(btn.dataset.pid, btn.dataset.fid);
-        if (!after || !myacLoadedBasis(after, totalYears).ok) {
-          delete STATE.capPreviews[key];
-          clearCapMyacLoadedDraft(key);
-        }
-        renderCapTab();
-      })
-      .catch(function (err) { console.error("[fo] cap-plan loaded-MYAC commit failed:", err); });
+    // NO COMMIT PATH. Cap Planning models contracts; it never writes one
+    // (Keith 2026-08-01: "cap planning should be planning. ONLY"). The
+    // button is gone, the click delegation no longer matches it, and the
+    // submit call is removed outright rather than merely guarded — so a
+    // stale DOM node or a later edit cannot quietly re-open a write path
+    // from a planning surface. Applying it lives on the Contracts tab.
   }
 
   // ══════════════════════════════════════════════════════════════════
