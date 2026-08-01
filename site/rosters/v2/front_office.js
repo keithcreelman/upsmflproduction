@@ -2693,7 +2693,7 @@
       const s = team.summary || {};
       // Canon §6: drop penalties (adj_cut) round by the per-franchise SUM to the
       // nearest $1K (half-up), not per-penalty. Trades/other aren't penalties.
-      adjTotal += roundToK(s.adj_cut) + safeInt(s.adj_trade, 0) + safeInt(s.adj_other, 0);
+      adjTotal += capAdjTotal(s);
     });
     const capAlloc = salaryCap + adjTotal;
     const capSpace = (CAP_CEILING * nTeams) - capAlloc;
@@ -5331,7 +5331,7 @@
     // and this row must re-apply the rounding itself. Without it the summary
     // disagreed with both the popup and MFL's own cap page by up to ±$500/team
     // (8 of 12 teams on 2026-07-25, e.g. C-Town $15,500 vs the true $16,000).
-    out.dropPen   = posFiltered ? 0 : roundToK(safeInt(s.adj_cut, 0));
+    out.dropPen   = posFiltered ? 0 : capAdjDropPen(s);
     out.tradeSal  = posFiltered ? 0 : safeInt(s.adj_trade, 0);
     out.otherAdj  = posFiltered ? 0 : safeInt(s.adj_other, 0);
     out.totalCap  = out.totalSalary + out.dropPen + out.tradeSal + out.otherAdj;
@@ -5342,6 +5342,22 @@
   // Dynamic Yrs-Remaining options for the cap filters — only surface buckets
   // (and "Expired") that actually have players, so the dropdown never offers an
   // empty option (Keith 2026-06-06: don't show "Expired" when there are none).
+  // Canon §6: drop penalties round to the nearest $1K on the TEAM TOTAL, not
+  // per penalty. loadMflSalaryAdjustments deliberately skips MFL's posted
+  // `id:ups_drop_rounding_*` true-up rows so they can't be double-counted, so
+  // adj_cut is always the RAW un-rounded sum and every consumer has to apply
+  // the rounding itself.
+  //
+  // This lived in three places and one of them forgot: the cap DETAIL callout
+  // summed adj_cut raw while the hub and the cap SUMMARY rounded it, so the
+  // same team read +$9,200 on one screen and +$9,000 on the other, and only
+  // the rounded one matched MFL. One definition now — the rule cannot drift
+  // again because there is nowhere for it to drift to.
+  function capAdjDropPen(s) { return roundToK(safeInt(s && s.adj_cut, 0)); }
+  function capAdjTotal(s) {
+    return capAdjDropPen(s) + safeInt(s && s.adj_trade, 0) + safeInt(s && s.adj_other, 0);
+  }
+
   function capYearOptionsHtml(f) {
     const present = Object.create(null);
     let hasExpired = false;
@@ -5635,7 +5651,7 @@
     // per-player, so they only apply to the full-roster view — excluded (callout
     // hidden) when a filter is active, consistent with the Summary %.
     const _adj = team.summary || {};
-    const adjTotal = anyFilter ? 0 : (safeInt(_adj.adj_cut, 0) + safeInt(_adj.adj_trade, 0) + safeInt(_adj.adj_other, 0));
+    const adjTotal = anyFilter ? 0 : capAdjTotal(_adj);
     // Previewed-drop dead-cap — a "drop" preview's penalty is a CAP ADJUSTMENT
     // (current-year dead cap), NOT a salary line (Keith 2026-06-07). The dropped
     // player already contributes $0 to totals.cy (projectedPlayerCapForOffset).
