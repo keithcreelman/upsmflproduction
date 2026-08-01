@@ -249,6 +249,12 @@
     // `kind` is carried so a 2-year draft can never be read as a 3-year one
     // when the owner switches lengths on the same row.
     capMyacLoadedDrafts: Object.create(null),
+    // Last saved-scenario action for the Cap Detail view, so the screen can say
+    // whether what's showing is a RESTORED plan or live working state:
+    //   { fid, kind: "saved"|"restored", at, applied: [names], dropped: [{name,why}], edited }
+    // `edited` flips the moment a preview is toggled after a restore. Null =
+    // nothing restored/saved this session for the focused team.
+    capScenarioNotice: null,
     // Summary table filters (aggregate across teams).
     capSummaryFilters: { pos: "ALL", type: "", years: "", status: "" },
     capSummarySort: { key: "totalSalary", dir: -1 },
@@ -4722,6 +4728,240 @@
     return baseAmt;
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ROSTER-RULE COUNTERS (§B1 / §C2) — PREVIEW-AWARE
+  // ══════════════════════════════════════════════════════════════════
+  //
+  // Cap Planning shows what a plan COSTS. These show what it does to the roster
+  // RULES — the 5-loaded cap, the 6 three-year deals, the 27–35 active / 10 taxi
+  // limits — and they move as previews are built, not only on the committed
+  // roster. Everything here reads the SAME STATE.capPreviews + drafts that
+  // projectedPlayerCapForOffset reads, so a plan can never look legal on the
+  // dollars and illegal on the rules (or the reverse).
+  //
+  // 🔒 Only a COHERENT draft is projected — exactly the rule the money grid
+  // uses. A half-typed restructure / loaded-MYAC leaves these counters on the
+  // real contract, matching the editor's own "Draft not applied — the grid above
+  // is showing the real contract".
+  //
+  // 🔒 Nothing here writes. These are read-only derivations of state the owner
+  // already built by clicking preview buttons.
+
+  // The contract SHAPE the §C2 counters must read for one row: committed, or
+  // what the active preview would make it.
+  //   counts  — is there a contract at all (expired / dropped rows count nowhere)
+  //   loaded  — would it carry the -FL/-BL suffix isLoadedRow keys off
+  //   years   — years remaining under the projected deal
+  //   rookie  — rookie-family contract (excluded from the 3-year count, §C2)
+  //   note    — a preview is active but its basis wouldn't read, so the REAL
+  //             contract was counted; surfaced in the UI rather than swallowed.
+  function capCounterShapeForPlayer(p) {
+    const committed = {
+      basis: "committed",
+      counts: !capContractIsExpired(p),
+      loaded: isLoadedRow(p),
+      years: Math.max(0, safeInt(p && p.years, 0)),
+      rookie: ctypeClass(p && p.type).split(" ")[0] === "rk",
+      note: ""
+    };
+    if (!p) return committed;
+    const preview = STATE.capPreviews[capPreviewKey(p)] || "";
+    if (!preview) return committed;
+    const unresolved = function (why) {
+      return { basis: "committed", counts: committed.counts, loaded: committed.loaded,
+               years: committed.years, rookie: committed.rookie, note: safeStr(why) };
+    };
+
+    // DROP — a cut player holds no contract. Out of both counters entirely.
+    if (preview === "drop") {
+      return { basis: "drop", counts: false, loaded: false, years: 0, rookie: committed.rookie, note: "" };
+    }
+    // PROMOTE — moves a roster bucket (taxi → active), not a contract. The
+    // shape, its length and its FL/BL suffix are all untouched.
+    if (preview === "promote") {
+      return { basis: "promote", counts: committed.counts, loaded: committed.loaded,
+               years: committed.years, rookie: committed.rookie, note: "" };
+    }
+    // FLAT MYAC (§C2) — an even split records as Vet-FAA / Vet-ERA with NO
+    // -FL/-BL suffix (submitMyacContract derives loaded=false from the year
+    // array), for `n` years. So it adds a 3-year deal but never a loaded one.
+    if (preview === "myac2" || preview === "myac3") {
+      const n = preview === "myac3" ? 3 : 2;
+      const basis = myacLoadedBasis(p, n);
+      if (!basis.ok) return unresolved(basis.reason);
+      return { basis: preview, counts: true, loaded: false, years: n, rookie: false, note: "" };
+    }
+    // LOADED MYAC (§C2) — the evaluator already derives the RESULTING shape and
+    // suffix from the draft (ev.loadedShape / ev.suffix, mirrored from
+    // submitMyacContract), so nothing is re-derived here.
+    if (preview === "myacl2" || preview === "myacl3") {
+      const n = preview === "myacl3" ? 3 : 2;
+      const ev = capMyacLoadedEval(p, n);
+      if (!ev.ok) return unresolved(ev.reason);
+      if (!ev.coherent) return unresolved("loaded-MYAC draft isn’t balanced yet — counting the real contract.");
+      return { basis: preview, counts: true, loaded: !!ev.loadedShape, years: n, rookie: false, note: "" };
+    }
+    // RESTRUCTURE (§C5) — same years, possibly a different SHAPE, so it can add
+    // a loaded contract (flat → loaded) or free one (loaded → flat).
+    // submitRestructure sets the suffix from the new Y1 vs the PRE-restructure
+    // current-year salary: equal → flat (suffix stripped), higher → -FL, lower
+    // → -BL. ev.real[0] IS that prior current-year salary (capRestructureRealYears
+    // reads the Y-token at contractYearIndexForPlayer, the same basis
+    // currentContractYearValue gives submitRestructure), so this mirrors the
+    // write path instead of inventing a second rule.
+    if (preview === "restructure") {
+      const ev = capRestructureEval(p);
+      if (!ev.ok) return unresolved(ev.reason);
+      if (!ev.coherent) return unresolved("restructure draft isn’t balanced yet — counting the real contract.");
+      // Only a draft that actually MOVED money can change the loaded state.
+      // Opening the editor seeds it with the contract's own remaining-year
+      // salaries, so an untouched draft is coherent with amounts === real —
+      // and reading that as "Y1 unchanged ⇒ suffix stripped ⇒ not loaded" made
+      // merely LOOKING at a loaded contract free a §C2 slot. A team at 5/5 read
+      // 5 → 4 and could be talked into drafting a sixth loaded shape, against
+      // an outcome that was never drafted and isn't even submittable
+      // (submittable = legal && dirty). Undrafted ⇒ the committed state stands.
+      return { basis: "restructure", counts: true,
+               loaded: ev.dirty ? (ev.amounts[0] !== ev.real[0]) : committed.loaded,
+               years: committed.years, rookie: committed.rookie, note: "" };
+    }
+    // EXTENSION (§C4) — adds years onto the current deal. extensionAddByKind
+    // picks the FLAT option explicitly, so the preview creates no loaded
+    // contract; whether an extension CLEARS an existing -FL/-BL is not something
+    // this screen can determine from the data it has, so the committed loaded
+    // state is carried through UNTOUCHED rather than guessed at. Same for the
+    // rookie/veteran family: the resulting contract type isn't derivable here.
+    if (preview === "ext1" || preview === "ext2") {
+      const ext = extensionAddByKind(p, preview);
+      if (safeInt(ext.add1, 0) <= 0) {
+        return unresolved("no flat " + (preview === "ext2" ? "2" : "1") + "-year extension option resolves for this player.");
+      }
+      return { basis: preview, counts: true, loaded: committed.loaded,
+               years: committed.years + (preview === "ext2" ? 2 : 1), rookie: committed.rookie, note: "" };
+    }
+    return committed;
+  }
+
+  // Team-wide §C2 counters: committed vs what the active previews would make it.
+  // These are LEAGUE LIMITS on the whole roster, so they deliberately ignore the
+  // Detail pos/years/status filters — a filtered "3 of 5 loaded" would read as
+  // headroom that isn't there.
+  function capRosterRuleCounts(team) {
+    const out = { loadedNow: 0, loadedNext: 0, threeNow: 0, threeNext: 0, unresolved: [] };
+    ((team && team.players) || []).forEach(function (p) {
+      // Committed baseline — the exact tests the hub's counters use
+      // (isLoadedRow for the suffix; 3 years remaining and NOT a rookie deal,
+      // canon §C2 "excludes rookie 3-year deals").
+      if (!capContractIsExpired(p)) {
+        if (isLoadedRow(p)) out.loadedNow += 1;
+        if (Math.max(0, safeInt(p.years, 0)) === 3 && ctypeClass(p.type).split(" ")[0] !== "rk") out.threeNow += 1;
+      }
+      const shape = capCounterShapeForPlayer(p);
+      if (shape.counts) {
+        if (shape.loaded) out.loadedNext += 1;
+        if (shape.years === 3 && !shape.rookie) out.threeNext += 1;
+      }
+      if (shape.note) out.unresolved.push({ name: safeStr(p.name), why: shape.note });
+    });
+    return out;
+  }
+
+  // Roster PRESENCE at a year offset — the headcount twin of
+  // projectedPlayerCapForOffset, branch for branch, so the counts and the
+  // dollars can never disagree. Returns "active" | "taxi" | "" (no contract year
+  // there).
+  //
+  // Money alone can't be the test: a taxi player projects $0 in EVERY year
+  // (§6.E) yet still occupies a taxi slot, and a $0 year on a coherent draft is
+  // genuinely a year with no player-cost. So this mirrors the same branches and
+  // reports the SLOT instead of the dollars.
+  function capProjectedRosterSlotForOffset(p, offset) {
+    if (!p) return "";
+    const preview = STATE.capPreviews[capPreviewKey(p)] || "";
+
+    // DROP — gone from every year (the money grid returns $0 for all offsets).
+    if (preview === "drop") return "";
+
+    // PROMOTE — off taxi onto the active roster for every year of the contract.
+    // Mirrors the money grid's promote branch, which runs BEFORE the taxi rule
+    // and is bounded only by the contract-year index.
+    if (preview === "promote") {
+      const pl = contractLengthForPlayer(p);
+      const pi = contractYearIndexForPlayer(p) + offset;
+      return (pi > 0 && pi <= pl) ? "active" : "";
+    }
+    const slot = p.isTaxi ? "taxi" : "active";
+
+    // Base presence = the money grid's own test: a remaining contract year that
+    // lands inside the contract's length.
+    //
+    // EXCEPT for the CURRENT year, where the roster limit is a BODY count, not a
+    // contract count. An expired-contract row — an expired rookie awaiting the
+    // ERA, say — is a real player sitting on the active roster right now: canon
+    // §B1 counts him against the roster size and MFL will refuse the add that
+    // goes over. Dropping him from the headcount made a 30-man roster read
+    // "Active 26 / 35" and falsely trip the under-27 flag, disagreeing with the
+    // FO hub's own Active card for the same team. He costs $0 and holds a slot —
+    // exactly the taxi case this function already exists to handle. Future years
+    // are a different question: with no contract there, he is genuinely not on
+    // the books, so he only counts at offset 0.
+    if (capContractIsExpired(p)) return offset === 0 ? slot : "";
+    let present = true;
+    if (present) {
+      const yrsRemaining = Math.max(0, safeInt(p.years, 0));
+      present = yrsRemaining > 0 && offset < yrsRemaining;
+      if (present) {
+        const len = contractLengthForPlayer(p);
+        const idx = contractYearIndexForPlayer(p) + offset;
+        present = idx > 0 && idx <= len;
+      }
+    }
+
+    // EXTENSION — the grid overwrites offsets 1/2 with the flat extension year,
+    // so presence follows the same amounts. A $0 amount means the option didn't
+    // resolve: no year, and therefore no headcount (never a phantom body).
+    if ((preview === "ext1" || preview === "ext2") && offset > 0) {
+      const ext = extensionAddByKind(p, preview);
+      const add = offset === 1 ? safeInt(ext.add1, 0) : (offset === 2 ? safeInt(ext.add2, 0) : 0);
+      present = add > 0;
+    }
+    // FLAT MYAC — the new deal runs Y+0 … Y+extraYears at the auction salary,
+    // which is exactly the span the money grid fills.
+    if ((preview === "myac2" || preview === "myac3") && offset > 0) {
+      const extraYears = preview === "myac3" ? 2 : 1;
+      present = offset <= extraYears && safeInt(p.salary, 0) > 0;
+    }
+    // LOADED MYAC / RESTRUCTURE — the drafted year array IS the contract. Both
+    // projections return null for an unresolvable basis or an incoherent draft,
+    // and presence then falls back to the real contract with the money.
+    const mlAmts = capMyacLoadedProjection(p, preview);
+    if (mlAmts) present = offset < mlAmts.length && safeInt(mlAmts[offset], 0) > 0;
+    if (preview === "restructure") {
+      const rsAmts = capRestructureProjection(p);
+      if (rsAmts) present = offset < rsAmts.length && safeInt(rsAmts[offset], 0) > 0;
+    }
+    return present ? slot : "";
+  }
+
+  // Headcount for one projected year, split by roster bucket.
+  //
+  // IR: §B1 gives IR its own 15-man bucket, so an IR player is NOT part of the
+  // 27–35 active count in the CURRENT season — same split the hub summary uses.
+  // IR is a current-season designation and does not project forward, so from
+  // Y+1 on those players are counted as ACTIVE. The UI says this out loud rather
+  // than letting the active number jump between years for no visible reason.
+  function capYearRosterCounts(team, offset) {
+    const out = { active: 0, taxi: 0, ir: 0 };
+    ((team && team.players) || []).forEach(function (p) {
+      const slot = capProjectedRosterSlotForOffset(p, offset);
+      if (!slot) return;
+      if (slot === "taxi") out.taxi += 1;
+      else if (offset === 0 && p.isIr) out.ir += 1;
+      else out.active += 1;
+    });
+    return out;
+  }
+
   // For an extension-eligible player, what salary would extension years
   // carry under kind="ext1" or "ext2"? Picks Flat from effective previews.
   function extensionAddByKind(p, kind) {
@@ -5292,16 +5532,26 @@
     }
     // Hide expired contracts from cap planning by default — they carry no
     // current-year cap and just clutter the view (Keith 2026-06-06: "I shouldn't
-    // see expired contracts at this point"). Catch them by ANY signal — 0 yrs
-    // remaining, the "Expired" contract type, or the expired-rookie flag — since
-    // some expired rows retain a stale positive years value. Still reachable via
-    // the explicit "Expired" (0 yrs) year filter or an expired type filter.
-    const _isExpired = safeInt(p.years, 0) <= 0 ||
-                       !!p.isExpiredRookie ||
-                       String(p.type || "").toUpperCase() === "EXPIRED";
+    // see expired contracts at this point"). Still reachable via the explicit
+    // "Expired" (0 yrs) year filter or an expired type filter.
     const _wantExpired = String(f.years) === "0" || f.type === "expired";
-    if (_isExpired && !_wantExpired) return false;
+    if (capContractIsExpired(p) && !_wantExpired) return false;
     return true;
+  }
+
+  // An expired contract is not a contract: no cap hit, no roster-rule slot, no
+  // year in the projection grid. Catch it by ANY signal — 0 years remaining, the
+  // "Expired" contract type, or the expired-rookie flag — because some expired
+  // rows retain a stale positive `years` value.
+  //
+  // ONE definition, used by three consumers that must agree: the Detail row
+  // filter above, the §C2 roster-rule counters, and the per-year roster
+  // headcount. A row that isn't shown and carries no money must not be counted
+  // against a roster limit either.
+  function capContractIsExpired(p) {
+    return safeInt(p && p.years, 0) <= 0 ||
+           !!(p && p.isExpiredRookie) ||
+           String((p && p.type) || "").toUpperCase() === "EXPIRED";
   }
 
   function aggregateTeamForSummary(team, filters) {
@@ -5547,6 +5797,303 @@
     return `<div class="fo-cap-bars" aria-hidden="true">${segs}</div>`;
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // SAVED SCENARIOS — localStorage ONLY
+  // ══════════════════════════════════════════════════════════════════
+  //
+  // 🔒 "Save" means save the PLAN IN THIS BROWSER. Cap Planning never writes to
+  // MFL and never posts to the worker (Keith 2026-08-01: "cap planning should be
+  // planning. ONLY"). There is no network call anywhere in this block — a
+  // scenario is a bag of preview kinds + draft numbers, stored under a key
+  // scoped to league + season + franchise so plans can never leak between teams
+  // or seasons.
+  //
+  // A saved plan is only as good as the roster it was planned against, so every
+  // preview travels with a CONTRACT FINGERPRINT. On restore, anything whose
+  // player left the roster or whose contract moved is DROPPED with a visible
+  // reason — silently re-applying stale planning data to a changed roster is
+  // worse than having no save at all.
+
+  const CAP_SCENARIO_SCHEMA = 1;
+  const CAP_PREVIEW_KINDS = ["ext1", "ext2", "myac2", "myac3", "myacl2", "myacl3", "drop", "promote", "restructure"];
+
+  function capScenarioKey(fid) {
+    return "ups-fo-cap-scenario:" + LEAGUE_ID + ":" + SEASON + ":" + safeStr(fid);
+  }
+  // localStorage can be PRESENT but throwing (Safari private mode, a blocked
+  // storage partition inside the MFL embed). Probe with a real write so the UI
+  // can say the feature is unavailable instead of offering a dead button.
+  //
+  // Memoized: the scenario bar re-renders on every keystroke in an editor, and
+  // availability can't change mid-session — an unmemoized probe would run a
+  // write+delete pair per character typed.
+  let _capScenarioStore;              // undefined = not probed yet; null = blocked
+  function capScenarioStorage() {
+    if (_capScenarioStore !== undefined) return _capScenarioStore;
+    _capScenarioStore = null;
+    try {
+      const ls = window.localStorage;
+      if (ls) {
+        ls.setItem("ups-fo-scn-probe", "1");
+        ls.removeItem("ups-fo-scn-probe");
+        _capScenarioStore = ls;
+      }
+    } catch (e) { _capScenarioStore = null; }
+    return _capScenarioStore;
+  }
+
+  // What the roster looked like when a preview was planned. Compared field by
+  // field on restore — `special` is the raw contractInfo, so any re-slotted year,
+  // changed TCV/AAV/GTD or flipped FL/BL suffix trips it.
+  function capContractFingerprint(p) {
+    return {
+      name:    safeStr(p && p.name),
+      type:    safeStr(p && p.type),
+      years:   safeInt(p && p.years, 0),
+      salary:  safeInt(p && p.salary, 0),
+      special: safeStr(p && p.special)
+    };
+  }
+  function capFingerprintDiff(a, b) {
+    const parts = [];
+    if (safeStr(a.type) !== safeStr(b.type)) parts.push("type " + (safeStr(a.type) || "—") + " → " + (safeStr(b.type) || "—"));
+    if (safeInt(a.years, 0) !== safeInt(b.years, 0)) parts.push("years remaining " + safeInt(a.years, 0) + " → " + safeInt(b.years, 0));
+    if (safeInt(a.salary, 0) !== safeInt(b.salary, 0)) parts.push("salary " + fmtUSD(safeInt(a.salary, 0)) + " → " + fmtUSD(safeInt(b.salary, 0)));
+    if (safeStr(a.special) !== safeStr(b.special)) parts.push("contract detail rewritten");
+    return parts.join("; ");
+  }
+
+  // The plan for ONE team, keyed by pid (the fid lives in the storage key).
+  // Iterates the ROSTER, not the preview map, so a preview stranded on a player
+  // who has since left the team is never written into a save.
+  function capScenarioSnapshot(team) {
+    const out = { previews: {}, restructureDrafts: {}, myacLoadedDrafts: {}, fingerprints: {} };
+    ((team && team.players) || []).forEach(function (p) {
+      const key = capPreviewKey(p);
+      const kind = STATE.capPreviews[key];
+      if (!kind) return;
+      const pid = safeStr(p.id);
+      out.previews[pid] = String(kind);           // plain STRING, same as STATE
+      const rs = STATE.capRestructureDrafts[key];
+      if (rs && Array.isArray(rs.amounts)) {
+        out.restructureDrafts[pid] = rs.amounts.map(function (v) { return safeInt(v, 0); });
+      }
+      const ml = STATE.capMyacLoadedDrafts[key];
+      if (ml && Array.isArray(ml.amounts)) {
+        out.myacLoadedDrafts[pid] = { kind: String(ml.kind || ""), amounts: ml.amounts.map(function (v) { return safeInt(v, 0); }) };
+      }
+      out.fingerprints[pid] = capContractFingerprint(p);
+    });
+    return out;
+  }
+
+  // Order-independent identity of a plan, so "unsaved changes" can't be tripped
+  // by the worker returning the roster in a different order. Fingerprints are
+  // deliberately excluded — a roster change is not a plan change.
+  function capScenarioCanon(sc) {
+    if (!sc || !sc.previews) return "";
+    return Object.keys(sc.previews).sort().map(function (pid) {
+      const rs = (sc.restructureDrafts || {})[pid];
+      const ml = (sc.myacLoadedDrafts || {})[pid];
+      return pid + "=" + String(sc.previews[pid]) +
+        (Array.isArray(rs) ? "|rs:" + rs.join(",") : "") +
+        (ml && Array.isArray(ml.amounts) ? "|ml:" + String(ml.kind) + ":" + ml.amounts.join(",") : "");
+    }).join(";");
+  }
+
+  // Read + hard-validate the stored payload. A payload from a different SCHEMA,
+  // league, season or franchise is discarded whole — never partially applied.
+  function capScenarioLoad(fid) {
+    const ls = capScenarioStorage();
+    if (!ls) return null;
+    let raw = "";
+    try { raw = ls.getItem(capScenarioKey(fid)) || ""; } catch (e) { return null; }
+    if (!raw) return null;
+    let obj = null;
+    try { obj = JSON.parse(raw); } catch (e) { obj = null; }
+    if (!obj || safeInt(obj.v, 0) !== CAP_SCENARIO_SCHEMA) return null;
+    if (String(obj.league) !== String(LEAGUE_ID)) return null;
+    if (String(obj.season) !== String(SEASON)) return null;
+    if (safeStr(obj.fid) !== safeStr(fid)) return null;
+    const sc = obj.scenario;
+    if (!sc || typeof sc !== "object" || !sc.previews || typeof sc.previews !== "object") return null;
+    return obj;
+  }
+
+  function capScenarioSave(team) {
+    if (!capScenarioStorage()) {
+      return { ok: false, reason: "This browser is blocking page storage (private mode, or a partitioned storage context inside the MFL embed), so scenarios can’t be saved here." };
+    }
+    const snap = capScenarioSnapshot(team);
+    if (!Object.keys(snap.previews).length) {
+      return { ok: false, reason: "Nothing to save — no previews are active for this team." };
+    }
+    const payload = {
+      v: CAP_SCENARIO_SCHEMA,
+      league: String(LEAGUE_ID),
+      season: String(SEASON),
+      fid: safeStr(team.fid),
+      team: safeStr(team.name),
+      saved_at: new Date().toISOString(),
+      scenario: snap
+    };
+    try { capScenarioStorage().setItem(capScenarioKey(team.fid), JSON.stringify(payload)); }
+    catch (e) { return { ok: false, reason: "Browser storage refused the write (" + safeStr(e && e.message ? e.message : "quota exceeded") + ")." }; }
+    return { ok: true, payload: payload, count: Object.keys(snap.previews).length };
+  }
+
+  function capScenarioDiscard(fid) {
+    const ls = capScenarioStorage();
+    if (!ls) return false;
+    try { ls.removeItem(capScenarioKey(fid)); return true; } catch (e) { return false; }
+  }
+
+  // Clear every preview AND its parallel drafts for one team. Preview and draft
+  // die together — the lockstep rule the toggle handler already enforces —
+  // otherwise a stranded draft resurfaces the next time that row is previewed.
+  function capClearTeamPreviews(fid) {
+    const suffix = ":" + safeStr(fid);
+    Object.keys(STATE.capPreviews).forEach(function (k) {
+      if (k.endsWith(suffix)) delete STATE.capPreviews[k];
+    });
+    Object.keys(STATE.capRestructureDrafts).forEach(function (k) {
+      if (k.endsWith(suffix)) clearCapRestructureDraft(k);
+    });
+    Object.keys(STATE.capMyacLoadedDrafts).forEach(function (k) {
+      if (k.endsWith(suffix)) clearCapMyacLoadedDraft(k);
+    });
+  }
+
+  // Can this preview kind still be BUILT against today's contract? Same
+  // substantive gates the row buttons apply when you click them — so a restored
+  // plan can never project money the live roster doesn't support.
+  function capPreviewStillValid(p, kind) {
+    if (kind === "drop") {
+      return (!p.isTaxi && safeInt(p.years, 0) > 0)
+        ? { ok: true, reason: "" }
+        : { ok: false, reason: "no longer droppable from this view (taxi squad, or the contract has expired)" };
+    }
+    if (kind === "promote") {
+      return (p.isTaxi && safeInt(p.years, 0) > 0)
+        ? { ok: true, reason: "" }
+        : { ok: false, reason: "no longer on the taxi squad, so there is nothing to promote" };
+    }
+    if (kind === "ext1" || kind === "ext2") {
+      const ext = extensionAddByKind(p, kind);
+      return safeInt(ext.add1, 0) > 0
+        ? { ok: true, reason: "" }
+        : { ok: false, reason: "no flat " + (kind === "ext2" ? "2" : "1") + "-year extension option resolves for this player today" };
+    }
+    if (kind === "myac2" || kind === "myac3" || kind === "myacl2" || kind === "myacl3") {
+      const n = (kind === "myac3" || kind === "myacl3") ? 3 : 2;
+      if ((kind === "myacl2" || kind === "myacl3") && p.isTaxi) {
+        return { ok: false, reason: "taxi salaries are off-cap (§6.E), so a loaded split has nothing to move" };
+      }
+      const basis = myacLoadedBasis(p, n);
+      return basis.ok ? { ok: true, reason: "" } : { ok: false, reason: basis.reason };
+    }
+    if (kind === "restructure") {
+      if (p.isTaxi) return { ok: false, reason: "taxi salaries are off-cap (§6.E), so there is nothing to re-slot" };
+      const real = capRestructureRealYears(p);
+      return real.ok ? { ok: true, reason: "" } : { ok: false, reason: real.reason };
+    }
+    return { ok: false, reason: "unknown preview type" };
+  }
+
+  // Apply a saved plan to the CURRENT roster, dropping anything that no longer
+  // holds. Returns the applied / dropped lists so the UI can show both.
+  function capScenarioRestore(team) {
+    const saved = capScenarioLoad(team.fid);
+    if (!saved) {
+      return { ok: false, reason: "No usable saved scenario for this team — either nothing was saved, or the saved payload was written by a different version of this screen and was discarded rather than guessed at." };
+    }
+    const sc = saved.scenario;
+    const applied = [], dropped = [];
+    // Start from a clean slate for THIS team only; other teams' previews are
+    // keyed by their own fid and are untouched.
+    capClearTeamPreviews(team.fid);
+    Object.keys(sc.previews).forEach(function (pid) {
+      const kind = String(sc.previews[pid] || "");
+      const fp = (sc.fingerprints || {})[pid] || null;
+      const label = (fp && fp.name) ? safeStr(fp.name) : ("player " + safeStr(pid));
+      if (CAP_PREVIEW_KINDS.indexOf(kind) < 0) {
+        dropped.push({ name: label, why: "unrecognized preview type “" + kind + "”" });
+        return;
+      }
+      const p = findPlayer(pid, team.fid);
+      if (!p) {
+        dropped.push({ name: label, why: "no longer on this roster (traded, cut, or moved)" });
+        return;
+      }
+      if (!fp) {
+        dropped.push({ name: safeStr(p.name), why: "saved without a contract fingerprint — can’t confirm the contract is unchanged" });
+        return;
+      }
+      const diff = capFingerprintDiff(fp, capContractFingerprint(p));
+      if (diff) {
+        dropped.push({ name: safeStr(p.name), why: "contract changed since the save — " + diff });
+        return;
+      }
+      const gate = capPreviewStillValid(p, kind);
+      if (!gate.ok) {
+        dropped.push({ name: safeStr(p.name), why: gate.reason });
+        return;
+      }
+      const key = capPreviewKey(p);
+      STATE.capPreviews[key] = kind;   // 🔒 plain STRING — every consumer uses ===
+      if (kind === "restructure") {
+        // The saved draft is used only when it still fits the contract's
+        // remaining years; otherwise re-seed NEUTRAL (the contract's own years),
+        // exactly like clicking Restr does.
+        const seed = capRestructureRealYears(p);
+        const amts = (sc.restructureDrafts || {})[pid];
+        STATE.capRestructureDrafts[key] = {
+          amounts: (Array.isArray(amts) && amts.length === seed.amounts.length)
+            ? amts.map(function (v) { return Math.max(0, safeInt(v, 0)); })
+            : seed.amounts.slice()
+        };
+      }
+      if (kind === "myacl2" || kind === "myacl3") {
+        const n = kind === "myacl3" ? 3 : 2;
+        const basis = myacLoadedBasis(p, n);          // gate above guarantees ok
+        const d = (sc.myacLoadedDrafts || {})[pid];
+        let amts = null;
+        if (d && String(d.kind) === kind && Array.isArray(d.amounts) && d.amounts.length === n) {
+          amts = d.amounts.map(function (v) { return Math.max(0, safeInt(v, 0)); });
+        }
+        if (!amts) { amts = []; for (let i = 0; i < n; i += 1) amts.push(basis.aav); }
+        STATE.capMyacLoadedDrafts[key] = { kind: kind, amounts: amts };
+      }
+      applied.push(safeStr(p.name));
+    });
+    return { ok: true, saved_at: safeStr(saved.saved_at), applied: applied, dropped: dropped };
+  }
+
+  // A restored plan stops being "the saved plan" the moment it's touched. Called
+  // from every path that mutates previews or drafts, so the badge can't claim a
+  // restore that no longer describes what's on screen.
+  //
+  // `fid` is required to be the team whose plan actually changed — editing team
+  // B must not stamp "edited" on team A's restore banner. Accepts either a bare
+  // fid or a "pid:fid" preview key, since the editor inputs carry the latter.
+  function capScenarioMarkEdited(fidOrKey) {
+    const n = STATE.capScenarioNotice;
+    if (!n || n.kind !== "restored") return;
+    const raw = safeStr(fidOrKey);
+    const fid = raw.indexOf(":") >= 0 ? raw.slice(raw.indexOf(":") + 1) : raw;
+    if (fid && fid !== safeStr(n.fid)) return;
+    n.edited = true;
+  }
+
+  // "2026-08-01T14:03:22Z" → a short local stamp. Returns "" on an unparseable
+  // value so the caller can omit the phrase rather than print a bad date.
+  function capScenarioWhen(iso) {
+    const d = new Date(safeStr(iso));
+    if (!iso || isNaN(d.getTime())) return "";
+    try { return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
+    catch (e) { return safeStr(iso).slice(0, 16).replace("T", " "); }
+  }
+
   // The team the Detail view is pinned to. Factored out so the in-place
   // re-render used while typing in the restructure editor resolves exactly
   // the same team renderCapDetail() did.
@@ -5566,10 +6113,12 @@
       return `<option value="${escapeHtml(t.fid)}" ${t.fid === team.fid ? "selected" : ""}>${escapeHtml(t.name)}</option>`;
     }).join("");
 
-    // Active-preview count for the toolbar pill.
-    const activePreviews = Object.keys(STATE.capPreviews).filter(function (k) {
-      return k.endsWith(":" + team.fid);
-    }).length;
+    // The preview count + its Clear control moved OUT of this toolbar and into
+    // the scenario bar inside #fo-cap-detail-body (renderCapScenarioBar), which
+    // re-renders on every keystroke — the toolbar does not, so a saved/unsaved
+    // indicator parked here would go stale while an editor is open. Same id, so
+    // the existing click delegation is unchanged, and there is still exactly ONE
+    // clear control.
 
     // Detail filters (Keith 2026-06-04) — reuse the Summary filter state +
     // control IDs so the existing wireCapTab change-handlers + click delegation
@@ -5589,7 +6138,6 @@
             <select id="fo-cap-team-select">${opts}</select>
           </label>
           <button type="button" class="btn secondary" id="fo-cap-back-summary">← Back to Summary</button>
-          ${activePreviews ? `<button type="button" class="btn secondary" id="fo-cap-clear-previews">Clear ${activePreviews} preview${activePreviews === 1 ? "" : "s"}</button>` : ""}
         </div>
         <div class="fo-toolbar-row" style="margin-top:8px;">
           <div class="fo-pos-chips" id="fo-cap-pos-chips">${posChips}</div>
@@ -5638,6 +6186,169 @@
     }).map(function (p) { return p.id; });
     STATE.capDetailOrder = sortedIds;
     STATE.capDetailOrderForFid = team.fid;
+  }
+
+  // ── Roster-rule counters + per-year headcount (rendered inside the Detail
+  //    body so they move with every keystroke, like the money totals) ────
+  function capLimitCls(n, max, min) {
+    if (n > max) return "over";
+    if (n === max) return "at";
+    if (min != null && n < min) return "under";
+    return "";
+  }
+  function renderCapRosterCounters(team) {
+    const yr0 = safeInt(SEASON, 0);
+    const roster = (team && team.players) || [];
+    if (!roster.length) {
+      return '<div class="fo-cap-rules-empty">No players on this roster, so there are no roster counts to show.</div>';
+    }
+    const rules = capRosterRuleCounts(team);
+    // A counter reads "4 → 5 of 5" whenever the previews move it, so the owner
+    // sees what the PLAN does, not just where it lands.
+    const counter = function (now, next, max, label, sub) {
+      const cls = capLimitCls(next, max);
+      const moved = next !== now;
+      return '<div class="fo-cap-rule ' + cls + '">' +
+        '<span class="lbl">' + escapeHtml(label) + "</span>" +
+        '<span class="val">' +
+          (moved ? '<span class="from">' + now + '</span><span class="arrow">→</span>' : "") +
+          '<span class="to">' + next + "</span>" +
+          '<span class="of">of ' + max + "</span>" +
+        "</span>" +
+        '<span class="sub">' + sub +
+          (cls === "over" ? ' <span class="flag over">over the limit</span>'
+            : cls === "at" ? ' <span class="flag at">at the limit</span>' : "") +
+        "</span></div>";
+    };
+    const rulesHtml =
+      counter(rules.loadedNow, rules.loadedNext, LOADED_MAX, "Loaded contracts (§C2)",
+        "front/back-loaded deals — the −FL / −BL suffix") +
+      counter(rules.threeNow, rules.threeNext, THREEYR_MAX, "3-year contracts (§C2)",
+        "3 years remaining, rookie deals excluded");
+
+    // Per-year headcount. Presence comes from capProjectedRosterSlotForOffset,
+    // which mirrors the money grid branch for branch — so a MYAC/extension that
+    // buys a year shows up as a body in that year, and a drop empties all three.
+    const yearsHtml = [0, 1, 2].map(function (off) {
+      const c = capYearRosterCounts(team, off);
+      const aCls = capLimitCls(c.active, ACTIVE_MAX, ACTIVE_MIN);
+      const tCls = capLimitCls(c.taxi, TAXI_MAX);
+      const flags = [];
+      if (c.active > ACTIVE_MAX) flags.push('<span class="flag over">over the ' + ACTIVE_MAX + "-man active max</span>");
+      else if (c.active < ACTIVE_MIN) {
+        // The 27-man floor bites in the auction window. A FUTURE year sitting
+        // under it is normal — contracts expire and you refill — so it's framed
+        // as a gap to close, not a violation you're currently committing.
+        flags.push(off === 0
+          ? '<span class="flag under">under the ' + ACTIVE_MIN + "-man active min</span>"
+          : '<span class="flag under">' + (ACTIVE_MIN - c.active) + " short of " + ACTIVE_MIN + " — refill at the auction</span>");
+      }
+      if (c.taxi > TAXI_MAX) flags.push('<span class="flag over">over the ' + TAXI_MAX + "-man taxi max</span>");
+      // IR gets its own §B1 bucket, so it is NOT inside the current-season
+      // active count. It doesn't project forward — the footer says where those
+      // players land in the out-years rather than repeating it on every card.
+      const irLine = off === 0
+        ? '<span class="fo-cap-year-ir">IR <strong>' + c.ir + "</strong> — its own bucket, not counted in Active (§B1)</span>"
+        : "";
+      return '<div class="fo-cap-year">' +
+        '<span class="yr">' + (yr0 + off) + "</span>" +
+        '<span class="line' + (aCls ? " " + aCls : "") + '">Active <strong>' + c.active + "</strong><span class=\"of\">/ " + ACTIVE_MAX + "</span></span>" +
+        '<span class="line' + (tCls ? " " + tCls : "") + '">Taxi <strong>' + c.taxi + "</strong><span class=\"of\">/ " + TAXI_MAX + "</span></span>" +
+        irLine +
+        (flags.length ? '<span class="fo-cap-year-flags">' + flags.join(" ") + "</span>" : "") +
+        "</div>";
+    }).join("");
+
+    // A preview whose basis wouldn't read is NOT silently counted as zero — the
+    // real contract was counted, and the row says which one and why.
+    const unresolvedHtml = rules.unresolved.length
+      ? '<div class="fo-cap-rules-unresolved"><strong>Counted from the real contract</strong> (the preview’s basis couldn’t be read): ' +
+        rules.unresolved.map(function (u) {
+          return escapeHtml(u.name) + " — " + escapeHtml(u.why);
+        }).join(" · ") + "</div>"
+      : "";
+
+    const _f = STATE.capSummaryFilters || {};
+    const filtered = (_f.pos && _f.pos !== "ALL") || _f.type || _f.years || _f.status;
+    const filterNote = filtered
+      ? " These counts cover the WHOLE roster and ignore the filters above — they’re league limits, not a view of the selection."
+      : "";
+
+    return '<div class="fo-cap-rules">' + rulesHtml + "</div>" +
+      '<div class="fo-cap-years">' + yearsHtml + "</div>" +
+      unresolvedHtml +
+      '<p class="fo-cap-rules-foot">A player counts in a year when he is still under contract in it, read from the same contract years the money above uses — so a MYAC or extension you preview puts him in the years it buys, and a previewed drop removes him from all three. <strong>IR</strong> has its own bucket in ' +
+      (yr0) + ' and is not inside that Active count; it is a current-season designation (§6.C) that doesn’t project, so in ' + (yr0 + 1) + ' and ' + (yr0 + 2) +
+      ' today’s IR players are counted as <strong>Active</strong>. Expired contracts count as a <strong>body</strong> in ' + (yr0) + ' (they occupy a roster spot today) but not in later years, where they are off the books. Taxi contracts do count toward the §C2 limits above (they’re contracts) and sit in their own per-year column.' + filterNote + "</p>";
+  }
+
+  // ── Scenario bar — Save / Restore / Reset, plus the live-vs-restored badge.
+  // Lives INSIDE the Detail body (not the toolbar) so its saved/unsaved state
+  // re-renders on every keystroke along with the numbers it describes. The
+  // "Clear previews" control moved in here rather than gaining a competitor.
+  function renderCapScenarioBar(team) {
+    const fid = safeStr(team.fid);
+    const n = Object.keys(STATE.capPreviews).filter(function (k) { return k.endsWith(":" + fid); }).length;
+    const storageOk = !!capScenarioStorage();
+    const saved = storageOk ? capScenarioLoad(fid) : null;
+    const notice = (STATE.capScenarioNotice && STATE.capScenarioNotice.fid === fid) ? STATE.capScenarioNotice : null;
+    const savedWhen = saved ? capScenarioWhen(saved.saved_at) : "";
+    const inSync = saved ? (capScenarioCanon(capScenarioSnapshot(team)) === capScenarioCanon(saved.scenario)) : false;
+
+    let badge;
+    if (!n) badge = '<span class="fo-cap-scn-badge live">LIVE ROSTER · no previews</span>';
+    else if (notice && notice.kind === "restored") {
+      badge = '<span class="fo-cap-scn-badge restored">RESTORED SCENARIO' + (notice.edited ? " · edited since" : "") + "</span>";
+    } else badge = '<span class="fo-cap-scn-badge working">WORKING PLAN · ' + n + " preview" + (n === 1 ? "" : "s") + "</span>";
+
+    const syncBadge = !n ? ""
+      : (saved ? (inSync
+          ? '<span class="fo-cap-scn-sync ok">matches the saved scenario</span>'
+          : '<span class="fo-cap-scn-sync off">unsaved changes vs the saved scenario</span>')
+        : '<span class="fo-cap-scn-sync off">not saved</span>');
+
+    const btns = [];
+    if (storageOk) {
+      btns.push('<button type="button" class="btn small" id="fo-cap-scenario-save"' + (n ? "" : " disabled") +
+        ' title="' + (n ? "Save this plan in THIS BROWSER only — Cap Planning never writes to MFL."
+                        : "Build at least one preview first.") + '">Save scenario</button>');
+      if (saved) {
+        btns.push('<button type="button" class="btn small secondary" id="fo-cap-scenario-restore" title="Re-apply the saved plan. Anything whose player left the roster or whose contract changed is dropped, and listed.">Restore saved' +
+          (savedWhen ? " · " + escapeHtml(savedWhen) : "") + "</button>");
+        btns.push('<button type="button" class="btn small secondary" id="fo-cap-scenario-discard" title="Delete the saved scenario for this team from this browser.">Discard saved</button>');
+      }
+    }
+    if (n) {
+      btns.push('<button type="button" class="btn small secondary" id="fo-cap-clear-previews" title="Clear every preview and editor draft for this team. The saved scenario is left alone.">Reset scenario · ' +
+        n + " preview" + (n === 1 ? "" : "s") + "</button>");
+    }
+
+    let msg = "";
+    if (!storageOk) {
+      msg = '<div class="fo-cap-scn-msg warn">Saving is unavailable — this browser is blocking page storage (private mode, or a partitioned storage context inside the MFL embed). Previews still work; they just won’t survive a reload.</div>';
+    } else if (notice && notice.kind === "saved") {
+      msg = '<div class="fo-cap-scn-msg ok">Saved ' + notice.count + " preview" + (notice.count === 1 ? "" : "s") +
+        " to this browser" + (notice.at ? " at " + escapeHtml(capScenarioWhen(notice.at)) : "") +
+        ". Nothing was sent to MFL.</div>";
+    } else if (notice && notice.kind === "restored") {
+      msg = '<div class="fo-cap-scn-msg ' + (notice.dropped.length ? "warn" : "ok") + '">Restored ' +
+        notice.count + " preview" + (notice.count === 1 ? "" : "s") +
+        (notice.at ? " saved " + escapeHtml(capScenarioWhen(notice.at)) : "") +
+        (notice.dropped.length ? " · " + notice.dropped.length + " dropped as stale" : " · nothing stale") + ".</div>";
+    }
+    const drops = (notice && notice.dropped && notice.dropped.length)
+      ? '<ul class="fo-cap-scn-drops">' + notice.dropped.map(function (d) {
+          return "<li><strong>" + escapeHtml(d.name) + "</strong> — " + escapeHtml(d.why) + "</li>";
+        }).join("") + "</ul>"
+      : "";
+
+    return '<div class="fo-cap-scn">' +
+      '<div class="fo-cap-scn-head">' + badge + syncBadge +
+        '<span class="fo-cap-scn-actions">' + btns.join(" ") + "</span></div>" +
+      msg + drops +
+      '<div class="fo-cap-scn-foot">Scenarios are stored in this browser only, keyed to league ' + escapeHtml(String(LEAGUE_ID)) +
+      " · season " + escapeHtml(String(SEASON)) + " · " + escapeHtml(safeStr(team.name)) +
+      ". Cap Planning never writes to MFL.</div></div>";
   }
 
   function renderCapDetailBody(team) {
@@ -5710,6 +6421,8 @@
         <div class="fo-cap-adj-row fo-cap-adj-next"><span class="lbl">+ previewed drop dead-cap → <strong>${yr0 + 1}</strong> <span class="fo-cap-adj-why">(§D1 — cuts from auction start hit next season)</span></span><span class="val">+${fmtUSD(previewDropPen)}</span></div>
         <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0 + 1} adjusted cap</span><span class="val">${fmtUSD(adjustedNy)}</span></div>` : ""}
       </div>` : ""}
+      ${renderCapRosterCounters(team)}
+      ${renderCapScenarioBar(team)}
       ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
       <table class="fo-table">
         <thead>
@@ -6127,6 +6840,7 @@
             clearCapMyacLoadedDraft(key);
           }
         }
+        capScenarioMarkEdited(prev.dataset.fid);
         renderCapTab();
         return;
       }
@@ -6181,20 +6895,64 @@
         renderCapTab();
         return;
       }
-      // Clear previews for focused team.
+      // Reset the scenario — clear every preview + draft for the focused team.
+      // Resolves the team through capFocusedTeam() rather than reading
+      // STATE.capFocusedTeamFid directly: that field is null until someone picks
+      // a team, while the view is already showing the viewer's own roster, so
+      // the old read cleared nothing on a first-load reset. The SAVED scenario
+      // is deliberately left alone — Reset undoes the working plan, Discard
+      // deletes the save.
       if (e.target.closest("#fo-cap-clear-previews")) {
-        const fid = STATE.capFocusedTeamFid;
-        Object.keys(STATE.capPreviews).forEach(function (k) {
-          if (k.endsWith(":" + fid)) delete STATE.capPreviews[k];
-        });
-        // Drafts are cleared by the SAME key rule — a preview and its draft
-        // always die together (residue would resurface on the next toggle).
-        Object.keys(STATE.capRestructureDrafts).forEach(function (k) {
-          if (k.endsWith(":" + fid)) clearCapRestructureDraft(k);
-        });
-        Object.keys(STATE.capMyacLoadedDrafts).forEach(function (k) {
-          if (k.endsWith(":" + fid)) clearCapMyacLoadedDraft(k);
-        });
+        const resetTeam = capFocusedTeam();
+        if (resetTeam) {
+          capClearTeamPreviews(resetTeam.fid);
+          // Only THIS team's notice goes — another team's saved/restored banner
+          // is still true and must survive a reset over here.
+          if (STATE.capScenarioNotice && STATE.capScenarioNotice.fid === resetTeam.fid) {
+            STATE.capScenarioNotice = null;
+          }
+        }
+        renderCapTab();
+        return;
+      }
+      // Save the scenario — localStorage ONLY. No fetch, no worker, no MFL.
+      if (e.target.closest("#fo-cap-scenario-save")) {
+        const saveTeam = capFocusedTeam();
+        if (!saveTeam) return;
+        const res = capScenarioSave(saveTeam);
+        if (!res.ok) { flashToast(res.reason, "warn"); return; }
+        STATE.capScenarioNotice = {
+          fid: saveTeam.fid, kind: "saved", at: res.payload.saved_at,
+          count: res.count, applied: [], dropped: [], edited: false
+        };
+        flashToast("Scenario saved in this browser (" + res.count + " preview" + (res.count === 1 ? "" : "s") + ") — nothing sent to MFL.", "ok");
+        renderCapTab();
+        return;
+      }
+      // Restore a saved scenario, validated player-by-player against the live
+      // roster. Stale entries are dropped and listed, never applied blind.
+      if (e.target.closest("#fo-cap-scenario-restore")) {
+        const rTeam = capFocusedTeam();
+        if (!rTeam) return;
+        const res = capScenarioRestore(rTeam);
+        if (!res.ok) { flashToast(res.reason, "warn"); return; }
+        STATE.capScenarioNotice = {
+          fid: rTeam.fid, kind: "restored", at: res.saved_at,
+          count: res.applied.length, applied: res.applied, dropped: res.dropped, edited: false
+        };
+        flashToast("Restored " + res.applied.length + " preview" + (res.applied.length === 1 ? "" : "s") +
+          (res.dropped.length ? " · " + res.dropped.length + " dropped as stale" : ""),
+          res.dropped.length ? "warn" : "ok");
+        renderCapTab();
+        return;
+      }
+      // Delete the stored scenario for this team (the working plan stays).
+      if (e.target.closest("#fo-cap-scenario-discard")) {
+        const dTeam = capFocusedTeam();
+        if (!dTeam) return;
+        const okDel = capScenarioDiscard(dTeam.fid);
+        if (STATE.capScenarioNotice && STATE.capScenarioNotice.fid === dTeam.fid) STATE.capScenarioNotice = null;
+        flashToast(okDel ? "Saved scenario deleted from this browser." : "Couldn’t reach browser storage to delete it.", okDel ? "ok" : "err");
         renderCapTab();
         return;
       }
@@ -6246,6 +7004,7 @@
         const idx = safeInt(rsEl.dataset.rsIdx, -1);
         if (!draft || idx < 0 || idx >= draft.amounts.length) return;
         draft.amounts[idx] = digits(rsEl);
+        capScenarioMarkEdited(rsEl.dataset.rsKey);
         rerenderCapDetailPreservingFocus();
         return;
       }
@@ -6277,6 +7036,7 @@
             draft.amounts[mlLast] = Math.max(0, mlTcv - used);
           }
         }
+        capScenarioMarkEdited(mlEl.dataset.mlKey);
         rerenderCapDetailPreservingFocus();
       }
     });
@@ -6315,6 +7075,7 @@
     if (!ev.ok) { flashToast("Restructure unavailable — " + ev.reason, "err"); return; }
     if (btn.classList.contains("fo-cap-rs-reset")) {
       STATE.capRestructureDrafts[key] = { amounts: ev.real.slice() };
+      capScenarioMarkEdited(btn.dataset.fid);
       rerenderCapDetailPreservingFocus();
       return;
     }
@@ -6328,6 +7089,7 @@
       if (rest < 0) { flashToast("The earlier years already exceed " + fmtUSD(ev.tcv) + " — lower one first.", "err"); return; }
       amts[last] = rest;
       STATE.capRestructureDrafts[key] = { amounts: amts };
+      capScenarioMarkEdited(btn.dataset.fid);
       rerenderCapDetailPreservingFocus();
       return;
     }
@@ -6349,6 +7111,7 @@
     if (!ev.ok) { flashToast("Loaded MYAC unavailable — " + ev.reason, "err"); return; }
     if (btn.classList.contains("fo-cap-ml-reset")) {
       STATE.capMyacLoadedDrafts[key] = { kind: ev.kind, amounts: ev.flat.slice() };
+      capScenarioMarkEdited(btn.dataset.fid);
       rerenderCapDetailPreservingFocus();
       return;
     }
@@ -6362,6 +7125,7 @@
       if (rest < 0) { flashToast("The earlier years already exceed " + fmtUSD(ev.tcv) + " — lower one first.", "err"); return; }
       amts[last] = rest;
       STATE.capMyacLoadedDrafts[key] = { kind: ev.kind, amounts: amts };
+      capScenarioMarkEdited(btn.dataset.fid);
       rerenderCapDetailPreservingFocus();
       return;
     }

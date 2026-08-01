@@ -347,6 +347,100 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-adj-row.fo-cap-adj-strong .lbl { color: var(--accent); }
 .fo-cap-adj-row.fo-cap-adj-strong .val { font-size: 16px; color: var(--text); }
 
+/* ── Roster-rule counters (§C2 loaded / 3-year) + per-year headcount ──
+   Live in the Detail BODY, next to the money totals, and move with every
+   preview. `.from → .to` is the delta: what the plan does, not just where it
+   lands. `.at` = at the limit, `.over` = past it, `.under` = below the floor. */
+.fo-cap-rules {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px; margin: 0 0 10px;
+}
+.fo-cap-rule {
+  background: var(--panel-alt); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.fo-cap-rule .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+.fo-cap-rule .val {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+.fo-cap-rule .val .from { font-size: 15px; color: var(--muted); text-decoration: line-through; }
+.fo-cap-rule .val .arrow { color: var(--accent); font-weight: 700; }
+.fo-cap-rule .val .to { font-size: 20px; font-weight: 600; color: var(--text); }
+.fo-cap-rule .val .of { font-size: 11px; color: var(--muted); }
+.fo-cap-rule .sub { color: var(--muted); font-size: 11px; }
+.fo-cap-rule.at   { border-color: rgba(212, 160, 23, 0.65); background: rgba(212, 160, 23, 0.08); }
+.fo-cap-rule.at .val .to   { color: #d4a017; }
+.fo-cap-rule.over { border-color: var(--err); background: rgba(248, 113, 113, 0.10); }
+.fo-cap-rule.over .val .to { color: var(--err); }
+
+.fo-cap-years {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px; margin: 0 0 10px;
+}
+.fo-cap-year {
+  background: var(--panel-alt); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.fo-cap-year .yr { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; }
+.fo-cap-year .line {
+  display: flex; align-items: baseline; gap: 5px;
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.fo-cap-year .line strong { font-size: 16px; font-weight: 600; color: var(--text); }
+.fo-cap-year .line .of { font-size: 10px; color: var(--muted); }
+.fo-cap-year .line.at strong    { color: #d4a017; }
+.fo-cap-year .line.over strong  { color: var(--err); }
+.fo-cap-year .line.under strong { color: #d4a017; }
+.fo-cap-year-ir { color: var(--muted); font-size: 10px; font-style: italic; }
+.fo-cap-year-flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.fo-cap-rule .flag,
+.fo-cap-year-flags .flag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.fo-cap-rule .flag.over,  .fo-cap-year-flags .flag.over  { background: rgba(248, 113, 113, 0.16); color: var(--err);  border-color: rgba(248, 113, 113, 0.55); }
+.fo-cap-rule .flag.at,    .fo-cap-year-flags .flag.at    { background: rgba(212, 160, 23, 0.16);  color: #d4a017;     border-color: rgba(212, 160, 23, 0.55); }
+.fo-cap-year-flags .flag.under { background: rgba(212, 160, 23, 0.12); color: #d4a017; border-color: rgba(212, 160, 23, 0.45); }
+.fo-cap-rules-empty,
+.fo-cap-rules-foot { color: var(--muted); font-size: 11px; margin: 0 0 10px; }
+.fo-cap-rules-unresolved {
+  color: #d4a017; font-size: 11px; margin: 0 0 8px;
+  border-left: 3px solid rgba(212, 160, 23, 0.6); padding: 4px 10px;
+  background: rgba(212, 160, 23, 0.06); border-radius: 0 4px 4px 0;
+}
+
+/* ── Scenario bar — Save / Restore / Reset. localStorage only; this screen
+   never writes to MFL, and the copy says so. */
+.fo-cap-scn {
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--panel-alt); padding: 8px 12px; margin: 0 0 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.fo-cap-scn-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fo-cap-scn-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.fo-cap-scn-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.fo-cap-scn-badge.live     { background: rgba(148, 163, 184, 0.14); color: var(--muted); border-color: var(--border); }
+.fo-cap-scn-badge.working  { background: rgba(91, 141, 255, 0.16);  color: var(--accent); border-color: rgba(91, 141, 255, 0.55); }
+.fo-cap-scn-badge.restored { background: rgba(192, 132, 252, 0.16); color: #c084fc; border-color: rgba(192, 132, 252, 0.60); }
+.fo-cap-scn-sync { font-size: 11px; font-style: italic; }
+.fo-cap-scn-sync.ok  { color: var(--ok); }
+.fo-cap-scn-sync.off { color: #d4a017; }
+.fo-cap-scn-msg { font-size: 11px; }
+.fo-cap-scn-msg.ok   { color: var(--ok); }
+.fo-cap-scn-msg.warn { color: #d4a017; }
+.fo-cap-scn-drops { margin: 0; padding-left: 18px; font-size: 11px; color: #d4a017; }
+.fo-cap-scn-drops li { margin: 1px 0; }
+.fo-cap-scn-foot { color: var(--muted); font-size: 10px; }
+@media (max-width: 640px) {
+  .fo-cap-scn-actions { margin-left: 0; width: 100%; }
+}
+
 .fo-cap-row-active {
   background: rgba(91, 141, 255, 0.06);
   outline: 1px solid rgba(91, 141, 255, 0.30);
