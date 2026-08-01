@@ -415,10 +415,61 @@ These are transactions you can do TO a player who's already on your roster. Defi
 - **Purpose:** Adjust salary distribution across remaining contract years (front-load or back-load) without extending.
 - **Window: OFFSEASON UNTIL CONTRACT DEADLINE.** Mid-season restructures are BANNED (banned pre-2025 — verify exact year in forum/Discord). The window opens at season's end (or roll-forward) and closes at the September contract deadline.
 - **Eligibility:** Player must have **2+ years remaining** on contract (so newly-extended single-year contracts at $1+ year remaining → no, but extension-bumped contracts at 2+ years remaining → yes).
-- **Loading rules:** same as MYAC loading — front-load or back-load, with TCV preserved.
+- **Loading rules:** same as MYAC loading — front-load or back-load.
 - **Counts toward 5-loaded-contracts roster cap.**
 - **Standalone restructure allowed:** legacy 2014 rule (must accompany extension) is dead. Restructure on its own is fine.
 - **Per-team annual limit: 3 restructures per season per team.** (Distinct from the 5-loaded-contract roster cap.)
+
+#### C5.1 What a restructure changes — and what it must NOT (🔒 binding)
+
+Promoted into canon 2026-07-31 with Keith's sign-off. These rules previously lived **only** in
+`docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md` (which this document marks a legacy artifact
+pending reconciliation) plus session memory and code comments — so anyone reading canon alone would have
+rebuilt the exact bugs that cost four contract corrections in two days in July 2026. Where the legacy doc
+conflicts with anything below, **this section wins.**
+
+- **🔒 AAV is PRESERVED VERBATIM. Never recompute it.** A restructure re-slots the year salaries and
+  updates TCV/GTD, but the AAV token carries over unchanged — including a **dual AAV** (e.g. `AAV 33K, 43K`)
+  set forward-looking at the extension. AAV changes only at an extension, never from structure alone.
+  - The failure this exists to prevent: setting `AAV = TCV ÷ CL`. Drake London (15751) was written
+    `AAV 47.5K` (= 95 ÷ 2) instead of the correct `33K, 43K`. Ja'Marr Chase was shown `64.5K` (= 129 ÷ 2)
+    instead of `54K`. Both were re-averaging bugs, both had to be repaired in live MFL.
+  - **AAV tokens in live MFL are unreliable** (some hold the Y1 salary or a `$1K` placeholder). Preserve
+    the token as-is; do **not** "correct" a suffix or a load decision off a suspect AAV value.
+- **🔒 The `-FL` / `-BL` suffix follows the DIRECTION THE MONEY MOVED** (Keith ruling 2026-07-23) — compare
+  the **new current-year salary against the PRE-restructure current-year salary**: lowered (money pushed
+  back) → **`-BL`**; raised (money pulled forward) → **`-FL`**; unchanged → **no suffix**.
+  - This is **not** a "Y1 vs AAV" test and **not** a test on the shape of the resulting curve. Both of
+    those break on escalated dual-AAV contracts, where Y1 can exceed the current AAV tier by construction
+    and still be a back-load. Verified fixtures: **Hurts** 67/52 → 47/72 = **BL** (despite Y1-47 > AAV-42);
+    **Mason** 4/24/24 → 14/14/24 = **FL**; **London** 52/43 → 20/75 = **BL**; **Cook** 27/37 → 14/50 = **BL**;
+    **McLaurin** 19-flat → 8/30 = **BL**.
+  - Any existing `-FL`/`-BL` is **stripped first**, then the new suffix appended. The extension status is
+    **kept**, not replaced: the correct result reads `Vet-Ext1-BL`, `Vet-Ext2-BL`, `Vet-FAA-BL` — every
+    Keith-confirmed fixture has both. (The legacy doc's "extension status is superseded by BL/FL" is wrong.)
+- **A `Restructured YYYY` token is appended**, and any `Ext: …` provenance token is preserved verbatim.
+  Reference record (Hurts 14783, verified live):
+  `Vet-Ext1-BL | CL 2|TCV 119K|AAV 42K, 52K|Y1-47K, Y2-72K|GTD: 89.3K|Restructured 2026` (salary 47000, cy 2).
+- **🔒 TCV, CL and GTD RE-BASE to the remaining years** (Keith ruling 2026-07-31). A 3-year deal
+  restructured after year 1 is rewritten as `CL 2` with a TCV equal to the sum of the two remaining years,
+  and `GTD` recomputed at 75% of that new TCV.
+  - **This does not shed guaranteed money, and that is the point.** Comparing "75% of the original TCV"
+    against "75% of the remaining TCV" is the wrong comparison, because the already-played years were
+    already paid in real cap dollars. Total exposure = salary already earned **+** the guarantee on what
+    remains. Keith's worked case: TCV 100K (GTD 75K) split 30/40/30; after year 1 you re-base on the
+    remaining 70K, so GTD becomes 52.5K — and the team has committed 30 (paid) + 52.5 = **82.5K**, more
+    than the original 75K.
+  - §6.C1's "TCV is fixed at the time of contract creation OR extension and does NOT change over the
+    contract's life" governs a contract drifting **on its own**; it is not violated by a restructure,
+    which is an explicit re-cut of the deal.
+
+#### C5.2 Enforcement posture (Keith, 2026-07-31)
+
+The **window** (C5, offseason → contract deadline) and the **3-per-season limit** are canon, but are
+**deliberately NOT machine-enforced** — "allow the team to do as they please." No surface blocks an
+out-of-window or 4th restructure; surfaces may inform, and the commissioner enforces by judgment.
+Restructure is **owner self-serve for the owner's own team** across every surface (Roster Workbench,
+Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - **D1 audit trail intent (Keith, 2026-05-16 review session):** restructure submissions currently dispatch a `log-restructure-submission` event but lack a dedicated D1 audit table parallel to `ups_tag_history` and `ups_extension_history`. A new D1 table — suggested name `ups_restructure_submissions` (or `ups_restructure_history`) — should be added to capture every restructure submission's `franchise_id`, `player_id`, `original_year_salaries`, `restructured_year_salaries`, `source`, `submitted_at`. Wire the existing event handler to write into it. Tracker: see `AUDIT_FOLLOWUP_TRACKERS.md` (Q14 tracker).
 
 ### C6. 1st-Round Rookie Option (effective 2025+)

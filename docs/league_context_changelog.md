@@ -202,3 +202,42 @@ Each entry follows this structure:
 >   - **Once permanently promoted (4th activation OR an MYAC/extension/restructure that explicitly promotes), normal cut penalties apply going forward.**
 
 ---
+
+## 2026-07-31 — §C5 Restructure: AAV / FL-BL / TCV-rebase promoted into canon
+
+**Sign-off:** Keith, 2026-07-31 ("yes fix it").
+
+**Why:** three load-bearing restructure rules existed only in
+`docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md` — which this document itself marks a legacy
+artifact with reconciliation still outstanding — plus session memory and code comments. §C5 said nothing
+about AAV at all. A reader following canon alone would have rebuilt the exact re-averaging bug that
+required four live contract repairs in two days in July 2026 (London, Cook, McLaurin, Rice, Achane).
+
+### Added — `C5.1 What a restructure changes — and what it must NOT`
+- **AAV is preserved verbatim, never recomputed.** Kills `AAV = TCV ÷ CL`. Cites the London 47.5K and
+  Chase 64.5K failures, and the warning that live MFL AAV tokens are themselves unreliable.
+- **`-FL`/`-BL` follows the direction the money moved** (new current-year salary vs the pre-restructure
+  current-year salary), per Keith's 2026-07-23 ruling — explicitly *not* "Y1 vs AAV" and *not* the shape
+  of the resulting curve, with the five verified fixtures. Existing suffix stripped first; extension
+  status **kept** (`Vet-Ext1-BL`), correcting the legacy doc's "extension status is superseded".
+- **`Restructured YYYY` appended, `Ext:` provenance preserved**, with the Hurts reference record.
+- **TCV/CL/GTD re-base to the remaining years** (Keith ruling 2026-07-31), including the reasoning that
+  this does not shed guaranteed money because already-played years are already paid (30 + 52.5 = 82.5 vs
+  an original 75), and a note reconciling this with §6.C1's "TCV is fixed" line.
+
+### Changed — `C5` Loading rules
+### Before
+> - **Loading rules:** same as MYAC loading — front-load or back-load, with TCV preserved.
+
+### After
+> - **Loading rules:** same as MYAC loading — front-load or back-load.
+
+("with TCV preserved" contradicted the 2026-07-31 re-basing ruling; the TCV/CL/GTD behavior is now stated
+in full in C5.1 rather than in a trailing clause.)
+
+### Added — `C5.2 Enforcement posture`
+The offseason window and the 3-per-season limit remain canon but are **deliberately not machine-enforced**
+("allow the team to do as they please"); restructure is owner self-serve for the owner's own team on every
+surface.
+
+---
