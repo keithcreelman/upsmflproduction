@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-31 16:13:23",
+    "generated_at": "2026-08-01 03:46:27",
     "source": "contract-activity-log",
-    "count": 97,
+    "count": 98,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "7a73d6aee59e70ec446a45ec",
+      "submission_id": "7a73d6aee59e70ec446a45ec",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0006",
+      "franchise_name": "The Long Haulers",
+      "player_id": "14225",
+      "player_name": "Crosby, Maxx",
+      "position": "DL",
+      "salary": 8000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 24K|AAV 8K|Y1-8K, Y2-8K, Y3-8K|GTD: 18K",
+      "tcv": 24000,
+      "aav": 8000,
+      "guaranteed": 18000,
+      "submitted_at_utc": "2026-08-01T03:46:12.107Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1532957606656606211",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "99b550fda1d91b71b29975e3",
       "submission_id": "99b550fda1d91b71b29975e3",
