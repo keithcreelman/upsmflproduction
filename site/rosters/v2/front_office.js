@@ -231,8 +231,9 @@
     miscSubview: "log",   // Misc tab: "log" (Contract Log) | "glossary"
     capFocusedTeamFid: null,
     // Per-player preview state in Cap Plan Detail. Key = "pid:fid",
-    // value = "ext1" | "ext2" | "drop" | "restructure". Toggling re-runs the
-    // projection. Values are PLAIN STRINGS on purpose — every consumer compares
+    // value = "ext1" | "ext2" | "myac2" | "myac3" | "myacl2" | "myacl3" |
+    // "drop" | "promote" | "restructure". Toggling re-runs the projection.
+    // Values are PLAIN STRINGS on purpose — every consumer compares
     // with === (=== "drop", === "promote", …), so a preview that needs to carry
     // extra state parks it in a parallel map instead of boxing this one.
     capPreviews: Object.create(null),
@@ -242,6 +243,12 @@
     // lockstep with the preview (clearCapRestructureDraft) so a stale draft can
     // never resurface on a later toggle.
     capRestructureDrafts: Object.create(null),
+    // Loaded-MYAC (§C2) preview drafts — same "pid:fid" key, same lockstep
+    // clearing rule (clearCapMyacLoadedDraft):
+    //   { kind: "myacl2" | "myacl3", amounts: [y1, y2, y3?] }
+    // `kind` is carried so a 2-year draft can never be read as a 3-year one
+    // when the owner switches lengths on the same row.
+    capMyacLoadedDrafts: Object.create(null),
     // Summary table filters (aggregate across teams).
     capSummaryFilters: { pos: "ALL", type: "", years: "", status: "" },
     capSummarySort: { key: "totalSalary", dir: -1 },
@@ -2659,6 +2666,11 @@
       var evs = (data && data.events) || [];
       var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
       if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
+      // §D1 cut-penalty timing: a penalty incurred from AUCTION START through
+      // the end of the season lands on the FOLLOWING season's cap, not this
+      // one. Same feed, one more event.
+      var fa = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("fa_auction_start") >= 0; });
+      if (fa && fa.date) STATE.faAuctionStart = String(fa.date).slice(0, 10);
     } catch (e) {}
   }
   function renderContractSummary() {
@@ -2686,7 +2698,7 @@
       const s = team.summary || {};
       // Canon §6: drop penalties (adj_cut) round by the per-franchise SUM to the
       // nearest $1K (half-up), not per-penalty. Trades/other aren't penalties.
-      adjTotal += roundToK(s.adj_cut) + safeInt(s.adj_trade, 0) + safeInt(s.adj_other, 0);
+      adjTotal += capAdjTotal(s);
     });
     const capAlloc = salaryCap + adjTotal;
     const capSpace = (CAP_CEILING * nTeams) - capAlloc;
@@ -4018,16 +4030,62 @@
     if (!team) return 0;
     return (team.players || []).filter(function (q) { return !q.isTaxi && isLoadedRow(q); }).length;
   }
+  // ── Loaded-MYAC basis + floors — THE one place these numbers come from ──
+  //
+  // §C2: a MYAC converts a 1-year default into a 2- or 3-year deal at the
+  // auction price. TCV = bid × years (NO escalator — that's §C4 Extensions),
+  // AAV = bid, and Year 1 must carry ≥ 20% of TCV. Both the slide-over form
+  // (openMyacLoadedForm) and the Cap Planning editor read the basis from here,
+  // so the two surfaces can never drift apart on the numbers.
+  //
+  // Resolvability is tracked on `ok`/`reason` (never on a sentinel amount): an
+  // unreadable basis returns ok:false and the caller must refuse to render a
+  // projection rather than fall back to something plausible-looking.
+  function myacLoadedBasis(p, totalYears) {
+    const out = { ok: false, reason: "", years: totalYears, bid: 0, tcv: 0, aav: 0, minY1: 0, statusBase: "" };
+    if (!p) { out.reason = "No player."; return out; }
+    if (totalYears !== 2 && totalYears !== 3) { out.reason = "A MYAC runs 2 or 3 years (§C2)."; return out; }
+    // §C2 converts a 1-YEAR default. Anything else has no MYAC basis — and this
+    // is also what retires a stale Cap Planning preview the moment a committed
+    // MYAC reloads the roster as a 2/3-year deal.
+    const yearsRemaining = Math.max(0, safeInt(p.years, 0));
+    if (yearsRemaining !== 1) {
+      out.reason = "A MYAC converts a 1-year default (§C2); this contract shows " + yearsRemaining + " year" +
+                   (yearsRemaining === 1 ? "" : "s") + " remaining.";
+      return out;
+    }
+    const bid = safeInt(p.salary, 0);
+    if (bid < 1000) { out.reason = "MYAC needs a base salary ≥ $1,000."; return out; }
+    out.ok = true;
+    out.bid = bid;
+    out.aav = bid;                          // flat basis — TCV = bid × years, NO escalator (§C2)
+    out.tcv = bid * totalYears;
+    // 20%-of-TCV Year-1 floor. CEIL to the next $1K so the floor never dips
+    // below a true 20%. With bid ≥ $1,000 and years ≥ 2 this is always ≥ $1,000,
+    // so no Math.max is needed and nothing here can launder an unresolved basis.
+    out.minY1 = Math.ceil(out.tcv * 0.2 / 1000) * 1000;
+    out.statusBase = myacStatusBase(p);
+    return out;
+  }
+  // The §C2 floors submitMyacContract will re-check. Shared so the slide-over
+  // form and the Cap Planning editor enforce one rule set, in one order.
+  function myacLoadedYearsError(yrs, minY1) {
+    if (yrs.some(function (v) { return v % 1000 !== 0; })) return "All years must be whole $1,000 increments.";
+    if (yrs[0] < minY1) return "Year 1 must be ≥ " + fmtUSD(minY1) + " (20% of TCV).";
+    if (yrs.some(function (v) { return v < 1000; })) return "No year can be below $1,000 — there are no $0 years.";
+    return "";
+  }
+
   // MYAC loaded (§C2): free-key Y1 (FL if Y1>AAV, BL if Y1<AAV; Y1 ≥ 20% TCV);
   // the LAST year auto-computes (TCV − keyed years). 2-yr: Y1 free → Y2 auto.
   // 3-yr: Y1 & Y2 free → Y3 auto. Hard-blocks at the 5-loaded roster cap (§C2).
   function openMyacLoadedForm(p, totalYears) {
-    const bid = safeInt(p.salary, 0);
-    if (bid < 1000) { flashToast("MYAC needs a base salary ≥ $1,000.", "warn"); return; }
-    const statusBase = myacStatusBase(p);
-    const tcv = bid * totalYears;          // flat — TCV = bid × years, NO escalator (§C2)
-    const aav = bid;
-    const minY1 = Math.ceil(tcv * 0.2 / 1000) * 1000;
+    const basis = myacLoadedBasis(p, totalYears);
+    if (!basis.ok) { flashToast(basis.reason, "warn"); return; }
+    const statusBase = basis.statusBase;
+    const tcv = basis.tcv;
+    const aav = basis.aav;
+    const minY1 = basis.minY1;
     const rows3 = totalYears === 3;
     const body = $("#fo-slideover-body");
     const loadedN = loadedContractCountForTeam(p.fid);
@@ -4057,12 +4115,7 @@
       const y3 = rows3 ? (tcv - y1 - y2) : 0;
       return rows3 ? [y1, y2, y3] : [y1, y2];
     };
-    const validateYrs = function (yrs) {
-      if (yrs.some(function (v) { return v % 1000 !== 0; })) return "All years must be whole $1,000 increments.";
-      if (yrs[0] < minY1) return "Year 1 must be ≥ " + fmtUSD(minY1) + " (20% of TCV).";
-      if (yrs.some(function (v) { return v < 1000; })) return "No year can be below $1,000 — there are no $0 years.";
-      return "";
-    };
+    const validateYrs = function (yrs) { return myacLoadedYearsError(yrs, minY1); };
     const recalc = function () {
       const yrs = readYrs();
       $("#fo-myacl-last").textContent = fmtUSD(yrs[yrs.length - 1]);
@@ -4375,6 +4428,7 @@
 
   function capPreviewKey(p) { return safeStr(p && p.id) + ":" + safeStr(p && p.fid); }
   function clearCapRestructureDraft(key) { delete STATE.capRestructureDrafts[key]; }
+  function clearCapMyacLoadedDraft(key) { delete STATE.capMyacLoadedDrafts[key]; }
 
   function capRestructureRealYears(p) {
     const out = { ok: false, reason: "", years: 0, startIdx: 0, amounts: [], tcv: 0, minY1: 0 };
@@ -4485,6 +4539,86 @@
     return (ev.ok && ev.coherent) ? ev.amounts : null;
   }
 
+  // ── Loaded MYAC preview (§C2) — Cap Planning only ──────────────────
+  //
+  // Same shape as the restructure preview above, and the same contract: this
+  // computes NOTHING about the deal. The basis (TCV / AAV / 20% Y1 floor) comes
+  // from myacLoadedBasis — the same function the slide-over loaded-MYAC form
+  // uses — and the commit path is submitMyacContract(), which owns the FL/BL
+  // suffix, GTD, contractInfo, the confirm and the POST. Everything here only
+  // decides which numbers the Cap Detail grid may show.
+  //
+  // Full state of a row's loaded-MYAC draft:
+  //   coherent — whole $1,000s and Σ = TCV, i.e. arithmetically the same money
+  //              submitMyacContract would re-slot. ONLY a coherent draft may
+  //              replace real numbers in the grid.
+  //   legal    — additionally clears the §C2 floors (Y1 ≥ 20% TCV, no year
+  //              under $1,000) that submitMyacContract re-checks.
+  //   dirty    — the draft is actually LOADED (some year ≠ Y1). A flat draft is
+  //              not a loaded contract: submitMyacContract would derive
+  //              loaded=false and write a bare Vet-FAA / Vet-ERA, which is what
+  //              the MYAC2 / MYAC3 buttons already do. Committing it from the
+  //              loaded editor would burn the one-shot conversion on a deal the
+  //              owner did not shape, and would consume none of the 5 loaded
+  //              slots this editor is warning about — so Commit requires a real
+  //              loaded shape, not merely a valid one.
+  function capMyacLoadedEval(p, totalYears) {
+    const key = capPreviewKey(p);
+    const basis = myacLoadedBasis(p, totalYears);
+    const out = {
+      key: key, kind: "myacl" + totalYears, ok: basis.ok, reason: basis.reason,
+      years: totalYears, tcv: basis.tcv, aav: basis.aav, minY1: basis.minY1,
+      statusBase: basis.statusBase, flat: [], amounts: [],
+      sum: 0, left: 0, loadedShape: false, suffix: "", dirty: false,
+      coherent: false, legal: false, err: "",
+      loadedNow: 0, atLoadedCap: false, submittable: false
+    };
+    if (!basis.ok) return out;
+    // Neutral seed = the FLAT split (AAV every year). Totals don't budge until
+    // the owner actually moves money, exactly like the restructure editor.
+    for (let i = 0; i < totalYears; i += 1) out.flat.push(basis.aav);
+    out.amounts = out.flat.slice();
+    const draft = STATE.capMyacLoadedDrafts[key];
+    if (draft && draft.kind === out.kind && Array.isArray(draft.amounts) && draft.amounts.length === totalYears) {
+      out.amounts = draft.amounts.map(function (v) { return Math.max(0, safeInt(v, 0)); });
+    }
+    out.sum = out.amounts.reduce(function (a, b) { return a + b; }, 0);
+    out.left = basis.tcv - out.sum;
+    const wholeK = out.amounts.every(function (v) { return v % 1000 === 0; });
+    out.coherent = wholeK && out.sum === basis.tcv;
+    if (!wholeK) out.err = "Whole $1,000s only.";
+    else if (out.sum !== basis.tcv) {
+      out.err = (out.left > 0 ? fmtUSD(out.left) + " left to allocate." : fmtUSD(-out.left) + " over the required total.");
+    } else {
+      out.err = myacLoadedYearsError(out.amounts, basis.minY1);
+    }
+    out.legal = out.coherent && !out.err;
+    // MIRROR of submitMyacContract's own derivation (front_office.js, the
+    // `loaded` / `-FL` / `-BL` lines) so the editor can name the shape the
+    // owner is building. That function stays the authority — it re-derives the
+    // status from the submitted year array and shows it in the confirm dialog
+    // before anything is written, so this label can never smuggle a wrong
+    // status past the owner.
+    out.loadedShape = out.amounts.some(function (v) { return v !== out.amounts[0]; });
+    out.suffix = out.loadedShape ? (out.amounts[0] > basis.aav ? "-FL" : "-BL") : "";
+    out.dirty = out.loadedShape;
+    // §C2 roster cap on loaded contracts. Surfaced as information on every
+    // draft; it only gates Commit (previewing a 6th loaded shape is legitimate
+    // planning — you may be about to cut or trade one of the five).
+    out.loadedNow = loadedContractCountForTeam(p.fid);
+    out.atLoadedCap = out.loadedNow >= LOADED_MAX;
+    out.submittable = out.legal && out.dirty && !out.atLoadedCap;
+    return out;
+  }
+
+  // Draft amounts to PROJECT, or null when the grid must fall back to the real
+  // contract numbers (no loaded preview, unresolvable basis, incoherent draft).
+  function capMyacLoadedProjection(p, preview) {
+    if (preview !== "myacl2" && preview !== "myacl3") return null;
+    const ev = capMyacLoadedEval(p, preview === "myacl3" ? 3 : 2);
+    return (ev.ok && ev.coherent) ? ev.amounts : null;
+  }
+
   // For a single player, return the projected cap hit for year offset
   // (0 = current season, 1 = next, 2 = year after). Honors active
   // preview state (ext1 / ext2 / drop / restructure) from STATE.capPreviews;
@@ -4538,13 +4672,37 @@
       else if (offset === 2) baseAmt = ext.add2;
     }
 
-    // ── MYAC preview overlay (FLAT only) ─────────────────────────
-    // An auction-won 1-yr default → flat 2/3-yr at the auction salary.
-    // Future years pick up the current salary; loaded shapes ignored
-    // (Keith 2026-06-04: "show MYAC previews, don't worry about loaded").
+    // ── MYAC preview overlay — FLAT (myac2 / myac3) ──────────────
+    // An auction-won 1-yr default → flat 2/3-yr at the auction salary. A FLAT
+    // MYAC leaves Year 1 alone (it stays the auction salary), which is exactly
+    // why this branch fires only for offset > 0.
     if ((preview === "myac2" || preview === "myac3") && offset > 0) {
       const extraYears = preview === "myac3" ? 2 : 1;   // years beyond Y+0
       baseAmt = offset <= extraYears ? safeInt(p.salary, 0) : 0;
+    }
+
+    // ── MYAC preview overlay — LOADED (myacl2 / myacl3, §C2) ─────
+    // Loaded shapes were deferred in 2026-06 ("show MYAC previews, don't worry
+    // about loaded"); that deferral is now reversed — this is the drafted
+    // front/back-loaded split from the inline Cap Planning editor.
+    //
+    // Unlike the flat branch above, this MUST cover offset 0. Loading
+    // redistributes the SAME TCV across every year of the new deal, Year 1
+    // included: front-loading lifts Year 1 above the auction salary,
+    // back-loading drops it toward the 20%-of-TCV floor. Leaving offset 0 at
+    // the untouched auction salary would hold the current-year number still —
+    // the single number the owner is deliberately moving — while the out-years
+    // changed underneath it.
+    //
+    // Sits HERE (after the taxi early-return, before the IR branch) for the
+    // same reason the restructure overlay does: taxi still projects $0, and IR
+    // still takes its 50% relief on the DRAFTED Year 1. Offsets past the end of
+    // the new deal are $0 — the contract has expired by then.
+    // capMyacLoadedProjection returns null for an unresolvable basis or an
+    // incoherent draft, leaving baseAmt real.
+    if (preview === "myacl2" || preview === "myacl3") {
+      const mlAmts = capMyacLoadedProjection(p, preview);
+      if (mlAmts) baseAmt = offset < mlAmts.length ? safeInt(mlAmts[offset], 0) : 0;
     }
 
     // ── Restructure preview overlay (§C5) ────────────────────────
@@ -5178,7 +5336,7 @@
     // and this row must re-apply the rounding itself. Without it the summary
     // disagreed with both the popup and MFL's own cap page by up to ±$500/team
     // (8 of 12 teams on 2026-07-25, e.g. C-Town $15,500 vs the true $16,000).
-    out.dropPen   = posFiltered ? 0 : roundToK(safeInt(s.adj_cut, 0));
+    out.dropPen   = posFiltered ? 0 : capAdjDropPen(s);
     out.tradeSal  = posFiltered ? 0 : safeInt(s.adj_trade, 0);
     out.otherAdj  = posFiltered ? 0 : safeInt(s.adj_other, 0);
     out.totalCap  = out.totalSalary + out.dropPen + out.tradeSal + out.otherAdj;
@@ -5189,6 +5347,35 @@
   // Dynamic Yrs-Remaining options for the cap filters — only surface buckets
   // (and "Expired") that actually have players, so the dropdown never offers an
   // empty option (Keith 2026-06-06: don't show "Expired" when there are none).
+  // Canon §6: drop penalties round to the nearest $1K on the TEAM TOTAL, not
+  // per penalty. loadMflSalaryAdjustments deliberately skips MFL's posted
+  // `id:ups_drop_rounding_*` true-up rows so they can't be double-counted, so
+  // adj_cut is always the RAW un-rounded sum and every consumer has to apply
+  // the rounding itself.
+  //
+  // This lived in three places and one of them forgot: the cap DETAIL callout
+  // summed adj_cut raw while the hub and the cap SUMMARY rounded it, so the
+  // same team read +$9,200 on one screen and +$9,000 on the other, and only
+  // the rounded one matched MFL. One definition now — the rule cannot drift
+  // again because there is nowhere for it to drift to.
+  // §D1 — which season a NEW cut's dead cap lands on. Before the Auction Roster
+  // Lock it hits the current season; from auction start through season end it
+  // hits the FOLLOWING one (canon: "Penalty incurred from auction start through
+  // end of season → applies to following season cap"). Keith 2026-08-01, once
+  // the 2026 auction opened. Unknown date ⇒ current season, matching the old
+  // behavior rather than silently moving money on a missing lookup.
+  function dropPenaltyLandsNextSeason() {
+    var d = safeStr(STATE.faAuctionStart);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+    var today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    return today >= d;
+  }
+
+  function capAdjDropPen(s) { return roundToK(safeInt(s && s.adj_cut, 0)); }
+  function capAdjTotal(s) {
+    return capAdjDropPen(s) + safeInt(s && s.adj_trade, 0) + safeInt(s && s.adj_other, 0);
+  }
+
   function capYearOptionsHtml(f) {
     const present = Object.create(null);
     let hasExpired = false;
@@ -5482,21 +5669,31 @@
     // per-player, so they only apply to the full-roster view — excluded (callout
     // hidden) when a filter is active, consistent with the Summary %.
     const _adj = team.summary || {};
-    const adjTotal = anyFilter ? 0 : (safeInt(_adj.adj_cut, 0) + safeInt(_adj.adj_trade, 0) + safeInt(_adj.adj_other, 0));
-    // Previewed-drop dead-cap — a "drop" preview's penalty is a CAP ADJUSTMENT
-    // (current-year dead cap), NOT a salary line (Keith 2026-06-07). The dropped
-    // player already contributes $0 to totals.cy (projectedPlayerCapForOffset).
+    const adjTotal = anyFilter ? 0 : capAdjTotal(_adj);
+    // Previewed-drop dead-cap — a "drop" preview's penalty is a CAP ADJUSTMENT,
+    // NOT a salary line (Keith 2026-06-07). The dropped player already
+    // contributes $0 to totals.cy (projectedPlayerCapForOffset).
+    //
+    // WHICH SEASON it lands on is §D1: before the Auction Roster Lock it hits
+    // the current season; from AUCTION START through end of season it hits the
+    // FOLLOWING one. The 2026 auction opened 2026-07-25, so a cut previewed now
+    // is next year's money — showing it against this year overstated the current
+    // cap and understated the next (Keith 2026-08-01).
     const previewDropPen = players.reduce(function (s, p) {
       return STATE.capPreviews[p.id + ":" + p.fid] === "drop" ? s + safeInt(dropPenaltyEstimate(p).amount, 0) : s;
     }, 0);
-    const adjustedCy = totals.cy + adjTotal + previewDropPen;
+    const penNextSeason = dropPenaltyLandsNextSeason();
+    const penCy = penNextSeason ? 0 : previewDropPen;
+    const penNy = penNextSeason ? previewDropPen : 0;
+    const adjustedCy = totals.cy + adjTotal + penCy;
+    const adjustedNy = totals.ny + penNy;
     const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
       || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
     const sort = STATE.capDetailSort;
     const arrow = (key) => sort.key === key ? (sort.dir > 0 ? " ▲" : " ▼") : "";
     return `
       <p class="fo-row-hint">
-        💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / Drop / Promote / Restr</strong> on any row to preview the impact on team totals (toggle off by clicking again). MYAC previews are flat (even-split) auction contracts. <strong>Restr</strong> opens an inline editor to re-slot the same contract total across the remaining years — the year totals above move as you type, and Commit submits the real restructure. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
+        💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / MYAC2-L / MYAC3-L / Drop / Promote / Restr</strong> on any row to preview the impact on team totals (toggle off by clicking again). <strong>MYAC2 / MYAC3</strong> are flat (even-split) auction contracts. <strong>MYAC2-L / MYAC3-L</strong> open an inline editor for a <em>loaded</em> auction contract — the same TCV split front- or back-loaded, so ${yr0} moves too. <strong>Restr</strong> opens an inline editor to re-slot the same contract total across the remaining years. Either editor moves the year totals above as you type — this screen is <strong>planning only</strong> and never writes to MFL; apply a contract on the <strong>Contracts</strong> tab. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
       </p>
       <div class="fo-cap-totals">
         <div><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
@@ -5507,8 +5704,11 @@
       <div class="fo-cap-adj-callout">
         <div class="fo-cap-adj-row"><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
         ${adjTotal !== 0 ? `<div class="fo-cap-adj-row"><span class="lbl">+ cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>` : ""}
-        ${previewDropPen !== 0 ? `<div class="fo-cap-adj-row"><span class="lbl">+ previewed drop dead-cap</span><span class="val">+${fmtUSD(previewDropPen)}</span></div>` : ""}
+        ${(previewDropPen !== 0 && !penNextSeason) ? `<div class="fo-cap-adj-row"><span class="lbl">+ previewed drop dead-cap</span><span class="val">+${fmtUSD(previewDropPen)}</span></div>` : ""}
         <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0} adjusted cap</span><span class="val">${fmtUSD(adjustedCy)}</span></div>
+        ${(previewDropPen !== 0 && penNextSeason) ? `
+        <div class="fo-cap-adj-row fo-cap-adj-next"><span class="lbl">+ previewed drop dead-cap → <strong>${yr0 + 1}</strong> <span class="fo-cap-adj-why">(§D1 — cuts from auction start hit next season)</span></span><span class="val">+${fmtUSD(previewDropPen)}</span></div>
+        <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0 + 1} adjusted cap</span><span class="val">${fmtUSD(adjustedNy)}</span></div>` : ""}
       </div>` : ""}
       ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
       <table class="fo-table">
@@ -5549,11 +5749,42 @@
     if (elig.extensionEligible && has2) {
       btns.push(`<button class="btn small ${active === "ext2" ? "" : "secondary"} fo-cap-prev-btn" data-preview="ext2" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Ext2</button>`);
     }
-    // Flat MYAC previews for auction-won 1-yr defaults (§C2) — show the
-    // future-year cap commitment if converted to a 2/3-yr flat contract.
+    // MYAC previews for auction-won 1-yr defaults (§C2) — show the future-year
+    // cap commitment if converted to a 2/3-yr contract. MYAC2 / MYAC3 are the
+    // flat (even-split) shapes; MYAC2-L / MYAC3-L open the inline loaded editor
+    // where the same TCV is split front- or back-loaded across the new deal.
+    // Driven by the ACTIVE preview, not by eligibility, so the editor row and
+    // projectedPlayerCapForOffset always agree: whenever the overlay is moving
+    // this row's numbers there is an editor under it saying why, and whenever
+    // the basis stops resolving both fall back to the real contract together.
+    // (Eligibility can lapse under an open preview — the deadline passes, the
+    // roster reloads — and silently-shifted totals with no visible editor would
+    // be the worst of both. handleCapMyacLoadedAction re-checks eligibility, so
+    // a lapsed row can still be studied but never committed.)
+    let mlEval = null;
+    if (active === "myacl2" || active === "myacl3") {
+      mlEval = capMyacLoadedEval(p, active === "myacl3" ? 3 : 2);
+    }
     if (elig.myacEligible) {
       btns.push(`<button class="btn small ${active === "myac2" ? "" : "secondary"} fo-cap-prev-btn" data-preview="myac2" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Flat 2-year auction contract">MYAC2</button>`);
       btns.push(`<button class="btn small ${active === "myac3" ? "" : "secondary"} fo-cap-prev-btn" data-preview="myac3" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Flat 3-year auction contract">MYAC3</button>`);
+      [2, 3].forEach(function (n) {
+        const kind = "myacl" + n;
+        const ev = (kind === active && mlEval) ? mlEval : capMyacLoadedEval(p, n);
+        // Taxi is excluded for the same reason restructure is: a taxi player's
+        // cap hit is $0 in every year (§6.E), so a loaded split has nothing to
+        // move. Unreadable basis (no 1-yr default, salary under $1,000) is
+        // likewise DISABLED with the reason in the tooltip — never quietly
+        // backfilled into a plausible-looking projection.
+        const blocked = p.isTaxi
+          ? "taxi salaries are off-cap (§6.E), so every year of a loaded split would still project $0."
+          : (ev.ok ? "" : ev.reason);
+        if (blocked) {
+          btns.push(`<button class="btn small secondary" disabled data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Loaded ${n}-year MYAC unavailable — ${escapeHtml(blocked)}" style="opacity:.45; cursor:not-allowed;">MYAC${n}-L</button>`);
+          return;
+        }
+        btns.push(`<button class="btn small ${active === kind ? "" : "secondary"} fo-cap-prev-btn" data-preview="${kind}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Loaded ${n}-year auction contract — split ${fmtUSD(ev.tcv)} across ${n} years, front- or back-loaded (${ev.loadedNow}/${LOADED_MAX} loaded used)">MYAC${n}-L</button>`);
+      });
     }
     if (canDrop) {
       btns.push(`<button class="btn small ${active === "drop" ? "warn" : "secondary"} fo-cap-prev-btn" data-preview="drop" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Drop</button>`);
@@ -5576,22 +5807,31 @@
     }
     const previewCell = btns.length ? btns.join(" ") : '<span class="small" style="color:var(--muted);">—</span>';
     const rsActive = active === "restructure" && rsEval && rsEval.ok;
+    // Taxi is excluded here too — projectedPlayerCapForOffset returns $0 for a
+    // taxi player before the overlay can run (§6.E), so an editor claiming to
+    // move money would contradict the grid.
+    const mlActive = !p.isTaxi && mlEval && mlEval.ok;
 
     // Row class — drop gets a red tint so it's obvious; promote gets
     // a green tint; ext gets the existing blue. Keith 2026-05-19:
     // "Drop should show as red and indicate penalty so we know."
-    // Restructure gets violet, and a distinct dashed treatment when the draft
-    // is incoherent (the grid is then showing REAL numbers, not the draft).
+    // Restructure gets violet and loaded MYAC teal, each with a distinct dashed
+    // treatment when the draft is incoherent (the grid is then showing REAL
+    // numbers, not the draft).
     let rowClass = "";
     if (active === "drop")                      rowClass = "fo-cap-row-drop";
     else if (active === "promote")              rowClass = "fo-cap-row-promote";
     else if (rsActive)                          rowClass = rsEval.coherent ? "fo-cap-row-restructure" : "fo-cap-row-rs-invalid";
+    else if (mlActive)                          rowClass = mlEval.coherent ? "fo-cap-row-myacl" : "fo-cap-row-rs-invalid";
     else if (active === "ext1" || active === "ext2" || active === "myac2" || active === "myac3") rowClass = "fo-cap-row-active";
 
-    // Money cell under a restructure preview — shows the drafted number plus
-    // what it WAS (the real projection, recomputed with the preview ignored).
-    const rsMoneyCell = function (off, val) {
-      if (!rsActive || !rsEval.coherent) return fmtUSD(val);
+    // Money cell under a DRAFTED preview (restructure or loaded MYAC) — shows
+    // the drafted number plus what it WAS (the real projection, recomputed with
+    // the preview ignored). Only a coherent draft is projected, so an
+    // in-progress one keeps the real numbers and shows no "was".
+    const draftProjected = (rsActive && rsEval.coherent) || (mlActive && mlEval.coherent);
+    const draftMoneyCell = function (off, val) {
+      if (!draftProjected) return fmtUSD(val);
       const was = projectedPlayerCapForOffset(p, off, true);
       if (was === val) return fmtUSD(val);
       return `${fmtUSD(val)} <span class="fo-cap-was ${val > was ? "up" : "down"}" title="Current contract: ${fmtUSD(was)}">was ${fmtUSD(was)}</span>`;
@@ -5600,16 +5840,20 @@
     // Y+0 cell annotation when dropping — "(penalty)" makes the cap charge
     // unmistakable vs a salary.
     const y0Cell = active === "drop"
-      ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(safeInt(dropPenaltyEstimate(p).amount, 0))} dead cap → adj)</span>`
-      : rsMoneyCell(0, cy);
+      ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(safeInt(dropPenaltyEstimate(p).amount, 0))} dead cap → ${dropPenaltyLandsNextSeason() ? String(safeInt(SEASON, 0) + 1) + " adj" : "adj"})</span>`
+      : draftMoneyCell(0, cy);
 
     const statusKls = active === "drop" ? "drop-preview"
                      : active === "promote" ? "active"
                      : rsActive ? "rs-preview"
+                     : mlActive ? "ml-preview"
                      : rosterStatusClass(p);
     const statusLbl = active === "drop" ? "DROPPED"
                      : active === "promote" ? "→ ACTIVE"
                      : rsActive ? (rsEval.coherent ? "RESTR (draft)" : "DRAFT ✗")
+                     : mlActive ? (mlEval.coherent
+                         ? (mlEval.loadedShape ? "MYAC" + mlEval.suffix + " (draft)" : "MYAC FLAT (draft)")
+                         : "DRAFT ✗")
                      : rosterStatusLabel(p);
 
     const mainRow = `
@@ -5619,14 +5863,16 @@
         <td><span class="fo-ctype ${ctypeClass(p.type)}">${escapeHtml(String(p.type || "—").toUpperCase())}</span></td>
         <td class="col-lo num">${safeInt(p.years, 0) || "—"}</td>
         <td class="num">${y0Cell}</td>
-        <td class="num">${rsMoneyCell(1, ny)}</td>
-        <td class="num">${rsMoneyCell(2, ny2)}</td>
+        <td class="num">${draftMoneyCell(1, ny)}</td>
+        <td class="num">${draftMoneyCell(2, ny2)}</td>
         <td>${previewCell}</td>
         <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span></td>
       </tr>`;
     // The editor is a SIBLING <tr> right under the player's row (not a modal)
     // so the year totals stay on screen while the owner types.
-    return rsActive ? mainRow + renderCapRestructureEditorRow(p, team, rsEval) : mainRow;
+    if (rsActive) return mainRow + renderCapRestructureEditorRow(p, team, rsEval);
+    if (mlActive) return mainRow + renderCapMyacLoadedEditorRow(p, team, mlEval);
+    return mainRow;
   }
 
   // Inline restructure editor (§C5) — one <tr>, colspan the full grid.
@@ -5692,9 +5938,110 @@
             <div class="fo-cap-rs-actions">
               <button type="button" class="btn small secondary fo-cap-rs-balance" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Set ${yr0 + ev.years - 1} to whatever is left so Σ = TCV">Balance ${yr0 + ev.years - 1}</button>
               <button type="button" class="btn small secondary fo-cap-rs-reset" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Reset to current</button>
-              ${canCommit
-                ? `<button type="button" class="btn small fo-cap-rs-commit" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" ${ev.submittable ? "" : "disabled"} title="${escapeHtml(commitTitle)}"${ev.submittable ? "" : ' style="opacity:.45; cursor:not-allowed;"'}>${IS_DRY_RUN ? "Commit (dry-run)" : "Commit restructure"}</button>`
-                : `<span class="small fo-cap-rs-noauth" title="${escapeHtml(commitTitle)}">Preview only — not your franchise</span>`}
+              <span class="small fo-cap-planonly" title="Cap Planning models contracts; it never writes to MFL. Apply this on the Contracts tab.">Planning only — not written to MFL. Apply on <strong>Contracts</strong>.</span>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  // Inline LOADED-MYAC editor (§C2) — one <tr>, colspan the full grid, same
+  // shape as the restructure editor above. Purely a planning surface: Commit
+  // hands the drafted year amounts to submitMyacContract(), which owns the
+  // FL/BL suffix, GTD, contractInfo, the confirm dialog and the POST.
+  function renderCapMyacLoadedEditorRow(p, team, ev) {
+    const yr0 = safeInt(SEASON, 0);
+    const domKey = ev.key.replace(/[^A-Za-z0-9]/g, "_");
+    const me = STATE.me || {};
+    const isMine = !!me.franchise_id && pad4(me.franchise_id) === pad4(p.fid);
+    const canCommit = isMine || !!me.isAdmin;
+    // The FINAL year is derived, never typed: it is always TCV minus the years
+    // above it, so the split balances by construction and "$27,000 over" can no
+    // longer happen (Keith 2026-08-01). Same rule the slide-over loaded-MYAC
+    // form already uses — there Y2 (2-yr) / Y3 (3-yr) is computed, not an input.
+    const lastIdx = ev.amounts.length - 1;
+    const inputs = ev.amounts.map(function (v, i) {
+      const changed = v !== ev.flat[i];
+      const derived = i === lastIdx;
+      if (derived) {
+        return `
+        <label class="fo-cap-ml-field derived">
+          <span class="lbl">${yr0 + i}</span>
+          <input type="text" readonly tabindex="-1" aria-readonly="true"
+                 class="fo-cap-ml-input derived${changed ? " changed" : ""}"
+                 id="fo-cap-ml-in-${domKey}-${i}"
+                 title="Auto — whatever is left of the ${fmtUSD(ev.tcv)} total"
+                 value="${v}">
+          <span class="was">auto · flat ${fmtUSD(ev.flat[i])}</span>
+        </label>`;
+      }
+      return `
+        <label class="fo-cap-ml-field">
+          <span class="lbl">${yr0 + i}</span>
+          <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
+                 class="fo-cap-ml-input${changed ? " changed" : ""}"
+                 id="fo-cap-ml-in-${domKey}-${i}"
+                 data-ml-key="${escapeHtml(ev.key)}" data-ml-idx="${i}" data-ml-years="${ev.years}"
+                 value="${v}">
+          <span class="was">flat ${fmtUSD(ev.flat[i])}</span>
+        </label>`;
+    }).join("");
+    // §C2 5-loaded roster cap. Shown on EVERY draft (not just at the limit) so
+    // hitting it is never a surprise; it gates Commit only — previewing a sixth
+    // loaded shape is legitimate planning (you may be about to free a slot).
+    const capNote = ev.atLoadedCap
+      ? `<span class="fo-cap-ml-capfull" title="§C2 caps a roster at ${LOADED_MAX} front/back-loaded contracts.">loaded contracts ${ev.loadedNow}/${LOADED_MAX} — at the cap</span>`
+      : `<span title="§C2 caps a roster at ${LOADED_MAX} front/back-loaded contracts (front + back combined).">loaded contracts ${ev.loadedNow}/${LOADED_MAX}</span>`;
+    // Name the resulting contract status only for a draft whose arithmetic
+    // actually holds — an unbalanced draft is not going to record as anything.
+    const shapeLabel = !ev.loadedShape
+      ? `<span class="fo-cap-ml-shape flat">FLAT — not a loaded contract</span>`
+      : (ev.coherent
+          ? `<span class="fo-cap-ml-shape ${ev.suffix === "-FL" ? "fl" : "bl"}">${ev.suffix === "-FL" ? "FRONT-LOADED" : "BACK-LOADED"} · records as ${escapeHtml(ev.statusBase + ev.suffix)}</span>`
+          : `<span class="fo-cap-ml-shape flat">shape pending — balance Σ to ${fmtUSD(ev.tcv)} first</span>`);
+    let msgKls = "ok", msg;
+    if (!ev.coherent) {
+      msgKls = "warn";
+      msg = "Draft not applied — the grid above is showing the real contract. " + ev.err;
+    } else if (!ev.legal) {
+      msgKls = "warn";
+      msg = "Projected above, but this can't be submitted: " + ev.err;
+    } else if (!ev.dirty) {
+      msgKls = "muted";
+      msg = "Every year is the same — that's a flat MYAC, which the MYAC" + ev.years +
+            " button already previews. Move money between years to front- or back-load it.";
+    } else if (ev.atLoadedCap) {
+      msgKls = "warn";
+      msg = safeStr(p.franchise || team.name) + " already has " + ev.loadedNow + " of " + LOADED_MAX +
+            " loaded contracts (§C2). Preview all you like — committing needs a free slot (cut or trade a loaded player, or use a flat MYAC).";
+    } else {
+      msg = "Σ balances. Commit submits the loaded MYAC for confirmation.";
+    }
+    const commitTitle = !canCommit
+      ? "Only " + safeStr(p.franchise || team.name) + " (or the commish) can commit this — preview only."
+      : (ev.submittable ? "Submit this " + ev.years + "-year loaded MYAC"
+         : (ev.atLoadedCap ? "At the " + LOADED_MAX + "-loaded cap (§C2) — free a slot first."
+            : (ev.legal && !ev.dirty ? "Flat is not loaded — move money between years first (or use MYAC" + ev.years + ")."
+               : "Balance the years first: " + ev.err)));
+    return `
+      <tr class="fo-cap-ml-editor-row" data-ml-key="${escapeHtml(ev.key)}">
+        <td colspan="9">
+          <div class="fo-cap-ml-editor">
+            <div class="fo-cap-ml-head">
+              <strong>Loaded MYAC — ${escapeHtml(p.name)}, ${ev.years} years</strong>
+              <span class="small">split the auction price across ${ev.years} years · required total (TCV) <strong>${fmtUSD(ev.tcv)}</strong> (= ${fmtUSD(ev.aav)} × ${ev.years}, no escalator) · AAV ${fmtUSD(ev.aav)} · ${yr0} ≥ ${fmtUSD(ev.minY1)} (20% TCV) · whole $1,000s, no $0 year · ${capNote}</span>
+            </div>
+            <div class="fo-cap-ml-inputs">${inputs}</div>
+            <div class="fo-cap-ml-sum">
+              <span>Σ <strong class="${ev.sum === ev.tcv ? "bal" : "off"}">${fmtUSD(ev.sum)}</strong> / ${fmtUSD(ev.tcv)}</span>
+              <span class="${ev.left === 0 ? "bal" : "off"}">${ev.left === 0 ? "fully allocated" : (ev.left > 0 ? fmtUSD(ev.left) + " left to allocate" : fmtUSD(-ev.left) + " over")}</span>
+              ${shapeLabel}
+            </div>
+            <div class="fo-cap-ml-msg ${msgKls}">${escapeHtml(msg)}</div>
+            <div class="fo-cap-ml-actions">
+              <button type="button" class="btn small secondary fo-cap-ml-balance" data-ml-key="${escapeHtml(ev.key)}" data-ml-years="${ev.years}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Set ${yr0 + ev.years - 1} to whatever is left so Σ = TCV">Balance ${yr0 + ev.years - 1}</button>
+              <button type="button" class="btn small secondary fo-cap-ml-reset" data-ml-key="${escapeHtml(ev.key)}" data-ml-years="${ev.years}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Back to the even ${ev.years}-way split">Reset to flat</button>
+              <span class="small fo-cap-planonly" title="Cap Planning models contracts; it never writes to MFL. Apply this on the Contracts tab.">Planning only — not written to MFL. Apply on <strong>Contracts</strong>.</span>
             </div>
           </div>
         </td>
@@ -5742,30 +6089,64 @@
         const kind = prev.dataset.preview;
         if (STATE.capPreviews[key] === kind) delete STATE.capPreviews[key];
         else STATE.capPreviews[key] = kind;
-        // The restructure draft lives in a parallel map — clear it whenever the
+        const nextKind = STATE.capPreviews[key];
+        // Editor drafts live in parallel maps — each one is cleared whenever the
         // preview is turned off OR switched to another kind, or a stale draft
         // reappears the next time this row is previewed.
-        if (STATE.capPreviews[key] !== "restructure") clearCapRestructureDraft(key);
+        if (nextKind !== "restructure") clearCapRestructureDraft(key);
         else {
           // Seed NEUTRAL: the contract's real remaining-year salaries, so the
           // totals don't budge until the owner actually moves money.
           const seed = capRestructureRealYears(findPlayer(prev.dataset.pid, prev.dataset.fid));
           if (seed.ok) STATE.capRestructureDrafts[key] = { amounts: seed.amounts.slice() };
-          else delete STATE.capPreviews[key];   // unresolvable → no preview at all
+          // Unresolvable → no preview at all, and drop any draft with it. The
+          // preview and its draft must always move in lockstep; deleting only
+          // the preview strands the old draft, which then re-applies the next
+          // time this row is previewed.
+          else { delete STATE.capPreviews[key]; clearCapRestructureDraft(key); }
+        }
+        if (nextKind !== "myacl2" && nextKind !== "myacl3") clearCapMyacLoadedDraft(key);
+        else {
+          // Seed NEUTRAL for a loaded MYAC = the FLAT split (AAV every year):
+          // the shape the MYAC2/MYAC3 buttons already show, so the totals only
+          // move once the owner front- or back-loads it.
+          const mlYears = nextKind === "myacl3" ? 3 : 2;
+          const seed = myacLoadedBasis(findPlayer(prev.dataset.pid, prev.dataset.fid), mlYears);
+          if (seed.ok) {
+            const amts = [];
+            for (let i = 0; i < mlYears; i += 1) amts.push(seed.aav);
+            STATE.capMyacLoadedDrafts[key] = { kind: nextKind, amounts: amts };
+          } else {
+            // Unresolvable → no preview at all, and the draft dies WITH it.
+            // Reachable by switching kinds (myacl2 → myacl3) on a row whose
+            // basis stopped resolving under the open editor — the player was
+            // traded away, or a reload left them on a 2/3-yr contract. Without
+            // this clear the row keeps a draft no preview points at, which is
+            // exactly the residue the lockstep rule exists to prevent.
+            delete STATE.capPreviews[key];
+            clearCapMyacLoadedDraft(key);
+          }
         }
         renderCapTab();
         return;
       }
       // Restructure editor — Balance / Reset / Commit.
-      const rsBtn = e.target.closest(".fo-cap-rs-balance, .fo-cap-rs-reset, .fo-cap-rs-commit");
+      const rsBtn = e.target.closest(".fo-cap-rs-balance, .fo-cap-rs-reset");
       if (rsBtn && section.contains(rsBtn)) {
         e.stopPropagation();
         handleCapRestructureAction(rsBtn);
         return;
       }
-      // Clicks inside the editor row must never fall through to the row-click
-      // slide-over (the editor <tr> deliberately carries no data-pid).
-      if (e.target.closest(".fo-cap-rs-editor-row")) { e.stopPropagation(); return; }
+      // Loaded-MYAC editor — Balance / Reset / Commit.
+      const mlBtn = e.target.closest(".fo-cap-ml-balance, .fo-cap-ml-reset");
+      if (mlBtn && section.contains(mlBtn)) {
+        e.stopPropagation();
+        handleCapMyacLoadedAction(mlBtn);
+        return;
+      }
+      // Clicks inside an editor row must never fall through to the row-click
+      // slide-over (the editor <tr>s deliberately carry no data-pid).
+      if (e.target.closest(".fo-cap-rs-editor-row, .fo-cap-ml-editor-row")) { e.stopPropagation(); return; }
       // Team-name link in Summary.
       const link = e.target.closest(".fo-cap-team-link");
       if (link) {
@@ -5811,6 +6192,9 @@
         Object.keys(STATE.capRestructureDrafts).forEach(function (k) {
           if (k.endsWith(":" + fid)) clearCapRestructureDraft(k);
         });
+        Object.keys(STATE.capMyacLoadedDrafts).forEach(function (k) {
+          if (k.endsWith(":" + fid)) clearCapMyacLoadedDraft(k);
+        });
         renderCapTab();
         return;
       }
@@ -5846,21 +6230,55 @@
         openSlideover(tr.dataset.pid, tr.dataset.fid);
       }
     });
-    // Restructure-editor typing. `input` bubbles, so this rides the same
-    // once-bound section listener and survives every partial re-render.
+    // Editor typing (restructure + loaded MYAC). `input` bubbles, so this rides
+    // the same once-bound section listener and survives every partial re-render.
+    //
+    // Both editors read literal dollars — digits only. Deliberately NOT
+    // parseContractMoneyToken: that promotes "45" to $45,000, which would
+    // silently turn a typo into a plausible-looking cap number. A sub-$1,000
+    // entry stays sub-$1,000, fails the coherence test, and the grid keeps
+    // showing the real contract.
     section.addEventListener("input", function (e) {
-      const el = e.target.closest && e.target.closest(".fo-cap-rs-input");
-      if (!el) return;
-      const key = el.dataset.rsKey;
-      const idx = safeInt(el.dataset.rsIdx, -1);
-      const draft = STATE.capRestructureDrafts[key];
-      if (!draft || idx < 0 || idx >= draft.amounts.length) return;
-      // Literal dollars — digits only. Deliberately NOT parseContractMoneyToken:
-      // that promotes "45" to $45,000, which would silently turn a typo into a
-      // plausible-looking cap number. A sub-$1,000 entry stays sub-$1,000, fails
-      // the coherence test, and the grid keeps showing the real contract.
-      draft.amounts[idx] = Math.max(0, safeInt(String(el.value).replace(/[^0-9]/g, ""), 0));
-      rerenderCapDetailPreservingFocus();
+      const digits = function (el) { return Math.max(0, safeInt(String(el.value).replace(/[^0-9]/g, ""), 0)); };
+      const rsEl = e.target.closest && e.target.closest(".fo-cap-rs-input");
+      if (rsEl) {
+        const draft = STATE.capRestructureDrafts[rsEl.dataset.rsKey];
+        const idx = safeInt(rsEl.dataset.rsIdx, -1);
+        if (!draft || idx < 0 || idx >= draft.amounts.length) return;
+        draft.amounts[idx] = digits(rsEl);
+        rerenderCapDetailPreservingFocus();
+        return;
+      }
+      const mlEl = e.target.closest && e.target.closest(".fo-cap-ml-input");
+      if (mlEl) {
+        const draft = STATE.capMyacLoadedDrafts[mlEl.dataset.mlKey];
+        const idx = safeInt(mlEl.dataset.mlIdx, -1);
+        // Length guard doubles as a kind guard: a 2-year draft can never absorb
+        // a keystroke aimed at a 3-year editor.
+        if (!draft || draft.kind !== "myacl" + safeInt(mlEl.dataset.mlYears, 0)) return;
+        if (idx < 0 || idx >= draft.amounts.length) return;
+        draft.amounts[idx] = digits(mlEl);
+        // The final year is DERIVED — it absorbs whatever is left of the TCV,
+        // so the split always balances and the editor can't sit in an "over by
+        // $27,000" state. Recomputed on every keystroke against the same basis
+        // the evaluator uses; clamped at 0 rather than going negative, which
+        // keeps it a real number while the §C2 no-$0-year rule (checked in
+        // myacLoadedYearsError) reports the problem.
+        const mlLast = draft.amounts.length - 1;
+        if (mlLast > 0 && idx !== mlLast) {
+          // The preview key IS "pid:fid" (capPreviewKey), so the player is
+          // recoverable from it without adding data-attrs to every input.
+          const mlParts = String(mlEl.dataset.mlKey || "").split(":");
+          const mlBasis = myacLoadedBasis(findPlayer(mlParts[0] || "", mlParts[1] || ""), draft.amounts.length);
+          const mlTcv = (mlBasis && mlBasis.ok) ? safeInt(mlBasis.tcv, 0) : 0;
+          if (mlTcv > 0) {
+            let used = 0;
+            for (let i = 0; i < mlLast; i += 1) used += safeInt(draft.amounts[i], 0);
+            draft.amounts[mlLast] = Math.max(0, mlTcv - used);
+          }
+        }
+        rerenderCapDetailPreservingFocus();
+      }
     });
   }
 
@@ -5873,7 +6291,9 @@
     const team = capFocusedTeam();
     if (!host || !team) { renderCapTab(); return; }
     const act = document.activeElement;
-    const focusId = (act && act.id && act.classList && act.classList.contains("fo-cap-rs-input")) ? act.id : "";
+    const isEditorInput = act && act.classList &&
+      (act.classList.contains("fo-cap-rs-input") || act.classList.contains("fo-cap-ml-input"));
+    const focusId = (act && act.id && isEditorInput) ? act.id : "";
     let selStart = null, selEnd = null;
     if (focusId) { try { selStart = act.selectionStart; selEnd = act.selectionEnd; } catch (_) {} }
     host.innerHTML = renderCapDetailBody(team);
@@ -5911,29 +6331,46 @@
       rerenderCapDetailPreservingFocus();
       return;
     }
-    // Commit — hand off to the EXISTING submit chain. submitRestructure owns
-    // validation, the AAV/GTD/TCV tokens, the FL/BL suffix, the 5-loaded cap
-    // check, the confirm dialog and the POST. Nothing is duplicated here.
-    if (!ev.submittable) {
-      flashToast(ev.legal && !ev.dirty
-        ? "Nothing to submit — this is the current contract. Move money between years first."
-        : (ev.err || "Balance the years first."), "err");
+    // NO COMMIT PATH. Cap Planning models contracts; it never writes one
+    // (Keith 2026-08-01: "cap planning should be planning. ONLY"). The
+    // button is gone, the click delegation no longer matches it, and the
+    // submit call is removed outright rather than merely guarded — so a
+    // stale DOM node or a later edit cannot quietly re-open a write path
+    // from a planning surface. Applying it lives on the Contracts tab.
+  }
+
+  // Balance / Reset / Commit from the inline loaded-MYAC editor.
+  function handleCapMyacLoadedAction(btn) {
+    const key = btn.dataset.mlKey;
+    const p = findPlayer(btn.dataset.pid, btn.dataset.fid);
+    if (!p) return;
+    const totalYears = safeInt(btn.dataset.mlYears, 0);
+    const ev = capMyacLoadedEval(p, totalYears);
+    if (!ev.ok) { flashToast("Loaded MYAC unavailable — " + ev.reason, "err"); return; }
+    if (btn.classList.contains("fo-cap-ml-reset")) {
+      STATE.capMyacLoadedDrafts[key] = { kind: ev.kind, amounts: ev.flat.slice() };
+      rerenderCapDetailPreservingFocus();
       return;
     }
-    const me = STATE.me || {};
-    if (!((me.franchise_id && pad4(me.franchise_id) === pad4(p.fid)) || me.isAdmin)) {
-      flashToast("Preview only — you can't commit a restructure for another franchise.", "err");
+    if (btn.classList.contains("fo-cap-ml-balance")) {
+      // Same auto-fill the slide-over loaded form does: the LAST year absorbs
+      // whatever is left so Σ = TCV. Refuses to write a negative year.
+      const amts = ev.amounts.slice();
+      const last = amts.length - 1;
+      const head = amts.slice(0, last).reduce(function (a, b) { return a + b; }, 0);
+      const rest = ev.tcv - head;
+      if (rest < 0) { flashToast("The earlier years already exceed " + fmtUSD(ev.tcv) + " — lower one first.", "err"); return; }
+      amts[last] = rest;
+      STATE.capMyacLoadedDrafts[key] = { kind: ev.kind, amounts: amts };
+      rerenderCapDetailPreservingFocus();
       return;
     }
-    Promise.resolve(submitRestructure(p, ev.years, ev.amounts.slice()))
-      .then(function () {
-        // submitRestructure reloads the roster on success (and simply returns on
-        // cancel/failure). Re-render so the grid re-projects against whatever
-        // the contract now is — the preview is left in place either way, so a
-        // cancelled confirm never throws the owner's draft away.
-        renderCapTab();
-      })
-      .catch(function (err) { console.error("[fo] cap-plan restructure commit failed:", err); });
+    // NO COMMIT PATH. Cap Planning models contracts; it never writes one
+    // (Keith 2026-08-01: "cap planning should be planning. ONLY"). The
+    // button is gone, the click delegation no longer matches it, and the
+    // submit call is removed outright rather than merely guarded — so a
+    // stale DOM node or a later edit cannot quietly re-open a write path
+    // from a planning surface. Applying it lives on the Contracts tab.
   }
 
   // ══════════════════════════════════════════════════════════════════

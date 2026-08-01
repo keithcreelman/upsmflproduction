@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import asyncio
+import fcntl
 import functools
 import json
 import os
@@ -279,6 +280,86 @@ async def _dm_commish(text: str):
         await user.send(text[:1900])
     except Exception as e:
         print(f"[{datetime.now()}] commish DM failed: {e}")
+
+
+# ── Single-instance lock ───────────────────────────────────────────────────
+#
+# WHY: the poll loop's only dedupe is last_trade_timestamp.txt — read at the
+# top of a poll, written after each successful post. That is crash-safe for ONE
+# process and completely defenceless against two. Two copies both read the same
+# cursor, both compute the same new_trades, both post, both save. The league
+# gets the same roast twice (or six times).
+#
+# It has happened at least twice:
+#   2026-05-25  63 tracked rows across 7 trades
+#   2026-07-12  SIX distinct Discord messages for one trade inside two seconds,
+#               same thread, context_text arriving in two different lengths --
+#               i.e. two processes with two different context builds
+# Both windows coincide with launchd agent maintenance (the plists were edited
+# twice on 2026-07-12, and the duplicate burst lands between the two edits).
+#
+# The watchdog is NOT the culprit: it restarts via `launchctl kickstart -k`,
+# which kills the old process first. The hole is that nothing stops a SECOND
+# copy started outside launchd -- a manual `python trade_roast_bot.py --prod`,
+# or a `launchctl load` of an edited plist while the old job is still alive.
+#
+# flock, not a PID file: the lock is held by the kernel on an open descriptor
+# and is released automatically when the process dies, however it dies. That
+# matters because the watchdog SIGKILLs a hung bot -- a PID file would be left
+# stale by exactly the failure mode this system is built around.
+#
+# The path is absolute and checkout-independent on purpose: the repo has git
+# worktrees, and a lock under the repo would let a bot started from a worktree
+# run alongside one started from the main checkout.
+#
+# Scoped per environment so a `--test` run (which posts to the test channel) can
+# still be started while prod is live. Two PRODS are the failure mode; prod and
+# test coexisting is a normal workflow.
+#
+# KNOWN, NOT FIXED HERE: test and prod share last_trade_timestamp.txt, so a test
+# run can advance the prod cursor and make prod SKIP a trade. Separate bug from
+# duplicate-posting, and separate fix -- flagged rather than silently widened.
+SINGLETON_LOCK_PATH = f"/tmp/ups_roast_bot.{ROAST_BOT_ENV or 'unknown'}.lock"
+_singleton_lock_fd = None
+
+
+def acquire_singleton_lock(label: str = "roast-bot"):
+    """Take the exclusive run lock, or return False if another copy holds it.
+
+    The descriptor is deliberately kept in a module global for the lifetime of
+    the process. Letting it get garbage-collected would close it and silently
+    release the lock.
+    """
+    global _singleton_lock_fd
+    try:
+        fd = os.open(SINGLETON_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
+    except Exception as e:
+        # Never let a lock problem stop the bot from running -- a bot that does
+        # not post is a worse failure than one that might double-post.
+        print(f"[{datetime.now()}] WARN: could not open {SINGLETON_LOCK_PATH} ({e}); "
+              f"continuing WITHOUT a single-instance guard")
+        return True
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        try:
+            holder = os.read(fd, 64).decode("utf-8", "replace").strip()
+        except Exception:
+            holder = "unknown"
+        os.close(fd)
+        print(f"[{datetime.now()}] ABORT: another {label} instance is already running "
+              f"(lock {SINGLETON_LOCK_PATH} held by pid {holder or 'unknown'}). "
+              f"Exiting so the league does not get duplicate roasts.")
+        return False
+
+    _singleton_lock_fd = fd
+    try:
+        os.ftruncate(fd, 0)
+        os.write(fd, f"{os.getpid()}\n".encode())
+        os.fsync(fd)
+    except Exception:
+        pass
+    return True
 
 
 # Track last seen trade timestamp
@@ -1669,6 +1750,26 @@ def main():
 
         bot.run(BOT_TOKEN)
         return
+
+    # Single-instance guard -- POLLING PATH ONLY.
+    #
+    # The duplicate-roast bug (#800) is a property of the poll loop: its cursor
+    # is read at the top of a poll and written after each post, so two pollers
+    # both read it, both post, both save. Nothing else in this file has that
+    # problem.
+    #
+    # So the lock deliberately does NOT cover the one-off modes. --post-multiway
+    # was built to fire a single combined roast WHILE the launchd bot is live,
+    # --dry-run-multiway touches neither Discord nor Claude, and --test replaces
+    # on_ready so the poller never starts. Guarding those would break the exact
+    # workflow they exist for.
+    if not (args.test or args.test_ts or args.dry_run_multiway or args.post_multiway):
+        if not acquire_singleton_lock():
+            # Exit 0, not non-zero: the plist sets KeepAlive with
+            # ThrottleInterval=10, so a failing exit would have launchd
+            # relaunching every ten seconds for as long as the other copy ran.
+            time.sleep(30)
+            raise SystemExit(0)
 
     if args.prod:
         if args.test or args.test_ts:

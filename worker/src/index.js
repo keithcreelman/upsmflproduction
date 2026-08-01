@@ -26592,7 +26592,16 @@ export default {
         const rawAmount = node.amount ?? node.value ?? node.adjustment ?? "";
         const explanation = safeStr(node.description || node.explanation || node.note || node.notes || node.reason || "");
         const franchiseId = padFranchiseId(rawFranchiseId);
-        const amount = safeInt(parseMoneyTokenToDollars(rawAmount, { assumeKIfNoUnit: true }), NaN);
+        // RAW DOLLARS, never K. MFL's salaryAdjustments export states the
+        // amount literally ("4000.00", "-200"), so assumeKIfNoUnit is wrong
+        // here: it multiplies any bare value under 1000 by a thousand. The
+        // drop-penalty ROUNDING rows are sub-$1,000 by construction — they are
+        // the remainder left after rounding a team total to the nearest $1K
+        // (canon §6, "rounded on the SUM of penalties accrued") — so they trip
+        // it every single time. Real Deal Creel's "-200" was read as -200,000,
+        // turning a +$9,000 adjustment total into -$190,800; 8 of 12 teams (all
+        // and only the ones carrying a rounding row) had wrong cap adjustments.
+        const amount = safeInt(parseMoneyTokenToDollars(rawAmount, { assumeKIfNoUnit: false }), NaN);
         if (!franchiseId || !Number.isFinite(amount)) return null;
         return {
           franchise_id: franchiseId,
