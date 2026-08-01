@@ -231,8 +231,17 @@
     miscSubview: "log",   // Misc tab: "log" (Contract Log) | "glossary"
     capFocusedTeamFid: null,
     // Per-player preview state in Cap Plan Detail. Key = "pid:fid",
-    // value = "ext1" | "ext2" | "drop". Toggling re-runs the projection.
+    // value = "ext1" | "ext2" | "drop" | "restructure". Toggling re-runs the
+    // projection. Values are PLAIN STRINGS on purpose — every consumer compares
+    // with === (=== "drop", === "promote", …), so a preview that needs to carry
+    // extra state parks it in a parallel map instead of boxing this one.
     capPreviews: Object.create(null),
+    // Restructure-preview drafts, keyed the SAME "pid:fid" way:
+    //   { amounts: [y1, y2, y3?] }   ← raw dollars, one entry per remaining year
+    // Only meaningful while capPreviews[key] === "restructure"; cleared in
+    // lockstep with the preview (clearCapRestructureDraft) so a stale draft can
+    // never resurface on a later toggle.
+    capRestructureDrafts: Object.create(null),
     // Summary table filters (aggregate across teams).
     capSummaryFilters: { pos: "ALL", type: "", years: "", status: "" },
     capSummarySort: { key: "totalSalary", dir: -1 },
@@ -4348,13 +4357,143 @@
   const CAP_CEILING = 300000;
   const CAP_FLOOR   = 260000;
 
+  // ── Restructure preview (§C5) — Cap Planning only ──────────────────
+  //
+  // Planning-view scaffolding around the EXISTING restructure. It computes
+  // nothing about contract shape: the commit path is submitRestructure(),
+  // which owns validation, the AAV/GTD/TCV tokens, the FL/BL suffix, the
+  // confirm and the POST. Everything here only decides which numbers the
+  // Cap Detail grid may show.
+  //
+  // 🔒 Rule: never render a cap number we didn't compute from real contract
+  // data. `capRestructureRealYears` reads the contract's own Y-tokens and
+  // NOTHING else — no player.salary fallback, no AAV/TCV averaging (that's
+  // what contractYearValueMapForPlayer does via contractYearFallbackValue,
+  // and a manufactured year salary presented as a projection is worse than
+  // no editor). Unresolvable → ok:false → the control is disabled with the
+  // reason in its tooltip.
+
+  function capPreviewKey(p) { return safeStr(p && p.id) + ":" + safeStr(p && p.fid); }
+  function clearCapRestructureDraft(key) { delete STATE.capRestructureDrafts[key]; }
+
+  function capRestructureRealYears(p) {
+    const out = { ok: false, reason: "", years: 0, startIdx: 0, amounts: [], tcv: 0, minY1: 0 };
+    if (!p) { out.reason = "No player."; return out; }
+    const years = Math.max(0, safeInt(p.years, 0));
+    out.years = years;
+    if (years < 2) { out.reason = "Needs 2+ contract years remaining to redistribute."; return out; }
+    // Explicit Y-tokens ONLY (parseContractYearValues), never the derived map.
+    const yv = parseContractYearValues(p.special);
+    if (!Object.keys(yv).length) {
+      out.reason = "This contract carries no per-year (Y1-… ) salary tokens, so its remaining-year salaries can't be read from the contract — nothing to redistribute without inventing numbers.";
+      return out;
+    }
+    const len = contractLengthForPlayer(p);
+    const startIdx = contractYearIndexForPlayer(p);
+    out.startIdx = startIdx;
+    if (startIdx <= 0 || startIdx + years - 1 > len) {
+      out.reason = "Contract length (CL " + len + ") and years remaining (" + years + ") disagree — can't tell which years are still owed.";
+      return out;
+    }
+    const amounts = [];
+    for (let i = startIdx; i < startIdx + years; i += 1) {
+      const v = safeInt(yv[i], 0);
+      if (v <= 0) {
+        out.reason = "No Y" + i + " salary token on this contract — the remaining-year salaries are incomplete.";
+        return out;
+      }
+      amounts.push(v);
+    }
+    const tcv = totalContractValueForPlayer(p);
+    if (tcv <= 0) { out.reason = "No readable TCV on this contract."; return out; }
+    // submitRestructure requires Σ(remaining years) === TCV. When the contract's
+    // OWN remaining-year salaries don't already total the TCV (typically a
+    // mid-contract deal whose TCV token still covers earned years), there is no
+    // neutral draft: every committable draft would have to invent money the
+    // player isn't owed. Decline the editor rather than nudge an owner into a
+    // cap-inflating submit — the Contracts sub-tab form is unchanged and still
+    // reachable for anyone who genuinely needs it.
+    const owed = amounts.reduce(function (a, b) { return a + b; }, 0);
+    if (owed !== tcv) {
+      out.reason = "The remaining years total " + fmtUSD(owed) + " but this contract's TCV token reads " +
+        fmtUSD(tcv) + " (a restructure must re-slot the TCV exactly), so there's no honest way to " +
+        "re-slot it from here — check the contract in the Contracts tab.";
+      return out;
+    }
+    out.ok = true;
+    out.amounts = amounts;
+    out.tcv = tcv;
+    // §C5 floor, mirrored from openRestructureForm. A THRESHOLD, not a rendered
+    // cap number — `ok` above already records whether the year salaries were
+    // genuinely resolved, so this Math.max can't launder a made-up projection.
+    out.minY1 = Math.max(1000, Math.ceil(tcv * 0.20 / 1000) * 1000);
+    return out;
+  }
+
+  // Full state of a row's restructure preview: the real remaining years, the
+  // current draft, and whether that draft may be projected / committed.
+  //   coherent — the draft is arithmetically the same money submitRestructure
+  //              re-slots (whole $1,000s, Σ = TCV). ONLY a coherent draft is
+  //              allowed to replace the real numbers in the grid.
+  //   legal    — additionally clears the §C5 floors submitRestructure enforces
+  //              (Y1 ≥ 20% TCV, no year under $1,000). Gates Commit.
+  function capRestructureEval(p) {
+    const key = capPreviewKey(p);
+    const real = capRestructureRealYears(p);
+    const out = {
+      key: key, ok: real.ok, reason: real.reason, years: real.years,
+      tcv: real.tcv, minY1: real.minY1,
+      real: real.amounts.slice(), amounts: real.amounts.slice(),
+      sum: 0, left: 0, dirty: false, coherent: false, legal: false, err: ""
+    };
+    if (!real.ok) return out;
+    const draft = STATE.capRestructureDrafts[key];
+    if (draft && Array.isArray(draft.amounts) && draft.amounts.length === real.years) {
+      out.amounts = draft.amounts.map(function (v) { return Math.max(0, safeInt(v, 0)); });
+    }
+    out.sum = out.amounts.reduce(function (a, b) { return a + b; }, 0);
+    out.left = real.tcv - out.sum;
+    out.dirty = out.amounts.some(function (v, i) { return v !== out.real[i]; });
+    const wholeK = out.amounts.every(function (v) { return v % 1000 === 0; });
+    out.coherent = wholeK && out.sum === real.tcv;
+    if (!wholeK) out.err = "Whole $1,000s only.";
+    else if (out.sum !== real.tcv) {
+      out.err = (out.left > 0 ? fmtUSD(out.left) + " left to allocate." : fmtUSD(-out.left) + " over the required total.");
+    } else if (out.amounts[0] < real.minY1) {
+      out.err = "Year 1 must be ≥ " + fmtUSD(real.minY1) + " (20% of TCV).";
+    } else if (out.amounts.some(function (v) { return v < 1000; })) {
+      out.err = "No year can be under $1,000 — there are no $0 years.";
+    }
+    out.legal = out.coherent && !out.err;
+    // A valid-but-UNCHANGED draft must never be submittable. Opening the editor
+    // seeds the contract's own years, so without this the owner can click Restr
+    // to look at a shape and then Commit a no-op — and a no-op restructure is
+    // NOT harmless: submitRestructure sees y1 === the prior current-year salary,
+    // reads that as "flat", and writes a contractStatus with the -FL/-BL suffix
+    // STRIPPED. Hurts (Vet-Ext2-BL, 47/53/53) would come back Vet-Ext2 while his
+    // year shape is still back-loaded — which frees a slot under the 5-loaded
+    // cap (isLoadedRow keys off that suffix), burns one of the 3 season uses,
+    // and rewrites GTD. Commit requires an actual change.
+    out.submittable = out.legal && out.dirty;
+    return out;
+  }
+
+  // Draft amounts to PROJECT for this player, or null when the grid must fall
+  // back to the real contract numbers (no draft, unresolvable, or incoherent).
+  function capRestructureProjection(p) {
+    const ev = capRestructureEval(p);
+    return (ev.ok && ev.coherent) ? ev.amounts : null;
+  }
+
   // For a single player, return the projected cap hit for year offset
   // (0 = current season, 1 = next, 2 = year after). Honors active
-  // preview state (ext1 / ext2 / drop) from STATE.capPreviews.
+  // preview state (ext1 / ext2 / drop / restructure) from STATE.capPreviews;
+  // pass ignorePreview=true to get the untouched real projection (used to
+  // annotate "was $X" on previewed money cells).
   // Canon: taxi=$0 (§6.E), IR×0.5 (§6.C), expired=$0.
-  function projectedPlayerCapForOffset(p, offset) {
+  function projectedPlayerCapForOffset(p, offset, ignorePreview) {
     if (!p) return 0;
-    const preview = STATE.capPreviews[p.id + ":" + p.fid] || null;
+    const preview = ignorePreview ? null : (STATE.capPreviews[p.id + ":" + p.fid] || null);
 
     // ── Drop preview ─────────────────────────────────────────────
     // The cut player contributes NO salary to ANY year. The dead-cap penalty is
@@ -4406,6 +4545,19 @@
     if ((preview === "myac2" || preview === "myac3") && offset > 0) {
       const extraYears = preview === "myac3" ? 2 : 1;   // years beyond Y+0
       baseAmt = offset <= extraYears ? safeInt(p.salary, 0) : 0;
+    }
+
+    // ── Restructure preview overlay (§C5) ────────────────────────
+    // The drafted per-year salary replaces the contract's real year map for
+    // every remaining year — that's the whole mechanism by which the editor
+    // reaches the year totals, the adjustment callout and the cap %; nothing
+    // else is wired. Sits HERE (after the taxi early-return, before the IR
+    // branch) so taxi still projects $0 and IR still takes its 50% relief on
+    // the drafted Y1. capRestructureProjection returns null for an
+    // unresolvable contract or an incoherent draft, leaving baseAmt real.
+    if (preview === "restructure") {
+      const rsAmts = capRestructureProjection(p);
+      if (rsAmts) baseAmt = offset < rsAmts.length ? safeInt(rsAmts[offset], 0) : 0;
     }
 
     if (p.isIr && offset === 0) return Math.round(baseAmt * 0.5);
@@ -5180,11 +5332,20 @@
     return `<div class="fo-cap-bars" aria-hidden="true">${segs}</div>`;
   }
 
+  // The team the Detail view is pinned to. Factored out so the in-place
+  // re-render used while typing in the restructure editor resolves exactly
+  // the same team renderCapDetail() did.
+  function capFocusedTeam() {
+    const teams = STATE.teams || [];
+    if (!teams.length) return null;
+    const focusFid = STATE.capFocusedTeamFid || (STATE.me && STATE.me.franchise_id) || teams[0].fid;
+    return teams.find(function (t) { return t.fid === focusFid; }) || teams[0];
+  }
+
   function renderCapDetail() {
     const teams = STATE.teams;
     if (!teams.length) return '<div class="fo-placeholder">No teams loaded.</div>';
-    const focusFid = STATE.capFocusedTeamFid || (STATE.me && STATE.me.franchise_id) || teams[0].fid;
-    const team = STATE.teams.find(function (t) { return t.fid === focusFid; }) || teams[0];
+    const team = capFocusedTeam();
     const yr0 = safeInt(SEASON, 0);
     const opts = teams.map(function (t) {
       return `<option value="${escapeHtml(t.fid)}" ${t.fid === team.fid ? "selected" : ""}>${escapeHtml(t.name)}</option>`;
@@ -5307,7 +5468,7 @@
     const arrow = (key) => sort.key === key ? (sort.dir > 0 ? " ▲" : " ▼") : "";
     return `
       <p class="fo-row-hint">
-        💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / Drop / Promote</strong> on any row to preview the impact on team totals (toggle off by clicking again). MYAC previews are flat (even-split) auction contracts. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
+        💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / Drop / Promote / Restr</strong> on any row to preview the impact on team totals (toggle off by clicking again). MYAC previews are flat (even-split) auction contracts. <strong>Restr</strong> opens an inline editor to re-slot the same contract total across the remaining years — the year totals above move as you type, and Commit submits the real restructure. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
       </p>
       <div class="fo-cap-totals">
         <div><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
@@ -5372,40 +5533,143 @@
     if (canPromote) {
       btns.push(`<button class="btn small ${active === "promote" ? "ok" : "secondary"} fo-cap-prev-btn" data-preview="promote" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Promote</button>`);
     }
+    // Restructure (§C5) — inline multi-year editor. Offered on the same terms
+    // the Contracts sub-tab uses (rosterContractEligibility.restructureEligible);
+    // taxi is excluded because a taxi player's cap hit is $0 in every year, so
+    // there is nothing to re-slot. When the contract's remaining-year salaries
+    // can't be read the button is DISABLED with the reason in its tooltip —
+    // never silently backfilled from player.salary.
+    let rsEval = null;
+    if (elig.restructureEligible && !p.isTaxi) {
+      rsEval = capRestructureEval(p);
+      btns.push(rsEval.ok
+        ? `<button class="btn small ${active === "restructure" ? "" : "secondary"} fo-cap-prev-btn" data-preview="restructure" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Re-slot ${fmtUSD(rsEval.tcv)} across the remaining ${rsEval.years} years">Restr</button>`
+        : `<button class="btn small secondary" disabled data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Restructure unavailable — ${escapeHtml(rsEval.reason)}" style="opacity:.45; cursor:not-allowed;">Restr</button>`);
+    }
     const previewCell = btns.length ? btns.join(" ") : '<span class="small" style="color:var(--muted);">—</span>';
+    const rsActive = active === "restructure" && rsEval && rsEval.ok;
 
     // Row class — drop gets a red tint so it's obvious; promote gets
     // a green tint; ext gets the existing blue. Keith 2026-05-19:
     // "Drop should show as red and indicate penalty so we know."
+    // Restructure gets violet, and a distinct dashed treatment when the draft
+    // is incoherent (the grid is then showing REAL numbers, not the draft).
     let rowClass = "";
     if (active === "drop")                      rowClass = "fo-cap-row-drop";
     else if (active === "promote")              rowClass = "fo-cap-row-promote";
+    else if (rsActive)                          rowClass = rsEval.coherent ? "fo-cap-row-restructure" : "fo-cap-row-rs-invalid";
     else if (active === "ext1" || active === "ext2" || active === "myac2" || active === "myac3") rowClass = "fo-cap-row-active";
+
+    // Money cell under a restructure preview — shows the drafted number plus
+    // what it WAS (the real projection, recomputed with the preview ignored).
+    const rsMoneyCell = function (off, val) {
+      if (!rsActive || !rsEval.coherent) return fmtUSD(val);
+      const was = projectedPlayerCapForOffset(p, off, true);
+      if (was === val) return fmtUSD(val);
+      return `${fmtUSD(val)} <span class="fo-cap-was ${val > was ? "up" : "down"}" title="Current contract: ${fmtUSD(was)}">was ${fmtUSD(was)}</span>`;
+    };
 
     // Y+0 cell annotation when dropping — "(penalty)" makes the cap charge
     // unmistakable vs a salary.
     const y0Cell = active === "drop"
       ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(safeInt(dropPenaltyEstimate(p).amount, 0))} dead cap → adj)</span>`
-      : fmtUSD(cy);
+      : rsMoneyCell(0, cy);
 
     const statusKls = active === "drop" ? "drop-preview"
                      : active === "promote" ? "active"
+                     : rsActive ? "rs-preview"
                      : rosterStatusClass(p);
     const statusLbl = active === "drop" ? "DROPPED"
                      : active === "promote" ? "→ ACTIVE"
+                     : rsActive ? (rsEval.coherent ? "RESTR (draft)" : "DRAFT ✗")
                      : rosterStatusLabel(p);
 
-    return `
+    const mainRow = `
       <tr class="${rowClass}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">
         <td>${escapeHtml(p.name)}</td>
         <td><span class="fo-pos ${escapeHtml(posBucket(p.position))}">${escapeHtml(p.position)}</span></td>
         <td><span class="fo-ctype ${ctypeClass(p.type)}">${escapeHtml(String(p.type || "—").toUpperCase())}</span></td>
         <td class="col-lo num">${safeInt(p.years, 0) || "—"}</td>
         <td class="num">${y0Cell}</td>
-        <td class="num">${fmtUSD(ny)}</td>
-        <td class="num">${fmtUSD(ny2)}</td>
+        <td class="num">${rsMoneyCell(1, ny)}</td>
+        <td class="num">${rsMoneyCell(2, ny2)}</td>
         <td>${previewCell}</td>
         <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span></td>
+      </tr>`;
+    // The editor is a SIBLING <tr> right under the player's row (not a modal)
+    // so the year totals stay on screen while the owner types.
+    return rsActive ? mainRow + renderCapRestructureEditorRow(p, team, rsEval) : mainRow;
+  }
+
+  // Inline restructure editor (§C5) — one <tr>, colspan the full grid.
+  // Purely a planning surface: Commit hands the drafted year amounts to
+  // submitRestructure(), which owns validation, the confirm and the POST.
+  function renderCapRestructureEditorRow(p, team, ev) {
+    const yr0 = safeInt(SEASON, 0);
+    const domKey = ev.key.replace(/[^A-Za-z0-9]/g, "_");
+    const me = STATE.me || {};
+    const isMine = !!me.franchise_id && pad4(me.franchise_id) === pad4(p.fid);
+    const canCommit = isMine || !!me.isAdmin;
+    const inputs = ev.amounts.map(function (v, i) {
+      const changed = v !== ev.real[i];
+      return `
+        <label class="fo-cap-rs-field">
+          <span class="lbl">${yr0 + i}</span>
+          <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
+                 class="fo-cap-rs-input${changed ? " changed" : ""}"
+                 id="fo-cap-rs-in-${domKey}-${i}"
+                 data-rs-key="${escapeHtml(ev.key)}" data-rs-idx="${i}"
+                 value="${v}">
+          <span class="was">now ${fmtUSD(ev.real[i])}</span>
+        </label>`;
+    }).join("");
+    // §C5 3-per-season usage — INFORMATION ONLY (Keith 2026-07-31: no hard
+    // block here). Rendered only when the ledger happens to be loaded already;
+    // the Cap tab never fetches it just to show a number.
+    const usage = STATE.restructureUsage
+      ? ` · <span title="Informational only — not enforced here.">team restructures used this season: ${restructureUsedForFid(p.fid)}/${RESTRUCTURE_LIMIT}</span>`
+      : "";
+    let msgKls = "ok", msg;
+    if (!ev.coherent) {
+      msgKls = "warn";
+      msg = "Draft not applied — the grid above is showing the real contract. " + ev.err;
+    } else if (!ev.legal) {
+      msgKls = "warn";
+      msg = "Projected above, but this can't be submitted: " + ev.err;
+    } else if (!ev.dirty) {
+      msgKls = "muted";
+      msg = "Unchanged — this is the current contract. Move money between years to see the impact.";
+    } else {
+      msg = "Σ balances. Commit submits the restructure for confirmation.";
+    }
+    const commitTitle = !canCommit
+      ? "Only " + safeStr(p.franchise || team.name) + " (or the commish) can commit this — preview only."
+      : (ev.submittable ? "Submit this restructure"
+         : (ev.legal && !ev.dirty ? "Nothing to submit — move money between years first."
+            : "Balance the years first: " + ev.err));
+    return `
+      <tr class="fo-cap-rs-editor-row" data-rs-key="${escapeHtml(ev.key)}">
+        <td colspan="9">
+          <div class="fo-cap-rs-editor">
+            <div class="fo-cap-rs-head">
+              <strong>Restructure ${escapeHtml(p.name)}</strong>
+              <span class="small">re-slot the same total across the remaining ${ev.years} year${ev.years === 1 ? "" : "s"} · required total (TCV) <strong>${fmtUSD(ev.tcv)}</strong> · ${yr0} ≥ ${fmtUSD(ev.minY1)} (20% TCV) · whole $1,000s, no $0 year${usage}</span>
+            </div>
+            <div class="fo-cap-rs-inputs">${inputs}</div>
+            <div class="fo-cap-rs-sum">
+              <span>Σ <strong class="${ev.sum === ev.tcv ? "bal" : "off"}">${fmtUSD(ev.sum)}</strong> / ${fmtUSD(ev.tcv)}</span>
+              <span class="${ev.left === 0 ? "bal" : "off"}">${ev.left === 0 ? "fully allocated" : (ev.left > 0 ? fmtUSD(ev.left) + " left to allocate" : fmtUSD(-ev.left) + " over")}</span>
+            </div>
+            <div class="fo-cap-rs-msg ${msgKls}">${escapeHtml(msg)}</div>
+            <div class="fo-cap-rs-actions">
+              <button type="button" class="btn small secondary fo-cap-rs-balance" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Set ${yr0 + ev.years - 1} to whatever is left so Σ = TCV">Balance ${yr0 + ev.years - 1}</button>
+              <button type="button" class="btn small secondary fo-cap-rs-reset" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Reset to current</button>
+              ${canCommit
+                ? `<button type="button" class="btn small fo-cap-rs-commit" data-rs-key="${escapeHtml(ev.key)}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" ${ev.submittable ? "" : "disabled"} title="${escapeHtml(commitTitle)}"${ev.submittable ? "" : ' style="opacity:.45; cursor:not-allowed;"'}>${IS_DRY_RUN ? "Commit (dry-run)" : "Commit restructure"}</button>`
+                : `<span class="small fo-cap-rs-noauth" title="${escapeHtml(commitTitle)}">Preview only — not your franchise</span>`}
+            </div>
+          </div>
+        </td>
       </tr>`;
   }
 
@@ -5450,9 +5714,30 @@
         const kind = prev.dataset.preview;
         if (STATE.capPreviews[key] === kind) delete STATE.capPreviews[key];
         else STATE.capPreviews[key] = kind;
+        // The restructure draft lives in a parallel map — clear it whenever the
+        // preview is turned off OR switched to another kind, or a stale draft
+        // reappears the next time this row is previewed.
+        if (STATE.capPreviews[key] !== "restructure") clearCapRestructureDraft(key);
+        else {
+          // Seed NEUTRAL: the contract's real remaining-year salaries, so the
+          // totals don't budge until the owner actually moves money.
+          const seed = capRestructureRealYears(findPlayer(prev.dataset.pid, prev.dataset.fid));
+          if (seed.ok) STATE.capRestructureDrafts[key] = { amounts: seed.amounts.slice() };
+          else delete STATE.capPreviews[key];   // unresolvable → no preview at all
+        }
         renderCapTab();
         return;
       }
+      // Restructure editor — Balance / Reset / Commit.
+      const rsBtn = e.target.closest(".fo-cap-rs-balance, .fo-cap-rs-reset, .fo-cap-rs-commit");
+      if (rsBtn && section.contains(rsBtn)) {
+        e.stopPropagation();
+        handleCapRestructureAction(rsBtn);
+        return;
+      }
+      // Clicks inside the editor row must never fall through to the row-click
+      // slide-over (the editor <tr> deliberately carries no data-pid).
+      if (e.target.closest(".fo-cap-rs-editor-row")) { e.stopPropagation(); return; }
       // Team-name link in Summary.
       const link = e.target.closest(".fo-cap-team-link");
       if (link) {
@@ -5493,6 +5778,11 @@
         Object.keys(STATE.capPreviews).forEach(function (k) {
           if (k.endsWith(":" + fid)) delete STATE.capPreviews[k];
         });
+        // Drafts are cleared by the SAME key rule — a preview and its draft
+        // always die together (residue would resurface on the next toggle).
+        Object.keys(STATE.capRestructureDrafts).forEach(function (k) {
+          if (k.endsWith(":" + fid)) clearCapRestructureDraft(k);
+        });
         renderCapTab();
         return;
       }
@@ -5528,6 +5818,94 @@
         openSlideover(tr.dataset.pid, tr.dataset.fid);
       }
     });
+    // Restructure-editor typing. `input` bubbles, so this rides the same
+    // once-bound section listener and survives every partial re-render.
+    section.addEventListener("input", function (e) {
+      const el = e.target.closest && e.target.closest(".fo-cap-rs-input");
+      if (!el) return;
+      const key = el.dataset.rsKey;
+      const idx = safeInt(el.dataset.rsIdx, -1);
+      const draft = STATE.capRestructureDrafts[key];
+      if (!draft || idx < 0 || idx >= draft.amounts.length) return;
+      // Literal dollars — digits only. Deliberately NOT parseContractMoneyToken:
+      // that promotes "45" to $45,000, which would silently turn a typo into a
+      // plausible-looking cap number. A sub-$1,000 entry stays sub-$1,000, fails
+      // the coherence test, and the grid keeps showing the real contract.
+      draft.amounts[idx] = Math.max(0, safeInt(String(el.value).replace(/[^0-9]/g, ""), 0));
+      rerenderCapDetailPreservingFocus();
+    });
+  }
+
+  // Re-render ONLY the Detail body (totals + grid) and put the caret back where
+  // it was. Keystrokes must not rebuild the toolbar (or the focused input dies),
+  // and totals must not be recomputed in a second place — renderCapDetailBody
+  // stays the single owner of every number on screen.
+  function rerenderCapDetailPreservingFocus() {
+    const host = $("#fo-cap-detail-body");
+    const team = capFocusedTeam();
+    if (!host || !team) { renderCapTab(); return; }
+    const act = document.activeElement;
+    const focusId = (act && act.id && act.classList && act.classList.contains("fo-cap-rs-input")) ? act.id : "";
+    let selStart = null, selEnd = null;
+    if (focusId) { try { selStart = act.selectionStart; selEnd = act.selectionEnd; } catch (_) {} }
+    host.innerHTML = renderCapDetailBody(team);
+    if (focusId) {
+      const next = document.getElementById(focusId);
+      if (next) {
+        next.focus();
+        if (selStart != null) { try { next.setSelectionRange(selStart, selEnd); } catch (_) {} }
+      }
+    }
+  }
+
+  // Balance / Reset / Commit from the inline restructure editor.
+  function handleCapRestructureAction(btn) {
+    const key = btn.dataset.rsKey;
+    const p = findPlayer(btn.dataset.pid, btn.dataset.fid);
+    if (!p) return;
+    const ev = capRestructureEval(p);
+    if (!ev.ok) { flashToast("Restructure unavailable — " + ev.reason, "err"); return; }
+    if (btn.classList.contains("fo-cap-rs-reset")) {
+      STATE.capRestructureDrafts[key] = { amounts: ev.real.slice() };
+      rerenderCapDetailPreservingFocus();
+      return;
+    }
+    if (btn.classList.contains("fo-cap-rs-balance")) {
+      // Same auto-fill the Contracts-tab form does: the LAST year absorbs
+      // whatever is left so Σ = TCV. Refuses to write a negative year.
+      const amts = ev.amounts.slice();
+      const last = amts.length - 1;
+      const head = amts.slice(0, last).reduce(function (a, b) { return a + b; }, 0);
+      const rest = ev.tcv - head;
+      if (rest < 0) { flashToast("The earlier years already exceed " + fmtUSD(ev.tcv) + " — lower one first.", "err"); return; }
+      amts[last] = rest;
+      STATE.capRestructureDrafts[key] = { amounts: amts };
+      rerenderCapDetailPreservingFocus();
+      return;
+    }
+    // Commit — hand off to the EXISTING submit chain. submitRestructure owns
+    // validation, the AAV/GTD/TCV tokens, the FL/BL suffix, the 5-loaded cap
+    // check, the confirm dialog and the POST. Nothing is duplicated here.
+    if (!ev.submittable) {
+      flashToast(ev.legal && !ev.dirty
+        ? "Nothing to submit — this is the current contract. Move money between years first."
+        : (ev.err || "Balance the years first."), "err");
+      return;
+    }
+    const me = STATE.me || {};
+    if (!((me.franchise_id && pad4(me.franchise_id) === pad4(p.fid)) || me.isAdmin)) {
+      flashToast("Preview only — you can't commit a restructure for another franchise.", "err");
+      return;
+    }
+    Promise.resolve(submitRestructure(p, ev.years, ev.amounts.slice()))
+      .then(function () {
+        // submitRestructure reloads the roster on success (and simply returns on
+        // cancel/failure). Re-render so the grid re-projects against whatever
+        // the contract now is — the preview is left in place either way, so a
+        // cancelled confirm never throws the owner's draft away.
+        renderCapTab();
+      })
+      .catch(function (err) { console.error("[fo] cap-plan restructure commit failed:", err); });
   }
 
   // ══════════════════════════════════════════════════════════════════
