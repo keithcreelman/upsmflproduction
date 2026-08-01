@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-08-01 03:48:59",
+    "generated_at": "2026-08-01 03:54:36",
     "source": "contract-activity-log",
-    "count": 101,
+    "count": 102,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "39fad49de410c48cc633af20",
+      "submission_id": "39fad49de410c48cc633af20",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0006",
+      "franchise_name": "The Long Haulers",
+      "player_id": "15834",
+      "player_name": "Hamilton, Kyle",
+      "position": "DB",
+      "salary": 3000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 2|TCV 6K|AAV 3K|Y1-3K, Y2-3K|GTD: 4.5K",
+      "tcv": 6000,
+      "aav": 3000,
+      "guaranteed": 4500,
+      "submitted_at_utc": "2026-08-01T03:54:18.861Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1532959647726829782",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "b38feb4029dbac0eafdf1214",
       "submission_id": "b38feb4029dbac0eafdf1214",
