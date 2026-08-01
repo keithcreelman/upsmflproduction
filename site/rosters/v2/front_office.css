@@ -849,3 +849,20 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
    sweep (0,9,2). The standalone page has no sweep, so this is embed-only by
    construction (no #ups-front-office there). */
 #ups-front-office .small { color: var(--muted) !important; }
+
+/* Loaded-MYAC final year: DERIVED, not typed. It absorbs whatever is left of
+   the TCV so the split always balances — styled as a computed readout rather
+   than an input so it doesn't invite a click that goes nowhere. */
+.fo-root .fo-cap-ml-field.derived .lbl::after {
+  content: " (auto)";
+  font-size: 9px;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.fo-root .fo-cap-ml-input.derived {
+  background: var(--panel-alt);
+  color: var(--muted);
+  border-style: dashed;
+  cursor: default;
+}
+.fo-root .fo-cap-ml-input.derived.changed { color: var(--text); font-weight: 600; }

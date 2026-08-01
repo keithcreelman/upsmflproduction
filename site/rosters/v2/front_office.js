@@ -5910,8 +5910,26 @@
     const me = STATE.me || {};
     const isMine = !!me.franchise_id && pad4(me.franchise_id) === pad4(p.fid);
     const canCommit = isMine || !!me.isAdmin;
+    // The FINAL year is derived, never typed: it is always TCV minus the years
+    // above it, so the split balances by construction and "$27,000 over" can no
+    // longer happen (Keith 2026-08-01). Same rule the slide-over loaded-MYAC
+    // form already uses — there Y2 (2-yr) / Y3 (3-yr) is computed, not an input.
+    const lastIdx = ev.amounts.length - 1;
     const inputs = ev.amounts.map(function (v, i) {
       const changed = v !== ev.flat[i];
+      const derived = i === lastIdx;
+      if (derived) {
+        return `
+        <label class="fo-cap-ml-field derived">
+          <span class="lbl">${yr0 + i}</span>
+          <input type="text" readonly tabindex="-1" aria-readonly="true"
+                 class="fo-cap-ml-input derived${changed ? " changed" : ""}"
+                 id="fo-cap-ml-in-${domKey}-${i}"
+                 title="Auto — whatever is left of the ${fmtUSD(ev.tcv)} total"
+                 value="${v}">
+          <span class="was">auto · flat ${fmtUSD(ev.flat[i])}</span>
+        </label>`;
+      }
       return `
         <label class="fo-cap-ml-field">
           <span class="lbl">${yr0 + i}</span>
@@ -6197,6 +6215,25 @@
         if (!draft || draft.kind !== "myacl" + safeInt(mlEl.dataset.mlYears, 0)) return;
         if (idx < 0 || idx >= draft.amounts.length) return;
         draft.amounts[idx] = digits(mlEl);
+        // The final year is DERIVED — it absorbs whatever is left of the TCV,
+        // so the split always balances and the editor can't sit in an "over by
+        // $27,000" state. Recomputed on every keystroke against the same basis
+        // the evaluator uses; clamped at 0 rather than going negative, which
+        // keeps it a real number while the §C2 no-$0-year rule (checked in
+        // myacLoadedYearsError) reports the problem.
+        const mlLast = draft.amounts.length - 1;
+        if (mlLast > 0 && idx !== mlLast) {
+          // The preview key IS "pid:fid" (capPreviewKey), so the player is
+          // recoverable from it without adding data-attrs to every input.
+          const mlParts = String(mlEl.dataset.mlKey || "").split(":");
+          const mlBasis = myacLoadedBasis(findPlayer(mlParts[0] || "", mlParts[1] || ""), draft.amounts.length);
+          const mlTcv = (mlBasis && mlBasis.ok) ? safeInt(mlBasis.tcv, 0) : 0;
+          if (mlTcv > 0) {
+            let used = 0;
+            for (let i = 0; i < mlLast; i += 1) used += safeInt(draft.amounts[i], 0);
+            draft.amounts[mlLast] = Math.max(0, mlTcv - used);
+          }
+        }
         rerenderCapDetailPreservingFocus();
       }
     });
