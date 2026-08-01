@@ -7615,7 +7615,17 @@
     // ruling 2026-07-23 — do NOT use "Y1 vs AAV" (breaks on escalated dual-AAV
     // deals: Hurts 67→47 is -BL even though Y1-47 > AAV-42). Strip any existing
     // suffix; equal = flat = no suffix.
-    var priorCurrentSalary = safeInt(parseContractYearValues(priorInfo)[1], 0) ||
+    // BASIS = the CURRENT year's salary, i.e. Y-token
+    // [contractYearIndexForPlayer(player)] — NOT [1]. Y-tokens are absolute
+    // across a contract's life, so [1] is the current year ONLY on an untouched
+    // deal. Reading [1] mid-contract compares against a year already earned and
+    // inverts the suffix: Herbert (CL 3 | Y1-61, Y2-51, Y3-41 | 2 left) has a
+    // current-year salary of $51K, so re-slotting the remaining $92K to 55/37
+    // moved money UP = -FL — but against Y1-61 it reads 55 < 61 and writes -BL.
+    // That mis-types the contract permanently and feeds the 5-loaded cap.
+    // Every fixture that verified this rule (Hurts, London, Cook, McLaurin) is a
+    // contract whose current year IS year 1, which is why the bug survived.
+    var priorCurrentSalary = safeInt(currentContractYearValue(player), 0) ||
                              Math.max(1000, restructureRoundToK(safeInt(player && player.salary, 0)));
     var baseType = safeStr(player && player.type || "Veteran").replace(/-(FL|BL)$/i, "");
     var loadSuffix = (priorCurrentSalary > 0 && y1 > priorCurrentSalary) ? "-FL"

@@ -5812,7 +5812,17 @@
     // deals: Hurts 67→47 is -BL even though Y1-47 > AAV-42). Strip any existing
     // suffix first; equal = flat = no suffix. The suffix also drives the 5-loaded
     // roster cap (isLoadedRow keys off it).
-    const priorCurrentSalary = safeInt(parseContractYearValues(p.special)[1], 0) ||
+    // BASIS = the CURRENT year's salary, i.e. Y-token
+    // [contractYearIndexForPlayer(player)] — NOT [1]. Y-tokens are absolute
+    // across a contract's life, so [1] is the current year ONLY on an untouched
+    // deal. Reading [1] mid-contract compares against a year already earned and
+    // inverts the suffix: Herbert (CL 3 | Y1-61, Y2-51, Y3-41 | 2 left) has a
+    // current-year salary of $51K, so re-slotting the remaining $92K to 55/37
+    // moved money UP = -FL — but against Y1-61 it reads 55 < 61 and writes -BL.
+    // That mis-types the contract permanently and feeds the 5-loaded cap.
+    // Every fixture that verified this rule (Hurts, London, Cook, McLaurin) is a
+    // contract whose current year IS year 1, which is why the bug survived.
+    const priorCurrentSalary = safeInt(currentContractYearValue(p), 0) ||
                                roundToK(safeInt(p.salary, 0));
     const baseType = String(p.type || "Veteran").replace(/-(FL|BL)$/i, "");
     const loadSuffix = (priorCurrentSalary > 0 && y1 > priorCurrentSalary) ? "-FL"
