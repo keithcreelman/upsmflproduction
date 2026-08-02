@@ -1,4 +1,4 @@
 {
-  "build": "2026.07.02.1",
-  "label": "Stats: Routes set (Routes / Route% / TPRR / YPRR + NGS separation) on WR/TE/RB, NGS set (Time-to-Throw / AGG%) on QB, and the Market set from the earlier build \u2014 2016+ tracking data."
+  "build": "2026.08.02.1",
+  "label": "Waivers: submitting a verified claim now returns you to the Market, toasts are visible again (they were painted behind the claims screen), editing a bid keeps its priority slot, and the Market Bid button opens the claim you already made."
 }

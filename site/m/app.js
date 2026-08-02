@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.07.02.1";
+  var BUILD = "2026.08.02.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -2250,6 +2250,17 @@
     detectContext();
     window.addEventListener("ups-cap-penalty-ready", function () { try { renderRoute(); } catch (_) {} });
     window.addEventListener("hashchange", function () {
+      // The waiver overlays are appended to #ups-m-app, a SIBLING of the
+      // #ups-m-main that renderRoute() repaints — so navigating (Android Back,
+      // a nav-bar tap) used to swap the route silently UNDERNEATH a still-open
+      // full-screen overlay. Back appeared to do nothing, and the overlay's ‹
+      // then dropped you on a screen you never chose. Dismiss them first.
+      // #players/claims is the one route that legitimately owns an overlay.
+      if (currentRoute() !== "players/claims" &&
+          window.UPS_MOBILE && window.UPS_MOBILE.waiverUI &&
+          window.UPS_MOBILE.waiverUI.dismissOverlays) {
+        window.UPS_MOBILE.waiverUI.dismissOverlays();
+      }
       renderRoute();
       updateNavBadges();
     });

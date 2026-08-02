@@ -405,7 +405,10 @@ button.ups-m-busy::before,
   position: fixed;
   left: 12px; right: 12px;
   bottom: calc(var(--nav-h) + var(--safe-bot) + 12px);
-  z-index: 200;
+  /* Outranks even the toast (1200): this one is a call to ACTION with a button
+     in it, not a status line, and the two occupy the same band above the nav —
+     an opaque toast centred over it would swallow the Reload button. */
+  z-index: 1300;
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px;
   background: var(--accent);
@@ -668,7 +671,17 @@ button.ups-m-busy::before,
   font-size: 13px;
   opacity: 0;
   transition: opacity 200ms, transform 200ms;
-  z-index: 50;
+  /* ABOVE EVERY MODAL LAYER. The toast is the app's primary confirmation
+     channel, and it lives as a plain sibling of the overlays inside
+     #ups-m-app — same stacking context, so z-index alone decides. At the old
+     z-index:50 every toast fired from inside a waiver overlay (claims 104 and
+     OPAQUE, bid sheet 108, drop picker 110, sheet backdrop 1000) was painted
+     BEHIND a solid screen and never seen: "Claim updated", "Claims submitted ✓",
+     and — worst — the duplicate-claim refusal, which made "Add to claims" look
+     like a dead button. pointer-events:none means sitting on top blocks
+     nothing. Above every modal layer; only .ups-m-update-banner (1300)
+     outranks it, because that one has a button a toast would cover. */
+  z-index: 1200;
   pointer-events: none;
   max-width: 88%;
   text-align: center;
@@ -3251,8 +3264,42 @@ button.ups-m-busy::before,
    In-app waivers (2026-07-30) — Market CTAs, bid sheet, claims screen.
    Layering: player sheet 100 < claims 104 < bid 108 < drop picker 110
    (the drop picker is opened FROM the bid sheet, which is opened FROM the
-   claims screen, so each must sit above its parent). Toasts stay on top.
+   claims screen, so each must sit above its parent) < toast 1200.
+   The toast really does stay on top NOW — this comment asserted it from day
+   one while .ups-m-toast sat at z-index:50, so every confirmation this flow
+   emitted was invisible. Fixed 2026-08-01; see the note on .ups-m-toast.
    ═════════════════════════════════════════════════════════════════════════ */
+
+/* One-shot success line after a fully-verified submit drops you back on the
+   Market. Sits directly above the window strip so the eye lands on it where
+   the claims screen used to be. Time-boxed in JS (see waiverFlash). */
+.ups-m-waiver-flash {
+  padding: 8px 12px;
+  background: rgba(139, 229, 139, 0.1);       /* --ok #8be58b, matching .ups-m-lineup-msg.ok */
+  border-top: 1px solid var(--line);
+  border-left: 3px solid var(--ok);
+  color: var(--ok);
+  font-size: 12px;
+  font-weight: 600;
+  animation: ups-m-flash-in 240ms ease-out;
+}
+/* Submitted successfully, but MFL attached an advisory §6 note (roster
+   headroom / cap room / unread limits). Still a success — different colour so
+   it reads as "done, and read this" rather than "done". */
+.ups-m-waiver-flash.warn {
+  background: rgba(255, 184, 107, 0.12);       /* --warn #ffb86b */
+  border-left-color: var(--warn);
+  color: var(--warn);
+  font-weight: 500;
+  line-height: 1.45;
+}
+@keyframes ups-m-flash-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ups-m-waiver-flash { animation: none; }
+}
 
 /* ----- Window context strip (sits under the Market toolbar) ----- */
 .ups-m-waiver-strip {

@@ -210,7 +210,17 @@
       // Nudge when a run is imminent AND there is something staged to lose —
       // only meaningful when the owner can actually still submit it.
       dot: info.mode === "bbid" && info.writeEnabled && staged > 0 && W.isDirty && W.isDirty(),
-      href: "#players/claims"
+      // With nothing claimed, the claims screen's entire content is "go to the
+      // Market and tap Bid" — so send them there directly rather than through
+      // a dead end. With claims to review, the claims screen IS the answer.
+      //
+      // Route on KNOWLEDGE, not on the count (§1). `pending` above is forced to
+      // 0 when the read failed, because unknown must never render as a count —
+      // but consuming that 0 as "they have none" would shortcut an owner whose
+      // live claims we simply couldn't read past the one screen that explains
+      // that. Only a confirmed-empty read takes the shortcut.
+      href: (count > 0 || (viewer && viewer.pending_known === false))
+        ? "#players/claims" : "#players"
     };
   }
 

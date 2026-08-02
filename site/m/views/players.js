@@ -371,6 +371,39 @@
     });
     return rounds;
   }
+  // Where this player's FIRST staged claim lives, as an editRef the bid sheet
+  // understands. commitPlan keeps the plan round-sorted, so "first" is the
+  // lowest group — the one that gets processed soonest.
+  function firstStagedRefFor(pid) {
+    var plan = stagedPlan();
+    for (var i = 0; i < plan.length; i++) {
+      var picks = plan[i].picks || [];
+      for (var j = 0; j < picks.length; j++) {
+        if (String(picks[j].add_pid) === String(pid)) {
+          return { round: U.safeInt(plan[i].round, 0), index: j };
+        }
+      }
+    }
+    return null;
+  }
+  // THE entry point for "act on this player's bid" from any surface.
+  //
+  // The Market button used to relabel itself "Bid ✓" once a claim was staged —
+  // which reads as "tap to see/change it" — and then opened a blank CREATE
+  // sheet: minimum bid, group 1, no drop. Your $12K looked like it had
+  // vanished, and confirming staged a SECOND minimum-priced claim (or, if it
+  // was already in group 1, hit the dupe guard and appeared to do nothing at
+  // all). The claims screen's Edit button did the right thing all along, so the
+  // same-looking control behaved two opposite ways depending on where you
+  // tapped it. That is the "disjointed between that and edit".
+  function openBidFor(pid) {
+    var refs = stagedRoundsFor(pid);
+    // Claimed in several groups (a deliberate ladder) — we can't know which one
+    // they mean, so hand them the screen that shows all of them rather than
+    // guessing and silently editing the wrong bid.
+    if (refs.length > 1) { openClaimsScreen(); return; }
+    openBidSheet(pid, refs.length === 1 ? firstStagedRefFor(pid) : null);
+  }
 
   // The one place that decides which acquisition control an unrostered
   // player gets. Three outcomes, per add_action_rule.md:
@@ -391,8 +424,11 @@
     if (info.mode === "bbid") {
       if (!waiverLimits()) return { mode: "unknown", html: "" };
       var rounds = stagedRoundsFor(pid);
+      // Says what the tap DOES. "Bid ✓" read as a status ("done") on a control
+      // that is actually still a button, and it opened a blank create sheet —
+      // see openBidFor. One staged claim → edit it; several → the claims screen.
       var label = rounds.length
-        ? ("Bid ✓" + (rounds.length > 1 ? " ×" + rounds.length : ""))
+        ? (rounds.length > 1 ? "Edit bids ×" + rounds.length : "Edit bid")
         : "Bid";
       return {
         mode: "bbid",
@@ -412,11 +448,23 @@
     return { mode: info.mode, html: "" };
   }
 
+  // One-shot "you're done" line, set by a fully-verified submit just before it
+  // drops the owner back here. The toast is gone in ~2.4s and the chip's
+  // amber→blue flip is easy to miss if you weren't watching it; this bridges
+  // the two. Time-boxed so it can't linger into a later visit and read as a
+  // claim about the CURRENT state. { text, until }.
+  var waiverFlash = null;
+
   // Context strip above the list: what window are we in, and a Claims entry
   // point. When there's no button to show, this line IS the answer.
   function renderWaiverStrip() {
     var info = waiverModeInfo();
-    if (info.mode === "unknown" && !stagedCount() && !clearCount()) return "";
+    var flash = (waiverFlash && Date.now() < waiverFlash.until)
+      ? '<div class="ups-m-waiver-flash' + (waiverFlash.tone === "warn" ? " warn" : "") + '">' +
+          U.escapeHtml(waiverFlash.text) + '</div>'
+      : "";
+    if (flash === "") waiverFlash = null;
+    if (info.mode === "unknown" && !stagedCount() && !clearCount()) return flash;
     var cls = "ups-m-waiver-strip " + info.mode + (info.writeEnabled ? "" : " readonly");
     var w = (M.state.waiverState && M.state.waiverState.window) || null;
     var detail = info.detail || "";
@@ -458,7 +506,7 @@
       link = ' <a class="ups-m-waiver-native" href="' + U.escapeHtml(info.nativeLink) +
         '" target="_blank" rel="noopener">Add/drop on MFL</a>';
     }
-    return '<div class="' + cls + '">' +
+    return flash + '<div class="' + cls + '">' +
       '<span class="txt">' + U.escapeHtml(detail) + link + '</span>' + chip +
     '</div>';
   }
@@ -810,8 +858,15 @@
       '<div class="ups-m-bid-sheet">' +
         '<div class="ups-m-bid-head">' +
           '<button class="ups-m-bid-close" id="ups-m-bid-close" aria-label="Close">×</button>' +
-          '<div class="title">Bid on ' + U.escapeHtml(nameForPid(bidView.addPid)) + '</div>' +
-          '<div class="sub">' + U.escapeHtml(posTeamForPid(bidView.addPid)) +
+          // Edit and create share this sheet; it has to say which one it is,
+          // or a pre-filled bid reads as a brand-new claim at a mystery price.
+          '<div class="title">' +
+            (bidView.editRef ? "Edit claim" : "Bid on " + U.escapeHtml(nameForPid(bidView.addPid))) +
+          '</div>' +
+          '<div class="sub">' +
+            (bidView.editRef ? U.escapeHtml(nameForPid(bidView.addPid)) + ' · ' : '') +
+            U.escapeHtml(posTeamForPid(bidView.addPid)) +
+            (bidView.editRef ? ' · currently group ' + U.safeInt(bidView.editRef.round, 0) : '') +
             (info.detail ? ' · ' + U.escapeHtml(info.detail) : '') + '</div>' +
         '</div>' +
         '<div class="ups-m-bid-body">' +
@@ -842,7 +897,7 @@
         '<div class="ups-m-bid-foot">' +
           '<button class="ups-m-bid-btn ghost" data-act="bid-cancel">Cancel</button>' +
           '<button class="ups-m-bid-btn primary" data-act="bid-confirm">' +
-            (bidView.editRef ? "Save claim" : "Add to claims") + '</button>' +
+            (bidView.editRef ? "Save changes" : "Add to claims") + '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -944,16 +999,32 @@
       M.ui.showToast(nameForPid(bidView.addPid) + " is already claimed in group " + bidView.round + ".", "err");
       return;
     }
-    group.picks.push({
+    var newPick = {
       add_pid: String(bidView.addPid),
       bid_dollars: amt,
       drop_pid: bidView.dropPid ? String(bidView.dropPid) : null
-    });
+    };
+    // Order inside a round IS priority — MFL honours it, and this screen gives
+    // it dedicated ▲/▼ controls. So an edit that STAYS in its group has to keep
+    // its slot: pushing silently demoted your #1 target to last just for
+    // nudging the bid $1K, and the snap-to-top re-render meant you might not
+    // even see it happen. A genuine group MOVE still lands at the end of the
+    // destination group, which is the only sane default there.
+    var sameRound = !!bidView.editRef && bidView.editRef.round === bidView.round;
+    if (sameRound) group.picks.splice(Math.min(bidView.editRef.index, group.picks.length), 0, newPick);
+    else group.picks.push(newPick);
     commitPlan(plan);
     var wasEdit = !!bidView.editRef;
     closeBidSheet();
     M.ui.showToast(wasEdit ? "Claim updated — not submitted yet." : "Staged in group " + group.round + " — not submitted yet.", "ok");
-    if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
+    // Follow the claim to its group. Staging or moving into a group you aren't
+    // looking at otherwise leaves you on the group it LEFT, watching it vanish
+    // — and if it was that group's last pick, staring at a red "withdrawing"
+    // panel you never asked for. claim-copy-group already did this; edit/move
+    // didn't. Same-round edits keep their scroll (like reorder/remove do);
+    // a real move snaps to top so header + tabs + destination are all visible.
+    claimsTab = group.round;
+    if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen({ keepScroll: sameRound });
     else renderRoute();
   }
 
@@ -972,6 +1043,23 @@
       else { g.clear = false; }
     });
     if (M.waivers && M.waivers.setPlan) M.waivers.setPlan(plan);
+    // Every mutation funnels through here, so this is the one place that can
+    // keep the banners honest. A green "Claims submitted and verified" (or a
+    // dry-run preview of a payload that no longer exists) must not survive the
+    // next edit — it would sit directly above an amber "Edited — not
+    // submitted" pill saying the opposite.
+    //
+    // The tone check is LOAD-BEARING: the warn-toned banners (§1 "couldn't read
+    // your claims back", partial-submit "rounds 1-2 already went through") are
+    // exactly the ones an owner must keep seeing while they fix things up, and
+    // clearing those on edit would bury a duplicate-write hazard.
+    claimsPreview = null;
+    if (claimsNotice && claimsNotice.tone === "ok") claimsNotice = null;
+    // Same reasoning for the Market's flash line: the moment the plan changes,
+    // "Submitted and verified" is no longer true of what's on screen, and
+    // leaving it up would put a green tick directly above the amber "Finalize
+    // claims" chip — the exact contradiction this sweep exists to prevent.
+    waiverFlash = null;
   }
 
   // ══ Claims screen ══════════════════════════════════════════════════════
@@ -989,6 +1077,16 @@
   // Dry-run result: `would_write` from the server, rendered as a preview.
   // Never adopted into the plan (contract v2 §3).
   var claimsPreview = null;
+  // True while the initial pending-read is in flight, so an empty screen can
+  // say "checking" instead of asserting "no claims" before we've asked.
+  var claimsLoading = false;
+  // Is the claims screen SUPPOSED to be on screen? A submit can outlive it now
+  // that navigating away dismisses overlays, and every async completion path
+  // calls renderClaimsScreen() — which builds the overlay from scratch. Without
+  // this, a slow submit that settles after the owner has moved to another tab
+  // would slam a full-screen modal back over an unrelated route (and re-lock
+  // the page scroll). renderClaimsScreen bails when this is false.
+  var claimsOpen = false;
 
   function claimsScreenHtml() {
     var lim = waiverLimits();
@@ -1000,7 +1098,15 @@
     var pend = pendingInfo();
 
     var body = "";
-    if (!plan.length) {
+    if (!plan.length && claimsLoading) {
+      // We have not asked MFL yet. "No claims staged." here is an assertion we
+      // haven't earned — and for an owner whose Home tile just said "3 claims"
+      // it reads as "your live, cap-spending bids are gone."
+      body = '<div class="ups-m-claims-empty">' +
+        '<div class="t">Checking your claims at MFL…</div>' +
+        '<div class="s">One moment.</div>' +
+      '</div>';
+    } else if (!plan.length) {
       // Honest empty state. "No claims staged" is only safe to say alongside
       // what we actually know about MFL's side — when the pending read failed,
       // an empty local plan proves nothing about what MFL is holding.
@@ -1204,6 +1310,8 @@
   // middle of a different group. Only the in-place list edits (reorder, remove)
   // ask to keep it, since those should not yank the page under your thumb.
   function renderClaimsScreen(opts) {
+    // Dismissed while an async submit/read was in flight — do NOT rebuild it.
+    if (!claimsOpen) return;
     var existing = document.getElementById("ups-m-claims-overlay");
     var scrollTop = 0;
     if (existing) {
@@ -1223,17 +1331,81 @@
     if (body2 && scrollTop) body2.scrollTop = scrollTop;
   }
 
-  function closeClaimsScreen() {
+  // Tear the claims screen down.
+  //
+  // opts.toMarket — force a landing on #players. Passed ONLY by the
+  // fully-verified submit, where the errand should end back on the Market that
+  // carries the confirmation (flash line + the chip flipping to "Edit claims").
+  // The ‹ back button passes nothing and stays on whatever route the screen was
+  // opened over — it's reachable from the player sheet on #stats, #league, …
+  // and yanking someone to the Market because they closed a panel is its own
+  // kind of disorienting.
+  function exitClaimsScreen(opts) {
     var ov = document.getElementById("ups-m-claims-overlay");
     if (ov) ov.remove();
+    claimsOpen = false;
     if (!document.getElementById("ups-m-bid-overlay") &&
         !document.getElementById("ups-m-drop-overlay")) {
       document.body.style.overflow = "";
     }
-    // Arrived via the #players/claims deep link (Home card)? Drop back to
-    // plain #players first, otherwise render() would immediately re-open it.
-    if (M.route.currentRoute() === "players/claims") M.route.navigate("#players");
-    else renderRoute();
+    // Landing back on the Market after a submit: go to the TOP. The flash line
+    // and the waiver strip both sit directly under the sticky toolbar, and
+    // neither replaceState nor a hash assignment scrolls — so an owner who had
+    // scrolled down to find their player would be dropped back mid-list with
+    // every trace of the confirmation off-screen above them.
+    if (opts && opts.toMarket) { try { window.scrollTo(0, 0); } catch (e) {} }
+    var route = M.route.currentRoute();
+    // Arrived via the #players/claims deep link (Home card)? The route itself
+    // owns the overlay, so it MUST change or render() immediately re-opens it.
+    //
+    // REPLACE rather than navigate(): navigate() assigns location.hash, which
+    // PUSHES a history entry, so dismissing the screen and then pressing Back
+    // re-opened the very screen you just closed. replaceState swaps the entry
+    // instead, and Back goes wherever you actually came from.
+    if (route === "players/claims") {
+      var replaced = false;
+      try {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", "#players");
+          replaced = true;
+        }
+      } catch (e) { replaced = false; }
+      if (!replaced) { M.route.navigate("#players"); return; }   // navigate() re-renders itself
+      renderRoute();
+      return;
+    }
+    if (opts && opts.toMarket && route.split("/")[0] !== "players") {
+      M.route.navigate("#players");
+      return;
+    }
+    renderRoute();
+  }
+
+  function closeClaimsScreen() { exitClaimsScreen(); }
+
+  // Tear down every waiver overlay without touching the plan. Used when the
+  // route changes out from under us (see app.js's hashchange handler).
+  function dismissWaiverOverlays() {
+    var found = false;
+    ["ups-m-drop-overlay", "ups-m-bid-overlay", "ups-m-claims-overlay"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) { el.remove(); found = true; }
+    });
+    if (!found) return;
+    claimsOpen = false;
+    bidView = null;
+    dropPicker = null;
+    view.dropSheetFor = null;
+    // The PLAYER SHEET holds this lock too and is not ours to dismiss — it
+    // sits below the bid sheet and can legitimately still be open.
+    //
+    // Test OPEN-ness, not existence: player_sheet.js injects #ups-m-sheet-overlay
+    // exactly once (ensureMount's `if (!mount.firstChild)`) and NEVER removes it
+    // — close() only drops the .open class, and the CSS hides it with
+    // display:none. So an existence check is true forever after the first player
+    // sheet of the session, and would leave the whole app scroll-locked.
+    var psheet = document.getElementById("ups-m-sheet-overlay");
+    if (!psheet || !psheet.classList.contains("open")) document.body.style.overflow = "";
   }
 
   function claimRefFrom(el) {
@@ -1267,6 +1439,7 @@
     }
     to.picks.push(pick);
     commitPlan(plan);
+    claimsTab = toRound;          // follow the claim — see confirmBid's note
     renderClaimsScreen();
   }
 
@@ -1278,7 +1451,19 @@
     if (act === "claims-submit") { submitClaims({}); return; }
     if (act === "claims-preview") { submitClaims({ dryRun: true, skipConfirm: true }); return; }
     if (act === "claims-withdraw-all") { withdrawAllClaims(); return; }
-    if (act === "claims-refresh") { reloadClaimsFromServer(); return; }
+    if (act === "claims-refresh") {
+      // This REPLACES the plan with MFL's copy (adoptVerified is a whole-plan
+      // swap), so with unsent edits on screen it is a destructive control —
+      // and it sits shoulder-to-shoulder with Submit while sounding like a
+      // harmless refresh. Every other destructive action in this file confirms
+      // first; this one didn't, and then reported "Loaded N claims" as success.
+      if (planIsDirty() && (stagedCount() || clearCount()) &&
+          !window.confirm("Reload from MFL?\n\nYour unsubmitted changes on this screen will be replaced by whatever MFL is holding.")) {
+        return;
+      }
+      reloadClaimsFromServer();
+      return;
+    }
     // Explicit clears (contract v2 §2). "Clear group" stages the round with
     // picks:[]; "Undo" takes the round back out of the payload entirely, which
     // leaves whatever MFL holds for it untouched.
@@ -1478,13 +1663,56 @@
       // MFL wrote (or may have written) but we could not read it back: keep
       // the local plan and say so, rather than silently blanking the screen.
       var adopted = M.waivers.adoptVerified(resp && resp.verified);
-      var warn = ((resp && resp.warnings) || []).map(function (w) {
+      var rawWarn = (resp && resp.warnings) || [];
+      var warn = rawWarn.map(function (w) {
         return U.safeStr(w && (w.message || w.code));
       }).filter(function (x) { return !!x; });
+      // Not all warnings mean the same thing, and treating them as one bucket
+      // is why "take me back to the Market" would almost never have fired: the
+      // worker attaches ADVISORY §6 notes (ROSTER_HEADROOM, CAP_ROOM,
+      // LIMITS_UNKNOWN, …) to perfectly successful, fully-verified submits —
+      // e.g. every time you claim without a conditional drop. Those describe
+      // what MFL *might* do at award time; they are explicitly "never block".
+      //
+      // VERIFY_* is the different kind: it says the write itself couldn't be
+      // confirmed, or MFL's read-back disagreed on a bid. That one has to keep
+      // the owner on the screen with the sticky banner.
+      var integrityWarn = rawWarn.some(function (w) {
+        return /^VERIFY_/.test(U.safeStr(w && w.code));
+      });
+      // CLEAN SUCCESS — and ONLY a clean success — ends the errand and drops
+      // the owner back on the Market they started from. The gate is
+      // deliberately narrow: `adopted` means MFL's own read-back agreed
+      // (known:true), and no warnings means it agreed without caveats.
+      //
+      // Every other outcome MUST stay on this screen, because each one carries
+      // something the owner has to read before touching anything again:
+      //   dry run          — nothing was written; the preview IS the result
+      //   adopted + warns  — MFL took it, with caveats worth reading
+      //   !adopted         — "we couldn't read it back, check MFL before the
+      //                      run" (§1); navigating away buries the one sentence
+      //                      that stops a duplicate cap-spending resubmit
+      //   .catch           — partial / verify_mismatch / reject (see below)
+      // Do NOT widen this condition, and never treat warnings as success.
+      if (adopted && !integrityWarn) {
+        claimsNotice = null;
+        claimsPreview = null;
+        var doneTxt = total
+          ? (total + (total === 1 ? " claim" : " claims") + " submitted to MFL ✓")
+          : "Claims withdrawn at MFL ✓";
+        // Bridges the gap between the toast (gone in ~2.4s) and the Market's
+        // own chip state, which is the durable "you're done" signal. Any
+        // advisory notes ride out WITH us rather than being dropped on the
+        // floor — they're worth reading, just not worth being held hostage by.
+        waiverFlash = warn.length
+          ? { tone: "warn", text: doneTxt + " — " + warn.join(" · "), until: Date.now() + 30000 }
+          : { tone: "ok", text: "Submitted and verified against MFL ✓", until: Date.now() + 15000 };
+        exitClaimsScreen({ toMarket: true });      // overlay down FIRST…
+        M.ui.showToast(doneTxt, "ok");             // …then the toast, over the Market
+        return;
+      }
       if (adopted) {
-        claimsNotice = warn.length
-          ? { tone: "warn", text: warn.join(" · ") }
-          : { tone: "ok", text: "Claims submitted and verified against MFL." };
+        claimsNotice = { tone: "warn", text: warn.join(" · ") };
       } else {
         claimsNotice = { tone: "warn",
           text: "Submitted, but we couldn't read your claims back from MFL — showing your local draft. " +
@@ -1650,9 +1878,16 @@
     // §5 — surfaces ask this before drawing any write control of their own.
     writeEnabled: writeEnabled,
     nativeLink: nativeLink,
-    openBid: function (pid) { openBidSheet(pid, null); },
+    // Edits the existing claim when there is one (see openBidFor) — the player
+    // sheet's Bid button inherits that for free.
+    openBid: function (pid) { openBidFor(pid); },
     startFcfs: startFcfsAdd,
     openClaims: openClaimsScreen,
+    // Called by app.js's hashchange handler when the route moves away while an
+    // overlay is still up. DOM + scroll-lock ONLY — it must never touch the
+    // staged plan or adopt anything, or a stray Back press could quietly
+    // discard work the owner hasn't submitted.
+    dismissOverlays: dismissWaiverOverlays,
     stagedRoundsFor: stagedRoundsFor,
     stagedCount: stagedCount,
     clearCount: clearCount,
@@ -1660,27 +1895,38 @@
   };
 
   function openClaimsScreen() {
-    claimsNotice = null;
+    claimsOpen = true;
     claimsPreview = null;
-    renderClaimsScreen();
+    // Only a resolved/acknowledged notice may be dropped on re-entry. A WARN
+    // notice is the partial-submit / verify-mismatch / "couldn't read MFL"
+    // hazard text — "rounds 1-2 already went through, don't resubmit" — and
+    // clearing it here is how an owner loses the one sentence standing between
+    // them and a duplicate, cap-spending write (§B). It survives until an edit
+    // supersedes it (commitPlan) or a fresh read replaces it.
+    if (claimsNotice && claimsNotice.tone === "ok") claimsNotice = null;
     // Nothing staged locally? Seed from the server so an owner who bid on
     // desktop (or last week) sees their real claims, not an empty screen.
     // §1 again: only a `known:true` envelope may seed anything. A failed read
     // leaves the screen as-is and says the count is unknown, because "we
     // couldn't ask" must never be drawn as "you have none".
-    if (!stagedCount() && !clearCount() && M.waivers && M.waivers.fetchPending) {
+    var willFetch = !stagedCount() && !clearCount() && M.waivers && M.waivers.fetchPending;
+    claimsLoading = !!willFetch;      // set BEFORE the first paint
+    renderClaimsScreen();
+    if (willFetch) {
       M.waivers.fetchPending().then(function (resp) {
+        claimsLoading = false;
         if (!M.waivers.adoptVerified(resp)) {
           claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
         }
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       }).catch(function (err) {
+        claimsLoading = false;
         // Signed-out is a normal cold-start case; anything else still has to
         // be visible rather than reading as an empty slate.
         if (!(err && err.ownerAuthExpired)) {
           claimsNotice = { tone: "warn", text: unknownClaimsText(err && err.body) };
-          if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
         }
+        if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       });
     }
   }
@@ -1754,7 +2000,7 @@
         e.stopPropagation();
         var act = this.getAttribute("data-act");
         var wpid = this.getAttribute("data-pid");
-        if (act === "waiver-bid") openBidSheet(wpid, null);
+        if (act === "waiver-bid") openBidFor(wpid);
         else if (act === "waiver-add") startFcfsAdd(wpid);
         else openClaimsScreen();
       });
