@@ -1984,6 +1984,34 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
       skipped.push({ player_id: pid, player_name: l.player_name, reason: "not_a_completed_auction_o102", winner_fid: String(l.winner_fid || "") });
       continue;
     }
+    // NEVER flatten a contract the owner deliberately built. This path has no
+    // audit-ledger guard at all (unlike finalizeFaaContracts), which is how a
+    // no-dry-run sweep once reverted Spears / Levis / Battle from their MYAC
+    // conversions back to 1-yr defaults on live data. Auto-finalize stamps the
+    // 1-yr DEFAULT onto a fresh win; a multi-year deal, a restructure or an
+    // extension is by definition not that. Mirrors GUARD 3 in the FAA path.
+    const curInfoE = String(cur.contractInfo || "");
+    const curLenME = /^\s*CL\s*(\d+)/i.exec(curInfoE);
+    const curLenE = curLenME ? Number(curLenME[1]) : 0;
+    if (
+      curLenE >= 2 ||
+      /restructur/i.test(curInfoE) ||
+      /\bExt:/i.test(curInfoE) ||
+      /-(FL|BL)\b/i.test(String(cur.contractStatus || ""))
+    ) {
+      skipped.push({
+        player_id: pid,
+        player_name: l.player_name,
+        reason: "owner_built_contract_refusing_to_flatten",
+        current: {
+          salary: String(cur.salary || ""),
+          contractStatus: String(cur.contractStatus || ""),
+          contractYear: String(cur.contractYear || ""),
+          contractInfo: curInfoE,
+        },
+      });
+      continue;
+    }
     rowsToWrite.push({
       id: pid,
       player_name: l.player_name,
@@ -2171,9 +2199,24 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   // Who have we ALREADY finalized this season (D1 audit ledger)? Keyed on
   // (player_id, season) so it is immune to MFL's mutable/stale contract fields.
   // This is what stops a later admin sweep from reverting an owner's MYAC 2/3-yr
-  // conversion back to a 1-yr default. Fail-soft: if migration 0103 isn't applied
-  // the read throws and we treat the set as empty (no MYAC protection until it is).
+  // conversion back to a 1-yr default.
+  //
+  // FAIL-CLOSED (2026-08-02, after a real incident). This read used to be
+  // fail-SOFT: a throw logged a warning and left the set empty, which silently
+  // removed MYAC protection from EVERY won lot for that run. On 2026-08-02 that
+  // is exactly what happened — one bad tick of the catch-up sweep flattened 18
+  // owner-converted contracts across 8 franchises back to the 1-yr default
+  // (Mahomes' restructure among them). All 18 were present in this ledger; the
+  // guard simply never saw them, and because the ledger WRITE is fail-soft too,
+  // none of their finalized_at_unix values were even bumped.
+  //
+  // A guard whose entire job is protecting owner work must never fail open. If
+  // we cannot read the ledger we cannot prove a contract is safe to overwrite,
+  // so we write nothing and let the next tick retry — delaying a new contract
+  // is trivially recoverable; destroying a MYAC is not. Same posture GUARD 1
+  // already takes with O=102.
   const auditedPids = new Set();
+  let auditLedgerOk = true;
   try {
     const { results: auditRows } = await db.prepare(
       `SELECT player_id FROM ups_auction_contract_finalizations
@@ -2181,7 +2224,8 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     ).bind(String(year), String(leagueId)).all();
     for (const r of (auditRows || [])) auditedPids.add(String(r.player_id));
   } catch (e) {
-    console.warn("[finalize-faa] audit-ledger read failed (0103 not migrated?):", e?.message || String(e));
+    auditLedgerOk = false;
+    console.warn("[finalize-faa] audit-ledger read FAILED — failing closed, writing nothing:", e?.message || String(e));
   }
 
   // Build the rows to import (only those needing change).
@@ -2212,6 +2256,45 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     // as test data. (Won-then-dropped stays on O=102 — still a real win.)
     if (!completedPids.has(pid)) {
       skipped.push({ player_id: pid, reason: "not_a_completed_auction_o102", winner_fid: String(l.winner_fid || "") });
+      continue;
+    }
+
+    // GUARD 2a — could we even READ the ledger? If not we cannot prove this
+    // contract is unfinalized, so we must not touch it. See the fail-closed
+    // note above the read.
+    if (!auditLedgerOk) {
+      skipped.push({ player_id: pid, reason: "audit_ledger_unreadable_failing_closed", winner_fid: String(l.winner_fid || "") });
+      continue;
+    }
+
+    // GUARD 3 — NEVER overwrite a contract that is already something an owner
+    // deliberately built. Independent of the ledger on purpose: belt-and-braces
+    // for the 2026-08-02 incident, where the ledger guard failing open was the
+    // single point of failure between a routine sweep and 18 destroyed
+    // contracts. Auto-finalize exists to stamp the 1-yr DEFAULT onto a fresh
+    // win; a multi-year deal, a restructure, or an extension is by definition
+    // not that, and no automated path should ever silently flatten one.
+    // (This is the "non-default-contract guard before any FAA sweep" that the
+    // ERA incident already called for and that never got written.)
+    const curInfo = String(cur.contractInfo || "");
+    const curLenM = /^\s*CL\s*(\d+)/i.exec(curInfo);
+    const curLen = curLenM ? Number(curLenM[1]) : 0;
+    const ownerBuilt =
+      curLen >= 2 ||
+      /restructur/i.test(curInfo) ||
+      /\bExt:/i.test(curInfo) ||
+      /-(FL|BL)\b/i.test(String(cur.contractStatus || ""));
+    if (ownerBuilt) {
+      skipped.push({
+        player_id: pid,
+        reason: "owner_built_contract_refusing_to_flatten",
+        current: {
+          salary: String(cur.salary || ""),
+          contractStatus: String(cur.contractStatus || ""),
+          contractYear: String(cur.contractYear || ""),
+          contractInfo: curInfo,
+        },
+      });
       continue;
     }
 
