@@ -107,6 +107,35 @@
   .gd-submit.ready { background: var(--teal); color: #08251f; border-color: var(--teal); }
   .gd-submit.busy { opacity: 0.6; cursor: wait; }
   .gd-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* ---- Submit confirmation modal ----
+     POSITION:ABSOLUTE, NOT FIXED, and that is deliberate. This page runs inside
+     an MFL iframe that the embed loader grows to the full content height
+     (mfl_hpm_embed_loader.js sets frame.style.minHeight from a height beacon),
+     so the iframe never scrolls — the PARENT page does. `position: fixed` here
+     would anchor to the iframe's own viewport, i.e. the top of the whole
+     expanded document, which is usually far above whatever the owner is
+     actually looking at after tapping Submit. The dialog is placed at the
+     submit button's own Y instead, then scrolled into view. */
+  .gd-modal-back { position: absolute; left: 0; right: 0; top: 0; background: rgba(4,7,13,0.72); z-index: 90; }
+  .gd-modal { position: absolute; left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px));
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 20px 16px;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.55); text-align: center; }
+  .gd-modal .ic { font-size: 30px; line-height: 1; margin-bottom: 8px; }
+  .gd-modal h3 { margin: 0 0 6px; font-size: 17px; font-weight: 800; color: var(--fg); }
+  .gd-modal.ok h3 { color: var(--ok); }
+  .gd-modal.err h3 { color: var(--danger); }
+  .gd-modal p { margin: 0 0 4px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .gd-modal .detail { margin-top: 10px; padding: 9px 12px; border-radius: 8px; background: var(--panel2);
+    border: 1px solid var(--line); font-size: 12.5px; color: var(--fg); text-align: left; word-break: break-word; }
+  .gd-modal .gd-modal-ok { margin-top: 16px; width: 100%; padding: 12px; border-radius: 9px; cursor: pointer;
+    font-size: 14px; font-weight: 800; border: 1px solid var(--teal); background: var(--teal); color: #08251f; }
+  .gd-modal.err .gd-modal-ok { border-color: var(--line-soft); background: var(--panel2); color: var(--fg); }
+  .gd-modal .gd-modal-ok:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .gd-modal { animation: gd-modal-in 160ms ease-out; }
+    @keyframes gd-modal-in { from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+                             to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+  }
   .gd-msg { margin-top: 12px; padding: 9px 13px; border-radius: 8px; font-size: 13px; }
   .gd-msg.ok { background: rgba(74,222,128,0.1); color: var(--ok); border: 1px solid rgba(74,222,128,0.3); }
   .gd-msg.err { background: rgba(248,113,113,0.1); color: var(--danger); border: 1px solid rgba(248,113,113,0.3); }
@@ -731,6 +760,62 @@
     if (sub) sub.addEventListener("click", submitLineup);
   }
 
+  // ── Submit confirmation modal ─────────────────────────────────────────────
+  // Keith 2026-08-02: the inline .gd-msg banner was too easy to miss — after a
+  // submit you want to be TOLD it worked, not go looking for a line of text.
+  //
+  // Appended to document.body, NOT into #gd-root: render() rewrites #gd-root's
+  // innerHTML wholesale, so anything mounted inside it is destroyed by the very
+  // rerender that follows a submit.
+  var lineupModalKeyHandler = null;
+  function closeLineupModal() {
+    var b = document.getElementById("gd-modal-back");
+    if (b && b.parentNode) b.parentNode.removeChild(b);
+    if (lineupModalKeyHandler) { document.removeEventListener("keydown", lineupModalKeyHandler); lineupModalKeyHandler = null; }
+  }
+  function showLineupModal(kind, title, body, detail) {
+    closeLineupModal();
+    var back = document.createElement("div");
+    back.className = "gd-modal-back";
+    back.id = "gd-modal-back";
+    var docH = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
+    back.style.height = docH + "px";
+    back.innerHTML =
+      '<div class="gd-modal ' + (kind === "ok" ? "ok" : "err") + '" role="alertdialog" aria-modal="true" aria-labelledby="gd-modal-title">' +
+        '<div class="ic">' + (kind === "ok" ? "✅" : "⚠️") + '</div>' +
+        '<h3 id="gd-modal-title">' + esc(title) + '</h3>' +
+        '<p>' + esc(body) + '</p>' +
+        (detail ? '<div class="detail">' + esc(detail) + '</div>' : "") +
+        '<button type="button" class="gd-modal-ok" id="gd-modal-ok">' + (kind === "ok" ? "Done" : "Close") + '</button>' +
+      '</div>';
+    document.body.appendChild(back);
+
+    // Anchor the dialog to the submit button rather than the viewport — see the
+    // position:absolute note in the CSS. The owner just tapped that button, so
+    // it is by definition the part of the page they are looking at.
+    var dlg = back.querySelector(".gd-modal");
+    var anchor = document.getElementById("gd-submit") || document.getElementById("gd-content");
+    var anchorTop = anchor ? (anchor.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0)) : 0;
+    // Prefer just ABOVE the button, so the button itself stays visible under the
+    // dialog. Fall back to just below when there isn't room above (short page,
+    // or a tall dialog). Compute the raw value FIRST — clamping before the
+    // check would make the fallback unreachable.
+    var above = Math.round(anchorTop - dlg.offsetHeight - 12);
+    var top = above >= 8 ? above : Math.round(anchorTop + (anchor ? anchor.offsetHeight : 0) + 12);
+    dlg.style.top = Math.max(8, top) + "px";
+
+    back.addEventListener("click", function (e) { if (e.target === back) closeLineupModal(); });
+    var okBtn = document.getElementById("gd-modal-ok");
+    if (okBtn) { okBtn.addEventListener("click", closeLineupModal); try { okBtn.focus(); } catch (e) {} }
+    lineupModalKeyHandler = function (e) { if (e.key === "Escape") closeLineupModal(); };
+    document.addEventListener("keydown", lineupModalKeyHandler);
+
+    // The iframe never scrolls (the loader grows it to full height), so this
+    // propagates up and scrolls the PARENT MFL page to the dialog.
+    try { dlg.scrollIntoView({ block: "center", behavior: "smooth" }); }
+    catch (e) { try { dlg.scrollIntoView(); } catch (e2) {} }
+  }
+
   function submitLineup() {
     if (STATE.submitting) return;
     var fid = STATE.viewerFranchiseId; if (!fid) return;
@@ -741,20 +826,46 @@
     var url = workerUrl("/api/submit-lineup");
     var uid = readCookieRaw("MFL_USER_ID");
     if (uid) url += "?MFL_USER_ID=" + encodeURIComponent(uid);
+    var wk = String(STATE.projWeek || "").replace(/\D/g, "");
+    var outcome = null;   // shown as a modal AFTER the rerender below
     fetch(url, { method: "POST", mode: "cors", credentials: "omit",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ franchiseId: fid, starters: starters }) })
       .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
       .then(function (resp) {
-        if (resp.body && resp.body.ok) STATE.message = { kind: "ok", text: "Lineup saved to MFL ✓" };
-        else {
+        if (resp.body && resp.body.ok) {
+          STATE.message = { kind: "ok", text: "Lineup saved to MFL ✓" };
+          outcome = {
+            kind: "ok",
+            title: "Lineup submitted",
+            body: "MFL has your starters" + (wk ? " for Week " + wk : "") + ".",
+            detail: starters.length + " starter" + (starters.length === 1 ? "" : "s") + " saved."
+          };
+        } else {
           var err = (resp.body && resp.body.error)
             || (resp.body && resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t)
             || (resp.body && resp.body.mfl_response && resp.body.mfl_response.error) || ("HTTP " + resp.status);
           STATE.message = { kind: "err", text: String(err) };
+          // A failed submit is MORE important to notice than a successful one —
+          // silently leaving a stale lineup in for kickoff is the costly case.
+          outcome = { kind: "err", title: "Lineup NOT submitted",
+                      body: "MFL rejected it — your lineup is unchanged. Fix the issue below and submit again.",
+                      detail: String(err) };
         }
       })
-      .catch(function (e) { STATE.message = { kind: "err", text: "Submit failed: " + (e && e.message || e) }; })
-      .then(function () { STATE.submitting = false; rerender(); });
+      .catch(function (e) {
+        var m = "Submit failed: " + (e && e.message || e);
+        STATE.message = { kind: "err", text: m };
+        // Network/CORS failure: we never got an answer, so we cannot claim the
+        // lineup did or did not save. Say exactly that rather than guessing.
+        outcome = { kind: "err", title: "Couldn't reach MFL",
+                    body: "The lineup may or may not have saved. Reload Game Day and check your starters before kickoff.",
+                    detail: m };
+      })
+      .then(function () {
+        STATE.submitting = false;
+        rerender();
+        if (outcome) showLineupModal(outcome.kind, outcome.title, outcome.body, outcome.detail);
+      });
   }
 
   // ---- Taxi tab ----
