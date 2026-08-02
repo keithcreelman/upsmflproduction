@@ -1378,7 +1378,12 @@ async function processAuctionPoll(env) {
     (await sweepReady("auction_poll_faa_finalize_catchup", 900, newBids > 0 || newWins > 0))
   ) {
     try {
-      const r = await finalizeFaaContracts(env, season, leagueId, {});
+      // maxWrites: this sweep exists to mop up the ONE-SHOT hook's occasional
+      // miss — in normal operation that is 0-2 lots. Anything much larger means
+      // something upstream is wrong (see the 2026-08-02 flatten incident), so
+      // the breaker refuses the batch and DMs rather than trusting it. A human
+      // can still sweep the whole league via the uncapped admin route.
+      const r = await finalizeFaaContracts(env, season, leagueId, { maxWrites: 6 });
       if (r?.body?.ok && r.body.count > 0) {
         console.log(`[auction-poll] faa-finalize catch-up: fixed ${r.body.count} lot(s) missed by the one-shot hook`);
       } else if (r?.body?.ok === false) {
@@ -2333,6 +2338,54 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
 
   if (rowsToWrite.length === 0) {
     return { status: 200, body: { ok: true, message: "No won FAA lots needed finalizing", count: 0, completed_auction_count: completedPids.size, already_final: alreadyFinal, skipped_count: skipped.length, skipped } };
+  }
+
+  // ── CIRCUIT BREAKER ────────────────────────────────────────────────────────
+  // GUARDs 1-3 each block a failure mode we UNDERSTAND. This blocks the ones we
+  // don't. On 2026-08-02 a single unattended tick rewrote 18 owner-built
+  // contracts across 8 franchises; every individual write looked locally
+  // plausible, and nothing anywhere asked "should one automated run really be
+  // changing this much at once?" That question is the last line of defence
+  // against the NEXT bug, whatever shape it takes.
+  //
+  // Deliberately scoped to UNATTENDED callers (opts.maxWrites is set only by the
+  // cron catch-up sweep). A human running the admin route can still sweep the
+  // whole league — they are watching, and they get a dry-run first. Auction
+  // close legitimately finalizes many lots at once, so a blanket cap would fire
+  // on a normal night; the cron path only ever needs to mop up the handful the
+  // one-shot hook missed, which is why a small cap is correct THERE and wrong
+  // as a global rule.
+  //
+  // Trips = write NOTHING (not "write the first N" — a partial write of an
+  // unexplained batch is the worst outcome) + DM the commish, because the real
+  // failure on 08-02 was not only the bad write: nobody found out until a human
+  // happened to notice a cap number looked off.
+  const maxWrites = Number.isFinite(Number(opts?.maxWrites)) ? Number(opts.maxWrites) : Infinity;
+  if (rowsToWrite.length > maxWrites) {
+    const idList = rowsToWrite.slice(0, 8).map((r) => r.id).join(", ");
+    const msg =
+      `🛑 **FAA auto-finalize CIRCUIT BREAKER tripped — nothing was written.**\n` +
+      `An unattended sweep wanted to write **${rowsToWrite.length}** contracts in one run ` +
+      `(cap ${maxWrites}). That is far more than a catch-up should ever need, so it was ` +
+      `refused rather than trusted.\n` +
+      `Player ids: ${idList}${rowsToWrite.length > 8 ? ` … +${rowsToWrite.length - 8} more` : ""}\n` +
+      `Nothing changed in MFL. Inspect first:\n` +
+      `\`POST /admin/auction/finalize-faa-contracts?L=${leagueId}&dry_run=1&APIKEY=…\`\n` +
+      `If the list is legitimate, run it without \`dry_run\` (the admin route is uncapped).`;
+    try { await dmCommish(env, msg); } catch (_) { /* alerting must never mask the trip */ }
+    console.error(`[finalize-faa] CIRCUIT BREAKER: refused ${rowsToWrite.length} writes (cap ${maxWrites})`);
+    return {
+      status: 200,
+      body: {
+        ok: false,
+        error: "circuit_breaker_tripped",
+        message: `Refused to write ${rowsToWrite.length} contracts in one unattended run (cap ${maxWrites}). Nothing was written.`,
+        would_have_written: rowsToWrite.length,
+        max_writes: maxWrites,
+        rows: rowsToWrite,
+        skipped_count: skipped.length,
+      },
+    };
   }
 
   if (dryRun) {
