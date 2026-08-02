@@ -937,6 +937,19 @@ async function processAuctionPoll(env) {
   // holds zero transactions).
   const mflAnswered = initRes?.transactions !== undefined && bidsRes?.transactions !== undefined;
 
+  // Stricter sibling of mflAnswered, for the DELETE path only. The purge below
+  // treats "no current MFL transaction for this pid" as proof the commish
+  // deleted it — so its input, liveTxnPids, must be COMPLETE or it deletes live
+  // auction rows. liveTxnPids is the union of all THREE exports, so all three
+  // have to have answered: mflAnswered alone omits winsRes, and a winsRes-only
+  // failure would purge exactly the won lots. A read that must be complete
+  // before it can justify a delete is a different bar than one that just
+  // vouches for the heartbeat.
+  const purgeInputComplete =
+    initRes?.transactions !== undefined &&
+    bidsRes?.transactions !== undefined &&
+    winsRes?.transactions !== undefined;
+
   // Every player_id with CURRENT MFL auction activity. Used at the end to purge
   // D1 lots/bids whose source transactions the commish has since deleted — MFL
   // emits no delete event (verified 2026-05-20), so without this a deleted
@@ -1502,11 +1515,20 @@ async function processAuctionPoll(env) {
   // ── Deleted-transaction purge ──
   // If a player has D1 lots/bids but NO current MFL auction transaction, the
   // commish deleted it in MFL → drop the stale rows (lots + bids), incl. WON
-  // lots that the cancellation pass above (open-only) can't catch. Guarded:
-  // only runs when we actually have live txns, so an MFL outage (empty fetch)
-  // can't wipe the tables — and we already returned early above if all empty.
+  // lots that the cancellation pass above (open-only) can't catch.
+  //
+  // GUARDED ON A COMPLETE READ, not merely a non-empty one. `liveTxnPids.size
+  // > 0` only ever caught a TOTAL outage; a PARTIAL one is both likelier and
+  // worse. If bidsRes fails while initRes succeeds, liveTxnPids holds the
+  // nominations but none of the bid-only pids, and this loop reads every lot
+  // whose current activity is a bid as "commish deleted it" and hard-DELETEs
+  // the lot AND its whole bid history mid-auction. There is no undo: the rows
+  // are gone, and the source transactions still live only in MFL.
+  // purgeInputComplete requires all three exports to have answered — the flag
+  // was already being computed for the heartbeat and simply never applied to
+  // the one operation in this function that destroys data.
   let purgedLots = 0, purgedBids = 0;
-  if (liveTxnPids.size > 0) {
+  if (purgeInputComplete && liveTxnPids.size > 0) {
     try {
       const { results: lotPids } = await db.prepare(
         `SELECT DISTINCT player_id FROM ups_auction_lots WHERE season = ? AND league_id = ?`
