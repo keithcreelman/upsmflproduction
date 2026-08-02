@@ -40413,10 +40413,28 @@ export default {
 
         // 2. Existing MFL adjustments → dedup keys + preserve set (the import
         //    REPLACES all rows, so untouched adjustments must be merged back).
+        // FAIL CLOSED. This read is the ONLY thing standing between a retry and
+        // a duplicate cap charge: it supplies the `id:<ledger_key>` dedup set,
+        // and the MFL salaryAdjustment import is ADDITIVE, so a penalty posted
+        // twice is charged twice. It used to degrade to `[]` on a failed
+        // export — i.e. "MFL holds no adjustments", i.e. "nothing is a
+        // duplicate, post everything" — and this route is driven by the cron
+        // every 5 minutes, so a salaryAdjustments outage would re-charge every
+        // owed penalty on every tick for the length of the outage.
+        // An empty ledger and an unreadable one are NOT the same fact.
         const existingRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
-        const existingRows = existingRes.ok
-          ? collectSalaryAdjustmentExportRows(existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {})
-          : [];
+        if (!existingRes.ok) {
+          return jsonOut(200, {
+            ok: false,
+            error: "existing_adjustments_unreadable",
+            message: "Could not read MFL salaryAdjustments, so duplicate penalties cannot be ruled out. Nothing was posted; the next run retries.",
+            mfl_status: existingRes.status || 0,
+            posted_count: 0,
+          });
+        }
+        const existingRows = collectSalaryAdjustmentExportRows(
+          existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {}
+        );
         const existingKeys = new Set();
         for (const ex of existingRows) {
           const m = safeStr(ex.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
@@ -41725,10 +41743,25 @@ export default {
         });
 
         // Fetch currently-posted salary adjustments so we don't double-post.
+        // FAIL CLOSED, same reasoning as /admin/drops/post-mfl: these rows are
+        // both the double-post dedup set AND the preserve set that gets merged
+        // back into the import. Degrading to `[]` on a failed export therefore
+        // fails in BOTH directions at once — every penalty looks new (duplicate
+        // charges) and every untouched adjustment looks absent. "Unreadable" is
+        // not "empty".
         const existingRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
-        const existingRows = existingRes.ok
-          ? collectSalaryAdjustmentExportRows(existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {})
-          : [];
+        if (!existingRes.ok) {
+          return jsonOut(200, {
+            ok: false,
+            error: "existing_adjustments_unreadable",
+            message: "Could not read MFL salaryAdjustments, so neither duplicate penalties nor dropped rows can be ruled out. Nothing was posted.",
+            mfl_status: existingRes.status || 0,
+            posted_count: 0,
+          });
+        }
+        const existingRows = collectSalaryAdjustmentExportRows(
+          existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {}
+        );
         const existingKeys = new Set();
         for (const ex of existingRows) {
           const explanation = safeStr(ex.explanation);
