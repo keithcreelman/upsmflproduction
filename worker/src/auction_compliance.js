@@ -121,7 +121,10 @@ async function nomCountsForDay(env, { season, leagueId, etDay }) {
 // for a rule that ends in a fine.
 //
 // Returns { day, closed, misses: [...], penalties: [...], already_closed }.
-export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
+// positionsOk: pass buildFaScheduleRows' `positions_ok`. Defaults to true so
+// existing/manual callers are unaffected; the unattended nightly job passes the
+// real value, which is where the hazard lives.
+export async function closeEtDay(env, { season, leagueId, etDay, rows, positionsOk = true }) {
   const db = env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
 
@@ -177,6 +180,31 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
         misses: [], penalties: [],
       };
     }
+  }
+
+  // ── Roster state must be KNOWN before it can excuse or condemn anyone ────
+  // Exactly the ledger_stale argument above, one input over. §A2's floor waiver
+  // hinges on roster_met, and roster_met is derived from player POSITIONS,
+  // which come from one place: MFL's players export, fetched in 200-id chunks.
+  // A dropped chunk used to be skipped silently, leaving those players with no
+  // position; computeLineupNeeds counts a positionless player toward no slot,
+  // so the affected franchises score a full 18-slot deficit and read as
+  // roster-incomplete. That flips roster_met false for teams that are actually
+  // fine, and this function then fines them for a floor they were entitled to
+  // have waived — an immutable missed=1 row, a two-season penalty, and (with
+  // fines armed) a real MFL salaryAdjustment.
+  //
+  // A PARTIAL failure is the dangerous one: half the league looking short reads
+  // as plausible league state, not as an outage.
+  //
+  // Same recovery asymmetry as ledger_stale: refusing leaves the day unclosed
+  // for the next run to pick up; a wrong close is undone only by hand.
+  if (positionsOk === false) {
+    return {
+      ok: false, error: "roster_state_unknown", day: etDay,
+      detail: "players export incomplete — positions missing, so roster_met is unreliable",
+      misses: [], penalties: [],
+    };
   }
 
   const nomCounts = await nomCountsForDay(env, { season, leagueId, etDay });

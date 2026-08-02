@@ -18970,13 +18970,22 @@ export default {
         return visit(myFrPayload, false);
       };
 
-      const fetchPlayersByIdsChunked = async (season, leagueId, playerIds) => {
+      // `stats` (optional, mutated): { failedChunks, totalChunks }. A dropped
+      // chunk is NOT harmless — the players export is the ONLY source of
+      // `position` (parseRostersExport carries salary/years/contract/status but
+      // never a position), so a silent skip makes those players positionless,
+      // which computeLineupNeeds reads as "fills no slot" and therefore as a
+      // roster deficit. Callers that only decorate a UI can keep ignoring this;
+      // callers that DECIDE something (roster_met -> §F RULE 2 fines) must not.
+      const fetchPlayersByIdsChunked = async (season, leagueId, playerIds, stats) => {
         const byId = {};
         const ids = Array.isArray(playerIds) ? playerIds.filter(Boolean) : [];
+        if (stats) { stats.failedChunks = 0; stats.totalChunks = 0; }
         if (!ids.length) return byId;
         const chunkSize = 200;
         for (let i = 0; i < ids.length; i += chunkSize) {
           const chunk = ids.slice(i, i + chunkSize);
+          if (stats) stats.totalChunks += 1;
           const res = await mflExportJson(
             season,
             leagueId,
@@ -18984,7 +18993,10 @@ export default {
             { P: chunk.join(","), DETAILS: "1" },
             { includeApiKey: true, useCookie: true }
           );
-          if (!res.ok) continue;
+          if (!res.ok) {
+            if (stats) stats.failedChunks += 1;
+            continue;
+          }
           Object.assign(byId, parsePlayersExport(res.data));
         }
         return byId;
@@ -20793,7 +20805,16 @@ export default {
         const adjustmentsOk = !!adjRes.ok;
         const adjustmentsByFid = adjustmentsOk ? sumSalaryAdjustmentsByFid(adjRes.data) : {};
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
-        const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
+        // Same fail-soft posture as adjustmentsOk above, and for the same
+        // reason: a flaky export must not take the live board down. But a
+        // consumer that DECIDES something off positions (roster_met -> §F RULE 2
+        // nomination fines) has to distinguish "this franchise is genuinely
+        // short" from "we couldn't read what these players play". The players
+        // export is the ONLY position source, so without this flag one dropped
+        // 200-id chunk reads as a league-wide roster collapse.
+        const playersStats = { failedChunks: 0, totalChunks: 0 };
+        const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds, playersStats);
+        const positionsOk = playersStats.failedChunks === 0;
         const teams = franchises.map((fr) => {
           const rawPlayers = asArray(rosterAssetsByFranchise[fr.franchise_id]).filter(Boolean);
           const players = rawPlayers.map((asset) => {
@@ -20840,6 +20861,7 @@ export default {
           viewerFranchiseId,
           salaryCapDollars,
           adjustmentsOk,
+          positionsOk,
           leagueRes,
           rostersRes,
           myFrRes,
@@ -21419,6 +21441,12 @@ export default {
           out_of_compliance_count: rows.filter((r) => r.out_of_compliance).length,
           over_cap_count: rows.filter((r) => r.over_cap).length,
           met_count: rows.filter((r) => r.roster_met).length,
+          // False ⇒ at least one players-export chunk failed, so `position` is
+          // missing for some roster and every roster_met on this payload is
+          // suspect (see buildLiveTeamsSnapshot). Display surfaces may ignore
+          // this; closeEtDay must NOT — fining an owner for a miss they did not
+          // commit writes an immutable ledger row and a real MFL cap charge.
+          positions_ok: teamsSnapshot.positionsOk !== false,
           rows,
         };
       };

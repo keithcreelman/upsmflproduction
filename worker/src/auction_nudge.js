@@ -514,16 +514,34 @@ export async function runFaNightlyJob(env, opts = {}) {
       // rows supply the franchise list + roster state ONLY. closeEtDay counts
       // the day's nominations from the bid ledger — fa-schedule's noms_used
       // describes the CURRENT window, which at 9 AM has already reset to zero.
-      closed = await closeEtDay(env, { season, leagueId, etDay: yesterday, rows: data.rows || [] });
-      if (closed && closed.ok === false && closed.error === "ledger_stale") {
-        // The poll hasn't completed a run since the day ended, so the bid
-        // ledger can't be trusted for a verdict. closed stays null: nothing is
-        // judged, nobody is named, and the league post below is skipped
-        // entirely — a wrong "X missed" in #transactions is exactly the kind
-        // of confidently-stale statement that burned the Josh Allen board.
-        out.close_error = "ledger_stale";
-        out.ledger_stale_day = closed.day;
-        out.poll_last_ts = closed.poll_last_ts;
+      // positionsOk: if any players-export chunk failed, roster_met is
+      // unreliable league-wide and closeEtDay refuses rather than fining
+      // franchises for a floor §A2 would have waived. Absent flag ⇒ true, so an
+      // older payload shape behaves as before.
+      closed = await closeEtDay(env, {
+        season, leagueId, etDay: yesterday, rows: data.rows || [],
+        positionsOk: data.positions_ok !== false,
+      });
+      // ANY refusal from closeEtDay (ledger_stale, roster_state_unknown, and
+      // whatever we add next) means "we could not judge this day" — never
+      // "nobody missed". Matching on ok===false rather than on a specific error
+      // string keeps a future refusal from silently falling through to the
+      // success branch and reporting a closed day that never closed.
+      if (closed && closed.ok === false) {
+        // An input we judge on can't be trusted (a stale bid ledger, or an
+        // incomplete players export leaving roster_met unreliable). closed
+        // becomes null: nothing is judged, nobody is named, and the league post
+        // below is skipped entirely — a wrong "X missed" in #transactions is
+        // exactly the kind of confidently-stale statement that burned the Josh
+        // Allen board. The day stays open for the next run to close properly.
+        out.close_error = closed.error || "close_refused";
+        out.close_refused_day = closed.day;
+        if (closed.detail) out.close_refused_detail = closed.detail;
+        // Retained for the existing ledger_stale alerting/telemetry shape.
+        if (closed.error === "ledger_stale") {
+          out.ledger_stale_day = closed.day;
+          out.poll_last_ts = closed.poll_last_ts;
+        }
         closed = null;
       } else {
         out.closed_day = closed?.day;
