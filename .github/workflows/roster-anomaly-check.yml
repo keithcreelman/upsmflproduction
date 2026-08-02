@@ -2,9 +2,21 @@ name: Roster Anomaly Check
 
 # J3 — daily drift safety net. Diffs the two most recent MFL snapshots and flags
 # any roster/contract change with no matching MFL transaction. Flag-only: it
-# never edits data. Unexplained roster moves fail the run (red = notification);
-# silent contract edits are `::warning::` annotations. See
-# docs/SCHEDULED_PIPELINE_AUDIT.md §4 + docs/DATA_AUTHORITY_MAP.md hotspot #0.
+# never edits data.
+#
+# RED (fails the run, so the scheduled failure is the notification):
+#   * unexplained roster moves
+#   * CONTRACT REGRESSIONS — contract length / TCV destroyed with no
+#     `Restructured` stamp. This is THE detection layer for the 2026-08-02
+#     incident, where an automated sweep flattened 18 owner-built multi-year
+#     contracts and nothing alerted; a human happened to notice a cap number.
+#     Regressions are judged regardless of the transaction log on purpose — all
+#     18 were auction winners, so "a transaction mentions this player" silently
+#     excused every one of them.
+# WARNING only: silent contract edits, and lost Restructured/Ext:/-FL/-BL
+#   markers where the money survived.
+#
+# See docs/SCHEDULED_PIPELINE_AUDIT.md §4 + docs/DATA_AUTHORITY_MAP.md hotspot #0.
 
 on:
   workflow_dispatch:
