@@ -12718,42 +12718,77 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   var TEST_LEAGUE = "25625";
   var STYLE_IDS = ["ups-core-styles", "ups-marquee-style", "ups-theme-postload-overrides",
                    "ups-picker-drawer-style", "ups-tail-styles"];
-  try {
-    var u = new URL(window.location.href);
-    var league = String(u.searchParams.get("L") || "").replace(/\D/g, "");
-    if (!league) {
+
+  // League id, every way MFL spells it. `LEAGUE_ID` is the one that matters and
+  // was the bug in v1: native pages like /2026/lineup?LEAGUE_ID=25625 carry
+  // LEAGUE_ID, not L, and have no /home/<id> path segment — so the league
+  // resolved empty, the gate bailed, and the page kept our CSS.
+  function resolveLeague() {
+    try {
+      var u = new URL(window.location.href);
+      var q = String(u.searchParams.get("L") || u.searchParams.get("LEAGUE_ID") ||
+                     u.searchParams.get("league_id") || "").replace(/\D/g, "");
+      if (q) return q;
       var m = String(u.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
-      if (m) league = m[1];
-    }
-    if (!league) league = String(window.league_id || window.LEAGUE_ID || "").replace(/\D/g, "");
-    if (TEST_ONLY && league !== TEST_LEAGUE) return;
+      if (m && m[1]) return m[1];
+      var g = String(window.league_id || window.LEAGUE_ID || "").replace(/\D/g, "");
+      if (g) return g;
+      var raw = String(document.cookie || "");
+      var c = raw.match(/(?:^|;\s*)MFL_LAST_LEAGUE_ID=([^;]+)/i);
+      if (c && c[1]) return decodeURIComponent(c[1]).replace(/\D/g, "");
+    } catch (e) {}
+    return "";
+  }
 
-    // Our pages = /home/<league>. Home itself and every MODULE hub share it.
-    if (/\/home\/\d+/i.test(String(u.pathname || ""))) return;
+  // Re-evaluated on every tick, never decided once: MFL populates
+  // window.LEAGUE_ID inline and the cookie can land late, so a single early
+  // read can legitimately see nothing. v1 returned on that and never looked
+  // again.
+  function shouldStrip() {
+    var league = resolveLeague();
+    if (TEST_ONLY && league !== TEST_LEAGUE) return false;
+    // OUR pages = /<year>/home/<league> — the home page and every MODULE hub.
+    try {
+      if (/\/home\/\d+/i.test(String(window.location.pathname || ""))) return false;
+    } catch (e) { return false; }
+    return true;
+  }
 
-    document.documentElement.setAttribute("data-ups-native-skin", "1");
+  function ensureHide() {
+    if (document.getElementById("ups-native-skin-hide")) return;
     var hide = document.createElement("style");
     hide.id = "ups-native-skin-hide";
+    // Hidden as well as unstyled: once its CSS is gone this markup would
+    // otherwise render as raw unstyled lists and divs.
     hide.textContent = ".ups-hero-shell,.ups-hotlinks-shell,.ups-footer,#ups-switch-app-btn," +
                        "#upsDevBanner,.ups-teamops-subnav{display:none!important}";
     (document.head || document.documentElement).appendChild(hide);
+  }
 
-    function strip() {
+  var announced = false;
+  function apply() {
+    try {
+      if (!shouldStrip()) return;
+      document.documentElement.setAttribute("data-ups-native-skin", "1");
+      ensureHide();
       for (var i = 0; i < STYLE_IDS.length; i++) {
         var el = document.getElementById(STYLE_IDS[i]);
         if (el && !el.disabled) el.disabled = true;
       }
-    }
-    strip();
-    // Blocks further down the header parse after this runs, and a couple are
-    // appended by script later still — re-run at each lifecycle point rather
-    // than assuming a parse order.
-    document.addEventListener("DOMContentLoaded", strip);
-    window.addEventListener("load", strip);
-    try {
-      new MutationObserver(strip).observe(document.documentElement, { childList: true, subtree: true });
+      if (!announced) {
+        announced = true;
+        try { console.log("[UPS][native-skin] stock MFL styling on", window.location.pathname); } catch (e) {}
+      }
     } catch (e) {}
-    try { console.log("[UPS][native-skin] stock MFL styling on", u.pathname); } catch (e) {}
+  }
+
+  apply();
+  // Blocks further down the header parse after this runs, and a couple are
+  // appended by script later still — re-run rather than assume a parse order.
+  try { document.addEventListener("DOMContentLoaded", apply); } catch (e) {}
+  try { window.addEventListener("load", apply); } catch (e) {}
+  try {
+    new MutationObserver(apply).observe(document.documentElement, { childList: true, subtree: true });
   } catch (e) {}
 })();
 </script>
