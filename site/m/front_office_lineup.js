@@ -112,6 +112,35 @@
     return draft;
   }
 
+  // Convert a flat starters[] (what MFL/our own ledger actually holds) BACK
+  // into a slot draft ({ slotId: pid }). This is how a real submitted lineup
+  // gets displayed — never confuse it with autoFillSlots above, which
+  // invents a lineup rather than reads one back. Same fixed-slots-first order
+  // as autoFillSlots so a flex slot never claims a player a fixed slot needs.
+  // A pid not in `rows` (e.g. since traded/dropped) is silently skipped —
+  // MFL's own copy is still the 18 that were actually submitted; this is only
+  // a client-side rendering of it.
+  function slotsFromStarters(rows, pids) {
+    var byId = {};
+    (rows || []).forEach(function (r) { byId[String(r.id)] = r; });
+    var list = (pids || []).map(String).filter(function (p) { return byId[p]; });
+    var out = {}, used = {};
+    function fill(slotList) {
+      slotList.forEach(function (s) {
+        if (out[s.id]) return;
+        for (var i = 0; i < list.length; i++) {
+          var pid = list[i];
+          if (used[pid]) continue;
+          var r = byId[pid];
+          if (r && slotAccepts(s, posGroup(r.pos))) { out[s.id] = pid; used[pid] = 1; return; }
+        }
+      });
+    }
+    fill(LINEUP_SLOTS.filter(function (s) { return !s.flex; }));
+    fill(LINEUP_SLOTS.filter(function (s) { return s.flex; }));
+    return out;
+  }
+
   // Validate a slot draft ({ slotId: pid }). Returns
   // { ok, filled, total, bySide:{O,D}, errors[] }.
   function validateSlots(draft, rowsByPid) {
@@ -158,6 +187,7 @@
     slotAccepts: slotAccepts,
     lineupEligibleRow: lineupEligibleRow,
     autoFillSlots: autoFillSlots,
+    slotsFromStarters: slotsFromStarters,
     validateSlots: validateSlots
   };
 })();

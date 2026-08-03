@@ -26,6 +26,18 @@
   function projFor(pid) { var v = projMap()[String(pid)]; return v == null ? null : v; }
   function fmtProj(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
   function projLoaded() { return !!(M.state.lineupProj && M.state.lineupProj.loaded && Object.keys(projMap()).length); }
+  // "Has the projections fetch settled at all" — success OR failure, unlike
+  // projLoaded() above which also requires actual scores. M.state.lineupWeek
+  // is only ever set inside loadProjections()'s SUCCESS branch (never on a
+  // failure), so this is the signal loadSubmittedLineup needs: wait for the
+  // week-resolution attempt to finish one way or the other before reading it,
+  // rather than racing it. Both fetches are kicked off in the same tick at
+  // the top of render() — a small D1 lookup (lineup read) plausibly resolves
+  // FASTER than a full MFL projectedScores pull, so without this gate the
+  // lineup read would commonly fire with an unresolved (blank) week even
+  // though the real week arrives moments later — misreading/miswriting a
+  // just-submitted lineup as "no_record" on the very next load.
+  function projSettled() { return !!(M.state.lineupProj && M.state.lineupProj.loaded); }
   // Optimal-lineup score: projection (no-projection sorts last).
   function projScore(r) { var p = projFor(r.id); return p == null ? -1 : p; }
   // League-wide positional rank by projection (cached): { pid: { rank, group } }.
@@ -226,18 +238,67 @@
     return m;
   }
 
-  // Draft = { slotId: pid }. Seed once (greedy valid lineup) so the owner
-  // starts from a complete 18 they can tweak; persisted on M.state so
-  // switching sub-tabs doesn't lose work.
-  function ensureDraft(rows) {
-    var d = M.state.lineupSlots;
-    if (d && typeof d === "object" && !Array.isArray(d)) return d;
-    // Optimal (by projection) once projections are in; salary is the pre-load
-    // fallback (re-seeded optimally when projections arrive — see loadProjections).
-    var optimal = projLoaded();
-    M.state.lineupSlots = FO.autoFillSlots(rows, optimal ? projScore : null);
-    M.state.lineupSeed = optimal ? "proj" : "salary";
-    return M.state.lineupSlots;
+  // Draft = { slotId: pid }. Persisted on M.state so switching sub-tabs
+  // doesn't lose work.
+  //
+  // Seed from the lineup MFL ACTUALLY holds — never from Optimal. This used
+  // to auto-fill Optimal (by projection, falling back to salary) on every
+  // first render: an owner who deliberately benched a starter (bad matchup,
+  // injury hunch) came back to this tab showing Optimal with no indication
+  // it wasn't their real lineup, and hitting Submit silently overwrote their
+  // real choice. Same bug class Game Day was fixed for (2026-08-03); found on
+  // this sibling surface by the regression audit run right after. The
+  // explicit "⚡ Optimal" button (bind(), below) is still exactly how you get
+  // the auto-filled lineup — it's just never the unannounced default again.
+  //
+  // `known` is a promise (mirrors the worker's /api/lineup contract): only a
+  // known:true response may seed anything. An unreadable read leaves the
+  // screen on an explicit loading/error placeholder (see render()) rather
+  // than falling back to Optimal or silently starting empty — either would
+  // let an owner submit over a real lineup we simply failed to read back.
+  function loadSubmittedLineup(rows) {
+    if (M.state.lineupRead) return;     // once per page load
+    M.state.lineupRead = "loading";
+    var url = API.workerUrl("/api/lineup");
+    var wk = String(M.state.lineupWeek || "").replace(/\D/g, "");
+    var qs = [];
+    if (wk) qs.push("W=" + encodeURIComponent(wk));
+    var uid = API.getStoredMflUserId && API.getStoredMflUserId();
+    if (uid) qs.push("MFL_USER_ID=" + encodeURIComponent(uid));
+    if (qs.length) url += "?" + qs.join("&");
+    fetch(url, { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.known === true && Object.prototype.toString.call(j.starters) === "[object Array]" && j.starters.length) {
+          M.state.lineupSlots = FO.slotsFromStarters(rows, j.starters);
+          M.state.lineupSeed = "submitted";
+          M.state.lineupRead = "ok";
+        } else if (j && j.state === "no_record") {
+          // Never submitted from here THIS WEEK. They may still have set one
+          // natively on MFL — that is UNKNOWN, not empty — so start blank and
+          // offer Optimal as an explicit choice rather than silently applying it.
+          M.state.lineupRead = "norecord";
+        } else {
+          M.state.lineupRead = "unknown";
+          M.state.lineupReadErr = (j && j.error) || "Couldn't read your saved lineup.";
+        }
+        renderRoute();
+      })
+      .catch(function (e) {
+        M.state.lineupRead = "unknown";
+        M.state.lineupReadErr = String((e && e.message) || e);
+        renderRoute();
+      });
+  }
+
+  function renderLineupReadPlaceholder() {
+    if (M.state.lineupRead === "loading" || !M.state.lineupRead) {
+      return '<div class="ups-m-stub">Loading your current lineup from MFL…</div>';
+    }
+    return '<div class="ups-m-lineup-msg err">Couldn’t read your current lineup from MFL, so nothing is shown here — ' +
+      'filling in the optimal lineup could overwrite starters you set on purpose. ' +
+      U.escapeHtml(M.state.lineupReadErr || "") + '</div>' +
+      '<div class="ups-m-lineup-tools"><button type="button" class="ups-m-lineup-tool" id="ups-m-lineup-retry">Try again</button></div>';
   }
 
   function subTabs(active) {
@@ -455,12 +516,23 @@
     var luUrl = API.workerUrl("/api/submit-lineup");
     var luStored = API.getStoredMflUserId && API.getStoredMflUserId();
     if (luStored) luUrl += "?MFL_USER_ID=" + encodeURIComponent(luStored);
+    // week: without it the worker's ups_lineup_submissions row is stamped
+    // week="" (its ONLY default when the field is simply absent — see
+    // worker/src/index.js /api/submit-lineup), while GET /api/lineup matches
+    // on an EXACT week. Game Day always sends its own resolved week; this
+    // view was omitting it entirely, so a lineup submitted here could never
+    // be read back by week-scoped GETs (from either surface) — the read-back
+    // fix above would have looked for week=<M.state.lineupWeek> and found
+    // nothing, even for a lineup this exact screen just submitted. Both
+    // surfaces resolve "current week" from the same MFL projectedScores
+    // source, so this keeps them in agreement.
+    var luWeek = String(M.state.lineupWeek || "").replace(/\D/g, "");
     fetch(luUrl, {
       method: "POST",
       mode: "cors",
       credentials: "omit",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ franchiseId: fid, starters: starters })
+      body: JSON.stringify({ franchiseId: fid, week: luWeek, starters: starters })
     }).then(function (r) {
       return r.json().then(function (j) { return { status: r.status, body: j }; });
     }).then(function (resp) {
@@ -512,7 +584,37 @@
     }
     loadProjections();   // lazy fetch; re-renders when projections arrive
     loadMatchups();      // lazy: opponent/kickoff/spread + adjusted def rank
-    var draft = ensureDraft(rows);
+    if (!M.state.lineupSlots) {
+      if (!projSettled()) {
+        // Wait for the projections fetch to SETTLE (success or failure)
+        // before reading/writing a lineup — it's what resolves
+        // M.state.lineupWeek, and firing the week-scoped read before that
+        // lands would key it off a still-unresolved (blank) week, misreading
+        // a real submission as "no_record". Re-renders itself once settled
+        // (loadProjections' own .then/.catch both call renderRoute()).
+        mount.innerHTML = subTabs("lineup") + '<div class="ups-m-stub">Loading your current lineup from MFL…</div>';
+        return;
+      }
+      loadSubmittedLineup(rows);   // lazy: seeds M.state.lineupSlots from MFL, never Optimal
+      if (!M.state.lineupSlots) {
+        if (M.state.lineupRead === "loading" || !M.state.lineupRead || M.state.lineupRead === "unknown") {
+          // Nothing seeded yet (still reading) or the read FAILED. Must not
+          // paint a lineup we can't vouch for — an unreadable lineup is not an
+          // empty one (see loadSubmittedLineup).
+          mount.innerHTML = subTabs("lineup") + renderLineupReadPlaceholder();
+          var retryBtn = document.getElementById("ups-m-lineup-retry");
+          if (retryBtn) retryBtn.addEventListener("click", function () {
+            M.state.lineupRead = null; M.state.lineupReadErr = null; renderRoute();
+          });
+          return;
+        }
+        // "norecord": start EMPTY, never Optimal. We don't know what MFL is
+        // holding (they may have set it natively) — the Optimal button is
+        // right there if that's genuinely what the owner wants.
+        M.state.lineupSlots = {};
+      }
+    }
+    var draft = M.state.lineupSlots;
     var byId = rowsById(rows);
     var v = FO.validateSlots(draft, byId);
     var submitting = !!M.state.lineupSubmitting;
