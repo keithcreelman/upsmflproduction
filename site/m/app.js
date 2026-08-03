@@ -2332,7 +2332,10 @@
       // drafted R2-5, within 3 league years of their draft, and not
       // permanently promoted. Used to gate the eligibility chip on
       // active-roster rookies + the Demote button.
-      isTaxiEligibleFor: function (playerId) {
+      // contractStatus: the player's CURRENT contract label (rosterRow.contractStatus).
+      // Optional param for back-compat with any caller not yet updated, but
+      // every real caller now passes it — see the note below on why.
+      isTaxiEligibleFor: function (playerId, contractStatus) {
         var pid = String(playerId || "");
         if (!pid) return false;
         var callup = (state.taxiCallupsByPid || {})[pid];
@@ -2355,7 +2358,20 @@
         var currentSeason = parseInt(state.ctx && state.ctx.year, 10);
         if (!draftYear || !currentSeason) return false;
         if (!draftRound || draftRound < 2) return false;  // only R1 excluded; R2+ (incl. R6 IDP) taxi-eligible
-        return (currentSeason - draftYear) < 3;
+        if ((currentSeason - draftYear) >= 3) return false;
+        // Trade preserves eligibility; a CUT forfeits it permanently (Keith
+        // 2026-08-03: "if a player is traded they can be demoted...but once cut
+        // that player is no longer cap eligible"). MFL never rewrites
+        // contractStatus on a trade, but a drop wipes it and re-acquisition
+        // always assigns a fresh one — so anything other than exactly
+        // "Rookie-Draft" means the original entry contract is gone, no matter
+        // how recent the UPS draft record is. Mirrors the worker's
+        // stillOnEntryContract check. Found via a real case: Demetrius Knight
+        // (UPS R6 2025, drafted by Blake Bombers) was cut and bought back by a
+        // DIFFERENT team at the 2026 auction — now "Vet-FAA" — and this check
+        // hadn't noticed, because it only ever looked at draft history.
+        if (!/^rookie-draft$/i.test(safeStr(contractStatus))) return false;
+        return true;
       },
       // Optimistic-update helpers — after a successful tag/untag the
       // static tag_submissions.json (ETL-regenerated on a schedule) AND

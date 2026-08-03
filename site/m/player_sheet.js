@@ -377,7 +377,7 @@
       // (canon §A1 R2-5 + §B2 3yr window). Replaces the rough
       // /rookie/i contractStatus check which would show Demote for R1
       // rookies (worker would reject per Q12, but cleaner to hide it).
-      var canDemote = !rrIsTaxi && !rrIsIr && (DATA.isTaxiEligibleFor ? DATA.isTaxiEligibleFor(pid) : false);
+      var canDemote = !rrIsTaxi && !rrIsIr && (DATA.isTaxiEligibleFor ? DATA.isTaxiEligibleFor(pid, rosterRow && rosterRow.contractStatus) : false);
       if (rrIsTaxi) {
         html += '<div class="ups-m-sheet-actions">' +
           '<button class="btn-act ext" data-act="promote-taxi">Promote from Taxi</button>' +

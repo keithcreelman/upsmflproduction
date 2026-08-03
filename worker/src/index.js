@@ -11546,6 +11546,21 @@ export default {
           result.eligible = false;
           result.ineligibleReason =
             `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} (${yearsElapsed} league years ago) and has graduated (§B2).`;
+        } else if (!/^rookie-draft$/i.test(result.contractStatus)) {
+          // Trade preserves eligibility; a CUT forfeits it permanently, even if
+          // later re-acquired by any team (Keith 2026-08-03). MFL never
+          // rewrites contractStatus on a trade, but a drop wipes it and
+          // re-acquisition always assigns a fresh status — so a current status
+          // other than exactly "Rookie-Draft" means the original entry
+          // contract is gone. Found via a real case: Demetrius Knight (UPS R6
+          // 2025, drafted by Blake Bombers) was cut and bought back by Sex
+          // Manther at the 2026 auction for $1,000 — now "Vet-FAA" — and the
+          // eligibility check hadn't noticed, because it only looked at draft
+          // history. 8 players league-wide were in this exact state, all
+          // having changed teams via cut+re-acquisition, none merely traded.
+          result.eligible = false;
+          result.ineligibleReason =
+            `This player's rookie contract ended when they were dropped (current contract: ${result.contractStatus || "unknown"}) — taxi eligibility does not carry over to a re-acquisition (§B2).`;
         } else {
           result.eligible = true;
         }
@@ -38517,14 +38532,34 @@ export default {
               const upsYear = upsDraft ? upsDraft.ups_year : 0;
               const inUpsWindow =
                 upsYear > 0 && currentSeason > 0 && (currentSeason - upsYear) < 3;
+              // Trade preserves taxi eligibility; a CUT permanently forfeits it
+              // (Keith 2026-08-03: "if a player is traded they can be
+              // demoted...but once cut that player is no longer cap eligible").
+              // MFL never rewrites contractStatus on a trade — the contract
+              // carries over as-is — but a drop wipes it, and re-acquisition
+              // always assigns a FRESH status reflecting how they came back
+              // (Vet-FAA off the auction, Rookie-MYM/Rookie-FAA off a blind
+              // bid). So "is this still the ORIGINAL rookie-draft contract" is
+              // exactly "has this player never been cut since the draft" —
+              // verified against all 194 currently-rostered UPS-drafted
+              // players: a clean split, 186 still `Rookie-Draft`, 8
+              // `Vet-FAA`/`Vet-MYM` (all 8 also confirmed to have changed
+              // TEAMS, i.e. genuinely cut-and-rebought, not merely traded).
+              // Rookie extensions don't confuse this: canon only allows a
+              // rookie extension at the EXPIRED-rookie deadline (§A1/§C3),
+              // which coincides with the SAME 3-year clock the window check
+              // above already enforces, so there is no in-window case where a
+              // never-cut rookie shows a non-"Rookie-Draft" status.
+              const stillOnEntryContract = /^rookie-draft$/i.test(type);
               // Taxi-eligible = UPS Rookie Draft Round 2 OR LATER, inside the
-              // 3-league-year window. Only Round 1 is excluded (§A1 R1 stays
-              // active). Round 6 (IDP-only since 2025) IS taxi-eligible — canon
-              // §B2 "Round 2 or later" / draft_round >= 2 (ratified Keith
+              // 3-league-year window, and still on that original entry
+              // contract. Only Round 1 is excluded (§A1 R1 stays active).
+              // Round 6 (IDP-only since 2025) IS taxi-eligible — canon §B2
+              // "Round 2 or later" / draft_round >= 2 (ratified Keith
               // 2026-07-17; the old `upsRound <= 5` cap wrongly benched R6
               // rookies like A.J. Haulcy, a 2026 R6.07 safety).
               const isTaxiEligible =
-                inUpsWindow && upsRound >= 2;
+                inUpsWindow && upsRound >= 2 && stillOnEntryContract;
 
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
               return {

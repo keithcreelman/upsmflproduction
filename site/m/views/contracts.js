@@ -55,7 +55,7 @@
     // drafted R2-5, season - draft_year < 3.
     var taxiEligibleNow = false;
     if (!isTaxiNow && DATA.isTaxiEligibleFor) {
-      taxiEligibleNow = !!DATA.isTaxiEligibleFor(rosterRow.id);
+      taxiEligibleNow = !!DATA.isTaxiEligibleFor(rosterRow.id, rosterRow.contractStatus);
     }
     if (isTaxiNow || taxiEligibleNow) {
       var used = callup ? U.safeInt(callup.used, 0) : 0;
@@ -739,7 +739,7 @@
     var onTaxi = roster.filter(function (r) { return /taxi/i.test(U.safeStr(r.status)); });
     var demotable = roster.filter(function (r) {
       return !/taxi|ir|injured|reserve/i.test(U.safeStr(r.status)) &&
-        DATA.isTaxiEligibleFor && DATA.isTaxiEligibleFor(r.id);
+        DATA.isTaxiEligibleFor && DATA.isTaxiEligibleFor(r.id, r.contractStatus);
     });
     function taxiSal(r) { var d = DATA.deriveTaxiSalary ? DATA.deriveTaxiSalary(r) : null; return (d && d.ok) ? d.salary : (Number(r.salary) || 0); }
     onTaxi.sort(function (a, b) { return taxiSal(b) - taxiSal(a); });
