@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-08-02 17:28:21",
+    "generated_at": "2026-08-03 03:00:47",
     "source": "contract-activity-log",
-    "count": 103,
+    "count": 104,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "8896aee019fa399520d81f05",
+      "submission_id": "8896aee019fa399520d81f05",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0012",
+      "franchise_name": "Hawks",
+      "player_id": "15721",
+      "player_name": "White, Rachaad",
+      "position": "RB",
+      "salary": 13000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 39K|AAV 13K|Y1-13K, Y2-13K, Y3-13K|GTD: 29.3K",
+      "tcv": 39000,
+      "aav": 13000,
+      "guaranteed": 29300,
+      "submitted_at_utc": "2026-08-03T03:00:29.078Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1533670880322912357",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "e42e7007a4aa7852516d9821",
       "submission_id": "e42e7007a4aa7852516d9821",
