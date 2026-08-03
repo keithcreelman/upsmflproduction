@@ -214,7 +214,9 @@
     loadingPromiseFid: "",  // fid active when current loadAllData started; race guard
     loadErrors: [],
     meConfigured: false,    // true when /api/me resolved a real session; gates mutating UI
-    busyActionKey: ""
+    busyActionKey: "",
+    isCommish: false,       // true iff the REAL logged-in identity is a commish franchise
+    realFranchiseId: "",    // the true logged-in fid (often "0000" for commish, never used to view/roster)
   };
 
   // ---------- Context detection ----------
@@ -937,6 +939,25 @@
   function resolveViewerFranchise(meResp) {
     // Priority: (1) /api/me, (2) localStorage rdh_my_fid (shared with desktop hubs),
     // (3) MFL_LAST_LOGIN_FRANCHISE_ID cookie, (4) MFL_USER_ID cookie match.
+    //
+    // isCommish / realFranchiseId (Keith 2026-08-03, "can I as commish act on
+    // mobile on behalf of another owner"): captured from the RAW /api/me
+    // response BEFORE the "drop 0000" logic below, so they reflect the true
+    // logged-in identity regardless of which team is currently being viewed.
+    //
+    // NOT the same as meResp.is_commish. The commish ALLOWLIST is "0008,0000"
+    // (Keith's PLAYING team + the dedicated MFL commish pseudo-login) — but
+    // Keith explicitly does not want commish tooling when he's logged in as
+    // his own team: "when im 0008 I dont want commish functionality, i want to
+    // be a regular owner" (same rule desktop already applies — see
+    // front_office.js's viewerIsAdmin, which compares against
+    // commishFranchiseId specifically, not the broader allowlist). So this
+    // checks the RESOLVED identity against "0000" directly — the exact same
+    // literal the "drop 0000" line right below already singles out — rather
+    // than the is_commish flag, which would incorrectly show Switch Team on
+    // his everyday 0008 login too.
+    state.realFranchiseId = meResp && meResp.franchise_id ? pad4(meResp.franchise_id) : "";
+    state.isCommish = state.realFranchiseId === "0000";
     var fid = "";
     if (meResp && meResp.configured && meResp.franchise_id) fid = pad4(meResp.franchise_id);
     // The commish login (0000) isn't a playing team — pinning the viewer to it
@@ -1839,16 +1860,64 @@
     if (best) best.classList.add("active");
   }
 
+  // Select which franchise the commish is currently acting as. Same-object
+  // fields resolveViewerFranchise sets, updated in place so every view that
+  // already reads state.viewerFranchiseId picks the change up on the very
+  // next renderRoute() — no data reload needed, since loadAllData already
+  // pulled league-wide rosters/salaries/etc., not a per-franchise slice.
+  function selectTeamAsCommish(fid) {
+    var padded = pad4(fid);
+    var match = state.franchises.find(function (f) { return f.id === padded; });
+    if (!match) return;
+    state.viewerFranchiseId = padded;
+    state.viewerFranchise = match;
+    try { window.localStorage && window.localStorage.setItem("rdh_my_fid", padded); } catch (e) {}
+    renderRoute();
+  }
+
   function renderFranchisePicker(main) {
     // Shown ONLY when /api/me couldn't resolve a franchise (no
     // MFL_USER_ID forwarded via the Switch-to-App-View button on the
-    // desktop site, and no MFL session cookie on the worker domain).
+    // desktop site, and no MFL session cookie on the worker domain) —
+    // OR (below) when a real commish session has no team selected yet.
     // The clean path is: log into MFL → tap "Switch to App View" → land
     // here pre-authenticated. This picker is the fallback for cold
     // visits that bypassed the desktop entry.
-    // MFL-only sign-in (Keith 2026-06-08): no manual team picker — the owner
-    // signs in via MFL's "Switch to App View" bounce, which forwards
-    // MFL_USER_ID (one-and-done; persisted in localStorage thereafter).
+    // MFL-only sign-in (Keith 2026-06-08): no manual team picker for a
+    // REGULAR owner — they sign in via MFL's "Switch to App View" bounce,
+    // which forwards MFL_USER_ID (one-and-done; persisted in localStorage
+    // thereafter), and /api/me always resolves back to their own exact team.
+    //
+    // The COMMISH is the one case that genuinely needs a manual list (Keith
+    // 2026-08-03, "can I as commish act on mobile on behalf of another
+    // owner"): their real identity is franchise 0000, which isn't a playing
+    // team, so /api/me can never hand them a specific fid to resolve to —
+    // there IS a real choice to make here, not just a bounce to repeat.
+    // state.isCommish/realFranchiseId are set in resolveViewerFranchise from
+    // the raw /api/me response, independent of whatever team is (or isn't)
+    // currently selected, so this branch is reachable even with no
+    // viewerFranchiseId yet.
+    if (state.isCommish) {
+      var rows = (state.franchises || []).slice().sort(function (a, b) {
+        return String(a.name).localeCompare(String(b.name));
+      }).map(function (f) {
+        return '<button class="ups-m-team-pick" data-fid="' + escapeHtml(f.id) + '">' +
+          escapeHtml(f.name) + (f.owner ? ' <span class="owner">· ' + escapeHtml(f.owner) + '</span>' : '') +
+        '</button>';
+      }).join("");
+      main.innerHTML =
+        '<div class="ups-m-card">' +
+          '<div class="ups-m-card-title">Act as which team?</div>' +
+          '<div style="font-size:13px;color:var(--fg-muted);margin-bottom:10px;line-height:1.5">' +
+            'You\'re signed in as commish. Pick a franchise to view its roster and submit contract moves on its behalf — every submission is recorded as a commish action.' +
+          '</div>' +
+          '<div class="ups-m-team-pick-list">' + rows + '</div>' +
+        '</div>';
+      Array.prototype.forEach.call(main.querySelectorAll("[data-fid]"), function (btn) {
+        btn.addEventListener("click", function () { selectTeamAsCommish(btn.getAttribute("data-fid")); });
+      });
+      return;
+    }
     var mflHome = "https://www48.myfantasyleague.com/" +
       encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId);
     var loginIcon = window.UPS_ICONS ? window.UPS_ICONS.svg("log-in", { size: 18 }) : "";
@@ -1949,7 +2018,14 @@
     try { window.localStorage && window.localStorage.removeItem("rdh_my_fid"); } catch (e) {}
     state.viewerFranchiseId = "";
     state.viewerFranchise = null;
-    renderRoute();
+    // Navigate OFF "more" rather than re-rendering in place. The franchise
+    // gate in renderRoute() deliberately exempts the "more" route (so a
+    // signed-out user can still reach Sign in / Sign out from it) — which is
+    // exactly the route this button lives on, so a bare renderRoute() here
+    // would just repaint "more" with "No team selected" and never show the
+    // team picker at all. "#home" hits the gate and renderFranchisePicker
+    // branches to the commish team list since state.isCommish is still true.
+    navigate("#home");
   }
 
   // Full sign-out — clears BOTH the remembered franchise and the persisted
@@ -2054,9 +2130,16 @@
     var accountLine = state.viewerFranchise
       ? escapeHtml(state.viewerFranchise.name) + (state.viewerFranchise.owner ? ' · ' + escapeHtml(state.viewerFranchise.owner) : '')
       : "No team selected";
-    // When /api/me resolved a real session, hide Switch Team — the worker
-    // will rebind us to the authoritative fid on next load anyway, and
-    // letting the picker reopen would confuse "whose data am I looking at?"
+    // Switch Team stays hidden for a REGULAR owner — the worker rebinds them
+    // to their one authoritative fid on next load regardless, so reopening the
+    // picker would just confuse "whose data am I looking at?" with no real
+    // choice behind it. The COMMISH is the one real exception (Keith
+    // 2026-08-03): their true identity (franchise 0000) never maps to a
+    // playing team, so there IS a genuine team to pick, same as desktop's
+    // "Acting as" switcher.
+    var switchTeamBtn = state.isCommish
+      ? '<button class="ups-m-desktop-link" id="ups-m-switch-team" style="margin:4px 0 0;cursor:pointer;background:none;font-size:14px">Switch team (commish)</button>'
+      : "";
     // MFL-only auth: signed in → Sign out; signed out → Sign in with MFL.
     var mflHomeUrl = "https://www48.myfantasyleague.com/" +
       encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId);
@@ -2071,6 +2154,7 @@
         '<div class="ups-m-card-title">Your team</div>' +
         '<div style="font-size:14px;margin-bottom:10px">' + accountLine + '</div>' +
         authBtn +
+        switchTeamBtn +
       '</div>' +
       '<a class="ups-m-desktop-link" href="#more/rules">' + ic("book-open") + 'Rules</a>' +
       // Explicit refresh button (Keith MobileNotesV1: previously the only
@@ -2085,6 +2169,8 @@
     if (soBtn) soBtn.addEventListener("click", function () {
       if (window.confirm("Sign out? You'll need to sign in via MFL again to make changes.")) signOut();
     });
+    var stBtn = document.getElementById("ups-m-switch-team");
+    if (stBtn) stBtn.addEventListener("click", switchTeam);
     var refreshBtn = document.getElementById("ups-m-refresh-data");
     if (refreshBtn) {
       refreshBtn.addEventListener("click", function () {
@@ -2282,9 +2368,21 @@
     setTimeout(checkForUpdate, 1500);   // after first paint
   }
 
+  // Is the CURRENT submission a commish acting on someone else's behalf?
+  // FAITHFUL MIRROR of desktop's `commish_override_flag = !!me.isAdmin &&
+  // me.franchise_id !== p.fid` (site/rosters/v2/front_office.js:2956/4369).
+  // One shared helper rather than repeating the expression at every submit
+  // call site — every mobile submit used to hardcode commishOverride:false,
+  // which under-reported every commish-on-behalf-of action in the audit
+  // trail (Keith 2026-08-03).
+  function isCommishOverride() {
+    return !!state.isCommish && !!state.viewerFranchiseId && state.viewerFranchiseId !== state.realFranchiseId;
+  }
+
   // ---------- Public API ----------
   window.UPS_MOBILE = {
     boot: boot,
+    isCommishOverride: isCommishOverride,
     state: state,
     util: {
       safeStr: safeStr,

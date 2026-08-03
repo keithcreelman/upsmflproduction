@@ -846,7 +846,7 @@
       acquisitionDate: U.safeStr(player && player.acquisitionDate),
       acquisitionType: U.safeStr(acqLabel),
       dryRun: false,
-      commishOverride: false
+      commishOverride: window.UPS_MOBILE.isCommishOverride()
     }).then(function (resp) {
       if (resp.ok) {
         window.UPS_MOBILE.ui.showToast(contract.totalYears + "-yr MYM submitted ✓ (" + contract.subType + ")", "ok");
@@ -1066,7 +1066,7 @@
       fid: s.viewerFranchiseId,
       franchiseName: (s.viewerFranchise && s.viewerFranchise.name) || "",
       position: U.safeStr(player && player.position),
-      option: option, rosterRow: footerState.rosterRow, dryRun: false, commishOverride: false
+      option: option, rosterRow: footerState.rosterRow, dryRun: false, commishOverride: window.UPS_MOBILE.isCommishOverride()
     }).then(function (resp) {
       if (resp.ok) {
         window.UPS_MOBILE.ui.showToast(option.status + " extension submitted ✓", "ok");
@@ -1113,7 +1113,7 @@
       option: option,
       rosterRow: rosterRow,
       dryRun: false,
-      commishOverride: false
+      commishOverride: window.UPS_MOBILE.isCommishOverride()
     }).then(function (resp) {
       if (resp.ok) {
         window.UPS_MOBILE.ui.showToast("Extension submitted ✓", "ok");
@@ -1306,7 +1306,7 @@
       position: U.safeStr(player && player.position),
       priorContractStatus: U.safeStr(rosterRow && rosterRow.contractStatus),
       calc: calc,
-      commishOverride: false
+      commishOverride: window.UPS_MOBILE.isCommishOverride()
     }).then(function (resp) {
       if (resp.ok) {
         window.UPS_MOBILE.ui.showToast("Restructure submitted ✓", "ok");
@@ -1376,7 +1376,7 @@
       contract: contract,
       rosterRow: rosterRow,
       dryRun: false,
-      commishOverride: false
+      commishOverride: window.UPS_MOBILE.isCommishOverride()
     }).then(function (resp) {
       if (resp.ok) {
         window.UPS_MOBILE.ui.showToast(contract.totalYears + "-yr MYAC submitted ✓ (" + contract.status + ")", "ok");
@@ -1587,7 +1587,7 @@
       year: s.ctx.year,
       row: row,
       dryRun: false,
-      commishOverride: false
+      commishOverride: window.UPS_MOBILE.isCommishOverride()
     }).then(function (resp) {
       setBusy(btn, false);
       if (resp.ok) {
@@ -1665,7 +1665,7 @@
       position: U.safeStr(player && player.position),
       row: row,
       dryRun: false,
-      commishOverride: false
+      commishOverride: window.UPS_MOBILE.isCommishOverride()
     }).then(function (resp) {
       setBusy(btn, false);
       if (!resp.ok) {

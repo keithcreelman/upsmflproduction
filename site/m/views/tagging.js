@@ -220,7 +220,7 @@
         year: s.ctx.year,
         row: row,
         dryRun: false,
-        commishOverride: false
+        commishOverride: M.isCommishOverride()
       }).then(function (resp) {
         if (resp.ok) {
           // Optimistic push so the slot updates before tag_submissions.json
@@ -267,7 +267,7 @@
         position: U.safeStr((player && player.position) || urow.position),
         row: urow,
         dryRun: false,
-        commishOverride: false
+        commishOverride: M.isCommishOverride()
       }).then(function (resp) {
         if (!resp.ok) {
           M.ui.showToast("Untag failed: " + (resp.error || "unknown"), "err");

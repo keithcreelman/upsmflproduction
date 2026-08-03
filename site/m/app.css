@@ -1909,6 +1909,27 @@ button.ups-m-busy::before,
   font-weight: 600;
 }
 
+/* Commish "act as which team" picker (Keith 2026-08-03). A dedicated row
+   style rather than reusing .ups-m-desktop-link's 20px stacked margins,
+   which read fine for a handful of scattered single links but would sprawl
+   across a full 12-team list. */
+.ups-m-team-pick-list { display: flex; flex-direction: column; gap: 6px; }
+.ups-m-team-pick {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ups-m-team-pick:active { background: var(--bg-elev2); }
+.ups-m-team-pick .owner { color: var(--fg-muted); font-weight: 400; font-size: 12px; }
+
 /* Hide on very narrow phones where bottom nav gets squeezed */
 @media (max-width: 320px) {
   .ups-m-nav-label { font-size: 10px; }
