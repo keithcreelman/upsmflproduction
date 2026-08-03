@@ -1084,24 +1084,37 @@
     // 3 — Roster size outside the legal window (min 27, max 35 pre-deadline /
     //     30 after). OVER the max is a real cut alarm. UNDER the min means ADD,
     //     not cut — the old hardcoded 26 told a 22-man roster to "cut 4".
-    if (cap.rosterCount > caps.max) {
-      var over = cap.rosterCount - caps.max;
+    //
+    // BOTH THRESHOLDS ARE ACTIVE-ROSTER BASIS — canon says so explicitly
+    // ("27-ACTIVE minimum", roster impact: "Taxi-demoted rookies don't count
+    // vs. active roster" / "IR players do NOT count against active roster
+    // max"). cap.activeCount (roster minus taxi minus IR), NOT cap.rosterCount
+    // (the raw total), is the only number these limits can be compared
+    // against — same basis bug already caught and fixed once in THIS file's
+    // "Cap room" tile below (see the comment there), never applied here.
+    // Found live 2026-08-03: Keith had taxi players and was correctly told
+    // "cut 2 players to reach the 35 max" off a raw 37-count that included
+    // them — he didn't need to cut anyone.
+    if (cap.activeCount > caps.max) {
+      var over = cap.activeCount - caps.max;
       rows.push({
         tone: "warn",
         title: "Cut " + plural(over, "player") + " to reach the " + caps.max + " max",
         sub: cap.expiredCount
           ? plural(cap.expiredCount, "expired contract") +
             (cap.expiredCount === 1 ? " charges" : " charge") + " $0 but still hold roster spots"
-          : plural(cap.rosterCount, "player") + " on roster",
+          : plural(cap.activeCount, "player") + " active" +
+            (cap.taxiCount || cap.irCount ? " (" + cap.taxiCount + " taxi · " + cap.irCount + " IR not counted)" : ""),
         cta: "Manage roster",
         href: mflModuleUrl("MESSAGE7")
       });
-    } else if (cap.rosterCount < caps.min) {
-      var under = caps.min - cap.rosterCount;
+    } else if (cap.activeCount < caps.min) {
+      var under = caps.min - cap.activeCount;
       rows.push({
         tone: "warn",
         title: "Add " + plural(under, "player") + " to reach the " + caps.min + " minimum",
-        sub: cap.rosterCount + " on roster · league minimum is " + caps.min,
+        sub: cap.activeCount + " active · league minimum is " + caps.min +
+          (cap.taxiCount || cap.irCount ? " (" + cap.taxiCount + " taxi · " + cap.irCount + " IR not counted)" : ""),
         cta: "Add players",
         href: mflModuleUrl("MESSAGE7")
       });
@@ -1238,19 +1251,29 @@
       escapeHtml(fmtUsd(cap.total) + " of " + fmtUsd(cap.cap) + " used"),
       cap.remain < 0, capBar);
 
+    // ACTIVE-ROSTER BASIS THROUGHOUT — same fix as the "Needs You" card above
+    // and the same rule the "Cap room" tile already documents below: the
+    // 35/30 max and 27 min are active-only (canon: taxi & IR excluded), so
+    // both the headline NUMBER and the over/under check have to read
+    // cap.activeCount, never cap.rosterCount (which silently included taxi +
+    // IR here pre-season and told an owner with real taxi bodies they were
+    // over a limit they weren't close to).
     var rosterNote;
     if (phase === "in") {
       rosterNote = escapeHtml(cap.activeCount + " active · " + cap.taxiCount + " taxi · " + cap.irCount + " IR");
-    } else if (cap.rosterCount > caps.max) {
-      rosterNote = escapeHtml((cap.rosterCount - caps.max) + " over the " + caps.max + " max");
-    } else if (cap.rosterCount < caps.min) {
-      rosterNote = escapeHtml((caps.min - cap.rosterCount) + " under the " + caps.min + " min");
+    } else if (cap.activeCount > caps.max) {
+      rosterNote = escapeHtml((cap.activeCount - caps.max) + " over the " + caps.max + " max" +
+        (cap.taxiCount || cap.irCount ? " (" + cap.taxiCount + " taxi · " + cap.irCount + " IR not counted)" : ""));
+    } else if (cap.activeCount < caps.min) {
+      rosterNote = escapeHtml((caps.min - cap.activeCount) + " under the " + caps.min + " min" +
+        (cap.taxiCount || cap.irCount ? " (" + cap.taxiCount + " taxi · " + cap.irCount + " IR not counted)" : ""));
     } else {
-      var openToMax = caps.max - cap.rosterCount;
-      rosterNote = escapeHtml(openToMax + " spot" + (openToMax === 1 ? "" : "s") + " to the " + caps.max + " max");
+      var openToMax = caps.max - cap.activeCount;
+      rosterNote = escapeHtml(openToMax + " spot" + (openToMax === 1 ? "" : "s") + " to the " + caps.max + " max" +
+        (cap.taxiCount || cap.irCount ? " (" + cap.taxiCount + " taxi · " + cap.irCount + " IR not counted)" : ""));
     }
-    var rosterOff = cap.rosterCount > caps.max || cap.rosterCount < caps.min;
-    var rosterTile = tile("Roster", String(cap.rosterCount), rosterNote, rosterOff);
+    var rosterOff = cap.activeCount > caps.max || cap.activeCount < caps.min;
+    var rosterTile = tile("Roster", String(cap.activeCount), rosterNote, rosterOff);
 
     var tiles;
     if (phase === "in") {

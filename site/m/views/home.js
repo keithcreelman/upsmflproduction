@@ -226,7 +226,13 @@
 
   function buildTiles(ctx) {
     var cap = ctx.cap;
-    var rosterSub = cap ? (cap.rosterCount + "/30" + (cap.taxiCount ? " · " + cap.taxiCount + " taxi" : "")) : "—";
+    // ACTIVE count against the ACTIVE max (35 pre-deadline / 30 after) — not
+    // the raw roster total, which includes taxi + IR and isn't what the
+    // limit applies to (canon: both excluded from "active roster"). Found
+    // 2026-08-03: this showed "37/30" for an owner with real taxi bodies,
+    // reading as 7-over a limit he wasn't anywhere near.
+    var rosterMax = DATA.rosterCapMax ? DATA.rosterCapMax() : 30;
+    var rosterSub = cap ? (cap.activeCount + "/" + rosterMax + (cap.taxiCount ? " · " + cap.taxiCount + " taxi" : "")) : "—";
     var contractsSub = ctx.contractOpen > 0 ? (ctx.contractOpen + " open") : "Up to date";
     var tradesSub = ctx.incoming > 0
       ? (ctx.incoming + " received" + (ctx.outgoing ? " · " + ctx.outgoing + " out" : ""))

@@ -1821,6 +1821,29 @@
     return null;
   }
 
+  // Active-roster max: 35 pre-deadline, 30 after (canon: "Roster max drops
+  // from 35 → 30" at the September contract deadline — the SAME date
+  // state.contractDeadline already carries for the MYAC window). Mirrors
+  // team_operations.js's rosterCaps(), which resolves the identical boundary
+  // off its own desktop-only findEvent(["ups_contract_deadline"]) helper;
+  // this reads the ISO string mobile already has instead, since that's
+  // simpler here than porting desktop's calendar-event lookup. ISO dates
+  // ("YYYY-MM-DD") compare correctly as plain strings — no Date parsing/TZ
+  // handling needed. Falls back to a fixed Sept 6 boundary if the deadline
+  // hasn't loaded yet, same fallback team_operations.js uses.
+  function rosterCapMax() {
+    var dl = state.contractDeadline;
+    var afterDeadline;
+    if (dl) {
+      var today = new Date().toISOString().slice(0, 10);
+      afterDeadline = today >= dl;
+    } else {
+      var now = new Date();
+      afterDeadline = (now.getUTCMonth() > 8) || (now.getUTCMonth() === 8 && now.getUTCDate() >= 6);
+    }
+    return afterDeadline ? 30 : 35;
+  }
+
   // Roster + cap math: delegate to the verbatim Front Office mirror so
   // mobile shows identical numbers to desktop Team Operations.
   // Source-of-truth: site/m/front_office_cap.js (verbatim from
@@ -2429,6 +2452,7 @@
       acquisitionForPlayer: acquisitionForPlayer,
       getAdjustmentTotalFor: getAdjustmentTotalFor,
       computeCap: computeCap,
+      rosterCapMax: rosterCapMax,
       contractLimitsFor: contractLimitsFor,
       rookieSalaryForPick: rookieSalaryForPick,
       parseDraftedField: parseDraftedField,

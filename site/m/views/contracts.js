@@ -145,7 +145,11 @@
         '<div class="ups-m-cap-foot">' +
           '<span class="chip">' + pct + '% used</span>' +
           '<span class="chip">' + U.fmtUsd(cap.capTotal) + ' of ' + U.fmtUsd(cap.capAmount) + '</span>' +
-          '<span class="chip">' + U.safeInt(cap.rosterCount, 0) + '/30 roster</span>' +
+          // ACTIVE count / ACTIVE max — see M.data.rosterCapMax() (app.js).
+          // rosterCount (raw total incl. taxi+IR) against a hardcoded /30 read
+          // "37/30" for an owner with real taxi bodies, over a limit that both
+          // excludes taxi/IR AND is 35 (not 30) before the Sept deadline.
+          '<span class="chip">' + U.safeInt(cap.activeCount, 0) + '/' + (DATA.rosterCapMax ? DATA.rosterCapMax() : 30) + ' roster</span>' +
           (cap.taxiCount ? '<span class="chip">' + cap.taxiCount + ' taxi</span>' : '') +
           (cap.irCount ? '<span class="chip">' + cap.irCount + ' IR</span>' : '') +
         '</div>' +
