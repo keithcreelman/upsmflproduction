@@ -8094,9 +8094,24 @@ export default {
             sql += ` AND b.bid_at_unix >= ?`;
             args.push(sinceUnix);
           }
-          sql += ` ORDER BY b.bid_at_unix ASC, b.bid_id ASC LIMIT ?`;
+          // NEWEST-first at the LIMIT, then flipped back to chronological below.
+          //
+          // This used to be `ORDER BY bid_at_unix ASC ... LIMIT ?`, i.e. the
+          // OLDEST N rows — so once the table outgrew the client's limit the
+          // feed silently stopped at some arbitrary mid-day row and every
+          // nomination after it vanished. That is exactly what happened to the
+          // Nominations Tracker: 515 bids existed through Jul 30 against a
+          // limit of 500, so the audit trail dead-ended at "latest Thu, Jul 30"
+          // while Jul 31 / Aug 1 / Aug 2 nominations were sitting in D1 the
+          // whole time (Keith 2026-08-03).
+          //
+          // Truncation now drops the OLDEST rows, which is the harmless end for
+          // every consumer of this feed, and `truncated`/`total` below make the
+          // cut visible instead of letting it read as "no more nominations".
+          sql += ` ORDER BY b.bid_at_unix DESC, b.bid_id DESC LIMIT ?`;
           args.push(limit);
-          const { results: bids } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+          const { results: bidsDesc } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+          const bids = (bidsDesc || []).slice().reverse();   // back to chronological
 
           // Enrich franchise + player names. Two parallel fetches.
           const fidSet = new Set();
@@ -8219,6 +8234,13 @@ export default {
               limit,
             },
             count: enriched.length,
+            // A truncated feed must SAY it is truncated. Without this the
+            // Nominations Tracker read "latest Thu, Jul 30" for three days and
+            // looked like a league that had stopped nominating, when it was
+            // really the limit cutting the newest rows off. Same rule as
+            // everywhere else in this codebase: a partial answer is never
+            // allowed to look like a complete one.
+            truncated: enriched.length >= limit,
             bids: enriched,
           });
         } catch (e) {

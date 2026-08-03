@@ -1273,9 +1273,14 @@
 
     const meta = $("#ah-noms-meta");
     if (meta) {
-      meta.textContent = noms.length
+      // If the feed was capped, say so — "latest Thu, Jul 30" reading as the
+      // end of the audit trail when it was really the row limit is exactly the
+      // bug this line is guarding against now.
+      const cut = !!(STATE.bidHistory && STATE.bidHistory.truncated);
+      meta.textContent = (noms.length
         ? `${noms.length} nomination${noms.length === 1 ? "" : "s"} across ${dayKeysDesc.length} day${dayKeysDesc.length === 1 ? "" : "s"} · latest ${byDay.get(dayKeysDesc[0]).label}`
-        : "No nominations recorded yet.";
+        : "No nominations recorded yet.")
+        + (cut ? " · ⚠️ feed capped — older days not shown" : "");
     }
 
     // One day card: per-owner X/REQ, each owner expandable to the players
@@ -1877,7 +1882,12 @@
   // ════════════════════════════════════════════════════════════════════
   async function loadBidHistory() {
     const season = new Date().getUTCFullYear();
-    const qs = "?L=" + LEAGUE_ID + "&YEAR=" + season + "&limit=500";
+    // 1000 = the server's own ceiling. At limit=500 the feed silently dropped
+    // every bid past ~Jul 30 2026 (515 rows existed by then), which dead-ended
+    // the Nominations Tracker's audit trail three days behind reality. The
+    // server now truncates from the OLDEST end and reports `truncated`, so if
+    // this ever caps again it degrades honestly instead of hiding recent days.
+    const qs = "?L=" + LEAGUE_ID + "&YEAR=" + season + "&limit=1000";
     const metaEl = $("#history-meta");
     const feed = $("#history-feed");
     const filterEl = $("#history-filters");
