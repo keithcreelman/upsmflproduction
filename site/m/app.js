@@ -945,19 +945,21 @@
     // response BEFORE the "drop 0000" logic below, so they reflect the true
     // logged-in identity regardless of which team is currently being viewed.
     //
-    // NOT the same as meResp.is_commish. The commish ALLOWLIST is "0008,0000"
-    // (Keith's PLAYING team + the dedicated MFL commish pseudo-login) — but
-    // Keith explicitly does not want commish tooling when he's logged in as
-    // his own team: "when im 0008 I dont want commish functionality, i want to
-    // be a regular owner" (same rule desktop already applies — see
-    // front_office.js's viewerIsAdmin, which compares against
-    // commishFranchiseId specifically, not the broader allowlist). So this
-    // checks the RESOLVED identity against "0000" directly — the exact same
-    // literal the "drop 0000" line right below already singles out — rather
-    // than the is_commish flag, which would incorrectly show Switch Team on
-    // his everyday 0008 login too.
+    // = meResp.is_commish, i.e. the server's commish ALLOWLIST check
+    // ("0008,0000" — Keith's own playing team + the dedicated MFL commish
+    // pseudo-login). This was ORIGINALLY narrowed to require realFranchiseId
+    // === "0000" exactly, to honor Keith's separate standing rule that his
+    // regular 0008 login should behave as a plain owner elsewhere in the app
+    // ("when im 0008 I dont want commish functionality, i want to be a
+    // regular owner" — desktop's viewerIsAdmin makes the same distinction).
+    // Keith then asked specifically for Switch Team to work "whether logged
+    // in as commish or not" (2026-08-03) — i.e. reachable from 0008 too, so
+    // he isn't forced to log out and back in as 0000 just to help another
+    // owner. That widens ONLY this one capability back to the full allowlist;
+    // it does not reopen any other commish-gated behavior, since isCommish
+    // has no other consumer in this file.
     state.realFranchiseId = meResp && meResp.franchise_id ? pad4(meResp.franchise_id) : "";
-    state.isCommish = state.realFranchiseId === "0000";
+    state.isCommish = !!(meResp && meResp.is_commish);
     var fid = "";
     if (meResp && meResp.configured && meResp.franchise_id) fid = pad4(meResp.franchise_id);
     // The commish login (0000) isn't a playing team — pinning the viewer to it
@@ -1890,11 +1892,12 @@
     //
     // The COMMISH is the one case that genuinely needs a manual list (Keith
     // 2026-08-03, "can I as commish act on mobile on behalf of another
-    // owner"): their real identity is franchise 0000, which isn't a playing
-    // team, so /api/me can never hand them a specific fid to resolve to —
-    // there IS a real choice to make here, not just a bounce to repeat.
-    // state.isCommish/realFranchiseId are set in resolveViewerFranchise from
-    // the raw /api/me response, independent of whatever team is (or isn't)
+    // owner... whether logged in as commish or not"): reachable from EITHER
+    // of Keith's logins — the dedicated 0000 pseudo-account (whose /api/me
+    // can never hand back a specific playing fid at all) or his own 0008 —
+    // so he isn't forced to log out and back in as 0000 just to help another
+    // owner. state.isCommish/realFranchiseId are set in resolveViewerFranchise
+    // from the raw /api/me response, independent of whatever team is (or isn't)
     // currently selected, so this branch is reachable even with no
     // viewerFranchiseId yet.
     if (state.isCommish) {
@@ -2133,10 +2136,9 @@
     // Switch Team stays hidden for a REGULAR owner — the worker rebinds them
     // to their one authoritative fid on next load regardless, so reopening the
     // picker would just confuse "whose data am I looking at?" with no real
-    // choice behind it. The COMMISH is the one real exception (Keith
-    // 2026-08-03): their true identity (franchise 0000) never maps to a
-    // playing team, so there IS a genuine team to pick, same as desktop's
-    // "Acting as" switcher.
+    // choice behind it. The COMMISH is the one real exception, and shows this
+    // from EITHER of Keith's logins (2026-08-03: "whether logged in as
+    // commish or not") — same as desktop's "Acting as" switcher.
     var switchTeamBtn = state.isCommish
       ? '<button class="ups-m-desktop-link" id="ups-m-switch-team" style="margin:4px 0 0;cursor:pointer;background:none;font-size:14px">Switch team (commish)</button>'
       : "";
