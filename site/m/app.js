@@ -694,7 +694,21 @@
           p.contractYear = String(yearsRemaining);
         }
         if (!p.contractStatus) {
-          p.contractStatus = "Rookie";
+          // "Rookie-Draft" exactly — not bare "Rookie". Found by a full
+          // session regression audit (2026-08-03): isTaxiEligibleFor and the
+          // server's _checkR1RookieDemoteGate both require an exact
+          // /^rookie-draft$/i match (a cut permanently forfeits taxi
+          // eligibility, so "still on the original entry contract" has to be
+          // checked precisely — see commit 394948d9). A player MFL leaves
+          // blank here (this whole repair fires only when MFL suppressed the
+          // contract fields, e.g. right after a taxi promotion) is by
+          // definition still on that untouched entry contract, so the
+          // synthesized value has to say so exactly, or this repair silently
+          // hides the Demote-to-Taxi option for a genuinely eligible rookie.
+          // Currently dormant (verified against live rosters: nobody is in
+          // this suppressed-data state today), but a real gap the moment MFL
+          // does suppress a promoted rookie's fields again.
+          p.contractStatus = "Rookie-Draft";
         }
         var salaryNum = parseInt(p.salary, 10) || 0;
         if (yearsRemaining > 0 && salaryNum > 0 && !hasInfo) {
