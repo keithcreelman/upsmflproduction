@@ -347,34 +347,9 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-adj-row.fo-cap-adj-strong .lbl { color: var(--accent); }
 .fo-cap-adj-row.fo-cap-adj-strong .val { font-size: 16px; color: var(--text); }
 
-/* ── Roster-rule counters (§C2 loaded / 3-year) + per-year headcount ──
+/* ── Per-year roster headcount, incl. §C2 loaded/3-year contract limits ──
    Live in the Detail BODY, next to the money totals, and move with every
-   preview. `.from → .to` is the delta: what the plan does, not just where it
-   lands. `.at` = at the limit, `.over` = past it, `.under` = below the floor. */
-.fo-cap-rules {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 10px; margin: 0 0 10px;
-}
-.fo-cap-rule {
-  background: var(--panel-alt); border: 1px solid var(--border);
-  border-radius: 6px; padding: 8px 12px;
-  display: flex; flex-direction: column; gap: 2px;
-}
-.fo-cap-rule .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
-.fo-cap-rule .val {
-  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
-  font-variant-numeric: tabular-nums;
-}
-.fo-cap-rule .val .from { font-size: 15px; color: var(--muted); text-decoration: line-through; }
-.fo-cap-rule .val .arrow { color: var(--accent); font-weight: 700; }
-.fo-cap-rule .val .to { font-size: 20px; font-weight: 600; color: var(--text); }
-.fo-cap-rule .val .of { font-size: 11px; color: var(--muted); }
-.fo-cap-rule .sub { color: var(--muted); font-size: 11px; }
-.fo-cap-rule.at   { border-color: rgba(212, 160, 23, 0.65); background: rgba(212, 160, 23, 0.08); }
-.fo-cap-rule.at .val .to   { color: #d4a017; }
-.fo-cap-rule.over { border-color: var(--err); background: rgba(248, 113, 113, 0.10); }
-.fo-cap-rule.over .val .to { color: var(--err); }
-
+   preview. `.at` = at the limit, `.over` = past it, `.under` = below the floor. */
 .fo-cap-years {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 10px; margin: 0 0 10px;
@@ -396,13 +371,12 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-year .line.under strong { color: #d4a017; }
 .fo-cap-year-ir { color: var(--muted); font-size: 10px; font-style: italic; }
 .fo-cap-year-flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
-.fo-cap-rule .flag,
 .fo-cap-year-flags .flag {
   font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
   padding: 1px 6px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
 }
-.fo-cap-rule .flag.over,  .fo-cap-year-flags .flag.over  { background: rgba(248, 113, 113, 0.16); color: var(--err);  border-color: rgba(248, 113, 113, 0.55); }
-.fo-cap-rule .flag.at,    .fo-cap-year-flags .flag.at    { background: rgba(212, 160, 23, 0.16);  color: #d4a017;     border-color: rgba(212, 160, 23, 0.55); }
+.fo-cap-year-flags .flag.over  { background: rgba(248, 113, 113, 0.16); color: var(--err);  border-color: rgba(248, 113, 113, 0.55); }
+.fo-cap-year-flags .flag.at    { background: rgba(212, 160, 23, 0.16);  color: #d4a017;     border-color: rgba(212, 160, 23, 0.55); }
 .fo-cap-year-flags .flag.under { background: rgba(212, 160, 23, 0.12); color: #d4a017; border-color: rgba(212, 160, 23, 0.45); }
 .fo-cap-rules-empty,
 .fo-cap-rules-foot { color: var(--muted); font-size: 11px; margin: 0 0 10px; }

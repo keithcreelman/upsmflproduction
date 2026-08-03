@@ -6214,28 +6214,6 @@
       return '<div class="fo-cap-rules-empty">No players on this roster, so there are no roster counts to show.</div>';
     }
     const rules = capRosterRuleCounts(team);
-    // A counter reads "4 → 5 of 5" whenever the previews move it, so the owner
-    // sees what the PLAN does, not just where it lands.
-    const counter = function (now, next, max, label, sub) {
-      const cls = capLimitCls(next, max);
-      const moved = next !== now;
-      return '<div class="fo-cap-rule ' + cls + '">' +
-        '<span class="lbl">' + escapeHtml(label) + "</span>" +
-        '<span class="val">' +
-          (moved ? '<span class="from">' + now + '</span><span class="arrow">→</span>' : "") +
-          '<span class="to">' + next + "</span>" +
-          '<span class="of">of ' + max + "</span>" +
-        "</span>" +
-        '<span class="sub">' + sub +
-          (cls === "over" ? ' <span class="flag over">over the limit</span>'
-            : cls === "at" ? ' <span class="flag at">at the limit</span>' : "") +
-        "</span></div>";
-    };
-    const rulesHtml =
-      counter(rules.loadedNow, rules.loadedNext, LOADED_MAX, "Loaded contracts (§C2)",
-        "front/back-loaded deals — the −FL / −BL suffix") +
-      counter(rules.threeNow, rules.threeNext, THREEYR_MAX, "3-year contracts (§C2)",
-        "3 years remaining, rookie deals excluded");
 
     // Per-year headcount. Presence comes from capProjectedRosterSlotForOffset,
     // which mirrors the money grid branch for branch — so a MYAC/extension that
@@ -6261,11 +6239,27 @@
       const irLine = off === 0
         ? '<span class="fo-cap-year-ir">IR <strong>' + c.ir + "</strong> — its own bucket, not counted in Active (§B1)</span>"
         : "";
+      // Loaded/3-year contract limits (§C2) are a roster-wide cap evaluated
+      // against the CURRENT roster — unlike Active/Taxi they don't project
+      // per future year, so (like IR) they only show on the current-season card.
+      let capRuleLines = "";
+      if (off === 0) {
+        const lCls = capLimitCls(rules.loadedNext, LOADED_MAX);
+        const thCls = capLimitCls(rules.threeNext, THREEYR_MAX);
+        if (rules.loadedNext > LOADED_MAX) flags.push('<span class="flag over">over the ' + LOADED_MAX + "-loaded cap</span>");
+        else if (rules.loadedNext === LOADED_MAX) flags.push('<span class="flag at">at the ' + LOADED_MAX + "-loaded cap</span>");
+        if (rules.threeNext > THREEYR_MAX) flags.push('<span class="flag over">over the ' + THREEYR_MAX + "-year cap</span>");
+        else if (rules.threeNext === THREEYR_MAX) flags.push('<span class="flag at">at the ' + THREEYR_MAX + "-year cap</span>");
+        capRuleLines =
+          '<span class="line' + (lCls ? " " + lCls : "") + '" title="Front/back-loaded deals — the −FL / −BL suffix (§C2)">Loaded <strong>' + rules.loadedNext + "</strong><span class=\"of\">/ " + LOADED_MAX + "</span></span>" +
+          '<span class="line' + (thCls ? " " + thCls : "") + '" title="3 years remaining, rookie deals excluded (§C2)">3-Yr <strong>' + rules.threeNext + "</strong><span class=\"of\">/ " + THREEYR_MAX + "</span></span>";
+      }
       return '<div class="fo-cap-year">' +
         '<span class="yr">' + (yr0 + off) + "</span>" +
         '<span class="line' + (aCls ? " " + aCls : "") + '">Active <strong>' + c.active + "</strong><span class=\"of\">/ " + ACTIVE_MAX + "</span></span>" +
         '<span class="line' + (tCls ? " " + tCls : "") + '">Taxi <strong>' + c.taxi + "</strong><span class=\"of\">/ " + TAXI_MAX + "</span></span>" +
         irLine +
+        capRuleLines +
         (flags.length ? '<span class="fo-cap-year-flags">' + flags.join(" ") + "</span>" : "") +
         "</div>";
     }).join("");
@@ -6285,12 +6279,11 @@
       ? " These counts cover the WHOLE roster and ignore the filters above — they’re league limits, not a view of the selection."
       : "";
 
-    return '<div class="fo-cap-rules">' + rulesHtml + "</div>" +
-      '<div class="fo-cap-years">' + yearsHtml + "</div>" +
+    return '<div class="fo-cap-years">' + yearsHtml + "</div>" +
       unresolvedHtml +
       '<p class="fo-cap-rules-foot">A player counts in a year when he is still under contract in it, read from the same contract years the money above uses — so a MYAC or extension you preview puts him in the years it buys, and a previewed drop removes him from all three. <strong>IR</strong> has its own bucket in ' +
       (yr0) + ' and is not inside that Active count; it is a current-season designation (§6.C) that doesn’t project, so in ' + (yr0 + 1) + ' and ' + (yr0 + 2) +
-      ' today’s IR players are counted as <strong>Active</strong>. Expired contracts count as a <strong>body</strong> in ' + (yr0) + ' (they occupy a roster spot today) but not in later years, where they are off the books. Taxi contracts do count toward the §C2 limits above (they’re contracts) and sit in their own per-year column.' + filterNote + "</p>";
+      ' today’s IR players are counted as <strong>Active</strong>. Expired contracts count as a <strong>body</strong> in ' + (yr0) + ' (they occupy a roster spot today) but not in later years, where they are off the books. Taxi contracts do count toward the §C2 Loaded/3-Yr limits on the ' + (yr0) + ' card (they’re contracts) and also sit in their own per-year Taxi column. Loaded/3-Yr are roster-wide caps evaluated on the current roster, so — like IR — they only appear on the ' + (yr0) + ' card, not projected into ' + (yr0 + 1) + ' or ' + (yr0 + 2) + '.' + filterNote + "</p>";
   }
 
   // ── Scenario bar — Save / Restore / Reset, plus the live-vs-restored badge.
