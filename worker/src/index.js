@@ -2255,6 +2255,59 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     console.warn("[finalize-faa] audit-ledger read FAILED — failing closed, writing nothing:", e?.message || String(e));
   }
 
+  // Which winners are NFL ROOKIES? A first-year player won at the FA Auction
+  // gets a ROOKIE contract, not a veteran one — the league already does this
+  // (Oronde Gadsden, 2025 NFL draft class won at the 2025 auction, is
+  // "Rookie-FAA"). This function hardcoded "Vet-FAA" for everyone, so the
+  // entire 2026 rookie class won at auction — Zavion Thomas, Cyrus Allen, Luke
+  // Altmyer, Michael Trigg, CJ Daniels, Ryan Eckley — was written "Vet-FAA".
+  // Keith 2026-08-03: "Zavion Thomas shows as Vet where he should show as
+  // rookie." Rookie = players export draft_year === this season.
+  //
+  // FAIL CLOSED: if we cannot read draft years we cannot tell a rookie from a
+  // veteran, and writing the wrong contract TYPE onto a real contract is not
+  // something to guess at. Skip the batch and let the next catch-up tick retry
+  // — same posture as the audit-ledger guard above.
+  const rookiePids = new Set();
+  {
+    const ids = lots.map((l) => String(l.player_id)).filter(Boolean);
+    let rookieLookupOk = false;
+    try {
+      if (ids.length) {
+        const plRes = await fetchBounded(
+          `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(ids.join(","))}&DETAILS=1&JSON=1${apiQs}`,
+          { cf: { cacheTtl: 300, cacheEverything: true } }
+        );
+        const plJson = await plRes.json().catch(() => null);
+        let arr = plJson?.players?.player;
+        if (arr !== undefined) {
+          arr = Array.isArray(arr) ? arr : [arr];
+          rookieLookupOk = true;
+          for (const p of arr) {
+            if (p && String(p.draft_year || "") === String(year)) rookiePids.add(String(p.id));
+          }
+        }
+      } else {
+        rookieLookupOk = true;   // nothing to classify
+      }
+    } catch (e) {
+      rookieLookupOk = false;
+      console.warn("[finalize-faa] rookie lookup threw:", e?.message || String(e));
+    }
+    if (!rookieLookupOk) {
+      console.error("[finalize-faa] players export unreadable — cannot tell rookie from veteran; writing nothing");
+      return {
+        status: 200,
+        body: {
+          ok: false,
+          error: "rookie_lookup_failed",
+          message: "Could not read draft years from MFL, so Rookie-FAA vs Vet-FAA can't be determined. Nothing was written; the next run retries.",
+          count: 0,
+        },
+      };
+    }
+  }
+
   // Build the rows to import (only those needing change).
   const rowsToWrite = [];
   const alreadyFinal = [];
@@ -2263,7 +2316,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     const pid = String(l.player_id);
     const bidK = Number(l.current_high_bid_k || 0);
     const salaryDollars = String(bidK * 1000);
-    const cStatus = "Vet-FAA";
+    const cStatus = rookiePids.has(pid) ? "Rookie-FAA" : "Vet-FAA";
     const cYear = "1";
     const cInfo = `CL 1| TCV ${bidK}K| AAV ${bidK}K`;
     const cur = mflMap[pid] || {};
@@ -11372,8 +11425,31 @@ export default {
       // draftRound, reason }. Fail-open: if either lookup fails or the player
       // can't be found in rosters / recent draftResults, returns isR1Rookie=false
       // so legitimate demotes aren't blocked by a transient MFL miss.
+      // Taxi-demote gate. Returns the FULL §B2 eligibility picture, not just
+      // the R1 question it originally answered.
+      //
+      // WHY IT GREW (Keith 2026-08-03, "is it possible someone could be demoted
+      // that's not eligible?"): it used to answer only "is this a Round 1
+      // rookie", and the caller blocked only on that. Everything else was
+      // allowed through — including players who were never in the UPS Rookie
+      // Draft at all (waiver/auction pickups, veterans) and rookies whose
+      // 3-league-year taxi clock had already expired. Worse, the
+      // `!/rookie/i.test(contractStatus)` early-return below meant a plain
+      // VETERAN exited with isR1Rookie=false, i.e. "allowed". §B2 eligibility
+      // was enforced only by the UI hiding the button; the write path had no
+      // opinion. Verified clean at the time (104 taxi players, all legitimately
+      // R2-R6 inside the window), so this closes a latent hole rather than
+      // fixing active damage.
+      //
+      // Canon §B2: eligible = selected in the UPS Rookie Draft in ROUND 2 OR
+      // LATER, within the first 3 LEAGUE years. R1 is never eligible. R6 is
+      // (ratified 2026-07-17). NFL draft round is irrelevant — it must be the
+      // UPS rookie-draft round, which is what TYPE=draftResults carries.
       const _checkR1RookieDemoteGate = async (season, leagueId, playerId) => {
-        const result = { isR1Rookie: false, contractStatus: "", draftRound: null, reason: "default_allow" };
+        const result = {
+          isR1Rookie: false, contractStatus: "", draftRound: null, draftYear: null,
+          eligible: false, ineligibleReason: "", reason: "default_allow",
+        };
         if (!season || !leagueId || !playerId) {
           result.reason = "missing_inputs";
           return result;
@@ -11399,11 +11475,18 @@ export default {
             }
           }
         } catch (_) {}
-        if (!/rookie/i.test(result.contractStatus)) {
-          result.reason = "not_rookie_contract";
-          return result;
-        }
+        // NOTE: deliberately NO early return on a non-rookie contractStatus.
+        // That is exactly how a veteran used to reach the taxi squad — it
+        // exited here reporting isR1Rookie=false, which the caller read as
+        // "fine, proceed". Eligibility is decided by the DRAFT RECORD below,
+        // not by the contract label. (The label is unreliable in its own
+        // right: an NFL rookie won at auction is written "Vet-FAA".)
         const currentYear = parseInt(season, 10) || new Date().getUTCFullYear();
+        // Did we manage to READ any draft year at all? "MFL was unreachable"
+        // and "this player was never drafted" are different facts and must not
+        // share an error message — both block the demote (fail closed), but
+        // only one of them means the owner did something wrong.
+        let draftLookupOk = false;
         for (let y = currentYear; y >= currentYear - 4 && result.draftRound === null; y -= 1) {
           try {
             const r = await fetch(
@@ -11411,6 +11494,7 @@ export default {
               { cf: { cacheTtl: 3600, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } }
             );
             if (!r.ok) continue;
+            draftLookupOk = true;
             const data = await r.json();
             let units = data?.draftResults?.draftUnit || [];
             if (!Array.isArray(units)) units = [units];
@@ -11420,6 +11504,7 @@ export default {
               for (const dp of picks) {
                 if (safeStr(dp.player) === playerId) {
                   result.draftRound = parseInt(dp.round, 10) || null;
+                  result.draftYear = y;   // needed for the 3-league-year window
                   break outerDraft;
                 }
               }
@@ -11433,6 +11518,36 @@ export default {
           result.reason = `not_r1_drafted_round_${result.draftRound}`;
         } else {
           result.reason = "draft_round_not_found";
+        }
+
+        // ── §B2 eligibility verdict ───────────────────────────────────────
+        // FAIL CLOSED: no draft record found ⇒ not eligible. The lookup scans
+        // the last 5 draft years, so a genuine R2-R6 pick inside the 3-year
+        // window is always found; anything that isn't found either was never
+        // drafted (waiver / auction / dispersal / veteran) or is far outside
+        // the window. Both are ineligible, so "couldn't find it" and "isn't
+        // allowed" happen to agree here — but the reason string keeps them
+        // distinguishable if MFL's draftResults ever goes unreadable.
+        const yearsElapsed = result.draftYear ? (currentYear - result.draftYear) : null;
+        if (result.draftRound === null && !draftLookupOk) {
+          result.eligible = false;
+          result.reason = "draft_results_unreadable";
+          result.ineligibleReason =
+            "Couldn't read the UPS Rookie Draft results from MFL, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment.";
+        } else if (result.draftRound === null) {
+          result.eligible = false;
+          result.ineligibleReason =
+            "No UPS Rookie Draft record for this player — only players selected in the Rookie Draft (Round 2+) are taxi-eligible (§B2).";
+        } else if (result.draftRound === 1) {
+          result.eligible = false;
+          result.ineligibleReason =
+            "Round 1 rookies must stay on the active roster — taxi demotion not permitted (§A1 Round 1).";
+        } else if (yearsElapsed === null || yearsElapsed >= 3) {
+          result.eligible = false;
+          result.ineligibleReason =
+            `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} (${yearsElapsed} league years ago) and has graduated (§B2).`;
+        } else {
+          result.eligible = true;
         }
         return result;
       };
@@ -44930,6 +45045,23 @@ export default {
               ok: false,
               error: "Round 1 rookies must stay on the active roster — taxi demotion not permitted (league_context_v1.md §A1 Round 1).",
               code: "R1_ACTIVE_ONLY",
+              player_id: playerId,
+              franchise_id: franchiseId,
+              gate: r1Gate,
+            });
+          }
+          // FULL §B2 eligibility, enforced SERVER-SIDE. Previously only the R1
+          // case above was blocked here and everything else was accepted, so a
+          // veteran, a waiver/auction pickup, or a rookie whose 3-league-year
+          // clock had expired could be demoted to taxi by any request that
+          // reached this endpoint — a stale page, a direct API call, or any
+          // surface that didn't happen to gate on the taxi_eligible flag. The
+          // rule was enforced in the UI only.
+          if (!r1Gate.eligible) {
+            return jsonOut(400, {
+              ok: false,
+              error: r1Gate.ineligibleReason || "Player is not taxi-eligible (league_context_v1.md §B2).",
+              code: "TAXI_NOT_ELIGIBLE",
               player_id: playerId,
               franchise_id: franchiseId,
               gate: r1Gate,
