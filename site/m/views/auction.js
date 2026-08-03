@@ -369,8 +369,16 @@
       // post-deadline, so this is the canonical pool.
       get(M.api.workerUrl("/api/auction/era-eligible?L=" + L + "&YEAR=" + Y)),
       // Lots (open + completed) and the bid-history feed.
+      // limit=1000 = the server's own ceiling (site/auction/auction_hub.js
+      // uses the same value). Omitting it defaults to 200 server-side, which
+      // silently dropped the OLDEST bids once the season passed 200 total —
+      // already true today (569 bids) — so entire early-auction threads
+      // vanished from History with no indication anything was missing.
+      // Found by the 2026-08-03 regression audit; state.bidHistory.truncated
+      // (surfaced in renderHistory below) is what makes a future cap visible
+      // instead of silent.
       get(M.api.workerUrl("/api/auction/lots?L=" + L + "&YEAR=" + Y)),
-      get(M.api.workerUrl("/api/auction/bid-history?L=" + L + "&YEAR=" + Y)),
+      get(M.api.workerUrl("/api/auction/bid-history?L=" + L + "&YEAR=" + Y + "&limit=1000")),
       // Every free agent in the league (MFL export). Enriched client-side from
       // the already-loaded player DB → the "all players" nominate pool.
       get(M.api.mflExportUrl("freeAgents")),
@@ -1223,7 +1231,12 @@
     var isEra = tab === "era";
     var eIds = eraPoolIds();
     var bids = ((state.bidHistory && state.bidHistory.bids) || []).filter(function (b) { return !!eIds[String(b.player_id)] === isEra; });
-    var head = '<div class="ups-m-auc-sec-head">Bid History <span class="ct">' + bids.length + '</span></div>';
+    // If the feed was STILL capped even at limit=1000 (a genuinely huge
+    // season), say so rather than let missing early threads look like they
+    // never happened — same rule as the desktop hub (auction_hub.js).
+    var cap = (state.bidHistory && state.bidHistory.truncated)
+      ? ' <span style="color:var(--warn);font-size:11px;font-weight:600">⚠️ feed capped — oldest bids not shown</span>' : '';
+    var head = '<div class="ups-m-auc-sec-head">Bid History <span class="ct">' + bids.length + '</span>' + cap + '</div>';
     if (!bids.length) return head + '<div class="ups-m-auc-empty">No bids yet.</div>';
     var groups = {};
     bids.forEach(function (b) {
