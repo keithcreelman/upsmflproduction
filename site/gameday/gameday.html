@@ -657,6 +657,83 @@
     if (hz.length) rows.push('<div class="r">Next: ' + hz.map(function (h) { return '<span class="gd-hz ' + rankCls(h.rank) + '">' + (h.isHome ? "" : "@") + esc(h.opp) + (h.rank != null ? " #" + h.rank : "") + '</span>'; }).join("  ") + '</div>');
     return compact + '<div class="gd-mu-detail">' + rows.join("") + '</div>';
   }
+  // Map MFL's flat starters[] back onto the 18 slots. Dedicated slots are
+  // filled before flex ones, so a QB lands in QB1 rather than eating SuperFlex
+  // and stranding a real flex pick.
+  function slotsFromStarters(rows, pids) {
+    var byId = {};
+    rows.forEach(function (r) { byId[String(r.id)] = r; });
+    var list = (pids || []).map(String).filter(function (p) { return byId[p]; });
+    var out = {}, used = {};
+    function fill(slotList) {
+      slotList.forEach(function (sl) {
+        if (out[sl.id]) return;
+        for (var i = 0; i < list.length; i++) {
+          var pid = list[i];
+          if (used[pid]) continue;
+          var r = byId[pid];
+          if (r && slotAccepts(sl, r.group)) { out[sl.id] = pid; used[pid] = 1; return; }
+        }
+      });
+    }
+    fill(SLOTS.filter(function (sl) { return !sl.flex; }));
+    fill(SLOTS.filter(function (sl) { return sl.flex; }));
+    return out;
+  }
+
+  // Seed the editor from the lineup MFL actually holds. Runs once per load.
+  //
+  // `known` is a promise (mirrors the worker's contract): only a known:true
+  // response may seed or clear anything. An unreadable read leaves the editor
+  // BLANK with an explanation rather than falling back to optimal — showing a
+  // confident optimal lineup over an unread real one is how an owner
+  // accidentally submits away a deliberate start.
+  function loadCurrentLineup(rows) {
+    if (STATE.lineupRead) return;             // once per page load
+    STATE.lineupRead = "loading";
+    var url = workerUrl("/api/lineup");
+    var wk = String(STATE.projWeek || "").replace(/\D/g, "");
+    var qs = [];
+    if (wk) qs.push("W=" + encodeURIComponent(wk));
+    var uid = readCookieRaw("MFL_USER_ID");
+    if (uid) qs.push("MFL_USER_ID=" + encodeURIComponent(uid));
+    if (qs.length) url += "?" + qs.join("&");
+    fetch(url, { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.known === true && Object.prototype.toString.call(j.starters) === "[object Array]" && j.starters.length) {
+          STATE.slots = slotsFromStarters(rows, j.starters);
+          STATE.lineupRead = "ok";
+        } else if (j && j.state === "no_record") {
+          // We have never submitted for this week from here. They may still
+          // have set one natively on MFL — that is UNKNOWN, not empty, so we
+          // offer Optimal as an explicit choice instead of silently applying it.
+          STATE.lineupRead = "norecord";
+        } else {
+          STATE.lineupRead = "unknown";
+          STATE.lineupReadErr = (j && j.error) || "Couldn't read your saved lineup.";
+        }
+        rerender();
+      })
+      .catch(function (e) {
+        STATE.lineupRead = "unknown";
+        STATE.lineupReadErr = String((e && e.message) || e);
+        rerender();
+      });
+  }
+
+  function renderLineupPlaceholder() {
+    if (STATE.lineupRead === "loading") {
+      return '<div class="gd-stub">Loading your current lineup from MFL…</div>';
+    }
+    return '<div class="gd-msg err">Couldn\'t read your current lineup from MFL, so nothing is shown here — ' +
+      'filling in the optimal lineup could overwrite starters you set on purpose. ' +
+      esc(STATE.lineupReadErr || "") + '</div>' +
+      '<div class="gd-submit-row"><button type="button" class="gd-submit" id="gd-lineup-retry">Try again</button></div>' +
+      '<div class="gd-note">Or set your lineup on <a href="https://www48.myfantasyleague.com/' +
+      esc(CTX.year) + '/options?L=' + esc(CTX.leagueId) + '&O=02" target="_top">MFL</a>.</div>';
+  }
+
   function renderLineup(el) {
     loadMatchups();   // lazy: opponent/kickoff/spread + adjusted def rank per starter
     var rows = buildRows();
@@ -664,7 +741,29 @@
       el.innerHTML = '<div class="gd-stub">No roster found' + (STATE.viewerFranchiseId ? " for " + esc(STATE.viewerFranchiseId) : " — sign in to MFL") + '.</div>';
       return;
     }
-    if (!STATE.slots) STATE.slots = autoFill(rows);
+    // Seed from the lineup MFL ACTUALLY has, never from optimal. See
+    // loadCurrentLineup: auto-filling optimal here meant an owner who
+    // deliberately benched someone came back to a screen showing optimal, and
+    // re-submitting overwrote their real choice.
+    loadCurrentLineup(rows);
+    if (!STATE.slots) {
+      if (STATE.lineupRead === "loading" || STATE.lineupRead === "unknown") {
+        // Nothing seeded yet (still reading) or the read FAILED. Either way we
+        // must not paint a lineup we cannot vouch for — an unreadable lineup is
+        // not an empty one.
+        el.innerHTML = renderLineupPlaceholder();
+        var retry = document.getElementById("gd-lineup-retry");
+        if (retry) retry.addEventListener("click", function () {
+          STATE.lineupRead = null; STATE.lineupReadErr = null; rerender();
+        });
+        return;
+      }
+      // "norecord": start EMPTY, never optimal. We don't know what MFL is
+      // holding (they may have set it natively), and pre-filling optimal is
+      // what let a deliberate lineup get overwritten in the first place. The
+      // Optimal button is right there if that's genuinely what they want.
+      STATE.slots = {};
+    }
     var draft = STATE.slots;
     var byId = {}; rows.forEach(function (r) { byId[r.id] = r; });
     var v = validate(draft, byId);
@@ -677,6 +776,16 @@
     var fillCls = v.ok ? "ok" : "under", pct = Math.min(100, Math.round(v.filled / TOTAL * 100));
     var summary = v.ok ? '<strong>' + TOTAL + ' / ' + TOTAL + '</strong> starters · ready to submit'
                        : '<strong>' + v.filled + ' / ' + TOTAL + '</strong> starters set';
+    // Say where what's on screen came from, so "is this my lineup or a
+    // suggestion?" is never a guess.
+    var seedNote = "";
+    if (STATE.lineupRead === "ok") {
+      seedNote = '<div class="gd-note">Showing the lineup you last submitted' +
+        (STATE.lineupReadAt ? ' (' + esc(STATE.lineupReadAt) + ')' : '') + '.</div>';
+    } else if (STATE.lineupRead === "norecord") {
+      seedNote = '<div class="gd-note">No lineup submitted from here yet, so nothing is pre-filled — ' +
+        'if you set one on MFL directly it still stands. Pick your starters, or tap <strong>⚡ Optimal</strong>.</div>';
+    }
 
     var subLabel, subReady = false, subDis = false;
     if (STATE.submitting) { subLabel = "Submitting…"; subDis = true; }
@@ -720,6 +829,7 @@
           '<span class="gd-chip ' + defCls + '">Def ' + v.bySide.D + '/' + DEF + '</span></span>' +
         '</div>' +
         '<div class="gd-bar"><div class="gd-bar-fill ' + fillCls + '" style="width:' + pct + '%"></div></div>' +
+        seedNote +
         (v.errors.length ? '<ul class="gd-lu-errors">' + v.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join("") + '</ul>' : '') +
         '<div class="gd-lu-tools"><button type="button" class="gd-tool" id="gd-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
         '<button type="button" class="gd-tool" id="gd-clear">Clear all</button>' +
@@ -834,6 +944,10 @@
       .then(function (resp) {
         if (resp.body && resp.body.ok) {
           STATE.message = { kind: "ok", text: "Lineup saved to MFL ✓" };
+          // What's on screen IS now the submitted lineup — say so, instead of
+          // leaving the "nothing pre-filled" note contradicting the ✓.
+          STATE.lineupRead = "ok";
+          STATE.lineupReadAt = "just now";
           outcome = {
             kind: "ok",
             title: "Lineup submitted",

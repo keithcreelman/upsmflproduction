@@ -5554,6 +5554,7 @@ export default {
         path !== "/api/hall-of-champions" &&
         path !== "/api/repo-html" &&
         path !== "/api/submit-lineup" &&
+        path !== "/api/lineup" &&
         path !== "/api/submit-trade-bait" &&
         path !== "/api/trade-bait-notes" &&
         path !== "/api/me" &&
@@ -12363,6 +12364,74 @@ export default {
       // MFL response is forwarded through. On success: { ok:true,
       // franchise_id, week, starters, mfl_response }. On failure:
       // jsonOut(<status>, { ok:false, error, mfl_response? }).
+      // ── GET /api/lineup — the viewer's last submitted starters ─────────────
+      // Read counterpart to /api/submit-lineup. Without it the lineup editors
+      // had nothing to seed from and auto-filled the OPTIMAL lineup on every
+      // visit, so an owner who deliberately started someone (bad matchup,
+      // injury hunch) came back to a screen showing optimal — and re-submitting
+      // silently overwrote their real choice. Keith 2026-08-03.
+      //
+      // SOURCE IS OUR OWN LEDGER, NOT MFL, and that is forced, not preferred:
+      // MFL has NO `lineup` export type at all (checked against the full export
+      // list), `liveScoring` answers "not available until the season starts",
+      // and `weeklyResults` carries no player rows for an unplayed week. There
+      // is simply no way to read a submitted lineup back out of MFL in the
+      // preseason, so /api/submit-lineup records what it sent and this reads
+      // that back.
+      //
+      // CONTRACT — three DISTINCT states, never collapsed:
+      //   known:true            we have a record; starters[] is it
+      //   state:"no_record"     we have never submitted for this week from here
+      //                         (they may still have set one natively on MFL —
+      //                         that is UNKNOWN, not empty)
+      //   known:false           the read itself failed
+      // A client must not treat any of the last two as "no lineup, safe to
+      // auto-fill optimal" — that is the fail-open shape that cost 18 contracts
+      // on 2026-08-02.
+      if (path === "/api/lineup" && request.method === "GET") {
+        try {
+          const leagueId = _rdhLeagueId();
+          const year = _rdhYear();
+          const week = safeStr(url.searchParams.get("W") || "").replace(/\D/g, "");
+          const cookieHeader = request.headers.get("Cookie") || "";
+          const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
+          const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
+          if (!mflUserId) {
+            return jsonOut(401, { ok: false, known: false, starters: null, error: "MFL_USER_ID cookie required (sign in to MFL first)" });
+          }
+          const det = await _rdhDetectFranchise(mflUserId);
+          if (det && det.error) return jsonOut(401, { ok: false, known: false, starters: null, error: det.error });
+          const fid = _rdhPadFid(det && det.franchise_id);
+          if (!fid) return jsonOut(401, { ok: false, known: false, starters: null, error: "could not resolve your franchise" });
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(200, { ok: false, known: false, starters: null, error: "UPS_MFL_DB missing" });
+
+          let row = null;
+          try {
+            row = await db.prepare(
+              `SELECT starters_csv, week, submitted_at_unix
+                 FROM ups_lineup_submissions
+                WHERE season = ? AND league_id = ? AND fid = ? AND week = ?`
+            ).bind(String(year), String(leagueId), fid, String(week || "")).first();
+          } catch (e) {
+            // Table missing or D1 hiccup — UNKNOWN, never "no lineup".
+            return jsonOut(200, { ok: false, known: false, starters: null, error: "ledger_read_failed: " + (e && e.message || String(e)) });
+          }
+          if (!row) {
+            return jsonOut(200, { ok: true, known: false, state: "no_record", starters: null, franchise_id: fid, week: week || "" });
+          }
+          const starters = safeStr(row.starters_csv).split(",").map((x) => x.trim()).filter(Boolean);
+          return jsonOut(200, {
+            ok: true, known: true, state: "recorded",
+            franchise_id: fid, week: safeStr(row.week || week || ""),
+            submitted_at_unix: Number(row.submitted_at_unix || 0),
+            starters,
+          });
+        } catch (e) {
+          return jsonOut(200, { ok: false, known: false, starters: null, error: "lineup_read_failed: " + (e && e.message || String(e)) });
+        }
+      }
+
       if (path === "/api/submit-lineup" && request.method === "POST") {
         try {
           const leagueId = _rdhLeagueId();
@@ -12440,6 +12509,33 @@ export default {
               mfl_status: mflStatus,
               mfl_response: parsed || mflResp,
             });
+          }
+          // Record what we just sent so the editor can show it back. MFL offers
+          // no way to read a submitted lineup (no `lineup` export; liveScoring
+          // is season-only), so this ledger is the ONLY thing standing between
+          // the owner and an editor that silently repaints optimal over a
+          // deliberate start. See GET /api/lineup.
+          //
+          // FAIL-SOFT on purpose, and note the direction: the MFL write already
+          // succeeded, so a D1 hiccup must not turn a good submit into an error.
+          // Worst case we lose the echo and the editor says "no record" — which
+          // is honest, and never fabricates a lineup.
+          try {
+            if (env.UPS_MFL_DB) {
+              await env.UPS_MFL_DB.prepare(
+                `INSERT INTO ups_lineup_submissions
+                   (season, league_id, fid, week, starters_csv, submitted_at_unix)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(season, league_id, fid, week) DO UPDATE SET
+                   starters_csv = excluded.starters_csv,
+                   submitted_at_unix = excluded.submitted_at_unix`
+              ).bind(
+                String(year), String(leagueId), fidReq, String(week || ""),
+                starters.join(","), Math.floor(Date.now() / 1000)
+              ).run();
+            }
+          } catch (e) {
+            console.warn("[submit-lineup] lineup ledger write failed:", e?.message || String(e));
           }
           return jsonOut(200, {
             ok: true,
