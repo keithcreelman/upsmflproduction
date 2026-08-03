@@ -576,7 +576,7 @@
   })();
 </script>
 
-<style>
+<style id="ups-core-styles">
   :root {
     --ups-bg: #0b1220;
     --ups-surface: #111b2e;
@@ -11262,7 +11262,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   }
 </style>
 
-<style>
+<style id="ups-tail-styles">
   /* ── Native MFL page contrast repairs (Keith 2026-06-17) ───────────────────
      A few native pages render a single element light-on-light (invisible): the
      global light-text override applies, but that element kept a light background.
@@ -12680,6 +12680,82 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     }
   })();
   } // UPS_BB_GATE_END
+</script>
+
+<script>
+/* ─── UPS NATIVE-PAGE SKIN GUARD (Keith 2026-08-03) ─────────────────────────
+ * Keith: "remove any and all styling that is not a page we created or the home
+ * page — keep the MFL base styling outside of our pages."
+ *
+ * OUR pages are the home page and the hubs we built, and every one of those
+ * lives at /<year>/home/<league> (the hubs are ?MODULE=MESSAGE* on that same
+ * path). Everything else — /options, /rosters, /standings, /player, /reports —
+ * is stock MFL and should look like stock MFL.
+ *
+ * SCOPED TO THE TEST LEAGUE FOR NOW (Keith asked to trial it there first).
+ * Flip TEST_ONLY to false to roll it out to the real league. Nothing happens
+ * on any other league, so pasting this header into prod is a no-op change.
+ *
+ * WHAT IT DOES: disables our five inline stylesheets and hides the chrome we
+ * inject (hero, hotlinks, footer, subnav, app-switch pill, dev banner) — which
+ * has to be hidden as well as unstyled, or it would render as raw unstyled
+ * markup once its CSS is gone.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO: touch link#custom. That is MFL's own
+ * configured skin (light.css), and Keith's answer was explicit — keep the
+ * league skin on native pages, drop only OUR styling. The opt-in Lite Mode
+ * (ups_barebones) still disables light.css; that path is untouched.
+ *
+ * KNOWN INTERACTION: our CSS display:none's MFL's native menu on desktop, so
+ * disabling it brings that menu back. That is the intended stock look — but if
+ * it floats oddly, docs/mfl_native/barebones_mode.md has the pinning fix, and
+ * its warning applies: do NOT set position:static or z-index on that bar, it
+ * breaks MFL's own dropdowns.
+ */
+(function () {
+  "use strict";
+  var TEST_ONLY = true;
+  var TEST_LEAGUE = "25625";
+  var STYLE_IDS = ["ups-core-styles", "ups-marquee-style", "ups-theme-postload-overrides",
+                   "ups-picker-drawer-style", "ups-tail-styles"];
+  try {
+    var u = new URL(window.location.href);
+    var league = String(u.searchParams.get("L") || "").replace(/\D/g, "");
+    if (!league) {
+      var m = String(u.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
+      if (m) league = m[1];
+    }
+    if (!league) league = String(window.league_id || window.LEAGUE_ID || "").replace(/\D/g, "");
+    if (TEST_ONLY && league !== TEST_LEAGUE) return;
+
+    // Our pages = /home/<league>. Home itself and every MODULE hub share it.
+    if (/\/home\/\d+/i.test(String(u.pathname || ""))) return;
+
+    document.documentElement.setAttribute("data-ups-native-skin", "1");
+    var hide = document.createElement("style");
+    hide.id = "ups-native-skin-hide";
+    hide.textContent = ".ups-hero-shell,.ups-hotlinks-shell,.ups-footer,#ups-switch-app-btn," +
+                       "#upsDevBanner,.ups-teamops-subnav{display:none!important}";
+    (document.head || document.documentElement).appendChild(hide);
+
+    function strip() {
+      for (var i = 0; i < STYLE_IDS.length; i++) {
+        var el = document.getElementById(STYLE_IDS[i]);
+        if (el && !el.disabled) el.disabled = true;
+      }
+    }
+    strip();
+    // Blocks further down the header parse after this runs, and a couple are
+    // appended by script later still — re-run at each lifecycle point rather
+    // than assuming a parse order.
+    document.addEventListener("DOMContentLoaded", strip);
+    window.addEventListener("load", strip);
+    try {
+      new MutationObserver(strip).observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) {}
+    try { console.log("[UPS][native-skin] stock MFL styling on", u.pathname); } catch (e) {}
+  } catch (e) {}
+})();
 </script>
 
 <div id="container-wrap"><!-- ENTER ALL HPMS AFTER THIS AND CLOSE IN FOOTER -->
