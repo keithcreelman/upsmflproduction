@@ -41,7 +41,14 @@ from lib.asof import AsOfContext  # noqa: E402
 from lib.d1_io import D1Writer  # noqa: E402
 
 FEATURE_VERSION = "fs-0.1.0"
-CHUNK = 500
+# D1 caps a single statement at ~100KB. This table is ~60 columns and a row
+# serialises to roughly 300 bytes, so 500 rows/chunk produced ~150KB and every
+# write died with `statement too long: SQLITE_TOOBIG` — 0 rows landed, which is
+# the correct fail-closed behaviour but is easy to misread as rate limiting.
+# 100 rows ≈ 30KB leaves comfortable headroom.
+# Rule of thumb: chunk_size ≈ 60,000 / (bytes per row). Narrow tables (the
+# tackle/route backfills, 5-8 columns) run fine at 1000.
+CHUNK = 100
 
 COLS = [
     "season", "week", "gsis_id", "as_of_ts", "mfl_player_id", "player_name",

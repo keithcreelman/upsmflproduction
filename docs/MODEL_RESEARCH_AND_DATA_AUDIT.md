@@ -1172,6 +1172,50 @@ Two deliberate choices:
 
 ---
 
+## Appendix E — Baselines: the bar to beat (2026-08-04)
+
+`evaluate_baselines.py`, season 2024, weeks 5–17, next-week UPS points. Every
+baseline is as-of clean (predictions for week W use only weeks < W) and computed
+**directly from `src_weekly`, not from the feature store** — a baseline that
+depends on the model's own pipeline is not an independent bar, because a bug
+would move both together and flatter the model.
+
+| pos | best baseline | n | **MAE** | pinball@0.5 | bias |
+|---|---|---|---|---|---|
+| QB | season-to-date PPG | 441 | **8.376** | 4.188 | +1.86 |
+| RB | season-to-date PPG | 1,104 | **4.483** | 2.242 | −0.09 |
+| WR | season-to-date PPG | 1,646 | **4.801** | 2.400 | +0.42 |
+| TE | season-to-date PPG | 976 | **3.210** | 1.605 | +0.67 |
+| PK | **replacement level** | 327 | **4.077** | 2.039 | +0.08 |
+| PN | **replacement level** | 325 | **4.050** | 2.025 | +0.10 |
+| DL | season-to-date PPG | 2,623 | **3.002** | 1.501 | +0.04 |
+| LB | season-to-date PPG | 1,505 | **2.242** | 1.121 | +0.10 |
+| DB | season-to-date PPG | 2,688 | **2.762** | 1.381 | +0.13 |
+
+Two results that should shape the modelling effort:
+
+**1. Season-to-date mean beats every recency window, at every position except
+kicker and punter.** `l3_ppg` and `l4_ppg` lose to `std_ppg` everywhere, and
+`last` (the most recent single game) is the *worst* baseline at every position —
+WR 6.387 vs 4.801. Recency is noise at this granularity. Any model that leans on
+short windows has to earn it against a longer mean, and the spec's emphasis on
+L3/L4 opportunity windows is better justified for the **opportunity** side
+(role changes) than for direct point prediction.
+
+**2. For PK and PN, the position average beats the player's own history.**
+Replacement level wins outright — an individual kicker's prior scoring carries
+*no* usable signal beyond "he is a kicker." This is worth knowing before
+investing in PK/PN player-level models: the honest bar is the position mean, and
+it is hard to beat. It also supports the spec's instinct (§2.4) that punters
+need internal benchmarking rather than an external projection source.
+
+Bias columns are near zero for the winning baseline at most positions, so the
+opportunity is in **precision, not calibration of the mean** — except QB
+(+1.86), where season-to-date systematically over-predicts, likely a
+survivorship effect from benched starters.
+
+---
+
 ## Appendix C — Defect backlog from the ETL alias sweep (2026-08-04)
 
 Investigating B4 triggered a full sweep of all 47 `PLAYERSTATS_MAP` entries in
