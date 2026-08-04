@@ -903,7 +903,7 @@ The spec's 14-step order is sound. The audit inserts a **Phase 0** ahead of it.
 |---|---|---|---|
 | 0.1 | Build `nfl_player_routes_weekly` from participation × PBP | Σ weekly routes == existing season totals, per player, 2016–2025 | ✅ **PASSED** — see below |
 | 0.2 | Add receiving / rushing / passing first downs | WR reception-slope gap (§1.3) closes to ~0 | 🔨 shipped (`0114`), backfilling |
-| 0.3 | Add return yards, return TDs, TD distance bands, safeties, blocked kicks | WR zero-reception intercept closes | 🔨 return game shipped (`0117`, C9); TD distance bands + safeties + blocked kicks still open (C10–C13, need PBP) |
+| 0.3 | Add return yards, return TDs, TD distance bands, safeties, blocked kicks | WR zero-reception intercept closes | ✅ return game (`0117`, C9), TD distance tiers + kickoff-return TDs + 2-pt conversions (`0119`, C10/C12). Remaining: safeties (C12), blocked kicks (C13 — blocker only named in the PBP description) |
 | 0.4 | **Correct IDP tackle semantics** (was: "re-source from official stats" — the data was never the problem) | pure-tackle-week gap < 0.10 for DL/LB/DB | 🔨 shipped + `backfill_pass_sacks.py` second writer disarmed; backfilling 2011–2025 |
 | 0.5 | Repair the 2023 crosswalk hole (50 route players) | unmapped routes < 100 | open |
 | 0.6 | Ship the leakage manifest + week-truncation test | test green | open |
@@ -921,7 +921,42 @@ fail-open. `backfill_tackle_semantics.py` does the targeted column backfill.
 > modelled yet. Demanding < 0.05 before 0.3 lands would force either dishonest
 > tuning or an indefinite block.
 
-### Task 0.3/0.4 FINAL — gate 24/24 PASSED after the return game landed
+### Phase 0 FINAL — UPS scoring is now reproducible from D1
+
+With C10/C12 landed (`0119`), the offensive scoring engine reconstructs realized
+UPS points almost exactly. 2025, identity via `ff_player_ids`:
+
+| pos | n | actual avg | gap | MAE | **exact (<0.05)** |
+|---|---|---|---|---|---|
+| **TE** | 1,094 | 7.500 | −0.005 | 0.010 | **99.5%** |
+| **RB** | 1,418 | 8.585 | +0.023 | 0.034 | **98.0%** |
+| **WR** | 2,137 | 8.141 | −0.006 | 0.038 | **94.5%** |
+
+Against the original audit baseline of **WR gap 0.965, 15% exact**. The residual
+gap is now within rounding in both directions.
+
+The path there, and what each piece was worth on WR:
+
+| stage | gap | exact |
+|---|---|---|
+| box score only (audit baseline) | 0.965 | 15% |
+| + first downs (`0114`) | 0.649 | — |
+| + return game (`0117`) | 0.217 | 79% |
+| + special-teams tackles *(already in D1 — the formula was incomplete, not the data)* | 0.074 | 92% |
+| **+ TD distance tiers, kickoff-return TDs, 2-pt conversions (`0119`)** | **−0.006** | **94.5%** |
+
+> **Method note worth keeping.** Before building the PBP pipeline for C10 I
+> plotted the residual distribution rather than assuming what was in it. It
+> showed two clean ladders — **+0.5 increments** and **−0.2 increments**. The
+> −0.2 ladder was first downs; the +0.5/+1.0 ladder turned out to be `AS *0.5` /
+> `TK *1.0`, i.e. **UPS pays skill players for special-teams tackles**, and my
+> reconstruction had simply omitted a term. That alone was worth 0.217 → 0.074
+> and needed no new data at all. Only the genuinely irreducible remainder — 51
+> player-weeks at +1.0 (the 50+ yard tier), 51 at +2.0 (two-point conversions)
+> and 15 at +7.0 (kickoff return TDs) — justified the PBP build. Measuring the
+> residual first turned a large speculative pipeline into a small targeted one.
+
+### Task 0.3/0.4 — gate 24/24 PASSED after the return game landed
 
 Adding the return game (migration `0117`) closed the last cohort. The gate now
 reconstructs every scoring input D1 holds, so returns no longer leak into the
@@ -1065,6 +1100,34 @@ Investigating B4 triggered a full sweep of all 47 `PLAYERSTATS_MAP` entries in
 (identical 145-column schema in all three, so every binding defect is
 season-invariant). The findings below are **not yet fixed**; B3/B4 are.
 
+### The pattern bit me too — `pt_return_tds` (2026-08-04)
+
+Worth recording, because it is the same failure mode as B4 and it happened
+*while fixing B4*.
+
+Migration `0117` mapped `punt_return_tds` from nflverse `pt_return_tds`. That is
+wrong. The `pt_*` block is the **punter's** stat line — `pt_att`, `pt_yards`,
+`pt_net_yards`, `pt_returned`, `pt_return_tds` — so that column counts TDs the
+punter **allowed**. It appears on position `P` rows and nowhere else. Since UPS
+`PR` pays 6–7 points, the binding would have *rewarded punters for surrendering
+return touchdowns*.
+
+What made it plausible: `punt_returns` (861) and `pt_returned` (861) have
+**identical league totals**, because every returned punt is counted once from
+each side. Two columns agreeing to the unit looks like confirmation and is not —
+the returner-side columns (`punt_returns`, `punt_return_yards`) were correctly
+mapped; only the TD column crossed sides.
+
+Caught before it affected any published figure — skill and IDP rows carry NULL
+there, so it contributed 0 to every reconstruction reported here — but the
+stored values were wrong. `0119` clears them and `backfill_td_distance.py` now
+owns the column, credited to the **returner** from PBP.
+
+**The generalisable lesson:** matching league totals is not evidence that two
+columns mean the same thing. Check *which population* carries the value — a
+one-line `GROUP BY position` would have caught this instantly, and is now the
+first check for any new column binding.
+
 ### The systemic pattern
 
 `pick()` returns the **first alias present** in the dataframe. When nflverse adds
@@ -1099,7 +1162,8 @@ but it defeats the entire fallback mechanism on the next upstream rename.
 | # | Defect |
 |---|---|
 | C9 | ✅ **FIXED 2026-08-04** (migration `0117`). Return game was entirely unmapped — `KY *.025`, `UY *.05`, `KO`/`PR` return TDs had no data source at all, so a pure return specialist scored from nothing as far as D1 was concerned (Charlie Jones 12.1 UPS pts, 2025 wk9, zero offensive stats). Six columns added to `nfl_player_weekly_ext`, stored verbatim. ⚠️ `special_teams_tds` is a **mixed bucket**, not "return TDs" — 2025 is WR 16 / RB 4 / CB 3 / DE 3 / DT 1 / SAF 1, and the defensive entries are blocked-kick and muffed-punt recoveries that UPS scores under `BLF`/`BLP`/`FR`. Captured for reconciliation only. nflverse has **no** `kickoff_return_tds` column, so kickoff-return TDs (and all return-TD distances) remain C10. |
-| C10 | **TD distance bonuses unobtainable** — UPS pays 7 not 6 for TDs of 50+ yards (`PS`/`RS`/`RC`/`PR`/`KO`/`FR`/`IR`), and applies the same scaling to *defensive* TDs. `load_player_stats` has only TD counts. Hard ceiling of ~0.26 pts/player-week on offense; **requires PBP**. |
+| C10 | ✅ **FIXED 2026-08-04** (migration `0119`, `backfill_td_distance.py`). UPS pays 7 not 6 for TDs of 50+ yards on every code, and the box-score feed has only TD counts. **The distance field is not uniform** — offensive TDs use `pbp.yards_gained`, but return TDs must use `pbp.return_yards`, because `yards_gained` is **0** on kickoff-return plays. An initial `yards_gained >= 50` check therefore reported *zero* 50+ return TDs, which is obviously wrong for a play type that is ~100 yards by construction. 2025: 38 pass / 25 rush / 38 rec 50+ TDs, plus 6 kickoff and 15 punt return TDs (all 6 kickoff returns 50+, at 90/95/97/98/99/100 yds). Also resolves the **missing kickoff-return TDs** — nflverse has no such column, so these were previously scored as zero. This is what Charlie Jones's 12.1 points on zero offensive stats (§1.3) actually was: a 98-yard kickoff return TD. |
+| C12 | ✅ **FIXED 2026-08-04** (migration `0119`). `pass_2pt` was mapped; `rushing_2pt_conversions` (17/season) and `receiving_2pt_conversions` (43/season) never were. `R2`/`C2` pay ×2, and 51 of 2025's skill player-weeks carried a +2.0 residual. Native nflverse columns — no PBP needed. |
 | C11 | Native kicking columns now exist (`fg_made_distance`, `fg_missed_distance`, per-band made/missed, `fg_blocked`, `pat_missed`) — the PBP-bucket workaround is obsolete. |
 | C12 | `def_safeties` (`SF *2`), rushing/receiving 2-pt conversions (`R2`/`C2 *2`), `receiving_yards_after_catch` all unmapped. |
 | C13 | **Blocked kicks are unrecoverable from the box score** — `fg_blocked`/`pat_blocked` sit on the *kicker's* row. The blocker is named in the PBP description in 47/47 2025 cases. This is the entire final residual after the B4 fix (~0.01 pts/wk). Optional. |

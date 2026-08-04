@@ -72,7 +72,7 @@ EXT_COLS = {
     "kickoff_return_yards",
     "punt_returns",
     "punt_return_yards",
-    "punt_return_tds",
+    # punt_return_tds intentionally absent — owned by backfill_td_distance.py
     "special_teams_tds",
 }
 
@@ -164,12 +164,25 @@ PLAYERSTATS_MAP = {
     # captured for reconciliation only. nflverse has NO kickoff_return_tds
     # column, and return-TD DISTANCE (the 6-vs-7 tier) is not in this feed
     # either; both need PBP. See migration 0117.
+    # These four ARE the returner's own columns (2025 punt_returns by position:
+    # WR 774, CB 47, RB 33, DB 4, SAF 2, LB 1).
     "kickoff_returns":      ["kickoff_returns"],
     "kickoff_return_yards": ["kickoff_return_yards"],
     "punt_returns":         ["punt_returns"],
     "punt_return_yards":    ["punt_return_yards"],
-    "punt_return_tds":      ["pt_return_tds"],
     "special_teams_tds":    ["special_teams_tds"],
+    # ⚠️ punt_return_tds is DELIBERATELY NOT MAPPED HERE. It was briefly bound to
+    # nflverse `pt_return_tds`, which is wrong: the `pt_*` block is the PUNTER's
+    # stat line (pt_att / pt_yards / pt_net_yards / pt_returned / pt_return_tds),
+    # so that column counts TDs the punter ALLOWED and appears on position 'P'
+    # rows and nowhere else. Crediting it as a return TD pays punters 6-7 points
+    # for giving up a return touchdown. The column is now owned by
+    # backfill_td_distance.py, which credits the RETURNER from PBP and also
+    # supplies the 50+ yard distance tier. See migrations 0117 and 0119.
+    #
+    # The near-identical league totals of punt_returns (861) and pt_returned
+    # (861) are a coincidence of accounting — every returned punt is counted once
+    # from each side — and are NOT evidence that the two blocks are interchangeable.
 
     # IDP
     # ── TACKLE SEMANTICS — read before touching these three lines. ──────────
