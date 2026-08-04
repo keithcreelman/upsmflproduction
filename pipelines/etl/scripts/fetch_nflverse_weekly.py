@@ -54,6 +54,28 @@ from lib.nflverse_seasons import available_seasons  # noqa: E402
 # simply return None for positions that don't have the stat.
 # ---------------------------------------------------------------
 
+# ── COMPANION-TABLE ROUTING ────────────────────────────────────────────────
+# nfl_player_weekly is at EXACTLY 100 columns, which is D1's hard per-table cap
+# — `ALTER TABLE ... ADD COLUMN` on it now fails outright with
+# "too many columns on sqlite_altertab_nfl_player_weekly: SQLITE_ERROR".
+# Every column added from 2026-08-04 onward therefore lands in the 1:1
+# companion table nfl_player_weekly_ext (worker/migrations/0114), which shares
+# the (season, week, gsis_id) key. Add new columns to PLAYERSTATS_MAP as usual
+# and list them here; upsert_player_weekly() splits the write automatically.
+PK_COLS = ["season", "week", "gsis_id"]
+EXT_COLS = {
+    "def_tackles_with_assist",
+    "pass_first_downs",
+    "rush_first_downs",
+    "rec_first_downs",
+    "kickoff_returns",
+    "kickoff_return_yards",
+    "punt_returns",
+    "punt_return_yards",
+    "punt_return_tds",
+    "special_teams_tds",
+}
+
 # Mapping: dict of { our_col: nflverse_col_candidates }
 # First candidate present in the DF wins. Lets us tolerate upstream
 # renames (nflreadpy has shuffled cols across versions).
@@ -112,10 +134,82 @@ PLAYERSTATS_MAP = {
     # fetcher is the real owner; feeds AY-share / WOPR / RACR on the workbench.
     "receiving_air_yards":       ["receiving_air_yards"],
 
+    # ── FIRST DOWNS — UPS `FD 1-999 = *0.2`, ALL positions, continuous since
+    # 2011 (the 2021 `1C`→`FD` rename was cosmetic). These were never mapped,
+    # so first downs were entirely absent from D1 and UPS scoring could not be
+    # reproduced for any offensive player. Adding them takes offensive
+    # reconstruction MAE from 2.234 → 0.264 pts/player-week.
+    #
+    # UPS credits the QB for PASSING first downs too (confirmed — not
+    # ball-carrier-only): Drake Maye 2025 = 238 passing + 50 rushing FD = 57.6
+    # pts/season that were previously invisible.
+    #
+    # Keep the three SEPARATE — do not pre-sum them. UPS `FD` scoring wants all
+    # of them, but FDPRR (receiving first downs per route run) is a
+    # receiving-only route-efficiency metric and must never include rushing FDs.
+    # (Claude 2026-08-04.)
+    "pass_first_downs": ["passing_first_downs"],
+    "rush_first_downs": ["rushing_first_downs"],
+    "rec_first_downs":  ["receiving_first_downs"],
+
+    # ── RETURN GAME — UPS `KY *.025` / `UY *.05` / `KO` / `PR` ─────────────
+    # Never previously mapped, so a pure return specialist looked like a player
+    # who scored from nothing: Charlie Jones 12.1 UPS pts in 2025 wk9 with zero
+    # offensive stats in this table. Stored verbatim (no pre-summing) so the
+    # scoring layer applies the UPS rates.
+    #
+    # ⚠️ special_teams_tds is a MIXED bucket, not "return TDs" — 2025 has WR 16,
+    # RB 4, CB 3, DE 3, DT 1, SAF 1, and the defensive entries are blocked-kick
+    # / muffed-punt recoveries that UPS scores under BLF/BLP/FR instead. It is
+    # captured for reconciliation only. nflverse has NO kickoff_return_tds
+    # column, and return-TD DISTANCE (the 6-vs-7 tier) is not in this feed
+    # either; both need PBP. See migration 0117.
+    "kickoff_returns":      ["kickoff_returns"],
+    "kickoff_return_yards": ["kickoff_return_yards"],
+    "punt_returns":         ["punt_returns"],
+    "punt_return_yards":    ["punt_return_yards"],
+    "punt_return_tds":      ["pt_return_tds"],
+    "special_teams_tds":    ["special_teams_tds"],
+
     # IDP
-    "def_tackles_solo":  ["def_tackles_solo", "solo_tackles", "tackles_solo"],
-    "def_tackles_ast":   ["def_tackles_with_assist", "assist_tackles", "tackles_assists", "tackles_for_loss_assist"],
-    "def_tackles_total": ["def_tackles", "total_tackles", "tackles"],
+    # ── TACKLE SEMANTICS — read before touching these three lines. ──────────
+    # The NFL gamebook records THREE DISJOINT tackle credits, and nflverse
+    # parses each into its own column (verified at PBP level: across all 702
+    # `tackle_with_assist` plays in 2025 the twa player appears as solo_tackle_N
+    # zero times and as assist_tackle_N zero times — no overlap in any
+    # direction):
+    #   "(A)"              → A    = def_tackles_solo        unassisted tackle
+    #   "(A, B)"  comma    → A    = def_tackles_with_assist  A MADE it, with help
+    #                        B    = def_tackle_assists
+    #   "(A; B)"  semicolon→ both = def_tackle_assists
+    #
+    # Therefore, for UPS scoring:
+    #     MFL TK  =  def_tackles_solo + def_tackles_with_assist
+    #     MFL AS  =  def_tackles_ast   (nflverse def_tackle_assists)
+    # and official-combined (== PFR `comb`) = all three summed. Corroborated:
+    # Bobby Wagner 2023 PFR 183 = 77 solo + 19 twa + 87 assists, exactly.
+    #
+    # HISTORY OF THE BUG (Claude 2026-08-04): `def_tackles_ast` was bound to
+    # `def_tackles_with_assist` — a TACKLE count — while the real assist column
+    # `def_tackle_assists` was absent from the alias list entirely, so pick()
+    # could never reach it. That put a tackle count in the assist bucket (2025:
+    # 702 instead of 17,056) and left TK short by twa. The two errors CANCELLED
+    # in the derived total below (solo+ast == solo+twa == correct TK), which is
+    # why the table looked plausible for two years. Fixing the alias ALONE
+    # breaks that cancellation and is strictly worse than the bug: 2025 IDP MAE
+    # 0.81 → 1.63, league IDP points +36.2%. Both lines and the derivation must
+    # move together.
+    #
+    # Single-alias lists are deliberate. Every removed alias ("solo_tackles",
+    # "tackles_solo", "assist_tackles", "tackles_assists", "def_tackles",
+    # "total_tackles", "tackles") resolves in ZERO seasons 1999-2025, and
+    # "tackles_for_loss_assist" is a different stat (assisted TFL). Per the
+    # repo's no-fail-open rule a never-matching alias is not harmless — it is a
+    # silent mis-binding landmine waiting for the next upstream rename.
+    "def_tackles_solo":        ["def_tackles_solo"],         # NOT the MFL TK count on its own
+    "def_tackles_with_assist": ["def_tackles_with_assist"],  # tackle MADE with help → scores as TK
+    "def_tackles_ast":         ["def_tackle_assists"],       # the real assist count → scores as AS
+    # def_tackles_total is DERIVED below (official combined), never sourced.
     "def_tfl":           ["def_tackles_for_loss", "tfl", "tackles_for_loss"],
     "def_qb_hits":       ["def_qb_hits", "qb_hits"],
     "def_sacks":         ["def_sacks", "sacks_total"],
@@ -181,11 +275,29 @@ def pos_group_of(position) -> str:
     if p in {"WR"}: return "WR"
     if p in {"TE"}: return "TE"
     if p in {"K", "PK"}: return "PK"
-    if p in {"P"}: return "PK"
+    # UPS scores punters SEPARATELY from kickers (PN pays PI *4 per punt inside
+    # the 20 and an ANY net-average tier; PK pays FG *.1/yd + XP). Collapsing P
+    # into PK — as this did until 2026-08-04 — makes the two indistinguishable
+    # downstream. src_weekly already carries PK and PN as distinct groups.
+    if p in {"P", "PN"}: return "PN"
     if p in {"DE", "DT", "NT", "DL", "EDGE", "DEF"}: return "DL"
     if p in {"OLB", "ILB", "MLB", "LB"}: return "LB"
-    if p in {"CB", "SS", "FS", "S", "DB"}: return "DB"
-    return p
+    # "SAF" is how nflverse spells safety. Its absence here sent 6,772 rows
+    # (1,545 in 2025 alone — 36% of all DBs) through the fall-through below as
+    # pos_group='SAF', so every consumer filtering pos_group='DB' silently lost
+    # more than a third of the defensive backs.
+    if p in {"CB", "SS", "FS", "S", "SAF", "DB"}: return "DB"
+    # Terminal bucket. The old `return p` leaked raw nflverse labels into
+    # pos_group — 15,015 rows of OT/G/C/LS/OL — making the column look like it
+    # held a controlled vocabulary when it did not.
+    #
+    # ⚠️ pos_group here is NFLVERSE's positional view, and it does NOT always
+    # agree with MFL's. MFL classifies edge rushers (Brian Burns, Byron Young,
+    # Jonathon Cooper, Micah Parsons …) as DE while nflverse calls them LB —
+    # 830 player-weeks in 2025. UPS pays DL tackles 1.5 and LB tackles 1.0, so
+    # ANY UPS SCORING MUST KEY OFF THE MFL POSITION (src_weekly.pos_group), never
+    # off this column. This column is for NFL-side filtering and display only.
+    return "OTHER"
 
 
 def pick(row, candidates):
@@ -291,20 +403,59 @@ def upsert_player_weekly(db: sqlite3.Connection, df, args) -> int:
                         out[col] = int(float(v))
                 except (ValueError, TypeError):
                     out[col] = None
-        # Derive def_tackles_total = solo + ast (nflverse aliases for the total
-        # silently miss; both solo and ast populate reliably). Keith 2026-04-26.
+        # Derive def_tackles_total = OFFICIAL COMBINED tackles, i.e. all three
+        # disjoint gamebook credits summed. This reconciles to PFR `comb` within
+        # 0.0-1.0% in every season 2018-2025.
+        #
+        # ⚠️ def_tackles_total IS NOT A UPS SCORING INPUT. UPS pays TK and AS at
+        # different per-position rates (DT/DE 1.5/0.5, CB/S 1.3/0.8, LB 1.0/0.5),
+        # so the scoring layer must compute:
+        #       TK = def_tackles_solo + def_tackles_with_assist
+        #       AS = def_tackles_ast
+        # and must never read def_tackles_total as "tackles". Note that existing
+        # UI consumers override the stored total with solo (worker/src/index.js
+        # :9429/:9821/:11009/:11092) and label it "Solo tackles" — the model
+        # layer is the first real consumer of the raw column, so this definition
+        # is pinned here on purpose. (Claude 2026-08-04; was solo+ast, which
+        # equalled TK only by accident of the mis-binding described above.)
         solo = out.get("def_tackles_solo")
+        twa  = out.get("def_tackles_with_assist")
         ast  = out.get("def_tackles_ast")
-        if solo is not None or ast is not None:
-            out["def_tackles_total"] = (solo or 0) + (ast or 0)
+        if solo is not None or twa is not None or ast is not None:
+            out["def_tackles_total"] = (solo or 0) + (twa or 0) + (ast or 0)
         rows_to_insert.append(out)
         count += 1
 
     if not rows_to_insert:
         return 0
 
-    cols = list(rows_to_insert[0].keys())
+    # nfl_player_weekly sits at D1's hard 100-column cap, so every column added
+    # after 2026-08-04 lands in the 1:1 companion table nfl_player_weekly_ext
+    # (migration 0114). Split the row here: PK cols go to both, EXT_COLS go only
+    # to the companion, everything else stays in the main table.
+    all_cols  = list(rows_to_insert[0].keys())
+    main_cols = [c for c in all_cols if c not in EXT_COLS]
+    ext_cols  = PK_COLS + [c for c in all_cols if c in EXT_COLS]
+
+    cols = main_cols
     row_tuples = [tuple(r[c] for c in cols) for r in rows_to_insert]
+
+    # Only keep ext rows carrying at least one NONZERO payload value.
+    #
+    # This must be truthiness, not `is not None`. nflverse returns 0 (not NULL)
+    # for "no first downs / no returns / no assisted tackles", so an
+    # `is not None` test admits every player-week in the league and the table
+    # fills with all-zero rows — 2,300 of them landed in 2025 from an earlier
+    # run before this was tightened. They are harmless to read (COALESCE gives 0
+    # either way) but they contradict the coverage contract documented in
+    # backfill_tackle_semantics.py, where an ABSENT row means "recorded none of
+    # these events", and they burn D1 writes on nothing.
+    ext_payload = [c for c in ext_cols if c not in PK_COLS]
+    ext_tuples = [
+        tuple(r[c] for c in ext_cols)
+        for r in rows_to_insert
+        if any(r.get(c) for c in ext_payload)
+    ]
 
     if not args.skip_local:
         try:
@@ -333,6 +484,16 @@ def upsert_player_weekly(db: sqlite3.Connection, df, args) -> int:
             pk_cols=["season","week","gsis_id"],
         ) as w:
             for r in row_tuples:
+                w.add(r)
+
+    if not args.skip_d1 and ext_tuples:
+        print(f"  [weekly] D1 ext: writing {len(ext_tuples)} rows "
+              f"({', '.join(ext_payload)}) ...", file=sys.stderr)
+        with D1Writer(
+            table="nfl_player_weekly_ext", cols=ext_cols,
+            pk_cols=PK_COLS,
+        ) as w:
+            for r in ext_tuples:
                 w.add(r)
 
     return count
@@ -438,6 +599,21 @@ def ensure_tables(db: sqlite3.Connection) -> None:
         )
     """)
     db.execute("CREATE INDEX IF NOT EXISTS idx_nflweekly_player ON nfl_player_weekly (gsis_id, season)")
+    # Companion table — nfl_player_weekly is at D1's 100-column cap, so all
+    # columns added from 2026-08-04 live here. Mirrors worker/migrations/0114.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS nfl_player_weekly_ext (
+          season INTEGER NOT NULL, week INTEGER NOT NULL, gsis_id TEXT NOT NULL,
+          def_tackles_with_assist INTEGER,
+          pass_first_downs INTEGER, rush_first_downs INTEGER, rec_first_downs INTEGER,
+          kickoff_returns INTEGER, kickoff_return_yards INTEGER,
+          punt_returns INTEGER, punt_return_yards INTEGER, punt_return_tds INTEGER,
+          special_teams_tds INTEGER,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (season, week, gsis_id)
+        )
+    """)
+    db.execute("CREATE INDEX IF NOT EXISTS idx_nflweekly_ext_player ON nfl_player_weekly_ext (gsis_id, season)")
     db.execute("""
         CREATE TABLE IF NOT EXISTS nfl_player_snaps (
           season INTEGER NOT NULL, week INTEGER NOT NULL, pfr_id TEXT NOT NULL,
