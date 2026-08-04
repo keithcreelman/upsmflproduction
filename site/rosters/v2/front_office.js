@@ -6458,7 +6458,16 @@
         ? `<span class="fo-cap-totals-note" title="${escapeHtml(title)}">${fmtUSD(rawSalary)} salary ${parts.join(" · ")}</span>`
         : "";
     };
-    const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
+    // Projected-tag-value badge (Keith 2026-08-04: link tag cost from a Cap
+    // Planning row into the fixed Tag Calc Breakdown table). Needs the SAME
+    // tag data the Tag tab uses — loaded lazily here too, non-blocking, so a
+    // commissioner who opens Cap Planning first still gets it without
+    // visiting the Tag tab first.
+    if (!STATE.tagData && !STATE.tagDataLoading) loadTagPlanData().then(renderCapTab);
+    if (!STATE.tagPointsData && !STATE.tagPointsDataLoading) loadTagPointsData().then(renderCapTab);
+    const tagCb = STATE.tagData ? projectedCalcBreakdown() : {};
+    const tagLookup = Object.keys(tagCb).length ? buildTagTierLookup(tagCb) : null;
+    const rows = players.map(function (p) { return renderCapDetailRow(p, team, tagCb, tagLookup); }).join("")
       || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
     const sort = STATE.capDetailSort;
     const arrow = (key) => sort.key === key ? (sort.dir > 0 ? " ▲" : " ▼") : "";
@@ -6492,7 +6501,7 @@
       </table>`;
   }
 
-  function renderCapDetailRow(p, team) {
+  function renderCapDetailRow(p, team, tagCb, tagLookup) {
     const cy  = projectedPlayerCapForOffset(p, 0);
     const ny  = projectedPlayerCapForOffset(p, 1);
     const ny2 = projectedPlayerCapForOffset(p, 2);
@@ -6619,6 +6628,20 @@
                          : "DRAFT ✗")
                      : rosterStatusLabel(p);
 
+    // Projected tag-value badge — only for an untouched row (an active
+    // preview already means the row is about something else this season;
+    // showing a NEXT-season tag figure under "DROPPED"/"RESTR (draft)" would
+    // read as if it applied to the preview). Reuses the exact same calc the
+    // Tag tab's projected table uses (computeProjectedTagValue), so the two
+    // screens can never disagree.
+    let tagBadge = "";
+    if (!active && tagLookup) {
+      const tv = computeProjectedTagValue(p, tagCb, tagLookup, true);
+      if (tv) {
+        tagBadge = ` <button type="button" class="fo-cap-tag-badge" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Projected ${safeInt(SEASON, 0) + 1} tag cost (${tv.tier_label}) — click to open the Tag Calc Breakdown">🏷 ${fmtUSD(tv.tag_value)}</button>`;
+      }
+    }
+
     const mainRow = `
       <tr class="${rowClass}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">
         <td>${escapeHtml(p.name)}</td>
@@ -6629,7 +6652,7 @@
         <td class="num">${draftMoneyCell(1, ny)}</td>
         <td class="num">${draftMoneyCell(2, ny2)}</td>
         <td>${previewCell}</td>
-        <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span></td>
+        <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span>${tagBadge}</td>
       </tr>`;
     // The editor is a SIBLING <tr> right under the player's row (not a modal)
     // so the year totals stay on screen while the owner types.
@@ -6911,6 +6934,18 @@
       // Clicks inside an editor row must never fall through to the row-click
       // slide-over (the editor <tr>s deliberately carry no data-pid).
       if (e.target.closest(".fo-cap-rs-editor-row, .fo-cap-ml-editor-row")) { e.stopPropagation(); return; }
+      // Projected-tag-value badge — jump to the Tag Calc Breakdown, filtered
+      // to this player's team so they're easy to find.
+      const tagBadge = e.target.closest(".fo-cap-tag-badge");
+      if (tagBadge && section.contains(tagBadge)) {
+        e.stopPropagation();
+        const badgeTeam = findTeamById(tagBadge.dataset.fid);
+        STATE.tagSubview = "breakdown";
+        STATE.tagBreakdownYear = safeInt(SEASON, 0) + 1;
+        STATE.proj2027Filter = { team: safeStr(badgeTeam && badgeTeam.name), pos: "" };
+        activateContractSubtab("tag");
+        return;
+      }
       // Team-name link in Summary.
       const link = e.target.closest(".fo-cap-team-link");
       if (link) {
@@ -8177,15 +8212,11 @@
     return out;
   }
 
-  function renderTagValueTable(projYear) {
-    const m = STATE.tagData.meta || {};
-    const projecting = projYear > (safeInt(SEASON, 0) || 0);
-    const cb = projecting ? projectedCalcBreakdown() : (m.calc_breakdown || {});
-    const nn = function (s) { return safeStr(s).toLowerCase().replace(/[^a-z]/g, ""); };
-    if (!Object.keys(cb).length) {
-      return '<div class="fo-placeholder">No calc_breakdown in tag_tracking.json — can\'t project tier bids.</div>';
-    }
-    // name → tier base bid, + lowest-tier bid per position (the position floor).
+  // name → tier base bid, + lowest-tier bid per position (the position floor).
+  // Shared by renderTagValueTable and the Cap Planning row badge so the two
+  // screens can never disagree about a player's projected tag value.
+  const _tagNameKey = function (s) { return safeStr(s).toLowerCase().replace(/[^a-z]/g, ""); };
+  function buildTagTierLookup(cb) {
     const tierByName = Object.create(null);
     const lowestBidByPos = Object.create(null);
     Object.keys(cb).forEach(function (posKey) {
@@ -8193,44 +8224,69 @@
       if (tiers.length) lowestBidByPos[posKey] = safeInt(tiers[tiers.length - 1].base_bid, 0);
       tiers.forEach(function (t) {
         (t.players || []).forEach(function (pl) {
-          tierByName[posKey + "|" + nn(pl.player_name)] = { bid: safeInt(t.base_bid, 0), label: "T" + t.tier };
+          tierByName[posKey + "|" + _tagNameKey(pl.player_name)] = { bid: safeInt(t.base_bid, 0), label: "T" + t.tier };
         });
       });
     });
+    return { tierByName: tierByName, lowestBidByPos: lowestBidByPos };
+  }
+
+  // Projected tag value for ONE player, or null if they're not a tag
+  // candidate. `projecting` distinguishes the locked current cycle (no points
+  // rank, no already-tagged exclusion — that cycle's tags are already final)
+  // from the forward projection.
+  function computeProjectedTagValue(p, cb, lookup, projecting) {
+    // Every final-year (cy=1) active player is a potential tag candidate —
+    // including Vet-Ext / FL / BL (extension ≠ tag). Taxi/IR excluded.
+    if (safeInt(p.years, 0) !== 1 || p.isTaxi || p.isIr) return null;
+    // Already-tagged players CANNOT be re-tagged (canon §911 item 12: once
+    // tagged → must go to next summer's FA Auction). So a player STILL
+    // carrying a Tag contract is not a valid candidate for a projected tag.
+    // The drop-before-auction reset (Keith 2026-06-07) is handled naturally:
+    // a dropped+re-won player comes back as Vet-FAA (type ≠ Tag) and so is
+    // included again here. Only the live Tag contract is excluded.
+    if (projecting && /tag/i.test(safeStr(p.type))) return null;
+    const posKey = positionGroupKey(p.position);
+    const aav = Math.max(displayAavForPlayer(p), 0);   // true AAV (contractInfo token), NOT the salary fallback
+    const floor = aav > 0 ? Math.ceil((aav * 1.10) / 1000) * 1000 : 0;   // AAV × 1.10, ceil to $1K
+    // Tier ASSIGNMENT: points-scored rank when live data is available
+    // (canon — matches build_tag_tracking.py's split of assignment-by-points
+    // vs pricing-by-AAV). Falls back to the AAV name-match this table always
+    // used when a player has no points data yet (rookies, sparse IDP, or the
+    // points fetch hasn't resolved) — never a blank/broken cell.
+    const ptsRank = (STATE.tagPointsData && projecting)
+      ? STATE.tagPointsData.rankByPid[safeStr(p.id)] : undefined;
+    const ptsTier = ptsRank ? tierForPointsRank(posKey, cb[posKey], ptsRank) : null;
+    const lk = lookup.tierByName[posKey + "|" + _tagNameKey(p.name)];
+    const tierBid = ptsTier ? safeInt(ptsTier.base_bid, 0) : lk ? lk.bid : (lookup.lowestBidByPos[posKey] || 0);
+    const tierLabel = ptsTier ? "T" + ptsTier.tier : lk ? lk.label : "—";
+    return {
+      posKey: posKey, aav: aav, floor: floor, tier_bid: tierBid, tier_label: tierLabel,
+      tag_value: Math.max(tierBid, floor), ytd_pts_rank: ptsRank || null,
+    };
+  }
+
+  function renderTagValueTable(projYear) {
+    const m = STATE.tagData.meta || {};
+    const projecting = projYear > (safeInt(SEASON, 0) || 0);
+    const cb = projecting ? projectedCalcBreakdown() : (m.calc_breakdown || {});
+    if (!Object.keys(cb).length) {
+      return '<div class="fo-placeholder">No calc_breakdown in tag_tracking.json — can\'t project tier bids.</div>';
+    }
+    const lookup = buildTagTierLookup(cb);
     let rows = [];
     let excludedTagged = 0;
     (STATE.teams || []).forEach(function (team) {
       (team.players || []).forEach(function (p) {
-        // Every final-year (cy=1) active player is a potential tag candidate —
-        // including Vet-Ext / FL / BL (extension ≠ tag). Taxi/IR excluded.
-        if (safeInt(p.years, 0) !== 1 || p.isTaxi || p.isIr) return;
-        // Already-tagged players CANNOT be re-tagged (canon §911 item 12: once
-        // tagged → must go to next summer's FA Auction). So a player STILL
-        // carrying a Tag contract is not a valid candidate for a projected tag.
-        // The drop-before-auction reset (Keith 2026-06-07) is handled naturally:
-        // a dropped+re-won player comes back as Vet-FAA (type ≠ Tag) and so is
-        // included again here. Only the live Tag contract is excluded.
-        if (projecting && /tag/i.test(safeStr(p.type))) { excludedTagged += 1; return; }
-        const posKey = positionGroupKey(p.position);
-        const aav = Math.max(displayAavForPlayer(p), 0);   // true AAV (contractInfo token), NOT the salary fallback
-        const floor = aav > 0 ? Math.ceil((aav * 1.10) / 1000) * 1000 : 0;   // AAV × 1.10, ceil to $1K
-        // Tier ASSIGNMENT: points-scored rank when live data is available
-        // (canon — matches build_tag_tracking.py's split of assignment-by-points
-        // vs pricing-by-AAV). Falls back to the AAV name-match this table always
-        // used when a player has no points data yet (rookies, sparse IDP, or the
-        // points fetch hasn't resolved) — never a blank/broken cell.
-        const ptsRank = (STATE.tagPointsData && projecting)
-          ? STATE.tagPointsData.rankByPid[safeStr(p.id)] : undefined;
-        const ptsTier = ptsRank ? tierForPointsRank(posKey, cb[posKey], ptsRank) : null;
-        const lk = tierByName[posKey + "|" + nn(p.name)];
-        const tierBid = ptsTier ? safeInt(ptsTier.base_bid, 0) : lk ? lk.bid : (lowestBidByPos[posKey] || 0);
-        const tierLabel = ptsTier ? "T" + ptsTier.tier : lk ? lk.label : "—";
-        const tagValue = Math.max(tierBid, floor);
+        if (projecting && /tag/i.test(safeStr(p.type)) && safeInt(p.years, 0) === 1 && !p.isTaxi && !p.isIr) {
+          excludedTagged += 1; return;
+        }
+        const v = computeProjectedTagValue(p, cb, lookup, projecting);
+        if (!v) return;
         rows.push({
           pid: safeStr(p.id), fid: safeStr(team.fid), name: safeStr(p.name), team: safeStr(team.name),
-          pos: safeStr(p.position), type: safeStr(p.type), aav: aav, floor: floor, tier_bid: tierBid,
-          tier_label: tierLabel, tag_value: tagValue,
-          ytd_pts_rank: ptsRank || null,
+          pos: safeStr(p.position), type: safeStr(p.type), aav: v.aav, floor: v.floor, tier_bid: v.tier_bid,
+          tier_label: v.tier_label, tag_value: v.tag_value, ytd_pts_rank: v.ytd_pts_rank,
         });
       });
     });

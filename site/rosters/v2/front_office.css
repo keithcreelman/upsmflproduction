@@ -669,6 +669,16 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-status.taxi   { background: rgba(91, 141, 255, 0.15); color: var(--accent); }
 .fo-status.ir     { background: rgba(248, 113, 113, 0.15); color: var(--err); }
 
+/* Projected tag-value badge — a Cap Planning row's link into the Tag Calc
+   Breakdown for an expiring (tag-eligible) player. */
+.fo-cap-tag-badge {
+  display: inline-block; margin-left: 4px; padding: 2px 6px; border-radius: 3px;
+  font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums;
+  background: rgba(212, 160, 23, 0.14); color: #d4a017;
+  border: 1px solid rgba(212, 160, 23, 0.5); cursor: pointer;
+}
+.fo-cap-tag-badge:hover { background: rgba(212, 160, 23, 0.24); }
+
 /* Action button cluster in row Actions column */
 .fo-row-actions { display: flex; gap: 4px; }
 
