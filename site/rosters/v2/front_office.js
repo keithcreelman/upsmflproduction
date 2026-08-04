@@ -5595,7 +5595,7 @@
   function aggregateTeamForSummary(team, filters) {
     const out = {
       fid: team.fid, name: team.name,
-      count: 0, active: 0, taxi: 0, ir: 0, loaded: 0,
+      count: 0, active: 0, taxi: 0, ir: 0, loaded: 0, threeYr: 0,
       totalSalary: 0, totalAAV: 0, totalTCV: 0
     };
     (team.players || []).forEach(function (p) {
@@ -5604,9 +5604,12 @@
       if (p.isTaxi) out.taxi += 1;
       else if (p.isIr) out.ir += 1;
       else out.active += 1;
-      // Same test as capRosterRuleCounts' committed loadedNow: an expired
-      // contract's stale -FL/-BL suffix no longer counts against the §C2 cap.
-      if (!capContractIsExpired(p) && isLoadedRow(p)) out.loaded += 1;
+      // Same test as capRosterRuleCounts' committed loadedNow/threeNow: an
+      // expired contract no longer counts against the §C2 caps.
+      if (!capContractIsExpired(p)) {
+        if (isLoadedRow(p)) out.loaded += 1;
+        if (Math.max(0, safeInt(p.years, 0)) === 3 && ctypeClass(p.type).split(" ")[0] !== "rk") out.threeYr += 1;
+      }
       out.totalSalary += currentCapHit(p);              // counts vs cap (taxi=0, IR×0.5)
       out.totalAAV    += displayAavForPlayer(p);
       out.totalTCV    += totalContractValueForPlayer(p);
@@ -5691,7 +5694,7 @@
     const f = STATE.capSummaryFilters;
     const sort = STATE.capSummarySort;
     const rows = STATE.teams.map(function (t) { return aggregateTeamForSummary(t, f); });
-    const numericKeys = ["count", "active", "taxi", "ir", "loaded",
+    const numericKeys = ["count", "active", "taxi", "ir", "loaded", "threeYr",
                          "totalSalary", "dropPen", "tradeSal", "totalCap",
                          "pct", "totalAAV", "totalTCV"];
     rows.sort(function (a, b) {
@@ -5725,6 +5728,7 @@
           <td class="num">${r.taxi}</td>
           <td class="num">${r.ir}</td>
           <td class="num" title="Front/back-loaded deals — the −FL / −BL suffix (§C2, max ${LOADED_MAX})">${r.loaded}</td>
+          <td class="num" title="3 years remaining, rookie deals excluded (§C2, max ${THREEYR_MAX})">${r.threeYr}</td>
           <td class="num">${fmtUSD(r.totalSalary)}</td>
           <td class="num ${dropCls}">${r.dropPen > 0 ? fmtUSD(r.dropPen) : "—"}</td>
           <td class="num ${tradeCls}">${tradeCell}</td>
@@ -5738,14 +5742,14 @@
     // League totals row (sums of visible columns + aggregate %).
     const totals = rows.reduce(function (acc, r) {
       acc.count += r.count; acc.active += r.active; acc.taxi += r.taxi; acc.ir += r.ir;
-      acc.loaded += r.loaded;
+      acc.loaded += r.loaded; acc.threeYr += r.threeYr;
       acc.totalSalary += r.totalSalary;
       acc.dropPen   += r.dropPen;
       acc.tradeSal  += r.tradeSal;
       acc.totalCap  += r.totalCap;
       acc.totalAAV += r.totalAAV; acc.totalTCV += r.totalTCV;
       return acc;
-    }, { count: 0, active: 0, taxi: 0, ir: 0, loaded: 0,
+    }, { count: 0, active: 0, taxi: 0, ir: 0, loaded: 0, threeYr: 0,
          totalSalary: 0, dropPen: 0, tradeSal: 0, totalCap: 0,
          totalAAV: 0, totalTCV: 0 });
     const leagueCeiling = CAP_CEILING * STATE.teams.length;
@@ -5798,6 +5802,7 @@
               <th class="num" data-cap-sort="taxi">Taxi${arrow("taxi")}</th>
               <th class="num" data-cap-sort="ir">IR${arrow("ir")}</th>
               <th class="num" data-cap-sort="loaded" title="Front/back-loaded deals — the −FL / −BL suffix (§C2, max ${LOADED_MAX})">Loaded${arrow("loaded")}</th>
+              <th class="num" data-cap-sort="threeYr" title="3 years remaining, rookie deals excluded (§C2, max ${THREEYR_MAX})">3-Yr${arrow("threeYr")}</th>
               <th class="num" data-cap-sort="totalSalary">Salary${arrow("totalSalary")}</th>
               <th class="num" data-cap-sort="dropPen">Drop Pen${arrow("dropPen")}</th>
               <th class="num" data-cap-sort="tradeSal">Trade Sal${arrow("tradeSal")}</th>
@@ -5816,6 +5821,7 @@
               <td class="num">${totals.taxi}</td>
               <td class="num">${totals.ir}</td>
               <td class="num">${totals.loaded}</td>
+              <td class="num">${totals.threeYr}</td>
               <td class="num">${fmtUSD(totals.totalSalary)}</td>
               <td class="num">${fmtUSD(totals.dropPen)}</td>
               <td class="num">${fmtUSD(totals.tradeSal)}</td>
