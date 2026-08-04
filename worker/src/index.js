@@ -9260,7 +9260,12 @@ export default {
         else if (pos === "qb") posGroups = ["QB"];
         else if (pos === "idp") posGroups = ["DL","LB","DB"];
         else if (pos === "kicker") posGroups = ["PK"];
-        else if (pos === "punter") posGroups = ["PK"]; // MFL collapses — filter on raw position later
+        // Punters were stored as pos_group='PK' until 2026-08-04, when
+        // pos_group_of() started emitting 'PN' (UPS scores PK and PN on totally
+        // different rules — PN pays 4 pts per punt inside the 20). Accept BOTH
+        // so this works before, during and after the backfill; the raw-position
+        // post-filter downstream still does the real separation.
+        else if (pos === "punter") posGroups = ["PN", "PK"];
         else return jsonOut(400, { error: "invalid pos" });
 
         const weekFilter = weekSqlPredicate;
@@ -13737,8 +13742,17 @@ export default {
       // Parses MFL's KEYLESS `detailed?L=&P=&W=&PRINTER=1` report — the
       // canonical, MFL-exact per-stat breakdown (first downs, sack yards lost,
       // gross punt yards, per-FG distances; literally everything MFL scores,
-      // computed by MFL). Works for ANY historical week. Powers the GameDay
-      // player-breakdown modal. 60s edge cache (shared poller pattern).
+      // computed by MFL). Powers the GameDay player-breakdown modal. 60s edge
+      // cache (shared poller pattern).
+      //
+      // ⚠️ KEYLESS FOR THE CURRENT SEASON ONLY. An earlier comment here claimed
+      // it "works for ANY historical week" — it does not. Verified 2026-08-04
+      // with an identical, working request shape: YEAR=2025 → 200 with a
+      // Subtotal table; YEAR=2024 and 2023 → HTTP **200** whose body is
+      // `<h3 class="warning">Missing User ID</h3>`. Prior seasons need an
+      // authenticated MFL_USER_ID cookie. Because that failure arrives as a 200,
+      // it is handled explicitly below rather than being allowed to look like an
+      // empty-but-successful result.
       // Usage: /api/mfl-detailed?L=74598&P=16579&W=8&YEAR=2025
       if (path === "/api/mfl-detailed" && request.method === "GET") {
         const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "");
@@ -13795,11 +13809,38 @@ export default {
         try {
           const r = await fetch(upstream, {
             cf: { cacheTtl: 60, cacheEverything: true },
-            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "text/html" },
+            headers: {
+              "User-Agent": "upsmflproduction-worker",
+              "Accept": "text/html",
+              // REQUIRED — MFL started 403ing `detailed?` without a Referer,
+              // which made this route return 502 with an empty `lines` array
+              // and killed GameDay's on-click scoring breakdown in production.
+              // Isolated by experiment on 2026-08-04: same URL, same worker UA
+              // → 403 with no Referer, 200 with one. The UA is NOT the gate.
+              "Referer": `${host}/${encodeURIComponent(yr)}/home/${encodeURIComponent(lid)}`,
+            },
           });
           const html = await r.text();
+          // MFL signals "this season needs auth" with a 200 whose body is a
+          // warning banner. Left unhandled it parses to an empty `lines` array
+          // and reads to the caller as "this player scored nothing" — an
+          // unreadable input must never masquerade as an empty one.
+          if (/Missing User ID/i.test(html)) {
+            // Deliberately NO `lines` key. Both clients validate on
+            // Array.isArray(d.lines) (site/gameday/gameday.html:1535,
+            // site/m/views/scores.js), so returning lines:[] here would render
+            // the "no scoring stats" EMPTY state — the exact confusion this
+            // branch exists to prevent. Omitting it routes them to the error
+            // state instead.
+            return jsonOut(403, {
+              ok: false, league_id: lid, year: yr, player_id: pid, week: wk || null,
+              error: "MFL requires an authenticated session for prior seasons; " +
+                     "detailed? is keyless for the current season only",
+              found: false,
+            });
+          }
           const parsed = parseMflDetailed(html);
-          return jsonOut(r.ok ? 200 : 502, { ok: true, league_id: lid, year: yr, player_id: pid, week: wk || null, ...parsed });
+          return jsonOut(r.ok ? 200 : 502, { ok: r.ok, league_id: lid, year: yr, player_id: pid, week: wk || null, ...parsed });
         } catch (e) {
           return jsonOut(502, { ok: false, error: `MFL detailed fetch failed: ${e?.message || String(e)}` });
         }
