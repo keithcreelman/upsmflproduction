@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-03T12:44:18.541737+00:00",
+    "generated_at_utc": "2026-08-04T11:48:06.662537+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1283,6 +1283,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17529",
+          "display": "Brenen Thompson",
+          "player_id": "17529",
+          "position": "WR",
+          "nfl_team": "LAC",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17504",
           "display": "CJ Daniels",
           "player_id": "17504",
@@ -1290,7 +1302,19 @@
           "nfl_team": "LAR",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Vet-FAA",
+          "contract_status": "Rookie-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17542",
+          "display": "Colbie Young",
+          "player_id": "17542",
+          "position": "WR",
+          "nfl_team": "CIN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -1890,6 +1914,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_11769",
+          "display": "Demarcus Lawrence",
+          "player_id": "11769",
+          "position": "DE",
+          "nfl_team": "SEA",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_14067",
           "display": "Gardner Minshew",
           "player_id": "14067",
@@ -1919,6 +1955,18 @@
           "player_id": "16635",
           "position": "WR",
           "nfl_team": "WAS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_14169",
+          "display": "Mack Wilson",
+          "player_id": "14169",
+          "position": "LB",
+          "nfl_team": "ARI",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -2559,6 +2607,18 @@
           "player_id": "12752",
           "position": "S",
           "nfl_team": "NEP",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15331",
+          "display": "Pat Freiermuth",
+          "player_id": "15331",
+          "position": "TE",
+          "nfl_team": "PIT",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -3484,7 +3544,7 @@
           "nfl_team": "BAL",
           "salary": 3000,
           "contract_year": 1,
-          "contract_status": "Vet-FAA",
+          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3700,7 +3760,7 @@
           "nfl_team": "CHI",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Vet-FAA",
+          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4252,6 +4312,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_15271",
+          "display": "Khalil Herbert",
+          "player_id": "15271",
+          "position": "RB",
+          "nfl_team": "SFO",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_13713",
           "display": "Minkah Fitzpatrick",
           "player_id": "13713",
@@ -4722,7 +4794,7 @@
           "nfl_team": "DET",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Vet-FAA",
+          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5182,7 +5254,7 @@
           "nfl_team": "KCC",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Vet-FAA",
+          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5770,6 +5842,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_14405",
+          "display": "Carl Granderson",
+          "player_id": "14405",
+          "position": "DE",
+          "nfl_team": "NOS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17269",
           "display": "Efton Chism",
           "player_id": "17269",
@@ -5794,6 +5878,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_14882",
+          "display": "Jonathan Greenard",
+          "player_id": "14882",
+          "position": "DE",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16617",
           "display": "Keon Coleman",
           "player_id": "16617",
@@ -5813,7 +5909,7 @@
           "nfl_team": "DAL",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Vet-FAA",
+          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5826,6 +5922,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA-FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_14322",
+          "display": "T.J. Edwards",
+          "player_id": "14322",
+          "position": "LB",
+          "nfl_team": "CHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
