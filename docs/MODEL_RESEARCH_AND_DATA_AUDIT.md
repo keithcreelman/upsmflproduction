@@ -1216,6 +1216,63 @@ survivorship effect from benched starters.
 
 ---
 
+## Appendix F — WR/TE pilot: first out-of-sample result (2026-08-04)
+
+`train_wr_te_pilot.py` — Model D (direct GBM quantile regression, the
+*challenger*). Strict walk-forward: train 2024, test 2025, never shuffled.
+
+| | MAE | pinball@.5 | P50 cov | P90 cov |
+|---|---|---|---|---|
+| baseline `std_ppg` | 4.543 | 2.271 | 58.6% | — |
+| **pilot GBM** | **4.465** | **2.232** | **51.8%** | 83.6% |
+
+**Beats the baseline by 1.7%. That is marginal, and should not be oversold.**
+On point accuracy alone this would not justify building the component
+simulation.
+
+### Where the value actually is
+
+**Calibration.** The baseline's P50 coverage is **58.6%** — season-to-date mean
+sits systematically *above* the median outcome, so it is not a median at all.
+The pilot lands 51.8% against a 50% target. For a system whose deliverable is a
+distribution (P50/P75/P90, top-12 probability), a calibrated median matters more
+than 1.7% MAE — and the baseline cannot produce a distribution at any price.
+
+**P90 is under-covered** at 83.6% against a 90% target (P75 70.9% vs 75%).
+Reported rather than tuned away; this is exactly what conformalized quantile
+regression (§3.4) exists to fix. Mean P50 6.19, P90 12.90, gap 6.71 — recorded
+alongside coverage because a P90 that reaches 90% by being enormous is
+uninformative and the spec rejects it.
+
+159 quantile crossings were repaired by per-row sorting (a projection onto the
+monotone cone, which cannot worsen pinball loss).
+
+### A hypothesis that was tested and REJECTED
+
+TE reception scoring changed in 2025 (`CC` 1.0 → **1.5** premium) while WR did
+not, so a 2024-train/2025-test split has a *shifted target* for TE. That looked
+like a plausible explanation for the small gain. It is not:
+
+| cohort | train n | baseline MAE | pilot MAE | gain |
+|---|---|---|---|---|
+| WR + TE | 2,557 | 4.543 | 4.465 | 1.7% |
+| **WR only** (stable scoring) | 1,611 | 4.818 | 4.742 | **1.6%** |
+
+Removing the era confound changes nothing. **The marginal gain is real, not an
+artifact.** Worth recording as a negative result so it is not re-litigated.
+
+### What to try before drawing conclusions
+
+**More data, not more model.** 1,611 WR training rows for 45 features is thin.
+`nfl_player_routes_weekly` reaches back to 2016, so eight further seasons are
+available for the cost of a backfill. That should be exhausted before judging
+the ceiling of this feature set — and certainly before concluding anything about
+the champion simulation, which has not been built.
+
+⚠️ **This is a single walk-forward fold.** Directionally useful, not conclusive.
+
+---
+
 ## Appendix C — Defect backlog from the ETL alias sweep (2026-08-04)
 
 Investigating B4 triggered a full sweep of all 47 `PLAYERSTATS_MAP` entries in

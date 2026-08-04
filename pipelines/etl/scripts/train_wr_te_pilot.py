@@ -64,7 +64,7 @@ FEATURES = [
 ]
 
 
-def load(season: int, weeks=range(5, 18)):
+def load(season: int, weeks=range(5, 18), positions=("WR", "TE")):
     """Features for (season, W) joined to the realized score IN week W.
 
     Reading week W's score here is the TARGET, not a feature — supervised
@@ -81,7 +81,8 @@ def load(season: int, weeks=range(5, 18)):
             " JOIN src_weekly s ON s.player_id = CAST(p.mfl_id AS INTEGER)"
             f"  AND s.season = {season} AND s.week = {wk}"
             f" WHERE f.season = {season} AND f.week = {wk}"
-            "   AND f.mfl_pos IN ('WR','TE') AND f.routes_std > 0"
+            f"   AND f.mfl_pos IN ({','.join(chr(39)+x+chr(39) for x in positions)})"
+            "   AND f.routes_std > 0"
             "   AND s.score IS NOT NULL")
         for r in rows:
             X.append([None if r.get(c) is None else float(r[c]) for c in FEATURES])
@@ -92,6 +93,18 @@ def load(season: int, weeks=range(5, 18)):
     return (np.array(X, dtype=float), np.array(y, dtype=float), meta)
 
 
+def _parse_seasons(spec: str) -> list[int]:
+    out: list[int] = []
+    for part in str(spec).split(","):
+        part = part.strip()
+        if "-" in part:
+            a, b = part.split("-")
+            out += list(range(int(a), int(b) + 1))
+        elif part:
+            out.append(int(part))
+    return sorted(set(out))
+
+
 def pinball(y, pred, q):
     d = y - pred
     return float(np.mean(np.maximum(q * d, (q - 1) * d)))
@@ -99,16 +112,30 @@ def pinball(y, pred, q):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--train", type=int, default=2024)
+    ap.add_argument("--train", default="2024",
+                    help="Comma/range list of TRAIN seasons, e.g. 2021-2024. "
+                         "Strictly earlier than --test; never shuffled with it.")
     ap.add_argument("--test", type=int, default=2025)
+    ap.add_argument("--positions", default="WR,TE",
+                    help="Comma list. NOTE: TE scoring changed in 2025 (CC 1.0 "
+                         "-> 1.5 reception premium) while WR did not, so a "
+                         "2024-train/2025-test split has a SHIFTED TARGET for "
+                         "TE. Run WR-only to measure without that confound.")
     args = ap.parse_args()
 
     from sklearn.ensemble import HistGradientBoostingRegressor
 
     print(f"loading train {args.train}…", file=sys.stderr)
-    Xtr, ytr, _ = load(args.train)
+    pos = tuple(x.strip() for x in args.positions.split(",") if x.strip())
+    tr_seasons = _parse_seasons(args.train)
+    if any(s_ >= args.test for s_ in tr_seasons):
+        sys.exit(f"WALK-FORWARD VIOLATION: train {tr_seasons} must be strictly "
+                 f"earlier than test {args.test}.")
+    parts = [load(s_, positions=pos) for s_ in tr_seasons]
+    Xtr = np.vstack([p_[0] for p_ in parts if len(p_[0])])
+    ytr = np.concatenate([p_[1] for p_ in parts if len(p_[1])])
     print(f"loading test {args.test}…", file=sys.stderr)
-    Xte, yte, mte = load(args.test)
+    Xte, yte, mte = load(args.test, positions=pos)
     if not len(Xtr) or not len(Xte):
         sys.exit("no data — is the feature store built for both seasons?")
     print(f"\ntrain {Xtr.shape}  test {Xte.shape}\n")
