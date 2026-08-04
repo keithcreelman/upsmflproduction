@@ -427,7 +427,7 @@ for every Phase 0 item.
 | table | grain | seasons | rows | notes |
 |---|---|---|---|---|
 | `nfl_player_weekly` | season/week/gsis | 2011–2025 | 269,933 | 97 cols; PFR advstats 2018+; **tackles suspect (B4)** |
-| `nfl_player_snaps` | season/week/gsis | **2013**–2025 | 324,608 | off/def/ST snaps + pct. **Not 2012 as migration claims** |
+| `nfl_player_snaps` | season/week/**`pfr_id`** | **2013**–2025 | 324,608 | off/def/ST snaps + pct. **Not 2012 as migration 0006 claims — and not keyed by `gsis_id` either, despite that migration's comment.** Join via `ff_player_ids.pfr_id`, guarding both ids against the literal `"NA"`. (Corrected 2026-08-04; this row originally said gsis.) |
 | `nfl_player_redzone` | **season/week**/gsis | 2011–2025 | 81,039 | i20/i10/i5 rush & targets, `targets_ez` — genuinely weekly, excellent |
 | `nfl_team_vegas_weekly` | season/week/team | 2011–2025 | 8,192 | spread, total, implied total |
 | `nfl_team_coaching_history` | season/team | 2011–2025 | 480 | HC/OC/DC + `*_change_flag` + tenure year |
@@ -906,7 +906,7 @@ The spec's 14-step order is sound. The audit inserts a **Phase 0** ahead of it.
 | 0.3 | Add return yards, return TDs, TD distance bands, safeties, blocked kicks | WR zero-reception intercept closes | ✅ return game (`0117`, C9), TD distance tiers + kickoff-return TDs + 2-pt conversions (`0119`, C10/C12). Remaining: safeties (C12), blocked kicks (C13 — blocker only named in the PBP description) |
 | 0.4 | **Correct IDP tackle semantics** (was: "re-source from official stats" — the data was never the problem) | pure-tackle-week gap < 0.10 for DL/LB/DB | 🔨 shipped + `backfill_pass_sacks.py` second writer disarmed; backfilling 2011–2025 |
 | 0.5 | Repair the 2023 crosswalk hole (50 route players) | unmapped routes < 100 | open |
-| 0.6 | Ship the leakage manifest + week-truncation test | test green | open |
+| 0.6 | Ship the leakage manifest + week-truncation test | test green | ✅ **DONE** — `lib/asof.py` + `test_asof_leakage.py`, green on 2024 W3/W6/W10/W17 |
 
 **Tooling added:** `pipelines/etl/scripts/validate_ups_idp_reconstruction.py` is the
 standing acceptance gate for 0.4 — it reads **only D1** (the existing
@@ -1090,6 +1090,85 @@ The system does not go to production until:
   goal-line opportunity.
 - Unexplained material variances raise `UNEXPLAINED VARIANCE — MODEL REVIEW
   REQUIRED` rather than being silently smoothed.
+
+---
+
+## Appendix D — Phase 0.6 + Phase 1: the as-of feature store (2026-08-04)
+
+### The guard — `pipelines/etl/lib/asof.py`
+
+Leakage is prevented **by construction**, not by review. Every read goes through
+`AsOfContext`, which applies the as-of predicate for you and **refuses** an
+undeclared table. Three grains:
+
+| grain | predicate | rationale |
+|---|---|---|
+| `WEEK` | `season < S OR (season = S AND week < W)` | strictly before the target game |
+| `WEEK_PREGAME` | `season < S OR (season = S AND week <= W)` | betting lines, weather, inactives — **published before kickoff**, so week = W is the whole point |
+| `SEASON` | `season <= S + max_season_offset` (−1) | completed-season aggregates: **prior seasons only** |
+
+Refusals: `UndeclaredSource` (unknown table), `BannedColumn`
+(`nfl_team_vegas_weekly.actual_score` — the outcome of the game being
+predicted), and a `LeakageError` if a `JOIN` brings in a table that was not
+declared in `join_tables`, since an unchecked JOIN would otherwise be a trivial
+way to smuggle a season-grain source past the gate.
+
+`WEEK_PREGAME` exists because the test caught me hand-writing raw SQL for the
+Vegas line. Those lines genuinely *are* pregame — but the exception now has a
+name, a predicate and a review surface, instead of being an undocumented
+special case in one builder.
+
+### The test — `test_asof_leakage.py`
+
+Three independent checks, green on 2024 W3 / W6 / W10 / W17:
+
+| check | what it catches |
+|---|---|
+| **A. structural** | Captures every SQL the builder issues; asserts each carries the as-of predicate for its grain, references no future week literal, and touches no undeclared table. Catches a query that bypasses the guard entirely — which it did, on first run. |
+| **B. independent recompute** | Recomputes features straight from source with explicit `week BETWEEN lo AND hi` bounds via a code path sharing nothing with the builder, and requires exact equality. 25 players/week, 0 mismatches. |
+| **C. future-only players** | Any player debuting at/after W must carry no history. **Currently vacuous** and reported as such — the builder's universe comes from sources already filtered to weeks < W, so such players have no row to fire on. Zero findings over zero subjects is the shape of a fail-open, so the test says "VACUOUS", never "passed". |
+
+> **What check C taught me.** Its first version defined "first appearance" using
+> only `nfl_player_weekly` and flagged 8 players as leaks. They weren't. Player
+> `00-0036165` carried `routes_l1=11` at W6 because he genuinely ran 11 routes
+> in W5 and recorded **zero** box-score stats, so nflverse's `player_stats` had
+> no row for him that week. **The participation universe is strictly broader
+> than the box-score universe** — a fact that matters well beyond this test, and
+> is now encoded in the check (first appearance is computed across all
+> week-grain sources).
+
+### Two schema facts the audit had wrong
+
+- **`nfl_player_snaps` is keyed by `pfr_id`, not `gsis_id`.** Migration 0006's
+  comment claims `gsis_id`, and §1.5 of this document inherited that error.
+  Joins must go through `ff_player_ids.pfr_id`, guarding *both* ids against the
+  literal string `"NA"`.
+- `wrangler --json` output cannot be parsed with `stdout.find("[")` — the
+  coloured banner contains ANSI escapes, which literally include `[`. The scan
+  lands mid-escape and `json.loads` reports "Extra data". `lib/asof.py` walks
+  every `[` and takes the first that `raw_decode`s into the expected shape.
+
+### The store — `model_player_week_features` (migration `0120`)
+
+One row per `(season, week, gsis_id)`, ~60 columns: identity (MFL position, not
+nflverse), availability, opportunity (routes / route% / targets / target share /
+snaps / carries / red zone / goal line) at L1/L3/L4/STD windows, efficiency
+(TPRR / YPRR / **FDPRR** / catch rate / YPT / YPC), lagged realized UPS points,
+pregame Vegas, and **role-change deltas** (`d_route_pct_l3`, `d_tgt_share_l3`,
+`d_routes_l3`, `d_snap_pct_l3`) — recent window minus the window before it,
+which is the pre-breakout signal promoted to a first-class column rather than
+left for the model to re-derive.
+
+Two deliberate choices:
+
+- **Rates are stored RAW, unshrunk.** Empirical-Bayes shrinkage belongs in the
+  model layer where the prior can be refit per training fold; baking it into the
+  feature store would leak each fold's own distribution into its inputs.
+  `routes_std` is carried so the model can apply the §3.1 sample bands.
+- **A zero denominator yields NULL, never 0.** "Ran no routes" is not "a TPRR of
+  zero", and collapsing the two would hand the model a fabricated efficiency for
+  every player who did not play. Likewise a delta is NULL unless *both* windows
+  exist — a missing prior window is not a zero-change signal.
 
 ---
 
