@@ -333,19 +333,14 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-totals .lbl { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
 .fo-cap-totals .val { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
 .fo-cap-totals .ext-delta { display: block; color: var(--ok); font-size: 11px; font-style: italic; margin-top: 2px; }
-/* Cap-adjustments callout — bordered + tinted so team-level drop/trade/other
-   adjustments (NOT in the per-player year totals) stand out (Keith: "misleading"
-   when buried). */
-.fo-cap-adj-callout {
-  margin: -4px 0 12px; border: 2px solid var(--accent); border-radius: 8px;
-  background: rgba(91, 141, 255, 0.1); padding: 8px 14px;
+/* Adjustment breakdown note — the big .val above IS the true total (salary +
+   whatever lands that year); this just keeps the "why" visible instead of
+   burying it (Keith: earlier "misleading" complaint was about invisible
+   adjustments, not about this note existing alongside the real total). */
+.fo-cap-totals-note {
+  display: block; color: var(--accent); font-size: 10px; margin-top: 2px;
+  border-bottom: 1px dotted var(--accent); width: fit-content; cursor: help;
 }
-.fo-cap-adj-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 2px 0; }
-.fo-cap-adj-row .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; }
-.fo-cap-adj-row .val { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
-.fo-cap-adj-row.fo-cap-adj-strong { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; }
-.fo-cap-adj-row.fo-cap-adj-strong .lbl { color: var(--accent); }
-.fo-cap-adj-row.fo-cap-adj-strong .val { font-size: 16px; color: var(--text); }
 
 /* ── Per-year roster headcount, incl. §C2 loaded/3-year contract limits ──
    Live in the Detail BODY, next to the money totals, and move with every
@@ -369,7 +364,6 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-year .line.at strong    { color: #d4a017; }
 .fo-cap-year .line.over strong  { color: var(--err); }
 .fo-cap-year .line.under strong { color: #d4a017; }
-.fo-cap-year-ir { color: var(--muted); font-size: 10px; font-style: italic; }
 .fo-cap-year-flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
 .fo-cap-year-flags .flag {
   font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
@@ -951,8 +945,3 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 }
 .fo-root .fo-cap-planonly strong { color: var(--text); font-weight: 600; }
 
-/* §D1: from auction start, a cut's dead cap lands on NEXT season's books. The
-   callout shows that line under a separate next-year total so the two seasons
-   are never conflated. */
-.fo-root .fo-cap-adj-row.fo-cap-adj-next { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 6px; }
-.fo-root .fo-cap-adj-why { color: var(--muted); font-weight: 400; font-size: 10px; }

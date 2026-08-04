@@ -4956,7 +4956,8 @@
 
   // Headcount for one projected year, split by roster bucket.
   //
-  // IR: §B1 gives IR its own 15-man bucket, so an IR player is NOT part of the
+  // IR: §B1 gives IR its own bucket (canon §B3: no team-side IR limit — MFL's
+  // setting is effectively unlimited), so an IR player is NOT part of the
   // 27–35 active count in the CURRENT season — same split the hub summary uses.
   // IR is a current-season designation and does not project forward, so from
   // Y+1 on those players are counted as ACTIVE. The UI says this out loud rather
@@ -4969,6 +4970,27 @@
       if (slot === "taxi") out.taxi += 1;
       else if (offset === 0 && p.isIr) out.ir += 1;
       else out.active += 1;
+    });
+    return out;
+  }
+
+  // Loaded/3-year §C2 headcount for one projected year. Presence reuses the
+  // exact same capProjectedRosterSlotForOffset test Active/Taxi use, so a
+  // previewed drop/MYAC/extension/restructure moves these numbers too.
+  //   Loaded: front/back-loaded describes the WHOLE contract's shape, not one
+  //   year of it — so once a contract is loaded, it stays loaded for every
+  //   year it's still present. Only presence varies by offset, not the flag.
+  //   3-Yr: a years-REMAINING test, so it decrements with the offset exactly
+  //   like the presence check itself does — a contract with shape.years=4
+  //   today reads as a 3-Yr contract at offset 1, not offset 0.
+  function capYearLoadedThreeCounts(team, offset) {
+    const out = { loaded: 0, three: 0 };
+    ((team && team.players) || []).forEach(function (p) {
+      if (!capProjectedRosterSlotForOffset(p, offset)) return;
+      const shape = capCounterShapeForPlayer(p);
+      if (!shape.counts) return;
+      if (shape.loaded) out.loaded += 1;
+      if ((shape.years - offset) === 3 && !shape.rookie) out.three += 1;
     });
     return out;
   }
@@ -5568,7 +5590,7 @@
   function aggregateTeamForSummary(team, filters) {
     const out = {
       fid: team.fid, name: team.name,
-      count: 0, active: 0, taxi: 0, ir: 0,
+      count: 0, active: 0, taxi: 0, ir: 0, loaded: 0,
       totalSalary: 0, totalAAV: 0, totalTCV: 0
     };
     (team.players || []).forEach(function (p) {
@@ -5577,6 +5599,9 @@
       if (p.isTaxi) out.taxi += 1;
       else if (p.isIr) out.ir += 1;
       else out.active += 1;
+      // Same test as capRosterRuleCounts' committed loadedNow: an expired
+      // contract's stale -FL/-BL suffix no longer counts against the §C2 cap.
+      if (!capContractIsExpired(p) && isLoadedRow(p)) out.loaded += 1;
       out.totalSalary += currentCapHit(p);              // counts vs cap (taxi=0, IR×0.5)
       out.totalAAV    += displayAavForPlayer(p);
       out.totalTCV    += totalContractValueForPlayer(p);
@@ -5661,7 +5686,7 @@
     const f = STATE.capSummaryFilters;
     const sort = STATE.capSummarySort;
     const rows = STATE.teams.map(function (t) { return aggregateTeamForSummary(t, f); });
-    const numericKeys = ["count", "active", "taxi", "ir",
+    const numericKeys = ["count", "active", "taxi", "ir", "loaded",
                          "totalSalary", "dropPen", "tradeSal", "totalCap",
                          "pct", "totalAAV", "totalTCV"];
     rows.sort(function (a, b) {
@@ -5694,6 +5719,7 @@
           <td class="num">${r.active}</td>
           <td class="num">${r.taxi}</td>
           <td class="num">${r.ir}</td>
+          <td class="num" title="Front/back-loaded deals — the −FL / −BL suffix (§C2, max ${LOADED_MAX})">${r.loaded}</td>
           <td class="num">${fmtUSD(r.totalSalary)}</td>
           <td class="num ${dropCls}">${r.dropPen > 0 ? fmtUSD(r.dropPen) : "—"}</td>
           <td class="num ${tradeCls}">${tradeCell}</td>
@@ -5707,13 +5733,14 @@
     // League totals row (sums of visible columns + aggregate %).
     const totals = rows.reduce(function (acc, r) {
       acc.count += r.count; acc.active += r.active; acc.taxi += r.taxi; acc.ir += r.ir;
+      acc.loaded += r.loaded;
       acc.totalSalary += r.totalSalary;
       acc.dropPen   += r.dropPen;
       acc.tradeSal  += r.tradeSal;
       acc.totalCap  += r.totalCap;
       acc.totalAAV += r.totalAAV; acc.totalTCV += r.totalTCV;
       return acc;
-    }, { count: 0, active: 0, taxi: 0, ir: 0,
+    }, { count: 0, active: 0, taxi: 0, ir: 0, loaded: 0,
          totalSalary: 0, dropPen: 0, tradeSal: 0, totalCap: 0,
          totalAAV: 0, totalTCV: 0 });
     const leagueCeiling = CAP_CEILING * STATE.teams.length;
@@ -5765,6 +5792,7 @@
               <th class="num" data-cap-sort="active">Active${arrow("active")}</th>
               <th class="num" data-cap-sort="taxi">Taxi${arrow("taxi")}</th>
               <th class="num" data-cap-sort="ir">IR${arrow("ir")}</th>
+              <th class="num" data-cap-sort="loaded" title="Front/back-loaded deals — the −FL / −BL suffix (§C2, max ${LOADED_MAX})">Loaded${arrow("loaded")}</th>
               <th class="num" data-cap-sort="totalSalary">Salary${arrow("totalSalary")}</th>
               <th class="num" data-cap-sort="dropPen">Drop Pen${arrow("dropPen")}</th>
               <th class="num" data-cap-sort="tradeSal">Trade Sal${arrow("tradeSal")}</th>
@@ -5782,6 +5810,7 @@
               <td class="num">${totals.active}</td>
               <td class="num">${totals.taxi}</td>
               <td class="num">${totals.ir}</td>
+              <td class="num">${totals.loaded}</td>
               <td class="num">${fmtUSD(totals.totalSalary)}</td>
               <td class="num">${fmtUSD(totals.dropPen)}</td>
               <td class="num">${fmtUSD(totals.tradeSal)}</td>
@@ -6233,27 +6262,32 @@
           : '<span class="flag under">' + (ACTIVE_MIN - c.active) + " short of " + ACTIVE_MIN + " — refill at the auction</span>");
       }
       if (c.taxi > TAXI_MAX) flags.push('<span class="flag over">over the ' + TAXI_MAX + "-man taxi max</span>");
-      // IR gets its own §B1 bucket, so it is NOT inside the current-season
-      // active count. It doesn't project forward — the footer says where those
-      // players land in the out-years rather than repeating it on every card.
-      const irLine = off === 0
-        ? '<span class="fo-cap-year-ir">IR <strong>' + c.ir + "</strong> — its own bucket, not counted in Active (§B1)</span>"
-        : "";
-      // Loaded/3-year contract limits (§C2) are a roster-wide cap evaluated
-      // against the CURRENT roster — unlike Active/Taxi they don't project
-      // per future year, so (like IR) they only show on the current-season card.
-      let capRuleLines = "";
-      if (off === 0) {
-        const lCls = capLimitCls(rules.loadedNext, LOADED_MAX);
-        const thCls = capLimitCls(rules.threeNext, THREEYR_MAX);
-        if (rules.loadedNext > LOADED_MAX) flags.push('<span class="flag over">over the ' + LOADED_MAX + "-loaded cap</span>");
-        else if (rules.loadedNext === LOADED_MAX) flags.push('<span class="flag at">at the ' + LOADED_MAX + "-loaded cap</span>");
-        if (rules.threeNext > THREEYR_MAX) flags.push('<span class="flag over">over the ' + THREEYR_MAX + "-year cap</span>");
-        else if (rules.threeNext === THREEYR_MAX) flags.push('<span class="flag at">at the ' + THREEYR_MAX + "-year cap</span>");
-        capRuleLines =
-          '<span class="line' + (lCls ? " " + lCls : "") + '" title="Front/back-loaded deals — the −FL / −BL suffix (§C2)">Loaded <strong>' + rules.loadedNext + "</strong><span class=\"of\">/ " + LOADED_MAX + "</span></span>" +
-          '<span class="line' + (thCls ? " " + thCls : "") + '" title="3 years remaining, rookie deals excluded (§C2)">3-Yr <strong>' + rules.threeNext + "</strong><span class=\"of\">/ " + THREEYR_MAX + "</span></span>";
-      }
+      // IR gets its own §B1 bucket, so it is NOT inside the active count — but
+      // canon (§B3) sets NO team-side IR limit (MFL's setting is effectively
+      // unlimited), so unlike Active/Taxi it renders with no "/ max" fraction.
+      const irLine = '<span class="line">IR <strong>' + c.ir + "</strong></span>";
+      // Loaded/3-year contract limits (§C2) ARE projected per year now, same as
+      // Active/Taxi: "loaded" describes how a contract's TOTAL money is split
+      // across every year it covers, so it doesn't change offset to offset —
+      // only whether the contract is still present does (capYearLoadedThreeCounts
+      // reuses the same capProjectedRosterSlotForOffset presence test). "3-Yr"
+      // is a years-REMAINING test, so it decrements with the offset exactly like
+      // the presence check already does. Offset 0 keeps using capRosterRuleCounts
+      // (rules.loadedNext/threeNext) — the already-shipped, already-verified
+      // current-year numbers — so this projection only ever adds NEW data,
+      // never risks nudging today's card.
+      const lt = off === 0
+        ? { loaded: rules.loadedNext, three: rules.threeNext }
+        : capYearLoadedThreeCounts(team, off);
+      const lCls = capLimitCls(lt.loaded, LOADED_MAX);
+      const thCls = capLimitCls(lt.three, THREEYR_MAX);
+      if (lt.loaded > LOADED_MAX) flags.push('<span class="flag over">over the ' + LOADED_MAX + "-loaded cap</span>");
+      else if (lt.loaded === LOADED_MAX) flags.push('<span class="flag at">at the ' + LOADED_MAX + "-loaded cap</span>");
+      if (lt.three > THREEYR_MAX) flags.push('<span class="flag over">over the ' + THREEYR_MAX + "-year cap</span>");
+      else if (lt.three === THREEYR_MAX) flags.push('<span class="flag at">at the ' + THREEYR_MAX + "-year cap</span>");
+      const capRuleLines =
+        '<span class="line' + (lCls ? " " + lCls : "") + '" title="Front/back-loaded deals — the −FL / −BL suffix (§C2)">Loaded <strong>' + lt.loaded + "</strong><span class=\"of\">/ " + LOADED_MAX + "</span></span>" +
+        '<span class="line' + (thCls ? " " + thCls : "") + '" title="3 years remaining, rookie deals excluded (§C2)">3-Yr <strong>' + lt.three + "</strong><span class=\"of\">/ " + THREEYR_MAX + "</span></span>";
       return '<div class="fo-cap-year">' +
         '<span class="yr">' + (yr0 + off) + "</span>" +
         '<span class="line' + (aCls ? " " + aCls : "") + '">Active <strong>' + c.active + "</strong><span class=\"of\">/ " + ACTIVE_MAX + "</span></span>" +
@@ -6283,7 +6317,7 @@
       unresolvedHtml +
       '<p class="fo-cap-rules-foot">A player counts in a year when he is still under contract in it, read from the same contract years the money above uses — so a MYAC or extension you preview puts him in the years it buys, and a previewed drop removes him from all three. <strong>IR</strong> has its own bucket in ' +
       (yr0) + ' and is not inside that Active count; it is a current-season designation (§6.C) that doesn’t project, so in ' + (yr0 + 1) + ' and ' + (yr0 + 2) +
-      ' today’s IR players are counted as <strong>Active</strong>. Expired contracts count as a <strong>body</strong> in ' + (yr0) + ' (they occupy a roster spot today) but not in later years, where they are off the books. Taxi contracts do count toward the §C2 Loaded/3-Yr limits on the ' + (yr0) + ' card (they’re contracts) and also sit in their own per-year Taxi column. Loaded/3-Yr are roster-wide caps evaluated on the current roster, so — like IR — they only appear on the ' + (yr0) + ' card, not projected into ' + (yr0 + 1) + ' or ' + (yr0 + 2) + '.' + filterNote + "</p>";
+      ' today’s IR players are counted as <strong>Active</strong>. Expired contracts count as a <strong>body</strong> in ' + (yr0) + ' (they occupy a roster spot today) but not in later years, where they are off the books. Taxi contracts do count toward the §C2 Loaded/3-Yr limits (they’re contracts) and also sit in their own per-year Taxi column. <strong>Loaded</strong> carries forward unchanged for every year that contract is still on the books — front/back-loaded describes the whole deal, not one year of it. <strong>3-Yr</strong> is a years-<em>remaining</em> count, so it tracks a different, shrinking set of players each year — a deal with 4 years left today shows up in ' + (yr0 + 1) + "’s 3-Yr count instead of " + (yr0) + '’s.' + filterNote + "</p>";
   }
 
   // ── Scenario bar — Save / Restore / Reset, plus the live-vs-restored badge.
@@ -6402,6 +6436,23 @@
     const penNy = penNextSeason ? previewDropPen : 0;
     const adjustedCy = totals.cy + adjTotal + penCy;
     const adjustedNy = totals.ny + penNy;
+    // ONE set of 3 year numbers, not a raw-salary strip plus a competing
+    // "adjusted cap" box underneath (Keith 2026-08-03: the two boxes didn't
+    // visually add up). Each column's big number IS the true total — salary +
+    // whatever adjustments land in that specific year, §D1-routed by
+    // penCy/penNy exactly as before. A small note under a column (when it has
+    // a nonzero adjustment) shows the raw-salary breakdown so the adjustment
+    // stays visible rather than getting buried inside one number.
+    const noteCy = [];
+    if (adjTotal) noteCy.push((adjTotal > 0 ? "+" : "−") + fmtUSD(Math.abs(adjTotal)) + " adj");
+    if (previewDropPen && !penNextSeason) noteCy.push("+" + fmtUSD(previewDropPen) + " previewed drop");
+    const noteNy = [];
+    if (previewDropPen && penNextSeason) noteNy.push("+" + fmtUSD(previewDropPen) + " previewed drop (§D1)");
+    const totalsNote = function (parts, rawSalary, title) {
+      return parts.length
+        ? `<span class="fo-cap-totals-note" title="${escapeHtml(title)}">${fmtUSD(rawSalary)} salary ${parts.join(" · ")}</span>`
+        : "";
+    };
     const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
       || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
     const sort = STATE.capDetailSort;
@@ -6411,20 +6462,10 @@
         💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / MYAC2-L / MYAC3-L / Drop / Promote / Restr</strong> on any row to preview the impact on team totals (toggle off by clicking again). <strong>MYAC2 / MYAC3</strong> are flat (even-split) auction contracts. <strong>MYAC2-L / MYAC3-L</strong> open an inline editor for a <em>loaded</em> auction contract — the same TCV split front- or back-loaded, so ${yr0} moves too. <strong>Restr</strong> opens an inline editor to re-slot the same contract total across the remaining years. Either editor moves the year totals above as you type — this screen is <strong>planning only</strong> and never writes to MFL; apply a contract on the <strong>Contracts</strong> tab. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
       </p>
       <div class="fo-cap-totals">
-        <div><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
-        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(totals.ny)}</span></div>
+        <div><span class="lbl">${yr0} cap</span><span class="val">${fmtUSD(adjustedCy)}</span>${totalsNote(noteCy, totals.cy, "Cap adjustments (drop pen · traded $ · other) from MFL's salaryAdjustments feed, plus any previewed-drop dead cap landing this season. Planning only — not written to MFL.")}</div>
+        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(adjustedNy)}</span>${totalsNote(noteNy, totals.ny, "§D1 — a cut previewed from the auction start through end of season lands on the FOLLOWING season's cap, not this one. Planning only — not written to MFL.")}</div>
         <div><span class="lbl">${yr0 + 2}</span><span class="val">${fmtUSD(totals.ny2)}</span></div>
       </div>
-      ${(adjTotal !== 0 || previewDropPen !== 0) ? `
-      <div class="fo-cap-adj-callout">
-        <div class="fo-cap-adj-row"><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
-        ${adjTotal !== 0 ? `<div class="fo-cap-adj-row"><span class="lbl">+ cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>` : ""}
-        ${(previewDropPen !== 0 && !penNextSeason) ? `<div class="fo-cap-adj-row"><span class="lbl">+ previewed drop dead-cap</span><span class="val">+${fmtUSD(previewDropPen)}</span></div>` : ""}
-        <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0} adjusted cap</span><span class="val">${fmtUSD(adjustedCy)}</span></div>
-        ${(previewDropPen !== 0 && penNextSeason) ? `
-        <div class="fo-cap-adj-row fo-cap-adj-next"><span class="lbl">+ previewed drop dead-cap → <strong>${yr0 + 1}</strong> <span class="fo-cap-adj-why">(§D1 — cuts from auction start hit next season)</span></span><span class="val">+${fmtUSD(previewDropPen)}</span></div>
-        <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0 + 1} adjusted cap</span><span class="val">${fmtUSD(adjustedNy)}</span></div>` : ""}
-      </div>` : ""}
       ${renderCapRosterCounters(team)}
       ${renderCapScenarioBar(team)}
       ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
