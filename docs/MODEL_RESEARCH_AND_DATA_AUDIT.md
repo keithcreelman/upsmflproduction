@@ -1261,15 +1261,41 @@ like a plausible explanation for the small gain. It is not:
 Removing the era confound changes nothing. **The marginal gain is real, not an
 artifact.** Worth recording as a negative result so it is not re-litigated.
 
-### What to try before drawing conclusions
+### It was data starvation — confirmed
 
-**More data, not more model.** 1,611 WR training rows for 45 features is thin.
-`nfl_player_routes_weekly` reaches back to 2016, so eight further seasons are
-available for the cost of a backfill. That should be exhausted before judging
-the ceiling of this feature set — and certainly before concluding anything about
-the champion simulation, which has not been built.
+Backfilling 2021–2023 and re-running the same walk-forward (test 2025 throughout,
+so the numbers are directly comparable):
 
-⚠️ **This is a single walk-forward fold.** Directionally useful, not conclusive.
+| train seasons | rows | MAE | **gain vs baseline** | P50 cov | P90 cov | crossings |
+|---|---|---|---|---|---|---|
+| 2024 | 2,557 | 4.465 | 1.7% | 51.8% | 83.6% | 159 |
+| 2021 + 2024 | 5,074 | 4.401 | 3.1% | 51.0% | 85.0% | — |
+| **2021–2024** | **10,154** | **4.365** | **3.9%** | **49.2%** | **87.7%** | **2** |
+
+Every metric improves monotonically with data, and none has plateaued:
+
+- **Gain more than doubles**, 1.7% → 3.9%.
+- **P50 coverage reaches 49.2%** against a 50% target — essentially exact
+  calibration, versus the baseline's 58.6%.
+- **P90 coverage climbs to 87.7%**, closing on 90% without the interval being
+  inflated to get there (mean P50→P90 gap 8.13).
+- **Quantile crossings collapse from 159 to 2.** The three quantile fits are now
+  internally consistent almost everywhere, which is a direct readout of estimator
+  stability rather than a metric that was targeted.
+
+**The first result was a data-starvation artifact, not a ceiling.**
+`nfl_player_routes_weekly` reaches back to **2016**, so five further seasons
+(2016–2020) remain available at the cost of a backfill. The trend says they are
+worth taking before any conclusion about this feature set — and certainly before
+concluding anything about the champion simulation, which has not been built.
+
+The remaining P90 shortfall (87.7% vs 90%) is what conformalized quantile
+regression (§3.4) is for: a finite-sample coverage guarantee layered over
+whichever model wins, rather than tuning the point estimator until the number
+looks right.
+
+⚠️ **Still a single walk-forward fold** (one test season). Directionally strong,
+not conclusive — the spec's full 2022→2025 rolling backtest is still owed.
 
 ---
 
