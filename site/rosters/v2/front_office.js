@@ -5620,7 +5620,17 @@
       // money pushed out), negative on a front-loaded one (paying MORE than
       // the flat rate now — money pulled forward from later years). AAV 30K,
       // Y1 20K → +10K, Keith's own example.
-      out.deferredCash += displayAavForPlayer(p) - currentContractYearValue(p);
+      //
+      // Gated on years > 1 (Keith 2026-08-04, verified against C-Town's real
+      // roster): a player in the FINAL year of their contract (or expired)
+      // has no LATER year of the SAME deal for money to be deferred to, so
+      // whatever gap exists between AAV and this year's salary isn't actually
+      // "deferred" — it's just how the (possibly now-finished) contract was
+      // shaped. Confirmed live: Tagovailoa and Higgins (both years=1, final
+      // year) read $0 here even though AAV ≠ this year's salary for both.
+      if (safeInt(p.years, 0) > 1) {
+        out.deferredCash += displayAavForPlayer(p) - currentContractYearValue(p);
+      }
     });
     // Team-level cap adjustments (drop penalties, traded salary, other) aren't
     // player-attributable, so they don't honor the position/type filters. When a
@@ -5749,7 +5759,7 @@
           <td class="num ${capCls}">${r.pct}%</td>
           <td class="num">${fmtUSD(r.totalAAV)}</td>
           <td class="num">${fmtUSD(r.totalTCV)}</td>
-          <td class="num" title="AAV minus this season's actual salary, summed — positive = back-loaded (money pushed OUT of ${safeInt(SEASON, 0)}), negative = front-loaded (pulled IN)">${deferredCell}</td>
+          <td class="num" title="AAV minus this season's actual salary, summed — positive = back-loaded (money pushed OUT of ${safeInt(SEASON, 0)}), negative = front-loaded (pulled IN). Final-year contracts read $0 — no later year of that deal to defer to.">${deferredCell}</td>
         </tr>`;
     }).join("");
 
@@ -5825,7 +5835,7 @@
               <th class="num" data-cap-sort="pct">% of $300K${arrow("pct")}</th>
               <th class="num" data-cap-sort="totalAAV">AAV${arrow("totalAAV")}</th>
               <th class="num" data-cap-sort="totalTCV">TCV${arrow("totalTCV")}</th>
-              <th class="num" data-cap-sort="deferredCash" title="AAV minus this season's actual salary, summed — positive = back-loaded (money pushed OUT of ${safeInt(SEASON, 0)}), negative = front-loaded (pulled IN)">Deferred${arrow("deferredCash")}</th>
+              <th class="num" data-cap-sort="deferredCash" title="AAV minus this season's actual salary, summed — positive = back-loaded (money pushed OUT of ${safeInt(SEASON, 0)}), negative = front-loaded (pulled IN). Final-year contracts read $0 — no later year of that deal to defer to.">Deferred${arrow("deferredCash")}</th>
             </tr>
           </thead>
           <tbody>${bodyRows}</tbody>
@@ -5850,7 +5860,7 @@
           </tfoot>
         </table>
         <p class="small" style="color:var(--muted); margin: 8px 0 0;">
-          Click a team name to drill into Detail. <strong>Salary</strong> = current-year player cap hits (taxi $0, IR ×0.5) and honors the filters above. <strong>Drop Pen</strong> + <strong>Trade Sal</strong> are team-level cap adjustments. <strong>Total Cap</strong> = Salary + adjustments, and <strong>% of $300K</strong> follows it. <strong>Deferred</strong> = AAV minus this season's actual salary, summed across the roster — not a cap adjustment, it's how much of ${safeInt(SEASON, 0)}'s money moved to a different year. Positive means back-loaded (paying less than the flat rate now, more later); negative means front-loaded (paying more now, less later). Expired contracts (0 yrs left) are hidden. <strong>When you filter to a single position, adjustments are excluded from Total Cap + % </strong>(they're team-wide, not position-specific) — switch to <em>All</em> to see them. League % = sum of all teams' total cap / $${(CAP_CEILING / 1000) * STATE.teams.length}K ($300K × ${STATE.teams.length} teams).
+          Click a team name to drill into Detail. <strong>Salary</strong> = current-year player cap hits (taxi $0, IR ×0.5) and honors the filters above. <strong>Drop Pen</strong> + <strong>Trade Sal</strong> are team-level cap adjustments. <strong>Total Cap</strong> = Salary + adjustments, and <strong>% of $300K</strong> follows it. <strong>Deferred</strong> = AAV minus this season's actual salary, summed across the roster — not a cap adjustment, it's how much of ${safeInt(SEASON, 0)}'s money moved to a different year. Positive means back-loaded (paying less than the flat rate now, more later); negative means front-loaded (paying more now, less later). A player in the <strong>final year</strong> of their contract always reads $0 — there's no later year of that same deal for the money to move to. Expired contracts (0 yrs left) are hidden. <strong>When you filter to a single position, adjustments are excluded from Total Cap + % </strong>(they're team-wide, not position-specific) — switch to <em>All</em> to see them. League % = sum of all teams' total cap / $${(CAP_CEILING / 1000) * STATE.teams.length}K ($300K × ${STATE.teams.length} teams).
         </p>
       </div>`;
   }
