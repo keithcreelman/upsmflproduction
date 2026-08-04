@@ -270,6 +270,11 @@
     tagData: null,            // { rows, meta, submissions } when loaded
     tagDataLoading: false,
     tagDataError: "",
+    // Live in-season points-rank data for the PROJECTED tag year's tier
+    // assignment — see loadTagPointsData().
+    tagPointsData: null,      // { rankByPid, maxGames, season } when loaded
+    tagPointsDataLoading: false,
+    tagPointsDataError: "",
     tagSort: { key: "tagSalary", dir: -1 },
     tagFilter: { pos: "ALL", side: "ALL", franchise: "", search: "" },
     // Optimistic dry-run state. In dry-run mode the worker doesn't
@@ -7771,6 +7776,97 @@
     }
   }
 
+  // Live in-season points rank per position, for the PROJECTED tag-year tier
+  // assignment (Keith 2026-08-04: "determined by their Points Scored aligned
+  // to that in canon"). Mirrors the real pipeline's split (build_tag_tracking.py):
+  // tier ASSIGNMENT uses points-scored rank; tier PRICING (projectedCalcBreakdown,
+  // unchanged) stays AAV-ranked — these are two different player populations by
+  // design, not a bug. Source: /api/advanced-stats-leaderboard (D1 src_weekly,
+  // MFL's own scoring) — same endpoint the Stats Workbench already uses, called
+  // read-only with no changes to it. That table is only populated by a manual
+  // backfill script mid-season (no automated writer found for it), so this can
+  // go stale — surfaced via tagPointsMaxGames rather than hidden.
+  async function loadTagPointsData() {
+    if (STATE.tagPointsData || STATE.tagPointsDataLoading) return;
+    STATE.tagPointsDataLoading = true;
+    STATE.tagPointsDataError = "";
+    try {
+      const season = safeInt(SEASON, 0);
+      const posQueries = ["skill", "qb", "idp", "kicker"];
+      const payloads = await Promise.all(posQueries.map(function (posParam) {
+        const url = apiUrl("/api/advanced-stats-leaderboard") +
+          "?seasons=" + encodeURIComponent(season) +
+          "&pos=" + encodeURIComponent(posParam) +
+          "&min_games=1&limit=500";
+        return fetchJSON(url).catch(function () { return { rows: [] }; });
+      }));
+      // "kicker" and "punter" collapse to the SAME pos_group server-side (the
+      // worker's own comment: "MFL collapses — filter on raw position later"),
+      // so one fetch covers both — bucket every row by RAW position through the
+      // same positionGroupKey() the rest of this file already uses, rather than
+      // trusting the server's pos_group label (which is wrong for punters here).
+      const byPosGroup = Object.create(null); // posKey -> [{pid, points, games}]
+      let maxGames = 0;
+      payloads.forEach(function (payload) {
+        (payload && payload.rows || []).forEach(function (row) {
+          const pid = safeStr(row.mfl_pid).replace(/\D/g, "");
+          if (!pid) return;
+          const posKey = positionGroupKey(row.position);
+          const games = safeInt(row.games, 0);
+          maxGames = Math.max(maxGames, games);
+          (byPosGroup[posKey] = byPosGroup[posKey] || []).push({
+            pid: pid, points: safeNum(row.mfl_points, 0), name: safeStr(row.player_name), games: games
+          });
+        });
+      });
+      const rankByPid = Object.create(null);
+      Object.keys(byPosGroup).forEach(function (posKey) {
+        // Same tie-break the real pipeline uses: -points then name ascending.
+        byPosGroup[posKey].sort(function (a, b) {
+          return (b.points - a.points) || a.name.localeCompare(b.name);
+        });
+        byPosGroup[posKey].forEach(function (row, i) { rankByPid[row.pid] = i + 1; });
+      });
+      STATE.tagPointsData = { rankByPid: rankByPid, maxGames: maxGames, season: season };
+    } catch (e) {
+      STATE.tagPointsDataError = "Points rank load failed: " + (e.message || String(e));
+      console.warn("[fo]", STATE.tagPointsDataError);
+    } finally {
+      STATE.tagPointsDataLoading = false;
+    }
+  }
+
+  // True tag-ELIGIBILITY rank bands (build_tag_tracking.py's TAG_RULES rank_min/
+  // rank_max) — DISTINCT from tag_tracking.json's calc_breakdown rank_min/
+  // rank_max, which are the narrower PRICING bands (e.g. QB T3 prices off
+  // ranks 16-24, but every QB ranked 16th or worse is still T3-eligible — the
+  // eligibility band is unbounded at the bottom, 0 here meaning "no max").
+  // PK/PN excluded — canon prices them as prior salary + $1K (T3.6), not a
+  // points tier, so points-rank assignment doesn't apply to them.
+  const TAG_ELIGIBILITY_BANDS = {
+    QB: [[1, 5], [6, 15], [16, 0]],
+    RB: [[1, 4], [5, 8], [9, 0]],
+    WR: [[1, 6], [7, 14], [15, 0]],
+    TE: [[1, 3], [4, 6], [7, 0]],
+    DL: [[1, 6], [7, 0]],
+    LB: [[1, 6], [7, 0]],
+    DB: [[1, 6], [7, 0]]
+  };
+  // Which tier NUMBER a points rank falls into (via the real eligibility
+  // bands above), then return THAT tier's entry from posBreakdown — whose
+  // base_bid is still the AAV-priced value, untouched (Keith 2026-08-04:
+  // the AAV tier-pricing calc is correct as-is).
+  function tierForPointsRank(posKey, posBreakdown, rank) {
+    const bands = TAG_ELIGIBILITY_BANDS[posKey];
+    const tiers = (posBreakdown && posBreakdown.tiers) || [];
+    if (!bands || !tiers.length) return null;
+    for (let i = 0; i < bands.length && i < tiers.length; i++) {
+      const lo = bands[i][0], hi = bands[i][1];
+      if (rank >= lo && (!hi || rank <= hi)) return tiers[i];
+    }
+    return null;
+  }
+
   function renderTagTab() {
     const body = $("#fo-tag-body");
     const meta = $("#fo-tag-meta");
@@ -7782,6 +7878,12 @@
       return;
     }
     if (STATE.tagDataError) { body.innerHTML = '<div class="fo-placeholder fo-err">' + escapeHtml(STATE.tagDataError) + '</div>'; return; }
+    // Non-blocking: the projected-year table renders AAV-only immediately
+    // (today's behavior) and upgrades to points-ranked tiers once this
+    // resolves, rather than delaying the whole tab on a second fetch.
+    if (!STATE.tagPointsData && !STATE.tagPointsDataLoading) {
+      loadTagPointsData().then(renderTagTab);
+    }
     const m = STATE.tagData.meta || {};
     if (meta) {
       meta.textContent =
@@ -8112,14 +8214,23 @@
         const posKey = positionGroupKey(p.position);
         const aav = Math.max(displayAavForPlayer(p), 0);   // true AAV (contractInfo token), NOT the salary fallback
         const floor = aav > 0 ? Math.ceil((aav * 1.10) / 1000) * 1000 : 0;   // AAV × 1.10, ceil to $1K
+        // Tier ASSIGNMENT: points-scored rank when live data is available
+        // (canon — matches build_tag_tracking.py's split of assignment-by-points
+        // vs pricing-by-AAV). Falls back to the AAV name-match this table always
+        // used when a player has no points data yet (rookies, sparse IDP, or the
+        // points fetch hasn't resolved) — never a blank/broken cell.
+        const ptsRank = (STATE.tagPointsData && projecting)
+          ? STATE.tagPointsData.rankByPid[safeStr(p.id)] : undefined;
+        const ptsTier = ptsRank ? tierForPointsRank(posKey, cb[posKey], ptsRank) : null;
         const lk = tierByName[posKey + "|" + nn(p.name)];
-        const tierBid = lk ? lk.bid : (lowestBidByPos[posKey] || 0);
+        const tierBid = ptsTier ? safeInt(ptsTier.base_bid, 0) : lk ? lk.bid : (lowestBidByPos[posKey] || 0);
+        const tierLabel = ptsTier ? "T" + ptsTier.tier : lk ? lk.label : "—";
         const tagValue = Math.max(tierBid, floor);
         rows.push({
           pid: safeStr(p.id), fid: safeStr(team.fid), name: safeStr(p.name), team: safeStr(team.name),
           pos: safeStr(p.position), type: safeStr(p.type), aav: aav, floor: floor, tier_bid: tierBid,
-          tier_label: lk ? lk.label : "—", tag_value: tagValue,
-          ytd_pts_rank: null,   // populated once the season starts (dynamic points-rank); N/A in offseason
+          tier_label: tierLabel, tag_value: tagValue,
+          ytd_pts_rank: ptsRank || null,
         });
       });
     });
@@ -8160,10 +8271,17 @@
     }).join("");
     const isProjected = projYear > (safeInt(SEASON, 0) || 0);
     const hint = isProjected
-      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only. Tier base bids are built from the AAVs of players <strong>currently under contract</strong> at each position, so they shift as rosters change and finalize at the ' + projYear + ' contract deadline. <strong>Already-tagged players are excluded</strong> — once tagged, a player can’t be re-tagged; they must go to the FA auction (a drop before that auction resets them, since they re-enter the auction).'
+      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8. <strong>Tier assignment</strong> ranks each player by their ' + safeInt(SEASON, 0) + ' points scored so far this season (falls back to the AAV rank used below when a player has no points data yet — rookies, sparse IDP samples, or before this loads). <strong>Tier pricing</strong> stays AAV-only — the average AAV of the players currently under contract in that rank band — so it shifts as rosters change and settles once the ' + projYear + ' contract deadline freezes contracts for the season. <strong>Already-tagged players are excluded</strong> — once tagged, a player can’t be re-tagged; they must go to the FA auction (a drop before that auction resets them, since they re-enter the auction).'
       : '💡 <strong>' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only — this cycle\'s tiers (source season ' + escapeHtml(String(m.season || "?")) + ').';
+    const staleness = isProjected
+      ? (STATE.tagPointsDataError
+          ? '<p class="fo-row-hint" style="color:var(--err);">⚠ ' + escapeHtml(STATE.tagPointsDataError) + ' — Tier assignment is running on the AAV-only fallback until this loads.</p>'
+          : STATE.tagPointsData
+            ? '<p class="fo-row-hint" style="color:var(--muted);font-size:11px;">Points data: up to ' + STATE.tagPointsData.maxGames + ' game' + (STATE.tagPointsData.maxGames === 1 ? "" : "s") + ' loaded per player this season' + (STATE.tagPointsData.maxGames === 0 ? ' — <strong style="color:#d4a017;">none loaded yet, every row is on the AAV-only fallback</strong>' : '') + '. This table is only as current as the last points backfill — check the game count against the real week before trusting a tier assignment.</p>'
+            : '<p class="fo-row-hint" style="color:var(--muted);font-size:11px;">Loading points data…</p>')
+      : "";
     return '<div class="fo-card">' +
-      '<p class="fo-row-hint">' + hint + '</p>' +
+      '<p class="fo-row-hint">' + hint + '</p>' + staleness +
       '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clr +
       '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + ' expiring players' + (excludedTagged ? ' · ' + excludedTagged + ' already-tagged excluded' : '') + '</span></div>' +
       '<div class="fo-table-scroll"><table class="fo-table" id="fo-p27-table"><thead><tr>' +
