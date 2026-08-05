@@ -342,7 +342,7 @@ async function processTagDeadlineMidnightLock(env, season, leagueId, origin, com
   const eraUrl = `${origin}/api/auction/era-eligible?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`;
   let eraRows = [];
   try {
-    const r = await fetch(eraUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
+    const r = await env.SELF.fetch(eraUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
     const j = await r.json();
     eraRows = Array.isArray(j?.players) ? j.players : (Array.isArray(j?.rows) ? j.rows : []);
   } catch (e) {
@@ -373,7 +373,7 @@ async function processTagDeadlineMidnightLock(env, season, leagueId, origin, com
 
   for (const c of candidates) {
     try {
-      const r = await fetch(actionUrl, {
+      const r = await env.SELF.fetch(actionUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -469,10 +469,10 @@ async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishA
   // Pull current MFL state: rosters (for franchise mapping) + salaries
   // (for contract details + TAG filter) + players (for names).
   const [rostersRes, salariesRes, playersRes, leagueRes] = await Promise.all([
-    fetch(`${origin}/api/mfl-export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
-    fetch(`${origin}/api/mfl-export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
-    fetch(`${origin}/api/mfl-export?TYPE=players&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&DETAILS=1`),
-    fetch(`${origin}/api/mfl-export?TYPE=league&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+    env.SELF.fetch(`${origin}/api/mfl-export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+    env.SELF.fetch(`${origin}/api/mfl-export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+    env.SELF.fetch(`${origin}/api/mfl-export?TYPE=players&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&DETAILS=1`),
+    env.SELF.fetch(`${origin}/api/mfl-export?TYPE=league&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
   ]);
   const rj = await rostersRes.json().catch(() => ({}));
   const sj = await salariesRes.json().catch(() => ({}));
@@ -5195,14 +5195,21 @@ export default {
           try {
             const leagueId = String(env.UPS_LEAGUE_ID || env.L || "74598");
             const season = String(env.UPS_SEASON || new Date().getUTCFullYear());
-            const internalUrl =
-              `https://upsmflproduction.keith-creelman.workers.dev/api/taxi-callups/confirm`;
+            // Same self-fetch bug as the deadline-reminder sweep: a Worker cannot
+            // fetch its own public workers.dev hostname (404). Must go through the
+            // SELF service binding. Hostname is irrelevant for a service binding.
+            if (!env.SELF) {
+              console.error("[scheduled hourly] taxi-callups confirm SKIPPED: env.SELF service binding missing");
+              return;
+            }
+            const internalUrl = `https://self.invalid/api/taxi-callups/confirm`;
             // Just call our own endpoint to keep the logic in one place.
-            await fetch(internalUrl, {
+            const tcRes = await env.SELF.fetch(internalUrl, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ league_id: leagueId, season: season }),
             });
+            if (!tcRes.ok) console.error(`[scheduled hourly] taxi-callups confirm FAILED http=${tcRes.status}`);
           } catch (e) {
             console.error(`[scheduled hourly] taxi-callups confirm failed: ${e && e.message}`);
           }
@@ -5250,18 +5257,23 @@ export default {
     try {
       const season = String(env.YEAR || new Date().getUTCFullYear());
       const leagueId = String(env.LEAGUE_ID || "74598");
-      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
       const authHeader = commishApiKey
         ? { "X-Internal-Auth": commishApiKey }
         : {};
       // Step 1: ask ourselves to scan + import new drop penalties to MFL.
-      const importUrl = `${origin}/admin/import-drop-penalties?L=${leagueId}&YEAR=${season}`;
-      const importRes = await fetch(importUrl, {
+      // Same self-fetch bug as the reminder sweep below — a Worker cannot fetch its
+      // own public workers.dev hostname (it 404s). Routed through env.SELF.
+      if (!env.SELF) throw new Error("env.SELF service binding missing (check wrangler.toml [[services]])");
+      const importUrl = `https://self.invalid/admin/import-drop-penalties?L=${leagueId}&YEAR=${season}`;
+      const importRes = await env.SELF.fetch(importUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ season, league_id: leagueId, dry_run: false }),
       });
+      if (!importRes.ok) {
+        console.error(`[scheduled hourly] drop-penalty import FAILED http=${importRes.status}`);
+      }
       const importData = await importRes.json().catch(() => ({}));
       const newlyPosted = Array.isArray(importData.posted_rows) ? importData.posted_rows : [];
       // Discord-announcement half REMOVED (Keith 2026-07-20): the */5 drop
@@ -5287,22 +5299,33 @@ export default {
     try {
       const season = String(env.YEAR || new Date().getUTCFullYear());
       const leagueId = String(env.LEAGUE_ID || "74598");
-      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      // ROOT CAUSE, found 2026-08-05 20:05Z. The dispatch marker below proved the
+      // block WAS running and the fetch WAS happening — and returning **404**:
+      //   [scheduled hourly] deadline-reminders dispatching season=2026 league=74598
+      //   [scheduled hourly] deadline-reminders FAILED http=404 error= storage={}
+      // The route is fine (a direct external POST to the same URL returns 403
+      // "COMMISH_API_KEY required", i.e. reachable). What fails is a Worker
+      // fetching its OWN public workers.dev hostname — the request does not come
+      // back to this Worker and 404s. That is exactly why the [[services]] SELF
+      // binding exists, and why the */5 drop/add/transaction sweeps all call
+      // https://self.invalid via env.SELF. This block was never migrated, so it
+      // has 404'd on every hourly tick since the sweep moved to the Cloudflare
+      // cron on 2026-05-14 — which is why exactly ONE reminder reached the league
+      // all season (the 2026-05-14 one, sent by the old GitHub Actions path).
+      // Hostname is irrelevant for a service binding; only path + query matter.
+      const origin = "https://self.invalid";
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
       if (!commishApiKey) {
         console.log("[scheduled hourly] deadline-reminder sweep skipped — no COMMISH_API_KEY");
+      } else if (!env.SELF) {
+        // Refuse loudly rather than silently skipping the league's deadline
+        // warnings — the failure mode this whole investigation was about.
+        console.error("[scheduled hourly] deadline-reminders SKIPPED: env.SELF service binding missing (check wrangler.toml [[services]])");
       } else {
-        // Unconditional dispatch marker (2026-08-05). A live `wrangler tail` of the
-        // 18:05Z hourly cron showed the drop-penalty log five lines above this block
-        // and the trade-sentinel log after it, but NO outbound POST to
-        // /admin/deadline-reminders/run and NEITHER of this if/else's log lines —
-        // i.e. the sweep produced no observable trace at all. That is unexplained by
-        // static reading, so log BEFORE the fetch: the next hourly cron then proves
-        // whether this block is reached, rather than leaving us to infer it.
         console.log(`[scheduled hourly] deadline-reminders dispatching season=${season} league=${leagueId}`);
         const reminderUrl = `${origin}/admin/deadline-reminders/run?APIKEY=${encodeURIComponent(commishApiKey)}&L=${leagueId}&YEAR=${season}`;
         ctx.waitUntil(
-          fetch(reminderUrl, {
+          env.SELF.fetch(reminderUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({}),
@@ -5343,9 +5366,12 @@ export default {
     try {
       const season = String(env.YEAR || new Date().getUTCFullYear());
       const leagueId = String(env.LEAGUE_ID || "74598");
-      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      // Internal call — must go through the SELF service binding, not the public
+      // hostname (a Worker fetching its own workers.dev URL 404s). Same bug that
+      // silently killed the deadline-reminder sweep for a full season.
+      const origin = "https://self.invalid";
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
-      if (env.UPS_MFL_DB && commishApiKey) {
+      if (env.UPS_MFL_DB && commishApiKey && env.SELF) {
         ctx.waitUntil(
           processTagDeadlineMidnightLock(env, season, leagueId, origin, commishApiKey)
             .then((r) => {
@@ -5370,9 +5396,12 @@ export default {
     try {
       const season = String(env.YEAR || new Date().getUTCFullYear());
       const leagueId = String(env.LEAGUE_ID || "74598");
-      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      // Internal call — must go through the SELF service binding, not the public
+      // hostname (a Worker fetching its own workers.dev URL 404s). Same bug that
+      // silently killed the deadline-reminder sweep for a full season.
+      const origin = "https://self.invalid";
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
-      if (env.UPS_MFL_DB && commishApiKey) {
+      if (env.UPS_MFL_DB && commishApiKey && env.SELF) {
         ctx.waitUntil(
           processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey)
             .then((r) => {
