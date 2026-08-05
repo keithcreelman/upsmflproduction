@@ -1297,6 +1297,42 @@ looks right.
 ⚠️ **Still a single walk-forward fold** (one test season). Directionally strong,
 not conclusive — the spec's full 2022→2025 rolling backtest is still owed.
 
+### Champion vs challenger — the spec's assumption did not hold
+
+Both models, identical fold (train 2021–2024, test 2025, WR+TE):
+
+| model | MAE | pinball@.5 | P50 cov | P75 cov | P90 cov |
+|---|---|---|---|---|---|
+| baseline `std_ppg` | 4.543 | 2.271 | 58.6% | — | — |
+| **GBM challenger** | **4.365** | **2.183** | 49.2% | 72.0% | 87.7% |
+| component simulation | 4.505 | 2.253 | 50.7% | 73.3% | 87.5% |
+
+**The direct GBM beats the component simulation on accuracy, and calibration is
+a wash.** This contradicts §3.2's working assumption that the simulation would
+be the champion. Recorded as-is: the spec's own rule is that the decision rests
+on out-of-sample UPS results, not on which architecture sounded better going in.
+
+**What the simulation still uniquely provides** — a native explanation (expected
+routes, expected targets, per-rate shrinkage and exact scoring are separately
+inspectable), exact era-correct UPS scoring on every draw, and touchdowns as
+Bernoulli draws so they move P90 far more than P50.
+
+**Why it is probably handicapped rather than beaten:**
+
+1. **It only simulates receiving.** No rushing, return game, or special-teams
+   tackles — all of which §1.3 proved are real for WR/TE.
+2. **Model A is the bottleneck**: expected routes carries an out-of-sample MAE
+   of **6.50 routes** against a typical volume of 25–30. Everything downstream
+   inherits that noise.
+3. TPRR is read unshrunk from the feature store rather than modelled.
+
+Diagnostics are healthy, so the comparison is trustworthy as far as it goes:
+Model B matched real history for **2,498/2,563** player-weeks (97.5%), and the
+script warns loudly below 80% — a silent fallback to league priors would make
+Model B decorative while still producing plausible output. The fitted shrinkage
+constants reproduce the spec's required ordering **unprompted**: TD rate slowest
+(k=15), then yards/reception (12), catch rate (11), first-down rate (8).
+
 ---
 
 ## Appendix C — Defect backlog from the ETL alias sweep (2026-08-04)
