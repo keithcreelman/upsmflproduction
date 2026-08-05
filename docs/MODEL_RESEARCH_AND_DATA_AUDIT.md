@@ -1297,6 +1297,74 @@ looks right.
 ⚠️ **Still a single walk-forward fold** (one test season). Directionally strong,
 not conclusive — the spec's full 2022→2025 rolling backtest is still owed.
 
+### FINAL (2026-08-05) — 9 training seasons, 53 features
+
+Feature store rebuilt across all ten seasons with injury designations, practice
+status, depth rank, promotion deltas and opponent-adjusted matchup added.
+Train 2016–2024 → test 2025, WR+TE.
+
+| model | MAE | pinball@.5 | P50 | P75 | P90 |
+|---|---|---|---|---|---|
+| baseline `std_ppg` | 4.543 | 2.271 | 58.6% | — | — |
+| **GBM challenger** | **4.321** | **2.160** | 48.3% | 73.6% | 88.8% |
+| component simulation | 4.452 | 2.226 | 51.6% | 73.9% | 88.1% |
+
+**The challenger wins on a second independent fold**, and by a wider margin than
+before. §3.2's assumption that the component simulation would be the champion has
+now failed twice; it should be treated as refuted rather than pending.
+
+Challenger trajectory as data grew (test 2025 throughout, so directly
+comparable):
+
+| train | rows | feats | MAE | gain | P50 | P75 | P90 | crossings |
+|---|---|---|---|---|---|---|---|---|
+| 2024 | 2,557 | 45 | 4.465 | 1.7% | 51.8% | 70.9% | 83.6% | 159 |
+| 2021–24 | 10,154 | 45 | 4.365 | 3.9% | 49.2% | 72.0% | 87.7% | 2 |
+| **2016–24** | **19,777** | **53** | **4.321** | **4.9%** | **48.3%** | **73.6%** | **88.8%** | **1** |
+
+⚠️ The final row changes **two things at once** — data nearly doubled *and* eight
+features arrived — so the 3.9% → 4.9% step cannot be attributed to either alone.
+
+### ⚠️ The routes-ablation finding did NOT replicate
+
+At four seasons, dropping routes cost +0.046 MAE and topped the table; it was
+recorded above as validating the Phase 0 route work. **At nine seasons it is
++0.006.** The full nine-season ablation:
+
+| dropped | vs full | | dropped | vs full |
+|---|---|---|---|---|
+| lagged UPS | **+0.038** | | efficiency | −0.000 |
+| vegas | +0.016 | | redzone | −0.005 |
+| routes | +0.006 | | deltas | −0.009 |
+| depth | +0.006 | | injury | −0.011 |
+| targets | +0.003 | | snaps | −0.013 |
+| matchup | +0.001 | | | |
+
+The positive contributions sum to ~0.07 while the model beats baseline by
+**0.222**. With 4× the data the families became largely substitutable — the
+advantage is distributed across the ensemble and located in no single family.
+
+**Methodological lesson: single-fold ablation on a small sample is not a stable
+importance estimate.** The earlier ranking was read as a finding and should have
+been read as provisional. Ablation measures marginal contribution under whatever
+redundancy exists, and redundancy is itself a function of sample size.
+
+### Did injury / depth / matchup earn their place?
+
+**Not for next-week point accuracy** — depth +0.006, matchup +0.001, injury
+−0.011. But there is a structural reason injury *cannot* show value here:
+
+> The pilot cohort filters to `routes_std > 0` — established route-runners.
+> Players who miss games are largely excluded **by construction**, and the model
+> predicts points rather than availability. Injury information has nothing to
+> act on in this design.
+
+Same for depth-rank promotions and the role-change deltas: their payoff is
+**lead time on a role change**, which next-week MAE is structurally blind to.
+Judging them properly needs the Breakout Radar's lead-time metrics and a cohort
+that includes inactive players. Verdict is "not for this task, measured this
+way", not "worthless".
+
 ### Champion vs challenger — the spec's assumption did not hold
 
 Both models, identical fold (train 2021–2024, test 2025, WR+TE):
