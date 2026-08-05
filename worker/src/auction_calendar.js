@@ -29,6 +29,13 @@ export const AUCTION_CAL_FIELDS = [
   { key: "faa_open_at",       label: "FA Auction opens",  help: "Free Agent Auction opens. → MFL AUCTION_START + app calendar. (The No-Add/Drops period comes from Roster lock, NOT from this date.)" },
   { key: "faa_nom_deadline_at", label: "Last day to nominate", help: "Final nomination day (its ET day = unlimited noms; after it, no new noms — bidding continues). → app calendar + the in-app nomination gate." },
   { key: "faa_close_at",      label: "FA Auction ends",   help: "Auction fully resolved; roster lock lifts. → the AUCTION_START & No-Add/Drops END_TIME." },
+  // Added 2026-08-05 so the reminder calendar has a single editable source. Both
+  // are app-calendar + Discord-reminder only — MFL has no matching EVENT_TYPE, so
+  // neither appears in buildCalendarEvents.
+  { key: "rookie_ext_tag_deadline_at", label: "Rookie extension + tag deadline",
+    help: "Expiring-rookie extensions and franchise tags close (canon §A1). → app calendar + Discord reminders. Does NOT move the automated midnight auto-drop, which still follows the Memorial-Day rule." },
+  { key: "contract_deadline_at", label: "Contract deadline",
+    help: "Final-year veteran extensions + MYAC close (canon §C4/§C2). → app calendar + Discord reminders ONLY. ⚠️ This does NOT move the code gate that actually locks extensions/MYM/restructures — that still reads the hardcoded date and needs a code change. Set this to the same date, or the reminders will contradict the lockout." },
 ];
 const FIELD_KEYS = AUCTION_CAL_FIELDS.map((f) => f.key);
 
@@ -40,8 +47,21 @@ async function ensureTable(env) {
 
 // Read the stored config: { season, faa: { <field>: "YYYY-MM-DDTHH:mm" | "" }, updated_at }.
 // ('faa' is the historical sub-key name; it now holds the whole league timeline.)
+//
+// LOSSLESS ROUND-TRIP (2026-08-05). This used to rebuild the object from a
+// whitelist — season + faa only — so ANY other top-level key was silently dropped
+// on read, and setAuctionCalendar then persisted that lossy copy. Adding a
+// `reminders` block (or anything else) would have survived exactly until the next
+// Save from the panel and then vanished, with no error anywhere. `extra` now
+// carries every unrecognised top-level key straight back out to the writer.
 export async function getAuctionCalendar(env) {
-  const empty = { season: null, faa: Object.fromEntries(FIELD_KEYS.map((k) => [k, ""])), updated_at: null };
+  const empty = {
+    season: null,
+    faa: Object.fromEntries(FIELD_KEYS.map((k) => [k, ""])),
+    reminders: {},
+    extra: {},
+    updated_at: null,
+  };
   if (!env || !env.UPS_MFL_DB) return empty;
   try {
     await ensureTable(env);
@@ -49,25 +69,45 @@ export async function getAuctionCalendar(env) {
     if (!row || !row.value) return empty;
     const cfg = JSON.parse(row.value);
     const faa = (cfg && cfg.faa && typeof cfg.faa === "object") ? cfg.faa : {};
+    const reminders = (cfg && cfg.reminders && typeof cfg.reminders === "object") ? cfg.reminders : {};
+    const extra = {};
+    for (const k of Object.keys(cfg || {})) {
+      if (k === "season" || k === "faa" || k === "reminders") continue;
+      extra[k] = cfg[k];
+    }
     return {
       season: cfg && cfg.season != null ? cfg.season : null,
       faa: Object.fromEntries(FIELD_KEYS.map((k) => [k, safeStr(faa[k])])),
+      reminders,
+      extra,
       updated_at: row.updated_at || null,
     };
   } catch (_) { return empty; }
 }
 
-// Merge + persist a partial update: { season?, faa?: { <field>: "YYYY-MM-DDTHH:mm" } }.
+// Merge + persist a partial update:
+//   { season?, faa?: { <field>: "YYYY-MM-DDTHH:mm" }, reminders?: { <event_key>: {...} } }
+// Unknown top-level keys already in the row are preserved verbatim (see `extra`).
 export async function setAuctionCalendar(env, partial) {
   if (!env || !env.UPS_MFL_DB) return { ok: false, error: "no_db" };
   const cur = await getAuctionCalendar(env);
-  const next = { season: cur.season, faa: { ...cur.faa } };
+  const next = { ...cur.extra, season: cur.season, faa: { ...cur.faa }, reminders: { ...cur.reminders } };
   if (partial && partial.season != null && safeStr(partial.season)) next.season = safeStr(partial.season);
   const inFaa = (partial && partial.faa && typeof partial.faa === "object") ? partial.faa : {};
   for (const k of Object.keys(inFaa)) {
     if (FIELD_KEYS.indexOf(k) === -1) continue;
     next.faa[k] = safeStr(inFaa[k]);   // "" clears
   }
+  // Reminder overrides merge PER EVENT rather than wholesale, so a panel that only
+  // knows about one event cannot blank the others. `null` for an event clears it
+  // (back to the hardcoded DEADLINE_REMINDER_CALENDAR default).
+  const inRem = (partial && partial.reminders && typeof partial.reminders === "object") ? partial.reminders : {};
+  for (const k of Object.keys(inRem)) {
+    if (inRem[k] === null) { delete next.reminders[k]; continue; }
+    if (typeof inRem[k] !== "object") continue;
+    next.reminders[k] = { ...(next.reminders[k] || {}), ...inRem[k] };
+  }
+  if (!Object.keys(next.reminders).length) delete next.reminders;
   try {
     await ensureTable(env);
     await env.UPS_MFL_DB.prepare(
@@ -168,11 +208,73 @@ export function buildLeagueEventRows(cfg, seasonOverride) {
   add("ups_expired_rookie_auction_start", f.era_open_at, "Expired Rookie Auction opens");
   add("ups_fa_auction_start", f.faa_open_at, "Free Agent Auction opens");
   add("ups_faa_nom_deadline", f.faa_nom_deadline_at, "Last day to nominate — unlimited noms this day; bidding continues after");
+  // Added 2026-08-05. These keys ALREADY EXIST in league_events (seeded by
+  // migration 0026), so this updates the rows the app renders rather than adding
+  // new ones. ups_tag_deadline and ups_rookieextension_deadline are the same
+  // instant in canon (Thursday before Memorial Day) and are written from one field.
+  add("ups_rookieextension_deadline", f.rookie_ext_tag_deadline_at, "Expiring rookie extensions close");
+  add("ups_tag_deadline", f.rookie_ext_tag_deadline_at, "Franchise tag deadline — same instant as the rookie extension deadline");
+  add("ups_contract_deadline", f.contract_deadline_at, "Final-year veteran extensions + MYAC close");
   // Replaces the migration-0026 hardcoded placeholder: derived from the actual
   // roster-lock instant, so the app's "Roster Cutdown" chip tracks the config.
   const lastCut = lastCutDayFromLock(f.faa_roster_lock_at);
   if (lastCut) rows.push({ event: "ups_last_day_for_cuts", date: lastCut, nfl_season: season, description: "Auction Roster Lock — last day for cuts before the FA Auction" });
   return { rows, season };
+}
+
+// ── Discord deadline-reminder overrides ─────────────────────────────────────
+// Which editable field supplies which reminder event_key. Only these six reminder
+// events have a calendar field; anything else in DEADLINE_REMINDER_CALENDAR keeps
+// its hardcoded values.
+export const REMINDER_FIELD_MAP = {
+  rookie_ext_tag_deadline_at: "rookie_extensions_and_tags",
+  rookie_draft_at:            "rookie_draft",
+  faa_roster_lock_at:         "cut_deadline",
+  faa_open_at:                "free_agent_auction",
+  contract_deadline_at:       "contract_deadline",
+  trade_deadline_at:          "trade_deadline",
+};
+
+// Build the `overrides` argument for deadlineReminderCatalogForSeason(season, …)
+// from the stored calendar config. Returns {} when nothing applies, which makes
+// the caller fall back to the hardcoded DEADLINE_REMINDER_CALENDAR wholesale.
+//
+// SEASON GUARD: the ups_settings row holds exactly ONE season and is not keyed by
+// it, so applying a 2026 config to a 2027 sweep would silently send reminders for
+// last year's dates. When cfg.season is set and does not match, return {} — the
+// hardcoded calendar is stale-but-honest, whereas a mismatched config is wrong.
+// A config with NO season is treated as applying to the requested season, which
+// preserves behaviour for rows written before `season` was populated.
+export function deadlineOverridesFromCalendar(cfg, season) {
+  const out = {};
+  if (!cfg || typeof cfg !== "object") return out;
+  const cfgSeason = safeStr(cfg.season);
+  if (cfgSeason && cfgSeason !== safeStr(season)) return out;
+  const f = (cfg.faa && typeof cfg.faa === "object") ? cfg.faa : {};
+  const rem = (cfg.reminders && typeof cfg.reminders === "object") ? cfg.reminders : {};
+
+  for (const [fieldKey, eventKey] of Object.entries(REMINDER_FIELD_MAP)) {
+    const wall = safeStr(f[fieldKey]);
+    const m = wall.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    if (!m) continue;                       // unset or malformed -> hardcoded default
+    out[eventKey] = { deadline_date_et: m[1], deadline_time_et: m[2] };
+  }
+  // Sparse per-event reminder tuning (summary / send time / offsets). Merged on top
+  // of the dates above, and allowed even for events whose date is not set here.
+  for (const [eventKey, patch] of Object.entries(rem)) {
+    if (!patch || typeof patch !== "object") continue;
+    const clean = {};
+    if (safeStr(patch.summary)) clean.summary = safeStr(patch.summary);
+    if (/^\d{2}:\d{2}$/.test(safeStr(patch.reminder_send_time_et))) clean.reminder_send_time_et = safeStr(patch.reminder_send_time_et);
+    if (Array.isArray(patch.reminder_offsets_days)) {
+      clean.reminder_offsets_days = patch.reminder_offsets_days.map((v) => Number(v) || 0).filter((v) => v > 0);
+    }
+    if (Array.isArray(patch.reminder_offsets_hours)) {
+      clean.reminder_offsets_hours = patch.reminder_offsets_hours.map((v) => Number(v) || 0).filter((v) => v > 0);
+    }
+    if (Object.keys(clean).length) out[eventKey] = { ...(out[eventKey] || {}), ...clean };
+  }
+  return out;
 }
 
 // Normalize an MFL calendar export into [{event_type, title, start_unix, end_unix, id}].

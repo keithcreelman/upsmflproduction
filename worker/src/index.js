@@ -10,7 +10,7 @@ import {
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
-import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix } from "./auction_calendar.js";
+import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
@@ -7398,7 +7398,25 @@ export default {
 
         // ── COMMIT ──
         // (1) D1 league_events upsert — the app's source of truth (idempotent).
+        //
+        // LEAGUE GUARD (2026-08-05). league_events has NO league_id column
+        // (migration 0026) and this upsert is keyed on (event, nfl_season) only —
+        // so before this guard, pushing with the "Test league" target selected
+        // still overwrote the PRODUCTION rows. That is not cosmetic: the app reads
+        // ups_fa_auction_start via /api/league-events, and front_office.js
+        // dropPenaltyLandsNextSeason uses it to decide WHICH SEASON a cut's dead
+        // money is charged to. A "test" push could move real cap money.
+        // Refuse rather than write to the wrong league — an unscoped write is
+        // never "close enough" (see rule_no_fail_open_guards).
+        const prodLeagueId = String(env.LEAGUE_ID || "74598").replace(/\D/g, "");
         const d1Results = [];
+        if (String(leagueId).replace(/\D/g, "") !== prodLeagueId) {
+          d1Results.push({
+            ok: false,
+            skipped: true,
+            error: `league_events is NOT league-scoped (no league_id column) — refusing to write while targeting L=${leagueId}. Only L=${prodLeagueId} may write the app calendar. The MFL calendar push below still runs for this league.`,
+          });
+        } else {
         try {
           await env.UPS_MFL_DB.prepare(
             "CREATE TABLE IF NOT EXISTS league_events (event TEXT NOT NULL, date TEXT NOT NULL, nfl_season TEXT NOT NULL, description TEXT, source TEXT DEFAULT 'commish:update-league-calendar', created_at_utc TEXT DEFAULT (datetime('now')), PRIMARY KEY (event, nfl_season))"
@@ -7412,6 +7430,7 @@ export default {
             } catch (e) { d1Results.push({ event: r.event, date: r.date, ok: false, error: String(e?.message || e) }); }
           }
         } catch (e) { d1Results.push({ ok: false, error: "table: " + String(e?.message || e) }); }
+        }
 
         // (2) MFL calendar — write only NEW events (skip exact-duplicates).
         const mflCookie = String(env.MFL_COOKIE || "").trim();
@@ -27607,6 +27626,20 @@ export default {
       // for FINAL-YEAR VETERAN extensions + MYAC per canon §C4/§C2. Distinct from
       // the May tag/rookie-extension deadline above. Reads the league calendar
       // when in scope; falls back to the pinned 2026 value (2026-09-06 21:00 ET).
+      // DELIBERATE DIVERGENCE (2026-08-05). This reads the HARDCODED
+      // DEADLINE_REMINDER_CALENDAR, not the commish-editable calendar overrides —
+      // unlike the reminder sweep, which now merges ups_settings 'auction_calendar'
+      // on top. That is on purpose: this value gates EXTENSION_DEADLINE_PASSED on
+      // /offer-mym, /offer-restructure and /commish-contract-update, so a typo in a
+      // free-text panel field would lock every owner out of extensions (or silently
+      // reopen a closed window). Wiring it to the editable config needs the
+      // contract-change gate treatment — dry-run diff naming the gate, explicit
+      // confirm, audit row, monotonic sanity check — and is intentionally NOT part
+      // of the editor's first cut. See rule_contract_change_gate.
+      //
+      // Consequence to keep in mind: the panel's contract_deadline_at moves the app
+      // calendar and the Discord reminders but NOT this gate. The field's help text
+      // says so explicitly. Keep the two in sync by hand until the gate is wired.
       const getContractDeadlineUtc = (season) => {
         const calRoot = (typeof DEADLINE_REMINDER_CALENDAR !== "undefined") ? DEADLINE_REMINDER_CALENDAR : null;
         const cc = (calRoot && calRoot[String(season)] && calRoot[String(season)].contract_deadline) || null;
@@ -42778,8 +42811,27 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
         const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
+        // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
+        // base overrides; the MFL-derived trade-deadline resolution still wins for
+        // trade_deadline specifically, since it is computed from the real kickoff
+        // time rather than typed in. Anything the commish has not set falls through
+        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        //
+        // On a read failure we deliberately fall back to the hardcoded calendar
+        // rather than skipping the sweep: an empty override set still sends the
+        // right reminders, whereas bailing out would silently send none — the exact
+        // failure mode that lost a season of reminders. Do NOT "optimise" this into
+        // an early return.
+        let calendarOverrides = {};
+        try {
+          calendarOverrides = deadlineOverridesFromCalendar(await getAuctionCalendar(env), season) || {};
+        } catch (e) {
+          console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
+          ...calendarOverrides,
           trade_deadline: {
+            ...(calendarOverrides.trade_deadline || {}),
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
@@ -42971,8 +43023,27 @@ export default {
                 source_url: safeStr(fetchedTradeDeadlineResolution.source_url || previousOfficialTradeDeadlineResolution.source_url || ""),
               }
             : fetchedTradeDeadlineResolution;
+        // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
+        // base overrides; the MFL-derived trade-deadline resolution still wins for
+        // trade_deadline specifically, since it is computed from the real kickoff
+        // time rather than typed in. Anything the commish has not set falls through
+        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        //
+        // On a read failure we deliberately fall back to the hardcoded calendar
+        // rather than skipping the sweep: an empty override set still sends the
+        // right reminders, whereas bailing out would silently send none — the exact
+        // failure mode that lost a season of reminders. Do NOT "optimise" this into
+        // an early return.
+        let calendarOverrides = {};
+        try {
+          calendarOverrides = deadlineOverridesFromCalendar(await getAuctionCalendar(env), season) || {};
+        } catch (e) {
+          console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
+          ...calendarOverrides,
           trade_deadline: {
+            ...(calendarOverrides.trade_deadline || {}),
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
