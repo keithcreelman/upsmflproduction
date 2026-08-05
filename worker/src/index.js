@@ -9349,6 +9349,34 @@ export default {
         if (!pos) return jsonOut(400, { error: "missing pos (skill|qb|idp|kicker|punter)" });
         if (!env.UPS_MFL_DB) return jsonOut(503, { error: "D1 not bound" });
 
+        // Edge cache (2026-08-05). Narrowing the CTEs cut this query's CPU by
+        // ~64%, which is what was tripping D1's CPU limit — but the SQL is only
+        // ~140-400ms and calls were still spiking to 9-19s, which is D1 cold
+        // storage on a 355MB database, not our row count. Caching fixes both:
+        // a repeat view never touches D1 at all.
+        //
+        // Keyed on every input that changes the result. Safe to cache because
+        // this is a read-only board over COMPLETED weekly stats — new numbers
+        // only appear when the ETL ingests another week, so a few minutes of
+        // staleness is invisible. NO_CACHE=1 forces a fresh read, matching the
+        // roster-workbench convention already used in this file.
+        const lbCacheKey = new Request(
+          "https://upsmfl-adv-stats.local/cache?" + new URLSearchParams({
+            seasons: seasons.join(","), pos,
+            weeks: weeksParam || "", week_min: String(weekMinParam || ""), week_max: String(weekMaxParam || ""),
+            include_post: includePost ? "1" : "0",
+            min_games: String(minGames), limit: String(limit), team: teamFilter || "",
+          }).toString(),
+          { method: "GET" }
+        );
+        const lbNoCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
+        if (!lbNoCache) {
+          try {
+            const hit = await caches.default.match(lbCacheKey);
+            if (hit) return hit;
+          } catch (_) {}
+        }
+
         // Map pos alias → SQL pos_group IN-list
         let posGroups;
         if (pos === "skill") posGroups = ["RB","WR","TE"];
@@ -9814,11 +9842,20 @@ export default {
             rows = rows.filter(r => (r.mfl_franchise_id || "") === padded ||
                                     (r.mfl_franchise_id || "") === teamFilter);
           }
-          return jsonOut(200, {
+          const lbResponse = jsonOut(200, {
             seasons, pos, include_post: includePost, min_games: minGames,
             team: teamFilter || null, count: rows.length,
             rows,
           });
+          // 5 minutes: long enough that a browsing session and a page reload
+          // never re-run the query, short enough that a fresh ETL week shows
+          // up on its own. Only successful responses are stored — a 500 must
+          // never be cached, or one bad minute would stick.
+          lbResponse.headers.set("Cache-Control", "public, max-age=300");
+          if (!lbNoCache) {
+            try { ctx.waitUntil(caches.default.put(lbCacheKey, lbResponse.clone())); } catch (_) {}
+          }
+          return lbResponse;
         } catch (e) {
           console.error("[advanced-stats-leaderboard] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
