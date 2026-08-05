@@ -27626,20 +27626,10 @@ export default {
       // for FINAL-YEAR VETERAN extensions + MYAC per canon §C4/§C2. Distinct from
       // the May tag/rookie-extension deadline above. Reads the league calendar
       // when in scope; falls back to the pinned 2026 value (2026-09-06 21:00 ET).
-      // DELIBERATE DIVERGENCE (2026-08-05). This reads the HARDCODED
-      // DEADLINE_REMINDER_CALENDAR, not the commish-editable calendar overrides —
-      // unlike the reminder sweep, which now merges ups_settings 'auction_calendar'
-      // on top. That is on purpose: this value gates EXTENSION_DEADLINE_PASSED on
-      // /offer-mym, /offer-restructure and /commish-contract-update, so a typo in a
-      // free-text panel field would lock every owner out of extensions (or silently
-      // reopen a closed window). Wiring it to the editable config needs the
-      // contract-change gate treatment — dry-run diff naming the gate, explicit
-      // confirm, audit row, monotonic sanity check — and is intentionally NOT part
-      // of the editor's first cut. See rule_contract_change_gate.
-      //
-      // Consequence to keep in mind: the panel's contract_deadline_at moves the app
-      // calendar and the Discord reminders but NOT this gate. The field's help text
-      // says so explicitly. Keep the two in sync by hand until the gate is wired.
+      // HARDCODED baseline for the September contract deadline. Kept as the
+      // fallback and as the value every non-gate consumer still reads.
+      // The ENFORCEMENT gate goes through resolveContractDeadlineUtc() below,
+      // which layers the commish-editable calendar on top of this.
       const getContractDeadlineUtc = (season) => {
         const calRoot = (typeof DEADLINE_REMINDER_CALENDAR !== "undefined") ? DEADLINE_REMINDER_CALENDAR : null;
         const cc = (calRoot && calRoot[String(season)] && calRoot[String(season)].contract_deadline) || null;
@@ -27654,6 +27644,58 @@ export default {
         const deadline = getContractDeadlineUtc(season);
         if (!deadline) return false;
         return Date.now() > deadline.getTime();
+      };
+
+      // EFFECTIVE September contract deadline — the value that ENFORCES the
+      // extension/MYAC lockout (EXTENSION_DEADLINE_PASSED). Layers the
+      // commish-editable calendar (ups_settings 'auction_calendar' →
+      // contract_deadline_at) over the hardcoded baseline above.
+      //
+      // Returns { deadline, source, error }:
+      //   source "calendar"  — commish-set value in use
+      //   source "hardcoded" — nothing configured for this season (normal)
+      //   error  set         — config UNREADABLE. The caller MUST refuse the
+      //                        submission rather than fall back.
+      //
+      // FAIL CLOSED, and note the asymmetry with the reminder sweep, which does the
+      // opposite on the same failure. That is deliberate:
+      //   • reminders — a missing config means "send the hardcoded reminder". Wrong
+      //     copy is recoverable; sending nothing is what lost a whole season.
+      //   • this gate — a missing config means we do not know whether the window is
+      //     open. Guessing writes a real contract against the wrong window, and per
+      //     rule_no_fail_open_guards an unreadable input is never "empty".
+      // Absence of a config is NOT an error — it is "not configured" → hardcoded.
+      const resolveContractDeadlineUtc = async (season) => {
+        const fallback = getContractDeadlineUtc(season);
+        let cfg = null;
+        try {
+          cfg = await getAuctionCalendar(env);
+        } catch (e) {
+          return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${e && e.message}` };
+        }
+        // getAuctionCalendar swallows its own errors and returns the empty shape, so
+        // "no DB binding at all" is indistinguishable from "nothing configured". Treat
+        // a missing binding as unreadable — that is an infrastructure fault, not a
+        // deliberate blank.
+        if (!env || !env.UPS_MFL_DB) {
+          return { deadline: null, source: "error", error: "contract_calendar_unreadable: no D1 binding" };
+        }
+        const cfgSeason = safeStr(cfg && cfg.season);
+        const wall = safeStr(cfg && cfg.faa && cfg.faa.contract_deadline_at);
+        if (!wall || (cfgSeason && cfgSeason !== safeStr(season))) {
+          return { deadline: fallback, source: "hardcoded", error: "" };
+        }
+        const m = wall.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+        if (!m) {
+          // Stored but unparseable — refuse. Silently reverting to the hardcoded date
+          // would enforce a window the commish believes he changed.
+          return { deadline: null, source: "error", error: `contract_deadline_at malformed: "${wall}"` };
+        }
+        const d = new Date(`${m[1]}T${m[2]}:00-04:00`);   // early Sept is always EDT
+        if (isNaN(d.getTime())) {
+          return { deadline: null, source: "error", error: `contract_deadline_at unparseable: "${wall}"` };
+        }
+        return { deadline: d, source: "calendar", error: "" };
       };
 
       const formatContractSubmissionDate = (rawValue) => {
@@ -44035,6 +44077,80 @@ export default {
         // setAuctionCalendar → ups_settings key 'auction_calendar'. The dates are
         // pushed to MFL separately by POST /admin/auction/push-mfl-calendar.
         if (csBody && csBody.auction_calendar && typeof csBody.auction_calendar === "object") {
+          // ── CONTRACT-CHANGE GATE on contract_deadline_at ───────────────────
+          // This field ENFORCES the veteran extension / MYAC lockout
+          // (EXTENSION_DEADLINE_PASSED). Per rule_contract_change_gate a change
+          // here is dry-run → shown → explicitly confirmed, never a blind save.
+          // The rest of the calendar is reminder/display only and saves normally.
+          const _curCal = await getAuctionCalendar(env);
+          const _incoming = (csBody.auction_calendar.faa && typeof csBody.auction_calendar.faa === "object")
+            ? csBody.auction_calendar.faa : {};
+          if (Object.prototype.hasOwnProperty.call(_incoming, "contract_deadline_at")) {
+            const _before = safeStr(_curCal?.faa?.contract_deadline_at);
+            const _after = safeStr(_incoming.contract_deadline_at);
+            if (_before !== _after) {
+              const _seasonForGate = safeStr(csBody.auction_calendar.season) || safeStr(_curCal?.season) || safeStr(YEAR);
+              const _hard = getContractDeadlineUtc(_seasonForGate);
+              const _parse = (w) => {
+                const m = safeStr(w).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+                if (!m) return null;
+                const d = new Date(`${m[1]}T${m[2]}:00-04:00`);
+                return isNaN(d.getTime()) ? null : d;
+              };
+              const _afterDate = _after ? _parse(_after) : null;
+              if (_after && !_afterDate) {
+                return jsonOut(400, {
+                  ok: false, error: "contract_deadline_invalid",
+                  message: `"${_after}" is not a valid YYYY-MM-DDTHH:mm value.`,
+                });
+              }
+              // Monotonic sanity: refuse a move into the past outright. Backdating
+              // the deadline retroactively invalidates extensions already accepted
+              // under the old window — unrecoverable without manual repair.
+              if (_afterDate && _afterDate.getTime() < Date.now()) {
+                return jsonOut(400, {
+                  ok: false, error: "contract_deadline_in_past",
+                  message: `Refusing to set the contract deadline to ${_after}, which is already past. That would retroactively lock out extensions accepted under the current window. Set a future date, or clear the field to fall back to the hardcoded ${_hard ? _hard.toISOString() : "value"}.`,
+                });
+              }
+              if (!csBody.auction_calendar.confirm_contract_gate) {
+                return jsonOut(409, {
+                  ok: false,
+                  error: "contract_gate_confirm_required",
+                  gate: "EXTENSION_DEADLINE_PASSED (veteran extensions + MYAC)",
+                  before: _before || null,
+                  after: _after || null,
+                  hardcoded_fallback: _hard ? _hard.toISOString() : null,
+                  effective_after_save: _after
+                    ? `${_after} ET (from the League Calendar)`
+                    : `${_hard ? _hard.toISOString() : "unknown"} (hardcoded fallback — field cleared)`,
+                  message:
+                    "This field does not just move a reminder — it moves the deadline that LOCKS veteran extensions, MYAC, restructures and commish contract updates. " +
+                    "Re-send with confirm_contract_gate: true to apply.",
+                });
+              }
+              // Audit trail — who moved the gate, when, from what to what.
+              try {
+                await env.UPS_MFL_DB.prepare(
+                  "CREATE TABLE IF NOT EXISTS ups_contract_gate_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, season TEXT, field TEXT NOT NULL, before_val TEXT, after_val TEXT, actor TEXT, note TEXT)"
+                ).run();
+                await env.UPS_MFL_DB.prepare(
+                  "INSERT INTO ups_contract_gate_audit (at_utc, season, field, before_val, after_val, actor, note) VALUES (?, ?, 'contract_deadline_at', ?, ?, ?, ?)"
+                ).bind(
+                  new Date().toISOString(), _seasonForGate, _before || null, _after || null,
+                  safeStr(sessionByApiKey ? "apikey" : "mfl_session"),
+                  "moves EXTENSION_DEADLINE_PASSED gate"
+                ).run();
+              } catch (e) {
+                // An unauditable gate change is not allowed to proceed silently.
+                return jsonOut(500, {
+                  ok: false, error: "contract_gate_audit_failed",
+                  message: `Refusing the change because it could not be audited: ${e && e.message}`,
+                });
+              }
+              console.log(`[contract-gate] contract_deadline_at ${_before || "(unset)"} -> ${_after || "(cleared)"} season=${_seasonForGate}`);
+            }
+          }
           const ac = await setAuctionCalendar(env, csBody.auction_calendar);
           if (!ac.ok) return jsonOut(500, ac);
           return jsonOut(200, { ok: true, auction_calendar: await getAuctionCalendar(env) });
@@ -46618,7 +46734,24 @@ export default {
               _extDeadline = getTagDeadlineUtc(_yearInt + Math.max(0, _priorCY));
               _extClass = "rookie";
             } else {
-              _extDeadline = getContractDeadlineUtc(year);
+              // Effective (commish-editable) deadline. On an unreadable config we
+              // REFUSE rather than fall back — enforcing the wrong window writes a
+              // real contract against a window the commish thinks he changed.
+              const _cd = await resolveContractDeadlineUtc(year);
+              if (_cd.error) {
+                return mutationResponse(
+                  "validation_fail",
+                  String(body.submission_id || body.submissionId || "").trim(),
+                  {
+                    reason: `Cannot verify the ${year} contract deadline right now, so this submission is being refused rather than accepted against a possibly-wrong window. Retry shortly; if it persists, check the League Calendar in Commish Settings.`,
+                    code: "CONTRACT_DEADLINE_UNRESOLVED",
+                    detail: _cd.error,
+                    submission_kind: submissionKindRaw,
+                  },
+                  503
+                );
+              }
+              _extDeadline = _cd.deadline;
               _extClass = "veteran";
             }
             const _nowMs = Date.now();

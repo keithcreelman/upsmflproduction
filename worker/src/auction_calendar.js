@@ -35,7 +35,7 @@ export const AUCTION_CAL_FIELDS = [
   { key: "rookie_ext_tag_deadline_at", label: "Rookie extension + tag deadline",
     help: "Expiring-rookie extensions and franchise tags close (canon §A1). → app calendar + Discord reminders. Does NOT move the automated midnight auto-drop, which still follows the Memorial-Day rule." },
   { key: "contract_deadline_at", label: "Contract deadline",
-    help: "Final-year veteran extensions + MYAC close (canon §C4/§C2). → app calendar + Discord reminders ONLY. ⚠️ This does NOT move the code gate that actually locks extensions/MYM/restructures — that still reads the hardcoded date and needs a code change. Set this to the same date, or the reminders will contradict the lockout." },
+    help: "⚠️ ENFORCED. Final-year veteran extensions + MYAC close (canon §C4/§C2). → app calendar + Discord reminders AND the live lockout: past this instant, veteran extension / MYAC / restructure submissions are rejected. Changing it requires an explicit confirmation and is written to an audit log. Cannot be set to a date already past." },
 ];
 const FIELD_KEYS = AUCTION_CAL_FIELDS.map((f) => f.key);
 
