@@ -67,6 +67,9 @@ COLS = [
     "d_route_pct_l3", "d_tgt_share_l3", "d_routes_l3", "d_snap_pct_l3",
     "team_dropbacks_l4", "team_targets_l4", "team_plays_l4",
     "vegas_spread", "vegas_total", "vegas_implied",
+    "inj_report_status", "inj_practice_status", "inj_weeks_listed_l4",
+    "depth_rank", "depth_rank_prev", "d_depth_rank",
+    "opp_def_adj_ratio", "opp_def_rank",
 ]
 
 
@@ -213,6 +216,41 @@ def build_week(season: int, week: int) -> list[tuple]:
         where=f"w.{S} AND COALESCE(f.gsis_id,'') LIKE '00-%'",
         group_by="f.gsis_id"))}
 
+    # ── availability: injury report for the TARGET week ────────────────────
+    # WEEK_PREGAME grain, so week = W is legal — the Friday designation is
+    # published ~42h before Sunday kickoff. report_status NULL means "on the
+    # practice report, no game designation" = expected to play; that is
+    # information and is passed through as NULL rather than imputed.
+    inj = {r["gsis_id"]: r for r in ctx.run(ctx.select(
+        "nfl_player_injuries_weekly",
+        "gsis_id, report_status, practice_status",
+        where=f"{S} AND week = {week}"))}
+    # How many of the last 4 weeks he appeared on the report at all — a chronic
+    # / lingering signal that a single week's designation cannot express.
+    inj_hist = {r["gsis_id"]: r["n"] for r in ctx.run(ctx.select(
+        "nfl_player_injuries_weekly", "gsis_id, COUNT(*) n",
+        where=f"{S} AND {_win(l4, hi)}", group_by="gsis_id"))}
+
+    # ── role competition: depth chart now, and one window back ─────────────
+    # MIN(depth_rank) because a player is listed at several slots (e.g. WR and
+    # KR); his best listing is the one that describes his role.
+    depth = {r["gsis_id"]: r["rk"] for r in ctx.run(ctx.select(
+        "nfl_player_depth_weekly", "gsis_id, MIN(depth_rank) rk",
+        where=f"{S} AND week = {week} AND depth_rank IS NOT NULL",
+        group_by="gsis_id"))}
+    depth_prev = {r["gsis_id"]: r["rk"] for r in ctx.run(ctx.select(
+        "nfl_player_depth_weekly", "gsis_id, MIN(depth_rank) rk",
+        where=f"{S} AND {_win(p3_lo, p3_hi)} AND depth_rank IS NOT NULL",
+        group_by="gsis_id"))}
+
+    # ── matchup: opponent's generosity to this position ────────────────────
+    # The week=W row is already as-of by construction (built from weeks < W) —
+    # see the manifest note on model_team_def_vs_pos_weekly.
+    dvp = {(r["team"], r["pos_group"]): r for r in ctx.run(ctx.select(
+        "model_team_def_vs_pos_weekly",
+        "team, pos_group, adj_ratio, rank_of_32",
+        where=f"{S} AND week = {week}"))}
+
     # ── pregame Vegas for the TARGET week ──────────────────────────────────
     # Declared WEEK_PREGAME, so the guard permits week = W here (a Week 6 line
     # is published before Week 6 kickoff) while still banning actual_score.
@@ -234,6 +272,7 @@ def build_week(season: int, week: int) -> list[tuple]:
         u = ups.get(g, {})
         team = b.get("team")
         v = vegas.get(team, {})
+        dr, dp_prev = depth.get(g), depth_prev.get(g)
 
         rt_l3, rt_l4, rt_std = r.get("rt_l3"), r.get("rt_l4"), r.get("rt_std")
         rpct_l3 = rate(rt_l3, r.get("tdb_l3"))
@@ -278,6 +317,16 @@ def build_week(season: int, week: int) -> list[tuple]:
             r.get("tdb_l4"), (team_l4.get(team) or {}).get("tgt_l4"),
             (team_l4.get(team) or {}).get("plays_l4"),
             v.get("spread"), v.get("total_line"), v.get("implied_total"),
+            (inj.get(g) or {}).get("report_status"),
+            (inj.get(g) or {}).get("practice_status"),
+            inj_hist.get(g),
+            dr, dp_prev,
+            # Depth-rank delta: NEGATIVE means PROMOTED (rank 1 is the starter),
+            # which is the pre-breakout direction. NULL unless both windows
+            # exist — an unknown prior rank is not "no change".
+            None if dr is None or dp_prev is None else (dr - dp_prev),
+            (dvp.get((v.get("opponent"), u.get("mfl_pos"))) or {}).get("adj_ratio"),
+            (dvp.get((v.get("opponent"), u.get("mfl_pos"))) or {}).get("rank_of_32"),
         ))
     return rows
 

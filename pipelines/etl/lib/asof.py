@@ -151,6 +151,35 @@ MANIFEST: dict[str, Source] = {
         WEEK, note="Realized UPS points — the TARGET. Safe as a lagged feature "
                    "under the as-of predicate; never join it un-filtered."),
 
+    # ── PREGAME week-grain: published BEFORE the game they describe ────────
+    "nfl_player_injuries_weekly": Source(
+        WEEK_PREGAME,
+        note="Practice participation Wed/Thu/Fri + the official Friday game "
+             "designation, so week = W is legal and is the point. VERIFIED on "
+             "2024 (n=6,215): median date_modified 42.6 HOURS BEFORE THE "
+             "PLAYER'S OWN KICKOFF; only 8 rows (0.13%) postdate it. NB "
+             "comparing against the WEEK'S FIRST game instead makes 82% look "
+             "post-game — most teams play Sunday, the Thursday nighter anchors "
+             "the week. report_status NULL means 'on the practice report but "
+             "given no game designation' = expected to play; that NULL is "
+             "information, do not impute it away."),
+    "nfl_player_depth_weekly": Source(
+        WEEK_PREGAME,
+        note="depth_rank 1 = starter. Published during the week's prep. For "
+             "2025+ nflverse switched to a TIMESTAMPED snapshot feed and the "
+             "loader takes the latest snapshot strictly before that week's "
+             "first kickoff — so the as-of claim is anchored to a real publish "
+             "time rather than a week label."),
+    "model_team_def_vs_pos_weekly": Source(
+        WEEK_PREGAME,
+        note="⚠️ READ THIS BEFORE CHANGING THE GRAIN. Built from REALIZED "
+             "results, which would normally mean WEEK grain — but the table is "
+             "PRE-AGGREGATED AS-OF: the row labelled week=W was computed from "
+             "weeks < W only. So week = W is correct AND freshest here, whereas "
+             "plain WEEK grain would hand back the week-1 row and silently lose "
+             "a week of information. The as-of guarantee lives in "
+             "build_def_vs_pos.py, not in this predicate."),
+
     # ── SEASON grain — PRIOR SEASONS ONLY. This is the leak class. ─────────
     "nfl_player_routes": Source(
         SEASON, note="COMPLETED-SEASON totals (one row per player-season, max "
