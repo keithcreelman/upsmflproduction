@@ -1,0 +1,54 @@
+-- 0122_feature_store_salary.sql
+-- Claude 2026-08-05 — MFL salary in the feature store, so "cheap" can be
+-- defined by COST rather than by recent performance.
+--
+-- ⚠️ APPLY WITH `wrangler d1 execute ups-mfl-db --remote --file=<this>`.
+--    NEVER `wrangler d1 migrations apply` — tracker ~47 behind, corrupts contracts.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- WHY — the Breakout Radar was flagging players who were never cheap
+-- ═══════════════════════════════════════════════════════════════════════════
+-- The radar's "not yet established" clause tested season-to-date PPG against
+-- the position's 24th-best. That is a PERFORMANCE test standing in for a COST
+-- test, and it lets a known star having a poor season qualify: Ezekiel Elliott,
+-- Chris Godwin, Michael Pittman, Tony Pollard and Kirk Cousins all appeared in
+-- the radar's caught list, and none was ever a cheap acquisition. Reverting to
+-- form was being scored as a "breakout".
+--
+-- Salary measures what the spec actually means by a pre-breakout candidate:
+-- someone whose projected value has moved while his PRICE has not.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- WHAT A NULL SALARY MEANS — verified, not assumed
+-- ═══════════════════════════════════════════════════════════════════════════
+-- src_contracts holds ~600 players per season (12 franchises x ~50) while
+-- src_weekly carries ~1,700, so roughly a third of scoring player-weeks have no
+-- contract row. That gap is NOT a data defect — it is the fringe of the roster:
+--
+--   2024 WR/TE/RB/QB, weeks 5-17:
+--     has salary row : 2,929 player-weeks, avg 10.98 UPS points
+--     NO salary row  : 1,419 player-weeks, avg  2.73 UPS points
+--
+-- A 4x scoring gap, spread evenly across all 13 franchise ids — so these are
+-- minimum-cost / recently-added / deep-bench players, not a franchise-specific
+-- extract failure. Treating an absent contract row as CHEAP is therefore
+-- empirically supported rather than a fail-open convenience.
+--
+-- Still stored as NULL rather than 0: "no contract row" and "a contract worth
+-- zero" are different claims, and the consumer should decide. The radar
+-- COALESCEs to 0 deliberately and says so.
+ALTER TABLE model_player_week_features ADD COLUMN mfl_salary INTEGER;
+
+-- ⚠️ DDL ONLY. The backfill lives in
+-- pipelines/etl/scripts/backfill_feature_salary.py, NOT here.
+--
+-- The first version of this migration did the backfill inline as a correlated
+-- subquery UPDATE over all 245,000 feature rows. D1 killed it:
+--     "D1 DB exceeded its CPU time limit and was reset"
+-- and because the statements share a transaction, the ALTER rolled back with
+-- it — the migration reported an error but left NO column behind, which is
+-- easy to misread as "it partly worked".
+--
+-- Lesson worth keeping: D1 has a per-invocation CPU budget, so a bulk UPDATE
+-- touching hundreds of thousands of rows must be chunked through the D1Writer
+-- path (which batches and retries) rather than expressed as one statement.

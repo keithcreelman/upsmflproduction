@@ -187,7 +187,7 @@ def load_season(season: int, weeks):
             " f.d_route_pct_l3, f.d_tgt_share_l3, f.d_snap_pct_l3,"
             " f.d_depth_rank, f.depth_rank, f.routes_l3, f.routes_std,"
             " f.routes_l1, f.targets_l1, f.targets_l3,"
-            " f.ups_ppg_l3, f.ups_ppg_std, s.score"
+            " f.ups_ppg_l3, f.ups_ppg_std, f.mfl_salary, s.score"
             " FROM model_player_week_features f"
             " JOIN ff_player_ids p ON p.gsis_id = f.gsis_id"
             " JOIN src_weekly s ON s.player_id = CAST(p.mfl_id AS INTEGER)"
@@ -211,7 +211,7 @@ def season_labels(rows, elite_rank=None, est_rank=None):
     for r in rows:
         by_week[r["week"]].append(r)
 
-    elite, established = set(), {}
+    elite, established, salary_cut = set(), {}, {}
     for wk, rs in by_week.items():
         for pos in POSITIONS:
             p = [x for x in rs if x["mfl_pos"] == pos]
@@ -222,6 +222,12 @@ def season_labels(rows, elite_rank=None, est_rank=None):
             ppg = sorted((_f(x["ups_ppg_std"], -1) for x in p), reverse=True)
             established[(pos, wk)] = (ppg[est_rank - 1]
                                       if len(ppg) >= est_rank else -1)
+            # Cost cutoff: the position's est_rank-th HIGHEST salary. At or
+            # below it he is still cheap. NULL salary -> 0 = cheapest, which the
+            # data supports (no contract row averages 2.73 UPS vs 10.98).
+            sal = sorted((_f(x.get("mfl_salary"), 0.0) for x in p), reverse=True)
+            salary_cut[(pos, wk)] = (sal[est_rank - 1]
+                                     if len(sal) >= est_rank else 1e12)
 
     first_elite = {}
     for g, wk in sorted(elite, key=lambda t: t[1]):
@@ -234,10 +240,31 @@ def season_labels(rows, elite_rank=None, est_rank=None):
             continue
         if _f(r["ups_ppg_std"], -1) < established.get((r["mfl_pos"], wk), -1):
             breakout[g] = wk
-    return by_week, established, breakout
+    return by_week, established, breakout, salary_cut
 
 
-def eligible(r, established):
+def eligible(r, established, salary_cut=None):
+    """Is he still a plausible pre-breakout candidate?
+
+    TWO WAYS TO ASK THIS, and they are not the same question:
+
+      PERFORMANCE (default) — season-to-date PPG below the position's Nth-best.
+        Cheap-by-proxy, and the proxy leaks: a known star having a poor season
+        passes, so reverting to form scores as a "breakout". Ezekiel Elliott,
+        Chris Godwin, Michael Pittman, Tony Pollard and Kirk Cousins all reached
+        the caught list this way, and none was ever a cheap add.
+
+      COST (--cheap-by salary) — MFL salary below the position's Nth-highest.
+        This is what the spec actually means: value moved, price did not.
+
+    A NULL salary counts as CHEAP, and that is measured rather than assumed —
+    player-weeks with no contract row average 2.73 UPS points against 10.98 for
+    salaried ones, spread evenly across all 13 franchises. They are the roster
+    fringe, i.e. the cheapest things you can acquire.
+    """
+    if salary_cut is not None:
+        return _f(r.get("mfl_salary"), 0.0) <= salary_cut.get(
+            (r["mfl_pos"], r["week"]), 0.0)
     return _f(r["ups_ppg_std"], -1) < established.get((r["mfl_pos"], r["week"]), -1)
 
 
@@ -371,6 +398,11 @@ def main() -> None:
     ap.add_argument("--est-rank", type=int, default=ESTABLISHED_RANK,
                     help="PPG above the position's Nth-best = already startable, "
                          "so not a breakout candidate. ARBITRARY — sweep it.")
+    ap.add_argument("--cheap-by", choices=("ppg", "salary"), default="ppg",
+                    help="How 'not yet expensive' is decided. 'ppg' uses recent "
+                         "performance as a proxy and admits star bounce-backs; "
+                         "'salary' uses actual MFL cost, which is what the spec "
+                         "means by a pre-breakout candidate.")
     ap.add_argument("--show", action="store_true",
                     help="List the actual players the production radar caught "
                          "before they broke out, with lead times.")
@@ -404,6 +436,8 @@ def main() -> None:
 
     cache = {sn: (rws,) + season_labels(rws, args.elite_rank, args.est_rank)
              for sn, rws in raw.items()}
+    # None => the performance test; a dict => the cost test.
+    use_salary = args.cheap_by == "salary"
 
     names = (("role", "role_fast", "volume", "production",
               "combined", "combined_fast", "random")
@@ -418,7 +452,8 @@ def main() -> None:
     for si, season in enumerate(seasons):
         if season not in cache:
             continue
-        rows, by_week, established, breakout = cache[season]
+        rows, by_week, established, breakout, salary_cut = cache[season]
+        scut = salary_cut if use_salary else None
         n_break += len(breakout)
 
         # ── learned radars: train on STRICTLY EARLIER seasons ──────────────
@@ -431,11 +466,12 @@ def main() -> None:
         if prior:
             pools, labels = [], []
             for p in prior:
-                prows, pw, pest, pbrk = cache[p]
+                prows, pw, pest, pbrk, pcut = cache[p]
+                pscut = pcut if use_salary else None
                 for wk in sorted(pw):
                     for pos in POSITIONS:
                         grp = [r for r in pw[wk]
-                               if r["mfl_pos"] == pos and eligible(r, pest)]
+                               if r["mfl_pos"] == pos and eligible(r, pest, pscut)]
                         if not grp:
                             continue
                         pools.append(grp)
@@ -459,7 +495,7 @@ def main() -> None:
         for wk in sorted(by_week):
             for pos in POSITIONS:
                 pool = [x for x in by_week[wk]
-                        if x["mfl_pos"] == pos and eligible(x, established)]
+                        if x["mfl_pos"] == pos and eligible(x, established, scut)]
                 if not pool:
                     continue
                 # role / combined require actual role evidence
