@@ -3,59 +3,74 @@
 
 THE QUESTION THIS ANSWERS
 =========================
-Does a role-change signal flag a player BEFORE his first elite week, earlier
-than simply watching his box score do it?
+Does a signal flag a player BEFORE his first elite week, earlier and more
+precisely than simply watching his box score do it?
 
-That is the entire premise of the system. Next-week MAE cannot test it —
-by construction it only asks "how close was the points estimate", never "how
-early did we know". Three of the inputs added on 2026-08-05 (injury, depth rank,
-role deltas) exist *only* for this question, which is why they ablated to ~zero
-on point accuracy and why that was not evidence against them.
+That is the premise of the whole system. Next-week MAE cannot test it — by
+construction it asks "how close was the points estimate", never "how early did
+we know". Three of the inputs added on 2026-08-05 (injury, depth rank, role
+deltas) exist ONLY for this question, which is why they ablated to ~zero on
+point accuracy and why that was not evidence against them.
 
 THREE DEFINITIONS THAT DECIDE EVERYTHING
 ========================================
-Get these wrong and the numbers are meaningless, so they are stated explicitly
-rather than buried in code.
-
-1. ELITE WEEK — a top-12 finish at the player's MFL position in that week,
-   scored on realized UPS points. Top-12 because UPS starts roughly a dozen at
-   the skill positions, so it is the threshold at which a player is genuinely
-   startable rather than merely useful.
+1. ELITE WEEK — top-12 finish at the player's MFL position that week, on
+   realized UPS points. Top-12 because UPS starts roughly a dozen at the skill
+   positions, so it is where a player becomes genuinely startable.
 
 2. BREAKOUT — a player's FIRST elite week in a season, AND he must not already
-   have been performing like a starter going into it. Without that second
-   clause, every good week by an established WR1 counts as a "breakout" and the
-   radar gets credit for noticing Ja'Marr Chase. Operationally: his
-   season-to-date UPS PPG entering that week must sit below his position's
-   24th-best PPG — i.e. he was not yet a startable asset, and therefore was
-   plausibly cheap.
+   have been performing like a starter going into it. Without that clause every
+   good week by an established WR1 counts and the radar gets credit for noticing
+   Ja'Marr Chase. Operationally: season-to-date UPS PPG entering that week below
+   his position's 24th-best — not yet a startable asset, therefore plausibly
+   cheap.
 
-3. FLAG — each radar gets the SAME BUDGET: the top K players per
-   (season, week, position), drawn only from the not-yet-established pool. Equal
-   budget is what makes the comparison fair; a radar that flags everybody would
-   otherwise win on recall by doing nothing. K=5 mirrors a realistic weekly
-   waiver shortlist and the spec's "hit rate among top five".
+3. FLAG — each radar gets the SAME BUDGET: top K per (season, week, position),
+   drawn only from the not-yet-established pool. Equal budget is what makes the
+   comparison fair.
 
-THE RADARS COMPARED
-===================
-  role        the thesis — d_route_pct_l3, d_tgt_share_l3, d_snap_pct_l3 and
-              depth-rank promotion. Opportunity moving before production does.
-  production  the null hypothesis — recent PPG minus season PPG. This is what
-              a person scanning a box score does, and it is the thing role
-              signals must beat to justify their existence.
-  volume      raw recent opportunity (routes_l3), no change term. Separates
-              "he is playing a lot" from "he is playing MORE than he was".
-  random      a floor. Any radar that cannot beat shuffled noise at equal budget
-              is measuring nothing, and it is cheap to find that out.
+READ PRECISION, NOT RECALL
+==========================
+Flags ACCUMULATE across a season, so over 13 weeks even random selection
+eventually shortlists a large share of the pool and earns recall for free. The
+budget is equal PER WEEK; the distinct-player count is not. Precision — of the
+distinct players shortlisted, the share that broke out AFTER being flagged — is
+budget-fair and maps to the real decision: a roster spot spent.
+
+THE RADARS
+==========
+  role        d_route_pct_l3, d_tgt_share_l3, d_snap_pct_l3, depth promotion.
+              The thesis: opportunity moves before production does.
+  volume      recent route volume. Level, not change. "He is playing a lot."
+  production  recent PPG minus season PPG. The null hypothesis — what a person
+              scanning a box score does.
+  combined    role + volume, hand-weighted after rank-normalising each. Tests
+              whether the two are complementary INDEPENDENT of any learning.
+  learned     a gradient-boosted classifier over role AND volume AND production
+              features, trained on strictly earlier seasons. This is the
+              combined radar done properly, and it is spec Model E (elite-week
+              classification) pointed at the radar problem.
+  random      the floor. A radar that cannot beat shuffled noise on precision at
+              equal budget is measuring nothing.
+
+⚠️ NULL-DELTA HANDLING — this materially changed the answer.
+An earlier version scored a missing delta as 0.0, which parked players with NO
+role-change evidence in the MIDDLE of the ranking rather than excluding them.
+Since deltas are only 66-77% populated, that handicapped the role radar
+specifically — it was the only radar depending on them. A player with no delta
+data is now INELIGIBLE for the role and combined radars (we have no evidence
+about his role, which is not the same as evidence of no change), and the learned
+model receives NaN, which gradient boosting handles natively.
 
 EVERY FLAG IS AS-OF CLEAN. Radar scores come from model_player_week_features,
-which is built under the leakage guard, so a flag in week W uses only weeks < W.
-Elite weeks and breakouts are LABELS computed from realized results — used to
-score the radars afterwards, never to produce a flag.
+built under the leakage guard, so a flag in week W uses only weeks < W. Elite
+weeks and breakouts are LABELS from realized results, used to score the radars
+afterwards and never to produce a flag. The learned radar trains only on
+STRICTLY EARLIER SEASONS.
 
 Usage:
   python3 pipelines/etl/scripts/breakout_radar_leadtime.py --seasons 2021-2025
-  python3 pipelines/etl/scripts/breakout_radar_leadtime.py --seasons 2024 --topk 10
+  python3 pipelines/etl/scripts/breakout_radar_leadtime.py --seasons 2021-2025 --topk 10
 """
 from __future__ import annotations
 import argparse
@@ -68,9 +83,18 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.asof import AsOfContext  # noqa: E402
 
-ELITE_RANK = 12          # top-N at the position = an "elite" week
-ESTABLISHED_RANK = 24    # already startable => not a breakout candidate
+ELITE_RANK = 12
+ESTABLISHED_RANK = 24
 POSITIONS = ("WR", "TE", "RB", "QB")
+
+# Features for the learned radar: role CHANGE, opportunity LEVEL, and recent
+# production together — so it can discover the combination rather than being
+# told one.
+LEARN_FEATURES = [
+    "d_route_pct_l3", "d_tgt_share_l3", "d_snap_pct_l3", "d_depth_rank",
+    "routes_l3", "routes_std", "depth_rank",
+    "ups_ppg_l3", "ups_ppg_std",
+]
 
 RNG = np.random.default_rng(0)
 
@@ -84,7 +108,7 @@ def parse_seasons(s: str) -> list[int]:
             out += list(range(int(a), int(b) + 1))
         elif part:
             out.append(int(part))
-    return out
+    return sorted(set(out))
 
 
 def _f(v, default=0.0):
@@ -95,8 +119,16 @@ def _f(v, default=0.0):
     return default if x != x else x
 
 
+def _fn(v):
+    """float or None — preserves 'unknown' instead of collapsing it to zero."""
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return None if x != x else x
+
+
 def load_season(season: int, weeks):
-    """Feature rows + realized score for every player-week."""
     ctx = AsOfContext(season=season, week=1)
     poslist = ",".join("'" + p + "'" for p in POSITIONS)
     rows = []
@@ -117,34 +149,13 @@ def load_season(season: int, weeks):
     return rows
 
 
-def radar_scores(r):
-    """Each radar's score for one player-week. Higher = more interesting."""
-    # ROLE: opportunity moving. Depth promotion is negative when promoted
-    # (rank 1 is the starter), so it is negated to point the same way.
-    role = (_f(r.get("d_route_pct_l3")) * 3.0
-            + _f(r.get("d_tgt_share_l3")) * 3.0
-            + _f(r.get("d_snap_pct_l3")) * 1.0
-            - _f(r.get("d_depth_rank")) * 0.15)
-    # PRODUCTION: the box score already moved. The null hypothesis.
-    prod = _f(r.get("ups_ppg_l3")) - _f(r.get("ups_ppg_std"))
-    # VOLUME: level, not change.
-    vol = _f(r.get("routes_l3"))
-    return {"role": role, "production": prod, "volume": vol,
-            "random": float(RNG.random())}
-
-
-def analyse(season: int, weeks, topk: int):
-    rows = load_season(season, weeks)
-    if not rows:
-        return None
-
+def season_labels(rows):
+    """elite weeks, per-position 'established' cutoffs, and breakout weeks."""
     by_week = defaultdict(list)
     for r in rows:
         by_week[r["week"]].append(r)
 
-    # ── labels: elite weeks, and the established threshold per position ────
-    elite = set()                      # (gsis, week)
-    established = {}                   # (pos, week) -> PPG cutoff
+    elite, established = set(), {}
     for wk, rs in by_week.items():
         for pos in POSITIONS:
             p = [x for x in rs if x["mfl_pos"] == pos]
@@ -156,63 +167,153 @@ def analyse(season: int, weeks, topk: int):
             established[(pos, wk)] = (ppg[ESTABLISHED_RANK - 1]
                                       if len(ppg) >= ESTABLISHED_RANK else -1)
 
-    # ── breakouts: FIRST elite week for a not-yet-established player ───────
     first_elite = {}
-    for (g, wk) in sorted(elite, key=lambda t: t[1]):
+    for g, wk in sorted(elite, key=lambda t: t[1]):
         first_elite.setdefault(g, wk)
+
     breakout = {}
     for r in rows:
         g, wk = r["gsis_id"], r["week"]
         if first_elite.get(g) != wk:
             continue
-        cut = established.get((r["mfl_pos"], wk), -1)
-        if _f(r["ups_ppg_std"], -1) < cut:      # not already startable
+        if _f(r["ups_ppg_std"], -1) < established.get((r["mfl_pos"], wk), -1):
             breakout[g] = wk
+    return by_week, established, breakout
 
-    # ── flags: equal budget per radar ─────────────────────────────────────
-    names = ("role", "production", "volume", "random")
-    first_flag = {n: {} for n in names}
-    flagged_any = {n: set() for n in names}
-    for wk in sorted(by_week):
-        for pos in POSITIONS:
-            pool = [x for x in by_week[wk] if x["mfl_pos"] == pos
-                    and _f(x["ups_ppg_std"], -1) < established.get((pos, wk), -1)]
-            if not pool:
-                continue
-            scored = [(x, radar_scores(x)) for x in pool]
-            for n in names:
-                for x, sc in sorted(scored, key=lambda t: -t[1][n])[:topk]:
-                    g = x["gsis_id"]
-                    flagged_any[n].add(g)
-                    first_flag[n].setdefault(g, wk)
-    return breakout, first_flag, flagged_any, len(rows)
+
+def eligible(r, established):
+    return _f(r["ups_ppg_std"], -1) < established.get((r["mfl_pos"], r["week"]), -1)
+
+
+def has_role_evidence(r):
+    """A role radar needs at least one observed role-change delta.
+
+    Missing deltas are NOT zeros. Scoring them 0.0 parks a player with no
+    evidence in the middle of the ranking, which is how the first version of
+    this script quietly handicapped the role radar — deltas are only 66-77%
+    populated, and role was the only radar that depended on them.
+    """
+    return any(_fn(r.get(k)) is not None
+               for k in ("d_route_pct_l3", "d_tgt_share_l3", "d_snap_pct_l3"))
+
+
+def role_score(r):
+    return (_f(r.get("d_route_pct_l3")) * 3.0
+            + _f(r.get("d_tgt_share_l3")) * 3.0
+            + _f(r.get("d_snap_pct_l3")) * 1.0
+            - _f(r.get("d_depth_rank")) * 0.15)
+
+
+def _rank01(vals):
+    """Rank-normalise to [0,1] so two differently-scaled scores can be added."""
+    n = len(vals)
+    if n <= 1:
+        return [0.5] * n
+    order = sorted(range(n), key=lambda i: vals[i])
+    out = [0.0] * n
+    for pos, i in enumerate(order):
+        out[i] = pos / (n - 1)
+    return out
+
+
+def learn_matrix(rows):
+    return np.array([[_fn(r.get(c)) if _fn(r.get(c)) is not None else np.nan
+                      for c in LEARN_FEATURES] for r in rows], dtype=float)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seasons", default="2021-2025")
     ap.add_argument("--weeks", default="5-17")
-    ap.add_argument("--topk", type=int, default=5,
-                    help="Flags per position per week, per radar. Equal budget "
-                         "is what makes the radars comparable.")
+    ap.add_argument("--topk", type=int, default=5)
     args = ap.parse_args()
     a, b = (args.weeks.split("-") + [args.weeks])[:2]
     weeks = range(int(a), int(b) + 1)
+    seasons = parse_seasons(args.seasons)
 
-    names = ("role", "production", "volume", "random")
+    from sklearn.ensemble import HistGradientBoostingClassifier
+
+    # Load everything once; the learned radar needs prior seasons available.
+    cache = {}
+    for s in seasons:
+        rows = load_season(s, weeks)
+        if rows:
+            cache[s] = (rows,) + season_labels(rows)
+
+    names = ("role", "volume", "production", "combined", "learned", "random")
     tot = {n: defaultdict(int) for n in names}
-    lead_sum = {n: [] for n in names}
-    n_break = 0
+    lead = {n: [] for n in names}
     n_flagged = {n: 0 for n in names}
+    n_break = 0
+    skipped_learned = []
 
-    for season in parse_seasons(args.seasons):
-        got = analyse(season, weeks, args.topk)
-        if not got:
+    for si, season in enumerate(seasons):
+        if season not in cache:
             continue
-        breakout, first_flag, flagged_any, nrows = got
+        rows, by_week, established, breakout = cache[season]
         n_break += len(breakout)
+
+        # ── learned radar: train on STRICTLY EARLIER seasons ───────────────
+        clf = None
+        prior = [p for p in seasons[:si] if p in cache]
+        if prior:
+            Xtr, ytr = [], []
+            for p in prior:
+                prows, _pw, pest, pbrk = cache[p]
+                for r in prows:
+                    if not eligible(r, pest):
+                        continue
+                    bw = pbrk.get(r["gsis_id"])
+                    # Label: does he break out LATER this season? That is
+                    # exactly what a radar is meant to predict.
+                    ytr.append(1 if (bw is not None and bw > r["week"]) else 0)
+                    Xtr.append(r)
+            if Xtr and 0 < sum(ytr) < len(ytr):
+                clf = HistGradientBoostingClassifier(
+                    max_iter=250, learning_rate=0.06, max_depth=5,
+                    min_samples_leaf=40, random_state=0)
+                clf.fit(learn_matrix(Xtr), np.array(ytr))
+        if clf is None:
+            skipped_learned.append(season)
+
+        first_flag = {n: {} for n in names}
+        seen = {n: set() for n in names}
+        for wk in sorted(by_week):
+            for pos in POSITIONS:
+                pool = [x for x in by_week[wk]
+                        if x["mfl_pos"] == pos and eligible(x, established)]
+                if not pool:
+                    continue
+                # role / combined require actual role evidence
+                rpool = [x for x in pool if has_role_evidence(x)]
+
+                scores = {
+                    "role": [(x, role_score(x)) for x in rpool],
+                    "volume": [(x, _f(x.get("routes_l3"))) for x in pool],
+                    "production": [(x, _f(x.get("ups_ppg_l3")) - _f(x.get("ups_ppg_std")))
+                                   for x in pool],
+                    "random": [(x, float(RNG.random())) for x in pool],
+                }
+                if rpool:
+                    rr = _rank01([role_score(x) for x in rpool])
+                    vv = _rank01([_f(x.get("routes_l3")) for x in rpool])
+                    scores["combined"] = [(x, rr[i] + vv[i])
+                                          for i, x in enumerate(rpool)]
+                else:
+                    scores["combined"] = []
+                if clf is not None:
+                    p = clf.predict_proba(learn_matrix(pool))[:, 1]
+                    scores["learned"] = list(zip(pool, p))
+                else:
+                    scores["learned"] = []
+
+                for n in names:
+                    for x, _sc in sorted(scores[n], key=lambda t: -t[1])[:args.topk]:
+                        seen[n].add(x["gsis_id"])
+                        first_flag[n].setdefault(x["gsis_id"], wk)
+
         for n in names:
-            n_flagged[n] += len(flagged_any[n])
+            n_flagged[n] += len(seen[n])
             for g, bw in breakout.items():
                 fw = first_flag[n].get(g)
                 if fw is None:
@@ -220,50 +321,43 @@ def main() -> None:
                 elif fw >= bw:
                     tot[n]["after"] += 1
                 else:
-                    lead = bw - fw
-                    lead_sum[n].append(lead)
-                    if lead >= 5:
-                        tot[n]["5plus"] += 1
-                    elif lead >= 2:
-                        tot[n]["2to4"] += 1
-                    else:
-                        tot[n]["1wk"] += 1
-        print(f"[{season}] {len(breakout)} breakouts from {nrows} player-weeks",
+                    lead[n].append(bw - fw)
+                    tot[n]["5plus" if bw - fw >= 5 else
+                           "2to4" if bw - fw >= 2 else "1wk"] += 1
+        print(f"[{season}] {len(breakout)} breakouts"
+              + ("" if clf is not None else "  (learned: no prior season, skipped)"),
               file=sys.stderr, flush=True)
 
     if not n_break:
         sys.exit("no breakouts identified — check the definitions")
 
-    print(f"\nBREAKOUT RADAR LEAD TIME — {n_break} breakouts, "
-          f"top-{args.topk} flags per position-week\n")
-    hdr = (f"{'radar':>12} {'5+ wk':>7} {'2-4 wk':>7} {'1 wk':>6} "
-           f"{'after':>7} {'never':>7} {'RECALL':>8} {'players':>8} "
-           f"{'PRECISION':>10} {'mean lead':>10}")
+    print(f"\nBREAKOUT RADAR — {n_break} breakouts, top-{args.topk} per "
+          f"position-week, seasons {seasons[0]}-{seasons[-1]}\n")
+    hdr = (f"{'radar':>12} {'5+ wk':>7} {'2-4 wk':>7} {'1 wk':>6} {'after':>7} "
+           f"{'never':>7} {'recall':>7} {'players':>8} {'PRECISION':>10} {'lift':>6}")
     print(hdr)
     print("-" * len(hdr))
-    for n in names:
+    rand_prec = (tot["random"]["5plus"] + tot["random"]["2to4"]
+                 + tot["random"]["1wk"]) / max(n_flagged["random"], 1)
+    ordered = sorted(names, key=lambda n: -((tot[n]["5plus"] + tot[n]["2to4"]
+                                             + tot[n]["1wk"])
+                                            / max(n_flagged[n], 1)))
+    for n in ordered:
         t = tot[n]
         early = t["5plus"] + t["2to4"] + t["1wk"]
-        lead = float(np.mean(lead_sum[n])) if lead_sum[n] else 0.0
-        # PRECISION is the decision-relevant number: of the distinct players
-        # this radar ever put on the shortlist, what share went on to break out
-        # AFTER being flagged? That is the roster spot you actually spent.
         prec = early / max(n_flagged[n], 1)
-        print(f"{n:>12} {t['5plus']:>7} {t['2to4']:>7} {t['1wk']:>6} "
-              f"{t['after']:>7} {t['never']:>7} {100*early/n_break:>7.1f}% "
-              f"{n_flagged[n]:>8} {100*prec:>9.1f}% {lead:>10.2f}")
+        print(f"{n:>12} {t['5plus']:>7} {t['2to4']:>7} {t['1wk']:>6} {t['after']:>7} "
+              f"{t['never']:>7} {100*early/n_break:>6.1f}% {n_flagged[n]:>8} "
+              f"{100*prec:>9.1f}% {prec/max(rand_prec,1e-9):>5.2f}x")
 
-    print("\n⚠️ READ PRECISION, NOT RECALL.")
-    print("RECALL (share of breakouts caught early) is CONFOUNDED BY HOW MANY")
-    print("DISTINCT PLAYERS A RADAR FLAGS. Flags accumulate over the season, so")
-    print("over 13 weeks even random selection eventually shortlists a large")
-    print("fraction of the pool and racks up recall for free — the top-K budget")
-    print("is equal PER WEEK, but the distinct-player count is not.")
-    print("\nPRECISION = of the distinct players a radar shortlisted, the share")
-    print("that broke out AFTER being flagged. That is budget-fair, and it is")
-    print("the quantity that maps to a real decision: a roster spot spent.")
-    print("\n'random' is the floor. A radar that cannot beat shuffled noise on")
-    print("PRECISION is measuring nothing, whatever its recall says.")
+    if skipped_learned:
+        print(f"\nNOTE: 'learned' had no prior season for {skipped_learned} and "
+              f"produced no flags there, so its player count is lower by "
+              f"construction — precision stays comparable, recall does not.")
+    print("\nPRECISION = of the distinct players shortlisted, the share that")
+    print("broke out AFTER being flagged. Budget-fair; recall is not, because")
+    print("flags accumulate and a radar that names more players earns recall")
+    print("for free. 'lift' is precision relative to random.")
 
 
 if __name__ == "__main__":
