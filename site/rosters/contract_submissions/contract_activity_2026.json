@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-08-03 03:15:49",
+    "generated_at": "2026-08-05 00:19:26",
     "source": "contract-activity-log",
-    "count": 106,
+    "count": 107,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "34f6ddfbdc69db33eaaa67eb",
+      "submission_id": "34f6ddfbdc69db33eaaa67eb",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "player_id": "12801",
+      "player_name": "Hill, Tyreek",
+      "position": "WR",
+      "salary": 4000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA-FL",
+      "contract_info": "CL 3|TCV 6K|AAV 2K|Y1-4K, Y2-1K, Y3-1K|GTD: 4.5K",
+      "tcv": 6000,
+      "aav": 2000,
+      "guaranteed": 4500,
+      "submitted_at_utc": "2026-08-05T00:19:02.682Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1534355024484765819",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "849729b6b2aa41e4cd0776ee",
       "submission_id": "849729b6b2aa41e4cd0776ee",
