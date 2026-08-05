@@ -44,6 +44,12 @@ FAMILIES = {
     "deltas":     ("d_route", "d_tgt", "d_routes", "d_snap"),
     "lagged_ups": ("ups_ppg", "ups_last"),
     "vegas":      ("vegas_",),
+    # Added 2026-08-05 (migration 0121). These are the four inputs Keith asked
+    # for; ablating them is how we find out whether they earned their place
+    # rather than assuming they did because they sound informative.
+    "injury":     ("inj_",),
+    "depth":      ("depth_rank", "d_depth_rank"),
+    "matchup":    ("opp_def_",),
 }
 
 

@@ -61,7 +61,43 @@ FEATURES = [
     "d_route_pct_l3", "d_tgt_share_l3", "d_routes_l3", "d_snap_pct_l3",
     "team_dropbacks_l4", "team_targets_l4",
     "vegas_spread", "vegas_total", "vegas_implied",
+    # availability / role competition / matchup (migration 0121)
+    "inj_report_status", "inj_practice_status", "inj_weeks_listed_l4",
+    "depth_rank", "depth_rank_prev", "d_depth_rank",
+    "opp_def_adj_ratio", "opp_def_rank",
 ]
+
+# Two feature columns are TEXT and need an ORDINAL encoding, because their
+# categories are genuinely ordered by severity rather than merely different.
+#
+# NULL is mapped to 0 = "not on the report", which is the correct reading: a
+# player who never appears on the injury report is healthier than one listed as
+# Questionable. This is the one place a NULL legitimately means something rather
+# than being missing data — see the manifest note on
+# nfl_player_injuries_weekly. Anything unrecognised also maps to 0 rather than
+# raising, but the loader reports how many it saw so a new upstream category
+# cannot slip past as "healthy".
+INJ_REPORT_ORD = {None: 0, "Questionable": 1, "Doubtful": 2, "Out": 3}
+INJ_PRACTICE_ORD = {
+    None: 0,
+    "Full Participation in Practice": 1,
+    "Limited Participation in Practice": 2,
+    "Did Not Participate In Practice": 3,
+}
+ORDINAL = {"inj_report_status": INJ_REPORT_ORD,
+           "inj_practice_status": INJ_PRACTICE_ORD}
+_UNMAPPED: dict = {}
+
+
+def encode(col, v):
+    """Feature value -> float, applying the ordinal maps where relevant."""
+    if col in ORDINAL:
+        m = ORDINAL[col]
+        if v in m:
+            return float(m[v])
+        _UNMAPPED[(col, v)] = _UNMAPPED.get((col, v), 0) + 1
+        return 0.0
+    return None if v is None else float(v)
 
 
 def load(season: int, weeks=range(5, 18), positions=("WR", "TE")):
@@ -85,7 +121,7 @@ def load(season: int, weeks=range(5, 18), positions=("WR", "TE")):
             "   AND f.routes_std > 0"
             "   AND s.score IS NOT NULL")
         for r in rows:
-            X.append([None if r.get(c) is None else float(r[c]) for c in FEATURES])
+            X.append([encode(c, r.get(c)) for c in FEATURES])
             y.append(float(r["target"]))
             meta.append((r.get("player_name"), r.get("mfl_pos"), wk,
                          r.get("ups_ppg_std")))

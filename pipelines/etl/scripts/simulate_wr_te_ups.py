@@ -120,7 +120,7 @@ def load_rows(season: int, weeks, positions):
             f"   AND f.mfl_pos IN ({poslist}) AND f.routes_std > 0"
             "    AND s.score IS NOT NULL")
         for r in rows:
-            X.append([None if r.get(c) is None else float(r[c]) for c in P.FEATURES])
+            X.append([P.encode(c, r.get(c)) for c in P.FEATURES])
             y.append(float(r["target"]))
             meta.append({
                 "gsis": r["gsis_id"], "week": wk, "pos": r.get("mfl_pos"),
