@@ -5292,6 +5292,14 @@ export default {
       if (!commishApiKey) {
         console.log("[scheduled hourly] deadline-reminder sweep skipped — no COMMISH_API_KEY");
       } else {
+        // Unconditional dispatch marker (2026-08-05). A live `wrangler tail` of the
+        // 18:05Z hourly cron showed the drop-penalty log five lines above this block
+        // and the trade-sentinel log after it, but NO outbound POST to
+        // /admin/deadline-reminders/run and NEITHER of this if/else's log lines —
+        // i.e. the sweep produced no observable trace at all. That is unexplained by
+        // static reading, so log BEFORE the fetch: the next hourly cron then proves
+        // whether this block is reached, rather than leaving us to infer it.
+        console.log(`[scheduled hourly] deadline-reminders dispatching season=${season} league=${leagueId}`);
         const reminderUrl = `${origin}/admin/deadline-reminders/run?APIKEY=${encodeURIComponent(commishApiKey)}&L=${leagueId}&YEAR=${season}`;
         ctx.waitUntil(
           fetch(reminderUrl, {
@@ -5303,7 +5311,20 @@ export default {
               const data = await r.json().catch(() => ({}));
               const posted = Array.isArray(data?.posted) ? data.posted.length : 0;
               const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
-              if (posted) console.log(`[scheduled hourly] deadline-reminders: posted=${posted} skipped=${skipped}`);
+              // ALWAYS log the outcome (2026-08-05). This used to log only when
+              // posted > 0, so an endpoint returning 500 every hour — or silently
+              // finding nothing due because of the exact-date bug — was
+              // indistinguishable from "nothing to send." That silence is why a
+              // whole season of reminders went missing without anyone noticing.
+              if (!r.ok || data?.ok === false) {
+                console.error(
+                  `[scheduled hourly] deadline-reminders FAILED http=${r.status} ` +
+                  `error=${String(data?.error || "").slice(0, 200)} ` +
+                  `storage=${JSON.stringify(data?.storage || {}).slice(0, 200)}`
+                );
+              } else {
+                console.log(`[scheduled hourly] deadline-reminders ok: posted=${posted} skipped=${skipped} due=${Array.isArray(data?.results) ? data.results.length : 0}`);
+              }
             })
             .catch((e) => console.error(`[scheduled hourly] deadline-reminders failed: ${e && e.message}`))
         );
@@ -29567,16 +29588,36 @@ export default {
         }));
       };
 
-      const buildDeadlineReminderKey = ({ season, eventKey, reminderCode, deliveryTarget }) =>
-        [safeStr(season), safeStr(eventKey), safeStr(reminderCode), safeStr(deliveryTarget || "primary")].join("|");
+      // The dedupe key INCLUDES the deadline date (added 2026-08-05).
+      //
+      // It used to be (season|event_key|reminder_code|delivery_target) only. That is
+      // correct for a hardcoded calendar but silently breaks an EDITABLE one: once
+      // "1 week before the contract deadline" had fired, moving the deadline left the
+      // key identical, so the reminder for the NEW date was suppressed forever as
+      // "already sent." Keying on the deadline date means moving a date is a genuinely
+      // new reminder, while re-running the sweep against an unchanged date still
+      // dedupes exactly as before.
+      const buildDeadlineReminderKey = ({ season, eventKey, reminderCode, deliveryTarget, deadlineDateEt }) =>
+        [
+          safeStr(season),
+          safeStr(eventKey),
+          safeStr(reminderCode),
+          safeStr(deliveryTarget || "primary"),
+          safeStr(deadlineDateEt),
+        ].join("|");
 
+      // Recompute from the row's own fields rather than trusting row.reminder_key —
+      // rows written before 2026-08-05 carry the old 4-part key, and preferring that
+      // literal would make a moved date look already-sent. Historic rows still dedupe
+      // correctly because they carry deadline_date_et, so the recomputed key matches
+      // whenever the date is unchanged.
       const sentDeadlineReminderKey = (row) =>
-        safeStr(row?.reminder_key) ||
         buildDeadlineReminderKey({
           season: safeStr(row?.season),
           eventKey: safeStr(row?.event_key),
           reminderCode: safeStr(row?.reminder_code),
           deliveryTarget: safeStr(row?.delivery_target || (safeInt(row?.test_flag, 0) ? "test" : "primary")),
+          deadlineDateEt: safeStr(row?.deadline_date_et),
         });
 
       const buildDueDeadlineReminders = ({
@@ -29602,13 +29643,32 @@ export default {
             const triggerDateEt = shiftPlainDateKey(event.deadline_date_et, -daysBefore);
             const sendTimeEt = safeStr(event.reminder_send_time_et || "09:00");
             const sendParts = parseEtTimeParts(sendTimeEt, 9, 0);
-            if (triggerDateEt !== targetDate) continue;
-            if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
+            const deadlineDateEt = safeStr(event.deadline_date_et);
+            // CATCH-UP (2026-08-05). This used to be `triggerDateEt !== targetDate`,
+            // i.e. a reminder could ONLY fire on its exact trigger date. One failed
+            // cron tick / GitHub read / deploy blip on that single day and the
+            // reminder was lost forever — silently, because the caller only logs
+            // when posted > 0. Verified impact: of the reminders due in 2026, exactly
+            // ONE was ever delivered (rookie_extensions_and_tags/one_week, 2026-05-14);
+            // the cut-deadline and FA-auction warnings never reached the league.
+            //
+            // Now: fire on the first tick at-or-after the trigger date, but ONLY while
+            // the deadline is still in the future. A late "1 week left" after the
+            // deadline has passed is worse than silence, so those stay dead.
+            // The reminder_key dedupe is unchanged, so catch-up can't double-send.
+            if (triggerDateEt > targetDate) continue;                     // not yet
+            const isLate = triggerDateEt < targetDate;
+            if (isLate) {
+              if (!deadlineDateEt || deadlineDateEt <= targetDate) continue; // deadline gone — drop it
+            } else if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) {
+              continue;                                                   // on-day, before send time
+            }
             const reminderKey = buildDeadlineReminderKey({
               season,
               eventKey: event.event_key,
               reminderCode,
               deliveryTarget: targetDelivery,
+              deadlineDateEt: deadlineDateEt,
             });
             if (sent.has(reminderKey)) continue;
             rows.push({
@@ -29624,6 +29684,7 @@ export default {
               trigger_date_et: triggerDateEt,
               trigger_time_et: sendTimeEt,
               reminder_key: reminderKey,
+              late_catch_up: isLate ? 1 : 0,
             });
           }
           for (const hoursBefore of event.reminder_offsets_hours || []) {
@@ -29633,6 +29694,11 @@ export default {
             const triggerDateEt = safeStr(shifted.date_key);
             const sendTimeEt = safeStr(shifted.time_et || event.reminder_send_time_et || "09:00");
             const sendParts = parseEtTimeParts(sendTimeEt, 9, 0);
+            // NO catch-up for hour-based offsets, deliberately (asymmetric with the
+            // day-based branch above). An hour-offset reminder IS its timing — a "1
+            // hour left" alert delivered hours late actively misinforms, and the
+            // hourly cron means it either lands in its window or it is meaningless.
+            // Day-based reminders degrade gracefully when late; these do not.
             if (triggerDateEt !== targetDate) continue;
             if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
             const reminderKey = buildDeadlineReminderKey({
@@ -29640,6 +29706,7 @@ export default {
               eventKey: event.event_key,
               reminderCode,
               deliveryTarget: targetDelivery,
+              deadlineDateEt: safeStr(event.deadline_date_et),
             });
             if (sent.has(reminderKey)) continue;
             rows.push({
@@ -42767,6 +42834,7 @@ export default {
               eventKey: safeStr(selectedEvent.event_key),
               reminderCode,
               deliveryTarget: "test",
+              deadlineDateEt: safeStr(selectedEvent.deadline_date_et),
             }),
           };
         }
