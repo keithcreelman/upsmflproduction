@@ -57,6 +57,21 @@ from lib.d1_io import D1Writer  # noqa: E402
 COLS = ["season", "week", "team", "pos_group", "games", "pts_allowed_pg",
         "adj_ratio", "rank_of_32"]
 POSITIONS = ("QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB")
+
+# ⚠️ src_weekly.pos_group LABELS DRIFT BETWEEN SEASONS. 2023 and earlier write
+# 'DT+DE' and 'CB+S' where 2024+ write 'DL' and 'DB'. A plain
+# `pos_group IN ('DL','LB','DB')` therefore returns LB-ONLY rows for the older
+# seasons — silently, with no error and a plausible-looking result set.
+#
+# This is Appendix C item C20 in the audit. It was documented and then walked
+# into anyway on the first build of this table: 2016-2023 came out with only
+# SEVEN position groups (LB/PK/PN/QB/RB/TE/WR) and no DL or DB matchup ratings
+# at all, while 2024-2025 had all nine. Normalising here rather than trusting
+# the caller to remember.
+POS_NORM = {
+    "DT+DE": "DL", "DT": "DL", "DE": "DL",
+    "CB+S": "DB", "CB": "DB", "S": "DB",
+}
 SHRINK_K = 3.0          # games of neutral prior mixed into every rating
 CHUNK = 800
 
@@ -102,6 +117,7 @@ def build_week(season: int, week: int) -> list[tuple]:
     produced = defaultdict(lambda: defaultdict(list))
     for r in rows:
         d, o, p, pts = r["def_team"], r["off_team"], r["pos"], float(r["pts"] or 0)
+        p = POS_NORM.get(p, p)          # see C20 note above
         if p not in POSITIONS:
             continue
         allowed[d][p].append((pts, o))
