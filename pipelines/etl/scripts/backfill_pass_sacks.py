@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Targeted backfill of pass_sacks, pass_sack_yds, def_fr, def_tackles_total.
+"""Targeted backfill of pass_sacks, pass_sack_yds, def_fr, and the passing
+air-yards/YAC pair.
 
-These four columns either had silent-NULL aliases (def_fr was missing
-'fumble_recovery_opp', pass_sacks/pass_sack_yds didn't include the current
-'sacks_suffered'/'sack_yards_lost' names) or were never aliased at all
-(def_tackles_total — derived from solo + ast, since the nflverse 'tackles'
-column has been renamed/dropped).
+These columns had silent-NULL aliases (def_fr was missing 'fumble_recovery_opp',
+pass_sacks/pass_sack_yds didn't include the current 'sacks_suffered'/
+'sack_yards_lost' names).
+
+⚠️ This script used to ALSO write def_tackles_total, derived as solo +
+def_tackles_with_assist. That derivation was wrong (see the tackle-semantics
+comment in fetch_nflverse_weekly.py) and, because D1Writer overwrites
+unconditionally, it would have silently reverted the corrected tackle columns on
+its next run. def_tackles_total was removed from this script on 2026-08-04;
+fetch_nflverse_weekly.py is now the sole owner of all tackle columns.
 
 Pulls ONLY these columns from nflverse load_player_stats — avoids the wide
 55-col upsert that chews through D1's daily write quota.
@@ -62,7 +68,7 @@ def _to_int(v):
 def fetch_rows(season: int) -> list[tuple]:
     """Pull all backfill cols for one season:
     (season, week, gsis_id, pass_sacks, pass_sack_yds, def_fr,
-     def_tackles_total, passing_air_yards, passing_yards_after_catch)
+     passing_air_yards, passing_yards_after_catch)
     """
     try:
         import nflreadpy as nfl
@@ -92,20 +98,22 @@ def fetch_rows(season: int) -> list[tuple]:
                                   "sack_yards", "passing_sack_yards"))
         fr = _to_int(_get_first(r, "fumble_recovery_opp", "def_fumble_recovery_opp",
                                  "def_fumble_recoveries", "fumble_recoveries"))
-        solo = _to_int(_get_first(r, "def_tackles_solo", "solo_tackles", "tackles_solo"))
-        ast = _to_int(_get_first(r, "def_tackles_with_assist", "assist_tackles",
-                                  "tackles_assists"))
-        # def_tackles_total = solo + ast when at least one is populated
-        if solo is not None or ast is not None:
-            total = (solo or 0) + (ast or 0)
-        else:
-            total = None
+        # NOTE (Claude 2026-08-04): this script NO LONGER writes def_tackles_total.
+        # It used to derive it as solo + def_tackles_with_assist — the same wrong
+        # binding that was just fixed in fetch_nflverse_weekly.py. Because
+        # D1Writer emits an unconditional `ON CONFLICT ... DO UPDATE SET col =
+        # excluded.col` (pipelines/etl/lib/d1_io.py), the next run of this script
+        # would have silently REVERTED def_tackles_total to the old two-way sum
+        # while def_tackles_ast stayed correct — leaving total < solo + ast, an
+        # internally inconsistent table nothing would have flagged.
+        # fetch_nflverse_weekly.py is the sole owner of the tackle columns; see
+        # the tackle-semantics comment there for TK/AS definitions.
         air_yds = _to_int(_get_first(r, "passing_air_yards"))
         yac     = _to_int(_get_first(r, "passing_yards_after_catch"))
 
-        if all(x is None for x in (sacks, yds, fr, total, air_yds, yac)):
+        if all(x is None for x in (sacks, yds, fr, air_yds, yac)):
             continue
-        rows.append((season, wk, gsis, sacks, yds, fr, total, air_yds, yac))
+        rows.append((season, wk, gsis, sacks, yds, fr, air_yds, yac))
     print(f"  {season}: {len(rows)} rows with backfill data", file=sys.stderr)
     return rows
 
@@ -114,15 +122,14 @@ def upsert_local(db: sqlite3.Connection, rows: list[tuple]) -> int:
     """Local SQLite UPDATE for all backfill cols."""
     if not rows:
         return 0
-    # Local UPDATE order: (sacks, yds, fr, total, air_yds, yac, season, week, gsis)
-    local_rows = [(r[3], r[4], r[5], r[6], r[7], r[8], r[0], r[1], r[2]) for r in rows]
+    # Local UPDATE order: (sacks, yds, fr, air_yds, yac, season, week, gsis)
+    local_rows = [(r[3], r[4], r[5], r[6], r[7], r[0], r[1], r[2]) for r in rows]
     try:
         db.executemany("""
             UPDATE nfl_player_weekly
                SET pass_sacks                = COALESCE(?, pass_sacks),
                    pass_sack_yds             = COALESCE(?, pass_sack_yds),
                    def_fr                    = COALESCE(?, def_fr),
-                   def_tackles_total         = COALESCE(?, def_tackles_total),
                    passing_air_yards         = COALESCE(?, passing_air_yards),
                    passing_yards_after_catch = COALESCE(?, passing_yards_after_catch)
              WHERE season = ? AND week = ? AND gsis_id = ?
@@ -145,7 +152,7 @@ def main() -> None:
     args = ap.parse_args()
 
     seasons = parse_seasons(args.seasons)
-    print(f"Backfilling pass_sacks/pass_sack_yds/def_fr/def_tackles_total for: {seasons}",
+    print(f"Backfilling pass_sacks/pass_sack_yds/def_fr/air_yards/yac for: {seasons}",
           file=sys.stderr)
 
     db = None
@@ -178,7 +185,7 @@ def main() -> None:
             with D1Writer(
                 table="nfl_player_weekly",
                 cols=["season", "week", "gsis_id",
-                      "pass_sacks", "pass_sack_yds", "def_fr", "def_tackles_total",
+                      "pass_sacks", "pass_sack_yds", "def_fr",
                       "passing_air_yards", "passing_yards_after_catch"],
                 pk_cols=["season", "week", "gsis_id"],
             ) as w:

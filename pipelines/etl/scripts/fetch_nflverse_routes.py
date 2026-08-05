@@ -15,8 +15,26 @@ table triples in size with rows no fantasy query would ever join. Early
 seasons (2016 verified) have NO `offense_positions` column — those players
 fall back to their `load_players()` roster position for the filter.
 
-For each (season, gsis_id), REG season only, we store SUMS ONLY (not rates)
-so the worker can re-aggregate exactly over any multi-season window:
+GRAIN (changed 2026-08-04 — Claude): the primary output is now
+`nfl_player_routes_weekly`, keyed (season, week, gsis_id). The legacy
+season-grain `nfl_player_routes` is DERIVED from it by summation
+(season_rows_from_weekly), so Σ weekly == season holds by construction and the
+two grains cannot drift. Both tables are written; /api/player-routes and the
+workbench see identical season numbers (verified on 2025: routes 98,506,
+team_dropbacks 206,150, targets 16,622, rec yards 121,833 — all exact matches
+against the pre-existing stored values).
+
+WHY WEEKLY EXISTS AT ALL — this is a LEAKAGE fix, not a convenience. The season
+table holds COMPLETED full-season totals. Reading it while generating a
+historical Week 5 prediction hands the model route volume that includes Weeks
+6-18 — i.e. it reveals, at Week 5, the season-end usage of exactly the players
+whose roles were about to expand. The season table is therefore permitted ONLY
+as a `season <= target_season - 1` prior; same-season as-of-week features must
+read the weekly table. See docs/MODEL_RESEARCH_AND_DATA_AUDIT.md §1.1.
+
+For each (season, week, gsis_id), REG season only, we store SUMS ONLY (not
+rates) so any window — week, month, season, multi-season — re-aggregates
+exactly:
 
   routes         : REG dropback plays where the player appears in
                    participation `offense_players`
@@ -74,9 +92,18 @@ CREATE TABLE IF NOT EXISTS nfl_player_routes (
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (season, gsis_id)
 );
 CREATE INDEX IF NOT EXISTS idx_nfl_player_routes_gsis ON nfl_player_routes (gsis_id);
+CREATE TABLE IF NOT EXISTS nfl_player_routes_weekly (
+  season INTEGER NOT NULL, week INTEGER NOT NULL, gsis_id TEXT NOT NULL, team TEXT,
+  routes INTEGER, team_dropbacks INTEGER, routes_tgt INTEGER, routes_rec_yds INTEGER,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (season, week, gsis_id)
+);
+CREATE INDEX IF NOT EXISTS idx_nfl_routes_weekly_gsis ON nfl_player_routes_weekly (gsis_id, season);
+CREATE INDEX IF NOT EXISTS idx_nfl_routes_weekly_sw ON nfl_player_routes_weekly (season, week);
 """
 
 COLS = ["season", "gsis_id", "routes", "team_dropbacks", "routes_tgt", "routes_rec_yds"]
+WEEKLY_COLS = ["season", "week", "gsis_id", "team",
+               "routes", "team_dropbacks", "routes_tgt", "routes_rec_yds"]
 
 # Columns a future participation release might use as a dropback/pass flag —
 # probed at runtime; today's feed has none, so we join PBP instead.
@@ -143,9 +170,13 @@ def compute_season(year: int) -> list[tuple]:
     pbp = nfl.load_pbp(seasons=[year])
     bdf = pbp.to_pandas() if hasattr(pbp, "to_pandas") else pbp
     bdf.columns = [c.lower() for c in bdf.columns]
-    bdf = bdf[["game_id", "play_id", "season_type", "qb_dropback",
+    bdf = bdf[["game_id", "play_id", "week", "season_type", "qb_dropback",
                "receiver_player_id", "receiving_yards"]]
     bdf = bdf[bdf["season_type"] == "REG"]  # REG only, all weeks kept (like nfl_player_epa)
+    # The participation frame may carry its own `week`; a plain merge would then
+    # yield week_x/week_y and silently break the weekly key. Rename PBP's copy
+    # so the column we group on is unambiguous regardless of upstream schema.
+    bdf = bdf.rename(columns={"week": "pbp_week"})
 
     if flag:
         pdf = pdf[pdf[flag].fillna(0).astype(float) == 1.0]
@@ -176,6 +207,7 @@ def compute_season(year: int) -> list[tuple]:
         else [""] * len(j)
     gids = j["game_id"].tolist()
     teams = j["possession_team"].tolist()
+    weeks = j["pbp_week"].tolist()
     recv = j["receiver_player_id"].tolist()
     ryds = j["receiving_yards"].fillna(0).tolist()
 
@@ -208,34 +240,64 @@ def compute_season(year: int) -> list[tuple]:
           f"({fell_back} via players-table fallback; {misaligned} plays misaligned/no pos list)",
           file=sys.stderr)
 
-    # ── pass 2: accumulate ──
-    routes: dict[str, int] = {}          # gsis → routes
-    tgt: dict[str, int] = {}             # gsis → targets on route plays
-    rec_yds: dict[str, float] = {}       # gsis → receiving yards on route plays
-    games_seen: dict[str, set] = {}      # gsis → {(game_id, team)} he appeared in
+    # ── pass 2: accumulate at (week, gsis) grain ──
+    # WEEKLY IS NOW THE PRIMARY GRAIN. The season table is derived by summing
+    # these rows (see season_rows_from_weekly), so the two can never drift and
+    # Σ weekly == season holds by construction — which is the acceptance gate
+    # for the leakage fix in docs/MODEL_RESEARCH_AND_DATA_AUDIT.md §1.1.
+    routes: dict[tuple, int] = {}        # (week, gsis) → routes
+    tgt: dict[tuple, int] = {}           # (week, gsis) → targets on route plays
+    rec_yds: dict[tuple, float] = {}     # (week, gsis) → receiving yards
+    gkey: dict[tuple, tuple] = {}        # (week, gsis) → (game_id, team)
 
-    for players, gid, team, rid, yds in zip(off, gids, teams, recv, ryds):
-        key = (gid, team)
+    for players, gid, team, wk, rid, yds in zip(off, gids, teams, weeks, recv, ryds):
+        try:
+            wk = int(wk)
+        except (TypeError, ValueError):
+            continue  # no week on the play → cannot place it in time; drop
         for gsis in players.split(";"):
             gsis = gsis.strip()
             if not gsis or gsis not in keep:
                 continue
-            routes[gsis] = routes.get(gsis, 0) + 1
-            games_seen.setdefault(gsis, set()).add(key)
+            k = (wk, gsis)
+            routes[k] = routes.get(k, 0) + 1
+            gkey[k] = (gid, team)
             if isinstance(rid, str) and gsis == rid:
                 # target credited only when the receiver is listed on-field
                 # (he ran a route); unlisted-receiver targets (<1%, feed
                 # glitches) are dropped to keep TPRR internally consistent.
-                tgt[gsis] = tgt.get(gsis, 0) + 1
-                rec_yds[gsis] = rec_yds.get(gsis, 0) + float(yds)
+                tgt[k] = tgt.get(k, 0) + 1
+                rec_yds[k] = rec_yds.get(k, 0) + float(yds)
 
     rows = []
-    for gsis, n in routes.items():
-        tdb = sum(team_db.get(k, 0) for k in games_seen[gsis])
-        rows.append((year, gsis, int(n), int(tdb), int(tgt.get(gsis, 0)),
-                     int(round(rec_yds.get(gsis, 0.0)))))
-    print(f"  [{year}] {len(rows)} players with routes", file=sys.stderr)
+    for (wk, gsis), n in routes.items():
+        gid, team = gkey[(wk, gsis)]
+        rows.append((year, wk, gsis, team, int(n), int(team_db.get((gid, team), 0)),
+                     int(tgt.get((wk, gsis), 0)),
+                     int(round(rec_yds.get((wk, gsis), 0.0)))))
+    n_players = len({r[2] for r in rows})
+    n_weeks = len({r[1] for r in rows})
+    print(f"  [{year}] {len(rows)} player-week route rows "
+          f"({n_players} players across {n_weeks} weeks)", file=sys.stderr)
     return rows
+
+
+def season_rows_from_weekly(weekly: list[tuple]) -> list[tuple]:
+    """Roll the weekly rows up to the legacy (season, gsis) season table.
+
+    Deriving rather than recomputing guarantees Σ weekly == season exactly.
+    team_dropbacks stays GAME-ALIGNED — summing his team's dropbacks in each
+    game he appeared in — which is the same definition the season table always
+    used, so /api/player-routes and the workbench see no change.
+    """
+    agg: dict[tuple, list] = {}
+    for season, _wk, gsis, _team, rt, tdb, tg, ry in weekly:
+        a = agg.setdefault((season, gsis), [0, 0, 0, 0])
+        a[0] += rt
+        a[1] += tdb
+        a[2] += tg
+        a[3] += ry
+    return [(s, g, a[0], a[1], a[2], a[3]) for (s, g), a in agg.items()]
 
 
 def main() -> None:
@@ -250,20 +312,31 @@ def main() -> None:
         print("no available nflverse seasons in range — nothing to fetch", file=sys.stderr)
         sys.exit(0)
 
-    rows: list[tuple] = []
+    weekly: list[tuple] = []
     failed: list[int] = []
     for yr in seasons:
         print(f"loading participation + PBP for {yr}…", file=sys.stderr)
         try:
-            rows += compute_season(yr)
+            weekly += compute_season(yr)
         except Exception as e:  # per-season isolation: one missing year ≠ dead run
             failed.append(yr)
             print(f"  [{yr}] FAILED: {e}", file=sys.stderr)
     if failed:
         print(f"  seasons with no data / errors: {failed}", file=sys.stderr)
-    print(f"  {len(rows)} (season,gsis) route rows total", file=sys.stderr)
-    if not rows:
+    if not weekly:
         sys.exit("no rows")
+
+    # Season rows are DERIVED from weekly, so Σ weekly == season by
+    # construction and the two grains cannot drift.
+    rows = season_rows_from_weekly(weekly)
+    print(f"  {len(weekly)} (season,week,gsis) weekly rows "
+          f"→ {len(rows)} (season,gsis) season rows", file=sys.stderr)
+
+    # Self-check the rollup identity before writing anything. A mismatch means
+    # the derivation is broken; refuse rather than publish two grains that
+    # disagree (the leakage fix is only trustworthy if they reconcile).
+    if sum(r[4] for r in weekly) != sum(r[2] for r in rows):
+        sys.exit("FATAL: Σ weekly routes != Σ season routes — refusing to write")
 
     if not args.skip_local and LOCAL_DB.exists():
         db = sqlite3.connect(str(LOCAL_DB)); db.executescript(DDL)
@@ -274,10 +347,27 @@ def main() -> None:
                   {', '.join(f'{c}=excluded.{c}' for c in COLS if c not in ('season', 'gsis_id'))}""",
             rows,
         )
+        db.executemany(
+            f"""INSERT INTO nfl_player_routes_weekly ({', '.join(WEEKLY_COLS)})
+                VALUES ({', '.join('?' for _ in WEEKLY_COLS)})
+                ON CONFLICT(season, week, gsis_id) DO UPDATE SET
+                  {', '.join(f'{c}=excluded.{c}' for c in WEEKLY_COLS
+                             if c not in ('season', 'week', 'gsis_id'))}""",
+            weekly,
+        )
         db.commit(); db.close()
-        print("  wrote local nfl_player_routes", file=sys.stderr)
+        print("  wrote local nfl_player_routes + _weekly", file=sys.stderr)
 
     if not args.skip_d1:
+        # ~40 bytes of SQL per row (8 narrow cols), so 1,000 rows is ~40KB —
+        # under D1's 100KB per-statement cap. D1Writer shells out to `npx
+        # wrangler` once per chunk (~3.5s of process startup), so chunk size,
+        # not payload, dominates wall clock: 56k weekly rows is 56 invocations
+        # here versus 280 at the old default.
+        with D1Writer(table="nfl_player_routes_weekly", cols=WEEKLY_COLS,
+                      pk_cols=["season", "week", "gsis_id"], chunk_size=1000) as w:
+            for t in weekly:
+                w.add(t)
         with D1Writer(table="nfl_player_routes", cols=COLS, pk_cols=["season", "gsis_id"],
                       chunk_size=200) as w:
             for t in rows:
