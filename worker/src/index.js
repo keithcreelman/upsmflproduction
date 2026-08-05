@@ -5254,36 +5254,28 @@ export default {
       console.error(`[scheduled hourly] news warmer dispatch failed: ${e && e.message}`);
     }
 
-    try {
-      const season = String(env.YEAR || new Date().getUTCFullYear());
-      const leagueId = String(env.LEAGUE_ID || "74598");
-      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
-      const authHeader = commishApiKey
-        ? { "X-Internal-Auth": commishApiKey }
-        : {};
-      // Step 1: ask ourselves to scan + import new drop penalties to MFL.
-      // Same self-fetch bug as the reminder sweep below — a Worker cannot fetch its
-      // own public workers.dev hostname (it 404s). Routed through env.SELF.
-      if (!env.SELF) throw new Error("env.SELF service binding missing (check wrangler.toml [[services]])");
-      const importUrl = `https://self.invalid/admin/import-drop-penalties?L=${leagueId}&YEAR=${season}`;
-      const importRes = await env.SELF.fetch(importUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ season, league_id: leagueId, dry_run: false }),
-      });
-      if (!importRes.ok) {
-        console.error(`[scheduled hourly] drop-penalty import FAILED http=${importRes.status}`);
-      }
-      const importData = await importRes.json().catch(() => ({}));
-      const newlyPosted = Array.isArray(importData.posted_rows) ? importData.posted_rows : [];
-      // Discord-announcement half REMOVED (Keith 2026-07-20): the */5 drop
-      // tracker's per-drop embeds in the transactions channel already announce
-      // every penalty — richer and faster. Only the MFL-import step above
-      // remains on this hourly cron.
-      console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: ${newlyPosted.length} penalties posted to MFL (Discord via drop tracker)`);
-    } catch (err) {
-      console.error(`[scheduled] drop-penalty cron failed: ${err && err.message}`);
-    }
+    // HOURLY DROP-PENALTY IMPORT — REMOVED 2026-08-05.
+    //
+    // This block POSTed /admin/import-drop-penalties every hour. It never worked
+    // on this cron, in two separate ways:
+    //   1. It fetched the worker's own PUBLIC workers.dev hostname, which 404s
+    //      (see PR #808 / the env.SELF rule). Silent, because the code never
+    //      checked the response status.
+    //   2. Once #808 routed it through env.SELF and added a status check, it
+    //      surfaced 403: the route authenticates off `?APIKEY=` in the QUERY
+    //      STRING (sessionByApiKey), and this block sent an `X-Internal-Auth`
+    //      HEADER, which the route does not recognise.
+    //
+    // It is also redundant. The */5 drop tracker already writes cap penalties to
+    // MFL (DROP_TRACKER_POST_MFL → /admin/drops/post-mfl, visible every 5 min in
+    // `wrangler tail`) and posts the richer per-drop embeds. The Discord half of
+    // THIS block was already removed 2026-07-20 for that reason, leaving only the
+    // MFL import — which docs/DISCORD_INVENTORY.md §2 records as a ONE-TIME
+    // rollforward that was safe to delete ("safe to delete the whole block").
+    //
+    // The /admin/import-drop-penalties ROUTE is deliberately KEPT as a
+    // manual-only endpoint for future rollforwards, per that same decision.
+    // Call it by hand with `?APIKEY=<COMMISH_API_KEY>&L=74598&YEAR=<season>`.
 
     // Deadline reminder sweep on the hourly Cloudflare cron. Previously
     // triggered by GitHub Actions on */15 cron, but GitHub Actions cron
