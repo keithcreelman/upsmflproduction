@@ -35847,6 +35847,38 @@ export default {
         }
         return { unix: null, source: "unresolved" };
       };
+      // The scheduled close (_eraFaCloseUnix) is a commish-entered DEADLINE, not
+      // a live "is it actually done" signal — the real auction resolves each
+      // lot on its own per-lot timer and routinely finishes before that
+      // deadline (bit us 2026-08-05: scheduled close Aug 6, real close Aug 4,
+      // retention stayed on for a day and a half after the auction was over).
+      // This checks the ACTUAL lot-resolution state as a second, independent
+      // way to recognize "closed" — additive only: it can turn a false
+      // "still open" into a true "closed", never the reverse, so a genuinely
+      // in-progress auction can't be unblocked early by this path. Requires
+      // proof at least one lot has resolved THIS season (an auction that
+      // hasn't started yet also has zero 'open' rows, which must not read as
+      // "resolved"); fails to `resolved:false` on any lookup error, same
+      // fail-closed posture as every other branch in this gate.
+      const _eraAuctionFullyResolved = async (season, leagueId) => {
+        try {
+          const resolvedRow = await env.UPS_MFL_DB.prepare(
+            `SELECT 1 FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND is_test = 0 AND status IN ('won','cancelled')
+              LIMIT 1`
+          ).bind(Number(season), String(leagueId)).first();
+          if (!resolvedRow) return { resolved: false, reason: "no_lots_yet" };
+          const openRow = await env.UPS_MFL_DB.prepare(
+            `SELECT 1 FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND is_test = 0 AND status = 'open'
+              LIMIT 1`
+          ).bind(Number(season), String(leagueId)).first();
+          return { resolved: !openRow, reason: openRow ? "lots_still_open" : "no_open_lots" };
+        } catch (resErr) {
+          console.warn("[era-retention] auction-lots resolved-check failed:", resErr && resErr.message ? resErr.message : String(resErr));
+          return { resolved: false, reason: "lookup_error" };
+        }
+      };
       const _eraRetentionBlocked = async (season, leagueId, playerId, opts = {}) => {
         const unknownCloseBlocks = opts.unknownCloseBlocks !== false;
         const pid = String(playerId == null ? "" : playerId).replace(/\D/g, "");
@@ -35867,6 +35899,13 @@ export default {
           const nowUnix = Math.floor(Date.now() / 1000);
           if (close.unix && nowUnix >= close.unix) {
             return { blocked: false, reason: "fa_auction_closed", close_at_unix: close.unix, close_source: close.source };
+          }
+          // Scheduled deadline hasn't hit yet — before trusting that stale-prone
+          // date to keep a genuinely-finished auction locked, check the real
+          // lot state.
+          const resolved = await _eraAuctionFullyResolved(season, leagueId);
+          if (resolved.resolved) {
+            return { blocked: false, reason: "fa_auction_resolved_no_open_lots", resolved_check: resolved.reason };
           }
           if (!close.unix) {
             return unknownCloseBlocks
