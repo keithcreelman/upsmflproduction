@@ -137,6 +137,7 @@ def load_season(season: int, weeks):
             "SELECT f.gsis_id, f.player_name, f.mfl_pos, f.week,"
             " f.d_route_pct_l3, f.d_tgt_share_l3, f.d_snap_pct_l3,"
             " f.d_depth_rank, f.depth_rank, f.routes_l3, f.routes_std,"
+            " f.routes_l1, f.targets_l1, f.targets_l3,"
             " f.ups_ppg_l3, f.ups_ppg_std, s.score"
             " FROM model_player_week_features f"
             " JOIN ff_player_ids p ON p.gsis_id = f.gsis_id"
@@ -204,6 +205,42 @@ def role_score(r):
             - _f(r.get("d_depth_rank")) * 0.15)
 
 
+def fast_role_score(r):
+    """ONE-WEEK role change: last week vs the two before it.
+
+    The stored deltas compare a 3-week window against the prior 3-week window,
+    which spans six weeks end to end. If a role change matters over 1-2 weeks —
+    a starter goes down on Sunday and the backup plays Thursday — that window
+    smears the signal across weeks where it had not happened yet.
+
+    No rebuild needed: the feature store already carries routes_l1 (week W-1)
+    and routes_l3 (weeks W-3..W-1), so
+
+        routes_l1                      = his most recent week
+        (routes_l3 - routes_l1) / 2    = his average over the two before it
+
+    and the difference is a clean one-week change. Same for targets.
+
+    Deliberately NOT normalised by team dropbacks: the stored route_pct is only
+    available at l3/l4 granularity, and mixing a 1-week numerator with a 3-week
+    denominator would reintroduce exactly the lag this is meant to remove.
+    """
+    r1, r3 = _fn(r.get("routes_l1")), _fn(r.get("routes_l3"))
+    t1, t3 = _fn(r.get("targets_l1")), _fn(r.get("targets_l3"))
+    d = 0.0
+    if r1 is not None and r3 is not None:
+        d += (r1 - (r3 - r1) / 2.0) * 1.0
+    if t1 is not None and t3 is not None:
+        d += (t1 - (t3 - t1) / 2.0) * 3.0
+    return d
+
+
+def has_fast_evidence(r):
+    """Needs a most-recent week AND a window to compare it against."""
+    return (_fn(r.get("routes_l1")) is not None
+            and _fn(r.get("routes_l3")) is not None)
+
+
 def _rank01(vals):
     """Rank-normalise to [0,1] so two differently-scaled scores can be added."""
     n = len(vals)
@@ -240,7 +277,8 @@ def main() -> None:
         if rows:
             cache[s] = (rows,) + season_labels(rows)
 
-    names = ("role", "volume", "production", "combined", "learned", "random")
+    names = ("role", "role_fast", "volume", "production",
+             "combined", "combined_fast", "learned", "random")
     tot = {n: defaultdict(int) for n in names}
     lead = {n: [] for n in names}
     n_flagged = {n: 0 for n in names}
@@ -286,6 +324,7 @@ def main() -> None:
                     continue
                 # role / combined require actual role evidence
                 rpool = [x for x in pool if has_role_evidence(x)]
+                fpool = [x for x in pool if has_fast_evidence(x)]
 
                 scores = {
                     "role": [(x, role_score(x)) for x in rpool],
@@ -293,6 +332,7 @@ def main() -> None:
                     "production": [(x, _f(x.get("ups_ppg_l3")) - _f(x.get("ups_ppg_std")))
                                    for x in pool],
                     "random": [(x, float(RNG.random())) for x in pool],
+                    "role_fast": [(x, fast_role_score(x)) for x in fpool],
                 }
                 if rpool:
                     rr = _rank01([role_score(x) for x in rpool])
@@ -301,6 +341,13 @@ def main() -> None:
                                           for i, x in enumerate(rpool)]
                 else:
                     scores["combined"] = []
+                if fpool:
+                    fr = _rank01([fast_role_score(x) for x in fpool])
+                    fv = _rank01([_f(x.get("routes_l3")) for x in fpool])
+                    scores["combined_fast"] = [(x, fr[i] + fv[i])
+                                               for i, x in enumerate(fpool)]
+                else:
+                    scores["combined_fast"] = []
                 if clf is not None:
                     p = clf.predict_proba(learn_matrix(pool))[:, 1]
                     scores["learned"] = list(zip(pool, p))
