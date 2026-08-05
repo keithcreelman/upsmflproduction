@@ -5292,6 +5292,14 @@ export default {
       if (!commishApiKey) {
         console.log("[scheduled hourly] deadline-reminder sweep skipped — no COMMISH_API_KEY");
       } else {
+        // Unconditional dispatch marker (2026-08-05). A live `wrangler tail` of the
+        // 18:05Z hourly cron showed the drop-penalty log five lines above this block
+        // and the trade-sentinel log after it, but NO outbound POST to
+        // /admin/deadline-reminders/run and NEITHER of this if/else's log lines —
+        // i.e. the sweep produced no observable trace at all. That is unexplained by
+        // static reading, so log BEFORE the fetch: the next hourly cron then proves
+        // whether this block is reached, rather than leaving us to infer it.
+        console.log(`[scheduled hourly] deadline-reminders dispatching season=${season} league=${leagueId}`);
         const reminderUrl = `${origin}/admin/deadline-reminders/run?APIKEY=${encodeURIComponent(commishApiKey)}&L=${leagueId}&YEAR=${season}`;
         ctx.waitUntil(
           fetch(reminderUrl, {
