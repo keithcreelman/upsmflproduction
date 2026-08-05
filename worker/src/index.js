@@ -9386,7 +9386,24 @@ export default {
           // the cap, so the dropped stats come back. The agg CTE is unchanged
           // (it already SUMs all of these); only the final projection narrows.
           const COL_SHARED = `a.gsis_id,
-                   COALESCE(c.mfl_player_id, f2.mfl_id) AS mfl_pid,
+                   -- mfl_pid backstop: player_id_crosswalk is current-pool-only,
+                   -- so historical players get NULL mfl_pid (breaks the
+                   -- Market/MFL join). ff_player_ids is all-eras but NOT unique
+                   -- per gsis (several MFL ids can share one), so take the
+                   -- newest — MAX(mfl_id) — exactly as the old ff_mfl_map CTE
+                   -- did. An aggregate scalar subquery returns one value, so it
+                   -- cannot fan out result rows either.
+                   --
+                   -- WHY a correlated subquery and not that CTE (perf,
+                   -- 2026-08-05): ff_mfl_map materialized all 7,976 mapped
+                   -- players and was then SCANNED once per result row — on its
+                   -- own roughly half the query's join cost. This form hits
+                   -- idx_ff_player_ids_gsis for a single indexed lookup per row.
+                   COALESCE(c.mfl_player_id,
+                            (SELECT MAX(CAST(ff.mfl_id AS INTEGER))
+                               FROM ff_player_ids ff
+                              WHERE ff.gsis_id = a.gsis_id
+                                AND ff.gsis_id IS NOT NULL AND ff.gsis_id != '')) AS mfl_pid,
                    COALESCE(NULLIF(c.full_name, ''), npn.display_name) AS player_name,
                    a.position, a.team, a.pos_group, a.games,
                    ctm.nfl_team AS current_team,
@@ -9503,6 +9520,27 @@ export default {
             -- player_id_crosswalk, which is current-pool-only → only 3% of
             -- 2012's MFL players mapped → blank historical "MFL PTS"). 100%
             -- coverage of src_weekly across 2010-2025.
+            -- The exact player set the final SELECT can return: agg is built
+            -- from nfl_player_weekly with this same season + pos_group filter,
+            -- and everything else is LEFT JOINed onto it. Every per-player CTE
+            -- below narrows to this set.
+            --
+            -- WHY (perf, 2026-08-05): those CTEs get MATERIALIZED and then
+            -- nested-loop SCANNED once per row of agg — SQLite cannot index a
+            -- materialized CTE, which EXPLAIN QUERY PLAN shows as a stack of
+            -- "SCAN <cte> LEFT-JOIN". Unfiltered they carried every player in
+            -- the league (snap_agg 1746, mfl_scoring_agg 1695, season_adv_agg
+            -- 1497 for 2025) while agg holds only the position group (528 for
+            -- RB/WR/TE, 78 for QB) — so a skill query burned ~7M row visits
+            -- and intermittently blew D1's CPU limit with
+            -- "D1_ERROR: exceeded its CPU time limit".
+            -- team_agg / team_rz_player_active already had the pos_group
+            -- filter; these three did not.
+            elig AS (
+              SELECT DISTINCT gsis_id
+                FROM nfl_player_weekly
+               WHERE season IN (${seasonList}) AND pos_group IN (${posList})
+            ),
             mfl_scoring_agg AS (
               SELECT f.gsis_id,
                      SUM(COALESCE(sw.score, 0))                                      AS mfl_points,
@@ -9512,6 +9550,7 @@ export default {
                WHERE sw.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "sw.week")}
                  AND f.gsis_id IS NOT NULL
+                 AND f.gsis_id IN (SELECT gsis_id FROM elig)
                GROUP BY f.gsis_id
             ),
             agg AS (
@@ -9629,6 +9668,7 @@ export default {
                 JOIN player_id_crosswalk c ON c.pfr_id = s.pfr_id
                WHERE s.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "s.week")}
+                 AND c.gsis_id IN (SELECT gsis_id FROM elig)
                GROUP BY c.gsis_id
             ),
             -- Per-game-active market share (Keith 2026-04-24): prior
@@ -9740,23 +9780,12 @@ export default {
                      AVG(def_adot)         AS s_def_adot
                 FROM nfl_player_advstats_season
                WHERE season IN (${seasonList})
-               GROUP BY gsis_id
-            ),
-            -- mfl_pid backstop: player_id_crosswalk is current-pool-only, so
-            -- historical players get NULL mfl_pid (breaks the Market/MFL join).
-            -- ff_player_ids is all-eras but NOT unique per gsis (multiple MFL ids
-            -- can share one gsis) — dedupe to the newest MFL id per gsis so the
-            -- LEFT JOIN can't fan out result rows.
-            ff_mfl_map AS (
-              SELECT gsis_id, MAX(CAST(mfl_id AS INTEGER)) AS mfl_id
-                FROM ff_player_ids
-               WHERE gsis_id IS NOT NULL AND gsis_id != ''
+                 AND gsis_id IN (SELECT gsis_id FROM elig)
                GROUP BY gsis_id
             )
             SELECT ${projection}
               FROM agg a
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
-              LEFT JOIN ff_mfl_map f2         ON f2.gsis_id = a.gsis_id
               LEFT JOIN nfl_player_names npn   ON npn.gsis_id = a.gsis_id
               LEFT JOIN nfl_team_pace ntp      ON ntp.team = a.team AND ntp.season = ${paceSeason}
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
