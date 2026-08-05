@@ -108,6 +108,36 @@ LEARN_FEATURES = [
     "ups_ppg_l3", "ups_ppg_std",                             # recent production
 ]
 
+# ── SHRINKAGE VARIANTS ─────────────────────────────────────────────────────
+# The full learned radar (14 features, 250 iterations, depth 5) loses to a
+# hand-weighted rank sum of two signals. The evidence points at VARIANCE rather
+# than missing signal — few sparse positives, many features — so these shrink it
+# three different ways, kept separate so their effects do not confound.
+#
+#   small  4 features, the ones the hand-weighted radar actually uses
+#   reg    all 14 features but heavily regularised — shallow, few iterations,
+#          large leaves, real L2
+#   rank   small feature set, RANK-TRANSFORMED within each position-week
+#
+# `rank` is the pointed test. combined_fast wins partly BECAUSE ranking discards
+# magnitude — which is mostly noise here — and makes two differently-scaled
+# signals commensurable. The GBM currently has to learn that structure from
+# sparse data; this hands it over. If ranking is what matters, this closes the
+# gap; if it does not, the gap is something else.
+SMALL_FEATS = ["d_routes_fast", "d_targets_fast", "routes_l3", "ups_ppg_std"]
+
+_BASE_KW = dict(max_iter=250, learning_rate=0.06, max_depth=5,
+                min_samples_leaf=40, random_state=0)
+_REG_KW = dict(max_iter=80, learning_rate=0.05, max_depth=3,
+               min_samples_leaf=200, l2_regularization=5.0, random_state=0)
+
+LEARN_VARIANTS = {
+    "learned":    dict(feats=None,        kw=_BASE_KW, rank=False),
+    "learn_small": dict(feats=SMALL_FEATS, kw=_BASE_KW, rank=False),
+    "learn_reg":  dict(feats=None,        kw=_REG_KW,  rank=False),
+    "learn_rank": dict(feats=SMALL_FEATS, kw=_REG_KW,  rank=True),
+}
+
 RNG = np.random.default_rng(0)
 
 
@@ -288,8 +318,34 @@ def learn_row(r):
     return [np.nan if v is None else v for v in vals]
 
 
-def learn_matrix(rows):
-    return np.array([learn_row(r) for r in rows], dtype=float)
+def learn_matrix(rows, feats=None, rank=False):
+    """Feature matrix, optionally column-subset and rank-transformed.
+
+    Rank transform is applied WITHIN THE SUPPLIED POOL, which is why callers
+    pass one position-week at a time: ranking across pools would compare a WR in
+    week 6 against a TE in week 14 and destroy the very comparability it exists
+    to create. NaNs rank to the bottom, which is the right default here — no
+    observed change is not evidence of a big one.
+    """
+    idx = (None if feats is None
+           else [LEARN_FEATURES.index(f) for f in feats])
+    M = np.array([learn_row(r) for r in rows], dtype=float)
+    if idx is not None:
+        M = M[:, idx]
+    if rank and len(M) > 1:
+        R = np.empty_like(M)
+        for c in range(M.shape[1]):
+            col = M[:, c]
+            ok = ~np.isnan(col)
+            R[:, c] = 0.0
+            if ok.sum() > 1:
+                vals = col[ok]
+                order = vals.argsort().argsort().astype(float)
+                R[ok, c] = order / (len(vals) - 1)
+            elif ok.sum() == 1:
+                R[ok, c] = 0.5
+        M = R
+    return M
 
 
 def main() -> None:
@@ -311,8 +367,9 @@ def main() -> None:
         if rows:
             cache[s] = (rows,) + season_labels(rows)
 
-    names = ("role", "role_fast", "volume", "production",
-             "combined", "combined_fast", "learned", "random")
+    names = (("role", "role_fast", "volume", "production",
+              "combined", "combined_fast", "random")
+             + tuple(LEARN_VARIANTS))
     tot = {n: defaultdict(int) for n in names}
     lead = {n: [] for n in names}
     n_flagged = {n: 0 for n in names}
@@ -325,27 +382,37 @@ def main() -> None:
         rows, by_week, established, breakout = cache[season]
         n_break += len(breakout)
 
-        # ── learned radar: train on STRICTLY EARLIER seasons ───────────────
-        clf = None
+        # ── learned radars: train on STRICTLY EARLIER seasons ──────────────
+        # Training rows are kept GROUPED BY POOL (season, week, position) so the
+        # rank variant can be ranked within the same unit it will be ranked
+        # within at prediction time. Ranking across pools would compare a WR in
+        # week 6 to a TE in week 14 and destroy the comparability it exists for.
+        clfs = {}
         prior = [p for p in seasons[:si] if p in cache]
         if prior:
-            Xtr, ytr = [], []
+            pools, labels = [], []
             for p in prior:
-                prows, _pw, pest, pbrk = cache[p]
-                for r in prows:
-                    if not eligible(r, pest):
-                        continue
-                    bw = pbrk.get(r["gsis_id"])
-                    # Label: does he break out LATER this season? That is
-                    # exactly what a radar is meant to predict.
-                    ytr.append(1 if (bw is not None and bw > r["week"]) else 0)
-                    Xtr.append(r)
-            if Xtr and 0 < sum(ytr) < len(ytr):
-                clf = HistGradientBoostingClassifier(
-                    max_iter=250, learning_rate=0.06, max_depth=5,
-                    min_samples_leaf=40, random_state=0)
-                clf.fit(learn_matrix(Xtr), np.array(ytr))
-        if clf is None:
+                prows, pw, pest, pbrk = cache[p]
+                for wk in sorted(pw):
+                    for pos in POSITIONS:
+                        grp = [r for r in pw[wk]
+                               if r["mfl_pos"] == pos and eligible(r, pest)]
+                        if not grp:
+                            continue
+                        pools.append(grp)
+                        for r in grp:
+                            bw = pbrk.get(r["gsis_id"])
+                            # Label: does he break out LATER this season?
+                            labels.append(1 if (bw is not None and bw > r["week"]) else 0)
+            ytr = np.array(labels)
+            if len(ytr) and 0 < ytr.sum() < len(ytr):
+                for vname, cfg in LEARN_VARIANTS.items():
+                    X = np.vstack([learn_matrix(g, cfg["feats"], cfg["rank"])
+                                   for g in pools])
+                    m = HistGradientBoostingClassifier(**cfg["kw"])
+                    m.fit(X, ytr)
+                    clfs[vname] = m
+        if not clfs:
             skipped_learned.append(season)
 
         first_flag = {n: {} for n in names}
@@ -382,11 +449,14 @@ def main() -> None:
                                                for i, x in enumerate(fpool)]
                 else:
                     scores["combined_fast"] = []
-                if clf is not None:
-                    p = clf.predict_proba(learn_matrix(pool))[:, 1]
-                    scores["learned"] = list(zip(pool, p))
-                else:
-                    scores["learned"] = []
+                for vname, cfg in LEARN_VARIANTS.items():
+                    m = clfs.get(vname)
+                    if m is None:
+                        scores[vname] = []
+                        continue
+                    pv = m.predict_proba(
+                        learn_matrix(pool, cfg["feats"], cfg["rank"]))[:, 1]
+                    scores[vname] = list(zip(pool, pv))
 
                 for n in names:
                     for x, _sc in sorted(scores[n], key=lambda t: -t[1])[:args.topk]:
@@ -406,7 +476,7 @@ def main() -> None:
                     tot[n]["5plus" if bw - fw >= 5 else
                            "2to4" if bw - fw >= 2 else "1wk"] += 1
         print(f"[{season}] {len(breakout)} breakouts"
-              + ("" if clf is not None else "  (learned: no prior season, skipped)"),
+              + ("" if clfs else "  (learned: no prior season, skipped)"),
               file=sys.stderr, flush=True)
 
     if not n_break:
