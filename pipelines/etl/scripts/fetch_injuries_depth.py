@@ -239,6 +239,13 @@ def fetch_depth(year: int):
     return rows
 
 
+def _upstream_season() -> int:
+    """Newest season nflverse publishes GAME data for. Lags the calendar through
+    the off-season (returns 2025 until the 2026 season kicks off)."""
+    import nflreadpy as nfl
+    return int(nfl.get_current_season(roster=False))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seasons", default="2016-2025")
@@ -249,19 +256,48 @@ def main() -> None:
 
     failed: list[str] = []
     for yr in parse_seasons(args.seasons):
-        inj = dep = []
-        try:
-            if not args.skip_injuries:
-                inj = fetch_injuries(yr)
-            if not args.skip_depth:
-                dep = fetch_depth(yr)
-        except SourceColumnMissing as e:
-            failed.append(str(e))
-            print(f"[{yr}] SKIPPED — {e}", file=sys.stderr, flush=True)
-            continue
-        except Exception as e:                      # noqa: BLE001
-            failed.append(f"[{yr}] {e}")
-            print(f"[{yr}] FAILED — {e}", file=sys.stderr, flush=True)
+        # The two sources fail INDEPENDENTLY. They used to share one try block,
+        # so whichever ran first could take the other down with it — and that is
+        # not hypothetical: nflverse has 2026 depth charts but NOT 2026 injuries
+        # ("Season must be between 2009 and 2025"), so a 2025-2026 cron run would
+        # have raised on injuries and `continue`d straight past the depth load
+        # that was the whole point of including 2026.
+        def _try(name, fn):
+            try:
+                return fn(), None
+            except SourceColumnMissing as e:
+                return [], f"[{yr}] {name}: {e}"
+            except Exception as e:                  # noqa: BLE001
+                return [], f"[{yr}] {name}: {e}"
+
+        inj, e_inj = ([], None) if args.skip_injuries else _try("injuries",
+                                                               lambda: fetch_injuries(yr))
+        dep, e_dep = ([], None) if args.skip_depth else _try("depth",
+                                                            lambda: fetch_depth(yr))
+
+        # NOT-YET-PUBLISHED IS NOT A FAILURE — but it is never silent either.
+        # nflverse has 2026 depth charts and 2026 schedules but no 2026 injuries
+        # (they begin with the games). Counting that as an error would make the
+        # weekly cron red from now until September for an entirely expected
+        # reason, and a permanently-red source is one people learn to ignore.
+        #
+        # This is NOT a fail-open: the exemption applies ONLY when the season is
+        # beyond what nflverse publishes at all, which is a structural fact we
+        # ask the library for rather than a message we pattern-match. For any
+        # season nflverse DOES carry, a failure stays a failure — and either way
+        # it is printed.
+        beyond_upstream = yr > _upstream_season()
+        for label, e in (("injuries", e_inj), ("depth", e_dep)):
+            if not e:
+                continue
+            if beyond_upstream:
+                print(f"  {label}: not published upstream for {yr} yet "
+                      f"(nflverse current season = {_upstream_season()}) — "
+                      f"expected, wrote nothing", file=sys.stderr, flush=True)
+            else:
+                failed.append(e)
+                print(f"  SOURCE FAILED — {e}", file=sys.stderr, flush=True)
+        if not inj and not dep:
             continue
 
         n_out = sum(1 for r in inj if r[5] == "Out")
