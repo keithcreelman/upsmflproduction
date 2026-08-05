@@ -138,11 +138,39 @@ LEARN_VARIANTS = {
     "learn_rank": dict(feats=SMALL_FEATS, kw=_REG_KW,  rank=True),
 }
 
-# THE PRODUCTION RADAR. Chosen on a 9-definition sweep of the two arbitrary
-# breakout thresholds, not on a single operating point: learn_reg leads 7 of 9
-# definitions with a mean precision of 20.0%, against 17.7% for the
-# hand-weighted combined_fast which led only at the (12,24) point it was
-# originally tuned at.
+# THE PRODUCTION RADAR — and the honest reason for it.
+#
+# Picked on a 9-definition sweep (elite-rank x est-rank) rather than a single
+# operating point. Under PPG-cheapness learn_reg led 7 of 9. Re-running that
+# same sweep under `--cheap-by salary` — the definition that actually matches
+# the spec — DOES NOT reproduce the lead:
+#
+#   mean precision, 9 definitions, 2021-2025 w5-17, --cheap-by salary
+#     learn_reg  16.0%  (4 wins)     combined_fast 12.6%
+#     learn_rank 15.9%  (4 wins)     volume        12.4%
+#     learned    14.9%  (0)          role_fast     11.9%   random 8.8%
+#
+#   pooled:  learn_reg 16.05% vs learn_rank 15.32%   z=+0.94   NOT significant
+#            learn_reg 16.05% vs role_fast  11.84%   z=+6.11   significant
+#
+# So learn_reg over learn_rank is a coin flip. What IS robust across both
+# cheapness definitions and all 9 thresholds is that the LEARNED family beats
+# every hand-weighted radar. learn_reg stays PRIMARY because it is a
+# co-leader and already in place, not because it was shown to be best.
+#
+# One structural result worth keeping — the ordering flips along the
+# cheap-strictness axis (mean lift vs random):
+#                     est_rank 12 (loose)   est_rank 36 (strict)
+#     learn_reg              1.85x                 1.91x
+#     role_fast              1.16x                 1.97x   <- best at strict
+#     volume                 1.53x                 1.40x
+#     production             0.88x                 1.23x
+# Among genuinely cheap players everyone is low-volume, so opportunity LEVEL
+# stops discriminating and opportunity CHANGE takes over: a four-line
+# hand-written delta matches the GBM exactly where the spec's definition is
+# tightest. `production` sits at or BELOW random when cheap is loose (0.68x at
+# 18/12) — recent box-score output is anti-predictive here, which is precisely
+# what the spec says to ignore.
 PRIMARY = "learn_reg"
 
 RNG = np.random.default_rng(0)
