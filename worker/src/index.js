@@ -29227,6 +29227,17 @@ export default {
         return parsed.toISOString().slice(0, 10);
       };
 
+      // Whole calendar days from `fromKey` to `toKey` ("YYYY-MM-DD"), negative if
+      // toKey is earlier. Anchored at 12:00Z like shiftPlainDateKey above so a DST
+      // transition inside the span can never round the result off by one.
+      // NaN on unparseable input — callers must treat that as "unknown", never 0.
+      const daysBetweenPlainDateKeys = (fromKey, toKey) => {
+        const a = new Date(`${safeStr(fromKey)}T12:00:00Z`);
+        const b = new Date(`${safeStr(toKey)}T12:00:00Z`);
+        if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return NaN;
+        return Math.round((b.getTime() - a.getTime()) / 86400000);
+      };
+
       const formatPlainDateLabelEt = (dateKey) => {
         const raw = safeStr(dateKey);
         if (!raw) return "";
@@ -29658,10 +29669,17 @@ export default {
             // The reminder_key dedupe is unchanged, so catch-up can't double-send.
             if (triggerDateEt > targetDate) continue;                     // not yet
             const isLate = triggerDateEt < targetDate;
+            if (isLate && (!deadlineDateEt || deadlineDateEt <= targetDate)) continue; // deadline gone
+            // The send-time floor applies to LATE reminders too (fixed 2026-08-05,
+            // same day it was introduced) — the first cut made it an `else if`.
+            if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
             if (isLate) {
-              if (!deadlineDateEt || deadlineDateEt <= targetDate) continue; // deadline gone — drop it
-            } else if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) {
-              continue;                                                   // on-day, before send time
+              // QUIET HOURS for catch-up only. The floor above is a "not before"
+              // gate, so it happily allows 23:05. An on-time reminder never really
+              // lands that late (the hourly cron catches the first tick after the
+              // send time), but a LATE one becomes eligible the instant a stalled
+              // sweep resumes — which could be any hour. Hold it for the morning.
+              if (minutesOfDayEt(nowEt.hour, nowEt.minute) > minutesOfDayEt(21, 0)) continue;
             }
             const reminderKey = buildDeadlineReminderKey({
               season,
@@ -29671,6 +29689,19 @@ export default {
               deadlineDateEt: deadlineDateEt,
             });
             if (sent.has(reminderKey)) continue;
+            // A LATE reminder must be labelled with the time that ACTUALLY remains,
+            // not with its offset. "Late" for a D-day offset means deadline − D is
+            // already past, which by definition means fewer than D days remain — so
+            // emitting the offset label would ALWAYS overstate ("1 Week left" when 5
+            // days are left). Suppressing instead would cancel catch-up entirely, for
+            // the same structural reason. Relabelling from the real remaining days is
+            // the only option that is both truthful and still delivers the reminder.
+            // reminder_code keeps the OFFSET so the dedupe key stays stable.
+            const daysRemaining = daysBetweenPlainDateKeys(targetDate, deadlineDateEt);
+            const effectiveLabel =
+              isLate && Number.isFinite(daysRemaining) && daysRemaining > 0
+                ? reminderLabelFromDays(daysRemaining)
+                : reminderLabelFromDays(daysBefore);
             rows.push({
               season: safeStr(season),
               event_key: safeStr(event.event_key),
@@ -29680,7 +29711,7 @@ export default {
               summary: safeStr(event.summary),
               reminder_days_before: daysBefore,
               reminder_code: reminderCode,
-              reminder_label: reminderLabelFromDays(daysBefore),
+              reminder_label: effectiveLabel,
               trigger_date_et: triggerDateEt,
               trigger_time_et: sendTimeEt,
               reminder_key: reminderKey,
@@ -29726,7 +29757,36 @@ export default {
             });
           }
         }
-        return rows;
+        // COLLAPSE: at most ONE reminder per event per sweep, the most imminent.
+        //
+        // Without this, catch-up can emit a contradictory burst. Real reachable case
+        // (no editing required — it only needs the 7-day send to have been missed,
+        // which is exactly what has been happening): contract_deadline 2026-09-06 with
+        // offsets [7,1] evaluated on 2026-09-05 emits BOTH "1 Week left" (late) and
+        // "24 Hours left" in the same sweep, 5s apart, when 1 day actually remains.
+        // Editing a date makes it worse by re-arming the whole ladder at once.
+        //
+        // The most imminent reminder is the only truthful one, so keep it and drop the
+        // rest. Dropped rows are NOT marked sent — they stay unsent in the log, which
+        // is correct: their moment has passed and a later sweep must not resurrect them
+        // (the smaller offset that superseded them will be marked sent instead).
+        // Ordering: hour offsets are always closer to the deadline than any day offset;
+        // within a kind, the smaller offset wins.
+        const mostImminentRank = (row) =>
+          safeInt(row?.reminder_hours_before, 0) > 0
+            ? safeInt(row.reminder_hours_before, 0) / 24      // 1h -> 0.041 days
+            : safeInt(row?.reminder_days_before, 0);
+        const collapsed = new Map();
+        for (const row of rows) {
+          const k = safeStr(row.event_key);
+          const cur = collapsed.get(k);
+          if (!cur || mostImminentRank(row) < mostImminentRank(cur)) collapsed.set(k, row);
+        }
+        if (collapsed.size !== rows.length) {
+          const dropped = rows.length - collapsed.size;
+          console.log(`[deadline-reminders] collapsed ${rows.length} due -> ${collapsed.size} (suppressed ${dropped} stale offset(s) superseded by a nearer one)`);
+        }
+        return [...collapsed.values()];
       };
 
       const reminderGifQueries = ({ eventKey, reminderCode }) => {
