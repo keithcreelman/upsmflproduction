@@ -71,8 +71,14 @@ SALARY_TRUSTWORTHY_FROM = 2020   # pre-2020 snapshots are EOS-stamped -> would l
 
 
 def _f(v):
+    # NaN must map to None, not survive as a float. pandas hands back NaN for a
+    # missing years_exp, float(nan) succeeds, and int(nan) then raises
+    # "cannot convert float NaN to integer" halfway through a build.
     try:
-        return None if v is None else float(v)
+        if v is None:
+            return None
+        f = float(v)
+        return None if f != f else f
     except (TypeError, ValueError):
         return None
 
