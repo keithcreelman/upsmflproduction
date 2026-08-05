@@ -11309,7 +11309,12 @@ export default {
         return raw.split(/[,\s]+/).map(s => _rdhPadFid(s)).filter(Boolean);
       };
       const _rdhDiscordChannel = (live) => {
-        const liveCh = safeStr(env.DISCORD_DRAFT_CHANNEL_ID || "1498680803419357234").replace(/\D/g, "");
+        // Fallback pinned to #transactions (2026-08-05): the previous literal,
+        // 1498680803419357234, is an orphan — that channel no longer exists in
+        // the guild. DISCORD_DRAFT_CHANNEL_ID is pinned in wrangler.toml [vars]
+        // to this same value, so this fallback only fires if that pin is ever
+        // removed; matches _rdhPicksThreadParent's fallback below.
+        const liveCh = safeStr(env.DISCORD_DRAFT_CHANNEL_ID || "1059111651846131833").replace(/\D/g, "");
         const testCh = safeStr(env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
         return live ? liveCh : testCh;
       };
@@ -29131,7 +29136,11 @@ export default {
       };
 
       const reminderDiscordPrimaryChannelId = () =>
-        safeStr(env.DISCORD_REMINDER_CHANNEL_ID || "1087157907419840644").replace(/\D/g, "");
+        // Fallback pinned to #announcements (2026-08-05), matching
+        // DISCORD_REMINDER_CHANNEL_ID in wrangler.toml [vars]: reminders are
+        // commish/league business, not Coffee Shop chatter. Old fallback was
+        // 1087157907419840644 (Coffee Shop).
+        safeStr(env.DISCORD_REMINDER_CHANNEL_ID || "1057657441011109898").replace(/\D/g, "");
 
       const reminderDiscordTestChannelId = () =>
         safeStr(
