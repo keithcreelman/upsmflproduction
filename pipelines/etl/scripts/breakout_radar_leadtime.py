@@ -87,13 +87,25 @@ ELITE_RANK = 12
 ESTABLISHED_RANK = 24
 POSITIONS = ("WR", "TE", "RB", "QB")
 
-# Features for the learned radar: role CHANGE, opportunity LEVEL, and recent
-# production together — so it can discover the combination rather than being
-# told one.
+# Features for the learned radar: role CHANGE (at BOTH window lengths),
+# opportunity LEVEL, and recent production — so it can discover the combination
+# rather than being told one.
+#
+# The 1-week deltas are DERIVED, not stored columns (see fast_role_score), so
+# this is a name list for reporting and learn_row() builds the vector.
+#
+# Both window lengths are offered deliberately. The hand-weighted comparison
+# showed the 3-week delta is too slow — role 14.9% vs role_fast 17.5% — so
+# giving the model only the slow version would have handicapped it by exactly
+# the defect under investigation. Given both, it can weight them however the
+# data warrants, and if it still fails to beat the hand-weighted combined_fast
+# radar that is a real result rather than an artefact of what it was fed.
 LEARN_FEATURES = [
-    "d_route_pct_l3", "d_tgt_share_l3", "d_snap_pct_l3", "d_depth_rank",
-    "routes_l3", "routes_std", "depth_rank",
-    "ups_ppg_l3", "ups_ppg_std",
+    "d_routes_fast", "d_targets_fast",                       # 1-week (derived)
+    "d_route_pct_l3", "d_tgt_share_l3", "d_snap_pct_l3", "d_depth_rank",  # 3-week
+    "routes_l1", "routes_l3", "routes_std",                  # opportunity level
+    "targets_l1", "targets_l3", "depth_rank",
+    "ups_ppg_l3", "ups_ppg_std",                             # recent production
 ]
 
 RNG = np.random.default_rng(0)
@@ -253,9 +265,31 @@ def _rank01(vals):
     return out
 
 
+def learn_row(r):
+    """Feature vector for the learned radar, incl. DERIVED 1-week deltas.
+
+    Missing values become NaN rather than 0.0 — gradient boosting handles NaN
+    natively, and a zero would assert "no change observed" where the truth is
+    "no observation". That distinction is what made the stored deltas misleading
+    when they were zero-filled.
+    """
+    r1, r3 = _fn(r.get("routes_l1")), _fn(r.get("routes_l3"))
+    t1, t3 = _fn(r.get("targets_l1")), _fn(r.get("targets_l3"))
+    d_routes_fast = (r1 - (r3 - r1) / 2.0) if (r1 is not None and r3 is not None) else None
+    d_tgts_fast = (t1 - (t3 - t1) / 2.0) if (t1 is not None and t3 is not None) else None
+    vals = [
+        d_routes_fast, d_tgts_fast,
+        _fn(r.get("d_route_pct_l3")), _fn(r.get("d_tgt_share_l3")),
+        _fn(r.get("d_snap_pct_l3")), _fn(r.get("d_depth_rank")),
+        r1, r3, _fn(r.get("routes_std")),
+        t1, t3, _fn(r.get("depth_rank")),
+        _fn(r.get("ups_ppg_l3")), _fn(r.get("ups_ppg_std")),
+    ]
+    return [np.nan if v is None else v for v in vals]
+
+
 def learn_matrix(rows):
-    return np.array([[_fn(r.get(c)) if _fn(r.get(c)) is not None else np.nan
-                      for c in LEARN_FEATURES] for r in rows], dtype=float)
+    return np.array([learn_row(r) for r in rows], dtype=float)
 
 
 def main() -> None:
