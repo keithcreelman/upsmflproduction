@@ -1,0 +1,68 @@
+name: Ingest projections
+
+# MFL serves projections LIVE and never stores them, so "actual vs projected" is
+# unrecoverable for any week we did not capture. This is the record.
+#
+# Runs SEVERAL TIMES A WEEK on purpose: projections move all week as injury news
+# lands, and the recap wants both the number that mattered at kickoff and how far
+# it travelled to get there. The upsert keeps the newest value and preserves the
+# earliest sighting (migration 0123).
+#
+# Cheap: one export call, one batched upsert, no model, no worker CPU.
+#
+# EXIT CODES ARE MEANINGFUL — do not "fix" a red run by making it exit 0.
+#   0 + "OUTSIDE the capture window"  -> deep offseason, expected, nothing to do.
+#   0 + "stored N projection(s)"      -> rows are in D1 and were read back.
+#   1                                 -> either MFL returned nothing usable while
+#                                        in season, or the payload was unreadable,
+#                                        or the read-back did not confirm.
+# The whole point is that a stalled capture shows up as a failed run instead of a
+# green tick over an empty table.
+
+on:
+  schedule:
+    # Wed 12:00 UTC  -- an early read, before most news lands
+    - cron: "0 12 * * 3"
+    # Fri 12:00 UTC  -- after Thursday night and most practice reports
+    - cron: "0 12 * * 5"
+    # Sun 15:00 UTC  -- ~11am ET, the closing line before the early window
+    - cron: "0 15 * * 0"
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season (blank = infer from today)"
+        required: false
+        type: string
+      week:
+        description: "Week (blank = infer from today)"
+        required: false
+        type: string
+
+concurrency:
+  group: ingest-projections
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Capture
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          if [ -n "${{ inputs.season }}" ] && [ -n "${{ inputs.week }}" ]; then
+            python pipelines/etl/scripts/ingest_projections.py \
+              --season "${{ inputs.season }}" --week "${{ inputs.week }}"
+          else
+            python pipelines/etl/scripts/ingest_projections.py --current
+          fi
