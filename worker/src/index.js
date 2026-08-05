@@ -10,7 +10,7 @@ import {
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
-import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix } from "./auction_calendar.js";
+import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
@@ -5292,6 +5292,14 @@ export default {
       if (!commishApiKey) {
         console.log("[scheduled hourly] deadline-reminder sweep skipped — no COMMISH_API_KEY");
       } else {
+        // Unconditional dispatch marker (2026-08-05). A live `wrangler tail` of the
+        // 18:05Z hourly cron showed the drop-penalty log five lines above this block
+        // and the trade-sentinel log after it, but NO outbound POST to
+        // /admin/deadline-reminders/run and NEITHER of this if/else's log lines —
+        // i.e. the sweep produced no observable trace at all. That is unexplained by
+        // static reading, so log BEFORE the fetch: the next hourly cron then proves
+        // whether this block is reached, rather than leaving us to infer it.
+        console.log(`[scheduled hourly] deadline-reminders dispatching season=${season} league=${leagueId}`);
         const reminderUrl = `${origin}/admin/deadline-reminders/run?APIKEY=${encodeURIComponent(commishApiKey)}&L=${leagueId}&YEAR=${season}`;
         ctx.waitUntil(
           fetch(reminderUrl, {
@@ -5303,7 +5311,20 @@ export default {
               const data = await r.json().catch(() => ({}));
               const posted = Array.isArray(data?.posted) ? data.posted.length : 0;
               const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
-              if (posted) console.log(`[scheduled hourly] deadline-reminders: posted=${posted} skipped=${skipped}`);
+              // ALWAYS log the outcome (2026-08-05). This used to log only when
+              // posted > 0, so an endpoint returning 500 every hour — or silently
+              // finding nothing due because of the exact-date bug — was
+              // indistinguishable from "nothing to send." That silence is why a
+              // whole season of reminders went missing without anyone noticing.
+              if (!r.ok || data?.ok === false) {
+                console.error(
+                  `[scheduled hourly] deadline-reminders FAILED http=${r.status} ` +
+                  `error=${String(data?.error || "").slice(0, 200)} ` +
+                  `storage=${JSON.stringify(data?.storage || {}).slice(0, 200)}`
+                );
+              } else {
+                console.log(`[scheduled hourly] deadline-reminders ok: posted=${posted} skipped=${skipped} due=${Array.isArray(data?.results) ? data.results.length : 0}`);
+              }
             })
             .catch((e) => console.error(`[scheduled hourly] deadline-reminders failed: ${e && e.message}`))
         );
@@ -7377,7 +7398,25 @@ export default {
 
         // ── COMMIT ──
         // (1) D1 league_events upsert — the app's source of truth (idempotent).
+        //
+        // LEAGUE GUARD (2026-08-05). league_events has NO league_id column
+        // (migration 0026) and this upsert is keyed on (event, nfl_season) only —
+        // so before this guard, pushing with the "Test league" target selected
+        // still overwrote the PRODUCTION rows. That is not cosmetic: the app reads
+        // ups_fa_auction_start via /api/league-events, and front_office.js
+        // dropPenaltyLandsNextSeason uses it to decide WHICH SEASON a cut's dead
+        // money is charged to. A "test" push could move real cap money.
+        // Refuse rather than write to the wrong league — an unscoped write is
+        // never "close enough" (see rule_no_fail_open_guards).
+        const prodLeagueId = String(env.LEAGUE_ID || "74598").replace(/\D/g, "");
         const d1Results = [];
+        if (String(leagueId).replace(/\D/g, "") !== prodLeagueId) {
+          d1Results.push({
+            ok: false,
+            skipped: true,
+            error: `league_events is NOT league-scoped (no league_id column) — refusing to write while targeting L=${leagueId}. Only L=${prodLeagueId} may write the app calendar. The MFL calendar push below still runs for this league.`,
+          });
+        } else {
         try {
           await env.UPS_MFL_DB.prepare(
             "CREATE TABLE IF NOT EXISTS league_events (event TEXT NOT NULL, date TEXT NOT NULL, nfl_season TEXT NOT NULL, description TEXT, source TEXT DEFAULT 'commish:update-league-calendar', created_at_utc TEXT DEFAULT (datetime('now')), PRIMARY KEY (event, nfl_season))"
@@ -7391,6 +7430,7 @@ export default {
             } catch (e) { d1Results.push({ event: r.event, date: r.date, ok: false, error: String(e?.message || e) }); }
           }
         } catch (e) { d1Results.push({ ok: false, error: "table: " + String(e?.message || e) }); }
+        }
 
         // (2) MFL calendar — write only NEW events (skip exact-duplicates).
         const mflCookie = String(env.MFL_COOKIE || "").trim();
@@ -11314,7 +11354,12 @@ export default {
         return raw.split(/[,\s]+/).map(s => _rdhPadFid(s)).filter(Boolean);
       };
       const _rdhDiscordChannel = (live) => {
-        const liveCh = safeStr(env.DISCORD_DRAFT_CHANNEL_ID || "1498680803419357234").replace(/\D/g, "");
+        // Fallback pinned to #transactions (2026-08-05): the previous literal,
+        // 1498680803419357234, is an orphan — that channel no longer exists in
+        // the guild. DISCORD_DRAFT_CHANNEL_ID is pinned in wrangler.toml [vars]
+        // to this same value, so this fallback only fires if that pin is ever
+        // removed; matches _rdhPicksThreadParent's fallback below.
+        const liveCh = safeStr(env.DISCORD_DRAFT_CHANNEL_ID || "1059111651846131833").replace(/\D/g, "");
         const testCh = safeStr(env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
         return live ? liveCh : testCh;
       };
@@ -27622,6 +27667,10 @@ export default {
       // for FINAL-YEAR VETERAN extensions + MYAC per canon §C4/§C2. Distinct from
       // the May tag/rookie-extension deadline above. Reads the league calendar
       // when in scope; falls back to the pinned 2026 value (2026-09-06 21:00 ET).
+      // HARDCODED baseline for the September contract deadline. Kept as the
+      // fallback and as the value every non-gate consumer still reads.
+      // The ENFORCEMENT gate goes through resolveContractDeadlineUtc() below,
+      // which layers the commish-editable calendar on top of this.
       const getContractDeadlineUtc = (season) => {
         const calRoot = (typeof DEADLINE_REMINDER_CALENDAR !== "undefined") ? DEADLINE_REMINDER_CALENDAR : null;
         const cc = (calRoot && calRoot[String(season)] && calRoot[String(season)].contract_deadline) || null;
@@ -27636,6 +27685,58 @@ export default {
         const deadline = getContractDeadlineUtc(season);
         if (!deadline) return false;
         return Date.now() > deadline.getTime();
+      };
+
+      // EFFECTIVE September contract deadline — the value that ENFORCES the
+      // extension/MYAC lockout (EXTENSION_DEADLINE_PASSED). Layers the
+      // commish-editable calendar (ups_settings 'auction_calendar' →
+      // contract_deadline_at) over the hardcoded baseline above.
+      //
+      // Returns { deadline, source, error }:
+      //   source "calendar"  — commish-set value in use
+      //   source "hardcoded" — nothing configured for this season (normal)
+      //   error  set         — config UNREADABLE. The caller MUST refuse the
+      //                        submission rather than fall back.
+      //
+      // FAIL CLOSED, and note the asymmetry with the reminder sweep, which does the
+      // opposite on the same failure. That is deliberate:
+      //   • reminders — a missing config means "send the hardcoded reminder". Wrong
+      //     copy is recoverable; sending nothing is what lost a whole season.
+      //   • this gate — a missing config means we do not know whether the window is
+      //     open. Guessing writes a real contract against the wrong window, and per
+      //     rule_no_fail_open_guards an unreadable input is never "empty".
+      // Absence of a config is NOT an error — it is "not configured" → hardcoded.
+      const resolveContractDeadlineUtc = async (season) => {
+        const fallback = getContractDeadlineUtc(season);
+        let cfg = null;
+        try {
+          cfg = await getAuctionCalendar(env);
+        } catch (e) {
+          return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${e && e.message}` };
+        }
+        // getAuctionCalendar swallows its own errors and returns the empty shape, so
+        // "no DB binding at all" is indistinguishable from "nothing configured". Treat
+        // a missing binding as unreadable — that is an infrastructure fault, not a
+        // deliberate blank.
+        if (!env || !env.UPS_MFL_DB) {
+          return { deadline: null, source: "error", error: "contract_calendar_unreadable: no D1 binding" };
+        }
+        const cfgSeason = safeStr(cfg && cfg.season);
+        const wall = safeStr(cfg && cfg.faa && cfg.faa.contract_deadline_at);
+        if (!wall || (cfgSeason && cfgSeason !== safeStr(season))) {
+          return { deadline: fallback, source: "hardcoded", error: "" };
+        }
+        const m = wall.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+        if (!m) {
+          // Stored but unparseable — refuse. Silently reverting to the hardcoded date
+          // would enforce a window the commish believes he changed.
+          return { deadline: null, source: "error", error: `contract_deadline_at malformed: "${wall}"` };
+        }
+        const d = new Date(`${m[1]}T${m[2]}:00-04:00`);   // early Sept is always EDT
+        if (isNaN(d.getTime())) {
+          return { deadline: null, source: "error", error: `contract_deadline_at unparseable: "${wall}"` };
+        }
+        return { deadline: d, source: "calendar", error: "" };
       };
 
       const formatContractSubmissionDate = (rawValue) => {
@@ -29172,7 +29273,11 @@ export default {
       };
 
       const reminderDiscordPrimaryChannelId = () =>
-        safeStr(env.DISCORD_REMINDER_CHANNEL_ID || "1087157907419840644").replace(/\D/g, "");
+        // Fallback pinned to #announcements (2026-08-05), matching
+        // DISCORD_REMINDER_CHANNEL_ID in wrangler.toml [vars]: reminders are
+        // commish/league business, not Coffee Shop chatter. Old fallback was
+        // 1087157907419840644 (Coffee Shop).
+        safeStr(env.DISCORD_REMINDER_CHANNEL_ID || "1057657441011109898").replace(/\D/g, "");
 
       const reminderDiscordTestChannelId = () =>
         safeStr(
@@ -29236,6 +29341,17 @@ export default {
         if (Number.isNaN(parsed.getTime())) return "";
         parsed.setUTCDate(parsed.getUTCDate() + safeInt(deltaDays, 0));
         return parsed.toISOString().slice(0, 10);
+      };
+
+      // Whole calendar days from `fromKey` to `toKey` ("YYYY-MM-DD"), negative if
+      // toKey is earlier. Anchored at 12:00Z like shiftPlainDateKey above so a DST
+      // transition inside the span can never round the result off by one.
+      // NaN on unparseable input — callers must treat that as "unknown", never 0.
+      const daysBetweenPlainDateKeys = (fromKey, toKey) => {
+        const a = new Date(`${safeStr(fromKey)}T12:00:00Z`);
+        const b = new Date(`${safeStr(toKey)}T12:00:00Z`);
+        if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return NaN;
+        return Math.round((b.getTime() - a.getTime()) / 86400000);
       };
 
       const formatPlainDateLabelEt = (dateKey) => {
@@ -29599,16 +29715,36 @@ export default {
         }));
       };
 
-      const buildDeadlineReminderKey = ({ season, eventKey, reminderCode, deliveryTarget }) =>
-        [safeStr(season), safeStr(eventKey), safeStr(reminderCode), safeStr(deliveryTarget || "primary")].join("|");
+      // The dedupe key INCLUDES the deadline date (added 2026-08-05).
+      //
+      // It used to be (season|event_key|reminder_code|delivery_target) only. That is
+      // correct for a hardcoded calendar but silently breaks an EDITABLE one: once
+      // "1 week before the contract deadline" had fired, moving the deadline left the
+      // key identical, so the reminder for the NEW date was suppressed forever as
+      // "already sent." Keying on the deadline date means moving a date is a genuinely
+      // new reminder, while re-running the sweep against an unchanged date still
+      // dedupes exactly as before.
+      const buildDeadlineReminderKey = ({ season, eventKey, reminderCode, deliveryTarget, deadlineDateEt }) =>
+        [
+          safeStr(season),
+          safeStr(eventKey),
+          safeStr(reminderCode),
+          safeStr(deliveryTarget || "primary"),
+          safeStr(deadlineDateEt),
+        ].join("|");
 
+      // Recompute from the row's own fields rather than trusting row.reminder_key —
+      // rows written before 2026-08-05 carry the old 4-part key, and preferring that
+      // literal would make a moved date look already-sent. Historic rows still dedupe
+      // correctly because they carry deadline_date_et, so the recomputed key matches
+      // whenever the date is unchanged.
       const sentDeadlineReminderKey = (row) =>
-        safeStr(row?.reminder_key) ||
         buildDeadlineReminderKey({
           season: safeStr(row?.season),
           eventKey: safeStr(row?.event_key),
           reminderCode: safeStr(row?.reminder_code),
           deliveryTarget: safeStr(row?.delivery_target || (safeInt(row?.test_flag, 0) ? "test" : "primary")),
+          deadlineDateEt: safeStr(row?.deadline_date_et),
         });
 
       const buildDueDeadlineReminders = ({
@@ -29634,15 +29770,54 @@ export default {
             const triggerDateEt = shiftPlainDateKey(event.deadline_date_et, -daysBefore);
             const sendTimeEt = safeStr(event.reminder_send_time_et || "09:00");
             const sendParts = parseEtTimeParts(sendTimeEt, 9, 0);
-            if (triggerDateEt !== targetDate) continue;
+            const deadlineDateEt = safeStr(event.deadline_date_et);
+            // CATCH-UP (2026-08-05). This used to be `triggerDateEt !== targetDate`,
+            // i.e. a reminder could ONLY fire on its exact trigger date. One failed
+            // cron tick / GitHub read / deploy blip on that single day and the
+            // reminder was lost forever — silently, because the caller only logs
+            // when posted > 0. Verified impact: of the reminders due in 2026, exactly
+            // ONE was ever delivered (rookie_extensions_and_tags/one_week, 2026-05-14);
+            // the cut-deadline and FA-auction warnings never reached the league.
+            //
+            // Now: fire on the first tick at-or-after the trigger date, but ONLY while
+            // the deadline is still in the future. A late "1 week left" after the
+            // deadline has passed is worse than silence, so those stay dead.
+            // The reminder_key dedupe is unchanged, so catch-up can't double-send.
+            if (triggerDateEt > targetDate) continue;                     // not yet
+            const isLate = triggerDateEt < targetDate;
+            if (isLate && (!deadlineDateEt || deadlineDateEt <= targetDate)) continue; // deadline gone
+            // The send-time floor applies to LATE reminders too (fixed 2026-08-05,
+            // same day it was introduced) — the first cut made it an `else if`.
             if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
+            if (isLate) {
+              // QUIET HOURS for catch-up only. The floor above is a "not before"
+              // gate, so it happily allows 23:05. An on-time reminder never really
+              // lands that late (the hourly cron catches the first tick after the
+              // send time), but a LATE one becomes eligible the instant a stalled
+              // sweep resumes — which could be any hour. Hold it for the morning.
+              if (minutesOfDayEt(nowEt.hour, nowEt.minute) > minutesOfDayEt(21, 0)) continue;
+            }
             const reminderKey = buildDeadlineReminderKey({
               season,
               eventKey: event.event_key,
               reminderCode,
               deliveryTarget: targetDelivery,
+              deadlineDateEt: deadlineDateEt,
             });
             if (sent.has(reminderKey)) continue;
+            // A LATE reminder must be labelled with the time that ACTUALLY remains,
+            // not with its offset. "Late" for a D-day offset means deadline − D is
+            // already past, which by definition means fewer than D days remain — so
+            // emitting the offset label would ALWAYS overstate ("1 Week left" when 5
+            // days are left). Suppressing instead would cancel catch-up entirely, for
+            // the same structural reason. Relabelling from the real remaining days is
+            // the only option that is both truthful and still delivers the reminder.
+            // reminder_code keeps the OFFSET so the dedupe key stays stable.
+            const daysRemaining = daysBetweenPlainDateKeys(targetDate, deadlineDateEt);
+            const effectiveLabel =
+              isLate && Number.isFinite(daysRemaining) && daysRemaining > 0
+                ? reminderLabelFromDays(daysRemaining)
+                : reminderLabelFromDays(daysBefore);
             rows.push({
               season: safeStr(season),
               event_key: safeStr(event.event_key),
@@ -29652,10 +29827,11 @@ export default {
               summary: safeStr(event.summary),
               reminder_days_before: daysBefore,
               reminder_code: reminderCode,
-              reminder_label: reminderLabelFromDays(daysBefore),
+              reminder_label: effectiveLabel,
               trigger_date_et: triggerDateEt,
               trigger_time_et: sendTimeEt,
               reminder_key: reminderKey,
+              late_catch_up: isLate ? 1 : 0,
             });
           }
           for (const hoursBefore of event.reminder_offsets_hours || []) {
@@ -29665,6 +29841,11 @@ export default {
             const triggerDateEt = safeStr(shifted.date_key);
             const sendTimeEt = safeStr(shifted.time_et || event.reminder_send_time_et || "09:00");
             const sendParts = parseEtTimeParts(sendTimeEt, 9, 0);
+            // NO catch-up for hour-based offsets, deliberately (asymmetric with the
+            // day-based branch above). An hour-offset reminder IS its timing — a "1
+            // hour left" alert delivered hours late actively misinforms, and the
+            // hourly cron means it either lands in its window or it is meaningless.
+            // Day-based reminders degrade gracefully when late; these do not.
             if (triggerDateEt !== targetDate) continue;
             if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
             const reminderKey = buildDeadlineReminderKey({
@@ -29672,6 +29853,7 @@ export default {
               eventKey: event.event_key,
               reminderCode,
               deliveryTarget: targetDelivery,
+              deadlineDateEt: safeStr(event.deadline_date_et),
             });
             if (sent.has(reminderKey)) continue;
             rows.push({
@@ -29691,7 +29873,36 @@ export default {
             });
           }
         }
-        return rows;
+        // COLLAPSE: at most ONE reminder per event per sweep, the most imminent.
+        //
+        // Without this, catch-up can emit a contradictory burst. Real reachable case
+        // (no editing required — it only needs the 7-day send to have been missed,
+        // which is exactly what has been happening): contract_deadline 2026-09-06 with
+        // offsets [7,1] evaluated on 2026-09-05 emits BOTH "1 Week left" (late) and
+        // "24 Hours left" in the same sweep, 5s apart, when 1 day actually remains.
+        // Editing a date makes it worse by re-arming the whole ladder at once.
+        //
+        // The most imminent reminder is the only truthful one, so keep it and drop the
+        // rest. Dropped rows are NOT marked sent — they stay unsent in the log, which
+        // is correct: their moment has passed and a later sweep must not resurrect them
+        // (the smaller offset that superseded them will be marked sent instead).
+        // Ordering: hour offsets are always closer to the deadline than any day offset;
+        // within a kind, the smaller offset wins.
+        const mostImminentRank = (row) =>
+          safeInt(row?.reminder_hours_before, 0) > 0
+            ? safeInt(row.reminder_hours_before, 0) / 24      // 1h -> 0.041 days
+            : safeInt(row?.reminder_days_before, 0);
+        const collapsed = new Map();
+        for (const row of rows) {
+          const k = safeStr(row.event_key);
+          const cur = collapsed.get(k);
+          if (!cur || mostImminentRank(row) < mostImminentRank(cur)) collapsed.set(k, row);
+        }
+        if (collapsed.size !== rows.length) {
+          const dropped = rows.length - collapsed.size;
+          console.log(`[deadline-reminders] collapsed ${rows.length} due -> ${collapsed.size} (suppressed ${dropped} stale offset(s) superseded by a nearer one)`);
+        }
+        return [...collapsed.values()];
       };
 
       const reminderGifQueries = ({ eventKey, reminderCode }) => {
@@ -35752,6 +35963,38 @@ export default {
         }
         return { unix: null, source: "unresolved" };
       };
+      // The scheduled close (_eraFaCloseUnix) is a commish-entered DEADLINE, not
+      // a live "is it actually done" signal — the real auction resolves each
+      // lot on its own per-lot timer and routinely finishes before that
+      // deadline (bit us 2026-08-05: scheduled close Aug 6, real close Aug 4,
+      // retention stayed on for a day and a half after the auction was over).
+      // This checks the ACTUAL lot-resolution state as a second, independent
+      // way to recognize "closed" — additive only: it can turn a false
+      // "still open" into a true "closed", never the reverse, so a genuinely
+      // in-progress auction can't be unblocked early by this path. Requires
+      // proof at least one lot has resolved THIS season (an auction that
+      // hasn't started yet also has zero 'open' rows, which must not read as
+      // "resolved"); fails to `resolved:false` on any lookup error, same
+      // fail-closed posture as every other branch in this gate.
+      const _eraAuctionFullyResolved = async (season, leagueId) => {
+        try {
+          const resolvedRow = await env.UPS_MFL_DB.prepare(
+            `SELECT 1 FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND is_test = 0 AND status IN ('won','cancelled')
+              LIMIT 1`
+          ).bind(Number(season), String(leagueId)).first();
+          if (!resolvedRow) return { resolved: false, reason: "no_lots_yet" };
+          const openRow = await env.UPS_MFL_DB.prepare(
+            `SELECT 1 FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND is_test = 0 AND status = 'open'
+              LIMIT 1`
+          ).bind(Number(season), String(leagueId)).first();
+          return { resolved: !openRow, reason: openRow ? "lots_still_open" : "no_open_lots" };
+        } catch (resErr) {
+          console.warn("[era-retention] auction-lots resolved-check failed:", resErr && resErr.message ? resErr.message : String(resErr));
+          return { resolved: false, reason: "lookup_error" };
+        }
+      };
       const _eraRetentionBlocked = async (season, leagueId, playerId, opts = {}) => {
         const unknownCloseBlocks = opts.unknownCloseBlocks !== false;
         const pid = String(playerId == null ? "" : playerId).replace(/\D/g, "");
@@ -35772,6 +36015,13 @@ export default {
           const nowUnix = Math.floor(Date.now() / 1000);
           if (close.unix && nowUnix >= close.unix) {
             return { blocked: false, reason: "fa_auction_closed", close_at_unix: close.unix, close_source: close.source };
+          }
+          // Scheduled deadline hasn't hit yet — before trusting that stale-prone
+          // date to keep a genuinely-finished auction locked, check the real
+          // lot state.
+          const resolved = await _eraAuctionFullyResolved(season, leagueId);
+          if (resolved.resolved) {
+            return { blocked: false, reason: "fa_auction_resolved_no_open_lots", resolved_check: resolved.reason };
           }
           if (!close.unix) {
             return unknownCloseBlocks
@@ -42683,8 +42933,27 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
         const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
+        // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
+        // base overrides; the MFL-derived trade-deadline resolution still wins for
+        // trade_deadline specifically, since it is computed from the real kickoff
+        // time rather than typed in. Anything the commish has not set falls through
+        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        //
+        // On a read failure we deliberately fall back to the hardcoded calendar
+        // rather than skipping the sweep: an empty override set still sends the
+        // right reminders, whereas bailing out would silently send none — the exact
+        // failure mode that lost a season of reminders. Do NOT "optimise" this into
+        // an early return.
+        let calendarOverrides = {};
+        try {
+          calendarOverrides = deadlineOverridesFromCalendar(await getAuctionCalendar(env), season) || {};
+        } catch (e) {
+          console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
+          ...calendarOverrides,
           trade_deadline: {
+            ...(calendarOverrides.trade_deadline || {}),
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
@@ -42799,6 +43068,7 @@ export default {
               eventKey: safeStr(selectedEvent.event_key),
               reminderCode,
               deliveryTarget: "test",
+              deadlineDateEt: safeStr(selectedEvent.deadline_date_et),
             }),
           };
         }
@@ -42875,8 +43145,27 @@ export default {
                 source_url: safeStr(fetchedTradeDeadlineResolution.source_url || previousOfficialTradeDeadlineResolution.source_url || ""),
               }
             : fetchedTradeDeadlineResolution;
+        // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
+        // base overrides; the MFL-derived trade-deadline resolution still wins for
+        // trade_deadline specifically, since it is computed from the real kickoff
+        // time rather than typed in. Anything the commish has not set falls through
+        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        //
+        // On a read failure we deliberately fall back to the hardcoded calendar
+        // rather than skipping the sweep: an empty override set still sends the
+        // right reminders, whereas bailing out would silently send none — the exact
+        // failure mode that lost a season of reminders. Do NOT "optimise" this into
+        // an early return.
+        let calendarOverrides = {};
+        try {
+          calendarOverrides = deadlineOverridesFromCalendar(await getAuctionCalendar(env), season) || {};
+        } catch (e) {
+          console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
+          ...calendarOverrides,
           trade_deadline: {
+            ...(calendarOverrides.trade_deadline || {}),
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
@@ -43868,6 +44157,80 @@ export default {
         // setAuctionCalendar → ups_settings key 'auction_calendar'. The dates are
         // pushed to MFL separately by POST /admin/auction/push-mfl-calendar.
         if (csBody && csBody.auction_calendar && typeof csBody.auction_calendar === "object") {
+          // ── CONTRACT-CHANGE GATE on contract_deadline_at ───────────────────
+          // This field ENFORCES the veteran extension / MYAC lockout
+          // (EXTENSION_DEADLINE_PASSED). Per rule_contract_change_gate a change
+          // here is dry-run → shown → explicitly confirmed, never a blind save.
+          // The rest of the calendar is reminder/display only and saves normally.
+          const _curCal = await getAuctionCalendar(env);
+          const _incoming = (csBody.auction_calendar.faa && typeof csBody.auction_calendar.faa === "object")
+            ? csBody.auction_calendar.faa : {};
+          if (Object.prototype.hasOwnProperty.call(_incoming, "contract_deadline_at")) {
+            const _before = safeStr(_curCal?.faa?.contract_deadline_at);
+            const _after = safeStr(_incoming.contract_deadline_at);
+            if (_before !== _after) {
+              const _seasonForGate = safeStr(csBody.auction_calendar.season) || safeStr(_curCal?.season) || safeStr(YEAR);
+              const _hard = getContractDeadlineUtc(_seasonForGate);
+              const _parse = (w) => {
+                const m = safeStr(w).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+                if (!m) return null;
+                const d = new Date(`${m[1]}T${m[2]}:00-04:00`);
+                return isNaN(d.getTime()) ? null : d;
+              };
+              const _afterDate = _after ? _parse(_after) : null;
+              if (_after && !_afterDate) {
+                return jsonOut(400, {
+                  ok: false, error: "contract_deadline_invalid",
+                  message: `"${_after}" is not a valid YYYY-MM-DDTHH:mm value.`,
+                });
+              }
+              // Monotonic sanity: refuse a move into the past outright. Backdating
+              // the deadline retroactively invalidates extensions already accepted
+              // under the old window — unrecoverable without manual repair.
+              if (_afterDate && _afterDate.getTime() < Date.now()) {
+                return jsonOut(400, {
+                  ok: false, error: "contract_deadline_in_past",
+                  message: `Refusing to set the contract deadline to ${_after}, which is already past. That would retroactively lock out extensions accepted under the current window. Set a future date, or clear the field to fall back to the hardcoded ${_hard ? _hard.toISOString() : "value"}.`,
+                });
+              }
+              if (!csBody.auction_calendar.confirm_contract_gate) {
+                return jsonOut(409, {
+                  ok: false,
+                  error: "contract_gate_confirm_required",
+                  gate: "EXTENSION_DEADLINE_PASSED (veteran extensions + MYAC)",
+                  before: _before || null,
+                  after: _after || null,
+                  hardcoded_fallback: _hard ? _hard.toISOString() : null,
+                  effective_after_save: _after
+                    ? `${_after} ET (from the League Calendar)`
+                    : `${_hard ? _hard.toISOString() : "unknown"} (hardcoded fallback — field cleared)`,
+                  message:
+                    "This field does not just move a reminder — it moves the deadline that LOCKS veteran extensions, MYAC, restructures and commish contract updates. " +
+                    "Re-send with confirm_contract_gate: true to apply.",
+                });
+              }
+              // Audit trail — who moved the gate, when, from what to what.
+              try {
+                await env.UPS_MFL_DB.prepare(
+                  "CREATE TABLE IF NOT EXISTS ups_contract_gate_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, season TEXT, field TEXT NOT NULL, before_val TEXT, after_val TEXT, actor TEXT, note TEXT)"
+                ).run();
+                await env.UPS_MFL_DB.prepare(
+                  "INSERT INTO ups_contract_gate_audit (at_utc, season, field, before_val, after_val, actor, note) VALUES (?, ?, 'contract_deadline_at', ?, ?, ?, ?)"
+                ).bind(
+                  new Date().toISOString(), _seasonForGate, _before || null, _after || null,
+                  safeStr(sessionByApiKey ? "apikey" : "mfl_session"),
+                  "moves EXTENSION_DEADLINE_PASSED gate"
+                ).run();
+              } catch (e) {
+                // An unauditable gate change is not allowed to proceed silently.
+                return jsonOut(500, {
+                  ok: false, error: "contract_gate_audit_failed",
+                  message: `Refusing the change because it could not be audited: ${e && e.message}`,
+                });
+              }
+              console.log(`[contract-gate] contract_deadline_at ${_before || "(unset)"} -> ${_after || "(cleared)"} season=${_seasonForGate}`);
+            }
+          }
           const ac = await setAuctionCalendar(env, csBody.auction_calendar);
           if (!ac.ok) return jsonOut(500, ac);
           return jsonOut(200, { ok: true, auction_calendar: await getAuctionCalendar(env) });
@@ -46451,7 +46814,24 @@ export default {
               _extDeadline = getTagDeadlineUtc(_yearInt + Math.max(0, _priorCY));
               _extClass = "rookie";
             } else {
-              _extDeadline = getContractDeadlineUtc(year);
+              // Effective (commish-editable) deadline. On an unreadable config we
+              // REFUSE rather than fall back — enforcing the wrong window writes a
+              // real contract against a window the commish thinks he changed.
+              const _cd = await resolveContractDeadlineUtc(year);
+              if (_cd.error) {
+                return mutationResponse(
+                  "validation_fail",
+                  String(body.submission_id || body.submissionId || "").trim(),
+                  {
+                    reason: `Cannot verify the ${year} contract deadline right now, so this submission is being refused rather than accepted against a possibly-wrong window. Retry shortly; if it persists, check the League Calendar in Commish Settings.`,
+                    code: "CONTRACT_DEADLINE_UNRESOLVED",
+                    detail: _cd.error,
+                    submission_kind: submissionKindRaw,
+                  },
+                  503
+                );
+              }
+              _extDeadline = _cd.deadline;
               _extClass = "veteran";
             }
             const _nowMs = Date.now();
