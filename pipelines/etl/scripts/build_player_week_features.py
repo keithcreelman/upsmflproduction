@@ -234,14 +234,26 @@ def build_week(season: int, week: int) -> list[tuple]:
     # ── role competition: depth chart now, and one window back ─────────────
     # MIN(depth_rank) because a player is listed at several slots (e.g. WR and
     # KR); his best listing is the one that describes his role.
-    depth = {r["gsis_id"]: r["rk"] for r in ctx.run(ctx.select(
+    #
+    # ⚠️ CAPPED AT 3, AND THE CAP IS LOAD-BEARING. nflverse changed this feed in
+    # 2025 and the two scales are NOT comparable:
+    #     <=2024  depth_team tops out at 3  (2024: 17,765 / 13,489 / 4,440)
+    #     >=2025  pos_rank runs to 12       (2025: 19,236 / 15,634 / 9,561 / …)
+    # So an uncapped `depth_rank = 3` means "third string OR DEEPER" before 2025
+    # and "exactly third, with nine tiers below him" after. Feeding that raw to a
+    # model trained pre-2025 and tested on 2025 hands it a distribution shift
+    # perfectly correlated with era — it would learn the calendar, not the
+    # football. min(rank, 3) restores a single meaning across all ten seasons.
+    # The raw value is preserved in nfl_player_depth_weekly for anyone who wants
+    # the finer 2025+ granularity; only the era-comparable FEATURE is capped.
+    depth = {r["gsis_id"]: min(r["rk"], 3) for r in ctx.run(ctx.select(
         "nfl_player_depth_weekly", "gsis_id, MIN(depth_rank) rk",
         where=f"{S} AND week = {week} AND depth_rank IS NOT NULL",
-        group_by="gsis_id"))}
-    depth_prev = {r["gsis_id"]: r["rk"] for r in ctx.run(ctx.select(
+        group_by="gsis_id")) if r["rk"] is not None}
+    depth_prev = {r["gsis_id"]: min(r["rk"], 3) for r in ctx.run(ctx.select(
         "nfl_player_depth_weekly", "gsis_id, MIN(depth_rank) rk",
         where=f"{S} AND {_win(p3_lo, p3_hi)} AND depth_rank IS NOT NULL",
-        group_by="gsis_id"))}
+        group_by="gsis_id")) if r["rk"] is not None}
 
     # ── matchup: opponent's generosity to this position ────────────────────
     # The week=W row is already as-of by construction (built from weeks < W) —
