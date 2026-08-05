@@ -179,7 +179,45 @@ def fetch_depth(year: int):
     if not kicks:
         raise SourceColumnMissing(f"[{year}] no schedule — cannot date snapshots")
 
+    # WHICH WEEKS ARE REAL. "Latest snapshot before kickoff" is the right rule,
+    # but run BEFORE a week is played it resolves to the same snapshot for every
+    # remaining week — so a preseason run produces N identical copies, each
+    # labelled as that week's pregame depth chart. Verified 2026-08-05: 2026
+    # returned exactly 3,187 rows for each of weeks 1-18 (perfectly uniform),
+    # while 2025 and 2023 vary genuinely week to week (~57% player overlap
+    # between weeks 1 and 12).
+    #
+    # Writing all 18 would put August camp data in week 12 under a WEEK_PREGAME
+    # grain, which reads as "the week-12 depth chart" to every consumer. It is
+    # not future leakage — it is staleness wearing a fresh label, and this script
+    # is scheduled in NO workflow, so nothing would ever correct it.
+    #
+    # So: emit only the FIRST week that a shared snapshot legitimately describes,
+    # and drop the duplicate future weeks loudly. Weeks already played keep their
+    # own real snapshots and are untouched.
+    now = pd.Timestamp.now(tz="UTC")
+    chosen: dict[int, object] = {}
     for wk in sorted(kicks):
+        before = d[d["dt"] < kicks[wk]]
+        if not before.empty:
+            chosen[wk] = before["dt"].max()
+
+    emit, dropped, ts_seen = [], [], set()
+    for wk in sorted(chosen):
+        future = kicks[wk] > now
+        if future and chosen[wk] in ts_seen:
+            dropped.append(wk)           # same snapshot as an earlier week
+            continue
+        ts_seen.add(chosen[wk])
+        emit.append(wk)
+    if dropped:
+        print(f"  [{year}] depth: weeks {dropped[0]}-{dropped[-1]} share the "
+              f"snapshot already used for week {emit[-1] if emit else '?'} and "
+              f"have not kicked off — DROPPED rather than written as their own "
+              f"pregame depth chart. Re-run once those weeks approach.",
+              file=sys.stderr, flush=True)
+
+    for wk in emit:
         cutoff = kicks[wk]
         # Strictly before kickoff: a snapshot taken after the game has started
         # is not information we had when predicting it.
@@ -201,6 +239,13 @@ def fetch_depth(year: int):
     return rows
 
 
+def _upstream_season() -> int:
+    """Newest season nflverse publishes GAME data for. Lags the calendar through
+    the off-season (returns 2025 until the 2026 season kicks off)."""
+    import nflreadpy as nfl
+    return int(nfl.get_current_season(roster=False))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seasons", default="2016-2025")
@@ -211,19 +256,48 @@ def main() -> None:
 
     failed: list[str] = []
     for yr in parse_seasons(args.seasons):
-        inj = dep = []
-        try:
-            if not args.skip_injuries:
-                inj = fetch_injuries(yr)
-            if not args.skip_depth:
-                dep = fetch_depth(yr)
-        except SourceColumnMissing as e:
-            failed.append(str(e))
-            print(f"[{yr}] SKIPPED — {e}", file=sys.stderr, flush=True)
-            continue
-        except Exception as e:                      # noqa: BLE001
-            failed.append(f"[{yr}] {e}")
-            print(f"[{yr}] FAILED — {e}", file=sys.stderr, flush=True)
+        # The two sources fail INDEPENDENTLY. They used to share one try block,
+        # so whichever ran first could take the other down with it — and that is
+        # not hypothetical: nflverse has 2026 depth charts but NOT 2026 injuries
+        # ("Season must be between 2009 and 2025"), so a 2025-2026 cron run would
+        # have raised on injuries and `continue`d straight past the depth load
+        # that was the whole point of including 2026.
+        def _try(name, fn):
+            try:
+                return fn(), None
+            except SourceColumnMissing as e:
+                return [], f"[{yr}] {name}: {e}"
+            except Exception as e:                  # noqa: BLE001
+                return [], f"[{yr}] {name}: {e}"
+
+        inj, e_inj = ([], None) if args.skip_injuries else _try("injuries",
+                                                               lambda: fetch_injuries(yr))
+        dep, e_dep = ([], None) if args.skip_depth else _try("depth",
+                                                            lambda: fetch_depth(yr))
+
+        # NOT-YET-PUBLISHED IS NOT A FAILURE — but it is never silent either.
+        # nflverse has 2026 depth charts and 2026 schedules but no 2026 injuries
+        # (they begin with the games). Counting that as an error would make the
+        # weekly cron red from now until September for an entirely expected
+        # reason, and a permanently-red source is one people learn to ignore.
+        #
+        # This is NOT a fail-open: the exemption applies ONLY when the season is
+        # beyond what nflverse publishes at all, which is a structural fact we
+        # ask the library for rather than a message we pattern-match. For any
+        # season nflverse DOES carry, a failure stays a failure — and either way
+        # it is printed.
+        beyond_upstream = yr > _upstream_season()
+        for label, e in (("injuries", e_inj), ("depth", e_dep)):
+            if not e:
+                continue
+            if beyond_upstream:
+                print(f"  {label}: not published upstream for {yr} yet "
+                      f"(nflverse current season = {_upstream_season()}) — "
+                      f"expected, wrote nothing", file=sys.stderr, flush=True)
+            else:
+                failed.append(e)
+                print(f"  SOURCE FAILED — {e}", file=sys.stderr, flush=True)
+        if not inj and not dep:
             continue
 
         n_out = sum(1 for r in inj if r[5] == "Out")

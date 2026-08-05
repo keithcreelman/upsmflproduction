@@ -93,5 +93,26 @@ jobs:
           run nfl_player_names "all-eras"   python3 ../pipelines/etl/scripts/fetch_nflverse_player_names.py
           run ff_player_ids    "all"        python3 ../pipelines/etl/scripts/fetch_ff_playerids.py
 
+          # PREGAME sources — added 2026-08-05. These were previously in NO
+          # workflow at all, which is why nfl_team_vegas_weekly stopped at 2025
+          # and depth charts were only ever loaded by hand.
+          #
+          # They matter more than their size suggests: spread/total/implied and
+          # depth rank are among the very few inputs that exist BEFORE a game, so
+          # they are the only usable signal at week 1, when all 48 trailing
+          # in-season features (routes_l3, targets_l1, ...) are structurally null.
+          #
+          # Both are safe on the default 2025-2026 range in the off-season:
+          #  - injuries are not published for a future season; the script reports
+          #    that and exits 0, rather than going red every week until September.
+          #  - depth charts DO exist pre-season, but resolve to one camp snapshot
+          #    for every remaining week; the script writes only the first week it
+          #    legitimately describes and drops the duplicates loudly.
+          #  - Vegas lines post progressively (102 of 544 rows for 2026 so far),
+          #    so this re-run is what fills them in. It reports how many are still
+          #    missing so "written" is never read as "complete".
+          run injuries_depth   "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_injuries_depth.py --seasons "${SEASONS}"
+          run schedule_vegas   "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_schedule_vegas.py --seasons "${SEASONS}"
+
           if [ "${FAILED}" = "1" ]; then echo "One or more sources failed (see groups above)."; exit 1; fi
           echo "All nflverse sources refreshed."
