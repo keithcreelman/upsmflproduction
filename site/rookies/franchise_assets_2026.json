@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-04T11:48:06.662537+00:00",
+    "generated_at_utc": "2026-08-05T11:44:47.927154+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1752,7 +1752,7 @@
           "position": "TE",
           "nfl_team": "BAL",
           "salary": 7000,
-          "contract_year": 1,
+          "contract_year": 2,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -1842,6 +1842,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_12801",
+          "display": "Tyreek Hill",
+          "player_id": "12801",
+          "position": "WR",
+          "nfl_team": "FA",
+          "salary": 4000,
+          "contract_year": 3,
+          "contract_status": "Vet-FAA-FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16598",
           "display": "Bucky Irving",
           "player_id": "16598",
@@ -1860,7 +1872,7 @@
           "position": "S",
           "nfl_team": "LAC",
           "salary": 2000,
-          "contract_year": 1,
+          "contract_year": 3,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -2003,6 +2015,18 @@
           "player_id": "11985",
           "position": "PN",
           "nfl_team": "WAS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_14095",
+          "display": "Ty Johnson",
+          "player_id": "14095",
+          "position": "RB",
+          "nfl_team": "BUF",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -2642,7 +2666,7 @@
           "display": "Ainias Smith",
           "player_id": "16686",
           "position": "WR",
-          "nfl_team": "CAR",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
