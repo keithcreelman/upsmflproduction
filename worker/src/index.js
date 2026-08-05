@@ -6205,7 +6205,9 @@ export default {
               if (!p || !p.id) continue;
               const pid = String(p.id);
               pidToFid[pid] = fid;
-              // Capture raw fields; client parses contractInfo for CL/AAV
+              // Capture raw fields, PLUS the two derived values consumers
+              // actually want. contractInfo is still sent verbatim so anything
+              // needing TCV / per-year salaries can parse it itself.
               const c = {};
               if (p.salary != null) c.salary = Number(p.salary) || 0;
               // Preserve cy=0 (expired contract) — the `|| null` short-circuit
@@ -6217,6 +6219,38 @@ export default {
               }
               if (p.contractInfo) c.contractInfo = String(p.contractInfo);
               if (p.contractStatus) c.contractStatus = String(p.contractStatus);
+              // aav + yearsRemaining (Keith 2026-08-05). The comment here used
+              // to read "client parses contractInfo for CL/AAV" — but the one
+              // client that wants them (the stats workbench's
+              // applyLiveOwnership) reads liveC.aav / liveC.yearsRemaining,
+              // keys this endpoint never sent, so that overlay had been dead
+              // since it was written and mfl_aav / mfl_years_remaining were
+              // null for every player on every board.
+              //
+              // Derived through _parseContractData — the SAME parser
+              // computeDropPenalty uses — rather than a second regex, so the
+              // contract math cannot drift between the two. It reads the FIRST
+              // AAV token, which is canon for a dual-AAV escalator ("AAV 27K,
+              // 37K" → the current tier leads and drops once its year is
+              // played), and takes yearsRemaining straight off contractYear,
+              // which MFL counts DOWN (cy=1 = final year, cy=0 = expired).
+              //
+              // Verified against all 503 live 2026 contracts before shipping:
+              // of the deals whose year-salaries can discriminate the two
+              // readings, 27 fit years-remaining and 0 fit year-index.
+              //
+              // Unparseable → key omitted, never a guessed number; the client
+              // guards with `!= null` and falls back to what it already had.
+              if (c.contractInfo) {
+                const parsed = _parseContractData({
+                  contractInfo: c.contractInfo,
+                  salary: c.salary,
+                  contractYear: c.contractYear,
+                });
+                if (parsed.aav != null) c.aav = parsed.aav;
+                if (parsed.cl != null) c.contractLength = parsed.cl;
+                if (c.contractYear != null) c.yearsRemaining = parsed.yearsRemaining;
+              }
               if (Object.keys(c).length) pidToContract[pid] = c;
             }
           }
@@ -9360,8 +9394,21 @@ export default {
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
                    lc.salary AS mfl_salary, lc.aav AS mfl_aav,
-                   (CASE WHEN lc.years_total IS NULL OR lc.years_total = 0 OR lc.contract_year IS NULL THEN NULL
-                         ELSE lc.years_total - lc.contract_year + 1 END) AS mfl_years_remaining,
+                   -- contract_year IS years remaining — MFL counts it DOWN
+                   -- (cy=1 = final year, cy=0 = expired), and src_contracts
+                   -- carries the same convention. This used to compute
+                   -- years_total minus contract_year plus 1, which is the
+                   -- current-year INDEX — the exact inverse. On a 3-year deal
+                   -- with 1 year left it reported 3. It never surfaced because
+                   -- the column has been NULL for everyone (src_contracts 2026,
+                   -- the MAX season this CTE joins on, has contract_length
+                   -- empty for all 504 rows), so the bug was waiting for that
+                   -- backfill to land. Verified against the deals whose
+                   -- year-salaries discriminate the two readings: on live MFL
+                   -- 27 fit years-remaining and 0 fit index; in src_contracts
+                   -- 2025, 3 fit years-remaining and 0 fit index.
+                   (CASE WHEN lc.contract_year IS NULL THEN NULL
+                         ELSE lc.contract_year END) AS mfl_years_remaining,
                    msa.mfl_points AS mfl_points,
                    CAST(msa.mfl_points AS REAL) / NULLIF(msa.mfl_games_scored, 0) AS mfl_ppg,
                    lc.franchise_id AS mfl_franchise_id,

@@ -667,19 +667,20 @@ table.asw-table{font-size:13px}
   // nothing is listed here. The map exists so that a genuinely dead column
   // gets labelled instead of rendering as a silent wall of blanks.
   //
-  // Two fields ARE null for 100% of rows in every group but are deliberately
-  // NOT listed, because neither is a column on this page — mfl_aav and
-  // mfl_years_remaining. Worth knowing before anyone adds them, because the
-  // cause is twofold and neither half is obvious:
-  //   1. src_contracts season 2026 — the MAX season the worker's
-  //      latest_contract CTE joins against — has aav and contract_length
-  //      unpopulated for all 504 rows. 2025 and earlier are ~80% populated.
-  //   2. applyLiveOwnership() below patches from liveC.aav / liveC.yearsRemaining,
-  //      but /api/mfl-league-state's pid_to_contract emits only
-  //      { salary, contractYear, contractInfo, contractStatus } — those two
-  //      keys never exist, so the client-side fallback never fires either.
-  //      The AAV is in there, but only inside the contractInfo STRING
-  //      ("CL 1| TCV 14K| AAV 14K"), the way the Front Office parses it.
+  // mfl_aav / mfl_years_remaining used to be null for 100% of rows here. Two
+  // independent causes, both fixed in the worker 2026-08-05:
+  //   1. /api/mfl-league-state's pid_to_contract emitted only
+  //      { salary, contractYear, contractInfo, contractStatus }, so
+  //      applyLiveOwnership()'s liveC.aav / liveC.yearsRemaining patch below
+  //      had never once fired. It now sends aav + yearsRemaining (+
+  //      contractLength), derived with the worker's own _parseContractData.
+  //   2. The leaderboard SQL computed years-remaining as
+  //      `years_total - contract_year + 1`, the inverse of the real meaning
+  //      (MFL counts contract_year DOWN). Corrected to contract_year.
+  // src_contracts season 2026 still has aav/contract_length empty for all 504
+  // rows, so the SQL side stays null until that backfill lands — but the live
+  // overlay now covers every rostered player regardless, which is the better
+  // source anyway (live MFL, not a manual sync).
   var DEAD_COLS = {};
   // Columns empty only for CERTAIN position tabs. These are real absences
   // rather than bugs — a kicker takes no offensive snaps — but a blank column
