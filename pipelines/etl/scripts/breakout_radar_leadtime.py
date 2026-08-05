@@ -192,8 +192,14 @@ def load_season(season: int, weeks):
     return rows
 
 
-def season_labels(rows):
-    """elite weeks, per-position 'established' cutoffs, and breakout weeks."""
+def season_labels(rows, elite_rank=None, est_rank=None):
+    """elite weeks, per-position 'established' cutoffs, and breakout weeks.
+
+    Both thresholds are PARAMETERS because both are arbitrary. A radar that only
+    wins at (12, 24) has not been shown to win at all, so they get swept.
+    """
+    elite_rank = ELITE_RANK if elite_rank is None else elite_rank
+    est_rank = ESTABLISHED_RANK if est_rank is None else est_rank
     by_week = defaultdict(list)
     for r in rows:
         by_week[r["week"]].append(r)
@@ -204,11 +210,11 @@ def season_labels(rows):
             p = [x for x in rs if x["mfl_pos"] == pos]
             if not p:
                 continue
-            for x in sorted(p, key=lambda z: -_f(z["score"]))[:ELITE_RANK]:
+            for x in sorted(p, key=lambda z: -_f(z["score"]))[:elite_rank]:
                 elite.add((x["gsis_id"], wk))
             ppg = sorted((_f(x["ups_ppg_std"], -1) for x in p), reverse=True)
-            established[(pos, wk)] = (ppg[ESTABLISHED_RANK - 1]
-                                      if len(ppg) >= ESTABLISHED_RANK else -1)
+            established[(pos, wk)] = (ppg[est_rank - 1]
+                                      if len(ppg) >= est_rank else -1)
 
     first_elite = {}
     for g, wk in sorted(elite, key=lambda t: t[1]):
@@ -353,6 +359,14 @@ def main() -> None:
     ap.add_argument("--seasons", default="2021-2025")
     ap.add_argument("--weeks", default="5-17")
     ap.add_argument("--topk", type=int, default=5)
+    ap.add_argument("--elite-rank", type=int, default=ELITE_RANK,
+                    help="A top-N week counts as elite. ARBITRARY — sweep it.")
+    ap.add_argument("--est-rank", type=int, default=ESTABLISHED_RANK,
+                    help="PPG above the position's Nth-best = already startable, "
+                         "so not a breakout candidate. ARBITRARY — sweep it.")
+    ap.add_argument("--cache", default="",
+                    help="Path to cache the loaded rows. The D1 read dominates "
+                         "runtime, so a threshold sweep should pay it once.")
     args = ap.parse_args()
     a, b = (args.weeks.split("-") + [args.weeks])[:2]
     weeks = range(int(a), int(b) + 1)
@@ -360,12 +374,26 @@ def main() -> None:
 
     from sklearn.ensemble import HistGradientBoostingClassifier
 
-    # Load everything once; the learned radar needs prior seasons available.
-    cache = {}
-    for s in seasons:
-        rows = load_season(s, weeks)
-        if rows:
-            cache[s] = (rows,) + season_labels(rows)
+    # Load once. Optionally persist, so sweeping thresholds does not re-pay the
+    # D1 read — the labels change per definition, the underlying rows do not.
+    raw = None
+    if args.cache and Path(args.cache).exists():
+        import pickle
+        raw = pickle.loads(Path(args.cache).read_bytes())
+        print(f"loaded {sum(len(v) for v in raw.values())} rows from cache",
+              file=sys.stderr)
+    if raw is None:
+        raw = {}
+        for s_ in seasons:
+            rws = load_season(s_, weeks)
+            if rws:
+                raw[s_] = rws
+        if args.cache:
+            import pickle
+            Path(args.cache).write_bytes(pickle.dumps(raw))
+
+    cache = {sn: (rws,) + season_labels(rws, args.elite_rank, args.est_rank)
+             for sn, rws in raw.items()}
 
     names = (("role", "role_fast", "volume", "production",
               "combined", "combined_fast", "random")
@@ -483,7 +511,8 @@ def main() -> None:
         sys.exit("no breakouts identified — check the definitions")
 
     print(f"\nBREAKOUT RADAR — {n_break} breakouts, top-{args.topk} per "
-          f"position-week, seasons {seasons[0]}-{seasons[-1]}\n")
+          f"position-week, seasons {seasons[0]}-{seasons[-1]}, "
+          f"elite=top{args.elite_rank} established=top{args.est_rank}\n")
     hdr = (f"{'radar':>12} {'5+ wk':>7} {'2-4 wk':>7} {'1 wk':>6} {'after':>7} "
            f"{'never':>7} {'recall':>7} {'players':>8} {'PRECISION':>10} {'lift':>6}")
     print(hdr)
