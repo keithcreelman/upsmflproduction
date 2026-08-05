@@ -53,7 +53,7 @@ Dropped/merged: old #5 "Expiring Non-Rookie Extensions" = same as Contract Deadl
 **Canonical (LIVE):** every 5 min, the drop tracker scans MFL → writes `ups_drop_events` → posts the rich per-player embed to **Transactions `1059111651846131833`** (`DISCORD_DROPS_CHANNEL_ID`). Gated by `DROP_TRACKER_ENABLED=1` + `DROP_TRACKER_AUTO_POST=1`. Format = the canonical drop record (header `# 💰 Cap Penalty: $X` or `# ✅ No Cap Penalty`, Team/Player/Position/Contract/Pre-drop state/Cap penalty/Dropped fields, tiered GIF).
 
 **DELETE — OLD duplicate flow (verified still present in main 2026-05-29, NOT cleaned up):**
-- Hourly cron block `worker/src/index.js:~1957-2010` — grouped-by-franchise penalty post to `1066390675207233618`. The MFL import inside it was a one-time rollforward (Keith) — safe to delete the whole block.
+- ✅ **DONE 2026-08-05.** Hourly cron block — grouped-by-franchise penalty post to `1066390675207233618`. The Discord half went 2026-07-20; the remaining MFL-import half was removed 2026-08-05. It had never actually run on this cron: it self-fetched the worker's own public workers.dev hostname (404, silent — the response status was never checked), and once PR #808 routed it through `env.SELF` and added a status check it surfaced 403, because the route authenticates off `?APIKEY=` in the query string while the block sent an `X-Internal-Auth` header. Redundant regardless — the `*/5` drop tracker already writes penalties to MFL via `/admin/drops/post-mfl`.
 - `sendDiscordCapPenaltyAnnouncement` function (`:~20532`)
 - `/admin/cap-penalty/post` + `/admin/cap-penalty/test-discord` routes (`:~30707`)
 - `DISCORD_CAP_PENALTY_CHANNEL_ID` env var (`:1996`, `:2205`)
