@@ -1,6 +1,6 @@
 # DISCORD REDESIGN — UPS Dynasty FFL (2026)
 
-**Generated:** 2026-08-05 · **Status:** PROPOSAL — nothing has been changed in Discord.
+**Generated:** 2026-08-05 · **Status:** ✅ **EXECUTED 2026-08-05** — see §0.5 for what actually shipped.
 **Supersedes the target-state sections of** `docs/DISCORD_INVENTORY.md` (2026-05-29), which this
 audit found to be partly drifted from live code.
 
@@ -9,6 +9,58 @@ audit found to be partly drifted from live code.
 analysed by 7 parallel corpus agents; 3 independent architectures produced and scored by 3
 judges on different axes; API capabilities verified against Discord's docs and live probes.
 A complete JSON dump of every message exists (see §0) — no proposal here risks data.
+
+---
+
+## 0.5 WHAT ACTUALLY SHIPPED (2026-08-05)
+
+The design below was reviewed with Keith and **executed in a reduced form**. Read this section
+before the rest — §1–§10 describe a larger proposal, and the parts not listed here were
+deliberately declined.
+
+### Shipped
+
+**4 categories, 21 channels, verified by re-reading the guild — all checks pass.**
+
+| Category | Channels | Members can |
+|---|---|---|
+| ☕ COFFEE SHOP | the-coffee-shop · on-the-sofa · this-day-in-history · Voice & Video Hangout | post + start threads |
+| 📣 FROM THE COMMISH | **announcements** (← `league-announcements`) · **rules** (← `rules-discussion`) | reply in threads + react only |
+| 🤖 FROM THE LEAGUE | transactions · contract-activity · otb | reply in threads + react only |
+| 🗄 ARCHIVE | slack-history · contract-links · league_history · new_prospective_owners · cap-penalty-announcements · league-voting · rules-important-links · roster-analysis · website_bugs | read only |
+| (hidden) | keiths-test · test_audio · private_league_discussion | no access |
+
+- `contract-activity` locked — `SEND_MESSAGES` allow → deny. One bit; the core fix.
+- `announcements` locked — `SEND` / `CREATE_PUBLIC_THREADS` / `CREATE_PRIVATE_THREADS` → deny.
+  It had **looked** locked but denied nothing, so members inherited permission to post.
+- 9 dead channels frozen (send/threads/replies/reactions denied; view + history kept).
+- Two renames, **channel IDs preserved** — every permalink and every `DISCORD_*_CHANNEL_ID`
+  still resolves. `DISCORD_RULES_CHANNEL_ID` (12 code refs) untouched.
+- **Zero messages, threads, or channels deleted.** Only the empty `Reports` and `League Rules`
+  categories were removed.
+- Verified post-change: the bot retains VIEW/SEND/EMBED/CREATE_THREADS/SEND_IN_THREADS/
+  MANAGE_THREADS on every channel it posts to. No automated send path was broken.
+
+### Deliberately NOT done
+
+- **No roles were created.** The `@Owner` / `@Commish` layer in §3 was dropped. `@everyone` **is**
+  already all 12 franchise owners — the "20 members" figure counts 7 bots, and 13 human accounts
+  minus Keith's alt = 12 humans = 12 franchises. An `@Owner` role would have identical membership.
+- **`@everyone` auction pings kept.** Keith wants nomination *and* win pings. The ping-fatigue
+  argument in §0 and the ping ladder in §6.7 are **declined**, not pending.
+- **No `#help-desk`.** `website_bugs` was archived instead. Consequence accepted: there is now no
+  member-postable business channel; bot-down contract submissions will land in the Coffee Shop.
+- **No forum channels** (see the forum constraint below) and **no Wave 0 code changes yet** — the
+  four hardcoded-fallback landmines are still open.
+
+### Gotcha for future automation
+
+Channel/category permission overwrites **override** guild-level bot permissions — the bot is a
+member of `@everyone`. Two objects denied `MANAGE_CHANNELS`/`MANAGE_ROLES` to `@everyone`, which
+is a no-op for humans but strips it from any bot that has it. The bot could not self-grant out of
+this: Discord forbids granting a permission bit you don't hold in that scope. Keith cleared the
+deny on `rules-important-links`; the **`🤖 FROM THE LEAGUE` category still carries it**, so the
+bot cannot rename that category or add channels to it without that deny being cleared first.
 
 ---
 
