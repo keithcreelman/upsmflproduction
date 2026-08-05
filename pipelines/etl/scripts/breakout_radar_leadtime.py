@@ -138,6 +138,13 @@ LEARN_VARIANTS = {
     "learn_rank": dict(feats=SMALL_FEATS, kw=_REG_KW,  rank=True),
 }
 
+# THE PRODUCTION RADAR. Chosen on a 9-definition sweep of the two arbitrary
+# breakout thresholds, not on a single operating point: learn_reg leads 7 of 9
+# definitions with a mean precision of 20.0%, against 17.7% for the
+# hand-weighted combined_fast which led only at the (12,24) point it was
+# originally tuned at.
+PRIMARY = "learn_reg"
+
 RNG = np.random.default_rng(0)
 
 
@@ -364,6 +371,9 @@ def main() -> None:
     ap.add_argument("--est-rank", type=int, default=ESTABLISHED_RANK,
                     help="PPG above the position's Nth-best = already startable, "
                          "so not a breakout candidate. ARBITRARY — sweep it.")
+    ap.add_argument("--show", action="store_true",
+                    help="List the actual players the production radar caught "
+                         "before they broke out, with lead times.")
     ap.add_argument("--cache", default="",
                     help="Path to cache the loaded rows. The D1 read dominates "
                          "runtime, so a threshold sweep should pay it once.")
@@ -398,6 +408,7 @@ def main() -> None:
     names = (("role", "role_fast", "volume", "production",
               "combined", "combined_fast", "random")
              + tuple(LEARN_VARIANTS))
+    caught = []
     tot = {n: defaultdict(int) for n in names}
     lead = {n: [] for n in names}
     n_flagged = {n: 0 for n in names}
@@ -491,6 +502,19 @@ def main() -> None:
                         seen[n].add(x["gsis_id"])
                         first_flag[n].setdefault(x["gsis_id"], wk)
 
+        if args.show:
+            meta = {r["gsis_id"]: (r["player_name"], r["mfl_pos"]) for r in rows}
+            best = {}
+            for r in rows:
+                g = r["gsis_id"]
+                if breakout.get(g) == r["week"]:
+                    best[g] = _f(r["score"])
+            for g, bw in breakout.items():
+                fw = first_flag[PRIMARY].get(g)
+                if fw is not None and fw < bw:
+                    nm, ps = meta.get(g, ("?", "?"))
+                    caught.append((bw - fw, season, nm, ps, fw, bw, best.get(g, 0.0)))
+
         for n in names:
             n_flagged[n] += len(seen[n])
             for g, bw in breakout.items():
@@ -534,6 +558,18 @@ def main() -> None:
         print(f"\nNOTE: 'learned' had no prior season for {skipped_learned} and "
               f"produced no flags there, so its player count is lower by "
               f"construction — precision stays comparable, recall does not.")
+    if args.show and caught:
+        print(f"\n\nWHAT {PRIMARY} ACTUALLY CAUGHT — flagged BEFORE the breakout\n")
+        hdr = (f"{'lead':>5} {'season':>7} {'player':<24} {'pos':>4} "
+               f"{'flagged':>8} {'broke out':>10} {'UPS pts':>8}")
+        print(hdr); print("-" * len(hdr))
+        for lead_wk, sn, nm, ps, fw, bw, pts in sorted(caught, reverse=True)[:40]:
+            print(f"{lead_wk:>4}w {sn:>7} {nm[:24]:<24} {ps:>4} "
+                  f"{'W'+str(fw):>8} {'W'+str(bw):>10} {pts:>8.1f}")
+        print(f"\n{len(caught)} players flagged before breaking out. 'lead' is")
+        print("weeks between the flag and his first elite week — the window in")
+        print("which he was still cheap.")
+
     print("\nPRECISION = of the distinct players shortlisted, the share that")
     print("broke out AFTER being flagged. Budget-fair; recall is not, because")
     print("flags accumulate and a radar that names more players earns recall")
