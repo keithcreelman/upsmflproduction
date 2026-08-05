@@ -4,17 +4,54 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UPS Advanced Stats Workbench</title>
+<!-- Absolute URLs: this page is injected as an iframe srcdoc (no base URL), so
+     relative asset paths do not resolve. Same reason the profile script at the
+     bottom is absolute. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Big+Shoulders+Display:wght@600;700;800&family=Roboto+Mono:wght@400;500;600;700&display=swap">
 <style>
+/* ── Design tokens ────────────────────────────────────────────────────────
+   DARK is the default (matches the rest of the UPS app); [data-theme="light"]
+   on <html> swaps the ground for the editorial light treatment. Everything
+   downstream reads these vars — never a raw hex — so one flip restyles the
+   whole page. --accent stays #6aa8ff in dark because JS-generated SVG
+   (scatter, sparklines, drawer charts) inherits it. */
 :root{
-  --bg:#0b1424; --panel:#13213a; --panel-alt:#1a2a45; --border:#2a3e60;
-  --border-strong:#3b5280; --text:#e8effa; --muted:#9fb3d1; --accent:#6aa8ff;
+  --bg:#0b0f17; --panel:#121826; --panel-alt:#192130;
+  --border:rgba(232,239,250,.11); --border-strong:rgba(232,239,250,.22);
+  --text:#e8effa; --muted:#8fa0bc; --accent:#6aa8ff;
   --ok:#5bd9a2; --warn:#f0c465; --err:#ff7b7b; --smash:#73e68c; --hit:#7cb3ff;
   --contrib:#a8a8a8; --bust:#e07a7a;
+  --row-hover:rgba(106,168,255,.07);
+  /* Heat quintiles — token-driven so light mode can re-author them (they were
+     hardcoded rgba/hex before, which made a light theme impossible). */
+  --heat-1-bg:rgba(224,80,80,.34);  --heat-1-fg:#ffc9c9;
+  --heat-2-bg:rgba(224,80,80,.15);  --heat-2-fg:#ffd9d9;
+  --heat-3-bg:rgba(160,160,180,.08);--heat-3-fg:var(--muted);
+  --heat-4-bg:rgba(90,220,130,.15); --heat-4-fg:#b8ffcf;
+  --heat-5-bg:rgba(90,220,130,.34); --heat-5-fg:#c4ffd6;
+  --font-ui:"Inter Tight",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --font-display:"Big Shoulders Display","Inter Tight",Impact,sans-serif;
+  --font-mono:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+html[data-theme="light"]{
+  --bg:#fff; --panel:#fff; --panel-alt:#f6f7f9;
+  --border:rgba(14,17,24,.11); --border-strong:rgba(14,17,24,.2);
+  --text:#0e1118; --muted:rgba(14,17,24,.55); --accent:#1d4ed8;
+  --ok:#0f8a5f; --warn:#a86a00; --err:#c02626; --smash:#0f8a5f; --hit:#1d4ed8;
+  --contrib:#6b7280; --bust:#c02626;
+  --row-hover:rgba(29,78,216,.05);
+  --heat-1-bg:rgba(192,38,38,.16);  --heat-1-fg:#8c1a1a;
+  --heat-2-bg:rgba(192,38,38,.07);  --heat-2-fg:#a33;
+  --heat-3-bg:transparent;          --heat-3-fg:var(--muted);
+  --heat-4-bg:rgba(15,138,95,.09);  --heat-4-fg:#0b6b49;
+  --heat-5-bg:rgba(15,138,95,.2);   --heat-5-fg:#08543a;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-.asw-shell{max-width:1400px;margin:0 auto;padding:12px}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 var(--font-ui)}
 h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
+.asw-shell{max-width:1400px;margin:0 auto;padding:12px}
 .asw-version{font-size:10px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:1px 6px;vertical-align:middle;margin-left:6px;letter-spacing:.03em}
 .asw-subtitle{color:var(--muted);font-size:11px;margin-bottom:12px}
 /* Responsive (B7) — the page embeds in an iframe that can be tablet/large-phone
@@ -114,11 +151,11 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
    Bumped 2026-04-24: prior opacities (.07/.16) were nearly invisible
    on dark bg. Stronger colors + bold + colored text on the extremes
    so the eye catches top/bottom 20% at a glance. */
-.asw-table.heat td.pct-q1{background:rgba(224,80,80,.35);color:#ffc9c9;font-weight:700}
-.asw-table.heat td.pct-q2{background:rgba(224,80,80,.15);color:#ffd9d9}
-.asw-table.heat td.pct-q3{background:rgba(160,160,180,.08);color:var(--muted)}
-.asw-table.heat td.pct-q4{background:rgba(90,220,130,.15);color:#b8ffcf}
-.asw-table.heat td.pct-q5{background:rgba(90,220,130,.35);color:#c4ffd6;font-weight:700}
+.asw-table.heat td.pct-q1{background:var(--heat-1-bg);color:var(--heat-1-fg);font-weight:700}
+.asw-table.heat td.pct-q2{background:var(--heat-2-bg);color:var(--heat-2-fg)}
+.asw-table.heat td.pct-q3{background:var(--heat-3-bg);color:var(--heat-3-fg)}
+.asw-table.heat td.pct-q4{background:var(--heat-4-bg);color:var(--heat-4-fg)}
+.asw-table.heat td.pct-q5{background:var(--heat-5-bg);color:var(--heat-5-fg);font-weight:700}
 
 /* Comparison mode — row checkbox column + sticky compare bar */
 .asw-table th.sel-col,.asw-table td.sel-col{padding:4px 6px;text-align:center;width:28px;background:var(--panel-alt)}
@@ -263,10 +300,180 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 .adp-tn{background:var(--panel-alt);color:var(--muted)}
 .fpa-back{color:var(--accent);text-decoration:none;font-weight:700}
 .fpa-back:hover{text-decoration:underline}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EDITORIAL LAYER (2026-08-05) — restyles the chrome on top of the structural
+   rules above. Deliberately appended rather than rewriting them: every class
+   name, sticky offset and measured width the JS depends on stays intact, so
+   this is a skin, not a rebuild.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Page masthead: eyebrow → display title → standfirst ─────────────────── */
+.asw-shell{max-width:1580px;padding:0 28px 72px}
+.asw-pagehead{padding:26px 0 0;margin-bottom:14px}
+.asw-pagehead-top{display:flex;align-items:flex-start;gap:16px}
+.asw-eyebrow{font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.asw-pagehead h1{
+  font-family:var(--font-display);font-size:clamp(34px,4.6vw,54px);font-weight:800;
+  line-height:.96;letter-spacing:.01em;text-transform:uppercase;margin:6px 0 0;color:var(--text);
+}
+.asw-standfirst{color:var(--muted);font-size:13px;line-height:1.55;max-width:74ch;margin:10px 0 0}
+.asw-head-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.asw-theme-btn{
+  background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:999px;
+  width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:13px;line-height:1;transition:.12s;
+}
+.asw-theme-btn:hover{color:var(--text);border-color:var(--border-strong)}
+
+/* ── View tabs → underline rail ─────────────────────────────────────────── */
+.asw-viewtabs{
+  display:flex;flex-wrap:wrap;gap:0;background:none;border:0;border-bottom:1px solid var(--border);
+  border-radius:0;padding:0;margin:0 0 16px;
+}
+.asw-viewtab{
+  background:none;border:0;border-bottom:2px solid transparent;border-radius:0;
+  color:var(--muted);font-family:var(--font-ui);font-size:11px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;padding:11px 16px 9px;cursor:pointer;
+  transition:.12s;margin-bottom:-1px;
+}
+.asw-viewtab:first-child{padding-left:0}
+.asw-viewtab:hover{color:var(--text)}
+.asw-viewtab[aria-selected="true"]{background:none;color:var(--text);border-bottom-color:var(--accent);font-weight:700}
+
+/* ── Position tabs → quiet rail, accent underline on the active one ─────── */
+.asw-tabs{background:none;border:0;border-radius:0;padding:0;gap:2px;margin-bottom:14px;
+  border-bottom:1px solid var(--border);align-items:stretch}
+.asw-tabs-label{font-size:9px;letter-spacing:.16em;align-self:center;padding:0 8px 0 0}
+.asw-tabs-label:not(:first-child){padding-left:14px}
+.asw-tab{
+  background:none;border:0;border-bottom:2px solid transparent;border-radius:0;
+  color:var(--muted);font-family:var(--font-ui);font-size:12px;font-weight:600;
+  letter-spacing:.04em;padding:9px 12px 8px;margin-bottom:-1px;transition:.12s;
+}
+.asw-tab:hover{border-color:transparent;color:var(--text)}
+.asw-tab[aria-pressed="true"]{background:none;color:var(--text);border-bottom-color:var(--accent);font-weight:700}
+.asw-tabs-sep{display:none}
+.asw-tab .asw-subtab-group{border-left-color:var(--border-strong)}
+.asw-subtab{background:var(--panel-alt);color:var(--muted);border-color:var(--border)}
+.asw-subtab:hover{background:var(--panel-alt);color:var(--text)}
+.asw-subtab[aria-pressed="true"]{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+
+/* ── Filter + columns bars → flat, airy, hairline-ruled ─────────────────── */
+.asw-controls,.asw-cols-bar{background:none;border:0;border-radius:0;padding:0 0 12px;margin-bottom:12px;
+  border-bottom:1px solid var(--border);gap:14px}
+.asw-controls label{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;gap:5px}
+.asw-controls select,.asw-controls input{
+  background:var(--panel-alt);border:1px solid var(--border);border-radius:7px;padding:7px 9px;
+  font-family:var(--font-ui);font-size:12.5px;color:var(--text);
+}
+.asw-controls select:focus,.asw-controls input:focus{outline:none;border-color:var(--accent)}
+.asw-cols-label,.asw-compare-bar-label{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+/* Compare bar — was a full-bleed saturated gradient that shouted over the
+   whole page; make it a quiet panel with the accent carried by the button. */
+.asw-compare-bar{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);
+  border-left:2px solid var(--accent);border-radius:0 8px 8px 0;box-shadow:none;font-weight:500}
+.asw-compare-bar-label{color:var(--muted)}
+.asw-compare-primary{background:var(--accent);color:var(--bg);border:0;font-weight:700}
+.asw-compare-clear{color:var(--muted)}
+/* Column-preset + action chips — pill rail rather than boxes. */
+.asw-cols-bar .asw-chip,.asw-cols-bar button{border-radius:999px;font-size:11.5px}
+.asw-filters-pill{border-radius:999px;font-size:11.5px}
+.asw-meta{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.02em;color:var(--muted);padding:0 0 8px}
+
+/* ── The table ──────────────────────────────────────────────────────────── */
+.asw-table-wrap{background:none;border:0;border-radius:0;max-height:none}
+.asw-topscroll{border:0}
+table.asw-table{font-size:13px}
+.asw-table th,.asw-table td{padding:9px 12px;border-bottom:1px solid var(--border)}
+/* Header rows: micro-caps labels, hairline rule, opaque + above the pinned
+   body cells (the structural rules give sticky th no z-index — with pinned
+   columns now carrying their own background, body cells would paint over the
+   header without this). */
+.asw-table tr.asw-col-row th{
+  background:var(--bg);color:var(--muted);font-family:var(--font-ui);font-size:9.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--border-strong);
+  z-index:3;
+}
+.asw-table tr.asw-group-row th{background:var(--bg);letter-spacing:.14em;font-size:9px;z-index:3}
+.asw-table tr.asw-col-row th:hover{color:var(--text)}
+.asw-table tr.asw-col-row th[aria-sort]{color:var(--text)}
+.asw-table th[aria-sort="ascending"]::after,.asw-table th[aria-sort="descending"]::after{font-size:8px}
+.asw-table tr.asw-filter-row th{background:var(--bg);z-index:3}
+/* Numerals: mono + tabular everywhere they line up in a column. */
+.asw-table td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:12.5px;letter-spacing:-.01em}
+.asw-table th.num{font-family:var(--font-ui)}
+.asw-table td.name{font-weight:500;letter-spacing:.005em}
+.asw-table tbody tr:hover td{background:var(--row-hover)}
+.asw-table tbody tr:hover td.asw-pin{background:var(--panel-alt)}
+
+/* Pinned left columns (Savant pattern): checkbox · rank · player stay put
+   while every stat column scrolls under them. Widths are fixed because the
+   `left` offsets have to be exact — .sel-col's 28px is the pre-existing one
+   the structural rule already sets. */
+.asw-table th.sel-col,.asw-table td.sel-col{position:sticky;left:0;width:28px;background:var(--bg)}
+.asw-table th.rank-col,.asw-table td.rank-col{position:sticky;left:28px;width:40px;min-width:40px;
+  text-align:right;background:var(--bg);font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.asw-table td.name{position:sticky;left:68px;width:196px;min-width:196px;background:var(--bg)}
+.asw-table th.name-col{position:sticky;left:68px;width:196px;min-width:196px;background:var(--bg)}
+/* Header cells that are pinned BOTH ways must outrank the scrolled header
+   cells. The structural `tr.asw-col-row th` rule is (0,2,2) — a plain
+   `.asw-table th.name-col` (0,2,1) loses to it, so the scrolled columns painted
+   straight over "#" and "Player". Match the row in the selector to win. */
+.asw-table tr.asw-col-row th.sel-col,
+.asw-table tr.asw-col-row th.rank-col,
+.asw-table tr.asw-col-row th.name-col,
+.asw-table tr.asw-group-row th.sel-col,
+.asw-table tr.asw-group-row th.rank-col,
+.asw-table tr.asw-filter-row th.sel-col,
+.asw-table tr.asw-filter-row th.rank-col{z-index:5}
+.asw-table td.sel-col,.asw-table td.rank-col,.asw-table td.name{z-index:1}
+/* The pinned block gets a hairline edge so it reads as a fixed rail. */
+.asw-table tr.asw-col-row th.name-col,.asw-table td.name{box-shadow:1px 0 0 var(--border)}
+.asw-table tbody tr.is-active td.sel-col,
+.asw-table tbody tr.is-active td.rank-col,
+.asw-table tbody tr.is-active td.name{background:var(--panel-alt) !important}
+
+/* Dead-data flags — a column whose source is empty is labelled, not silently
+   blank (Keith 2026-08-05: "flag anything where the data is missing"). */
+.asw-table tr.asw-col-row th.col-nodata{color:var(--warn)}
+.asw-table tr.asw-col-row th.col-nodata::before{content:"⚠ ";font-size:9px}
+/* Not-applicable-for-this-position: quieter than broken — it's information, not a fault. */
+.asw-table tr.asw-col-row th.col-na{opacity:.42}
+/* :not([aria-sort]) so this never fights the sort-arrow ::after on the same th. */
+.asw-table tr.asw-col-row th.col-na:not([aria-sort])::after{content:" ·n/a";font-size:8px;letter-spacing:.04em}
+.asw-datanote{
+  display:flex;gap:9px;align-items:flex-start;margin:0 0 12px;padding:9px 12px;
+  border:1px solid var(--border);border-left:2px solid var(--warn);border-radius:0 7px 7px 0;
+  background:var(--panel-alt);color:var(--muted);font-size:11.5px;line-height:1.5;
+}
+.asw-datanote b{color:var(--text);font-weight:600}
+.asw-datanote code{font-family:var(--font-mono);font-size:11px;color:var(--warn)}
+
+@media (max-width:820px){
+  .asw-shell{padding:0 14px 56px}
+  .asw-pagehead{padding-top:18px}
+  .asw-table td.name,.asw-table th.name-col{width:150px;min-width:150px}
+}
 </style>
 </head>
 <body>
 <div class="asw-shell">
+
+<!-- Page masthead. Title + standfirst are driven per-view by VIEW_META so the
+     heading always names the board you're actually looking at. -->
+<header class="asw-pagehead">
+  <div class="asw-pagehead-top">
+    <div>
+      <div class="asw-eyebrow">UPS · Advanced Stats</div>
+      <h1 id="asw-page-title">Player Stats <span id="asw-version" class="asw-version" title="Module version"></span></h1>
+    </div>
+    <div class="asw-head-actions">
+      <button type="button" class="asw-theme-btn" id="asw-theme-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
+    </div>
+  </div>
+  <p class="asw-standfirst" id="asw-page-desc"></p>
+</header>
 
 <!-- Stats page sub-tabs: Player Stats (this workbench) vs Fantasy Points Against. -->
 <div class="asw-viewtabs" id="asw-viewtabs" role="tablist" aria-label="Stats views">
@@ -279,8 +486,6 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 </div>
 
 <section id="asw-view-player-stats">
-<h1>Player Stats <span id="asw-version" class="asw-version" title="Module version"></span></h1>
-<div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Tab picks the position; chips pick column groups. Click a player for week-by-week / by-season trends, then "Full profile" for the full UPS card.</div>
 
 <!-- Primary position tabs -->
 <div class="asw-tabs" id="asw-tabs">
@@ -350,6 +555,10 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   <!-- group chips injected by JS, then the filter toggle block appended -->
 </div>
 
+<!-- Known-empty-source warning for whatever columns are currently visible.
+     Filled by renderDataNote(); hidden when every visible column has data. -->
+<div id="asw-datanote-slot"></div>
+
 <!-- Sticky compare bar — appears above the table when 1+ players selected -->
 <div class="asw-compare-bar" id="asw-compare-bar" hidden>
   <span class="asw-compare-bar-label">Compare</span>
@@ -408,6 +617,92 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   var API_BASE = (typeof window !== "undefined" && window.UPS_ASW_API_BASE) ||
                  "https://upsmflproduction.keith-creelman.workers.dev";
   var THIS_YEAR = new Date().getFullYear();
+
+  // ---------- Theme (dark default, light opt-in, remembered) ----------
+  var THEME_KEY = "asw.theme";
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
+    var b = document.getElementById("asw-theme-btn");
+    if (b) b.textContent = t === "light" ? "☾" : "☀";
+  }
+  (function initTheme(){
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+    applyTheme(saved === "light" ? "light" : "dark");
+    document.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest && e.target.closest("#asw-theme-btn");
+      if (!btn) return;
+      var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+      applyTheme(next);
+      try { localStorage.setItem(THEME_KEY, next); } catch (e2) {}
+    });
+  })();
+
+  // ---------- Per-view masthead copy ----------
+  var VIEW_META = {
+    "player-stats": { title:"Player Stats", desc:'NFL on-field counts (nflverse) plus snap share and PFR advanced, joined to this league’s own MFL scoring. The position rail picks who’s listed; Columns picks what’s measured. Click any player for week-by-week and by-season trends, then “Full profile” for the full UPS card.' },
+    "fpa":          { title:"Fantasy Points Against", desc:"How generous each NFL defense has been to every fantasy position — raw and schedule-adjusted. Click a team to see the week-by-week players who did the damage." },
+    "adp":          { title:"ADP · Dynasty Value", desc:"Multi-source consensus draft position and dynasty trade value (FantasyCalc, KeepTradeCut, DynastyProcess, Sleeper), blended into one board with tiering." },
+    "vegas":        { title:"Vegas Implied Points", desc:"Team totals implied by the live betting market — the cleanest public read on how many points a real offense is expected to score." },
+    "pace":         { title:"Team Pace", desc:"Plays per game, seconds per snap, and pass rate by team — the volume side of opportunity, before any individual usage share is applied." },
+    "schedule":     { title:"Strength of Schedule", desc:"Positional schedule difficulty by week, rated off last season’s defensive performance. Use it to time streamers and read a stretch run." }
+  };
+  function setPageHead(view) {
+    var m = VIEW_META[view] || VIEW_META["player-stats"];
+    var t = document.getElementById("asw-page-title");
+    var d = document.getElementById("asw-page-desc");
+    // Keep the version badge — it's a live node other code writes into.
+    if (t) {
+      var badge = document.getElementById("asw-version");
+      t.textContent = m.title + " ";
+      if (badge) t.appendChild(badge);
+    }
+    if (d) d.textContent = m.desc;
+  }
+
+  // ---------- Known-empty data sources ----------
+  // Audited live against /api/advanced-stats-leaderboard on 2026-08-05: all
+  // five position groups, season 2025, weeks 1-17 (the page's own default
+  // query). Every VISIBLE column on this page came back with real data, so
+  // nothing is listed here. The map exists so that a genuinely dead column
+  // gets labelled instead of rendering as a silent wall of blanks.
+  //
+  // Two fields ARE null for 100% of rows in every group but are deliberately
+  // NOT listed, because neither is a column on this page — mfl_aav and
+  // mfl_years_remaining. Worth knowing before anyone adds them, because the
+  // cause is twofold and neither half is obvious:
+  //   1. src_contracts season 2026 — the MAX season the worker's
+  //      latest_contract CTE joins against — has aav and contract_length
+  //      unpopulated for all 504 rows. 2025 and earlier are ~80% populated.
+  //   2. applyLiveOwnership() below patches from liveC.aav / liveC.yearsRemaining,
+  //      but /api/mfl-league-state's pid_to_contract emits only
+  //      { salary, contractYear, contractInfo, contractStatus } — those two
+  //      keys never exist, so the client-side fallback never fires either.
+  //      The AAV is in there, but only inside the contractInfo STRING
+  //      ("CL 1| TCV 14K| AAV 14K"), the way the Front Office parses it.
+  var DEAD_COLS = {};
+  // Columns empty only for CERTAIN position tabs. These are real absences
+  // rather than bugs — a kicker takes no offensive snaps — but a blank column
+  // still deserves to say why. Counts verified against 2025.
+  var DEAD_COLS_BY_TAB = {
+    off_snaps_total:    ["pk","pn"],
+    off_snap_rate:      ["pk","pn"],
+    def_snaps_total:    ["qb","pk","pn"],
+    def_snap_rate:      ["qb","pk","pn"],
+    receiving_drops:    ["qb"],
+    receiving_drop_pct: ["qb"],
+    fg_att_60plus:      ["pn"],
+    fg_made_60plus:     ["pn"]
+  };
+  // → { kind: "broken"|"na", why } or null. "broken" means the source should
+  // have data and doesn't (loud). "na" means the stat genuinely doesn't apply
+  // to this position (quiet) — a kicker has no offensive snaps.
+  function deadReason(colKey, tab) {
+    if (DEAD_COLS[colKey]) return { kind: "broken", why: DEAD_COLS[colKey] };
+    var tabs = DEAD_COLS_BY_TAB[colKey];
+    if (tabs && tabs.indexOf(tab) >= 0) return { kind: "na", why: "not tracked for this position" };
+    return null;
+  }
   var MIN_SEASON = 2011;
   var LEAGUE_ID = "74598";
 
@@ -1811,6 +2106,54 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     });
   }
 
+  // Banner above the table naming any VISIBLE column whose source is empty,
+  // plus the "you picked a season with no data" case. Silent when everything
+  // on screen has data behind it.
+  function renderDataNote(cols, apiRowCount) {
+    var slot = document.getElementById("asw-datanote-slot");
+    if (!slot) return;
+    var notes = [];
+
+    // Only genuinely-BROKEN sources earn a banner. "Doesn't apply to this
+    // position" is real information but not a problem, so it stays on the
+    // column header + its tooltip instead of shouting from the top of the page.
+    var broken = (cols || []).filter(function (k) {
+      var d = deadReason(k, state.activeTab);
+      return d && d.kind === "broken";
+    });
+    if (broken.length) {
+      var parts = broken.map(function (k) {
+        return "<code>" + escapeHtml((COLS[k] && COLS[k].label) || k) + "</code>";
+      }).join(" ");
+      var reasons = {};
+      broken.forEach(function (k) { reasons[deadReason(k, state.activeTab).why] = 1; });
+      var keys = Object.keys(reasons);
+      var why = keys.length === 1 ? keys[0] : "see each column's tooltip";
+      notes.push("<b>No data behind " + (broken.length === 1 ? "this column" : "these columns") + ":</b> " +
+                 parts + " — " + escapeHtml(why) + ". They render empty for every player.");
+    }
+
+    // Season with nothing behind it — the worker answers 200 with zero rows for
+    // a season whose weekly stats haven't been ingested (e.g. one that hasn't
+    // been played yet), which otherwise just looks like a broken page.
+    if (apiRowCount === 0) {
+      var seasons = [];
+      try { seasons = getSelectedSeasons(); } catch (e) {}
+      notes.push("<b>No stats for " + escapeHtml(seasons.join(", ")) + ".</b> " +
+                 "Weekly data only exists through the most recently completed season — pick an earlier one.");
+    }
+    // The worker caps a query at 500 rows; past that the board is silently
+    // truncated, which matters most on the deep pools (skill / IDP).
+    if (apiRowCount >= 500) {
+      notes.push("<b>Showing the first 500 players.</b> This position pool is larger than the query cap, " +
+                 "so the tail is cut off — narrow by team or scope to see further down.");
+    }
+
+    slot.innerHTML = notes.length
+      ? '<div class="asw-datanote"><span>⚠</span><span>' + notes.join("<br>") + "</span></div>"
+      : "";
+  }
+
   function render() {
     var tab = TABS[state.activeTab];
     var blocks = buildBlocks();
@@ -1882,8 +2225,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // First cell in every header + body row is a compare-checkbox column
     // (not part of the blocks — it's a fixed prefix that doesn't affect
     // sort/filter/heat logic).
-    var SEL_TH_GROUP = '<th class="sel-col"></th>';
-    var SEL_TH_COL   = '<th class="sel-col" title="Select for comparison"></th>';
+    // Rank column: position in the CURRENT sort, so it renumbers as you sort
+    // or filter. Purely presentational — it is not a COLS entry and never
+    // enters sort/filter/heat/CSV logic.
+    var SEL_TH_GROUP = '<th class="sel-col"></th><th class="rank-col"></th>';
+    var SEL_TH_COL   = '<th class="sel-col" title="Select for comparison"></th>' +
+                       '<th class="rank-col" title="Rank in the current sort">#</th>';
 
     // Group header row
     var groupRow = SEL_TH_GROUP + blocks.map(function(b, i){
@@ -1905,9 +2252,17 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
           : "";
         var cls = [];
         if (def.num) cls.push("num");
+        if (k === "player_name") cls.push("name-col");
         if (bi > 0 && ci === 0) cls.push("group-sep");
         if ((state.filters[k] || "").trim()) cls.push("has-filter");
-        var titleAttr = def.title ? ' title="' + def.title.replace(/"/g, "&quot;") + '"' : "";
+        // Flag a column whose SOURCE is empty rather than letting it render as
+        // a wall of blank cells with no explanation.
+        var dead = deadReason(k, state.activeTab);
+        if (dead) cls.push(dead.kind === "broken" ? "col-nodata" : "col-na");
+        var titleText = dead
+          ? ((dead.kind === "broken" ? "NO DATA — " : "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
+          : (def.title || "");
+        var titleAttr = titleText ? ' title="' + titleText.replace(/"/g, "&quot;") + '"' : "";
         colRow += '<th class="'+cls.join(" ")+'"'+sortAttr+titleAttr+' data-col-key="'+k+'">'+def.label+'</th>';
       });
     });
@@ -1915,7 +2270,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // Filter row (third thead row). Only rendered when filtersVisible is true.
     var filterRow = "";
     if (state.filtersVisible) {
-      filterRow = '<th class="sel-col"></th>';
+      filterRow = '<th class="sel-col"></th><th class="rank-col"></th>';
       blocks.forEach(function(b, bi){
         b.colKeys.forEach(function(k, ci){
           var def = COLS[k] || {};
@@ -1978,13 +2333,16 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       return " pct-q" + q;
     }
 
-    // Body — prefix each row with the compare checkbox
-    var body = rows.map(function(r){
+    // Body — prefix each row with the compare checkbox + its rank in the
+    // current sort. One <tr> per row still, so the row-index → rows[idx]
+    // mapping the drill-down and compare cache rely on is unchanged.
+    var body = rows.map(function(r, rowIdx){
       var gid = r.gsis_id || "";
       var checked = state.compareSet.has(gid) ? " checked" : "";
       var selCell = '<td class="sel-col">' +
         '<input type="checkbox" class="asw-compare-check" data-compare-gsis="'+gid+'"'+checked+'>' +
-        '</td>';
+        '</td>' +
+        '<td class="rank-col">' + (rowIdx + 1) + '</td>';
       var cells = selCell;
       blocks.forEach(function(b, bi){
         b.colKeys.forEach(function(k, ci){
@@ -2027,11 +2385,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
             '<tr class="asw-col-row">'+colRow+'</tr>' +
             theadFilter +
           '</thead>' +
-          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 1)+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
+          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 2)+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
         '</table>'
       : '<div class="asw-empty">No rows.</div>';
     }
 
+    renderDataNote(cols, state.lastApiCount);
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.
@@ -3877,6 +4236,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   renderColsBar();
   updateCustomPickerVisibility();
   wireTopScroll();
+  setPageHead("player-stats");
   runQuery();
 
   // Keep URL in sync after every render (covers sort/filter/heat/group
@@ -4646,6 +5006,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         var v = btn.getAttribute("data-view");
         viewTabs.querySelectorAll(".asw-viewtab").forEach(function(x){ x.setAttribute("aria-selected", x === btn ? "true" : "false"); });
         Object.keys(sections).forEach(function(k){ if (sections[k]) sections[k].hidden = (k !== v); });
+        setPageHead(v);   // masthead names the board you're actually on
         if (v === "fpa" && !fpa.rendered) { fpa.rendered = true; renderShell(); load(); }
         if (v === "adp" && !adp.rendered) { adp.rendered = true; adpRenderShell(); adpLoad(); }
         if (v === "vegas" && !vegas.rendered) { vegas.rendered = true; vegasLoad(); }
