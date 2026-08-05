@@ -179,7 +179,45 @@ def fetch_depth(year: int):
     if not kicks:
         raise SourceColumnMissing(f"[{year}] no schedule — cannot date snapshots")
 
+    # WHICH WEEKS ARE REAL. "Latest snapshot before kickoff" is the right rule,
+    # but run BEFORE a week is played it resolves to the same snapshot for every
+    # remaining week — so a preseason run produces N identical copies, each
+    # labelled as that week's pregame depth chart. Verified 2026-08-05: 2026
+    # returned exactly 3,187 rows for each of weeks 1-18 (perfectly uniform),
+    # while 2025 and 2023 vary genuinely week to week (~57% player overlap
+    # between weeks 1 and 12).
+    #
+    # Writing all 18 would put August camp data in week 12 under a WEEK_PREGAME
+    # grain, which reads as "the week-12 depth chart" to every consumer. It is
+    # not future leakage — it is staleness wearing a fresh label, and this script
+    # is scheduled in NO workflow, so nothing would ever correct it.
+    #
+    # So: emit only the FIRST week that a shared snapshot legitimately describes,
+    # and drop the duplicate future weeks loudly. Weeks already played keep their
+    # own real snapshots and are untouched.
+    now = pd.Timestamp.now(tz="UTC")
+    chosen: dict[int, object] = {}
     for wk in sorted(kicks):
+        before = d[d["dt"] < kicks[wk]]
+        if not before.empty:
+            chosen[wk] = before["dt"].max()
+
+    emit, dropped, ts_seen = [], [], set()
+    for wk in sorted(chosen):
+        future = kicks[wk] > now
+        if future and chosen[wk] in ts_seen:
+            dropped.append(wk)           # same snapshot as an earlier week
+            continue
+        ts_seen.add(chosen[wk])
+        emit.append(wk)
+    if dropped:
+        print(f"  [{year}] depth: weeks {dropped[0]}-{dropped[-1]} share the "
+              f"snapshot already used for week {emit[-1] if emit else '?'} and "
+              f"have not kicked off — DROPPED rather than written as their own "
+              f"pregame depth chart. Re-run once those weeks approach.",
+              file=sys.stderr, flush=True)
+
+    for wk in emit:
         cutoff = kicks[wk]
         # Strictly before kickoff: a snapshot taken after the game has started
         # is not information we had when predicting it.
