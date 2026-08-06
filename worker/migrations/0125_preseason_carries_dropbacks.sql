@@ -1,0 +1,22 @@
+-- 0125_preseason_carries_dropbacks.sql
+-- Claude 2026-08-05 — prior-season CARRIES and DROPBACKS for the preseason store.
+--
+-- ⚠️ APPLY WITH `wrangler d1 execute ups-mfl-db --remote --file=<this>`.
+--    NEVER `wrangler d1 migrations apply` — tracker ~47 behind, corrupts contracts.
+--
+-- WHY: the first walk-forward evaluation beat the league's canon rule at WR
+-- (+0.311 PPG, 95% CI [+0.171,+0.455], P=1.00) and NOWHERE ELSE — RB, QB and TE
+-- intervals all straddled zero. Permutation importance put targets_pg_1 second,
+-- and the only prior-opportunity features in the store were routes_pg_1 and
+-- targets_pg_1, both receiving-oriented.
+--
+-- So the positions with no lift were exactly the positions with no usable
+-- opportunity prior: RB opportunity is CARRIES, QB opportunity is DROPBACKS, and
+-- neither existed. That makes the flat RB/QB result a testable feature gap
+-- rather than a ceiling — these two columns are the test.
+--
+-- dropbacks = pass_att + pass_sacks. A sack is a called pass play that ended
+-- behind the line; counting only attempts would understate how often a QB was
+-- asked to throw, and would do so unevenly (bad lines take more sacks).
+ALTER TABLE model_player_preseason_features ADD COLUMN carries_pg_1 REAL;
+ALTER TABLE model_player_preseason_features ADD COLUMN dropbacks_pg_1 REAL;

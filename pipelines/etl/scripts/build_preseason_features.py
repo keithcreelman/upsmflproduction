@@ -61,7 +61,7 @@ FEATURE_VERSION = "preseason_v1"
 COLS = ["season", "gsis_id", "mfl_player_id", "player_name", "mfl_pos", "nfl_team",
         "prior_ppg_w", "prior_ppg_w_aged", "age_multiplier", "seasons_of_history",
         "ppg_1", "ppg_2", "ppg_3", "games_1", "games_2", "games_3",
-        "routes_pg_1", "targets_pg_1",
+        "routes_pg_1", "targets_pg_1", "carries_pg_1", "dropbacks_pg_1",
         "age_at_season", "years_exp", "is_rookie", "team_changed",
         "depth_rank", "mfl_salary",
         "ups_games_actual", "ups_ppg_actual", "ups_total_actual",
@@ -163,6 +163,23 @@ def _prior_opportunity(ctx, season):
     return {r["gs"]: (_f(r["rpg"]), _f(r["tpg"])) for r in rows}
 
 
+def _prior_volume(ctx, season):
+    """Carries and dropbacks per game from season S-1.
+
+    Added after the first evaluation beat the canon rule at WR and nowhere else.
+    The only opportunity priors were routes/targets — both receiving — so RB and
+    QB had no usable volume signal at all. dropbacks = pass_att + pass_sacks,
+    because a sack is a called pass play; counting attempts alone understates how
+    often a QB was asked to throw, and does so unevenly across offensive lines.
+    """
+    rows = ctx.run(
+        "SELECT gsis_id gs, AVG(COALESCE(rush_att,0)) cpg,"
+        " AVG(COALESCE(pass_att,0) + COALESCE(pass_sacks,0)) dpg"
+        " FROM nfl_player_weekly"
+        f" WHERE season = {season - 1} GROUP BY gsis_id")
+    return {r["gs"]: (_f(r["cpg"]), _f(r["dpg"])) for r in rows}
+
+
 def _depth(ctx, season):
     rows = ctx.run(
         "SELECT gsis_id gs, MIN(depth_rank) rk FROM nfl_player_depth_weekly"
@@ -225,6 +242,7 @@ def build(season, roster_cache=None):
     priors = _prior_aggs(ctx, season)
     actual = _actuals(ctx, season)
     opp = _prior_opportunity(ctx, season)
+    vol = _prior_volume(ctx, season)
     depth = _depth(ctx, season)
     sal = _salary(ctx, season)
     ident = _identity(ctx, season)
@@ -252,6 +270,7 @@ def build(season, roster_cache=None):
 
         a_g, a_ppg, a_tot = actual.get(g, (None, None, None))
         r_pg, t_pg = opp.get(g, (None, None))
+        c_pg, d_pg = vol.get(g, (None, None))
 
         rows.append((
             season, g, pid, nm, pos, team_now or tm,
@@ -260,7 +279,7 @@ def build(season, roster_cache=None):
             (trio[2] or (None, None))[0],
             (trio[0] or (None, None))[1], (trio[1] or (None, None))[1],
             (trio[2] or (None, None))[1],
-            r_pg, t_pg,
+            r_pg, t_pg, c_pg, d_pg,
             age, yexp, int(nhist == 0), changed,
             depth.get(g), sal.get(g),
             a_g, a_ppg, a_tot,
