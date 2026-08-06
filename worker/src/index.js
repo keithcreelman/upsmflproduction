@@ -46380,12 +46380,13 @@ export default {
           ""
         );
 
-        const [leagueRes, rostersRes, assetsRes, myFrRes, extRes] = await Promise.all([
+        const [leagueRes, rostersRes, assetsRes, myFrRes, extRes, salaryAdjustmentsRes] = await Promise.all([
           mflExportJsonWithRetry(season, leagueId, "league", {}, { includeApiKey: false, useCookie: true }),
           mflExportJsonWithRetry(season, leagueId, "rosters", {}, { includeApiKey: false, useCookie: true }),
           mflExportJsonWithRetry(season, leagueId, "assets", {}, { includeApiKey: true, useCookie: true }),
           mflExportJsonWithRetryAsViewer(season, leagueId, "myfranchise", {}, { useCookie: true }),
           fetchExtensionPreviewRows(season, url.searchParams),
+          mflExportJsonWithRetryAsViewer(season, leagueId, "salaryAdjustments", {}, { useCookie: true }),
         ]);
 
         if (!leagueRes.ok) {
@@ -46443,6 +46444,40 @@ export default {
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
         const pickAssetsByFranchise = assetsRes.ok ? parseAssetsExportPicks(assetsRes.data) : {};
         const loggedInFranchiseId = myFrRes.ok ? parseMyFranchiseId(myFrRes.data) : "";
+
+        // Salary adjustments are part of cap-used per the official MFL formula
+        // (used = SUM(roster salaries) + SUM(salaryAdjustments)) — see
+        // reference_mfl_cap_accounting_formula. The war room used to omit them
+        // entirely, so every team's "cap remaining" was wrong by its own
+        // adjustment total (Long Haulers -$15K, Sex Manther +$41K). Mirrors
+        // /roster-workbench so the two surfaces agree. Keith 2026-08-06.
+        //
+        // NO FAIL-OPEN: if the export didn't load we emit null, NOT 0 — a
+        // missing input is never "no adjustments". The client refuses to show
+        // a derived cap number when this is null rather than showing a wrong one.
+        const salaryAdjustmentsOk = !!salaryAdjustmentsRes.ok;
+        const salaryAdjustmentByFranchise = {};
+        const salaryAdjustmentBreakdownByFranchise = {};
+        if (salaryAdjustmentsOk) {
+          const salaryAdjustmentRows = collectSalaryAdjustmentExportRows(
+            salaryAdjustmentsRes.data?.salaryAdjustments ||
+              salaryAdjustmentsRes.data?.salaryadjustments ||
+              salaryAdjustmentsRes.data ||
+              {}
+          );
+          for (const row of salaryAdjustmentRows) {
+            const fid = padFranchiseId(row?.franchise_id);
+            if (!fid) continue;
+            if (!salaryAdjustmentBreakdownByFranchise[fid]) {
+              salaryAdjustmentBreakdownByFranchise[fid] = emptySalaryAdjustmentBreakdown();
+            }
+            salaryAdjustmentByFranchise[fid] =
+              safeInt(salaryAdjustmentByFranchise[fid], 0) + safeInt(row?.amount, 0);
+            const category = salaryAdjustmentCategory(row?.explanation);
+            salaryAdjustmentBreakdownByFranchise[fid][category] =
+              safeInt(salaryAdjustmentBreakdownByFranchise[fid][category], 0) + safeInt(row?.amount, 0);
+          }
+        }
         const commissionerLockoutRaw = safeStr(
           firstTruthy(
             leagueRoot?.commissioner_lockout,
@@ -46600,6 +46635,12 @@ export default {
             franchise_abbrev: meta.franchise_abbrev,
             icon_url: meta.icon_url,
             available_salary_dollars: meta.available_salary_dollars,
+            salary_adjustment_total_dollars: salaryAdjustmentsOk
+              ? safeInt(salaryAdjustmentByFranchise[franchiseId], 0)
+              : null,
+            salary_adjustment_breakdown_dollars: salaryAdjustmentsOk
+              ? salaryAdjustmentBreakdownByFranchise[franchiseId] || emptySalaryAdjustmentBreakdown()
+              : null,
             is_default: !!activeFranchiseId && franchiseId === activeFranchiseId,
             assets: [...playerAssets, ...pickAssets],
           };
@@ -46631,6 +46672,19 @@ export default {
               status: extRes.status,
               url: extRes.url,
               error: extRes.error,
+            },
+          });
+        }
+        if (!salaryAdjustmentsOk) {
+          warnings.push({
+            code: "salary_adjustments_unavailable",
+            message:
+              "Salary adjustments export unavailable; cap-remaining cannot be computed and is suppressed rather than shown wrong.",
+            upstream: {
+              status: salaryAdjustmentsRes.status,
+              url: salaryAdjustmentsRes.url,
+              error: salaryAdjustmentsRes.error,
+              preview: salaryAdjustmentsRes.textPreview,
             },
           });
         }

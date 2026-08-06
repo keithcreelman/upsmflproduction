@@ -5088,14 +5088,24 @@
     }
     var cap = safeInt(state.data && state.data.meta ? state.data.meta.salary_cap_dollars : 0, 0);
     if (cap > 0) {
-      return cap - sumTeamCommittedSalary(teamId);
+      // Cap used = roster salaries + salary adjustments (official MFL formula).
+      // Omitting adjustments here is what made every team's number disagree
+      // with the Front Office. If adjustments are unknown we return null so the
+      // UI shows "—" instead of a confidently wrong figure.
+      var adj = resolveTeamSalaryAdjustmentTotalDollars(teamId);
+      if (adj == null) return null;
+      return cap - sumTeamCommittedSalary(teamId) - adj;
     }
     return null;
   }
 
+  // Returns null (NOT 0) when the worker could not load the salaryAdjustments
+  // export. A missing input is never "no adjustments" — callers must suppress
+  // the derived cap number rather than silently treating it as zero.
   function resolveTeamSalaryAdjustmentTotalDollars(teamId) {
     var team = getTeamById(teamId);
-    if (!team) return 0;
+    if (!team) return null;
+    if (team.salary_adjustment_total_dollars == null) return null;
     return safeInt(team.salary_adjustment_total_dollars, 0);
   }
 
@@ -5111,11 +5121,13 @@
     var rightStartingSalary = sumTeamCommittedSalary(state.rightTeamId);
     var leftAdjustmentTotal = resolveTeamSalaryAdjustmentTotalDollars(state.leftTeamId);
     var rightAdjustmentTotal = resolveTeamSalaryAdjustmentTotalDollars(state.rightTeamId);
+    // adjustmentTotal == null means the salaryAdjustments export failed to
+    // load. Suppress the cap figures instead of pretending adjustments are $0.
     var leftAvailableBefore = salaryCap > 0
-      ? salaryCap - (leftStartingSalary + leftAdjustmentTotal)
+      ? (leftAdjustmentTotal == null ? null : salaryCap - (leftStartingSalary + leftAdjustmentTotal))
       : resolveTeamAvailableSalaryDollars(state.leftTeamId);
     var rightAvailableBefore = salaryCap > 0
-      ? salaryCap - (rightStartingSalary + rightAdjustmentTotal)
+      ? (rightAdjustmentTotal == null ? null : salaryCap - (rightStartingSalary + rightAdjustmentTotal))
       : resolveTeamAvailableSalaryDollars(state.rightTeamId);
 
     var leftNetSalaryAdjustment = leftIncoming - leftOutgoing + leftSalaryTradeAdjustmentDollars;
@@ -5124,10 +5136,10 @@
     var rightNewSalary = safeInt(rightStartingSalary, 0) + rightNetSalaryAdjustment;
 
     var leftAvailableAfter = salaryCap > 0
-      ? salaryCap - (leftNewSalary + leftAdjustmentTotal)
+      ? (leftAdjustmentTotal == null ? null : salaryCap - (leftNewSalary + leftAdjustmentTotal))
       : (leftAvailableBefore == null ? null : safeInt(leftAvailableBefore, 0) - leftNetSalaryAdjustment);
     var rightAvailableAfter = salaryCap > 0
-      ? salaryCap - (rightNewSalary + rightAdjustmentTotal)
+      ? (rightAdjustmentTotal == null ? null : salaryCap - (rightNewSalary + rightAdjustmentTotal))
       : (rightAvailableBefore == null ? null : safeInt(rightAvailableBefore, 0) - rightNetSalaryAdjustment);
 
     var leftNetChange = -leftNetSalaryAdjustment;
