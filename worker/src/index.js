@@ -9494,6 +9494,7 @@ export default {
                    COALESCE(NULLIF(c.full_name, ''), npn.display_name) AS player_name,
                    a.position, a.team, a.pos_group, a.games,
                    ctm.nfl_team AS current_team,
+                   ctm.mfl_position AS mfl_position,
                    ntp.off_plays_pg AS team_plays_pg, ntp.def_plays_pg AS team_def_plays_pg, ntp.pace_sos AS pace_sos,
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
@@ -9572,7 +9573,14 @@ export default {
               -- we've mirrored from MFL's TYPE=players export (src_players,
               -- refreshed nightly). The leaderboard 'team' is the stat-season
               -- team; this overlays "the team they're on today" (Keith 2026-06-20).
-              SELECT player_id, nfl_team
+              --
+              -- Also carries MFL's OWN position (Keith 2026-08-06: "it's not the
+              -- MFL Positions so it's confusing"). nfl_player_weekly's position
+              -- is nflverse's — MLB / SAF / OLB / FS — which is not the
+              -- vocabulary this league uses (MFL says LB / S / DE / DT / CB).
+              -- Free: this CTE was already selected and LEFT JOINed for
+              -- current_team, so it costs no extra join.
+              SELECT player_id, nfl_team, position AS mfl_position
                 FROM src_players
                WHERE season = (SELECT MAX(season) FROM src_players)
             ),

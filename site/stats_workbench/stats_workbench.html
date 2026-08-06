@@ -724,7 +724,18 @@ table.asw-table{font-size:13px}
       compute: function(r){ return r.current_team || r.team || "—"; } },
     mfl_franchise_name:  { label:"MFL Team", cls:"dim",
       compute: function(r){ return r.mfl_franchise_name || "FA"; } },
-    position:            { label:"Pos",      cls:"dim" },
+    // MFL's own position, not nflverse's. They use different vocabularies —
+    // nflverse says MLB / SAF / OLB / FS where this league says LB / S / DE / DT
+    // — and on 54 of 500 IDP players they disagree about the GROUP too
+    // (edge rushers: nflverse LB, MFL DE). Show the league's answer; the
+    // nflverse label stays on hover so the stat provenance isn't lost.
+    position:            { label:"Pos",      cls:"dim",
+      title:"Position as MFL lists it for this league. Hover a cell for the nflverse stat-source position, which can differ (e.g. MFL DE vs nflverse OLB).",
+      compute: function(r){ return r.mfl_position || r.position || "—"; },
+      titleFn: function(r){
+        var mfl = r.mfl_position || "", nfl = r.position || "";
+        return (mfl && nfl && mfl !== nfl) ? ("MFL: " + mfl + "  ·  nflverse: " + nfl) : "";
+      } },
     pos_rank:            { label:"Pos Rk",   num:true, cls:"dim",
       title:"Rank within position by MFL PPG, over the current query (matches the mobile app).",
       compute: function(r){ return (state.rankByGsis && state.rankByGsis[r.gsis_id]) || null; } },
@@ -1174,9 +1185,23 @@ table.asw-table{font-size:13px}
   var IDENT_BASIC = ["player_name", "team", "mfl_franchise_name", "pos_rank"];
   var IDENT_FLEX  = ["player_name", "team", "mfl_franchise_name", "position", "pos_rank"];
 
+  // The position THIS LEAGUE uses. MFL's own value wins; nflverse's is the
+  // fallback for anyone MFL doesn't list.
+  //
+  // These vocabularies genuinely disagree, and not only on spelling. Measured
+  // 2026-08-06 over 500 IDP rows: 54 players (10.8%) land in a different UPS
+  // group — nflverse calls edge rushers LB/OLB where MFL calls them DE, so
+  // T.J. Watt, Micah Parsons, Brian Burns et al. were showing up under LB when
+  // this league scores and tags them as DL. Every position filter and sub-tab
+  // list below already spells positions MFL's way (DE/DT/LB/CB/S), so routing
+  // them through here puts each player on the tab his league actually uses.
+  function effPos(r) {
+    return String((r && (r.mfl_position || r.position)) || "").toUpperCase();
+  }
+
   // ---------- Tab definitions ----------
   // Each tab: workerPos (pos param to /api/advanced-stats-leaderboard),
-  // positionFilter (array of r.position values to keep; null = all),
+  // positionFilter (array of effPos(r) values to keep; null = all),
   // defaultSort, groups (identity always prepended).
   // Each group: id, label, cols, defaultOn. Groups render as visual blocks
   // in the table header (two-row thead with group row + column row).
@@ -2174,13 +2199,13 @@ table.asw-table{font-size:13px}
     // Position filter (client-side, from tab definition)
     var posFilter = tab.positionFilter;
     if (posFilter && posFilter.length) {
-      rows = rows.filter(function(r){ return posFilter.indexOf(r.position) >= 0; });
+      rows = rows.filter(function(r){ return posFilter.indexOf(effPos(r)) >= 0; });
     }
     // Sub-tab filter (DL/DB)
     if (tab.subTabs) {
       var active = tab.subTabs.find(function(st){ return st.id === state.activeSubTab; }) || tab.subTabs[0];
       if (active && active.positions && active.positions.length) {
-        rows = rows.filter(function(r){ return active.positions.indexOf(r.position) >= 0; });
+        rows = rows.filter(function(r){ return active.positions.indexOf(effPos(r)) >= 0; });
       }
     }
 
@@ -3886,7 +3911,7 @@ table.asw-table{font-size:13px}
     // Percentile bars vs the loaded position rows.
     var tab = TABS[state.activeTab];
     var pool = (state.rowsByWorkerPos[tab.workerPos] || []).filter(function(r){
-      return !tab.positionFilter || tab.positionFilter.indexOf(String(r.position || "").toUpperCase()) >= 0;
+      return !tab.positionFilter || tab.positionFilter.indexOf(effPos(r)) >= 0;
     });
     var keys = (PCTL_METRICS_BY_TAB[state.activeTab] || []).filter(function(k){ return COLS[k]; });
     if (pool.length >= 8 && keys.length) {
