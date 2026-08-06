@@ -27848,10 +27848,16 @@ export default {
         } catch (e) {
           return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${e && e.message}` };
         }
-        // getAuctionCalendar swallows its own errors and returns the empty shape, so
-        // "no DB binding at all" is indistinguishable from "nothing configured". Treat
-        // a missing binding as unreadable — that is an infrastructure fault, not a
-        // deliberate blank.
+        // getAuctionCalendar reports read failures via read_error rather than
+        // throwing (it returns the empty shape on error, which is byte-identical to
+        // "nothing configured"). Without this check a transient D1 fault — observed
+        // live 2026-08-05 as `exceeded its CPU time limit [code: 7429]` — would look
+        // like an unset field and silently enforce the HARDCODED deadline instead of
+        // the configured one, i.e. lock extensions at a different instant than the
+        // commish set. Refuse instead; the caller surfaces 503 and the owner retries.
+        if (cfg && cfg.read_error) {
+          return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${cfg.read_error}` };
+        }
         if (!env || !env.UPS_MFL_DB) {
           return { deadline: null, source: "error", error: "contract_calendar_unreadable: no D1 binding" };
         }
@@ -44297,6 +44303,23 @@ export default {
           // here is dry-run → shown → explicitly confirmed, never a blind save.
           // The rest of the calendar is reminder/display only and saves normally.
           const _curCal = await getAuctionCalendar(env);
+          // An unreadable current config is NOT an empty one. Observed live
+          // 2026-08-05: D1 returned `exceeded its CPU time limit [code: 7429]`,
+          // getAuctionCalendar swallowed it and returned blanks, and this gate
+          // reported `before: null` for a field that actually held
+          // 2026-09-06T23:59 — i.e. it offered to "set" a value it was really
+          // OVERWRITING, and compared the new value against nothing. Refuse.
+          if (_curCal.read_error) {
+            return jsonOut(503, {
+              ok: false,
+              error: "calendar_read_failed",
+              detail: _curCal.read_error,
+              retryable: true,
+              message:
+                "Could not read the current League Calendar, so this save is being refused rather than " +
+                "applied against an unknown baseline. Nothing was changed — retry in a moment.",
+            });
+          }
           const _incoming = (csBody.auction_calendar.faa && typeof csBody.auction_calendar.faa === "object")
             ? csBody.auction_calendar.faa : {};
           if (Object.prototype.hasOwnProperty.call(_incoming, "contract_deadline_at")) {
