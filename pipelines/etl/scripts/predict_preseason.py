@@ -25,9 +25,12 @@ WHAT THIS IS, AND WHAT IT IS NOT
     multiplier — so both numbers are printed side by side and the difference
     between them should not be over-read outside WR.
 
-    Both are point estimates. Neither is a floor, a ceiling, or a quantile. The
-    spec's P50/P75/P90 work is not built yet and nothing here should be read as
-    a distribution.
+    P50/P75/P90 are direct season-PPG quantile fits (the spec's Model D), NOT
+    aggregations of weekly quantiles — summing weekly P90s to build a season P90
+    is wrong and is not what this does. P90 is the CONDITIONAL 90th percentile:
+    ~90% of comparable outcomes at or below it. It is not a ceiling, and players
+    exceed it regularly. Calibration is measured by eval_preseason_model.py
+    --calibration; read that before trusting the spread.
 """
 from __future__ import annotations
 import argparse
@@ -79,15 +82,40 @@ def main():
                           for f in FEATS] for r in rs], dtype=float)
 
     from sklearn.ensemble import HistGradientBoostingRegressor
-    m = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4,
-                                      min_samples_leaf=25, l2_regularization=1.0,
-                                      random_state=0)
-    m.fit(X(train), np.array([float(r["ups_ppg_actual"]) for r in train]))
+    ytr = np.array([float(r["ups_ppg_actual"]) for r in train])
+    kw = dict(max_iter=300, learning_rate=0.05, max_depth=4,
+              min_samples_leaf=25, l2_regularization=1.0, random_state=0)
+    m = HistGradientBoostingRegressor(**kw)
+    m.fit(X(train), ytr)
     pred = m.predict(X(usable))
 
+    # QUANTILES. Three independent pinball-loss fits, one per quantile. They are
+    # NOT constrained to be ordered, so they can cross — P75 landing below P50 —
+    # which is repaired by sorting each row. Sorting is the standard fix and is
+    # honest: it enforces the ordering the quantiles must satisfy without
+    # pretending the underlying fits agreed.
+    #
+    # ⚠️ P90 IS THE CONDITIONAL 90TH PERCENTILE: roughly 90% of comparable
+    # outcomes at or below it. It is NOT a ceiling and must never be labelled
+    # one — a player CAN and regularly will exceed it.
+    #
+    # ⚠️ These are SEASON-PPG quantiles fit directly (the spec's Model D). They
+    # are NOT aggregated from weekly quantiles, and summing weekly P90s to make a
+    # season P90 remains wrong and is not what this does.
+    qs = (0.5, 0.75, 0.9)
+    qp = np.column_stack([
+        HistGradientBoostingRegressor(loss="quantile", quantile=q, **kw)
+        .fit(X(train), ytr).predict(X(usable)) for q in qs])
+    crossed = int((np.diff(qp, axis=1) < 0).any(axis=1).sum())
+    qp = np.sort(qp, axis=1)
+    if crossed:
+        print(f"  {crossed} of {len(qp)} rows had crossing quantiles; repaired by "
+              f"sorting", file=sys.stderr)
+
     out = []
-    for r, p in zip(usable, pred):
+    for r, p, q in zip(usable, pred, qp):
         out.append({
+            "p50": float(q[0]), "p75": float(q[1]), "p90": float(q[2]),
             "name": r.get("player_name") or r.get("gsis_id"),
             "pos": r.get("mfl_pos"), "team": r.get("nfl_team"),
             "model": float(p), "canon": float(r["prior_ppg_w_aged"]),
@@ -108,17 +136,19 @@ def main():
           f"(trained 2018-{args.season - 1}, n={len(train)})")
     print(f"{len(usable)} players projected; {dropped} skipped for no prior UPS history\n")
     print(f"{'#':<4}{'player':<24}{'pos':<5}{'tm':<5}{'model':>7}{'canon':>7}"
-          f"{'diff':>7}{'salary':>9}{'age':>6}")
-    print("-" * 74)
+          f"{'P50':>7}{'P75':>7}{'P90':>7}{'salary':>9}")
+    print("-" * 82)
     for i, o in enumerate(out[:args.top], 1):
         sal = f"${o['sal']:,}" if o["sal"] else "—"
         age = f"{o['age']:.1f}" if o["age"] else "—"
         print(f"{i:<4}{str(o['name'])[:23]:<24}{str(o['pos']):<5}{str(o['team'] or '')[:4]:<5}"
-              f"{o['model']:>7.2f}{o['canon']:>7.2f}{o['model'] - o['canon']:>+7.2f}"
-              f"{sal:>9}{age:>6}")
-    print("\nmodel = learned; canon = prior-3-season weighted PPG x age multiplier.")
-    print("Only WR beats canon significantly in walk-forward — elsewhere treat the")
-    print("two as interchangeable. Point estimates, NOT floors/ceilings/quantiles.")
+              f"{o['model']:>7.2f}{o['canon']:>7.2f}"
+              f"{o['p50']:>7.2f}{o['p75']:>7.2f}{o['p90']:>7.2f}{sal:>9}")
+    print("\nmodel = learned mean; canon = prior-3-season weighted PPG x age multiplier.")
+    print("P90 = conditional 90th percentile — ~90%% of comparable outcomes at or")
+    print("below it. It is NOT a ceiling; players exceed it regularly.")
+    print("Only WR beats canon significantly in walk-forward — elsewhere treat")
+    print("model and canon as interchangeable.")
     return 0
 
 

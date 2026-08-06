@@ -41,7 +41,22 @@ FEATS = ["prior_ppg_w", "prior_ppg_w_aged", "age_multiplier", "seasons_of_histor
          "ppg_1", "ppg_2", "ppg_3", "games_1", "games_2", "games_3",
          "routes_pg_1", "targets_pg_1", "carries_pg_1", "dropbacks_pg_1",
          "age_at_season", "years_exp", "is_rookie", "team_changed",
-         "depth_rank", "mfl_salary"]
+         "depth_rank"]
+# mfl_salary REMOVED from the model 2026-08-05 (Keith's call), though it stays in
+# the feature store — the Breakout Radar still needs it to define "cheap".
+#
+# It was the 3rd most important feature, but local attribution showed it working
+# BACKWARDS on exactly the players a projection is most needed for. Christian
+# Watson: model 7.23 vs canon 11.93, and swapping his $1,000 salary for the WR
+# median moved him +1.94 — the single largest driver. He is cheap BECAUSE he was
+# injured and re-signed at the minimum, not because he is bad; his own inputs are
+# fine (14.2 PPG in 2025, depth rank 1, 24.2 routes/g). The model was reading the
+# league's price as evidence about the player and inheriting the causation
+# backwards. Any post-injury re-signing would have been penalised the same way.
+#
+# Salary also only exists from 2020 (pre-2020 snapshots are EOS-stamped, so
+# earlier values would leak), which made it a feature the model could not rely on
+# uniformly across the training window anyway.
 
 
 def load(seasons, positions, min_games):
@@ -66,6 +81,8 @@ def main():
     ap.add_argument("--min-games", type=int, default=4)
     ap.add_argument("--test-seasons", default="2022-2025")
     ap.add_argument("--importance", action="store_true")
+    ap.add_argument("--calibration", action="store_true",
+                    help="walk-forward coverage of the P50/P75/P90 quantile fits")
     args = ap.parse_args()
 
     pos = [p.strip() for p in args.positions.split(",") if p.strip()]
@@ -79,6 +96,43 @@ def main():
     def X(rs):
         return np.array([[float(r[f]) if r.get(f) is not None else np.nan
                           for f in FEATS] for r in rs], dtype=float)
+
+    if args.calibration:
+        # A quantile you have not measured coverage for is decoration. P75 must
+        # sit at or above ~75% of realised outcomes; if it covers 60% it is
+        # over-confident and will understate risk, if 90% it is useless-wide.
+        # Walk-forward, same discipline as the MAE comparison — quantiles fit on
+        # seasons < S only.
+        from sklearn.ensemble import HistGradientBoostingRegressor
+        QS = (0.5, 0.75, 0.9)
+        print(f"\n{'season':<9}{'n':>6}" + "".join(f"{'P'+str(int(q*100)):>9}" for q in QS)
+              + "     (target 50 / 75 / 90 %)")
+        print("-" * 52)
+        acc = {q: [] for q in QS}
+        for s_ in tests:
+            tr = [r for r in rows if r["season"] < s_ and r.get("prior_ppg_w_aged") is not None]
+            te = [r for r in rows if r["season"] == s_ and r.get("prior_ppg_w_aged") is not None]
+            if len(tr) < 200 or len(te) < 40:
+                continue
+            ytr = np.array([float(r["ups_ppg_actual"]) for r in tr])
+            y = np.array([float(r["ups_ppg_actual"]) for r in te])
+            kw = dict(max_iter=300, learning_rate=0.05, max_depth=4,
+                      min_samples_leaf=25, l2_regularization=1.0, random_state=0)
+            qp = np.column_stack([
+                HistGradientBoostingRegressor(loss="quantile", quantile=q, **kw)
+                .fit(X(tr), ytr).predict(X(te)) for q in QS])
+            qp = np.sort(qp, axis=1)
+            cov = [(y <= qp[:, i]).mean() * 100 for i in range(len(QS))]
+            for q, c in zip(QS, cov):
+                acc[q].append(c)
+            print(f"{s_:<9}{len(te):>6}" + "".join(f"{c:>8.1f}%" for c in cov))
+        print("-" * 52)
+        print(f"{'MEAN':<9}{'':>6}" + "".join(
+            f"{sum(acc[q]) / len(acc[q]):>8.1f}%" for q in QS if acc[q]))
+        print("\n  coverage = %% of realised season PPG at or BELOW that quantile.")
+        print("  Under target = over-confident (understates upside risk).")
+        print("  Over target  = too wide to be useful.")
+        return 0
 
     print(f"\n{'season':<9}{'n':>6}{'canon MAE':>12}{'model MAE':>12}"
           f"{'naive MAE':>12}{'model vs canon':>16}")
