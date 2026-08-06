@@ -26532,11 +26532,30 @@ export default {
           };
         }
 
-        const pendingRes = await loadPendingTradesExportAsViewer(
-          season,
-          leagueId,
-          franchiseId
-        );
+        // Three independent network reads — MFL pendingTrades, MFL league (for
+        // franchise names) and the stored offers doc — used to run strictly one
+        // after another. Nothing downstream needs them ordered: the names map
+        // and the stored offers are only combined with the pending rows further
+        // down. Fire them together so the war room waits for the slowest rather
+        // than the sum.
+        //
+        // Measured 2026-08-06 via wrangler tail: /trade-offers was ~16s of a
+        // ~19s war-room load, and the offers doc alone is a 352KB fetch per call.
+        //
+        // Deliberately NOT cached. Keith 2026-05-28 on this exact surface:
+        // always pull fresh, because stale trade state puts players on the wrong
+        // side of a deal and only blows up at MFL submit time. This is a
+        // concurrency change, not a freshness one — every request still performs
+        // every fetch and sees exactly what it saw before.
+        //
+        // The two extra promises carry their own .catch so that an early return
+        // on a pendingTrades failure can never leave an unhandled rejection.
+        const _lpT0 = Date.now();
+        const pendingP = loadPendingTradesExportAsViewer(season, leagueId, franchiseId);
+        const leagueP = mflExportJson(season, leagueId, "league").catch(() => null);
+        const storedP = readTradeOffersDoc(leagueId, season).catch(() => null);
+        const pendingRes = await pendingP;
+        console.log(`[warroom-timing] pendingTrades +${Date.now() - _lpT0}ms`);
         if (!pendingRes.ok) {
           // Surface the error verbatim — no commish fallback, no stored-
           // offers substitute. Per Keith 2026-05-28: trades are always
@@ -26574,21 +26593,25 @@ export default {
           };
         }
 
+        // Both of these were started above alongside pendingTrades; by now they
+        // are almost certainly already resolved. Same null-on-failure handling
+        // as the try/catch this replaced.
         let franchiseNames = {};
         try {
-          const leagueRes = await mflExportJson(season, leagueId, "league");
-          if (leagueRes.ok) franchiseNames = parseLeagueFranchiseNameMap(leagueRes.data);
+          const leagueRes = await leagueP;
+          if (leagueRes && leagueRes.ok) franchiseNames = parseLeagueFranchiseNameMap(leagueRes.data);
         } catch (_) {
           franchiseNames = {};
         }
 
         let storedOffers = [];
         try {
-          const loaded = await readTradeOffersDoc(leagueId, season);
-          if (loaded.ok) storedOffers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
+          const loaded = await storedP;
+          if (loaded && loaded.ok) storedOffers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
         } catch (_) {
           storedOffers = [];
         }
+        console.log(`[warroom-timing] league+storedOffers settled t=${Date.now() - _lpT0}ms (concurrent with pendingTrades)`);
         const storedIndexes = buildStoredOfferIndexes(storedOffers);
 
         const pendingRowsAll = pendingTradesRows(pendingRes.data)
