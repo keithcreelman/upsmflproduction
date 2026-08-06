@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-05T11:44:47.927154+00:00",
+    "generated_at_utc": "2026-08-06T11:50:12.669685+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2666,7 +2666,7 @@
           "display": "Ainias Smith",
           "player_id": "16686",
           "position": "WR",
-          "nfl_team": "FA",
+          "nfl_team": "CAR",
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
@@ -4364,7 +4364,7 @@
           "display": "Stefon Diggs",
           "player_id": "12186",
           "position": "WR",
-          "nfl_team": "FA",
+          "nfl_team": "WAS",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -5279,18 +5279,6 @@
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Rookie-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16280",
-          "display": "Daiyan Henley",
-          "player_id": "16280",
-          "position": "LB",
-          "nfl_team": "LAC",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
