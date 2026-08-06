@@ -7415,7 +7415,16 @@ export default {
           if (!keyOk) return jsonOut(403, { ok: false, error: "commit is commish-only — sign in to MFL as the commissioner (or pass the commish API key)." });
         }
 
-        const cfg = await getAuctionCalendar(env);
+        // Read the config for the league being PUSHED TO (2026-08-06). Previously
+        // this always read production, so selecting the test league pushed
+        // PRODUCTION dates at it — the toggle changed the destination but not the
+        // source, which is not a sandbox. Now the test league has its own config
+        // and its own push, end to end.
+        const cfg = await getAuctionCalendar(env, leagueId);
+        if (cfg.read_error) {
+          return jsonOut(503, { ok: false, error: "calendar_read_failed", detail: cfg.read_error, retryable: true,
+            message: "Could not read the League Calendar for this league — nothing was pushed. Retry in a moment." });
+        }
         const { events, missing } = buildCalendarEvents(cfg);
         const { rows: leagueRows, season: leagueSeason } = buildLeagueEventRows(cfg, yearArg);
         const MANAGED_TYPES = ["TRADE", "DRAFT_START", "AUCTION_START", "WAIVER_NONE"];
@@ -44404,7 +44413,8 @@ export default {
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         const routing = await getDiscordRoutingConfig(env);
         const featureFlags = await getAllFeatureFlags(env);
-        const auctionCalendar = await getAuctionCalendar(env);
+        const _getCalLeague = safeStr(url.searchParams.get("cal_league") || L || env.LEAGUE_ID || "74598").replace(/\D/g, "");
+        const auctionCalendar = await getAuctionCalendar(env, _getCalLeague);
         return jsonOut(200, { ok: true, discord_routing: routing, defaults: DISCORD_ROUTING_DEFAULTS, mechanisms: Object.keys(DISCORD_ROUTING_DEFAULTS), feature_flags: featureFlags, auction_calendar: auctionCalendar, auction_calendar_fields: AUCTION_CAL_FIELDS });
       }
       if (path === "/admin/commish-settings" && request.method === "POST") {
@@ -44430,7 +44440,11 @@ export default {
           // (EXTENSION_DEADLINE_PASSED). Per rule_contract_change_gate a change
           // here is dry-run → shown → explicitly confirmed, never a blind save.
           // The rest of the calendar is reminder/display only and saves normally.
-          const _curCal = await getAuctionCalendar(env);
+          // Which league's calendar is being edited. The panel sends the league it
+          // has selected, so the test-league toggle now sandboxes the SAVE too, not
+          // just the push. Falls back to the page's L (production in practice).
+          const _calLeague = safeStr(csBody.auction_calendar.league_id || L || env.LEAGUE_ID || "74598").replace(/\D/g, "");
+          const _curCal = await getAuctionCalendar(env, _calLeague);
           // An unreadable current config is NOT an empty one. Observed live
           // 2026-08-05: D1 returned `exceeded its CPU time limit [code: 7429]`,
           // getAuctionCalendar swallowed it and returned blanks, and this gate
@@ -44516,9 +44530,9 @@ export default {
               console.log(`[contract-gate] contract_deadline_at ${_before || "(unset)"} -> ${_after || "(cleared)"} season=${_seasonForGate}`);
             }
           }
-          const ac = await setAuctionCalendar(env, csBody.auction_calendar);
-          if (!ac.ok) return jsonOut(500, ac);
-          return jsonOut(200, { ok: true, auction_calendar: await getAuctionCalendar(env) });
+          const ac = await setAuctionCalendar(env, csBody.auction_calendar, _calLeague);
+          if (!ac.ok) return jsonOut(ac.retryable ? 503 : 500, ac);
+          return jsonOut(200, { ok: true, league_id: _calLeague, auction_calendar: await getAuctionCalendar(env, _calLeague) });
         }
         const incoming = (csBody && csBody.discord_routing && typeof csBody.discord_routing === "object") ? csBody.discord_routing : {};
         const merged = { ...(await getDiscordRoutingConfig(env)) };

@@ -2315,7 +2315,7 @@
     var host = content();
     var myTab = CS.tab;
     host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading auction calendar…</div></div>';
-    fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L)).then(function (data) {
+    fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L) + "&cal_league=" + encodeURIComponent(AC.pushTarget)).then(function (data) {
       if (CS.tab !== myTab) return;
       AC.cfg = (data && data.auction_calendar) || { season: YEAR, faa: {} };
       AC.fields = (data && data.auction_calendar_fields) || [];
@@ -2346,6 +2346,12 @@
     }).join("");
 
     var isTest = AC.pushTarget !== "74598";
+    var scopeBanner = isTest
+      ? '<div class="fo-row-hint" style="background:rgba(184,134,11,.12);border-left:3px solid #b8860b;padding:8px 10px;margin-bottom:10px;">'
+        + '<strong>Editing the TEST league (' + acEsc(AC.pushTarget) + ') calendar.</strong> Separate config \u2014 saving here does not '
+        + 'touch the real league, and none of these dates gate real contracts. The app calendar (mobile / FO / team ops) is not '
+        + 'written for a test league.</div>'
+      : '';
     var targetSeg = [["74598", "Real league (74598)"], ["25625", "Test league (25625)"]].map(function (pair) {
       var on = AC.pushTarget === pair[0];
       return '<button type="button" class="ac-target-btn" data-actarget="' + pair[0] + '" style="padding:5px 14px;border:1px solid var(--border);background:' + (on ? (pair[0] === "74598" ? "#1f8a4c" : "#b8860b") : "var(--panel-alt)") + ";color:" + (on ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (on ? "600" : "400") + ";" + (pair[0] === "74598" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + pair[1] + "</button>";
@@ -2406,8 +2412,10 @@
     }
 
     host.innerHTML =
-      '<div class="fo-card"><div class="fo-card-head"><h3>Update League Calendar</h3>' +
+      '<div class="fo-card"><div class="fo-card-head"><h3>Update League Calendar' +
+        (isTest ? ' <span style="color:#b8860b;">— TEST ' + acEsc(AC.pushTarget) + '</span>' : '') + '</h3>' +
         '<span class="small" style="color:var(--muted);">saved ' + acEsc(savedAt) + "</span></div>" +
+      scopeBanner +
       '<p class="fo-row-hint">💡 Set the league\'s key dates (ET) once, then push them everywhere. Writes to <strong>MFL\'s calendar</strong> (Trade&nbsp;Deadline, Rookie&nbsp;Draft, ERA + FA&nbsp;Auction as <code>AUCTION_START</code>, and a <code>WAIVER_NONE</code> "No Add/Drops" span over the FA&nbsp;Auction) <strong>and the app calendar</strong> (mobile · Front&nbsp;Office · team&nbsp;ops). <strong>Auction rules</strong> (cap / roster / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">runbook</a>.</p>' +
       '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><strong>Season</strong>' +
         '<input type="text" id="ac-season" value="' + acEsc(AC.cfg.season) + '" style="width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel-alt);color:var(--text);"></div>' +
@@ -2431,7 +2439,7 @@
       var url = apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L);
 
       function doSave(confirmGate) {
-        var payload = { auction_calendar: { season: season, faa: faaUpd } };
+        var payload = { auction_calendar: { season: season, faa: faaUpd, league_id: AC.pushTarget } };
         if (confirmGate) payload.auction_calendar.confirm_contract_gate = true;
         return postJSON(url, payload).then(function (r) {
           AC.cfg = (r && r.auction_calendar) || AC.cfg;
@@ -2467,7 +2475,15 @@
     });
     // Target toggle
     $$(".ac-target-btn", host).forEach(function (btn) {
-      btn.addEventListener("click", function () { AC.pushTarget = btn.getAttribute("data-actarget"); AC.preview = null; paintAuctionCalendar(host); });
+      btn.addEventListener("click", function () {
+        // Each league has its OWN calendar config now, so switching target must
+        // RELOAD — repainting would show the previous league's dates under the new
+        // label, exactly the confusion this scoping exists to end.
+        AC.pushTarget = btn.getAttribute("data-actarget");
+        AC.preview = null;
+        AC.cfg = null;
+        renderAuctionCalendar();
+      });
     });
     // Preview (dryRun — no key, writes nothing)
     document.getElementById("ac-preview").addEventListener("click", function () {
