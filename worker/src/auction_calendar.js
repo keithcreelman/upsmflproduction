@@ -45,6 +45,26 @@ async function ensureTable(env) {
   ).run();
 }
 
+// ── LEAGUE SCOPING (2026-08-06) ─────────────────────────────────────────────
+// The config used to live under ONE literal key, 'auction_calendar', for every
+// league. The "Test league (25625)" toggle only ever changed the PUSH target, so
+// there was no way to try a date change without editing the production calendar —
+// and that calendar now enforces the veteran extension / MYAC lockout.
+//
+// Production keeps the LEGACY BARE KEY. That is deliberate: it means zero
+// migration and zero risk to the row that gates real contract writes. Every other
+// league gets 'auction_calendar:<leagueId>', which simply does not exist until
+// something writes it, so a sandbox starts empty rather than inheriting prod.
+export function productionLeagueId(env) {
+  return safeStr((env && env.LEAGUE_ID) || "74598").replace(/\D/g, "") || "74598";
+}
+
+export function calendarSettingsKey(env, leagueId) {
+  const want = safeStr(leagueId).replace(/\D/g, "");
+  const prod = productionLeagueId(env);
+  return (!want || want === prod) ? "auction_calendar" : `auction_calendar:${want}`;
+}
+
 // Read the stored config: { season, faa: { <field>: "YYYY-MM-DDTHH:mm" | "" }, updated_at }.
 // ('faa' is the historical sub-key name; it now holds the whole league timeline.)
 //
@@ -54,7 +74,13 @@ async function ensureTable(env) {
 // `reminders` block (or anything else) would have survived exactly until the next
 // Save from the panel and then vanished, with no error anywhere. `extra` now
 // carries every unrecognised top-level key straight back out to the writer.
-export async function getAuctionCalendar(env) {
+// `leagueId` is OPTIONAL and defaults to the PRODUCTION league. That default is
+// load-bearing: all thirteen existing readers — the contract-deadline gate, the
+// nomination gate, the deadline-reminder overrides, the ERA close gate — are
+// about the real league, so they must keep resolving to prod without being
+// touched. Only surfaces that explicitly act on a chosen league (the settings
+// save, the calendar push) pass one.
+export async function getAuctionCalendar(env, leagueId) {
   const empty = {
     season: null,
     faa: Object.fromEntries(FIELD_KEYS.map((k) => [k, ""])),
@@ -77,8 +103,9 @@ export async function getAuctionCalendar(env) {
   if (!env || !env.UPS_MFL_DB) return { ...empty, read_error: "no_d1_binding" };
   try {
     await ensureTable(env);
-    const row = await env.UPS_MFL_DB.prepare("SELECT value, updated_at FROM ups_settings WHERE key='auction_calendar'").first();
-    if (!row || !row.value) return { ...empty, read_error: "" };   // genuinely unset
+    const key = calendarSettingsKey(env, leagueId);
+    const row = await env.UPS_MFL_DB.prepare("SELECT value, updated_at FROM ups_settings WHERE key=?").bind(key).first();
+    if (!row || !row.value) return { ...empty, read_error: "", league_id: safeStr(leagueId) || productionLeagueId(env), settings_key: key };   // genuinely unset
     const cfg = JSON.parse(row.value);
     const faa = (cfg && cfg.faa && typeof cfg.faa === "object") ? cfg.faa : {};
     const reminders = (cfg && cfg.reminders && typeof cfg.reminders === "object") ? cfg.reminders : {};
@@ -94,6 +121,8 @@ export async function getAuctionCalendar(env) {
       extra,
       updated_at: row.updated_at || null,
       read_error: "",
+      league_id: safeStr(leagueId) || productionLeagueId(env),
+      settings_key: key,
     };
   } catch (e) {
     return { ...empty, read_error: String((e && e.message) || e || "unknown_read_error") };
@@ -103,9 +132,9 @@ export async function getAuctionCalendar(env) {
 // Merge + persist a partial update:
 //   { season?, faa?: { <field>: "YYYY-MM-DDTHH:mm" }, reminders?: { <event_key>: {...} } }
 // Unknown top-level keys already in the row are preserved verbatim (see `extra`).
-export async function setAuctionCalendar(env, partial) {
+export async function setAuctionCalendar(env, partial, leagueId) {
   if (!env || !env.UPS_MFL_DB) return { ok: false, error: "no_db" };
-  const cur = await getAuctionCalendar(env);
+  const cur = await getAuctionCalendar(env, leagueId);
   // REFUSE TO WRITE ON AN UNREADABLE CURRENT CONFIG (2026-08-05).
   //
   // This is a read-modify-write: `next` is built by merging the partial onto
@@ -139,10 +168,11 @@ export async function setAuctionCalendar(env, partial) {
   if (!Object.keys(next.reminders).length) delete next.reminders;
   try {
     await ensureTable(env);
+    const key = calendarSettingsKey(env, leagueId);
     await env.UPS_MFL_DB.prepare(
-      "INSERT INTO ups_settings (key, value, updated_at) VALUES ('auction_calendar', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
-    ).bind(JSON.stringify(next), new Date().toISOString()).run();
-    return { ok: true };
+      "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
+    ).bind(key, JSON.stringify(next), new Date().toISOString()).run();
+    return { ok: true, settings_key: key, league_id: safeStr(leagueId) || productionLeagueId(env) };
   } catch (e) { return { ok: false, error: e?.message || String(e) }; }
 }
 
