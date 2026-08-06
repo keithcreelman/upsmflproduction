@@ -1,0 +1,130 @@
+name: AAV Restore 2026 (one-off repair)
+
+# One-off repair of the 7 contract AAVs that build_contractinfo_fix.py's
+# set_aav() clobbered before it was fixed (see commit "contractInfo normalizer:
+# stop rewriting AAV"). It had rewritten each AAV token to that year's SALARY,
+# which canon league_context_v1.md §C5 forbids outright ("AAV is PRESERVED
+# VERBATIM. Never recompute it").
+#
+# The restored values were derived from each contract's own PRIOR-SEASON token
+# with the canon dual-AAV roll applied (leading tier drops once its year is
+# played), then independently cross-checked against what the Front Office
+# serves — all 7 agree via both paths.
+#
+# ONLY the AAV token changes. TCV, CL, the Y-schedule, GTD, Ext history,
+# restructure markers, salary and contractYear are byte-identical to what MFL
+# holds now — asserted in the verify step below before anything is posted.
+#
+# Defaults to a DRY RUN. A real write needs confirm=WRITE. Every row lands in
+# salary_change_log, so it is reversible.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WRITE for a real MFL write. Anything else = dry run.'
+        required: true
+        default: "dry-run"
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Re-derive the diff against LIVE MFL right now and refuse if this payload
+      # would touch anything other than the AAV token. The payload was built
+      # against an earlier snapshot; if a contract moved in the meantime this
+      # stops rather than overwriting someone's newer state.
+      - name: Verify payload touches ONLY the AAV token
+        run: |
+          python - <<'PY'
+          import json, re, urllib.request, sys
+          pay = json.load(open("data/contract_repairs/aav_restore_2026.json"))
+          live = json.load(urllib.request.urlopen(
+              "https://www48.myfantasyleague.com/2026/export?TYPE=rosters&L=74598&JSON=1"))
+          cur = {}
+          fr = live["rosters"]["franchise"]
+          for f in (fr if isinstance(fr, list) else [fr]):
+              ps = f.get("player") or []
+              for p in (ps if isinstance(ps, list) else [ps]):
+                  cur[str(p["id"])] = p
+          strip = lambda s: re.sub(r"AAV\s+[^|]+", "", s or "")
+          bad = []
+          for r in pay["rows"]:
+              p = cur.get(r["id"])
+              if not p:
+                  bad.append((r["id"], "no longer on a live roster")); continue
+              now = str(p.get("contractInfo") or "")
+              if strip(now) != strip(r["contractInfo"]):
+                  bad.append((r["id"], "contract changed since the payload was built"))
+              if str(p.get("salary") or "") != r["salary"]:
+                  bad.append((r["id"], f"salary moved {p.get('salary')} != {r['salary']}"))
+              if str(p.get("contractYear") or "") != r["contractYear"]:
+                  bad.append((r["id"], "contractYear moved"))
+          for b in bad:
+              print("REFUSING:", b)
+          if bad:
+              sys.exit("payload no longer matches live MFL — rebuild it")
+          print(f"verified: {len(pay['rows'])} rows, only the AAV token differs")
+          PY
+
+      - name: POST to /admin/import-salaries
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          if [ -z "${KEY}" ]; then echo "COMMISH_API_KEY secret not set"; exit 1; fi
+          if [ "${CONFIRM}" = "WRITE" ]; then DRY=false; else DRY=true; fi
+          echo "dry_run=${DRY}"
+          python - "$DRY" <<'PY'
+          import json, sys
+          d = json.load(open("data/contract_repairs/aav_restore_2026.json"))
+          d["dry_run"] = (sys.argv[1] == "true")
+          json.dump(d, open("/tmp/post.json", "w"))
+          print("posting", len(d["rows"]), "rows, dry_run =", d["dry_run"])
+          PY
+          curl -s -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/import-salaries?APIKEY=${KEY}&L=74598" \
+            -H "Content-Type: application/json" --data @/tmp/post.json -o /tmp/resp.json
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/resp.json"))
+          print("ok:", d.get("ok"), "| dry_run:", d.get("dry_run"),
+                "| import_status:", d.get("import_status"),
+                "| valid:", len(d.get("rows_valid", [])),
+                "| invalid:", len(d.get("rows_invalid", [])))
+          for r in d.get("rows_invalid", []): print("  INVALID:", r)
+          assert d.get("ok"), f"failed: {d.get('error')}"
+          PY
+
+      - name: Post-write verify (real writes only)
+        if: ${{ github.event.inputs.confirm == 'WRITE' }}
+        run: |
+          python - <<'PY'
+          import json, re, urllib.request, sys
+          pay = json.load(open("data/contract_repairs/aav_restore_2026.json"))
+          live = json.load(urllib.request.urlopen(
+              "https://www48.myfantasyleague.com/2026/export?TYPE=rosters&L=74598&JSON=1"))
+          cur = {}
+          fr = live["rosters"]["franchise"]
+          for f in (fr if isinstance(fr, list) else [fr]):
+              ps = f.get("player") or []
+              for p in (ps if isinstance(ps, list) else [ps]):
+                  cur[str(p["id"])] = str(p.get("contractInfo") or "")
+          aav = lambda s: (re.search(r"AAV\s+([^|]+)", s or "") or [None, None])[1]
+          bad = 0
+          for r in pay["rows"]:
+              want, got = aav(r["contractInfo"]), aav(cur.get(r["id"], ""))
+              ok = (want or "").strip() == (got or "").strip()
+              print(("  OK  " if ok else "  FAIL"), r["id"], "want", want, "got", got)
+              bad += (not ok)
+          if bad:
+              sys.exit(f"{bad} rows did not take")
+          print("all 7 AAVs verified live in MFL")
+          PY

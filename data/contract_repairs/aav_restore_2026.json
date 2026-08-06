@@ -1,0 +1,55 @@
+{
+  "season": "2026",
+  "league_id": "74598",
+  "rows": [
+    {
+      "id": "14778",
+      "salary": "15000",
+      "contractStatus": "Vet-Ext2-FL",
+      "contractYear": "1",
+      "contractInfo": "CL 3| TCV 116K| AAV 49K| Y1-86 Y2-15 Y3-15| GTD: 87K| Ext: C-Town"
+    },
+    {
+      "id": "14836",
+      "salary": "71000",
+      "contractStatus": "Vet-Ext2-BL",
+      "contractYear": "1",
+      "contractInfo": "CL 2| TCV 96K| AAV 48K| Y1-25K, Y2-71K| GTD: 72K| Ext:  Sex, Hammer| restructure: 2025"
+    },
+    {
+      "id": "14835",
+      "salary": "24000",
+      "contractStatus": "Vet-Ext1",
+      "contractYear": "1",
+      "contractInfo": "CL 2| TCV 48K| AAV 47K| Y1-24, Y2-24| GTD: 36K| Ext: Mafia, LH, C-Town| restructure: 2025"
+    },
+    {
+      "id": "15754",
+      "salary": "11000",
+      "contractStatus": "Vet-Ext2-FL",
+      "contractYear": "1",
+      "contractInfo": "CL 2| TCV 62K| AAV 31K| Y1-51, Y2-11| GTD: 46.5K| Ext: Blake| restructure: 2025"
+    },
+    {
+      "id": "15794",
+      "salary": "35000",
+      "contractStatus": "Vet-Ext2-BL",
+      "contractYear": "1",
+      "contractInfo": "CL 2| TCV 44K| AAV 22K| Y1-9K, Y2-35K| GTD: 33K| Ext: Hammer"
+    },
+    {
+      "id": "15753",
+      "salary": "44000",
+      "contractStatus": "Vet-Ext2-BL",
+      "contractYear": "1",
+      "contractInfo": "CL 2| TCV 68K| AAV 34K| Y1-24, Y2-44| GTD: 51K| Ext: CBP"
+    },
+    {
+      "id": "13630",
+      "salary": "15000",
+      "contractStatus": "Vet-Ext1",
+      "contractYear": "1",
+      "contractInfo": "CL 2| TCV 30K| AAV 20K| Y1-15K, Y2-15K| GTD: 22.5K| Ext: L.A. Looks| restructure: 2025"
+    }
+  ]
+}
