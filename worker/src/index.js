@@ -18918,7 +18918,27 @@ export default {
       };
       const yearsRemainingFromRoster = (playerRow) => {
         const status = safeStr(playerRow?.status || "").toUpperCase();
-        if (status.includes("TAXI")) return null;
+        // Taxi players DO have years remaining and the war room must show them:
+        // the 3-league-year clock is running, and how much control you're
+        // acquiring is exactly what a trade turns on. This returned null for
+        // every taxi player, so the War Room showed a blank where the Front
+        // Office showed 3 / 2 / 1 — 104 of 500 players disagreed between the
+        // two screens (Keith 2026-08-06: "trade war room does not match front
+        // office"). Every mismatch was TAXI_SQUAD; all 396 active players
+        // already agreed.
+        //
+        // MFL does suppress contractYear on some taxi rows, which is what this
+        // was defending against — but the answer is to fall back to the CL/Y
+        // tokens the way the Front Office does, not to blank the field.
+        const contractYearRawTaxi = safeStr(playerRow?.contractYear || playerRow?.contractyear);
+        if (status.includes("TAXI") && !contractYearRawTaxi) {
+          // No contractYear from MFL — derive from the contract string, same
+          // basis roster-workbench uses. CL with no explicit year index means
+          // a fresh deal, so years remaining == CL.
+          const clM = safeStr(playerRow?.contractInfo).match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
+          const cl = clM ? safeInt(clM[1], 0) : 0;
+          return cl > 0 ? cl : null;
+        }
         const contractYearRaw = safeStr(playerRow?.contractYear || playerRow?.contractyear);
         if (!contractYearRaw) return null;
         const contractYear = safeInt(contractYearRaw, NaN);

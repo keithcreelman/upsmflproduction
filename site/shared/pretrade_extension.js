@@ -202,6 +202,25 @@
     // deadline isn't on the client, so block Vet-ERA outright: correct through
     // the Sept deadline, conservative after (worker re-validates on submit).
     if (type.indexOf("vet-era") !== -1) return false;
+    // Same rule, the case canon's written gate missed: a Vet-FAA is MYAC-
+    // eligible too. Canon §A2 — a fresh FA-auction win lands as a 1-year
+    // default and "owners still convert to 2/3-year via the existing MYAC path
+    // by the Sept contract deadline". So while that window is open, MYAC owns
+    // the length decision on a Vet-FAA exactly as it does on a Vet-ERA, and a
+    // pre-trade extension would double up the same authority (Keith 2026-08-06:
+    // "guys that are MYAC eligible are not pre-trade-extension eligible until
+    // after the contract deadline").
+    //
+    // Gate on the UNCONVERTED 1-year default (CL 1), not on the contract type.
+    // A Vet-FAA that is already CL 2 or CL 3 has spent its MYAC — it is a normal
+    // multi-year deal and stays extendable in its final year. Live counts
+    // 2026-08-06: 158 CL-1 contracts sit in the window (149 Vet-FAA + 9
+    // Vet-ERA); only the 9 were blocked, so 149 — Josh Allen and DeVonta Smith
+    // among them — were being offered an extension they aren't entitled to.
+    // The 24 CL-2/CL-3 Vet-FAAs in a final year keep working.
+    if (type.indexOf("vet-faa") !== -1 && /(?:^|\|)\s*CL\s*:?\s*1\b/i.test(safeStr(asset.contract_info))) {
+      return false;
+    }
     if (type.indexOf("tag") !== -1) return false;
     if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
       return false;
