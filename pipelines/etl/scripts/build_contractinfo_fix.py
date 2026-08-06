@@ -15,10 +15,16 @@ step-ups are taken from EXPLICIT_SCHEDULES; an already-present schedule (incl.
 non-flat: Collins, Hill, restructures) is preserved verbatim. The 4th-year option
 (Y3+$5K, §A1) is added only for rookies that are 1st-round 2025+ or "Option Eligible".
 
-AAV is set to the CURRENT-year salary (never the TCV/CL average) — Keith 2026-06-01,
-mirroring roster_workbench.js. GTD is inserted right after the schedule (before
-Ext/restructure); existing GTDs are value-corrected in place. Default dry-run;
---write emits dry_run=false.
+AAV is NEVER touched. canon §C5 (locked): "AAV is PRESERVED VERBATIM. Never
+recompute it… including a dual AAV (e.g. AAV 33K, 43K) set forward-looking at the
+extension. AAV changes only at an extension, never from structure alone." This
+script changes structure (GTD + schedule), so it has no business rewriting AAV.
+(Until 2026-08-05 it set AAV = current-year salary, which flattened dual-AAV
+escalators and is what roster_workbench.js's normalizeContractInfoForDisplay had
+to keep undoing at read time.)
+
+GTD is inserted right after the schedule (before Ext/restructure); existing GTDs
+are value-corrected in place. Default dry-run; --write emits dry_run=false.
 """
 import argparse, decimal, json, re, urllib.request
 
@@ -75,7 +81,12 @@ def parse_ci(ci):
     return dict(
         cl=(lambda m: int(m.group(1)) if m else None)(re.search(r"CL\s*(\d+)", ci)),
         tcv=(lambda m: num(m.group(1)) if m else None)(re.search(r"TCV\s*([\d.]+)\s*K", ci)),
+        # `aav` = the CURRENT tier only, used for arithmetic (flat schedule,
+        # option year). `aav_raw` = the token VERBATIM, including a dual AAV's
+        # second tier ("33K, 43K"), which is what gets re-emitted — canon §C5
+        # requires the token survive untouched.
         aav=(lambda m: num(m.group(1)) if m else None)(re.search(r"AAV\s*([\d.]+)", ci)),
+        aav_raw=(lambda m: m.group(1).strip() if m else None)(re.search(r"AAV\s+([^|]+)", ci)),
         ysched=re.findall(r"Y\d+\s*-", ci),
         ext=(lambda m: m.group(0).strip() if m else None)(re.search(r"Ext\s*:[^|]*", ci)),
         restruct=(lambda m: m.group(0).strip() if m else None)(re.search(r"restructure\s*:\s*\d+", ci, re.I)),
@@ -96,7 +107,10 @@ def draft_year(d):
 def build_full_ci(c, status, drafted, sched):
     """Build a contract that is MISSING its schedule (flat or explicit step-up)."""
     cl, tcv, aav = c["cl"], c["tcv"], c["aav"]
-    parts = [f"CL {cl}", f"TCV {fmtk(tcv)}", f"AAV {fmtk(aav)}"]
+    # Re-emit the AAV token EXACTLY as MFL had it. Reformatting it through
+    # fmtk() collapsed a dual AAV ("33K, 43K") to its first tier, silently
+    # destroying the forward-looking escalator (canon §C5).
+    parts = [f"CL {cl}", f"TCV {fmtk(tcv)}", f"AAV {c['aav_raw'] or fmtk(aav)}"]
     ys = [f"Y{i+1}-{fmtk(sched[i])}" for i in range(len(sched))] if sched else [f"Y{i}-{fmtk(aav)}" for i in range(1, cl + 1)]
     if "Rookie" in status and (c["opt_elig"] or (draft_round(drafted) == 1 and (draft_year(drafted) or 0) >= 2025)):
         ys.append(f"Y{cl + 1}-{fmtk(aav + 5)} Option")
@@ -111,12 +125,28 @@ def build_full_ci(c, status, drafted, sched):
     return "| ".join(parts)
 
 
-def set_aav(ci, sal_k):
-    """AAV is the CURRENT-year salary, never the TCV/CL average (Keith 2026-06-01:
-    a 7K player who extends shows AAV 7K this year, 17K next — never the mean).
-    Mirrors roster_workbench.js (AAV = currentSalary). Replaces the whole AAV token
-    (handles stray multi-value forms like 'AAV 32K, 42K')."""
-    return re.sub(r"AAV\s*[^|]*", f"AAV {fmtk(sal_k)}", ci, count=1)
+# set_aav() REMOVED 2026-08-05 — it violated a locked canon rule.
+#
+# It rewrote every contract's AAV token to that year's salary, and its own
+# docstring noted it "handles stray multi-value forms like 'AAV 32K, 42K'" —
+# i.e. it collapsed genuine dual-AAV escalators to a single number.
+#
+# league_context_v1.md §C5 (locked): "AAV is PRESERVED VERBATIM. Never
+# recompute it… including a dual AAV (e.g. AAV 33K, 43K) set forward-looking at
+# the extension. AAV changes only at an extension, never from structure alone."
+# And: "AAV tokens in live MFL are unreliable (some hold the Y1 salary…).
+# Preserve the token as-is."
+#
+# The script justified itself as "mirroring roster_workbench.js (AAV =
+# currentSalary)", but roster_workbench does the OPPOSITE — its
+# normalizeContractInfoForDisplay() RESTORES the prior season's AAV. That read-
+# time repair existed solely to undo this write, on 7 contracts (Tagovailoa,
+# Jefferson, Higgins, Olave, McBride, G. Wilson, Sutton) where MFL then held
+# the salary instead of the real AAV. Flat contracts were unaffected because
+# AAV == salary there by definition, which is why this hid for so long.
+#
+# Nothing replaces it: a contract's AAV is set at signing/extension and is
+# never derived from structure.
 
 
 def strip_gtd(ci):
@@ -181,9 +211,8 @@ def main():
                 new_ci = build_full_ci(c, status, drafted, sched)
             else:
                 new_ci = with_gtd(ci, c["tcv"], c["cl"])
-            sal_k = num(p.get("salary"))
-            if sal_k:
-                new_ci = set_aav(new_ci, sal_k / 1000)  # AAV = current-year salary, never the average
+            # (No AAV rewrite. This script normalizes GTD and the Y-schedule
+            # only — the AAV token is carried through untouched per canon §C5.)
             if new_ci == ci:
                 continue
             rows.append({"id": pid, "salary": str(p.get("salary", "") or ""), "contractStatus": status,
