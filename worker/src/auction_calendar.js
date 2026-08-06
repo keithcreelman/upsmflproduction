@@ -62,11 +62,23 @@ export async function getAuctionCalendar(env) {
     extra: {},
     updated_at: null,
   };
-  if (!env || !env.UPS_MFL_DB) return empty;
+  // read_error DISTINGUISHES "could not read" FROM "nothing configured" (2026-08-05).
+  //
+  // This used to swallow every failure and return `empty`, which is byte-identical
+  // to a never-configured league. That is a fail-OPEN read, and it bit for real:
+  // D1 intermittently returns `exceeded its CPU time limit [code: 7429]`, and on
+  // those ticks the contract-deadline save gate saw the CURRENT value as "" and
+  // reported `before: null` — telling the commish a field was unset when it held
+  // 2026-09-06T23:59, and comparing his new value against nothing.
+  //
+  // Callers that merely DISPLAY the calendar can keep ignoring read_error and use
+  // the empty shape. Callers that GATE something must check it and refuse.
+  // See rule_no_fail_open_guards.
+  if (!env || !env.UPS_MFL_DB) return { ...empty, read_error: "no_d1_binding" };
   try {
     await ensureTable(env);
     const row = await env.UPS_MFL_DB.prepare("SELECT value, updated_at FROM ups_settings WHERE key='auction_calendar'").first();
-    if (!row || !row.value) return empty;
+    if (!row || !row.value) return { ...empty, read_error: "" };   // genuinely unset
     const cfg = JSON.parse(row.value);
     const faa = (cfg && cfg.faa && typeof cfg.faa === "object") ? cfg.faa : {};
     const reminders = (cfg && cfg.reminders && typeof cfg.reminders === "object") ? cfg.reminders : {};
@@ -81,8 +93,11 @@ export async function getAuctionCalendar(env) {
       reminders,
       extra,
       updated_at: row.updated_at || null,
+      read_error: "",
     };
-  } catch (_) { return empty; }
+  } catch (e) {
+    return { ...empty, read_error: String((e && e.message) || e || "unknown_read_error") };
+  }
 }
 
 // Merge + persist a partial update:
@@ -91,6 +106,20 @@ export async function getAuctionCalendar(env) {
 export async function setAuctionCalendar(env, partial) {
   if (!env || !env.UPS_MFL_DB) return { ok: false, error: "no_db" };
   const cur = await getAuctionCalendar(env);
+  // REFUSE TO WRITE ON AN UNREADABLE CURRENT CONFIG (2026-08-05).
+  //
+  // This is a read-modify-write: `next` is built by merging the partial onto
+  // whatever the read returned. Before read_error existed, a transient D1 failure
+  // (`exceeded its CPU time limit [code: 7429]`, observed live) made the read
+  // return the EMPTY shape — so a save of one field would have merged onto blanks
+  // and WIPED every other date in the league calendar. That is not hypothetical
+  // damage: faa_nom_deadline_at fails OPEN (blanking it disables the auction
+  // nomination gate) and faa_close_at gates ERA forced-retention cuts.
+  //
+  // A failed read is never "no existing config". Refuse; the caller retries.
+  if (cur.read_error) {
+    return { ok: false, error: `calendar_read_failed: ${cur.read_error}`, retryable: true };
+  }
   const next = { ...cur.extra, season: cur.season, faa: { ...cur.faa }, reminders: { ...cur.reminders } };
   if (partial && partial.season != null && safeStr(partial.season)) next.season = safeStr(partial.season);
   const inFaa = (partial && partial.faa && typeof partial.faa === "object") ? partial.faa : {};
