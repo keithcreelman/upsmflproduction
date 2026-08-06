@@ -182,7 +182,16 @@ def _prior_volume(ctx, season):
 
 def _depth(ctx, season):
     rows = ctx.run(
-        "SELECT gsis_id gs, MIN(depth_rank) rk FROM nfl_player_depth_weekly"
+        # CAP AT 3 for era comparability, matching build_player_week_features.
+        # nflverse replaced the depth-chart feed in 2025: ranks top out at 3
+        # through 2024, then reach 9 (2025) and 14 (2026). Verified this is
+        # currently a NO-OP for the model — capping changed the walk-forward
+        # results not at all (3.3/4.9/3.2/13.5 either way), because a model
+        # trained on 1-3 has every split threshold at <=3 and deeper values fall
+        # on the same side regardless. It is applied anyway for the forward risk:
+        # once 2025+ seasons enter TRAINING, thresholds can land above 3 and the
+        # eras stop being interchangeable.
+        "SELECT gsis_id gs, MIN(MIN(depth_rank),3) rk FROM nfl_player_depth_weekly"
         f" WHERE season = {season} AND week = 1 AND depth_rank IS NOT NULL"
         " GROUP BY gsis_id")
     return {r["gs"]: _i(r["rk"]) for r in rows}
