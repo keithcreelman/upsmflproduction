@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T19:16:28.471Z",
-    "row_count": 18,
+    "updated_at": "2026-08-06T12:58:28.512Z",
+    "row_count": 19,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -2883,6 +2883,192 @@
       "twb_meta": null,
       "mfl_trade_id": "1051",
       "trade_id": "1051",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "TWB-27055e7a-22ed-4eb7-bff2-5b604ea807cc",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-08-06T12:58:28.512Z",
+      "updated_at": "2026-08-06T12:58:28.512Z",
+      "from_franchise_id": "0010",
+      "to_franchise_id": "0009",
+      "from_franchise_name": "Blake Bombers",
+      "to_franchise_name": "C-Town Chivalry",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "15698",
+      "will_receive": "16581",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-08-06T12:58:27.115Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "player:15698",
+                "type": "PLAYER",
+                "player_id": "15698",
+                "player_name": "Purdy, Brock",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "SFO",
+                "salary": 40000,
+                "years": 3,
+                "contract_type": "FL",
+                "contract_info": "CL 3| TCV 84K| AAV 28K| Y1-40K, Y2-22K, Y3-22K|",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 20,
+            "selected_non_taxi_salary_dollars": 40000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "player:16581",
+                "type": "PLAYER",
+                "player_id": "16581",
+                "player_name": "Daniels, Jayden",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "WAS",
+                "salary": 12000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 36K| AAV 12K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 12000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0010",
+          "right_team_id": "0009"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 183000,
+            "salary_adjustment_total_dollars": 6250,
+            "outgoing_dollars": 40000,
+            "incoming_dollars": 12000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -28000,
+            "new_salary_dollars": 155000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 20,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 28000,
+            "available_salary_before_dollars": 110750,
+            "available_salary_after_dollars": 138750,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 244004,
+            "salary_adjustment_total_dollars": 1000,
+            "outgoing_dollars": 12000,
+            "incoming_dollars": 40000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 28000,
+            "new_salary_dollars": 272004,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -28000,
+            "available_salary_before_dollars": 54996,
+            "available_salary_after_dollars": 26996,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Blake Bombers",
+          "right_franchise_name": "C-Town Chivalry",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 183000,
+              "left_after_dollars": 155000,
+              "left_change_dollars": -28000,
+              "right_before_dollars": 244004,
+              "right_after_dollars": 272004,
+              "right_change_dollars": 28000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 179000,
+              "left_after_dollars": 169000,
+              "left_change_dollars": -10000,
+              "right_before_dollars": 252000,
+              "right_after_dollars": 262000,
+              "right_change_dollars": 10000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 104000,
+              "left_after_dollars": 94000,
+              "left_change_dollars": -10000,
+              "right_before_dollars": 158000,
+              "right_after_dollars": 168000,
+              "right_change_dollars": 10000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": null,
+      "trade_id": null,
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
