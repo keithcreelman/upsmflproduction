@@ -14558,6 +14558,57 @@ export default {
       // raw points ÷ schedule ease (faced easy Ds → adjusted DOWN; tough Ds → UP).
       // All D1 (src_weekly MFL scores + nfl_player_weekly opponents via the
       // all-eras ff_player_ids map), so it covers every season, no live fetch.
+      // ── Edge cache for the read-only stat side-loads (2026-08-05) ─────────
+      // The Stats workbench fires EIGHT of the routes below in parallel on
+      // boot (sos-adjusted-points, player-consistency/epa/routes/ngs/ftn/splits,
+      // nfl-current-teams) on top of the leaderboard. Every one was an
+      // uncached D1 query against a 355MB database, so a cold page load paid
+      // D1's cold-storage penalty eight times over at once — measured at ~14s
+      // to first paint, while a warm load finishes in ~300ms.
+      //
+      // One read-through cache serves all of them. Safe for the same reason
+      // the leaderboard's is: these are read-only aggregates over COMPLETED
+      // weeks, so a few minutes of staleness is invisible. The key is the
+      // path plus the sorted query string, so every distinct season/week
+      // combination caches separately; cache-buster params are stripped so
+      // they can't fragment it. NO_CACHE=1 forces a live read, same
+      // convention as /roster-workbench and the leaderboard.
+      // /api/mfl-market is deliberately NOT here: it has three separate
+      // success returns rather than one, and it's the most live data in the
+      // group (ownership / adds / drops). It also wasn't part of the problem —
+      // it answers in ~66ms.
+      const STAT_CACHE_PATHS = new Set([
+        "/api/sos-adjusted-points", "/api/player-consistency", "/api/player-epa",
+        "/api/player-routes", "/api/player-ngs", "/api/player-ftn",
+        "/api/player-splits", "/api/team-pace", "/api/nfl-current-teams",
+      ]);
+      let statCacheKey = null;
+      if (request.method === "GET" && STAT_CACHE_PATHS.has(path)) {
+        const sp = new URLSearchParams(url.searchParams);
+        ["NO_CACHE", "cb", "_"].forEach((k) => sp.delete(k));
+        const sorted = new URLSearchParams([...sp.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+        statCacheKey = new Request("https://upsmfl-stats.local" + path + "?" + sorted.toString(), { method: "GET" });
+        if (safeStr(url.searchParams.get("NO_CACHE")) !== "1") {
+          try {
+            const hit = await caches.default.match(statCacheKey);
+            if (hit) return hit;
+          } catch (_) {}
+        }
+      }
+      // Wraps a 200 payload: same jsonOut response, plus stored to the edge.
+      // Only reached on the paths above (statCacheKey is null everywhere else),
+      // and only ever called on success — an error must never be cached.
+      const statOk = (payload) => {
+        const r = jsonOut(200, payload);
+        if (statCacheKey) {
+          try {
+            r.headers.set("Cache-Control", "public, max-age=300");
+            ctx.waitUntil(caches.default.put(statCacheKey, r.clone()));
+          } catch (_) {}
+        }
+        return r;
+      };
+
       // Side-loaded by the Stats workbench leaderboard and joined on gsis_id.
       if (path === "/api/sos-adjusted-points" && request.method === "GET") {
         try {
@@ -14611,7 +14662,7 @@ export default {
             if (!x.gsis_id) continue;
             by_gsis[x.gsis_id] = { raw: x.raw, sos: x.sos, sched_ease: x.sched_ease, gp: x.gp };
           }
-          return jsonOut(200, { ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
+          return statOk({ ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -14671,7 +14722,7 @@ export default {
               weeks: sc,
             };
           }
-          return jsonOut(200, { ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
+          return statOk({ ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -14708,7 +14759,7 @@ export default {
               rec: tt ? { tgt: tt, epa: rnd(x.te / tt, 3), succ: rnd(100 * x.tsx / tt, 1) } : null,
             };
           }
-          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -14742,7 +14793,7 @@ export default {
               yprr: rt >= 50 ? rnd((x.ry || 0) / rt, 2) : null,
             };
           }
-          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -14778,7 +14829,7 @@ export default {
               pass: pn >= 50 ? { att: pn, tt: rnd(x.ts / pn, 2), agg: rnd(x.ags / pn, 1), cpae: rnd(x.cps / pn, 1) } : null,
             };
           }
-          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -14810,7 +14861,7 @@ export default {
               rec: tg >= 20 ? { tgt: tg, contested_tgt: x.ct || 0, contested_pct: (x.ct || 0) >= 5 ? rnd(100 * (x.cr || 0) / x.ct, 1) : null, catchable_pct: rnd(100 * (x.ca || 0) / tg, 1), screen_tgt: x.st || 0 } : null,
             };
           }
-          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -14840,7 +14891,7 @@ export default {
                             rush_att: x.ra || 0, rush_yds: x.ruy || 0, pass_att: x.pa || 0, pass_yds: x.py || 0,
                             opp_pg: (x.g || 0) > 0 ? rnd((x.p || 0) / x.g, 1) : null };
           }
-          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -14866,7 +14917,7 @@ export default {
           const n = rows.length || 1;
           const avgOff = rows.reduce((a, x) => a + (x.off_plays_pg || 0), 0) / n;
           const avgDef = rows.reduce((a, x) => a + (x.def_plays_pg || 0), 0) / n;
-          return jsonOut(200, { ok: true, season: season, seasons: seasons, count: rows.length,
+          return statOk({ ok: true, season: season, seasons: seasons, count: rows.length,
             leagueAvg: { off: Math.round(avgOff * 10) / 10, def: Math.round(avgDef * 10) / 10 }, teams: rows });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
@@ -14891,7 +14942,7 @@ export default {
             const id = String(p.id || ""); const tm = safeStr(p.team || "").toUpperCase();
             if (id && tm) byId[id] = tm;
           }
-          return jsonOut(200, { ok: true, year: yr, count: Object.keys(byId).length, byId });
+          return statOk({ ok: true, year: yr, count: Object.keys(byId).length, byId });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
