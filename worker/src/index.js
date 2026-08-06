@@ -3152,11 +3152,38 @@ async function claimFaaNomSlot(env, season, leagueId, fid, playerId) {
   // lots is untouched — it never routes through here); ON that final ET day
   // the 2/day ceiling is waived so franchises can fill their rosters.
   // Unset field ⇒ regular behavior, so nothing changes mid-test.
+  // FAIL CLOSED on an unreadable calendar (2026-08-06). faaNomSchedule returns
+  // phase "regular" — nominations OPEN — for an empty/unparseable deadline, and
+  // getAuctionCalendar returns blanks on a D1 fault (observed live as
+  // `exceeded its CPU time limit [code: 7429]`). Together that meant a transient
+  // D1 blip silently REOPENED nominations after the deadline, and accepting a
+  // late nomination is a rules violation that has to be unwound by hand.
+  // "Unset" still means regular — that is a deliberate config state. "Could not
+  // read" does not, so refuse and let the owner retry a moment later.
   let nomPhase = "regular";
   try {
     const calCfg = await getAuctionCalendar(env);
+    if (calCfg.read_error) {
+      console.error(`[faa-nom] calendar read failed, refusing nomination: ${calCfg.read_error}`);
+      return {
+        ok: false, slot: null, status: 503, error: "nom_schedule_unavailable", retryable: true,
+        message:
+          "Couldn't verify whether nominations are still open, so this one wasn't accepted. " +
+          "Nothing was changed — try again in a moment.",
+      };
+    }
     nomPhase = faaNomSchedule(calCfg?.faa?.faa_nom_deadline_at, nowUnix).phase;
-  } catch (_) { /* schedule unavailable → regular-day rules, never a block */ }
+  } catch (e) {
+    // faaNomSchedule itself threw (not a read failure). Same reasoning: we cannot
+    // establish the phase, so we do not accept a nomination against it.
+    console.error(`[faa-nom] nomination schedule unresolved, refusing: ${e && e.message}`);
+    return {
+      ok: false, slot: null, status: 503, error: "nom_schedule_unavailable", retryable: true,
+      message:
+        "Couldn't verify whether nominations are still open, so this one wasn't accepted. " +
+        "Nothing was changed — try again in a moment.",
+    };
+  }
   if (nomPhase === "closed") {
     return {
       ok: false, slot: null, status: 409, error: "nominations_closed",
@@ -8826,8 +8853,26 @@ export default {
         const nowMs = nowUnix * 1000;
         // Nomination-schedule phase (regular | final_day | closed) — franchise-
         // independent, computed once; unset deadline ⇒ regular.
+        // Mirrors the write gate's fail-closed read (see the nomination slot
+        // claim): "unset" legitimately means regular, "could not read" does not.
+        // This is a READ surface, so it cannot refuse — but it must not assert
+        // that nominations are open when it does not know. The flag rides along
+        // so the UI can say "can't verify" instead of contradicting the API,
+        // which 503s in the same condition.
         let faaNomPhase = "regular";
-        try { faaNomPhase = faaNomSchedule((await getAuctionCalendar(env))?.faa?.faa_nom_deadline_at, nowUnix).phase; } catch (_) {}
+        let faaNomScheduleUnavailable = false;
+        try {
+          const _nomCal = await getAuctionCalendar(env);
+          if (_nomCal.read_error) {
+            faaNomScheduleUnavailable = true;
+            console.error(`[faa-nom] calendar read failed on the auction payload: ${_nomCal.read_error}`);
+          } else {
+            faaNomPhase = faaNomSchedule(_nomCal?.faa?.faa_nom_deadline_at, nowUnix).phase;
+          }
+        } catch (e) {
+          faaNomScheduleUnavailable = true;
+          console.error(`[faa-nom] nomination schedule unresolved on the auction payload: ${e && e.message}`);
+        }
         const ERA_WINDOW_LABELS = [
           "Mon 6 AM – Mon 6 PM ET",
           "Mon 6 PM – Tue 6 AM ET",
@@ -9011,6 +9056,11 @@ export default {
             league_id: leagueId,
             generated_at: new Date().toISOString(),
             now_unix: nowUnix,
+            // true ⇒ the nomination phase could NOT be established (calendar
+            // unreadable), so the per-franchise window states below are computed
+            // against an ASSUMED "regular" phase. Do not present them as proof
+            // that nominations are open — the write gate 503s in this condition.
+            nom_schedule_unavailable: faaNomScheduleUnavailable,
             rules: {
               era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Memorial Day Mon 6 AM ET, closes end of Wed 6 PM–Thu 6 AM ET window.",
               fa_auction: "league_context_v1.md §A2 — exactly 2 nominations per ANCHORED ET calendar day (midnight–midnight America/New_York). 2 is both a minimum (missed noms are fined until the roster is legal) and a maximum (a 3rd is blocked). Keith 2026-07-14.",
@@ -21859,8 +21909,22 @@ export default {
         const win = faaWindowAt(nowUnix);
         // Nomination-schedule phase for every row (final-day = ceiling waived;
         // closed = no new noms); unset deadline ⇒ regular.
+        // Same fail-closed read as the write gate and the auction payload: an
+        // unreadable calendar must not be reported as "nominations open".
         let faNomPhase = "regular";
-        try { faNomPhase = faaNomSchedule((await getAuctionCalendar(env))?.faa?.faa_nom_deadline_at, nowUnix).phase; } catch (_) {}
+        let faNomScheduleUnavailable = false;
+        try {
+          const _nomCal2 = await getAuctionCalendar(env);
+          if (_nomCal2.read_error) {
+            faNomScheduleUnavailable = true;
+            console.error(`[faa-nom] calendar read failed on the compliance rows: ${_nomCal2.read_error}`);
+          } else {
+            faNomPhase = faaNomSchedule(_nomCal2?.faa?.faa_nom_deadline_at, nowUnix).phase;
+          }
+        } catch (e) {
+          faNomScheduleUnavailable = true;
+          console.error(`[faa-nom] nomination schedule unresolved on the compliance rows: ${e && e.message}`);
+        }
         const teamsSnapshot = await buildLiveTeamsSnapshot(season, leagueId);
         if (!teamsSnapshot || !teamsSnapshot.ok) {
           return { ok: false, error: (teamsSnapshot && teamsSnapshot.error) || "teams_snapshot_failed", generated_at: new Date().toISOString() };
@@ -21920,6 +21984,11 @@ export default {
           season: safeInt(season, Number(season) || 0),
           generated_at: new Date().toISOString(),
           now_unix: nowUnix,
+          // true ⇒ the nomination phase below could NOT be established (calendar
+          // unreadable). Rows still render, but a consumer must not present them
+          // as proof that nominations are open — the write gate 503s in this
+          // same condition.
+          nom_schedule_unavailable: faNomScheduleUnavailable,
           // Computed, not a constant: ET days run 23h/24h/25h across the DST
           // flips, so there is no fixed window length to hardcode.
           fa_window_sec: win ? win.end_unix - win.start_unix : 0,
@@ -36091,6 +36160,14 @@ export default {
         }
         try {
           const cal = await getAuctionCalendar(env);
+          // Behaviour here was already correct — an unresolved close keeps
+          // retention ON — but "unresolved" conflated a D1 fault with an unset
+          // field. Report them separately so a flaky read is diagnosable instead
+          // of looking like the commish never filled the date in.
+          if (cal && cal.read_error) {
+            console.warn(`[era-retention] auction calendar UNREADABLE (${cal.read_error}) — treating as unresolved so the gate cannot silently lift.`);
+            return { unix: null, source: "auction_calendar_read_failed", read_error: cal.read_error };
+          }
           const wall = String((cal && cal.faa && cal.faa.faa_close_at) || "").trim();
           const unix = wall ? etWallClockToUnix(wall) : null;
           if (unix && unix > 0) {
