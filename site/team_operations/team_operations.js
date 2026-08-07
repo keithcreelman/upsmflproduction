@@ -1576,16 +1576,34 @@
             ? ' <span class="tops-feed-who">' + escapeHtml(gave.join(", ")) + ' for ' + escapeHtml(got.join(", ")) + '</span>'
             : '');
     } else if (typ === "FREE_AGENT" || typ === "BBID_WAIVER" || typ === "WAIVER") {
-      // MFL's free-agent / waiver `transaction` string is `added|dropped`
-      // (pipe-separated, each side a comma list of player ids). A pure DROP has
-      // an empty added side — e.g. "|17049," — so the old `\d{3,}` match, which
-      // ignored the pipe, rendered a drop identically to a signing under a green
-      // "FA" tag. Split on the pipe and label the two sides distinctly.
-      // (Auction strings are `pid|price|note`, NOT added|dropped, so they are
-      // deliberately excluded here and stay on the neutral path below.)
+      // MFL uses TWO different shapes here, and they are NOT interchangeable:
+      //   FREE_AGENT / WAIVER : "added|dropped"        (2 fields)
+      //   BBID_WAIVER         : "added|bid|dropped"    (3 fields — bid in the MIDDLE)
+      // Each side is a comma list of player ids. A pure DROP has an empty added
+      // side — e.g. "|17049," — so a bare `\d{3,}` match over the whole string
+      // would render a drop identically to a signing under a green "FA" tag.
+      //
+      // Reading BBID_WAIVER with the 2-field rule put the BID in the dropped
+      // slot: "16649,|1000|15271," rendered as "+ Theo Johnson − Player #1000"
+      // — the $1,000 bid shown as a phantom player, and the actual dropped
+      // player (Khalil Herbert, field 3) silently discarded. Verified against
+      // the live log 2026-08-07: FREE_AGENT was 2-field in all 26 rows, every
+      // BBID_WAIVER 3-field.
+      // (Auction strings are `pid|price|note` and stay on the neutral path.)
       var sides = safeStr(t.transaction).split("|");
-      var addedNames = decodeAssetTokens((String(sides[0] || "").match(/\d{3,}/g) || []).slice(0, 3).join(","));
-      var droppedNames = decodeAssetTokens((String(sides[1] || "").match(/\d{3,}/g) || []).slice(0, 3).join(","));
+      var isBbid = (typ === "BBID_WAIVER");
+      var droppedIdx = isBbid ? 2 : 1;
+      var pickIds = function (s) {
+        return (String(s || "").match(/\d{3,}/g) || []).slice(0, 3).join(",");
+      };
+      var addedNames = decodeAssetTokens(pickIds(sides[0]));
+      var droppedNames = decodeAssetTokens(pickIds(sides[droppedIdx]));
+      // The BBID bid is a dollar amount, never a player — surface it as money
+      // when MFL didn't already give us a salary on the row.
+      var bidDollars = isBbid ? Number(String(sides[1] || "").replace(/\D/g, "")) || 0 : 0;
+      if (bidDollars > 0 && !t.salary) {
+        salaryHtml = ' <span class="tops-feed-who">· $' + escapeHtml(bidDollars.toLocaleString()) + ' bid</span>';
+      }
       if (!addedNames.length && !droppedNames.length) return "";
       // A pure drop must not wear the green "add" tag.
       if (!addedNames.length && droppedNames.length) tag = { label: "Drop", cls: "tops-tag--drop" };
