@@ -1,0 +1,137 @@
+name: WW Salary Repair (one-off, 2026-08-07)
+
+# Restores salary / contractStatus / contractYear on the three franchise-0008
+# waiver contracts that /admin/adds/annotate-contracts blanked on 2026-08-07 by
+# posting a contractInfo-only salaries import (MFL blanks every attribute you
+# omit). The annotator itself is fixed in PR #819; this repairs the damage it
+# already did.
+#
+# Manual dispatch only. Defaults to DRY RUN — you must type "APPLY" to write.
+#
+# Every guard FAILS CLOSED: if the live state is not exactly what we expect,
+# the job refuses rather than writing a value that might be wrong.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Type APPLY to write to MFL. Anything else = dry run.'
+        required: true
+        default: 'dry-run'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Repair blanked WW salaries
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          MFL_APIKEY: ${{ secrets.COMMISH_API_KEY }}
+          WORKER: https://upsmflproduction.keith-creelman.workers.dev
+          MODE: ${{ github.event.inputs.mode }}
+        run: |
+          if [ -z "${KEY}" ]; then echo "::error::COMMISH_API_KEY secret not set"; exit 1; fi
+          python - <<'PY'
+          import json, os, sys, urllib.request, urllib.parse
+
+          SEASON, LEAGUE = "2026", "74598"
+          WORKER = os.environ["WORKER"]; KEY = os.environ["KEY"]
+          APPLY = os.environ.get("MODE", "").strip().upper() == "APPLY"
+
+          # The intended end state. salary is the winning bid ($1,000), which
+          # canon §A4 makes authoritative for a WW pickup and which already
+          # agrees with the surviving "TCV 1K | AAV 1K". contractInfo is left
+          # exactly as-is — it is the one field that survived and is correct.
+          TARGETS = {
+            "13952": {"name": "Frankie Luvu",  "salary": "1000", "contractStatus": "Vet-WW", "contractYear": "1"},
+            "16649": {"name": "Theo Johnson",  "salary": "1000", "contractStatus": "Vet-WW", "contractYear": "1"},
+            "16594": {"name": "Trey Benson",   "salary": "1000", "contractStatus": "Vet-WW", "contractYear": "1"},
+          }
+          EXPECTED_INFO = "CL 1| TCV 1K| AAV 1K"
+
+          def get(url):
+              req = urllib.request.Request(url, headers={"User-Agent": "ups-repair"})
+              with urllib.request.urlopen(req, timeout=45) as r:
+                  return json.loads(r.read().decode())
+
+          def read_salaries():
+              qs = urllib.parse.urlencode({"TYPE": "salaries", "L": LEAGUE, "JSON": "1", "APIKEY": KEY})
+              d = get(f"https://api.myfantasyleague.com/{SEASON}/export?{qs}")
+              rows = (d.get("salaries") or {}).get("leagueUnit", {}).get("player")
+              if rows is None:
+                  print("::error::salaries export returned no player rows — refusing"); sys.exit(1)
+              if isinstance(rows, dict): rows = [rows]
+              if len(rows) < 300:
+                  print(f"::error::salaries export only had {len(rows)} rows (expected ~500) — refusing"); sys.exit(1)
+              return {str(r.get("id")): r for r in rows}
+
+          live = read_salaries()
+          print(f"read {len(live)} salary rows\n")
+
+          rows_to_write, problems = [], []
+          for pid, want in TARGETS.items():
+              cur = live.get(pid)
+              if not cur:
+                  problems.append(f"{pid} {want['name']}: not in salaries export"); continue
+              cur_sal  = str(cur.get("salary") or "").strip()
+              cur_info = str(cur.get("contractInfo") or "").strip()
+              # GUARD 1 — only repair a player who is actually blank. If a salary
+              # is already present, something else set it and we must not clobber.
+              if cur_sal:
+                  problems.append(f"{pid} {want['name']}: salary already set to {cur_sal!r} — refusing to overwrite")
+                  continue
+              # GUARD 2 — contractInfo must be the exact surviving string. If it
+              # differs, this is not the damage we diagnosed.
+              if cur_info != EXPECTED_INFO:
+                  problems.append(f"{pid} {want['name']}: contractInfo is {cur_info!r}, expected {EXPECTED_INFO!r}")
+                  continue
+              rows_to_write.append({
+                  "player_id": pid, "salary": want["salary"],
+                  "contractStatus": want["contractStatus"], "contractYear": want["contractYear"],
+                  "contractInfo": cur_info,   # preserved verbatim, never recomputed
+              })
+              print(f"  {pid} {want['name']:<16} salary '' -> {want['salary']}  "
+                    f"status '{cur.get('contractStatus','')}' -> {want['contractStatus']}  "
+                    f"year '{cur.get('contractYear','')}' -> {want['contractYear']}")
+
+          if problems:
+              print("\n".join("::error::" + p for p in problems))
+              print("::error::refusing to write — live state did not match expectations")
+              sys.exit(1)
+          if not rows_to_write:
+              print("nothing to repair (all three already healthy)"); sys.exit(0)
+
+          if not APPLY:
+              print("\nDRY RUN — nothing written. Re-run with mode=APPLY to apply.")
+              print(json.dumps({"rows": rows_to_write}, indent=2)); sys.exit(0)
+
+          body = json.dumps({"season": SEASON, "league_id": LEAGUE, "rows": rows_to_write}).encode()
+          url = f"{WORKER}/admin/import-salaries?L={LEAGUE}&YEAR={SEASON}&APIKEY={urllib.parse.quote(KEY)}"
+          req = urllib.request.Request(url, data=body, method="POST",
+                                       headers={"Content-Type": "application/json", "User-Agent": "ups-repair"})
+          with urllib.request.urlopen(req, timeout=90) as r:
+              out = json.loads(r.read().decode())
+          print("\nimport-salaries response:", json.dumps(out)[:900])
+          if not out.get("ok"):
+              print("::error::import-salaries reported failure"); sys.exit(1)
+
+          # Verify against a fresh read — the write is not trusted on its own.
+          after = read_salaries()
+          bad = []
+          for row in rows_to_write:
+              pid = row["player_id"]; a = after.get(pid) or {}
+              if str(a.get("salary") or "") != row["salary"]: bad.append(f"{pid} salary={a.get('salary')!r}")
+              if str(a.get("contractYear") or "") != row["contractYear"]: bad.append(f"{pid} year={a.get('contractYear')!r}")
+              if str(a.get("contractInfo") or "") != row["contractInfo"]: bad.append(f"{pid} info changed to {a.get('contractInfo')!r}")
+          if bad:
+              print("::error::post-write verification FAILED: " + "; ".join(bad)); sys.exit(1)
+          print("\nverified — all three restored")
+          PY
