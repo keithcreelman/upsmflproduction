@@ -26746,12 +26746,10 @@ export default {
         //
         // The two extra promises carry their own .catch so that an early return
         // on a pendingTrades failure can never leave an unhandled rejection.
-        const _lpT0 = Date.now();
         const pendingP = loadPendingTradesExportAsViewer(season, leagueId, franchiseId);
         const leagueP = mflExportJson(season, leagueId, "league").catch(() => null);
         const storedP = readTradeOffersDoc(leagueId, season).catch(() => null);
         const pendingRes = await pendingP;
-        console.log(`[warroom-timing] pendingTrades +${Date.now() - _lpT0}ms`);
         if (!pendingRes.ok) {
           // Surface the error verbatim — no commish fallback, no stored-
           // offers substitute. Per Keith 2026-05-28: trades are always
@@ -26807,7 +26805,6 @@ export default {
         } catch (_) {
           storedOffers = [];
         }
-        console.log(`[warroom-timing] league+storedOffers settled t=${Date.now() - _lpT0}ms (concurrent with pendingTrades)`);
         const storedIndexes = buildStoredOfferIndexes(storedOffers);
 
         const pendingRowsAll = pendingTradesRows(pendingRes.data)
@@ -33262,34 +33259,6 @@ export default {
             return jsonOut(500, { ok: false, error: "Missing MFL owner session for direct MFL submission" });
           }
 
-          // ── Submit-path timing (2026-08-06) ───────────────────────────────
-          // A real submit took ~30s to confirm. This path makes ~8 external
-          // round-trips and ~9 D1 round-trips, all sequential, and carried no
-          // timing at all — so `wrangler tail` could only ever show the total,
-          // which we already knew. These marks attribute it.
-          //
-          // Logging only: no behavior, no payload, no response change. Reads
-          // in `wrangler tail` as one line per phase with cumulative ms, then
-          // a single [trade-timing] summary. Safe to leave in — it is a dozen
-          // console.log calls on a path that already makes 17 network hops —
-          // but it exists to answer one question and can come out after.
-          const _t0 = Date.now();
-          const _marks = [];
-          const _mark = (label) => {
-            const at = Date.now() - _t0;
-            const prev = _marks.length ? _marks[_marks.length - 1].at : 0;
-            _marks.push({ label, at, delta: at - prev });
-            console.log(`[trade-timing] ${String(label).padEnd(26)} +${String(at - prev).padStart(6)}ms  (t=${at}ms)`);
-            return at;
-          };
-          const _timingSummary = () => {
-            const total = Date.now() - _t0;
-            const slowest = _marks.slice().sort((a, b) => b.delta - a.delta).slice(0, 3)
-              .map((m) => `${m.label}=${m.delta}ms`).join(" ");
-            console.log(`[trade-timing] TOTAL ${total}ms | slowest: ${slowest}`);
-            return total;
-          };
-
           // Q6 worker-side backstop for the trade cap-money 50% rule
           // (canon §A6 + tracker AUDIT_FOLLOWUP_TRACKERS.md Q6).
           // Client at site/trades/trade_workbench.js:4218 enforces
@@ -33301,7 +33270,6 @@ export default {
             const tradesRostersRes = await mflExportJsonWithRetryAsViewer(
               season, leagueId, "rosters", {}, { useCookie: true }
             );
-            _mark("mfl_rosters");
             if (tradesRostersRes.ok) {
               const liveSalaryByFp = {};
               const liveTaxiByFp = {};
@@ -33382,7 +33350,6 @@ export default {
             const ownershipRostersRes = await mflExportJsonWithRetryAsViewer(
               season, leagueId, "rosters", {}, { useCookie: true }
             );
-            _mark("mfl_rosters#2");
             if (ownershipRostersRes.ok) {
               const liveOwnerByPid = {};
               const ownFranchises = asArray(
@@ -33481,7 +33448,6 @@ export default {
             toFranchiseId,
             payload,
           });
-          _mark("intent_bundle");
 
           let outboxId = "";
           let outboxBackend = "";
@@ -33507,7 +33473,6 @@ export default {
               mfl_verify_response_snip: "",
             },
           });
-          _mark("outbox");
           if (initialOutboxWrite.ok) {
             outboxId = safeStr(initialOutboxWrite.id);
             outboxBackend = safeStr(initialOutboxWrite.backend);
@@ -33543,7 +33508,6 @@ export default {
                 mfl_verify_response_snip: "",
               },
             });
-            _mark("outbox#2");
           }
 
           const commentsOut = appendTradeMetaTagToComments(
@@ -33574,7 +33538,6 @@ export default {
             importFields,
             browserCookieHeader
           );
-          _mark("mfl_import");
           const importRes = proposalSubmit.importRes;
 
           if (!proposalSubmit.ok) {
@@ -33615,7 +33578,6 @@ export default {
                   mfl_verify_response_snip: "",
                 },
               });
-              _mark("outbox#3");
             }
             return jsonOut(502, {
               ok: false,
@@ -33659,7 +33621,6 @@ export default {
             leagueId,
             fromFranchiseId
           );
-          _mark("mfl_pendingTrades");
           if (pendingRes.ok) {
             const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
             const metaPrefix = "[UPS_TWB_META:";
@@ -33716,7 +33677,6 @@ export default {
                 mfl_verify_response_snip: trimDiagText(JSON.stringify(pendingLookup || {}), 1000),
               },
             });
-            _mark("outbox#4");
           }
           const syncOut = await syncDirectMflOfferToStorage({
             leagueId,
@@ -33734,7 +33694,6 @@ export default {
             payload,
             source: safeStr(body?.source || "trade-workbench-ui"),
           });
-          _mark("github_sync");
           // Trade-offer DM (event-driven detection; covers the mobile builder
           // AND the desktop War Room — both reach this handler). Fire-and-forget
           // via waitUntil so it never blocks the 201. Guarded on storedOffer so
@@ -33753,7 +33712,6 @@ export default {
               }).catch((e) => console.error(`[trade-dm] enqueue (propose) failed: ${e?.message || e}`))
             );
           }
-          _timingSummary();
           return jsonOut(201, {
             ok: true,
             mode: "direct_mfl",
