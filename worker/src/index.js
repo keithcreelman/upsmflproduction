@@ -5852,7 +5852,10 @@ export default {
       if (path === "/admin/snapshot-mfl-now") {
         const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
         const authHeader = String(request.headers.get("X-Internal-Auth") || "").trim();
-        if (commishApiKey && authHeader !== commishApiKey) {
+        // Fail closed: an unconfigured key must REFUSE, not skip the check.
+        // `commishApiKey && …` meant "only verify the header if a key exists",
+        // so a secret that failed to bind published this endpoint.
+        if (!commishApiKey || authHeader !== commishApiKey) {
           return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
             status: 401,
             headers: { "content-type": "application/json", ...corsHeaders },
@@ -18639,6 +18642,15 @@ export default {
       const acqViewerCacheTag = browserCookieValue ? `u:${browserCookieValue}` : "";
       const sessionByCookie = !!browserCookieValue && browserCookieValue === secretCookieValue;
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      // NOTE: false whenever COMMISH_API_KEY is unset/empty — which is exactly
+      // what we want. Every commish-only route now gates on `!sessionByApiKey`
+      // alone. It used to gate on `!!commishApiKey && !sessionByApiKey`, i.e.
+      // "only check the lock if a lock is configured": if the secret ever
+      // failed to bind, that expression short-circuited to false and 21
+      // destructive admin routes — /admin/import-salaries,
+      // /admin/add-salary-adjustment, /admin/auction/auto-drop-expired-rookies
+      // among them — served UNAUTHENTICATED. A worker with no key configured
+      // must refuse admin writes, not open them.
       const sessionByApiKey = !!commishApiKey && !!browserApiKey && browserApiKey === commishApiKey;
       const sessionKnown = !!browserCookieValue || (!!commishApiKey && !!browserApiKey);
       const sessionMatch = sessionByCookie || sessionByApiKey;
@@ -38129,7 +38141,7 @@ export default {
       if (path === "/admin/adds/scan-and-record" && request.method === "POST") {
         let abody = {};
         try { abody = (await request.json()) || {}; } catch (_) { abody = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -38289,7 +38301,7 @@ export default {
       if (path === "/admin/adds/annotate-contracts" && request.method === "POST") {
         let nbody = {};
         try { nbody = (await request.json()) || {}; } catch (_) { nbody = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -38485,7 +38497,7 @@ export default {
       if (path === "/admin/adds/post-discord" && request.method === "POST") {
         let pbody = {};
         try { pbody = (await request.json()) || {}; } catch (_) { pbody = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -39600,7 +39612,7 @@ export default {
       // record; the local-DB ingest is stale + mislabels years). Returns
       // [{ player, team, season, ts, message_id }]. Commish-gated. No writes.
       if (path === "/admin/discord/restructures" && request.method === "GET") {
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         const botToken = safeStr(env.DISCORD_CONTRACT_BOT_TOKEN || env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
@@ -39678,7 +39690,7 @@ export default {
       // like a normal extension. UPDATE-only, whitelisted columns, target by id
       // or (player_id, season, source). Commish-gated.
       if (path === "/admin/fix-extension-submission" && request.method === "POST") {
-        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         // Prior-side AAV backfill column — the 0034 schema only shipped
         // new_aav; the Ledger now shows AAV on BOTH legs, so a commish may need
@@ -39714,7 +39726,7 @@ export default {
       }
 
       if (path === "/admin/fix-restructure-submission" && request.method === "POST") {
-        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         // Mirror of /admin/fix-extension-submission for ups_restructure_submissions.
         // The restructure ledger shipped with an INSERT-or-SKIP ingest and no UPDATE
@@ -39745,7 +39757,7 @@ export default {
       }
 
       if (path === "/admin/fix-src-contract" && request.method === "POST") {
-        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         let b = {};
         try { b = (await request.json()) || {}; } catch (_) { b = {}; }
@@ -39780,7 +39792,7 @@ export default {
       if (path === "/admin/import-salaries" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         const auditDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
@@ -40077,7 +40089,7 @@ export default {
       if (path === "/admin/reset-fa-contracts" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         const auditDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
@@ -40351,7 +40363,7 @@ export default {
       if (path === "/admin/auction/auto-drop-expired-rookies" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
@@ -40509,7 +40521,7 @@ export default {
       if (path === "/admin/auction/resend-tag-deadline-dm" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
@@ -40716,7 +40728,7 @@ export default {
       // Commish inspect — recent drop events (id, name, season, penalty, posted
       // message id) so a correction can target the exact row.
       if (path === "/admin/drops/inspect" && request.method === "GET") {
-        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const nameQ = safeStr(url.searchParams.get("player_name") || "").trim();
@@ -40733,7 +40745,7 @@ export default {
       if (path === "/admin/drops/post-discord" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -41312,7 +41324,7 @@ export default {
       if (path === "/admin/drops/reconcile-post" && request.method === "POST") {
         let rbody = {};
         try { rbody = (await request.json()) || {}; } catch (_) { rbody = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -41368,7 +41380,7 @@ export default {
       // wrongly moved it as blind-bid dollars instead of a salary settlement).
       // Requires the commish MFL_COOKIE (salaryAdj import is cookie-gated).
       if (path === "/admin/add-salary-adjustment" && request.method === "POST") {
-        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         let asBody = {};
         try { asBody = (await request.json()) || {}; } catch (_) { asBody = {}; }
         const asSeason = safeStr(asBody?.season || url.searchParams.get("YEAR") || YEAR || "");
@@ -41410,7 +41422,7 @@ export default {
       if (path === "/admin/drops/post-mfl" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -41757,7 +41769,7 @@ export default {
       if (path === "/admin/drops/scan-and-record" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -41994,7 +42006,7 @@ export default {
       if (path === "/admin/auction/snapshot-era-pool" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -42446,7 +42458,7 @@ export default {
       if (path === "/admin/auction/post-tag-deadline-channel-thread" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
@@ -42718,7 +42730,7 @@ export default {
       if (path === "/admin/import-drop-penalties" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
@@ -43332,7 +43344,7 @@ export default {
         } catch (_) {
           body = {};
         }
-        if (!!commishApiKey && !sessionByApiKey) {
+        if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for Discord post." });
         }
         const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
@@ -45909,7 +45921,14 @@ export default {
         // close instant now actually resolves: it comes from the auction
         // calendar's faa_close_at, so retention finally lifts. It previously
         // read only env.FA_AUCTION_CLOSE_AT, which is set nowhere.)
-        if (action === "drop_player") {
+        // Covers unload_player as well as drop_player. Until 2026-08-06 this
+        // gate read `action === "drop_player"` only, so unload_player — which
+        // removes a player from a roster just as permanently — walked straight
+        // past §A3 forced retention. That is one of the reasons the ERA
+        // auto-drop sweep was able to cut three ERA auction winners
+        // (Levis/Bigsby/Charbonnet) out from under their owners. Any action
+        // that takes a player off a roster must clear the same rule.
+        if (action === "drop_player" || action === "unload_player") {
           const eraGate = await _eraRetentionBlocked(season, leagueId, playerId);
           const ovRaw = String((body && body.override_era_retention) != null ? body.override_era_retention : "").toLowerCase();
           const overrideOk = sessionByApiKey && (ovRaw === "true" || ovRaw === "1" || ovRaw === "yes");

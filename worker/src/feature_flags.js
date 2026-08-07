@@ -38,41 +38,69 @@ export const FEATURE_FLAGS = [
 ];
 const FLAG_KEYS = FEATURE_FLAGS.map((f) => f.key);
 
+// Returns the override map, or NULL when we could not read it.
+//
+// null is NOT the same as {}. `{}` means "D1 answered: no overrides set, use the
+// env defaults". `null` means "we do not know what the commish has switched off"
+// — and the only safe reading of that is that every feature is OFF. Returning
+// `{}` on a D1 fault silently reverted every kill switch to its wrangler.toml
+// default, which for TRADE_3WAY_EXECUTE and DROP_TRACKER_POST_MFL meant a
+// transient database error could RE-ARM a destructive path the commish had
+// deliberately turned off. The kill-switch layer must not itself fail open.
 async function readOverrides(env) {
-  if (!env || !env.UPS_MFL_DB) return {};
+  if (!env || !env.UPS_MFL_DB) return null;
   try {
     await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
     const row = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key='feature_flags'").first();
     const cfg = row && row.value ? JSON.parse(row.value) : {};
     return cfg && typeof cfg === "object" ? cfg : {};
-  } catch (_) { return {}; }
+  } catch (e) {
+    console.error("[feature-flags] override read FAILED — every flag reads OFF until D1 recovers:", e?.message || String(e));
+    return null;
+  }
 }
 
 // One flag, read-through: a D1 override wins; otherwise the env var. "1" => on.
+// FAILS CLOSED: if the override map is unreadable we answer false for every
+// flag. A feature being off is a degraded read; a feature wrongly on writes to
+// MFL and cannot be undone.
 export async function getFeatureFlag(env, name) {
   const overrides = await readOverrides(env);
+  if (overrides === null) return false;
   if (Object.prototype.hasOwnProperty.call(overrides, name)) return String(overrides[name]) === "1";
   return safeStr(env && env[name]) === "1";
 }
 
 // Every flag's effective state + source, for the settings UI.
+// When the override map is unreadable every flag reads OFF (matching
+// getFeatureFlag), and `unknown: true` tells the UI to say so rather than
+// showing a confident switch position we cannot actually vouch for.
 export async function getAllFeatureFlags(env) {
   const overrides = await readOverrides(env);
+  const unknown = overrides === null;
   return FEATURE_FLAGS.map((f) => {
-    const overridden = Object.prototype.hasOwnProperty.call(overrides, f.key);
+    const overridden = !unknown && Object.prototype.hasOwnProperty.call(overrides, f.key);
     const envOn = safeStr(env && env[f.key]) === "1";
     return {
       key: f.key, label: f.label, help: f.help, danger: !!f.danger,
-      value: overridden ? String(overrides[f.key]) === "1" : envOn,
-      overridden, env_default: envOn,
+      value: unknown ? false : (overridden ? String(overrides[f.key]) === "1" : envOn),
+      overridden, env_default: envOn, unknown,
     };
   });
 }
 
 // Merge + persist a partial { KEY: bool | "1" | "0" } update (only known flags).
+// REFUSES when the current map is unreadable: this function rebuilds the stored
+// object from what it read, so writing on a failed read would silently ERASE
+// every override the commish had set and revert those features to their
+// wrangler.toml defaults. A failed toggle the commish can retry is strictly
+// better than a silent mass reset.
 export async function setFeatureFlags(env, partial) {
   if (!env || !env.UPS_MFL_DB) return { ok: false, error: "no_db" };
   const overrides = await readOverrides(env);
+  if (overrides === null) {
+    return { ok: false, error: "override_read_failed_refusing_to_overwrite" };
+  }
   for (const k of Object.keys(partial || {})) {
     if (FLAG_KEYS.indexOf(k) === -1) continue;
     const v = partial[k];
