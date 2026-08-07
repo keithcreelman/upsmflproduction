@@ -158,8 +158,19 @@ function moneyLines(move) {
   const acquisition = move.source === "bbid"
     ? `Waiver claim — ${amount == null ? "amount unknown" : `${money} bid`}`
     : `FCFS add — ${money}`;
+  // Print the contract status MFL actually holds — "Vet-WW", "Rookie-WW",
+  // "Vet-WW-BL" — not a generic "WW". Keith 2026-08-07: the post has to match
+  // what the Front Office and every other surface show, or the same contract
+  // reads two different ways in two places.
+  //
+  // No invention: if MFL has not stamped a status yet (it is briefly blank
+  // right after a waiver award), say so rather than guessing "Vet-WW". Guessing
+  // is how a Rookie-WW would silently get announced as a veteran deal.
+  const status = String(move.contract_status || "").trim();
+  const statusLabel = status ? `**${status}**` : "_status pending_";
+  const years = Number(move.contract_years) > 0 ? Number(move.contract_years) : 1;
   const contract = [
-    `1 yr · **WW** · ${money}`,
+    `${years} yr · ${statusLabel} · ${money}`,
     amount != null && amount > 0 && amount <= 4000 ? "cap-free cut at $4K or less" : null,
   ].filter(Boolean).join(" · ");
   return { acquisition, contract };

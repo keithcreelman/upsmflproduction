@@ -38753,12 +38753,24 @@ export default {
         // adds, which carry no bid at all.
         const apSalRes = await mflExportJson(apSeason, apLeagueId, "salaries", {}, { useCookie: true });
         const apSalaryByPid = new Map();
+        // The live contractStatus / contractYear, so the post prints the SAME
+        // label the Front Office does — "Vet-WW", "Rookie-WW", "Vet-WW-BL" —
+        // instead of a generic "WW" that matches nothing else in the app.
+        // Blank is stored as blank; the builder renders "status pending" rather
+        // than inventing a status (Keith 2026-08-07: uniformity, not guesses).
+        const apContractByPid = new Map();
         for (const r of asArray(apSalRes.data?.salaries?.leagueUnit?.player || apSalRes.data?.salaries?.leagueunit?.player)) {
           const pid = safeStr(r?.id).replace(/\D/g, "");
           const sal = safeMoneyInt(r?.salary, null);
           // Only a REAL number counts. A blank salary is "MFL did not say",
           // never "$0".
           if (pid && sal != null && sal > 0) apSalaryByPid.set(pid, sal);
+          if (pid) {
+            apContractByPid.set(pid, {
+              contract_status: safeStr(r?.contractStatus),
+              contract_year: safeStr(r?.contractYear),
+            });
+          }
         }
 
         // ── Pre-drop contract → cap penalty ──────────────────────────────
@@ -38895,21 +38907,99 @@ export default {
         // answers "Invalid request" — which is exactly what mflExportJson
         // targets.
         const apKickoffByWeek = new Map();
+        // ONE GIF per waiver thread. Mirrors pickDropLeadGif in
+        // /admin/drops/post-discord (same Giphy call, same shuffle-then-first-hit
+        // shape) but with pickup-flavoured queries — a waiver claim is a "got
+        // my guy" moment, not the drop tracker's funeral.
+        //
+        // Returns "" on ANY problem (no key, non-200, empty results). The caller
+        // treats "" as "no GIF" and posts the moves regardless: this is
+        // decoration and must never be able to fail a run.
+        const AP_LEAD_QUERIES = [
+          "nfl welcome to the team",
+          "nfl new signing hype",
+          "football pickup celebration",
+          "nfl lets go celebration",
+          "nfl fans celebrating",
+          "football hype up",
+        ];
+        const apPickRunLeadGif = async () => {
+          const apiKey = safeStr(env.GIPHY_API_KEY || "");
+          if (!apiKey) return "";
+          const shuffled = [...AP_LEAD_QUERIES].sort(() => Math.random() - 0.5);
+          for (const q of shuffled) {
+            const u = new URL("https://api.giphy.com/v1/gifs/search");
+            u.searchParams.set("api_key", apiKey);
+            u.searchParams.set("q", q);
+            u.searchParams.set("limit", "50");
+            u.searchParams.set("lang", "en");
+            u.searchParams.set("rating", "pg-13");
+            try {
+              const r = await fetch(u.toString(), { cf: { cacheTtl: 300 } });
+              if (!r.ok) continue;
+              const j = await r.json();
+              const rows = Array.isArray(j?.data) ? j.data : [];
+              if (!rows.length) continue;
+              const pick = rows[Math.floor(Math.random() * rows.length)];
+              const gif = safeStr(pick?.images?.original?.url) ||
+                          safeStr(pick?.images?.downsized_large?.url) ||
+                          safeStr(pick?.images?.fixed_height?.url);
+              if (gif) return gif;
+            } catch (_) {}
+          }
+          return "";
+        };
+
+        // Thursday-Night kickoff for an NFL week — the deadline standard canon
+        // uses for BOTH the preseason MYM deadline and the extension deadline
+        // (league_context_v1.md ~1211/1214: "Standardized to kickoff of
+        // Thursday Night Football game for consistency").
+        //
+        // TWO reasons this used to come back empty, and both had to be fixed:
+        //
+        // 1. WRONG HOST. nflSchedule is a global NFL export, not a league one —
+        //    www48 answers it with {"error":"This API request must go to
+        //    api.myfantasyleague.com"}. mflExportJson targets www48, so every
+        //    lookup failed and the eligibility block printed with no dates.
+        //    The working precedents in this file (~14288, ~14471) all hit the
+        //    api host directly, so do the same. No L and no cookie: it is not
+        //    league-scoped and sending them is what invites the redirect.
+        //
+        // 2. EARLIEST != THURSDAY. Taking the week's earliest kickoff happens
+        //    to be right for weeks 3 and 5, but it is not the rule, and it is
+        //    wrong the moment a week opens earlier — NFL Week 1 2026 opens on
+        //    WEDNESDAY Sep 9, so "earliest" would have moved the preseason
+        //    boundary a day. Pick the Thursday game explicitly (ET, since a
+        //    Thursday-night ET kickoff is already Friday in UTC), and fall back
+        //    to the earliest only when a week genuinely has no Thursday game.
         const apWeekKickoffUnix = async (week) => {
           const w = safeInt(week, 0);
           if (apKickoffByWeek.has(w)) return apKickoffByWeek.get(w);
+          let thursday = 0;
           let earliest = 0;
           try {
-            const schedRes = await mflExportJson(apSeason, apLeagueId, "nflSchedule", { W: String(w) }, { useCookie: true });
-            if (schedRes.ok) {
-              for (const m of asArray(schedRes.data?.nflSchedule?.matchup)) {
-                const ko = safeInt(m?.kickoff, 0);
-                if (ko > 0 && (!earliest || ko < earliest)) earliest = ko;
-              }
+            const schedRes = await fetch(
+              `https://api.myfantasyleague.com/${encodeURIComponent(apSeason)}/export?TYPE=nflSchedule&W=${encodeURIComponent(String(w))}&JSON=1`,
+              { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 3600 } }
+            );
+            const schedData = schedRes.ok ? await schedRes.json().catch(() => null) : null;
+            for (const m of asArray(schedData?.nflSchedule?.matchup)) {
+              const ko = safeInt(m?.kickoff, 0);
+              if (ko <= 0) continue;
+              if (!earliest || ko < earliest) earliest = ko;
+              const dayEt = new Date(ko * 1000).toLocaleDateString("en-US", {
+                timeZone: "America/New_York",
+                weekday: "short",
+              });
+              if (dayEt === "Thu" && (!thursday || ko < thursday)) thursday = ko;
             }
-          } catch (_) { earliest = 0; }
-          apKickoffByWeek.set(w, earliest);
-          return earliest;
+          } catch (_) {
+            thursday = 0;
+            earliest = 0;
+          }
+          const chosen = thursday || earliest;
+          apKickoffByWeek.set(w, chosen);
+          return chosen;
         };
         const apFmtEastern = (iso) => {
           if (!iso) return "";
@@ -39095,6 +39185,9 @@ export default {
               source: safeStr(r.source),
               amount_dollars: amount,
               amount_source: amountSource,
+              // Live contract shape, verbatim from MFL — never derived.
+              contract_status: safeStr(apContractByPid.get(pid)?.contract_status),
+              contract_years: safeInt(apContractByPid.get(pid)?.contract_year, 0) || null,
               // No transaction row — or one whose field count we could not
               // trust — means we do not know what this add displaced. The
               // message must say "unknown", not "nobody".
@@ -39358,6 +39451,34 @@ export default {
             continue;
           }
           result.thread_id = threadId;
+
+          // 2b. ONE GIF for the whole thread (Keith 2026-08-07) — posted first,
+          // so the thread opens on the visual and the moves read underneath it.
+          // Deliberately per-THREAD, not per-move: three GIFs stacked above
+          // three claims buries the actual information, which is the thing an
+          // owner is here to read.
+          //
+          // Best-effort by design. No GIPHY_API_KEY, a Giphy outage, or a
+          // failed post all just mean no GIF — never a failed run, and never a
+          // reason to skip the moves. It is decoration; the contract data is not.
+          if (!result.gif_skipped) {
+            try {
+              const runGif = await apPickRunLeadGif();
+              if (runGif) {
+                const gifRes = await discordBotRequest(
+                  apBotToken, "POST",
+                  `/channels/${encodeURIComponent(threadId)}/messages`,
+                  { embeds: [{ image: { url: runGif } }], allowed_mentions: { parse: [] } }
+                );
+                result.gif_url = runGif;
+                result.gif_posted = !!gifRes?.ok;
+              } else {
+                result.gif_posted = false;
+              }
+            } catch (_) {
+              result.gif_posted = false;
+            }
+          }
 
           // 3. One message per move. discord_posted flips to 1 ONLY for the
           // row whose message actually landed.
