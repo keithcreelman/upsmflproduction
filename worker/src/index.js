@@ -38419,12 +38419,48 @@ export default {
               .bind(annNowIso, cur.contract_info, r.id).run();
             continue;
           }
+          // MFL BLANKS EVERY ATTRIBUTE YOU OMIT (confirmed in prod 2026-08-07).
+          //
+          // This route used to send contractInfo alone, on the theory that an
+          // attribute absent from the payload could not be moved. The opposite
+          // is true: MFL treats a salaries import row as the player's COMPLETE
+          // state, so omitting salary / contractStatus / contractYear wiped all
+          // three. It emptied Luvu, Johnson and Benson — three live waiver
+          // contracts — leaving only the contractInfo this route had just
+          // written. The post-write verifier below caught it, but only AFTER
+          // the write had already landed on the first player of the batch.
+          //
+          // The staleness worry that motivated omitting them is already solved:
+          // `cur` is the FRESH per-player re-read taken immediately above,
+          // seconds before this write — not the batch snapshot. Echoing those
+          // three values back verbatim is a no-op on MFL's side and is the only
+          // way to preserve them. Never re-introduce a partial-attribute import.
+          //
+          // NO FAIL-OPEN: if the fresh read has no salary or no contractYear we
+          // REFUSE this player rather than let buildSalaryImportXmlFromRows
+          // substitute its "0" defaults — writing salary="0" on a live contract
+          // is the same destruction by another route. A blank salary here means
+          // the player is already damaged (or MFL answered oddly); that needs a
+          // human, not a $0 contract.
+          if (!safeStr(cur.salary) || !safeStr(cur.contract_year)) {
+            annResults.push({
+              id: r.id, player_id: pid, outcome: "needs_review",
+              reason: "fresh_read_missing_salary_or_year",
+              salary: cur.salary, contract_year: cur.contract_year, contract_status: cur.contract_status,
+            });
+            await env.UPS_MFL_DB.prepare("UPDATE ups_add_events SET contract_annotated=3, annotated_at_utc=?, notes=? WHERE id=?")
+              .bind(annNowIso, "fresh read had no salary/contractYear — refused to annotate (would write a $0 contract)", r.id).run();
+            continue;
+          }
           const salaryDollars = safeMoneyInt(cur.salary, 0) || 0;
           const nextInfo = `CL 1| TCV ${kFmt(salaryDollars)}K| AAV ${kFmt(salaryDollars)}K`;
-          // contractInfo and nothing else. salary / contractStatus /
-          // contractYear are not in the payload at all, so this write cannot
-          // move them even if our copy of them were stale.
-          const xml = buildContractInfoOnlyImportXml([{ player_id: pid, contract_info: nextInfo }]);
+          const xml = buildSalaryImportXmlFromRows([{
+            player_id: pid,
+            salary: safeStr(cur.salary),
+            contract_status: safeStr(cur.contract_status),
+            contract_year: safeStr(cur.contract_year),
+            contract_info: nextInfo,
+          }]);
           const annCookie = await establishCommishCookieHeader(cookieHeader, annSeason, annLeagueId);
           const impRes = await postMflImportFormForCookie(
             annCookie, annSeason,
