@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-06T11:50:12.669685+00:00",
+    "generated_at_utc": "2026-08-07T10:32:34.469211+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2666,7 +2666,7 @@
           "display": "Ainias Smith",
           "player_id": "16686",
           "position": "WR",
-          "nfl_team": "CAR",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
@@ -4276,18 +4276,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15808",
-          "display": "George Karlaftis",
-          "player_id": "15808",
-          "position": "DE",
-          "nfl_team": "KCC",
-          "salary": 1000,
-          "contract_year": 2,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15346",
           "display": "Gregory Rousseau",
           "player_id": "15346",
@@ -4473,13 +4461,13 @@
           "original_owner_name": "Keith Creelman"
         },
         {
-          "asset_id": "FP_2027_5_0008",
-          "display": "2027 R5",
+          "asset_id": "FP_2027_4_0012",
+          "display": "2027 R4  (via Hawks \u00b7 Chris Klingenberg)",
           "year": "2027",
-          "round": "5",
-          "original_fid": "0008",
-          "original_team_name": "Real Deal Creel",
-          "original_owner_name": "Keith Creelman"
+          "round": "4",
+          "original_fid": "0012",
+          "original_team_name": "Hawks",
+          "original_owner_name": "Chris Klingenberg"
         }
       ],
       "current_picks": []
@@ -6473,6 +6461,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_15808",
+          "display": "George Karlaftis",
+          "player_id": "15808",
+          "position": "DE",
+          "nfl_team": "KCC",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16677",
           "display": "Javon Bullard",
           "player_id": "16677",
@@ -6646,15 +6646,6 @@
           "original_owner_name": "Chris Klingenberg"
         },
         {
-          "asset_id": "FP_2027_4_0012",
-          "display": "2027 R4",
-          "year": "2027",
-          "round": "4",
-          "original_fid": "0012",
-          "original_team_name": "Hawks",
-          "original_owner_name": "Chris Klingenberg"
-        },
-        {
           "asset_id": "FP_2027_5_0012",
           "display": "2027 R5",
           "year": "2027",
@@ -6662,6 +6653,15 @@
           "original_fid": "0012",
           "original_team_name": "Hawks",
           "original_owner_name": "Chris Klingenberg"
+        },
+        {
+          "asset_id": "FP_2027_5_0008",
+          "display": "2027 R5  (via Real Deal Creel \u00b7 Keith Creelman)",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
         }
       ],
       "current_picks": []
