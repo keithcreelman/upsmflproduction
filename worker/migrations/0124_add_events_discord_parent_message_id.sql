@@ -1,0 +1,44 @@
+-- 0124_add_events_discord_parent_message_id
+--
+-- ⚠️ APPLY WITH:  wrangler d1 execute UPS_MFL_DB --remote --file=worker/migrations/0124_add_events_discord_parent_message_id.sql
+--    NEVER `wrangler d1 migrations apply`. The migration tracker on this D1 is
+--    ~47 files behind reality (0057-0103 read as "pending" but ARE applied);
+--    letting the tracker replay them re-runs contract writes and corrupts live
+--    contracts. Every migration in this repo since 0057 is hand-applied.
+--
+-- NOTE: /admin/adds/post-discord ALSO adds this column inline, guarded by
+-- try/catch, before it reads the work queue — the route cannot wait for a hand
+-- application to be correct. This file is the schema of record; running it is a
+-- no-op once the route has fired.
+--
+-- WHY THE COLUMN EXISTS
+--
+-- The waiver-run poster posts one PARENT message per team per run and hangs a
+-- thread off it. On a retry it must answer "does a parent for this run already
+-- exist?" — post a second one and the run is announced twice.
+--
+-- It used to INFER the answer from discord_message_id: "every row of the run
+-- shares one non-empty id, and that id's channel is the channel we are posting
+-- to." That test is VACUOUS when the run has ONE row, because "every row shares
+-- the id" is trivially true of a single row — and a single-claim run is the
+-- common case. The pre-thread poster (before b97b2d44) wrote a per-add
+-- "Add: <player>" top-level message id onto EVERY row it announced, so one such
+-- legacy row in the right channel passed the whole test: the route skipped the
+-- run-summary parent, hung the thread off "Add: Frankie Luvu", and returned
+-- ok:true. That is exactly the state the commish lands in when he resets
+-- discord_posted = 0 to re-announce old adds in the new shape.
+--
+-- A shared id cannot distinguish "our parent" from "a legacy per-add message"
+-- at N = 1, so the fact is no longer inferred — it is RECORDED. This column is
+-- written in exactly one place, the parent-record step of
+-- /admin/adds/post-discord, immediately after that route posts a parent. Rows
+-- from the old poster are NULL here and can never be mistaken for a parent, at
+-- any N. discord_message_id keeps its own meaning (the MOVE message id, written
+-- when a move lands in the thread) and is no longer load-bearing for reuse.
+--
+-- Reuse requires BOTH: a non-empty discord_parent_message_id AND that row's
+-- discord_channel_id equal to the channel being posted to. The channel half
+-- stops a test→prod re-post from addressing
+-- /channels/<PROD>/messages/<TEST_ID>/threads, which 404s forever.
+
+ALTER TABLE ups_add_events ADD COLUMN discord_parent_message_id TEXT;
