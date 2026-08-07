@@ -291,6 +291,14 @@ const _getTagDeadlineDmUtcTopLevel = (season) => {
   return dm;
 };
 
+// FAILS CLOSED. This is the idempotency gate in front of destructive
+// once-per-season sweeps (see processTagDeadlineMidnightLock). A D1 read
+// error is NOT evidence that the sweep never ran — it is evidence that we
+// cannot know. Returning false there means "go ahead and re-run", which on
+// 2026-08-06 re-fired the ERA auto-drop sweep and unloaded three players
+// (Levis/Bigsby/Charbonnet) whose lock row had been sitting in the ledger
+// since 2026-05-22. An unreadable ledger is never permission to run.
+// Keith's standing rule: NO FAIL-OPEN GUARDS.
 async function _deadlineLockAlreadyFired(db, season, leagueId, eventKey) {
   try {
     const row = await db.prepare(
@@ -298,8 +306,13 @@ async function _deadlineLockAlreadyFired(db, season, leagueId, eventKey) {
         WHERE season=? AND league_id=? AND event_key=? LIMIT 1`
     ).bind(String(season), String(leagueId), String(eventKey)).first();
     return !!row;
-  } catch (_) {
-    return false;
+  } catch (e) {
+    console.error(
+      `[deadline-lock] ledger read FAILED for ${eventKey} (season=${season} league=${leagueId}) — ` +
+      `treating as ALREADY FIRED so the sweep cannot re-run on an unreadable gate:`,
+      e?.message || String(e)
+    );
+    return true;
   }
 }
 
@@ -328,6 +341,13 @@ async function processTagDeadlineMidnightLock(env, season, leagueId, origin, com
   const eventKey = "tag_deadline_midnight_lock";
   const db = env.UPS_MFL_DB;
   if (!db) return { fired: false, reason: "no_db" };
+
+  // Kill switch. This sweep removes players from rosters — the most
+  // destructive automated path in the worker — and until 2026-08-06 it could
+  // not be stopped without a redeploy. Ships DARK: an unset flag is OFF.
+  if (!(await getFeatureFlag(env, "ERA_AUTODROP_ENABLED"))) {
+    return { fired: false, reason: "era_autodrop_disabled" };
+  }
 
   const deadline = _getTagDeadlineUtcTopLevel(season);
   if (!deadline) return { fired: false, reason: "no_deadline_for_season" };
@@ -367,11 +387,77 @@ async function processTagDeadlineMidnightLock(env, season, leagueId, origin, com
     }))
     .filter((c) => c.player_id && c.franchise_id && c.franchise_id !== "0000");
 
+  // REVALIDATE against the LIVE roster before dropping anybody.
+  //
+  // The ERA pool is a snapshot frozen at the tag deadline (prior_owner_fid is
+  // whoever held the player THEN). It is never revalidated, so a player who
+  // was re-won at the ERA auction by the same franchise that lost him still
+  // matches his frozen (franchise, player) pair months later — and the sweep
+  // happily unloads a live, fully-contracted player. That is exactly how
+  // Levis ($1K, CL 3, Vet-ERA), Bigsby ($4K, CL 1) and Charbonnet ($7K, CL 1)
+  // were dropped on 2026-08-06: all three were Vet-ERA, none was an expired
+  // rookie by any reading of their CURRENT contract.
+  //
+  // So: a candidate is only droppable if his contract RIGHT NOW still looks
+  // like an expired rookie. NO FAIL-OPEN — if we cannot read the live roster,
+  // we drop NOBODY rather than trusting a stale snapshot.
+  let liveByPlayer = null;
+  try {
+    const rosterRes = await fetch(
+      `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 0 } }
+    );
+    const rosterJson = await rosterRes.json();
+    const frRows = rosterJson?.rosters?.franchise;
+    const frList = Array.isArray(frRows) ? frRows : (frRows ? [frRows] : []);
+    if (!frList.length) throw new Error("rosters export returned no franchises");
+    liveByPlayer = {};
+    for (const fr of frList) {
+      const pRows = fr?.player;
+      const pList = Array.isArray(pRows) ? pRows : (pRows ? [pRows] : []);
+      for (const p of pList) {
+        const pid = String(p?.id || "").replace(/\D/g, "");
+        if (pid) liveByPlayer[pid] = { franchise_id: _padFranchiseIdTopLevel(fr?.id), player: p };
+      }
+    }
+  } catch (e) {
+    console.error(`[deadline-lock midnight] live-roster revalidation FAILED — refusing to drop anyone:`, e?.message || String(e));
+    return { fired: false, reason: "revalidation_fetch_failed", error: String(e?.message || e) };
+  }
+
+  // An expired rookie is a rookie-flavoured contractStatus with no years left.
+  // Anything else — Vet-ERA, Vet-FAA, an extension, a tag — is somebody's real
+  // contract and is never auto-droppable.
+  const stillExpiredRookie = (row) => {
+    const status = String(row?.contractStatus || "").trim();
+    if (!/rookie/i.test(status)) return false;
+    const cy = String(row?.contractYear || "").trim();
+    return cy === "" || cy === "0";
+  };
+
   const dropped = [];
   const failed = [];
+  const skippedRevalidation = [];
   const actionUrl = `${origin}/roster-workbench/action?APIKEY=${encodeURIComponent(commishApiKey)}`;
 
   for (const c of candidates) {
+    const live = liveByPlayer[c.player_id];
+    if (!live || live.franchise_id !== c.franchise_id || !stillExpiredRookie(live.player)) {
+      skippedRevalidation.push({
+        player_id: c.player_id,
+        name: c.name,
+        pool_franchise_id: c.franchise_id,
+        live_franchise_id: live ? live.franchise_id : null,
+        live_contract_status: live ? String(live.player?.contractStatus || "") : null,
+        live_contract_year: live ? String(live.player?.contractYear || "") : null,
+        reason: !live
+          ? "not_on_any_roster"
+          : live.franchise_id !== c.franchise_id
+            ? "changed_franchise_since_pool_snapshot"
+            : "contract_is_no_longer_an_expired_rookie",
+      });
+      continue;
+    }
     try {
       const r = await env.SELF.fetch(actionUrl, {
         method: "POST",
@@ -400,13 +486,22 @@ async function processTagDeadlineMidnightLock(env, season, leagueId, origin, com
   await _markDeadlineLockFired(db, season, leagueId, eventKey, {
     dropped_count: dropped.length,
     failed_count: failed.length,
+    skipped_revalidation_count: skippedRevalidation.length,
     dropped,
     failed,
+    skipped_revalidation: skippedRevalidation,
     deadline_utc: deadline.toISOString(),
     completed_utc: new Date().toISOString(),
   });
 
-  return { fired: true, ok: failed.length === 0, dropped: dropped.length, failed: failed.length, candidates: candidates.length };
+  return {
+    fired: true,
+    ok: failed.length === 0,
+    dropped: dropped.length,
+    failed: failed.length,
+    skipped_revalidation: skippedRevalidation.length,
+    candidates: candidates.length,
+  };
 }
 
 // ───────────────── commish DM recipients (Keith 2026-07-27) ────────────────
