@@ -38631,18 +38631,31 @@ export default {
           if (!txFid || !txTs) continue;
           const parts = safeStr(tx?.transaction).split("|");
           const isBbidTx = txType === "BBID_WAIVER";
+          // The arity is LOAD-BEARING, so verify it instead of assuming it. A
+          // BBID row that ever arrives 2-field reads parts[1] as the bid when
+          // it is really the dropped-pid list: "16649,|15271," would announce
+          // a "$15.3K bid" AND "no corresponding drop" — two false statements
+          // out of one bad assumption. An unexpected shape means we know
+          // NEITHER the bid nor the drop, and the message says so.
+          const shapeKnown = parts.length >= (isBbidTx ? 3 : 2);
           const addedPids = safeStr(parts[0]).match(/\d{3,6}/g) || [];
-          const droppedPids = safeStr(parts[isBbidTx ? 2 : 1]).match(/\d{3,6}/g) || [];
-          const txBid = isBbidTx ? safeMoneyInt(parts[1], null) : null;
+          const droppedPids = shapeKnown ? (safeStr(parts[isBbidTx ? 2 : 1]).match(/\d{3,6}/g) || []) : [];
+          const txBid = isBbidTx && shapeKnown ? safeMoneyInt(parts[1], null) : null;
           addedPids.forEach((pid, i) => {
             apMoveByKey.set(`${txFid}|${pid}|${txTs}`, {
               type: txType,
+              shape_known: shapeKnown,
               bid: txBid != null && txBid > 0 ? txBid : null,
+              // Whether this add displaced anyone is only knowable from a
+              // well-formed row. On a malformed one, "" would render as
+              // "no corresponding drop" — a claim about someone's roster we
+              // are in no position to make.
+              drop_known: shapeKnown,
               // A one-row multi-add is rare but legal; pair positionally and
               // surface anything left over rather than attaching the same drop
               // to two adds (which would double-count the cap penalty).
-              dropped_pid: droppedPids[i] || "",
-              unpaired_drops: i === 0 && droppedPids.length > addedPids.length
+              dropped_pid: shapeKnown ? (droppedPids[i] || "") : "",
+              unpaired_drops: shapeKnown && i === 0 && droppedPids.length > addedPids.length
                 ? droppedPids.slice(addedPids.length)
                 : [],
             });
@@ -38772,11 +38785,21 @@ export default {
         };
 
         // ── Eligibility dates (canon §C3/§C4) ────────────────────────────
-        // September contract deadline: calendar-driven via
-        // getContractDeadlineUtc, which reads
-        // calRoot[season].contract_deadline and falls back to the pinned 2026
-        // value (2026-09-06 21:00 ET). Never a bare literal here.
-        const apContractDeadline = getContractDeadlineUtc(apSeason);
+        // September contract deadline: ANNOUNCE THE DEADLINE THAT IS ENFORCED.
+        // getContractDeadlineUtc reads only the static
+        // DEADLINE_REMINDER_CALENDAR + the pinned 2026 fallback, but the value
+        // that actually locks MYAC/extensions is resolveContractDeadlineUtc,
+        // which layers the commish-editable ups_settings auction_calendar
+        // (faa.contract_deadline_at) on top. Publishing the first to the whole
+        // league while the submission gate honours the second hands every
+        // owner a date their contract will be refused against.
+        // resolveContractDeadlineUtc keeps the hardcoded value underneath as
+        // its own fallback; only a config it cannot READ yields no date, and
+        // then we print the label bare rather than a date that might be wrong.
+        const apDeadlineRes = await resolveContractDeadlineUtc(apSeason);
+        const apContractDeadline = apDeadlineRes?.deadline || null;
+        const apDeadlineSource = safeStr(apDeadlineRes?.source);
+        const apDeadlineError = safeStr(apDeadlineRes?.error);
         // Week kickoffs come from MFL's own schedule, cached per run. Note the
         // HOST: TYPE=nflSchedule must go to api.myfantasyleague.com — www48
         // answers "Invalid request" — which is exactly what mflExportJson
@@ -38884,19 +38907,19 @@ export default {
               amountSource = "salaries_export";
             }
 
-            // Cap penalty on the displaced player, via the SSOT.
-            const droppedPid = tx ? safeStr(tx.dropped_pid) : "";
-            let dropped = null;
-            let penalty = null;
-            if (droppedPid) {
-              const dMeta = apPidMeta.get(droppedPid) || {};
-              dropped = {
-                player_id: droppedPid,
+            // Cap penalty on a displaced player, via the SSOT. Every drop this
+            // transaction carried goes through here — the paired one and any
+            // extras — so none of them can reach the summary unpriced.
+            const apDropSide = async (dpid) => {
+              const dMeta = apPidMeta.get(dpid) || {};
+              const side = {
+                player_id: dpid,
                 name: safeStr(dMeta.name),
                 position: safeStr(dMeta.position),
                 nfl_team: safeStr(dMeta.nfl_team),
+                penalty: null,
               };
-              const preDrop = await apResolvePreDrop(droppedPid, ts);
+              const preDrop = await apResolvePreDrop(dpid, ts);
               if (preDrop) {
                 const calc = _computeDropPenalty({
                   contractStatus: preDrop.contract_status,
@@ -38907,9 +38930,9 @@ export default {
                 }, {
                   season: apSeason,
                   dropDateIso: new Date(ts * 1000).toISOString(),
-                  acquisitionWeek: apAcqWeekMap[droppedPid],
+                  acquisitionWeek: apAcqWeekMap[dpid],
                 });
-                penalty = {
+                side.penalty = {
                   known: true,
                   penalty: Number(calc.penalty) || 0,
                   exempt: !!calc.exempt,
@@ -38919,11 +38942,37 @@ export default {
                   pre_drop_contract_info: preDrop.contract_info,
                 };
               } else {
-                penalty = {
+                side.penalty = {
                   known: false,
                   unknown_reason: "Pre-drop contract not found in ups_drop_events or the R2 roster snapshots — this drop has NOT been priced.",
                 };
               }
+              return side;
+            };
+
+            const droppedPid = tx ? safeStr(tx.dropped_pid) : "";
+            let dropped = null;
+            let penalty = null;
+            if (droppedPid) {
+              const side = await apDropSide(droppedPid);
+              penalty = side.penalty;
+              dropped = {
+                player_id: side.player_id,
+                name: side.name,
+                position: side.position,
+                nfl_team: side.nfl_team,
+              };
+            }
+            // EXTRA drops on the same transaction (one add, two drops —
+            // "13952,|15271,16252,"). These used to reach the JSON response
+            // and NOTHING else: not the thread, not the parent's cap total. A
+            // run could therefore announce "Cap penalties: None — $0" while a
+            // known drop carried real dead money. They are priced through the
+            // same path and rendered alongside the paired drop.
+            const alsoDropped = [];
+            for (const xpid of (tx && Array.isArray(tx.unpaired_drops) ? tx.unpaired_drops : [])) {
+              const xp = safeStr(xpid);
+              if (xp) alsoDropped.push(await apDropSide(xp));
             }
 
             // Pre-season vs in-season windows. Week 1's kickoff is the line
@@ -38952,10 +39001,12 @@ export default {
               source: safeStr(r.source),
               amount_dollars: amount,
               amount_source: amountSource,
-              // No transaction row means we do not know what this add
-              // displaced — the message must say "unknown", not "nobody".
+              // No transaction row — or one whose field count we could not
+              // trust — means we do not know what this add displaced. The
+              // message must say "unknown", not "nobody".
               transaction_matched: !!tx,
-              pairing_known: !!tx,
+              transaction_shape_known: tx ? tx.shape_known !== false : null,
+              pairing_known: !!tx && tx.drop_known !== false,
               added: {
                 player_id: pid,
                 name: safeStr(r.player_name) || safeStr(apPidMeta.get(pid)?.name),
@@ -38964,6 +39015,7 @@ export default {
               },
               dropped,
               penalty,
+              also_dropped: alsoDropped,
               eligibility,
             });
           }
@@ -38985,10 +39037,37 @@ export default {
             // A row with no matching transaction could not be paired at all —
             // surfaced, never quietly rendered as a drop-nobody claim.
             unmatched_rows: moves.filter((m) => !m.transaction_matched).map((m) => m.row_id),
+            // An add whose transaction string had the wrong field count: the
+            // row matched, but its drop and (for BBID) its bid are unreadable.
+            malformed_transaction_rows: moves.filter((m) => m.transaction_shape_known === false).map((m) => m.row_id),
             unpaired_drop_player_ids: unpairedDrops,
-            // Parent message id already on the rows means a previous attempt
-            // posted the parent and then failed; the retry reuses it.
-            existing_parent_message_id: safeStr(run.rows.find((x) => safeStr(x.discord_message_id))?.discord_message_id || ""),
+            // A stored message id is a REUSABLE PARENT only when THIS route
+            // wrote it. Its parent-record step (below) stamps the SAME channel
+            // and the SAME message id onto EVERY row of the run, so that shape
+            // is the signature — and it is the only state where a parent
+            // exists with the rows still unposted.
+            //
+            // It is NOT enough that a row simply carries an id. The pre-thread
+            // poster wrote a DIFFERENT top-level "Add: <player>" message id
+            // onto each row, so legacy rows disagree with one another and are
+            // rejected here. That matters concretely: to re-announce those
+            // adds in the thread shape the commish must reset discord_posted=0
+            // on exactly those rows, and treating one of their ids as a parent
+            // would hang the thread off "Add: Frankie Luvu", skip the run
+            // summary entirely, and still return ok:true.
+            //
+            // The CHANNEL must match too. Re-posting to prod a run that landed
+            // in test would otherwise POST
+            // /channels/<PROD_CHANNEL>/messages/<TEST_MESSAGE_ID>/threads,
+            // which 404s every time — nothing posts, forever.
+            existing_parent_message_id: (() => {
+              const ids = run.rows.map((x) => safeStr(x.discord_message_id));
+              const parentId = ids[0];
+              if (!parentId) return "";
+              if (!ids.every((v) => v === parentId)) return "";
+              if (!run.rows.every((x) => safeStr(x.discord_channel_id) === apChannelId)) return "";
+              return parentId;
+            })(),
             // …and a claim that showed up in a LATER */5 tick belongs in the
             // thread its run already has, not in a second parent for the same
             // team on the same day. A posted sibling stores the thread id in
@@ -39023,6 +39102,11 @@ export default {
             run_count: apPlans.length,
             move_count: apPlans.reduce((n, p) => n + p.plan.move_messages.length, 0),
             contract_deadline_et: apDeadlineLabel,
+            // Which deadline the league is about to be told: "calendar" = the
+            // commish-set value, "hardcoded" = nothing configured, "error" =
+            // unreadable, in which case no date is printed at all.
+            contract_deadline_source: apDeadlineSource,
+            contract_deadline_error: apDeadlineError,
             week3_kickoff_et: apWeek3Label,
             week5_kickoff_et: apWeek5Label,
             runs: apPlans,
@@ -39038,8 +39122,13 @@ export default {
             thread_name: entry.plan.thread_name,
             row_ids: entry.row_ids,
             unmatched_rows: entry.unmatched_rows,
+            malformed_transaction_rows: entry.malformed_transaction_rows,
             unpaired_drop_player_ids: entry.unpaired_drop_player_ids,
             posted_row_ids: [],
+            // Messages that ARE live in Discord but whose row we failed to
+            // stamp. Never silent: an unrecorded row is re-planned on the next
+            // tick and posted again.
+            unrecorded_row_ids: [],
             ok: true,
           };
 
@@ -39051,7 +39140,9 @@ export default {
           }
 
           // 1. Parent. Reuse the one a failed attempt already posted rather
-          // than duplicating it.
+          // than duplicating it — see existing_parent_message_id above for why
+          // "a row has a message id" is NOT sufficient evidence that a parent
+          // exists in this channel.
           let parentId = entry.existing_parent_message_id;
           if (result.thread_id) {
             // Nothing to post: the parent for this run is already up.
@@ -39126,7 +39217,12 @@ export default {
             result.ok = false;
             result.stage = "thread_create";
             result.error = safeStr(threadRes?.text).slice(0, 300);
-            result.note = "Parent posted; thread create failed. Rows left unposted — a retry reuses this parent and will not double-post.";
+            // Say what actually happened. Claiming "Parent posted" on a run
+            // that reused an existing parent sends the commish looking for a
+            // message this attempt never wrote.
+            result.note = result.parent_reused
+              ? "Existing parent reused; thread create failed. Rows left unposted — a retry tries the thread again and will not double-post."
+              : "Parent posted; thread create failed. Rows left unposted — a retry reuses this parent and will not double-post.";
             // The parent id is already on the rows (written above) and that IS
             // the durable record of what happened; `notes` is left alone so a
             // pending annotate needs-review note is not clobbered by a
@@ -39152,17 +39248,42 @@ export default {
             }
             const moveMsgId = safeStr(moveRes?.data?.id || "");
             if (moveRes?.ok && moveMsgId) {
+              // The Discord message is LIVE. If we cannot record that on the
+              // row, the row stays discord_posted = 0, the next */5 tick
+              // re-plans it, resolves this same thread and posts the move a
+              // SECOND time — then a third, every five minutes, forever, while
+              // the response reports ok:true. So the mark is only believed
+              // when D1 says it changed a row; anything else is a loud,
+              // retryable failure. A visible error the commish can act on
+              // beats a silent duplicate loop.
+              let recorded = false;
+              let recordError = "";
               try {
                 // discord_channel_id becomes the THREAD — that is where the
                 // message actually lives, so the id pair still resolves.
-                await env.UPS_MFL_DB.prepare(
+                const upd = await env.UPS_MFL_DB.prepare(
                   `UPDATE ups_add_events
                       SET discord_posted = 1, discord_channel_id = ?, discord_message_id = ?
                     WHERE id = ?`
                 ).bind(threadId, moveMsgId, mm.row_id).run();
-              } catch (_) {}
-              result.posted_row_ids.push(mm.row_id);
-              result.moves.push({ row_id: mm.row_id, player_id: mm.player_id, player_name: mm.player_name, message_id: moveMsgId, ok: true });
+                recorded = safeInt(upd?.meta?.changes, 0) > 0;
+                if (!recorded) recordError = "UPDATE matched no row in ups_add_events";
+              } catch (e) {
+                recordError = String(e?.message || e).slice(0, 200);
+              }
+              if (recorded) {
+                result.posted_row_ids.push(mm.row_id);
+                result.moves.push({ row_id: mm.row_id, player_id: mm.player_id, player_name: mm.player_name, message_id: moveMsgId, ok: true });
+              } else {
+                result.ok = false;
+                result.unrecorded_row_ids.push(mm.row_id);
+                result.moves.push({
+                  row_id: mm.row_id, player_id: mm.player_id, player_name: mm.player_name,
+                  message_id: moveMsgId, ok: false,
+                  posted_to_discord: true, recorded: false,
+                  error: `posted_but_not_recorded: ${recordError}`,
+                });
+              }
             } else {
               result.ok = false;
               result.moves.push({
@@ -39172,6 +39293,10 @@ export default {
             }
             // Polite pacing, same as the drop tracker.
             await new Promise((res) => setTimeout(res, 500));
+          }
+          if (result.unrecorded_row_ids.length) {
+            // The one failure a blind retry makes WORSE, so spell out the cure.
+            result.note = `Posted to Discord but NOT marked posted: row ids ${result.unrecorded_row_ids.join(", ")}. Retrying WILL post these moves a second time — set discord_posted = 1 on them (or delete the Discord messages) first.`;
           }
           apResults.push(result);
         }
@@ -39184,6 +39309,12 @@ export default {
           run_count: apResults.length,
           posted_count: apResults.reduce((n, x) => n + x.posted_row_ids.length, 0),
           failed_count: apResults.reduce((n, x) => n + (x.row_ids.length - x.posted_row_ids.length), 0),
+          // Broken out because it is the one failure class where retrying is
+          // the WRONG move — the message is already in the channel.
+          unrecorded_count: apResults.reduce((n, x) => n + x.unrecorded_row_ids.length, 0),
+          contract_deadline_et: apDeadlineLabel,
+          contract_deadline_source: apDeadlineSource,
+          contract_deadline_error: apDeadlineError,
           results: apResults,
         });
       }

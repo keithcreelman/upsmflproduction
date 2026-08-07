@@ -89,6 +89,36 @@ const playerLine = (mark, p) => {
   return `${mark} **${name}**${tag ? `  \`${tag}\`` : ""}`;
 };
 
+// EVERY player this move displaced, in render order: the one MFL paired to the
+// add, then any EXTRA drops that rode the same transaction (one add, two drops
+// — "13952,|15271,16252,"). Those extras used to stop at the route's JSON
+// response, so their dead money never reached the parent's "Cap penalties"
+// total and a run could announce "None — $0" while a KNOWN drop carried a real
+// charge. A drop we know about is always shown and always counted.
+export function moveDrops(move) {
+  const out = [];
+  if (move && move.dropped) out.push({ player: move.dropped, penalty: move.penalty || null });
+  const extra = Array.isArray(move && move.also_dropped) ? move.also_dropped : [];
+  for (const x of extra) {
+    if (x) out.push({ player: x, penalty: x.penalty || null });
+  }
+  return out;
+}
+
+// One heading for a move that shed several players. UNKNOWN IS ABSORBING: if
+// any one of them could not be priced, the move is unpriced — a partial sum
+// rendered as a confident total is exactly the failure this file exists to
+// avoid. Only when every drop priced do we add them up.
+function combineDropPenalties(drops) {
+  if (!drops.length) return null;
+  if (drops.some((d) => !d.penalty || d.penalty.known === false)) return { known: false };
+  return {
+    known: true,
+    penalty: drops.reduce((sum, d) => sum + (Number(d.penalty.penalty) || 0), 0),
+    exempt: drops.every((d) => !!d.penalty.exempt),
+  };
+}
+
 // Eligibility windows. Canon §C3/§C4 — and the branch matters: the 14/28-day
 // clocks are an IN-SEASON rule. The old poster hardcoded "MYM-eligible for 14
 // days." on every add, which was flatly wrong for the pre-season claims it was
@@ -137,16 +167,22 @@ function moneyLines(move) {
 
 // One thread message per move: ＋added / －dropped + penalty / money / windows.
 export function buildMoveMessage(move) {
-  const pen = move.dropped ? capPenaltyDisplay(move.penalty) : null;
+  const drops = moveDrops(move);
+  const pen = drops.length ? capPenaltyDisplay(combineDropPenalties(drops)) : null;
   const lines = [playerLine("＋", move.added)];
-  if (move.dropped) {
-    lines.push(playerLine("－", move.dropped));
+  if (drops.length) {
+    for (const d of drops) lines.push(playerLine("－", d.player));
     lines.push(pen.heading);
   } else if (move.pairing_known === false) {
-    // We could not find this add in MFL's transaction log, so we do NOT know
-    // whether it displaced anyone. "No corresponding drop" would be a claim
-    // about someone's roster that we cannot make.
-    lines.push("⚠️ _drop unknown — no matching transaction found; needs review_");
+    // We do NOT know whether this add displaced anyone — either the add is not
+    // in MFL's transaction log at all, or the row that carries it did not have
+    // the field count its type requires, which puts the drop (and, for a BBID
+    // row, the bid) somewhere we cannot read. "No corresponding drop" would be
+    // a claim about someone's roster that we are in no position to make, so
+    // name the actual reason instead.
+    lines.push(move.transaction_matched && move.transaction_shape_known === false
+      ? "⚠️ _drop unknown — MFL's transaction had an unexpected field count; needs review_"
+      : "⚠️ _drop unknown — no matching transaction found; needs review_");
   } else {
     // No drop is not a $0 penalty — there is simply nothing to charge.
     lines.push("_no corresponding drop_");
@@ -160,20 +196,24 @@ export function buildMoveMessage(move) {
   // The penalty BASIS earns a line only when there is a penalty story to tell;
   // "1-year contract under $5K" under a green ✅ is the answer to the question
   // an owner is about to ask in this very thread.
-  if (move.dropped && pen.known) {
-    const basis = _s(move.penalty && (move.penalty.basis_label || move.penalty.basis));
-    if (basis) fields.push({ name: "Penalty basis", value: clampField(basis), inline: false });
-  } else if (move.dropped && !pen.known) {
-    fields.push({
-      name: "Penalty basis",
-      value: clampField(_s(move.penalty && move.penalty.unknown_reason)
-        || "Pre-drop contract could not be resolved — this drop has NOT been priced."),
-      inline: false,
-    });
+  // With more than one drop the basis is ambiguous unless it is attributed, so
+  // the player's name leads each line; a single drop keeps the bare label.
+  if (drops.length) {
+    const basisLines = drops.map((d) => {
+      const label = _s(d.penalty && (d.penalty.basis_label || d.penalty.basis))
+        || (d.penalty && d.penalty.known === false
+          ? (_s(d.penalty.unknown_reason) || "Pre-drop contract could not be resolved — this drop has NOT been priced.")
+          : (!d.penalty ? "Pre-drop contract could not be resolved — this drop has NOT been priced." : ""));
+      if (!label) return "";
+      return drops.length > 1 ? `**${_s(d.player && d.player.name) || "Unknown player"}** — ${label}` : label;
+    }).filter(Boolean);
+    if (basisLines.length) {
+      fields.push({ name: "Penalty basis", value: clampField(basisLines.join("\n")), inline: false });
+    }
   }
   const embed = {
     description: clampDesc(lines.join("\n")),
-    color: move.dropped ? pen.color : (move.pairing_known === false ? 0xf0a020 : 0x25c37d),
+    color: drops.length ? pen.color : (move.pairing_known === false ? 0xf0a020 : 0x25c37d),
     fields,
   };
   return {
@@ -189,7 +229,8 @@ export function buildMoveMessage(move) {
 // `run` (everything pre-resolved by the route):
 //   { franchise_name, franchise_id, icon_url, processed_at_et, run_date_label,
 //     moves: [ { row_id, player_id, source, amount_dollars, added, dropped,
-//                penalty, eligibility } ] }
+//                penalty, also_dropped: [ { ...player, penalty } ],
+//                eligibility } ] }
 export function buildWaiverRunPlan(run) {
   const moves = Array.isArray(run && run.moves) ? run.moves : [];
   const franchise = _s(run && run.franchise_name) || `Team ${_s(run && run.franchise_id)}`;
@@ -208,11 +249,13 @@ export function buildWaiverRunPlan(run) {
     ? "Blind-bid waivers processed"
     : (noBbid ? "Free-agent adds processed" : "Waiver claims and free-agent adds processed");
 
-  const dropped = moves.filter((m) => !!m.dropped);
-  const unpaired = moves.filter((m) => !m.dropped && m.pairing_known === false);
-  const unknownPenalties = dropped.filter((m) => !m.penalty || m.penalty.known === false);
+  // Count DROPS, not moves that happen to have one — a single transaction can
+  // shed two players and both charge the cap.
+  const dropped = moves.reduce((acc, m) => acc.concat(moveDrops(m)), []);
+  const unpaired = moves.filter((m) => !moveDrops(m).length && m.pairing_known === false);
+  const unknownPenalties = dropped.filter((d) => !d.penalty || d.penalty.known === false);
   const knownPenaltyTotal = dropped.reduce(
-    (sum, m) => sum + (m.penalty && m.penalty.known !== false ? (Number(m.penalty.penalty) || 0) : 0),
+    (sum, d) => sum + (d.penalty && d.penalty.known !== false ? (Number(d.penalty.penalty) || 0) : 0),
     0
   );
   const knownAmounts = moves.filter((m) => m.amount_dollars != null);
@@ -225,7 +268,7 @@ export function buildWaiverRunPlan(run) {
   const unresolved = unknownPenalties.length + unpaired.length;
   let capValue;
   if (unresolved) {
-    capValue = `${fmtK(knownPenaltyTotal)} priced · ⚠️ ${unresolved} move${unresolved === 1 ? "" : "s"} unpriced — needs review`;
+    capValue = `${fmtK(knownPenaltyTotal)} priced · ⚠️ ${unresolved} unpriced — needs review`;
   } else if (knownPenaltyTotal === 0) {
     capValue = "None — $0";
   } else {
@@ -236,6 +279,18 @@ export function buildWaiverRunPlan(run) {
   if (!knownAmounts.length) bidValue = "amount unknown";
   else bidValue = `${fmtK(bidTotal)}${unknownAmounts ? ` · ${unknownAmounts} unknown` : ""}`;
 
+  // A bare "0" next to "⚠️ 1 unpriced" reads as "nobody was dropped", which is
+  // the opposite of what an unpaired add means. Qualify the count whenever the
+  // pairing is not fully known.
+  const droppedValue = unpaired.length
+    ? `${dropped.length} known · ${unpaired.length} unknown`
+    : String(dropped.length);
+
+  // The figure is only a "bid" when every row is a blind-bid claim. An FCFS add
+  // carries a price, not a bid — the label follows the rows the same way the
+  // "Claims won"/"Adds" label does.
+  const amountLabel = allBbid ? "Total bid" : (noBbid ? "Total spent" : "Total bids + adds");
+
   const parentEmbed = {
     title: `${franchise} — ${n} ${moveNoun}${n === 1 ? "" : "s"}`,
     description: clampDesc(`${processedLine}${processedAt ? ` ${processedAt}` : ""}.`),
@@ -244,8 +299,8 @@ export function buildWaiverRunPlan(run) {
     ).color,
     fields: [
       { name: allBbid ? "Claims won" : "Adds", value: String(n), inline: true },
-      { name: "Total bid", value: clampField(bidValue), inline: true },
-      { name: "Players dropped", value: String(dropped.length), inline: true },
+      { name: amountLabel, value: clampField(bidValue), inline: true },
+      { name: "Players dropped", value: clampField(droppedValue), inline: true },
       { name: "Cap penalties", value: clampField(capValue), inline: true },
     ],
   };
