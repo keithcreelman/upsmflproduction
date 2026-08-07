@@ -27,6 +27,7 @@ import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
   flagReengagementMiss, rule2FineK,
 } from "./auction_compliance.js";
+import { buildWaiverRunPlan, humanizeDropBasis } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
 // Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
@@ -38530,6 +38531,24 @@ export default {
       // Commish-gated. Posts un-posted ups_add_events rows to the same
       // Transactions channel the drop tracker uses, so adds and drops read as
       // one feed. Dedup via discord_posted.
+      //
+      // SHAPE (Keith 2026-08-07) — ONE THREAD PER TEAM PER WAIVER RUN:
+      //   parent message   "<Franchise> — N waiver claims" + run totals
+      //     └─ thread      "<Franchise> · Aug 7 Waivers"
+      //          message   ＋ added / － dropped + cap penalty / money / windows
+      //
+      // It used to post one TOP-LEVEL EMBED PER ADD: no drop, no cap
+      // consequence, and a hardcoded "MYM-eligible for 14 days." on every one.
+      // A three-claim run therefore read as three unrelated signings, the
+      // players who lost their roster spots were invisible, and the 14-day
+      // line was flatly wrong for the PRE-SEASON claims it was announcing (the
+      // 14/28-day clocks are an in-season rule — canon §C4).
+      //
+      // The add→drop pairing is not inferred here; MFL already carries it in
+      // the transaction string (see the two-shape note at the fetch below).
+      // The cap penalty is not re-derived either — it runs through the same
+      // _computeDropPenalty the drop announcement and the hourly charge use,
+      // and renders with that poster's exact wording, fmtK and colour tiers.
       if (path === "/admin/adds/post-discord" && request.method === "POST") {
         let pbody = {};
         try { pbody = (await request.json()) || {}; } catch (_) { pbody = {}; }
@@ -38565,7 +38584,8 @@ export default {
         const { results: apRows } = await env.UPS_MFL_DB.prepare(
           `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
                   franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
-                  source, bid_dollars, acquisition_week
+                  source, bid_dollars, acquisition_week,
+                  discord_channel_id, discord_message_id
              FROM ups_add_events
             WHERE season = ? AND league_id = ? AND discord_posted = 0
             ORDER BY acquired_at_unix ASC LIMIT ?`
@@ -38574,22 +38594,209 @@ export default {
           return jsonOut(200, { ok: true, dry_run: apDryRun, posted_count: 0, message: "No unposted adds." });
         }
 
-        // One salaries export covers the whole batch: it gives us the REAL
-        // salary MFL landed (the bid for a BBID award, the $1K league default
-        // for FCFS), so nothing here has to infer a dollar figure.
+        // ── MFL truth #1: the transaction log, which ALREADY carries the
+        // add→drop pairing. Two shapes, and they are NOT interchangeable:
+        //   FREE_AGENT / WAIVER : "added|dropped"       (2 fields)
+        //   BBID_WAIVER         : "added|bid|dropped"   (3 fields — BID IN THE
+        //                         MIDDLE)
+        // Verified against the live 2026-08-07 log: FREE_AGENT was 2-field in
+        // all 26 rows, every BBID_WAIVER 3-field. Reading a BBID row with the
+        // 2-field rule puts the BID in the dropped slot — "16649,|1000|15271,"
+        // renders as "+ Theo Johnson − Player #1000" with the real drop
+        // (Khalil Herbert) silently discarded. site/team_operations/
+        // team_operations.js ~1578 splits it the same way (PR #818); the two
+        // must not diverge.
+        //
+        // NO FAIL-OPEN: without this log we cannot know what a claim dropped,
+        // and a missing drop line reads as "dropped nobody" — a false
+        // statement about someone's roster. Refuse the run instead.
+        const apTxRes = await mflExportJson(apSeason, apLeagueId, "transactions", {}, { useCookie: true });
+        if (!apTxRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "mfl_transactions_unreadable",
+            detail: "Cannot pair adds to their drops without the transaction log — nothing was posted.",
+            mfl_status: safeInt(apTxRes.status, 0),
+            mfl_error: safeStr(apTxRes.error).slice(0, 300),
+          });
+        }
+        const apTxs = asArray(apTxRes.data?.transactions?.transaction);
+        // key `${fid}|${addedPid}|${ts}` → what that specific add displaced.
+        const apMoveByKey = new Map();
+        for (const tx of apTxs) {
+          const txType = safeStr(tx?.type).toUpperCase();
+          if (txType !== "BBID_WAIVER" && txType !== "FREE_AGENT" && txType !== "WAIVER") continue;
+          const txFid = padFranchiseId(tx?.franchise || "");
+          const txTs = safeInt(tx?.timestamp, 0);
+          if (!txFid || !txTs) continue;
+          const parts = safeStr(tx?.transaction).split("|");
+          const isBbidTx = txType === "BBID_WAIVER";
+          const addedPids = safeStr(parts[0]).match(/\d{3,6}/g) || [];
+          const droppedPids = safeStr(parts[isBbidTx ? 2 : 1]).match(/\d{3,6}/g) || [];
+          const txBid = isBbidTx ? safeMoneyInt(parts[1], null) : null;
+          addedPids.forEach((pid, i) => {
+            apMoveByKey.set(`${txFid}|${pid}|${txTs}`, {
+              type: txType,
+              bid: txBid != null && txBid > 0 ? txBid : null,
+              // A one-row multi-add is rare but legal; pair positionally and
+              // surface anything left over rather than attaching the same drop
+              // to two adds (which would double-count the cap penalty).
+              dropped_pid: droppedPids[i] || "",
+              unpaired_drops: i === 0 && droppedPids.length > addedPids.length
+                ? droppedPids.slice(addedPids.length)
+                : [],
+            });
+          });
+        }
+        // Per-week earning denominator for an in-season drop (canon §D1) —
+        // the same map the drop scanner feeds _computeDropPenalty.
+        const apAcqWeekMap = _acquisitionWeekMapFromTxs(apTxs, apSeason);
+
+        // ── MFL truth #2: player meta, for the DROPPED side. ups_add_events
+        // only knows the added player; the displaced one comes from the
+        // transaction and needs a name.
+        const apPlayersRes = await mflExportJson(apSeason, apLeagueId, "players", {}, { useCookie: true });
+        const apPidMeta = new Map();
+        for (const p of asArray(apPlayersRes.data?.players?.player)) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          apPidMeta.set(pid, { name: nm, position: safeStr(p?.position).toUpperCase(), nfl_team: safeStr(p?.team).toUpperCase() });
+        }
+
+        // ── MFL truth #3: salaries — FALLBACK ONLY for the dollar figure.
+        // This used to be the primary source, via
+        //   apSalaryByPid.has(pid) ? apSalaryByPid.get(pid) : bid_dollars
+        // and `.has()` is TRUE when the row exists with an EMPTY salary, so an
+        // empty string became 0 and the known bid was never consulted. On
+        // 2026-08-07 MFL's salaries export returned salary:"" for all three
+        // awarded claims (a separate, since-fixed bug) and Frankie Luvu was
+        // announced at "$0". The BID lives in the transaction string and
+        // cannot go blank, so it leads now and this only fills in for FCFS
+        // adds, which carry no bid at all.
         const apSalRes = await mflExportJson(apSeason, apLeagueId, "salaries", {}, { useCookie: true });
         const apSalaryByPid = new Map();
         for (const r of asArray(apSalRes.data?.salaries?.leagueUnit?.player || apSalRes.data?.salaries?.leagueunit?.player)) {
           const pid = safeStr(r?.id).replace(/\D/g, "");
-          if (pid) apSalaryByPid.set(pid, safeMoneyInt(r?.salary, 0) || 0);
+          const sal = safeMoneyInt(r?.salary, null);
+          // Only a REAL number counts. A blank salary is "MFL did not say",
+          // never "$0".
+          if (pid && sal != null && sal > 0) apSalaryByPid.set(pid, sal);
         }
-        const apFmtK = (v) => {
-          const n = Number(v) || 0;
-          if (n >= 1000) {
-            const k = n / 1000;
-            return `$${Number.isInteger(k) ? k : Math.round(k * 10) / 10}K`;
+
+        // ── Pre-drop contract → cap penalty ──────────────────────────────
+        // Two sources, in order of authority:
+        //   1. ups_drop_events — the drop ledger snapshotted the contract at
+        //      drop time and is what the drop announcement itself priced, so
+        //      agreeing with it is the point.
+        //   2. the R2 daily roster snapshot, walked back up to 7 days (the
+        //      same reader /admin/drops/scan-and-record uses).
+        // Neither → UNKNOWN. We do NOT print "No Cap Penalty" for a contract
+        // we could not read; silence is not the same as zero
+        // (rule_no_fail_open_guards).
+        const apR2 = env.UPS_MFL_BACKUPS;
+        const apSnapshotByDate = new Map();
+        const apLoadSnapshotRosters = async (dateStr) => {
+          if (apSnapshotByDate.has(dateStr)) return apSnapshotByDate.get(dateStr);
+          let data = null;
+          if (apR2) {
+            try {
+              const obj = await apR2.get(`snapshots/${dateStr}/rosters.json`);
+              if (obj) data = JSON.parse(await obj.text());
+            } catch (_) { data = null; }
           }
-          return `$${n}`;
+          apSnapshotByDate.set(dateStr, data);
+          return data;
+        };
+        const apPreDropCache = new Map();
+        const apResolvePreDrop = async (pid, ts) => {
+          const cacheKey = `${pid}|${ts}`;
+          if (apPreDropCache.has(cacheKey)) return apPreDropCache.get(cacheKey);
+          let out = null;
+          try {
+            // ±120s: the add and the drop share a transaction, but the drop
+            // ledger stamps its own row from MFL's timestamp on the drop side.
+            const led = await env.UPS_MFL_DB.prepare(
+              `SELECT pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year,
+                      pre_drop_contract_info, pre_drop_taxi, dropped_at_iso
+                 FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND player_id = ?
+                  AND ABS(dropped_at_unix - ?) <= 120
+                ORDER BY ABS(dropped_at_unix - ?) ASC LIMIT 1`
+            ).bind(apSeason, apLeagueId, safeStr(pid), safeInt(ts, 0), safeInt(ts, 0)).first();
+            // A ledger row exists for every drop the scanner saw, but its
+            // pre-drop columns are NULL when no snapshot covered that day.
+            // An all-blank contract must read as UNRESOLVED, not as a $0
+            // deal that prices out to "No Cap Penalty".
+            if (led && (safeStr(led.pre_drop_contract_info) || (Number(led.pre_drop_salary) || 0) > 0)) {
+              out = {
+                contract_status: safeStr(led.pre_drop_contract_status),
+                salary: Number(led.pre_drop_salary) || 0,
+                contract_year: Number(led.pre_drop_contract_year) || 0,
+                contract_info: safeStr(led.pre_drop_contract_info),
+                is_taxi: Number(led.pre_drop_taxi) === 1,
+                contract_source: "ups_drop_events",
+              };
+            }
+          } catch (_) { out = null; }
+          if (!out) {
+            const dropAt = new Date(safeInt(ts, 0) * 1000);
+            for (let lag = 0; lag <= 7 && !out; lag += 1) {
+              const dateStr = new Date(dropAt.getTime() - lag * 86400000).toISOString().slice(0, 10);
+              const snap = await apLoadSnapshotRosters(dateStr);
+              if (!snap) continue;
+              for (const f of asArray(snap?.rosters?.franchise)) {
+                for (const p of asArray(f?.player)) {
+                  if (safeStr(p?.id).replace(/\D/g, "") !== safeStr(pid)) continue;
+                  // Same rule as above: a roster entry carrying neither a
+                  // contractInfo nor a real salary tells us nothing, so keep
+                  // walking back rather than pricing an empty contract.
+                  if (!safeStr(p?.contractInfo) && !((Number(p?.salary) || 0) > 0)) continue;
+                  out = {
+                    contract_status: safeStr(p?.contractStatus),
+                    salary: Number(p?.salary) || 0,
+                    contract_year: Number(p?.contractYear) || 0,
+                    contract_info: safeStr(p?.contractInfo),
+                    is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
+                    contract_source: `r2_snapshot:${dateStr}`,
+                  };
+                  break;
+                }
+                if (out) break;
+              }
+            }
+          }
+          apPreDropCache.set(cacheKey, out);
+          return out;
+        };
+
+        // ── Eligibility dates (canon §C3/§C4) ────────────────────────────
+        // September contract deadline: calendar-driven via
+        // getContractDeadlineUtc, which reads
+        // calRoot[season].contract_deadline and falls back to the pinned 2026
+        // value (2026-09-06 21:00 ET). Never a bare literal here.
+        const apContractDeadline = getContractDeadlineUtc(apSeason);
+        // Week kickoffs come from MFL's own schedule, cached per run. Note the
+        // HOST: TYPE=nflSchedule must go to api.myfantasyleague.com — www48
+        // answers "Invalid request" — which is exactly what mflExportJson
+        // targets.
+        const apKickoffByWeek = new Map();
+        const apWeekKickoffUnix = async (week) => {
+          const w = safeInt(week, 0);
+          if (apKickoffByWeek.has(w)) return apKickoffByWeek.get(w);
+          let earliest = 0;
+          try {
+            const schedRes = await mflExportJson(apSeason, apLeagueId, "nflSchedule", { W: String(w) }, { useCookie: true });
+            if (schedRes.ok) {
+              for (const m of asArray(schedRes.data?.nflSchedule?.matchup)) {
+                const ko = safeInt(m?.kickoff, 0);
+                if (ko > 0 && (!earliest || ko < earliest)) earliest = ko;
+              }
+            }
+          } catch (_) { earliest = 0; }
+          apKickoffByWeek.set(w, earliest);
+          return earliest;
         };
         const apFmtEastern = (iso) => {
           if (!iso) return "";
@@ -38604,81 +38811,379 @@ export default {
             });
           } catch (_) { return safeStr(iso); }
         };
+        // "Sep 6, 2026, 9:00 PM EDT" / "Sep 21, 2026" / "Aug 7".
+        const apFmtEtStamp = (d) => {
+          if (!d || Number.isNaN(d.getTime?.())) return "";
+          try {
+            return d.toLocaleString("en-US", {
+              timeZone: "America/New_York",
+              year: "numeric", month: "short", day: "numeric",
+              hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short",
+            });
+          } catch (_) { return ""; }
+        };
+        const apFmtEtDay = (d, withYear) => {
+          if (!d || Number.isNaN(d.getTime?.())) return "";
+          try {
+            return d.toLocaleDateString("en-US", {
+              timeZone: "America/New_York",
+              month: "short", day: "numeric",
+              ...(withYear ? { year: "numeric" } : {}),
+            });
+          } catch (_) { return ""; }
+        };
+        // A kickoff of 0 means the schedule did not answer. Label it with
+        // nothing rather than with epoch — a guessed deadline is what owners
+        // would plan against.
+        const apKickoffLabel = async (week) => {
+          const ko = await apWeekKickoffUnix(week);
+          return ko > 0 ? apFmtEtStamp(new Date(ko * 1000)) : "";
+        };
+        const apWeek1Kickoff = await apWeekKickoffUnix(1);
+        const apWeek3Label = await apKickoffLabel(3);
+        const apWeek5Label = await apKickoffLabel(5);
+        const apDeadlineLabel = apFmtEtStamp(apContractDeadline);
 
-        const apResults = [];
+        // ── Group into runs: one thread per FRANCHISE per ET DAY, which is
+        // what a "waiver run" is — MFL processes blind bids once per morning.
+        const apRunsByKey = new Map();
         for (const r of apRows) {
-          const isBbid = safeStr(r.source) === "bbid";
-          const salary = apSalaryByPid.has(safeStr(r.player_id))
-            ? apSalaryByPid.get(safeStr(r.player_id))
-            : (safeMoneyInt(r.bid_dollars, 0) || 0);
-          const acquisitionLine = isBbid
-            ? `Waiver claim — ${apFmtK(safeMoneyInt(r.bid_dollars, salary) || salary)} bid`
-            : `FCFS add — ${apFmtK(salary || 1000)}`;
-          // The resulting contract is MFL's league default, unedited by us.
-          const contractLine = [
-            `1 yr · **WW** · ${apFmtK(salary)}`,
-            salary > 0 && salary <= 4000 ? "cap-free cut at $4K or less" : null,
-          ].filter(Boolean).join(" · ");
+          const fid = padFranchiseId(r.franchise_id);
+          const dayKey = etDayKey(safeInt(r.acquired_at_unix, 0)) || safeStr(r.acquired_at_iso).slice(0, 10);
+          const key = `${fid}|${dayKey}`;
+          if (!apRunsByKey.has(key)) apRunsByKey.set(key, { franchise_id: fid, day_key: dayKey, rows: [] });
+          apRunsByKey.get(key).rows.push(r);
+        }
 
-          const apFranchiseMeta = await loadContractDiscordFranchiseMeta({
+        // ── Build the plan for every run (no Discord contact yet — dry_run
+        // returns exactly this, so the commish reviews the real payload).
+        const apPlans = [];
+        for (const run of apRunsByKey.values()) {
+          const first = run.rows[0];
+          const meta = await loadContractDiscordFranchiseMeta({
             season: apSeason,
             leagueId: apLeagueId,
-            franchiseId: padFranchiseId(r.franchise_id),
+            franchiseId: run.franchise_id,
           });
-          const apFields = [
-            { name: "Team", value: safeStr(r.franchise_name) || `Team ${r.franchise_id}`, inline: true },
-            { name: "Player", value: safeStr(r.player_name) || `Player ${r.player_id}`, inline: true },
-            { name: "Position", value: safeStr(r.position) + (r.nfl_team ? ` · ${r.nfl_team}` : ""), inline: true },
-            { name: "Acquisition", value: acquisitionLine, inline: false },
-            { name: "Contract", value: contractLine, inline: false },
-            { name: "Heads up", value: "MYM-eligible for 14 days.", inline: false },
-          ];
-          const acquiredET = apFmtEastern(r.acquired_at_iso);
-          if (acquiredET) apFields.push({ name: "Acquired", value: acquiredET, inline: false });
+          const moves = [];
+          const unpairedDrops = [];
+          for (const r of run.rows) {
+            const pid = safeStr(r.player_id);
+            const ts = safeInt(r.acquired_at_unix, 0);
+            const tx = apMoveByKey.get(`${run.franchise_id}|${pid}|${ts}`) || null;
+            if (tx && tx.unpaired_drops && tx.unpaired_drops.length) unpairedDrops.push(...tx.unpaired_drops);
 
-          const apEmbed = {
-            title: `Add: ${safeStr(r.player_name)}`,
-            description: `# ${isBbid ? "🎯 Waiver Claim" : "⚡ FCFS Add"}\n${safeStr(r.franchise_name)} added ${safeStr(r.player_name)}.`,
-            color: isBbid ? 0x3f8ae0 : 0x25c37d,
-            fields: apFields,
+            // Dollars: the BID leads. Only when there is genuinely no bid do
+            // we consult salaries, and if both are silent we say so.
+            const rowBid = safeMoneyInt(r.bid_dollars, null);
+            const txBid = tx && tx.bid != null ? Number(tx.bid) : null;
+            let amount = rowBid != null && rowBid > 0 ? rowBid : (txBid != null && txBid > 0 ? txBid : null);
+            let amountSource = amount == null ? "" : (rowBid != null && rowBid > 0 ? "bid_dollars" : "transaction_bid");
+            if (amount == null && apSalaryByPid.has(pid)) {
+              amount = apSalaryByPid.get(pid);
+              amountSource = "salaries_export";
+            }
+
+            // Cap penalty on the displaced player, via the SSOT.
+            const droppedPid = tx ? safeStr(tx.dropped_pid) : "";
+            let dropped = null;
+            let penalty = null;
+            if (droppedPid) {
+              const dMeta = apPidMeta.get(droppedPid) || {};
+              dropped = {
+                player_id: droppedPid,
+                name: safeStr(dMeta.name),
+                position: safeStr(dMeta.position),
+                nfl_team: safeStr(dMeta.nfl_team),
+              };
+              const preDrop = await apResolvePreDrop(droppedPid, ts);
+              if (preDrop) {
+                const calc = _computeDropPenalty({
+                  contractStatus: preDrop.contract_status,
+                  salary: preDrop.salary,
+                  contractInfo: preDrop.contract_info,
+                  contractYear: preDrop.contract_year,
+                  isTaxi: preDrop.is_taxi,
+                }, {
+                  season: apSeason,
+                  dropDateIso: new Date(ts * 1000).toISOString(),
+                  acquisitionWeek: apAcqWeekMap[droppedPid],
+                });
+                penalty = {
+                  known: true,
+                  penalty: Number(calc.penalty) || 0,
+                  exempt: !!calc.exempt,
+                  basis: safeStr(calc.basis),
+                  basis_label: humanizeDropBasis(calc.basis),
+                  contract_source: preDrop.contract_source,
+                  pre_drop_contract_info: preDrop.contract_info,
+                };
+              } else {
+                penalty = {
+                  known: false,
+                  unknown_reason: "Pre-drop contract not found in ups_drop_events or the R2 roster snapshots — this drop has NOT been priced.",
+                };
+              }
+            }
+
+            // Pre-season vs in-season windows. Week 1's kickoff is the line
+            // (canon §C4); acquisition_week is the fallback when MFL's
+            // schedule can't be read, since it is a week number, not a
+            // guessed date.
+            const inSeason = apWeek1Kickoff > 0
+              ? ts >= apWeek1Kickoff
+              : safeInt(r.acquisition_week, _nflWeekForUnix(ts, apSeason)) >= 1;
+            const eligibility = inSeason
+              ? {
+                in_season: true,
+                mym_deadline_label: apFmtEtDay(new Date((ts + 14 * 86400) * 1000), true),
+                extension_deadline_label: apFmtEtDay(new Date((ts + 28 * 86400) * 1000), true),
+              }
+              : {
+                in_season: false,
+                contract_deadline_label: apDeadlineLabel,
+                week3_kickoff_label: apWeek3Label,
+                week5_kickoff_label: apWeek5Label,
+              };
+
+            moves.push({
+              row_id: r.id,
+              player_id: pid,
+              source: safeStr(r.source),
+              amount_dollars: amount,
+              amount_source: amountSource,
+              // No transaction row means we do not know what this add
+              // displaced — the message must say "unknown", not "nobody".
+              transaction_matched: !!tx,
+              pairing_known: !!tx,
+              added: {
+                player_id: pid,
+                name: safeStr(r.player_name) || safeStr(apPidMeta.get(pid)?.name),
+                position: safeStr(r.position) || safeStr(apPidMeta.get(pid)?.position),
+                nfl_team: safeStr(r.nfl_team) || safeStr(apPidMeta.get(pid)?.nfl_team),
+              },
+              dropped,
+              penalty,
+              eligibility,
+            });
+          }
+
+          const plan = buildWaiverRunPlan({
+            franchise_id: run.franchise_id,
+            franchise_name: safeStr(first.franchise_name) || safeStr(meta.franchise_name),
+            icon_url: safeStr(meta.icon_url),
+            processed_at_et: apFmtEastern(first.acquired_at_iso),
+            run_date_label: apFmtEtDay(new Date(safeInt(first.acquired_at_unix, 0) * 1000), false),
+            moves,
+          });
+          apPlans.push({
+            run_key: `${run.franchise_id}|${run.day_key}`,
+            franchise_id: run.franchise_id,
+            franchise_name: safeStr(first.franchise_name),
+            day_key: run.day_key,
+            row_ids: run.rows.map((x) => x.id),
+            // A row with no matching transaction could not be paired at all —
+            // surfaced, never quietly rendered as a drop-nobody claim.
+            unmatched_rows: moves.filter((m) => !m.transaction_matched).map((m) => m.row_id),
+            unpaired_drop_player_ids: unpairedDrops,
+            // Parent message id already on the rows means a previous attempt
+            // posted the parent and then failed; the retry reuses it.
+            existing_parent_message_id: safeStr(run.rows.find((x) => safeStr(x.discord_message_id))?.discord_message_id || ""),
+            // …and a claim that showed up in a LATER */5 tick belongs in the
+            // thread its run already has, not in a second parent for the same
+            // team on the same day. A posted sibling stores the thread id in
+            // discord_channel_id, so that is the handle. Guarded against the
+            // pre-thread rows, whose discord_channel_id is the CHANNEL —
+            // posting a move there would put it back at top level.
+            existing_thread_id: await (async () => {
+              const bounds = etDayBounds(run.day_key);
+              if (!bounds) return "";
+              try {
+                const sib = await env.UPS_MFL_DB.prepare(
+                  `SELECT discord_channel_id FROM ups_add_events
+                    WHERE season = ? AND league_id = ? AND franchise_id = ? AND discord_posted = 1
+                      AND acquired_at_unix >= ? AND acquired_at_unix < ?
+                      AND discord_channel_id IS NOT NULL AND discord_channel_id <> ''
+                      AND discord_channel_id <> ?
+                    ORDER BY acquired_at_unix DESC LIMIT 1`
+                ).bind(apSeason, apLeagueId, run.franchise_id, bounds.start_unix, bounds.end_unix, apChannelId).first();
+                return safeStr(sib?.discord_channel_id || "");
+              } catch (_) { return ""; }
+            })(),
+            plan,
+          });
+        }
+
+        if (apDryRun) {
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            target: apTarget,
+            channel_id: apChannelId,
+            run_count: apPlans.length,
+            move_count: apPlans.reduce((n, p) => n + p.plan.move_messages.length, 0),
+            contract_deadline_et: apDeadlineLabel,
+            week3_kickoff_et: apWeek3Label,
+            week5_kickoff_et: apWeek5Label,
+            runs: apPlans,
+          });
+        }
+
+        const apResults = [];
+        for (const entry of apPlans) {
+          const result = {
+            run_key: entry.run_key,
+            franchise_name: entry.franchise_name,
+            channel_id: apChannelId,
+            thread_name: entry.plan.thread_name,
+            row_ids: entry.row_ids,
+            unmatched_rows: entry.unmatched_rows,
+            unpaired_drop_player_ids: entry.unpaired_drop_player_ids,
+            posted_row_ids: [],
+            ok: true,
           };
-          if (apFranchiseMeta?.icon_url) apEmbed.thumbnail = { url: apFranchiseMeta.icon_url };
 
-          if (apDryRun) {
-            apResults.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, channel_id: apChannelId, acquisition: acquisitionLine, contract: contractLine });
-            continue;
+          // 0. This run already has a live thread (a claim from the same run
+          // posted on an earlier */5 tick) — go straight into it.
+          if (entry.existing_thread_id) {
+            result.thread_id = entry.existing_thread_id;
+            result.thread_reused = true;
           }
-          let apPostRes;
-          try {
-            apPostRes = await discordBotRequest(
-              apBotToken, "POST",
-              `/channels/${encodeURIComponent(apChannelId)}/messages`,
-              { content: "", embeds: [apEmbed], allowed_mentions: { parse: [] } }
-            );
-          } catch (e) {
-            apPostRes = { ok: false, status: 0, text: String(e?.message || e) };
-          }
-          const apMessageId = safeStr(apPostRes?.data?.id || "");
-          if (apPostRes?.ok && apMessageId) {
+
+          // 1. Parent. Reuse the one a failed attempt already posted rather
+          // than duplicating it.
+          let parentId = entry.existing_parent_message_id;
+          if (result.thread_id) {
+            // Nothing to post: the parent for this run is already up.
+            parentId = parentId || result.thread_id;
+            result.parent_message_id = parentId;
+            result.parent_reused = true;
+          } else if (parentId) {
+            result.parent_message_id = parentId;
+            result.parent_reused = true;
+          } else {
+            let parentRes;
+            try {
+              parentRes = await discordBotRequest(
+                apBotToken, "POST",
+                `/channels/${encodeURIComponent(apChannelId)}/messages`,
+                entry.plan.parent_body
+              );
+            } catch (e) {
+              parentRes = { ok: false, status: 0, text: String(e?.message || e) };
+            }
+            parentId = safeStr(parentRes?.data?.id || "");
+            if (!parentRes?.ok || !parentId) {
+              result.ok = false;
+              result.stage = "parent_post";
+              result.error = safeStr(parentRes?.text).slice(0, 300);
+              apResults.push(result);
+              continue;
+            }
+            result.parent_message_id = parentId;
+            // Record the parent id BEFORE the thread work, with discord_posted
+            // still 0. That is what makes a retry idempotent: the rows are not
+            // marked posted (they have not been), but the parent will not be
+            // posted twice either.
             try {
               await env.UPS_MFL_DB.prepare(
-                "UPDATE ups_add_events SET discord_posted = 1, discord_channel_id = ?, discord_message_id = ? WHERE id = ?"
-              ).bind(apChannelId, apMessageId, r.id).run();
-            } catch (_) {}
-            apResults.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, channel_id: apChannelId, message_id: apMessageId, ok: true });
-          } else {
-            apResults.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, ok: false, error: safeStr(apPostRes?.text).slice(0, 300) });
+                `UPDATE ups_add_events SET discord_channel_id = ?, discord_message_id = ?
+                  WHERE id IN (${entry.row_ids.map(() => "?").join(",")})`
+              ).bind(apChannelId, parentId, ...entry.row_ids).run();
+            } catch (e) {
+              // The post landed but we could not remember it — say so loudly;
+              // a retry would otherwise post a second parent.
+              result.parent_recorded = false;
+              result.parent_record_error = String(e?.message || e).slice(0, 200);
+            }
           }
-          // Polite pacing, same as the drop tracker.
-          await new Promise((res) => setTimeout(res, 500));
+
+          // 2. Thread on the parent. A message-anchored thread carries the
+          // SAME id as its message, so a retry that finds one already there
+          // can address it directly.
+          let threadId = safeStr(result.thread_id);
+          let threadRes = null;
+          if (!threadId) {
+            try {
+              threadRes = await discordBotRequest(
+                apBotToken, "POST",
+                `/channels/${encodeURIComponent(apChannelId)}/messages/${encodeURIComponent(parentId)}/threads`,
+                { name: entry.plan.thread_name, auto_archive_duration: 1440 }
+              );
+            } catch (e) {
+              threadRes = { ok: false, status: 0, text: String(e?.message || e) };
+            }
+            if (threadRes?.ok && safeStr(threadRes?.data?.id)) {
+              threadId = safeStr(threadRes.data.id);
+            } else if (safeInt(threadRes?.data?.code, 0) === 160004 || /thread.*already/i.test(safeStr(threadRes?.text))) {
+              threadId = parentId;
+              result.thread_reused = true;
+            }
+          }
+          if (!threadId) {
+            // Parent is up, thread is not. Rows stay unposted and unmarked;
+            // the next run reuses the parent and tries the thread again.
+            result.ok = false;
+            result.stage = "thread_create";
+            result.error = safeStr(threadRes?.text).slice(0, 300);
+            result.note = "Parent posted; thread create failed. Rows left unposted — a retry reuses this parent and will not double-post.";
+            // The parent id is already on the rows (written above) and that IS
+            // the durable record of what happened; `notes` is left alone so a
+            // pending annotate needs-review note is not clobbered by a
+            // Discord-side failure.
+            apResults.push(result);
+            continue;
+          }
+          result.thread_id = threadId;
+
+          // 3. One message per move. discord_posted flips to 1 ONLY for the
+          // row whose message actually landed.
+          result.moves = [];
+          for (const mm of entry.plan.move_messages) {
+            let moveRes;
+            try {
+              moveRes = await discordBotRequest(
+                apBotToken, "POST",
+                `/channels/${encodeURIComponent(threadId)}/messages`,
+                mm.body
+              );
+            } catch (e) {
+              moveRes = { ok: false, status: 0, text: String(e?.message || e) };
+            }
+            const moveMsgId = safeStr(moveRes?.data?.id || "");
+            if (moveRes?.ok && moveMsgId) {
+              try {
+                // discord_channel_id becomes the THREAD — that is where the
+                // message actually lives, so the id pair still resolves.
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_add_events
+                      SET discord_posted = 1, discord_channel_id = ?, discord_message_id = ?
+                    WHERE id = ?`
+                ).bind(threadId, moveMsgId, mm.row_id).run();
+              } catch (_) {}
+              result.posted_row_ids.push(mm.row_id);
+              result.moves.push({ row_id: mm.row_id, player_id: mm.player_id, player_name: mm.player_name, message_id: moveMsgId, ok: true });
+            } else {
+              result.ok = false;
+              result.moves.push({
+                row_id: mm.row_id, player_id: mm.player_id, player_name: mm.player_name,
+                ok: false, error: safeStr(moveRes?.text).slice(0, 300),
+              });
+            }
+            // Polite pacing, same as the drop tracker.
+            await new Promise((res) => setTimeout(res, 500));
+          }
+          apResults.push(result);
         }
+
         return jsonOut(200, {
           ok: apResults.every((x) => x.ok !== false),
-          dry_run: apDryRun,
+          dry_run: false,
           target: apTarget,
           channel_id: apChannelId,
-          posted_count: apResults.filter((x) => x.ok !== false).length,
-          failed_count: apResults.filter((x) => x.ok === false).length,
+          run_count: apResults.length,
+          posted_count: apResults.reduce((n, x) => n + x.posted_row_ids.length, 0),
+          failed_count: apResults.reduce((n, x) => n + (x.row_ids.length - x.posted_row_ids.length), 0),
           results: apResults,
         });
       }
