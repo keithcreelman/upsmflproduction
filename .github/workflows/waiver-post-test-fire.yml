@@ -1,0 +1,95 @@
+name: Waiver Post — test-channel fire
+
+# Drives the rebuilt /admin/adds/post-discord into the TEST Discord channel so
+# the commissioner can see the new one-thread-per-team shape before it is ever
+# pointed at #transactions.
+#
+# Modes, in the order you run them:
+#   check   — read-only. Migration state + in-flight-run hazard + which rows would post.
+#   migrate — hand-applies 0124 (ALTER TABLE ... ADD COLUMN). Never `d1 migrations apply`.
+#   dryrun  — asks the worker for the full planned payload. Touches no Discord.
+#   fire    — resets the three 2026-08-07 rows and posts them to the TEST channel.
+#
+# `fire` is the only mode that writes anything, and it writes only to Discord +
+# the three ups_add_events rows it re-posts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check | migrate | dryrun | fire'
+        required: true
+        default: 'check'
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      WORKER: https://upsmflproduction.keith-creelman.workers.dev
+      MODE: ${{ github.event.inputs.mode }}
+      DB: ups-mfl-db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Guard secrets
+        run: |
+          [ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::CLOUDFLARE_API_TOKEN not set"; exit 1; }
+
+      - name: check — read-only state
+        if: ${{ github.event.inputs.mode == 'check' }}
+        run: |
+          echo "### does discord_parent_message_id exist yet?"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT name FROM pragma_table_info('ups_add_events')" | tee /tmp/cols.json
+          echo
+          echo "### IN-FLIGHT HAZARD: unposted rows that already carry a message id"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT id, franchise_id, discord_channel_id, discord_message_id FROM ups_add_events WHERE season='2026' AND discord_posted=0 AND discord_message_id IS NOT NULL AND discord_message_id<>''"
+          echo
+          echo "### the three 2026-08-07 rows (what we would re-post to test)"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT id, player_name, franchise_name, source, bid_dollars, discord_posted, discord_channel_id FROM ups_add_events WHERE season='2026' ORDER BY id DESC LIMIT 8"
+
+      - name: migrate — hand-apply 0124
+        if: ${{ github.event.inputs.mode == 'migrate' }}
+        run: |
+          test -f worker/migrations/0124_add_events_discord_parent_message_id.sql \
+            || { echo "::error::0124 not on this branch — merge #821 first"; exit 1; }
+          npx --yes wrangler@4 d1 execute "$DB" --remote \
+            --file worker/migrations/0124_add_events_discord_parent_message_id.sql
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT name FROM pragma_table_info('ups_add_events')" \
+            | grep -q discord_parent_message_id \
+            && echo "column present" || { echo "::error::column still missing"; exit 1; }
+
+      - name: dryrun — planned payload, no Discord
+        if: ${{ github.event.inputs.mode == 'dryrun' }}
+        run: |
+          curl -sS -X POST "$WORKER/admin/adds/post-discord?L=74598&YEAR=2026&APIKEY=$KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"season":"2026","league_id":"74598","target":"test","dry_run":true,"limit":20}' \
+            | python3 -m json.tool | head -300
+
+      - name: fire — reset the 3 rows and post to TEST
+        if: ${{ github.event.inputs.mode == 'fire' }}
+        run: |
+          echo "### rows before"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT id, player_name, discord_posted FROM ups_add_events WHERE season='2026' AND player_id IN ('13952','16649','16594')"
+          echo "### resetting ONLY those three so they re-post in the new shape"
+          npx --yes wrangler@4 d1 execute "$DB" --remote \
+            --command "UPDATE ups_add_events SET discord_posted=0 WHERE season='2026' AND player_id IN ('13952','16649','16594')"
+          echo "### posting to TEST"
+          curl -sS -X POST "$WORKER/admin/adds/post-discord?L=74598&YEAR=2026&APIKEY=$KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"season":"2026","league_id":"74598","target":"test","limit":20}' \
+            | python3 -m json.tool | head -200
