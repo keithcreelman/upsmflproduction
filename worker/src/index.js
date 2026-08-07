@@ -45471,6 +45471,12 @@ export default {
       // Restores each selected submission's PRIOR contract to MFL (tags → untag)
       // via /commish-contract-update (silence_discord + commish_override). Commish.
       if (path === "/admin/contract-revert" && request.method === "POST") {
+        // Commish-only. This route had NO authentication: verified live on
+        // 2026-08-07, an unauthenticated POST was accepted. Uses the same
+        // fail-closed gate as /admin/commish-settings (MFL session OR
+        // ?APIKEY=), so the Front Office keeps working unchanged.
+        { const _g = await commishSettingsGate(); if (_g) return _g; }
+
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
         // Auth mirrors /commish-contract-update (FO calls it browser-side,
@@ -45531,6 +45537,12 @@ export default {
       }
 
       if (path === "/admin/contract-activity/post" && request.method === "POST") {
+        // Commish-only. This route had NO authentication: verified live on
+        // 2026-08-07, an unauthenticated POST was accepted. Uses the same
+        // fail-closed gate as /admin/commish-settings (MFL session OR
+        // ?APIKEY=), so the Front Office keeps working unchanged.
+        { const _g = await commishSettingsGate(); if (_g) return _g; }
+
         let body = {};
         try {
           body = (await request.json()) || {};
@@ -45660,6 +45672,12 @@ export default {
       }
 
       if (path === "/admin/contract-activity/post-batch" && request.method === "POST") {
+        // Commish-only. This route had NO authentication: verified live on
+        // 2026-08-07, an unauthenticated POST was accepted. Uses the same
+        // fail-closed gate as /admin/commish-settings (MFL session OR
+        // ?APIKEY=), so the Front Office keeps working unchanged.
+        { const _g = await commishSettingsGate(); if (_g) return _g; }
+
         let body = {};
         try {
           body = (await request.json()) || {};
@@ -45767,6 +45785,12 @@ export default {
       }
 
       if (path === "/admin/contract-activity/edit" && request.method === "POST") {
+        // Commish-only. This route had NO authentication: verified live on
+        // 2026-08-07, an unauthenticated POST was accepted. Uses the same
+        // fail-closed gate as /admin/commish-settings (MFL session OR
+        // ?APIKEY=), so the Front Office keeps working unchanged.
+        { const _g = await commishSettingsGate(); if (_g) return _g; }
+
         let body = {};
         try {
           body = (await request.json()) || {};
@@ -45873,6 +45897,38 @@ export default {
       }
 
       if (path === "/roster-workbench/action" && request.method === "POST") {
+        // ── AUTHENTICATION ─────────────────────────────────────────────────
+        // This route mutates roster MEMBERSHIP (drop / unload / load / taxi /
+        // IR) against the live league. Until 2026-08-07 it had NO caller
+        // authentication at all: an anonymous POST returned 200 and executed.
+        // Verified live against production — no credentials, HTTP 200.
+        //
+        // What made it exploitable is the cookie fallback. When no viewer
+        // session is forwarded, every downstream MFL call falls back to
+        // env.MFL_COOKIE (the COMMISSIONER's session, index.js ~18162), so an
+        // anonymous request was silently executed WITH COMMISSIONER AUTHORITY.
+        // That is the same mechanism that unloaded Levis/Bigsby/Charbonnet on
+        // 2026-08-06 — and it was reachable from the open internet.
+        //
+        // The pre-existing `if (!viewerCookieHeader)` checks elsewhere cannot
+        // catch this: viewerCookieHeader = browserCookieHeader || cookieHeader,
+        // and cookieHeader is non-empty whenever MFL_COOKIE is set — i.e.
+        // always, in production. It is dead code.
+        //
+        // Legitimate callers all present one of these two identities:
+        //   • owners — FO v2 / Roster Workbench / mobile forward ?MFL_USER_ID=
+        //     via appendViewerSessionQuery() (MFL then scopes the write to that
+        //     owner's own roster)
+        //   • the commish + the internal ERA sweep — ?APIKEY= (index.js ~372)
+        // Anonymous is refused rather than quietly promoted to commish.
+        if (!browserCookieValue && !sessionByApiKey) {
+          return jsonOut(403, {
+            ok: false,
+            error:
+              "Authentication required — forward the viewer session (MFL_USER_ID) or a valid COMMISH_API_KEY.",
+          });
+        }
+
         let body = {};
         try {
           body = (await request.json()) || {};
