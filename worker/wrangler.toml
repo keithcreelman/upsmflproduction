@@ -99,7 +99,7 @@ WAIVERS_INAPP_ENABLED = "0"
 ADD_TRACKER_ENABLED = "0"
 ADD_TRACKER_AUTO_POST = "0"
 WW_CONTRACT_ANNOTATE_ENABLED = "0"
-ADD_TRACKER_DISCORD_TARGET = "test"
+ADD_TRACKER_DISCORD_TARGET = "prod"   # 1059111651846131833 (shares DISCORD_DROPS_CHANNEL_ID) — Keith 2026-08-07, after reviewing the shape in test
 
 # Trade-offer Discord DMs (worker/src/trade_dm.js). When a recipient gets a
 # trade offer through our app (mobile builder OR desktop War Room), DM them the

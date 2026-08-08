@@ -38950,32 +38950,33 @@ export default {
           return "";
         };
 
-        // Thursday-Night kickoff for an NFL week — the deadline standard canon
-        // uses for BOTH the preseason MYM deadline and the extension deadline
-        // (league_context_v1.md ~1211/1214: "Standardized to kickoff of
-        // Thursday Night Football game for consistency").
+        // FIRST kickoff of an NFL week — the week's opening game, whatever day
+        // it falls on.
         //
-        // TWO reasons this used to come back empty, and both had to be fixed:
+        // Keith 2026-08-07, ruling on this directly: "earliest game of the week,
+        // typically that's thursday but this yr it's wednesday." Canon's wording
+        // is "kickoff of Thursday Night Football" (league_context_v1.md
+        // ~1211/1214), but that phrasing describes the usual embodiment of the
+        // rule, not the rule — the intent is "when the week starts playing".
+        // Taking Thursday literally would put the 2026 preseason boundary a day
+        // LATE, because Week 1 opens Wednesday Sep 9. Earliest is the rule.
         //
-        // 1. WRONG HOST. nflSchedule is a global NFL export, not a league one —
-        //    www48 answers it with {"error":"This API request must go to
-        //    api.myfantasyleague.com"}. mflExportJson targets www48, so every
-        //    lookup failed and the eligibility block printed with no dates.
-        //    The working precedents in this file (~14288, ~14471) all hit the
-        //    api host directly, so do the same. No L and no cookie: it is not
-        //    league-scoped and sending them is what invites the redirect.
+        // Weeks 3 and 5 (the MYM and extension deadlines) open on Thursday
+        // anyway, so this only actually moves Week 1 — which is the
+        // preseason/in-season boundary, and therefore selects which eligibility
+        // ladder a pickup is judged by. Worth getting right.
         //
-        // 2. EARLIEST != THURSDAY. Taking the week's earliest kickoff happens
-        //    to be right for weeks 3 and 5, but it is not the rule, and it is
-        //    wrong the moment a week opens earlier — NFL Week 1 2026 opens on
-        //    WEDNESDAY Sep 9, so "earliest" would have moved the preseason
-        //    boundary a day. Pick the Thursday game explicitly (ET, since a
-        //    Thursday-night ET kickoff is already Friday in UTC), and fall back
-        //    to the earliest only when a week genuinely has no Thursday game.
+        // WRONG HOST was the reason this came back empty: nflSchedule is a
+        // GLOBAL NFL export, not a league one, and www48 answers it with
+        // {"error":"This API request must go to api.myfantasyleague.com"}.
+        // mflExportJson targets www48, so every lookup failed silently and the
+        // eligibility block printed with no dates at all. The working
+        // precedents in this file (~14288, ~14471) hit the api host directly.
+        // No L and no cookie — it is not league-scoped, and sending them is
+        // what invites the redirect.
         const apWeekKickoffUnix = async (week) => {
           const w = safeInt(week, 0);
           if (apKickoffByWeek.has(w)) return apKickoffByWeek.get(w);
-          let thursday = 0;
           let earliest = 0;
           try {
             const schedRes = await fetch(
@@ -38985,21 +38986,13 @@ export default {
             const schedData = schedRes.ok ? await schedRes.json().catch(() => null) : null;
             for (const m of asArray(schedData?.nflSchedule?.matchup)) {
               const ko = safeInt(m?.kickoff, 0);
-              if (ko <= 0) continue;
-              if (!earliest || ko < earliest) earliest = ko;
-              const dayEt = new Date(ko * 1000).toLocaleDateString("en-US", {
-                timeZone: "America/New_York",
-                weekday: "short",
-              });
-              if (dayEt === "Thu" && (!thursday || ko < thursday)) thursday = ko;
+              if (ko > 0 && (!earliest || ko < earliest)) earliest = ko;
             }
           } catch (_) {
-            thursday = 0;
             earliest = 0;
           }
-          const chosen = thursday || earliest;
-          apKickoffByWeek.set(w, chosen);
-          return chosen;
+          apKickoffByWeek.set(w, earliest);
+          return earliest;
         };
         const apFmtEastern = (iso) => {
           if (!iso) return "";
