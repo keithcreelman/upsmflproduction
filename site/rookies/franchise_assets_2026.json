@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-07T10:32:34.469211+00:00",
+    "generated_at_utc": "2026-08-08T10:07:05.857772+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -4276,6 +4276,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_13952",
+          "display": "Frankie Luvu",
+          "player_id": "13952",
+          "position": "LB",
+          "nfl_team": "WAS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15346",
           "display": "Gregory Rousseau",
           "player_id": "15346",
@@ -4324,18 +4336,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15271",
-          "display": "Khalil Herbert",
-          "player_id": "15271",
-          "position": "RB",
-          "nfl_team": "SFO",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_13713",
           "display": "Minkah Fitzpatrick",
           "player_id": "13713",
@@ -4360,6 +4360,30 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16649",
+          "display": "Theo Johnson",
+          "player_id": "16649",
+          "position": "TE",
+          "nfl_team": "NYG",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16594",
+          "display": "Trey Benson",
+          "player_id": "16594",
+          "position": "RB",
+          "nfl_team": "ARI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15787",
           "display": "Tyquan Thornton",
           "player_id": "15787",
@@ -4380,18 +4404,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16252",
-          "display": "Will McDonald",
-          "player_id": "16252",
-          "position": "DE",
-          "nfl_team": "NYJ",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
         },
