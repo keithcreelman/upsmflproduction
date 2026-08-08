@@ -268,6 +268,66 @@
 </script>
 
 <script>
+  // ─── UPS MOBILE APP DEEP LINK (single source of truth) ────────────────────
+  // Keith 2026-08-08: "make this add/drop the new Add/Drop Mobile link."
+  //
+  // There are FOUR "Add/Drop" anchors in this header (hotlinks pill, the
+  // Owner Actions dropdown inside the hotlinks bar, the Player Acquisition
+  // dropdown, and the MFL Legacy Links backup group). The first attempt at
+  // this change repointed exactly ONE of them, because each built its own URL
+  // inline. That is the bug this helper exists to prevent: every consumer now
+  // calls upsBuildMobileAppUrl(), so there is one place to change.
+  //
+  // The app is a separate GitHub-Pages origin and cannot read MFL's cookies,
+  // so it bootstraps from URL params exactly the way the footer's
+  // "Switch to App View" button feeds it (footer_custom_v2.html:866/898):
+  //   site/m/app.js:231  leagueId = ?L=
+  //   site/m/app.js:232  year     = ?YEAR=
+  //   site/m/app.js:252  viewer   = ?MFL_USER_ID=  (stashed in localStorage
+  //                                and SCRUBBED from the URL on boot, :264)
+  // `hash` is the app's own hash route (site/m/app.js currentRoute()).
+  //
+  // FAIL-CLOSED: an unresolved league or year is NOT a value. We return "" and
+  // every caller then leaves the existing href alone rather than shipping an
+  // owner into some other league. There is deliberately no default league id
+  // in here. This block is intentionally OUTSIDE the UPS_BAREBONES gate so the
+  // helper exists in Lite Mode too.
+  (function () {
+    var BASE = "https://keithcreelman.github.io/upsmflproduction/m/";
+    window.UPS_MOBILE_APP_BASE = BASE;
+
+    function readCookie(name) {
+      try {
+        var m = String(document.cookie || "").match(
+          new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
+        return m ? decodeURIComponent(m[1]) : "";
+      } catch (e) { return ""; }
+    }
+
+    // upsBuildMobileAppUrl("players", leagueId, year) -> full app URL, or ""
+    // when league/year could not be resolved.
+    window.upsBuildMobileAppUrl = function (hash, leagueId, year) {
+      var L = leagueId == null ? "" : String(leagueId).trim();
+      var Y = year == null ? "" : String(year).trim();
+      if (!L || !Y) return "";
+      var qs = "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(Y);
+      // MFL_USER_ID is same-origin readable here (this header is injected into
+      // MFL's own pages). Absent cookie -> omit the param; never invent one.
+      // The app then falls back to localStorage or its sign-in card.
+      var uid = readCookie("MFL_USER_ID");
+      if (uid) qs += "&MFL_USER_ID=" + encodeURIComponent(uid);
+      return BASE + qs + (hash ? ("#" + hash) : "");
+    };
+
+    // The in-app add/drop surface. NOT a guess: site/m/views/players.js
+    // registerView("players") is the Bid (BBID) / Add (FCFS) / drop-picker
+    // screen, and site/m/views/home.js:180-223 points its own Waivers tile at
+    // "#players" (and "#players/claims" for staged claims).
+    window.UPS_MOBILE_ADDDROP_HASH = "players";
+  })();
+</script>
+
+<script>
   // Legacy global safety guards (custom tabs removed; keep no-op shims to avoid hard crashes).
   (function () {
     function noop() {}
@@ -2028,12 +2088,20 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           </button>
           <div class="ccc-owner-actions-menu" id="upsOwnerActionsMenu" hidden>
             <a href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
-            <a href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+            <!-- Add/Drop -> UPS Mobile App (Keith 2026-08-08). This collapsed
+                 Owner Actions copy is a SECOND Add/Drop anchor and was missed
+                 the first time round; data-ups-hotlink="adddrop" is what the
+                 runtime normalizer keys off now (it used to match on
+                 href*="/add_drop", which stops matching the moment the link
+                 is repointed). %LEAGUEID%/%YEAR% are MFL's own server-side
+                 tokens, so this href is already league-correct before any JS
+                 runs - it never drops ?L=. -->
+            <a data-ups-hotlink="adddrop" href="https://keithcreelman.github.io/upsmflproduction/m/?L=%LEAGUEID%&amp;YEAR=%YEAR%#players" title="Opens the UPS Mobile App - bid, add and drop from the player browser"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
             <a data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
           </div>
         </div>
         <a class="ccc-pill" data-owner-action="lineup" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
-        <a class="ccc-pill" data-owner-action="adddrop" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+        <a class="ccc-pill" data-owner-action="adddrop" data-ups-hotlink="adddrop" href="https://keithcreelman.github.io/upsmflproduction/m/?L=%LEAGUEID%&amp;YEAR=%YEAR%#players" title="Opens the UPS Mobile App - bid, add and drop from the player browser"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
         <a class="ccc-pill" data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE7"><i class="fa-solid fa-users"></i>Front Office</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
         <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
@@ -2524,7 +2592,23 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       var canonicalIssue = buildCanonicalIssueReportRouteUrl();
       setHref('a[data-ups-hotlink="issue"]', canonicalIssue || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE3"));
       setHref('a.ccc-pill[href*="/lineup"]', origin + "/" + y + "/lineup?L=" + l);
-      setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
+      // Add/Drop now opens the UPS Mobile App (Keith 2026-08-08), so this can
+      // no longer select on href*="/add_drop" - after the repoint that
+      // selector matches NOTHING, and the old body of this line would have
+      // quietly dragged the pill straight back to MFL native.
+      // Covers BOTH the pill and the collapsed Owner Actions copy via
+      // data-ups-hotlink="adddrop".
+      //
+      // FAIL-CLOSED: upsBuildMobileAppUrl returns "" when league/year are
+      // unresolved (it cannot be reached here - the function already returned
+      // above on !L || !YEAR - but the guard stays so a future caller cannot
+      // turn "unknown" into a default league). "" means leave the anchor's
+      // server-substituted %LEAGUEID%/%YEAR% href alone, which is still
+      // correct; it just misses the MFL_USER_ID hand-off.
+      var mobileAddDrop = (typeof window.upsBuildMobileAppUrl === "function")
+        ? window.upsBuildMobileAppUrl(window.UPS_MOBILE_ADDDROP_HASH || "players", L, YEAR)
+        : "";
+      if (mobileAddDrop) setHref('a[data-ups-hotlink="adddrop"]', mobileAddDrop);
       setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
       var canonicalRosterWorkbench = buildCanonicalRosterWorkbenchRouteUrl();
       if (canonicalRosterWorkbench) {
@@ -3498,6 +3582,23 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         path + (path.indexOf("?") === -1 ? "?" : "&") +
         "L=" + encodeURIComponent(ctx.leagueId);
     }
+    // UPS Mobile App deep link. Delegates to the one shared builder defined
+    // near the top of this header so all four Add/Drop entry points stay in
+    // lockstep. ctx.leagueId is guaranteed non-empty (the IIFE returned above
+    // when it could not be resolved) and ctx.year always resolves, so this
+    // normally returns a URL. If the shared helper somehow is not there, we
+    // fall back to MFL's native page and SAY SO in the console rather than
+    // rendering a dead "#" link.
+    function buildMobileAppUrl(hash) {
+      if (typeof window.upsBuildMobileAppUrl === "function") {
+        var u = window.upsBuildMobileAppUrl(hash, ctx.leagueId, ctx.year);
+        if (u) return u;
+      }
+      try {
+        console.warn("[UPS] mobile app URL unavailable; Add/Drop fell back to MFL native");
+      } catch (e) {}
+      return buildMflPath("/add_drop");
+    }
 
     // Each entry is either:
     //   • { id, label, module }                   → direct link to a MESSAGEnn
@@ -3530,7 +3631,16 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       // group). Routes through the MESSAGE19 hub container like the Auction Hub.
       { id: "commish-settings", label: "Commish Settings", module: "MESSAGE19&hub=commish-settings", commishOnly: true },
       { id: "acquisition",  label: "Player Acquisition", children: [
-        { label: "Add/Drop",       href: buildMflPath("/add_drop") },
+        // Repointed 2026-08-08 (Keith) from MFL's native /add_drop to the UPS
+        // Mobile App's player/waiver surface. In the app the add/drop flow IS
+        // the #players browser: Bid (BBID), Add (FCFS) and the drop picker,
+        // with #players/claims as its staged-claims screen - see
+        // site/m/views/players.js registerView("players") and the Home Waivers
+        // tile in site/m/views/home.js, which links to those same two hashes.
+        // MFL's own page is still one click away under
+        // "MFL Legacy Links -> Owner Actions -> Add / Drop" below.
+        { label: "Add/Drop",       href: buildMobileAppUrl("players"),
+          title: "Opens the UPS Mobile App - bid, add and drop from the player browser" },
         { label: "Trade War Room", href: buildUrl("MESSAGE6=N") },
         // Trade Bait page in MFL is /options?O=133 (not /trade_bait).
         // Keith confirmed 2026-05-15.
@@ -3554,6 +3664,16 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         groups: [
           { group: "Owner Actions", items: [
             { label: "Submit Lineup",      href: buildMflPath("/lineup") },
+            // DELIBERATELY still MFL native (2026-08-08). The other three
+            // Add/Drop anchors in this header now open the UPS Mobile App.
+            // This group is the break-glass path - its own note above reads
+            // "Native MFL pages - a backup if one of the custom pages isn't
+            // loading", and the mobile app IS a custom page (GitHub Pages +
+            // the Cloudflare worker). Repointing this one too would leave an
+            // owner with no route to add/drop at all on the day the app is
+            // down, which is exactly the day this menu exists for.
+            // If Keith wants it repointed anyway it is one line:
+            //   href: buildMobileAppUrl("players")
             { label: "Add / Drop",         href: buildMflPath("/add_drop") },
             { label: "Taxi Squad",         href: buildMflPath("/options?O=98") },
             { label: "Injured Reserve",    href: buildMflPath("/options?O=18") },
@@ -3659,6 +3779,8 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         a.href = c.href || (c.module ? buildUrl(c.module) : "#");
         a.textContent = c.label;
         a.setAttribute("role", "menuitem");
+        // Optional hover hint (used by Add/Drop to say it opens the app).
+        if (c.title) a.title = c.title;
         return a;
       }
 
