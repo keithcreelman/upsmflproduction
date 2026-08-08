@@ -26,10 +26,12 @@
         a preview and leave the local plan alone.
      §4 the mode is window.mode from the server. Never re-derived here.
      §5 write_enabled false → read-only view + the MFL link, no submit CTA.
-     §6 roster/cap headroom is ADVISORY — never hard-block on our OWN math.
-        One carve-out (Keith 2026-08-08): "No drop" is withheld when MFL's own
-        rosterSize says the active roster is full, because that option can only
-        be refused. Unknown headroom still offers it. See rosterHeadroom().
+     §6 roster/cap headroom is ADVISORY — never hard-block a move on a number
+        we are not sure of. One carve-out (Keith 2026-08-08): "No drop" is
+        withheld when the active roster is KNOWN full against the UPS roster
+        ceiling (canon 27 min / 35 pre-deadline / 30 post-deadline, via
+        DATA.rosterCapMax()), because that option can only be refused. Anything
+        unknown still offers it. See rosterHeadroom().
 
    The drop sheet that was parked here in 2026-05-15 is resurrected as a
    general-purpose drop PICKER (openDropPicker) and now serves three callers:
@@ -326,13 +328,6 @@
   }
   function waiverLimits() {
     return (M.waivers && M.waivers.limits) ? M.waivers.limits() : null;
-  }
-  // MFL's own active-roster ceiling; 0 = MFL didn't report one. NOT read off
-  // waiverLimits(): that is null whenever the BBID bid parameters are
-  // unreadable, which has nothing to do with whether MFL reported rosterSize
-  // (app.js waiverRosterLimit()). 0 must always be treated as UNKNOWN.
-  function waiverRosterMax() {
-    return (M.waivers && M.waivers.rosterLimit) ? U.safeInt(M.waivers.rosterLimit(), 0) : 0;
   }
   function stagedPlan() {
     return (M.waivers && M.waivers.getPlan) ? M.waivers.getPlan() : [];
@@ -699,12 +694,11 @@
   // one. Contract v2 §6 keeps roster headroom ADVISORY because a WRONG
   // headroom number would block a move MFL would have allowed — v1 shipped
   // exactly that bug (`allowNone: !(rosterCount >= 35)`: rosterCount counts IR
-  // and taxi bodies that hold no active spot, and 35 is only the pre-deadline
-  // ceiling). So the gate below fires ONLY on numbers we actually read:
-  //   max    — MFL's OWN rosterSize off its live league export (worker
-  //            _wvRosterLimit → limits.roster_size), 0 when MFL didn't report
-  //            it. Never our 30/35 date math: that infers the September
-  //            contract deadline, fine for a caption and not for a gate.
+  // and taxi bodies that hold no active spot, and 35 is a hardcoded constant
+  // that is only the PRE-deadline ceiling). So the gate below fires only on
+  // numbers we can stand behind, on a matched basis:
+  //   max    — DATA.rosterCapMax(), the ONE mobile ceiling (app.js). 0/absent
+  //            is treated as UNKNOWN even though today it always answers.
   //   active — cap.activeCount (roster − IR − taxi; neither occupies an active
   //            spot). rosterCount 0 means the cap mirror hasn't loaded, which
   //            is UNKNOWN, not "empty roster".
@@ -714,29 +708,51 @@
   // a legal claim on arithmetic we can't stand behind, so uncertainty falls to
   // the permissive side. MFL still owns the real limit at award time.
   //
-  // The two sides are apples-to-apples, and that was checked rather than
-  // assumed: MFL's league export carries `rosterSize` alongside SEPARATE
-  // `injuredReserve` and `taxiSquad` settings (35 / 15 / 10 in
-  // data/mfl-snapshots/2026-08-08/league.json), so rosterSize is the ACTIVE
-  // ceiling — IR and taxi bodies are extra slots, not spend against it, which
-  // is exactly what activeCount excludes. If MFL ever redefined it as a
-  // TOTAL-roster cap the gate would fire LATE, not early: a total cap M is
-  // larger than the active room it implies (M − IR − taxi), so `active >= M`
-  // would go on offering "No drop" to an owner who has none. Under-blocking is
-  // the permissive direction, i.e. the safe one for this gate. (The reverse
-  // claim — that it would fire "slightly early" — is wrong; it was written
-  // before anyone did the arithmetic.)
+  // ── Where `max` comes from, and why NOT MFL's rosterSize ────────────────
+  // The ceiling is the UPS rule: MIN 27, MAX 35 through the September contract
+  // deadline, MAX 30 after it. Canon docs/league_context_v1.md §B1 ~302
+  // ("Size: 27 (min, at close of auction) – 30 (max, after contract deadline)";
+  // "Auction window: 27 (close min) – 35 (max)"), implemented once per client:
+  // desktop team_operations.js rosterCaps() ~1020, mobile DATA.rosterCapMax().
+  // Both prefer the league calendar's own contract-deadline date and fall back
+  // to the fixed Sep 6 boundary. This file adds no third copy — read the helper.
   //
-  // NOTE the source of `max`: waiverRosterMax(), NOT waiverLimits().
-  // waiverLimits() returns null unless MFL gave us all three BBID BID numbers,
-  // and it drops every field it doesn't name — reading roster_size through it
-  // made this whole gate inert (max was always 0 → known:false → "No drop"
-  // always offered) and would ALSO have let a missing bbid_minimum suppress a
-  // roster ceiling MFL reported fine. Do not route it back through there.
+  // An earlier pass sourced `max` from MFL's `rosterSize` (league export →
+  // worker _wvRosterLimit → limits.roster_size) and argued our own 30/35 math
+  // was "the kind of number the old rationale warned about". That was exactly
+  // backwards, and the repo already knew it. team_operations.js ~1020, verbatim:
+  //
+  //     "MFL's league export carries no usable roster cap for us —
+  //      rosterSize:'50' is offseason trading headroom, NOT the real rule — so
+  //      state.rosterLimit came back 0 and every consumer fell back to a
+  //      hardcoded 26, flagging legal rosters as 'over the limit'."
+  //
+  // rosterSize is a league SETTING, not the UPS ceiling. It has read 50. It
+  // reads 35 today by coincidence, and — this is the part that breaks a gate —
+  // it does NOT drop to 30 when the contract deadline passes. Gated on it, this
+  // whole feature silently goes inert every September: an owner at 32/30 keeps
+  // being offered "No drop" for a claim with no spot to land in, and the
+  // caption prints a confidently wrong "(32/35)".
+  //
+  // The superseded argument also cited data/mfl-snapshots/2026-08-08/league.json
+  // (rosterSize 35 / injuredReserve 15 / taxiSquad 10) as proof rosterSize is
+  // the active ceiling. One day's sample cannot establish a rule — it is equally
+  // consistent with a setting that simply hasn't been changed yet — and canon
+  // already answers the question. Do not restore it.
+  //
+  // Basis check, since a ceiling and a count must measure the same thing:
+  // rosterCapMax() is an ACTIVE ceiling (canon §B1 is the Active Roster
+  // section; taxi §B2 and IR are separate states with their own sizes), and
+  // activeCount is roster − IR − taxi. Matched. team_operations.js ~3198 has
+  // the scar from mismatching them: 28 active + 3 IR + 7 taxi rendered as
+  // "38 rostered · max 30", eight over a limit the owner was two under.
   function rosterHeadroom() {
     var fid = M.state.viewerFranchiseId;
     var cap = fid ? DATA.computeCap(fid) : null;
-    var max = waiverRosterMax();
+    // Guarded rather than called bare: an app.js without the helper must land
+    // on UNKNOWN (permissive), never on a thrown TypeError that takes the whole
+    // drop picker down.
+    var max = (DATA && DATA.rosterCapMax) ? U.safeInt(DATA.rosterCapMax(), 0) : 0;
     var active = (cap && U.safeInt(cap.rosterCount, 0) > 0 && cap.activeCount != null)
       ? U.safeInt(cap.activeCount, -1)
       : -1;
@@ -906,10 +922,13 @@
         (over ? ' — this bid is above it. MFL enforces the cap when the claim is awarded.' : '') +
       '</div>';
     }
-    // Roster headroom on THIS line stays advisory (§6): it quotes no ceiling,
-    // because our own 30-after-the-September-deadline / 35-before math would be
-    // wrong some of the time. The ceiling only ever comes from MFL — the drop
-    // picker quotes limits.roster_size when MFL reported it (rosterHeadroom()).
+    // Roster headroom on THIS line stays advisory (§6) and quotes no ceiling —
+    // it is a passive "here is where you stand" note next to a bid field, and
+    // the count alone is what it is for. The ceiling is quoted where it changes
+    // what an owner can pick: the drop picker, from rosterHeadroom(). (The
+    // reason recorded here previously — that our own 30/35 deadline math "would
+    // be wrong some of the time" — was not the real one; that math IS the UPS
+    // rule. See rosterHeadroom().)
     if (cap && cap.rosterCount > 0 && cap.activeCount != null) {
       advisory += '<div class="ups-m-bid-advisory">Active roster: ' + cap.activeCount +
         ((cap.irCount || cap.taxiCount)
@@ -1047,9 +1066,11 @@
         // where it can't be read — the alternative is a string that contradicts
         // the one on screen sitting live in the same options object.
         noneSub: hr.full ? "" : "Claim is only awarded if you already have room.",
+        // Rule, not prophecy — same reasoning as the FCFS note below.
         noneBlockedNote: hr.full
-          ? "Your active roster is full (" + hr.active + "/" + hr.max + "), so a winning claim " +
-            "with no drop would be refused. Pick the player this claim replaces."
+          ? "Your active roster is full (" + hr.active + "/" + hr.max + " — the league limit " +
+            "right now), so a winning claim would have no open spot to land in. " +
+            "Pick the player this claim replaces."
           : "",
         selectedPid: bidView.dropPid,
         addPid: bidView.addPid,
@@ -1997,9 +2018,9 @@
     // rosterHeadroom() (Keith 2026-08-08, superseding the 2026-07-30
     // "always selectable" rule). Keith 2026-07-30 still holds for the wording
     // when it IS offered: "Can't have false statements of add none if it's not
-    // possible" — so the label quotes MFL's own rosterSize against the active
-    // count (IR/taxi excluded), and stays vague when either is unknown rather
-    // than guessing in either direction.
+    // possible" — so the label quotes the UPS active-roster ceiling against the
+    // active count (IR/taxi excluded), and stays vague when either is unknown
+    // rather than guessing in either direction.
     // noneSub labels the "No drop" row, so it is only built when that row is
     // going to exist. On the full branch its "open spot" wording would be a
     // flat contradiction of the note that takes the row's place — computing it
@@ -2017,9 +2038,14 @@
         (headroom ? '<br>' + U.escapeHtml(headroom) : ''),
       allowNone: !hr.full,
       noneSub: noneSub,
+      // States the RULE, not a prediction of MFL's behaviour. `hr.max` is the
+      // league's own ceiling; MFL's configured rosterSize is a separate number
+      // that can lag it, so "MFL will refuse this" is a promise we are not in a
+      // position to make — and a false one is exactly what Keith 2026-07-30
+      // objected to. Say what is true: there is no open spot.
       noneBlockedNote: hr.full
-        ? "Your active roster is full (" + hr.active + "/" + hr.max + "), so MFL will refuse " +
-          "an add without a drop. Pick the player this add replaces."
+        ? "Your active roster is full (" + hr.active + "/" + hr.max + " — the league limit " +
+          "right now), so there is no open spot to add into. Pick the player this add replaces."
         : "",
       addPid: pid,
       onPick: function (dropPid) {
