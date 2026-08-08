@@ -19563,8 +19563,21 @@ export default {
         } catch (e) { hsErrors.push("heartbeats: " + String(e?.message || e)); }
         // Effective flags (D1 override > env default), same shape as
         // /admin/commish-settings so the UI can share its renderer.
+        //
+        // flagsReadable is a TOP-LEVEL rollup of the per-row `unknown` that
+        // getAllFeatureFlags already stamps (one D1 read backs every row, so
+        // they always agree). The off-platform FA-report watchdog
+        // (scripts/cron_liveness_eval.py) needs this at the top level — it
+        // has to know BEFORE looking at any individual flag whether the read
+        // behind all of them can be trusted, per the same no-fail-open rule
+        // as getFeatureFlag itself. Keith 2026-08-08: an unreadable flag
+        // state was silencing that watchdog outright.
         let hsFlags = [];
-        try { hsFlags = await getAllFeatureFlags(env); } catch (e) { hsErrors.push("flags: " + String(e?.message || e)); }
+        let flagsReadable = false;
+        try {
+          hsFlags = await getAllFeatureFlags(env);
+          flagsReadable = Array.isArray(hsFlags) && hsFlags.length > 0 && hsFlags.every((f) => f && f.unknown === false);
+        } catch (e) { hsErrors.push("flags: " + String(e?.message || e)); }
         // Test residue — both counts in ONE statement via scalar subselects.
         const testResidue = { auction_test_lots: 0, test_rule_rounds: 0 };
         try {
@@ -19589,6 +19602,7 @@ export default {
           now_unix: hsNow,
           heartbeats,
           flags: hsFlags,
+          flags_readable: flagsReadable,
           test_residue: testResidue,
           calendar_updated_at: calendarUpdatedAt,
           errors: hsErrors,
