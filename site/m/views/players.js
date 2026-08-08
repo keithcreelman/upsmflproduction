@@ -26,7 +26,10 @@
         a preview and leave the local plan alone.
      §4 the mode is window.mode from the server. Never re-derived here.
      §5 write_enabled false → read-only view + the MFL link, no submit CTA.
-     §6 roster/cap headroom is ADVISORY. Never hard-block on our own math.
+     §6 roster/cap headroom is ADVISORY — never hard-block on our OWN math.
+        One carve-out (Keith 2026-08-08): "No drop" is withheld when MFL's own
+        rosterSize says the active roster is full, because that option can only
+        be refused. Unknown headroom still offers it. See rosterHeadroom().
 
    The drop sheet that was parked here in 2026-05-15 is resurrected as a
    general-purpose drop PICKER (openDropPicker) and now serves three callers:
@@ -678,6 +681,43 @@
     }).sort(function (a, b) { return a.penaltyAmt - b.penaltyAmt; });
   }
 
+  // ══ "No drop" gating ═══════════════════════════════════════════════════
+  // RULE (Keith 2026-08-08) — do NOT offer "No drop" when we positively KNOW
+  // the active roster is already full. A claim/add with no drop can only be
+  // refused at that point, and an option whose single outcome is a rejection
+  // is not an option. This REVERSES the 2026-07-30 rule that "No drop" is
+  // always selectable; do not restore that one from the old rationale below.
+  //
+  // The rule it replaces was not careless, and its reasoning still shapes this
+  // one. Contract v2 §6 keeps roster headroom ADVISORY because a WRONG
+  // headroom number would block a move MFL would have allowed — v1 shipped
+  // exactly that bug (`allowNone: !(rosterCount >= 35)`: rosterCount counts IR
+  // and taxi bodies that hold no active spot, and 35 is only the pre-deadline
+  // ceiling). So the gate below fires ONLY on numbers we actually read:
+  //   max    — limits.roster_size, MFL's OWN rosterSize off its live league
+  //            export (worker _wvRosterLimit), null when MFL didn't report it.
+  //            Never our 30/35 date math: that infers the September contract
+  //            deadline, which is fine for a caption and not for a gate.
+  //   active — cap.activeCount (roster − IR − taxi; neither occupies an active
+  //            spot). rosterCount 0 means the cap mirror hasn't loaded, which
+  //            is UNKNOWN, not "empty roster".
+  // Either number unreadable → known:false → callers keep offering "No drop"
+  // exactly as they did before. That is deliberately the OPPOSITE of the usual
+  // fail-closed guard in this repo: here the destructive direction is BLOCKING
+  // a legal claim on arithmetic we can't stand behind, so uncertainty falls to
+  // the permissive side. MFL still owns the real limit at award time.
+  function rosterHeadroom() {
+    var fid = M.state.viewerFranchiseId;
+    var cap = fid ? DATA.computeCap(fid) : null;
+    var lim = waiverLimits();
+    var max = lim ? U.safeInt(lim.roster_size, 0) : 0;
+    var active = (cap && U.safeInt(cap.rosterCount, 0) > 0 && cap.activeCount != null)
+      ? U.safeInt(cap.activeCount, -1)
+      : -1;
+    if (max <= 0 || active < 0) return { known: false, full: false, active: null, max: 0 };
+    return { known: true, full: active >= max, active: active, max: max };
+  }
+
   function renderDropSheet(opts) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) return "";
@@ -709,12 +749,19 @@
       '</button>';
     }).join("");
 
+    // When "No drop" is withheld the owner has to be TOLD why — a control that
+    // was there yesterday and is gone today, with nothing in its place, reads
+    // as a broken screen and gets reported as a bug. The note is a plain <div>,
+    // not a .ups-m-drop-row, so the row-click wiring below can't hand back an
+    // empty drop_pid through it.
     var noneRow = opts.allowNone
       ? '<button class="ups-m-drop-row none' + (!opts.selectedPid ? " on" : "") + '" data-drop-pid="">' +
           '<div class="body"><div class="name">No drop</div>' +
           '<div class="sub">' + U.escapeHtml(opts.noneSub || "Only add if there is room.") + '</div></div>' +
         '</button>'
-      : "";
+      : (opts.noneBlockedNote
+          ? '<div class="ups-m-drop-note">' + U.escapeHtml(opts.noneBlockedNote) + '</div>'
+          : "");
 
     return '<div class="ups-m-drop-overlay" id="ups-m-drop-overlay">' +
       '<div class="ups-m-drop-sheet">' +
@@ -745,7 +792,10 @@
     }
   }
 
-  // opts: { title, sub, allowNone, noneSub, selectedPid, onPick(pidOrEmpty) }
+  // opts: { title, sub, allowNone, noneSub, noneBlockedNote, selectedPid,
+  //         onPick(pidOrEmpty) }
+  // allowNone:false + noneBlockedNote renders the note in place of the "No
+  // drop" row (see rosterHeadroom()); allowNone:false with no note omits both.
   // NOTE: `sub` is injected as HTML so callers can bold a player name; every
   // caller in this file escapes the dynamic part with U.escapeHtml first.
   // `title` / `noneSub` are escaped for you.
@@ -830,10 +880,10 @@
         (over ? ' — this bid is above it. MFL enforces the cap when the claim is awarded.' : '') +
       '</div>';
     }
-    // Roster headroom is advisory too (§6). No ceiling is quoted: the active
-    // limit is 30 after the September contract deadline and 35 before it, and
-    // IR/taxi players never occupy an active spot — any number we printed
-    // would be wrong some of the time. MFL owns the limit.
+    // Roster headroom on THIS line stays advisory (§6): it quotes no ceiling,
+    // because our own 30-after-the-September-deadline / 35-before math would be
+    // wrong some of the time. The ceiling only ever comes from MFL — the drop
+    // picker quotes limits.roster_size when MFL reported it (rosterHeadroom()).
     if (cap && cap.rosterCount > 0 && cap.activeCount != null) {
       advisory += '<div class="ups-m-bid-advisory">Active roster: ' + cap.activeCount +
         ((cap.irCount || cap.taxiCount)
@@ -956,11 +1006,21 @@
     } else if (act === "pick-drop") {
       var keep = { addPid: bidView.addPid, amount: bidView.amount, round: bidView.round,
                    dropPid: bidView.dropPid, editRef: bidView.editRef };
+      // "No drop" only when a claim carrying none could actually be awarded
+      // (Keith 2026-08-08 — see rosterHeadroom()). Unknown headroom keeps it.
+      // This changes what can be STAGED from here; it never edits what is
+      // already staged — a pick saved earlier with no conditional drop keeps
+      // its empty drop_pid and submits unchanged.
+      var hr = rosterHeadroom();
       openDropPicker({
         title: "Conditional drop",
         sub: 'Dropped only if the claim on <strong>' + U.escapeHtml(nameForPid(bidView.addPid)) + '</strong> wins.',
-        allowNone: true,
+        allowNone: !hr.full,
         noneSub: "Claim is only awarded if you already have room.",
+        noneBlockedNote: hr.full
+          ? "Your active roster is full (" + hr.active + "/" + hr.max + "), so a winning claim " +
+            "with no drop would be refused. Pick the player this claim replaces."
+          : "",
         selectedPid: bidView.dropPid,
         addPid: bidView.addPid,
         onPick: function (pid) {
@@ -1893,17 +1953,8 @@
     if (!writeEnabled()) { openNativeWaiverPage(); return; }
     var fid = M.state.viewerFranchiseId;
     var cap = DATA.computeCap(fid);
-    // CONTRACT v2 §6 — roster headroom is ADVISORY. "No drop" is ALWAYS
-    // offered; we never hard-block an add on our own arithmetic. v1 set
-    // `allowNone: !(rosterCount >= 35)`, which meant an owner physically
-    // could not add without naming a cut — and the arithmetic was wrong twice
-    // over: `rosterCount` is roster.length (IR and taxi players are in there,
-    // and they do not occupy active spots), and 35 is only the pre-deadline
-    // ceiling (it is 30 once the September contract deadline passes).
-    // MFL enforces the real limit at award time and its rejection text is
-    // what the owner sees — we do not predict it.
-    // rosterCount 0 means the cap mirror hasn't loaded — say nothing rather
-    // than advertise "Active roster: 0".
+    // Headroom caption. rosterCount 0 means the cap mirror hasn't loaded —
+    // say nothing rather than advertise "Active roster: 0".
     var headroom = "";
     if (cap && cap.rosterCount > 0 && cap.activeCount != null) {
       headroom = "Active roster: " + cap.activeCount +
@@ -1912,31 +1963,27 @@
           : "") +
         ". MFL enforces the roster limit when the add lands.";
     }
-    // "No drop" stays SELECTABLE (MFL is the authority on the roster limit,
-    // not our arithmetic) — but it must not PROMISE an open spot that MFL's own
-    // numbers say does not exist. Keith 2026-07-30: "Can't have false statements
-    // of add none if it's not possible." So the label states what we actually
-    // know: MFL's own rosterSize (limits.roster_size, read live from its league
-    // export) against the active count with IR/taxi excluded. When either number
-    // is unknown we say nothing rather than guess in either direction.
-    var lim = waiverLimits();
-    var rosterMax = lim && lim.roster_size ? Number(lim.roster_size) : 0;
-    var activeNow = (cap && cap.rosterCount > 0 && cap.activeCount != null) ? Number(cap.activeCount) : null;
-    var noneSub;
-    if (rosterMax && activeNow != null && activeNow >= rosterMax) {
-      noneSub = "Your active roster is full (" + activeNow + "/" + rosterMax +
-        ") — MFL will refuse an add without a drop.";
-    } else if (rosterMax && activeNow != null) {
-      noneSub = "Add into an open spot (" + activeNow + "/" + rosterMax + " active).";
-    } else {
-      noneSub = "Add without dropping anyone. MFL enforces the roster limit.";
-    }
+    // "No drop" is offered only when the add could actually land — see
+    // rosterHeadroom() (Keith 2026-08-08, superseding the 2026-07-30
+    // "always selectable" rule). Keith 2026-07-30 still holds for the wording
+    // when it IS offered: "Can't have false statements of add none if it's not
+    // possible" — so the label quotes MFL's own rosterSize against the active
+    // count (IR/taxi excluded), and stays vague when either is unknown rather
+    // than guessing in either direction.
+    var hr = rosterHeadroom();
+    var noneSub = hr.known
+      ? "Add into an open spot (" + hr.active + "/" + hr.max + " active)."
+      : "Add without dropping anyone. MFL enforces the roster limit.";
     openDropPicker({
-      title: "Drop a player? (optional)",
+      title: hr.full ? "Drop a player" : "Drop a player? (optional)",
       sub: 'Adding <strong>' + U.escapeHtml(nameForPid(pid)) + '</strong> — $1K, 1-year WW.' +
         (headroom ? '<br>' + U.escapeHtml(headroom) : ''),
-      allowNone: true,
+      allowNone: !hr.full,
       noneSub: noneSub,
+      noneBlockedNote: hr.full
+        ? "Your active roster is full (" + hr.active + "/" + hr.max + "), so MFL will refuse " +
+          "an add without a drop. Pick the player this add replaces."
+        : "",
       addPid: pid,
       onPick: function (dropPid) {
         confirmFcfsAdd(pid, dropPid ? [dropPid] : []);
