@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.08.08.1";
+  var BUILD = "2026.08.08.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1648,6 +1648,11 @@
     };
   }
 
+  // NOTE (2026-08-08): there is deliberately no waiver-specific roster-ceiling
+  // accessor here. `limits.roster_size` carries MFL's `rosterSize` setting,
+  // which is NOT the UPS active-roster ceiling — see rosterCapMax() below and
+  // the block above it. Anything needing the ceiling calls rosterCapMax().
+
   var WAIVER_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // Absolute label for a unix second. Only used when the worker didn't hand us
   // a pre-formatted label (it owns ET formatting; we don't guess a timezone).
@@ -1878,16 +1883,36 @@
     return null;
   }
 
-  // Active-roster max: 35 pre-deadline, 30 after (canon: "Roster max drops
-  // from 35 → 30" at the September contract deadline — the SAME date
-  // state.contractDeadline already carries for the MYAC window). Mirrors
-  // team_operations.js's rosterCaps(), which resolves the identical boundary
-  // off its own desktop-only findEvent(["ups_contract_deadline"]) helper;
-  // this reads the ISO string mobile already has instead, since that's
-  // simpler here than porting desktop's calendar-event lookup. ISO dates
-  // ("YYYY-MM-DD") compare correctly as plain strings — no Date parsing/TZ
-  // handling needed. Falls back to a fixed Sept 6 boundary if the deadline
-  // hasn't loaded yet, same fallback team_operations.js uses.
+  // THE mobile active-roster ceiling. Every mobile surface that needs one
+  // calls this — displays (home.js, contracts.js) and the waiver "No drop"
+  // gate (views/players.js rosterHeadroom()) alike. Do not add a second.
+  //
+  // 35 pre-deadline, 30 after (canon docs/league_context_v1.md §B1 ~302:
+  // "Size: 27 (min, at close of auction) – 30 (max, after contract deadline)",
+  // "Auction window: 27 (close min) – 35 (max)"). The boundary is the
+  // September contract deadline — the SAME date state.contractDeadline already
+  // carries for the MYAC window. Mirrors team_operations.js rosterCaps()
+  // (~1020), which resolves the identical boundary off its own desktop-only
+  // findEvent(["ups_contract_deadline"]) helper; this reads the ISO string
+  // mobile already has instead, since that's simpler here than porting
+  // desktop's calendar-event lookup. ISO dates ("YYYY-MM-DD") compare
+  // correctly as plain strings — no Date parsing/TZ handling needed. Falls
+  // back to a fixed Sept 6 boundary if the deadline hasn't loaded yet, same
+  // fallback team_operations.js uses.
+  //
+  // This is an ACTIVE ceiling, so it may only ever be compared against an
+  // ACTIVE count (computeCap().activeCount = roster − IR − taxi). Neither IR
+  // nor taxi bodies occupy an active spot. team_operations.js ~3198 has the
+  // scar from getting that wrong: an owner with 28 active + 3 IR + 7 taxi was
+  // told "38 rostered · max 30".
+  //
+  // NOT MFL's `rosterSize` (league export → worker _wvRosterLimit →
+  // limits.roster_size). That number is not the UPS rule and never was:
+  // team_operations.js ~1020 records it reading "50" — offseason trading
+  // headroom — which is why desktop stopped trusting it. It happens to read 35
+  // right now, and it will NOT fall to 30 on its own when the contract
+  // deadline passes, so anything gated on it silently stops working from
+  // September onward. If you are here to "restore" it: don't.
   function rosterCapMax() {
     var dl = state.contractDeadline;
     var afterDeadline;
