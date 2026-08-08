@@ -225,7 +225,11 @@
     selectedTeamId: "__all__",
     search: "",
     filters: { pos: "ALL", type: "", status: "", years: "", action: "", loaded: false },
-    sort: { key: "salary", dir: -1 },
+    // userChosen flips the first time the commish clicks a column header.
+    // Until then the By-Position view uses its own default row order
+    // (status then name — see orderGroupRows); after it, the clicked column
+    // wins as the secondary key inside each position group.
+    sort: { key: "salary", dir: -1, userChosen: false },
     groupByPosition: true,   // Roster defaults to By Position (Keith 2026-06-06)
     capSubview: "summary",
     miscSubview: "log",   // Misc tab: "log" (Contract Log) | "glossary"
@@ -2283,6 +2287,7 @@
     $$("#fo-roster-table thead th[data-sort]").forEach(function (th) {
       th.addEventListener("click", function () {
         const col = th.dataset.sort;
+        STATE.sort.userChosen = true;
         if (STATE.sort.key === col) STATE.sort.dir *= -1;
         else {
           STATE.sort.key = col;
@@ -2603,6 +2608,36 @@
     for (let i = 0; i < byTeam.length; i += 1) { if (byTeam[i].fid === teamFid) { rank = i + 1; break; } }
     return { rank: rank, of: byTeam.length };
   }
+  // ── Within-position row order ───────────────────────────────────────
+  // Keith 2026-08-08: "Sort by Active/Taxi then alphabetical … you can
+  // include IR with the Actives." Two keys, applied INSIDE each position
+  // group (the position grouping itself is unchanged):
+  //   1. roster-status bucket — Active AND IR first, Taxi last
+  //   2. player name ascending, on the SAME string renderRosterRow prints
+  //      (p.name), so the visible order can never disagree with the key.
+  // The bucket comes from rosterStatusClass — the one helper this file
+  // already uses for active/taxi/IR — rather than re-deriving the
+  // distinction from raw MFL status strings. A row whose status is
+  // unreadable falls through that helper to "active" and stays in the
+  // list: a sort must never drop a player.
+  function rosterStatusSortRank(p) {
+    return rosterStatusClass(p || {}) === "taxi" ? 1 : 0;   // active + IR share 0
+  }
+  function orderGroupRows(rows) {
+    // Once the commish has clicked a column header, that explicit sort is
+    // the secondary key (status stays primary, so Active/Taxi still never
+    // interleave). Header sorting in By-Position mode keeps working.
+    const explicit = !!(STATE.sort && STATE.sort.userChosen);
+    const incoming = new Map();
+    rows.forEach(function (p, i) { incoming.set(p, i); });   // applySort order
+    return rows.slice().sort(function (a, b) {
+      const d = rosterStatusSortRank(a) - rosterStatusSortRank(b);
+      if (d) return d;
+      if (explicit) return incoming.get(a) - incoming.get(b);
+      return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
+    });
+  }
+
   function renderGroupedRows(players) {
     const order = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB", "IDP"];
     const groups = {};
@@ -2615,9 +2650,10 @@
     const rankPill = function (r) { return (r && r.rank) ? ' <span class="fo-group-rank">#' + r.rank + "/" + r.of + "</span>" : ""; };
     let html = "";
     keys.forEach(function (k) {
+      const rows = orderGroupRows(groups[k]);
       // Count + allocation + avg ALL exclude taxi (taxi = $0 cap; shown separately).
       let posSal = 0, nNonTaxi = 0, taxiN = 0;
-      groups[k].forEach(function (p) { if (p.isTaxi) { taxiN += 1; } else { posSal += currentCapHit(p); nNonTaxi += 1; } });
+      rows.forEach(function (p) { if (p.isTaxi) { taxiN += 1; } else { posSal += currentCapHit(p); nNonTaxi += 1; } });
       const avg = nNonTaxi ? Math.round(posSal / nNonTaxi / 100) * 100 : 0;
       const rankable = single && order.indexOf(k) >= 0;
       const count = nNonTaxi + " player" + (nNonTaxi === 1 ? "" : "s") + (taxiN ? " · " + taxiN + " taxi" : "");
@@ -2626,7 +2662,7 @@
         ' <span class="fo-group-avg">' + escapeHtml(fmtUSD(avg) + "/player") + "</span>" + rankPill(rankable ? positionAvgRank(k, STATE.selectedTeamId) : null);
       html += '<tr class="fo-group-row"><td colspan="13"><span class="fo-pos ' + escapeHtml(k) + '">' + escapeHtml(k) +
               '</span> <span class="small">' + count + "</span>" + extra + "</td></tr>";
-      html += groups[k].map(renderRosterRow).join("");
+      html += rows.map(renderRosterRow).join("");
     });
     return html;
   }
