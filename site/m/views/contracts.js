@@ -433,14 +433,21 @@
     mym: "Auction / pre-season waiver pickup — MYM through NFL Week 3 kickoff",
     extension: "Auction / pre-season waiver pickup — Extension through NFL Week 5 kickoff",
     closed: "Auction / pre-season waiver pickup — all contract windows have closed",
-    unresolved: "Auction / pre-season waiver pickup — window can't be confirmed (league calendar unavailable)"
+    unresolved: "Auction / pre-season waiver pickup — window can't be confirmed (schedule/calendar unavailable)"
   };
   function ladderDeadlineFor(row, fid) {
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
     if (!FOA || !FOA.contractWindowForRosterRow) return null;
     var w = FOA.contractWindowForRosterRow(row, fid);
     if (!w.onLadder) return null;
-    return { date: isoDeadlineDate(w.endDate), basis: LADDER_BASIS[w.stage] || LADDER_BASIS.unresolved };
+    // endMs is the exact instant the window shuts — a real NFL kickoff for the
+    // MYM/Extension rungs. The countdown uses it so "3d left" doesn't round a
+    // Thursday-night kickoff up to the whole of Thursday.
+    return {
+      date: isoDeadlineDate(w.endDate),
+      endMs: w.endMs,
+      basis: LADDER_BASIS[w.stage] || LADDER_BASIS.unresolved
+    };
   }
   function contractActionDeadlineFor(row, fid, action) {
     var seasonInt = parseInt(M.state.ctx.year, 10) || new Date().getUTCFullYear();
@@ -467,11 +474,13 @@
     var ladder = ladderDeadlineFor(row, fid);
     if (ladder) {
       var lNow = Date.now();
+      var lEnd = (ladder.endMs != null) ? ladder.endMs
+                 : (ladder.date ? ladder.date.getTime() : null);
       return {
         date: ladder.date,
         basis: ladder.basis,
-        daysUntil: ladder.date ? Math.ceil((ladder.date.getTime() - lNow) / DAY) : null,
-        inWindow: !!ladder.date && lNow <= ladder.date.getTime()
+        daysUntil: lEnd != null ? Math.ceil((lEnd - lNow) / DAY) : null,
+        inWindow: lEnd != null && lNow < lEnd
       };
     }
     if (isWW && action === "mym") {
@@ -502,23 +511,30 @@
     return d ? (DL_MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear()) : "—";
   }
 
-  // The pre-season ladder, as a header strip on the MYAC / MYM lists. Each
-  // boundary is read from the league calendar (M.data via FOA.contractLadderDates);
-  // a missing one says so out loud instead of borrowing a neighbouring date.
+  // The pre-season ladder, as a header strip on the MYAC / MYM lists.
+  //
+  // The contract deadline comes from the commish-owned league calendar; the
+  // Week 3 / Week 5 boundaries are the real first kickoffs of those weeks, read
+  // from MFL's schedule by the SAME worker helper that prints these players'
+  // windows in the Discord waiver post. A boundary that didn't resolve says so
+  // out loud instead of borrowing a neighbouring date.
   function renderLadderNote() {
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
     if (!FOA || !FOA.contractLadderDates) return "";
     var d = FOA.contractLadderDates();
     if (!d.contractDeadline && !d.mymWindowEnd && !d.extensionWindowEnd) return "";
-    function when(iso) {
+    // A boundary we could not read prints as an explicit "date unavailable"
+    // rather than borrowing the neighbouring rung's date.
+    function rung(prefix, iso, missing) {
       var dt = isoDeadlineDate(iso);
-      return dt ? fmtDeadlineDate(dt) : "not on the calendar";
+      return U.escapeHtml(prefix) + (dt ? " " + U.escapeHtml(fmtDeadlineDate(dt))
+                                        : ' <i>(' + U.escapeHtml(missing) + ')</i>');
     }
     return '<div class="ups-m-action-blurb">' +
       '<b>Pre-season ladder</b> (auction wins &amp; pre-season waiver pickups): ' +
-      'MYAC through ' + U.escapeHtml(when(d.contractDeadline)) + ' · ' +
-      'MYM through Week 3 kickoff ' + U.escapeHtml(when(d.mymWindowEnd)) + ' · ' +
-      'Extension through Week 5 kickoff ' + U.escapeHtml(when(d.extensionWindowEnd)) + '.' +
+      rung("MYAC through", d.contractDeadline, "not on the calendar") + ' · ' +
+      rung("MYM through Week 3 kickoff,", d.mymWindowEnd, "kickoff unavailable") + ' · ' +
+      rung("Extension through Week 5 kickoff,", d.extensionWindowEnd, "kickoff unavailable") + '.' +
       '</div>';
   }
 

@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.08.3",
-  "label": "Contracts: pre-season waiver pickups (Vet-WW) can now take a multi-year deal, and every contract window — MYAC, MYM, Extension — is offered only inside its own window, with the same dates the Discord waiver post prints."
+  "build": "2026.08.08.4",
+  "label": "Contracts: pre-season waiver pickups (Vet-WW) can take a multi-year deal, and every contract window — MYAC, MYM, Extension — is offered only inside its own window. The Week 3 / Week 5 boundaries now come from the real NFL kickoffs, so the app and the Discord waiver post print the same dates for the same player."
 }

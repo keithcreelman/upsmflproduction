@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.08.08.3";
+  var BUILD = "2026.08.08.4";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -191,7 +191,7 @@
     historicalDraftByPid: null, // { [pid]: { year, round, pick } } — past 3 years for taxi salary derivation
     leagueEvents: null,        // /api/league-events?season=<year>&from=today (UPS deadline calendar)
     contractDeadline: "",      // §C2 MYAC window-close date (ISO yyyy-mm-dd) from /api/league-events?from=all; mirrors desktop v2/front_office.js STATE.contractDeadline
-    contractLadder: null,      // { contractDeadline, seasonStart, mymWindowEnd, extensionWindowEnd } — the pre-season MYAC→MYM→Extension ladder boundaries, all ISO yyyy-mm-dd or "" (unknown ≠ open). See fetchContractCalendar.
+    contractLadder: null,      // pre-season MYAC→MYM→Extension ladder boundaries. contractDeadline is an ISO day from the league calendar; seasonStartMs / mymWindowEndMs / extensionWindowEndMs are NFL Week 1/3/5 first-kickoff INSTANTS (epoch ms) from MFL's nflSchedule, with ISO twins for display only. null/"" = unknown, which is never "open". See fetchContractCalendar.
     acquisitionByKey: null,    // { "fid:pid": { label, date } } from player_acquisition_lookup_<year>.json — gates the MYAC fresh-FA-auction branch (desktop mergeAcquisitionLookupRows)
     acquisitionFromTxByKey: null, // { "fid:pid": { label, date, unix } } — waiver/FA adds parsed from MFL's live transaction log; leads the static lookup when newer (see acquisitionForPlayer)
     injuriesByPid: null,       // { pid: "IR"|"OUT"|"PUP"|"SUSPENDED"|... } from MFL injuries export — IR view §B3 "eligible to option down" bucket
@@ -497,21 +497,44 @@
   //   Multi-Year Contract (MYAC)  now              → contract deadline
   //   Mid-Year Multi (MYM)        contract deadline → NFL Week 3 kickoff
   //   Extension                   Week 3 kickoff    → NFL Week 5 kickoff
-  // Week 3 / Week 5 are the league calendar's OWN `preseason_mymdeadline` and
-  // `preseason_extensiondeadline` rows — the client cannot read MFL's
-  // nflSchedule (TYPE=nflSchedule is not on the /api/mfl-export allowlist and
-  // must go to api.myfantasyleague.com), and per the no-invention rule we
-  // publish only dates the league actually holds. A boundary that isn't on the
-  // calendar comes back "" and the window it bounds is treated as UNRESOLVED
-  // by front_office_actions.js — never as open, never with a guessed date.
   //
-  // Returns { contractDeadline, seasonStart, mymWindowEnd, extensionWindowEnd },
-  // each ISO yyyy-mm-dd or "".
+  // SOURCES, and why they differ:
+  //   • the September contract deadline is COMMISH-OWNED — it is a league
+  //     decision, it lives in the league calendar (`ups_contract_deadline`),
+  //     and it is read from there.
+  //   • Week 1 / Week 3 / Week 5 are NFL KICKOFFS. They are facts about the NFL
+  //     schedule, not league decisions, and they come from MFL's own
+  //     nflSchedule via `&kickoffs=1,3,5` on this same request — the SAME
+  //     worker helper the Discord waiver post uses to print these players'
+  //     windows.
+  //
+  // This used to read the calendar's hand-entered `nfl_kickoff`,
+  // `preseason_mymdeadline` and `preseason_extensiondeadline` rows instead, and
+  // they DRIFT from the real schedule: for 2026 the calendar says Week 5 = Oct 7
+  // (real first kickoff Oct 8) and Week 1 = Sep 10 (Week 1 actually opens
+  // WEDNESDAY Sep 9). Mobile therefore printed a different ladder than Discord
+  // did for the same player, which is precisely what the feature exists to
+  // prevent. The client does not fetch nflSchedule itself: TYPE=nflSchedule is
+  // not on the /api/mfl-export allowlist, and adding it there would not work
+  // anyway — that proxy sends league 74598 to the www48 shard, and www48
+  // rejects nflSchedule. A worker-side field on a request mobile already makes
+  // is both cheaper and drift-proof.
+  //
+  // Returns:
+  //   contractDeadline                      ISO yyyy-mm-dd | ""   (calendar)
+  //   seasonStartMs / mymWindowEndMs /
+  //     extensionWindowEndMs                epoch ms | null       (kickoffs)
+  //   seasonStart / mymWindowEnd /
+  //     extensionWindowEnd                  ISO yyyy-mm-dd | ""   (the ET day
+  //                                         of that kickoff — DISPLAY ONLY; the
+  //                                         windows are compared against the ms
+  //                                         instants, never the day)
+  // A boundary that does not resolve is null/"" and the window it bounds is
+  // treated as UNRESOLVED by front_office_actions.js — never as open, never
+  // with a guessed date.
   function ladderEventDate(events, matches, notBefore) {
     // Events arrive date-ASC from the worker. Take the first match that is not
-    // before `notBefore` — every ladder boundary sits on/after the contract
-    // deadline, which is what keeps May's `ups_rookieextension_deadline` from
-    // being read as the September extension boundary.
+    // before `notBefore`.
     for (var i = 0; i < events.length; i += 1) {
       var e = events[i] || {};
       var key = String(e.event || "").toLowerCase().replace(/^ups_/, "").replace(/^preseason_/, "");
@@ -523,31 +546,41 @@
     }
     return "";
   }
+  function emptyContractLadder() {
+    return {
+      contractDeadline: "",
+      seasonStart: "", seasonStartMs: null,
+      mymWindowEnd: "", mymWindowEndMs: null,
+      extensionWindowEnd: "", extensionWindowEndMs: null
+    };
+  }
+  function kickoffMsFrom(map, week) {
+    var v = map ? map[String(week)] : null;
+    var n = typeof v === "number" ? v : parseInt(v, 10);
+    return isFinite(n) && n > 0 ? n * 1000 : null;
+  }
   function fetchContractCalendar(year) {
-    var url = workerUrl("/api/league-events?season=" + encodeURIComponent(year) + "&from=all&limit=50");
-    var empty = { contractDeadline: "", seasonStart: "", mymWindowEnd: "", extensionWindowEnd: "" };
+    var url = workerUrl("/api/league-events?season=" + encodeURIComponent(year) +
+      "&from=all&limit=50&kickoffs=1,3,5");
     return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
-        var evs = (data && data.events) || [];
-        if (!evs.length) return empty;
-        var contractDeadline = ladderEventDate(evs, function (k) { return k.indexOf("contract_deadline") >= 0; }, "");
-        return {
-          contractDeadline: contractDeadline,
-          // NFL Week 1 — the pre-season / in-season line (canon §C4).
-          seasonStart: ladderEventDate(evs, function (k) { return k.indexOf("nfl_kickoff") >= 0; }, ""),
-          // Week 3 kickoff, as the league publishes it.
-          mymWindowEnd: ladderEventDate(evs, function (k) {
-            return k.indexOf("mym") >= 0 && k.indexOf("deadline") >= 0;
-          }, contractDeadline),
-          // Week 5 kickoff. `rookie` is excluded explicitly as well as by the
-          // date floor — `rookieextension_deadline` is a May event.
-          extensionWindowEnd: ladderEventDate(evs, function (k) {
-            return k.indexOf("rookie") < 0 && k.indexOf("extension") >= 0 && k.indexOf("deadline") >= 0;
-          }, contractDeadline)
-        };
+        var out = emptyContractLadder();
+        if (!data) return out;
+        var evs = data.events || [];
+        out.contractDeadline = ladderEventDate(evs, function (k) {
+          return k.indexOf("contract_deadline") >= 0;
+        }, "");
+        var ko = data.week_kickoffs || null;
+        out.seasonStartMs = kickoffMsFrom(ko, 1);          // pre-season / in-season line
+        out.mymWindowEndMs = kickoffMsFrom(ko, 3);         // MYM window closes
+        out.extensionWindowEndMs = kickoffMsFrom(ko, 5);   // Extension window closes
+        out.seasonStart = out.seasonStartMs ? isoEtDayFromUnix(out.seasonStartMs / 1000) : "";
+        out.mymWindowEnd = out.mymWindowEndMs ? isoEtDayFromUnix(out.mymWindowEndMs / 1000) : "";
+        out.extensionWindowEnd = out.extensionWindowEndMs ? isoEtDayFromUnix(out.extensionWindowEndMs / 1000) : "";
+        return out;
       })
-      .catch(function () { return empty; });
+      .catch(function () { return emptyContractLadder(); });
   }
 
   // Acquisition lookup — the commish-maintained
@@ -602,10 +635,22 @@
   // Keyed by FRANCHISE + player, so an add by a PREVIOUS owner is not read as
   // the current owner's acquisition (a player waiver-claimed in March and
   // traded in June was acquired by TRADE, on trade rules).
+  //
+  // NOT fail-soft. Once NFL Week 1 has kicked off, an entire class of contract
+  // — every WW pickup — can only be placed on the right ladder by knowing WHEN
+  // it was acquired, and the static lookup cannot help: it holds ZERO rows dated
+  // this season. If this read fails after Week 1 the classifier answers
+  // "unknown" and withholds the action (correct), but the owner would otherwise
+  // see a silently emptier Contracts tab with no indication anything was wrong.
+  // A failure is pushed to state.loadErrors so the reload banner says so.
   function fetchWaiverAcquisitionIndex(year) {
     return fetchJson(mflExportUrlForYear("transactions", year))
       .then(function (j) {
-        var rows = asArray(j && j.transactions && j.transactions.transaction);
+        // fetchJson already recorded a transport failure (it returns null and
+        // pushes to loadErrors), so don't double-count it — just stop.
+        if (!j) return {};
+        if (!j.transactions) throw new Error("transactions export had no transactions");
+        var rows = asArray(j.transactions.transaction);
         var map = {};
         rows.forEach(function (t) {
           if (!t) return;
@@ -633,7 +678,11 @@
         });
         return map;
       })
-      .catch(function () { return {}; });
+      .catch(function (err) {
+        state.loadErrors.push("waiver acquisitions (transactions): " +
+          (err && err.message ? err.message : String(err)));
+        return {};
+      });
   }
   // Unix seconds → the ISO calendar day in Eastern time (the timezone every UPS
   // deadline is expressed in). Returns "" rather than a fallback date.
@@ -986,8 +1035,7 @@
       state.historicalDraftByPid = results[15] || {};
       var taxiCallupsResp = results[16] || { players: {} };
       state.taxiCallupsByPid = (taxiCallupsResp && taxiCallupsResp.players) || {};
-      state.contractLadder = results[17] ||
-        { contractDeadline: "", seasonStart: "", mymWindowEnd: "", extensionWindowEnd: "" };
+      state.contractLadder = results[17] || emptyContractLadder();
       state.contractDeadline = state.contractLadder.contractDeadline || "";
       state.acquisitionByKey = results[18] || {};
       state.acquisitionFromTxByKey = results[22] || {};

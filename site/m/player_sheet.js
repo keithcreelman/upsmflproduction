@@ -14,6 +14,19 @@
   var activeTab = "actions";   // player sheet tab: actions | stats | bio
   var currentBundle = null;    // /api/player-bundle result for the open player
 
+  // "2026-10-08" → "Oct 8, 2026". Same shape the Contracts list prints, so a
+  // window date reads identically wherever the owner meets it. Parsed as a
+  // plain y/m/d — never through Date's timezone handling, which would shift an
+  // ISO day back one in every US timezone.
+  var SHEET_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function prettyIsoDay(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(U.safeStr(iso));
+    if (!m) return U.safeStr(iso);
+    var mo = parseInt(m[2], 10);
+    if (!(mo >= 1 && mo <= 12)) return U.safeStr(iso);
+    return SHEET_MONTHS[mo - 1] + " " + parseInt(m[3], 10) + ", " + m[1];
+  }
+
   function ensureMount() {
     var mount = document.getElementById("ups-m-sheet-mount");
     if (!mount) return null;
@@ -406,9 +419,21 @@
       // extensionEligible when myacEligible (desktop parity: nobody extends
       // when they can MYAC). Flat submits directly; Loaded opens a Y1 free-key
       // form. Mirrors v2/front_office.js renderActions MYAC block (2955).
+      // A player on the pre-season ladder gets THEIR window's end date, which is
+      // the same boundary the Contracts list and the Discord waiver post print
+      // for them. Everyone else keeps the league-wide September deadline.
+      // ladderWindowEnd is "" when the boundary could not be resolved — and in
+      // that case eligibility has already withheld the action, so this only ever
+      // decorates a window we actually established.
+      var ladderOrDeadlineNote = function (label) {
+        var iso = U.safeStr(elig.ladderWindowEnd);
+        if (elig.ladderStage) {
+          return iso ? ' ' + label + ' ' + U.escapeHtml(prettyIsoDay(iso)) + '.' : '';
+        }
+        return s.contractDeadline ? ' ' + label + ' ' + U.escapeHtml(s.contractDeadline) + '.' : '';
+      };
       if (elig.myacEligible) {
-        var dlNote = s.contractDeadline
-          ? ' Window closes ' + U.escapeHtml(s.contractDeadline) + '.' : '';
+        var dlNote = ladderOrDeadlineNote('Window closes');
         html += '<div class="ups-m-myac-head">Multi-Year Contract (MYAC) · §C2' +
           '<span class="ups-m-myac-sub">Set this 1-yr deal to 2 or 3 years at the same salary — no raise. ' +
           '<strong>Loaded</strong> free-keys Y1 (FL/BL).' + dlNote + '</span></div>';
@@ -426,11 +451,27 @@
       // 3-year deal at the same base salary within 14 days of acquisition (no
       // raise, cannot be loaded; max 4/team/season). Math + payload live in
       // front_office_mym_submit.js (UPS_M_FO_MYM); worker route /offer-mym.
+      // MYM reaches this sheet by TWO different rules and they are not
+      // interchangeable, so the copy must not be either:
+      //   • rung 2 of the pre-season ladder — a window that runs to NFL Week 3's
+      //     kickoff, with nothing to do with when the player was picked up;
+      //   • the §C3 IN-SEASON clock — days 1-14 from the acquisition date.
+      // The sheet used to print the day-based wording for both, because
+      // eligibility handed it a day-count either way. It now takes the branch
+      // from ladderStage — the SAME field the eligibility gate itself used —
+      // and mymDaysSinceAcq is null for ladder players, so the two cannot part
+      // company.
       if (elig.mymEligible) {
-        var mymDayNote = (elig.mymDaysSinceAcq != null)
-          ? ' Day ' + elig.mymDaysSinceAcq + ' of 14.' : '';
+        var mymBlurb, mymNote;
+        if (elig.ladderStage === "mym") {
+          mymBlurb = 'Lock this pre-season pickup into a flat 2- or 3-year deal at the same salary — no raise, can\'t be loaded. Max 4 per team a season.';
+          mymNote = ladderOrDeadlineNote('Window closes at NFL Week 3 kickoff,');
+        } else {
+          mymBlurb = 'Lock this in-season pickup into a flat 2- or 3-year deal at the same salary — no raise, can\'t be loaded. Max 4 per team a season.';
+          mymNote = (elig.mymDaysSinceAcq != null) ? ' Day ' + elig.mymDaysSinceAcq + ' of 14.' : '';
+        }
         html += '<div class="ups-m-myac-head">Mid-Year Multi (MYM) · §C3' +
-          '<span class="ups-m-myac-sub">Lock this in-season pickup into a flat 2- or 3-year deal at the same salary — no raise, can\'t be loaded. Max 4 per team a season.' + mymDayNote + '</span></div>';
+          '<span class="ups-m-myac-sub">' + mymBlurb + mymNote + '</span></div>';
         html += '<div class="ups-m-sheet-actions">' +
           '<button class="btn-act mym" data-act="contract" data-contract-action="mym" data-mym-total="2">2-Year</button>' +
           '<button class="btn-act mym" data-act="contract" data-contract-action="mym" data-mym-total="3">3-Year</button>' +
