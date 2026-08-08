@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'check | migrate | dryrun | fire | firelive'
+        description: 'check | migrate | dryrun | fire | firelive | inspect'
         required: true
         default: 'check'
 
@@ -31,6 +31,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       KEY: ${{ secrets.COMMISH_API_KEY }}
+      BOT: ${{ secrets.DISCORD_BOT_TOKEN }}
       WORKER: https://upsmflproduction.keith-creelman.workers.dev
       MODE: ${{ github.event.inputs.mode }}
       DB: ups-mfl-db
@@ -111,3 +112,30 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"season":"2026","league_id":"74598","target":"prod","limit":20}' \
             | python3 -m json.tool | head -200
+
+      - name: inspect — what is actually in the thread + live flag state
+        if: ${{ github.event.inputs.mode == 'inspect' }}
+        run: |
+          echo "### effective feature flags (D1 override beats wrangler.toml)"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT value FROM ups_settings WHERE key='feature_flags'"
+          echo
+          echo "### newest add rows"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT id, player_name, discord_posted, discord_channel_id, discord_message_id, discord_parent_message_id FROM ups_add_events WHERE season='2026' ORDER BY id DESC LIMIT 4"
+          echo
+          echo "### messages inside the Aug-8 thread 1535635120026034229"
+          curl -sS -H "Authorization: Bot $BOT" \
+            "https://discord.com/api/v10/channels/1535635120026034229/messages?limit=20" \
+            | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception as e: print('  parse fail', e); raise SystemExit
+if isinstance(d,dict): print('  ERROR:', json.dumps(d)[:300]); raise SystemExit
+print(f'  {len(d)} message(s) in thread')
+for m in reversed(d):
+    emb=m.get('embeds') or []
+    kind='GIF' if (emb and emb[0].get('image')) else ('embed' if emb else 'text')
+    body=(m.get('content') or '').replace(chr(10),' | ')[:150]
+    print(f\"   [{kind}] {body}\")
+"
