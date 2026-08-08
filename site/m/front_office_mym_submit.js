@@ -69,6 +69,12 @@
     var t = safeStr(contractStatus).toLowerCase();
     var acq = safeStr(acqLabel).toLowerCase();
     if (/rookie/.test(t)) return "MYM-Rookie";
+    // The STATUS answers this whenever MFL has stamped one ("Vet-WW",
+    // "Vet-WW-BL"). The acquisition label alone did not: it comes from the
+    // static player_acquisition_lookup_<year>.json, which is regenerated
+    // periodically and does not contain a claim made this week — so a real WW
+    // pickup was being recorded as Veteran-MYM.
+    if (/\bww\b/.test(t)) return "WW-MYM";
     if (/\b(ww|fcfs|blind|waiver|free agent)\b/.test(acq) && acq.indexOf("auction") === -1) return "WW-MYM";
     return "Veteran-MYM";
   }

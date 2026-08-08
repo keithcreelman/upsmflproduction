@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.08.2",
-  "label": "Waivers: submitting a verified claim now returns you to the Market, toasts are visible again (they were painted behind the claims screen), editing a bid keeps its priority slot, and the Market Bid button opens the claim you already made."
+  "build": "2026.08.08.5",
+  "label": "Contracts: pre-season waiver pickups (Vet-WW) can take a multi-year deal, and every contract window — MYAC, MYM, Extension — is offered only inside its own window. The Week 3 / Week 5 boundaries now come from the real NFL kickoffs, so the app and the Discord waiver post print the same dates for the same player."
 }

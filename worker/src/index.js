@@ -1797,6 +1797,59 @@ const _nflWeek1Iso = (year) => {
   const kickoff = new Date(Date.UTC(y, 8, firstMonday + 3));
   return kickoff.toISOString().slice(0, 10);
 };
+// ── FIRST kickoff of an NFL week, from MFL's own schedule ────────────────────
+// THE single implementation. Two surfaces publish these boundaries — the Discord
+// waiver post (/admin/waivers/post-discord) and the mobile contract ladder (via
+// GET /api/league-events?kickoffs=) — and they must never be able to disagree
+// about when a week starts, so neither computes it: both call this.
+//
+// Keith 2026-08-07, ruling on this directly: "earliest game of the week,
+// typically that's thursday but this yr it's wednesday." Canon's wording is
+// "kickoff of Thursday Night Football" (league_context_v1.md ~1211/1214), but
+// that phrasing describes the usual embodiment of the rule, not the rule — the
+// intent is "when the week starts playing". Taking Thursday literally would put
+// the 2026 preseason boundary a day LATE, because Week 1 opens Wednesday Sep 9.
+//
+// HOST: TYPE=nflSchedule is a GLOBAL NFL export, not a league one. www48 answers
+// it with {"error":"This API request must go to api.myfantasyleague.com"}, so it
+// must go to api.* — and with NO L and NO cookie, which is what invites the
+// redirect. This is also why it is not reachable through /api/mfl-export (whose
+// host selection sends league 74598 to the www48 shard).
+//
+// Returns 0 — never a guess — when the schedule does not answer. Callers must
+// treat 0 as "unresolved", never as a date.
+// Memo lives on the isolate, so give it a TTL rather than letting a long-lived
+// isolate pin a stale answer: the NFL does flex-schedule games, and while the
+// week's OPENING game is fixed far in advance, "far in advance" is not "never".
+const _nflWeekKickoffCache = new Map();
+const _NFL_KICKOFF_TTL_MS = 3600 * 1000;
+async function nflWeekFirstKickoffUnix(season, week) {
+  const yr = String(season || "").replace(/\D/g, "");
+  const w = parseInt(week, 10);
+  if (!yr || !(w >= 1)) return 0;
+  const key = `${yr}|${w}`;
+  const memo = _nflWeekKickoffCache.get(key);
+  if (memo && Date.now() - memo.at < _NFL_KICKOFF_TTL_MS) return memo.unix;
+  let earliest = 0;
+  try {
+    const res = await fetch(
+      `https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=nflSchedule&W=${encodeURIComponent(String(w))}&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 3600 } }
+    );
+    const data = res.ok ? await res.json().catch(() => null) : null;
+    const matchups = data && data.nflSchedule && data.nflSchedule.matchup;
+    for (const m of (Array.isArray(matchups) ? matchups : matchups ? [matchups] : [])) {
+      const ko = parseInt(m && m.kickoff, 10);
+      if (ko > 0 && (!earliest || ko < earliest)) earliest = ko;
+    }
+  } catch (_) {
+    earliest = 0;
+  }
+  // Only a real answer is cached. A failure must be retried, not remembered.
+  if (earliest > 0) _nflWeekKickoffCache.set(key, { unix: earliest, at: Date.now() });
+  return earliest;
+}
+
 // NFL regular-season week for a unix timestamp (0 = preseason / outside weeks 1-17).
 const _nflWeekForUnix = (unixSec, year) => {
   const wk1 = _nflWeek1Iso(year);
@@ -15399,7 +15452,44 @@ export default {
               LIMIT ${lim}`
           );
           const res = await stmt.bind(...binds).all();
-          return jsonOut(200, { ok: true, season, events: res.results || [] });
+          const out = { ok: true, season, events: res.results || [] };
+
+          // ── &kickoffs=1,3,5 → week_kickoffs: { "1": <unix>, "3": ..., "5": ... }
+          //
+          // The pre-season contract ladder's Week 3 / Week 5 boundaries are NFL
+          // kickoffs, not calendar rows. The league_events table carries
+          // hand-entered `preseason_mymdeadline` / `preseason_extensiondeadline`
+          // approximations of them, and they DRIFT: for 2026 the table says
+          // Week 5 = Oct 7 while the real first game of Week 5 kicks off Oct 8,
+          // and it says Week 1 = Sep 10 while Week 1 actually opens WEDNESDAY
+          // Sep 9. The Discord waiver post has always used the real kickoffs, so
+          // the mobile app reading the calendar rows made the two surfaces
+          // disagree about the same player's window.
+          //
+          // Serving the kickoffs from here — off the SAME nflWeekFirstKickoffUnix
+          // the Discord post calls — removes the second source. It rides on the
+          // request mobile already makes rather than adding a client fetch:
+          // TYPE=nflSchedule is not on the /api/mfl-export allowlist, and could
+          // not simply be added to it, because that proxy routes league 74598 to
+          // the www48 shard and www48 rejects nflSchedule outright.
+          //
+          // A week that does not resolve is reported as null — never a guessed
+          // date, and never silently dropped to a neighbouring calendar row. The
+          // client refuses to open a window on a null boundary.
+          const kickoffParam = safeStr(url.searchParams.get("kickoffs") || "");
+          if (kickoffParam) {
+            const weeks = [];
+            for (const raw of kickoffParam.split(",")) {
+              const w = parseInt(String(raw).replace(/\D/g, ""), 10);
+              if (w >= 1 && w <= 18 && weeks.indexOf(w) < 0) weeks.push(w);
+            }
+            const unixes = await Promise.all(weeks.map((w) => nflWeekFirstKickoffUnix(season, w)));
+            const map = {};
+            weeks.forEach((w, i) => { map[String(w)] = unixes[i] > 0 ? unixes[i] : null; });
+            out.week_kickoffs = map;
+            out.week_kickoffs_source = "mfl_nflSchedule_first_kickoff";
+          }
+          return jsonOut(200, out);
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -39014,46 +39104,16 @@ export default {
         };
 
         // FIRST kickoff of an NFL week — the week's opening game, whatever day
-        // it falls on.
-        //
-        // Keith 2026-08-07, ruling on this directly: "earliest game of the week,
-        // typically that's thursday but this yr it's wednesday." Canon's wording
-        // is "kickoff of Thursday Night Football" (league_context_v1.md
-        // ~1211/1214), but that phrasing describes the usual embodiment of the
-        // rule, not the rule — the intent is "when the week starts playing".
-        // Taking Thursday literally would put the 2026 preseason boundary a day
-        // LATE, because Week 1 opens Wednesday Sep 9. Earliest is the rule.
-        //
-        // Weeks 3 and 5 (the MYM and extension deadlines) open on Thursday
-        // anyway, so this only actually moves Week 1 — which is the
-        // preseason/in-season boundary, and therefore selects which eligibility
-        // ladder a pickup is judged by. Worth getting right.
-        //
-        // WRONG HOST was the reason this came back empty: nflSchedule is a
-        // GLOBAL NFL export, not a league one, and www48 answers it with
-        // {"error":"This API request must go to api.myfantasyleague.com"}.
-        // mflExportJson targets www48, so every lookup failed silently and the
-        // eligibility block printed with no dates at all. The working
-        // precedents in this file (~14288, ~14471) hit the api host directly.
-        // No L and no cookie — it is not league-scoped, and sending them is
-        // what invites the redirect.
+        // it falls on. Delegates to the module-level nflWeekFirstKickoffUnix,
+        // which is the SINGLE implementation shared with the mobile contract
+        // ladder (served by GET /api/league-events?kickoffs=). The two surfaces
+        // print the same window to the same owner about the same player, so
+        // neither is allowed its own copy of "when does the week start".
+        // See that helper for the Thursday-vs-earliest ruling and the host rule.
         const apWeekKickoffUnix = async (week) => {
           const w = safeInt(week, 0);
           if (apKickoffByWeek.has(w)) return apKickoffByWeek.get(w);
-          let earliest = 0;
-          try {
-            const schedRes = await fetch(
-              `https://api.myfantasyleague.com/${encodeURIComponent(apSeason)}/export?TYPE=nflSchedule&W=${encodeURIComponent(String(w))}&JSON=1`,
-              { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 3600 } }
-            );
-            const schedData = schedRes.ok ? await schedRes.json().catch(() => null) : null;
-            for (const m of asArray(schedData?.nflSchedule?.matchup)) {
-              const ko = safeInt(m?.kickoff, 0);
-              if (ko > 0 && (!earliest || ko < earliest)) earliest = ko;
-            }
-          } catch (_) {
-            earliest = 0;
-          }
+          const earliest = await nflWeekFirstKickoffUnix(apSeason, w);
           apKickoffByWeek.set(w, earliest);
           return earliest;
         };
