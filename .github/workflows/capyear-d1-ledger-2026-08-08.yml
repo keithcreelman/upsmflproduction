@@ -1,0 +1,64 @@
+name: Cap-year D1 ledger (one-off, 2026-08-08)
+
+# D1 half of the mis-filed drop-penalty repair. The MFL half is already DONE:
+# the commish deleted both adjustments by hand on 2026-08-08 (option B — MFL's
+# API cannot delete a salaryAdjustment, so a hand-delete keeps the ledger
+# visually clean instead of leaving four rows that net to zero).
+#
+# Verified before this was written: both ids are gone from
+# export?TYPE=salaryAdjustments (58 -> 56 rows), no offsetting entries exist,
+# and fid 0006's adjustment total moved -13,000 -> -15,000, i.e. $2,000 of cap
+# space returned.
+#
+# This moves the two ups_drop_events rows onto the 2027 ledger so the rollover
+# still collects the money.
+#
+#   schema  — hand-applies migration 0125 (adds the cap-season columns)
+#   verify  — read-only: confirms MFL really is clean and shows the D1 rows
+#   ledger  — applies the guarded manual SQL (PRE/POST assertions abort on drift)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'verify | schema | ledger'
+        required: true
+        default: 'verify'
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      DB: ups-mfl-db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: guard
+        run: '[ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::CLOUDFLARE_API_TOKEN not set"; exit 1; }'
+
+      - name: verify — MFL clean + current D1 state (read-only)
+        if: ${{ github.event.inputs.mode == 'verify' }}
+        run: |
+          curl -sS "https://www48.myfantasyleague.com/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1" -o /tmp/adj.json
+          python3 scripts/ci_check_capyear_repair.py /tmp/adj.json
+          echo "### the two D1 rows as they stand"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json --command "SELECT ledger_key, player_name, franchise_id, penalty_amount, posted_to_mfl FROM ups_drop_events WHERE ledger_key IN ('17254_1786195613','17205_1786195656')"
+
+      - name: schema — hand-apply migration 0125
+        if: ${{ github.event.inputs.mode == 'schema' }}
+        run: |
+          npx --yes wrangler@4 d1 execute "$DB" --remote --file worker/migrations/0125_drop_events_cap_season.sql
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json --command "SELECT name FROM pragma_table_info('ups_drop_events')" | grep -q applies_to_season \
+            && echo "applies_to_season present" || { echo "::error::column missing after migration"; exit 1; }
+
+      - name: ledger — move both rows to the 2027 cap
+        if: ${{ github.event.inputs.mode == 'ledger' }}
+        run: |
+          npx --yes wrangler@4 d1 execute "$DB" --remote --file worker/migrations/manual/2026-08-08_misfiled_drop_penalties_capyear.sql
+          echo "### after"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json --command "SELECT ledger_key, player_name, franchise_id, penalty_amount, applies_to_season, posted_to_mfl FROM ups_drop_events WHERE ledger_key IN ('17254_1786195613','17205_1786195656')"
