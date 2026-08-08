@@ -208,6 +208,12 @@
                                 //   [{round, picks:[{add_pid,bid_dollars,drop_pid}], clear}]
                                 // clear:true + picks:[] = "clear this round at MFL"
     waiverPlanVerified: "",     // signature of the last plan the server verified
+                                // (THIS SESSION only — a plan restored from
+                                // storage deliberately reads as dirty)
+    waiverMflSig: null,         // mflHoldingsSignature() of what MFL was holding
+                                // when this plan was last hydrated from it.
+                                // PERSISTED with the plan; null = never seen,
+                                // which is UNKNOWN, not "MFL holds nothing".
     capPenaltyByPid: null,      // /api/cap-penalty/preview BATCH — authoritative drop penalties
     loaded: false,
     loadingPromise: null,
@@ -1694,6 +1700,31 @@
       })];
     }));
   }
+  // Signature of what MFL ITSELF is holding, taken from a `{known, rounds}`
+  // envelope (/pending, or a submit's `verified` block). This is the basis the
+  // Claims screen compares against to notice that MFL's copy moved underneath
+  // it — a waiver run processing, another device, the commish.
+  //
+  // Returns null — not "", not "[]" — for anything that is not `known:true`.
+  // An unreadable MFL read is UNKNOWN and must compare neither equal nor
+  // unequal to anything (contract v2 §1); callers check for a string.
+  //
+  // Deliberately NOT planSignature. Rounds are a SET keyed by round number, so
+  // they are sorted: two reads of an unchanged MFL that come back in a
+  // different round order must not read as a change. Pick order INSIDE a round
+  // is left alone — that order is MFL's claim priority, so a reshuffle there
+  // is a genuine change. planSignature answers "did the owner edit" and stays
+  // fully order-sensitive; this one answers "is MFL holding the same thing".
+  function mflHoldingsSignature(block) {
+    if (!block || block.known !== true || !Array.isArray(block.rounds)) return null;
+    var rounds = (block.rounds || []).map(function (g) {
+      return [safeInt(g.round, 0), (g.picks || []).map(function (p) {
+        return [String(p.add_pid || ""), safeInt(p.bid_dollars, 0), String(p.drop_pid || "")];
+      })];
+    }).filter(function (g) { return g[0] > 0 && g[1].length; });
+    rounds.sort(function (a, b) { return a[0] - b[0]; });
+    return JSON.stringify(rounds);
+  }
   // The in-memory copy is keyed so a team switch (or a season/league change)
   // can never surface the previous franchise's staged claims.
   var _waiverPlanCacheKey = "";
@@ -1705,7 +1736,22 @@
       var raw = window.localStorage && window.localStorage.getItem(key);
       if (raw) stored = JSON.parse(raw);
     } catch (e) { stored = null; }
-    state.waiverPlan = Array.isArray(stored) ? stored : [];
+    // Two on-disk shapes, read in one place so they can't drift:
+    //   { plan:[...], mfl:"<sig>" }  current — the plan and the MFL holdings
+    //                                it was hydrated against, stored together
+    //                                so a restored plan can never be paired
+    //                                with a basis from some other read.
+    //   [...]                        v1, written before the basis existed.
+    // A missing/blank basis stays null: UNKNOWN, never "MFL was holding
+    // nothing". Callers do nothing at all with null rather than infer a change
+    // that may not have happened.
+    if (stored && !Array.isArray(stored) && Array.isArray(stored.plan)) {
+      state.waiverPlan = stored.plan;
+      state.waiverMflSig = (typeof stored.mfl === "string") ? stored.mfl : null;
+    } else {
+      state.waiverPlan = Array.isArray(stored) ? stored : [];
+      state.waiverMflSig = null;
+    }
     _waiverPlanCacheKey = key;
     // A plan loaded from storage was never echoed back by the server in THIS
     // session, so it reads as "edited — not submitted" until a submit or a
@@ -1733,7 +1779,14 @@
     });
     try {
       if (window.localStorage) {
-        window.localStorage.setItem(waiverPlanKey(), JSON.stringify(state.waiverPlan));
+        // The MFL basis rides in the SAME record as the plan — one key, one
+        // write, so the two can never be restored out of step with each other.
+        // Local edits do not disturb it: "what MFL was holding when we last
+        // looked" is a fact about MFL, not about the draft on top of it.
+        window.localStorage.setItem(waiverPlanKey(), JSON.stringify({
+          plan: state.waiverPlan,
+          mfl: (typeof state.waiverMflSig === "string") ? state.waiverMflSig : null
+        }));
       }
     } catch (e) {}
     return state.waiverPlan;
@@ -1806,6 +1859,10 @@
         })
       };
     }).filter(function (g) { return g.round > 0 && g.picks.length; });
+    // Record what MFL was holding at THIS hydration before the plan is written
+    // — setWaiverPlan persists the two together. This is the basis the Claims
+    // screen later re-reads MFL against to notice its copy has moved.
+    state.waiverMflSig = mflHoldingsSignature(block);
     setWaiverPlan(normalized);
     state.waiverPlanVerified = planSignature(state.waiverPlan);
     return true;
@@ -2591,6 +2648,13 @@
       // treating `rounds` as anything (contract v2 §1).
       getPending: function () { return state.waiverPending; },
       isDirty: waiverPlanDirty,
+      // What MFL was holding the last time this plan was hydrated from it, and
+      // the function that puts a fresh /pending envelope in the same terms.
+      // Compare the two to learn that MFL's copy moved. Either can be null =
+      // UNKNOWN; a caller that gets null must do nothing rather than guess.
+      // getPlan() first, so a plan (and basis) still on disk is hydrated.
+      mflBasis: function () { getWaiverPlan(); return state.waiverMflSig; },
+      mflSignature: mflHoldingsSignature,
       adoptVerified: adoptVerifiedPlan,
       errorMessage: waiverErrorMessage
     },
