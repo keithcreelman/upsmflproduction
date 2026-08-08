@@ -1088,6 +1088,88 @@
   // the page scroll). renderClaimsScreen bails when this is false.
   var claimsOpen = false;
 
+  // ── "A waiver run happened while you weren't looking" ──────────────────
+  //
+  // Keith 2026-08-08: after the Sunday 9:00 AM BBID run, this screen still
+  // showed a claim for a player he had ALREADY WON in that run, with the
+  // button reading "Submit 2 claims" — submitting would have re-claimed a
+  // player he owns.
+  //
+  // MFL is NOT at fault and there is nothing to withdraw: MFL clears granted
+  // claims when the run processes, and /api/waivers/pending reads MFL live.
+  // The stale thing is the CLIENT'S LOCAL DRAFT PLAN, which survives the run
+  // — which is exactly why "Reload from MFL" fixed the screen.
+  //
+  // There is no "last run" field to key off, so we use the one that DOES move:
+  // MFL advances `next_bbid_run_unix` to the FOLLOWING run once a run
+  // processes. Record it when the plan is hydrated from MFL; if the current
+  // one is LATER, a run has been through since.
+  //
+  // 0 means UNKNOWN, never "no run" — see currentBbidRunUnix.
+  var claimsRunBaseline = 0;
+  // Set only in the dirty case: a run processed and we refuse to swap the
+  // plan out from under unsent edits, so the screen says so instead.
+  var claimsRunStale = false;
+
+  // The run stamp we can currently SEE, or 0 when we can't see one.
+  //
+  // U.safeInt would flatten missing / null / "later" alike to 0, and 0 here
+  // has to mean "we don't know", never "there is no run" — every caller
+  // treats 0 as a reason to do nothing at all. So the raw value is checked
+  // for numeric-ness before it is trusted.
+  function currentBbidRunUnix() {
+    var st = M.state && M.state.waiverState;
+    var w = (st && st.window) || null;
+    if (!w) return 0;
+    var raw = w.next_bbid_run_unix;
+    if (raw === null || raw === undefined || raw === "" || typeof raw === "boolean") return 0;
+    if (!isFinite(Number(raw))) return 0;
+    var n = U.safeInt(raw, 0);
+    return n > 0 ? n : 0;
+  }
+
+  // "What's on screen is MFL's own copy, as of this run window." Called from
+  // every path that adopts a verified block. When the run stamp is unreadable
+  // we record 0 (unknown) rather than an assumption — a wrong baseline is how
+  // this feature would grow the power to nag about runs that never happened.
+  function markPlanFreshVsRun() {
+    claimsRunBaseline = currentBbidRunUnix();
+    claimsRunStale = false;
+  }
+
+  // Re-read the waiver state and decide whether a run has processed since the
+  // on-screen plan was hydrated. Makes NO writes — one extra GET, that's all.
+  //
+  // Every uncertain outcome falls through to "do nothing and leave the screen
+  // exactly as it is": no state, no run stamp, no baseline yet. fetchState
+  // resolves with the PREVIOUS state on a failed read, so a dead endpoint
+  // simply compares equal to the baseline and nothing fires.
+  function checkWaiverRunProcessed() {
+    if (!M.waivers || !M.waivers.fetchState) return;
+    var before = claimsRunBaseline;
+    M.waivers.fetchState(true).then(function () {
+      // Screen was dismissed, or something re-hydrated the plan while this was
+      // in flight — either way this answer is about a screen that's gone.
+      if (!claimsOpen) return;
+      if (claimsRunBaseline !== before) return;
+      var now = currentBbidRunUnix();
+      if (!now) return;                       // unreadable → assert nothing
+      if (!before) { claimsRunBaseline = now; return; }   // first sighting: baseline only
+      if (now <= before) return;              // no run has processed
+      // A run HAS processed. Unsent work on screen is never swapped out from
+      // under the owner — reloadClaimsFromServer is a whole-plan replace, and
+      // the manual control confirms first for exactly this reason. Say what
+      // happened and let them press Reload themselves.
+      if (planIsDirty() && (stagedCount() || clearCount())) {
+        claimsRunStale = true;
+        renderClaimsScreen();
+        return;
+      }
+      // Clean plan: nothing unsent can be lost, so adopt MFL's copy.
+      reloadClaimsFromServer();
+    }).catch(function () { /* unreadable → leave the screen alone */ });
+  }
+
   function claimsScreenHtml() {
     var lim = waiverLimits();
     var plan = stagedPlan();
@@ -1217,6 +1299,24 @@
       ? '<span class="ups-m-claims-dirty">Edited — not submitted</span>'
       : (total ? '<span class="ups-m-claims-clean">Submitted &amp; verified</span>' : "");
 
+    // A waiver run went through while these edits were sitting here unsent.
+    // Non-destructive by construction: it states the fact and hands over the
+    // SAME "Reload from MFL" control the footer carries — data-act and all, so
+    // it runs through onClaimsClick's confirm before anything is replaced. The
+    // plan is not touched by showing this. The owner decides.
+    //
+    // Classes are ones app.css already defines (this is a players.js-only
+    // change): the notice box, and the footer's own button styling.
+    var runStale = claimsRunStale
+      ? '<div class="ups-m-claims-notice warn">' +
+          'A waiver run has processed since these claims were loaded, so what’s ' +
+          'on this screen is out of date — anyone you won is still listed here. ' +
+          'Reload before you submit, or you’ll re-claim a player you already own.' +
+          '<div><button class="ups-m-bid-btn ghost" data-act="claims-refresh">' +
+            'Reload from MFL</button></div>' +
+        '</div>'
+      : "";
+
     var notice = claimsNotice
       ? '<div class="ups-m-claims-notice ' + (claimsNotice.tone === "ok" ? "ok" : "warn") + '">' +
           U.escapeHtml(claimsNotice.text) +
@@ -1292,6 +1392,7 @@
           (status ? '<div class="ups-m-claims-status">' + status + '</div>' : '') +
         '</header>' +
         '<div class="ups-m-claims-body" id="ups-m-claims-body">' +
+          runStale +
           notice +
           preview +
           body +
@@ -1573,6 +1674,9 @@
     M.waivers.fetchPending().then(function (resp) {
       claimsPreview = null;
       if (M.waivers.adoptVerified(resp)) {
+        // On screen == MFL's copy again, so the stale-run banner (and the
+        // baseline behind it) is re-stamped against the CURRENT run window.
+        markPlanFreshVsRun();
         var n = stagedCount();
         claimsNotice = { tone: "ok", text: n
           ? ("Loaded " + n + (n === 1 ? " claim" : " claims") + " from MFL.")
@@ -1663,6 +1767,9 @@
       // MFL wrote (or may have written) but we could not read it back: keep
       // the local plan and say so, rather than silently blanking the screen.
       var adopted = M.waivers.adoptVerified(resp && resp.verified);
+      // A verified read-back is a hydration like any other — re-stamp which
+      // run window the on-screen plan is current as of.
+      if (adopted) markPlanFreshVsRun();
       var rawWarn = (resp && resp.warnings) || [];
       var warn = rawWarn.map(function (w) {
         return U.safeStr(w && (w.message || w.code));
@@ -1915,7 +2022,8 @@
     if (willFetch) {
       M.waivers.fetchPending().then(function (resp) {
         claimsLoading = false;
-        if (!M.waivers.adoptVerified(resp)) {
+        if (M.waivers.adoptVerified(resp)) markPlanFreshVsRun();
+        else {
           claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
         }
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
@@ -1929,7 +2037,22 @@
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       });
     }
+    // Only the local-draft path needs the run check: `willFetch` means we are
+    // already adopting MFL's own copy, which is the freshest thing there is.
+    // What survives a run — and what Keith was looking at — is a plan that was
+    // hydrated BEFORE the run and has been sitting in memory ever since.
+    if (!willFetch) checkWaiverRunProcessed();
   }
+
+  // Backgrounding the PWA across a 9:00 AM run is the ordinary way to hit this:
+  // the screen is left open, the run processes, and coming back shows claims
+  // for players you already own. Re-check on return to the foreground — no
+  // timer, no polling, and nothing at all unless the claims screen is up.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (!claimsOpen) return;
+    checkWaiverRunProcessed();
+  });
 
   function bind(mount) {
     var search = document.getElementById("ups-m-players-search");
