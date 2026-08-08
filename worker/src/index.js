@@ -12,6 +12,7 @@ import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } f
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
+import { buildLeagueEvents } from "./league_events_ladder.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -15980,12 +15981,26 @@ export default {
       }
 
       // ── GET /api/league-events — UPS calendar (deadlines + milestones) ──
-      // Source: D1 `league_events` table (migration 0026). Read-only.
+      // Source: D1 `league_events` table (migration 0026) for the COMMISH-OWNED
+      // rows, and MFL's own nflSchedule for the two rungs of the pre-season
+      // contract ladder that are NFL facts rather than league decisions:
+      //   preseason_mymdeadline        = first kickoff of NFL Week 3
+      //   preseason_extensiondeadline  = first kickoff of NFL Week 5
+      // Both are resolved through nflWeekFirstKickoffUnix — the SAME helper the
+      // Discord waiver post and the mobile ladder call — so no surface can hold
+      // a different answer, and a new season needs no seeding. Precedence and
+      // the no-fail-open rule live in worker/src/league_events_ladder.js.
+      // The September `ups_contract_deadline` is commish-owned and is served
+      // verbatim from the table; it is NOT derived here.
+      // Read-only.
       // Usage: /api/league-events?season=2026&from=today&limit=10
       //   season  - 4-digit year; defaults to the worker's YEAR / current year
       //   from    - 'today' (default) returns events on/after today; 'all'
       //             returns the full season; an ISO date filters from that.
       //   limit   - max rows; default 10, hard cap 50.
+      // Every event carries `date_source`, so a stale fallback is visible
+      // rather than silent, and an unresolvable boundary is returned with
+      // date: null rather than a guess.
       if (path === "/api/league-events" && request.method === "GET") {
         try {
           const db = env.UPS_MFL_DB;
@@ -15993,26 +16008,31 @@ export default {
           const season = safeStr(url.searchParams.get("season") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
           const fromParam = safeStr(url.searchParams.get("from") || "today").toLowerCase();
           const lim = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "10", 10) || 10));
-          let dateFilter = "";
-          const binds = [season];
-          if (fromParam === "all") {
-            // no date filter
-          } else if (/^\d{4}-\d{2}-\d{2}$/.test(fromParam)) {
-            dateFilter = " AND date >= ?";
-            binds.push(fromParam);
-          } else {
-            // default: today
-            dateFilter = " AND date >= date('now')";
-          }
-          const stmt = db.prepare(
+          // The whole season is read, unfiltered and unlimited: `from` / `limit`
+          // are applied in buildLeagueEvents AFTER the ladder is resolved.
+          // Filtering in SQL on the stored date is exactly what would hide a
+          // boundary that moved across the filter edge (2026: stored Oct 7 vs
+          // real Oct 8 — from=today on Oct 8 would drop a still-open window).
+          const res = await db.prepare(
             `SELECT event, date, nfl_season, description
                FROM league_events
-              WHERE nfl_season = ?${dateFilter}
-              ORDER BY date ASC
-              LIMIT ${lim}`
-          );
-          const res = await stmt.bind(...binds).all();
-          const out = { ok: true, season, events: res.results || [] };
+              WHERE nfl_season = ?
+              ORDER BY date ASC`
+          ).bind(season).all();
+          const built = await buildLeagueEvents({
+            rows: res.results || [],
+            season,
+            from: fromParam,
+            limit: lim,
+            kickoffFor: nflWeekFirstKickoffUnix,
+          });
+          const out = {
+            ok: true,
+            season,
+            events: built.events,
+            preseason_ladder: built.ladder,
+            preseason_ladder_basis: "mfl_nflSchedule_first_kickoff (Week 3 = MYM, Week 5 = Extension); stored league_events row is the marked fallback",
+          };
 
           // ── &kickoffs=1,3,5 → week_kickoffs: { "1": <unix>, "3": ..., "5": ... }
           //
@@ -16025,6 +16045,14 @@ export default {
           // Sep 9. The Discord waiver post has always used the real kickoffs, so
           // the mobile app reading the calendar rows made the two surfaces
           // disagree about the same player's window.
+          //
+          // As of 2026-08-08 the `events` array above no longer carries those
+          // stale rows either — buildLeagueEvents resolves both from this same
+          // helper — so `week_kickoffs` and the calendar rows are guaranteed to
+          // describe the same instant. This block stays because mobile needs
+          // Week 1 (the pre-season / in-season line, which is not a calendar
+          // event at all) and needs the exact kickoff INSTANT, not the ET day:
+          // the windows are compared against the instant.
           //
           // Serving the kickoffs from here — off the SAME nflWeekFirstKickoffUnix
           // the Discord post calls — removes the second source. It rides on the
