@@ -72,12 +72,11 @@ export async function getFeatureFlag(env, name) {
   return safeStr(env && env[name]) === "1";
 }
 
-// Every flag's effective state + source, for the settings UI.
-// When the override map is unreadable every flag reads OFF (matching
-// getFeatureFlag), and `unknown: true` tells the UI to say so rather than
-// showing a confident switch position we cannot actually vouch for.
-export async function getAllFeatureFlags(env) {
-  const overrides = await readOverrides(env);
+// Rows for the settings UI / API, built from an ALREADY-READ override map.
+// `overrides === null` is readOverrides' "could not read D1"; in that case every
+// flag reads OFF (matching getFeatureFlag) and carries `unknown: true`, so the
+// UI says so rather than showing a switch position we cannot vouch for.
+function buildFlagRows(env, overrides) {
   const unknown = overrides === null;
   return FEATURE_FLAGS.map((f) => {
     const overridden = !unknown && Object.prototype.hasOwnProperty.call(overrides, f.key);
@@ -88,6 +87,33 @@ export async function getAllFeatureFlags(env) {
       overridden, env_default: envOn, unknown,
     };
   });
+}
+
+// Every flag's effective state + source, for the settings UI.
+export async function getAllFeatureFlags(env) {
+  return buildFlagRows(env, await readOverrides(env));
+}
+
+// Same single D1 read as getAllFeatureFlags, but "could we read the override at
+// all?" comes back as its OWN top-level field instead of only as a per-flag
+// `unknown`.
+//
+// That distinction is load-bearing for anything that decides to STAY QUIET based
+// on a flag being off — today the off-platform FA-report watchdog
+// (scripts/cron_liveness_eval.py), which reads these values out of
+// /admin/health-summary. On the wire a MISSING `unknown` key (a worker older
+// than the field, a different endpoint, a reshaped payload) is indistinguishable
+// from `unknown: false`, so a consumer that reads it with a plain "is it truthy"
+// silently concludes "readable, and the flag says off" from a payload that never
+// answered the question. A dedicated field is either present and explicit or
+// absent, and absence is something a consumer can refuse to interpret.
+//
+// This does NOT change how a failed read resolves — getFeatureFlag still fails
+// closed to false, and these rows still report OFF. It only makes the reason
+// observable instead of inferred.
+export async function getFeatureFlagsWithReadState(env) {
+  const overrides = await readOverrides(env);
+  return { overrides_readable: overrides !== null, flags: buildFlagRows(env, overrides) };
 }
 
 // Merge + persist a partial { KEY: bool | "1" | "0" } update (only known flags).

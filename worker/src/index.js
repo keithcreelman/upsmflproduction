@@ -9,7 +9,7 @@ import {
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } from "./trade_3way.js";
-import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
+import { getAllFeatureFlags, getFeatureFlag, getFeatureFlagsWithReadState, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
@@ -19550,8 +19550,24 @@ export default {
         } catch (e) { hsErrors.push("heartbeats: " + String(e?.message || e)); }
         // Effective flags (D1 override > env default), same shape as
         // /admin/commish-settings so the UI can share its renderer.
+        //
+        // flags_readable is a FIRST-CLASS field, not something a caller infers
+        // from the rows: the off-platform watchdog (scripts/cron_liveness_eval.py)
+        // decides whether to go quiet based on these values, and "the D1 override
+        // read failed, so everything reports OFF" must never look like "the
+        // commish switched it off". Starts false so every failure path — a throw
+        // here included — answers "we could not establish it" rather than
+        // implying a clean read.
         let hsFlags = [];
-        try { hsFlags = await getAllFeatureFlags(env); } catch (e) { hsErrors.push("flags: " + String(e?.message || e)); }
+        let hsFlagsReadable = false;
+        try {
+          const hsFlagState = await getFeatureFlagsWithReadState(env);
+          hsFlags = hsFlagState.flags;
+          hsFlagsReadable = !!hsFlagState.overrides_readable;
+        } catch (e) { hsErrors.push("flags: " + String(e?.message || e)); }
+        if (!hsFlagsReadable && !hsErrors.some((m) => String(m).startsWith("flags: "))) {
+          hsErrors.push("flags: D1 feature-flag override unreadable — every flag is reporting OFF, which is NOT the same as being switched off");
+        }
         // Test residue — both counts in ONE statement via scalar subselects.
         const testResidue = { auction_test_lots: 0, test_rule_rounds: 0 };
         try {
@@ -19576,6 +19592,7 @@ export default {
           now_unix: hsNow,
           heartbeats,
           flags: hsFlags,
+          flags_readable: hsFlagsReadable,
           test_residue: testResidue,
           calendar_updated_at: calendarUpdatedAt,
           errors: hsErrors,

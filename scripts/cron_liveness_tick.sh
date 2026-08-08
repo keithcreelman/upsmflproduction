@@ -16,6 +16,11 @@
 #   1. the worker is unreachable at all (curl fails / non-JSON)
 #   2. cron_cf is stale  -> Cloudflare crons have stopped firing
 #   3. a scheduled FA report is overdue -> that specific cron isn't firing
+#      (only while the FA reports are actually armed — see report_gate() in
+#      cron_liveness_eval.py. Check 2 is NOT gated: it covers every cron.)
+#   4. the feature-flag state itself is unreadable -> check 3 cannot be trusted
+#      to be off, so it stays armed and this says why. "We couldn't read it" is
+#      never allowed to be the quiet path.
 #
 # Secrets come from macOS Keychain, never the plist and never this file:
 #   security add-generic-password -a "$USER" -s ups-commish-api-key -w
@@ -104,8 +109,12 @@ label_for() {
   case "$1" in
     worker_unreachable) echo "the worker is reachable again" ;;
     cron_dead)          echo "Cloudflare crons are firing again" ;;
-    report_morning)     echo "the 9 AM FA report posted" ;;
-    report_evening)     echo "the 9 PM FA report posted" ;;
+    # Deliberately "no longer overdue", not "posted": this key also closes when
+    # the FA reports get switched OFF (auction over), and claiming a report
+    # posted when it was simply no longer expected would be a lie.
+    report_morning)     echo "the 9 AM FA report is no longer overdue" ;;
+    report_evening)     echo "the 9 PM FA report is no longer overdue" ;;
+    flags_unreadable)   echo "the worker can read the feature flags again" ;;
     *)                  echo "$1" ;;
   esac
 }
