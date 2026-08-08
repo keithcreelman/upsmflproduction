@@ -1,0 +1,222 @@
+name: Drop-penalty cap-year repair (one-off, 2026-08-08)
+
+# Backs TWO mis-filed drop penalties off THE LONG HAULERS' (fid 0006) 2026 cap.
+#
+#   Konata Mumpfield       $1,000   id:17254_1786195613   dropped 2026-08-08 13:26 UTC
+#   KeAndre Lambert-Smith  $1,000   id:17205_1786195656   dropped 2026-08-08 13:27 UTC
+#
+# Both drops happened AFTER the 2026 FA Auction opened, so canon §6 penalty
+# timing (docs/league_context_v1.md ~531, rule of thumb ~1265) puts the money on
+# the 2027 cap, held ledger-only until the rollover. The drop tracker had no
+# cap-year bucketing at all, so it posted both to 2026.
+#
+# ── HOW A salaryAdjustment IS BACKED OUT OF MFL ────────────────────────────────
+# MFL's API CANNOT DELETE ONE. Evidence, not assumption:
+#   * docs/MFL_IMPORT_EXPORT_DETAILED.md §salaryAdj documents exactly two
+#     parameters, L and DATA, and states: "The data will always be added to the
+#     existing salary adjustments." There is no DELETE, no REPLACE, no APPEND
+#     toggle — contrast §salaries directly above it, which DOES document an
+#     APPEND parameter and erases omitted rows without it.
+#   * docs/MFL_API_CANON_REVIEW_2026_05_28.md §5 re-confirms the additive
+#     semantics against the live league.
+#   * The only DELETE anywhere in MFL's import surface is `apiKeys` (token
+#     management); `draftResults` is a wholesale replace. Neither touches
+#     salary adjustments.
+# So the ONLY API route is an OFFSETTING NEGATIVE ENTRY. (A commissioner can
+# also delete the line by hand in MFL's own Salary Adjustments web page — that
+# is a manual UI action, not an API operation, and this workflow does not
+# attempt to drive it. If Keith wants the ledger visually clean rather than
+# net-zero, that is the alternative.)
+#
+# Manual dispatch only. Defaults to DRY RUN — you must type APPLY to write.
+# Every guard FAILS CLOSED: if live state is not exactly what we diagnosed, the
+# job refuses rather than moving money on a guess.
+#
+# ⚠️ This workflow does NOT touch D1. After it runs, the two ups_drop_events
+# rows still say posted_to_mfl=1 / 2026. Hand-apply
+#   worker/migrations/manual/2026-08-08_misfiled_drop_penalties_capyear.sql
+# to move them onto the 2027 ledger.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Type APPLY to write to MFL. Anything else = dry run.'
+        required: true
+        default: 'dry-run'
+      season:
+        description: 'Season whose cap is being corrected'
+        required: false
+        default: '2026'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reverse mis-filed drop penalties
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          WORKER: https://upsmflproduction.keith-creelman.workers.dev
+          MODE: ${{ github.event.inputs.mode }}
+          SEASON: ${{ github.event.inputs.season }}
+        run: |
+          if [ -z "${KEY}" ]; then echo "::error::COMMISH_API_KEY secret not set"; exit 1; fi
+          python - <<'PY'
+          import json, os, subprocess, sys, urllib.parse
+
+          SEASON = (os.environ.get("SEASON") or "2026").strip()
+          LEAGUE = "74598"
+          WORKER = os.environ["WORKER"]; KEY = os.environ["KEY"]
+          APPLY = os.environ.get("MODE", "").strip().upper() == "APPLY"
+
+          # The exact rows we diagnosed. franchise, dollars and ledger key must
+          # ALL match live MFL or nothing is written.
+          TARGETS = {
+            "17254_1786195613": {"pid": "17254", "name": "Konata Mumpfield",      "fid": "0006", "amount": 1000},
+            "17205_1786195656": {"pid": "17205", "name": "KeAndre Lambert-Smith", "fid": "0006", "amount": 1000},
+          }
+          REVERSAL_KEY = lambda k: "ups_drop_capyear_fix_" + k
+
+          # urllib gets bot-403'd by MFL/the worker edge; curl does not.
+          def curl_json(url, data=None):
+              cmd = ["curl", "-sS", "--max-time", "90", url]
+              if data is not None:
+                  cmd += ["-H", "Content-Type: application/json", "--data", json.dumps(data)]
+              out = subprocess.run(cmd, capture_output=True, text=True)
+              if out.returncode != 0:
+                  print(f"::error::curl failed: {out.stderr.strip()[:400]}"); sys.exit(1)
+              try:
+                  return json.loads(out.stdout)
+              except Exception:
+                  print(f"::error::non-JSON response: {out.stdout[:400]}"); sys.exit(1)
+
+          qkey = urllib.parse.quote(KEY)
+
+          # ── GUARD 1 — the worker must be able to resolve the FA Auction start.
+          # If it cannot, it cannot tell us which rows are mis-filed, and we do
+          # not reverse anything on our own arithmetic.
+          prev = curl_json(f"{WORKER}/admin/drops/cap-season-preview?L={LEAGUE}&YEAR={SEASON}&APIKEY={qkey}")
+          if not prev.get("ok"):
+              print(f"::error::cap-season-preview failed: {json.dumps(prev)[:400]}"); sys.exit(1)
+          if not prev.get("auction_start_resolved"):
+              print("::error::FA Auction start unresolved — refusing. Set faa_open_at in the League Calendar first.")
+              print("  " + json.dumps(prev.get("auction_start"))); sys.exit(1)
+          start = prev["auction_start"]
+          print(f"FA Auction start: {start.get('wall_et') or start.get('unix')} ET  (source: {start.get('source')})\n")
+
+          misfiled = {r["ledger_key"]: r for r in prev.get("rows", []) if r.get("misfiled_on_mfl")}
+          print(f"worker reports {len(misfiled)} mis-filed row(s) on the {SEASON} cap")
+          for k, r in sorted(misfiled.items()):
+              print(f"  {k:<24} {r['franchise_name']:<20} {r['player_name']:<24} ${r['penalty_amount']} -> {r['applies_to_season']}")
+          print()
+
+          # ── GUARD 2 — the mis-filed set must be EXACTLY the two rows we
+          # diagnosed. A third one appearing means the situation changed since
+          # this workflow was written and a human should look before money moves.
+          if set(misfiled) != set(TARGETS):
+              print("::error::mis-filed set does not match this workflow's targets — refusing.")
+              print(f"::error::  worker says: {sorted(misfiled)}")
+              print(f"::error::  expected:    {sorted(TARGETS)}")
+              sys.exit(1)
+
+          # ── GUARD 3 — live MFL must still hold each original at the exact
+          # franchise and amount, and must NOT already hold its reversal.
+          adj = curl_json(f"{WORKER}/api/mfl-export?TYPE=salaryAdjustments&L={LEAGUE}&YEAR={SEASON}&JSON=1")
+          rows = ((adj.get("salaryAdjustments") or {}).get("salaryAdjustment")) or []
+          if isinstance(rows, dict): rows = [rows]
+          if len(rows) < 20:
+              print(f"::error::salaryAdjustments returned only {len(rows)} rows — unreadable, not empty. Refusing."); sys.exit(1)
+          print(f"read {len(rows)} live salary adjustments\n")
+
+          def key_of(desc):
+              d = str(desc or "")
+              i = d.rfind("id:")
+              return d[i+3:].strip() if i >= 0 else ""
+
+          live = {}
+          for r in rows:
+              k = key_of(r.get("description"))
+              if k:
+                  live.setdefault(k, []).append(r)
+
+          rows_to_post, problems = [], []
+          for lk, want in sorted(TARGETS.items()):
+              hits = live.get(lk, [])
+              if len(hits) != 1:
+                  problems.append(f"{lk} {want['name']}: expected exactly 1 MFL row, found {len(hits)}")
+                  continue
+              row = hits[0]
+              fid = str(row.get("franchise_id") or "").zfill(4)
+              amt = round(float(row.get("amount") or 0))
+              if fid != want["fid"]:
+                  problems.append(f"{lk} {want['name']}: on franchise {fid}, expected {want['fid']}"); continue
+              if amt != want["amount"]:
+                  problems.append(f"{lk} {want['name']}: amount is {amt}, expected {want['amount']}"); continue
+              if REVERSAL_KEY(lk) in live:
+                  print(f"  {lk} {want['name']}: reversal already posted — skipping (idempotent)")
+                  continue
+              # Charset is deliberately narrow: MFL's id: suffix parser accepts
+              # [A-Za-z0-9_.:-], and the FO popup's name parser expects
+              # "drop penalty <text> <amount> id:<key>".
+              expl = f"UPS drop penalty reversal wrong cap year {want['name']} -{want['amount']} id:{REVERSAL_KEY(lk)}"
+              rows_to_post.append({"franchise_id": want["fid"], "amount": -want["amount"], "explanation": expl})
+              print(f"  {lk} {want['name']:<24} {want['fid']}  -${want['amount']}  (moves to {SEASON} + 1 ledger)")
+
+          if problems:
+              print("\n".join("::error::" + p for p in problems))
+              print("::error::refusing to write — live MFL state did not match expectations")
+              sys.exit(1)
+          if not rows_to_post:
+              print("\nnothing to reverse (already repaired)"); sys.exit(0)
+
+          total = sum(r["amount"] for r in rows_to_post)
+          print(f"\nnet cap credit to fid 0006 on the {SEASON} cap: ${total}")
+
+          if not APPLY:
+              print("\nDRY RUN — nothing written. Re-run with mode=APPLY to apply.")
+              print(json.dumps({"rows": rows_to_post}, indent=2))
+              sys.exit(0)
+
+          # The worker's own additive salaryAdj writer (commish-cookie gated).
+          url = f"{WORKER}/admin/add-salary-adjustment?L={LEAGUE}&YEAR={SEASON}&APIKEY={qkey}"
+          out = curl_json(url, {"season": SEASON, "league_id": LEAGUE, "rows": rows_to_post})
+          print("\nadd-salary-adjustment response:", json.dumps(out)[:900])
+          if not out.get("ok"):
+              print("::error::add-salary-adjustment reported failure"); sys.exit(1)
+
+          # ── POST-WRITE VERIFICATION — the write is not trusted on its own.
+          after = curl_json(f"{WORKER}/api/mfl-export?TYPE=salaryAdjustments&L={LEAGUE}&YEAR={SEASON}&JSON=1")
+          arows = ((after.get("salaryAdjustments") or {}).get("salaryAdjustment")) or []
+          if isinstance(arows, dict): arows = [arows]
+          bykey = {}
+          for r in arows:
+              k = key_of(r.get("description"))
+              if k: bykey.setdefault(k, []).append(r)
+          bad = []
+          for lk, want in sorted(TARGETS.items()):
+              rk = REVERSAL_KEY(lk)
+              hits = bykey.get(rk, [])
+              if len(hits) != 1:
+                  bad.append(f"{rk}: expected 1 reversal row, found {len(hits)}"); continue
+              amt = round(float(hits[0].get("amount") or 0))
+              if amt != -want["amount"]:
+                  bad.append(f"{rk}: reversal amount is {amt}, expected {-want['amount']}")
+              # original + reversal must net to zero
+              orig = round(float((bykey.get(lk) or [{}])[0].get("amount") or 0))
+              if orig + amt != 0:
+                  bad.append(f"{lk}: original {orig} + reversal {amt} != 0")
+          if bad:
+              print("::error::post-write verification FAILED: " + "; ".join(bad)); sys.exit(1)
+
+          print(f"\nverified — both penalties net to $0 on the {SEASON} cap.")
+          print("NEXT: hand-apply worker/migrations/manual/2026-08-08_misfiled_drop_penalties_capyear.sql")
+          print("      so D1 carries them on the following season's ledger.")
+          PY

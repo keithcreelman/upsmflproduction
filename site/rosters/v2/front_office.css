@@ -901,6 +901,11 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-adj-body { padding: 8px 14px; }
 .fo-adj-team { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--accent); font-weight: 700; margin: 10px 0 4px; }
 .fo-adj-team:first-child { margin-top: 2px; }
+/* Cap-YEAR heading. Drop penalties from on/after the FA Auction start belong to
+   the following season (canon §6 penalty timing) and are ledger-only until the
+   rollover, so the popup is split by year and the two totals never mix. */
+.fo-adj-year { font-size: 11px; font-weight: 700; letter-spacing: 0.3px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 4px; margin: 14px 0 2px; }
+.fo-adj-year:first-child { margin-top: 2px; }
 .fo-adj-row { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; color: var(--text); padding: 3px 0; }
 .fo-adj-row .num { font-variant-numeric: tabular-nums; color: var(--muted); }
 .fo-adj-row.fo-adj-total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; font-weight: 700; }

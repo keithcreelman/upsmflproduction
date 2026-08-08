@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.6",
-  "released": "2026-06-20",
-  "checkpoint": 8,
-  "scope": "Commish Settings tab removed from the Front Office — Discord Routing, Kill Switches, Contract Revert, and Status moved to the dedicated Commish Settings hub page (MESSAGE19&hub=commish-settings), now the single home for commish tools alongside the curated MFL Settings links.",
+  "version": "2.0.7",
+  "released": "2026-08-08",
+  "checkpoint": 9,
+  "scope": "Cap Adjustments popup is now split by CAP YEAR. Drop penalties from on/after the FA Auction start belong to the FOLLOWING season (canon §6 penalty timing) and are ledger-only until the rollover, so they render under their own year heading from /api/cap-adjustments/next-season and are never folded into the current-season total. An unreadable next-season ledger says so rather than showing $0.",
   "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }
