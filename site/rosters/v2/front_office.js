@@ -814,6 +814,36 @@
       return { ok: false, byFid: {} };
     }
   }
+  // NEXT-SEASON drop penalties (canon §6 penalty timing bucket 2). A drop from
+  // the FA Auction start through the end of the season hits the FOLLOWING
+  // season's cap, and — like the §F RULE 2 next-season fine — is LEDGER-ONLY
+  // until the rollover, so it is deliberately absent from MFL's
+  // salaryAdjustments feed. It still has to be visible: an owner who cut
+  // someone in August is carrying that money into next year whether or not MFL
+  // shows it. Rendered under its own year heading in the Cap Adjustments popup,
+  // and NEVER added to the current-season total.
+  //
+  // A failed / unresolved read returns ok:false, and the popup then says so
+  // rather than implying the next-season ledger is empty.
+  async function loadNextSeasonDropPenalties(season) {
+    try {
+      const url = apiUrl("/api/cap-adjustments/next-season") + "?L=" +
+        encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(season);
+      const payload = await fetchJSON(url);
+      if (!payload || payload.ok !== true) {
+        return { ok: false, byFid: {}, nextSeason: safeInt(season, 0) + 1, error: (payload && payload.error) || "unavailable" };
+      }
+      return {
+        ok: true,
+        byFid: payload.by_fid || {},
+        nextSeason: safeInt(payload.next_season, 0) || (safeInt(season, 0) + 1),
+        needsReview: payload.needs_review || [],
+      };
+    } catch (e) {
+      console.warn("[fo] next-season drop penalty ledger unavailable:", e.message || e);
+      return { ok: false, byFid: {}, nextSeason: safeInt(season, 0) + 1, error: e.message || String(e) };
+    }
+  }
   function mergeMflSalaryAdjustments(teams, mflAdj) {
     if (!mflAdj || !mflAdj.ok) return; // fetch failed → keep worker raw-sum fallback
     const byFid = mflAdj.byFid || {};
@@ -1964,10 +1994,11 @@
       // taxi repair — both feed §A1.4 salary derivation. History wins
       // when present (Keith 2026-05-19) because it has exact slot +
       // salary for every UPS rookie 2012-2025.
-      const [acqRows, _historyLoaded, mflAdj] = await Promise.all([
+      const [acqRows, _historyLoaded, mflAdj, nextSeasonAdj] = await Promise.all([
         loadAcquisitionLookup(SEASON),
         loadRookieDraftHistory(),
-        loadMflSalaryAdjustments(SEASON)
+        loadMflSalaryAdjustments(SEASON),
+        loadNextSeasonDropPenalties(SEASON)
       ]);
       mergeAcquisitionLookupRows(STATE.teams, acqRows);
       // Interim client-side fix for fresh auction wins still sitting as $1K/
@@ -1978,6 +2009,7 @@
       applyAuctionWinOverlay(STATE.teams, safeInt(SEASON, 0));
       mergeMflSalaryAdjustments(STATE.teams, mflAdj);
       STATE.adjByFid = mflAdj.byFid || {}; // per-team line items for the Cap Alloc popup
+      STATE.nextSeasonAdj = nextSeasonAdj; // ledger-only next-season drop penalties
 
       // Keith 2026-05-19: applies to ALL taxi guys, not just Watson.
       repairTaxiContractFallbacks(STATE.teams, safeInt(SEASON, 0));
@@ -2744,6 +2776,39 @@
   function adjRow(lbl, amt) {
     return '<div class="fo-adj-row"><span>' + escapeHtml(lbl) + '</span><span class="num">' + escapeHtml(fmtUSD(amt)) + "</span></div>";
   }
+  // The "next season" half of the Cap Adjustments popup. Ledger-only money —
+  // real, owed, and deliberately NOT on MFL yet (canon §6 penalty timing +
+  // the §F next-season-fine precedent). `onlyFid` scopes it to one team when
+  // the FO is filtered to a single franchise.
+  function renderNextSeasonAdjBlock(onlyFid) {
+    const ns = STATE.nextSeasonAdj;
+    const year = (ns && ns.nextSeason) || (safeInt(SEASON, 0) + 1);
+    if (!ns) return "";
+    if (!ns.ok) {
+      // "Could not read" is not "nothing owed" — say which one this is.
+      return '<div class="fo-adj-year">' + escapeHtml(String(year)) + " cap — ledger only</div>" +
+        '<div class="fo-adj-row"><span>Next-season drop penalties unavailable (' +
+        escapeHtml(String(ns.error || "unreadable")) + ") — not confirmed empty.</span><span></span></div>";
+    }
+    const byFid = ns.byFid || {};
+    const fids = Object.keys(byFid).filter(function (f) { return !onlyFid || f === onlyFid; });
+    if (!fids.length) return "";
+    let out = '<div class="fo-adj-year">' + escapeHtml(String(year)) +
+      " cap — ledger only, not in MFL until the rollover</div>";
+    let total = 0;
+    fids.sort().forEach(function (fid) {
+      const grp = byFid[fid] || {};
+      out += '<div class="fo-adj-team">' + escapeHtml(grp.franchise_name || fid) + "</div>";
+      (grp.items || []).forEach(function (it) {
+        total += safeInt(it.amount, 0);
+        out += adjRow("Drop · " + (it.player || it.player_id || "—") +
+          (it.dropped_at_iso ? " (" + String(it.dropped_at_iso).slice(0, 10) + ")" : ""), safeInt(it.amount, 0));
+      });
+    });
+    out += '<div class="fo-adj-row fo-adj-total"><span>Total — ' + escapeHtml(String(year)) +
+      ' cap</span><span class="num">' + escapeHtml(fmtUSD(total)) + "</span></div>";
+    return out;
+  }
   function showAdjPopup() {
     const single = STATE.selectedTeamId !== "__all__";
     const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
@@ -2779,13 +2844,19 @@
       }
     });
     if (!inner) inner = '<div class="fo-adj-row"><span>No cap adjustments.</span><span></span></div>';
-    else inner += '<div class="fo-adj-row fo-adj-total"><span>Total</span><span class="num">' + escapeHtml(fmtUSD(grand)) + "</span></div>";
+    else inner += '<div class="fo-adj-row fo-adj-total"><span>Total — ' + escapeHtml(String(SEASON)) + ' cap</span><span class="num">' + escapeHtml(fmtUSD(grand)) + "</span></div>";
+    // The current-season block above is everything MFL holds. Anything canon
+    // assigns to NEXT season is shown separately and never folded into that
+    // total — a next-season penalty rendered as a current-season line is the
+    // exact bug that put $2K of The Long Haulers' August drops on the 2026 cap.
+    inner = '<div class="fo-adj-year">' + escapeHtml(String(SEASON)) + " cap — in MFL now</div>" + inner;
+    inner += renderNextSeasonAdjBlock(single ? STATE.selectedTeamId : null);
     const overlay = document.createElement("div");
     overlay.className = "fo-adj-overlay";
     overlay.innerHTML = '<div class="fo-adj-popup" role="dialog" aria-label="Cap adjustments">' +
       '<div class="fo-adj-head"><span>Cap Adjustments</span><button type="button" class="fo-adj-close" aria-label="Close">×</button></div>' +
       '<div class="fo-adj-body">' + inner + "</div>" +
-      '<div class="fo-adj-foot">Drop / Trade / Other from MFL’s salaryAdjustments feed. Drop penalties round to the nearest $1K by team total (canon §6); the rounding true-up posts to MFL at the Auction Cut Deadline.</div></div>';
+      '<div class="fo-adj-foot">Drop / Trade / Other from MFL’s salaryAdjustments feed. Drop penalties round to the nearest $1K by team total (canon §6); the rounding true-up posts to MFL at the Auction Cut Deadline. Penalties from drops on or after the FA Auction start belong to the FOLLOWING season (canon §6 penalty timing) and stay off MFL until the rollover.</div></div>';
     overlay.addEventListener("click", function (e) {
       if (e.target === overlay || (e.target.classList && e.target.classList.contains("fo-adj-close"))) {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);

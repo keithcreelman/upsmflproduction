@@ -336,22 +336,40 @@ def effective_drop_adjustment_season(
     source_season: int,
     drop_date: datetime | None,
     auction_start_lookup: Dict[int, datetime],
-) -> tuple[int, str]:
+) -> tuple[int, str, bool]:
+    """Which cap year a drop penalty belongs to (canon §6 penalty timing).
+
+    Returns (season, note, resolved). NO FAIL-OPEN: a missing drop date or a
+    missing auction start USED to fall through to the source season, i.e. "the
+    current season" — which is precisely the wrong answer for a post-auction
+    drop and the same class of bug that put fr=0006's 2026-08-08 penalties on
+    the 2026 cap. Those cases now come back resolved=False; the caller marks the
+    row import-ineligible so it is reviewed instead of charged to a guess.
+    """
     season = safe_int(source_season, 0)
     if season <= 0:
-        return 0, ""
+        return 0, "NEEDS-REVIEW: source season unknown; cap year not determined.", False
     if drop_date is None:
-        return season, ""
+        return (
+            season,
+            "NEEDS-REVIEW: drop timestamp unreadable, so the FA-auction-start bucket could not be applied.",
+            False,
+        )
     auction_start = auction_start_lookup.get(season)
     if auction_start is None:
-        return season, ""
+        return (
+            season,
+            f"NEEDS-REVIEW: no {season} FreeAgent auction start on record, so the cap year could not be determined.",
+            False,
+        )
     if drop_date >= auction_start:
         next_season = season + 1
         return (
             next_season,
             f"Applied to {next_season} because the drop occurred on or after the {season} FreeAgent auction start ({auction_start.date().isoformat()}).",
+            True,
         )
-    return season, ""
+    return season, "", True
 
 
 def load_adddrop_add_lookup(
@@ -1245,7 +1263,9 @@ def build_drop_candidate_rows(
     for row in rows:
         source_season = safe_int(row["source_season"])
         transaction_dt = parse_datetime_et(row["transaction_datetime_et"])
-        season, season_note = effective_drop_adjustment_season(source_season, transaction_dt, auction_start_lookup)
+        season, season_note, season_resolved = effective_drop_adjustment_season(
+            source_season, transaction_dt, auction_start_lookup
+        )
         if min_season is not None and season < min_season:
             continue
         if max_season is not None and season > max_season:
@@ -1583,7 +1603,12 @@ def build_drop_candidate_rows(
                 "cap_free_exemption_type": cap_free_exemption_type,
                 "cap_free_exemption_note": cap_free_exemption_note,
                 "cap_free_exemption_source": cap_free_exemption_source,
-                "import_eligible": status == "candidate" and not cap_free_exemption_flag,
+                # A row whose CAP YEAR could not be determined is never importable.
+                # The amount may be perfectly right and still be owed to the wrong
+                # season; that is not a rounding error, it is charging the wrong
+                # year's cap. Review it by hand.
+                "import_eligible": status == "candidate" and not cap_free_exemption_flag and season_resolved,
+                "cap_season_resolved": season_resolved,
                 "candidate_rule": candidate_rule,
             }
         )

@@ -1955,6 +1955,57 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };
         };
 
+// ── WHICH CAP YEAR a drop penalty lands on (canon §6 "Penalty timing", 3 buckets)
+//
+// _computeDropPenalty answers HOW MUCH. Until 2026-08-08 nothing in this repo
+// answered WHICH SEASON, so every penalty silently hit the season it was
+// computed in. Canon (league_context_v1.md ~line 1265, the rule of thumb):
+//
+//   "during the offseason between roll-forward and the next FA Auction,
+//    penalties hit the upcoming season. From auction start through season end,
+//    penalties roll into the next year."
+//
+// and ~line 531: "Penalty incurred from auction start through end of season →
+// applies to following season cap."
+//
+// So the FA Auction start instant is the boundary:
+//   drop_at <  auction start  → CURRENT season   (bucket 1/3 — post to MFL now)
+//   drop_at >= auction start  → FOLLOWING season (bucket 2 — LEDGER ONLY until
+//                               the rollover, exactly like the §F RULE 2
+//                               next-season fine, canon ~line 898)
+//
+// PURE and FAIL-CLOSED: it never guesses. A missing season, a missing/absurd
+// drop timestamp, or an unresolved auction start all return ok:false with a
+// reason, and every caller must refuse to post rather than default to "current".
+// Charging the wrong year is the harm this function exists to prevent.
+const _dropPenaltyCapSeason = ({ season, dropUnix, auctionStartUnix }) => {
+  const seasonNum = Number(season) || 0;
+  const drop = Number(dropUnix) || 0;
+  const start = Number(auctionStartUnix) || 0;
+  if (!seasonNum) {
+    return { ok: false, applies_to_season: null, bucket: "", reason: "season_unresolved" };
+  }
+  // A drop timestamp we cannot read is not "today". Refuse it.
+  if (!drop || drop < 946684800 /* 2000-01-01 */ || drop > 4102444800 /* 2100-01-01 */) {
+    return { ok: false, applies_to_season: null, bucket: "", reason: "drop_time_unresolved", drop_unix: drop || null };
+  }
+  if (!start) {
+    return { ok: false, applies_to_season: null, bucket: "", reason: "auction_start_unresolved", drop_unix: drop };
+  }
+  if (drop >= start) {
+    return {
+      ok: true, applies_to_season: seasonNum + 1, bucket: "post_auction_next_season",
+      reason: "", drop_unix: drop, auction_start_unix: start,
+      canon: "§6 penalty timing bucket 2 — auction start through end of season → following season cap",
+    };
+  }
+  return {
+    ok: true, applies_to_season: seasonNum, bucket: "pre_auction_current_season",
+    reason: "", drop_unix: drop, auction_start_unix: start,
+    canon: "§6 penalty timing bucket 1/3 — offseason before the FA Auction → current season cap",
+  };
+};
+
 
 // ── AUCTION-DATA TRUTH: MFL's completed-auction results (O=102) ────────────
 // The ONLY reliable "this auction really completed" signal, established on prod
@@ -5005,6 +5056,18 @@ export default {
                 );
                 const mflData = await mflRes.json().catch(() => ({}));
                 mflPostedCount = Number(mflData?.posted) || 0;
+                // A refusal is silent otherwise — `posted` is 0 either way. Say
+                // it out loud: an unresolved FA Auction start means NO penalty
+                // can be filed to a cap year, so this route deliberately posts
+                // nothing until the League Calendar is fixed.
+                if (mflData && mflData.ok === false && mflData.error === "auction_start_unresolved") {
+                  console.error(`[scheduled */5] drop-tracker: MFL post REFUSED — FA Auction start unresolved (${mflData.auction_start_source || "?"}). No drop penalty can be assigned a cap year; set faa_open_at in the League Calendar.`);
+                }
+                const deferredN = Array.isArray(mflData?.deferred_next_season) ? mflData.deferred_next_season.length : 0;
+                const reviewN = Array.isArray(mflData?.cap_year_needs_review) ? mflData.cap_year_needs_review.length : 0;
+                if (deferredN || reviewN) {
+                  console.log(`[scheduled */5] drop-tracker: ${deferredN} penalty row(s) held for NEXT season's cap (canon §6), ${reviewN} unresolved cap year(s).`);
+                }
               }
               // SUM-rounding reconciliation (canon §6) — no-ops until the FA Auction
               // Cut Deadline, then posts one per-franchise true-up to the nearest $1K.
@@ -42128,6 +42191,215 @@ export default {
         });
       }
 
+      // ── FA AUCTION START = the drop-penalty cap-year boundary ───────────────
+      // Resolved from the SAME commish-maintained source every other gate uses:
+      // ups_settings 'auction_calendar' → faa.faa_open_at (see auction_calendar.js).
+      // Modelled directly on _eraFaCloseUnix above, including its season-staleness
+      // guard: setAuctionCalendar MERGES, so last cycle's faa_open_at survives into
+      // the next season, and a season-blind read would resolve a start instant a
+      // year stale — which here would flip every offseason drop into the wrong
+      // bucket. A resolved instant is only trusted when it lands inside the season
+      // being evaluated.
+      //
+      // env.FA_AUCTION_START_AT is an OPTIONAL break-glass override (unix seconds
+      // or anything Date.parse understands), mirroring env.FA_AUCTION_CLOSE_AT.
+      //
+      // NO FAIL-OPEN. Unresolvable ⇒ { unix: null } ⇒ callers must refuse to post.
+      // There is no "assume current season" branch anywhere in this path.
+      const _faaAuctionStartUnix = async (season) => {
+        const seasonNum = Number(season) || 0;
+        const inSeason = (unix) => {
+          if (!seasonNum) return false;   // no season context ⇒ cannot validate ⇒ unresolved
+          return new Date(unix * 1000).getUTCFullYear() === seasonNum;
+        };
+        const ovRaw = String((env && env.FA_AUCTION_START_AT) || "").trim();
+        if (ovRaw) {
+          const ov = /^\d+$/.test(ovRaw)
+            ? Number(ovRaw)
+            : (Number.isFinite(Date.parse(ovRaw)) ? Math.floor(Date.parse(ovRaw) / 1000) : null);
+          if (ov && ov > 0) {
+            return inSeason(ov)
+              ? { unix: ov, source: "env.FA_AUCTION_START_AT" }
+              : { unix: null, source: "env.FA_AUCTION_START_AT_wrong_season", stale_unix: ov };
+          }
+        }
+        try {
+          const cal = await getAuctionCalendar(env);
+          if (cal && cal.read_error) {
+            console.warn(`[drop-cap-year] auction calendar UNREADABLE (${cal.read_error}) — refusing to bucket any penalty.`);
+            return { unix: null, source: "auction_calendar_read_failed", read_error: cal.read_error };
+          }
+          const wall = String((cal && cal.faa && cal.faa.faa_open_at) || "").trim();
+          if (!wall) return { unix: null, source: "faa_open_at_unset" };
+          const unix = etWallClockToUnix(wall);
+          if (!unix || unix <= 0) return { unix: null, source: "faa_open_at_unparseable", wall };
+          if (!inSeason(unix)) {
+            console.warn(`[drop-cap-year] auction_calendar.faa_open_at (${wall}) is not in season ${seasonNum} — treating as unresolved.`);
+            return { unix: null, source: "auction_calendar_stale_season", stale_unix: unix, wall };
+          }
+          return { unix, source: "auction_calendar.faa_open_at", wall };
+        } catch (e) {
+          console.warn("[drop-cap-year] auction calendar read failed:", (e && e.message) || String(e));
+          return { unix: null, source: "auction_calendar_read_threw", read_error: String((e && e.message) || e) };
+        }
+      };
+
+      // Does ups_drop_events carry the cap-year ledger columns yet? Migration
+      // 0125 is HAND-APPLIED (never `wrangler d1 migrations apply`), and the
+      // worker auto-deploys on merge, so code can land before schema does.
+      // This is checked EXPLICITLY rather than swallowed in a try/catch, and it
+      // is deliberately NOT load-bearing on money: the post-mfl gate derives the
+      // cap year from dropped_at_unix every run and never reads these columns.
+      // A missing column degrades REPORTING only, and says so out loud.
+      let _dropCapColsCache = null;
+      const _dropEventsHasCapSeasonCols = async () => {
+        if (_dropCapColsCache !== null) return _dropCapColsCache;
+        try {
+          const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+          const cols = new Set(((info && info.results) || []).map((r) => String(r.name || "")));
+          _dropCapColsCache = cols.has("applies_to_season") && cols.has("cap_season_source");
+        } catch (_) {
+          _dropCapColsCache = false;
+        }
+        return _dropCapColsCache;
+      };
+
+      // Bucket one ups_drop_events row. `season` is the season the drop was
+      // recorded under; the returned applies_to_season is the cap year the money
+      // belongs to. Never guesses — see _dropPenaltyCapSeason.
+      const _bucketDropRow = (row, seasonNum, startUnix) => _dropPenaltyCapSeason({
+        season: seasonNum,
+        dropUnix: Number(row && row.dropped_at_unix) || 0,
+        auctionStartUnix: startUnix,
+      });
+
+      // GET /admin/drops/cap-season-preview?L=&YEAR=
+      // READ-ONLY dry run for the cap-year bucketing. Shows, for every priced
+      // drop this season: when it happened, which cap year canon puts it on,
+      // whether it is already in MFL, and whether that placement is WRONG
+      // (posted to MFL while belonging to next season = mis-filed). This is the
+      // instrument for the commish's contract-change gate — it writes nothing.
+      if (path === "/admin/drops/cap-season-preview" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const cpSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const cpLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const cpSeasonNum = Number(cpSeason) || 0;
+        const cpStart = await _faaAuctionStartUnix(cpSeason);
+        const cpHasCols = await _dropEventsHasCapSeasonCols();
+        const sel = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name, franchise_id, franchise_name, penalty_amount, penalty_basis,
+                  ledger_key, dropped_at_unix, dropped_at_iso, posted_to_mfl, posted_amount
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND penalty_amount > 0
+            ORDER BY dropped_at_unix ASC`
+        ).bind(cpSeason, cpLeague).all();
+        const rows = (sel && sel.results) || [];
+        const out = [];
+        for (const r of rows) {
+          const b = _bucketDropRow(r, cpSeasonNum, cpStart.unix);
+          const posted = Number(r.posted_to_mfl) === 1;
+          out.push({
+            player_id: safeStr(r.player_id),
+            player_name: safeStr(r.player_name),
+            franchise_id: padFranchiseId(r.franchise_id),
+            franchise_name: safeStr(r.franchise_name),
+            dropped_at_iso: safeStr(r.dropped_at_iso),
+            dropped_at_unix: safeInt(r.dropped_at_unix, 0),
+            penalty_amount: safeInt(r.penalty_amount, 0),
+            penalty_basis: safeStr(r.penalty_basis),
+            ledger_key: safeStr(r.ledger_key),
+            posted_to_mfl: posted,
+            resolved: b.ok,
+            applies_to_season: b.ok ? b.applies_to_season : null,
+            bucket: b.bucket || "",
+            needs_review_reason: b.ok ? "" : b.reason,
+            // The bug, named: money sitting on THIS season's MFL cap that canon
+            // says belongs to next season.
+            misfiled_on_mfl: !!(posted && b.ok && b.applies_to_season !== cpSeasonNum),
+          });
+        }
+        return jsonOut(200, {
+          ok: true, season: cpSeason, league_id: cpLeague,
+          auction_start: { unix: cpStart.unix, source: cpStart.source, wall_et: cpStart.wall || "", read_error: cpStart.read_error || "", stale_unix: cpStart.stale_unix || null },
+          auction_start_resolved: !!cpStart.unix,
+          ledger_columns_present: cpHasCols,
+          ledger_columns_note: cpHasCols ? "" : "migration 0125 not applied yet — applies_to_season is derived live, not stored.",
+          counts: {
+            total: out.length,
+            current_season: out.filter((r) => r.applies_to_season === cpSeasonNum).length,
+            next_season: out.filter((r) => r.applies_to_season === cpSeasonNum + 1).length,
+            needs_review: out.filter((r) => !r.resolved).length,
+            misfiled_on_mfl: out.filter((r) => r.misfiled_on_mfl).length,
+          },
+          misfiled_total_dollars: out.filter((r) => r.misfiled_on_mfl).reduce((a, r) => a + r.penalty_amount, 0),
+          rows: out,
+        });
+      }
+
+      // GET /api/cap-adjustments/next-season?L=&YEAR=
+      // The NEXT-SEASON drop-penalty ledger, grouped by franchise. These amounts
+      // are real and owed, but they are LEDGER-ONLY — they never reach MFL until
+      // the rollover (canon §F precedent, ~line 898). The Front Office's Cap
+      // Adjustments popup renders them under their own year heading so the
+      // current-season total still reconciles against MFL's own feed.
+      if (path === "/api/cap-adjustments/next-season" && request.method === "GET") {
+        const nsSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const nsLeague = safeStr(url.searchParams.get("L") || L || "");
+        if (!nsLeague) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        if (!env.UPS_MFL_DB) return jsonNoStore(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const nsSeasonNum = Number(nsSeason) || 0;
+        const nsStart = await _faaAuctionStartUnix(nsSeason);
+        // Unresolved auction start ⇒ we cannot say which year anything belongs
+        // to. Report that instead of rendering a confident (possibly wrong) list.
+        if (!nsStart.unix) {
+          return jsonNoStore(200, {
+            ok: false, error: "auction_start_unresolved", source: nsStart.source,
+            season: nsSeason, league_id: nsLeague, next_season: nsSeasonNum + 1,
+            by_fid: {}, rows: [], needs_review: [],
+            message: "FA Auction start could not be resolved from the league calendar, so next-season drop penalties cannot be identified.",
+          });
+        }
+        const nsSel = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name, franchise_id, franchise_name, penalty_amount, penalty_basis,
+                  ledger_key, dropped_at_unix, dropped_at_iso, posted_to_mfl
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND penalty_amount > 0
+            ORDER BY dropped_at_unix ASC`
+        ).bind(nsSeason, nsLeague).all();
+        const byFid = {};
+        const nsRows = [];
+        const nsReview = [];
+        for (const r of ((nsSel && nsSel.results) || [])) {
+          const b = _bucketDropRow(r, nsSeasonNum, nsStart.unix);
+          const fid = padFranchiseId(r.franchise_id);
+          if (!b.ok) {
+            nsReview.push({ player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), franchise_id: fid, reason: b.reason, penalty_amount: safeInt(r.penalty_amount, 0) });
+            continue;
+          }
+          if (b.applies_to_season === nsSeasonNum) continue;   // current season — MFL's feed already has it
+          const item = {
+            player_id: safeStr(r.player_id), player: safeStr(r.player_name),
+            franchise_id: fid, franchise_name: safeStr(r.franchise_name),
+            amount: safeInt(r.penalty_amount, 0),
+            applies_to_season: b.applies_to_season,
+            dropped_at_iso: safeStr(r.dropped_at_iso),
+            kind: "Drop (next season)",
+            in_mfl: Number(r.posted_to_mfl) === 1,
+          };
+          nsRows.push(item);
+          if (!byFid[fid]) byFid[fid] = { franchise_id: fid, franchise_name: item.franchise_name, total: 0, items: [] };
+          byFid[fid].total += item.amount;
+          byFid[fid].items.push(item);
+        }
+        return jsonNoStore(200, {
+          ok: true, season: nsSeason, next_season: nsSeasonNum + 1, league_id: nsLeague,
+          auction_start_unix: nsStart.unix, auction_start_source: nsStart.source,
+          by_fid: byFid, rows: nsRows, needs_review: nsReview,
+          grand_total: nsRows.reduce((a, r) => a + r.amount, 0),
+        });
+      }
+
       // POST /admin/drops/post-mfl
       // Body: { season, league_id?, limit?, dry_run?, only_pid? }
       //
@@ -42346,16 +42618,95 @@ export default {
         const onlyPid = safeStr(body?.only_pid || "").replace(/\D/g, "");
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
 
+        // 0. WHICH CAP YEAR. Canon §6 penalty timing: a drop from FA-Auction
+        //    start through end of season belongs to the FOLLOWING season's cap
+        //    and is LEDGER-ONLY until the rollover (the §F next-season-fine
+        //    precedent, canon ~line 898). Until 2026-08-08 nothing here decided
+        //    this at all, so every penalty landed on the season it was computed
+        //    in — which is how fr=0006's Mumpfield + Lambert-Smith $1K penalties
+        //    (dropped 2026-08-08, two weeks after the auction opened) ended up
+        //    on the 2026 cap instead of 2027.
+        //
+        //    FAIL CLOSED, and note which direction is safe: an unresolved
+        //    auction start must NOT fall back to "current season" — that is the
+        //    exact wrong answer for every post-auction drop. Refuse the run.
+        const auctionStart = await _faaAuctionStartUnix(targetSeason);
+        if (!auctionStart.unix) {
+          return jsonOut(200, {
+            ok: false,
+            error: "auction_start_unresolved",
+            message: "The FA Auction start could not be resolved from the league calendar (ups_settings 'auction_calendar' → faa_open_at), so a penalty's cap YEAR cannot be determined. Nothing was posted — charging the wrong season is worse than charging late. Set the date in the League Calendar panel and re-run.",
+            auction_start_source: auctionStart.source,
+            calendar_read_error: auctionStart.read_error || "",
+            stale_unix: auctionStart.stale_unix || null,
+            season: targetSeason, league_id: leagueId, posted_count: 0,
+          });
+        }
+        const targetSeasonNum = Number(targetSeason) || 0;
+
         // 1. Pull unposted owed penalties from ups_drop_events.
         const selBinds = onlyPid ? [targetSeason, leagueId, onlyPid] : [targetSeason, leagueId];
         const sel = await env.UPS_MFL_DB.prepare(
-          `SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, penalty_basis
+          `SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, penalty_basis,
+                  dropped_at_unix, dropped_at_iso
              FROM ups_drop_events
             WHERE season = ? AND league_id = ? AND posted_to_mfl = 0 AND penalty_amount > 0
               ${onlyPid ? "AND player_id = ?" : ""}
             ORDER BY dropped_at_unix ASC`
         ).bind(...selBinds).all();
-        const owed = (sel && sel.results) || [];
+        const owedAll = (sel && sel.results) || [];
+
+        // 1b. Split by cap year BEFORE anything can be posted.
+        //   - current season  → eligible to post to MFL now (unchanged behaviour)
+        //   - next season     → deferred: ledger-only, never written to THIS
+        //                       season's MFL cap. posted_to_mfl stays 0 so the
+        //                       rollover can pick them up.
+        //   - unresolvable    → needs_review. Never posted on a guess.
+        const owed = [];
+        const deferredNextSeason = [];
+        const bucketNeedsReview = [];
+        for (const r of owedAll) {
+          const b = _bucketDropRow(r, targetSeasonNum, auctionStart.unix);
+          const brief = {
+            player_id: safeStr(r.player_id), player_name: safeStr(r.player_name),
+            franchise_id: padFranchiseId(r.franchise_id), amount: safeInt(r.penalty_amount, 0),
+            ledger_key: safeStr(r.ledger_key), dropped_at_iso: safeStr(r.dropped_at_iso),
+          };
+          if (!b.ok) { bucketNeedsReview.push({ ...brief, reason: b.reason }); continue; }
+          if (b.applies_to_season !== targetSeasonNum) {
+            deferredNextSeason.push({ ...brief, applies_to_season: b.applies_to_season, bucket: b.bucket });
+            continue;
+          }
+          owed.push(r);
+        }
+        // Persist the decision so reporting can show it without re-deriving.
+        // NOT load-bearing on the money — the split above already happened from
+        // dropped_at_unix. If migration 0125 has not been hand-applied yet this
+        // is skipped and the response says so.
+        if (!dryRun && await _dropEventsHasCapSeasonCols()) {
+          const nowStamp = new Date().toISOString();
+          for (const r of owedAll) {
+            const b = _bucketDropRow(r, targetSeasonNum, auctionStart.unix);
+            // Only stamp when the stored value is missing or DISAGREES. A row a
+            // human already annotated (e.g. the 2026-08-08 mis-file repair) keeps
+            // its note as long as the derivation still agrees with it.
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_drop_events
+                  SET applies_to_season = ?, cap_season_source = ?, cap_season_resolved_at_utc = ?,
+                      cap_season_needs_review = ?, cap_season_review_reason = ?
+                WHERE ledger_key = ?
+                  AND (applies_to_season IS NULL OR applies_to_season <> ?)`
+            ).bind(
+              b.ok ? b.applies_to_season : null,
+              b.ok ? auctionStart.source : "",
+              nowStamp,
+              b.ok ? 0 : 1,
+              b.ok ? null : b.reason,
+              safeStr(r.ledger_key),
+              b.ok ? b.applies_to_season : -1
+            ).run();
+          }
+        }
 
         // 2. Existing MFL adjustments → dedup keys + preserve set (the import
         //    REPLACES all rows, so untouched adjustments must be merged back).
@@ -42421,6 +42772,10 @@ export default {
           return jsonOut(200, {
             ok: true, dry_run: true, season: targetSeason, league_id: leagueId,
             owed_unposted: owed.length, would_post: rowsSliced, skipped,
+            auction_start: { unix: auctionStart.unix, source: auctionStart.source, wall_et: auctionStart.wall || "" },
+            deferred_next_season: deferredNextSeason,
+            deferred_next_season_total: deferredNextSeason.reduce((a, r) => a + r.amount, 0),
+            cap_year_needs_review: bucketNeedsReview,
             xml_preview: buildSalaryAdjXml(plain(rowsSliced)),
           });
         }
@@ -42439,7 +42794,14 @@ export default {
         }
 
         if (!rowsSliced.length) {
-          return jsonOut(200, { ok: true, season: targetSeason, league_id: leagueId, posted: 0, owed_unposted: owed.length, reconciled: reconcileKeys.length, skipped, message: "No new penalties to post." });
+          return jsonOut(200, {
+            ok: true, season: targetSeason, league_id: leagueId, posted: 0,
+            owed_unposted: owed.length, reconciled: reconcileKeys.length, skipped,
+            deferred_next_season: deferredNextSeason,
+            deferred_next_season_total: deferredNextSeason.reduce((a, r) => a + r.amount, 0),
+            cap_year_needs_review: bucketNeedsReview,
+            message: "No new penalties to post.",
+          });
         }
 
         // Post ONLY the new rows — additive, so existing adjustments are untouched.
@@ -42499,6 +42861,10 @@ export default {
           posted: posted.length, attempted: rowsSliced.length, reconciled: reconcileKeys.length,
           verified: posted, skipped,
           existing_rows: existingRows.length,
+          auction_start: { unix: auctionStart.unix, source: auctionStart.source, wall_et: auctionStart.wall || "" },
+          deferred_next_season: deferredNextSeason,
+          deferred_next_season_total: deferredNextSeason.reduce((a, r) => a + r.amount, 0),
+          cap_year_needs_review: bucketNeedsReview,
           mfl_import: {
             ok: !!(importRes && importRes.ok),
             status: importRes && importRes.status,
@@ -42693,6 +43059,15 @@ export default {
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
+        // Cap YEAR for every row this scan records (canon §6 penalty timing).
+        // The scanner only WRITES the ledger — /admin/drops/post-mfl re-derives
+        // the bucket independently before any money moves — so an unresolved
+        // auction start here is recorded as needs-review rather than aborting
+        // the scan. It must never be recorded as "current season".
+        const scanAuctionStart = await _faaAuctionStartUnix(targetSeason);
+        const scanSeasonNum = Number(targetSeason) || 0;
+        const scanHasCapCols = await _dropEventsHasCapSeasonCols();
+
         // ── Contract parsing + penalty math (canon §6/§D2) ──
         // Ported from pipelines/etl/scripts/build_salary_adjustments_report.py.
         // Penalty math is now module-level (_parseContractData /
@@ -42831,10 +43206,18 @@ export default {
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid] });
             }
 
+            // Which cap year this penalty belongs to (canon §6 penalty timing).
+            const capYear = _dropPenaltyCapSeason({
+              season: scanSeasonNum, dropUnix: drop.ts, auctionStartUnix: scanAuctionStart.unix,
+            });
+
             if (dryRun) {
               written.push({
                 pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
                 pre_drop: preDrop, penalty: penaltyInfo,
+                applies_to_season: capYear.ok ? capYear.applies_to_season : null,
+                cap_year_bucket: capYear.bucket || "",
+                cap_year_needs_review: capYear.ok ? "" : capYear.reason,
               });
               continue;
             }
@@ -42877,10 +43260,33 @@ export default {
               JSON.stringify(drop.raw),
               preDrop?.snapshot_source || null
             ).run();
+            // Stamp the cap year. Separate statement on purpose: migration 0125
+            // is hand-applied, so the worker can be live before the columns
+            // exist. This is REPORTING state — /admin/drops/post-mfl re-derives
+            // the bucket from dropped_at_unix on every run and never depends on
+            // it, so a missing column cannot mis-charge anyone.
+            if (scanHasCapCols) {
+              await env.UPS_MFL_DB.prepare(
+                `UPDATE ups_drop_events
+                    SET applies_to_season = ?, cap_season_source = ?, cap_season_resolved_at_utc = ?,
+                        cap_season_needs_review = ?, cap_season_review_reason = ?
+                  WHERE ledger_key = ?`
+              ).bind(
+                capYear.ok ? capYear.applies_to_season : null,
+                capYear.ok ? scanAuctionStart.source : "",
+                nowIso,
+                capYear.ok ? 0 : 1,
+                capYear.ok ? null : capYear.reason,
+                ledgerKey
+              ).run();
+            }
             written.push({
               pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
               penalty_amount: penaltyInfo.penalty, penalty_basis: penaltyInfo.basis,
               exempt: penaltyInfo.exempt,
+              applies_to_season: capYear.ok ? capYear.applies_to_season : null,
+              cap_year_bucket: capYear.bucket || "",
+              cap_year_needs_review: capYear.ok ? "" : capYear.reason,
             });
           } catch (e) {
             skipped.push({ ...drop, reason: "insert_failed", error: String(e?.message || e) });
@@ -42896,6 +43302,12 @@ export default {
           transactions_seen: drops.length,
           written_count: written.length,
           skipped_count: skipped.length,
+          auction_start: {
+            unix: scanAuctionStart.unix, source: scanAuctionStart.source,
+            wall_et: scanAuctionStart.wall || "", read_error: scanAuctionStart.read_error || "",
+          },
+          cap_year_ledger_columns_present: scanHasCapCols,
+          cap_year_unresolved_count: written.filter((w) => w.cap_year_needs_review).length,
           written, skipped,
         });
       }
@@ -43670,8 +44082,19 @@ export default {
           if (!r || typeof r !== "object") return false;
           if (safeStr(r.adjustment_type).toUpperCase() !== "DROP_PENALTY_CANDIDATE") return false;
           if (r.import_eligible !== true && safeStr(r.import_eligible).toLowerCase() !== "true") return false;
+          // CAP YEAR MUST BE EXPLICIT (2026-08-08). This used to read
+          // `if (targetYr && ...)` — a row with NO adjustment_season fell
+          // through the season filter entirely and posted to whatever season
+          // the caller happened to name. Canon §6 puts a post-auction drop on
+          // the FOLLOWING season's cap, so a row that cannot say which year it
+          // belongs to must not reach MFL at all.
           const targetYr = safeInt(r.adjustment_season ?? r.import_target_season, 0);
-          if (targetYr && String(targetYr) !== String(targetSeason)) return false;
+          if (!targetYr) return false;
+          if (String(targetYr) !== String(targetSeason)) return false;
+          // The report's own resolver flag (build_salary_adjustments_report.py
+          // effective_drop_adjustment_season). Absent on older report builds ⇒
+          // undefined ⇒ not === false ⇒ allowed, so this only ever tightens.
+          if (r.cap_season_resolved === false) return false;
           if (safeInt(r.amount, 0) <= 0) return false;
           return true;
         }).map((r) => {
