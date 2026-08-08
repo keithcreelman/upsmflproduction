@@ -65,10 +65,5 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"feature_flags":{"WW_CONTRACT_STAMP_ENABLED":"0"}}' | python3 -m json.tool | head -40
           echo "### verifying the flag is back OFF"
-          curl -sS "$WORKER/admin/commish-settings?L=74598&APIKEY=$KEY" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-flags=d.get('flags') or d.get('feature_flags') or []
-for f in (flags if isinstance(flags,list) else []):
-    if 'WW_CONTRACT_STAMP' in str(f.get('key','')): print('  ', f.get('key'), '=', f.get('value'))
-"
+          curl -sS "$WORKER/admin/commish-settings?L=74598&APIKEY=$KEY" -o /tmp/flags.json
+          python3 scripts/ci_show_flag.py /tmp/flags.json WW_CONTRACT_STAMP_ENABLED
