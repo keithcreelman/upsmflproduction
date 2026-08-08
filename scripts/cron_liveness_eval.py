@@ -197,8 +197,7 @@ def main() -> int:
         a = age(f"fa_report_{mode}")
         if a is None or a > REPORT_STALE_SEC:
             label = f"{hour if hour < 12 else hour - 12} {'AM' if hour < 12 else 'PM'}"
-            problems.append((
-                f"report_{mode}",
+            msg = (
                 f"⚠️ **{label} FA report did not post** — no successful send recorded for today's slot "
                 f"({int(overdue_sec // 60)} min overdue). The `0 1,2,13,14 * * *` cron likely didn't fire. "
                 f"Re-run with `&live=1` on `/admin/auction/run-nightly-nudge` once you've checked the ledger is fresh."
