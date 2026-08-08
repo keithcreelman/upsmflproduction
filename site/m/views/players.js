@@ -327,6 +327,13 @@
   function waiverLimits() {
     return (M.waivers && M.waivers.limits) ? M.waivers.limits() : null;
   }
+  // MFL's own active-roster ceiling; 0 = MFL didn't report one. NOT read off
+  // waiverLimits(): that is null whenever the BBID bid parameters are
+  // unreadable, which has nothing to do with whether MFL reported rosterSize
+  // (app.js waiverRosterLimit()). 0 must always be treated as UNKNOWN.
+  function waiverRosterMax() {
+    return (M.waivers && M.waivers.rosterLimit) ? U.safeInt(M.waivers.rosterLimit(), 0) : 0;
+  }
   function stagedPlan() {
     return (M.waivers && M.waivers.getPlan) ? M.waivers.getPlan() : [];
   }
@@ -694,10 +701,10 @@
   // exactly that bug (`allowNone: !(rosterCount >= 35)`: rosterCount counts IR
   // and taxi bodies that hold no active spot, and 35 is only the pre-deadline
   // ceiling). So the gate below fires ONLY on numbers we actually read:
-  //   max    — limits.roster_size, MFL's OWN rosterSize off its live league
-  //            export (worker _wvRosterLimit), null when MFL didn't report it.
-  //            Never our 30/35 date math: that infers the September contract
-  //            deadline, which is fine for a caption and not for a gate.
+  //   max    — MFL's OWN rosterSize off its live league export (worker
+  //            _wvRosterLimit → limits.roster_size), 0 when MFL didn't report
+  //            it. Never our 30/35 date math: that infers the September
+  //            contract deadline, fine for a caption and not for a gate.
   //   active — cap.activeCount (roster − IR − taxi; neither occupies an active
   //            spot). rosterCount 0 means the cap mirror hasn't loaded, which
   //            is UNKNOWN, not "empty roster".
@@ -706,11 +713,30 @@
   // fail-closed guard in this repo: here the destructive direction is BLOCKING
   // a legal claim on arithmetic we can't stand behind, so uncertainty falls to
   // the permissive side. MFL still owns the real limit at award time.
+  //
+  // The two sides are apples-to-apples, and that was checked rather than
+  // assumed: MFL's league export carries `rosterSize` alongside SEPARATE
+  // `injuredReserve` and `taxiSquad` settings (35 / 15 / 10 in
+  // data/mfl-snapshots/2026-08-08/league.json), so rosterSize is the ACTIVE
+  // ceiling — IR and taxi bodies are extra slots, not spend against it, which
+  // is exactly what activeCount excludes. If MFL ever redefined it as a
+  // TOTAL-roster cap the gate would fire LATE, not early: a total cap M is
+  // larger than the active room it implies (M − IR − taxi), so `active >= M`
+  // would go on offering "No drop" to an owner who has none. Under-blocking is
+  // the permissive direction, i.e. the safe one for this gate. (The reverse
+  // claim — that it would fire "slightly early" — is wrong; it was written
+  // before anyone did the arithmetic.)
+  //
+  // NOTE the source of `max`: waiverRosterMax(), NOT waiverLimits().
+  // waiverLimits() returns null unless MFL gave us all three BBID BID numbers,
+  // and it drops every field it doesn't name — reading roster_size through it
+  // made this whole gate inert (max was always 0 → known:false → "No drop"
+  // always offered) and would ALSO have let a missing bbid_minimum suppress a
+  // roster ceiling MFL reported fine. Do not route it back through there.
   function rosterHeadroom() {
     var fid = M.state.viewerFranchiseId;
     var cap = fid ? DATA.computeCap(fid) : null;
-    var lim = waiverLimits();
-    var max = lim ? U.safeInt(lim.roster_size, 0) : 0;
+    var max = waiverRosterMax();
     var active = (cap && U.safeInt(cap.rosterCount, 0) > 0 && cap.activeCount != null)
       ? U.safeInt(cap.activeCount, -1)
       : -1;
@@ -1016,7 +1042,11 @@
         title: "Conditional drop",
         sub: 'Dropped only if the claim on <strong>' + U.escapeHtml(nameForPid(bidView.addPid)) + '</strong> wins.',
         allowNone: !hr.full,
-        noneSub: "Claim is only awarded if you already have room.",
+        // Exactly one of these two ever renders: noneSub labels the "No drop"
+        // row, noneBlockedNote replaces it. Neither is built on the branch
+        // where it can't be read — the alternative is a string that contradicts
+        // the one on screen sitting live in the same options object.
+        noneSub: hr.full ? "" : "Claim is only awarded if you already have room.",
         noneBlockedNote: hr.full
           ? "Your active roster is full (" + hr.active + "/" + hr.max + "), so a winning claim " +
             "with no drop would be refused. Pick the player this claim replaces."
@@ -1970,10 +2000,17 @@
     // possible" — so the label quotes MFL's own rosterSize against the active
     // count (IR/taxi excluded), and stays vague when either is unknown rather
     // than guessing in either direction.
+    // noneSub labels the "No drop" row, so it is only built when that row is
+    // going to exist. On the full branch its "open spot" wording would be a
+    // flat contradiction of the note that takes the row's place — computing it
+    // there is not just dead, it is a wrong string one edit away from shipping.
     var hr = rosterHeadroom();
-    var noneSub = hr.known
-      ? "Add into an open spot (" + hr.active + "/" + hr.max + " active)."
-      : "Add without dropping anyone. MFL enforces the roster limit.";
+    var noneSub = "";
+    if (!hr.full) {
+      noneSub = hr.known
+        ? "Add into an open spot (" + hr.active + "/" + hr.max + " active)."
+        : "Add without dropping anyone. MFL enforces the roster limit.";
+    }
     openDropPicker({
       title: hr.full ? "Drop a player" : "Drop a player? (optional)",
       sub: 'Adding <strong>' + U.escapeHtml(nameForPid(pid)) + '</strong> — $1K, 1-year WW.' +

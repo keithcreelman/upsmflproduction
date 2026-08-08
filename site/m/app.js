@@ -1648,6 +1648,26 @@
     };
   }
 
+  // MFL's own active-roster ceiling — `limits.roster_size`, which the worker
+  // fills from the live league export's `rosterSize` (_wvRosterLimit) and
+  // leaves NULL when MFL didn't report it. 0 here means UNKNOWN; callers must
+  // stay permissive on it (see players.js rosterHeadroom()).
+  //
+  // Deliberately NOT served through waiverLimits(): that helper is about
+  // whether a BID can be composed, and it returns null unless `limits.known`
+  // is true — a flag the worker sets from the three BBID BID parameters alone
+  // (`readable && bbidMinimum && bbidIncrement && maxRounds`). Reading the
+  // roster ceiling through it meant one missing bbid_minimum suppressed a
+  // rosterSize MFL had reported perfectly well. Two independent facts; they do
+  // not get to share a readability flag. The only thing they share is the
+  // failed-export case, and roster_size already encodes that as null.
+  function waiverRosterLimit() {
+    var lim = state.waiverState && state.waiverState.limits;
+    if (!lim) return 0;
+    var n = safeInt(lim.roster_size, 0);
+    return n > 0 ? n : 0;
+  }
+
   var WAIVER_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // Absolute label for a unix second. Only used when the worker didn't hand us
   // a pre-formatted label (it owns ET formatting; we don't guess a timezone).
@@ -2637,6 +2657,9 @@
       writeEnabled: waiverWriteEnabled,
       nativeLink: waiverNativeLink,
       limits: waiverLimits,
+      // MFL's active-roster ceiling, 0 = unknown. Separate accessor on purpose
+      // — `limits` is BBID-gated and this must not be. See waiverRosterLimit().
+      rosterLimit: waiverRosterLimit,
       when: waiverWhen,
       countdown: waiverCountdown,
       getPlan: getWaiverPlan,
