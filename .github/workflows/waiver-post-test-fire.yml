@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'check | migrate | dryrun | fire'
+        description: 'check | migrate | dryrun | fire | firelive'
         required: true
         default: 'check'
 
@@ -92,4 +92,22 @@ jobs:
           curl -sS -X POST "$WORKER/admin/adds/post-discord?L=74598&YEAR=2026&APIKEY=$KEY" \
             -H 'Content-Type: application/json' \
             -d '{"season":"2026","league_id":"74598","target":"test","limit":20}' \
+            | python3 -m json.tool | head -200
+
+      - name: firelive — reset the 3 rows and post to the LIVE transactions channel
+        if: ${{ github.event.inputs.mode == 'firelive' }}
+        run: |
+          echo "### rows before"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT id, player_name, discord_posted FROM ups_add_events WHERE season='2026' AND player_id IN ('13952','16649','16594')"
+          echo "### confirming NOTHING ELSE is unposted (only these 3 may go out)"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json \
+            --command "SELECT COUNT(*) AS other_unposted FROM ups_add_events WHERE season='2026' AND discord_posted=0 AND player_id NOT IN ('13952','16649','16594')"
+          echo "### resetting ONLY those three"
+          npx --yes wrangler@4 d1 execute "$DB" --remote \
+            --command "UPDATE ups_add_events SET discord_posted=0 WHERE season='2026' AND player_id IN ('13952','16649','16594')"
+          echo "### posting to PROD (#transactions)"
+          curl -sS -X POST "$WORKER/admin/adds/post-discord?L=74598&YEAR=2026&APIKEY=$KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"season":"2026","league_id":"74598","target":"prod","limit":20}' \
             | python3 -m json.tool | head -200
