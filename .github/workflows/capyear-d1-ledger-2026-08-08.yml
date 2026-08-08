@@ -59,6 +59,14 @@ jobs:
       - name: ledger — move both rows to the 2027 cap
         if: ${{ github.event.inputs.mode == 'ledger' }}
         run: |
+          KEYS="'17254_1786195613','17205_1786195656'"
+          echo "### PRE-FLIGHT — exactly 2 untouched rows must be present"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json --command "SELECT COUNT(*) AS n FROM ups_drop_events WHERE ledger_key IN ($KEYS) AND franchise_id='0006' AND penalty_amount=1000" > /tmp/pre.json
+          python3 scripts/ci_assert_d1_count.py /tmp/pre.json 2 "pre-flight: expected exactly 2 matching rows"
+          echo "### applying"
           npx --yes wrangler@4 d1 execute "$DB" --remote --file worker/migrations/manual/2026-08-08_misfiled_drop_penalties_capyear.sql
+          echo "### POST-FLIGHT — both rows must now read 2027 / not-posted"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json --command "SELECT COUNT(*) AS n FROM ups_drop_events WHERE ledger_key IN ($KEYS) AND applies_to_season=2027 AND posted_to_mfl=0" > /tmp/post.json
+          python3 scripts/ci_assert_d1_count.py /tmp/post.json 2 "post-flight: the UPDATEs matched nothing — MFL is corrected but D1 still says 2026"
           echo "### after"
-          npx --yes wrangler@4 d1 execute "$DB" --remote --json --command "SELECT ledger_key, player_name, franchise_id, penalty_amount, applies_to_season, posted_to_mfl FROM ups_drop_events WHERE ledger_key IN ('17254_1786195613','17205_1786195656')"
+          npx --yes wrangler@4 d1 execute "$DB" --remote --json --command "SELECT ledger_key, player_name, franchise_id, penalty_amount, applies_to_season, posted_to_mfl FROM ups_drop_events WHERE ledger_key IN ($KEYS)"
