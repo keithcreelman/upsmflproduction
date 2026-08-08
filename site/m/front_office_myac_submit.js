@@ -76,9 +76,19 @@
 
   // myacStatusBase (3115) — the acquisition method survives MYAC (§A3): a
   // "-era" contractStatus records as Vet-ERA, everything else as Vet-FAA.
+  //
+  // WW: a PRE-SEASON WAIVER pickup is MYAC-eligible too (canon ~379 — the same
+  // ladder the Discord waiver post prints), and desktop's version predates that
+  // path being reachable, so its "everything else" would have relabelled a
+  // Vet-WW / Rookie-WW claim as an FA-auction win the moment mobile started
+  // offering the button. The acquisition method has to survive here as much as
+  // it does for ERA, so WW is carried through explicitly (suffix preserved for
+  // Rookie-WW, which is a rookie contract, not a veteran one).
   function myacStatusBase(row) {
-    return safeStr(row && (row.contractStatus != null ? row.contractStatus : row.type)).toLowerCase().indexOf("-era") !== -1
-      ? "Vet-ERA" : "Vet-FAA";
+    var t = safeStr(row && (row.contractStatus != null ? row.contractStatus : row.type)).toLowerCase();
+    if (t.indexOf("-era") !== -1) return "Vet-ERA";
+    if (/\bww\b/.test(t)) return /rookie/.test(t) ? "Rookie-WW" : "Vet-WW";
+    return "Vet-FAA";
   }
 
   // Loaded-contract count for the viewer's roster — mirror of

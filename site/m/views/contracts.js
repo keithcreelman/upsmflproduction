@@ -285,18 +285,18 @@
 
     // Contract action windows — MYM first (hard 14-day clock).
     var prompts = [
-      { key: "mym", icon: ic("clock"), label: "MYM-eligible", sub: "In-season pickups · 14-day window" },
-      { key: "myac", icon: ic("file-text"), label: "auction win" /*pluralized below*/, sub: "Set 1-yr deals to 2 or 3 years", word: "to finalize (MYAC)" },
+      { key: "mym", icon: ic("clock"), label: "MYM-eligible", sub: "Pre-season pickups through Week 3 · in-season pickups 14 days" },
+      { key: "myac", icon: ic("file-text"), label: "MYAC-eligible", sub: "Set 1-yr deals to 2 or 3 years" },
       { key: "extend", icon: ic("trending-up"), label: "can be extended", sub: "Final-year contracts" },
       { key: "restructure", icon: ic("sliders"), label: "can restructure", sub: "Offseason · 3 per season" }
     ];
     prompts.forEach(function (p) {
       var n = eligiblePlayersForAction(fid, p.key).length;
       if (!n) return;
+      // MYAC no longer means "auction win" — pre-season waiver pickups walk the
+      // same ladder (canon ~379), so the alert counts players, not wins.
       var noun = n + " player" + (n > 1 ? "s" : "");
-      var text = p.key === "myac"
-        ? (n + " auction win" + (n > 1 ? "s" : "") + " " + p.word)
-        : (noun + " " + p.label);
+      var text = noun + " " + p.label;
       items.push({ icon: p.icon, href: "#myteam/contracts/" + p.key, text: text, sub: p.sub });
     });
 
@@ -349,10 +349,10 @@
   // button). Tag delegates to the rich tagging view (slots + tiers), embedded.
   // Mirrors the desktop FO Contracts tab (Keith 2026-06-07).
   var CONTRACT_ACTIONS = [
-    { key: "myac", label: "MYAC", blurb: "Set a fresh 1-yr auction win to a 2- or 3-year deal (§C2)." },
+    { key: "myac", label: "MYAC", blurb: "Set a fresh 1-yr auction win or pre-season waiver pickup to a 2- or 3-year deal, through the contract deadline (§C2)." },
     { key: "extend", label: "Extend", blurb: "Add years to a final-year contract before its deadline (§C4)." },
     { key: "restructure", label: "Restructure", blurb: "Reshape salary across the remaining years — offseason, 3/season (§C5)." },
-    { key: "mym", label: "MYM", blurb: "Lock an in-season WW/FCFS pickup into a flat 2-/3-yr deal, ≤14 days (§C3)." },
+    { key: "mym", label: "MYM", blurb: "Flat 2-/3-yr deal: pre-season pickups from the contract deadline to Week 3 kickoff; in-season pickups within 14 days (§C3)." },
     { key: "tag", label: "Tag", blurb: "Keep an expiring player one more year — 1 offense + 1 defense (§C8)." }
   ];
 
@@ -386,10 +386,20 @@
     });
   }
 
-  // Per-player §C4 extension deadline — verbatim mirror of desktop
-  // extensionDeadlineForPlayer (front_office.js:1525). Each player's deadline
-  // varies: Rookie → May of expiry year; in-season WW/FCFS → acq+28d (days
-  // 15–28); in-season trade → acq+28d (4 weeks); Veteran → September.
+  // Per-player contract-action deadline. §C4 extension deadlines are a
+  // verbatim mirror of desktop extensionDeadlineForPlayer (front_office.js:1525)
+  // — Rookie → May of expiry year; in-season WW/FCFS → acq+28d (days 15–28);
+  // in-season trade → acq+28d (4 weeks); Veteran → September — and the
+  // PRE-SEASON ACQUISITION LADDER (FA auction or pre-season waivers, canon
+  // ~379/~1211/~1214) is layered in front of them:
+  //   Multi-Year Contract (MYAC)  → September contract deadline
+  //   Mid-Year Multi (MYM)        → NFL Week 3 kickoff
+  //   Extension                   → NFL Week 5 kickoff
+  // Those are the dates the Discord waiver post prints for the very same
+  // players, and both surfaces read the same league-calendar rows so they
+  // cannot drift apart. Before this, a Vet-WW pre-season claim matched none of
+  // the branches below and fell through to "Veteran — September contract
+  // deadline", which is a window that never applied to it.
   function rookieLikeStatus(s) {
     s = U.safeStr(s).toLowerCase();
     return s === "r" || s.indexOf("r-") === 0 || s.indexOf("rookie") !== -1;
@@ -404,16 +414,35 @@
     dl.setUTCHours(4, 0, 0, 0);
     return dl;
   }
-  function septContractDeadline() {
-    var d = M.state.contractDeadline;
-    if (!d) return null;
-    // Noon UTC of the calendar date — keeps the DISPLAYED date stable (Sep 6,
-    // not the UTC-rolled Sep 7 you get from the real 9pm-ET deadline moment),
-    // which matches the desktop EXTENSION WINDOW table.
-    var m = String(d).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  // Noon UTC of an ISO calendar date — keeps the DISPLAYED date stable (Sep 6,
+  // not the UTC-rolled Sep 7 you get from the real 9pm-ET deadline moment),
+  // which matches the desktop EXTENSION WINDOW table. Returns null — never a
+  // substitute date — when there is no readable ISO value.
+  function isoDeadlineDate(iso) {
+    var m = U.safeStr(iso).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})/);
     return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12, 0, 0)) : null;
   }
-  function extensionDeadlineFor(row, fid) {
+  function septContractDeadline() {
+    return isoDeadlineDate(M.state.contractDeadline);
+  }
+  // The ladder rung this player is on, as a { date, basis } pair. Returns null
+  // when they are not on the pre-season ladder, so the desktop-mirror branches
+  // below keep running unchanged for everyone else.
+  var LADDER_BASIS = {
+    myac: "Auction / pre-season waiver pickup — MYAC through the contract deadline",
+    mym: "Auction / pre-season waiver pickup — MYM through NFL Week 3 kickoff",
+    extension: "Auction / pre-season waiver pickup — Extension through NFL Week 5 kickoff",
+    closed: "Auction / pre-season waiver pickup — all contract windows have closed",
+    unresolved: "Auction / pre-season waiver pickup — window can't be confirmed (league calendar unavailable)"
+  };
+  function ladderDeadlineFor(row, fid) {
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    if (!FOA || !FOA.contractWindowForRosterRow) return null;
+    var w = FOA.contractWindowForRosterRow(row, fid);
+    if (!w.onLadder) return null;
+    return { date: isoDeadlineDate(w.endDate), basis: LADDER_BASIS[w.stage] || LADDER_BASIS.unresolved };
+  }
+  function contractActionDeadlineFor(row, fid, action) {
     var seasonInt = parseInt(M.state.ctx.year, 10) || new Date().getUTCFullYear();
     var cy = Math.max(0, U.safeInt(row.contractYear, 0));
     var statusLc = U.safeStr(row.contractStatus).toLowerCase();
@@ -429,10 +458,30 @@
     var isWW = acquiredThisSeason && acqDate && /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) && acqLabel.indexOf("auction") === -1;
     var isTradeAcq = acquiredThisSeason && acqDate && acqLabel.indexOf("trade") !== -1;
     var DAY = 86400000, date = null, start = null, basis = "";
-    if (isWW) {
+    // The ladder answers FIRST for the players it covers — an FA-auction win or
+    // a PRE-SEASON waiver claim. It is classified off contractStatus, so it
+    // still fires when the acquisition lookup has never heard of the player
+    // (which is the normal case for anyone signed after the lookup was last
+    // generated) and no unmatched label can quietly demote them to the
+    // veteran branch below.
+    var ladder = ladderDeadlineFor(row, fid);
+    if (ladder) {
+      var lNow = Date.now();
+      return {
+        date: ladder.date,
+        basis: ladder.basis,
+        daysUntil: ladder.date ? Math.ceil((ladder.date.getTime() - lNow) / DAY) : null,
+        inWindow: !!ladder.date && lNow <= ladder.date.getTime()
+      };
+    }
+    if (isWW && action === "mym") {
+      // The IN-SEASON §C3 clock (canon ~391) — untouched by the ladder above.
+      date = new Date(acqDate.getTime() + 14 * DAY);
+      basis = "In-season WW/FCFS pickup — days 1–14";
+    } else if (isWW) {
       start = new Date(acqDate.getTime() + 15 * DAY);
       date = new Date(acqDate.getTime() + 28 * DAY);
-      basis = "WW/FCFS pickup — days 15–28";
+      basis = "In-season WW/FCFS pickup — days 15–28";
     } else if (isTradeAcq) {
       date = new Date(acqDate.getTime() + 28 * DAY);
       basis = "Trade-acquired — 4 weeks";
@@ -451,6 +500,26 @@
   var DL_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   function fmtDeadlineDate(d) {
     return d ? (DL_MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear()) : "—";
+  }
+
+  // The pre-season ladder, as a header strip on the MYAC / MYM lists. Each
+  // boundary is read from the league calendar (M.data via FOA.contractLadderDates);
+  // a missing one says so out loud instead of borrowing a neighbouring date.
+  function renderLadderNote() {
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    if (!FOA || !FOA.contractLadderDates) return "";
+    var d = FOA.contractLadderDates();
+    if (!d.contractDeadline && !d.mymWindowEnd && !d.extensionWindowEnd) return "";
+    function when(iso) {
+      var dt = isoDeadlineDate(iso);
+      return dt ? fmtDeadlineDate(dt) : "not on the calendar";
+    }
+    return '<div class="ups-m-action-blurb">' +
+      '<b>Pre-season ladder</b> (auction wins &amp; pre-season waiver pickups): ' +
+      'MYAC through ' + U.escapeHtml(when(d.contractDeadline)) + ' · ' +
+      'MYM through Week 3 kickoff ' + U.escapeHtml(when(d.mymWindowEnd)) + ' · ' +
+      'Extension through Week 5 kickoff ' + U.escapeHtml(when(d.extensionWindowEnd)) + '.' +
+      '</div>';
   }
 
   function renderActionList(fid, action) {
@@ -478,11 +547,15 @@
         (cy > 0 ? '<span class="chip">YR ' + cy + '</span>' : ''),
         (r.contractStatus ? '<span class="chip type">' + U.escapeHtml(U.safeStr(r.contractStatus)) + '</span>' : '')
       ].filter(Boolean).join(" ");
-      // EXTEND tab — each player has their OWN §C4 deadline (Keith 2026-06-08:
-      // "extension deadlines vary by player"). Show it per-row, not a generic strip.
+      // Each player has their OWN deadline (Keith 2026-06-08: "extension
+      // deadlines vary by player") — shown per-row, not as a generic strip.
+      // MYAC and MYM carry one too now: for a player on the pre-season ladder
+      // the open window's end date IS the answer to "how long do I have", and
+      // it has to read the same on this list as it does in the Discord waiver
+      // post that announced the pickup.
       var deadlineLine = "", rightDl = "";
-      if (action === "extend") {
-        var dl = extensionDeadlineFor(r, fid);
+      if (action === "extend" || action === "myac" || action === "mym") {
+        var dl = contractActionDeadlineFor(r, fid, action);
         var n = dl.daysUntil;
         var dcls = (n == null) ? "" : (n < 0 ? "past" : n <= 14 ? "now" : n <= 45 ? "soon" : "");
         deadlineLine = '<div class="ups-m-ext-dl ' + dcls + '"><span class="basis">' + U.escapeHtml(dl.basis) + '</span></div>';
@@ -675,11 +748,12 @@
       renderContractLedger(mount);
       return;
     }
-    // Per-player extension deadlines now live in the Extend list (each player
-    // has their own §C4 deadline). Only MYAC shows the single league-wide
-    // September contract deadline here.
-    var deadlineNote = (action === "myac" && M.state.contractDeadline)
-      ? '<div class="ups-m-action-blurb"><b>Contract deadline:</b> ' + fmtDeadlineDate(septContractDeadline()) + ' — finalize multi-year auction deals before this date.</div>'
+    // Per-player deadlines live in the lists themselves (each player has their
+    // own window). The hub header carries the league-wide ladder for context —
+    // the same three boundaries the Discord waiver post prints. A boundary the
+    // calendar doesn't hold is shown as "not on the calendar", never guessed.
+    var deadlineNote = (action === "myac" || action === "mym")
+      ? renderLadderNote()
       : "";
     mount.innerHTML = actionChips(action) + deadlineNote;
     if (action === "tag") {

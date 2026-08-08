@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.08.08.2";
+  var BUILD = "2026.08.08.3";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -191,7 +191,9 @@
     historicalDraftByPid: null, // { [pid]: { year, round, pick } } — past 3 years for taxi salary derivation
     leagueEvents: null,        // /api/league-events?season=<year>&from=today (UPS deadline calendar)
     contractDeadline: "",      // §C2 MYAC window-close date (ISO yyyy-mm-dd) from /api/league-events?from=all; mirrors desktop v2/front_office.js STATE.contractDeadline
+    contractLadder: null,      // { contractDeadline, seasonStart, mymWindowEnd, extensionWindowEnd } — the pre-season MYAC→MYM→Extension ladder boundaries, all ISO yyyy-mm-dd or "" (unknown ≠ open). See fetchContractCalendar.
     acquisitionByKey: null,    // { "fid:pid": { label, date } } from player_acquisition_lookup_<year>.json — gates the MYAC fresh-FA-auction branch (desktop mergeAcquisitionLookupRows)
+    acquisitionFromTxByKey: null, // { "fid:pid": { label, date, unix } } — waiver/FA adds parsed from MFL's live transaction log; leads the static lookup when newer (see acquisitionForPlayer)
     injuriesByPid: null,       // { pid: "IR"|"OUT"|"PUP"|"SUSPENDED"|... } from MFL injuries export — IR view §B3 "eligible to option down" bucket
     capAmount: 0,
     // ── Waivers (in-app BBID / FCFS) ──────────────────────────────────────
@@ -487,19 +489,65 @@
   // pulls the `contract_deadline` row from the D1 league-events calendar with
   // from=all. NOTE: this is a SEPARATE fetch from state.leagueEvents (which
   // uses from=today for the upcoming-deadlines display) — from=today drops the
-  // event once it passes, which would wrongly reopen the MYAC window. Returns
-  // ISO yyyy-mm-dd, or "" (unknown → treated as within-window per desktop so a
-  // load failure never blocks the option).
-  function fetchContractDeadline(year) {
+  // event once it passes, which would wrongly reopen the MYAC window.
+  //
+  // The SAME from=all read also resolves the rest of the pre-season contract
+  // ladder (canon ~379 / ~1211 / ~1214, and the ladder the Discord waiver post
+  // prints for exactly these players):
+  //   Multi-Year Contract (MYAC)  now              → contract deadline
+  //   Mid-Year Multi (MYM)        contract deadline → NFL Week 3 kickoff
+  //   Extension                   Week 3 kickoff    → NFL Week 5 kickoff
+  // Week 3 / Week 5 are the league calendar's OWN `preseason_mymdeadline` and
+  // `preseason_extensiondeadline` rows — the client cannot read MFL's
+  // nflSchedule (TYPE=nflSchedule is not on the /api/mfl-export allowlist and
+  // must go to api.myfantasyleague.com), and per the no-invention rule we
+  // publish only dates the league actually holds. A boundary that isn't on the
+  // calendar comes back "" and the window it bounds is treated as UNRESOLVED
+  // by front_office_actions.js — never as open, never with a guessed date.
+  //
+  // Returns { contractDeadline, seasonStart, mymWindowEnd, extensionWindowEnd },
+  // each ISO yyyy-mm-dd or "".
+  function ladderEventDate(events, matches, notBefore) {
+    // Events arrive date-ASC from the worker. Take the first match that is not
+    // before `notBefore` — every ladder boundary sits on/after the contract
+    // deadline, which is what keeps May's `ups_rookieextension_deadline` from
+    // being read as the September extension boundary.
+    for (var i = 0; i < events.length; i += 1) {
+      var e = events[i] || {};
+      var key = String(e.event || "").toLowerCase().replace(/^ups_/, "").replace(/^preseason_/, "");
+      var date = String(e.date || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (!matches(key)) continue;
+      if (notBefore && date < notBefore) continue;
+      return date;
+    }
+    return "";
+  }
+  function fetchContractCalendar(year) {
     var url = workerUrl("/api/league-events?season=" + encodeURIComponent(year) + "&from=all&limit=50");
+    var empty = { contractDeadline: "", seasonStart: "", mymWindowEnd: "", extensionWindowEnd: "" };
     return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         var evs = (data && data.events) || [];
-        var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
-        return (cd && cd.date) ? String(cd.date).slice(0, 10) : "";
+        if (!evs.length) return empty;
+        var contractDeadline = ladderEventDate(evs, function (k) { return k.indexOf("contract_deadline") >= 0; }, "");
+        return {
+          contractDeadline: contractDeadline,
+          // NFL Week 1 — the pre-season / in-season line (canon §C4).
+          seasonStart: ladderEventDate(evs, function (k) { return k.indexOf("nfl_kickoff") >= 0; }, ""),
+          // Week 3 kickoff, as the league publishes it.
+          mymWindowEnd: ladderEventDate(evs, function (k) {
+            return k.indexOf("mym") >= 0 && k.indexOf("deadline") >= 0;
+          }, contractDeadline),
+          // Week 5 kickoff. `rookie` is excluded explicitly as well as by the
+          // date floor — `rookieextension_deadline` is a May event.
+          extensionWindowEnd: ladderEventDate(evs, function (k) {
+            return k.indexOf("rookie") < 0 && k.indexOf("extension") >= 0 && k.indexOf("deadline") >= 0;
+          }, contractDeadline)
+        };
       })
-      .catch(function () { return ""; });
+      .catch(function () { return empty; });
   }
 
   // Acquisition lookup — the commish-maintained
@@ -529,6 +577,71 @@
         return map;
       })
       .catch(function () { return {}; });
+  }
+
+  // LIVE waiver / free-agent acquisitions, straight from MFL's transaction log
+  // → { "paddedFid:pid": { label, date, unix } }.
+  //
+  // Why this exists: player_acquisition_lookup_<year>.json (above) is a static
+  // commish-maintained asset. The 2026 file was generated 2026-03-10, so every
+  // player claimed since — including the whole August waiver run — resolves to
+  // NO acquisition at all, and any rule keyed off the acquisition label or date
+  // silently took the wrong branch for them. MFL's own log is authoritative and
+  // current, so it leads and the static file backfills.
+  //
+  // Only the two ADD shapes are parsed, because they are the only ones that are
+  // unambiguous from the string alone:
+  //   BBID_WAIVER  "16594,|1000|16252,"  → added | bid | dropped
+  //   FREE_AGENT   "16594,|16252,"       → added | dropped   (added may be
+  //                                         empty — that row is a DROP, not an
+  //                                         acquisition, and is skipped)
+  // AUCTION_WON and TRADE are deliberately left alone: auction acquisition is
+  // already resolved off contractStatus (Vet-FAA / Vet-ERA), and a trade's
+  // asset lists mix players with draft picks and BBID dollars.
+  //
+  // Keyed by FRANCHISE + player, so an add by a PREVIOUS owner is not read as
+  // the current owner's acquisition (a player waiver-claimed in March and
+  // traded in June was acquired by TRADE, on trade rules).
+  function fetchWaiverAcquisitionIndex(year) {
+    return fetchJson(mflExportUrlForYear("transactions", year))
+      .then(function (j) {
+        var rows = asArray(j && j.transactions && j.transactions.transaction);
+        var map = {};
+        rows.forEach(function (t) {
+          if (!t) return;
+          var type = safeStr(t.type).toUpperCase();
+          var label;
+          if (type === "BBID_WAIVER") label = "WW blind-bid waiver claim";
+          else if (type === "FREE_AGENT") label = "WW free-agent add (FCFS)";
+          else return;
+          var fid = pad4(t.franchise);
+          var unix = safeInt(t.timestamp, 0);
+          if (!fid || unix <= 0) return;
+          var added = safeStr(t.transaction).split("|")[0];
+          if (!added) return;                       // drop-only row
+          var iso = isoEtDayFromUnix(unix);
+          if (!iso) return;                         // unreadable → no entry, not a guess
+          added.split(",").forEach(function (raw) {
+            var pid = safeStr(raw).replace(/\D/g, "");
+            if (!pid) return;
+            var key = fid + ":" + pid;
+            // Latest add for this franchise+player wins (claimed, dropped,
+            // re-claimed → the re-claim is the acquisition).
+            if (map[key] && map[key].unix >= unix) return;
+            map[key] = { label: label, date: iso, unix: unix };
+          });
+        });
+        return map;
+      })
+      .catch(function () { return {}; });
+  }
+  // Unix seconds → the ISO calendar day in Eastern time (the timezone every UPS
+  // deadline is expressed in). Returns "" rather than a fallback date.
+  function isoEtDayFromUnix(unix) {
+    try {
+      var parts = new Date(unix * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+      return /^\d{4}-\d{2}-\d{2}$/.test(parts) ? parts : "";
+    } catch (e) { return ""; }
   }
 
   // NFL injury designations (MFL injuries export) → { pid: STATUS }.
@@ -797,11 +910,11 @@
       fetch(workerUrl("/api/taxi-callups"))
         .then(function (r) { return r.ok ? r.json() : { players: {} }; })
         .catch(function () { return { players: {} }; }),
-      // [17] §C2 MYAC window-close date; [18] acquisition label/date map.
-      // Both gate MYAC eligibility (front_office_actions.js). Fail-open:
-      // "" / {} keep the app fully functional (MYAC just falls back to its
-      // unknown-deadline / ERA-only behavior).
-      fetchContractDeadline(state.ctx.year),
+      // [17] the contract-ladder calendar (§C2 MYAC close + the Week 3 / Week 5
+      // boundaries + NFL Week 1); [18] acquisition label/date map. Both gate
+      // contract-action eligibility (front_office_actions.js). A missing
+      // boundary is UNRESOLVED, not open — see fetchContractCalendar.
+      fetchContractCalendar(state.ctx.year),
       fetchAcquisitionLookup(state.ctx.year),
       fetchInjuries(),
       // [20] authoritative drop cap-penalties (batch). [21] waiver window —
@@ -809,7 +922,14 @@
       // when the WAIVERS_INAPP_ENABLED write flag is dark, so the UI can
       // always tell the owner what window they're in.
       fetchCapPenaltyPreview(),
-      fetchWaiverState(true).catch(function () { return null; })
+      fetchWaiverState(true).catch(function () { return null; }),
+      // [22] LIVE waiver/FA acquisitions from MFL's own transaction log. The
+      // static lookup at [18] is regenerated by hand (the 2026 file was built
+      // in March) and therefore cannot know about a claim made this week —
+      // which is exactly the population whose contract window we have to get
+      // right. Fail-soft to {}: the lookup + the pre-Week-1 inference still
+      // answer, and an unresolvable window is refused, never widened.
+      fetchWaiverAcquisitionIndex(state.ctx.year)
     ]).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
@@ -866,8 +986,11 @@
       state.historicalDraftByPid = results[15] || {};
       var taxiCallupsResp = results[16] || { players: {} };
       state.taxiCallupsByPid = (taxiCallupsResp && taxiCallupsResp.players) || {};
-      state.contractDeadline = results[17] || "";
+      state.contractLadder = results[17] ||
+        { contractDeadline: "", seasonStart: "", mymWindowEnd: "", extensionWindowEnd: "" };
+      state.contractDeadline = state.contractLadder.contractDeadline || "";
       state.acquisitionByKey = results[18] || {};
+      state.acquisitionFromTxByKey = results[22] || {};
       state.injuriesByPid = results[19] || {};
       state.capPenaltyByPid = results[20] || {};
       // Repaint anything already on screen that was showing a fallback
@@ -946,14 +1069,21 @@
   }
 
   // acquisitionForPlayer — resolve a roster player to their acquisition
-  // { label, date } from the lookup loaded in loadAllData. front_office_actions.js
-  // reads this to gate the MYAC fresh-FA-auction branch. Returns null when the
-  // lookup is absent or the player isn't in it (→ MYAC's ERA branch still works).
+  // { label, date }. front_office_actions.js reads this to gate the MYAC
+  // fresh-FA-auction branch and the pre-season waiver ladder; null when neither
+  // source knows the player (→ MYAC's ERA/FAA status branches still work).
+  //
+  // Two sources, newest wins: MFL's live transaction log (waiver / FA adds,
+  // always current) and the static commish lookup (every acquisition KIND,
+  // including trades and auctions, but only as fresh as its last rebuild).
+  // Comparing ISO dates is enough — a trade recorded after a waiver claim is
+  // the later acquisition and must take precedence, and vice versa.
   function acquisitionForPlayer(fid, pid) {
-    var map = state.acquisitionByKey;
-    if (!map) return null;
     var key = pad4(fid) + ":" + safeStr(pid).replace(/\D/g, "");
-    return map[key] || null;
+    var stat = (state.acquisitionByKey || {})[key] || null;
+    var live = (state.acquisitionFromTxByKey || {})[key] || null;
+    if (live && stat) return safeStr(live.date) >= safeStr(stat.date) ? live : stat;
+    return live || stat || null;
   }
 
   function resolveViewerFranchise(meResp) {

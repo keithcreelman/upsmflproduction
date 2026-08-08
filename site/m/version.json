@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.08.2",
-  "label": "Waivers: submitting a verified claim now returns you to the Market, toasts are visible again (they were painted behind the claims screen), editing a bid keeps its priority slot, and the Market Bid button opens the claim you already made."
+  "build": "2026.08.08.3",
+  "label": "Contracts: pre-season waiver pickups (Vet-WW) can now take a multi-year deal, and every contract window — MYAC, MYM, Extension — is offered only inside its own window, with the same dates the Discord waiver post prints."
 }
