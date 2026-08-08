@@ -13,17 +13,10 @@ jobs:
       KEY: ${{ secrets.COMMISH_API_KEY }}
       WORKER: https://upsmflproduction.keith-creelman.workers.dev
     steps:
+      - uses: actions/checkout@v4
       - name: guard
         run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: fetch health-summary
+        run: curl -sS "$WORKER/admin/health-summary?L=74598&APIKEY=$KEY" -o /tmp/hs.json
       - name: check flags_readable + FA flag values
-        run: |
-          curl -sS "$WORKER/admin/health-summary?L=74598&APIKEY=$KEY" -o /tmp/hs.json
-          python3 -c "
-import json
-d = json.load(open('/tmp/hs.json'))
-print('flags_readable:', d.get('flags_readable'))
-by_key = {f['key']: f for f in (d.get('flags') or [])}
-for k in ('AUCTION_NIGHTLY_NUDGE_ENABLED', 'AUCTION_FAA_ENABLED'):
-    f = by_key.get(k, {})
-    print(f'  {k}: value={f.get(\"value\")} unknown={f.get(\"unknown\")}')
-"
+        run: python3 scripts/ci_check_health_summary.py /tmp/hs.json
