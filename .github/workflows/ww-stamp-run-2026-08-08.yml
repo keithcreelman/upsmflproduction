@@ -1,0 +1,74 @@
+name: WW contract stamp — run (one-off, 2026-08-08)
+
+# Writes the canonical 1-year WW contract for waiver awards MFL left blank.
+# Keith approved the dry-run plan (exactly one row: Brashard Smith 17049).
+#
+#   preview  — dry run, no writes, works with the flag OFF
+#   arm      — turn WW_CONTRACT_STAMP_ENABLED ON in the D1 override
+#   apply    — live write for a single pid (default 17049)
+#   disarm   — turn it back OFF, so the */5 cron stays dark
+#
+# The flag is armed only for the moment of the write and turned straight back
+# off: the intent is one approved contract, not an unattended writer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preview | arm | apply | disarm'
+        required: true
+        default: 'preview'
+      pid:
+        description: 'apply mode: the single player id to stamp'
+        required: false
+        default: '17049'
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      WORKER: https://upsmflproduction.keith-creelman.workers.dev
+      PID: ${{ github.event.inputs.pid }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+
+      - name: preview
+        if: ${{ github.event.inputs.mode == 'preview' }}
+        run: |
+          curl -sS -X POST "$WORKER/admin/adds/stamp-ww-contracts?L=74598&YEAR=2026&dry_run=1&APIKEY=$KEY" \
+            | python3 -m json.tool | head -80
+
+      - name: arm
+        if: ${{ github.event.inputs.mode == 'arm' }}
+        run: |
+          curl -sS -X POST "$WORKER/admin/commish-settings?L=74598&APIKEY=$KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"feature_flags":{"WW_CONTRACT_STAMP_ENABLED":"1"}}' | python3 -m json.tool | head -40
+
+      - name: apply
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          echo "### stamping pid $PID"
+          curl -sS -X POST "$WORKER/admin/adds/stamp-ww-contracts?L=74598&YEAR=2026&pid=$PID&APIKEY=$KEY" \
+            | python3 -m json.tool | head -100
+
+      - name: disarm
+        if: ${{ github.event.inputs.mode == 'disarm' }}
+        run: |
+          curl -sS -X POST "$WORKER/admin/commish-settings?L=74598&APIKEY=$KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"feature_flags":{"WW_CONTRACT_STAMP_ENABLED":"0"}}' | python3 -m json.tool | head -40
+          echo "### verifying the flag is back OFF"
+          curl -sS "$WORKER/admin/commish-settings?L=74598&APIKEY=$KEY" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+flags=d.get('flags') or d.get('feature_flags') or []
+for f in (flags if isinstance(flags,list) else []):
+    if 'WW_CONTRACT_STAMP' in str(f.get('key','')): print('  ', f.get('key'), '=', f.get('value'))
+"
