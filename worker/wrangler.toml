@@ -81,6 +81,16 @@ DROP_TRACKER_DISCORD_TARGET = "prod"
 #   WW_CONTRACT_ANNOTATE_ENABLED → cosmetic contractInfo TCV/AAV backfill. NEVER
 #                                  writes salary (MFL sets salary = bid natively);
 #                                  its import emits contractInfo and nothing else.
+#   WW_CONTRACT_STAMP_ENABLED    → the MONEY-path sibling of the annotator: writes the
+#                                  real 1-yr WW contract (Vet-WW/Rookie-WW, CL 1,
+#                                  salary = winning bid, "CL 1| TCV nK| AAV nK") onto
+#                                  awards MFL left blank. MFL's league default salary
+#                                  row is EMPTY on this league, so an award sets salary
+#                                  and nothing else — verified live 2026-08-08 on
+#                                  Brashard Smith (17049). Writes ONLY where all three
+#                                  of contractStatus/contractYear/contractInfo are
+#                                  empty, so it can never flatten a real contract.
+#                                  dry_run previews regardless of this flag.
 # Add announcements share DISCORD_DROPS_CHANNEL_ID; ADD_TRACKER_DISCORD_TARGET
 # picks prod vs test exactly like DROP_TRACKER_DISCORD_TARGET.
 #
@@ -99,6 +109,7 @@ WAIVERS_INAPP_ENABLED = "0"
 ADD_TRACKER_ENABLED = "0"
 ADD_TRACKER_AUTO_POST = "0"
 WW_CONTRACT_ANNOTATE_ENABLED = "0"
+WW_CONTRACT_STAMP_ENABLED = "0"
 ADD_TRACKER_DISCORD_TARGET = "prod"   # 1059111651846131833 (shares DISCORD_DROPS_CHANNEL_ID) — Keith 2026-08-07, after reviewing the shape in test
 
 # Trade-offer Discord DMs (worker/src/trade_dm.js). When a recipient gets a

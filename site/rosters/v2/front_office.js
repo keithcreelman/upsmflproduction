@@ -386,6 +386,21 @@
     }
     return out;
   }
+  // "MFL has not said" — the row carries no contractStatus, no contractInfo and
+  // no contractYear. This is NOT the same as expired (years 0 with a real
+  // status), and it must never be rendered as a contract shape. Every derived
+  // column (TCV, CL, Yrs, AAV, GTD) is unknowable for such a row, so they all
+  // render "pending" rather than a number computed from nothing.
+  function contractUnknownForPlayer(player) {
+    if (!player) return false;
+    if (player.contractUnknown === true) return true;
+    if (player.contractUnknown === false) return false;
+    var t = safeStr(player.type);
+    var s = safeStr(player.special);
+    return safeInt(player.years, 0) <= 0 &&
+           (!t || t === "-") &&
+           (!s || s === "-");
+  }
   function contractLengthForPlayer(player) {
     var values = parseContractYearValues(player && player.special);
     var keys = Object.keys(values);
@@ -416,7 +431,11 @@
     var amt = safeInt(player.salary, 0);
     var y = Math.max(0, safeInt(player.years, 0));
     if (player.isTaxi) return 0;
-    if (y <= 0) return 0;
+    // A contract MFL has not described yet is UNKNOWN, not expired — years
+    // reads 0 only because contractYear is blank. The player is rostered and
+    // MFL has recorded a real salary, and MFL's cap math is Σ roster salaries,
+    // so he must still count. (Mirrors the worker's currentCapHit.)
+    if (y <= 0 && !contractUnknownForPlayer(player)) return 0;
     if (player.isIr) return Math.round(amt * 0.5);
     return amt;
   }
@@ -993,6 +1012,9 @@
             p.type = "Expired";
           }
           p.isExpiredRookie = true;
+          // This repair derives from the UPS rookie-draft record (§A1.4) — real
+          // evidence, not silence — so the row is no longer "MFL has not said".
+          p.contractUnknown = false;
           continue;
         }
         // ── Taxi branch (existing) ─────────────────────────────────
@@ -1030,6 +1052,9 @@
         } else if (!rookieLikeContractStatus(p.type)) {
           p.type = "Rookie";
         }
+        // Same reasoning as the active-orphan branch: this taxi repair derives
+        // from the UPS rookie-draft record, so the row is no longer silent.
+        p.contractUnknown = false;
       }
     }
   }
@@ -2062,6 +2087,17 @@
           aav: safeInt(p.aav, 0),
           type: safeStr(p.type || p.contract_type || "-") || "-",
           special: safeStr(p.special || p.contract_info || "") || "-",
+          // MFL has said NOTHING about this contract. The worker sends
+          // contract_unknown when it declined to synthesize one; the local
+          // derivation is belt-and-braces so a stale worker deploy still can't
+          // make the table assert a contract that does not exist.
+          // (Keith 2026-08-08, Brashard Smith: a blank MFL row was rendering as
+          // a 2-year / $2,000 deal.)
+          contractUnknown: (typeof p.contract_unknown === "boolean")
+            ? p.contract_unknown
+            : (safeInt(p.years, 0) <= 0 &&
+               !safeStr(p.type || p.contract_type || "") &&
+               !safeStr(p.special || p.contract_info || "")),
           status: status,
           isTaxi: isTaxi,
           isIr: isIr,
@@ -2973,25 +3009,38 @@
 
   function renderRosterRow(p) {
     const pos = posBucket(p.position);
+    // ── "MFL has not said" ────────────────────────────────────────────
+    // A brand-new waiver/FCFS award arrives with a SALARY and nothing else —
+    // MFL leaves contractStatus / contractYear / contractInfo empty until the
+    // WW stamp runs. Every contract-shape column is genuinely unknown for such
+    // a row, and the honest render is "pending", not a number derived from an
+    // empty string and not the EXPIRED chip (which asserts a state MFL never
+    // claimed). Keith 2026-08-08, on Brashard Smith reading as CL 2 / TCV $2,000.
+    const unknownContract = contractUnknownForPlayer(p);
     // Expired-rookie override — even when type is "Rookie" (so the
     // synthesized contract_info parses cleanly), chip the row EXPIRED
     // so the user sees the contract state at a glance.
-    const ctype = p.isExpiredRookie ? "expired" : ctypeClass(p.type);
-    const ctypeLabel = p.isExpiredRookie ? "EXPIRED" : String(p.type || "—").toUpperCase();
+    const ctype = unknownContract ? "pending" : (p.isExpiredRookie ? "expired" : ctypeClass(p.type));
+    const ctypeLabel = unknownContract ? "PENDING" : (p.isExpiredRookie ? "EXPIRED" : String(p.type || "—").toUpperCase());
     const statusKls = rosterStatusClass(p);
     const statusLbl = rosterStatusLabel(p);
 
-    const tcv = totalContractValueForPlayer(p);
-    const cl  = contractLengthForPlayer(p);
-    const yrs = safeInt(p.years, 0);
+    const tcv = unknownContract ? 0 : totalContractValueForPlayer(p);
+    const cl  = unknownContract ? 0 : contractLengthForPlayer(p);
+    const yrs = unknownContract ? 0 : safeInt(p.years, 0);
     const drop = dropPenaltyEstimate(p);
-    const gtd = parseContractGuaranteeValue(p.special);
-    const perWeekCell = perWeekEarningCell(p);
+    const gtd = unknownContract ? 0 : parseContractGuaranteeValue(p.special);
+    const perWeekCell = unknownContract ? "—" : perWeekEarningCell(p);
+    // One tooltip, said once, on the cells that would otherwise read "—" and
+    // look like a zero.
+    const pendingCell = `<span class="fo-tt" data-tip="MFL has not recorded a contract for this player yet — only the salary. Nothing here is known until the 1-year WW contract is stamped.">pending</span>`;
 
     // Salary / AAV combined cell — show "/AAV" only when AAV differs from
     // current-year salary. Keith 2026-05-19: keep these visually together.
     // AAV uses displayAavForPlayer (taxi fallback to salary).
-    const aav = displayAavForPlayer(p);
+    // Salary IS known on a pending row — MFL sets it on the award. AAV is not,
+    // so it is suppressed rather than mirrored off the salary.
+    const aav = unknownContract ? 0 : displayAavForPlayer(p);
     const salaryCell = (aav > 0 && aav !== p.salary)
       ? `${fmtUSD(p.salary)} <span class="small" style="color:var(--muted);">/ ${fmtUSD(aav)}</span>`
       : fmtUSD(p.salary);
@@ -3011,15 +3060,15 @@
         </td>
         <td class="col-md">${escapeHtml(p.franchise)}</td>
         <td><span class="fo-ctype ${ctype}">${escapeHtml(ctypeLabel)}</span></td>
-        <td class="num col-md">${tcv > 0 ? fmtUSD(tcv) : "—"}</td>
-        <td class="num col-lo">${cl > 0 ? cl : "—"}</td>
-        <td class="num col-lo">${yrs > 0 ? yrs : "—"}</td>
+        <td class="num col-md">${unknownContract ? pendingCell : (tcv > 0 ? fmtUSD(tcv) : "—")}</td>
+        <td class="num col-lo">${unknownContract ? pendingCell : (cl > 0 ? cl : "—")}</td>
+        <td class="num col-lo">${unknownContract ? pendingCell : (yrs > 0 ? yrs : "—")}</td>
         <td class="num">${salaryCell}</td>
         <td class="num col-lo">${rankCell}</td>
-        <td class="num col-md">${gtd > 0 ? fmtUSD(gtd) : "—"}</td>
-        <td class="num col-md">${drop.earned > 0 ? fmtUSD(drop.earned) : "—"}</td>
-        <td class="num col-lo">${perWeekCell}</td>
-        <td class="num"><span class="fo-tt" data-tip="${escapeHtml(drop.note)}">${fmtUSD(drop.amount)}</span></td>
+        <td class="num col-md">${unknownContract ? pendingCell : (gtd > 0 ? fmtUSD(gtd) : "—")}</td>
+        <td class="num col-md">${unknownContract ? pendingCell : (drop.earned > 0 ? fmtUSD(drop.earned) : "—")}</td>
+        <td class="num col-lo">${unknownContract ? pendingCell : perWeekCell}</td>
+        <td class="num">${unknownContract ? pendingCell : `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">${fmtUSD(drop.amount)}</span>`}</td>
         <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span></td>
       </tr>`;
   }
@@ -3073,11 +3122,17 @@
           ? ` <span class="fo-commish-badge" title="Acting on behalf of ${escapeHtml(p.franchise)} — all submits will set commish_override_flag=1.">👑 commish override</span>`
           : "");
     }
+    // Same "MFL has not said" rule as the table row: the salary is real, the
+    // contract type and remaining years are not yet known — so say pending
+    // rather than print "— · 0yr rem", which reads as expired.
+    const soUnknown = contractUnknownForPlayer(p);
     $("#fo-slideover-sub").innerHTML =
       `<span class="fo-pos ${escapeHtml(posBucket(p.position))}">${escapeHtml(p.position)}</span> · ` +
       `${escapeHtml(p.nflTeam || "—")} · ${escapeHtml(p.franchise)} · ` +
-      `<span class="fo-ctype ${ctypeClass(p.type)}">${escapeHtml(String(p.type || "—").toUpperCase())}</span> · ` +
-      `${fmtUSD(p.salary)} (${p.years || 0}yr rem)`;
+      (soUnknown
+        ? `<span class="fo-ctype pending">PENDING</span> · ${fmtUSD(p.salary)} (contract not yet recorded by MFL)`
+        : `<span class="fo-ctype ${ctypeClass(p.type)}">${escapeHtml(String(p.type || "—").toUpperCase())}</span> · ` +
+          `${fmtUSD(p.salary)} (${p.years || 0}yr rem)`);
     $$("#fo-slideover-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === STATE.slideoverSubtab); });
     renderSlideoverBody();
   }
@@ -5694,6 +5749,11 @@
   // headcount. A row that isn't shown and carries no money must not be counted
   // against a roster limit either.
   function capContractIsExpired(p) {
+    // A contract MFL has not described yet is UNKNOWN, not expired. It reaches
+    // `years <= 0` only because contractYear is blank — the player is rostered
+    // and carries a real salary, so calling him expired would drop him out of
+    // cap planning AND out of the §C2 roster counts he genuinely occupies.
+    if (contractUnknownForPlayer(p)) return false;
     return safeInt(p && p.years, 0) <= 0 ||
            !!(p && p.isExpiredRookie) ||
            String((p && p.type) || "").toUpperCase() === "EXPIRED";
@@ -5800,8 +5860,7 @@
     let hasExpired = false;
     (STATE.teams || []).forEach(function (t) {
       (t.players || []).forEach(function (p) {
-        const isExp = safeInt(p.years, 0) <= 0 || !!p.isExpiredRookie ||
-                      String(p.type || "").toUpperCase() === "EXPIRED";
+        const isExp = capContractIsExpired(p);
         if (isExp) { hasExpired = true; return; }
         const y = safeInt(p.years, 0);
         if (y > 0) present[y >= 4 ? "4+" : String(y)] = true;

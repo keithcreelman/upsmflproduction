@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "released": "2026-08-08",
-  "checkpoint": 9,
-  "scope": "Cap Adjustments popup is now split by CAP YEAR. Drop penalties from on/after the FA Auction start belong to the FOLLOWING season (canon §6 penalty timing) and are ledger-only until the rollover, so they render under their own year heading from /api/cap-adjustments/next-season and are never folded into the current-season total. An unreadable next-season ledger says so rather than showing $0.",
+  "checkpoint": 10,
+  "scope": "A blank contract is rendered as PENDING, never invented. MFL records only the SALARY on a waiver/FCFS award and leaves contractStatus/contractYear/contractInfo empty; the roster-workbench rookie fallback was reading that silence as a rookie deal and manufacturing a 2-year / $2,000 contract (Brashard Smith). The fallback now requires MFL to actually say the contract is a rookie one, and any row MFL has not described renders TCV/CL/Yrs/AAV/GTD/penalty as \"pending\" with a PENDING chip instead of a fabricated shape or the red EXPIRED chip. Such a row still counts its real salary against the cap and against roster limits.",
   "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }
