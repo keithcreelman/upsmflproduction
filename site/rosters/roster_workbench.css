@@ -1187,6 +1187,22 @@
   color: #cde0fb;
 }
 
+/* PENDING = MFL has recorded a salary but no contract yet (a fresh waiver /
+   FCFS award, before the 1-yr WW stamp lands). Deliberately muted and dashed,
+   NOT a red risk tone: this is "not yet known", not "over". Mirrors
+   .fo-ctype.pending in site/rosters/v2/front_office.css. */
+.rwb-type-pill.is-pending {
+  border-style: dashed;
+  border-color: rgba(250, 210, 105, 0.55);
+  color: #cbd5e1;
+}
+
+.rwb-pending-cell {
+  color: var(--rwb-text-dim, #9dbce4);
+  font-style: italic;
+  cursor: help;
+}
+
 .rwb-cell-num {
   font-family: var(--rwb-mono);
   font-variant-numeric: tabular-nums;

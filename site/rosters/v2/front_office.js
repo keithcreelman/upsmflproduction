@@ -391,6 +391,22 @@
   // status), and it must never be rendered as a contract shape. Every derived
   // column (TCV, CL, Yrs, AAV, GTD) is unknowable for such a row, so they all
   // render "pending" rather than a number computed from nothing.
+  //
+  // ⚠️ ONE definition, four enforcers that must agree, or a row renders
+  // "pending" forever and never qualifies to be stamped:
+  //   * worker /roster-workbench (`contract_unknown`, authoritative),
+  //   * finalizeWaiverContracts GUARD 1 (all three fields blank before a write),
+  //   * this fallback (used only when the payload predates the field), and
+  //   * the identical helper in site/rosters/roster_workbench.js — the LIVE
+  //     desktop surface, which consumes the same payload.
+  //
+  // The worker's flag is authoritative and is checked FIRST, because only the
+  // worker can see the raw contractYear string: MFL's "" (has not said) and "0"
+  // (said the contract is expired) both arrive here already parsed to 0. So the
+  // fallback below is deliberately the lossy one — on a stale payload it can
+  // call a cy="0" row pending. That is the safe direction: "pending" withholds
+  // a claim, where "Expired" would assert one MFL never made, and it corrects
+  // itself the moment a current worker payload lands.
   function contractUnknownForPlayer(player) {
     if (!player) return false;
     if (player.contractUnknown === true) return true;
@@ -3030,10 +3046,10 @@
     const yrs = unknownContract ? 0 : safeInt(p.years, 0);
     const drop = dropPenaltyEstimate(p);
     const gtd = unknownContract ? 0 : parseContractGuaranteeValue(p.special);
-    const perWeekCell = unknownContract ? "—" : perWeekEarningCell(p);
     // One tooltip, said once, on the cells that would otherwise read "—" and
     // look like a zero.
     const pendingCell = `<span class="fo-tt" data-tip="MFL has not recorded a contract for this player yet — only the salary. Nothing here is known until the 1-year WW contract is stamped.">pending</span>`;
+    const perWeekCell = unknownContract ? pendingCell : perWeekEarningCell(p);
 
     // Salary / AAV combined cell — show "/AAV" only when AAV differs from
     // current-year salary. Keith 2026-05-19: keep these visually together.
@@ -3067,7 +3083,7 @@
         <td class="num col-lo">${rankCell}</td>
         <td class="num col-md">${unknownContract ? pendingCell : (gtd > 0 ? fmtUSD(gtd) : "—")}</td>
         <td class="num col-md">${unknownContract ? pendingCell : (drop.earned > 0 ? fmtUSD(drop.earned) : "—")}</td>
-        <td class="num col-lo">${unknownContract ? pendingCell : perWeekCell}</td>
+        <td class="num col-lo">${perWeekCell}</td>
         <td class="num">${unknownContract ? pendingCell : `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">${fmtUSD(drop.amount)}</span>`}</td>
         <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span></td>
       </tr>`;

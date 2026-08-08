@@ -557,6 +557,9 @@
         if (!rookieLikeContractStatus(player.type)) {
           player.type = "Rookie";
         }
+        // This repair derives from the rookie-draft window, not from silence,
+        // so the row is no longer "MFL has not said". Mirrors FO v2.
+        player.contractUnknown = false;
       }
     }
   }
@@ -717,18 +720,62 @@
     return count;
   }
 
-  function currentCapHit(salary, years, isTaxi, isIr) {
+  // ── "MFL has not said" ──────────────────────────────────────────────
+  // A fresh waiver / FCFS award arrives from MFL carrying a SALARY and nothing
+  // else: contractStatus, contractYear and contractInfo are all blank until the
+  // 1-yr WW contract is stamped (MFL's league-default salary row on this league
+  // is itself empty, so the award writes exactly one field). Such a row reaches
+  // `years <= 0` only because contractYear is blank — that is NOT the same thing
+  // as an expired contract, which is a state MFL actually asserts. Rendering it
+  // as "Expired" invents a claim MFL never made, exactly as fabricating a
+  // 2yr/$2,000 rookie deal out of the same silence did (Brashard Smith 17049,
+  // Keith 2026-08-08).
+  //
+  // MIRROR of site/rosters/v2/front_office.js contractUnknownForPlayer — these
+  // two desktop surfaces consume the same /roster-workbench payload and must
+  // not disagree about what MFL said. The worker sends `contract_unknown`
+  // authoritatively; the local test below is only the stale-payload fallback,
+  // and it matches the worker's rule AND finalizeWaiverContracts' blank-only
+  // write guard (all three of status / year / info empty).
+  //
+  // The worker's flag is authoritative and is checked FIRST, because only the
+  // worker can see the raw contractYear string: MFL's "" (has not said) and "0"
+  // (said the contract is expired) both arrive here already parsed to 0. So the
+  // fallback below is deliberately the lossy one — on a stale payload it can
+  // call a cy="0" row pending. That is the safe direction: "pending" withholds
+  // a claim, where "Expired" would assert one MFL never made, and it corrects
+  // itself the moment a current worker payload lands.
+  function contractUnknownForPlayer(player) {
+    if (!player) return false;
+    if (player.contractUnknown === true) return true;
+    if (player.contractUnknown === false) return false;
+    var t = safeStr(player.type);
+    var s = safeStr(player.special);
+    return safeInt(player.years, 0) <= 0 &&
+           (!t || t === "-") &&
+           (!s || s === "-");
+  }
+
+  function currentCapHit(salary, years, isTaxi, isIr, contractUnknown) {
     var amt = safeInt(salary, 0);
     var y = Math.max(0, safeInt(years, 0));
     if (isTaxi) return 0;
-    if (y <= 0) return 0;
+    // An undescribed contract is UNKNOWN, not expired. The player is rostered
+    // and MFL recorded a real salary for him, and MFL's own cap math is
+    // Σ roster salaries + adjustments, so he must still count — otherwise the
+    // cap silently understates by the award amount. (Mirrors the worker's and
+    // FO v2's currentCapHit.)
+    if (y <= 0 && !contractUnknown) return 0;
     if (isIr) return Math.round(amt * 0.5);
     return amt;
   }
 
   function currentCapHitForPlayer(player) {
     if (!player) return 0;
-    return currentCapHit(player.salary, player.years, player.isTaxi, player.isIr);
+    return currentCapHit(
+      player.salary, player.years, player.isTaxi, player.isIr,
+      contractUnknownForPlayer(player)
+    );
   }
 
   function playerCountsTowardCurrentAllocation(player) {
@@ -1707,6 +1754,11 @@
   function projectSalaryByYear(player, offsets) {
     var years = Math.max(0, safeInt(player && player.years, 0));
     var salary = safeInt(player && player.salary, 0);
+    // An undescribed contract has an unknown LENGTH, but its current-year
+    // salary is not unknown — MFL wrote it on the award, and currentCapHit
+    // charges it. Show that one year so the plan columns and the cap total
+    // agree; the out-years stay $0 because nothing is known about them.
+    if (years <= 0 && salary > 0 && contractUnknownForPlayer(player)) years = 1;
     var yearValues = contractYearValueMapForPlayer(player);
     var currentIdx = Math.max(1, contractYearIndexForPlayer(player));
     var extYears = extensionPreviewYears(player);
@@ -1726,6 +1778,10 @@
   }
 
   function projectedExpiryLabel(player) {
+    // MFL has not described this contract, so there is no expiry to project.
+    // "Pending" before "Expired": the latter would assert a state MFL never
+    // claimed. See contractUnknownForPlayer.
+    if (contractUnknownForPlayer(player)) return "Pending";
     var baseYear = currentYearInt();
     var totalYears = Math.max(0, safeInt(player && player.years, 0)) + extensionPreviewYears(player);
     if (totalYears <= 0) return "Expired";
@@ -2022,6 +2078,21 @@
     var explicitGuarantee = parseContractGuaranteeValue(player && player.special);
     var guaranteed = guaranteedContractValueForPlayer(player);
 
+    if (contractUnknownForPlayer(player)) {
+      // Not "no penalty because the contract is over" — no penalty can be
+      // PROJECTED because MFL has not recorded a contract to project from.
+      return {
+        amount: 0,
+        note: "MFL has not recorded a contract for this player yet — only the salary. No drop penalty can be projected until the 1-year WW contract is stamped.",
+        tcv: 0,
+        guaranteed: 0,
+        currentYearSalary: 0,
+        priorEarned: 0,
+        accrued: 0,
+        earned: 0,
+        contractUnknown: true
+      };
+    }
     if (years <= 0) {
       return {
         amount: 0,
@@ -2113,9 +2184,14 @@
     var penalty = dropPenaltyEstimate(player);
     var penaltyAmount = safeInt(penalty && penalty.amount, 0);
     var previewYears = extensionPreviewYears(player);
+    var unknownContract = contractUnknownForPlayer(player);
     var items = [];
 
-    if (years <= 0) {
+    if (unknownContract) {
+      // Still worth the commish's attention (a WW stamp is outstanding), but it
+      // is NOT a risk chip and it is NOT "Expired".
+      items.push({ key: "pending", label: "Pending", tone: "preview" });
+    } else if (years <= 0) {
       items.push({ key: "expired", label: "Expired", tone: "risk" });
     } else if (years === 1) {
       items.push({ key: "expiring", label: "Expiring", tone: "risk" });
@@ -2139,7 +2215,7 @@
     return {
       items: items,
       attentionCount: items.length,
-      expiring: years <= 1,
+      expiring: !unknownContract && years <= 1,
       extensionEligible: !!eligibility.extensionEligible,
       restructureEligible: !!eligibility.restructureEligible,
       loaded: isLoadedContractPlayer(player),
@@ -4574,6 +4650,13 @@
         var contractType = overlay && overlay.type != null ? safeStr(overlay.type) : safeStr(rp.contractStatus);
         var priorContract = priorSalaryMap && priorSalaryMap[pid] ? priorSalaryMap[pid] : null;
         var special = overlay && overlay.special != null ? safeStr(overlay.special) : safeStr(rp.contractInfo);
+        // Decide "MFL has not said" from the RAW fields, before
+        // normalizeContractInfoForDisplay gets a chance to put a shape on them.
+        // Same three-blanks test the worker and finalizeWaiverContracts use.
+        var contractUnknown =
+          years <= 0 &&
+          (!safeStr(contractType) || safeStr(contractType) === "-") &&
+          (!safeStr(special) || safeStr(special) === "-");
         special = normalizeContractInfoForDisplay(special, years, priorContract);
         salary = displaySalaryFromContractInfo(special, years, salary);
 
@@ -4584,7 +4667,7 @@
         if (isTaxi) {
           taxiCount += 1;
         } else {
-          capTotal += currentCapHit(salary, years, isTaxi, isIr);
+          capTotal += currentCapHit(salary, years, isTaxi, isIr, contractUnknown);
         }
         if (isIr) irCount += 1;
 
@@ -4603,6 +4686,7 @@
           aav: aav,
           type: contractType || "-",
           special: special || "-",
+          contractUnknown: contractUnknown,
           acquisitionText: safeStr(rp.drafted || rp.acquired || rp.added || ""),
           status: status,
           isTaxi: isTaxi,
@@ -4671,6 +4755,13 @@
       aav: safeInt(p.aav, 0) || currentAavForContractInfo(special),
       type: safeStr(p.type || p.contract_type || "-") || "-",
       special: special,
+      // The worker decides this authoritatively (it can see the raw MFL row);
+      // leave it undefined on a payload that predates the field so
+      // contractUnknownForPlayer falls back to its local three-blanks test
+      // rather than asserting "known" from an absent key.
+      contractUnknown: (typeof p.contract_unknown === "boolean")
+        ? p.contract_unknown
+        : ((typeof p.contractUnknown === "boolean") ? p.contractUnknown : undefined),
       acquisitionText: safeStr(p.acquisition_text || p.notes || p.acquired || ""),
       status: status,
       isTaxi: isTaxi,
@@ -7697,8 +7788,14 @@
       var canManage = canManageRosterPlayer(player);
       var ownRoster = isOwnRosterPlayer(player);
       var penalty = dropPenaltyEstimate(player);
-      var modalTcv = Math.max(0, safeInt(penalty.tcv, totalContractValueForPlayer(player)));
-      var modalEarned = Math.max(0, safeInt(penalty.earned, 0));
+      // See contractUnknownForPlayer — MFL has recorded a salary and nothing
+      // else, so every contract-shape metric in this modal is pending, not zero.
+      var modalUnknownContract = contractUnknownForPlayer(player);
+      var modalPendingText = "pending";
+      var modalTcv = modalUnknownContract
+        ? 0
+        : Math.max(0, safeInt(penalty.tcv, totalContractValueForPlayer(player)));
+      var modalEarned = modalUnknownContract ? 0 : Math.max(0, safeInt(penalty.earned, 0));
       var extensionOptions = playerExtensionOptions(player);
       var extensionBlockReason = extensionBlockedReason(player);
       var contractEligibility = rosterContractEligibility(player);
@@ -7999,12 +8096,12 @@
           // in the Bio panel here because there's no master to render it.
           var bioContentHtml =
             '<div class="rwb-modal-grid">' +
-              '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
-              '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : (modalTcv > 0 ? money(modalTcv) : "—")) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : (modalAav > 0 ? money(modalAav) : "—")) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
-              '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
-              '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
-              '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : String(player.years)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : (modalEarned > 0 ? money(modalEarned) : "$0")) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : money(penalty.amount)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
               extendedByHtml +
@@ -9184,11 +9281,20 @@
       // Restore when worker data is trustworthy across the full cohort
       // — paired with the TAXI_RULE_EFFECTIVE_SEASON sunset in 2028.)
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
-      var contractLength = contractLengthForPlayer(p);
-      var totalContractValue = totalContractValueForPlayer(p);
-      var contractGuarantee = guaranteedContractValueForPlayer(p);
-      var capPenalty = capPenaltyAmountForPlayer(p);
-      var contractTypeText = safeStr(p.type) || "-";
+      // "MFL has not said" — a fresh waiver/FCFS award carries a salary and
+      // nothing else. Contract length, years left, AAV, TCV, guarantee and cap
+      // penalty are all unknowable for such a row, so they read "pending"
+      // instead of a number computed from an empty string, and the pill says
+      // PENDING instead of asserting a type. See contractUnknownForPlayer.
+      var unknownContract = contractUnknownForPlayer(p);
+      var contractLength = unknownContract ? 0 : contractLengthForPlayer(p);
+      var totalContractValue = unknownContract ? 0 : totalContractValueForPlayer(p);
+      var contractGuarantee = unknownContract ? 0 : guaranteedContractValueForPlayer(p);
+      var capPenalty = unknownContract ? 0 : capPenaltyAmountForPlayer(p);
+      var contractTypeText = unknownContract ? "Pending" : (safeStr(p.type) || "-");
+      var pendingText = "pending";
+      var pendingCellHtml =
+        '<span class="rwb-pending-cell" title="MFL has not recorded a contract for this player yet — only the salary. Nothing here is known until the 1-year WW contract is stamped.">' + pendingText + '</span>';
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + '" data-player-id="' + escapeHtml(p.id) + '">' +
@@ -9198,30 +9304,31 @@
                 '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
                 '<button type="button" class="rwb-player-open rwb-player-open-stack" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">' +
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
-                  '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
+                  '<span class="rwb-type-pill ' + (unknownContract ? "is-pending" : typeTone(p.type)) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
                 newsSlotHtml(p.id, p.fid) +
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
               '<dl class="rwb-mobile-details">' +
-                '<div><dt>Contract Length</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
-                '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
+                '<div><dt>Contract Length</dt><dd>' + (unknownContract ? pendingText : escapeHtml(contractLength > 0 ? String(contractLength) : "—")) + '</dd></div>' +
+                '<div><dt>Years Left</dt><dd>' + (unknownContract ? pendingText : escapeHtml(String(p.years))) + '</dd></div>' +
                 '<div><dt>Salary</dt><dd>' + escapeHtml(taxiAwareSalaryText(p, p.salary, p.positionSalaryRank)) + '</dd></div>' +
-                '<div><dt>AAV</dt><dd>' + escapeHtml(taxiAwareSalaryText(p, p.aav, p.positionAavRank)) + '</dd></div>' +
-                '<div><dt>TCV</dt><dd>' + escapeHtml(taxiAwareAmountText(p, totalContractValue)) + '</dd></div>' +
-                '<div><dt>Orig GTD</dt><dd>' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</dd></div>' +
-                '<div><dt>Cap Pen</dt><dd>' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</dd></div>' +
+                '<div><dt>AAV</dt><dd>' + (unknownContract ? pendingText : escapeHtml(taxiAwareSalaryText(p, p.aav, p.positionAavRank))) + '</dd></div>' +
+                '<div><dt>TCV</dt><dd>' + (unknownContract ? pendingText : escapeHtml(taxiAwareAmountText(p, totalContractValue))) + '</dd></div>' +
+                '<div><dt>Orig GTD</dt><dd>' + (unknownContract ? pendingText : escapeHtml(compactContractAmountAllowZero(contractGuarantee))) + '</dd></div>' +
+                '<div><dt>Cap Pen</dt><dd>' + (unknownContract ? pendingText : escapeHtml(compactContractAmountAllowZero(capPenalty))) + '</dd></div>' +
               '</dl>' +
             '</div>' +
           '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
+          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(contractLength > 0 ? String(contractLength) : "—")) + '</td>' +
+          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(String(p.years))) + '</td>' +
+          // Salary IS known on a pending row — MFL writes it on the award.
           '<td class="rwb-cell-num">' + taxiAwareSalaryHtml(p, p.salary, p.positionSalaryRank) + '</td>' +
-          '<td class="rwb-cell-num">' + taxiAwareSalaryHtml(p, p.aav, p.positionAavRank) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(taxiAwareAmountText(p, totalContractValue)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</td>' +
+          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : taxiAwareSalaryHtml(p, p.aav, p.positionAavRank)) + '</td>' +
+          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(taxiAwareAmountText(p, totalContractValue))) + '</td>' +
+          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(compactContractAmountAllowZero(contractGuarantee))) + '</td>' +
+          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(compactContractAmountAllowZero(capPenalty))) + '</td>' +
         '</tr>'
       );
     }
@@ -9280,9 +9387,16 @@
     for (var i = 0; i < sorted.length; i += 1) {
       var p = sorted[i];
       var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
-      var aav = safeInt(p.aav, 0);
-      var tcv = totalContractValueForPlayer(p);
-      var contractTypeText = safeStr(p.type) || "-";
+      // "MFL has not said" — see contractUnknownForPlayer. Every contract-shape
+      // column is genuinely unknown for such a row, so it reads "pending"
+      // rather than a number derived from an empty string, and the pill says
+      // PENDING rather than asserting a contract type MFL never gave.
+      var unknownContract = contractUnknownForPlayer(p);
+      var aav = unknownContract ? 0 : safeInt(p.aav, 0);
+      var tcv = unknownContract ? 0 : totalContractValueForPlayer(p);
+      var contractTypeText = unknownContract ? "Pending" : (safeStr(p.type) || "-");
+      var pendingCellHtml =
+        '<span class="rwb-pending-cell" title="MFL has not recorded a contract for this player yet — only the salary. Nothing here is known until the 1-year WW contract is stamped.">pending</span>';
       var extensionOptions = playerExtensionOptions(p);
       // Drop preview: when active, override the year columns to show
       // the post-drop state (penalty in red, all other years $0).
@@ -9314,7 +9428,7 @@
               '<div class="rwb-player-line">' +
                 '<button type="button" class="rwb-player-open rwb-player-open-stack" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">' +
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
-                  '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
+                  '<span class="rwb-type-pill ' + (unknownContract ? "is-pending" : typeTone(p.type)) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
                 newsSlotHtml(p.id, p.fid) +
                 (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
@@ -9323,8 +9437,8 @@
             '</div>' +
           '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(safeStr(p.positionGroup)) + '</td>' +
-          '<td class="rwb-cell-num' + (tcv === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(tcv > 0 ? money(tcv) : "—") + '</td>' +
-          '<td class="rwb-cell-num' + (aav === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(aav > 0 ? money(aav) : "—") + '</td>' +
+          '<td class="rwb-cell-num' + (tcv === 0 && !unknownContract ? ' rwb-money-zero' : '') + '">' + (unknownContract ? pendingCellHtml : escapeHtml(tcv > 0 ? money(tcv) : "—")) + '</td>' +
+          '<td class="rwb-cell-num' + (aav === 0 && !unknownContract ? ' rwb-money-zero' : '') + '">' + (unknownContract ? pendingCellHtml : escapeHtml(aav > 0 ? money(aav) : "—")) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(projectedExpiryLabel(p)) + '</td>' +
           '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 0 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(money(proj[0])) + '</td>' +
           '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 1 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +

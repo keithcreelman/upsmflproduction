@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "released": "2026-08-08",
-  "checkpoint": 10,
-  "scope": "A blank contract is rendered as PENDING, never invented. MFL records only the SALARY on a waiver/FCFS award and leaves contractStatus/contractYear/contractInfo empty; the roster-workbench rookie fallback was reading that silence as a rookie deal and manufacturing a 2-year / $2,000 contract (Brashard Smith). The fallback now requires MFL to actually say the contract is a rookie one, and any row MFL has not described renders TCV/CL/Yrs/AAV/GTD/penalty as \"pending\" with a PENDING chip instead of a fabricated shape or the red EXPIRED chip. Such a row still counts its real salary against the cap and against roster limits.",
+  "checkpoint": 11,
+  "scope": "A blank contract is rendered as PENDING, never invented — on BOTH desktop surfaces. MFL records only the SALARY on a waiver/FCFS award and leaves contractStatus/contractYear/contractInfo empty. The legacy Roster Workbench (site/rosters/roster_workbench.js, the surface wired to MESSAGE7) had no contract-unknown notion and was chipping such a row EXPIRED — a state MFL never claimed — and dropping its salary out of the cap total. It now mirrors FO v2: a PENDING pill, \"pending\" contract-shape cells, no Expired label and no risk chip, and the real salary still counted against the cap. The worker, both clients and the WW stamp's blank-only write guard now share one definition of \"MFL has not said\", so a pending row is always stampable.",
   "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

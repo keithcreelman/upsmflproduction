@@ -2910,15 +2910,28 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
   }
 
   // ── Candidates: rostered AND completely undescribed by MFL.
+  //
+  // ⚠️ This test defines "MFL has not said" for the whole system. The
+  // /roster-workbench payload's `contract_unknown` and the two desktop clients'
+  // contractUnknownForPlayer() must agree with it exactly, or a row renders
+  // "pending" forever without ever qualifying to be stamped (or, worse, gets
+  // stamped while a surface still shows a contract). `-` is the empty sentinel
+  // the workbench payload uses on the wire, so it counts as blank here too;
+  // treating it as "MFL said something" is the half of the disagreement that
+  // would strand a row.
+  const isBlankContractField = (v) => {
+    const s = String(v == null ? "" : v).trim();
+    return !s || s === "-";
+  };
   const blanks = [];
   for (const [pid, fid] of rosterFidByPid) {
     if (onlyPid && pid !== onlyPid) continue;
     const cur = mflMap[pid];
     if (!cur) continue;   // no salaries row at all — not ours to invent one
-    const cs = String(cur.contractStatus || "").trim();
-    const cy = String(cur.contractYear || "").trim();
-    const ci = String(cur.contractInfo || "").trim();
-    if (cs || cy || ci) continue;   // GUARD 1 — MFL has said something. Hands off.
+    // GUARD 1 — MFL has said something about ANY of the three. Hands off.
+    if (!isBlankContractField(cur.contractStatus)) continue;
+    if (!isBlankContractField(cur.contractYear)) continue;
+    if (!isBlankContractField(cur.contractInfo)) continue;
     blanks.push({ pid, fid, salary: String(cur.salary || "").trim() });
   }
   if (!blanks.length) {
@@ -40893,6 +40906,14 @@ export default {
               const pMeta = playersById[playerId] || {};
               const overlay = salaryByPlayer[playerId] || null;
               const salary = overlay && overlay.salary != null ? safeInt(overlay.salary, 0) : safeInt(asset?.salary, 0);
+              // Keep the RAW contractYear alongside the parsed one. They are not
+              // interchangeable: MFL's `""` (has not said) and `"0"` (said the
+              // contract is expired — contractYear is years-REMAINING) both parse
+              // to 0, and only the raw string can tell them apart. contractUnknown
+              // below depends on that distinction.
+              const yearsRaw = overlay && overlay.contractYear != null
+                ? safeStr(overlay.contractYear)
+                : (asset?.years == null ? "" : safeStr(asset?.years));
               let years = overlay && overlay.contractYear != null
                 ? safeInt(overlay.contractYear, 0)
                 : (asset?.years == null ? 0 : safeInt(asset?.years, 0));
@@ -40948,7 +40969,26 @@ export default {
               // MFL has described NOTHING about this contract: no status, no
               // length, no info. Distinct from "expired" (years 0 with a real
               // status/info), which is a state MFL actually asserts.
-              const contractUnknown = contractDataMissing && !type && !specialRaw;
+              //
+              // ⚠️ ONE definition, three enforcers, and they MUST agree:
+              //   1. here (the authoritative `contract_unknown` on the wire),
+              //   2. contractUnknownForPlayer() in front_office.js AND
+              //      roster_workbench.js (the stale-payload fallback), and
+              //   3. finalizeWaiverContracts' GUARD 1, which writes only where
+              //      contractStatus + contractYear + contractInfo are ALL blank.
+              // If this one were looser than (3) — as it was when it read
+              // `contractDataMissing && !type && !specialRaw`, where
+              // contractDataMissing is already satisfied by `!specialRaw` alone,
+              // making the years test vacuous — a row with a real contractYear
+              // but no status/info would render "pending" forever and never
+              // qualify to be stamped. So spell all three blanks out, and test
+              // contractYear as the RAW STRING: `"0"` is MFL asserting an expired
+              // contract and the stamp (correctly) will not touch it, while `""`
+              // is silence. Both parse to 0, so `years <= 0` cannot separate them
+              // and would strand every cy="0" row on "pending" forever.
+              const isBlankField = (v) => !v || v === "-";
+              const contractUnknown =
+                isBlankField(yearsRaw) && isBlankField(type) && isBlankField(specialRaw);
               if (contractDataMissing && inRookieWindow && onRookieContractPerMfl) {
                 if (years <= 0) {
                   years = Math.max(0, 3 - Math.max(0, currentSeason - draftYear));
