@@ -2786,6 +2786,514 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   };
 }
 
+// Stamp the canonical 1-year WW contract onto a WAIVER/FCFS award — the
+// waiver-wire mirror of finalizeFaaContracts (Keith 2026-08-08).
+//
+// WHY THIS EXISTS. The waiver code (see the WAIVER WIRE header further down)
+// was built on the belief that "MFL's league default salary row (player id
+// `0000`) is ALREADY the canonical UPS waiver contract — salary 1000 /
+// contractStatus WW / contractInfo 'CL 1|' / contractYear 1", so a waiver award
+// needed no contract write at all. That is FALSE on this league. Read it live:
+//
+//   export?TYPE=salaries&L=74598 → {"id":"0000","salary":"","contractStatus":"",
+//                                   "contractYear":"","contractInfo":""}
+//
+// The default row is entirely blank, so MFL sets exactly ONE field on an award —
+// salary = the winning bid — and leaves contractStatus / contractYear /
+// contractInfo empty forever. Brashard Smith (17049), won by 0008 for $1,000 on
+// 2026-08-08, read back `{salary:'1000', contractStatus:'', contractInfo:'',
+// contractYear:''}`. That blank is also why the Discord add post says "status
+// pending": there is genuinely no status to print.
+//
+// (/admin/adds/annotate-contracts does NOT cover this. It is cosmetic-only by
+// charter — it appends TCV/AAV tokens to an EXISTING contract and refuses any
+// row whose fresh read has no salary or no contractYear. A blank waiver award
+// has no contractYear, so the annotator correctly declines it and always will.)
+//
+// WHAT IT WRITES (canon §A4 — a WW pickup is a 1-year deal at the bid; the
+// in-season contract type is WW):
+//   contractStatus = Rookie-WW for an NFL rookie, else Vet-WW
+//                    (same rookie test the FAA path uses: players export
+//                     draft_year === this season)
+//   contractYear   = 1
+//   salary         = the winning bid (MFL already set this; we echo it back
+//                    verbatim so the FULL-attribute import cannot blank it)
+//   contractInfo   = "CL 1| TCV {bid}K| AAV {bid}K"
+// These are byte-for-byte the values the three contracts wiped on 2026-08-07
+// (Luvu 13952, Johnson 16649, Benson 16594) were repaired to and still carry.
+//
+// SAFETY POSTURE — same shape as finalizeFaaContracts, plus one guard it does
+// not need:
+//   • BLANK-ONLY (GUARD 1). We write ONLY onto a row where MFL has said
+//     nothing: contractStatus AND contractYear AND contractInfo must all be
+//     empty. Any one of them being set means somebody — MFL, an owner's MYAC/
+//     MYM, the commish — has described this contract, and we never overwrite
+//     that. This makes the route structurally incapable of the 2026-08-02
+//     flattening: there is no such thing as "re-stamping".
+//   • WAIVER EVIDENCE REQUIRED (GUARD 2), read from MFL's own BBID_WAIVER /
+//     FREE_AGENT transaction log. A blank row with no waiver transaction is
+//     somebody else's problem (an auction stub belongs to finalizeFaaContracts)
+//     and is reported as needs_input, never guessed at.
+//   • NO FAIL-OPEN anywhere. An unreadable transactions log, players export, or
+//     salaries export means we write NOTHING and let the next tick retry.
+//   • A bid we cannot establish is needs_input, never a default. MFL's $1K is
+//     not a fallback — it is a real number when MFL says it and an invention
+//     when it doesn't.
+//   • FULL-attribute import (all four fields on every row). MFL BLANKS every
+//     attribute you omit — that is what wiped three live contracts on
+//     2026-08-07. Never send a partial row.
+//   • dry_run, circuit breaker for unattended callers, verify-by-reread.
+async function finalizeWaiverContracts(env, year, leagueId, opts) {
+  opts = opts || {};
+  const dryRun = !!opts.dryRun;
+  const onlyPid = opts.onlyPid ? String(opts.onlyPid).replace(/\D/g, "") : null;
+  const days = Math.max(1, Math.min(90, Number(opts.days) || 30));
+  const db = env.UPS_MFL_DB;
+
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+  const host = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}`;
+  const asArr = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+  const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
+  const kFmt = (dollars) => {
+    const k = (Number(dollars) || 0) / 1000;
+    return Number.isInteger(k) ? String(k) : String(Math.round(k * 10) / 10);
+  };
+
+  // ── MFL truth #1: the live salaries rows. FAIL CLOSED.
+  let salArr = null;
+  try {
+    const salRes = await fetchBounded(
+      `${host}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }
+    );
+    const salJson = await salRes.json().catch(() => null);
+    const rows = salJson?.salaries?.leagueUnit?.player ?? salJson?.salaries?.leagueunit?.player;
+    if (rows !== undefined) salArr = asArr(rows);
+  } catch (e) {
+    console.warn("[finalize-ww] salaries export threw:", e?.message || String(e));
+  }
+  if (!salArr) {
+    return { status: 502, body: { ok: false, error: "salaries_export_unreadable", message: "Could not read MFL salaries — nothing was written; the next run retries." } };
+  }
+  const mflMap = {};
+  for (const p of salArr) {
+    const pid = String(p?.id || "").replace(/\D/g, "");
+    if (!pid || pid === "0000") continue;
+    mflMap[pid] = p;
+  }
+
+  // ── MFL truth #2: who is actually ROSTERED, and by whom. A salaries row for
+  // a player nobody owns is a ghost and must never be stamped. FAIL CLOSED.
+  let rosterFranchises = null;
+  try {
+    const rosRes = await fetchBounded(
+      `${host}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }
+    );
+    const rosJson = await rosRes.json().catch(() => null);
+    const fr = rosJson?.rosters?.franchise;
+    if (fr !== undefined) rosterFranchises = asArr(fr);
+  } catch (e) {
+    console.warn("[finalize-ww] rosters export threw:", e?.message || String(e));
+  }
+  if (!rosterFranchises) {
+    return { status: 502, body: { ok: false, error: "rosters_export_unreadable", message: "Could not read MFL rosters — nothing was written; the next run retries." } };
+  }
+  const rosterFidByPid = new Map();
+  for (const f of rosterFranchises) {
+    const fid = pad4(f?.id);
+    for (const p of asArr(f?.player)) {
+      const pid = String(p?.id || "").replace(/\D/g, "");
+      if (pid) rosterFidByPid.set(pid, fid);
+    }
+  }
+
+  // ── Candidates: rostered AND completely undescribed by MFL.
+  const blanks = [];
+  for (const [pid, fid] of rosterFidByPid) {
+    if (onlyPid && pid !== onlyPid) continue;
+    const cur = mflMap[pid];
+    if (!cur) continue;   // no salaries row at all — not ours to invent one
+    const cs = String(cur.contractStatus || "").trim();
+    const cy = String(cur.contractYear || "").trim();
+    const ci = String(cur.contractInfo || "").trim();
+    if (cs || cy || ci) continue;   // GUARD 1 — MFL has said something. Hands off.
+    blanks.push({ pid, fid, salary: String(cur.salary || "").trim() });
+  }
+  if (!blanks.length) {
+    return { status: 200, body: { ok: true, message: "No blank waiver contracts to stamp", count: 0, needs_input: [] } };
+  }
+
+  // ── MFL truth #3: the waiver/FA transaction log — the ONLY thing that turns
+  // a blank row into "this was a waiver award for $N". FAIL CLOSED on either
+  // half: a log we cannot read is not an empty log.
+  const readTx = async (transType) => {
+    try {
+      const res = await fetchBounded(
+        `${host}/export?TYPE=transactions&L=${encodeURIComponent(leagueId)}&TRANS_TYPE=${transType}&DAYS=${days}&JSON=1${apiQs}`,
+        { cf: { cacheTtl: 0, cacheEverything: false } }
+      );
+      const json = await res.json().catch(() => null);
+      const tx = json?.transactions?.transaction;
+      if (tx === undefined) return null;
+      return asArr(tx);
+    } catch (e) {
+      console.warn(`[finalize-ww] ${transType} export threw:`, e?.message || String(e));
+      return null;
+    }
+  };
+  const [bbidTx, faTx] = await Promise.all([readTx("BBID_WAIVER"), readTx("FREE_AGENT")]);
+  if (!bbidTx || !faTx) {
+    return {
+      status: 502,
+      body: {
+        ok: false,
+        error: "transactions_export_unreadable",
+        message: "Could not read MFL's BBID_WAIVER/FREE_AGENT log, so a waiver award cannot be proven. Nothing was written; the next run retries.",
+      },
+    };
+  }
+  // Transaction formats, confirmed against 941 real rows (2026-07-30) and
+  // re-confirmed live 2026-08-08:
+  //   BBID_WAIVER : `added_pids,|bid|dropped_pids,`   e.g. "17049,|1000|16171,"
+  //                 bid is RAW DOLLARS.
+  //   FREE_AGENT  : `added_pids,|dropped_pids,`       (2 fields, NO bid) — so a
+  //                 bid read from field 2 here would be a dropped player id
+  //                 masquerading as money. We never read one.
+  const awardByPid = new Map();   // pid → { fid, ts, bid|null, source }
+  const takeAwards = (txs, source) => {
+    for (const tx of txs) {
+      const fid = pad4(tx?.franchise);
+      const ts = Number(tx?.timestamp) || 0;
+      if (!fid || !ts) continue;
+      const parts = String(tx?.transaction || "").split("|");
+      const addedPids = String(parts[0] || "").match(/\d{3,6}/g) || [];
+      let bid = null;
+      if (source === "bbid") {
+        const n = Number(String(parts[1] || "").replace(/[^0-9]/g, ""));
+        bid = Number.isFinite(n) && n > 0 ? n : null;
+      }
+      for (const pid of addedPids) {
+        const prev = awardByPid.get(pid);
+        if (prev && prev.ts >= ts) continue;   // most-recent award wins
+        awardByPid.set(pid, { fid, ts, bid, source });
+      }
+    }
+  };
+  takeAwards(bbidTx, "bbid");
+  takeAwards(faTx, "fcfs");
+
+  // ── MFL truth #4: rookie vs veteran, from draft_year. Same test the FAA path
+  // uses. FAIL CLOSED — writing the wrong contract TYPE is not a guess we make.
+  const rookiePids = new Set();
+  {
+    const ids = blanks.map((b) => b.pid);
+    let ok = false;
+    try {
+      if (ids.length) {
+        const plRes = await fetchBounded(
+          `${host}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(ids.join(","))}&DETAILS=1&JSON=1${apiQs}`,
+          { cf: { cacheTtl: 300, cacheEverything: true } }
+        );
+        const plJson = await plRes.json().catch(() => null);
+        const arr = plJson?.players?.player;
+        if (arr !== undefined) {
+          ok = true;
+          for (const p of asArr(arr)) {
+            if (p && String(p.draft_year || "") === String(year)) rookiePids.add(String(p.id).replace(/\D/g, ""));
+          }
+        }
+      } else {
+        ok = true;
+      }
+    } catch (e) {
+      console.warn("[finalize-ww] rookie lookup threw:", e?.message || String(e));
+    }
+    if (!ok) {
+      return {
+        status: 200,
+        body: {
+          ok: false,
+          error: "rookie_lookup_failed",
+          message: "Could not read draft years from MFL, so Rookie-WW vs Vet-WW can't be determined. Nothing was written; the next run retries.",
+          count: 0,
+        },
+      };
+    }
+  }
+
+  // Player names are cosmetic here (for the dry-run sheet Keith approves).
+  // Their absence NEVER blocks or changes a write.
+  const nameByPid = new Map();
+  try {
+    const nmRes = await fetchBounded(
+      `${host}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(blanks.map((b) => b.pid).join(","))}&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 300, cacheEverything: true } }
+    );
+    const nmJson = await nmRes.json().catch(() => null);
+    for (const p of asArr(nmJson?.players?.player)) {
+      const pid = String(p?.id || "").replace(/\D/g, "");
+      if (!pid) continue;
+      let nm = String(p?.name || "");
+      if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+      nameByPid.set(pid, nm);
+    }
+  } catch (_) { /* cosmetic only */ }
+
+  const rowsToWrite = [];
+  const needsInput = [];
+  for (const b of blanks) {
+    const pid = b.pid;
+    const name = nameByPid.get(pid) || "";
+    const award = awardByPid.get(pid);
+
+    // GUARD 2 — is this actually a waiver/FA award? An auction stub is
+    // finalizeFaaContracts' job; a blank we cannot explain is a human's.
+    if (!award) {
+      needsInput.push({
+        player_id: pid, player_name: name, franchise_id: b.fid,
+        reason: "no_waiver_or_fa_transaction_in_window",
+        detail: `No BBID_WAIVER/FREE_AGENT add for this player in the last ${days} days, so there is no evidence of a waiver award and no bid to write. Widen \`days\` or handle by hand.`,
+        mfl_salary: b.salary || null,
+      });
+      continue;
+    }
+    // The award must belong to the franchise that holds him NOW. If he moved
+    // since (trade, another claim), the transaction's bid is not this
+    // contract's price.
+    if (award.fid !== b.fid) {
+      needsInput.push({
+        player_id: pid, player_name: name, franchise_id: b.fid,
+        reason: "award_franchise_differs_from_current_roster",
+        detail: `Waiver award was to ${award.fid} but ${b.fid} holds him now — the recorded bid may not be this contract's price.`,
+        award_franchise_id: award.fid,
+      });
+      continue;
+    }
+
+    // ── The bid. Two independent witnesses, and we refuse rather than choose:
+    //   1. MFL's transaction string (BBID only — FREE_AGENT carries no bid).
+    //   2. MFL's own salary field, which it sets to the winning bid on award.
+    // Both present and equal → confident. One present → use it. Neither, or a
+    // disagreement → NEEDS-INPUT. There is no default: MFL's $1K minimum is a
+    // real number when MFL says it and an invention when it doesn't.
+    const salaryDollars = Number(String(b.salary).replace(/[^0-9]/g, ""));
+    const salaryKnown = Number.isFinite(salaryDollars) && salaryDollars > 0 ? salaryDollars : null;
+    const bidKnown = award.bid && award.bid > 0 ? award.bid : null;
+    if (bidKnown != null && salaryKnown != null && bidKnown !== salaryKnown) {
+      needsInput.push({
+        player_id: pid, player_name: name, franchise_id: b.fid,
+        reason: "bid_disagrees_with_mfl_salary",
+        detail: `Transaction bid $${bidKnown} vs MFL salary $${salaryKnown}. Two different prices for one contract — a human decides which is right.`,
+        transaction_bid: bidKnown, mfl_salary: salaryKnown,
+      });
+      continue;
+    }
+    const bid = bidKnown != null ? bidKnown : salaryKnown;
+    if (bid == null) {
+      needsInput.push({
+        player_id: pid, player_name: name, franchise_id: b.fid,
+        reason: "no_bid_establishable",
+        detail: `${award.source === "bbid" ? "BBID transaction carried no bid" : "FCFS add carries no bid"} and MFL's salary field is empty. Nothing to write a price from.`,
+        mfl_salary: b.salary || null,
+      });
+      continue;
+    }
+
+    const bidK = bid / 1000;
+    rowsToWrite.push({
+      id: pid,
+      player_name: name,
+      franchise_id: b.fid,
+      source: award.source,
+      awarded_at_unix: award.ts,
+      bid_dollars: bid,
+      salary: String(bid),
+      contractStatus: rookiePids.has(pid) ? "Rookie-WW" : "Vet-WW",
+      contractYear: "1",
+      contractInfo: `CL 1| TCV ${kFmt(bid)}K| AAV ${kFmt(bid)}K`,
+      bid_k: bidK,
+      before: {
+        salary: b.salary || "",
+        contractStatus: "",
+        contractYear: "",
+        contractInfo: "",
+      },
+    });
+  }
+
+  if (!rowsToWrite.length) {
+    return {
+      status: 200,
+      body: {
+        ok: true, dry_run: dryRun, season: String(year), league_id: leagueId,
+        count: 0, message: "No blank waiver contracts could be stamped",
+        needs_input_count: needsInput.length, needs_input: needsInput,
+      },
+    };
+  }
+
+  // ── CIRCUIT BREAKER — same rationale as finalizeFaaContracts'. Scoped to
+  // UNATTENDED callers (opts.maxWrites is set only by the cron). A waiver run
+  // awards a handful of players; a run that wants to stamp dozens is not a
+  // waiver run, it is a bug, and a partial write of an unexplained batch is the
+  // worst possible outcome. Trips = write nothing + DM the commish.
+  const maxWrites = Number.isFinite(Number(opts?.maxWrites)) ? Number(opts.maxWrites) : Infinity;
+  if (rowsToWrite.length > maxWrites) {
+    const idList = rowsToWrite.slice(0, 8).map((r) => r.id).join(", ");
+    const msg =
+      `🛑 **WW contract stamp CIRCUIT BREAKER tripped — nothing was written.**\n` +
+      `An unattended sweep wanted to stamp **${rowsToWrite.length}** waiver contracts in one run (cap ${maxWrites}).\n` +
+      `Player ids: ${idList}${rowsToWrite.length > 8 ? ` … +${rowsToWrite.length - 8} more` : ""}\n` +
+      `Nothing changed in MFL. Inspect first:\n` +
+      `\`POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1&APIKEY=…\``;
+    try { await dmCommish(env, msg); } catch (_) { /* alerting must never mask the trip */ }
+    console.error(`[finalize-ww] CIRCUIT BREAKER: refused ${rowsToWrite.length} writes (cap ${maxWrites})`);
+    return {
+      status: 200,
+      body: {
+        ok: false, error: "circuit_breaker_tripped",
+        message: `Refused to stamp ${rowsToWrite.length} contracts in one unattended run (cap ${maxWrites}). Nothing was written.`,
+        would_have_written: rowsToWrite.length, max_writes: maxWrites, rows: rowsToWrite,
+        needs_input_count: needsInput.length, needs_input: needsInput,
+      },
+    };
+  }
+
+  if (dryRun) {
+    return {
+      status: 200,
+      body: {
+        ok: true, dry_run: true, season: String(year), league_id: leagueId,
+        count: rowsToWrite.length, rows: rowsToWrite,
+        needs_input_count: needsInput.length, needs_input: needsInput,
+      },
+    };
+  }
+
+  // FULL-attribute import. Every row carries all four fields — MFL treats a
+  // salaries row as the player's COMPLETE state and BLANKS anything you omit
+  // (that is what emptied Luvu / Johnson / Benson on 2026-08-07). APPEND=1 so
+  // players absent from the payload are untouched.
+  const xmlEsc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const playerXml = rowsToWrite.map((r) =>
+    `<player id="${xmlEsc(r.id)}" salary="${xmlEsc(r.salary)}" contractStatus="${xmlEsc(r.contractStatus)}" contractYear="${xmlEsc(r.contractYear)}" contractInfo="${xmlEsc(r.contractInfo)}" />`
+  ).join("");
+  const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+
+  const mflCookie = String(env.MFL_COOKIE || "").trim();
+  const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+  const importUrl = `${host}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
+  const importRes = await fetchBounded(importUrl, {
+    method: "POST",
+    headers: {
+      Cookie: cookieHeader,
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      "Accept": "text/xml, text/plain, application/xml, */*",
+      "Accept-Encoding": "identity",
+    },
+    body: new URLSearchParams({ DATA: dataXml }).toString(),
+    redirect: "follow",
+    cf: { cacheTtl: 0, cacheEverything: false },
+  });
+  const importText = await importRes.text();
+  const importOk = importRes.ok && /<status>OK<\/status>/i.test(importText);
+  const errMatch = /<error>([^<]+)<\/error>/i.exec(importText);
+  if (!importOk) {
+    return {
+      status: 502,
+      body: {
+        ok: false,
+        error: errMatch ? errMatch[1] : "MFL import did not return <status>OK</status>",
+        upstreamPreview: importText.slice(0, 1500),
+        attempted: rowsToWrite,
+      },
+    };
+  }
+
+  // Verify by re-reading. "Accepted" is not "landed".
+  const verRes = await fetchBounded(
+    `${host}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
+    { cf: { cacheTtl: 0, cacheEverything: false } }
+  );
+  const verJson = await verRes.json().catch(() => ({}));
+  const verMap = {};
+  for (const p of asArr(verJson?.salaries?.leagueUnit?.player)) {
+    const pid = String(p?.id || "").replace(/\D/g, "");
+    if (pid) verMap[pid] = p;
+  }
+  const verification = rowsToWrite.map((r) => {
+    const a = verMap[r.id] || {};
+    return {
+      player_id: r.id,
+      player_name: r.player_name,
+      ok: String(a.salary || "") === r.salary &&
+          String(a.contractStatus || "") === r.contractStatus &&
+          String(a.contractYear || "") === r.contractYear &&
+          String(a.contractInfo || "") === r.contractInfo,
+      after: {
+        salary: String(a.salary || ""),
+        contractStatus: String(a.contractStatus || ""),
+        contractYear: String(a.contractYear || ""),
+        contractInfo: String(a.contractInfo || ""),
+      },
+      before: r.before,
+    };
+  });
+
+  // D1 audit — Keith's rule: EVERYTHING contract-related lands in D1. Reuses
+  // ups_auction_contract_finalizations with source='ww' (its PK is
+  // (player_id, season, league_id, source), so a new source is a new row and
+  // never collides with the 'faa'/'era' ledgers). Deliberately NOT a new table:
+  // `wrangler d1 migrations apply` is banned on this D1 and a stamp must not
+  // wait on a hand-applied migration. FAIL-SOFT — the MFL write already landed,
+  // so a D1 hiccup must not fail the stamp. This ledger is a RECORD, not a
+  // guard: idempotency comes from GUARD 1 (a stamped row is no longer blank).
+  const nowUnix = Math.floor(Date.now() / 1000);
+  for (const v of verification) {
+    if (!v.ok) continue;
+    const w = rowsToWrite.find((r) => r.id === v.player_id) || {};
+    try {
+      await db.prepare(
+        `INSERT INTO ups_auction_contract_finalizations
+           (player_id, season, league_id, winner_fid, source, won_bid_k, salary,
+            contract_year, contract_status, contract_info, finalized_at_unix)
+         VALUES (?, ?, ?, ?, 'ww', ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(player_id, season, league_id, source) DO UPDATE SET
+           winner_fid        = excluded.winner_fid,
+           won_bid_k         = excluded.won_bid_k,
+           salary            = excluded.salary,
+           contract_year     = excluded.contract_year,
+           contract_status   = excluded.contract_status,
+           contract_info     = excluded.contract_info,
+           finalized_at_unix = excluded.finalized_at_unix`
+      ).bind(
+        v.player_id, String(year), String(leagueId), String(w.franchise_id || ""),
+        Number(w.bid_k || 0), Number(w.salary || 0), String(w.contractYear || "1"),
+        String(w.contractStatus || ""), String(w.contractInfo || ""), nowUnix
+      ).run();
+    } catch (e) {
+      console.warn(`[finalize-ww] D1 audit write failed pid=${v.player_id}:`, e?.message || String(e));
+    }
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      season: String(year),
+      league_id: leagueId,
+      count: rowsToWrite.length,
+      verified_count: verification.filter((v) => v.ok).length,
+      verification,
+      needs_input_count: needsInput.length,
+      needs_input: needsInput,
+    },
+  };
+}
+
 // ─────────────────────── auction narrator: taunt library ───────────────────
 // Fired at the OUTBID owner on every overtake. Tiered by the bid that just
 // beat them — a $2K bump gets a nudge, a $40K bid gets both barrels. Keith
@@ -5154,6 +5662,7 @@ export default {
         const addEnabled = dropFlagOn("ADD_TRACKER_ENABLED");
         const addAutoPost = dropFlagOn("ADD_TRACKER_AUTO_POST");
         const addAnnotate = dropFlagOn("WW_CONTRACT_ANNOTATE_ENABLED");
+        const addStamp = dropFlagOn("WW_CONTRACT_STAMP_ENABLED");
         const addTarget = String(env.ADD_TRACKER_DISCORD_TARGET || "test").trim().toLowerCase();
         if (addEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
@@ -5164,6 +5673,44 @@ export default {
               );
               const addScanData = await addScanRes.json().catch(() => ({}));
               const addsWritten = Number(addScanData?.written_count) || 0;
+              // STAMP BEFORE ANNOTATE, always. The stamp writes the whole
+              // contract onto a blank award; the annotator only decorates a
+              // contract that already exists (it refuses any row whose fresh
+              // read has no contractYear — i.e. exactly the blank rows the
+              // stamp is here to fill). Running them the other way round means
+              // the annotator declines every new award, forever.
+              //
+              // maxWrites: the unattended circuit breaker. A waiver run awards a
+              // handful of players; anything past 8 in one tick is a bug, and a
+              // bug that writes contracts is the one we have already paid for
+              // twice. The admin route stays uncapped — a human is watching it.
+              let addsStamped = 0;
+              if (addStamp) {
+                try {
+                  const stRes = await env.SELF.fetch(
+                    `${origin}/admin/adds/stamp-ww-contracts?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, days: 7, max_writes: 8 }) }
+                  );
+                  const stData = await stRes.json().catch(() => ({}));
+                  addsStamped = Number(stData?.verified_count) || 0;
+                  const stNeeds = Number(stData?.needs_input_count) || 0;
+                  if (stNeeds) {
+                    // Never a DM and never a default — just a durable log line.
+                    // A needs-input row is a waiver award whose PRICE MFL did
+                    // not tell us; the correct handling is a human reading the
+                    // dry run, not the cron picking a number.
+                    console.warn(
+                      `[scheduled */5] ww-stamp: ${stNeeds} blank waiver contract(s) need input (no bid establishable / no waiver evidence). ` +
+                      `Preview: POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1&APIKEY=…`
+                    );
+                  }
+                  if (stData?.ok === false) {
+                    console.error(`[scheduled */5] ww-stamp returned ok:false (${String(stData?.error || "")}) — nothing was written this tick.`);
+                  }
+                } catch (e) {
+                  console.error(`[scheduled */5] ww-stamp failed: ${e?.message || String(e)}`);
+                }
+              }
               let addsAnnotated = 0;
               if (addAnnotate) {
                 const annRes = await env.SELF.fetch(
@@ -5250,8 +5797,8 @@ export default {
                   }
                 })();
               }
-              if (addsWritten || addsPosted || addsAnnotated) {
-                console.log(`[scheduled */5] add-tracker: new_adds=${addsWritten} discord_posted=${addsPosted} annotated=${addsAnnotated} auto_post=${addAutoPost ? "1" : "0"} annotate=${addAnnotate ? "1" : "0"} target=${addTarget}`);
+              if (addsWritten || addsPosted || addsAnnotated || addsStamped) {
+                console.log(`[scheduled */5] add-tracker: new_adds=${addsWritten} discord_posted=${addsPosted} ww_stamped=${addsStamped} annotated=${addsAnnotated} auto_post=${addAutoPost ? "1" : "0"} stamp=${addStamp ? "1" : "0"} annotate=${addAnnotate ? "1" : "0"} target=${addTarget}`);
               }
             } catch (e) {
               console.error(`[scheduled */5] add-tracker failed: ${e?.message || String(e)}`);
@@ -36467,16 +37014,33 @@ export default {
       // cap and the roster max at award time. We add identity, validation and an
       // audit trail — never a second rulebook.
       //
-      // WHY THERE IS NO CONTRACT WRITE ANYWHERE IN HERE: MFL's league default
-      // salary row (export?TYPE=salaries, player id `0000`) is ALREADY the
-      // canonical UPS waiver contract — salary 1000 / contractStatus "WW" /
-      // contractInfo "CL 1|" / contractYear 1. An FCFS $1K add therefore needs
-      // zero contract work, and a BBID award gets salary = the winning bid
-      // NATIVELY from MFL. We must NEVER write salary for a waiver add. The one
-      // gap is cosmetic (contractInfo carries no TCV/AAV tokens) and is verified
-      // not to affect penalty math — _parseContractData falls back to salary as
-      // TCV. The optional backfill lives in /admin/adds/annotate-contracts and
-      // touches contractInfo only.
+      // WHY THERE IS NO CONTRACT WRITE ANYWHERE IN HERE — and why that is NOT
+      // the same as "no contract write is needed" (corrected 2026-08-08):
+      //
+      // This block used to assert that MFL's league default salary row
+      // (export?TYPE=salaries, player id `0000`) IS the canonical UPS waiver
+      // contract — salary 1000 / contractStatus "WW" / contractInfo "CL 1|" /
+      // contractYear 1 — so an award needed no contract work at all. Read live,
+      // that row is entirely blank:
+      //     {"id":"0000","salary":"","contractStatus":"","contractYear":"",
+      //      "contractInfo":""}
+      // MFL therefore sets exactly ONE field on an award — salary = the winning
+      // bid — and leaves contractStatus / contractYear / contractInfo empty
+      // forever. Brashard Smith (17049), won by 0008 for $1,000 on 2026-08-08,
+      // read back `{salary:'1000', contractStatus:'', contractInfo:'',
+      // contractYear:''}`. That blank is what makes the Discord add post say
+      // "status pending", and it is what the Front Office was inventing a
+      // 2-year deal out of.
+      //
+      // What still holds: we must NEVER write salary FROM THESE ROUTES. The
+      // award is asynchronous for BBID (MFL processes blind bids on its own
+      // schedule), so there is no moment here at which the final price is
+      // known. The contract is stamped afterwards, from MFL's own post-award
+      // truth, by finalizeWaiverContracts (/admin/adds/stamp-ww-contracts,
+      // flag WW_CONTRACT_STAMP_ENABLED) — which writes all four fields and only
+      // ever onto a row MFL left completely blank. The cosmetic TCV/AAV
+      // backfill in /admin/adds/annotate-contracts runs AFTER that stamp, on
+      // contracts that already exist.
 
       const _wvTruthy = (v) => {
         const s = String(v == null ? "" : v).trim().toLowerCase();
@@ -38131,9 +38695,15 @@ export default {
           return jsonNoStore(400, { ok: false, error: "validation", details: fcfsDetails });
         }
 
+        // Says what MFL will actually do, not what we wish it did. MFL sets the
+        // SALARY on the add and nothing else — the contract type/length shows
+        // up once the WW stamp runs, and until then it is genuinely pending.
+        // Claiming "contractStatus WW, CL 1" here was the same invention the FO
+        // was making on screen.
         const fcfsContractNote =
-          "1-yr WW contract at MFL's league default ($1K, contractStatus WW, CL 1) — no contract write needed; " +
-          "a WW salary of $4K or less is a cap-free cut.";
+          "1-yr WW deal at the add price (canon §A4). MFL records the salary immediately; " +
+          "the contract type and length are stamped shortly after the add lands, so they may read " +
+          "as pending until then. A WW salary of $4K or less is a cap-free cut.";
         if (fcfsDryRun) {
           return jsonNoStore(200, {
             ok: true,
@@ -38444,6 +39014,51 @@ export default {
           written: addWritten,
           skipped: addSkipped,
         });
+      }
+
+      // POST /admin/adds/stamp-ww-contracts?L=..&YEAR=..&APIKEY=..[&dry_run=1][&days=30][&pid=NNNNN]
+      // Commish-gated. Flag WW_CONTRACT_STAMP_ENABLED — default OFF, and the
+      // flag gates the WRITE only: dry_run always previews, exactly like
+      // /admin/auction/finalize-faa-contracts and the annotator.
+      //
+      // Writes the canonical 1-year WW contract (Vet-WW / Rookie-WW, CL 1,
+      // TCV/AAV = the winning bid) onto waiver awards MFL left completely
+      // blank. See finalizeWaiverContracts for the full why and every guard —
+      // most importantly that it writes ONLY where all three of contractStatus,
+      // contractYear and contractInfo are empty, so it can never flatten an
+      // owner's work.
+      //
+      // ALWAYS run dry_run=1 first and read `needs_input` — a row there is a
+      // waiver award whose price we could not establish from MFL, and it wants
+      // a human, not a default.
+      if (path === "/admin/adds/stamp-ww-contracts" && request.method === "POST") {
+        let sbody = {};
+        try { sbody = (await request.json()) || {}; } catch (_) { sbody = {}; }
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const stampSeason = safeStr(sbody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const stampLeagueId = safeStr(sbody?.league_id || sbody?.L || url.searchParams.get("L") || L || "74598");
+        const stampDryRun = !!sbody?.dry_run || safeStr(url.searchParams.get("dry_run")) === "1";
+        const stampDays = safeInt(sbody?.days || url.searchParams.get("days"), 30);
+        const stampPid = safeStr(sbody?.pid || url.searchParams.get("pid") || "");
+        // max_writes is the UNATTENDED circuit breaker and is body-only on
+        // purpose: only the */5 cron sets it. A human running this route by
+        // hand has already seen the dry run, so they are uncapped.
+        const stampMaxWrites = sbody?.max_writes != null ? safeInt(sbody.max_writes, 0) : null;
+        if (!stampSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!safeStr(env.MFL_COOKIE)) return jsonOut(500, { ok: false, error: "MFL_COOKIE missing" });
+        if (!stampDryRun && !(await getFeatureFlag(env, "WW_CONTRACT_STAMP_ENABLED"))) {
+          return jsonOut(503, { ok: false, error: "ww_contract_stamp_disabled" });
+        }
+        const stampRes = await finalizeWaiverContracts(env, stampSeason, stampLeagueId, {
+          dryRun: stampDryRun,
+          days: stampDays,
+          onlyPid: stampPid || null,
+          ...(stampMaxWrites != null ? { maxWrites: stampMaxWrites } : {}),
+        });
+        return jsonOut(stampRes.status || 200, stampRes.body);
       }
 
       // POST /admin/adds/annotate-contracts
@@ -39764,11 +40379,19 @@ export default {
           return amount;
         };
 
-        const currentCapHit = (salary, years, isTaxi, isIr) => {
+        const currentCapHit = (salary, years, isTaxi, isIr, contractUnknown) => {
           const amt = safeInt(salary, 0);
           const y = Math.max(0, safeInt(years, 0));
           if (isTaxi) return 0;
-          if (y <= 0) return 0;
+          // A contract MFL has not described yet is UNKNOWN, not expired. Its
+          // years read 0 only because contractYear is blank — the player IS
+          // rostered and MFL HAS recorded a real salary, and MFL's own cap math
+          // is Σ roster salaries + Σ salaryAdjustments. Zeroing him here would
+          // understate the cap by exactly what he costs. (Before the rookie
+          // fallback was narrowed, Brashard Smith counted $1,000 via a
+          // fabricated 2-year contract; he must keep counting $1,000 now that
+          // the fabrication is gone.)
+          if (y <= 0 && !contractUnknown) return 0;
           if (isIr) return Math.round(amt * 0.5);
           return amt;
         };
@@ -40294,12 +40917,39 @@ export default {
               // Apply whenever the player has empty contract data AND is in
               // their rookie window (drafted ≤ 3 league years ago) — not
               // just for taxi status.
+              //
+              // ⚠️ AND ONLY WHEN MFL HAS SAID THIS IS A ROOKIE CONTRACT.
+              // (Keith 2026-08-08, on Brashard Smith: "he should only be a 1 yr
+              // deal at 1K not a 2 yr".) The rookie-window test alone is a test
+              // of the PLAYER, not of the CONTRACT. Brashard Smith (17049) is a
+              // 2025 NFL draftee, so he passes it — but he is on a 2026 blind-bid
+              // waiver deal ("BB $1,000"), and MFL's salaries row for him is
+              // `{salary:'1000', contractStatus:'', contractYear:'',
+              // contractInfo:''}`. This block read that silence as a rookie
+              // contract and manufactured `years = 3 - 1 = 2` and
+              // `CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K` — a two-year, $2,000 deal that
+              // exists nowhere but here. That is what the Front Office rendered.
+              //
+              // A blank contractStatus is MFL saying NOTHING, and nothing is not
+              // evidence of a rookie deal. The fallback's actual purpose is
+              // narrower than the old condition: MFL suppresses contractYear /
+              // contractInfo on a taxi (or freshly-promoted) player while KEEPING
+              // contractStatus — every such row on the live roster reads
+              // "Rookie-Draft". So require that positive signal. When it is
+              // absent we synthesize nothing, flag the row `contract_unknown`,
+              // and let the client render it as pending. NO FAIL-OPEN: an
+              // unreadable contract is never a contract.
               const draftYear = safeInt(pMeta?.draft_year, 0);
               const currentSeason = parseInt(season, 10) || 0;
               const inRookieWindow =
                 draftYear > 0 && currentSeason > 0 && (currentSeason - draftYear) < 3;
+              const onRookieContractPerMfl = /^rookie(\b|-)/i.test(type);
               const contractDataMissing = years <= 0 || !specialRaw || specialRaw === "-";
-              if (contractDataMissing && inRookieWindow) {
+              // MFL has described NOTHING about this contract: no status, no
+              // length, no info. Distinct from "expired" (years 0 with a real
+              // status/info), which is a state MFL actually asserts.
+              const contractUnknown = contractDataMissing && !type && !specialRaw;
+              if (contractDataMissing && inRookieWindow && onRookieContractPerMfl) {
                 if (years <= 0) {
                   years = Math.max(0, 3 - Math.max(0, currentSeason - draftYear));
                 }
@@ -40319,7 +40969,10 @@ export default {
               let aav = aavValues.length ? safeInt(aavValues[0], 0) : 0;
               // aav fallback for rookies with empty data: if aav still 0 but
               // salary > 0, surface the salary as aav (same as desktop repair).
-              if (inRookieWindow && aav <= 0 && salary > 0) aav = salary;
+              // Gated on the same MFL rookie-contract signal as the block above —
+              // an AAV asserted onto a contract MFL has not described is the
+              // same invention in a smaller field.
+              if (inRookieWindow && onRookieContractPerMfl && aav <= 0 && salary > 0) aav = salary;
 
               // Taxi-eligibility flag (canon §A1 + §B2). Round 2-5 rookies
               // are taxi-eligible for their first 3 league years. R1 rookies
@@ -40376,6 +41029,12 @@ export default {
                 aav,
                 type: type || "-",
                 special: special || "-",
+                // MFL has said NOTHING about this contract (no contractStatus,
+                // no contractInfo, no contractYear) and we refused to invent
+                // one. The client must render this as pending/unknown — NOT as
+                // expired, and not as any shape at all. See the rookie-fallback
+                // note above (Brashard Smith, 2026-08-08).
+                contract_unknown: contractUnknown,
                 acquisition_text: safeStr(asset?.notes || ""),
                 status,
                 is_taxi: isTaxi,
@@ -40396,7 +41055,7 @@ export default {
             });
 
           const taxiCount = players.reduce((acc, p) => acc + (p.is_taxi ? 1 : 0), 0);
-          const capTotal = players.reduce((acc, p) => acc + currentCapHit(p.salary, p.years, p.is_taxi, p.is_ir), 0);
+          const capTotal = players.reduce((acc, p) => acc + currentCapHit(p.salary, p.years, p.is_taxi, p.is_ir, p.contract_unknown), 0);
           const salaryAdjustmentTotal = safeInt(salaryAdjustmentByFranchise[franchiseId], 0);
           const salaryAdjustmentBreakdown = salaryAdjustmentBreakdownByFranchise[franchiseId] || emptySalaryAdjustmentBreakdown();
           // Pass through raw salary adjustment rows (live MFL) for this franchise so the
