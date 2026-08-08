@@ -32,23 +32,19 @@
 -- Guarded by ledger_key AND franchise AND amount: if any of the three has moved
 -- since this was written, zero rows update.
 --
--- ASSERTIONS (added 2026-08-08 after review). "Zero rows updated" is NOT a safe
+-- ASSERTIONS live in the CI step that runs this file, NOT here: D1 rejects
+-- CREATE TEMP TABLE with SQLITE_AUTH, so the temp-table + CHECK trick that
+-- works on stock sqlite3 cannot run on D1 (learned the hard way 2026-08-08 —
+-- validated locally, rejected remotely). The CI step counts the matching rows
+-- before and after and fails the job on any mismatch.
+--
+-- WHY assertions at all (added 2026-08-08 after review). "Zero rows updated" is NOT a safe
 -- outcome here: this file runs AFTER the offsetting entries have already landed
 -- on MFL, so a silent no-op leaves MFL corrected and D1 still claiming these are
 -- 2026 rows that were posted — the two sources of truth disagreeing, with
 -- nothing raised. SQLite has no ASSERT, and RAISE() only works inside a trigger,
 -- so a TEMP TABLE with a CHECK constraint is the portable way to abort: a failed
 -- CHECK is a real error and stops the run.
-
--- PRE-FLIGHT: exactly the two expected rows must be present, unmodified, before
--- anything is written. Aborts rather than half-applying.
-CREATE TEMP TABLE _assert_pre (ok INTEGER NOT NULL CHECK (ok = 1));
-INSERT INTO _assert_pre (ok)
-SELECT CASE WHEN COUNT(*) = 2 THEN 1 ELSE 0 END
-  FROM ups_drop_events
- WHERE ledger_key IN ('17254_1786195613', '17205_1786195656')
-   AND franchise_id = '0006'
-   AND penalty_amount = 1000;
 
 UPDATE ups_drop_events
    SET applies_to_season          = 2027,
@@ -78,20 +74,6 @@ UPDATE ups_drop_events
    AND franchise_id = '0006'
    AND penalty_amount = 1000;
 
--- POST-FLIGHT: both rows must now read 2027 / not-posted. Aborts if either
--- UPDATE matched nothing, so this file can never report success while D1 and
--- MFL disagree about which cap year owes the money.
-CREATE TEMP TABLE _assert_post (ok INTEGER NOT NULL CHECK (ok = 1));
-INSERT INTO _assert_post (ok)
-SELECT CASE WHEN COUNT(*) = 2 THEN 1 ELSE 0 END
-  FROM ups_drop_events
- WHERE ledger_key IN ('17254_1786195613', '17205_1786195656')
-   AND franchise_id = '0006'
-   AND applies_to_season = 2027
-   AND posted_to_mfl = 0;
-
-DROP TABLE _assert_pre;
-DROP TABLE _assert_post;
 
 -- Verify (expect exactly 2 rows, both applies_to_season = 2027, posted_to_mfl = 0):
 --   SELECT ledger_key, player_name, franchise_id, penalty_amount,
