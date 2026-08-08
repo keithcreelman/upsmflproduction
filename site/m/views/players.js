@@ -1088,6 +1088,84 @@
   // the page scroll). renderClaimsScreen bails when this is false.
   var claimsOpen = false;
 
+  // ── "MFL's copy changed while you weren't looking" ─────────────────────
+  //
+  // Keith 2026-08-08: after the Sunday 9:00 AM BBID run, this screen still
+  // showed a claim for a player he had ALREADY WON in that run, with the
+  // button reading "Submit 2 claims" — submitting would have re-claimed a
+  // player he owns.
+  //
+  // MFL is NOT at fault and there is nothing to withdraw: MFL clears granted
+  // claims when the run processes, and /api/waivers/pending reads MFL live.
+  // The stale thing is the CLIENT'S LOCAL DRAFT PLAN, which is persisted and
+  // therefore outlives the run — which is exactly why "Reload from MFL" fixed
+  // the screen.
+  //
+  // The question asked here is NOT "has a run time passed". A clock says
+  // nothing about whether MFL has actually processed anything: the state
+  // endpoint's next_bbid_run_unix is computed off `now`, so it rolls forward
+  // the instant 09:00:00 passes, while the run itself may not have cleared a
+  // single claim yet. Keying off it would nag about a run that changed nothing
+  // — or worse, re-baseline against claims that are still pending.
+  //
+  // So compare CONTENT instead: MFL's holdings right now, against the holdings
+  // this plan was hydrated from (M.waivers.mflBasis(), persisted in the same
+  // record as the plan, so it survives a PWA relaunch). A difference is
+  // processing-derived and real, and it is true whoever caused it — the run,
+  // another device, or the commish.
+  //
+  // Set only in the dirty case: MFL's copy differs and we refuse to swap the
+  // plan out from under unsent edits, so the screen says so instead.
+  var claimsMflChanged = false;
+  // One check in flight at a time. The screen can be reopened, or the app
+  // foregrounded twice, faster than a round trip completes.
+  var claimsCheckInFlight = false;
+
+  // Re-read MFL's pending claims and compare them against the basis this plan
+  // was hydrated from. Makes NO writes — one extra GET, the same read the
+  // manual "Reload from MFL" performs.
+  //
+  // Every uncertain outcome falls through to "leave the screen exactly as it
+  // is". No basis (a plan stored before this existed, or one never hydrated
+  // from MFL) and an unreadable /pending both mean UNKNOWN. Unknown is never
+  // reported as changed — that would offer to replace a clean draft on the
+  // strength of a dead endpoint — and never as unchanged, which would require
+  // asserting something we did not read.
+  function checkMflHoldingsChanged() {
+    if (!M.waivers || !M.waivers.fetchPending || !M.waivers.mflBasis ||
+        !M.waivers.mflSignature) return;
+    if (claimsCheckInFlight) return;
+    var basis = M.waivers.mflBasis();
+    // null = we have never seen MFL's copy for this plan. Nothing to compare.
+    if (typeof basis !== "string") return;
+    claimsCheckInFlight = true;
+    M.waivers.fetchPending().then(function (resp) {
+      claimsCheckInFlight = false;
+      // Screen was dismissed, or something re-hydrated the plan while this was
+      // in flight — either way this answer is about a screen that's gone.
+      if (!claimsOpen) return;
+      if (M.waivers.mflBasis() !== basis) return;
+      var now = M.waivers.mflSignature(resp);
+      if (typeof now !== "string") return;   // unreadable → assert nothing
+      if (now === basis) return;             // MFL still holds what we think
+      // MFL's copy has moved. Unsent work on screen is never swapped out from
+      // under the owner — reloadClaimsFromServer is a whole-plan replace, and
+      // the manual control confirms first for exactly this reason. State what
+      // changed and let them press Reload themselves.
+      if (planIsDirty() && (stagedCount() || clearCount())) {
+        claimsMflChanged = true;
+        // keepScroll: an owner reading group 3 stays in group 3.
+        renderClaimsScreen({ keepScroll: true });
+        return;
+      }
+      // Clean plan: nothing unsent can be lost, so adopt MFL's copy. The
+      // response is already in hand, so this costs no second round trip.
+      adoptClaimsFrom(resp);
+    }).catch(function () {
+      claimsCheckInFlight = false;           // unreadable → leave the screen alone
+    });
+  }
+
   function claimsScreenHtml() {
     var lim = waiverLimits();
     var plan = stagedPlan();
@@ -1217,6 +1295,31 @@
       ? '<span class="ups-m-claims-dirty">Edited — not submitted</span>'
       : (total ? '<span class="ups-m-claims-clean">Submitted &amp; verified</span>' : "");
 
+    // MFL's copy moved while these edits sat here unsent.
+    //
+    // It says only what was actually observed: the two copies differ. All this
+    // read establishes is that MFL is holding something else — it did NOT see
+    // a run process, so it does not claim one did. The likely causes are named
+    // as possibilities, which is what they are.
+    //
+    // Non-destructive by construction: it hands over the SAME "Reload from
+    // MFL" control the footer carries — data-act and all, so it runs through
+    // onClaimsClick's confirm before anything is replaced. Showing this does
+    // not touch the plan. The owner decides.
+    //
+    // Classes are ones app.css already defines (no stylesheet change here):
+    // the notice box, and the footer's own button styling.
+    var mflChanged = claimsMflChanged
+      ? '<div class="ups-m-claims-notice warn">' +
+          'MFL is holding different claims than the ones on this screen — its ' +
+          'copy changed after these were loaded (a waiver run processing, ' +
+          'another device, or the commissioner). Reload before you submit, or ' +
+          'you could re-claim a player you already own.' +
+          '<div><button class="ups-m-bid-btn ghost" data-act="claims-refresh">' +
+            'Reload from MFL</button></div>' +
+        '</div>'
+      : "";
+
     var notice = claimsNotice
       ? '<div class="ups-m-claims-notice ' + (claimsNotice.tone === "ok" ? "ok" : "warn") + '">' +
           U.escapeHtml(claimsNotice.text) +
@@ -1292,6 +1395,7 @@
           (status ? '<div class="ups-m-claims-status">' + status + '</div>' : '') +
         '</header>' +
         '<div class="ups-m-claims-body" id="ups-m-claims-body">' +
+          mflChanged +
           notice +
           preview +
           body +
@@ -1568,19 +1672,31 @@
       (why ? " (" + why + ")" : "");
   }
 
+  // Adopt an ALREADY-READ /pending envelope as the plan, and repaint. Split
+  // out of reloadClaimsFromServer so checkMflHoldingsChanged — which has just
+  // read /pending to make its comparison — can adopt without a second GET.
+  // §1 still governs: a `known:false` envelope adopts nothing and says so.
+  function adoptClaimsFrom(resp) {
+    claimsPreview = null;
+    if (M.waivers.adoptVerified(resp)) {
+      // On screen == MFL's copy again, so the "MFL's copy differs" banner is
+      // false by construction; adoptVerified has also re-stamped the basis
+      // behind it.
+      claimsMflChanged = false;
+      var n = stagedCount();
+      claimsNotice = { tone: "ok", text: n
+        ? ("Loaded " + n + (n === 1 ? " claim" : " claims") + " from MFL.")
+        : "MFL is holding no claims for you." };
+    } else {
+      claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
+    }
+    renderClaimsScreen();
+  }
+
   function reloadClaimsFromServer() {
     if (!M.waivers || !M.waivers.fetchPending) return;
     M.waivers.fetchPending().then(function (resp) {
-      claimsPreview = null;
-      if (M.waivers.adoptVerified(resp)) {
-        var n = stagedCount();
-        claimsNotice = { tone: "ok", text: n
-          ? ("Loaded " + n + (n === 1 ? " claim" : " claims") + " from MFL.")
-          : "MFL is holding no claims for you." };
-      } else {
-        claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
-      }
-      renderClaimsScreen();
+      adoptClaimsFrom(resp);
     }).catch(function (err) {
       claimsNotice = { tone: "warn",
         text: "Couldn't read your claims from MFL — showing your local draft. " +
@@ -1663,6 +1779,10 @@
       // MFL wrote (or may have written) but we could not read it back: keep
       // the local plan and say so, rather than silently blanking the screen.
       var adopted = M.waivers.adoptVerified(resp && resp.verified);
+      // A verified read-back is a hydration like any other: adoptVerified has
+      // re-stamped the MFL basis from it, so the "MFL's copy differs" banner
+      // no longer describes anything true.
+      if (adopted) claimsMflChanged = false;
       var rawWarn = (resp && resp.warnings) || [];
       var warn = rawWarn.map(function (w) {
         return U.safeStr(w && (w.message || w.code));
@@ -1915,7 +2035,8 @@
     if (willFetch) {
       M.waivers.fetchPending().then(function (resp) {
         claimsLoading = false;
-        if (!M.waivers.adoptVerified(resp)) {
+        if (M.waivers.adoptVerified(resp)) claimsMflChanged = false;
+        else {
           claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
         }
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
@@ -1929,7 +2050,23 @@
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       });
     }
+    // Only the local-draft path needs the check: `willFetch` means we are
+    // already adopting MFL's own copy, which is the freshest thing there is.
+    // What survives a run — and what Keith was looking at — is a plan that was
+    // hydrated BEFORE the run, and which comes back out of storage unchanged
+    // on the next cold start.
+    if (!willFetch) checkMflHoldingsChanged();
   }
+
+  // Backgrounding the PWA across a 9:00 AM run is the ordinary way to hit this:
+  // the screen is left open, the run processes, and coming back shows claims
+  // for players you already own. Re-check on return to the foreground — no
+  // timer, no polling, and nothing at all unless the claims screen is up.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (!claimsOpen) return;
+    checkMflHoldingsChanged();
+  });
 
   function bind(mount) {
     var search = document.getElementById("ups-m-players-search");
