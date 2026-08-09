@@ -1277,6 +1277,115 @@
     });
   }
 
+  // ── "Already on my roster" sweep (Keith 2026-08-09) ─────────────────────
+  //
+  // checkMflHoldingsChanged() above answers "did MFL's pending export move
+  // since we last hydrated" — but the evidence is that MFL's pendingWaivers
+  // export does NOT reliably drop a round just because that round's run
+  // already processed; it can keep echoing the same submitted request back.
+  // That leaves a claim that has ALREADY WON still reading as pending here,
+  // even right after a fresh read of that same export. checkMflHoldingsChanged
+  // is left exactly as it is — this is a second, independent signal, not a
+  // fix to that comparison.
+  //
+  // Roster membership is ground truth nothing about that export can
+  // contradict: a player can't simultaneously be "still awaiting a bid
+  // result" and "already on my own roster". Whenever a staged pick's
+  // add_pid shows up in M.waivers.getOwnRosterPids(), that specific pick has
+  // unambiguously resolved, whatever MFL's pending export still says.
+  //
+  // Deliberately NOT commitPlan(): a round left empty by THIS sweep is empty
+  // because it already executed for real, not because the owner asked to
+  // withdraw it. commitPlan's picks:[]+clear:true path is reserved for that
+  // second, opposite case — the owner deliberately emptying a round via the
+  // Remove button — and it has to survive as an explicit withdrawal
+  // instruction so MFL doesn't keep processing a bid the owner just deleted
+  // (CONTRACT v2 §2, see the block comment on commitPlan above). Sending
+  // clear:true from here would render the swept round as "withdrawing"
+  // (claimsScreenHtml's cleared-round branch below) — which is false, and
+  // exactly the confusing state this fix exists to eliminate. So a round
+  // whose picks are ALL swept away is simply OMITTED from the array handed
+  // to setPlan(): setWaiverPlan (app.js) already drops a round with no picks
+  // and no clear:true exactly like it drops one absent from the input
+  // altogether, so this needs no new handling there — see the comment on
+  // setWaiverPlan.
+  //
+  // An already-empty round (picks:[], clear:true — i.e. a pending explicit
+  // withdrawal that hasn't been submitted yet) has nothing for this sweep to
+  // filter and is passed through untouched: collapsing it to "omitted" would
+  // silently turn the owner's withdrawal into "leave it alone", which is the
+  // exact v1 bug CONTRACT v2 was written to fix.
+  //
+  // Calls M.waivers.setPlan(...) directly (never commitPlan) so the
+  // explicit-clear invariant above is respected, and returns the list of
+  // { round, add_pid } picks it removed (or false when there was nothing to
+  // do / nothing removed) so a caller can render an explanatory notice.
+  function sweepResolvedPicks() {
+    if (!M.waivers || !M.waivers.getOwnRosterPids) return false;
+    var owned = M.waivers.getOwnRosterPids();
+    if (!owned || !owned.size) return false;
+    var plan = stagedPlan();
+    var removed = [];
+    var next = [];
+    plan.forEach(function (g) {
+      var picks = g.picks || [];
+      var round = U.safeInt(g.round, 0);
+      if (!picks.length) {
+        // Nothing to sweep — preserve as-is (see the already-empty-round
+        // note above).
+        next.push(g);
+        return;
+      }
+      var kept = picks.filter(function (p) {
+        if (p && owned.has(String(p.add_pid))) {
+          removed.push({ round: round, add_pid: p.add_pid });
+          return false;
+        }
+        return true;
+      });
+      if (kept.length === picks.length) { next.push(g); return; } // untouched
+      if (kept.length) { next.push({ round: round, picks: kept }); return; } // some remain
+      // every pick in this round resolved — OMIT it entirely (never clear:true)
+    });
+    if (!removed.length) return false;
+    if (M.waivers.setPlan) M.waivers.setPlan(next);
+    return removed;
+  }
+
+  // Notice text for sweepResolvedPicks() results — same claimsNotice
+  // { tone, text } shape this file already uses (see adoptClaimsFrom above).
+  function resolvedSweepNotice(removed) {
+    var names = [];
+    removed.forEach(function (r) {
+      var n = nameForPid(r.add_pid);
+      if (names.indexOf(n) === -1) names.push(n);
+    });
+    var text = names.length === 1
+      ? names[0] + " is on your roster now — that claim already went through, so it's cleared here."
+      : names.join(", ") + " are on your roster now — those claims already went through, so they're cleared here.";
+    return { tone: "ok", text: text };
+  }
+
+  // Shared by both openClaimsScreen() call sites and the visibilitychange
+  // handler below: runs the sweep and, if it found anything, sets the
+  // notice and repaints so the shorter plan + the message actually show up.
+  function applyResolvedSweep() {
+    var removed = sweepResolvedPicks();
+    if (!removed || !removed.length) return false;
+    // A "warn" notice already on screen (couldn't read MFL, partial-submit
+    // mismatch, ...) is the load-bearing text standing between the owner and
+    // a duplicate cap-spending write (see commitPlan's own comment on this
+    // same rule). The sweep's plan-level fix — removing the resolved
+    // pick(s) — still applies either way; only the notice text is gated,
+    // so a good-news "cleared" message can never bury an active hazard
+    // warning that was already on screen.
+    if (!(claimsNotice && claimsNotice.tone === "warn")) {
+      claimsNotice = resolvedSweepNotice(removed);
+    }
+    if (claimsOpen) renderClaimsScreen();
+    return true;
+  }
+
   function claimsScreenHtml() {
     var lim = waiverLimits();
     var plan = stagedPlan();
@@ -1801,6 +1910,20 @@
     } else {
       claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
     }
+    // The plan this just adopted came straight from MFL's pendingWaivers
+    // export — the very export sweepResolvedPicks exists because of (it can
+    // keep echoing an already-processed round back). Adopting it verbatim
+    // would silently reintroduce the resolved-claim-still-shows-as-pending
+    // bug this fix targets, on every path that lands here: the manual
+    // "Reload from MFL" button (reloadClaimsFromServer) and
+    // checkMflHoldingsChanged's own clean-plan auto-adopt. One sweep pass
+    // over what was just adopted, same warn-preserving notice rule as
+    // applyResolvedSweep (a "couldn't read" warning above must never lose to
+    // a good-news "cleared" line), single render either way.
+    var swept = sweepResolvedPicks();
+    if (swept && swept.length && !(claimsNotice && claimsNotice.tone === "warn")) {
+      claimsNotice = resolvedSweepNotice(swept);
+    }
     renderClaimsScreen();
   }
 
@@ -2149,6 +2272,12 @@
         else {
           claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
         }
+        // Runs AFTER adoptVerified, on purpose: this is exactly the case
+        // where MFL's own /pending export can still be echoing back a round
+        // that already resolved (see sweepResolvedPicks above), so the
+        // freshly-adopted plan needs the roster-membership check too, not
+        // just the plan we had before the fetch.
+        applyResolvedSweep();
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       }).catch(function (err) {
         claimsLoading = false;
@@ -2157,6 +2286,7 @@
         if (!(err && err.ownerAuthExpired)) {
           claimsNotice = { tone: "warn", text: unknownClaimsText(err && err.body) };
         }
+        applyResolvedSweep();
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       });
     }
@@ -2165,7 +2295,14 @@
     // What survives a run — and what Keith was looking at — is a plan that was
     // hydrated BEFORE the run, and which comes back out of storage unchanged
     // on the next cold start.
-    if (!willFetch) checkMflHoldingsChanged();
+    if (!willFetch) {
+      checkMflHoldingsChanged();
+      // Independent of the check above — runs against whatever roster data
+      // is already in hand right now (the freshest we have without a network
+      // round trip). See sweepResolvedPicks for why this can't just be
+      // folded into checkMflHoldingsChanged's comparison.
+      applyResolvedSweep();
+    }
   }
 
   // Backgrounding the PWA across a 9:00 AM run is the ordinary way to hit this:
@@ -2176,6 +2313,18 @@
     if (document.visibilityState !== "visible") return;
     if (!claimsOpen) return;
     checkMflHoldingsChanged();
+    // Roster data itself may be stale here — "backgrounded across a run" is
+    // exactly the case where state.rosters predates that run, so a plain
+    // sweepResolvedPicks() would be checking membership against a snapshot
+    // from before the win and would miss it. Reload first, then sweep
+    // against the fresh copy. Gated on there being staged picks worth
+    // reconciling so a trivial tab-switch with nothing staged doesn't
+    // trigger a full reload.
+    if (M.actions && M.actions.reloadData && stagedCount()) {
+      M.actions.reloadData().then(function () {
+        applyResolvedSweep();
+      }).catch(function () {}); // unreadable → leave the screen alone
+    }
   });
 
   function bind(mount) {
