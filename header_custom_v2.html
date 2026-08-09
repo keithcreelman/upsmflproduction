@@ -304,9 +304,11 @@
       } catch (e) { return ""; }
     }
 
-    // upsBuildMobileAppUrl("players", leagueId, year) -> full app URL, or ""
-    // when league/year could not be resolved.
-    window.upsBuildMobileAppUrl = function (hash, leagueId, year) {
+    // upsBuildMobileAppUrl("players", leagueId, year, opts) -> full app URL,
+    // or "" when league/year could not be resolved. opts.embed (truthy) adds
+    // &embed=1 to the query string -- must land BEFORE the #hash fragment so
+    // it actually reaches the app's query-string parsing.
+    window.upsBuildMobileAppUrl = function (hash, leagueId, year, opts) {
       var L = leagueId == null ? "" : String(leagueId).trim();
       var Y = year == null ? "" : String(year).trim();
       if (!L || !Y) return "";
@@ -316,6 +318,7 @@
       // The app then falls back to localStorage or its sign-in card.
       var uid = readCookie("MFL_USER_ID");
       if (uid) qs += "&MFL_USER_ID=" + encodeURIComponent(uid);
+      if (opts && opts.embed) qs += "&embed=1";
       return BASE + qs + (hash ? ("#" + hash) : "");
     };
 
@@ -3589,9 +3592,9 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     // normally returns a URL. If the shared helper somehow is not there, we
     // fall back to MFL's native page and SAY SO in the console rather than
     // rendering a dead "#" link.
-    function buildMobileAppUrl(hash) {
+    function buildMobileAppUrl(hash, opts) {
       if (typeof window.upsBuildMobileAppUrl === "function") {
-        var u = window.upsBuildMobileAppUrl(hash, ctx.leagueId, ctx.year);
+        var u = window.upsBuildMobileAppUrl(hash, ctx.leagueId, ctx.year, opts);
         if (u) return u;
       }
       try {
@@ -3639,7 +3642,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         // tile in site/m/views/home.js, which links to those same two hashes.
         // MFL's own page is still one click away under
         // "MFL Legacy Links -> Owner Actions -> Add / Drop" below.
-        { label: "Add/Drop",       href: buildMobileAppUrl("players"),
+        { label: "Add/Drop",       href: buildMobileAppUrl("players", { embed: true }),
           title: "Opens the UPS Mobile App - bid, add and drop from the player browser",
           target: "_blank" },
         { label: "Trade War Room", href: buildUrl("MESSAGE6=N") },
