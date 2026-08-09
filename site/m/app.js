@@ -1329,6 +1329,30 @@
     return ids;
   }
 
+  // Build a Set of pids on the VIEWER'S OWN roster only — contrast with
+  // getAllRosteredPids just above, which spans every franchise. Feeds the
+  // Claims screen's roster-membership sweep (players.js sweepResolvedPicks):
+  // a player can't simultaneously be "still awaiting a bid result" and
+  // "already on my own roster", so this is an independent, unambiguous
+  // signal for "that staged claim already resolved" that no staleness in
+  // MFL's pendingWaivers export (see mflHoldingsSignature below) can
+  // contradict. Reads the same state.rosters loadAllData() already fetched —
+  // no new network call for the common case. Deliberately uncached (unlike
+  // getAllRosteredPids): called rarely, and a stale cached Set would defeat
+  // the point right after a reload.
+  function getOwnRosteredPids() {
+    var ids = new Set();
+    if (!state.rosters || !state.rosters.rosters || !state.viewerFranchiseId) return ids;
+    var fr = asArray(state.rosters.rosters.franchise);
+    fr.forEach(function (f) {
+      if (!f || pad4(f.id) !== pad4(state.viewerFranchiseId)) return;
+      asArray(f.player).forEach(function (p) {
+        if (p && p.id) ids.add(String(p.id));
+      });
+    });
+    return ids;
+  }
+
   // Build a map of pid → YTD score (number).
   function getYtdScoresMap() {
     if (state._ytdScoresCache) return state._ytdScoresCache;
@@ -2902,7 +2926,11 @@
       mflBasis: function () { getWaiverPlan(); return state.waiverMflSig; },
       mflSignature: mflHoldingsSignature,
       adoptVerified: adoptVerifiedPlan,
-      errorMessage: waiverErrorMessage
+      errorMessage: waiverErrorMessage,
+      // Ground-truth roster-membership check (contract v2's "already resolved"
+      // signal) — the viewer's own rostered pids, independent of MFL's
+      // pendingWaivers export. See getOwnRosteredPids above.
+      getOwnRosterPids: getOwnRosteredPids
     },
     route: {
       registerView: registerView,
