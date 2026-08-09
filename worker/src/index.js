@@ -37799,6 +37799,84 @@ export default {
         };
       };
 
+      // ── WHEN DID A BBID RUN LAST ACTUALLY HAPPEN? ─────────────────────────
+      //
+      // The one league-wide fact that says "MFL has processed the claims that
+      // were on file". Read from MFL's OWN transaction log (TRANS_TYPE=
+      // BBID_WAIVER), never from the calendar: next_bbid_run_unix is computed
+      // off `now`, so it rolls forward the instant 09:00:00 passes whether or
+      // not MFL has cleared a single claim. An award in the log is proof the
+      // run executed.
+      //
+      // League-wide ON PURPOSE — the maximum timestamp across EVERY franchise,
+      // not just the viewer's. A run that awarded nobody on your team still
+      // processed (and lost) your bids, and that is the case the viewer-scoped
+      // signals (roster membership, pendingWaivers) cannot see at all.
+      //
+      // Live-verified 2026-08-09 against L=74598: 6 BBID_WAIVER transactions at
+      // exactly 3 distinct timestamps, each 09:00:00 America/New_York
+      // (1786280400 / 1786194000 / 1786107600), several franchises sharing each
+      // one — so the max is a clean "a run happened at T" marker.
+      //
+      // ── Envelope: the same known/unknown contract as §1 ──
+      //   known:true  + unix:<n>  parsed a non-empty log; <n> is the newest run.
+      //   known:true  + unix:null parsed the log and it is legitimately EMPTY —
+      //                           no BBID run in the window. An observed
+      //                           absence, and still nothing to act on.
+      //   known:false + unix:null we could not read or could not understand the
+      //                           log. NOT "no run happened". Clients must do
+      //                           NOTHING on this — an unreadable input is never
+      //                           an empty one (rule_no_fail_open_guards).
+      // Never throws; every failure lands on one of the two null branches.
+      const _WV_LAST_RUN_LOOKBACK_DAYS = 30;
+      const _wvReadLastWaiverRun = async (season, leagueId) => {
+        const unknown = (reason) => ({ known: false, unix: null, unknown_reason: reason });
+        let res = null;
+        try {
+          res = await mflExportJson(
+            season, leagueId, "transactions",
+            { TRANS_TYPE: "BBID_WAIVER", DAYS: String(_WV_LAST_RUN_LOOKBACK_DAYS) },
+            { useCookie: true }
+          );
+        } catch (_) {
+          return unknown("export_threw");
+        }
+        if (!res || !res.ok) return unknown("export_failed");
+        const root = res.data;
+        if (!root || typeof root !== "object") return unknown("non_object_payload");
+        // A payload with no `transactions` container at all is a SHAPE we do not
+        // recognise, not an empty log — same call the finalize-ww scanner makes
+        // (`if (tx === undefined) return null`). Unknown, so the client stands
+        // still.
+        const container = root.transactions;
+        // Array.isArray is part of the guard on purpose: typeof [] === "object",
+        // so a bare array container would slip through, `container.transaction`
+        // would read undefined, and the function would report a shape it does
+        // not recognise as an observed-empty log. That is the exact fail-open
+        // shape this envelope exists to prevent, even though the client
+        // (which requires unix > 0) happens to treat both as inert today.
+        if (container == null || typeof container !== "object" || Array.isArray(container)) {
+          return unknown("no_transactions_block");
+        }
+        // MFL emits a bare object for a single row and omits/blanks the key when
+        // there are none — the same normalize-to-array idiom as the BBID_WAIVER
+        // read in /admin/adds/scan-and-record.
+        let txs = container.transaction;
+        if (txs == null || txs === "") txs = [];
+        if (!Array.isArray(txs)) txs = [txs];
+        if (!txs.length) return { known: true, unix: null, unknown_reason: "" };
+        let maxTs = 0;
+        for (const tx of txs) {
+          const ts = safeInt(tx && tx.timestamp, 0);
+          if (ts > maxTs) maxTs = ts;
+        }
+        // Rows were present but not one carried a timestamp we could read: MFL
+        // named the field something we do not know. Reporting that as "no run"
+        // would be inventing an absence out of a parse failure.
+        if (maxTs <= 0) return unknown("populated_but_unrecognized");
+        return { known: true, unix: maxTs, unknown_reason: "" };
+      };
+
       // The caller's roster straight from MFL. One export serves three needs:
       // drop-must-be-on-your-roster validation, the roster-headroom warning, and
       // the cap-room warning.
@@ -37977,13 +38055,16 @@ export default {
             if (hit) return hit;
           } catch (_) {}
         }
-        const [calRes, lgRes, wvWriteArm] = await Promise.all([
+        const [calRes, lgRes, wvWriteArm, wvLastRun] = await Promise.all([
           mflExportJson(wvSeason, wvLeagueId, "calendar", {}, { useCookie: true }),
           mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true }),
           // Contract v2 §5: the kill switch has to be VISIBLE. Without it the UI
           // renders submit buttons whose only possible outcome is a 503.
           // Per-LEAGUE, so the rehearsal mirror reports armed while prod is dark.
           _wvWriteArmed(wvLeagueId),
+          // League-wide, owner-free, and therefore safe to sit in the cached
+          // public payload — see the cache note at the bottom of this handler.
+          _wvReadLastWaiverRun(wvSeason, wvLeagueId),
         ]);
         const limits = _wvWaiverLimits(lgRes && lgRes.ok ? lgRes.data : null);
         const calOk = !!(calRes && calRes.ok);
@@ -38051,6 +38132,18 @@ export default {
             roster_size: _wvRosterLimit(lgRes && lgRes.ok ? lgRes.data : null),
           },
           calendar_events: win.events.map((e) => ({ type: e.type, start_unix: e.start_unix, end_unix: e.end_unix })),
+          // The most recent BBID run MFL's own transaction log can prove
+          // happened — see _wvReadLastWaiverRun. Same known/unknown discipline
+          // as §1: `known:false` means UNREADABLE, never "no run". A client
+          // acting on this (the mobile Claims screen clears a locally staged
+          // plan a run has already processed) must require known === true AND a
+          // real `unix` AND its own submitted-at stamp before it does anything.
+          last_run: {
+            known: !!wvLastRun.known,
+            unix: wvLastRun.known ? wvLastRun.unix : null,
+            unknown_reason: safeStr(wvLastRun.unknown_reason),
+            lookback_days: _WV_LAST_RUN_LOOKBACK_DAYS,
+          },
           viewer: null,
         };
 
@@ -38103,7 +38196,18 @@ export default {
         // kill-switch flip can take up to 60s to reach an anonymous viewer; the
         // WRITE routes themselves re-read the flag on every request, so the
         // switch is never actually stale where it matters.
-        if (calOk && lgRes && lgRes.ok) {
+        //
+        // last_run rides along too, and that is SAFE at this TTL because it is
+        // MONOTONE: the newest BBID run only ever moves forward, so a copy up
+        // to 60s old can only UNDER-report it (an older unix, or known:true +
+        // unix:null before the league's first run of the window). Clients act
+        // only on `last_run.unix > submitted_at`, so under-reporting makes them
+        // do LESS — they wait another cycle. There is no way for a cached copy
+        // to over-report a run that has not happened and clear a live plan
+        // early. `&& wvLastRun.known` keeps a transient transactions-export
+        // failure from being pinned at the edge for a minute, exactly like the
+        // degraded-window rule above.
+        if (calOk && lgRes && lgRes.ok && wvLastRun.known) {
           try { ctx.waitUntil(caches.default.put(wvCacheKey, wvResp.clone())); } catch (_) {}
         }
         return wvResp;

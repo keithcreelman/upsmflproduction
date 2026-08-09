@@ -402,6 +402,16 @@
   // same-looking control behaved two opposite ways depending on where you
   // tapped it. That is the "disjointed between that and edit".
   function openBidFor(pid) {
+    // Reconcile a run-stale board BEFORE anything is staged on top of it.
+    //
+    // A bid staged from the Market never opens the Claims screen, so without
+    // this the new pick lands on a plan still carrying a pre-run stamp — and
+    // the next trip to Claims wipes the whole board, the fresh pick with it,
+    // while telling the owner MFL "processed" a claim MFL has never seen.
+    // Clearing first means the new pick starts on a clean board and the stamp
+    // is already nulled (runProcessedClear nulls it even when the board is
+    // empty), so nothing staged from here on can be mistaken for pre-run work.
+    runProcessedClear();
     var refs = stagedRoundsFor(pid);
     // Claimed in several groups (a deliberate ladder) — we can't know which one
     // they mean, so hand them the screen that shows all of them rather than
@@ -1279,20 +1289,47 @@
 
   // ── "Already on my roster" sweep (Keith 2026-08-09) ─────────────────────
   //
-  // checkMflHoldingsChanged() above answers "did MFL's pending export move
-  // since we last hydrated" — but the evidence is that MFL's pendingWaivers
-  // export does NOT reliably drop a round just because that round's run
-  // already processed; it can keep echoing the same submitted request back.
-  // That leaves a claim that has ALREADY WON still reading as pending here,
-  // even right after a fresh read of that same export. checkMflHoldingsChanged
-  // is left exactly as it is — this is a second, independent signal, not a
-  // fix to that comparison.
+  // CORRECTION (2026-08-09, supersedes the note this replaces). The original
+  // comment here asserted that "MFL's pendingWaivers export does NOT reliably
+  // drop a round just because that round's run already processed; it can keep
+  // echoing the same submitted request back." That is FALSE. A live
+  // authenticated read of TYPE=pendingWaivers for this league, taken hours
+  // after a processed run, returned literally
+  // {"version":"1.0","pendingWaivers":{},"encoding":"utf-8"} — MFL was holding
+  // NOTHING and had cleared the round correctly. MFL is not at fault and does
+  // not echo stale rounds.
   //
-  // Roster membership is ground truth nothing about that export can
-  // contradict: a player can't simultaneously be "still awaiting a bid
-  // result" and "already on my own roster". Whenever a staged pick's
-  // add_pid shows up in M.waivers.getOwnRosterPids(), that specific pick has
-  // unambiguously resolved, whatever MFL's pending export still says.
+  // THE ACTUAL ROOT CAUSE is the client's own persisted draft plus two guards
+  // that between them guarantee it is never reconciled away:
+  //   1. openClaimsScreen() below computes `willFetch` as
+  //      `!stagedCount() && !clearCount() && …`, so it seed-reads /pending ONLY
+  //      when nothing is staged locally. A stale staged claim therefore
+  //      suppresses the exact read that would have corrected it.
+  //   2. checkMflHoldingsChanged() above DOES read /pending, but returns at
+  //      `if (typeof basis !== "string") return;` whenever the stored MFL basis
+  //      is null — and a plan restored from localStorage commonly has mfl:null
+  //      (app.js getWaiverPlan sets it null for the v1 on-disk shape). Even
+  //      with a basis present, a cold-restored plan reads as dirty
+  //      (planIsDirty() compares against state.waiverPlanVerified, which is
+  //      session-only and not persisted), and the dirty branch deliberately
+  //      only raises the "MFL copy differs" banner instead of adopting.
+  // Net: a submitted-and-since-processed plan sits in localStorage
+  // indefinitely, rendering as pending. checkMflHoldingsChanged is left exactly
+  // as it is — everything below is additional, independent signal, not a fix to
+  // that comparison.
+  //
+  // WHAT THIS SWEEP ACTUALLY IS: a complementary FAST PATH for the WIN case,
+  // not the primary mechanism. Roster membership is ground truth — a player
+  // can't simultaneously be "still awaiting a bid result" and "already on my
+  // own roster" — so whenever a staged pick's add_pid shows up in
+  // M.waivers.getOwnRosterPids(), that specific pick has unambiguously
+  // resolved, and it can be cleared immediately without waiting for anything
+  // else. Its blind spot is the case Keith actually hit: a LOSING bid never
+  // lands on the roster, so this sweep never fires for it and the claim would
+  // render as pending forever. That case is covered by runProcessedClear()
+  // below, which keys off the league-wide waiver-RUN log and therefore covers
+  // wins and losses alike. Both are kept: this one is faster and names the
+  // player, that one is complete.
   //
   // Deliberately NOT commitPlan(): a round left empty by THIS sweep is empty
   // because it already executed for real, not because the owner asked to
@@ -1381,6 +1418,173 @@
     // warning that was already on screen.
     if (!(claimsNotice && claimsNotice.tone === "warn")) {
       claimsNotice = resolvedSweepNotice(removed);
+    }
+    if (claimsOpen) renderClaimsScreen();
+    return true;
+  }
+
+  // ── "A real waiver run has already processed this" (Keith 2026-08-09) ────
+  //
+  // Keith's objection to the roster sweep above, verbatim: "no because i might
+  // not win a player, it should be based on true waiver runs...you need to
+  // check the logs." He is right. The sweep only fires when the owner WON —
+  // a losing bid never lands on the roster, so nothing ever clears it and it
+  // renders as pending forever. This is the signal that covers both outcomes.
+  //
+  // Two facts, ANDed:
+  //   • last_run  — /api/waivers/state, derived server-side from MFL's own
+  //                 BBID_WAIVER transaction log, LEAGUE-WIDE (the newest run
+  //                 across every franchise). Live-verified 2026-08-09: 6
+  //                 transactions at 3 distinct timestamps, each 09:00:00 ET.
+  //                 The calendar is deliberately NOT used — next_bbid_run_unix
+  //                 rolls forward the moment 09:00:00 passes whether or not
+  //                 MFL processed anything, so it proves nothing.
+  //   • submittedAt — app.js, unix seconds, stamped ONLY by adoptVerifiedPlan
+  //                 (a submit MFL echoed back, or a /pending read of what MFL
+  //                 is holding). Never set by a local edit.
+  // A run AFTER the plan was last confirmed at MFL means MFL has processed
+  // that plan. Whether each bid won or lost is NOT knowable from this signal,
+  // and the notice below is careful never to imply otherwise.
+  //
+  // ── FAIL CLOSED, on every input ──
+  // known:false (unreadable log), a missing/zero unix, a missing stamp (a plan
+  // restored from an on-disk record written before the field existed), an
+  // empty plan — every one of those returns false and changes NOTHING. An
+  // unreadable input is never an empty one (rule_no_fail_open_guards); the
+  // whole point is that we would rather leave a stale claim on screen for
+  // another cycle than clear a live one on a guess.
+  //
+  // ── LOCAL-ONLY, and it MUST STAY THAT WAY ──
+  // Deliberately NOT commitPlan(), for exactly the reason spelled out on
+  // sweepResolvedPicks above: commitPlan converts an emptied round into
+  // picks:[] + clear:true, which under CONTRACT v2 §2 is an EXPLICIT
+  // "withdraw this round at MFL" instruction and is reserved for the owner
+  // pressing Remove. A round cleared HERE is gone because MFL already
+  // processed it, not because anyone asked to withdraw it — there is nothing
+  // left at MFL to withdraw. So this calls M.waivers.setPlan(...) directly
+  // with the rounds removed, same as sweepResolvedPicks, and sends NOTHING
+  // anywhere. This function makes no network call of any kind.
+  //
+  // `{ submittedAt: null }` on the setPlan is load-bearing: the stamp
+  // described the plan that just got cleared. Leaving it on disk would mean
+  // the NEXT run also postdates it, so a claim the owner stages tomorrow —
+  // never submitted, never at MFL — would be wiped by the next run's marker.
+  //
+  // Returns { ran_unix, removed:[{round, add_pid}], cleared_rounds:[n] } when
+  // it acted, false otherwise.
+  function runProcessedClear() {
+    if (!M.waivers || !M.waivers.lastRun || !M.waivers.submittedAt || !M.waivers.setPlan) return false;
+    var lr = M.waivers.lastRun();
+    // known !== true is UNREADABLE (or a worker without the field), never
+    // "no run happened".
+    if (!lr || lr.known !== true) return false;
+    var ranAt = lr.unix;
+    // known:true + unix:null is a legitimately observed absence — the log was
+    // read and holds no run in the window. Still nothing to act on.
+    if (typeof ranAt !== "number" || !isFinite(ranAt) || ranAt <= 0) return false;
+    var stamp = M.waivers.submittedAt();
+    // null = this plan has never been confirmed at MFL, or the record predates
+    // the stamp. Unknown, so we do nothing — we cannot say a run postdates a
+    // submit we cannot date.
+    if (typeof stamp !== "number" || !isFinite(stamp) || stamp <= 0) return false;
+    // Strictly after. A run at or before the submit did NOT process this plan
+    // — the bids are still genuinely pending.
+    if (!(ranAt > stamp)) return false;
+
+    var plan = stagedPlan();
+    if (!plan.length) {
+      // Nothing on the board to clear — but the STAMP still has to go.
+      //
+      // It dates MFL's last confirmation, and a run has now postdated it, so
+      // it describes nothing. Leaving it armed is how a genuinely-live plan
+      // gets wiped later: submit tomorrow, have the verify read-back fail
+      // (adoptVerifiedPlan returns false, so no fresh stamp is written — the
+      // "couldn't read your claims back" path, which is exactly the degraded
+      // state CONTRACT v2 §1 exists for), and the NEXT open compares
+      // tomorrow's run against this stale pre-run stamp and empties a board
+      // whose claims are live at MFL and spending cap.
+      //
+      // Local-only, same as every other write in this function: setPlan with
+      // the plan we already have is a no-op on the plan itself and cannot
+      // reach MFL.
+      M.waivers.setPlan(plan, { submittedAt: null });
+      return false;
+    }
+    var removed = [];
+    var clearedRounds = [];
+    plan.forEach(function (g) {
+      var round = U.safeInt(g.round, 0);
+      var picks = g.picks || [];
+      if (picks.length) {
+        picks.forEach(function (p) {
+          if (p) removed.push({ round: round, add_pid: p.add_pid });
+        });
+      } else if (g.clear === true) {
+        // An unsubmitted explicit withdrawal. sweepResolvedPicks passes these
+        // through untouched because it has no evidence about them — but here we
+        // DO: the run processed that round at MFL, so there is no longer a live
+        // claim for this withdrawal to cancel. Keeping it would leave the round
+        // rendering as "withdrawing" forever, which is the same stale-pending
+        // bug wearing a different label. Dropping it is local-only and cannot
+        // reach MFL (see the block comment above).
+        clearedRounds.push(round);
+      }
+    });
+    if (!removed.length && !clearedRounds.length) return false;
+    // Everything staged predates the run, so the whole board is stale.
+    M.waivers.setPlan([], { submittedAt: null });
+    return { ran_unix: ranAt, removed: removed, cleared_rounds: clearedRounds };
+  }
+
+  // Notice text for runProcessedClear() — same claimsNotice { tone, text }
+  // shape the rest of this file uses.
+  //
+  // HONESTY RULE: this signal proves a run happened and that MFL processed
+  // what was on file. It proves NOTHING about who won what. So the text says
+  // "processed" and sends the owner to their roster; it must never say or
+  // imply won/lost. Absolute time comes from M.waivers.when() — the existing
+  // formatter (app.js waiverWhen), not a new one. waiverCountdown is no use
+  // here: it renders any past instant as "now".
+  function runProcessedNotice(res) {
+    var when = (M.waivers && M.waivers.when) ? M.waivers.when(res.ran_unix) : "";
+    var lead = when ? ("Waivers ran " + when + ". ") : "Waivers have run since you submitted. ";
+    var names = [];
+    (res.removed || []).forEach(function (r) {
+      var n = nameForPid(r.add_pid);
+      if (n && names.indexOf(n) === -1) names.push(n);
+    });
+    var body;
+    if (names.length === 1) {
+      body = "MFL has processed your claim on " + names[0] +
+        " — check your roster to see whether you won it.";
+    } else if (names.length > 1) {
+      body = "MFL has processed these claims (" + names.join(", ") +
+        ") — check your roster to see which, if any, you won.";
+    } else if ((res.cleared_rounds || []).length) {
+      var rds = res.cleared_rounds;
+      body = "MFL has already processed " +
+        (rds.length === 1 ? "group " + rds[0] : "groups " + rds.join(", ")) +
+        ", so the withdrawal staged here no longer applies.";
+    } else {
+      body = "MFL has processed what was staged here — check your roster to see which, if any, you won.";
+    }
+    return { tone: "ok", text: lead + body };
+  }
+
+  // Wrapper mirroring applyResolvedSweep: run the check and, if it acted, set
+  // the notice and repaint.
+  //
+  // Same warn-preservation rule, and for the same reason (established by the
+  // roster sweep): a "warn" notice already on screen — couldn't read MFL,
+  // partial submit, verify mismatch — is the text standing between the owner
+  // and a duplicate cap-spending write. The plan-level fix still applies
+  // either way; only the good-news text is gated, so it can never bury an
+  // active hazard warning.
+  function applyRunProcessedClear() {
+    var res = runProcessedClear();
+    if (!res) return false;
+    if (!(claimsNotice && claimsNotice.tone === "warn")) {
+      claimsNotice = runProcessedNotice(res);
     }
     if (claimsOpen) renderClaimsScreen();
     return true;
@@ -1910,16 +2114,28 @@
     } else {
       claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
     }
-    // The plan this just adopted came straight from MFL's pendingWaivers
-    // export — the very export sweepResolvedPicks exists because of (it can
-    // keep echoing an already-processed round back). Adopting it verbatim
-    // would silently reintroduce the resolved-claim-still-shows-as-pending
-    // bug this fix targets, on every path that lands here: the manual
-    // "Reload from MFL" button (reloadClaimsFromServer) and
-    // checkMflHoldingsChanged's own clean-plan auto-adopt. One sweep pass
-    // over what was just adopted, same warn-preserving notice rule as
-    // applyResolvedSweep (a "couldn't read" warning above must never lose to
-    // a good-news "cleared" line), single render either way.
+    // Reconcile whatever is now staged, on both signals, before the single
+    // repaint below. Order: run-based clear FIRST, roster sweep second — see
+    // openClaimsScreen for the reasoning. Both use the raw functions rather
+    // than their apply* wrappers so this path renders exactly once.
+    //
+    // In the COMMON case here both no-op by construction, and that is the
+    // design working: adoptVerified above re-stamps submittedAt to now, so
+    // last_run can no longer postdate it and runProcessedClear bails at the
+    // comparison — we never clear something MFL just told us it is holding.
+    // They matter on the OTHER branch: when adoptVerified returned false
+    // (known:false, MFL unreadable) nothing was adopted and no stamp was
+    // written, so the older stamp still describes the plan on screen and a run
+    // since then is still proof it was processed. The run signal comes from the
+    // transactions log, which is independent of the /pending read that just
+    // failed.
+    //
+    // Same warn-preserving notice rule on both (a "couldn't read" warning above
+    // must never lose to a good-news "cleared" line).
+    var runCleared = runProcessedClear();
+    if (runCleared && !(claimsNotice && claimsNotice.tone === "warn")) {
+      claimsNotice = runProcessedNotice(runCleared);
+    }
     var swept = sweepResolvedPicks();
     if (swept && swept.length && !(claimsNotice && claimsNotice.tone === "warn")) {
       claimsNotice = resolvedSweepNotice(swept);
@@ -2272,11 +2488,22 @@
         else {
           claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
         }
-        // Runs AFTER adoptVerified, on purpose: this is exactly the case
-        // where MFL's own /pending export can still be echoing back a round
-        // that already resolved (see sweepResolvedPicks above), so the
-        // freshly-adopted plan needs the roster-membership check too, not
-        // just the plan we had before the fetch.
+        // Both run AFTER adoptVerified, on purpose, so they reconcile the
+        // freshly-adopted plan and not just the one we had before the fetch.
+        //
+        // ORDER: run-based clear first, roster sweep second. The run signal is
+        // the authoritative superset (it covers lost bids as well as won ones),
+        // so letting it go first means at most one plan write and one notice
+        // per pass instead of the sweep's narrower message being overwritten a
+        // moment later. When it does not fire — unreadable log, no stamp — it
+        // changes nothing at all and the roster sweep behaves exactly as it did
+        // before this existed.
+        //
+        // On the SUCCESS path adoptVerified has just stamped submittedAt = now,
+        // so runProcessedClear correctly bails; it earns its place on the
+        // known:false path just below, where nothing was adopted and the older
+        // stamp still stands.
+        applyRunProcessedClear();
         applyResolvedSweep();
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       }).catch(function (err) {
@@ -2286,6 +2513,12 @@
         if (!(err && err.ownerAuthExpired)) {
           claimsNotice = { tone: "warn", text: unknownClaimsText(err && err.body) };
         }
+        // Nothing was adopted, so no stamp was written and the one on disk
+        // still describes what is on screen — the run signal is fully in play
+        // here, and it does not depend on the /pending read that just failed.
+        // Same order as the success branch. Any warn notice set just above is
+        // preserved by both wrappers.
+        applyRunProcessedClear();
         applyResolvedSweep();
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
       });
@@ -2297,10 +2530,20 @@
     // on the next cold start.
     if (!willFetch) {
       checkMflHoldingsChanged();
-      // Independent of the check above — runs against whatever roster data
-      // is already in hand right now (the freshest we have without a network
-      // round trip). See sweepResolvedPicks for why this can't just be
-      // folded into checkMflHoldingsChanged's comparison.
+      // THE path that produced Keith's bug report: a plan restored from
+      // localStorage, so `willFetch` is false (guard 1) and
+      // checkMflHoldingsChanged bails on a null basis (guard 2) — see the
+      // block comment on sweepResolvedPicks. Both checks below are
+      // independent of that, and both run against state already in hand: no
+      // network round trip, no writes anywhere.
+      //
+      // ORDER: run-based clear first, roster sweep second. Same reasoning as
+      // the fetch branch above — the run signal covers wins AND losses, so it
+      // subsumes the sweep; running it first avoids clearing the plan twice
+      // and overwriting the sweep's notice a moment later. If it does not fire
+      // (unreadable log / no stamp / no run since the submit) it does nothing
+      // whatsoever and the sweep proceeds exactly as it did before.
+      applyRunProcessedClear();
       applyResolvedSweep();
     }
   }
@@ -2313,6 +2556,31 @@
     if (document.visibilityState !== "visible") return;
     if (!claimsOpen) return;
     checkMflHoldingsChanged();
+    // Run-based clear FIRST, before the roster sweep below, for the same
+    // reason as the two openClaimsScreen sites: it is the superset signal, so
+    // going first means one plan write and one notice rather than the sweep's
+    // narrower message being overwritten a moment later.
+    //
+    // Two passes on purpose. The synchronous one uses the waiver state already
+    // in hand, which fixes the ordering relative to the roster sweep's async
+    // reloadData() chain below (that chain cannot resolve before this line
+    // runs). The second pass runs after a forced state refresh, which is what
+    // actually matters here: "backgrounded across a 9:00 AM run" is precisely
+    // the case where the cached last_run predates the run we are looking for.
+    // The second pass is idempotent — if the first one cleared, the stamp it
+    // nulled makes the second bail immediately.
+    applyRunProcessedClear();
+    // Gated on there actually being staged work, same reasoning (and same
+    // gate) as the reloadData() call below: for a signed-in owner this
+    // request bypasses the edge cache entirely, so each forced refresh costs
+    // three MFL exports. With an empty board there is nothing a fresher
+    // last_run could clear, so repeated app-switching would be hammering MFL
+    // to reach a guaranteed no-op.
+    if (M.waivers && M.waivers.fetchState && stagedCount()) {
+      M.waivers.fetchState(true).then(function () {
+        applyRunProcessedClear();
+      }).catch(function () {});   // unreadable → leave the screen alone
+    }
     // Roster data itself may be stale here — "backgrounded across a run" is
     // exactly the case where state.rosters predates that run, so a plain
     // sweepResolvedPicks() would be checking membership against a snapshot
