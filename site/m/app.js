@@ -216,6 +216,15 @@
                                 // when this plan was last hydrated from it.
                                 // PERSISTED with the plan; null = never seen,
                                 // which is UNKNOWN, not "MFL holds nothing".
+    waiverSubmittedAt: null,    // unix SECONDS when this plan was last confirmed
+                                // to be AT MFL — set only by adoptVerifiedPlan
+                                // (a submit MFL echoed back, or a /pending read
+                                // of what MFL is holding), never by a local
+                                // edit. PERSISTED with the plan; null = never
+                                // submitted / unknown, which is NOT 0 and NOT
+                                // "now". Paired with /api/waivers/state's
+                                // last_run to notice that a real waiver run has
+                                // since processed this plan.
     capPenaltyByPid: null,      // /api/cap-penalty/preview BATCH — authoritative drop penalties
     loaded: false,
     loadingPromise: null,
@@ -1334,10 +1343,37 @@
   // Claims screen's roster-membership sweep (players.js sweepResolvedPicks):
   // a player can't simultaneously be "still awaiting a bid result" and
   // "already on my own roster", so this is an independent, unambiguous
-  // signal for "that staged claim already resolved" that no staleness in
-  // MFL's pendingWaivers export (see mflHoldingsSignature below) can
-  // contradict. Reads the same state.rosters loadAllData() already fetched —
-  // no new network call for the common case. Deliberately uncached (unlike
+  // signal that a staged claim already resolved.
+  //
+  // CORRECTION (2026-08-09, supersedes the note this replaces). The original
+  // comment here claimed MFL's pendingWaivers export "keeps echoing an
+  // already-processed round back". That is FALSE and was never verified: a
+  // live authenticated read of TYPE=pendingWaivers for this league, taken
+  // hours after a processed run, returned literally
+  // {"version":"1.0","pendingWaivers":{},"encoding":"utf-8"} — MFL had
+  // correctly cleared the round and was holding nothing.
+  //
+  // The stale thing is entirely on OUR side: the LOCAL draft plan persisted
+  // under waiverPlanKey(), which outlives the run, plus two client guards that
+  // between them stop it ever being reconciled away —
+  //   1. players.js openClaimsScreen() only seed-fetches /pending when NOTHING
+  //      is staged locally, so a stale staged claim suppresses the very read
+  //      that would correct it; and
+  //   2. players.js checkMflHoldingsChanged() returns early when the stored
+  //      basis is null — which is exactly what a plan restored from a v1/v2
+  //      on-disk record has (see getWaiverPlan below) — and even with a basis,
+  //      a cold-restored plan reads as dirty (waiverPlanVerified is
+  //      session-only), and the dirty branch only shows a banner.
+  //
+  // So this Set is a complementary FAST PATH for the WIN case: it can clear a
+  // won pick the instant roster data shows it, without waiting on anything
+  // else. It cannot see a LOST bid at all — the player never lands on the
+  // roster — which is why the authoritative signal is the league-wide
+  // last-run marker (waiverLastRun below), and this is the useful shortcut
+  // beside it, not the primary mechanism.
+  //
+  // Reads the same state.rosters loadAllData() already fetched — no new
+  // network call for the common case. Deliberately uncached (unlike
   // getAllRosteredPids): called rarely, and a stale cached Set would defeat
   // the point right after a reload.
   function getOwnRosteredPids() {
@@ -1856,6 +1892,36 @@
     };
   }
 
+  // ── The last waiver run MFL can PROVE happened ─────────────────────────
+  // Mirrors /api/waivers/state's `last_run` envelope, derived server-side from
+  // MFL's own BBID_WAIVER transaction log (never from the calendar — a run TIME
+  // passing says nothing about whether MFL processed anything).
+  //
+  // Returns { known, unix, unknown_reason }, normalised so a caller only ever
+  // has to check two things:
+  //   known:true  + unix:<number>  a run demonstrably happened at that second.
+  //   known:true  + unix:null      the log was read and holds no run in the
+  //                                lookback window — an observed absence.
+  //   known:false + unix:null      unreadable, OR we are talking to a worker
+  //                                that predates the field, OR we never loaded
+  //                                state at all. NOT "no run happened".
+  // Callers MUST do nothing at all on anything but the first case. This is the
+  // fail-closed half of the Claims screen's run-based clear: an unreadable
+  // input is never an empty one (rule_no_fail_open_guards).
+  function waiverLastRun() {
+    var lr = state.waiverState && state.waiverState.last_run;
+    if (!lr || typeof lr !== "object" || lr.known !== true) {
+      return {
+        known: false,
+        unix: null,
+        unknown_reason: safeStr((lr && lr.unknown_reason) || "") ||
+          (lr ? "unknown" : (state.waiverState ? "field_absent" : "state_unavailable"))
+      };
+    }
+    var n = safeInt(lr.unix, 0);
+    return { known: true, unix: n > 0 ? n : null, unknown_reason: "" };
+  }
+
   // NOTE (2026-08-08): there is deliberately no waiver-specific roster-ceiling
   // accessor here. `limits.roster_size` carries MFL's `rosterSize` setting,
   // which is NOT the UPS active-roster ceiling — see rosterCapMax() below and
@@ -1875,6 +1941,18 @@
     var mm = d.getMinutes();
     return WAIVER_MONTHS[d.getMonth()] + " " + d.getDate() + ", " + h12 +
       (mm ? ":" + (mm < 10 ? "0" + mm : mm) : ":00") + " " + ampm;
+  }
+  // "Now" per the SERVER, not the device — the same anchor waiverCountdown
+  // uses, factored out so the submitted-at stamp can share it. Falls back to
+  // the device clock only when /api/waivers/state never reported now_unix
+  // (an old worker, or the state read failed), which is the best available
+  // answer rather than a guess: without it there would be no stamp at all.
+  function waiverServerNow() {
+    var st = state.waiverState;
+    var serverNow = safeInt(st && st.now_unix, 0);
+    if (!serverNow) return Math.floor(Date.now() / 1000);
+    var drift = Math.max(0, Math.floor((Date.now() - state.waiverStateAt) / 1000));
+    return serverNow + drift;
   }
   // Relative countdown, anchored to the SERVER clock (now_unix) so a skewed
   // phone clock can't show "in -3h".
@@ -1949,21 +2027,33 @@
       var raw = window.localStorage && window.localStorage.getItem(key);
       if (raw) stored = JSON.parse(raw);
     } catch (e) { stored = null; }
-    // Two on-disk shapes, read in one place so they can't drift:
-    //   { plan:[...], mfl:"<sig>" }  current — the plan and the MFL holdings
-    //                                it was hydrated against, stored together
-    //                                so a restored plan can never be paired
-    //                                with a basis from some other read.
+    // Three on-disk shapes, read in one place so they can't drift:
+    //   { plan:[...], mfl:"<sig>", submitted_at:<unix|null> }
+    //                                current — the plan, the MFL holdings it
+    //                                was hydrated against, and WHEN that
+    //                                hydration happened, stored together so a
+    //                                restored plan can never be paired with a
+    //                                basis (or a timestamp) from some other
+    //                                read.
+    //   { plan:[...], mfl:"<sig>" }  v2, written before submitted_at existed.
     //   [...]                        v1, written before the basis existed.
     // A missing/blank basis stays null: UNKNOWN, never "MFL was holding
     // nothing". Callers do nothing at all with null rather than infer a change
-    // that may not have happened.
+    // that may not have happened. Same for submitted_at — a record without one
+    // reads as null (we do not know when, or whether, this plan was ever at
+    // MFL), NEVER as 0 and never as "now". 0 would compare as "submitted at the
+    // dawn of unix time", i.e. every run in history would look like it
+    // postdates the submit, and the run-based clear would wipe a live plan.
     if (stored && !Array.isArray(stored) && Array.isArray(stored.plan)) {
       state.waiverPlan = stored.plan;
       state.waiverMflSig = (typeof stored.mfl === "string") ? stored.mfl : null;
+      state.waiverSubmittedAt =
+        (typeof stored.submitted_at === "number" && isFinite(stored.submitted_at) && stored.submitted_at > 0)
+          ? stored.submitted_at : null;
     } else {
       state.waiverPlan = Array.isArray(stored) ? stored : [];
       state.waiverMflSig = null;
+      state.waiverSubmittedAt = null;
     }
     _waiverPlanCacheKey = key;
     // A plan loaded from storage was never echoed back by the server in THIS
@@ -1980,8 +2070,23 @@
   // an owner who deleted their only claim produced a plan the round was simply
   // ABSENT from — which under contract v2 §2 means "leave it alone", i.e. the
   // claim they just withdrew would quietly stay live and keep spending cap.
-  function setWaiverPlan(plan) {
+  //
+  // `opts.submittedAt` is the ONLY way to move the submitted-at stamp from
+  // outside this module, and it is deliberately opt-in: an ordinary
+  // setPlan(plan) — every local edit, and the Claims screen's resolved-pick
+  // sweep — leaves the stamp exactly where it was, because "when was this plan
+  // last at MFL" is a fact about MFL, not about the draft on top of it. Pass
+  // `{ submittedAt: null }` to forget it (the run-based clear does this: what
+  // is left on disk afterwards has never been submitted, and carrying the old
+  // stamp forward would make the NEXT run look like it processed a plan that
+  // was staged after it). It rides in the same single write as plan + mfl.
+  function setWaiverPlan(plan, opts) {
     _waiverPlanCacheKey = waiverPlanKey();
+    if (opts && Object.prototype.hasOwnProperty.call(opts, "submittedAt")) {
+      var st = opts.submittedAt;
+      state.waiverSubmittedAt =
+        (typeof st === "number" && isFinite(st) && st > 0) ? Math.floor(st) : null;
+    }
     state.waiverPlan = (Array.isArray(plan) ? plan : []).filter(function (g) {
       if (!g || safeInt(g.round, 0) <= 0) return false;
       if (g.picks && g.picks.length) return true;
@@ -1992,13 +2097,18 @@
     });
     try {
       if (window.localStorage) {
-        // The MFL basis rides in the SAME record as the plan — one key, one
-        // write, so the two can never be restored out of step with each other.
-        // Local edits do not disturb it: "what MFL was holding when we last
-        // looked" is a fact about MFL, not about the draft on top of it.
+        // The MFL basis AND the submitted-at stamp ride in the SAME record as
+        // the plan — one key, one write, so the three can never be restored out
+        // of step with each other. Local edits do not disturb either one: "what
+        // MFL was holding when we last looked" and "when this plan was last at
+        // MFL" are facts about MFL, not about the draft on top of it.
         window.localStorage.setItem(waiverPlanKey(), JSON.stringify({
           plan: state.waiverPlan,
-          mfl: (typeof state.waiverMflSig === "string") ? state.waiverMflSig : null
+          mfl: (typeof state.waiverMflSig === "string") ? state.waiverMflSig : null,
+          submitted_at:
+            (typeof state.waiverSubmittedAt === "number" && isFinite(state.waiverSubmittedAt) &&
+             state.waiverSubmittedAt > 0)
+              ? state.waiverSubmittedAt : null
         }));
       }
     } catch (e) {}
@@ -2073,9 +2183,28 @@
       };
     }).filter(function (g) { return g.round > 0 && g.picks.length; });
     // Record what MFL was holding at THIS hydration before the plan is written
-    // — setWaiverPlan persists the two together. This is the basis the Claims
+    // — setWaiverPlan persists the three together. This is the basis the Claims
     // screen later re-reads MFL against to notice its copy has moved.
     state.waiverMflSig = mflHoldingsSignature(block);
+    // …and WHEN. This is the only place the stamp is ever set, and it is set
+    // here rather than at the submit call site because this is the function
+    // that runs when the SERVER has echoed back what it actually wrote (a
+    // submit's `verified` block) or what it is actually holding (a /pending
+    // read). Either way the plan below is, as of this instant, MFL's own copy.
+    //
+    // A purely local edit (staging a bid, reordering, Remove) never reaches
+    // here — those go through commitPlan → setWaiverPlan(plan) with no opts —
+    // so an unsubmitted draft never acquires a stamp and can never be mistaken
+    // for something a waiver run has processed.
+    // SERVER clock, not the phone's. This stamp is compared against a
+    // timestamp MFL produced (last_run.unix), so a skewed device clock is a
+    // real hazard, not a cosmetic one: a phone running 5 minutes slow stamps
+    // a 09:02 submit as 08:57, and the next open reads the 09:00 run as
+    // postdating it and wipes a plan that is genuinely pending at MFL.
+    // waiverCountdown above already anchors to now_unix for the much milder
+    // cosmetic version of this problem; same treatment here, same fallback to
+    // the device clock only when the server never told us its time.
+    state.waiverSubmittedAt = waiverServerNow();
     setWaiverPlan(normalized);
     state.waiverPlanVerified = planSignature(state.waiverPlan);
     return true;
@@ -2924,6 +3053,16 @@
       // UNKNOWN; a caller that gets null must do nothing rather than guess.
       // getPlan() first, so a plan (and basis) still on disk is hydrated.
       mflBasis: function () { getWaiverPlan(); return state.waiverMflSig; },
+      // WHEN this plan was last confirmed to be at MFL, unix seconds — or null,
+      // which is UNKNOWN ("never submitted", "restored from a record written
+      // before this field existed"), never 0 and never "now". getPlan() first,
+      // for the same reason mflBasis does: a plan (and its stamp) still on disk
+      // has to be hydrated before the field is read.
+      submittedAt: function () { getWaiverPlan(); return state.waiverSubmittedAt; },
+      // The league-wide "a waiver run happened at T" marker — pair it with
+      // submittedAt() to learn that MFL has already processed what is staged
+      // here. See waiverLastRun above for the known/unknown contract.
+      lastRun: waiverLastRun,
       mflSignature: mflHoldingsSignature,
       adoptVerified: adoptVerifiedPlan,
       errorMessage: waiverErrorMessage,
