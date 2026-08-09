@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-08T10:07:05.857772+00:00",
+    "generated_at_utc": "2026-08-09T10:15:07.059966+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3068,18 +3068,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15418",
-          "display": "Camryn Bynum",
-          "player_id": "15418",
-          "position": "S",
-          "nfl_team": "IND",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_14170",
           "display": "Devin Bush",
           "player_id": "14170",
@@ -3140,18 +3128,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17205",
-          "display": "KeAndre Lambert-Smith",
-          "player_id": "17205",
-          "position": "WR",
-          "nfl_team": "LAC",
-          "salary": 1000,
-          "contract_year": 2,
-          "contract_status": "Rookie-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16282",
           "display": "Kobie Turner",
           "player_id": "16282",
@@ -3160,18 +3136,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17254",
-          "display": "Konata Mumpfield",
-          "player_id": "17254",
-          "position": "WR",
-          "nfl_team": "LAR",
-          "salary": 1000,
-          "contract_year": 2,
-          "contract_status": "Rookie-MYM",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3645,18 +3609,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17550",
-          "display": "Rueben Bain Jr.",
-          "player_id": "17550",
-          "position": "DE",
-          "nfl_team": "TBB",
-          "salary": 2000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17058",
           "display": "Tahj Brooks",
           "player_id": "17058",
@@ -3801,18 +3753,6 @@
           "taxi": true
         },
         {
-          "asset_id": "P_16632",
-          "display": "Jermaine Burton",
-          "player_id": "16632",
-          "position": "WR",
-          "nfl_team": "FA",
-          "salary": 5000,
-          "contract_year": 1,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
           "asset_id": "P_16604",
           "display": "MarShawn Lloyd",
           "player_id": "16604",
@@ -3878,6 +3818,18 @@
           "player_id": "17567",
           "position": "TE",
           "nfl_team": "NOS",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17550",
+          "display": "Rueben Bain Jr.",
+          "player_id": "17550",
+          "position": "DE",
+          "nfl_team": "TBB",
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
@@ -4204,6 +4156,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17049",
+          "display": "Brashard Smith",
+          "player_id": "17049",
+          "position": "RB",
+          "nfl_team": "KCC",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15716",
           "display": "Brian Robinson",
           "player_id": "15716",
@@ -4320,18 +4284,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16171",
-          "display": "Kendre Miller",
-          "player_id": "16171",
-          "position": "RB",
-          "nfl_team": "NOS",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
         },
