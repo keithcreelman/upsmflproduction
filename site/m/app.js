@@ -166,7 +166,7 @@
 
   // ---------- State ----------
   var state = {
-    ctx: { leagueId: LEAGUE_ID_DEFAULT, year: String(new Date().getUTCFullYear()) },
+    ctx: { leagueId: LEAGUE_ID_DEFAULT, year: String(new Date().getUTCFullYear()), embed: false },
     league: null,
     franchises: [],
     viewerFranchiseId: "",
@@ -238,6 +238,12 @@
     }
     state.ctx.leagueId = String(leagueId).replace(/\D/g, "") || LEAGUE_ID_DEFAULT;
     state.ctx.year = String(year).replace(/\D/g, "") || String(new Date().getUTCFullYear());
+    // Embed mode: a stripped-down chrome for one-off deep links (e.g. the
+    // desktop header's Add/Drop link) opened in their own tab. Left in the
+    // URL on purpose (unlike MFL_USER_ID below, embed=1 is not sensitive) so
+    // a manual refresh preserves it.
+    state.ctx.embed = qs.get("embed") === "1";
+    if (state.ctx.embed) document.body.classList.add("ups-m-embed");
     // Optional explicit franchise via URL: ?FRANCHISE_ID=0008 — useful for
     // testing and for the "Switch team" flow from the More tab.
     var fidQs = qs.get("FRANCHISE_ID") || qs.get("franchise_id");
@@ -2247,6 +2253,10 @@
     }
     if (!state.loaded) {
       main.innerHTML = renderSkeletonForRoute(top);
+      // Embed mode's Close/fallback affordance must not wait on data load --
+      // the nav is already hidden by boot() the instant embed=1 is seen, so
+      // without this the user has zero way out during the load window.
+      if (state.ctx.embed) updateHeader();
       loadAllData().then(function () { renderRoute(); }).catch(function (e) {
         main.innerHTML = '<div class="ups-m-error">Failed to load: ' + escapeHtml(e && e.message || String(e)) + '</div>';
       });
@@ -2346,6 +2356,39 @@
   function updateHeader() {
     var title = document.getElementById("ups-m-header-title");
     var meta = document.getElementById("ups-m-header-meta");
+    if (state.ctx.embed) {
+      if (title) title.textContent = "Add / Drop";
+      if (meta && !document.getElementById("ups-m-embed-close")) {
+        meta.textContent = "";
+        var wrap = document.createElement("div");
+        wrap.className = "ups-m-embed-actions";
+        var closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.id = "ups-m-embed-close";
+        closeBtn.className = "ups-m-embed-close";
+        closeBtn.setAttribute("aria-label", "Close");
+        closeBtn.title = "Close, back to MFL";
+        closeBtn.textContent = "✕ Close";
+        closeBtn.addEventListener("click", function () { window.close(); });
+        wrap.appendChild(closeBtn);
+        // Fallback for browsers that refuse to script-close a tab they did
+        // not open via window.open() -- notably Safari (desktop + every
+        // iOS browser, which all run on WebKit). Verified this session:
+        // window.close() DOES work in Chromium here, including after an
+        // in-app hash route change, but Safari has long been stricter about
+        // this regardless of history length. A one-tap way back must not
+        // depend on Close actually working.
+        var mflLink = document.createElement("a");
+        mflLink.className = "ups-m-embed-desktop-link";
+        mflLink.href = "https://www48.myfantasyleague.com/" +
+          encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId);
+        mflLink.textContent = "MFL";
+        mflLink.title = "If Close didn't work, open MFL here";
+        wrap.appendChild(mflLink);
+        meta.appendChild(wrap);
+      }
+      return;
+    }
     if (title) {
       title.textContent = state.viewerFranchise
         ? state.viewerFranchise.name

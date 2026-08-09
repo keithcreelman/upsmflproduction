@@ -22,6 +22,22 @@
   --safe-top: env(safe-area-inset-top, 0px);
 }
 
+/* Embed mode (body.ups-m-embed) — a stripped-down chrome for one-off deep
+   links (e.g. the desktop header's Add/Drop link) opened in their own tab.
+   --nav-h feeds calc() in several places across this file (main content's
+   bottom padding, the bottom nav's own height, and a handful of floating
+   elements' bottom offsets, e.g. the "update available" banner) — rather
+   than hunting down and overriding every individual selector, zero out the
+   custom property ONCE here so every existing calc() referencing it
+   collapses automatically, including any usage added later that isn't
+   grepped for today. The bottom nav itself is then hidden outright. */
+body.ups-m-embed {
+  --nav-h: 0px;
+}
+body.ups-m-embed .ups-m-nav {
+  display: none;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -70,6 +86,39 @@ body { min-height: 100vh; }
   font-size: 11px;
   color: var(--fg-muted);
   text-align: right;
+}
+/* Embed-mode header actions — sits in the meta slot where the year normally
+   goes. Small + unobtrusive, matching the pill/button language used
+   elsewhere in this file (e.g. .ups-m-update-banner button). Two parts:
+   Close (primary -- calls window.close()) and a plain "MFL" link (fallback
+   for Safari/WebKit, which is known to refuse closing a tab it didn't open
+   via window.open(), unlike the Chromium behavior this was verified against). */
+.ups-m-embed-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ups-m-embed-close {
+  border: 1px solid var(--line);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-embed-close:active {
+  background: var(--line);
+}
+.ups-m-embed-desktop-link {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-decoration: underline;
+  padding: 5px 2px;
 }
 
 /* ----- Main scroll area ----- */
