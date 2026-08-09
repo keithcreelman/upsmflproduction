@@ -1,0 +1,35 @@
+name: Waiver claim diagnostic v2 (one-off, 2026-08-09)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: install wrangler
+        run: npm install -g wrangler
+      - name: whoami sanity check
+        working-directory: worker
+        run: wrangler whoami 2>&1 || true
+      - name: query add events for Malik Davis
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT id, season, franchise_name, player_name, add_type, bid_dollars, added_at_iso FROM ups_add_events WHERE player_name LIKE '%Malik Davis%' ORDER BY added_at_unix DESC LIMIT 5" \
+            2>&1 | tee /tmp/adds.txt
+      - name: query drop events for Darnell Mooney
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT id, season, franchise_name, player_name, dropped_at_iso FROM ups_drop_events WHERE player_name LIKE '%Darnell Mooney%' ORDER BY dropped_at_unix DESC LIMIT 5" \
+            2>&1 | tee /tmp/drops.txt
