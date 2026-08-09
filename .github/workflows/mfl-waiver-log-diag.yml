@@ -1,0 +1,45 @@
+name: MFL waiver log diagnostic (one-off, 2026-08-09)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+      SEASON: "2026"
+      LEAGUE: "74598"
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$MFL_COOKIE" ] || { echo "::error::MFL_COOKIE not set"; exit 1; }'
+      - name: fetch pendingWaivers (owner-scoped, needs cookie)
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          curl -sS --fail-with-body \
+            -H "Cookie: $COOKIE" \
+            -H "User-Agent: Mozilla/5.0 (compatible; UPS-diagnostic)" \
+            "https://www48.myfantasyleague.com/${SEASON}/export?TYPE=pendingWaivers&L=${LEAGUE}&JSON=1" \
+            -o /tmp/pending.json || echo "(pendingWaivers fetch failed, continuing)"
+          echo "bytes: $(wc -c < /tmp/pending.json 2>/dev/null || echo 0)"
+      - name: fetch BBID_WAIVER transactions (league-wide, last 14 days)
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          curl -sS --fail-with-body \
+            -H "Cookie: $COOKIE" \
+            -H "User-Agent: Mozilla/5.0 (compatible; UPS-diagnostic)" \
+            "https://www48.myfantasyleague.com/${SEASON}/export?TYPE=transactions&TRANS_TYPE=BBID_WAIVER&DAYS=14&L=${LEAGUE}&JSON=1" \
+            -o /tmp/bbid.json || echo "(transactions fetch failed, continuing)"
+          echo "bytes: $(wc -c < /tmp/bbid.json 2>/dev/null || echo 0)"
+      - name: summarize
+        run: python3 scripts/ci_dump_waiver_logs.py /tmp/pending.json /tmp/bbid.json
