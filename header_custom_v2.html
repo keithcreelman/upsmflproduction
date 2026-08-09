@@ -3640,7 +3640,8 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         // MFL's own page is still one click away under
         // "MFL Legacy Links -> Owner Actions -> Add / Drop" below.
         { label: "Add/Drop",       href: buildMobileAppUrl("players"),
-          title: "Opens the UPS Mobile App - bid, add and drop from the player browser" },
+          title: "Opens the UPS Mobile App - bid, add and drop from the player browser",
+          target: "_blank" },
         { label: "Trade War Room", href: buildUrl("MESSAGE6=N") },
         // Trade Bait page in MFL is /options?O=133 (not /trade_bait).
         // Keith confirmed 2026-05-15.
@@ -3781,6 +3782,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         a.setAttribute("role", "menuitem");
         // Optional hover hint (used by Add/Drop to say it opens the app).
         if (c.title) a.title = c.title;
+        // Optional new-tab open (used by Add/Drop, Keith 2026-08-09: the
+        // mobile app is a different origin from MFL, so opening it in the
+        // same tab navigated away from the MFL page entirely; a new tab
+        // keeps the original MFL page alive behind it).
+        if (c.target) { a.target = c.target; a.rel = "noopener"; }
         return a;
       }
 
