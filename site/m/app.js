@@ -216,7 +216,7 @@
                                 // when this plan was last hydrated from it.
                                 // PERSISTED with the plan; null = never seen,
                                 // which is UNKNOWN, not "MFL holds nothing".
-    waiverSubmittedAt: null,    // unix SECONDS when this plan was last confirmed
+    waiverTargetRun: null,      // unix SECONDS of the BBID run this plan aims at
                                 // to be AT MFL — set only by adoptVerifiedPlan
                                 // (a submit MFL echoed back, or a /pending read
                                 // of what MFL is holding), never by a local
@@ -1919,7 +1919,20 @@
       };
     }
     var n = safeInt(lr.unix, 0);
-    return { known: true, unix: n > 0 ? n : null, unknown_reason: "" };
+    // `label` is the worker's ET rendering. Carried through rather than
+    // re-derived: this is a league-wide 9:00 AM ET event, and formatting it
+    // with the device's timezone would show a Pacific owner "6:00 AM".
+    return { known: true, unix: n > 0 ? n : null, label: safeStr(lr.label), unknown_reason: "" };
+  }
+
+  // MFL's next scheduled BBID run instant (window.next_bbid_run_unix), or null
+  // when the calendar has none upcoming / the state hasn't loaded. This is what
+  // a freshly staged or freshly adopted plan is aiming at, and it is stamped
+  // onto the plan so the plan carries its own "which run am I waiting for".
+  function waiverNextRunUnix() {
+    var w = state.waiverState && state.waiverState.window;
+    var n = safeInt(w && w.next_bbid_run_unix, 0);
+    return n > 0 ? n : null;
   }
 
   // NOTE (2026-08-08): there is deliberately no waiver-specific roster-ceiling
@@ -1941,18 +1954,6 @@
     var mm = d.getMinutes();
     return WAIVER_MONTHS[d.getMonth()] + " " + d.getDate() + ", " + h12 +
       (mm ? ":" + (mm < 10 ? "0" + mm : mm) : ":00") + " " + ampm;
-  }
-  // "Now" per the SERVER, not the device — the same anchor waiverCountdown
-  // uses, factored out so the submitted-at stamp can share it. Falls back to
-  // the device clock only when /api/waivers/state never reported now_unix
-  // (an old worker, or the state read failed), which is the best available
-  // answer rather than a guess: without it there would be no stamp at all.
-  function waiverServerNow() {
-    var st = state.waiverState;
-    var serverNow = safeInt(st && st.now_unix, 0);
-    if (!serverNow) return Math.floor(Date.now() / 1000);
-    var drift = Math.max(0, Math.floor((Date.now() - state.waiverStateAt) / 1000));
-    return serverNow + drift;
   }
   // Relative countdown, anchored to the SERVER clock (now_unix) so a skewed
   // phone clock can't show "in -3h".
@@ -2028,32 +2029,30 @@
       if (raw) stored = JSON.parse(raw);
     } catch (e) { stored = null; }
     // Three on-disk shapes, read in one place so they can't drift:
-    //   { plan:[...], mfl:"<sig>", submitted_at:<unix|null> }
+    //   { plan:[...], mfl:"<sig>", target_run:<unix|null> }
     //                                current — the plan, the MFL holdings it
-    //                                was hydrated against, and WHEN that
-    //                                hydration happened, stored together so a
+    //                                was hydrated against, and WHICH BBID RUN
+    //                                it is aiming at, stored together so a
     //                                restored plan can never be paired with a
-    //                                basis (or a timestamp) from some other
-    //                                read.
-    //   { plan:[...], mfl:"<sig>" }  v2, written before submitted_at existed.
+    //                                basis (or a target) from some other read.
+    //   { plan:[...], mfl:"<sig>" }  v2, written before target_run existed.
     //   [...]                        v1, written before the basis existed.
     // A missing/blank basis stays null: UNKNOWN, never "MFL was holding
     // nothing". Callers do nothing at all with null rather than infer a change
-    // that may not have happened. Same for submitted_at — a record without one
-    // reads as null (we do not know when, or whether, this plan was ever at
-    // MFL), NEVER as 0 and never as "now". 0 would compare as "submitted at the
-    // dawn of unix time", i.e. every run in history would look like it
-    // postdates the submit, and the run-based clear would wipe a live plan.
+    // that may not have happened. Same for target_run — a record without one
+    // reads as null (we do not know which run this plan was for), NEVER 0.
+    // 0 would sit before every run in history, so the run-based clear would
+    // read any run at all as having processed this plan, and wipe a live one.
     if (stored && !Array.isArray(stored) && Array.isArray(stored.plan)) {
       state.waiverPlan = stored.plan;
       state.waiverMflSig = (typeof stored.mfl === "string") ? stored.mfl : null;
-      state.waiverSubmittedAt =
-        (typeof stored.submitted_at === "number" && isFinite(stored.submitted_at) && stored.submitted_at > 0)
-          ? stored.submitted_at : null;
+      state.waiverTargetRun =
+        (typeof stored.target_run === "number" && isFinite(stored.target_run) && stored.target_run > 0)
+          ? stored.target_run : null;
     } else {
       state.waiverPlan = Array.isArray(stored) ? stored : [];
       state.waiverMflSig = null;
-      state.waiverSubmittedAt = null;
+      state.waiverTargetRun = null;
     }
     _waiverPlanCacheKey = key;
     // A plan loaded from storage was never echoed back by the server in THIS
@@ -2071,21 +2070,20 @@
   // ABSENT from — which under contract v2 §2 means "leave it alone", i.e. the
   // claim they just withdrew would quietly stay live and keep spending cap.
   //
-  // `opts.submittedAt` is the ONLY way to move the submitted-at stamp from
+  // `opts.targetRun` is the ONLY way to move the target-run marker from
   // outside this module, and it is deliberately opt-in: an ordinary
-  // setPlan(plan) — every local edit, and the Claims screen's resolved-pick
-  // sweep — leaves the stamp exactly where it was, because "when was this plan
-  // last at MFL" is a fact about MFL, not about the draft on top of it. Pass
-  // `{ submittedAt: null }` to forget it (the run-based clear does this: what
-  // is left on disk afterwards has never been submitted, and carrying the old
-  // stamp forward would make the NEXT run look like it processed a plan that
-  // was staged after it). It rides in the same single write as plan + mfl.
+  // setPlan(plan) — notably the Claims screen's resolved-pick sweep — leaves
+  // the target exactly where it was, because filtering already-won picks out
+  // of a plan does not change WHICH RUN the rest of it is waiting for. Pass
+  // `{ targetRun: null }` to forget it (the run-based clear does this: the
+  // board it leaves behind is empty and aimed at nothing). It rides in the
+  // same single write as plan + mfl.
   function setWaiverPlan(plan, opts) {
     _waiverPlanCacheKey = waiverPlanKey();
-    if (opts && Object.prototype.hasOwnProperty.call(opts, "submittedAt")) {
-      var st = opts.submittedAt;
-      state.waiverSubmittedAt =
-        (typeof st === "number" && isFinite(st) && st > 0) ? Math.floor(st) : null;
+    if (opts && Object.prototype.hasOwnProperty.call(opts, "targetRun")) {
+      var tr = opts.targetRun;
+      state.waiverTargetRun =
+        (typeof tr === "number" && isFinite(tr) && tr > 0) ? Math.floor(tr) : null;
     }
     state.waiverPlan = (Array.isArray(plan) ? plan : []).filter(function (g) {
       if (!g || safeInt(g.round, 0) <= 0) return false;
@@ -2105,10 +2103,10 @@
         window.localStorage.setItem(waiverPlanKey(), JSON.stringify({
           plan: state.waiverPlan,
           mfl: (typeof state.waiverMflSig === "string") ? state.waiverMflSig : null,
-          submitted_at:
-            (typeof state.waiverSubmittedAt === "number" && isFinite(state.waiverSubmittedAt) &&
-             state.waiverSubmittedAt > 0)
-              ? state.waiverSubmittedAt : null
+          target_run:
+            (typeof state.waiverTargetRun === "number" && isFinite(state.waiverTargetRun) &&
+             state.waiverTargetRun > 0)
+              ? state.waiverTargetRun : null
         }));
       }
     } catch (e) {}
@@ -2196,16 +2194,13 @@
     // here — those go through commitPlan → setWaiverPlan(plan) with no opts —
     // so an unsubmitted draft never acquires a stamp and can never be mistaken
     // for something a waiver run has processed.
-    // SERVER clock, not the phone's. This stamp is compared against a
-    // timestamp MFL produced (last_run.unix), so a skewed device clock is a
-    // real hazard, not a cosmetic one: a phone running 5 minutes slow stamps
-    // a 09:02 submit as 08:57, and the next open reads the 09:00 run as
-    // postdating it and wipes a plan that is genuinely pending at MFL.
-    // waiverCountdown above already anchors to now_unix for the much milder
-    // cosmetic version of this problem; same treatment here, same fallback to
-    // the device clock only when the server never told us its time.
-    state.waiverSubmittedAt = waiverServerNow();
-    setWaiverPlan(normalized);
+    // Which run is this plan waiting for? MFL's own next scheduled BBID
+    // instant, straight off the calendar the server already read — NOT a
+    // device clock reading. Both sides of the staleness test (this, and
+    // last_run.unix) then come from the same MFL calendar, so a skewed phone
+    // clock cannot make a live plan look processed. There is no arithmetic on
+    // "now" anywhere in the comparison.
+    setWaiverPlan(normalized, { targetRun: waiverNextRunUnix() });
     state.waiverPlanVerified = planSignature(state.waiverPlan);
     return true;
   }
@@ -3053,14 +3048,16 @@
       // UNKNOWN; a caller that gets null must do nothing rather than guess.
       // getPlan() first, so a plan (and basis) still on disk is hydrated.
       mflBasis: function () { getWaiverPlan(); return state.waiverMflSig; },
-      // WHEN this plan was last confirmed to be at MFL, unix seconds — or null,
-      // which is UNKNOWN ("never submitted", "restored from a record written
-      // before this field existed"), never 0 and never "now". getPlan() first,
-      // for the same reason mflBasis does: a plan (and its stamp) still on disk
-      // has to be hydrated before the field is read.
-      submittedAt: function () { getWaiverPlan(); return state.waiverSubmittedAt; },
-      // The league-wide "a waiver run happened at T" marker — pair it with
-      // submittedAt() to learn that MFL has already processed what is staged
+      // WHICH BBID run this plan is waiting on, unix seconds — or null, which
+      // is UNKNOWN ("restored from a record written before this field
+      // existed", or written while the calendar had no upcoming run). Never 0.
+      // getPlan() first, for the same reason mflBasis does: a plan (and its
+      // target) still on disk has to be hydrated before the field is read.
+      targetRun: function () { getWaiverPlan(); return state.waiverTargetRun; },
+      // MFL's next scheduled BBID run, for stamping a plan's target.
+      nextRun: waiverNextRunUnix,
+      // The most recent BBID run that has already passed. Pair it with
+      // targetRun() to learn that MFL has already processed what is staged
       // here. See waiverLastRun above for the known/unknown contract.
       lastRun: waiverLastRun,
       mflSignature: mflHoldingsSignature,

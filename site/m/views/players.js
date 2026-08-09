@@ -1431,25 +1431,34 @@
   // a losing bid never lands on the roster, so nothing ever clears it and it
   // renders as pending forever. This is the signal that covers both outcomes.
   //
-  // Two facts, ANDed:
-  //   • last_run  — /api/waivers/state, derived server-side from MFL's own
-  //                 BBID_WAIVER transaction log, LEAGUE-WIDE (the newest run
-  //                 across every franchise). Live-verified 2026-08-09: 6
-  //                 transactions at 3 distinct timestamps, each 09:00:00 ET.
-  //                 The calendar is deliberately NOT used — next_bbid_run_unix
-  //                 rolls forward the moment 09:00:00 passes whether or not
-  //                 MFL processed anything, so it proves nothing.
-  //   • submittedAt — app.js, unix seconds, stamped ONLY by adoptVerifiedPlan
-  //                 (a submit MFL echoed back, or a /pending read of what MFL
-  //                 is holding). Never set by a local edit.
-  // A run AFTER the plan was last confirmed at MFL means MFL has processed
-  // that plan. Whether each bid won or lost is NOT knowable from this signal,
-  // and the notice below is careful never to imply otherwise.
+  // Two facts, both from MFL's OWN WAIVER_BBID calendar events, compared
+  // against each other — no clock, no timestamp arithmetic, nothing derived
+  // from the device:
+  //   • last_run   — /api/waivers/state: the newest scheduled BBID run at or
+  //                  before now.
+  //   • targetRun  — stamped onto the plan when it was staged/adopted, from
+  //                  that same calendar's next_bbid_run_unix. "Which run is
+  //                  this plan waiting for."
+  // If the run the plan was waiting for has passed, MFL has processed that
+  // plan. Whether each bid won or lost is NOT knowable from this signal, and
+  // the notice below is careful never to imply otherwise.
+  //
+  // Keith 2026-08-09: "just read the previously processed waivers report OR
+  // read the API to see when waivers ran...or read my schedule. Cmon i feel
+  // like this is asking for trouble." The schedule it is. An earlier cut of
+  // this read a 30-day BBID_WAIVER transaction log and compared it against a
+  // device-clock submitted-at stamp — an extra MFL round trip per request,
+  // clock-skew hazards, and a real hole: it inferred "a run happened" from
+  // AWARDS, so a run nobody won left no trace and read as no run at all.
+  // Cross-checked 2026-08-09 on L=74598 — the calendar's Fri/Sat/Sun 09:00 ET
+  // WAIVER_BBID events matched the award timestamps 1786107600 / 1786194000 /
+  // 1786280400 exactly, all three — so the schedule says everything the log
+  // said, for free, and says it even when nobody won.
   //
   // ── FAIL CLOSED, on every input ──
-  // known:false (unreadable log), a missing/zero unix, a missing stamp (a plan
-  // restored from an on-disk record written before the field existed), an
-  // empty plan — every one of those returns false and changes NOTHING. An
+  // known:false (unreadable calendar), a missing/zero unix, a missing target
+  // (a plan restored from an on-disk record written before the field existed),
+  // an empty plan — every one returns false and changes NOTHING. An
   // unreadable input is never an empty one (rule_no_fail_open_guards); the
   // whole point is that we would rather leave a stale claim on screen for
   // another cycle than clear a live one on a guess.
@@ -1465,49 +1474,49 @@
   // with the rounds removed, same as sweepResolvedPicks, and sends NOTHING
   // anywhere. This function makes no network call of any kind.
   //
-  // `{ submittedAt: null }` on the setPlan is load-bearing: the stamp
-  // described the plan that just got cleared. Leaving it on disk would mean
-  // the NEXT run also postdates it, so a claim the owner stages tomorrow —
-  // never submitted, never at MFL — would be wiped by the next run's marker.
+  // `{ targetRun: null }` on the setPlan is load-bearing: the target belonged
+  // to the plan that just got cleared. Leaving it on disk would mean the NEXT
+  // run also satisfies it, so a claim the owner stages tomorrow — aimed at a
+  // later run entirely — would be wiped the moment it was staged.
   //
   // Returns { ran_unix, removed:[{round, add_pid}], cleared_rounds:[n] } when
   // it acted, false otherwise.
   function runProcessedClear() {
-    if (!M.waivers || !M.waivers.lastRun || !M.waivers.submittedAt || !M.waivers.setPlan) return false;
+    if (!M.waivers || !M.waivers.lastRun || !M.waivers.targetRun || !M.waivers.setPlan) return false;
     var lr = M.waivers.lastRun();
     // known !== true is UNREADABLE (or a worker without the field), never
     // "no run happened".
     if (!lr || lr.known !== true) return false;
     var ranAt = lr.unix;
-    // known:true + unix:null is a legitimately observed absence — the log was
-    // read and holds no run in the window. Still nothing to act on.
+    // known:true + unix:null is a legitimately readable answer — the calendar
+    // was read and no BBID run is scheduled at or before now. Nothing to act on.
     if (typeof ranAt !== "number" || !isFinite(ranAt) || ranAt <= 0) return false;
-    var stamp = M.waivers.submittedAt();
-    // null = this plan has never been confirmed at MFL, or the record predates
-    // the stamp. Unknown, so we do nothing — we cannot say a run postdates a
-    // submit we cannot date.
-    if (typeof stamp !== "number" || !isFinite(stamp) || stamp <= 0) return false;
-    // Strictly after. A run at or before the submit did NOT process this plan
-    // — the bids are still genuinely pending.
-    if (!(ranAt > stamp)) return false;
+    var target = M.waivers.targetRun();
+    // null = we do not know which run this plan was aimed at (a record written
+    // before the field existed, or staged while the calendar had no upcoming
+    // run). Unknown, so we do nothing.
+    if (typeof target !== "number" || !isFinite(target) || target <= 0) return false;
+    // >=, not >: `target` IS a run instant, so the run it names counts as
+    // having happened the moment last_run reaches it. Both sides are the same
+    // kind of value from the same MFL calendar, which is the whole point —
+    // there is no "now", no device clock, and nothing to skew.
+    if (!(ranAt >= target)) return false;
 
     var plan = stagedPlan();
     if (!plan.length) {
-      // Nothing on the board to clear — but the STAMP still has to go.
+      // Nothing on the board to clear — but the spent TARGET still has to go.
       //
-      // It dates MFL's last confirmation, and a run has now postdated it, so
-      // it describes nothing. Leaving it armed is how a genuinely-live plan
-      // gets wiped later: submit tomorrow, have the verify read-back fail
-      // (adoptVerifiedPlan returns false, so no fresh stamp is written — the
-      // "couldn't read your claims back" path, which is exactly the degraded
-      // state CONTRACT v2 §1 exists for), and the NEXT open compares
-      // tomorrow's run against this stale pre-run stamp and empties a board
-      // whose claims are live at MFL and spending cap.
+      // It names a run that has now happened, so it describes nothing. Leaving
+      // it on disk is how a genuinely-live plan gets wiped later: the target
+      // stays satisfied forever, so the next plan written without a fresh
+      // target (a record restored mid-flight, an adopt whose read-back failed)
+      // would be cleared on sight while its claims are live at MFL and
+      // spending cap.
       //
       // Local-only, same as every other write in this function: setPlan with
       // the plan we already have is a no-op on the plan itself and cannot
       // reach MFL.
-      M.waivers.setPlan(plan, { submittedAt: null });
+      M.waivers.setPlan(plan, { targetRun: null });
       return false;
     }
     var removed = [];
@@ -1532,7 +1541,7 @@
     });
     if (!removed.length && !clearedRounds.length) return false;
     // Everything staged predates the run, so the whole board is stale.
-    M.waivers.setPlan([], { submittedAt: null });
+    M.waivers.setPlan([], { targetRun: null });
     return { ran_unix: ranAt, removed: removed, cleared_rounds: clearedRounds };
   }
 
@@ -1546,8 +1555,15 @@
   // formatter (app.js waiverWhen), not a new one. waiverCountdown is no use
   // here: it renders any past instant as "now".
   function runProcessedNotice(res) {
-    var when = (M.waivers && M.waivers.when) ? M.waivers.when(res.ran_unix) : "";
-    var lead = when ? ("Waivers ran " + when + ". ") : "Waivers have run since you submitted. ";
+    // PREFER THE SERVER'S ET LABEL. This is a league-wide 9:00 AM ET event, so
+    // rendering it with the device's timezone would tell a Pacific owner
+    // "Waivers ran 6:00 AM" — wrong, and stated as fact. M.waivers.when() is
+    // only the fallback for a worker that didn't send a label (it owns ET
+    // formatting; we don't guess a timezone).
+    var lr = (M.waivers && M.waivers.lastRun) ? M.waivers.lastRun() : null;
+    var when = U.safeStr(lr && lr.label) ||
+      ((M.waivers && M.waivers.when) ? M.waivers.when(res.ran_unix) : "");
+    var lead = when ? ("Waivers ran " + when + ". ") : "Waivers have run since these were staged. ";
     var names = [];
     (res.removed || []).forEach(function (r) {
       var n = nameForPid(r.add_pid);
@@ -2120,11 +2136,11 @@
     // than their apply* wrappers so this path renders exactly once.
     //
     // In the COMMON case here both no-op by construction, and that is the
-    // design working: adoptVerified above re-stamps submittedAt to now, so
-    // last_run can no longer postdate it and runProcessedClear bails at the
+    // design working: adoptVerified above re-targets the plan at the NEXT run,
+    // which last_run cannot have reached yet, so runProcessedClear bails at the
     // comparison — we never clear something MFL just told us it is holding.
     // They matter on the OTHER branch: when adoptVerified returned false
-    // (known:false, MFL unreadable) nothing was adopted and no stamp was
+    // (known:false, MFL unreadable) nothing was adopted and no target was
     // written, so the older stamp still describes the plan on screen and a run
     // since then is still proof it was processed. The run signal comes from the
     // transactions log, which is independent of the /pending read that just
@@ -2495,14 +2511,14 @@
         // the authoritative superset (it covers lost bids as well as won ones),
         // so letting it go first means at most one plan write and one notice
         // per pass instead of the sweep's narrower message being overwritten a
-        // moment later. When it does not fire — unreadable log, no stamp — it
-        // changes nothing at all and the roster sweep behaves exactly as it did
-        // before this existed.
+        // moment later. When it does not fire — unreadable calendar, no target
+        // — it changes nothing at all and the roster sweep behaves exactly as
+        // it did before this existed.
         //
-        // On the SUCCESS path adoptVerified has just stamped submittedAt = now,
-        // so runProcessedClear correctly bails; it earns its place on the
-        // known:false path just below, where nothing was adopted and the older
-        // stamp still stands.
+        // On the SUCCESS path adoptVerified has just re-targeted the plan at
+        // the NEXT run, so runProcessedClear correctly bails; it earns its
+        // place on the known:false path just below, where nothing was adopted
+        // and the older target still stands.
         applyRunProcessedClear();
         applyResolvedSweep();
         if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen();
