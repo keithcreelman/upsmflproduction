@@ -1,0 +1,38 @@
+name: Waiver claim diagnostic v3 (one-off, 2026-08-09)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: install wrangler
+        run: npm install -g wrangler
+      - name: query add events for Malik Davis (correct columns + raw tx)
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT id, season, franchise_id, franchise_name, player_name, source, bid_dollars, acquired_at_iso, raw_transaction_json FROM ups_add_events WHERE player_name LIKE '%Malik Davis%' ORDER BY acquired_at_unix DESC LIMIT 5" \
+            2>&1 | tee /tmp/adds.txt
+      - name: query drop events broadly (today, any player, this league)
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT id, season, franchise_name, player_name, dropped_at_iso FROM ups_drop_events WHERE league_id = '74598' AND dropped_at_iso LIKE '2026-08-09%' ORDER BY dropped_at_unix DESC LIMIT 20" \
+            2>&1 | tee /tmp/drops_today.txt
+      - name: query bot heartbeats (did the waiver-relevant crons run today)
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT bot, status, env, datetime(last_ts,'unixepoch') as ts FROM ups_bot_heartbeat ORDER BY last_ts DESC LIMIT 10" \
+            2>&1 | tee /tmp/heartbeats.txt
