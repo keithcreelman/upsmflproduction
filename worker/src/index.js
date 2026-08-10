@@ -37466,7 +37466,26 @@ export default {
         } else {
           let current = null;
           for (const e of boundaries) {
-            if (e.start_unix <= nowUnix) current = e; else break;   // events are sorted ascending
+            if (e.start_unix > nowUnix) break;   // events are sorted ascending
+            // MFL's own calendar schedules WAIVER_LOCK ("Put All Free Agents
+            // On Waivers") at the IDENTICAL instant as WAIVER_BBID ("Process
+            // Blind Bid Waivers") for every recurring run -- process, then
+            // immediately re-lock. Which of the two rows MFL's export lists
+            // first is not documented or guaranteed stable, so "whichever
+            // sorts last wins" made this a coin flip on a decision that gates
+            // a real MFL write surface (Keith 2026-08-10: the app showed
+            // FCFS live when the calendar said locked). LOCK wins any tie
+            // deterministically -- "process, then re-lock" is the only
+            // reading that matches every one of these paired events -- no
+            // matter which order MFL happened to return the two rows in.
+            // WAIVER_BBID vs WAIVER_UNLOCK ties are moot (PHASE_BY_TYPE maps
+            // both to "fcfs"), so this only ever changes behavior for the
+            // LOCK-vs-other case.
+            if (current && current.start_unix === e.start_unix &&
+                current.type === "WAIVER_LOCK" && e.type !== "WAIVER_LOCK") {
+              continue;
+            }
+            current = e;
           }
           if (!current) {
             mode = "closed";
