@@ -1,0 +1,30 @@
+name: Lineup probe call (one-off, 2026-08-10)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      WORKER: https://upsmflproduction.keith-creelman.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: probe playerRosterStatus for fid 0008
+        run: |
+          curl -sS "$WORKER/admin/lineup-probe?L=74598&FID=0008&APIKEY=$KEY" -o /tmp/probe.json
+          python3 -c "
+import json
+d=json.load(open('/tmp/probe.json'))
+for k in ('ok','fid','week_requested','roster_player_count','mfl_status','raw_len','error'):
+    if k in d: print(k, '=', d[k])
+print()
+print('--- RAW HEAD ---')
+print((d.get('raw_head') or '')[:5000])
+"
