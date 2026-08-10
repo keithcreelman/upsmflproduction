@@ -311,6 +311,9 @@
   border-radius: var(--r-md);
   padding: var(--s3) var(--s4) var(--s4);
   margin-bottom: var(--s4);
+  /* A card can never overhang its container (Keith 2026-08-10, news text
+     "crossing the lines"). Hub-wide on purpose: it is true of every card. */
+  max-width: 100%;
 }
 .tops-card-h {
   display: flex;
@@ -864,29 +867,14 @@
   color: var(--ink-3);
 }
 
-/* Inputs share one skin with the On The Block note fields. */
-.tops-wv-bid,
-.tops-wv-drop,
-.tops-wv-field input,
-.tops-wv-field select {
-  background: var(--panel-3);
-  border: 1px solid var(--hair);
-  border-radius: var(--r-sm);
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--t-sm);
-  padding: 5px var(--s2);
-  max-width: 100%;
-}
-.tops-wv-bid {
-  width: 96px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.tops-wv-drop { max-width: 240px; }
-.tops-wv-field input::placeholder { color: var(--ink-3); }
-
-.tops-wv-acts { white-space: nowrap; text-align: right; width: 96px; }
+/* The waiver panel's INPUT skins (.tops-wv-bid / .tops-wv-drop /
+   .tops-wv-field*), the row action column (.tops-wv-acts), the dry-run preview
+   (.tops-wv-preview*), the claim composer and FCFS boxes (.tops-wv-compose* /
+   .tops-wv-fcfs), and the free-agent picker (.tops-wv-picked / .tops-wv-results
+   / .tops-wv-hit*) were deleted on 2026-08-10 with the write controls they
+   dressed. This file's contract at the top — every .tops-* class the JS emits
+   is defined here, and nothing else is — is why they go rather than linger.
+   .tops-wv-mini stays: the read-only panel still renders "Re-read from MFL". */
 .tops-wv-mini {
   font: inherit;
   font-size: var(--t-meta);
@@ -910,91 +898,6 @@
   flex-wrap: wrap;
   margin-top: var(--s3);
 }
-
-/* Dry-run preview — what a LIVE save WOULD send. Deliberately reads as a
-   proposal, not as state: dashed edge, no fill, and never the ok/green skin a
-   confirmed write gets. */
-.tops-wv-preview {
-  margin-top: var(--s2);
-  padding: var(--s2) var(--s3);
-  border: 1px dashed var(--hair);
-  border-radius: var(--r-sm);
-}
-.tops-wv-preview-h {
-  font-size: var(--t-micro);
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  margin-bottom: var(--s1);
-}
-.tops-wv-preview-list {
-  list-style: none;
-  margin: 0 0 var(--s1);
-  padding: 0;
-  font-size: var(--t-sm);
-  color: var(--ink-2);
-  line-height: 1.6;
-}
-.tops-wv-preview-list b { color: var(--ink); font-weight: 700; }
-
-.tops-wv-compose,
-.tops-wv-fcfs {
-  margin-top: var(--s4);
-  padding-top: var(--s2);
-  border-top: 1px solid var(--line);
-}
-.tops-wv-compose-row {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s3);
-  margin-bottom: var(--s2);
-}
-.tops-wv-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s1);
-  font-size: var(--t-micro);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  min-width: 120px;
-}
-.tops-wv-field--wide { flex: 1 1 240px; min-width: 200px; }
-.tops-wv-field select[multiple] { padding: 3px; }
-
-.tops-wv-picked {
-  font-size: var(--t-meta);
-  color: var(--ink-3);
-  margin-bottom: var(--s2);
-}
-.tops-wv-picked b { color: var(--ink); font-weight: 700; }
-
-.tops-wv-results {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1);
-  max-height: 168px;
-  overflow-y: auto;
-}
-.tops-wv-results:not(:empty) { margin-bottom: var(--s2); }
-.tops-wv-hit {
-  font: inherit;
-  font-size: var(--t-sm);
-  color: var(--ink-2);
-  background: var(--panel-3);
-  border: 1px solid var(--hair);
-  border-radius: 999px;
-  padding: 4px 10px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.tops-wv-hit:hover { color: var(--teal); border-color: rgba(125, 232, 217, 0.4); }
-.tops-wv-hit-team { color: var(--ink-3); font-size: var(--t-meta); }
 
 /* ── Player News panel ──────────────────────────────────────────────────── */
 .tops-allnews-controls {
@@ -1135,6 +1038,46 @@
 }
 .tops-news-article-link { display: block; }
 .tops-news-article-link:hover .tops-news-head { color: var(--teal); }
+
+/* ── defensive overflow guards (Keith 2026-08-10: "the text is crossing the
+   lines") ────────────────────────────────────────────────────────────────────
+   Purely defensive — no layout, no spacing, no colour, no design change, and
+   nothing above is removed or restyled. The panel wraps correctly with ordinary
+   prose at every width we rebuilt it at; the two things that can still push
+   news text past a card edge or over a row rule are (a) a single unbreakable
+   token — a bare URL, a very long transliterated name — and (b) MFL's
+   embedding container being wider than the visible area, which makes the card
+   itself overhang.
+     • overflow-wrap: break-word → a long token breaks instead of overhanging.
+                                  Deliberately break-word and NOT `anywhere`:
+                                  `anywhere` also changes the element's
+                                  intrinsic min-content contribution, which
+                                  feeds back into flex/grid sizing and would
+                                  let a long player name break mid-word where
+                                  the row wraps today. break-word stops the
+                                  overhang without touching sizing — which is
+                                  what "no layout change" has to mean.
+     • min-width: 0             → the flex escape hatch. A flex item defaults to
+                                  min-width:auto, so it REFUSES to shrink below
+                                  its content and shoves the row wide; 0 lets it
+                                  wrap. .tops-news-row1 is the flex row here,
+                                  and .tops-news-item / the card can be flex or
+                                  grid children further up the chain.
+     • max-width: 100%          → the item can never exceed its container.
+   (The hub-wide `.tops-card { max-width: 100% }` companion to this lives with
+    the base .tops-card rule, not here — it applies to every card, not just
+    news, and filing it under a news comment would misstate its blast radius.) */
+.tops-news-item { min-width: 0; max-width: 100%; }
+.tops-news-row1 { min-width: 0; }
+.tops-news-row1 > * { min-width: 0; }
+.tops-news-player-link { overflow-wrap: break-word; }
+.tops-news-article-link,
+.tops-news-article-static { min-width: 0; max-width: 100%; }
+.tops-news-head,
+.tops-news-body {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
 
 /* Injury designation chips — status colour only. */
 .tops-inj {
@@ -1390,11 +1333,11 @@
 }
 @media (max-width: 720px) {
   .tops-profile-grid { grid-template-columns: repeat(2, 1fr); }
-  /* The waiver plan is a desktop table; below this it has to scroll rather
-     than force the whole hub to scroll horizontally. */
+  /* The claims list is a desktop table; below this it has to scroll rather
+     than force the whole hub to scroll horizontally. (.tops-wv-field went with
+     the composer it laid out.) */
   .tops-wv-round { overflow-x: auto; }
   .tops-wv-table { min-width: 520px; }
-  .tops-wv-field { min-width: 100%; }
 }
 @media (max-width: 640px) {
   .tops-attn li { flex-wrap: wrap; }
