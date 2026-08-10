@@ -226,6 +226,16 @@
                                 // last_run to notice that a real waiver run has
                                 // since processed this plan.
     capPenaltyByPid: null,      // /api/cap-penalty/preview BATCH — authoritative drop penalties
+    // ── Hot/Cold (MFL platform-wide add/drop trend, Market screen sort) ────
+    // GET /api/hot-cold — MFL's own topAdds ("Who's Hot?") / topDrops
+    // ("Who's Cold?") export, free agents only. Lazy: fetched only when the
+    // Market screen's Hot or Cold sort tab is first tapped (see players.js),
+    // never on the Market screen's default render.
+    hotCold: null,               // { hot: {pid:percent}|null, cold: {pid:percent}|null,
+                                  //   hotError, coldError, fetchedAt } — a null side means
+                                  //   UNKNOWN (fetch failed / MFL export unreadable), never "no players"
+    hotColdAt: 0,                // ms epoch of the last successful fetch
+    hotColdPromise: null,        // in-flight guard so two taps can't stampede
     loaded: false,
     loadingPromise: null,
     loadingPromiseFid: "",  // fid active when current loadAllData started; race guard
@@ -2869,6 +2879,75 @@
     return !!state.isCommish && !!state.viewerFranchiseId && state.viewerFranchiseId !== state.realFranchiseId;
   }
 
+  // ---------- Hot/Cold (MFL platform-wide "who's trending" sort) ----------
+  // GET /api/hot-cold mirrors MFL's own topAdds/topDrops exports — free
+  // agents only, most-added ("Hot") / most-dropped ("Cold") across every
+  // MFL-hosted league this week. The worker already caches this for 30
+  // minutes at the edge, so this client cache just avoids re-fetching on
+  // every tab tap within a session; it does not need to be tight.
+  var HOT_COLD_TTL_MS = 5 * 60 * 1000;
+
+  // Lazy on purpose — only called from players.js when the owner actually
+  // taps the Hot or Cold sort button, never from the Market screen's
+  // unconditional render/boot path (this is not needed for the default view).
+  function fetchHotCold(force) {
+    if (!force && state.hotCold && (Date.now() - state.hotColdAt) < HOT_COLD_TTL_MS) {
+      return Promise.resolve(state.hotCold);
+    }
+    if (state.hotColdPromise) return state.hotColdPromise;
+    var reqUrl = workerUrl("/api/hot-cold") +
+      "?L=" + encodeURIComponent(state.ctx.leagueId) +
+      "&YEAR=" + encodeURIComponent(state.ctx.year);
+    var p = fetch(reqUrl, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        state.hotColdPromise = null;
+        // Contract (worker /api/hot-cold): hot/cold are independently
+        // known/unknown. known:true + players:[...] → a real map, [] included.
+        // known:false + players:null → UNKNOWN — never fall back to {} here,
+        // an empty map would read to the UI as "nobody is trending" instead
+        // of "couldn't read MFL".
+        var hotMap = null, coldMap = null, hotError = "", coldError = "";
+        if (j && j.hot && j.hot.known === true && Array.isArray(j.hot.players)) {
+          hotMap = {};
+          j.hot.players.forEach(function (row) {
+            var pid = safeStr(row && row.id);
+            var pct = Number(row && row.percent);
+            if (pid && isFinite(pct)) hotMap[pid] = pct;
+          });
+        } else {
+          hotError = safeStr(j && j.hot && j.hot.error) || "Couldn't read MFL's most-added list.";
+        }
+        if (j && j.cold && j.cold.known === true && Array.isArray(j.cold.players)) {
+          coldMap = {};
+          j.cold.players.forEach(function (row) {
+            var pid = safeStr(row && row.id);
+            var pct = Number(row && row.percent);
+            if (pid && isFinite(pct)) coldMap[pid] = pct;
+          });
+        } else {
+          coldError = safeStr(j && j.cold && j.cold.error) || "Couldn't read MFL's most-dropped list.";
+        }
+        state.hotCold = { hot: hotMap, cold: coldMap, hotError: hotError, coldError: coldError, fetchedAt: Date.now() };
+        // Only stamp the TTL clock on a FULLY successful read (both sides
+        // known). Stamping it unconditionally (as an earlier version of this
+        // did) meant a transient MFL/worker hiccup left the UI showing
+        // "couldn't read MFL's list" for the full 5-minute TTL -- the Hot/Cold
+        // buttons stay enabled the whole time (they only disable while a
+        // fetch is actually in flight), so tapping one again silently
+        // no-ops via the TTL short-circuit above instead of retrying. Leaving
+        // hotColdAt at its prior value (0 on first failure) means the very
+        // next tap -- Hot, Cold, either -- attempts a fresh fetch instead of
+        // serving stale failure state. Mirrors fetchWaiverState's own
+        // "only stamp on success" rule directly above in this file.
+        if (hotMap != null && coldMap != null) state.hotColdAt = Date.now();
+        return state.hotCold;
+      })
+      .catch(function () { state.hotColdPromise = null; return state.hotCold; });
+    state.hotColdPromise = p;
+    return p;
+  }
+
   // ---------- Public API ----------
   window.UPS_MOBILE = {
     boot: boot,
@@ -3067,6 +3146,13 @@
       // signal) — the viewer's own rostered pids, independent of MFL's
       // pendingWaivers export. See getOwnRosteredPids above.
       getOwnRosterPids: getOwnRosteredPids
+    },
+    // MFL platform-wide "who's trending" (topAdds/topDrops, FA only). Lazy —
+    // fetch() is only ever called from players.js on the first Hot/Cold tap.
+    hotCold: {
+      fetch: fetchHotCold,
+      get: function () { return state.hotCold; },
+      isLoading: function () { return !!state.hotColdPromise; }
     },
     route: {
       registerView: registerView,
