@@ -1,0 +1,29 @@
+name: WW stamp diagnostic (one-off, 2026-08-10)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g wrangler
+      - name: feature flags (is the WW contract stamp armed?)
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT value FROM ups_settings WHERE key='feature_flags'" 2>&1 | tee /tmp/flags.txt
+      - name: Malik Davis add event (was the contract stamped?)
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT id, player_name, franchise_id, source, bid_dollars, contract_annotated, acquired_at_iso, notes FROM ups_add_events WHERE player_name LIKE '%Malik Davis%'" 2>&1 | tee /tmp/malik.txt
