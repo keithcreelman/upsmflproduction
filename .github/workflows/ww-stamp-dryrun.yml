@@ -1,0 +1,24 @@
+name: WW contract stamp dry run (one-off, 2026-08-10)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      WORKER: https://upsmflproduction.keith-creelman.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: run dry run
+        run: |
+          curl -sS -X POST "$WORKER/admin/adds/stamp-ww-contracts?L=74598&YEAR=2026&dry_run=1&days=60&APIKEY=$KEY" \
+            -o /tmp/dryrun.json
+      - name: show dry run
+        run: python3 scripts/ci_show_ww_stamp_dryrun.py /tmp/dryrun.json
