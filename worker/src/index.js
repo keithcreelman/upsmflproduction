@@ -19879,9 +19879,26 @@ export default {
         const cacheBust = options.cacheBust !== false;
         const baseQs = new URLSearchParams({
           TYPE: String(type || "").trim(),
-          L: String(leagueId || "").trim(),
           JSON: "1",
         });
+        // A handful of MFL export types (topAdds, topDrops, topOwns,
+        // topStarters, topTrades, playerRanks, aav, injuries — league-AGNOSTIC,
+        // platform-wide data) reject the request outright when L= is present
+        // at all, even a real league this worker manages: "Invalid request.
+        // This API request must go to api.myfantasyleague.com" — discovered
+        // live 2026-08-10 shipping /api/hot-cold (topAdds/topDrops), which
+        // sent L= like every other call here does by default. /api/mfl-market
+        // already calls these same export types correctly, via a raw fetch
+        // with no L= param at all (see its own
+        // `api = (t) => .../export?TYPE=${t}&JSON=1` helper) — this flag lets
+        // a caller opt OUT of L= while still going through this shared helper
+        // (cookie header, cache-busting, error/status shape) instead of every
+        // such call re-deriving mflExportJson's plumbing by hand. Every OTHER
+        // export type in this file IS league-scoped and must keep sending L=,
+        // so this defaults to false — do not flip the default.
+        if (!options.omitLeagueParam) {
+          baseQs.set("L", String(leagueId || "").trim());
+        }
         if (cacheBust) baseQs.set("_", String(Date.now()));
         for (const [k, v] of Object.entries(extraParams || {})) {
           if (v == null) continue;
@@ -38496,13 +38513,62 @@ export default {
           return { known: true, players, error: "" };
         };
 
-        const [addsRes, dropsRes] = await Promise.all([
-          mflExportJson(hcSeason, hcLeagueId, "topAdds", { COUNT: "150", STATUS: "FA" }, { useCookie: true }),
-          mflExportJson(hcSeason, hcLeagueId, "topDrops", { COUNT: "150", STATUS: "FA" }, { useCookie: true }),
+        // omitLeagueParam: true — topAdds/topDrops are league-AGNOSTIC,
+        // platform-wide exports; sending L= (as every other call in this
+        // file does by default) gets the whole request rejected by MFL's own
+        // routing layer (see mflExportJson's comment on the flag for the
+        // exact error and how this was discovered). useCookie: false to
+        // match — these are public, unauthenticated exports (verified live:
+        // the same data returns with zero auth at all), and /api/mfl-market
+        // already calls these exact export types the same way, successfully.
+        //
+        // NO STATUS=FA. The doc (MFL_IMPORT_EXPORT_DETAILED.md ~453/462)
+        // documents it, but it does not actually work: verified live 2026-08-10
+        // that STATUS=FA against the required api. host (no L=) returns an
+        // EMPTY topAdds/topDrops block regardless of COUNT, while adding L= to
+        // give it league context (the only way FA-vs-rostered could even be
+        // evaluated) gets the whole request rejected by the SAME routing check
+        // that rejects a bare L= — www48 also flatly refuses this export type.
+        // STATUS=FA is unusable for topAdds/topDrops as MFL's API is actually
+        // reachable today, full stop. We filter free-agent status OURSELVES
+        // below, against this league's own roster — which is also more
+        // correct than trusting an opaque platform-wide FA flag whose
+        // semantics across leagues of different sizes/rules were never
+        // going to exactly match what "available in L=74598" means anyway.
+        const [addsRes, dropsRes, hcRosterRes] = await Promise.all([
+          mflExportJson(hcSeason, hcLeagueId, "topAdds", { COUNT: "150" }, { omitLeagueParam: true, useCookie: false }),
+          mflExportJson(hcSeason, hcLeagueId, "topDrops", { COUNT: "150" }, { omitLeagueParam: true, useCookie: false }),
+          mflExportJson(hcSeason, hcLeagueId, "rosters", {}, { useCookie: true }),
         ]);
 
-        const hot = hcParseSide(addsRes, "topAdds");
-        const cold = hcParseSide(dropsRes, "topDrops");
+        // Every pid rostered on ANY franchise in THIS league. known:false
+        // (rosters unreadable) must NOT silently fall back to "nobody's
+        // rostered" — that would mislabel a rostered player as an available
+        // free agent on a screen whose whole point is telling the owner who
+        // they can actually add. A failed roster read makes BOTH sides
+        // unknown below, even if topAdds/topDrops themselves parsed fine.
+        let hcRosteredPids = null;
+        if (hcRosterRes && hcRosterRes.ok) {
+          const frs = asArray(hcRosterRes.data?.rosters?.franchise).filter(Boolean);
+          hcRosteredPids = new Set();
+          for (const fr of frs) {
+            for (const p of asArray(fr?.player).filter(Boolean)) {
+              const rpid = String(p?.id || "").replace(/\D/g, "");
+              if (rpid) hcRosteredPids.add(rpid);
+            }
+          }
+        }
+        const hcFilterToFa = (side) => {
+          if (!side.known || !hcRosteredPids) {
+            return hcRosteredPids
+              ? side
+              : { known: false, players: null, error: side.error || "Could not confirm free-agent status (rosters unreadable)." };
+          }
+          return { known: true, players: side.players.filter((p) => !hcRosteredPids.has(p.id)), error: "" };
+        };
+
+        const hot = hcFilterToFa(hcParseSide(addsRes, "topAdds"));
+        const cold = hcFilterToFa(hcParseSide(dropsRes, "topDrops"));
 
         const hcPayload = {
           ok: !!(hot.known || cold.known),
@@ -38522,6 +38588,7 @@ export default {
           upstream: {
             hot: { status: addsRes.status, url: addsRes.url, ok: addsRes.ok },
             cold: { status: dropsRes.status, url: dropsRes.url, ok: dropsRes.ok },
+            rosters: { status: hcRosterRes.status, url: hcRosterRes.url, ok: hcRosterRes.ok, rostered_count: hcRosteredPids ? hcRosteredPids.size : null },
           },
         };
         if (!hot.known && !cold.known) {
