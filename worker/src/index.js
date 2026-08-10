@@ -38421,6 +38421,127 @@ export default {
         return wvResp;
       }
 
+      // ── GET /api/hot-cold ──────────────────────────────────────────────────
+      // Public, read-only — no MFL write, no commish gate. MFL's own
+      // platform-wide "Who's Hot? / Who's Cold?" signal: topAdds (most-added)
+      // and topDrops (most-dropped) across EVERY MFL-hosted league this week,
+      // filtered to free agents only (STATUS=FA). This is deliberately
+      // GLOBAL/league-agnostic MFL data — L still selects the season
+      // endpoint host/path for parity with every other route here, but it
+      // does not change what MFL returns (see docs/MFL_IMPORT_EXPORT_DETAILED.md
+      // ~449-462).
+      //
+      // known/players contract per side, same discipline as /api/waivers/state's
+      // `limits` block above — hot and cold are reported INDEPENDENTLY so a
+      // transient MFL hiccup on one export never hides the other, working half:
+      //   known:true  + players:[...] → adopt it; [] really is "MFL reached,
+      //                                 zero qualifying players" (rare but real).
+      //   known:false + players:null  → the export failed, was unreadable, or
+      //                                 MFL sent an empty/absent block. DO NOT
+      //                                 treat this as "zero players" — an
+      //                                 unreadable read is never an empty list.
+      // `ok` is true as long as AT LEAST ONE side is known — one export
+      // failing must not hide the other, working half.
+      if (path === "/api/hot-cold" && request.method === "GET") {
+        const hcSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const hcLeagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!hcLeagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!hcSeason) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+
+        // Global + low-cardinality + low-sensitivity data (MFL's own doc says
+        // this updates "during the current week", not per-minute) — L doesn't
+        // actually change the result, but it rides along in the cache key
+        // anyway for consistency with every other cached route in this file
+        // (roster-workbench, waiver-state, trade-workbench all key on L+YEAR).
+        const hcCacheKey = new Request(
+          `https://upsmfl-hot-cold.local/state?YEAR=${encodeURIComponent(hcSeason)}&L=${encodeURIComponent(hcLeagueId)}`,
+          { method: "GET" }
+        );
+        try {
+          const hit = await caches.default.match(hcCacheKey);
+          if (hit) return hit;
+        } catch (_) {}
+
+        // MFL's topAdds/topDrops player objects do not guarantee key order —
+        // real payloads mix {id, percent} and {percent, id} within the SAME
+        // response. Parse by key NAME only, never positionally.
+        const hcParseSide = (res, rootKey) => {
+          if (!res || !res.ok) {
+            return { known: false, players: null, error: safeStr(res && res.error) || "fetch_failed" };
+          }
+          const root = res.data && res.data[rootKey];
+          // A missing/null block, OR a block with no `player` key at all, is
+          // UNREADABLE — not "zero players". Only a block that actually
+          // carries a `player` key (even an explicitly empty one) counts as a
+          // real, known MFL answer of zero qualifying players.
+          const hasPlayerKey =
+            !!root && typeof root === "object" && Object.prototype.hasOwnProperty.call(root, "player");
+          if (!hasPlayerKey) {
+            return { known: false, players: null, error: `MFL response missing ${rootKey}.player` };
+          }
+          const rows = asArray(root.player).filter(Boolean);
+          const players = [];
+          for (const row of rows) {
+            const pid = String(row?.id || "").replace(/\D/g, "");
+            if (!pid || pid === "0000") continue;
+            // percent is a fractional string like "7.64" — Number(...) + an
+            // isFinite guard, NOT safeInt/safeFloat-with-fallback (a fallback
+            // of 0 would make an unparseable percent indistinguishable from a
+            // real 0%). An empty string must not read as Number("") === 0.
+            const pctStr = String(row?.percent == null ? "" : row.percent).trim();
+            const pct = pctStr === "" ? NaN : Number(pctStr);
+            if (!Number.isFinite(pct)) continue; // this PLAYER only — not the whole response
+            players.push({ id: pid, percent: pct });
+          }
+          return { known: true, players, error: "" };
+        };
+
+        const [addsRes, dropsRes] = await Promise.all([
+          mflExportJson(hcSeason, hcLeagueId, "topAdds", { COUNT: "150", STATUS: "FA" }, { useCookie: true }),
+          mflExportJson(hcSeason, hcLeagueId, "topDrops", { COUNT: "150", STATUS: "FA" }, { useCookie: true }),
+        ]);
+
+        const hot = hcParseSide(addsRes, "topAdds");
+        const cold = hcParseSide(dropsRes, "topDrops");
+
+        const hcPayload = {
+          ok: !!(hot.known || cold.known),
+          league_id: hcLeagueId,
+          season: hcSeason,
+          generated_at: new Date().toISOString(),
+          hot: {
+            known: hot.known,
+            players: hot.known ? hot.players : null,
+            ...(hot.known ? {} : { error: hot.error }),
+          },
+          cold: {
+            known: cold.known,
+            players: cold.known ? cold.players : null,
+            ...(cold.known ? {} : { error: cold.error }),
+          },
+          upstream: {
+            hot: { status: addsRes.status, url: addsRes.url, ok: addsRes.ok },
+            cold: { status: dropsRes.status, url: dropsRes.url, ok: dropsRes.ok },
+          },
+        };
+        if (!hot.known && !cold.known) {
+          hcPayload.error = "Both topAdds and topDrops were unreadable from MFL.";
+        }
+
+        const hcResp = jsonOut(200, hcPayload);
+        // 30 min beats the waiver-state route's 60s on purpose — this is
+        // global, low-cardinality, low-sensitivity data that MFL itself says
+        // only moves "during the current week", not per-minute.
+        hcResp.headers.set("Cache-Control", "public, max-age=1800");
+        // Only pin a response at the edge when BOTH sides read cleanly — same
+        // rule roster-workbench and waiver-state use: a degraded half must
+        // not be cached and served stale-unknown for 30 minutes.
+        if (hot.known && cold.known) {
+          try { ctx.waitUntil(caches.default.put(hcCacheKey, hcResp.clone())); } catch (_) {}
+        }
+        return hcResp;
+      }
+
       // ── GET /api/waivers/pending ──────────────────────────────────────────
       // Owner cookie REQUIRED. Thin proxy over MFL's pendingWaivers export with
       // the defensive normalizer in front. `raw` is always the untouched MFL

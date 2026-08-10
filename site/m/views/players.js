@@ -70,7 +70,7 @@
     pos: "ALL",
     scope: "fa",    // "fa" (default) | "all" — Keith 2026-06-08: allow browsing ALL players
     teamFilter: "", // "" = none | franchise id — filter list to one team (Keith 2026-06-10)
-    sort: "ppg",    // "ppg" | "pts" | "proj"
+    sort: "ppg",    // "ppg" | "pts" | "proj" | "hot" | "cold"
     window: 0,      // 0 = YTD (season) | 2 | 4 | 6 = last-N weeks
     debounceTimer: null,
     dropSheetFor: null   // pid of player being added (drop-sheet open)
@@ -221,6 +221,12 @@
     var ok = availWindows().some(function (o) { return o[0] === winKey(); });
     if (!ok) view.window = 0;
     if (view.sort === "proj" && !projReady()) view.sort = "ppg";
+    // Hot/Cold only make sense in FA scope — the buttons that offer them
+    // aren't even on screen otherwise (see renderToolbar). Do NOT clamp on
+    // "not loaded yet" / "MFL unreadable" — those are real, active states
+    // (a loading button / an inline notice) the owner just triggered by
+    // tapping, not a stale control that needs resetting.
+    if ((view.sort === "hot" || view.sort === "cold") && !faScopeActive()) view.sort = "ppg";
   }
 
   // Positional rank INSIDE the selected window: bucket by position group,
@@ -270,6 +276,54 @@
   // no projections ⇒ the Proj sort button is not offered.
   function projReady() { var I = intel(); return !!(I && I.projLoaded()); }
 
+  // ══ Hot/Cold (MFL platform-wide add/drop trend) ════════════════════════
+  // GET /api/hot-cold (worker) mirrors MFL's own topAdds ("Who's Hot?") /
+  // topDrops ("Who's Cold?") exports — most-added / most-dropped free agents
+  // across EVERY MFL-hosted league this week, not just ours. Lazy: fetched
+  // only when the Hot or Cold sort button is first tapped (see bind()),
+  // never on the Market screen's default render.
+  //
+  // Only offered in FA scope: topAdds/topDrops with STATUS=FA structurally
+  // cannot match most rows while browsing "All Players" or a single team's
+  // roster, so the buttons don't render there (see renderToolbar).
+  function faScopeActive() { return view.scope !== "all" && !view.teamFilter; }
+  function hotColdData() { return (M.hotCold && M.hotCold.get) ? M.hotCold.get() : null; }
+  function hotColdLoading() { return !!(M.hotCold && M.hotCold.isLoading && M.hotCold.isLoading()); }
+  // The {pid: percent} map for one side, or null when it hasn't loaded yet
+  // OR MFL's export was unreadable. null is UNKNOWN — never treated the same
+  // as "nobody is trending" (same known/unknown discipline as every other
+  // MFL-backed read in this app, e.g. M.waivers.getPending()).
+  function hotColdMapFor(side) {
+    var hc = hotColdData();
+    if (!hc) return null;
+    return side === "hot" ? hc.hot : side === "cold" ? hc.cold : null;
+  }
+  // Owner-facing text for a side that came back known:false. "" once it's
+  // loaded fine (or hasn't been tapped yet — nothing to say before then).
+  function hotColdErrorFor(side) {
+    var hc = hotColdData();
+    if (!hc) return "";
+    if (side === "hot") return hc.hot ? "" : (hc.hotError || "Couldn't read MFL's most-added list.");
+    if (side === "cold") return hc.cold ? "" : (hc.coldError || "Couldn't read MFL's most-dropped list.");
+    return "";
+  }
+  // undefined (never null/0) means "not on MFL's list" — a real 0.0% is a
+  // legitimate answer and must sort ABOVE "no data", not get conflated with
+  // it. filterAndSort's have-predicate below relies on this distinction.
+  function hotColdPercent(side, pid) {
+    var map = hotColdMapFor(side);
+    if (!map) return undefined;
+    var v = map[String(pid)];
+    return typeof v === "number" ? v : undefined;
+  }
+  function hotColdBadgeHtml(r) {
+    if (view.sort !== "hot" && view.sort !== "cold") return "";
+    var pct = hotColdPercent(view.sort, r.id);
+    if (pct === undefined) return "";
+    var icon = view.sort === "hot" ? "🔥" : "❄️";
+    return '<span>' + icon + ' ' + pct.toFixed(1) + '%</span>';
+  }
+
   function filterAndSort(all) {
     var q = view.query.trim().toLowerCase();
     var pos = view.pos;
@@ -300,6 +354,12 @@
     if (view.sort === "proj" && projReady()) {
       filtered.sort(by(function (r) { return projFor(r.id); },
                       function (r) { return projFor(r.id) != null; }));
+    } else if (view.sort === "hot") {
+      filtered.sort(by(function (r) { return hotColdPercent("hot", r.id); },
+                      function (r) { return hotColdPercent("hot", r.id) !== undefined; }));
+    } else if (view.sort === "cold") {
+      filtered.sort(by(function (r) { return hotColdPercent("cold", r.id); },
+                      function (r) { return hotColdPercent("cold", r.id) !== undefined; }));
     } else if (view.sort === "pts") {
       filtered.sort(by(function (r) { return r.win.pts; }, winHave));
     } else {
@@ -563,6 +623,30 @@
       ? '<button class="ups-m-sort-btn' + (view.sort === "proj" ? " on" : "") +
           '" data-sort="proj" title="Projected points for the upcoming week">Proj</button>'
       : '';
+    // Hot/Cold — MFL's own platform-wide topAdds/topDrops, free agents only.
+    // FA scope only (see faScopeActive); STATUS=FA data structurally can't
+    // rank most rows in "All Players" or a single team's roster.
+    var hcLoading = hotColdLoading();
+    var hotColdBtns = faScopeActive()
+      ? '<button class="ups-m-sort-btn' + (view.sort === "hot" ? " on" : "") +
+          '" data-sort="hot" title="MFL’s most-added free agents this week, platform-wide"' +
+          (hcLoading ? ' disabled' : '') + '>' +
+          (hcLoading && view.sort === "hot" ? "🔥 Loading…" : "🔥 Hot") + '</button>' +
+        '<button class="ups-m-sort-btn' + (view.sort === "cold" ? " on" : "") +
+          '" data-sort="cold" title="MFL’s most-dropped free agents this week, platform-wide"' +
+          (hcLoading ? ' disabled' : '') + '>' +
+          (hcLoading && view.sort === "cold" ? "❄️ Loading…" : "❄️ Cold") + '</button>'
+      : '';
+    // Inline "couldn't read MFL" notice — only once the fetch has actually
+    // settled (not mid-flight) and the tapped side came back known:false.
+    // Reuses the existing warn-banner styling (.ups-m-waiver-flash.warn)
+    // rather than inventing a new notice component.
+    var hotColdNoticeText = (!hcLoading && (view.sort === "hot" || view.sort === "cold"))
+      ? hotColdErrorFor(view.sort)
+      : "";
+    var hotColdNotice = hotColdNoticeText
+      ? '<div class="ups-m-waiver-flash warn">' + U.escapeHtml(hotColdNoticeText) + '</div>'
+      : '';
     return '<div class="ups-m-players-toolbar">' +
       scopeToggle +
       '<input type="search" class="ups-m-players-search" id="ups-m-players-search" ' +
@@ -574,8 +658,9 @@
         '<button class="ups-m-sort-btn' + (view.sort === "ppg" ? " on" : "") + '" data-sort="ppg">PPG</button>' +
         '<button class="ups-m-sort-btn' + (view.sort === "pts" ? " on" : "") + '" data-sort="pts">' + U.escapeHtml(ptsLabel) + '</button>' +
         projBtn +
+        hotColdBtns +
       '</div>' +
-    '</div>' + renderWaiverStrip();
+    '</div>' + hotColdNotice + renderWaiverStrip();
   }
 
   function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
@@ -652,6 +737,7 @@
             ownerTag +
             (r.team ? '<span>' + U.escapeHtml(r.team) + '</span>' : '') +
             statChipsHtml(r) +
+            hotColdBadgeHtml(r) +
           '</div>' +
           faIntelHtml(r) +
         '</div>' +
@@ -2642,7 +2728,15 @@
     var sortBtns = mount.querySelectorAll(".ups-m-sort-btn[data-sort]");
     for (var j = 0; j < sortBtns.length; j++) {
       sortBtns[j].addEventListener("click", function () {
-        view.sort = this.getAttribute("data-sort");
+        var s = this.getAttribute("data-sort");
+        view.sort = s;
+        // Lazy-fetch: /api/hot-cold is only ever hit once the owner actually
+        // taps Hot or Cold — never from this view's default render/boot path.
+        // fetchHotCold's own TTL + in-flight guard (app.js) makes repeat taps
+        // within a few minutes free, so it's safe to call on every tap.
+        if ((s === "hot" || s === "cold") && M.hotCold && M.hotCold.fetch) {
+          M.hotCold.fetch().then(function () { renderRoute(); }).catch(function () {});
+        }
         renderRoute();
       });
     }
