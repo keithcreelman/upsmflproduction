@@ -42556,6 +42556,62 @@ export default {
       //                   || env.DISCORD_CONTRACT_TEST_CHANNEL_ID
       //                   || env.DISCORD_BUG_TEST_CHANNEL_ID
       //   target="prod" → env.DISCORD_DROPS_CHANNEL_ID || 1059111651846131833
+      // ── Commish probe: what does MFL's playerRosterStatus actually return? ──
+      //
+      // READ-ONLY. Exists because this codebase has been burned twice by
+      // guessing an undocumented MFL payload shape (see the long note on
+      // _wvNormalizePendingWaivers, which was written against several guessed
+      // shapes and got all of them wrong). Before anything is built on top of
+      // playerRosterStatus, look at the real bytes for a real franchise.
+      //
+      // Why it matters: docs/MFL_IMPORT_EXPORT_DETAILED.md ~262 says each
+      // franchise entry carries status R | S | NS | IR | TS, and that "R is
+      // only provided when there's no lineup submitted". If that holds, S/NS
+      // IS the submitted lineup — readable from MFL directly, for a lineup set
+      // anywhere (our app, MFL's own page, another device). That would replace
+      // the ups_lineup_submissions echo ledger, which only ever knows about
+      // lineups WE submitted (Keith's 2026-08-02 lineup is absent from it
+      // entirely, which is why Game Day showed 0/18).
+      //
+      // ?FID=0008 (defaults to 0008) &W=<week> (defaults to MFL's live week).
+      if (path === "/admin/lineup-probe" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        try {
+          const season = _rdhYear();
+          const leagueId = _rdhLeagueId();
+          const fid = _rdhPadFid(url.searchParams.get("FID") || "0008");
+          const wk = safeStr(url.searchParams.get("W") || "").replace(/\D/g, "");
+          // The franchise's roster first — playerRosterStatus needs an explicit
+          // player-id list (P is required); there is no "whole franchise" form.
+          const rosRes = await mflExportJson(season, leagueId, "rosters", { FRANCHISE: fid }, { useCookie: true });
+          let frs = rosRes?.data?.rosters?.franchise || [];
+          if (!Array.isArray(frs)) frs = frs ? [frs] : [];
+          const row = frs.find((f) => _rdhPadFid(f && f.id) === fid) || frs[0] || null;
+          let players = (row && row.player) || [];
+          if (!Array.isArray(players)) players = players ? [players] : [];
+          const pids = players.map((p) => safeStr(p && p.id)).filter(Boolean);
+          if (!pids.length) {
+            return jsonOut(200, { ok: false, error: "no roster players resolved", fid, roster_ok: !!(rosRes && rosRes.ok) });
+          }
+          const prsRes = await mflExportJson(
+            season, leagueId, "playerRosterStatus",
+            { P: pids.join(","), F: fid, W: wk || null },
+            { useCookie: true }
+          );
+          // Raw payload, untouched — the whole point of the probe. Truncated
+          // only so a 40-player response stays readable in a terminal.
+          const rawText = JSON.stringify(prsRes && prsRes.data);
+          return jsonOut(200, {
+            ok: !!(prsRes && prsRes.ok),
+            fid, week_requested: wk || "(mfl default)",
+            roster_player_count: pids.length,
+            mfl_status: safeInt(prsRes && prsRes.status, 0),
+            raw_len: rawText ? rawText.length : 0,
+            raw_head: rawText ? rawText.slice(0, 6000) : null,
+          });
+        } catch (e) { return jsonOut(500, { ok: false, error: String(e?.message || e) }); }
+      }
+
       // Commish inspect — recent drop events (id, name, season, penalty, posted
       // message id) so a correction can target the exact row.
       if (path === "/admin/drops/inspect" && request.method === "GET") {
