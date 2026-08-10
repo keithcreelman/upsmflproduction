@@ -13611,74 +13611,13 @@ export default {
       // MFL response is forwarded through. On success: { ok:true,
       // franchise_id, week, starters, mfl_response }. On failure:
       // jsonOut(<status>, { ok:false, error, mfl_response? }).
-      // ── GET /api/lineup — the viewer's last submitted starters ─────────────
-      // Read counterpart to /api/submit-lineup. Without it the lineup editors
-      // had nothing to seed from and auto-filled the OPTIMAL lineup on every
-      // visit, so an owner who deliberately started someone (bad matchup,
-      // injury hunch) came back to a screen showing optimal — and re-submitting
-      // silently overwrote their real choice. Keith 2026-08-03.
-      //
-      // SOURCE IS OUR OWN LEDGER, NOT MFL, and that is forced, not preferred:
-      // MFL has NO `lineup` export type at all (checked against the full export
-      // list), `liveScoring` answers "not available until the season starts",
-      // and `weeklyResults` carries no player rows for an unplayed week. There
-      // is simply no way to read a submitted lineup back out of MFL in the
-      // preseason, so /api/submit-lineup records what it sent and this reads
-      // that back.
-      //
-      // CONTRACT — three DISTINCT states, never collapsed:
-      //   known:true            we have a record; starters[] is it
-      //   state:"no_record"     we have never submitted for this week from here
-      //                         (they may still have set one natively on MFL —
-      //                         that is UNKNOWN, not empty)
-      //   known:false           the read itself failed
-      // A client must not treat any of the last two as "no lineup, safe to
-      // auto-fill optimal" — that is the fail-open shape that cost 18 contracts
-      // on 2026-08-02.
-      if (path === "/api/lineup" && request.method === "GET") {
-        try {
-          const leagueId = _rdhLeagueId();
-          const year = _rdhYear();
-          const week = safeStr(url.searchParams.get("W") || "").replace(/\D/g, "");
-          const cookieHeader = request.headers.get("Cookie") || "";
-          const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
-          const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
-          if (!mflUserId) {
-            return jsonOut(401, { ok: false, known: false, starters: null, error: "MFL_USER_ID cookie required (sign in to MFL first)" });
-          }
-          const det = await _rdhDetectFranchise(mflUserId);
-          if (det && det.error) return jsonOut(401, { ok: false, known: false, starters: null, error: det.error });
-          const fid = _rdhPadFid(det && det.franchise_id);
-          if (!fid) return jsonOut(401, { ok: false, known: false, starters: null, error: "could not resolve your franchise" });
-          const db = env.UPS_MFL_DB;
-          if (!db) return jsonOut(200, { ok: false, known: false, starters: null, error: "UPS_MFL_DB missing" });
-
-          let row = null;
-          try {
-            row = await db.prepare(
-              `SELECT starters_csv, week, submitted_at_unix
-                 FROM ups_lineup_submissions
-                WHERE season = ? AND league_id = ? AND fid = ? AND week = ?`
-            ).bind(String(year), String(leagueId), fid, String(week || "")).first();
-          } catch (e) {
-            // Table missing or D1 hiccup — UNKNOWN, never "no lineup".
-            return jsonOut(200, { ok: false, known: false, starters: null, error: "ledger_read_failed: " + (e && e.message || String(e)) });
-          }
-          if (!row) {
-            return jsonOut(200, { ok: true, known: false, state: "no_record", starters: null, franchise_id: fid, week: week || "" });
-          }
-          const starters = safeStr(row.starters_csv).split(",").map((x) => x.trim()).filter(Boolean);
-          return jsonOut(200, {
-            ok: true, known: true, state: "recorded",
-            franchise_id: fid, week: safeStr(row.week || week || ""),
-            submitted_at_unix: Number(row.submitted_at_unix || 0),
-            starters,
-          });
-        } catch (e) {
-          return jsonOut(200, { ok: false, known: false, starters: null, error: "lineup_read_failed: " + (e && e.message || String(e)) });
-        }
-      }
-
+      // NOTE: GET /api/lineup (the read counterpart to this route) does NOT
+      // live here any more. It reads the lineup out of MFL itself via
+      // mflExportJson*/playerRosterStatus, and those helpers are `const`s
+      // declared much further down in this same handler scope — calling them
+      // from up here would hit the temporal dead zone and throw. The route now
+      // sits next to GET /api/waivers/state; search for
+      // "GET /api/lineup — the lineup MFL is actually holding".
       if (path === "/api/submit-lineup" && request.method === "POST") {
         try {
           const leagueId = _rdhLeagueId();
@@ -13757,11 +13696,17 @@ export default {
               mfl_response: parsed || mflResp,
             });
           }
-          // Record what we just sent so the editor can show it back. MFL offers
-          // no way to read a submitted lineup (no `lineup` export; liveScoring
-          // is season-only), so this ledger is the ONLY thing standing between
-          // the owner and an editor that silently repaints optimal over a
-          // deliberate start. See GET /api/lineup.
+          // Record what we just sent, as a FALLBACK for the editor and as the
+          // one thing MFL cannot tell us: WHEN we sent it.
+          //
+          // This block used to say MFL offers no way to read a lineup back, so
+          // this ledger was "the ONLY thing" standing between the owner and an
+          // editor that repaints optimal over a deliberate start. That was
+          // wrong, and it cost a real lineup: Keith's 2026-08-02 submission was
+          // invisible to Game Day because a ledger of what WE sent cannot know
+          // about lineups set anywhere else. MFL's playerRosterStatus export
+          // reports S/NS per player and IS the lineup — GET /api/lineup reads
+          // that first and only consults this table when MFL can't be read.
           //
           // FAIL-SOFT on purpose, and note the direction: the MFL write already
           // succeeded, so a D1 hiccup must not turn a good submit into an error.
@@ -37978,6 +37923,300 @@ export default {
         };
       };
 
+      // ── GET /api/lineup — the lineup MFL is actually holding ───────────────
+      // Read counterpart to POST /api/submit-lineup (which lives ~24k lines
+      // up; this one has to sit below the mflExportJson* helpers it calls).
+      // Without it the lineup editors had nothing to seed from and auto-filled
+      // the OPTIMAL lineup on every visit, so an owner who deliberately started
+      // someone (bad matchup, injury hunch) came back to a screen showing
+      // optimal — and re-submitting silently overwrote their real choice.
+      // Keith 2026-08-03.
+      //
+      // SOURCE IS MFL. It used to be our own ups_lineup_submissions echo
+      // ledger, on the belief that MFL exposes no way to read a lineup back.
+      // That belief was wrong, and the cost was concrete: Keith submitted a
+      // lineup on 2026-08-02 (MFL's own transaction log: "Lineup submitted via
+      // API call"), Game Day showed 0/18, and a dump of the whole ledger held
+      // exactly ONE row — for a different franchise. A ledger of what WE sent
+      // structurally cannot answer "what is my lineup at MFL": lineups set on
+      // MFL's own page, on another device, or before this feature existed are
+      // invisible to it.
+      //
+      // The export that does answer it is `playerRosterStatus`
+      // (docs/MFL_IMPORT_EXPORT_DETAILED.md ~260): per player, per franchise, a
+      // status of R | S | NS | IR | TS, where S = starter, NS = benched, and
+      // "R is only provided when there's no lineup submitted or the caller has
+      // no visibility into the lineup". P (player-id list) is REQUIRED — there
+      // is no whole-franchise form — so we read the roster first and feed it
+      // those ids. Verified against L=74598 FID=0008: 38 roster players came
+      // back 18 S / 17 NS / 3 TS, and 18 is exactly this league's slot count.
+      //
+      // The ledger survives as a FALLBACK (and as the record of what we sent):
+      // if MFL can't be read, a row we wrote ourselves still beats nothing.
+      //
+      // CONTRACT — three DISTINCT states, never collapsed:
+      //   known:true            we have the lineup; starters[] is it
+      //   state:"no_record"     nobody has submitted one (MFL said so, or we
+      //                         have no record and MFL couldn't be asked)
+      //   known:false           the READ FAILED — unknown, NOT empty
+      // A client must not treat either of the last two as "no lineup, safe to
+      // auto-fill optimal" — that is the fail-open shape that cost 18 contracts
+      // on 2026-08-02. An unreadable input is never an empty one.
+
+      // Pure parser for a playerRosterStatus payload → this franchise's rows.
+      // Deliberately strict about shape, because the live payload is not tidy:
+      //   * KEY ORDER VARIES between entries (some put "id" first, some put
+      //     "roster_franchise" first; inside roster_franchise "status" and
+      //     "franchise_id" swap too). Everything below reads by key NAME —
+      //     never by position, never via Object.values().
+      //   * roster_franchise is an OBJECT normally but an ARRAY in leagues with
+      //     multiple copies of a player (per the docs). Both handled.
+      //   * Entries for OTHER franchises can appear; only `wantFid` counts.
+      // Returns { ok, starters, counts, matched, reason }. ok:false means we
+      // could not read an answer — the caller must NOT turn that into "empty".
+      const _lineupParseRosterStatuses = (payload, wantFid) => {
+        const want = _rdhPadFid(wantFid);
+        const empty = { ok: false, starters: [], counts: {}, matched: 0, reason: "" };
+        if (!want) return { ...empty, reason: "no franchise id to match" };
+        if (!payload || typeof payload !== "object") {
+          return { ...empty, reason: "empty playerRosterStatus payload" };
+        }
+        const block = payload.playerRosterStatuses;
+        if (!block || typeof block !== "object") {
+          return { ...empty, reason: "no playerRosterStatuses block" };
+        }
+        let entries = block.playerStatus;
+        if (!Array.isArray(entries)) entries = entries ? [entries] : [];
+        if (!entries.length) return { ...empty, reason: "playerStatus list empty" };
+        const counts = {};
+        const starters = [];
+        const seenStarter = {};
+        let matched = 0;
+        for (const entry of entries) {
+          if (!entry || typeof entry !== "object") continue;
+          const pid = safeStr(entry.id || entry.player_id || "");
+          let frs = entry.roster_franchise;
+          if (!Array.isArray(frs)) frs = frs ? [frs] : [];
+          for (const fr of frs) {
+            if (!fr || typeof fr !== "object") continue;
+            if (_rdhPadFid(fr.franchise_id) !== want) continue;
+            matched += 1;
+            const st = safeStr(fr.status).toUpperCase() || "(blank)";
+            counts[st] = (counts[st] || 0) + 1;
+            if (st === "S" && pid && !seenStarter[pid]) {
+              seenStarter[pid] = 1;
+              starters.push(pid);
+            }
+          }
+        }
+        if (!matched) {
+          return { ...empty, counts, reason: `no playerStatus entry for franchise ${want}` };
+        }
+        return { ok: true, starters, counts, matched, reason: "" };
+      };
+
+      // Map a parse result onto the three-state contract. Kept separate from
+      // the fetch so it is testable, and so the "none of these is an empty
+      // lineup" reasoning lives in one readable place.
+      const _lineupAnswerFromStatuses = (parsed) => {
+        if (!parsed || !parsed.ok) {
+          return { known: false, state: "unknown", starters: null, reason: (parsed && parsed.reason) || "unparseable playerRosterStatus" };
+        }
+        if (parsed.starters.length) {
+          return { known: true, state: "recorded", starters: parsed.starters, reason: "" };
+        }
+        const counts = parsed.counts || {};
+        const nR = counts.R || 0;
+        const nNS = counts.NS || 0;
+        // R means "no lineup submitted (or no visibility)". With no S and no NS
+        // anywhere, MFL is telling us this franchise has not set a lineup —
+        // IR/TS alongside R are just roster placement and don't contradict it.
+        if (nR > 0 && nNS === 0) {
+          return { known: false, state: "no_record", starters: null, reason: "MFL reports no lineup submitted" };
+        }
+        // Statuses we could read, but no S and not the clean all-R shape (e.g.
+        // every player NS, or a status vocabulary we've never seen). We do not
+        // know what MFL is holding — say so rather than call it empty.
+        const seen = Object.keys(counts).sort().join("/") || "(none)";
+        return { known: false, state: "unknown", starters: null, reason: `no starters in MFL statuses (saw ${seen})` };
+      };
+
+      if (path === "/api/lineup" && request.method === "GET") {
+        try {
+          const leagueId = _rdhLeagueId();
+          const year = _rdhYear();
+          const week = safeStr(url.searchParams.get("W") || "").replace(/\D/g, "");
+          const reqCookieHeader = request.headers.get("Cookie") || "";
+          const cookieMatch = reqCookieHeader.match(/MFL_USER_ID=([^;]+)/i);
+          const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
+          if (!mflUserId) {
+            return jsonOut(401, { ok: false, known: false, state: "unknown", starters: null, error: "MFL_USER_ID cookie required (sign in to MFL first)" });
+          }
+          const det = await _rdhDetectFranchise(mflUserId);
+          if (det && det.error) return jsonOut(401, { ok: false, known: false, state: "unknown", starters: null, error: det.error });
+          const fid = _rdhPadFid(det && det.franchise_id);
+          if (!fid) return jsonOut(401, { ok: false, known: false, state: "unknown", starters: null, error: "could not resolve your franchise" });
+
+          // ── 1. Our own ledger, read first but ranked SECOND ────────────────
+          // Local and cheap, and it carries the one thing MFL can't tell us:
+          // when WE sent a lineup. Read now, used below only if MFL doesn't
+          // answer — or, when it does and the two agree, for that timestamp.
+          let ledgerRow = null;
+          let ledgerErr = "";
+          const db = env.UPS_MFL_DB;
+          if (!db) {
+            ledgerErr = "UPS_MFL_DB missing";
+          } else {
+            try {
+              ledgerRow = await db.prepare(
+                `SELECT starters_csv, week, submitted_at_unix
+                   FROM ups_lineup_submissions
+                  WHERE season = ? AND league_id = ? AND fid = ? AND week = ?`
+              ).bind(String(year), String(leagueId), fid, String(week || "")).first();
+            } catch (e) {
+              // Table missing or D1 hiccup — UNKNOWN, never "no lineup".
+              ledgerErr = "ledger_read_failed: " + ((e && e.message) || String(e));
+            }
+          }
+          const ledgerStarters = ledgerRow
+            ? safeStr(ledgerRow.starters_csv).split(",").map((x) => x.trim()).filter(Boolean)
+            : [];
+
+          // ── 2. MFL — the primary source ────────────────────────────────────
+          // Read as the VIEWER when we have their MFL_USER_ID (an owner always
+          // has visibility into their own lineup); mflExportJsonAsViewer falls
+          // back to the worker's own cookie when there is no viewer identity.
+          let mflAnswer = { known: false, state: "unknown", starters: null, reason: "not attempted" };
+          let mflCounts = null;
+          try {
+            const rosRes = await mflExportJsonAsViewer(
+              year, leagueId, "rosters", { FRANCHISE: fid }, { useCookie: true }
+            );
+            let frs = rosRes?.data?.rosters?.franchise || [];
+            if (!Array.isArray(frs)) frs = frs ? [frs] : [];
+            const rosterRow = frs.find((f) => _rdhPadFid(f && f.id) === fid) || null;
+            let players = (rosterRow && rosterRow.player) || [];
+            if (!Array.isArray(players)) players = players ? [players] : [];
+            const pids = players.map((p) => safeStr(p && p.id)).filter(Boolean);
+            if (!rosRes || !rosRes.ok) {
+              mflAnswer = { known: false, state: "unknown", starters: null, reason: "roster read failed: " + (safeStr(rosRes && rosRes.error) || `HTTP ${safeInt(rosRes && rosRes.status, 0)}`) };
+            } else if (!pids.length) {
+              // A roster we cannot read is not an empty roster.
+              mflAnswer = { known: false, state: "unknown", starters: null, reason: "no roster players resolved for " + fid };
+            } else {
+              const prsRes = await mflExportJsonAsViewer(
+                year, leagueId, "playerRosterStatus",
+                { P: pids.join(","), F: fid, W: week || null },
+                { useCookie: true }
+              );
+              if (!prsRes || !prsRes.ok) {
+                mflAnswer = { known: false, state: "unknown", starters: null, reason: "playerRosterStatus read failed: " + (safeStr(prsRes && prsRes.error) || `HTTP ${safeInt(prsRes && prsRes.status, 0)}`) };
+              } else {
+                const parsed = _lineupParseRosterStatuses(prsRes.data, fid);
+                mflCounts = parsed.counts;
+                mflAnswer = _lineupAnswerFromStatuses(parsed);
+                // "R" IS AMBIGUOUS, and only one reading is safe.
+                //
+                // MFL's docs (MFL_IMPORT_EXPORT_DETAILED.md ~262) say R means
+                // "no lineup submitted OR the caller has no visibility into
+                // the lineup" — indistinguishable in the payload. We can only
+                // call all-R "no lineup" when we read it AS THE OWNER.
+                //
+                // The gate above accepts an identity from the request Cookie
+                // header, but mflExportJsonAsViewer keys off browserCookieHeader,
+                // which is built ONLY from the ?MFL_USER_ID= query param. So a
+                // caller authenticating by cookie alone would be exported with
+                // the worker's own commish cookie — a different viewer — and an
+                // all-R answer would then prove nothing about their lineup.
+                // Today's clients (gameday.html, site/m/views/lineup.js) both
+                // send the query param, so this never fires; it is closed here
+                // so a future same-origin caller cannot silently turn "we
+                // couldn't see it" into "you have no lineup" and be offered
+                // Optimal over a real start.
+                if (mflAnswer.state === "no_record" && !browserCookieHeader) {
+                  mflAnswer = {
+                    known: false, state: "unknown", starters: null,
+                    reason: "read with the service identity, not yours — an all-R answer cannot distinguish "
+                          + "'no lineup' from 'not visible to this caller'",
+                  };
+                }
+              }
+            }
+          } catch (e) {
+            mflAnswer = { known: false, state: "unknown", starters: null, reason: "mfl_read_failed: " + ((e && e.message) || String(e)) };
+          }
+
+          if (mflAnswer.known === true) {
+            // If our ledger holds the SAME set of starters, it also holds the
+            // moment we sent them — worth surfacing. Different sets just mean
+            // the lineup changed elsewhere since; MFL still wins.
+            const sameSet =
+              ledgerStarters.length === mflAnswer.starters.length &&
+              ledgerStarters.slice().sort().join(",") === mflAnswer.starters.slice().sort().join(",");
+            return jsonOut(200, {
+              ok: true, known: true, state: "recorded", source: "mfl_player_status",
+              franchise_id: fid, week: week || "",
+              submitted_at_unix: sameSet ? Number((ledgerRow && ledgerRow.submitted_at_unix) || 0) : null,
+              starters: mflAnswer.starters,
+              status_counts: mflCounts,
+            });
+          }
+
+          // ── 3. MFL ANSWERED and said nothing is submitted ──────────────────
+          //
+          // This check sits ABOVE the ledger fallback on purpose. MFL is the
+          // source of truth; a successful read saying "no lineup" is a real
+          // answer, and a row in our own echo ledger does not overrule it.
+          //
+          // Ranking the ledger first (as this route briefly did) is a
+          // fail-open wearing a helpful face: POST /api/submit-lineup decides
+          // success by sniffing MFL's response text, so a false positive —
+          // or a starter later traded, dropped, or moved by the commish —
+          // leaves a ledger row describing a lineup MFL is not holding. The
+          // owner would then open Game Day to a confident, complete 18-man
+          // lineup, change nothing, and start NOBODY at MFL. Worse, the client
+          // captions the ledger source "MFL couldn't be read just now", which
+          // on this path is provably false — MFL was read fine.
+          //
+          // This is the ONLY path that may report an empty lineup, and it
+          // takes MFL itself saying so.
+          if (mflAnswer.state === "no_record") {
+            return jsonOut(200, {
+              ok: true, known: false, state: "no_record", source: "mfl_player_status",
+              franchise_id: fid, week: week || "", starters: null,
+              status_counts: mflCounts,
+              // Surfaced so the client can say "MFL has no lineup for this
+              // week — this app submitted one on <date> and MFL is no longer
+              // holding it", rather than silently discarding the discrepancy.
+              stale_ledger_submitted_at_unix:
+                (ledgerRow && ledgerStarters.length) ? Number(ledgerRow.submitted_at_unix || 0) : undefined,
+            });
+          }
+
+          // ── 4. MFL could NOT be read — now the ledger is worth something ───
+          // Reached only when the MFL read genuinely failed, so "this is what
+          // we last sent" beats showing nothing.
+          if (ledgerRow && ledgerStarters.length) {
+            return jsonOut(200, {
+              ok: true, known: true, state: "recorded", source: "ledger",
+              franchise_id: fid, week: safeStr(ledgerRow.week || week || ""),
+              submitted_at_unix: Number(ledgerRow.submitted_at_unix || 0),
+              starters: ledgerStarters,
+              mfl_state: mflAnswer.state, mfl_reason: mflAnswer.reason,
+            });
+          }
+          // Everything else: the read failed. NOT "no_record".
+          return jsonOut(200, {
+            ok: false, known: false, state: "unknown", source: "none",
+            franchise_id: fid, week: week || "", starters: null,
+            error: mflAnswer.reason || "could not read your lineup",
+            ledger_error: ledgerErr || undefined,
+          });
+        } catch (e) {
+          return jsonOut(200, { ok: false, known: false, state: "unknown", starters: null, error: "lineup_read_failed: " + ((e && e.message) || String(e)) });
+        }
+      }
+
       // ── GET /api/waivers/state ────────────────────────────────────────────
       // Public. Everything the UI needs to decide what to show and when: the
       // window (mirrored from MFL's calendar, INCLUDING the authoritative
@@ -42556,61 +42795,10 @@ export default {
       //                   || env.DISCORD_CONTRACT_TEST_CHANNEL_ID
       //                   || env.DISCORD_BUG_TEST_CHANNEL_ID
       //   target="prod" → env.DISCORD_DROPS_CHANNEL_ID || 1059111651846131833
-      // ── Commish probe: what does MFL's playerRosterStatus actually return? ──
-      //
-      // READ-ONLY. Exists because this codebase has been burned twice by
-      // guessing an undocumented MFL payload shape (see the long note on
-      // _wvNormalizePendingWaivers, which was written against several guessed
-      // shapes and got all of them wrong). Before anything is built on top of
-      // playerRosterStatus, look at the real bytes for a real franchise.
-      //
-      // Why it matters: docs/MFL_IMPORT_EXPORT_DETAILED.md ~262 says each
-      // franchise entry carries status R | S | NS | IR | TS, and that "R is
-      // only provided when there's no lineup submitted". If that holds, S/NS
-      // IS the submitted lineup — readable from MFL directly, for a lineup set
-      // anywhere (our app, MFL's own page, another device). That would replace
-      // the ups_lineup_submissions echo ledger, which only ever knows about
-      // lineups WE submitted (Keith's 2026-08-02 lineup is absent from it
-      // entirely, which is why Game Day showed 0/18).
-      //
-      // ?FID=0008 (defaults to 0008) &W=<week> (defaults to MFL's live week).
-      if (path === "/admin/lineup-probe" && request.method === "GET") {
-        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
-        try {
-          const season = _rdhYear();
-          const leagueId = _rdhLeagueId();
-          const fid = _rdhPadFid(url.searchParams.get("FID") || "0008");
-          const wk = safeStr(url.searchParams.get("W") || "").replace(/\D/g, "");
-          // The franchise's roster first — playerRosterStatus needs an explicit
-          // player-id list (P is required); there is no "whole franchise" form.
-          const rosRes = await mflExportJson(season, leagueId, "rosters", { FRANCHISE: fid }, { useCookie: true });
-          let frs = rosRes?.data?.rosters?.franchise || [];
-          if (!Array.isArray(frs)) frs = frs ? [frs] : [];
-          const row = frs.find((f) => _rdhPadFid(f && f.id) === fid) || frs[0] || null;
-          let players = (row && row.player) || [];
-          if (!Array.isArray(players)) players = players ? [players] : [];
-          const pids = players.map((p) => safeStr(p && p.id)).filter(Boolean);
-          if (!pids.length) {
-            return jsonOut(200, { ok: false, error: "no roster players resolved", fid, roster_ok: !!(rosRes && rosRes.ok) });
-          }
-          const prsRes = await mflExportJson(
-            season, leagueId, "playerRosterStatus",
-            { P: pids.join(","), F: fid, W: wk || null },
-            { useCookie: true }
-          );
-          // Raw payload, untouched — the whole point of the probe. Truncated
-          // only so a 40-player response stays readable in a terminal.
-          const rawText = JSON.stringify(prsRes && prsRes.data);
-          return jsonOut(200, {
-            ok: !!(prsRes && prsRes.ok),
-            fid, week_requested: wk || "(mfl default)",
-            roster_player_count: pids.length,
-            mfl_status: safeInt(prsRes && prsRes.status, 0),
-            raw_len: rawText ? rawText.length : 0,
-            raw_head: rawText ? rawText.slice(0, 6000) : null,
-          });
-        } catch (e) { return jsonOut(500, { ok: false, error: String(e?.message || e) }); }
-      }
+      // (The one-off /admin/lineup-probe that lived here was scaffolding for
+      // reading MFL's playerRosterStatus shape. It did its job — the observed
+      // payload is now the spec GET /api/lineup is written and tested against —
+      // and was removed on 2026-08-10 along with its CI caller.)
 
       // Commish inspect — recent drop events (id, name, season, penalty, posted
       // message id) so a correction can target the exact row.

@@ -274,9 +274,11 @@
           M.state.lineupSeed = "submitted";
           M.state.lineupRead = "ok";
         } else if (j && j.state === "no_record") {
-          // Never submitted from here THIS WEEK. They may still have set one
-          // natively on MFL — that is UNKNOWN, not empty — so start blank and
-          // offer Optimal as an explicit choice rather than silently applying it.
+          // As of 2026-08-10 this means MFL ITSELF reports no lineup submitted
+          // for this week (its playerRosterStatus export came back all-R), not
+          // merely "we have no record of one". Behaviour is unchanged and
+          // deliberately so: start blank and offer Optimal as an explicit
+          // choice rather than silently applying it.
           M.state.lineupRead = "norecord";
         } else {
           M.state.lineupRead = "unknown";
@@ -519,13 +521,21 @@
     // week: without it the worker's ups_lineup_submissions row is stamped
     // week="" (its ONLY default when the field is simply absent — see
     // worker/src/index.js /api/submit-lineup), while GET /api/lineup matches
-    // on an EXACT week. Game Day always sends its own resolved week; this
-    // view was omitting it entirely, so a lineup submitted here could never
-    // be read back by week-scoped GETs (from either surface) — the read-back
-    // fix above would have looked for week=<M.state.lineupWeek> and found
-    // nothing, even for a lineup this exact screen just submitted. Both
-    // surfaces resolve "current week" from the same MFL projectedScores
-    // source, so this keeps them in agreement.
+    // on an EXACT week. This view was omitting it entirely, so a lineup
+    // submitted here could never be read back by week-scoped GETs (from either
+    // surface) — the read-back fix above would have looked for
+    // week=<M.state.lineupWeek> and found nothing, even for a lineup this exact
+    // screen just submitted.
+    //
+    // CORRECTION 2026-08-10: this comment used to assert "Game Day always sends
+    // its own resolved week". That was FALSE. site/gameday/gameday.html
+    // computed `wk` in submitLineup() and then never put it in the POST body,
+    // so its rows were stranded at week="" too — a live dump of the whole
+    // ledger held one row, week length 0. Game Day now sends it; both surfaces
+    // do, and both resolve "current week" from the same MFL projectedScores
+    // source, so they stay in agreement. (The ledger is now only the FALLBACK
+    // for GET /api/lineup anyway — MFL's playerRosterStatus export is the
+    // primary source — but a mis-stamped row is still a row nobody can read.)
     var luWeek = String(M.state.lineupWeek || "").replace(/\D/g, "");
     fetch(luUrl, {
       method: "POST",
