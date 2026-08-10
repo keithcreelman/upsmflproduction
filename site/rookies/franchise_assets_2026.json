@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-09T10:15:07.059966+00:00",
+    "generated_at_utc": "2026-08-10T10:46:39.070091+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3188,6 +3188,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_11247",
+          "display": "Zach Ertz",
+          "player_id": "11247",
+          "position": "TE",
+          "nfl_team": "FA",
+          "salary": 1000,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16626",
           "display": "Adonai Mitchell",
           "player_id": "16626",
@@ -4216,18 +4228,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_14974",
-          "display": "Darnell Mooney",
-          "player_id": "14974",
-          "position": "WR",
-          "nfl_team": "NYG",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_13113",
           "display": "Deshaun Watson",
           "player_id": "13113",
@@ -4284,6 +4284,18 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15738",
+          "display": "Malik Davis",
+          "player_id": "15738",
+          "position": "RB",
+          "nfl_team": "DAL",
+          "salary": 1000,
+          "contract_year": 0,
+          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
