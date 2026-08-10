@@ -41650,6 +41650,30 @@ export default {
         }
       };
 
+      // GET /admin/salary-row-probe — one player's raw live MFL salaries row.
+      // READ-ONLY. Exists to explain why the WW-stamp dry run found ZERO
+      // candidates (count:0) despite Malik Davis (pid 15738) visibly having a
+      // blank contract in the Front Office — the stamp route only qualifies a
+      // player when contractStatus AND contractYear AND contractInfo are ALL
+      // blank, and WW_CONTRACT_ANNOTATE_ENABLED (cosmetic-only) is confirmed
+      // armed, so a likely cause is contractInfo already carrying its
+      // "TCV nK| AAV nK" annotation while status/year stay genuinely blank —
+      // which would make him permanently ineligible for the real stamp.
+      // ?L=&YEAR=&PID= (PID defaults to 15738).
+      if (path === "/admin/salary-row-probe" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        try {
+          const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+          const leagueId = safeStr(url.searchParams.get("L") || L || "74598");
+          const pid = safeStr(url.searchParams.get("PID") || "15738").replace(/\D/g, "");
+          const salRes = await mflExportJson(season, leagueId, "salaries", {}, { useCookie: true });
+          const rows = salRes?.data?.salaries?.leagueUnit?.player ?? salRes?.data?.salaries?.leagueunit?.player;
+          const arr = Array.isArray(rows) ? rows : rows ? [rows] : [];
+          const row = arr.find((p) => String(p?.id || "").replace(/\D/g, "") === pid) || null;
+          return jsonOut(200, { ok: !!(salRes && salRes.ok), pid, row, roster_player_count: arr.length });
+        } catch (e) { return jsonOut(500, { ok: false, error: String(e?.message || e) }); }
+      }
+
       // GET /admin/salary-change-log — read the audit trail
       // Params: season, league_id, player_id, limit (default 100, max 500)
       if (path === "/admin/salary-change-log" && request.method === "GET") {
