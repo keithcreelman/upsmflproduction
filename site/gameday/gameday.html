@@ -681,7 +681,25 @@
     return out;
   }
 
+  // Human date for a submitted_at unix stamp; "" when we don't have one (MFL
+  // tells us WHAT the lineup is, never when it was set, so this is only ever
+  // filled in from our own submission ledger).
+  function fmtSubmittedAt(unix) {
+    var n = Number(unix || 0);
+    if (!n) return "";
+    try {
+      return new Date(n * 1000).toLocaleString(undefined, {
+        month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+      });
+    } catch (e) { return ""; }
+  }
+
   // Seed the editor from the lineup MFL actually holds. Runs once per load.
+  //
+  // The worker reads this out of MFL's playerRosterStatus export (S = starter),
+  // so it reflects the lineup MFL is holding no matter where it was set — its
+  // own page, another device, or this app. Our ups_lineup_submissions ledger is
+  // only the fallback for when MFL can't be read.
   //
   // `known` is a promise (mirrors the worker's contract): only a known:true
   // response may seed or clear anything. An unreadable read leaves the editor
@@ -704,13 +722,25 @@
         if (j && j.known === true && Object.prototype.toString.call(j.starters) === "[object Array]" && j.starters.length) {
           STATE.slots = slotsFromStarters(rows, j.starters);
           STATE.lineupRead = "ok";
+          // Which source answered — "mfl_player_status" (the lineup MFL is
+          // holding, however it was set) or "ledger" (our echo of what THIS app
+          // sent, used only when MFL couldn't be read). The note below says so
+          // out loud rather than claiming more than we know.
+          STATE.lineupSource = (j && j.source) || "";
+          STATE.lineupReadAt = fmtSubmittedAt(j && j.submitted_at_unix);
         } else if (j && j.state === "no_record") {
-          // We have never submitted for this week from here. They may still
-          // have set one natively on MFL — that is UNKNOWN, not empty, so we
-          // offer Optimal as an explicit choice instead of silently applying it.
+          // MFL itself reports no lineup submitted for this week (all R). Still
+          // no auto-fill: Optimal stays an explicit choice, never a default.
           STATE.lineupRead = "norecord";
+          STATE.lineupSource = (j && j.source) || "";
+          // MFL says there is no lineup, yet WE have a record of submitting one
+          // for this week. Worth saying out loud instead of dropping: it means
+          // a submit this app believed succeeded is not what MFL is holding
+          // now, and the owner is about to be offered Optimal over it.
+          STATE.lineupStaleEcho = fmtSubmittedAt(j && j.stale_ledger_submitted_at_unix);
         } else {
           STATE.lineupRead = "unknown";
+          STATE.lineupSource = "";
           STATE.lineupReadErr = (j && j.error) || "Couldn't read your saved lineup.";
         }
         rerender();
@@ -758,10 +788,11 @@
         });
         return;
       }
-      // "norecord": start EMPTY, never optimal. We don't know what MFL is
-      // holding (they may have set it natively), and pre-filling optimal is
-      // what let a deliberate lineup get overwritten in the first place. The
-      // Optimal button is right there if that's genuinely what they want.
+      // "norecord": start EMPTY, never optimal. MFL says nothing is submitted
+      // for this week, and pre-filling optimal is what let a deliberate lineup
+      // get overwritten in the first place — a suggestion that looks identical
+      // to a real lineup is the whole hazard. The Optimal button is right there
+      // if that's genuinely what they want.
       STATE.slots = {};
     }
     var draft = STATE.slots;
@@ -780,11 +811,24 @@
     // suggestion?" is never a guess.
     var seedNote = "";
     if (STATE.lineupRead === "ok") {
-      seedNote = '<div class="gd-note">Showing the lineup you last submitted' +
-        (STATE.lineupReadAt ? ' (' + esc(STATE.lineupReadAt) + ')' : '') + '.</div>';
+      if (STATE.lineupSource === "ledger") {
+        // MFL couldn't be read; this is our own echo of what THIS app sent, so
+        // it may be stale if the lineup was changed on MFL since. Say that.
+        seedNote = '<div class="gd-note">MFL couldn\'t be read just now, so this is the lineup <em>this app</em> last submitted' +
+          (STATE.lineupReadAt ? ' (' + esc(STATE.lineupReadAt) + ')' : '') +
+          ' — if you changed it on MFL since, that change isn\'t shown here.</div>';
+      } else {
+        seedNote = '<div class="gd-note">This is your current lineup at MFL' +
+          (STATE.lineupReadAt ? ', submitted ' + esc(STATE.lineupReadAt) : '') + '.</div>';
+      }
     } else if (STATE.lineupRead === "norecord") {
-      seedNote = '<div class="gd-note">No lineup submitted from here yet, so nothing is pre-filled — ' +
-        'if you set one on MFL directly it still stands. Pick your starters, or tap <strong>⚡ Optimal</strong>.</div>';
+      seedNote = '<div class="gd-note">MFL has no lineup submitted for this week, so nothing is pre-filled. ' +
+        'Pick your starters, or tap <strong>⚡ Optimal</strong>.' +
+        (STATE.lineupStaleEcho
+          ? ' <strong>Heads up:</strong> this app recorded a lineup submitted ' + esc(STATE.lineupStaleEcho) +
+            ', but MFL is not holding one now — worth a look on MFL before you re-submit.'
+          : '') +
+        '</div>';
     }
 
     var subLabel, subReady = false, subDis = false;
@@ -938,8 +982,14 @@
     if (uid) url += "?MFL_USER_ID=" + encodeURIComponent(uid);
     var wk = String(STATE.projWeek || "").replace(/\D/g, "");
     var outcome = null;   // shown as a modal AFTER the rerender below
+    // week MUST go in the body. The worker stamps the ups_lineup_submissions
+    // row with body.week (its only default when the field is absent is ""),
+    // while GET /api/lineup matches on an EXACT week — so omitting it stranded
+    // every row at week="" and made it unreadable by the read-back. Game Day
+    // computed `wk` and then dropped it until 2026-08-10; mobile
+    // (site/m/views/lineup.js) has always sent it.
     fetch(url, { method: "POST", mode: "cors", credentials: "omit",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ franchiseId: fid, starters: starters }) })
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ franchiseId: fid, week: wk, starters: starters }) })
       .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
       .then(function (resp) {
         if (resp.body && resp.body.ok) {
@@ -947,6 +997,7 @@
           // What's on screen IS now the submitted lineup — say so, instead of
           // leaving the "nothing pre-filled" note contradicting the ✓.
           STATE.lineupRead = "ok";
+          STATE.lineupSource = "mfl_player_status";   // MFL accepted it
           STATE.lineupReadAt = "just now";
           outcome = {
             kind: "ok",

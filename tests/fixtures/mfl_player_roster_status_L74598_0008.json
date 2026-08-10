@@ -1,0 +1,46 @@
+{
+  "_comment": [
+    "REAL, UNEDITED playerRosterStatus response from MFL, captured 2026-08-10",
+    "for L=74598 FID=0008 via a one-off commish probe (removed in the same",
+    "change that added this file). Committed because the parser in",
+    "worker/src/index.js (_lineupParseRosterStatuses) is written against this",
+    "exact shape, and the probe that produced it is gone — without a fixture",
+    "there would be no way left to re-verify or regression-test it.",
+    "",
+    "Precedent for keeping it: _wvNormalizePendingWaivers in the same file was",
+    "written against several GUESSED shapes and got every one of them wrong,",
+    "because the populated payload had never been observed.",
+    "",
+    "Two properties of this payload the parser must survive, both visible below:",
+    "  1. KEY ORDER VARIES between entries — some put \"id\" first, some put",
+    "     \"roster_franchise\" first; inside roster_franchise, \"status\" and",
+    "     \"franchise_id\" also swap. Parse by key NAME, never by position.",
+    "  2. status is R | S | NS | IR | TS. S = starter. Per MFL's docs, R is",
+    "     returned only when no lineup is submitted OR the caller cannot see",
+    "     the lineup — those two are indistinguishable here, which is why an",
+    "     all-R answer read with a non-owner identity must not be reported as",
+    "     \"no lineup\".",
+    "",
+    "Truncated to 12 of the 38 entries for readability; the full response was",
+    "18 S / 17 NS / 3 TS, and 18 is exactly this league's starting-slot count.",
+    "The three TS rows are included so taxi handling stays covered."
+  ],
+  "version": "1.0",
+  "encoding": "utf-8",
+  "playerRosterStatuses": {
+    "playerStatus": [
+      { "id": "16614", "roster_franchise": { "status": "S", "franchise_id": "0008" } },
+      { "id": "17043", "roster_franchise": { "status": "NS", "franchise_id": "0008" } },
+      { "id": "15789", "roster_franchise": { "status": "S", "franchise_id": "0008" } },
+      { "roster_franchise": { "status": "NS", "franchise_id": "0008" }, "id": "16643" },
+      { "roster_franchise": { "franchise_id": "0008", "status": "S" }, "id": "13674" },
+      { "roster_franchise": { "franchise_id": "0008", "status": "S" }, "id": "17115" },
+      { "id": "13113", "roster_franchise": { "status": "NS", "franchise_id": "0008" } },
+      { "id": "15787", "roster_franchise": { "franchise_id": "0008", "status": "NS" } },
+      { "roster_franchise": { "franchise_id": "0008", "status": "S" }, "id": "15253" },
+      { "id": "17514", "roster_franchise": { "franchise_id": "0008", "status": "TS" } },
+      { "id": "17588", "roster_franchise": { "franchise_id": "0008", "status": "TS" } },
+      { "id": "17557", "roster_franchise": { "franchise_id": "0008", "status": "TS" } }
+    ]
+  }
+}
