@@ -212,6 +212,18 @@
     nflStatus: {},      // pid -> MFL injury status string ("Questionable", "Out", ...)
     newsFlags: {},      // pid -> "injury" | "news" when the player has a news item
     contractDeadline: null, // ISO date of the Sept contract deadline (league_events)
+    // Sept contract deadline as a real unix instant (ms) — set from
+    // contractDeadlineDateFO() in loadContractDeadline, alongside the ISO day
+    // above. null = unresolved. Feeds contractLadderStageFO_desktop.
+    contractDeadlineMs: null,
+    // NFL Week 1 / 3 / 5 first-kickoff instants (epoch ms), read from
+    // /api/league-events&kickoffs=1,3,5 — the worker resolves these off
+    // MFL's OWN nflSchedule (the same helper the Discord waiver post and
+    // mobile's contractLadder use), not a hand-typed calendar row, so all
+    // three surfaces describe the same instant. null = unresolved; an
+    // older/failed response leaves these null rather than fabricating a
+    // number. See loadContractDeadline / isPreseasonWwPickupFO.
+    weekKickoffs: { 1: null, 3: null, 5: null },
     capAmount: 0,
     teams: [],          // worker payload normalized
     activeTab: "roster",
@@ -1707,6 +1719,136 @@
     return kind === "era" ? m >= 5 : m >= 7;
   }
 
+  // ── Pre-season acquisition ladder (canon ~379 / ~785) ─────────────────
+  // A player acquired via FA Auction OR PRE-SEASON WAIVERS walks ONE
+  // sequential ladder, each rung offered only inside its own window:
+  //   Multi-Year Contract (MYAC)  now               → September contract deadline
+  //   Mid-Year Multi (MYM)        contract deadline → NFL Week 3 kickoff
+  //   Extension                   Week 3 kickoff    → NFL Week 5 kickoff
+  //   (after Week 5)              nothing
+  // Verbatim-as-possible port of the same block in site/m/front_office_actions.js
+  // (contractLadderDatesFO / contractLadderStageFO / preseasonWwClassFO,
+  // 2026-08-08), which shipped there first because desktop had no WW→MYAC
+  // path at all — see that file's header for the full history. Read the
+  // comparison operators below (<=, <) and the out-of-order refusal guards
+  // as deliberate, ported unchanged from mobile.
+  //
+  // The IN-SEASON WW/FCFS rule (canon ~391: MYM days 1-14, Extension days
+  // 15-28, isInSeasonPickup below) is a DIFFERENT rule and is untouched by
+  // any of this. The split between them is NFL Week 1's kickoff INSTANT,
+  // not "acquired this season".
+  function finiteMsOrNullFO(v) {
+    var n = typeof v === "number" ? v : parseInt(v, 10);
+    return isFinite(n) && n > 0 ? n : null;
+  }
+  // Raw week_kickoffs values from the worker are unix SECONDS (see
+  // worker/src/index.js nflWeekFirstKickoffUnix); every ms comparison below
+  // needs ms, so this is the ONE place the *1000 happens — mirrors mobile's
+  // app.js kickoffMsFrom exactly.
+  function kickoffMsFromFO(map, week) {
+    var v = map ? map[String(week)] : null;
+    var n = typeof v === "number" ? v : parseInt(v, 10);
+    return isFinite(n) && n > 0 ? n * 1000 : null;
+  }
+  // Display-only ET calendar day for an epoch-ms instant. Never used in a
+  // comparison — those all run on the ms instant itself.
+  function isoEtDayFromMsFO(ms) {
+    if (ms == null) return "";
+    try {
+      var parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(ms));
+      var map = {};
+      parts.forEach(function (part) { map[part.type] = part.value; });
+      return map.year && map.month && map.day ? (map.year + "-" + map.month + "-" + map.day) : "";
+    } catch (e) { return ""; }
+  }
+
+  // Which rung is open RIGHT NOW. Shape (verbatim mirror of mobile's
+  // contractLadderStageFO shape):
+  //   { stage: "myac"|"mym"|"extension"|"closed"|"unresolved",
+  //     date: ISO|"", endMs: number|null }
+  // League-wide boundaries only — no player-specific input, so `p` is
+  // accepted (for call-site symmetry with isPreseasonWwPickupFO(p)) but
+  // unused. Reads STATE.contractDeadlineMs / STATE.weekKickoffs directly,
+  // same as mobile reads window.UPS_MOBILE.state.contractLadder directly.
+  function contractLadderStageFO_desktop(p) {
+    var cdEnd = finiteMsOrNullFO(STATE.contractDeadlineMs);
+    var mymEnd = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[3]);   // Week 3 kickoff
+    var extEnd = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[5]);   // Week 5 kickoff
+    var now = Date.now();
+    var UNRESOLVED = { stage: "unresolved", date: "", endMs: null };
+    // Out-of-order boundaries mean our inputs are telling us something we
+    // can't act on. Refuse rather than pick an interpretation.
+    if (cdEnd != null && mymEnd != null && mymEnd <= cdEnd) return UNRESOLVED;
+    if (mymEnd != null && extEnd != null && extEnd <= mymEnd) return UNRESOLVED;
+    if (cdEnd == null) return UNRESOLVED;
+    if (now <= cdEnd) return { stage: "myac", date: isoEtDayFromMsFO(cdEnd), endMs: cdEnd };
+    if (mymEnd == null) return UNRESOLVED;
+    // Strictly BEFORE kickoff: the window closes when the week starts playing.
+    if (now < mymEnd) return { stage: "mym", date: isoEtDayFromMsFO(mymEnd), endMs: mymEnd };
+    if (extEnd == null) return UNRESOLVED;
+    if (now < extEnd) return { stage: "extension", date: isoEtDayFromMsFO(extEnd), endMs: extEnd };
+    return { stage: "closed", date: "", endMs: null };
+  }
+
+  // Is THIS player on the PRE-SEASON waiver rung of the ladder? Returns
+  // "yes" | "no" | "unknown". Verbatim-as-possible port of mobile's
+  // preseasonWwClassFO. Classified off the CONTRACT STATUS MFL actually
+  // holds ("Vet-WW", "Vet-WW-BL", "Rookie-WW") plus the acquisition date,
+  // NOT off the acquisition LABEL the way isInSeasonPickup below is — the
+  // label comes from the commish-maintained static
+  // player_acquisition_lookup_<year>.json, which cannot contain a claim
+  // made this summer, so a label test silently misses every fresh pickup
+  // (the reported Malik Davis bug).
+  //
+  // "unknown" whenever Week 1's kickoff instant or this player's acquisition
+  // instant cannot be established — never guessed (an unreadable input is
+  // never "empty").
+  function isPreseasonWwPickupFO(p) {
+    var status = safeStr(p && p.type).toLowerCase();
+    if (!/\bww\b/.test(status)) return "no";
+    if (status.indexOf("tag") !== -1) return "no";
+    if (safeInt(p && p.years, 0) !== 1) return "no";
+    // CL is the ORIGINAL contract length and never decays (a converted MYAC
+    // writes CL 2/CL 3 and keeps the WW status token) — same gate the three
+    // auction arms below (isEra/isFreshAuction/isFreshFaaStatus) carry: CL===1
+    // is "still on the 1-year default"; CL 2/3 is an already-converted deal,
+    // past this ladder entirely.
+    if (parseContractLengthValue(p && p.special) !== 1) return "no";
+    if (rookieOptionActionEligible(p)) return "no";
+    // A WW contract that changed hands by TRADE was not acquired on waivers
+    // by its current owner — the §C4 trade clock applies, not this ladder.
+    if (safeStr(p && p.acquisitionTypeLabel).toLowerCase().indexOf("trade") !== -1) return "no";
+
+    // The pre-season / in-season line is NFL Week 1's FIRST kickoff — the
+    // real instant from MFL's own schedule (STATE.weekKickoffs[1]), not a
+    // hand-typed calendar row.
+    var startMs = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[1]);
+    // Noon ET of the acquisition day — same parsing convention this file
+    // already uses elsewhere (extensionDeadlineForPlayer's acqDate, the
+    // mymDays acqDateMs in rosterContractEligibility below). Desktop's roster
+    // rows carry only the acquisition DAY (from the static lookup), never an
+    // exact unix instant the way mobile's live-transaction-log rows can, so
+    // this is the one and only path (mobile's acqMs also falls back to it).
+    var acqMs = (function () {
+      try {
+        var raw = safeStr(p && p.acquisitionDate).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+        var d = new Date(raw + "T12:00:00-04:00");
+        return isNaN(d.getTime()) ? null : d.getTime();
+      } catch (e) { return null; }
+    })();
+    if (acqMs != null) {
+      if (startMs == null) return "unknown";          // can't place the pickup
+      return acqMs < startMs ? "yes" : "no";           // "no" = in-season path
+    }
+    // No acquisition date (the usual case for a claim the static lookup
+    // predates). Before Week 1 there is nothing to resolve — a WW contract
+    // on the roster today cannot have been acquired in a week that hasn't
+    // started. On or after Week 1 we genuinely don't know which rule applies.
+    if (startMs == null) return "unknown";
+    return Date.now() < startMs ? "yes" : "unknown";
+  }
+
   function rosterContractEligibility(p) {
     var years = Math.max(0, safeInt(p && p.years, 0));
     var salary = safeInt(p && p.salary, 0);
@@ -1746,7 +1888,19 @@
                            parseContractLengthValue(p && p.special) === 1 &&
                            !rookieLikeContractStatus(status) && status.indexOf("tag") === -1 &&
                            inAuctionMyacMonthWindowFO("faa");
-    var myacEligible = (isEra || isFreshAuction || isFreshFaaStatus) &&
+
+    // ── Pre-season acquisition ladder (canon ~379/~785) ─────────────────
+    // A PRE-SEASON WW/FCFS/waiver pickup (Malik Davis, picked up 2026-08-09 —
+    // before Week 1 kickoff) walks the SAME MYAC→MYM→Extension ladder a fresh
+    // auction win does, NOT the in-season 14-day MYM / 15–28-day extension
+    // clock below. wwClass "unknown" gets no ladder action at all — an
+    // unresolvable window is not an open one. See isPreseasonWwPickupFO /
+    // contractLadderStageFO_desktop for the boundary math.
+    var wwClass = isPreseasonWwPickupFO(p);
+    var ladder = wwClass === "yes" ? contractLadderStageFO_desktop(p) : null;
+
+    var myacEligible = (isEra || isFreshAuction || isFreshFaaStatus ||
+                        (wwClass === "yes" && !!ladder && ladder.stage === "myac")) &&
                        years === 1 && !isPastContractDeadlineFO();
     // MYM (Mid-Year Multi, §C3): an in-season WW/FCFS/waiver pickup can convert
     // to a FLAT 2- or 3-year deal within 14 days of acquisition. Distinct from
@@ -1754,22 +1908,60 @@
     // label/date the roster carries; the worker re-validates the 14-day window +
     // the 4-per-season cap on submit. WW pickup days 1–14 = MYM, days 15–28 =
     // extension — so this is mutually exclusive with the extension window.
+    //
+    // `wwClass === "no"` keeps a PRE-SEASON claim off this path — the 14/28-day
+    // clocks are the IN-SEASON rule; a pre-season pickup runs the ladder above
+    // instead. By construction a WW/FCFS pickup can never satisfy both paths:
+    // wwClass is exactly one of "yes" (ladder) / "no" (this clock) / "unknown"
+    // (neither).
+    // wwClass !== "yes" -- deliberately NOT === "no". "unknown" (the
+    // /api/league-events kickoffs fetch failed, or never resolved this
+    // session) must fall through to the SAME 14-day-from-acquisition
+    // evaluation this file has always used, not fail closed.
+    //
+    // Before this ladder existed, mymEligible for an in-season pickup
+    // depended ONLY on mymDays (derived from p.acquisitionDate) -- nothing
+    // about /api/league-events. Requiring wwClass === "no" here would make
+    // that fetch's success a new, previously-nonexistent dependency for a
+    // completely unrelated, already-working feature: an outage would
+    // silently flip mymEligible=true to false for a real in-season player
+    // mid-window, for the whole browser session, with no visible error
+    // (caught in review). wwClass !== "yes" preserves the pre-existing
+    // behavior whenever we cannot positively confirm PRE-season instead --
+    // the ladder's own arms (myacEligible's new OR-branch, and mymEligible's
+    // ladder check below) stay strictly gated on wwClass === "yes" and never
+    // fire on "unknown", so nothing is offered on a guess either way.
     var isInSeasonPickup = /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) &&
-                           acqLabel.indexOf("auction") === -1 && acqYr === String(SEASON);
+                           acqLabel.indexOf("auction") === -1 && acqYr === String(SEASON) &&
+                           wwClass !== "yes";
     var acqDateMs = (function () {
       try { var d = new Date(safeStr(p && p.acquisitionDate).slice(0, 10) + "T12:00:00-04:00");
             return isNaN(d.getTime()) ? null : d.getTime(); } catch (_) { return null; }
     })();
     var mymDays = acqDateMs != null ? Math.floor((Date.now() - acqDateMs) / 86400000) : null;
-    var mymEligible = isInSeasonPickup && mymDays != null && mymDays >= 0 && mymDays <= 14 &&
-                      years <= 1 && status.indexOf("tag") === -1 && !myacEligible &&
-                      !rookieOptionActionEligible(p);
+    // wwClass "yes" — ladder rung 2 (contract deadline → Week 3 kickoff),
+    // REPLACING the day-count test for this player entirely (not adding to
+    // it). wwClass "no" OR "unknown" — the untouched in-season day clock,
+    // byte-identical to the pre-ladder behavior (isInSeasonPickup requires
+    // wwClass !== "yes", so "unknown" falls through here rather than
+    // suppressing eligibility on a fetch that this rule never used to
+    // depend on).
+    var mymEligible = wwClass === "yes"
+      ? (!!ladder && ladder.stage === "mym" && !myacEligible &&
+         status.indexOf("tag") === -1 && !rookieOptionActionEligible(p))
+      : (isInSeasonPickup && mymDays != null && mymDays >= 0 && mymDays <= 14 &&
+         years <= 1 && status.indexOf("tag") === -1 && !myacEligible &&
+         !rookieOptionActionEligible(p));
     var extCandidate = !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
                        !noFurther && !myacEligible && (years === 1 || expiredRookie);
     return {
       myacEligible: myacEligible,
       mymEligible: mymEligible,
-      mymDaysSinceAcq: mymDays,
+      // Ladder players (wwClass "yes") carry NO day-count — their window is a
+      // calendar boundary (Week 3 kickoff), not a clock started by their
+      // pickup, so "Day N of 14" would misreport it. Mirrors mobile's
+      // rosterContractEligibility exactly.
+      mymDaysSinceAcq: wwClass === "yes" ? null : mymDays,
       // Base candidate: final year (cy=1) or expired rookie, not tag/option/MYAC.
       // extensionEligible additionally requires being inside the §C4 deadline
       // WINDOW (rookie → May of expiry year, veteran → September, WW → days 15–28,
@@ -1780,7 +1972,12 @@
       extensionEligible: extCandidate && extensionDeadlineForPlayer(p).in_window,
       rookieOptionEligible: rookieOptionActionEligible(p),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status),
-      untagEligible: status === "tag" && !isPastTagDeadlineFO()
+      untagEligible: status === "tag" && !isPastTagDeadlineFO(),
+      // For the surfaces that print a human-readable acquisition/entry label
+      // (renderMyacTab's "Auction Type" column, renderActionsTab's "Records
+      // as" note) — a ladder player got here by a PRE-SEASON waiver pickup,
+      // never an actual FA-Auction or ERA win, and the copy must say so.
+      preseasonWaiverPickup: wwClass === "yes"
     };
   }
 
@@ -1844,9 +2041,43 @@
     var acquiredThisSeason = acqYr === String(SEASON);
     var acqDate = null;
     try { if (p && p.acquisitionDate) acqDate = new Date(safeStr(p.acquisitionDate).slice(0, 10) + "T12:00:00-04:00"); } catch (_) {}
+    var DAY = 86400000;
+
+    // ── Pre-season acquisition ladder split (canon ~379/~785) ────────────
+    // A WW/FCFS pickup made BEFORE Week 1 kickoff runs the MYAC→MYM→Extension
+    // ladder (rung 3 = Extension, Week 3 → Week 5 kickoff), NOT the in-season
+    // days-15-28 clock below — see isPreseasonWwPickupFO /
+    // rosterContractEligibility. wwClass "no" leaves the isWW block below
+    // COMPLETELY untouched for a genuine in-season pickup (byte-identical).
+    var wwClass = isPreseasonWwPickupFO(p);
+    if (wwClass === "yes") {
+      var ladder = contractLadderStageFO_desktop(p);
+      var extEndMs = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[5]);
+      var mymEndMs = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[3]);
+      var extDate = extEndMs != null ? new Date(extEndMs) : null;
+      var extStart = mymEndMs != null ? new Date(mymEndMs) : null;
+      var nowLadder = Date.now();
+      // in_window comes straight from the ladder's own stage — not re-derived
+      // from raw now/start/end comparisons — so this can never disagree with
+      // contractLadderStageFO_desktop's out-of-order refusal.
+      return {
+        date: extDate,
+        start: extStart,
+        basis: "Pre-season WW/FCFS pickup — extension window (post-MYM)",
+        days_until: extDate ? Math.ceil((extDate.getTime() - nowLadder) / DAY) : null,
+        in_window: ladder.stage === "extension"
+      };
+    }
+    if (wwClass === "unknown") {
+      // Can't place this WW pickup on the ladder OR the in-season clock — no
+      // extension window. Reuses the function's own null-date idiom (every
+      // other branch's in_window/days_until derive from a possibly-null
+      // `date` at the bottom) rather than inventing a new shape.
+      return { date: null, start: null, basis: "Pre-season/in-season WW pickup — window could not be resolved", days_until: null, in_window: false };
+    }
+
     var isWW = acquiredThisSeason && acqDate && /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) && acqLabel.indexOf("auction") === -1;
     var isTradeAcq = acquiredThisSeason && acqDate && acqLabel.indexOf("trade") !== -1;
-    var DAY = 86400000;
     var date = null, start = null, basis = "";
     if (isWW) {
       start = new Date(acqDate.getTime() + 15 * DAY);  // days 1–14 = MYM
@@ -2793,15 +3024,43 @@
   }
   async function loadContractDeadline() {
     try {
-      var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50");
+      // &kickoffs=1,3,5 adds week_kickoffs to the response — the real NFL
+      // Week 1/3/5 first-kickoff instants off MFL's own schedule, the same
+      // mechanism mobile's contractLadder state is built from (site/m/app.js
+      // fetchContractCalendar). See STATE.weekKickoffs.
+      var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50&kickoffs=1,3,5");
       var evs = (data && data.events) || [];
       var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
       if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
+      // The deadline as a real instant, matching isPastContractDeadlineFO's
+      // 23:59:59 ET boundary -- NOT contractDeadlineDateFO's 9pm-ET display
+      // convention (used elsewhere for extension countdown copy, a different
+      // purpose). isPastContractDeadlineFO is the boundary ALREADY governing
+      // MYAC eligibility for every existing arm (ERA/auction/FAA) via the
+      // `!isPastContractDeadlineFO()` gate on myacEligible below; feeding the
+      // ladder a different, earlier instant for the SAME calendar day would
+      // make the new WW-pickup arm flip to MYM up to ~3 hours before the
+      // other arms flip, on deadline day itself -- caught in review.
+      STATE.contractDeadlineMs = null;
+      if (STATE.contractDeadline) {
+        try {
+          var cdMs = new Date(String(STATE.contractDeadline) + "T23:59:59-04:00").getTime();
+          STATE.contractDeadlineMs = isFinite(cdMs) ? cdMs : null;
+        } catch (e) { /* stays null */ }
+      }
       // §D1 cut-penalty timing: a penalty incurred from AUCTION START through
       // the end of the season lands on the FOLLOWING season's cap, not this
       // one. Same feed, one more event.
       var fa = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("fa_auction_start") >= 0; });
       if (fa && fa.date) STATE.faAuctionStart = String(fa.date).slice(0, 10);
+      // Week 1/3/5 kickoff instants. An absent/malformed field must leave
+      // weekKickoffs at its all-null default — never a fabricated number.
+      var ko = (data && data.week_kickoffs) || null;
+      STATE.weekKickoffs = {
+        1: kickoffMsFromFO(ko, 1),
+        3: kickoffMsFromFO(ko, 3),
+        5: kickoffMsFromFO(ko, 5)
+      };
     } catch (e) {}
   }
   function renderContractSummary() {
@@ -3878,6 +4137,14 @@
     // the MYAC window is open (Keith: nobody extends when they can MYAC).
     if (elig.myacEligible) {
       const recAs = String(p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
+      // A pre-season WW/FCFS pickup on the ladder (canon ~379/~785) is
+      // neither an ERA win nor an FA-Auction win — say so explicitly so
+      // "Records as Vet-FAA" (the actual contract_status token, unchanged
+      // here — that's the write path, out of scope for this fix) doesn't
+      // read as "this was won at the FA Auction."
+      const acqNote = elig.preseasonWaiverPickup
+        ? " (this is a pre-season WW/FCFS pickup, not an FA-Auction or ERA win — see the Contracts list for its true acquisition type)"
+        : "";
       // MYAC needs no worker preview — it's just bid × years — so always offer 2/3
       // year (flat + loaded). The worker doesn't ship extension previews for
       // Vet-ERA players, which is why these were wrongly hidden (e.g. M. Mayer).
@@ -3889,7 +4156,7 @@
       ];
       const dlNote = STATE.contractDeadline ? " Window closes " + escapeHtml(STATE.contractDeadline) + "." : "";
       rows.push(actionRow("Multi-Year Contract (MYAC)",
-        "Set this 1-yr deal to a 2- or 3-year contract (§C2) at the SAME salary (TCV = salary × years — no raise). <strong>Loaded</strong> free-keys Y1 in whole $1,000s (FL/BL; Y1 ≥ 20% TCV). Records as " + recAs + ". Max " + LOADED_MAX + " loaded contracts per roster." + dlNote,
+        "Set this 1-yr deal to a 2- or 3-year contract (§C2) at the SAME salary (TCV = salary × years — no raise). <strong>Loaded</strong> free-keys Y1 in whole $1,000s (FL/BL; Y1 ≥ 20% TCV). Records as " + recAs + acqNote + ". Max " + LOADED_MAX + " loaded contracts per roster." + dlNote,
         mbtns.join(" ") || '<span class="small" style="color:var(--muted);">No multi-year option computed.</span>'));
     }
 
@@ -5406,12 +5673,18 @@
       (t.players || []).forEach(function (p) {
         let elig;
         try { elig = rosterContractEligibility(p); } catch (_) { return; }
-        if (!elig || !elig.myacEligible) return;          // auction-won 1-yr, before the deadline
+        if (!elig || !elig.myacEligible) return;          // auction/ladder-eligible 1-yr, before the deadline
         const status = safeStr(p.type).toLowerCase();
+        // A pre-season WW/FCFS pickup on the ladder (canon ~379/~785) is
+        // NEITHER an ERA win nor an FA-Auction win — labelling it "FA
+        // Auction" would claim a waiver pickup was an auction win.
+        const entryLabel = elig.preseasonWaiverPickup
+          ? "Pre-season WW/FCFS"
+          : (status.indexOf("-era") !== -1 ? "ERA win" : "FA Auction");
         rows.push({
           pid: safeStr(p.id), fid: safeStr(t.fid),
           name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
-          type: safeStr(p.type), entry: status.indexOf("-era") !== -1 ? "ERA win" : "FA Auction",
+          type: safeStr(p.type), entry: entryLabel,
           salary: safeInt(p.salary, 0),
         });
       });

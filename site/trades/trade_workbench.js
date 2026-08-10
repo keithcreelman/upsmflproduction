@@ -313,6 +313,25 @@
     // deadline isn't on the client, so block Vet-ERA outright: correct through
     // the Sept deadline, conservative after (worker re-validates on submit).
     if (type.indexOf("vet-era") !== -1) return false;
+    // Vet-FAA — same MYAC-vs-extension conflict as Vet-ERA above (a fresh FA
+    // Auction win's cheaper, no-escalator MYAC path should be surfaced instead
+    // of a pre-trade extension), but GATED on contract_length===1 unlike the
+    // ERA block: contractStatus never changes across a MYAC conversion (per
+    // front_office.js's own isFreshFaaStatus comment — "a converted MYAC
+    // writes CL 2/CL 3 and keeps status Vet-FAA"), so an ALREADY-converted
+    // Vet-FAA (contract_length 2 or 3) sitting in its true final contract year
+    // is a legitimate normal extension candidate and must NOT be blocked —
+    // only the FRESH, unconverted (CL===1) case, where MYAC is genuinely the
+    // competing, cheaper option, is blocked here. No live Sept-deadline fetch
+    // added (matches the ERA block's own simplification above — unconditional
+    // within the CL===1 case, same "slightly conservative after the real
+    // deadline passes" tradeoff already accepted there).
+    //
+    // NOTE (not fixed here, out of scope): the Vet-ERA block above has no
+    // equivalent contract_length check and would over-block an already-
+    // converted, genuinely-final-year ERA veteran the same way. Pre-existing,
+    // separate latent issue.
+    if (type.indexOf("vet-faa") !== -1 && safeInt(asset.contract_length, 0) === 1) return false;
     if (type.indexOf("tag") !== -1) return false;
     if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
       return false;
