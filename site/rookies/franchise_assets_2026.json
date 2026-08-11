@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-10T10:46:39.070091+00:00",
+    "generated_at_utc": "2026-08-11T10:32:40.351185+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3194,8 +3194,8 @@
           "position": "TE",
           "nfl_team": "FA",
           "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "",
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3777,18 +3777,6 @@
           "taxi": true
         },
         {
-          "asset_id": "P_16601",
-          "display": "Will Shipley",
-          "player_id": "16601",
-          "position": "RB",
-          "nfl_team": "PHI",
-          "salary": 5000,
-          "contract_year": 1,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
           "asset_id": "P_17080",
           "display": "Jaylin Noel",
           "player_id": "17080",
@@ -4294,8 +4282,8 @@
           "position": "RB",
           "nfl_team": "DAL",
           "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "",
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
