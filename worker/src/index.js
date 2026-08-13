@@ -37286,6 +37286,21 @@ export default {
         return safeStr(res && res.error) || raw.slice(0, 400);
       };
 
+      // Is this instant a Sunday in America/New_York? DST-correct by the same
+      // construction as _wvEtLabel below. Used only to decide whether a
+      // WAIVER_BBID run is the one that opens FCFS (Keith 2026-08-13: FCFS
+      // opens off the Sunday run only — Thu/Fri/Sat runs always re-lock,
+      // regardless of whether MFL's export includes a paired WAIVER_LOCK row
+      // at the same instant. See the note above PHASE_FOR_EVENT below for why
+      // this can no longer depend on that pairing.)
+      const _wvIsSundayEt = (unixSec) => {
+        const n = Number(unixSec) || 0;
+        if (!n) return false;
+        try {
+          return new Date(n * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short" }) === "Sun";
+        } catch (_) { return false; }
+      };
+
       // "Thu Aug 13, 9:00 AM ET". DST-correct by construction — America/New_York
       // resolves EDT vs EST for us; the trailing "ET" is just the league's label.
       const _wvEtLabel = (unixSec) => {
@@ -37445,10 +37460,52 @@ export default {
         const lastRun = past.length ? past[past.length - 1] : null;
 
         // ── window.mode ──
-        // Phase boundaries, in time order. LOCK opens the blind-bid window; a
-        // BBID run and an UNLOCK both end it.
-        const PHASE_BY_TYPE = { WAIVER_LOCK: "bbid", WAIVER_BBID: "fcfs", WAIVER_UNLOCK: "fcfs" };
-        const boundaries = events.filter((e) => PHASE_BY_TYPE[e.type]);
+        // Phase boundaries, in time order. LOCK opens the blind-bid window;
+        // WAIVER_UNLOCK is an explicit "opened" signal MFL has never actually
+        // sent us but is trusted unconditionally if it ever shows up. A BBID
+        // run only ends the window when it is the SUNDAY run, at/after NFL
+        // Week 1 kickoff (Keith 2026-08-13, canon league_context_v1.md §A5 +
+        // §B) -- Thu/Fri/Sat runs, and pre-Week-1 Sunday runs, immediately
+        // re-lock, same as a LOCK event.
+        //
+        // This used to be encoded the other way -- every BBID run opened
+        // FCFS, relying on MFL's calendar export also sending a same-instant
+        // WAIVER_LOCK row to re-close it (see the tie-break loop below, kept
+        // for that case). That broke live on Thu 2026-08-13: MFL's own
+        // admin calendar has a still-active weekly "Put All Free Agents On
+        // Waivers" series covering that exact Thursday, but the export we
+        // read that morning did not include it -- an MFL export gap, not a
+        // scheduling gap. Deciding "is this the run that opens FCFS" from
+        // the event's OWN day-of-week + Week-1 status, instead of from
+        // whether a second row happened to also come back, means a dropped
+        // or missing LOCK row can no longer silently open FCFS on the wrong
+        // day.
+        const WAIVER_BOUNDARY_TYPES = new Set(["WAIVER_LOCK", "WAIVER_BBID", "WAIVER_UNLOCK"]);
+        const week1KickoffUnix = Number(opts.week1_kickoff_unix) || 0;
+        const _wvPhaseForEvent = (e) => {
+          if (e.type === "WAIVER_LOCK") return "bbid";
+          if (e.type === "WAIVER_UNLOCK") return "fcfs";
+          if (e.type === "WAIVER_BBID") {
+            // week1KickoffUnix === 0 means nflWeekFirstKickoffUnix could not
+            // resolve Week 1 -- "unresolved", never a date (see its own
+            // contract). Treat that the same as "not Week 1 yet": never a
+            // guess that opens a real MFL write surface.
+            //
+            // week1KickoffUnix is Week 1's EARLIEST kickoff (whatever day
+            // that lands on -- 2026 opens Wednesday). This "e.start_unix >=
+            // week1KickoffUnix" compare is only correct as long as that
+            // earliest kickoff falls before the season's first in-week
+            // Sunday 9 AM ET run, which holds for every schedule so far. A
+            // season whose Week 1 opener is itself a Sunday game kicking off
+            // after 9 AM ET would misclassify that Sunday's run as pre-Week-1
+            // -- worth rechecking if the NFL ever schedules a Week 1 with no
+            // Wed/Thu/Fri/Sat opener.
+            const isSundayWeek1Run = week1KickoffUnix > 0 && e.start_unix >= week1KickoffUnix && _wvIsSundayEt(e.start_unix);
+            return isSundayWeek1Run ? "fcfs" : "bbid";
+          }
+          return "";
+        };
+        const boundaries = events.filter((e) => WAIVER_BOUNDARY_TYPES.has(e.type));
         let mode = "";
         let modeReason = "";
         if (opts.calendar_unavailable) {
@@ -37484,22 +37541,26 @@ export default {
           let current = null;
           for (const e of boundaries) {
             if (e.start_unix > nowUnix) break;   // events are sorted ascending
-            // MFL's own calendar schedules WAIVER_LOCK ("Put All Free Agents
-            // On Waivers") at the IDENTICAL instant as WAIVER_BBID ("Process
-            // Blind Bid Waivers") for every recurring run -- process, then
-            // immediately re-lock. Which of the two rows MFL's export lists
-            // first is not documented or guaranteed stable, so "whichever
-            // sorts last wins" made this a coin flip on a decision that gates
-            // a real MFL write surface (Keith 2026-08-10: the app showed
-            // FCFS live when the calendar said locked). LOCK wins any tie
-            // deterministically -- "process, then re-lock" is the only
-            // reading that matches every one of these paired events -- no
-            // matter which order MFL happened to return the two rows in.
-            // WAIVER_BBID vs WAIVER_UNLOCK ties are moot (PHASE_BY_TYPE maps
-            // both to "fcfs"), so this only ever changes behavior for the
-            // LOCK-vs-other case.
+            // MFL's calendar can schedule WAIVER_LOCK ("Put All Free Agents
+            // On Waivers") at the IDENTICAL instant as a WAIVER_BBID/UNLOCK
+            // row -- process, then immediately re-lock. Which row MFL's
+            // export lists first is not documented or guaranteed stable, so
+            // "whichever sorts last wins" made this a coin flip on a
+            // decision that gates a real MFL write surface (Keith
+            // 2026-08-10: the app showed FCFS live when the calendar said
+            // locked). At an exact tie, the resolution that stays LOCKED
+            // wins deterministically -- "process, then re-lock" is the only
+            // reading that matches every paired event MFL has sent, no
+            // matter which order the two rows come back in, and it is the
+            // conservative side of the ambiguity either way. (This no longer
+            // does the actual gating on its own -- _wvPhaseForEvent decides
+            // Thu/Fri/Sat and pre-Week-1 Sunday runs are "bbid" regardless of
+            // whether a paired LOCK row shows up at all, see above -- but a
+            // real same-instant tie can still occur for a LOCK paired with a
+            // genuine Sunday/Week-1 BBID or an UNLOCK, so the tie-break stays
+            // as a second layer.)
             if (current && current.start_unix === e.start_unix &&
-                current.type === "WAIVER_LOCK" && e.type !== "WAIVER_LOCK") {
+                _wvPhaseForEvent(current) === "bbid" && _wvPhaseForEvent(e) === "fcfs") {
               continue;
             }
             current = e;
@@ -37508,8 +37569,8 @@ export default {
             mode = "closed";
             modeReason = "before_first_waiver_event";
           } else {
-            mode = PHASE_BY_TYPE[current.type];
-            modeReason = `after_${current.type.toLowerCase()}`;
+            mode = _wvPhaseForEvent(current);
+            modeReason = `after_${current.type.toLowerCase()}${current.type === "WAIVER_BBID" ? (mode === "fcfs" ? "_sunday_wk1" : "_non_sunday_relock") : ""}`;
           }
         }
         return {
@@ -38278,13 +38339,18 @@ export default {
             if (hit) return hit;
           } catch (_) {}
         }
-        const [calRes, lgRes, wvWriteArm] = await Promise.all([
+        const [calRes, lgRes, wvWriteArm, wvWeek1KickoffUnix] = await Promise.all([
           mflExportJson(wvSeason, wvLeagueId, "calendar", {}, { useCookie: true }),
           mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true }),
           // Contract v2 §5: the kill switch has to be VISIBLE. Without it the UI
           // renders submit buttons whose only possible outcome is a 503.
           // Per-LEAGUE, so the rehearsal mirror reports armed while prod is dark.
           _wvWriteArmed(wvLeagueId),
+          // FCFS only opens off the Sunday run, and only from Week 1 on
+          // (Keith 2026-08-13) — off the SAME nflWeekFirstKickoffUnix helper
+          // the Discord waiver post and mobile contract ladder already use,
+          // so this can never disagree with them about when Week 1 starts.
+          nflWeekFirstKickoffUnix(wvSeason, 1),
         ]);
         const limits = _wvWaiverLimits(lgRes && lgRes.ok ? lgRes.data : null);
         const calOk = !!(calRes && calRes.ok);
@@ -38293,7 +38359,7 @@ export default {
           nowUnix,
           // null when MFL's league export failed or omitted currentWaiverType —
           // the window helper then reports "closed" instead of guessing a mode.
-          { calendar_unavailable: !calOk, waiver_type: limits.waiver_type || "" }
+          { calendar_unavailable: !calOk, waiver_type: limits.waiver_type || "", week1_kickoff_unix: wvWeek1KickoffUnix || 0 }
         );
 
         // PUBLIC payload — provably free of owner data, and the only thing that
@@ -39202,6 +39268,53 @@ export default {
           return jsonNoStore(403, { ok: false, error: "FRANCHISE_MISMATCH", detected_franchise: fcfsDetFid });
         }
         const fcfsFid = fcfsDetFid;
+
+        // ── Real-time window gate ───────────────────────────────────────────
+        // The comment above ("for when waivers are not locked") used to be
+        // aspirational — nothing below this point ever checked it, so this
+        // route would execute an immediate, uncontested add at ANY time,
+        // trusting the client to only show the button during the real FCFS
+        // window. Keith caught this live 2026-08-13 when the app displayed
+        // "Add now" on a plain Thursday. FCFS opens off the Sunday run only,
+        // starting NFL Week 1 (canon league_context_v1.md §A5 + §B) — see
+        // _wvWaiverWindow for the full rule. Checked fresh against MFL here,
+        // not trusted from the client, because a client-only gate is exactly
+        // what let this ship broken the first time.
+        const [fcfsCalRes, fcfsWeek1KickoffUnix] = await Promise.all([
+          mflExportJson(wvSeason, wvLeagueId, "calendar", {}, { useCookie: true }),
+          nflWeekFirstKickoffUnix(wvSeason, 1),
+        ]);
+        const fcfsCalOk = !!(fcfsCalRes && fcfsCalRes.ok);
+        const fcfsWindow = _wvWaiverWindow(
+          fcfsCalOk ? normalizeMflCalendar(fcfsCalRes.data) : [],
+          Math.floor(Date.now() / 1000),
+          { calendar_unavailable: !fcfsCalOk, week1_kickoff_unix: fcfsWeek1KickoffUnix || 0 }
+        );
+        const fcfsWindowOpen = fcfsWindow.mode === "fcfs";
+        if (!fcfsWindowOpen && !fcfsDryRun) {
+          // Named for what it actually is: the next scheduled BLIND-BID
+          // PROCESSING run (Thu/Fri/Sat/Sun), which is not necessarily the
+          // same instant FCFS opens (only the Sunday run, from Week 1 on,
+          // opens it — see _wvWaiverWindow). Naming a specific weekday in
+          // the message was the earlier draft of this fix and was wrong
+          // whenever the next run landed on a Thu/Fri/Sat.
+          const fcfsWindowMessage = fcfsWindow.mode === "blackout"
+            ? "Free agent adds are closed right now — MFL has an add/drop blackout in effect."
+            : "Free agents are not first-come-first-served right now — waivers are locked. FCFS only opens after the Sunday blind-bid run, and only from NFL Week 1 onward.";
+          return jsonNoStore(409, {
+            ok: false,
+            error: "not_fcfs_window",
+            message: fcfsWindowMessage,
+            mode: fcfsWindow.mode,
+            mode_reason: fcfsWindow.mode_reason,
+            // The next scheduled PROCESSING run — may be a Thu/Fri/Sat run,
+            // which does not itself open FCFS. Not "when FCFS opens."
+            next_bbid_run_unix: fcfsWindow.next_bbid_run_unix,
+            next_bbid_run_label: fcfsWindow.next_bbid_run_label,
+            native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+          });
+        }
+
         const addPid = String(fbody.add_pid || fbody.addPid || fbody.player_id || "").replace(/\D/g, "");
         const dropPids = (Array.isArray(fbody.drop_pids) ? fbody.drop_pids : (Array.isArray(fbody.dropPids) ? fbody.dropPids : []))
           .map((x) => String(x || "").replace(/\D/g, ""))
@@ -39273,6 +39386,12 @@ export default {
             verify_known: false,
             roster_verified: false,      // retained alias of `verified`
             contract_note: fcfsContractNote,
+            // A dry run must never look like server truth — including about
+            // TIMING. window_open:false here means the live version of this
+            // exact call would 409 with not_fcfs_window, not succeed.
+            window_open: fcfsWindowOpen,
+            window_mode: fcfsWindow.mode,
+            window_mode_reason: fcfsWindow.mode_reason,
             would_send: {
               url: `https://www48.myfantasyleague.com/${wvSeason}/import?TYPE=fcfsWaiver&L=${wvLeagueId}&JSON=1`,
               body: { ADD: addPid, DROP: dropPids.join(",") },
