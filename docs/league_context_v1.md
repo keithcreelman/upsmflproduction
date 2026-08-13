@@ -254,7 +254,7 @@ Critical: most contract concepts in this canon are **UPS layer constructs** that
 
 ### A5. First-Come, First-Serve (FCFS) Free Agency (Sunday after waiver run → kickoff)
 
-- **Trigger:** after the Sunday morning waiver run, FA opens FCFS until each player's NFL kickoff.
+- **Trigger:** after the Sunday morning waiver run, FA opens FCFS until each player's NFL kickoff. **Sunday only** — Thu/Fri/Sat runs always immediately re-lock, never opening FCFS (Keith 2026-08-13). This window itself only starts at **NFL Week 1**; the pre-season Sundays right after FA Auction close (while rosters are still settling) also immediately re-lock, same as Thu/Fri/Sat.
 - **Salary:** $1K flat for current season.
 - **Contract:** 1-year WW. NFL rookies picked up via FCFS are tagged WW during season; Keith manually converts WW → Rookie at year-end so they hit ERA path next May.
 
@@ -679,7 +679,7 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
 
 ### T1.6 First-Come First-Serve (`FREE_AGENT`)
 - **Source:** MFL `TYPE=transactions&TRANS_TYPE=FREE_AGENT`. Stored in `transactions_adddrop` with `method='FREE_AGENT'`, `move_type='ADD'`.
-- **Initiator:** Owner (any time after the Sunday morning waiver run and before the player's NFL kickoff).
+- **Initiator:** Owner (any time after the Sunday morning waiver run and before the player's NFL kickoff — and only from NFL Week 1 onward; pre-season Sundays re-lock immediately, same as Thu/Fri/Sat. Keith 2026-08-13.)
 - **Eligibility:** Player on free-agent list, not waiver-locked, owner has roster headroom.
 - **Cap effect:** **$1K flat** salary, counts immediately.
 - **Contract impact:** Creates **WW** 1-year contract.
@@ -1194,7 +1194,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 ### August 2026 → FA Auction Close + Waivers Open
 - **FA Auction completes** ~early-to-mid August (date TBD; depends on auction format option chosen).
 - **Min roster check (27)** at close.
-- **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. FCFS opens immediately after each Sunday waiver run.
+- **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. **These pre-season Sundays still immediately re-lock, same as Thu/Fri/Sat — FCFS does NOT open yet.** FCFS itself does not start until NFL Week 1 (Keith 2026-08-13); see §A5 and §B.
 - **Half league dues** ($100 of $200) due by FA Auction start. Venmo to **@Keith-Creelman** for routing to treasurer **Josh Martel**.
 
 ### September 2026 → Contract Deadline + NFL Week 1
@@ -1236,10 +1236,12 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 | Cadence | Event |
 |---|---|
 | **Thu / Fri / Sat / Sun 9 AM ET** | Blind Bid Waiver runs |
-| **Immediately after each waiver run** | FCFS Free Agency opens (until each player's NFL kickoff) |
+| **Immediately after the SUNDAY waiver run only, starting NFL Week 1** | FCFS Free Agency opens (until each player's NFL kickoff) |
 | **Daily during auction** | 2 nominations per owner per 24-hour window |
 
-> **OPEN — waiver lock ambiguity (Keith 2026-04-28):** the precise rules on when a dropped player becomes available depend on drop timing relative to a waiver run.
+**RESOLVED (Keith 2026-08-13, live incident):** FCFS does **not** open after the Thu/Fri/Sat runs — those always immediately re-lock. Only the Sunday run opens FCFS, and only from NFL Week 1 onward; pre-season Sundays (the weeks right after FA Auction close, before Week 1 kickoff) also immediately re-lock, same as Thu/Fri/Sat. This replaces the "immediately after each waiver run" wording that used to be in the table above — that phrasing was too loose and caused a live bug where the app opened FCFS on a plain Thursday run.
+
+> **OPEN — waiver lock duration (Keith 2026-04-28):** separate from the above, the precise number of hours a specific dropped player stays locked before becoming claimable depends on drop timing relative to a waiver run.
 >
 > **Scenario A:** Player dropped at 9 AM Thursday DURING the waiver run.
 > **Scenario B:** Player dropped at 10 PM Thursday (standalone drop after waiver run).
