@@ -1,0 +1,57 @@
+name: Long Haulers waiver claim diagnostic (one-off, 2026-08-13)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+      SEASON: "2026"
+      LEAGUE: "74598"
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$MFL_COOKIE" ] || { echo "::error::MFL_COOKIE not set"; exit 1; }'
+      - name: fetch pendingWaivers (commish session — full league visibility)
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          curl -sS --fail-with-body \
+            -H "Cookie: $COOKIE" \
+            -H "User-Agent: Mozilla/5.0 (compatible; UPS-diagnostic)" \
+            "https://www48.myfantasyleague.com/${SEASON}/export?TYPE=pendingWaivers&L=${LEAGUE}&JSON=1" \
+            -o /tmp/pending.json || echo "(pendingWaivers fetch failed, continuing)"
+          echo "bytes: $(wc -c < /tmp/pending.json 2>/dev/null || echo 0)"
+      - name: fetch ALL transactions, last 10 days, league-wide
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          curl -sS --fail-with-body \
+            -H "Cookie: $COOKIE" \
+            -H "User-Agent: Mozilla/5.0 (compatible; UPS-diagnostic)" \
+            "https://www48.myfantasyleague.com/${SEASON}/export?TYPE=transactions&DAYS=10&L=${LEAGUE}&JSON=1" \
+            -o /tmp/tx.json || echo "(transactions fetch failed, continuing)"
+          echo "bytes: $(wc -c < /tmp/tx.json 2>/dev/null || echo 0)"
+      - name: fetch free agents list (to check if Long Haulers' target is even a free agent right now)
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          curl -sS --fail-with-body \
+            -H "Cookie: $COOKIE" \
+            -H "User-Agent: Mozilla/5.0 (compatible; UPS-diagnostic)" \
+            "https://www48.myfantasyleague.com/${SEASON}/export?TYPE=rosters&L=${LEAGUE}&FRANCHISE=0006&JSON=1" \
+            -o /tmp/roster_0006.json || echo "(roster fetch failed, continuing)"
+          echo "bytes: $(wc -c < /tmp/roster_0006.json 2>/dev/null || echo 0)"
+      - name: summarize
+        run: python3 scripts/ci_show_lh_waiver_check.py /tmp/pending.json /tmp/tx.json /tmp/roster_0006.json
