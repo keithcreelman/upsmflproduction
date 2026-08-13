@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-11T10:32:40.351185+00:00",
+    "generated_at_utc": "2026-08-13T10:43:44.418172+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3184,18 +3184,6 @@
           "salary": 1000,
           "contract_year": 3,
           "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_11247",
-          "display": "Zach Ertz",
-          "player_id": "11247",
-          "position": "TE",
-          "nfl_team": "FA",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
