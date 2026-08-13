@@ -1,0 +1,35 @@
+name: Jatavian Sanders penalty diagnostic (one-off, 2026-08-10)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g wrangler
+      - name: query ups_drop_events for Jatavian Sanders
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT id, season, league_id, player_id, player_name, franchise_name, dropped_at_iso, penalty_amount, penalty_basis, penalty_exempt, penalty_exempt_reason, posted_to_mfl, posted_amount, applies_to_season, cap_season_source, cap_season_needs_review, cap_season_review_reason FROM ups_drop_events WHERE player_name LIKE '%Sanders%' AND player_name LIKE '%Jatavian%'" \
+            2>&1 | tee /tmp/sanders.json
+      - name: show result
+        run: python3 scripts/ci_show_sanders_penalty.py /tmp/sanders.json
+      - name: also check the FA auction start date used for bucketing
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT key, value FROM ups_settings WHERE key LIKE '%auction%'" \
+            2>&1 | tee /tmp/auction_settings.json
+      - name: show settings
+        run: cat /tmp/auction_settings.json
