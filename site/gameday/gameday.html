@@ -1059,7 +1059,7 @@
   function taxiAction(action, pid, name) {
     var verb = action === "promote_taxi" ? "Promote" : "Demote";
     var msg = action === "promote_taxi"
-      ? "Promote " + name + " to your active roster?\n\nCanon §B2: each taxi player gets 3 call-ups; the 4th makes the promotion PERMANENT (no longer cap-free to cut). Demoting before the next NFL week locks does not burn a call-up."
+      ? "Promote " + name + " to your active roster?\n\nLeague rule §B2: each taxi player gets 3 call-ups; the 4th makes the promotion PERMANENT (no longer cap-free to cut). Demoting before the next NFL week locks does not burn a call-up."
       : "Send " + name + " to your taxi squad?\n\nTaxi salary is off-cap. Demoting before the next NFL week locks does not burn a call-up.";
     if (!window.confirm(msg)) return;
     STATE.taxiBusy = pid; STATE.message = null; rerender();
@@ -1105,7 +1105,7 @@
     }
 
     el.innerHTML =
-      '<div class="gd-note">Manage your taxi squad right here. Taxi salary is real money but <strong>does not</strong> count against the cap. Each taxi player gets <strong>3 call-ups</strong>; the 4th makes the promotion permanent (Canon §B2).</div>' +
+      '<div class="gd-note">Manage your taxi squad right here. Taxi salary is real money but <strong>does not</strong> count against the cap. Each taxi player gets <strong>3 call-ups</strong>; the 4th makes the promotion permanent (League rule §B2).</div>' +
       (STATE.message ? '<div class="gd-msg ' + esc(STATE.message.kind) + '">' + esc(STATE.message.text) + '</div>' : '') +
       bucket("On the Taxi Squad — call up to active", onTaxi, "promote_taxi", "No players on your taxi squad.") +
       bucket("Eligible to send to Taxi", eligible, "demote_taxi", "No active rookies are taxi-eligible (UPS draft R2–5, within 3 league years, not permanently promoted).");

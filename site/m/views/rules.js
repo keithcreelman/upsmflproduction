@@ -220,7 +220,7 @@
     var open = !!state.openDrawer[topic.key];
     var h = '<div class="ups-m-rb-drawer' + (open ? " is-open" : "") + '">' +
       '<button class="ups-m-rb-drawer-btn" data-rb-drawer="' + esc(topic.key) + '" aria-expanded="' + (open ? "true" : "false") + '">' +
-        "The exact wording in canon" +
+        "The exact wording in the rulebook" +
         '<span class="ups-m-rb-caret" aria-hidden="true">›</span>' +
       "</button>";
     if (open) {
@@ -248,7 +248,7 @@
     var topics = data.topics || [];
     if (!topics.length) {
       return '<div class="ups-m-rb-empty">The rulebook is still being written. ' +
-        'Search below to read canon directly.</div>';
+        'Search below to read the rulebook directly.</div>';
     }
     return '<div class="ups-m-rb-topics">' + topics.map(function (t) {
       return '<button class="ups-m-rb-topic" data-rb-topic="' + esc(t.key) + '">' +
@@ -271,7 +271,7 @@
 
     // Honesty marker: this topic states a rule canon does not yet carry.
     if (t.needs_canon) {
-      h += '<div class="ups-m-rb-nocanon"><b>Not in canon yet.</b> ' +
+      h += '<div class="ups-m-rb-nocanon"><b>Not in the rulebook yet.</b> ' +
         esc(t.needs_canon) + "</div>";
     }
 
@@ -347,7 +347,7 @@
         "</button>";
       } else {
         h += '<div class="ups-m-rb-hit">' +
-          '<span class="ups-m-rb-hit-k ups-m-rb-hit-canon">Canon' +
+          '<span class="ups-m-rb-hit-k ups-m-rb-hit-canon">Rulebook' +
             (r.rule.id ? " · " + esc(r.rule.id) : "") + "</span>" +
           '<span class="ups-m-rb-hit-t">' + esc(r.title) + "</span>" +
           '<span class="ups-m-rb-hit-b">' + snippet(r, state.q) + "</span>" +
@@ -359,7 +359,7 @@
 
   function renderChanges(data) {
     var h = '<div class="ups-m-rb-note">Every rule change since the bot started tracking, ' +
-      "newest first. When a proposal passes its vote, canon is updated and this rulebook " +
+      "newest first. When a proposal passes its vote, the rulebook is updated and this page " +
       "follows automatically.</div>";
     var log = data.changelog || [];
     if (!log.length) return h + '<div class="ups-m-rb-empty">No recorded changes yet.</div>';
@@ -411,7 +411,7 @@
   }
 
   function shell(data) {
-    var stamp = "Canon " + esc(data.version) +
+    var stamp = "Rulebook " + esc(data.version) +
       (data.last_changed ? " · last rule change " + esc(data.last_changed) : "");
     return '' +
       '<div class="ups-m-rb-wrap">' +

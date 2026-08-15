@@ -29,7 +29,7 @@
      §6 roster/cap headroom is ADVISORY — never hard-block a move on a number
         we are not sure of. One carve-out (Keith 2026-08-08): "No drop" is
         withheld when the active roster is KNOWN full against the UPS roster
-        ceiling (canon 27 min / 35 pre-deadline / 30 post-deadline, via
+        ceiling (27 min / 35 pre-deadline / 30 post-deadline, via
         DATA.rosterCapMax()), because that option can only be refused. Anything
         unknown still offers it. See rosterHeadroom().
 
@@ -911,7 +911,7 @@
         '</div>' +
         '<div class="ups-m-drop-body">' + noneRow + rows + '</div>' +
         (anyEstimate
-          ? '<div class="ups-m-drop-foot">Penalties are estimates until the cap service responds — MFL charges the league-canonical amount.</div>'
+          ? '<div class="ups-m-drop-foot">Penalties are estimates until the cap service responds — MFL charges the official amount.</div>'
           : '') +
       '</div>' +
     '</div>';

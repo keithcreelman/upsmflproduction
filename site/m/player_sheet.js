@@ -736,7 +736,7 @@
         ctx =
           usedLine +
           "\n⚠ This will be call-up #" + aboutToBeNth + " of a " + max + "-call-up budget." +
-          "\nCanon §B2: 4th call-up = PERMANENT PROMOTION." +
+          "\nLeague rule §B2: 4th call-up = PERMANENT PROMOTION." +
           "\nPlayer will no longer be cap-free cut after this NFL week locks.";
       } else {
         ctx =
@@ -820,7 +820,7 @@
       var elig = DATA.irEligibilityFor ? DATA.irEligibilityFor(footerState.pid) : { known: false, eligible: false, designation: "" };
       confirmMsg = "Place " + name + " on Injured Reserve?" +
         (elig.known && elig.designation ? "\n\nNFL designation: " + elig.designation : "") +
-        "\n\nCanon §B3:" +
+        "\n\nLeague rule §B3:" +
         "\n• Cap hit drops to 50% while he's on IR." +
         "\n• He stops counting against your active-roster max." +
         "\n• Reversible — activate him again any time (15 IR slots)." +
@@ -870,7 +870,7 @@
       window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + err, "err");
       if (code === "IR_NOT_ELIGIBLE" || code === "IR_ELIGIBILITY_UNKNOWN") {
         window.alert(
-          (code === "IR_NOT_ELIGIBLE" ? "Not IR-eligible (canon §B3)" : "IR eligibility couldn't be verified") +
+          (code === "IR_NOT_ELIGIBLE" ? "Not IR-eligible (league rule §B3)" : "IR eligibility couldn't be verified") +
           "\n\n" + err + "\n\nNothing was written to MFL.");
       }
     }).catch(function (err) {

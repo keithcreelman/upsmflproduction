@@ -895,7 +895,7 @@
     }
 
     var html = subTabs("taxi") +
-      '<div class="ups-m-action-blurb">Canon §B2 — taxi players cost <b>$0</b> against the cap. Each gets <b>3 call-ups</b>; the 4th makes the promotion permanent. Tap a player to promote or demote.</div>';
+      '<div class="ups-m-action-blurb">League rule §B2 — taxi players cost <b>$0</b> against the cap. Each gets <b>3 call-ups</b>; the 4th makes the promotion permanent. Tap a player to promote or demote.</div>';
     html += bucketHead("Available to promote", onTaxi.length);
     html += onTaxi.length
       ? '<div class="ups-m-player-list">' + onTaxi.map(taxiRow).join("") + '</div>'
@@ -953,7 +953,7 @@
     }
 
     var html = subTabs("ir") +
-      '<div class="ups-m-action-blurb">Canon §B3 — IR players get <b>50% cap relief</b> and don\'t count against the active roster max (15 IR slots). Eligible NFL designations: IR / IR-PUP / IR-NFI / Suspended / Holdout. Tap a player to place them on IR or activate them.</div>';
+      '<div class="ups-m-action-blurb">League rule §B3 — IR players get <b>50% cap relief</b> and don\'t count against the active roster max (15 IR slots). Eligible NFL designations: IR / IR-PUP / IR-NFI / Suspended / Holdout. Tap a player to place them on IR or activate them.</div>';
     html += bucketHead("On IR — available to call up", onIr.length);
     html += onIr.length
       ? '<div class="ups-m-player-list">' + onIr.map(irRow).join("") + '</div>'
