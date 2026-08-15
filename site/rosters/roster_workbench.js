@@ -11249,18 +11249,18 @@
           taxiContextText =
             usedLine +
             "\n⚠ This will be call-up #" + aboutToBeNth + " of a " + max + "-call-up budget." +
-            "\nLeague rule §B2: 4th call-up = PERMANENT PROMOTION." +
+            "\n4th call-up = PERMANENT PROMOTION." +
             "\nPlayer will no longer be cap-free cut after this NFL week locks.";
         } else {
           taxiContextText =
             usedLine +
-            "\nLeague rule §B2: each NFL week the player is active on your roster burns 1 call-up." +
+            "\nEach NFL week the player is active on your roster burns 1 call-up." +
             "\nDemoting before the next NFL week locks DOES NOT count.";
         }
       } else {
         // demote_taxi
         taxiContextText =
-          "\n\nLeague rule §B2: demoting before the next NFL week locks does NOT" +
+          "\n\nDemoting before the next NFL week locks does NOT" +
           "\nburn a call-up. Pending call-ups awaiting confirmation will be" +
           "\nautomatically cleared on the next weeklyresults sweep.";
       }
