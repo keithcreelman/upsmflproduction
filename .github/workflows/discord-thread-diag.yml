@@ -1,0 +1,36 @@
+name: Discord waiver-thread diagnostic (one-off, 2026-08-15)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "DRY = inspect pending rows only (no Discord write). LIVE = actually retry the post and surface Discord's error."
+        required: true
+        default: "DRY"
+        type: choice
+        options: [DRY, LIVE]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      MODE: ${{ github.event.inputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: call the adds poster
+        run: |
+          if [ "$MODE" = "LIVE" ]; then DRY=false; echo "LIVE — will retry the Discord post"; else DRY=true; echo "DRY — inspect only"; fi
+          URL="https://upsmflproduction.keith-creelman.workers.dev/admin/adds/post-discord?L=74598&YEAR=2026&APIKEY=${KEY}"
+          curl -s -X POST "$URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"league_id\":\"74598\",\"season\":\"2026\",\"target\":\"prod\",\"dry_run\":${DRY},\"limit\":50}" \
+            -o /tmp/resp.json
+          echo "bytes: $(wc -c < /tmp/resp.json)"
+      - name: summarize
+        run: python3 scripts/ci_show_discord_thread_diag.py /tmp/resp.json
