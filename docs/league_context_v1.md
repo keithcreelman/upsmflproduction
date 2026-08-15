@@ -577,9 +577,9 @@ settlement = (AAV × years served) − (salary actually paid over those years)
 
 > **⚠️ NOT YET IMPLEMENTED ANYWHERE.** Verified 2026-08-15: no settlement logic exists in `computeDropPenalty()`, `worker/src/lib/cap_penalty.js`, or any ETL script, and this rule was absent from canon entirely. Every cap-free retirement since has settled at $0 regardless of loading. Restoring it to canon does not make it live.
 
-> **Two open questions before this is coded:**
-> 1. **Scope.** The 2013 text names *retirement / jail bird* immunity. Does the settlement also apply to the other §D2 cap-free categories (taxi-squad cuts, sub-$5K 1-year deals)? Those are structurally different — a taxi player has no meaningful AAV story — so canon reads them as **out of scope** until stated otherwise.
-> 2. **Is the front-loaded credit really symmetric?** The passed motion says "front/backloads" (both), and the discussion proposed a mirrored bonus. But a credit *pays* an owner for a player who retired, which is more generous than the problem being solved. Confirm the credit direction is wanted, or restrict §D2a to the back-loaded shortfall only.
+**The credit direction is CONFIRMED symmetric (Keith 2026-08-15):** *"yes give them a credit if they paid more than they should...if they FL Gonzo then it would be a 10K credit."* Worked: front-load the same Gonzalez deal so Y1 pays $35K against a $25K AAV, and retirement after Y1 settles to $25,000 − $35,000 = **−$10,000, a credit to the owner.** The rule is one formula run in both directions — an owner is made whole for overpayment exactly as they are held to underpayment.
+
+> **One open question before this is coded — scope.** The 2013 text names *retirement / jail bird* immunity. Does the settlement also apply to the other §D2 cap-free categories (taxi-squad cuts, sub-$5K 1-year deals)? Those are structurally different — a taxi player has no meaningful AAV story — so canon reads them as **out of scope** until stated otherwise.
 
 - **Tier-1 Retired (Calvin Johnson Rule):** Compensation pick awarded when a player retires meeting tier-1 criteria.
   - **Eligibility:** Player must be (1) under contract AND on a roster at retirement, (2) not PK or PN, (3) most recently completed season qualified as **"Tier 1"** at their position. **"Tier 1" definitions align with the Tag Tier Calcs** (see C8 / T3.5):
