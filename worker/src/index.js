@@ -43794,7 +43794,38 @@ export default {
       //
       // NO FAIL-OPEN: a leg that cannot be read reports known:false and is
       // rendered as "couldn't check", never as "not retired".
-      const _retirementEvidence = async (season, leagueId, playerId, origin) => {
+      // ONE /api/player-news call for a whole batch of pids.
+      //
+      // The first live dry run (2026-08-15, 35 rows) died with "Too many
+      // subrequests by single Worker invocation" because evidence was gathered
+      // per-row, and player-news itself fans out to Sleeper + ESPN RSS + Reddit
+      // on every call. Every row came back sources_known:false — which the
+      // routing correctly refused to read as "not retired" (it routed them
+      // `unknown`), but it made the evidence leg useless.
+      //
+      // The endpoint takes up to 50 comma-separated pids, so batch. Returns
+      // known:false on failure — never an empty map standing in for "no news".
+      const _retirementNewsBatch = async (season, leagueId, pids, origin) => {
+        const uniq = Array.from(new Set((pids || []).map((p) => safeStr(p)).filter(Boolean))).slice(0, 50);
+        if (!uniq.length) return { known: true, map: new Map(), error: "" };
+        try {
+          const res = await fetch(
+            `${origin}/api/player-news?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&pids=${encodeURIComponent(uniq.join(","))}`,
+            { headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (!res.ok) return { known: false, map: new Map(), error: `player-news HTTP ${res.status}` };
+          const j = await res.json().catch(() => null);
+          const ibp = (j && j.items_by_pid) || null;
+          if (!ibp) return { known: false, map: new Map(), error: "player-news returned no items_by_pid" };
+          const map = new Map();
+          for (const k of Object.keys(ibp)) map.set(safeStr(k), ibp[k] || []);
+          return { known: true, map, error: "" };
+        } catch (e) {
+          return { known: false, map: new Map(), error: String((e && e.message) || e).slice(0, 160) };
+        }
+      };
+
+      const _retirementEvidence = async (season, leagueId, playerId, newsByPid) => {
         const out = {
           player_id: safeStr(playerId),
           mfl: { known: false, retired: false, designation: "", error: "" },
@@ -43824,36 +43855,27 @@ export default {
           out.mfl.error = String((e && e.message) || e).slice(0, 160);
         }
 
-        // Leg 2 runs even when MFL already says RETIRED — the evidence is worth
-        // recording on the row either way, and it costs one cached fetch.
-        try {
-          const nres = await fetch(
-            `${origin}/api/player-news?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&pids=${encodeURIComponent(playerId)}`,
-            { headers: { "User-Agent": "upsmflproduction-worker" } }
-          );
-          if (nres.ok) {
-            const nj = await nres.json().catch(() => null);
-            const items = (nj && nj.items_by_pid && nj.items_by_pid[safeStr(playerId)]) || [];
-            out.sources_known = true;
-            const RETIRE_RE = /\bretir(e|es|ed|ing|ement)\b|\bhangs? (it|them) up\b|\bcalls? it a career\b/i;
-            for (const it of items) {
-              const head = safeStr(it && it.headline);
-              const body = safeStr(it && it.body);
-              const src = safeStr(it && it.source);
-              const hay = `${head} ${body}`;
-              if (!RETIRE_RE.test(hay)) continue;
-              out.sources.push({
-                source: src,
-                headline: head,
-                url: safeStr(it && it.url),
-                matched: "retirement language",
-              });
-            }
-          } else {
-            out.sources_error = `player-news HTTP ${nres.status}`;
+        // Leg 2 reads from the PRE-FETCHED batch (see _retirementNewsBatch).
+        // Never fetches here — one call per row is what blew the subrequest
+        // limit on the first live run.
+        if (newsByPid && newsByPid.known) {
+          out.sources_known = true;
+          const RETIRE_RE = /\bretir(e|es|ed|ing|ement)\b|\bhangs? (it|them) up\b|\bcalls? it a career\b/i;
+          const items = (newsByPid.map && newsByPid.map.get(safeStr(playerId))) || [];
+          for (const it of items) {
+            const head = safeStr(it && it.headline);
+            const body = safeStr(it && it.body);
+            const hay = `${head} ${body}`;
+            if (!RETIRE_RE.test(hay)) continue;
+            out.sources.push({
+              source: safeStr(it && it.source),
+              headline: head,
+              url: safeStr(it && it.url),
+              matched: "retirement language",
+            });
           }
-        } catch (e) {
-          out.sources_error = String((e && e.message) || e).slice(0, 160);
+        } else {
+          out.sources_error = safeStr(newsByPid && newsByPid.error) || "news batch not supplied";
         }
 
         // The routing decision, stated once so every caller agrees.
@@ -43924,18 +43946,27 @@ export default {
           cfInj.error = String((e && e.message) || e).slice(0, 160);
         }
 
+        // ONE news call for every candidate row. Per-row fetching blew the
+        // Worker subrequest limit on the first live run (2026-08-15).
+        const cfCandidates = cfRows.filter((r) => {
+          const pid = safeStr(r.player_id);
+          const desig = cfInj.known ? safeStr(cfInj.byPid.get(pid) || "") : "";
+          if (desig === "RETIRED") return false;                       // already auto
+          return safeInt(r.penalty_amount, 0) !== 0 || safeInt(r.posted_to_mfl, 0) === 0;
+        });
+        const cfNews = await _retirementNewsBatch(
+          cfSeason, cfLeague, cfCandidates.map((r) => safeStr(r.player_id)), cfOrigin
+        );
+
         const out = [];
         for (const r of cfRows) {
           const pid = safeStr(r.player_id);
           const desig = cfInj.known ? safeStr(cfInj.byPid.get(pid) || "") : "";
           const mflRetired = cfInj.known && desig === "RETIRED";
-
-          // Only players with a retirement signal are worth a news lookup, and
-          // only rows still carrying money are worth stalling over.
-          const carriesMoney = safeInt(r.penalty_amount, 0) !== 0 || safeInt(r.posted_to_mfl, 0) === 0;
+          const isCandidate = cfCandidates.some((c) => safeStr(c.player_id) === pid);
           let ev = null;
-          if (!mflRetired && carriesMoney) {
-            ev = await _retirementEvidence(cfSeason, cfLeague, pid, cfOrigin);
+          if (!mflRetired && isCandidate) {
+            ev = await _retirementEvidence(cfSeason, cfLeague, pid, cfNews);
           }
           const route = mflRetired ? "auto" : (ev ? ev.route : "none");
           const d2a = _d2aSettlement(r);
@@ -43984,6 +44015,7 @@ export default {
           note: "READ-ONLY. Nothing written to D1 or MFL. Shows what the cap-free "
               + "retirement review and the §D2a settlement WOULD do versus today.",
           injuries_feed: { known: cfInj.known, error: cfInj.error, rows_seen: cfInj.byPid.size },
+          news_feed: { known: cfNews.known, error: cfNews.error, pids_queried: cfCandidates.length },
           counts: {
             rows_examined: out.length,
             route_auto: out.filter((r) => r.route === "auto").length,
