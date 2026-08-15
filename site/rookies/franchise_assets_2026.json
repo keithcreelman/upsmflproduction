@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-14T10:39:05.949752+00:00",
+    "generated_at_utc": "2026-08-15T09:57:48.813302+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3585,18 +3585,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17586",
-          "display": "Jacob Rodriguez",
-          "player_id": "17586",
-          "position": "LB",
-          "nfl_team": "MIA",
-          "salary": 2000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17256",
           "display": "Jacory Croskey-Merritt",
           "player_id": "17256",
@@ -3772,6 +3760,18 @@
           "nfl_team": "GBP",
           "salary": 5000,
           "contract_year": 1,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17586",
+          "display": "Jacob Rodriguez",
+          "player_id": "17586",
+          "position": "LB",
+          "nfl_team": "MIA",
+          "salary": 2000,
+          "contract_year": 3,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
@@ -5291,6 +5291,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_12140",
+          "display": "Jameis Winston",
+          "player_id": "12140",
+          "position": "QB",
+          "nfl_team": "NYG",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
