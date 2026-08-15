@@ -11,7 +11,8 @@
   var ACT = window.UPS_MOBILE.actions;
 
   var bundleCache = {};
-  var activeTab = "actions";   // player sheet tab: actions | stats | bio
+  var newsCache = {};          // pid → rendered-ready items[] from /api/player-news (see loadPlayerNews)
+  var activeTab = "actions";   // player sheet tab: actions | stats | news | bio
   var currentBundle = null;    // /api/player-bundle result for the open player
 
   // "2026-10-08" → "Oct 8, 2026". Same shape the Contracts list prints, so a
@@ -385,7 +386,16 @@
       // follow-up); this UI is the entry point for the action.
       var rrStatus = U.safeStr(rosterRow && rosterRow.status).toUpperCase();
       var rrIsTaxi = rrStatus.indexOf("TAXI") !== -1;
-      var rrIsIr = rrStatus.indexOf("IR") !== -1;
+      // MFL's roster status vocabulary is ROSTER / TAXI_SQUAD / INJURED_RESERVE
+      // (MFL_IMPORT_EXPORT_DETAILED.md ~677). This line used to read
+      // `rrStatus.indexOf("IR") !== -1`, and "INJURED_RESERVE" does not contain
+      // the substring "IR" — the I is followed by an N. So the check was always
+      // false and "Activate from IR" has never once rendered on mobile; the
+      // button existed but was unreachable. Match the canonical normalizer in
+      // site/rosters/roster_workbench.js normalizeStatus() (~822), which accepts
+      // both the long form and a bare "IR", and the IR view's own
+      // /ir|injured|reserve/i filter — three surfaces, one meaning.
+      var rrIsIr = rrStatus === "IR" || rrStatus.indexOf("INJURED") !== -1 || rrStatus.indexOf("RESERVE") !== -1;
       // Demote-eligibility — use the canonical isTaxiEligibleFor helper
       // (canon §A1 R2-5 + §B2 3yr window). Replaces the rough
       // /rookie/i contractStatus check which would show Demote for R1
@@ -401,15 +411,50 @@
         '</div>';
       }
 
-      // IR call-up (canon §B3 — IR gives 50% cap relief + off the active
-      // roster max). Surfaces "Activate from IR" for players currently on IR;
-      // the worker maps it to MFL TYPE=ir ACTIVATE. Option-DOWN (place on IR)
-      // is deferred — the MFL `ir` import field for placing isn't confirmed,
-      // so owners option down on MFL directly for now.
+      // IR, both directions (canon §B3 — IR gives 50% cap relief + takes the
+      // player off the active roster max). "Activate from IR" for players
+      // currently on IR (worker activate_ir → MFL TYPE=ir ACTIVATE); "Place on
+      // IR" for an active player holding an IR-eligible NFL designation
+      // (worker deactivate_ir → MFL TYPE=ir DEACTIVATE). The option-DOWN half
+      // was deferred for a while because MFL's `ir` import field for placing
+      // wasn't confirmed; it is now (MFL_IMPORT_EXPORT_DETAILED.md ~623).
+      //
+      // Eligibility is DATA.irEligibilityFor — the one §B3 predicate — and its
+      // `known` flag decides what this footer is allowed to claim:
+      //   known && eligible  → offer it, plain confirm
+      //   known && !eligible → no button; our gate agrees with the worker's
+      //   !known             → offer it, but the confirm says outright that we
+      //                        could NOT verify eligibility. That is not
+      //                        fail-open: nothing is granted here, the request
+      //                        goes to the worker, which does its own §B3 read
+      //                        and refuses on its own unknown
+      //                        (IR_ELIGIBILITY_UNKNOWN). Hiding the button
+      //                        instead would silently strip a legitimate move
+      //                        because OUR fetch failed — a different lie.
+      // "Does IR even apply?" is a SEPARATE question from "is he eligible?",
+      // and conflating them would mean inventing an eligibility answer for
+      // players the question was never asked about. A taxi player is off the
+      // active roster already, so IR buys him nothing; a player already on IR
+      // takes the Activate branch instead. DATA.irEligibilityFor being absent
+      // lands here too — that can only happen under version skew (a cached old
+      // app.js against this file), and hiding the button beats offering a write
+      // whose consequences this build cannot describe. irElig stays null in all
+      // three cases rather than pretending to a `known: true` we never checked.
+      var irApplies = !rrIsIr && !rrIsTaxi && !!DATA.irEligibilityFor;
+      var irElig = irApplies ? DATA.irEligibilityFor(pid) : null;
       if (rrIsIr) {
         html += '<div class="ups-m-sheet-actions">' +
           '<button class="btn-act ext" data-act="activate-ir">Activate from IR</button>' +
         '</div>';
+      } else if (irElig && (irElig.eligible || !irElig.known)) {
+        html += '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act rstr" data-act="deactivate-ir">Place on IR' +
+            (irElig.designation ? ' · ' + U.escapeHtml(irElig.designation) : '') +
+          '</button>' +
+        '</div>';
+        if (!irElig.known) {
+          html += '<div class="ups-m-ir-note">MFL\'s injury report didn\'t load, so §B3 eligibility is <b>unverified</b> here. The server checks it before writing.</div>';
+        }
       }
 
       // §C2 MYAC — when a fresh 1-yr auction default (Vet-ERA win or a
@@ -650,6 +695,10 @@
     if (activateIr) activateIr.addEventListener("click", function () {
       handleIrMove("activate_ir", activateIr);
     });
+    var deactivateIr = foot.querySelector('[data-act="deactivate-ir"]');
+    if (deactivateIr) deactivateIr.addEventListener("click", function () {
+      handleIrMove("deactivate_ir", deactivateIr);
+    });
     var contractButtons = foot.querySelectorAll('[data-act="contract"]');
     for (var ci = 0; ci < contractButtons.length; ci++) {
       contractButtons[ci].addEventListener("click", function () {
@@ -743,15 +792,44 @@
     });
   }
 
-  // IR call-up — mobile mirror of desktop's activate-ir. Posts
-  // /roster-workbench/action action="activate_ir" (worker → MFL TYPE=ir,
-  // ACTIVATE). Same MFL_USER_ID forwarding as the taxi moves. §B3.
+  // IR, BOTH directions — mobile mirror of desktop's activate-ir / place-on-IR.
+  // Posts /roster-workbench/action with action="activate_ir" (worker → MFL
+  // TYPE=ir ACTIVATE) or "deactivate_ir" (→ TYPE=ir DEACTIVATE). Same
+  // MFL_USER_ID forwarding as the taxi moves — see the note on that call.
+  //
+  // Canon §B3 / T2.1. Placing on IR is a CAP action, not a cosmetic one: the
+  // player's hit drops to 50% (MFL includeIRWithSalary=50) and he stops
+  // counting against the active-roster max. So the confirm below states both
+  // consequences and the fact that it is reversible, rather than asking "are
+  // you sure?" about a number the owner can't see.
+  //
+  // Eligibility is enforced SERVER-SIDE (the worker re-reads MFL's injury
+  // report and refuses on its own unknown). This function's job on failure is
+  // simply to repeat what the server said — see the typed-error handling below.
   function handleIrMove(action, btn) {
     var s = window.UPS_MOBILE.state;
     var name = footerState.name || "this player";
-    var verbCap = "Activate";
-    if (!window.confirm("Activate " + name + " from IR?\n\nThis returns them to your active roster — they count against the cap + active-roster max again.")) return;
-    setBusy(btn, true, "Activating…");
+    var placing = action === "deactivate_ir";
+    var verbCap = placing ? "Place on IR" : "Activate";
+    var confirmMsg;
+    if (placing) {
+      // Designation is context, not permission — if our injuries read failed
+      // irElig.known is false and renderActionsFooter has already said so on
+      // screen. Repeat it here, because the confirm is the last thing between
+      // the owner and a write, and "we couldn't verify" belongs at that moment.
+      var elig = DATA.irEligibilityFor ? DATA.irEligibilityFor(footerState.pid) : { known: false, eligible: false, designation: "" };
+      confirmMsg = "Place " + name + " on Injured Reserve?" +
+        (elig.known && elig.designation ? "\n\nNFL designation: " + elig.designation : "") +
+        "\n\nCanon §B3:" +
+        "\n• Cap hit drops to 50% while he's on IR." +
+        "\n• He stops counting against your active-roster max." +
+        "\n• Reversible — activate him again any time (15 IR slots)." +
+        (elig.known ? "" : "\n\n⚠ MFL's injury report didn't load, so eligibility could NOT be checked here. The server checks it before writing and will refuse if he doesn't qualify.");
+    } else {
+      confirmMsg = "Activate " + name + " from IR?\n\nThis returns them to your active roster — full cap hit and they count against the active-roster max again.";
+    }
+    if (!window.confirm(confirmMsg)) return;
+    setBusy(btn, true, placing ? "Placing…" : "Activating…");
     var url = window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action";
     var getStored = window.UPS_MOBILE.api.getStoredMflUserId;
     var stored = getStored ? getStored() : "";
@@ -772,14 +850,29 @@
     }).then(function (resp) {
       setBusy(btn, false);
       if (resp.ok && resp.body && resp.body.ok) {
-        window.UPS_MOBILE.ui.showToast(U.safeStr(resp.body.message) || "Activated from IR", "ok");
+        window.UPS_MOBILE.ui.showToast(
+          U.safeStr(resp.body.message) || (placing ? "Placed on IR" : "Activated from IR"), "ok");
         return window.UPS_MOBILE.actions.reloadData().then(function () {
           window.UPS_MOBILE.route.renderRoute();
           close();
         });
       }
+      // The §B3 refusals carry a written-out reason naming the actual NFL
+      // designation (400 IR_NOT_ELIGIBLE) or saying the injury report couldn't
+      // be read at all (502 IR_ELIGIBILITY_UNKNOWN). Both are surfaced VERBATIM
+      // — flattening them into "Place on IR failed" would throw away the only
+      // information that tells the owner whether to pick a different player or
+      // to just try again in a minute. A toast is short-lived, so these two get
+      // an alert as well; they are the difference between "you can't" and "we
+      // don't know yet".
+      var code = U.safeStr(resp.body && resp.body.code);
       var err = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
       window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + err, "err");
+      if (code === "IR_NOT_ELIGIBLE" || code === "IR_ELIGIBILITY_UNKNOWN") {
+        window.alert(
+          (code === "IR_NOT_ELIGIBLE" ? "Not IR-eligible (canon §B3)" : "IR eligibility couldn't be verified") +
+          "\n\n" + err + "\n\nNothing was written to MFL.");
+      }
     }).catch(function (err) {
       setBusy(btn, false);
       window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + (err && err.message || err), "err");
@@ -1866,9 +1959,10 @@
     });
   }
 
-  // ── Tabs (Actions / Stats / Bio) — mirrors the desktop FO slide-over. ──
+  // ── Tabs (Actions / Stats / News / Bio) — mirrors the desktop FO slide-over
+  // and Team Ops' player profile modal, which carries the same NEWS tab.
   function renderTabNav() {
-    var tabs = [["actions", "Actions"], ["stats", "Stats"], ["bio", "Bio"]];
+    var tabs = [["actions", "Actions"], ["stats", "Stats"], ["news", "News"], ["bio", "Bio"]];
     return tabs.map(function (t) {
       return '<button class="ups-m-sheet-tab' + (t[0] === activeTab ? " active" : "") +
         '" role="tab" data-tab="' + t[0] + '">' + t[1] + '</button>';
@@ -1896,6 +1990,12 @@
         '<div id="ups-m-sheet-stats">' +
           (currentBundle ? renderStatsBlock(currentBundle) : '<div class="ups-m-sheet-loading">Loading…</div>') +
         '</div></div>';
+    } else if (activeTab === "news") {
+      body.innerHTML = '<div class="ups-m-sheet-block"><h4>Player News</h4>' +
+        '<div id="' + newsContainerId(footerState.pid) + '">' +
+          '<div class="ups-m-sheet-loading">Loading news…</div>' +
+        '</div></div>';
+      loadPlayerNews(footerState.pid);
     } else if (activeTab === "bio") {
       body.innerHTML = renderBioBlock(footerState.pid, currentBundle);
     } else {
@@ -1904,6 +2004,114 @@
         '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Free agent — no contract on file.</div></div>';
     }
   }
+  // ── Player News ───────────────────────────────────────────────────────────
+  // Same worker endpoint the desktop uses — /api/player-news, the multi-source
+  // aggregator (Sleeper structured status/depth notes + ESPN team articles
+  // fuzzy-matched on last name). Mirrors _topsLoadProfileNews in
+  // site/team_operations/team_operations.js (~3412), including the response
+  // shape { items_by_pid: { "<pid>": [ {type,source,timestamp,headline,body,url} ] } }.
+  // MFL's own playerProfile.news field is deprecated and returns empty for
+  // everyone — that was the v1.7.36 mistake; do not reach for it.
+  //
+  // ⚠️ THE FEED IS HTML-ENTITY ENCODED. ESPN/Sleeper prose arrives carrying
+  // "&#8217;", "&#39;", "&quot;". escapeHtml() re-encodes the ampersand first,
+  // so "Falcons&#8217;" would paint those literal characters on screen. Every
+  // string below therefore goes decodeEntities → escapeHtml, in that order and
+  // never one without the other: decode ONCE so it reads as prose, then escape
+  // so a literal <script> in the feed lands as &lt;script&gt;. Both helpers
+  // live in app.js (ported verbatim from the desktop) — read their comments
+  // before touching this.
+  function newsContainerId(pid) { return "ups-m-sheet-news-" + U.safeStr(pid).replace(/\W/g, ""); }
+
+  function loadPlayerNews(pid) {
+    pid = U.safeStr(pid);
+    if (!pid) return;
+    if (newsCache[pid]) { paintPlayerNews(pid, newsCache[pid], ""); return; }
+    var s = window.UPS_MOBILE.state;
+    var url = API.workerBase() + "/api/player-news" +
+      "?L=" + encodeURIComponent(s.ctx.leagueId) +
+      "&YEAR=" + encodeURIComponent(s.ctx.year) +
+      "&pids=" + encodeURIComponent(pid);
+    // credentials:"omit" — the worker answers cross-origin with ACAO `*`, which
+    // the browser refuses to honour on a credentialed request. Every mobile →
+    // worker fetch in this app carries it; see feedback_mobile_cors_credentials_omit.
+    fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        // No items_by_pid node at all = we did not get an answer we understand.
+        // That is an ERROR state, not "no news" — the two look identical on
+        // screen otherwise, and only one of them is worth retrying.
+        if (!data || !data.items_by_pid) throw new Error("unexpected response");
+        var items = data.items_by_pid[pid] || [];
+        if (!Array.isArray(items)) items = [];
+        newsCache[pid] = items;
+        paintPlayerNews(pid, items, "");
+      })
+      .catch(function (err) {
+        // Never cached — a failure must be retryable by reopening the tab.
+        paintPlayerNews(pid, null, U.safeStr(err && err.message) || "fetch failed");
+      });
+  }
+
+  // items === null means "couldn't read" and MUST render as such. An empty
+  // array means the aggregator answered and genuinely has nothing. Rendering
+  // both as a blank panel is the same lie the IR bucket used to tell.
+  function paintPlayerNews(pid, items, errMsg) {
+    var el = document.getElementById(newsContainerId(pid));
+    if (!el) return;   // sheet closed, or moved to another player mid-flight
+    if (items === null) {
+      el.innerHTML = '<div class="ups-m-sheet-empty">Couldn\'t load news' +
+        (errMsg ? ' (' + U.escapeHtml(errMsg) + ')' : '') +
+        '.<br>Reopen this tab to retry.</div>';
+      return;
+    }
+    if (!items.length) {
+      el.innerHTML = '<div class="ups-m-sheet-empty">No recent news, injury notes, or depth-chart info for this player.</div>';
+      return;
+    }
+    el.innerHTML = '<ul class="ups-m-news-list">' + items.map(newsItemHtml).join("") + '</ul>';
+  }
+
+  function newsItemHtml(n) {
+    var when = "";
+    var ts = Number(n && n.timestamp);
+    // Timestamps are Unix SECONDS. Guard the parse rather than printing
+    // "Invalid Date" or a 1970 stamp when a source omits it.
+    if (isFinite(ts) && ts > 0) {
+      var d = new Date(ts * 1000);
+      if (!isNaN(d.getTime())) when = d.toLocaleDateString();
+    }
+    var type = U.safeStr(n && n.type);
+    var typeClass = type === "status" ? " is-status" : (type === "depth" ? " is-depth" : "");
+    var typeBadge = type === "status" ? '<span class="ups-m-news-badge is-status">INJURY</span>'
+                  : type === "depth" ? '<span class="ups-m-news-badge is-depth">DEPTH</span>'
+                  : '';
+    var src = U.safeStr(n && n.source);
+    // decode ONCE, before the trim, then escape at the sink — see the block
+    // comment above loadPlayerNews.
+    var headline = U.decodeEntities(n && n.headline);
+    var body = U.decodeEntities(n && n.body);
+    // safeHttpUrl, not escapeHtml alone: escaping encodes & < > " ' but does
+    // NOT neutralise a `javascript:` scheme, and this feed is third-party and
+    // partly user-submitted (the aggregator includes reddit). A non-http(s)
+    // url renders no link at all rather than a clickable script. Matches the
+    // desktop XSS fix in team_operations.js.
+    var safeUrl = U.safeHttpUrl(n && n.url);
+    var linkHtml = safeUrl
+      ? '<a class="ups-m-news-link" href="' + U.escapeHtml(safeUrl) + '" target="_blank" rel="noopener noreferrer">Read full →</a>'
+      : '';
+    var meta = typeBadge + U.escapeHtml(when) + (src ? (when ? ' · ' : '') + U.escapeHtml(src) : '');
+    return '<li class="ups-m-news-item' + typeClass + '">' +
+      (meta ? '<div class="ups-m-news-meta">' + meta + '</div>' : '') +
+      (headline ? '<div class="ups-m-news-head">' + U.escapeHtml(headline) + '</div>' : '') +
+      (body ? '<div class="ups-m-news-body">' + U.escapeHtml(body.slice(0, 800)) + '</div>' : '') +
+      linkHtml +
+      '</li>';
+  }
+
   function computeAge(bdate) {
     bdate = U.safeStr(bdate);
     if (!bdate) return 0;
@@ -2023,7 +2231,8 @@
     close: close,
     // Called from app.js reloadData() so contract changes mid-session
     // (extension/restructure/drop) don't serve stale /api/player-bundle
-    // responses on the next open.
-    clearCache: function () { bundleCache = {}; }
+    // responses on the next open. News rides along: a refresh is exactly when
+    // an owner expects the injury note that prompted it to have landed.
+    clearCache: function () { bundleCache = {}; newsCache = {}; }
   };
 })();

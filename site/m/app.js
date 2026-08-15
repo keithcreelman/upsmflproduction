@@ -36,6 +36,84 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
+
+  // ── decodeEntities — ONLY for text the upstream news feed already encoded ──
+  // Ported verbatim from site/team_operations/team_operations.js:84 (the
+  // desktop Player News surface) when mobile's player sheet grew a News tab.
+  // Same feed, same bug, so deliberately the same code rather than a second
+  // dialect of it.
+  //
+  // The /api/player-news aggregator hands us HTML-entity-encoded prose (ESPN
+  // article bodies and Sleeper notes arrive as "&#39;", "&quot;", "&amp;").
+  // escapeHtml() re-encodes the ampersand first, so "&#39;" became "&amp;#39;"
+  // and the browser painted the literal characters &#39; on screen:
+  //   Todd Monken calls debate &#39;really silly&#39;
+  // The fix is to decode ONCE, then escape. escapeHtml still runs last, so a
+  // literal <script> in the feed decodes to <script> and is escaped right back
+  // to &lt;script&gt; — inert.
+  //
+  // SECURITY: this decodes with a plain regex over an explicit ALLOWLIST and
+  // never touches the DOM. Decoding via innerHTML / a detached element /
+  // DOMParser parses markup, which would let a feed carrying
+  // <img src=x onerror=...> turn a display fix into an injection vector on a
+  // surface that renders untrusted third-party text. Nothing below builds or
+  // parses a node.
+  //
+  // Unknown or malformed tokens ("&notanentity;", "&#999999999;") are returned
+  // EXACTLY as they arrived — never dropped, never guessed at.
+  // NOTE for the next editor: this literal is module-level and carries /g.
+  // That is safe HERE because String.prototype.replace resets lastIndex on
+  // every call — but .test()/.exec() on a /g regex do NOT, and would return
+  // alternating results across calls. Use it only with .replace().
+  var ENTITY_TOKEN_RE = /&(#[0-9]{1,10}|#[xX][0-9a-fA-F]{1,8}|lt|gt|quot|apos|amp);/g;
+  function decodeEntities(v) {
+    var s = safeStr(v);
+    if (!s || s.indexOf("&") === -1) return s;
+    // ONE pass, and `amp` is deliberately the LAST alternative. Order is
+    // load-bearing: a decoder that resolves &amp; before the others (or that
+    // chains sequential .replace() calls with &amp; anywhere but last) turns
+    // "&amp;lt;" into "&lt;" and then into "<" — double-decoding, which is
+    // exactly how an escaped tag climbs back out of its escaping. String
+    // .replace() never re-scans the text a replacement produced, so this single
+    // pass cannot double-decode: "&amp;#39;" yields the literal text "&#39;".
+    return s.replace(ENTITY_TOKEN_RE, function (whole, token) {
+      if (token.charAt(0) === "#") {
+        var isHex = token.charAt(1) === "x" || token.charAt(1) === "X";
+        var cp = parseInt(isHex ? token.slice(2) : token.slice(1), isHex ? 16 : 10);
+        // Reject anything that is not a real, lone code point: NaN, zero,
+        // beyond Unicode's ceiling, or a surrogate half.
+        if (!isFinite(cp) || cp <= 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return whole;
+        try { return String.fromCodePoint(cp); } catch (e) { return whole; }
+      }
+      if (token === "lt") return "<";
+      if (token === "gt") return ">";
+      if (token === "quot") return '"';
+      if (token === "apos") return "'";
+      if (token === "amp") return "&";
+      return whole;
+    });
+  }
+
+  // Is this a URL we are willing to put in an href?
+  //
+  // escapeHtml() encodes & < > " ' — it does NOT neutralise a URL SCHEME, so
+  // escaping alone lets `javascript:...` through as a clickable, same-origin
+  // script link. The news feed is genuinely third-party and partly
+  // user-submitted (the worker aggregates six upstreams including reddit's
+  // /r/nfl/new.json), and the item url is passed along unvalidated, so the
+  // scheme has to be checked at the sink. http/https only; anything else
+  // renders as plain text instead of a link. Protocol-relative "//host" is
+  // deliberately NOT allowed — it inherits the page's scheme and reads as a
+  // path to a careless reader.
+  function safeHttpUrl(v) {
+    // .trim() matches the desktop copy exactly. It is safe BEFORE an anchored
+    // test, not after: " javascript:x" trims to "javascript:x", which still
+    // fails ^https?:// and still renders as no link. Without the trim a
+    // legitimate url with stray feed whitespace would silently lose its link.
+    var s = safeStr(v).trim();
+    return /^https?:\/\//i.test(s) ? s : "";
+  }
+
   function fmtUsd(n) {
     var x = Number(n || 0);
     if (!isFinite(x)) return "$0";
@@ -194,7 +272,9 @@
     contractLadder: null,      // pre-season MYAC→MYM→Extension ladder boundaries. contractDeadline is an ISO day from the league calendar; seasonStartMs / mymWindowEndMs / extensionWindowEndMs are NFL Week 1/3/5 first-kickoff INSTANTS (epoch ms) from MFL's nflSchedule, with ISO twins for display only. null/"" = unknown, which is never "open". See fetchContractCalendar.
     acquisitionByKey: null,    // { "fid:pid": { label, date } } from player_acquisition_lookup_<year>.json — gates the MYAC fresh-FA-auction branch (desktop mergeAcquisitionLookupRows)
     acquisitionFromTxByKey: null, // { "fid:pid": { label, date, unix } } — waiver/FA adds parsed from MFL's live transaction log; leads the static lookup when newer (see acquisitionForPlayer)
-    injuriesByPid: null,       // { pid: "IR"|"OUT"|"PUP"|"SUSPENDED"|... } from MFL injuries export — IR view §B3 "eligible to option down" bucket
+    injuriesByPid: null,       // { pid: "IR"|"IR-PUP"|"IR-NFI"|"SUSPENDED"|"HOLDOUT"|"QUESTIONABLE"|"OUT"|"RETIRED" } from MFL injuries export — IR view §B3 "eligible to option down" bucket. Values are MFL's own strings, uppercased; do NOT assume canon's prose names appear here (there is no bare "PUP"/"NFI").
+    injuriesFeedOk: false,     // did the injuries export actually READ? false ⇒ injuriesByPid is UNKNOWN, not "nobody is hurt". Never collapse the two — see fetchInjuries.
+    injuriesRowCount: 0,       // rows the export returned (339 league-wide on 2026-08-15). Meaningful only when injuriesFeedOk — it distinguishes "read it, genuinely nobody" from "never got to look".
     capAmount: 0,
     // ── Waivers (in-app BBID / FCFS) ──────────────────────────────────────
     // MFL runs this league as BBID_FCFS. The worker mirrors MFL's own
@@ -718,18 +798,59 @@
     } catch (e) { return ""; }
   }
 
-  // NFL injury designations (MFL injuries export) → { pid: STATUS }.
-  // The IR view (§B3) uses this to surface active players who are
-  // IR-eligible (NFL IR / PUP / suspended / holdout). Fail-open → {}.
+  // NFL injury designations (MFL injuries export) → { byPid: { pid: STATUS }, ok, rows }.
+  //
+  // This used to end `.catch(function () { return {}; })` and hand back a bare
+  // map. That was benign while the IR view (§B3) was DISPLAY-only — an empty map
+  // just meant an empty bucket. It stopped being benign the moment a WRITE hung
+  // off it (Place on IR), because {} then reads as the confident statement
+  // "nobody on your roster is IR-eligible" when what actually happened was that
+  // we never got to look. That is precisely the fail-open shape this codebase
+  // has been burned by (see rule_no_fail_open_guards): an unreadable input is
+  // never "empty".
+  //
+  // So the three states stay distinguishable all the way to the screen:
+  //   ok:true,  rows>0  — real designations, gate on them
+  //   ok:true,  rows=0  — the export read fine and is genuinely empty
+  //   ok:false          — UNKNOWN. Show it as unknown; do not render it as zero.
+  //
+  // ⚠️ THE L= TRAP — why this view showed "nobody eligible" for its whole life.
+  // `injuries` is one of MFL's LEAGUE-AGNOSTIC exports and MFL rejects it when
+  // L= is present at all. The rejection arrives as an HTTP **200** carrying
+  // `{"error":{"$t":"Invalid request. This API request must go to
+  // api.myfantasyleague.com"}}` — it parses fine, it just has no `injuries`
+  // node — so nothing threw and every player read as "no designation".
+  // Verified live 2026-08-15, season 2026: with L= → 0 rows; without → 339
+  // (IR 32, IR-PUP 2, IR-NFI 1, Suspended 8, Holdout 2, RETIRED 19,
+  // Questionable 234, Out 41). Dropping `&L=` from the URL built here does NOT
+  // fix it — the worker's global pre-handler guard 400s "Missing L param"
+  // first, and /api/mfl-export re-appended L= upstream regardless. The strip
+  // therefore lives in the worker (`leagueAgnosticTypes`, /api/mfl-export).
+  // We keep sending L= so that guard stays satisfied.
+  //
+  // The `!j.injuries` check below is what makes the two halves safe to deploy
+  // in EITHER order: against a worker that hasn't picked up the strip yet, the
+  // error envelope lands as ok:false (UNKNOWN, said out loud) instead of
+  // silently reverting to the old "0 eligible" lie.
+  //
+  // Callers must go through DATA.irEligibilityFor(), which returns `known` so
+  // "not eligible" and "we couldn't tell" can never be confused at the call
+  // site. The worker re-checks §B3 server-side and fails CLOSED on its own
+  // unreadable feed (IR_ELIGIBILITY_UNKNOWN), so this is honesty, not the gate.
   function fetchInjuries() {
     return fetchJson(mflExportUrl("injuries")).then(function (j) {
+      // fetchJson returns null on any transport/HTTP/parse failure (and has
+      // already pushed the reason onto state.loadErrors for the banner).
+      // A payload with no `injuries` node at all is equally unreadable — MFL
+      // error envelopes look like that — so it is UNKNOWN, not empty.
+      if (!j || !j.injuries) return { byPid: {}, ok: false, rows: 0 };
       var map = {};
-      var root = j && j.injuries && j.injuries.injury;
-      asArray(root).forEach(function (it) {
+      var rows = asArray(j.injuries.injury);
+      rows.forEach(function (it) {
         if (it && it.id != null) map[String(it.id)] = safeStr(it.status).toUpperCase();
       });
-      return map;
-    }).catch(function () { return {}; });
+      return { byPid: map, ok: true, rows: rows.length };
+    }).catch(function () { return { byPid: {}, ok: false, rows: 0 }; });
   }
 
   // Authoritative drop cap-penalties — /api/cap-penalty/preview in BATCH mode
@@ -1064,7 +1185,13 @@
       state.contractDeadline = state.contractLadder.contractDeadline || "";
       state.acquisitionByKey = results[18] || {};
       state.acquisitionFromTxByKey = results[22] || {};
-      state.injuriesByPid = results[19] || {};
+      // results[19] is { byPid, ok, rows } — the readable/empty/unknown split.
+      // No `|| {}` shortcut on the envelope: a missing envelope is unknown, and
+      // unknown must NOT land in state as ok:true with an empty map.
+      var injuriesResp = results[19] || { byPid: {}, ok: false, rows: 0 };
+      state.injuriesByPid = injuriesResp.byPid || {};
+      state.injuriesFeedOk = injuriesResp.ok === true;
+      state.injuriesRowCount = safeInt(injuriesResp.rows, 0);
       state.capPenaltyByPid = results[20] || {};
       // Repaint anything already on screen that was showing a fallback
       // penalty estimate before the authoritative batch landed.
@@ -2958,6 +3085,10 @@
       safeInt: safeInt,
       pad4: pad4,
       escapeHtml: escapeHtml,
+      // Feed-text pair — decodeEntities THEN escapeHtml, never one without the
+      // other, and safeHttpUrl at every href sink. See their definitions above.
+      decodeEntities: decodeEntities,
+      safeHttpUrl: safeHttpUrl,
       fmtUsd: fmtUsd,
       fmtUsdPrecise: fmtUsdPrecise,
       asArray: asArray,
@@ -3040,6 +3171,58 @@
         // hadn't noticed, because it only ever looked at draft history.
         if (!/^rookie-draft$/i.test(safeStr(contractStatus))) return false;
         return true;
+      },
+      // §B3 IR eligibility — the ONE copy on the mobile side.
+      //
+      // Canon §B3 / T2.1: IR is for a player holding an NFL IR-type
+      // designation. IR carries 50% cap relief (MFL includeIRWithSalary=50)
+      // and takes the player off the active-roster max, so who qualifies is a
+      // real cap question, not cosmetics.
+      //
+      // ⚠️ The predicate is matched against the strings MFL ACTUALLY SENDS, not
+      // against canon's prose names. Observed live 2026-08-15 across all 339
+      // rows: IR (32), IR-PUP (2), IR-NFI (1), Suspended (8), Holdout (2),
+      // RETIRED (19), Questionable (234), Out (41). The version this replaces
+      // tested `s === "PUP"` / `s === "NFI"`, which can NEVER match, because
+      // MFL prefixes both — the real strings are "IR-PUP" / "IR-NFI". It also
+      // had no HOLDOUT branch although canon T2.1 lists holdouts explicitly.
+      //
+      // `indexOf("IR") === 0`, anchored, is doing real work: RETIRED contains
+      // "IR" at index 3, and retirees are deliberately NOT IR-eligible — canon
+      // D2 handles them with the cap-free-cut rule, a different mechanic with a
+      // different cap consequence. A `>= 0` here would quietly hand 19 retired
+      // players 50% cap relief.
+      //
+      // This is character-for-character the expression in worker/src/index.js
+      // (the deactivate_ir §B3 gate). Keep them identical: the client decides
+      // what to OFFER and the server decides what to ALLOW, and an owner shown
+      // a button the server then refuses is the drift we are avoiding.
+      //
+      // Returns { known, eligible, designation }. `known` is the whole point:
+      // when MFL's injuries export didn't read, eligible:false means "we could
+      // not tell", NOT "no". Callers must branch on `known` before they say
+      // anything to the owner, and must never treat unknown as permission —
+      // the worker re-checks server-side and refuses on its own unknown
+      // (IR_ELIGIBILITY_UNKNOWN, 502).
+      irEligibilityFor: function (playerId) {
+        var pid = String(playerId == null ? "" : playerId);
+        if (!pid) return { known: false, eligible: false, designation: "" };
+        if (!state.injuriesFeedOk) return { known: false, eligible: false, designation: "" };
+        var s = (state.injuriesByPid || {})[pid] || "";
+        return {
+          known: true,
+          eligible: s.indexOf("IR") === 0        // IR, IR-PUP, IR-NFI
+                 || s.indexOf("SUSPEND") === 0   // Suspended
+                 || s.indexOf("HOLDOUT") === 0   // canon T2.1
+                 || s.indexOf("COVID") >= 0,     // legacy §B3
+          designation: s
+        };
+      },
+      // Read-state of the MFL injuries export, for views that must explain WHY
+      // an IR bucket is empty. ok:false = unreadable (unknown); ok:true with
+      // rows:0 = read fine and genuinely empty.
+      injuryFeedState: function () {
+        return { ok: state.injuriesFeedOk === true, rows: safeInt(state.injuriesRowCount, 0) };
       },
       // Optimistic-update helpers — after a successful tag/untag the
       // static tag_submissions.json (ETL-regenerated on a schedule) AND

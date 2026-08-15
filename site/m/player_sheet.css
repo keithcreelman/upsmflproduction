@@ -110,7 +110,7 @@
 }
 .ups-m-sheet-close:active { color: var(--fg); }
 
-/* Tab bar (Actions / Stats / Bio) — mirrors the desktop FO slide-over. */
+/* Tab bar (Actions / Stats / News / Bio) — mirrors the desktop FO slide-over. */
 .ups-m-sheet-tabs {
   display: flex;
   gap: 4px;
@@ -259,6 +259,19 @@
 /* ERA forced-retention note — replaces the Drop button for a player won in the
    current Expired Rookie Auction (§A3) until the FA Auction closes. */
 .ups-m-era-lock {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 184, 107, 0.12);
+  border: 1px solid rgba(255, 184, 107, 0.30);
+  color: var(--warn);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+/* §B3 IR — shown under "Place on IR" when MFL's injury report did not load, so
+   the button is offered without us being able to verify eligibility. Warning
+   tone, not error: the server still checks before it writes. */
+.ups-m-ir-note {
   margin: 8px 0 0;
   padding: 8px 10px;
   border-radius: 8px;
@@ -431,4 +444,72 @@
   text-transform: uppercase;
   color: var(--fg-muted);
   margin-right: 6px;
+}
+
+/* ----- Player News tab -----
+   Mirrors the desktop Team Ops profile NEWS panel (.tops-profile-news*), in
+   mobile's own token set. Feed text is decoded-then-escaped in player_sheet.js;
+   nothing here renders markup. */
+.ups-m-news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ups-m-news-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ups-m-news-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.ups-m-news-item:first-child { padding-top: 0; }
+.ups-m-news-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.ups-m-news-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.ups-m-news-badge.is-status {
+  background: rgba(255, 107, 107, 0.15);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: var(--danger);
+}
+.ups-m-news-badge.is-depth {
+  background: rgba(91, 141, 255, 0.15);
+  border: 1px solid rgba(91, 141, 255, 0.35);
+  color: var(--accent);
+}
+.ups-m-news-head {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.35;
+}
+.ups-m-news-body {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  line-height: 1.45;
+  /* Feed prose can carry very long unbroken tokens (urls pasted into a body);
+     without this they widen the sheet and force a horizontal scroll. */
+  overflow-wrap: anywhere;
+}
+.ups-m-news-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  min-height: 32px;
+  line-height: 32px;
 }
