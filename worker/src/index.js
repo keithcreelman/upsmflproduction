@@ -45052,6 +45052,36 @@ export default {
         const scanSeasonNum = Number(targetSeason) || 0;
         const scanHasCapCols = await _dropEventsHasCapSeasonCols();
 
+        // Cap-free retirement routing prerequisites. All optional: if the
+        // columns are missing (migration 0127 not hand-applied yet) or the
+        // injuries feed cannot be read, the scan behaves exactly as it did
+        // before and no row is ever marked pending.
+        const scanOrigin = new URL(request.url).origin;
+        const scanHasCapfreeCols = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        // ONE injuries read for the whole scan. MUST omit L= — `injuries` is
+        // league-agnostic and sending it is rejected, decoding to an empty list.
+        const scanInjByPid = await (async () => {
+          try {
+            const ires = await mflExportJson(targetSeason, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+            if (!ires || !ires.ok) return { known: false, map: new Map() };
+            const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
+            const irows = Array.isArray(root) ? root : (root ? [root] : []);
+            // Zero rows league-wide is the signature of the L= bug and of the
+            // preseason gap — NOT evidence that nobody is designated.
+            if (!irows.length) return { known: false, map: new Map() };
+            const m = new Map();
+            for (const r of irows) m.set(safeStr(r && r.id), safeStr(r && r.status).toUpperCase());
+            return { known: true, map: m };
+          } catch (_) { return { known: false, map: new Map() }; }
+        })();
+        // Cap on per-invocation news lookups (see the routing block below).
+        let scanNewsBudget = 5;
+
         // ── Contract parsing + penalty math (canon §6/§D2) ──
         // Ported from pipelines/etl/scripts/build_salary_adjustments_report.py.
         // Penalty math is now module-level (_parseContractData /
@@ -45263,6 +45293,75 @@ export default {
                 capYear.ok ? null : capYear.reason,
                 ledgerKey
               ).run();
+            }
+
+            // ── Cap-free retirement routing (Keith 2026-08-15) ────────────────
+            //   "if flagged by MFL it should be automatic ... if no MFL flag it
+            //    should query real sources and include those sources in the
+            //    post that I can approve."
+            //
+            // auto    → MFL says RETIRED. Recorded as approved on the spot; the
+            //           §D2a settlement replaces the §D1 penalty.
+            // pending → real sources say retired, MFL does not. penalty_amount
+            //           is left ALONE and the row is held from the charge cron
+            //           until the commish rules.
+            // none    → no retirement signal. Untouched, charges normally.
+            //
+            // Only rows that actually carry money are considered — a $0 row has
+            // nothing to hold. The news leg is capped per invocation because
+            // /api/player-news fans out to Sleeper + ESPN RSS + Reddit on every
+            // call and exhausted the Worker subrequest budget when the preview
+            // tried 35 rows at once (2026-08-15). Uncapped rows simply route on
+            // the next scan; nothing is lost.
+            if (scanHasCapfreeCols && safeInt(penaltyInfo.penalty, 0) > 0) {
+              const cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(drop.pid) || "").toUpperCase() : "";
+              const cfIsRetired = scanInjByPid.known && cfDesig === "RETIRED";
+              let cfRoute = "none";
+              let cfEvidence = null;
+              if (cfIsRetired) {
+                cfRoute = "auto";
+              } else if (scanNewsBudget > 0) {
+                scanNewsBudget -= 1;
+                const oneNews = await _retirementNewsBatch(targetSeason, leagueId, [drop.pid], scanOrigin);
+                const ev = await _retirementEvidence(targetSeason, leagueId, drop.pid, oneNews);
+                cfRoute = ev.route;
+                if (ev.sources.length) cfEvidence = ev.sources;
+              } else {
+                cfRoute = "deferred_budget";
+              }
+
+              if (cfRoute === "auto" || cfRoute === "pending") {
+                const cfSet = _d2aSettlement({
+                  pre_drop_aav: penaltyInfo.aav,
+                  pre_drop_contract_length: penaltyInfo.cl,
+                  pre_drop_contract_year: preDrop?.contract_year,
+                  earned_to_date: penaltyInfo.earned,
+                });
+                // AUTO only settles when §D2a can actually be computed. If it
+                // cannot, the row drops to `pending` so a human prices it —
+                // never a silent $0 cap-free.
+                const cfAuto = cfRoute === "auto" && cfSet.known;
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_drop_events
+                      SET capfree_route = ?, capfree_review_status = ?, capfree_mfl_designation = ?,
+                          capfree_evidence_json = ?, capfree_settlement_amount = ?,
+                          penalty_amount = COALESCE(?, penalty_amount),
+                          penalty_basis = COALESCE(?, penalty_basis),
+                          capfree_decided_at_utc = ?, capfree_decided_by = ?
+                    WHERE ledger_key = ?`
+                ).bind(
+                  cfRoute,
+                  cfAuto ? "approved" : "pending",
+                  cfDesig || null,
+                  cfEvidence ? JSON.stringify(cfEvidence).slice(0, 4000) : null,
+                  cfAuto ? cfSet.settlement : null,
+                  cfAuto ? cfSet.settlement : null,
+                  cfAuto ? "retired_capfree_d2a_settlement" : null,
+                  cfAuto ? nowIso : null,
+                  cfAuto ? "auto:mfl_retired_flag" : null,
+                  ledgerKey
+                ).run();
+              }
             }
             written.push({
               pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
