@@ -1951,6 +1951,46 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           if (isTaxi) {
             return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
           }
+
+          // 1.4 UNSTAMPED CONTRACT — refuse to price it. NOT an exemption.
+          //
+          // MFL genuinely serves taxi/rookie players with every contract field
+          // blank: verified 2026-08-15 that Audric Estime, Ja'Lynn Polk, Shemar
+          // Stewart and Nic Scourton carried salary='' contractStatus=''
+          // contractInfo='' across all 37 daily snapshots, while Blake Watson
+          // sat blank until 2026-05-22 and was then stamped
+          // "CL 3| TCV 6K| AAV 2K". So blank means "nobody has stamped this
+          // yet", NOT "this contract is worth zero".
+          //
+          // Without this guard an unstamped NON-taxi contract parses to
+          // tcv=0/aav=null/cl=null and falls through to one of the sub-$5K or
+          // no_penalty_zero branches, emitting a confident $0 that is
+          // indistinguishable from a legitimately cap-free cut. That is exactly
+          // the fail-open shape this league has been burned by before: an
+          // unreadable input silently becoming a settled number.
+          //
+          // Every unstamped case on record today is ALSO taxi, so the taxi
+          // branch above already answers them correctly and this changes no
+          // current row. It is here so the first non-taxi one is caught rather
+          // than quietly written off.
+          const _ciBlank = !_s(contractInfo).trim();
+          const _csBlank = !_s(contractStatus).trim();
+          const _salBlank = !(Number(salary) > 0);
+          if (_ciBlank && _csBlank && _salBlank) {
+            return {
+              ...ctx,
+              penalty: 0,
+              basis: "contract_unstamped_needs_review",
+              exempt: false,
+              needs_review: true,
+              exempt_reason: "",
+              review_reason:
+                "MFL has no contract stamped for this player (salary, contractStatus and "
+                + "contractInfo are all empty), so a drop penalty cannot be computed. This is "
+                + "NOT a cap-free cut — it is an unpriced one. Stamp the contract in MFL and "
+                + "rescan, or price it by hand.",
+            };
+          }
           // 1.5 TAGGED player — cap-FREE to drop until the FA Auction drop
           // deadline (canon §C8 / Keith 2026-06-07: cutting a tagged player
           // before the auction resets them with no cap hit; the auction is the
