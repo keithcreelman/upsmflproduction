@@ -1973,10 +1973,17 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           // branch above already answers them correctly and this changes no
           // current row. It is here so the first non-taxi one is caught rather
           // than quietly written off.
+          // Keyed on contractInfo AND salary, deliberately NOT on
+          // contractStatus. A first pass required all three blank, which let a
+          // row with only a bare contractStatus ("Veteran", no salary, no
+          // contractInfo) fall through to no_penalty_zero and emit the same
+          // confident $0 -- the guard would have missed the very shape it
+          // exists for. MFL salaries on real contracts are never zero, so
+          // "no contractInfo AND no salary" is unstamped no matter what the
+          // status string says.
           const _ciBlank = !_s(contractInfo).trim();
-          const _csBlank = !_s(contractStatus).trim();
           const _salBlank = !(Number(salary) > 0);
-          if (_ciBlank && _csBlank && _salBlank) {
+          if (_ciBlank && _salBlank) {
             return {
               ...ctx,
               penalty: 0,
