@@ -150,10 +150,23 @@ TAG_RULES: Dict[str, List[TierRule]] = {
         # 16-24 AAV band, but eligibility is not capped at rank 24.
         TierRule(3, 16, None, 16, 24, "Avg Top 16-24 QB AAV"),
     ],
+    # RB Tier 2 is 5-12, NOT 5-8. The ratified tagging doc's own closing line
+    # reads "RB TIER II WAS MODIFIED TO REFLECT RBs 5-12 instead of the 5-8",
+    # and the 2025 calc (2025calc_tagtiers.csv + the published 2025 tier table)
+    # ran 5-12 / 13-31 correctly. The 2026 calc shipped 5-8 / 9-31 -- a
+    # regression against a rule already in force -- pushing RBs who finished
+    # 9th-12th into Tier 3. Live 2026 consequence: Travis Etienne (RB#10) was
+    # tagged at $19,000 off the T3 price when T2 was the correct tier.
+    #
+    # Corrected here for the 2027 calc onward (Keith 2026-08-14: "it's too late
+    # to change 2026 calculations but we definitely need to fix for '27").
+    # NOTE: re-running this script for tracking_for_season=2026 will now produce
+    # RB numbers that do NOT match the contracts actually stamped in MFL for
+    # 2026. That is expected -- 2026 stands as played.
     "RB": [
         TierRule(1, 1, 4, 1, 4, "Avg Top 1-4 RB AAV"),
-        TierRule(2, 5, 8, 5, 8, "Avg Top 5-8 RB AAV"),
-        TierRule(3, 9, None, 9, 31, "Avg Top 9-31 RB AAV"),
+        TierRule(2, 5, 12, 5, 12, "Avg Top 5-12 RB AAV"),
+        TierRule(3, 13, None, 13, 31, "Avg Top 13-31 RB AAV"),
     ],
     "WR": [
         TierRule(1, 1, 6, 1, 6, "Avg Top 1-6 WR AAV"),
@@ -724,11 +737,24 @@ def build_rows(
     tier_bid_map = build_tier_bid_map(week1_aav_by_pos)
     extension_lookup = load_extension_lookup(conn, season)
 
-    # Fallback for missing week 1 AAVs.
-    for c in candidates:
-        pid = safe_str(c["player_id"])
-        if pid and pid not in prior_aav_map and safe_int(c["aav"], 0) > 0:
-            prior_aav_map[pid] = safe_int(c["aav"], 0)
+    # NO fallback to the player's CURRENT aav for anyone missing from the
+    # deadline snapshot.
+    #
+    # The snapshot IS the baseline (Keith 2026-08-14). A player absent from it
+    # was not under contract at the deadline -- almost always a later waiver
+    # pickup -- and the ratified doc's rule 4.1 exists precisely to keep such a
+    # claim from setting a tag price ("AAV as of Contract Deadline is
+    # considered. Eliminating end of year Waiver Claims that are not
+    # representative of the actual market value"). Substituting their current
+    # AAV here re-imported the very number the snapshot was taken to exclude.
+    #
+    # Such players simply have no bump baseline, so the tier price governs --
+    # which is the stated intent: "WW guys ... their contracts would be based
+    # on 1K which means they'd never be above the minimum."
+    #
+    # This cuts BOTH ways, and that symmetry is the point (Keith's Kyler Murray
+    # precedent): a player carrying a big deadline AAV who is later dropped and
+    # re-signed cheap keeps the SNAPSHOT baseline, not the cheap late price.
 
     out = []
     for c in candidates:
@@ -749,8 +775,21 @@ def build_rows(
         rank_band = ""
         base_bid = 0
         prior_aav = safe_int(prior_aav_map.get(pid), 0)
-        salary_now = safe_int(c.get("salary"), 0)
-        bump_base = max(prior_aav, salary_now)
+        # Bump baseline is the DEADLINE SNAPSHOT AAV alone -- never the player's
+        # current salary. Doc rule 6 says the 10% bump is off "prior season's
+        # AAV", and rule 4.1 locks that AAV at the contract deadline.
+        #
+        # `max(prior_aav, salary_now)` defeated both: the snapshot correctly
+        # recorded Malik Willis at $2K (should_use_prior_aav substitutes a WW
+        # player's pre-claim value), and then salary_now reached past it and
+        # grabbed the $37K in-season waiver claim anyway -- tagging a backup QB
+        # at $41K off a $2K baseline.
+        #
+        # Symmetric by design (Keith's Kyler Murray precedent): a player whose
+        # deadline AAV was ~$35K, then dropped and re-signed for $8K late, keeps
+        # the $35K snapshot baseline. The snapshot is the source of truth in
+        # both directions.
+        bump_base = prior_aav
         bump_floor = round_up_1000(bump_base * 1.10) if bump_base > 0 else 0
         tag_bid = 0
         formula = ""
@@ -779,11 +818,28 @@ def build_rows(
             # UPS rulebook expectation: all expiring 1-year deals (including rookies) are valid tag options
             # unless excluded by prior tagging/special circumstances.
             # If a player falls outside tier ranks (or has no rank), we still need a non-zero tag salary.
+            # An unranked player is one the scoring data cannot place -- almost
+            # always someone who missed the whole season. Canon
+            # (league_context_v1.md:499) sets the fallback as "max(lowest-tier
+            # salary for the position, prior-season AAV x 1.10)". The positional
+            # floor was simply absent here: `max(1000, base)` used a flat $1,000
+            # regardless of position, so a player who sat out a full year became
+            # CHEAPER to tag than any ranked player at his position.
+            #
+            # Live 2026: Will Levis, 0 games, priced at $7,000 (110% of a $6,000
+            # salary) when the QB lowest-tier floor is $16,000. In superflex a
+            # startable QB at $7,000 rewards the player having not played.
+            # Confirmed by Keith 2026-08-14: "Levis sb 16K ... that is correct".
             used_fallback = True
-            base = bump_base if bump_base > 0 else safe_int(c.get("salary"), 0)
-            base_bid = max(1000, base)
+            lowest_tier_bid = 0
+            for _r in TAG_RULES.get(pos_group, []):
+                _b = safe_int(tier_bid_map.get((pos_group, _r.tier)), 0)
+                if _b > 0 and (lowest_tier_bid == 0 or _b < lowest_tier_bid):
+                    lowest_tier_bid = _b
+            base_bid = max(1000, lowest_tier_bid)
             tag_bid = max(base_bid, bump_floor)
-            formula = "Fallback: salary baseline"
+            formula = (f"Fallback: lowest {pos_group} tier salary"
+                       if lowest_tier_bid > 0 else "Fallback: minimum salary")
             if bump_floor > base_bid:
                 formula += " | 10% salary floor (rounded up)"
 
