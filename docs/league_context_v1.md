@@ -550,7 +550,37 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - **Taxi Squad (never *permanently* promoted):** 0% guarantee while on taxi. Cap-free cut. Temporary call-ups (≤3 weeks) do NOT trigger permanent promotion; the player can return to taxi and remain cap-free-cuttable. Permanent promotion (4th activation or explicit MYAC/extension/restructure) ends this — normal cut penalties apply going forward. See **B2** for the call-up budget rule.
 - **WW $5K+ in-season (UPDATED 2026-05-08):** Same 75% guarantee + per-week pro-rated earning as auction contracts (the old flat 35% WW penalty is RETIRED). The eligible-weeks denominator is `18 − pickup_week`. See Section 6.B for the canonical formula and D1 for an in-season worked example.
 - **Jail Bird Rule:** vague rule. Aaron Hernandez was the canonical case, but "released by NFL team" is NOT sufficient — players are released all the time. Commissioner discretion required for what qualifies as a "career derailed by legal case."
-- **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept.
+- **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept. **Subject to the §D2a loaded-contract settlement below** — "cap-free" means free of the *penalty*, not free of salary the owner never actually paid.
+
+#### D2a. Loaded-contract settlement on a cap-free exit (PASSED 2013-08-18 — restored to canon 2026-08-15)
+
+**The rule.** When a player leaves via a **cap-free / immunity** path (Retired, Jail Bird), the owner settles the gap between what the contract's **AAV** said the player was worth per year and what the owner **actually paid** over the years served:
+
+```
+settlement = (AAV × years served) − (salary actually paid over those years)
+```
+
+- **Back-loaded deal → the owner OWES the shortfall** (a positive cap charge).
+- **Front-loaded deal → the owner is OWED a CREDIT** (a negative cap adjustment).
+- **The settlement REPLACES the cut penalty; it does not stack on top of it.** Verbatim from the thread that passed it: *"He is not however assessed the 20% on top of this."* (The 20% era is over — today's §D1 75% guarantee is likewise **not** applied on a cap-free exit. The settlement is the whole charge.)
+
+**Keith's worked example (2026-08-15).** 2-year deal, TCV $40K, AAV $20K, Y1 $10K, Y2 $30K. Player retires after Year 1:
+- Paid: **$10,000**. AAV-earned: 1 × $20,000 = **$20,000**.
+- Settlement: $20,000 − $10,000 = **$10,000 owed.**
+- Retires after Year 2 instead: paid $40,000, earned $40,000 → **$0**. A contract played to term always settles to zero, by construction.
+
+**Original worked example (Tony Gonzalez, 2013).** $25K average on a 3-year back-load puts Y1 at $11K. Retirement after Y1 → *"the owner will be hit with a $14K cap hit in order to pay off his 1st yr salary"* ($25K − $11K). Confirms the formula exactly.
+
+**Why it exists.** Without it, back-loading is a way to *underpay* a player you already expect to retire, then walk away from the balance. The 2013 case was live and named: a franchise planned to give the soon-to-retire Gonzalez a 3-year back-loaded deal precisely to *"save at least $10k on cap"*. Loading is a legitimate cap tool (§D1 explicitly allows front-loading to satisfy the floor) — it just cannot be a discount.
+
+**Provenance.** Forumotion thread [t28 — salary cap penalities](https://upsdynastycap.forumotion.com/t28-salary-cap-penalities). Proposed by Raining Bullets 2013-08-05 (*"the recent loophole that was fixed in regards to backloaded contracts should be applied to players who are granted immunity for retirement/jail bird"*), seconded by Blake Bombers 2013-08-06, confirmed passed 2013-08-18: *"This rule was passed so that the loophole w. front/backloads were closed."*
+
+> **⚠️ NOT YET IMPLEMENTED ANYWHERE.** Verified 2026-08-15: no settlement logic exists in `computeDropPenalty()`, `worker/src/lib/cap_penalty.js`, or any ETL script, and this rule was absent from canon entirely. Every cap-free retirement since has settled at $0 regardless of loading. Restoring it to canon does not make it live.
+
+> **Two open questions before this is coded:**
+> 1. **Scope.** The 2013 text names *retirement / jail bird* immunity. Does the settlement also apply to the other §D2 cap-free categories (taxi-squad cuts, sub-$5K 1-year deals)? Those are structurally different — a taxi player has no meaningful AAV story — so canon reads them as **out of scope** until stated otherwise.
+> 2. **Is the front-loaded credit really symmetric?** The passed motion says "front/backloads" (both), and the discussion proposed a mirrored bonus. But a credit *pays* an owner for a player who retired, which is more generous than the problem being solved. Confirm the credit direction is wanted, or restrict §D2a to the back-loaded shortfall only.
+
 - **Tier-1 Retired (Calvin Johnson Rule):** Compensation pick awarded when a player retires meeting tier-1 criteria.
   - **Eligibility:** Player must be (1) under contract AND on a roster at retirement, (2) not PK or PN, (3) most recently completed season qualified as **"Tier 1"** at their position. **"Tier 1" definitions align with the Tag Tier Calcs** (see C8 / T3.5):
     - QB Tier 1 = top 1–5 by AAV
