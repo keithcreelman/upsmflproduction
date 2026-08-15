@@ -2188,11 +2188,46 @@
       ? '<img class="ups-m-sheet-photo" src="' + U.escapeHtml(photoUrl) + '" alt="' + U.escapeHtml(name || pid) + '" onerror="' + photoOnError + '">'
       : '<div class="ups-m-sheet-photo-placeholder"></div>';
 
+    // NFL designation chip, right beside the name (Keith 2026-08-15: "make him
+    // stand out more with a red S or something ... do the same with any injury
+    // designation (Q, Out, whatever)"). The sheet previously showed NOTHING
+    // here, so a suspended player looked identical to a healthy one — which is
+    // precisely how James Pearce's suspension went unnoticed.
+    //
+    // Severity drives the colour, not the letter: OUT / IR / IR-PUP / IR-NFI /
+    // SUSPENDED / RETIRED are red, DOUBTFUL amber, QUESTIONABLE yellow, and
+    // HOLDOUT its own tone (a contract dispute, not an injury).
+    //
+    // An absent designation renders NOTHING rather than a "healthy" chip: the
+    // feed can be unreadable, and a clean bill of health we did not earn is a
+    // lie. irEligibilityFor returns known:false in that case and we stay quiet.
+    var injChip = "";
+    (function () {
+      if (!DATA.irEligibilityFor) return;
+      var e = DATA.irEligibilityFor(pid);
+      if (!e || !e.known) return;
+      var d = U.safeStr(e.designation).toUpperCase();
+      if (!d) return;
+      var short = d === "QUESTIONABLE" ? "Q"
+                : d === "DOUBTFUL" ? "D"
+                : d === "OUT" ? "OUT"
+                : d.indexOf("SUSPEND") === 0 ? "S"
+                : d === "RETIRED" ? "RET"
+                : d.indexOf("HOLDOUT") === 0 ? "HO"
+                : d;                        // IR, IR-PUP, IR-NFI pass through
+      var sev = (d === "QUESTIONABLE") ? "q"
+              : (d === "DOUBTFUL") ? "d"
+              : (d.indexOf("HOLDOUT") === 0) ? "ho"
+              : "out";                      // everything else is the red tier
+      injChip = '<span class="ups-m-inj-chip ' + sev + '" title="' +
+                U.escapeHtml("NFL status: " + d) + '">' + U.escapeHtml(short) + '</span>';
+    })();
+
     head.innerHTML =
       '<div class="ups-m-sheet-head-row">' +
         photoHtml +
         '<div class="ups-m-sheet-head-text">' +
-          '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + '</div>' +
+          '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + injChip + '</div>' +
           '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
         '</div>' +
       '</div>';
