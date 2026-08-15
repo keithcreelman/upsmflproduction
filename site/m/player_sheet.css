@@ -513,3 +513,26 @@
   min-height: 32px;
   line-height: 32px;
 }
+
+/* NFL designation chip beside the player name on the sheet header.
+   Severity-coloured, not letter-coloured: OUT / IR / IR-PUP / IR-NFI /
+   SUSPENDED / RETIRED share the red tier because they all mean "not playing".
+   Rendered only when the injuries feed actually READ — absence of a chip means
+   "no designation or we couldn't tell", never "healthy". */
+.ups-m-inj-chip {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  line-height: 1.5;
+  vertical-align: middle;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.ups-m-inj-chip.out { color:#fecaca; background:rgba(220,38,38,.22); border-color:rgba(248,113,113,.55); }
+.ups-m-inj-chip.d   { color:#fed7aa; background:rgba(234,88,12,.20);  border-color:rgba(251,146,60,.50); }
+.ups-m-inj-chip.q   { color:#fde68a; background:rgba(202,138,4,.20);  border-color:rgba(250,204,21,.45); }
+.ups-m-inj-chip.ho  { color:#bfdbfe; background:rgba(37,99,235,.20);  border-color:rgba(96,165,250,.45); }

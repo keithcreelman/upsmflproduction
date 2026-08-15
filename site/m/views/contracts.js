@@ -300,6 +300,49 @@
       items.push({ icon: p.icon, href: "#myteam/contracts/" + p.key, text: text, sub: p.sub });
     });
 
+    // IR-eligible (canon §B3). Surfaced here because IR is worth real money —
+    // 50% cap relief, and the player comes off the active-roster max — and an
+    // owner has no reason to go hunting for it. The action itself lives on the
+    // player sheet ("Place on IR"); this alert only points at the list.
+    //
+    // NO FAIL-OPEN on the feed. DATA.irEligibilityFor returns { known, ... },
+    // and `known` is false when MFL's injuries export did not read. An
+    // unreadable feed must NOT render as "0 eligible" — that is exactly the bug
+    // that kept this bucket silently empty (the export was fetched with L=,
+    // which MFL rejects, decoding to an empty list). When we cannot tell, say
+    // so rather than show a count we did not earn.
+    (function () {
+      var roster = DATA.getRosterFor(fid) || [];
+      if (!roster.length || !DATA.irEligibilityFor) return;
+      var feed = DATA.injuryFeedState ? DATA.injuryFeedState() : null;
+      if (feed && feed.ok === false) {
+        items.push({
+          icon: ic("alert-triangle"),
+          href: "#myteam/ir",
+          text: "IR eligibility unavailable",
+          sub: "Couldn't read MFL's injury report — not the same as nobody being eligible"
+        });
+        return;
+      }
+      var n = 0;
+      for (var i = 0; i < roster.length; i += 1) {
+        var r = roster[i] || {};
+        var st = U.safeStr(r.status).toUpperCase();
+        // Already on IR, or on taxi — neither is a candidate to option down.
+        if (st.indexOf("IR") !== -1 || st.indexOf("INJURED") !== -1 ||
+            st.indexOf("RESERVE") !== -1 || st.indexOf("TAXI") !== -1) continue;
+        var e = DATA.irEligibilityFor(r.id);
+        if (e && e.known && e.eligible) n += 1;
+      }
+      if (!n) return;
+      items.push({
+        icon: ic("heart-pulse"),
+        href: "#myteam/ir",
+        text: n + " player" + (n > 1 ? "s" : "") + " can go on IR",
+        sub: "50% cap relief · off the active-roster max · reversible"
+      });
+    })();
+
     // Cap compliance.
     var cap = DATA.computeCap(fid);
     if (cap && U.safeInt(cap.capRoom, 0) < 0) {
