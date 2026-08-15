@@ -736,7 +736,7 @@
         ctx =
           usedLine +
           "\n⚠ This will be call-up #" + aboutToBeNth + " of a " + max + "-call-up budget." +
-          "\nLeague rule §B2: 4th call-up = PERMANENT PROMOTION." +
+          "\n4th call-up = PERMANENT PROMOTION." +
           "\nPlayer will no longer be cap-free cut after this NFL week locks.";
       } else {
         ctx =
@@ -870,7 +870,7 @@
       window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + err, "err");
       if (code === "IR_NOT_ELIGIBLE" || code === "IR_ELIGIBILITY_UNKNOWN") {
         window.alert(
-          (code === "IR_NOT_ELIGIBLE" ? "Not IR-eligible (league rule §B3)" : "IR eligibility couldn't be verified") +
+          (code === "IR_NOT_ELIGIBLE" ? "Not IR-eligible" : "IR eligibility couldn't be verified") +
           "\n\n" + err + "\n\nNothing was written to MFL.");
       }
     }).catch(function (err) {

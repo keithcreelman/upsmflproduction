@@ -1059,7 +1059,7 @@
   function taxiAction(action, pid, name) {
     var verb = action === "promote_taxi" ? "Promote" : "Demote";
     var msg = action === "promote_taxi"
-      ? "Promote " + name + " to your active roster?\n\nLeague rule §B2: each taxi player gets 3 call-ups; the 4th makes the promotion PERMANENT (no longer cap-free to cut). Demoting before the next NFL week locks does not burn a call-up."
+      ? "Promote " + name + " to your active roster?\n\nEach taxi player gets 3 call-ups; the 4th makes the promotion PERMANENT (no longer cap-free to cut). Demoting before the next NFL week locks does not burn a call-up."
       : "Send " + name + " to your taxi squad?\n\nTaxi salary is off-cap. Demoting before the next NFL week locks does not burn a call-up.";
     if (!window.confirm(msg)) return;
     STATE.taxiBusy = pid; STATE.message = null; rerender();

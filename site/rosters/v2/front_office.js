@@ -1632,7 +1632,7 @@
       salary: salaryToSend,
       year1_salary: salaryToSend,
       synthesized: true,
-      sourceNote: "Synthesized client-side per league rule §C4.6"
+      sourceNote: "Synthesized client-side"
     };
   }
   function synthesizedExtensionOptionsForPlayer(p) {
@@ -3145,7 +3145,7 @@
   // this text omitted it and would have told an owner their holdout was
   // ineligible while the server happily accepted him.
   const IR_ELIGIBLE_DESIGNATIONS_NOTE =
-    "League rule §B3 allows IR / IR-PUP / IR-NFI / suspended / holdout / COVID.";
+    "Eligible designations: IR / IR-PUP / IR-NFI / suspended / holdout / COVID.";
   function foIrDesignationEligible(desig) {
     var s = safeStr(desig).toUpperCase();
     return s.indexOf("IR") === 0        // IR, IR-PUP, IR-NFI
@@ -3485,7 +3485,7 @@
     overlay.innerHTML = '<div class="fo-adj-popup" role="dialog" aria-label="Cap adjustments">' +
       '<div class="fo-adj-head"><span>Cap Adjustments</span><button type="button" class="fo-adj-close" aria-label="Close">×</button></div>' +
       '<div class="fo-adj-body">' + inner + "</div>" +
-      '<div class="fo-adj-foot">Drop / Trade / Other from MFL’s salaryAdjustments feed. Drop penalties round to the nearest $1K by team total (league rule §6); the rounding true-up posts to MFL at the Auction Cut Deadline. Penalties from drops on or after the FA Auction start belong to the FOLLOWING season (league rule §6 penalty timing) and stay off MFL until the rollover.</div></div>';
+      '<div class="fo-adj-foot">Drop / Trade / Other from MFL’s salaryAdjustments feed. Drop penalties round to the nearest $1K by team total; the rounding true-up posts to MFL at the Auction Cut Deadline. Penalties from drops on or after the FA Auction start belong to the FOLLOWING season and stay off MFL until the rollover.</div></div>';
     overlay.addEventListener("click", function (e) {
       if (e.target === overlay || (e.target.classList && e.target.classList.contains("fo-adj-close"))) {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -4564,7 +4564,7 @@
         irHelpNote = ' <strong>Place on IR</strong> is disabled — no IR-eligible NFL designation. ' +
           escapeHtml(irElig.why + " " + IR_ELIGIBLE_DESIGNATIONS_NOTE);
       } else if (irElig.state === "eligible") {
-        const irTip = escapeHtml('MFL lists "' + irElig.designation + '" — IR-eligible under league rule §B3.');
+        const irTip = escapeHtml('MFL lists "' + irElig.designation + '" — IR-eligible.');
         moveBtns.push(`<button class="btn small" data-action="deactivate-ir" title="${irTip}">Place on IR</button>`);
         irHelpNote = ' <strong>Place on IR</strong> — MFL lists "' + escapeHtml(irElig.designation) +
           '", an IR-eligible designation (§B3). 50% cap relief; off the active roster max; reversible via IR Activate.';
@@ -5044,7 +5044,7 @@
     // Canon §C4.3/§C4.6: each extension year must be ≥ 20% of the extension TCV.
     const minExtYear = Math.max(1000, Math.ceil(extensionTotal * 0.2 / 1000) * 1000);
     if (y2 < minExtYear || y3 < minExtYear) {
-      flashToast("League rule §C4.3: each extension year must be ≥ 20% of the total (" + fmtUSD(minExtYear) + "). Y2=" + fmtUSD(y2) + ", Y3=" + fmtUSD(y3) + ".", "err");
+      flashToast("Each extension year must be ≥ 20% of the total (" + fmtUSD(minExtYear) + "). Y2=" + fmtUSD(y2) + ", Y3=" + fmtUSD(y3) + ".", "err");
       return;
     }
     const suffix = y2 > y3 ? "-FL" : y2 < y3 ? "-BL" : "";
@@ -8192,7 +8192,7 @@
     if (action === "deactivate_ir") {
       const irElig = foIrEligibility(p.id);
       const irHalf = Math.round(safeInt(p.salary, 0) / 2);
-      extra = "\n\nLeague rule §B3 — while on IR:" +
+      extra = "\n\nWhile on IR:" +
         "\n  • 50% cap relief" +
         (safeInt(p.salary, 0) > 0
           ? " — cap hit goes " + fmtUSD(p.salary) + " → " + fmtUSD(irHalf)
@@ -8213,9 +8213,9 @@
       const pending = safeInt(p.taxiCallupsPending, 0);
       const nth = used + pending + 1;
       extra = nth >= max + 1
-        ? "\n\n⚠ Call-up #" + nth + " of a 3-call-up budget. League rule §B2: 4th call-up = PERMANENT PROMOTION."
+        ? "\n\n⚠ Call-up #" + nth + " of a 3-call-up budget. 4th call-up = PERMANENT PROMOTION."
         : "\n\nCall-ups used: " + used + " of " + max + (pending ? " (+" + pending + " pending)" : "") +
-          "\nLeague rule §B2: each NFL week active on roster burns 1 call-up.";
+          "\nEach NFL week active on roster burns 1 call-up.";
     }
     if (!window.confirm("Confirm " + verb + " for " + p.name + "?" + extra)) return;
 
@@ -9230,8 +9230,8 @@
     }).join("");
     const isProjected = projYear > (safeInt(SEASON, 0) || 0);
     const hint = isProjected
-      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, league rule §C8. <strong>Tier assignment</strong> ranks each player by their ' + safeInt(SEASON, 0) + ' points scored so far this season (falls back to the AAV rank used below when a player has no points data yet — rookies, sparse IDP samples, or before this loads). <strong>Tier pricing</strong> stays AAV-only — the average AAV of the players currently under contract in that rank band — so it shifts as rosters change and settles once the ' + projYear + ' contract deadline freezes contracts for the season. <strong>Already-tagged players are excluded</strong> — once tagged, a player can’t be re-tagged; they must go to the FA auction (a drop before that auction resets them, since they re-enter the auction).'
-      : '💡 <strong>' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, league rule §C8 AAV-only — this cycle\'s tiers (source season ' + escapeHtml(String(m.season || "?")) + ').';
+      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, <strong>Tier assignment</strong> ranks each player by their ' + safeInt(SEASON, 0) + ' points scored so far this season (falls back to the AAV rank used below when a player has no points data yet — rookies, sparse IDP samples, or before this loads). <strong>Tier pricing</strong> stays AAV-only — the average AAV of the players currently under contract in that rank band — so it shifts as rosters change and settles once the ' + projYear + ' contract deadline freezes contracts for the season. <strong>Already-tagged players are excluded</strong> — once tagged, a player can’t be re-tagged; they must go to the FA auction (a drop before that auction resets them, since they re-enter the auction).'
+      : '💡 <strong>' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, AAV-only — this cycle\'s tiers (source season ' + escapeHtml(String(m.season || "?")) + ').';
     const staleness = isProjected
       ? (STATE.tagPointsDataError
           ? '<p class="fo-row-hint" style="color:var(--err);">⚠ ' + escapeHtml(STATE.tagPointsDataError) + ' — Tier assignment is running on the AAV-only fallback until this loads.</p>'
