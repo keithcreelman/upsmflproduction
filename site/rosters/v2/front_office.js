@@ -8693,7 +8693,20 @@
         const lo = safeInt(t.rank_min, 0) || 1, hi = safeInt(t.rank_max, 0) || lo;
         const band = ranked.filter(function (pl) { return pl.rank >= lo && pl.rank <= hi; });
         const sum = band.reduce(function (s, pl) { return s + pl.aav; }, 0);
-        const bid = band.length ? Math.round(sum / band.length / 1000) * 1000 : 0;
+        // ROUND UP to $1K, not to nearest. This is the third implementation of
+        // the tier-band average, and it was the only one rounding to nearest:
+        //   build_tag_tracking.py  avg_values()             -> round_up_1000 (ceil)
+        //   roster_workbench.js    projectedTagCalcBreakdown -> Math.ceil
+        //   front_office.js        (here)                    -> Math.round  <-- odd one out
+        // The Python path is the one that actually STAMPS contracts, so an
+        // owner reading this screen was shown a tier price up to $1K below what
+        // the calc would charge (Keith 2026-08-15, live: RB T2 read $33,000
+        // here off a $33,250 mean, while the pipeline would stamp $34,000; RB
+        // T3 read $19,000 off a $19,087 mean vs a stamped $20,000).
+        // "rounded up to $1K" is also the convention canon states throughout,
+        // and round-up reproduces the published 2025 tier table better than
+        // round-to-nearest does.
+        const bid = band.length ? Math.ceil(sum / band.length / 1000) * 1000 : 0;
         return { tier: t.tier, label: t.label, rank_min: lo, rank_max: hi, base_bid: bid, players: band };
       }) };
     });
