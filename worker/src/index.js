@@ -43722,6 +43722,283 @@ export default {
         auctionStartUnix: startUnix,
       });
 
+      // ── §D2a LOADED-CONTRACT SETTLEMENT ─────────────────────────────────────
+      // A rule the league PASSED 2013-08-18 and which has never existed in code:
+      // on a CAP-FREE exit (retirement / jail bird) the owner settles the gap
+      // between what the AAV said the player was worth per year and what they
+      // actually PAID over the years served.
+      //
+      //     settlement = (AAV × years served) − (salary actually paid)
+      //
+      // Back-loaded  -> positive  -> owner OWES the shortfall.
+      // Front-loaded -> negative  -> owner is OWED a CREDIT (Keith 2026-08-15:
+      //   "yes give them a credit if they paid more than they should ... if
+      //   they FL Gonzo then it would be a 10K credit").
+      // Played to term -> always exactly 0, by construction.
+      //
+      // This REPLACES the §D1 penalty on a cap-free exit; it does not stack.
+      // Verbatim from the thread that passed it: "He is not however assessed
+      // the 20% on top of this."
+      //
+      // Years served and salary-paid both come from the Y1..YN schedule already
+      // parsed out of contractInfo. cy = years REMAINING, so served = CL − cy.
+      // Returns known:false rather than a number whenever the inputs cannot
+      // support the math — NEVER a zero standing in for "we could not tell".
+      const _d2aSettlement = (row) => {
+        const aav = safeInt(row && row.pre_drop_aav, 0);
+        const cl = safeInt(row && row.pre_drop_contract_length, 0);
+        const cy = safeInt(row && row.pre_drop_contract_year, 0);
+        const paidToDate = safeInt(row && row.earned_to_date, 0);
+        if (aav <= 0) {
+          return { known: false, reason: "no pre_drop_aav on the row — cannot value a year of the deal" };
+        }
+        if (cl <= 0) {
+          return { known: false, reason: "no pre_drop_contract_length — cannot derive years served" };
+        }
+        const served = cl - cy;
+        if (served < 0) {
+          return { known: false, reason: `derived years-served is negative (CL ${cl} − cy ${cy})` };
+        }
+        // earned_to_date is the sum of the PAST year salaries (Y1..Y[served]),
+        // i.e. exactly "what the owner actually paid". A served>0 row with a
+        // zero paid figure is not a $0 contract, it is an unparsed schedule.
+        if (served > 0 && paidToDate <= 0) {
+          return { known: false, reason: `served ${served} year(s) but earned_to_date is 0 — the Y1..YN schedule did not parse` };
+        }
+        const owedForService = aav * served;
+        return {
+          known: true,
+          years_served: served,
+          aav,
+          owed_for_service: owedForService,
+          actually_paid: paidToDate,
+          settlement: owedForService - paidToDate,   // + owes, − credit
+        };
+      };
+
+      // ── Retirement evidence for one player ──────────────────────────────────
+      // Two legs, exactly as Keith specified 2026-08-15:
+      //   "if flagged by MFL it should be automatic ... if no MFL flag it
+      //    should query real sources and include those sources in the post
+      //    that I can approve."
+      //
+      // Leg 1 — MFL's own injuries export (status RETIRED). Authoritative for
+      //   AUTO-approval, but slow: verified 2026-08-15 that the flag arrives in
+      //   season-start batches ~6 months after the fact (Aaron Donald and
+      //   Fletcher Cox both retired March 2024, flagged 2024-09-09).
+      //   ⚠️ MUST be fetched with omitLeagueParam — `injuries` is league-agnostic
+      //   and sending L= is rejected, decoding to an empty list.
+      // Leg 2 — /api/player-news, which already aggregates Sleeper's structured
+      //   status plus PFR / ESPN / CBS / Reddit headlines WITH links. Evidence
+      //   only. Never auto-approves anything.
+      //
+      // NO FAIL-OPEN: a leg that cannot be read reports known:false and is
+      // rendered as "couldn't check", never as "not retired".
+      const _retirementEvidence = async (season, leagueId, playerId, origin) => {
+        const out = {
+          player_id: safeStr(playerId),
+          mfl: { known: false, retired: false, designation: "", error: "" },
+          sources: [],
+          sources_known: false,
+          sources_error: "",
+        };
+        try {
+          const res = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          if (res && res.ok) {
+            const root = res.data && res.data.injuries && res.data.injuries.injury;
+            const rows = Array.isArray(root) ? root : (root ? [root] : []);
+            // An empty league-wide read is NOT evidence about this player — it
+            // is the signature of the L= bug and of the preseason gap.
+            if (rows.length) {
+              const hit = rows.find((r) => safeStr(r && r.id) === safeStr(playerId));
+              out.mfl.known = true;
+              out.mfl.designation = safeStr(hit && hit.status).toUpperCase();
+              out.mfl.retired = out.mfl.designation === "RETIRED";
+            } else {
+              out.mfl.error = "injuries export returned zero rows league-wide";
+            }
+          } else {
+            out.mfl.error = `injuries export unreadable (status ${safeInt(res && res.status, 0)})`;
+          }
+        } catch (e) {
+          out.mfl.error = String((e && e.message) || e).slice(0, 160);
+        }
+
+        // Leg 2 runs even when MFL already says RETIRED — the evidence is worth
+        // recording on the row either way, and it costs one cached fetch.
+        try {
+          const nres = await fetch(
+            `${origin}/api/player-news?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&pids=${encodeURIComponent(playerId)}`,
+            { headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (nres.ok) {
+            const nj = await nres.json().catch(() => null);
+            const items = (nj && nj.items_by_pid && nj.items_by_pid[safeStr(playerId)]) || [];
+            out.sources_known = true;
+            const RETIRE_RE = /\bretir(e|es|ed|ing|ement)\b|\bhangs? (it|them) up\b|\bcalls? it a career\b/i;
+            for (const it of items) {
+              const head = safeStr(it && it.headline);
+              const body = safeStr(it && it.body);
+              const src = safeStr(it && it.source);
+              const hay = `${head} ${body}`;
+              if (!RETIRE_RE.test(hay)) continue;
+              out.sources.push({
+                source: src,
+                headline: head,
+                url: safeStr(it && it.url),
+                matched: "retirement language",
+              });
+            }
+          } else {
+            out.sources_error = `player-news HTTP ${nres.status}`;
+          }
+        } catch (e) {
+          out.sources_error = String((e && e.message) || e).slice(0, 160);
+        }
+
+        // The routing decision, stated once so every caller agrees.
+        //   auto    — MFL says RETIRED. Cap-free applies with no human step.
+        //   pending — MFL does not say RETIRED, but real sources do. Needs the
+        //             commish. Money is HELD until then.
+        //   none    — no retirement signal at all. Ordinary drop, ordinary
+        //             penalty, nothing stalls.
+        //   unknown — we could not read enough to say. Treated as `none` for
+        //             CHARGING (the normal penalty is the status quo, not a
+        //             windfall) but surfaced so it is never silent.
+        if (out.mfl.known && out.mfl.retired) out.route = "auto";
+        else if (out.sources.length) out.route = "pending";
+        else if (!out.mfl.known && !out.sources_known) out.route = "unknown";
+        else out.route = "none";
+        return out;
+      };
+
+      // ── GET /admin/drops/capfree-preview?L=&YEAR=[&PLAYER=] ─────────────────
+      // DRY RUN. Reads only. Shows, for every recorded drop, what the cap-free
+      // retirement review WOULD do and what §D2a WOULD settle — next to what
+      // the system does today — so the money is inspected before any of it is
+      // wired to the charge cron.
+      //
+      // Nothing here writes to D1 or MFL, and it does not depend on the new
+      // columns existing.
+      if (path === "/admin/drops/capfree-preview" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const cfSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const cfLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const cfOnlyPid = safeStr(url.searchParams.get("PLAYER") || "").replace(/\D/g, "");
+        const cfLimit = Math.max(1, Math.min(200, safeInt(url.searchParams.get("LIMIT"), 60)));
+        const cfOrigin = new URL(request.url).origin;
+
+        const sel = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name, position, franchise_id, franchise_name,
+                  dropped_at_iso, dropped_at_unix, pre_drop_aav, pre_drop_salary,
+                  pre_drop_tcv, pre_drop_contract_length, pre_drop_contract_year,
+                  pre_drop_contract_info, earned_to_date, penalty_amount,
+                  penalty_basis, penalty_exempt, posted_to_mfl, posted_amount
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ?
+            ORDER BY dropped_at_unix DESC
+            LIMIT ?`
+        ).bind(cfSeason, cfLeague, cfLimit).all();
+        const cfRows = ((sel && sel.results) || []).filter(
+          (r) => !cfOnlyPid || safeStr(r.player_id) === cfOnlyPid
+        );
+
+        // One injuries read for the whole batch rather than one per player.
+        let cfInj = { known: false, byPid: new Map(), error: "" };
+        try {
+          const ires = await mflExportJson(cfSeason, cfLeague, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          if (ires && ires.ok) {
+            const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
+            const irows = Array.isArray(root) ? root : (root ? [root] : []);
+            if (irows.length) {
+              cfInj.known = true;
+              for (const r of irows) cfInj.byPid.set(safeStr(r && r.id), safeStr(r && r.status).toUpperCase());
+            } else {
+              cfInj.error = "injuries export returned zero rows league-wide";
+            }
+          } else {
+            cfInj.error = `injuries export unreadable (status ${safeInt(ires && ires.status, 0)})`;
+          }
+        } catch (e) {
+          cfInj.error = String((e && e.message) || e).slice(0, 160);
+        }
+
+        const out = [];
+        for (const r of cfRows) {
+          const pid = safeStr(r.player_id);
+          const desig = cfInj.known ? safeStr(cfInj.byPid.get(pid) || "") : "";
+          const mflRetired = cfInj.known && desig === "RETIRED";
+
+          // Only players with a retirement signal are worth a news lookup, and
+          // only rows still carrying money are worth stalling over.
+          const carriesMoney = safeInt(r.penalty_amount, 0) !== 0 || safeInt(r.posted_to_mfl, 0) === 0;
+          let ev = null;
+          if (!mflRetired && carriesMoney) {
+            ev = await _retirementEvidence(cfSeason, cfLeague, pid, cfOrigin);
+          }
+          const route = mflRetired ? "auto" : (ev ? ev.route : "none");
+          const d2a = _d2aSettlement(r);
+
+          const todayAmount = safeInt(r.penalty_amount, 0);
+          let wouldCharge = todayAmount;
+          let wouldBasis = safeStr(r.penalty_basis);
+          if (route === "auto" || route === "pending") {
+            // §D2a REPLACES the §D1 penalty on a cap-free exit.
+            wouldCharge = d2a.known ? d2a.settlement : null;
+            wouldBasis = d2a.known
+              ? (mflRetired ? "retired_exempt_d2a_settlement" : "PENDING — d2a_settlement on approval")
+              : "BLOCKED — §D2a inputs unreadable";
+          }
+          out.push({
+            player_id: pid,
+            player_name: safeStr(r.player_name),
+            position: safeStr(r.position),
+            franchise: safeStr(r.franchise_name) || safeStr(r.franchise_id),
+            dropped_at_iso: safeStr(r.dropped_at_iso),
+            nfl_designation: desig || (cfInj.known ? "(none)" : "(unreadable)"),
+            route,
+            evidence: ev ? { sources: ev.sources, sources_known: ev.sources_known, sources_error: ev.sources_error, mfl: ev.mfl } : null,
+            today: {
+              penalty_amount: todayAmount,
+              penalty_basis: safeStr(r.penalty_basis),
+              posted_to_mfl: safeInt(r.posted_to_mfl, 0) === 1,
+              posted_amount: safeInt(r.posted_amount, 0),
+            },
+            would: {
+              charge: wouldCharge,
+              basis: wouldBasis,
+              held_from_charge_cron: route === "pending",
+              d2a: d2a,
+            },
+            delta: (wouldCharge == null) ? null : (wouldCharge - todayAmount),
+          });
+        }
+
+        const changed = out.filter((r) => r.delta !== 0 && r.delta !== null);
+        return jsonOut(200, {
+          ok: true,
+          dry_run: true,
+          season: cfSeason,
+          league_id: cfLeague,
+          note: "READ-ONLY. Nothing written to D1 or MFL. Shows what the cap-free "
+              + "retirement review and the §D2a settlement WOULD do versus today.",
+          injuries_feed: { known: cfInj.known, error: cfInj.error, rows_seen: cfInj.byPid.size },
+          counts: {
+            rows_examined: out.length,
+            route_auto: out.filter((r) => r.route === "auto").length,
+            route_pending: out.filter((r) => r.route === "pending").length,
+            route_none: out.filter((r) => r.route === "none").length,
+            route_unknown: out.filter((r) => r.route === "unknown").length,
+            would_be_held: out.filter((r) => r.would.held_from_charge_cron).length,
+            d2a_unreadable: out.filter((r) => (r.route === "auto" || r.route === "pending") && !r.would.d2a.known).length,
+            money_changes: changed.length,
+          },
+          money_delta_total: changed.reduce((a, r) => a + (r.delta || 0), 0),
+          rows: out,
+        });
+      }
+
       // GET /admin/drops/cap-season-preview?L=&YEAR=
       // READ-ONLY dry run for the cap-year bucketing. Shows, for every priced
       // drop this season: when it happened, which cap year canon puts it on,
