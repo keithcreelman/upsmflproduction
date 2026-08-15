@@ -50518,11 +50518,11 @@ export default {
                 ? [
                     `🏥 **${irName}** placed on **Injured Reserve** by ${irTeam}`,
                     reason ? `NFL status: **${reason}**` : "",
-                    "50% cap relief while on IR · does not count against the active-roster max · reversible (canon §B3).",
+                    "50% cap relief while on IR · does not count against the active-roster max · reversible (league rule §B3).",
                   ]
                 : [
                     `💪 **${irName}** activated **off IR** by ${irTeam}`,
-                    "Back on the active roster — full salary counts against the cap again (canon §B3).",
+                    "Back on the active roster — full salary counts against the cap again (league rule §B3).",
                   ];
               const content = lines.filter(Boolean).join("\n") + (irGif ? `\n${irGif}` : "");
               const sent = await discordBotRequest(irBot, "POST",
