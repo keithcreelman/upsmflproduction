@@ -49713,7 +49713,7 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id/L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season/YEAR" });
         if (!playerId) return jsonOut(400, { ok: false, error: "Missing player_id" });
-        const isImportRosterAction = action === "promote_taxi" || action === "activate_ir" || action === "drop_player" || action === "demote_taxi";
+        const isImportRosterAction = action === "promote_taxi" || action === "activate_ir" || action === "deactivate_ir" || action === "drop_player" || action === "demote_taxi";
         const isMembershipRosterAction = action === "load_player" || action === "unload_player";
 
         if (!isImportRosterAction && !isMembershipRosterAction) {
@@ -49798,6 +49798,81 @@ export default {
         // last 4 seasons of draftResults for the draft round. If we can't
         // conclusively determine round, we allow the action (fail-open) so
         // legitimate demotes of older rookies aren't blocked by a bad lookup.
+        // ── §B3 IR eligibility, enforced SERVER-SIDE ─────────────────────────
+        // Same lesson as demote_taxi below and the FCFS write above: a gate that
+        // lives only in the client is not a gate. Canon §B3 / T2.1 -- IR is for
+        // a player holding an NFL IR-type designation (IR / PUP / NFI /
+        // suspended / COVID legacy). IR carries 50% cap relief
+        // (MFL `includeIRWithSalary=50`) and takes the player off the active
+        // roster max, so an ineligible IR placement is a real cap advantage.
+        //
+        // NO FAIL-OPEN: if MFL's injuries export cannot be read we refuse rather
+        // than treat "unreadable" as "no designation" OR as "eligible".
+        //
+        // ⚠️ `injuries` is one of MFL's LEAGUE-AGNOSTIC exports -- sending L= gets
+        // the whole request rejected with "Invalid request. This API request must
+        // go to api.myfantasyleague.com", which decodes to an EMPTY injury list.
+        // omitLeagueParam is therefore mandatory, not optional. This is the same
+        // trap that broke /api/hot-cold (topAdds/topDrops, PR #868), and it is
+        // currently breaking mobile's IR view, whose fetchInjuries() sends L= and
+        // then .catch()es to {} -- so every player reads as "no designation".
+        // Verified live 2026-08-15: with L= -> 0 rows; without L= -> 339 rows.
+        if (action === "deactivate_ir") {
+          const irRes = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          const irOvRaw = String((body && body.override_ir_eligibility) != null ? body.override_ir_eligibility : "").toLowerCase();
+          const irOverrideOk = sessionByApiKey && (irOvRaw === "true" || irOvRaw === "1" || irOvRaw === "yes");
+          if (!irRes || !irRes.ok) {
+            if (!irOverrideOk) {
+              return jsonOut(502, {
+                ok: false,
+                code: "IR_ELIGIBILITY_UNKNOWN",
+                error: "Could not read MFL's injury report, so IR eligibility could not be verified. Nothing was written. "
+                     + "The commissioner can override.",
+                player_id: playerId,
+                franchise_id: franchiseId,
+                mfl_status: safeInt(irRes && irRes.status, 0),
+              });
+            }
+          } else {
+            const irRoot = irRes.data && irRes.data.injuries && irRes.data.injuries.injury;
+            const irRows = Array.isArray(irRoot) ? irRoot : (irRoot ? [irRoot] : []);
+            const hit = irRows.find((r) => safeStr(r && r.id) === playerId);
+            const desig = safeStr(hit && hit.status).toUpperCase();
+            // Matched against the values MFL ACTUALLY sends. Observed live
+            // 2026-08-15 across 339 rows: IR (32), IR-PUP (2), IR-NFI (1),
+            // Suspended (8), Holdout (2), RETIRED (19), Questionable (234),
+            // Out (41).
+            //
+            // The predicate in site/m/views/contracts.js irEligible() tests
+            // `s === "PUP"` / `s === "NFI"`, which NEVER match because MFL
+            // prefixes them: the real strings are "IR-PUP" / "IR-NFI". It also
+            // has no HOLDOUT branch though canon T2.1 lists holdouts explicitly.
+            // Fixed here; that client predicate needs the same correction.
+            //
+            // RETIRED is deliberately NOT eligible -- canon D2 handles retirees
+            // separately ("Retired Players Rule: retired = cap-free cut"), which
+            // is a different mechanic from IR's 50% relief.
+            const eligible = desig.indexOf("IR") === 0        // IR, IR-PUP, IR-NFI
+                          || desig.indexOf("SUSPEND") === 0   // Suspended
+                          || desig.indexOf("HOLDOUT") === 0   // canon T2.1
+                          || desig.indexOf("COVID") >= 0;     // legacy §B3
+            if (!eligible && !irOverrideOk) {
+              return jsonOut(400, {
+                ok: false,
+                code: "IR_NOT_ELIGIBLE",
+                error: desig
+                  ? `${playerId} holds NFL designation "${desig}", which is not IR-eligible under canon §B3 (IR / PUP / NFI / suspended / COVID).`
+                  : "This player is not on MFL's NFL injury report, so they hold no IR-eligible designation "
+                    + "(canon §B3 / T2.1: IR, IR-PUP, IR-NFI, Suspended, Holdout, COVID). The commissioner can override.",
+                player_id: playerId,
+                franchise_id: franchiseId,
+                nfl_designation: desig,
+                injury_rows_seen: irRows.length,
+              });
+            }
+          }
+        }
+
         if (action === "demote_taxi") {
           const r1Gate = await _checkR1RookieDemoteGate(season, leagueId, playerId);
           if (r1Gate.isR1Rookie) {
@@ -49969,11 +50044,15 @@ export default {
         }
 
         const importFields = {
-          TYPE: action === "activate_ir" ? "ir" : "taxi_squad",
+          TYPE: (action === "activate_ir" || action === "deactivate_ir") ? "ir" : "taxi_squad",
           L: leagueId,
         };
         if (action === "activate_ir") {
           importFields.ACTIVATE = playerId;
+        } else if (action === "deactivate_ir") {
+          // MFL_IMPORT_EXPORT_DETAILED.md ~623: DEACTIVATE = "move from Active
+          // Roster to Injured Reserve". Same TYPE=ir import as ACTIVATE.
+          importFields.DEACTIVATE = playerId;
         } else if (action === "drop_player") {
           importFields.DROP = playerId;
         } else if (action === "demote_taxi") {
@@ -50078,6 +50157,8 @@ export default {
             const status = safeStr(located.status);
             const expectedOk = action === "activate_ir"
               ? !status.includes("IR")
+              : action === "deactivate_ir"
+              ? status.includes("IR")
               : (action === "demote_taxi" ? status.includes("TAXI") : !status.includes("TAXI"));
             verification = {
               ok: expectedOk,
@@ -50199,6 +50280,8 @@ export default {
           taxiCallupRecord && taxiCallupRecord.became_permanent;
         const successMessage = action === "activate_ir"
           ? "Player activated from IR in MFL."
+          : action === "deactivate_ir"
+          ? "Player placed on IR in MFL (§B3: 50% cap relief, off the active roster max)."
           : (action === "drop_player"
             ? "Player dropped in MFL."
             : (action === "demote_taxi"
