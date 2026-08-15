@@ -5664,6 +5664,34 @@ export default {
                 const postData = await postRes.json().catch(() => ({}));
                 postedCount = Number(postData?.posted_count) || 0;
               }
+
+              // Cap-free review notifications. Announces newly-pending drops
+              // and re-DMs the commish every 24h while any stay undecided
+              // (Keith 2026-08-15: "I will respond but resurface every 24 hours
+              // to me directly"). The route is idempotent and self-throttling —
+              // capfree_thread_message_id stops double-announcing and
+              // capfree_last_nudge_utc enforces the 24h gap — so it is safe on
+              // this 5-minute tick. Best-effort: a Discord failure must never
+              // stop the drop pipeline, and no money depends on it (the charge
+              // cron holds pending rows on its own).
+              let capfreeNotified = 0;
+              try {
+                const cfRes = await env.SELF.fetch(
+                  `${origin}/admin/drops/capfree-notify?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ season, league_id: leagueId }),
+                  }
+                );
+                const cfData = await cfRes.json().catch(() => ({}));
+                capfreeNotified = Number((cfData?.announced || []).length) || 0;
+                if (Array.isArray(cfData?.errors) && cfData.errors.length) {
+                  console.warn("[scheduled] capfree-notify reported errors:", JSON.stringify(cfData.errors).slice(0, 400));
+                }
+              } catch (e) {
+                console.warn("[scheduled] capfree-notify failed:", (e && e.message) || e);
+              }
               // MFL half — post computed penalties to MFL salaryAdjustments.
               // Gated behind its own flag (real cap write) so it's opt-in.
               let mflPostedCount = 0;
@@ -43940,6 +43968,178 @@ export default {
         else out.route = "none";
         return out;
       };
+
+      // ── POST /admin/drops/capfree-notify ────────────────────────────────────
+      // The visible half. Two jobs, both idempotent:
+      //
+      //   1. ANNOUNCE  — a pending row that has never been announced gets a
+      //      Discord post in the transactions channel: the header Keith asked
+      //      for ("CAP FREE CUT CONFIRMATION PENDING COMMISH APPROVAL"), the
+      //      §D2a number that would apply, and the actual SOURCES with links.
+      //      capfree_thread_message_id is the record that it went out, so a
+      //      re-run cannot double-post.
+      //
+      //   2. NUDGE     — anything still pending 24h after its last nudge gets a
+      //      DM to the commish (Keith 2026-08-15: "I will respond but resurface
+      //      every 24 hours to me directly"). One DM listing everything
+      //      outstanding, not one per row.
+      //
+      // Safe to call on a schedule. Called with dry_run to see what WOULD be
+      // sent without sending it.
+      if (path === "/admin/drops/capfree-notify" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let cnBody = {};
+        try { cnBody = (await request.json()) || {}; } catch (_) { cnBody = {}; }
+        const cnSeason = safeStr(cnBody.season || url.searchParams.get("YEAR") || YEAR || "2026");
+        const cnLeague = safeStr(cnBody.league_id || url.searchParams.get("L") || L || "74598");
+        const cnDry = _wvTruthy(cnBody.dry_run) || _wvTruthy(url.searchParams.get("dry_run"));
+        const cnNudgeHours = Math.max(1, safeInt(cnBody.nudge_hours, 24));
+
+        const cnCols = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        if (!cnCols) {
+          return jsonOut(409, {
+            ok: false, error: "capfree_columns_missing",
+            message: "Migration 0127 is not applied on this D1 yet — there is nothing to notify about.",
+          });
+        }
+
+        const cnPending = ((await env.UPS_MFL_DB.prepare(
+          `SELECT id, player_id, player_name, position, franchise_id, franchise_name,
+                  dropped_at_iso, penalty_amount, pre_drop_aav, pre_drop_contract_length,
+                  pre_drop_contract_year, earned_to_date, capfree_evidence_json,
+                  capfree_mfl_designation, capfree_thread_message_id, capfree_last_nudge_utc
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ?
+              AND COALESCE(capfree_review_status,'') = 'pending'
+              AND posted_to_mfl = 0
+            ORDER BY dropped_at_unix ASC`
+        ).bind(cnSeason, cnLeague).all())?.results) || [];
+
+        const cnBot = contractDiscordBotToken();
+        const cnChannel = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "").replace(/\D/g, "");
+        const cnAnnounced = [];
+        const cnNudged = [];
+        const cnErrors = [];
+
+        // ── 1. Announce ──────────────────────────────────────────────────────
+        for (const r of cnPending) {
+          if (safeStr(r.capfree_thread_message_id)) continue;   // already announced
+          const set = _d2aSettlement(r);
+          let sources = [];
+          try { sources = JSON.parse(safeStr(r.capfree_evidence_json) || "[]") || []; } catch (_) { sources = []; }
+          const money = set.known
+            ? (set.settlement > 0
+                ? `**$${set.settlement.toLocaleString()} owed** — back-loaded, the owner underpaid by that much`
+                : set.settlement < 0
+                  ? `**$${Math.abs(set.settlement).toLocaleString()} CREDIT** — front-loaded, the owner overpaid`
+                  : "**$0** — the contract was played to term")
+            : `**cannot be computed** — ${set.reason}`;
+          const lines = [
+            "🛑 **CAP FREE CUT CONFIRMATION PENDING COMMISH APPROVAL**",
+            "",
+            `**${safeStr(r.player_name)}** (${safeStr(r.position) || "?"}) — ${safeStr(r.franchise_name) || safeStr(r.franchise_id)}`,
+            `Dropped ${safeStr(r.dropped_at_iso).slice(0, 10)}`,
+            "",
+            `MFL injury report says: **${safeStr(r.capfree_mfl_designation) || "nothing"}** — so this is **not** auto-approved.`,
+            "",
+            `If APPROVED (cap-free, canon §D2a settlement): ${money}`,
+            `If DENIED (normal §D1 penalty): **$${safeInt(r.penalty_amount, 0).toLocaleString()}**`,
+            "",
+            sources.length ? "**Sources reporting retirement:**" : "_No retirement reporting found — approving would rest on the commish's own knowledge._",
+            ...sources.slice(0, 5).map((s) => `• [${safeStr(s.source)}] ${safeStr(s.headline)}${safeStr(s.url) ? `\n<${safeStr(s.url)}>` : ""}`),
+            "",
+            "_No money moves until this is decided — the charge cron is holding it._",
+          ];
+          if (cnDry) { cnAnnounced.push({ player: safeStr(r.player_name), would_post: lines.join("\n") }); continue; }
+          if (!cnBot || !cnChannel) { cnErrors.push({ player: safeStr(r.player_name), error: "missing bot token or DISCORD_DROPS_CHANNEL_ID" }); continue; }
+          try {
+            const res = await discordBotRequest(cnBot, "POST", `/channels/${encodeURIComponent(cnChannel)}/messages`,
+              { content: lines.join("\n").slice(0, 1900), allowed_mentions: { parse: [] } });
+            const mid = safeStr(res?.data?.id);
+            if (!mid) { cnErrors.push({ player: safeStr(r.player_name), error: `discord ${res?.status}: ${safeStr(res?.text).slice(0, 160)}` }); continue; }
+            await env.UPS_MFL_DB.prepare(
+              "UPDATE ups_drop_events SET capfree_thread_message_id = ? WHERE id = ?"
+            ).bind(mid, safeInt(r.id, 0)).run();
+            cnAnnounced.push({ player: safeStr(r.player_name), message_id: mid });
+          } catch (e) {
+            cnErrors.push({ player: safeStr(r.player_name), error: String((e && e.message) || e).slice(0, 160) });
+          }
+        }
+
+        // ── 2. Nudge ─────────────────────────────────────────────────────────
+        const cutoff = Date.now() - cnNudgeHours * 3600 * 1000;
+        const due = cnPending.filter((r) => {
+          const last = Date.parse(safeStr(r.capfree_last_nudge_utc) || "");
+          return !Number.isFinite(last) || last < cutoff;
+        });
+        if (due.length) {
+          const dmLines = [
+            `⏳ **${due.length} cap-free cut decision${due.length === 1 ? "" : "s"} still waiting on you.**`,
+            "",
+            ...due.map((r) => {
+              const s = _d2aSettlement(r);
+              const amt = s.known
+                ? (s.settlement === 0 ? "$0" : (s.settlement > 0 ? `$${s.settlement.toLocaleString()} owed` : `$${Math.abs(s.settlement).toLocaleString()} credit`))
+                : "unpriceable";
+              return `• **${safeStr(r.player_name)}** (${safeStr(r.franchise_name) || safeStr(r.franchise_id)}) — approve → ${amt}, deny → $${safeInt(r.penalty_amount, 0).toLocaleString()}`;
+            }),
+            "",
+            "_Nothing is charged while these sit pending._",
+          ];
+          if (cnDry) {
+            cnNudged.push({ count: due.length, would_dm: dmLines.join("\n") });
+          } else {
+            const commishUserId = commishDiscordUserIds(env)[0] || "";
+            if (!cnBot || !commishUserId) {
+              cnErrors.push({ error: "missing bot token or commish discord user id — cannot DM" });
+            } else {
+              try {
+                const open = await discordBotRequest(cnBot, "POST", "/users/@me/channels", { recipient_id: commishUserId });
+                const dmId = safeStr(open?.data?.id);
+                if (!dmId) {
+                  cnErrors.push({ error: `dm_open_failed ${open?.status}` });
+                } else {
+                  const sent = await discordBotRequest(cnBot, "POST", `/channels/${encodeURIComponent(dmId)}/messages`,
+                    { content: dmLines.join("\n").slice(0, 1900), allowed_mentions: { parse: [] } });
+                  if (safeStr(sent?.data?.id)) {
+                    const stamp = new Date().toISOString();
+                    for (const r of due) {
+                      await env.UPS_MFL_DB.prepare(
+                        "UPDATE ups_drop_events SET capfree_last_nudge_utc = ? WHERE id = ?"
+                      ).bind(stamp, safeInt(r.id, 0)).run();
+                    }
+                    cnNudged.push({ count: due.length, dm_message_id: safeStr(sent.data.id) });
+                  } else {
+                    cnErrors.push({ error: `dm_send_failed ${sent?.status}: ${safeStr(sent?.text).slice(0, 160)}` });
+                  }
+                }
+              } catch (e) {
+                cnErrors.push({ error: String((e && e.message) || e).slice(0, 160) });
+              }
+            }
+          }
+        }
+
+        return jsonOut(200, {
+          ok: cnErrors.length === 0,
+          dry_run: !!cnDry,
+          season: cnSeason,
+          league_id: cnLeague,
+          pending_total: cnPending.length,
+          announced: cnAnnounced,
+          nudged: cnNudged,
+          errors: cnErrors,
+          message: cnPending.length
+            ? `${cnPending.length} drop(s) pending; ${cnAnnounced.length} announced, ${cnNudged.length ? due.length : 0} nudged.`
+            : "Nothing pending.",
+        });
+      }
 
       // ── POST /admin/drops/capfree-decide ────────────────────────────────────
       // The commish's ruling on ONE held drop. Body:
