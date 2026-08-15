@@ -48830,12 +48830,18 @@ export default {
         // roster max, so an ineligible IR placement is a real cap advantage.
         //
         // NO FAIL-OPEN: if MFL's injuries export cannot be read we refuse rather
-        // than treat "unreadable" as "no designation" OR as "eligible". Note the
-        // export is legitimately EMPTY in the preseason (verified 2026-08-15:
-        // zero rows), and it does not carry suspensions at all -- which is why
-        // the commish override below exists and is not merely a convenience.
+        // than treat "unreadable" as "no designation" OR as "eligible".
+        //
+        // ⚠️ `injuries` is one of MFL's LEAGUE-AGNOSTIC exports -- sending L= gets
+        // the whole request rejected with "Invalid request. This API request must
+        // go to api.myfantasyleague.com", which decodes to an EMPTY injury list.
+        // omitLeagueParam is therefore mandatory, not optional. This is the same
+        // trap that broke /api/hot-cold (topAdds/topDrops, PR #868), and it is
+        // currently breaking mobile's IR view, whose fetchInjuries() sends L= and
+        // then .catch()es to {} -- so every player reads as "no designation".
+        // Verified live 2026-08-15: with L= -> 0 rows; without L= -> 339 rows.
         if (action === "deactivate_ir") {
-          const irRes = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: true });
+          const irRes = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
           const irOvRaw = String((body && body.override_ir_eligibility) != null ? body.override_ir_eligibility : "").toLowerCase();
           const irOverrideOk = sessionByApiKey && (irOvRaw === "true" || irOvRaw === "1" || irOvRaw === "yes");
           if (!irRes || !irRes.ok) {
@@ -48855,18 +48861,32 @@ export default {
             const irRows = Array.isArray(irRoot) ? irRoot : (irRoot ? [irRoot] : []);
             const hit = irRows.find((r) => safeStr(r && r.id) === playerId);
             const desig = safeStr(hit && hit.status).toUpperCase();
-            // Mirrors site/m/views/contracts.js irEligible() so the two surfaces
-            // cannot disagree about who qualifies.
-            const eligible = desig === "IR" || desig === "PUP" || desig === "NFI"
-                          || desig.indexOf("SUSPEND") === 0 || desig.indexOf("COVID") >= 0;
+            // Matched against the values MFL ACTUALLY sends. Observed live
+            // 2026-08-15 across 339 rows: IR (32), IR-PUP (2), IR-NFI (1),
+            // Suspended (8), Holdout (2), RETIRED (19), Questionable (234),
+            // Out (41).
+            //
+            // The predicate in site/m/views/contracts.js irEligible() tests
+            // `s === "PUP"` / `s === "NFI"`, which NEVER match because MFL
+            // prefixes them: the real strings are "IR-PUP" / "IR-NFI". It also
+            // has no HOLDOUT branch though canon T2.1 lists holdouts explicitly.
+            // Fixed here; that client predicate needs the same correction.
+            //
+            // RETIRED is deliberately NOT eligible -- canon D2 handles retirees
+            // separately ("Retired Players Rule: retired = cap-free cut"), which
+            // is a different mechanic from IR's 50% relief.
+            const eligible = desig.indexOf("IR") === 0        // IR, IR-PUP, IR-NFI
+                          || desig.indexOf("SUSPEND") === 0   // Suspended
+                          || desig.indexOf("HOLDOUT") === 0   // canon T2.1
+                          || desig.indexOf("COVID") >= 0;     // legacy §B3
             if (!eligible && !irOverrideOk) {
               return jsonOut(400, {
                 ok: false,
                 code: "IR_NOT_ELIGIBLE",
                 error: desig
                   ? `${playerId} holds NFL designation "${desig}", which is not IR-eligible under canon §B3 (IR / PUP / NFI / suspended / COVID).`
-                  : "This player holds no IR-eligible NFL designation on MFL's injury report (canon §B3: IR / PUP / NFI / suspended / COVID). "
-                    + "Note MFL's injury report is empty in the preseason and never carries suspensions — the commissioner can override.",
+                  : "This player is not on MFL's NFL injury report, so they hold no IR-eligible designation "
+                    + "(canon §B3 / T2.1: IR, IR-PUP, IR-NFI, Suspended, Holdout, COVID). The commissioner can override.",
                 player_id: playerId,
                 franchise_id: franchiseId,
                 nfl_designation: desig,
