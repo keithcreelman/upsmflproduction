@@ -14734,6 +14734,42 @@ export default {
         // - Other types use the league shard (www48 for UPS 74598) for
         //   speed; non-UPS leagues use api.* with 302 follow.
         const userScopedTypes = new Set(["myleagues", "myfranchise"]);
+        // ── LEAGUE-AGNOSTIC export types ────────────────────────────────────
+        // A handful of MFL exports are platform-wide NFL data, not league data,
+        // and they reject the request outright when L= is present AT ALL — even
+        // a real league this worker manages. MFL answers HTTP 200 with
+        //   {"error":{"$t":"Invalid request. This API request must go to
+        //    api.myfantasyleague.com"}}
+        // which every caller here decodes to an EMPTY list, because the rows
+        // simply aren't there. A 200 that means "you asked wrong" is the worst
+        // possible failure shape: it looks exactly like "nobody is injured".
+        //
+        // BOTH halves are required — this is not just about the param:
+        //   www48 + L=      → error envelope
+        //   www48, no L=    → error envelope   (the SHARD itself is refused)
+        //   api.*  + L=     → EMPTY body
+        //   api.*, no L=    → 339 rows ✓
+        // Verified live 2026-08-15 for TYPE=injuries and TYPE=nflByeWeeks.
+        //
+        // This mirrors mflExportJson's `omitLeagueParam` option (see its comment
+        // ~19884, added when /api/hot-cold hit the identical trap on
+        // topAdds/topDrops, PR #868). That option only ever covered worker-side
+        // callers; the browser reaches MFL through THIS proxy, which hardcoded
+        // `&L=${lid}` into the upstream URL — so a browser caller could not opt
+        // out no matter how it shaped its own query string. Dropping &L= from
+        // the BROWSER url does not help and in fact makes things worse: the
+        // global no-L guard (~6428) 400s "Missing L param" before this handler
+        // ever runs. That is why the fix belongs here.
+        //
+        // This is why FO's roster rows never showed an IR/PUP/suspended chip and
+        // why mobile's IR view has always listed nobody as eligible.
+        //
+        // Only add a type here after verifying it BOTH ways against live MFL —
+        // every other export in the allowlist IS league-scoped and MUST keep
+        // sending L=. `calendar`, for instance, looks similar but is genuinely
+        // league-scoped ("Missing League ID" without L=).
+        const leagueAgnosticTypes = new Set(["injuries", "nflByeWeeks"]);
+        const isLeagueAgnostic = leagueAgnosticTypes.has(type);
         // Pre-2017 UPS seasons live under DISTINCT league_ids on older shards
         // and are ARCHIVED → their weeklyResults/league export require the
         // authenticated MFL session cookie. Inject it ONLY for these known UPS
@@ -14743,7 +14779,12 @@ export default {
         const isHistUps = HIST_UPS_LEAGUES.has(lid);
         const srvParam = safeStr(url.searchParams.get("SERVER")).replace(/[^a-z0-9]/gi, "");
         let host;
-        if (srvParam) {
+        if (isLeagueAgnostic) {
+          // Not negotiable, and deliberately ahead of &SERVER=: these types are
+          // refused by every shard, so honouring a caller-supplied shard here
+          // would hand back the error envelope described above.
+          host = "https://api.myfantasyleague.com";
+        } else if (srvParam) {
           host = `https://${srvParam}.myfantasyleague.com`;
         } else if (userScopedTypes.has(type)) {
           host = "https://api.myfantasyleague.com";
@@ -14752,7 +14793,10 @@ export default {
         } else {
           host = "https://api.myfantasyleague.com";
         }
-        const upstream = `${host}/${encodeURIComponent(yr)}/export?TYPE=${encodeURIComponent(type)}&L=${encodeURIComponent(lid)}&JSON=1${extraStr ? "&" + extraStr : ""}`;
+        // L= is omitted ONLY for the league-agnostic types above; every other
+        // export stays league-scoped exactly as before.
+        const lParam = isLeagueAgnostic ? "" : `&L=${encodeURIComponent(lid)}`;
+        const upstream = `${host}/${encodeURIComponent(yr)}/export?TYPE=${encodeURIComponent(type)}${lParam}&JSON=1${extraStr ? "&" + extraStr : ""}`;
         const exportHeaders = { "User-Agent": "Mozilla/5.0 (UPS-MFL-Worker)", "Accept": "application/json" };
         if (isHistUps) { const ck = String(env.MFL_COOKIE || "").trim(); if (ck) exportHeaders.Cookie = ck; }
         try {
