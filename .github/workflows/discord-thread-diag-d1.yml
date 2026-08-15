@@ -1,0 +1,27 @@
+name: Discord waiver-thread D1 check (one-off, 2026-08-15)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g wrangler
+      - name: ups_add_events — last 4 days, discord ids
+        working-directory: worker
+        run: |
+          wrangler d1 execute ups-mfl-db --remote --json --command \
+            "SELECT id, player_name, franchise_name, added_at_iso, discord_posted, discord_channel_id, discord_message_id, discord_parent_message_id FROM ups_add_events WHERE added_at_iso >= '2026-08-12' ORDER BY added_at_iso ASC" \
+            2>&1 | tee /tmp/adds.json
+      - name: show
+        run: python3 scripts/ci_show_adds_discord_ids.py /tmp/adds.json
