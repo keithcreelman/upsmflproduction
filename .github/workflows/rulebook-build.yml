@@ -1,0 +1,93 @@
+name: Rulebook — rebuild member payload from canon
+
+# Keeps the mobile Rules tab in lockstep with canon.
+#
+# docs/league_context_v1.md is the source of truth; site/m/data/rules_data.js is
+# a pure derivative of it. On a push to main that touches canon (including the
+# commit the worker makes when a rule passes its Discord vote), this regenerates
+# the payload and commits it. The existing pages-deploy workflow then fires on
+# the site/** change and publishes it.
+#
+# On pull requests it only CHECKS, so a canon edit can't merge while the
+# committed payload still describes the old rules.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/league_context_v1.md"
+      - "docs/league_context_changelog.md"
+      - "scripts/build_rulebook_data.py"
+      - ".github/workflows/rulebook-build.yml"
+  pull_request:
+    paths:
+      - "docs/league_context_v1.md"
+      - "docs/league_context_changelog.md"
+      - "scripts/build_rulebook_data.py"
+  workflow_dispatch: {}
+
+concurrency:
+  group: rulebook-build
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # PR: fail loudly rather than silently shipping a stale rulebook.
+      - name: Check payload is current
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/build_rulebook_data.py --check
+
+      - name: Rebuild payload
+        if: github.event_name != 'pull_request'
+        run: python3 scripts/build_rulebook_data.py
+
+      - name: Commit and push if changed
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          paths="site/m/data/rules_data.js site/m/data/rules.json"
+          if git diff --quiet -- $paths; then
+            echo "Rulebook payload already current; nothing to commit."
+            exit 0
+          fi
+          # This job may only ever touch its own generated output. Anything else
+          # in the tree means something unexpected ran — refuse rather than push.
+          changed_files="$(git diff --name-only)"
+          unexpected="$(printf "%s\n" "$changed_files" \
+            | grep -Ev '^site/m/data/rules(_data\.js|\.json)$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected file changes detected; refusing to push."
+            printf "%s\n" "$unexpected"
+            git status --short
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add $paths
+          git commit -m "Rulebook: rebuild member payload from canon"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 2
+          done
+          echo "Push failed after 3 attempts."
+          exit 1

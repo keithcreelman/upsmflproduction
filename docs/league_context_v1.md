@@ -299,11 +299,13 @@ Critical: most contract concepts in this canon are **UPS layer constructs** that
 A rostered player is always in exactly one of three states.
 
 ### B1. Active Roster
+
+**QB starter cap (UPDATED 2026-07-21):** a franchise may roster at most **4 NFL starting QBs** across active roster + taxi combined, measured once a year on the September contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team; unresolved camp battles are commissioner-determined. Going over on the deadline means the league cuts the most recently acquired starting QBs in reverse-acquisition order until compliant, as standard cuts with normal penalties charged to the following season's cap. A backup who wins a job later in the season does not create a violation. Separately, the **5-QB active-roster maximum** is unchanged and is enforced continuously.
 - **Size:** 27 (min, at close of auction) – 30 (max, after contract deadline).
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
 - **Enforcement model (Keith, 2026-05-16 review session):**
-  - **27-active minimum applies ONLY at end of auction**, AND the team must be able to **start a complete lineup** at that moment (per the lineup spec in §B/§S). Not continuously enforced through the season — owners can drop below 27 mid-season; the floor is only re-checked at auction close.
+  - **27-active minimum applies ONLY at end of auction**, AND the team must be able to **start a complete lineup** at that moment (per the lineup spec in §B4). Not continuously enforced through the season — owners can drop below 27 mid-season; the floor is only re-checked at auction close.
   - **30-active maximum (post-contract-deadline) is enforced via MFL settings** (Keith maintains in MFL config). No UPS worker-side enforcement — MFL blocks adds that would push a team over 30 once the deadline passes.
   - **UPS-side safeguarding** (auction-close compliance cron, complete-lineup pre-flight at auction close, 30-max display chips) is **parked** for the broader auction tooling discussion — see `CROSS_CODEBASE_ALIGNMENT.md §4.1` (Auction Room scope).
 
@@ -329,6 +331,37 @@ A rostered player is always in exactly one of three states.
 - **Tracking source of truth (Keith, 2026-05-16 review session):** **MFL natively handles taxi eligibility** — MFL knows which players are taxi-eligible based on their draft and contract metadata. UPS does NOT maintain a parallel D1 tracking table for the 3-year window itself.
   - **Derivation path when UPS needs to compute eligibility independently (e.g., for a UI gate or a synthetic warning):** pull `players.draft_year` from the MFL `TYPE=players` payload, compute `league_years_elapsed = current_league_year − draft_year`, and gate taxi-eligibility at `league_years_elapsed < 3` AND `draft_round >= 2`.
   - The taxi-eligible flag in MFL roster payloads is the authoritative source. The derivation above is only for UPS-side preview displays where the MFL flag isn't already in hand.
+
+### B4. Weekly Starting Lineup (ADDED 2026-08-15 — was missing from canon)
+
+**18 starters each week.** Canon carried no lineup spec until this entry; §B1's
+"start a complete lineup" test pointed at a section that did not exist. These slots come
+from the 2024 rulebook v2 (the edition canon marks as correct in §4) and are confirmed
+against live MFL settings — `starters_count = 18`, `idp_starters_count = 7`, unchanged
+for 2022-2025.
+
+| Slot | Count | Eligible |
+|---|---|---|
+| QB | 1 | QB |
+| RB | 2 | RB |
+| WR | 2 | WR |
+| TE | 1 | TE |
+| Flex | 2 | RB / WR / TE |
+| SuperFlex | 1 | QB / RB / WR / TE |
+| Kicker | 1 | PK |
+| Punter | 1 | PN |
+| DL | 2 | DE / DT |
+| LB | 2 | LB |
+| DB | 2 | CB / S |
+| Defensive Flex | 1 | DL / LB / DB |
+
+- **Offence + specialists = 11; IDP = 7.** Total 18.
+- **SuperFlex is the only slot a second QB may occupy.** Maximum 2 QBs started.
+- **Taxi, IR and expired players are not startable.**
+- **Locks are per player, at his own NFL kickoff.** Once his game begins he cannot be
+  substituted in or out. Submitting a lineup every week is a mandatory league obligation.
+- **Per-position maxima above these minima are governed by the live MFL lineup settings**;
+  canon states only the slot structure.
 
 ### B3. Injured Reserve (IR)
 - **Eligibility:**
@@ -372,6 +405,8 @@ These are transactions you can do TO a player who's already on your roster. Defi
   - Total 3-year contracts: 6 max (excludes rookie 3-year deals).
 
 ### C3. Mid-Year Multi (MYM)
+
+**Reacquisition cooldown (UPDATED 2026-07-21):** after you drop a player you cannot immediately re-add him and convert him to a multi-year deal. He must first clear a full waiver run open to the rest of the league, unclaimed. The earliest you can reacquire him for MYM is the run after that. The 14-day MYM window then starts fresh on the valid re-add. This replaces the old 1-calendar-week waiting period.
 - **What it is:** Convert an existing 1-year contract into a multi-year deal at the SAME salary (no raise). Cannot be loaded.
 - **Why no loading:** loading would "restructure" Year 1 of the contract, and in-season restructures are banned. So MYMs cannot be loaded.
 - **Limit (UPDATED 2025): MAX 4 MYMs per season per team** (raised from 3).
@@ -485,6 +520,8 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - Prior-year salary becomes 100% earned at rollover (sunk cost — no penalty thereafter).
 
 ### C8. Tags (UPDATED 2025) — STILL ACTIVE
+
+**Early lock-in (ADDED 2026-05-08):** an owner may voluntarily lock a tag in early rather than waiting for the deadline. Once locked the tag is **final and tradeable**, and can be included in a trade like any other contract. Tags not locked early still auto-lock on the deadline as before. A traded tag does not consume any of the receiving team's own 2-tag allocation.
 - **Updated structure:** **1 Offense tag + 1 Defense/ST tag** per team per year (no longer the legacy Franchise/Transition naming).
 - **Tag side assignment by position (Keith, 2026-05-16 review session):**
   - **OFFENSE tag side:** QB, RB, WR, TE.
@@ -546,6 +583,8 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
   - Under the OLD rule (flat 35% WW), this would have been: 35% × $25K = $8,750 earned → ($25K × 75%) − $8,750 = $10,000. The new rule earns slightly more here because the player was active for 5/13 of the eligible window.
 
 ### D2. Cap-free cut categories (no penalty)
+
+**Amari Cooper Rule (ADDED 2026-07-21):** a **retired** player may be cut cap-free **during the FA Auction**, and the freed salary is immediately available to bid with. Retirement must be genuine — an official announcement or a credible report, commissioner-verified; injury does not qualify and uses IR instead. A player cut this way cannot be nominated or bid on for the rest of that auction, and returns to the pool at the first waiver run after it closes. Every other cut-blocking rule during the auction is unchanged.
 - **1-year original-length contracts under $5K (Veteran or WW):** 0% guarantee. Cap-free cut anytime. Note: this only applies to **1-year original** contracts — a 2-year veteran under $5K can still incur penalty depending on cut timing.
 - **Taxi Squad (never *permanently* promoted):** 0% guarantee while on taxi. Cap-free cut. Temporary call-ups (≤3 weeks) do NOT trigger permanent promotion; the player can return to taxi and remain cap-free-cuttable. Permanent promotion (4th activation or explicit MYAC/extension/restructure) ends this — normal cut penalties apply going forward. See **B2** for the call-up budget rule.
 - **WW $5K+ in-season (UPDATED 2026-05-08):** Same 75% guarantee + per-week pro-rated earning as auction contracts (the old flat 35% WW penalty is RETIRED). The eligible-weeks denominator is `18 − pickup_week`. See Section 6.B for the canonical formula and D1 for an in-season worked example.
@@ -1231,7 +1270,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **FA Auction completes** ~early-to-mid August (date TBD; depends on auction format option chosen).
 - **Min roster check (27)** at close.
 - **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. **These pre-season Sundays still immediately re-lock, same as Thu/Fri/Sat — FCFS does NOT open yet.** FCFS itself does not start until NFL Week 1 (Keith 2026-08-13); see §A5 and §B.
-- **Half league dues** ($100 of $200) due by FA Auction start. Venmo to **@Keith-Creelman** for routing to treasurer **Josh Martel**.
+- **Half of the base league dues** ($100 of the $200 base) due by FA Auction start. Total annual dues are **$250** — the $200 base plus the **$50 Dynasty Pot** contribution (added 2026-05-11). Canon does not yet state when the $50 is collected. Venmo to **@Keith-Creelman** for routing to treasurer **Josh Martel**.
 
 ### September 2026 → Contract Deadline + NFL Week 1
 - **Tag confirmations are NOT here.** Tags are confirmed at the **FA Auction Cut Deadline** (the auction roster lock 3 days before auction start). That same date locks the **next-season tagging baseline** — data snapshot for next year's tag eligibility freezes there.
@@ -1254,7 +1293,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 ### November 2026 → Trade Deadline
 - **2026-11-26 (Thu, Thanksgiving, Week 12 kickoff):** **UPS trade deadline.** No trades until next offseason after this kickoff.
 - **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 12 (Thanksgiving week), ~12/17 ≈ 71% of an auction salary is earned.
-- **Remaining league dues** ($100) due by trade deadline. Venmo to @Keith-Creelman → treasurer Josh Martel.
+- **Remaining base league dues** ($100 of the $200 base) due by trade deadline. Venmo to @Keith-Creelman → treasurer Josh Martel.
 
 ### December 2026 → Fantasy Playoffs
 - **2026-12-17 (Thu, Week 15):** **UPS Playoffs Round 1 starts.** 3-week format.
@@ -1382,6 +1421,32 @@ A franchise may have **no H2H opponent** in a given week. When that happens:
 - `src_weekly_franchise_summary` will **still have a row** for (season, week, franchise) with the franchise's actual score and the week's all-play counts.
 
 This separation means **all-play continues to count even when H2H doesn't**. Any consumer that wants "weeks with a real matchup only" should filter on `EXISTS (SELECT 1 FROM src_schedule …)`.
+
+## D.0 🟡 Current scoring values (ADDED 2026-08-15, PROVISIONAL)
+
+Canon has carried no standing scoring section — only the year-by-year change list in §4.
+The values below are reconstructed from that change list and are **provisional**: the live
+MFL scoring settings remain authoritative for what actually scored in any given week.
+
+| Item | Value |
+|---|---|
+| Reception — WR / QB | 1.0 |
+| Reception — RB | 0.8 |
+| Reception — TE | 1.5 (TE premium, 2025+) |
+| First down (all positions, incl. rushing and QB) | 0.2 |
+| Field goal | 0.1 per yard |
+| Missed FG from 45+ yards | no penalty |
+| Tackle — DL / DB | 1.5 |
+| Pass defensed (all positions) | 1.5 |
+| Tackles counted per game | capped at 25 |
+| Single-game 60-point bonus | +5 |
+| Def / ST return TD of 50+ yards | 7 |
+| Gross punting yardage | does not score |
+
+**Open in this table (do not treat as settled):**
+- **LB tackle rate.** The 2018 rebalance raised DL and DB to 1.5; whether LB stayed at 1.0
+  is not recorded anywhere in canon.
+- **Missed FG inside 45 yards.** Canon records that a penalty applies but never its value.
 
 ## D.1 All-play metrics (regular season / playoff / full)
 
@@ -1565,7 +1630,7 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 | **Pre-history** | 2010 | Closed | One-year **FA Auction only** (no rookie draft, no dynasty cap). Contracts maintained on Forumotion. **EXCLUDE from dynasty-comparable historical data.** |
 | **Founding dynasty** | 2011 | Closed | First year of the current dynasty cap format. **Treat 2011 as Y1 for historical comparisons.** |
 | **IDP / classic format** | 2011–2021 | Closed | Standard QB/RB/WR/TE flex with full IDP support. QB starter limit = 1. No SF, no TE Premium. |
-| **Superflex era** | 2022–**ongoing** | Active | QB starter limit 1 → 1-2. All skill flex maxes +1. **3-starting-QB cap** (rule eased in 2025 — see below). QB market reprices upward. |
+| **Superflex era** | 2022–**ongoing** | Active | QB starter limit 1 → 1-2. All skill flex maxes +1. **4-starting-QB cap** (was 3 with a taxi carve-out; raised to 4 outright 2026-07-21). QB market reprices upward. |
 | **TE Premium era** | 2025–**ongoing** | Active | TE-only `CC=*1.5` (1.5 PPR for TE only). **Concurrent with Superflex era.** Voted year before (2024) per Keith — verify. |
 
 > **Data lineage emphasis (Keith v13):** every stat/scoring change must be documented in enough detail to **convert old data to the modern era.** When this section says "scoring changed," the bid sheet needs to know the EXACT old → new formula to normalize historical points. Cross-reference rulebook archive + `metadata_rawrules` + Forumotion for primary sources.

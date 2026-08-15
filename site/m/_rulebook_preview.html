@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<!-- LOCAL PREVIEW HARNESS for views/rules.js — not part of the app.
+     The real Rules tab lives at #more/rules inside index.html, but that route
+     blocks on the MFL API, which is unreachable from localhost. This stubs the
+     few bits of window.UPS_MOBILE the view touches so the rulebook renders
+     standalone. Safe to delete; nothing links to it. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>UPS Rulebook — preview</title>
+  <script>
+    // Cache-busted so edits to app.css / rules.js show up on reload.
+    document.write('<link rel="stylesheet" href="./app.css?t=' + Date.now() + '">');
+  </script>
+</head>
+<body>
+  <div class="ups-m-app">
+    <main class="ups-m-main" id="ups-m-main" style="overflow:auto;height:100vh">
+      <div id="mount"></div>
+    </main>
+  </div>
+  <script>
+    function escapeHtml(v) {
+      return String(v == null ? "" : v)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    window.UPS_MOBILE = {
+      BUILD: "preview-" + Date.now(),
+      // isCommish drives the "Show commish notes" toggle in the footer.
+      state: { isCommish: true },
+      showToast: function (m) { console.log("[toast]", m); },
+      util: { escapeHtml: escapeHtml }
+    };
+    var s = document.createElement("script");
+    s.src = "./views/rules.js?t=" + Date.now();
+    s.onload = function () {
+      // #<topic-key> deep-links straight into a topic, e.g. #cutting
+      var anchor = (location.hash || "").replace(/^#/, "");
+      window.UPS_MOBILE.rulesView.render(document.getElementById("mount"), anchor);
+    };
+    document.head.appendChild(s);
+  </script>
+</body>
+</html>
