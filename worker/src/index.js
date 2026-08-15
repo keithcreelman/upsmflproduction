@@ -43941,6 +43941,145 @@ export default {
         return out;
       };
 
+      // ── POST /admin/drops/capfree-decide ────────────────────────────────────
+      // The commish's ruling on ONE held drop. Body:
+      //   { player_id, dropped_at_unix?, decision: "approve"|"deny", note? }
+      //
+      //   approve → the cut is cap-free. The §D1 penalty is REPLACED by the
+      //             §D2a settlement: (AAV × years served) − salary actually
+      //             paid. Positive = owner owes, negative = owner is owed a
+      //             CREDIT (Keith 2026-08-15: "if they FL Gonzo then it would
+      //             be a 10K credit"). Zero when the deal was played to term.
+      //   deny    → not a cap-free exit. The original §D1 penalty stands
+      //             exactly as computed; nothing about the amount changes.
+      //
+      // Either way the row leaves 'pending', so the charge cron picks it up on
+      // its next tick and posts the settled number.
+      //
+      // REFUSES rather than guessing: an approve whose §D2a inputs cannot be
+      // read is rejected with the reason, leaving the row pending. Writing a
+      // $0 "cap-free" for a contract we could not price is exactly the
+      // fail-open this whole feature exists to avoid.
+      if (path === "/admin/drops/capfree-decide" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let cdBody = {};
+        try { cdBody = (await request.json()) || {}; } catch (_) { cdBody = {}; }
+        const cdSeason = safeStr(cdBody.season || url.searchParams.get("YEAR") || YEAR || "2026");
+        const cdLeague = safeStr(cdBody.league_id || url.searchParams.get("L") || L || "74598");
+        const cdPid = safeStr(cdBody.player_id || url.searchParams.get("PLAYER") || "").replace(/\D/g, "");
+        const cdWhen = safeInt(cdBody.dropped_at_unix, 0);
+        const cdDecision = safeStr(cdBody.decision).toLowerCase();
+        const cdNote = safeStr(cdBody.note).slice(0, 400);
+        const cdDry = _wvTruthy(cdBody.dry_run);
+        if (!cdPid) return jsonOut(400, { ok: false, error: "player_id required" });
+        if (cdDecision !== "approve" && cdDecision !== "deny") {
+          return jsonOut(400, { ok: false, error: "decision must be 'approve' or 'deny'" });
+        }
+
+        const cdCols = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        if (!cdCols) {
+          return jsonOut(409, {
+            ok: false,
+            error: "capfree_columns_missing",
+            message: "Migration 0127 has not been applied to this D1 yet, so there is nowhere to record the decision. "
+                   + "Apply it with `wrangler d1 execute ups-mfl-db --remote --file=worker/migrations/0127_drop_events_capfree_review.sql` "
+                   + "(never `d1 migrations apply` on this database).",
+          });
+        }
+
+        const cdRow = await env.UPS_MFL_DB.prepare(
+          `SELECT id, player_id, player_name, franchise_id, franchise_name, dropped_at_unix,
+                  pre_drop_aav, pre_drop_contract_length, pre_drop_contract_year, earned_to_date,
+                  penalty_amount, penalty_basis, posted_to_mfl, capfree_review_status
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND player_id = ?
+              ${cdWhen ? "AND dropped_at_unix = ?" : ""}
+            ORDER BY dropped_at_unix DESC LIMIT 1`
+        ).bind(...(cdWhen ? [cdSeason, cdLeague, cdPid, cdWhen] : [cdSeason, cdLeague, cdPid])).first();
+        if (!cdRow) return jsonOut(404, { ok: false, error: "no matching drop event", player_id: cdPid });
+        if (safeInt(cdRow.posted_to_mfl, 0) === 1) {
+          return jsonOut(409, {
+            ok: false, error: "already_posted",
+            message: "This penalty has already been charged to MFL. Reversing it is a manual salary-adjustment fix, not a decision.",
+            player_name: safeStr(cdRow.player_name),
+          });
+        }
+
+        const cdSettle = _d2aSettlement(cdRow);
+        if (cdDecision === "approve" && !cdSettle.known) {
+          return jsonOut(409, {
+            ok: false,
+            error: "d2a_inputs_unreadable",
+            message: "Cannot approve a cap-free exit for this row: " + cdSettle.reason
+                   + ". The row stays pending. Stamp the contract in MFL and rescan, or price it by hand.",
+            player_name: safeStr(cdRow.player_name),
+          });
+        }
+
+        const cdNewAmount = cdDecision === "approve" ? cdSettle.settlement : safeInt(cdRow.penalty_amount, 0);
+        const cdNewBasis = cdDecision === "approve"
+          ? "retired_capfree_d2a_settlement"
+          : safeStr(cdRow.penalty_basis);
+        const cdResult = {
+          ok: true,
+          dry_run: !!cdDry,
+          player_id: cdPid,
+          player_name: safeStr(cdRow.player_name),
+          franchise: safeStr(cdRow.franchise_name) || safeStr(cdRow.franchise_id),
+          decision: cdDecision,
+          penalty_before: safeInt(cdRow.penalty_amount, 0),
+          penalty_after: cdNewAmount,
+          basis_after: cdNewBasis,
+          d2a: cdSettle,
+          settlement_direction: cdDecision !== "approve" ? "n/a — §D1 penalty stands"
+            : (cdNewAmount > 0 ? "owner OWES the shortfall"
+              : cdNewAmount < 0 ? "owner is owed a CREDIT"
+              : "settles to $0 — contract was played to term"),
+          note: cdNote,
+        };
+        if (cdDry) return jsonOut(200, { ...cdResult, message: "DRY RUN — nothing written." });
+
+        await env.UPS_MFL_DB.prepare(
+          `UPDATE ups_drop_events
+              SET capfree_review_status = ?,
+                  capfree_settlement_amount = ?,
+                  capfree_decided_at_utc = ?,
+                  capfree_decided_by = ?,
+                  penalty_amount = ?,
+                  penalty_basis = ?,
+                  penalty_exempt = ?,
+                  penalty_exempt_reason = ?
+            WHERE id = ?`
+        ).bind(
+          cdDecision === "approve" ? "approved" : "denied",
+          cdDecision === "approve" ? cdNewAmount : null,
+          new Date().toISOString(),
+          "commish",
+          cdNewAmount,
+          cdNewBasis,
+          cdDecision === "approve" ? 1 : 0,
+          cdDecision === "approve"
+            ? ("Cap-free exit approved by commish (canon §D2). §D2a settlement applied: "
+               + `AAV $${cdSettle.aav} × ${cdSettle.years_served} served − paid $${cdSettle.actually_paid}.`
+               + (cdNote ? ` Note: ${cdNote}` : ""))
+            : "",
+          safeInt(cdRow.id, 0)
+        ).run();
+
+        return jsonOut(200, {
+          ...cdResult,
+          message: cdDecision === "approve"
+            ? "Approved. The §D1 penalty is replaced by the §D2a settlement; the charge cron will post it on its next tick."
+            : "Denied. The original §D1 penalty stands and the charge cron will post it on its next tick.",
+        });
+      }
+
       // ── GET /admin/drops/capfree-preview?L=&YEAR=[&PLAYER=] ─────────────────
       // DRY RUN. Reads only. Shows, for every recorded drop, what the cap-free
       // retirement review WOULD do and what §D2a WOULD settle — next to what
@@ -44450,16 +44589,51 @@ export default {
         const targetSeasonNum = Number(targetSeason) || 0;
 
         // 1. Pull unposted owed penalties from ups_drop_events.
+        //
+        // ⚠️ HOLD anything awaiting the commish's cap-free decision. This cron
+        // runs EVERY 5 MINUTES and posts REAL cap charges to MFL, so without
+        // this clause a drop that is pending review gets charged in full long
+        // before the commish sees the Discord post asking about it — and the
+        // §D2a settlement (which REPLACES the penalty, canon §D2a) could never
+        // be applied, because the money would already be down.
+        //
+        // Written as COALESCE(...) <> 'pending' on purpose: an ordinary drop
+        // has NULL here forever and MUST keep charging normally. Only the
+        // explicit string 'pending' holds money. Column-guarded so a D1 that
+        // has not had migration 0127 hand-applied yet behaves exactly as before
+        // (`d1 migrations apply` is banned on this database).
+        const cfHoldCol = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        const cfHoldClause = cfHoldCol ? "AND COALESCE(capfree_review_status, '') <> 'pending'" : "";
         const selBinds = onlyPid ? [targetSeason, leagueId, onlyPid] : [targetSeason, leagueId];
         const sel = await env.UPS_MFL_DB.prepare(
           `SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, penalty_basis,
                   dropped_at_unix, dropped_at_iso
              FROM ups_drop_events
             WHERE season = ? AND league_id = ? AND posted_to_mfl = 0 AND penalty_amount > 0
+              ${cfHoldClause}
               ${onlyPid ? "AND player_id = ?" : ""}
             ORDER BY dropped_at_unix ASC`
         ).bind(...selBinds).all();
         const owedAll = (sel && sel.results) || [];
+
+        // Count what this run deliberately left alone, so a hold is VISIBLE in
+        // the response rather than looking like "nothing was owed".
+        let cfHeldCount = 0;
+        if (cfHoldCol) {
+          try {
+            const heldRes = await env.UPS_MFL_DB.prepare(
+              `SELECT COUNT(*) AS n FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND posted_to_mfl = 0
+                  AND COALESCE(capfree_review_status, '') = 'pending'`
+            ).bind(targetSeason, leagueId).first();
+            cfHeldCount = safeInt(heldRes && heldRes.n, 0);
+          } catch (_) { cfHeldCount = 0; }
+        }
 
         // 1b. Split by cap year BEFORE anything can be posted.
         //   - current season  → eligible to post to MFL now (unchanged behaviour)
@@ -44605,7 +44779,12 @@ export default {
             deferred_next_season: deferredNextSeason,
             deferred_next_season_total: deferredNextSeason.reduce((a, r) => a + r.amount, 0),
             cap_year_needs_review: bucketNeedsReview,
-            message: "No new penalties to post.",
+            // Rows deliberately NOT charged because they await the commish's
+            // cap-free decision. Reported so a hold never reads as "nothing owed".
+            held_pending_capfree_review: cfHeldCount,
+            message: cfHeldCount
+              ? `No new penalties to post. ${cfHeldCount} drop(s) are HELD awaiting cap-free review.`
+              : "No new penalties to post.",
           });
         }
 
