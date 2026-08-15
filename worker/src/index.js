@@ -50425,6 +50425,124 @@ export default {
           });
         }
 
+        // ── Announce IR moves to the transactions feed ──────────────────────
+        // Adds, drops and waivers all post; IR was silent, even though it is
+        // worth 50% cap relief and changes the active-roster count (Keith
+        // 2026-08-15). Posts to the SAME channel as the drop/add trackers so
+        // the feed reads as one stream.
+        //
+        // Fires ONLY on a verified move — verification.ok is true by the time
+        // we reach here, so we never announce something MFL did not apply.
+        //
+        // Strictly best-effort and deliberately un-awaited-on-failure: a Giphy
+        // outage, a missing channel id, or a Discord 500 must NEVER turn a
+        // successful roster write into an error for the owner. Every failure
+        // path swallows and moves on; the response still reports ok:true.
+        let irAnnounce = null;
+        if (action === "deactivate_ir" || action === "activate_ir") {
+          try {
+            const irBot = contractDiscordBotToken();
+            const irChannel = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "").replace(/\D/g, "");
+            if (irBot && irChannel) {
+              const placing = action === "deactivate_ir";
+              // What MFL says is wrong with him — drives both the copy and the
+              // GIF flavour. Suspensions get the comedy pool; injuries do not.
+              let desig = "";
+              try {
+                const ir = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+                if (ir && ir.ok) {
+                  const root = ir.data && ir.data.injuries && ir.data.injuries.injury;
+                  const rows = Array.isArray(root) ? root : (root ? [root] : []);
+                  const hit = rows.find((r) => safeStr(r && r.id) === playerId);
+                  desig = safeStr(hit && hit.status).toUpperCase();
+                }
+              } catch (_) { /* decoration only */ }
+              const suspended = desig.indexOf("SUSPEND") === 0;
+
+              // Two pools, because the tone genuinely differs: a suspension is
+              // a self-inflicted comedy beat, an injury is a wince.
+              const IR_GIF_QUERIES = suspended
+                ? ["nfl suspended", "you done messed up", "caught in 4k", "nfl bad decision", "smh facepalm", "nfl ejected"]
+                : ["nfl injury cart", "football player injured", "nfl player limping", "sports injury ouch", "nfl trainer field", "that looked painful"];
+              const irGif = await (async () => {
+                const apiKey = safeStr(env.GIPHY_API_KEY || "");
+                if (!apiKey) return "";
+                const shuffled = [...IR_GIF_QUERIES].sort(() => Math.random() - 0.5);
+                for (const q of shuffled) {
+                  const u = new URL("https://api.giphy.com/v1/gifs/search");
+                  u.searchParams.set("api_key", apiKey);
+                  u.searchParams.set("q", q);
+                  u.searchParams.set("limit", "50");
+                  u.searchParams.set("lang", "en");
+                  u.searchParams.set("rating", "pg-13");
+                  try {
+                    const r = await fetch(u.toString(), { cf: { cacheTtl: 300 } });
+                    if (!r.ok) continue;
+                    const j = await r.json();
+                    const rows = Array.isArray(j?.data) ? j.data : [];
+                    if (!rows.length) continue;
+                    const pick = rows[Math.floor(Math.random() * rows.length)];
+                    const g = safeStr(pick?.images?.original?.url) ||
+                              safeStr(pick?.images?.downsized_large?.url) ||
+                              safeStr(pick?.images?.fixed_height?.url);
+                    if (g) return g;
+                  } catch (_) { /* try the next query */ }
+                }
+                return "";
+              })();
+
+              // Name + franchise, best-effort. A missing lookup degrades the
+              // copy, never the post.
+              let irName = `Player ${playerId}`;
+              let irTeam = franchiseId ? `Franchise ${franchiseId}` : "";
+              try {
+                const [plRes, lgRes] = await Promise.all([
+                  mflExportJson(season, leagueId, "players", { PLAYERS: playerId }, { useCookie: true }),
+                  mflExportJson(season, leagueId, "league", {}, { useCookie: true }),
+                ]);
+                let p = plRes?.data?.players?.player;
+                if (Array.isArray(p)) p = p[0];
+                const raw = safeStr(p && p.name);
+                if (raw) irName = raw.includes(",")
+                  ? raw.split(",").reverse().map((s) => s.trim()).join(" ")
+                  : raw;
+                const frs = asArray(lgRes?.data?.league?.franchises?.franchise).filter(Boolean);
+                const me = frs.find((f) => padFranchiseId(f && f.id) === padFranchiseId(franchiseId));
+                if (me && safeStr(me.name)) irTeam = safeStr(me.name);
+              } catch (_) { /* decoration only */ }
+
+              const reason = desig
+                ? (suspended ? "Suspended" : desig)
+                : "";
+              const lines = placing
+                ? [
+                    `🏥 **${irName}** placed on **Injured Reserve** by ${irTeam}`,
+                    reason ? `NFL status: **${reason}**` : "",
+                    "50% cap relief while on IR · does not count against the active-roster max · reversible (canon §B3).",
+                  ]
+                : [
+                    `💪 **${irName}** activated **off IR** by ${irTeam}`,
+                    "Back on the active roster — full salary counts against the cap again (canon §B3).",
+                  ];
+              const content = lines.filter(Boolean).join("\n") + (irGif ? `\n${irGif}` : "");
+              const sent = await discordBotRequest(irBot, "POST",
+                `/channels/${encodeURIComponent(irChannel)}/messages`,
+                { content: content.slice(0, 1900), allowed_mentions: { parse: [] } });
+              irAnnounce = {
+                posted: !!safeStr(sent?.data?.id),
+                message_id: safeStr(sent?.data?.id),
+                gif: !!irGif,
+                designation: desig || "(none)",
+                error: safeStr(sent?.data?.id) ? "" : `discord ${sent?.status}: ${safeStr(sent?.text).slice(0, 120)}`,
+              };
+            } else {
+              irAnnounce = { posted: false, error: "missing bot token or DISCORD_DROPS_CHANNEL_ID" };
+            }
+          } catch (e) {
+            irAnnounce = { posted: false, error: String((e && e.message) || e).slice(0, 160) };
+          }
+        }
+
         return jsonOut(200, {
           ok: true,
           // True when MFL's response body tripped the "error" substring sniff
@@ -50432,6 +50550,9 @@ export default {
           // hidden so a genuine upstream change shows up in logs instead of
           // being silently smoothed over.
           import_heuristic_said_fail: importHeuristicSaidFail,
+          // null for non-IR actions. posted:false with a reason when the
+          // announcement failed — the roster move still succeeded.
+          ir_announcement: irAnnounce,
           action,
           player_id: playerId,
           franchise_id: franchiseId,
