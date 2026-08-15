@@ -44025,7 +44025,13 @@ export default {
         // ONE injuries read. MUST omit L= (league-agnostic export).
         let bfInj = { known: false, map: new Map(), error: "" };
         try {
-          const ires = await mflExportJson(safeStr(YEAR || "2026"), bfLeague, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          // The injuries feed is CURRENT state, so it always needs a real
+          // 4-digit season -- never the audit's season FILTER, which may be
+          // the literal "all". YEAR flows straight into the upstream path, so
+          // YEAR=all produced api.myfantasyleague.com/all/export -> 404 and
+          // the whole audit reported zero retirees (2026-08-15).
+          const bfInjYear = /^\d{4}$/.test(safeStr(YEAR)) ? safeStr(YEAR) : "2026";
+          const ires = await mflExportJson(bfInjYear, bfLeague, "injuries", {}, { useCookie: false, omitLeagueParam: true });
           if (ires && ires.ok) {
             const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
             const irows = Array.isArray(root) ? root : (root ? [root] : []);
