@@ -506,7 +506,7 @@
       var copy = hit("data-rb-copy");
       if (copy) {
         var url = location.origin + location.pathname + "#more/rules/" + copy;
-        var done = function () { if (M.showToast) M.showToast("Link copied", "ok"); };
+        var done = function () { if (M.ui.showToast) M.ui.showToast("Link copied", "ok"); };
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(url).then(done, function () {
             window.prompt("Copy this link:", url);
