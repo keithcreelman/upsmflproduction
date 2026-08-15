@@ -5716,7 +5716,7 @@ export default {
                 const deferredN = Array.isArray(mflData?.deferred_next_season) ? mflData.deferred_next_season.length : 0;
                 const reviewN = Array.isArray(mflData?.cap_year_needs_review) ? mflData.cap_year_needs_review.length : 0;
                 if (deferredN || reviewN) {
-                  console.log(`[scheduled */5] drop-tracker: ${deferredN} penalty row(s) held for NEXT season's cap (canon §6), ${reviewN} unresolved cap year(s).`);
+                  console.log(`[scheduled */5] drop-tracker: ${deferredN} penalty row(s) held for NEXT season's cap (league rule §6), ${reviewN} unresolved cap year(s).`);
                 }
               }
               // SUM-rounding reconciliation (canon §6) — no-ops until the FA Auction
@@ -10228,7 +10228,7 @@ export default {
               offseason_start_iso: new Date(offseasonStartUnix * 1000).toISOString(),
               evaluated_through_iso: new Date(windowEndUnix * 1000).toISOString(),
               cut_deadline_iso: null,  // §A2 deadline TBD — set when canon pins it down
-              cut_deadline_note: "FA Auction Cut Deadline not yet finalized in canon §A2; using offseason window (Feb 1 → min(now, Aug 1)) as v1 approximation.",
+              cut_deadline_note: "FA Auction Cut Deadline not yet finalized in league rule §A2; using offseason window (Feb 1 → min(now, Aug 1)) as v1 approximation.",
             },
             canon_rule: "league_context_v1.md §A2 — block when cut.season = current AND prior_years_remaining ≥ 1 AND timestamp < cut_deadline AND prior_contract_type != Tag",
             franchise_filter: filterFid || null,
@@ -34150,7 +34150,7 @@ export default {
                     error:
                       `Trade cap-money on franchise ${fidSide} ` +
                       `(${tradedK}K) exceeds the 50%-of-summed-non-taxi-` +
-                      `salary rule (max ${maxK}K). Canon §A6.`,
+                      `salary rule (max ${maxK}K). League rule §A6.`,
                     code: "TRADE_CAP_MONEY_50PCT",
                     franchise_id: fidSide,
                     traded_salary_adjustment_k: tradedK,
@@ -39488,7 +39488,7 @@ export default {
         // Claiming "contractStatus WW, CL 1" here was the same invention the FO
         // was making on screen.
         const fcfsContractNote =
-          "1-yr WW deal at the add price (canon §A4). MFL records the salary immediately; " +
+          "1-yr WW deal at the add price (league rule §A4). MFL records the salary immediately; " +
           "the contract type and length are stamped shortly after the add lands, so they may read " +
           "as pending until then. A WW salary of $4K or less is a cap-free cut.";
         if (fcfsDryRun) {
@@ -44235,7 +44235,7 @@ export default {
             "",
             `MFL injury report says: **${safeStr(r.capfree_mfl_designation) || "nothing"}** — so this is **not** auto-approved.`,
             "",
-            `If APPROVED (cap-free, canon §D2a settlement): ${money}`,
+            `If APPROVED (cap-free, league rule §D2a settlement): ${money}`,
             `If DENIED (normal §D1 penalty): **$${safeInt(r.penalty_amount, 0).toLocaleString()}**`,
             "",
             sources.length ? "**Sources reporting retirement:**" : "_No retirement reporting found — approving would rest on the commish's own knowledge._",
@@ -44452,7 +44452,7 @@ export default {
           cdNewBasis,
           cdDecision === "approve" ? 1 : 0,
           cdDecision === "approve"
-            ? ("Cap-free exit approved by commish (canon §D2). §D2a settlement applied: "
+            ? ("Cap-free exit approved by commish (league rule §D2). §D2a settlement applied: "
                + `AAV $${cdSettle.aav} × ${cdSettle.years_served} served − paid $${cdSettle.actually_paid}.`
                + (cdNote ? ` Note: ${cdNote}` : ""))
             : "",
@@ -49905,9 +49905,9 @@ export default {
                 ok: false,
                 code: "IR_NOT_ELIGIBLE",
                 error: desig
-                  ? `${playerId} holds NFL designation "${desig}", which is not IR-eligible under canon §B3 (IR / PUP / NFI / suspended / COVID).`
+                  ? `${playerId} holds NFL designation "${desig}", which is not IR-eligible under league rule §B3 (IR / PUP / NFI / suspended / COVID).`
                   : "This player is not on MFL's NFL injury report, so they hold no IR-eligible designation "
-                    + "(canon §B3 / T2.1: IR, IR-PUP, IR-NFI, Suspended, Holdout, COVID). The commissioner can override.",
+                    + "(league rule §B3 / T2.1: IR, IR-PUP, IR-NFI, Suspended, Holdout, COVID). The commissioner can override.",
                 player_id: playerId,
                 franchise_id: franchiseId,
                 nfl_designation: desig,
@@ -51878,7 +51878,7 @@ export default {
                 return jsonOut(409, {
                   ok: false,
                   error: "LOADED_CAP_EXCEEDED",
-                  reason: `Franchise ${myFid} already holds ${loadedOthers} loaded contracts; this restructure would create a 6th (cap is 5 — canon §C5). Trade or cut a loaded player first.`,
+                  reason: `Franchise ${myFid} already holds ${loadedOthers} loaded contracts; this restructure would create a 6th (cap is 5 — league rule §C5). Trade or cut a loaded player first.`,
                 });
               }
             }
