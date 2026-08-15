@@ -50158,7 +50158,29 @@ export default {
           // noop
         }
 
-        if (!importRes.requestOk) {
+        // Only an EXPLICIT refusal from MFL short-circuits here. A merely
+        // unrecognised response does not.
+        //
+        // requestOk is `isLikelyMflImportSuccess`, which is
+        // `res.ok && !looksLikeMflImportError(text)` -- and that error sniff
+        // fires on the substring "error" appearing ANYWHERE in the body. These
+        // imports return an HTML page, and virtually any MFL HTML page contains
+        // "error" somewhere (a script, a CSS class, a hidden field). So a write
+        // that MFL applied perfectly reports as a failure.
+        //
+        // That is exactly what happened to Keith on 2026-08-15: "Place on IR
+        // failed: MFL import failed (HTTP 200)" -- and the player WAS placed on
+        // IR. Telling an owner a non-idempotent roster move failed when it
+        // succeeded is the worst outcome available, because the obvious next
+        // action is to retry it.
+        //
+        // The roster read below is the fact; the response body is a heuristic.
+        // The drop and FCFS write paths already learned this (see the "(a)/(b)/
+        // (c)" note on /api/waivers/fcfs); this path never did and bailed BEFORE
+        // its own verification could run. Now only `definite_reject` -- MFL
+        // returning a real error payload in its own words -- fails fast. Anything
+        // else falls through and lets the roster decide.
+        if (!importRes.requestOk && importRes.definite_reject) {
           return jsonOut(502, {
             ok: false,
             error: importRes.error || "MFL roster action failed",
@@ -50172,6 +50194,9 @@ export default {
             form_fields: importRes.formFields,
           });
         }
+        // Remembered so the response can say whether the roster overruled the
+        // heuristic, rather than silently papering over it.
+        const importHeuristicSaidFail = !importRes.requestOk;
 
         const verifyRes = await mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
         let verification = {
@@ -50334,6 +50359,37 @@ export default {
                 ? "Player promoted from taxi (4th activation — now permanently promoted)."
                 : "Player promoted from taxi in MFL.")));
 
+        // The roster read itself failed — we hold NO evidence either way.
+        // This is NOT "the write failed": MFL may well have applied it and the
+        // verification export simply did not answer. Saying "failed" here
+        // invites a retry, and a retry on a non-idempotent roster move is how
+        // you demote a player twice or re-cut someone. Report it as unconfirmed
+        // and explicitly tell the caller not to resend — the same distinction
+        // /api/waivers/fcfs draws between "MFL rejected" and "read unreadable".
+        if (!verification.ok && verification.reason === "post_import_rosters_export_failed") {
+          return jsonOut(200, {
+            ok: true,
+            verified: false,
+            verify_known: false,
+            retry_safe: false,
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            used_franchise_id: usedFranchiseId,
+            import_heuristic_said_fail: importHeuristicSaidFail,
+            error_code: "MFL_WRITE_UNCONFIRMED",
+            message:
+              `The ${action} request was sent, but MFL's roster export could not be read back, ` +
+              "so we cannot confirm whether it applied. Check MFL directly — do NOT resend, " +
+              "as this action is not idempotent.",
+            verification,
+            response: {
+              upstream_status: importRes.status,
+              upstream_preview: importRes.upstreamPreview,
+            },
+          });
+        }
+
         if (!verification.ok) {
           // Common cause for taxi promote/demote: MFL gates the action
           // (off-season, contract-deadline state, etc.) — the import
@@ -50371,6 +50427,11 @@ export default {
 
         return jsonOut(200, {
           ok: true,
+          // True when MFL's response body tripped the "error" substring sniff
+          // but the ROSTER proved the write landed anyway. Surfaced rather than
+          // hidden so a genuine upstream change shows up in logs instead of
+          // being silently smoothed over.
+          import_heuristic_said_fail: importHeuristicSaidFail,
           action,
           player_id: playerId,
           franchise_id: franchiseId,
