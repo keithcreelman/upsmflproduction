@@ -26,7 +26,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import hashlib
 import html as _html
 import json
@@ -626,16 +625,30 @@ QUICK = [
 
 # ---------------------------------------------------------------- build
 
-def git_sha(path: str) -> str | None:
+def _git_log1(path: str, fmt: str) -> str | None:
     try:
         out = subprocess.run(
-            ["git", "-C", REPO, "log", "-1", "--format=%H", "--", path],
+            ["git", "-C", REPO, "log", "-1", "--format=" + fmt, "--", path],
             capture_output=True, text=True, timeout=15,
         )
-        sha = out.stdout.strip()
-        return sha or None
+        return out.stdout.strip() or None
     except Exception:
         return None
+
+
+def git_sha(path: str) -> str | None:
+    return _git_log1(path, "%H")
+
+
+def git_date(path: str) -> str | None:
+    """Commit date of the last change to `path`, ISO-8601 UTC.
+
+    The payload is a pure function of canon, so it must not carry a wall-clock
+    build time: a timestamp that moves every run makes the generated files
+    differ even when canon has not, and CI then commits a no-op on every build.
+    Canon's own commit date is the honest stamp and is stable for a given canon.
+    """
+    return _git_log1(path, "%cI")
 
 
 def build() -> dict:
@@ -718,7 +731,7 @@ def build() -> dict:
         "canon_path": "docs/league_context_v1.md",
         "canon_sha": git_sha("docs/league_context_v1.md"),
         "canon_digest": hashlib.sha256(canon_md.encode("utf-8")).hexdigest()[:12],
-        "built_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "canon_date": git_date("docs/league_context_v1.md"),
         "last_changed": entries[0]["date"] if entries else None,
         "counts": {"rules": n_rules, "internal": n_internal,
                    "sections": len(parsed["sections"]), "changelog": len(entries),
@@ -737,7 +750,7 @@ BANNER = (
     "   Built by scripts/build_rulebook_data.py from docs/league_context_v1.md\n"
     "   + docs/league_context_changelog.md. Edit canon, not this file; CI\n"
     "   (.github/workflows/rulebook-build.yml) regenerates and commits it.\n"
-    "   Built: %s · canon %s */\n"
+    "   Canon last changed: %s · digest %s */\n"
 )
 
 
@@ -759,7 +772,7 @@ def main() -> int:
             print("  - %s" % p)
 
     body_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    js = (BANNER % (payload["built_at"], payload["canon_digest"])) + \
+    js = (BANNER % (payload["canon_date"] or "uncommitted", payload["canon_digest"])) + \
          "window.UPS_RULES_DATA = " + body_json + ";\n"
 
     if args.check:
@@ -771,7 +784,8 @@ def main() -> int:
                 continue
             with open(path, "r", encoding="utf-8") as f:
                 have = f.read()
-            # built_at/digest lines differ every run; compare the payload only.
+            # Output is deterministic for a given canon, so a byte compare is
+            # enough; the digest check below is the cheap version of it.
             if path.endswith(".json"):
                 same = json.loads(have).get("canon_digest") == payload["canon_digest"]
             else:
