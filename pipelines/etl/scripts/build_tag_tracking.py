@@ -150,10 +150,23 @@ TAG_RULES: Dict[str, List[TierRule]] = {
         # 16-24 AAV band, but eligibility is not capped at rank 24.
         TierRule(3, 16, None, 16, 24, "Avg Top 16-24 QB AAV"),
     ],
+    # RB Tier 2 is 5-12, NOT 5-8. The ratified tagging doc's own closing line
+    # reads "RB TIER II WAS MODIFIED TO REFLECT RBs 5-12 instead of the 5-8",
+    # and the 2025 calc (2025calc_tagtiers.csv + the published 2025 tier table)
+    # ran 5-12 / 13-31 correctly. The 2026 calc shipped 5-8 / 9-31 -- a
+    # regression against a rule already in force -- pushing RBs who finished
+    # 9th-12th into Tier 3. Live 2026 consequence: Travis Etienne (RB#10) was
+    # tagged at $19,000 off the T3 price when T2 was the correct tier.
+    #
+    # Corrected here for the 2027 calc onward (Keith 2026-08-14: "it's too late
+    # to change 2026 calculations but we definitely need to fix for '27").
+    # NOTE: re-running this script for tracking_for_season=2026 will now produce
+    # RB numbers that do NOT match the contracts actually stamped in MFL for
+    # 2026. That is expected -- 2026 stands as played.
     "RB": [
         TierRule(1, 1, 4, 1, 4, "Avg Top 1-4 RB AAV"),
-        TierRule(2, 5, 8, 5, 8, "Avg Top 5-8 RB AAV"),
-        TierRule(3, 9, None, 9, 31, "Avg Top 9-31 RB AAV"),
+        TierRule(2, 5, 12, 5, 12, "Avg Top 5-12 RB AAV"),
+        TierRule(3, 13, None, 13, 31, "Avg Top 13-31 RB AAV"),
     ],
     "WR": [
         TierRule(1, 1, 6, 1, 6, "Avg Top 1-6 WR AAV"),
