@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.08.08.5";
+  var BUILD = "2026.08.15.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -2751,7 +2751,10 @@
       if (window.UPS_MOBILE.rulesView && window.UPS_MOBILE.rulesView.render) {
         var slot = document.createElement("div");
         mount.appendChild(slot);
-        window.UPS_MOBILE.rulesView.render(slot);
+        // subParts[1] is a rule anchor — #more/rules/s1-b2 opens the rulebook
+        // scrolled to B2 Taxi Squad. That's what the per-rule "Copy link"
+        // button hands out, so a link pasted into Discord lands on the rule.
+        window.UPS_MOBILE.rulesView.render(slot, (subParts && subParts[1]) || "");
       }
       return;
     }
@@ -3080,6 +3083,11 @@
     boot: boot,
     isCommishOverride: isCommishOverride,
     state: state,
+    // BUILD lets a view cache-bust its own lazily-injected assets in lockstep
+    // with the app release. showToast was already being called from two views
+    // that never got a toast because it wasn't actually exported.
+    BUILD: BUILD,
+    showToast: showToast,
     util: {
       safeStr: safeStr,
       safeInt: safeInt,

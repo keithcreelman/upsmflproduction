@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.15.1",
-  "label": "Injured Reserve is now a real button: place a player on IR (50% cap relief, off the active-roster max, reversible) or activate him again, straight from the player sheet. The IR list was also reading MFL's injury report wrong and showed nobody as eligible — fixed. Player News is on the player sheet now too."
+  "build": "2026.08.15.2",
+  "label": "Rules: the whole rulebook is in the app now. Search it, tap any topic, and it is generated straight from league canon so it cannot drift from the real rules. What's Changed lists every rule vote and what it rewrote. Anything you have already opened stays readable with no signal."
 }
