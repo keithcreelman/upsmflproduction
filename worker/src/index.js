@@ -43969,6 +43969,143 @@ export default {
         return out;
       };
 
+      // ── GET /admin/drops/capfree-backfill?L=&YEAR=[all|2026] ────────────────
+      // AUDIT ONLY — writes nothing, ever, to D1 or MFL.
+      //
+      // The cap-free review only routes NEW drops, and every drop already
+      // carrying a penalty has already been charged (verified 2026-08-15:
+      // /admin/drops/capfree-decide refuses them with `already_posted`). So it
+      // cannot retroactively fix history. This answers the separate question:
+      // was any past drop MISPRICED, and by how much?
+      //
+      // Two ways a row can be wrong, and they point opposite directions:
+      //
+      //   OVERCHARGED — the player is retired, so the exit was cap-free and the
+      //     §D1 penalty should never have been levied. What was owed is the
+      //     §D2a settlement (often far less, and on a front-loaded deal a
+      //     CREDIT). Tyreek Hill is the worked case: charged $26,500 where
+      //     §D2a computes an $18,000 credit — a $44,500 swing.
+      //
+      //   UNDERCHARGED — a row that was written off as exempt/cap-free but sat
+      //     on a BACK-loaded deal, where §D2a says the owner still owed the
+      //     shortfall they never paid. This is the 2013 Gonzalez loophole, and
+      //     since `retired_exempt` has never been set by any code, no row has
+      //     ever had the settlement applied.
+      //
+      // Retirement is judged by MFL's CURRENT flag, which is the honest signal
+      // available in hindsight — it lags ~6 months, so a player who retired in
+      // the past is very likely flagged by now even though he was not at drop
+      // time. Rows we cannot price are reported as such, never as $0.
+      if (path === "/admin/drops/capfree-backfill" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const bfLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const bfYearRaw = safeStr(url.searchParams.get("YEAR") || "").trim();
+        const bfAll = bfYearRaw.toLowerCase() === "all";
+        const bfSeason = bfAll ? "" : (bfYearRaw || safeStr(YEAR || "2026"));
+        const bfLimit = Math.max(1, Math.min(500, safeInt(url.searchParams.get("LIMIT"), 400)));
+
+        const seasonsRes = await env.UPS_MFL_DB.prepare(
+          "SELECT season, COUNT(*) AS n FROM ups_drop_events WHERE league_id = ? GROUP BY season ORDER BY season"
+        ).bind(bfLeague).all();
+        const bfSeasons = ((seasonsRes && seasonsRes.results) || []).map((r) => ({ season: safeStr(r.season), rows: safeInt(r.n, 0) }));
+
+        const rowsRes = await env.UPS_MFL_DB.prepare(
+          `SELECT season, player_id, player_name, position, franchise_id, franchise_name,
+                  dropped_at_iso, pre_drop_aav, pre_drop_contract_length, pre_drop_contract_year,
+                  earned_to_date, penalty_amount, penalty_basis, penalty_exempt,
+                  posted_to_mfl, posted_amount
+             FROM ups_drop_events
+            WHERE league_id = ? ${bfAll ? "" : "AND season = ?"}
+            ORDER BY dropped_at_unix DESC
+            LIMIT ?`
+        ).bind(...(bfAll ? [bfLeague, bfLimit] : [bfLeague, bfSeason, bfLimit])).all();
+        const bfRows = (rowsRes && rowsRes.results) || [];
+
+        // ONE injuries read. MUST omit L= (league-agnostic export).
+        let bfInj = { known: false, map: new Map(), error: "" };
+        try {
+          const ires = await mflExportJson(safeStr(YEAR || "2026"), bfLeague, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          if (ires && ires.ok) {
+            const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
+            const irows = Array.isArray(root) ? root : (root ? [root] : []);
+            if (irows.length) {
+              bfInj.known = true;
+              for (const r of irows) bfInj.map.set(safeStr(r && r.id), safeStr(r && r.status).toUpperCase());
+            } else bfInj.error = "injuries export returned zero rows league-wide";
+          } else bfInj.error = `injuries export unreadable (status ${safeInt(ires && ires.status, 0)})`;
+        } catch (e) {
+          bfInj.error = String((e && e.message) || e).slice(0, 160);
+        }
+
+        const findings = [];
+        let unpriceable = 0;
+        for (const r of bfRows) {
+          const pid = safeStr(r.player_id);
+          const desig = bfInj.known ? safeStr(bfInj.map.get(pid) || "") : "";
+          const isRetired = bfInj.known && desig === "RETIRED";
+          const set = _d2aSettlement(r);
+          const charged = safeInt(r.posted_to_mfl, 0) === 1
+            ? safeInt(r.posted_amount, 0)
+            : safeInt(r.penalty_amount, 0);
+
+          if (!isRetired) continue;                 // only retirees can be cap-free exits
+          if (!set.known) {
+            unpriceable += 1;
+            findings.push({
+              season: safeStr(r.season), player_id: pid, player_name: safeStr(r.player_name),
+              franchise: safeStr(r.franchise_name) || safeStr(r.franchise_id),
+              dropped_at_iso: safeStr(r.dropped_at_iso), nfl_designation: desig,
+              charged, correct: null, delta: null,
+              verdict: "UNPRICEABLE", reason: set.reason,
+              penalty_basis: safeStr(r.penalty_basis),
+              posted_to_mfl: safeInt(r.posted_to_mfl, 0) === 1,
+            });
+            continue;
+          }
+          const correct = set.settlement;           // §D2a REPLACES §D1 on a cap-free exit
+          const delta = correct - charged;          // + owner owes more, − owner was overcharged
+          findings.push({
+            season: safeStr(r.season), player_id: pid, player_name: safeStr(r.player_name),
+            franchise: safeStr(r.franchise_name) || safeStr(r.franchise_id),
+            dropped_at_iso: safeStr(r.dropped_at_iso), nfl_designation: desig,
+            charged, correct, delta,
+            verdict: delta === 0 ? "CORRECT" : (delta < 0 ? "OVERCHARGED" : "UNDERCHARGED"),
+            d2a: set,
+            penalty_basis: safeStr(r.penalty_basis),
+            posted_to_mfl: safeInt(r.posted_to_mfl, 0) === 1,
+          });
+        }
+
+        const priced = findings.filter((f) => f.delta != null);
+        const over = priced.filter((f) => f.delta < 0);
+        const under = priced.filter((f) => f.delta > 0);
+        return jsonOut(200, {
+          ok: true,
+          audit_only: true,
+          note: "READ-ONLY. Nothing written to D1 or MFL. Shows what §D2a says a past cap-free "
+              + "exit SHOULD have settled at versus what was actually charged.",
+          league_id: bfLeague,
+          season: bfAll ? "all" : bfSeason,
+          seasons_available: bfSeasons,
+          rows_examined: bfRows.length,
+          injuries_feed: { known: bfInj.known, error: bfInj.error, rows_seen: bfInj.map.size },
+          retirees_found: findings.length,
+          counts: {
+            correct: priced.filter((f) => f.delta === 0).length,
+            overcharged: over.length,
+            undercharged: under.length,
+            unpriceable,
+          },
+          dollars: {
+            owed_back_to_owners: over.reduce((a, f) => a + Math.abs(f.delta), 0),
+            still_owed_by_owners: under.reduce((a, f) => a + f.delta, 0),
+            net: priced.reduce((a, f) => a + f.delta, 0),
+          },
+          findings,
+        });
+      }
+
       // ── POST /admin/drops/capfree-notify ────────────────────────────────────
       // The visible half. Two jobs, both idempotent:
       //
