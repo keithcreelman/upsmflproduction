@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.08.5",
-  "label": "Contracts: pre-season waiver pickups (Vet-WW) can take a multi-year deal, and every contract window — MYAC, MYM, Extension — is offered only inside its own window. The Week 3 / Week 5 boundaries now come from the real NFL kickoffs, so the app and the Discord waiver post print the same dates for the same player."
+  "build": "2026.08.15.1",
+  "label": "Injured Reserve is now a real button: place a player on IR (50% cap relief, off the active-roster max, reversible) or activate him again, straight from the player sheet. The IR list was also reading MFL's injury report wrong and showed nobody as eligible — fixed. Player News is on the player sheet now too."
 }

@@ -866,10 +866,17 @@
   }
 
   // IR subtab — TWO buckets (Canon §B3: IR = 50% cap relief, off the active
-  // roster max). Display-only for now: surfaces who can come OFF IR and which
-  // active players hold an IR-eligible NFL designation (IR / PUP / suspended /
-  // holdout, from the MFL injuries export). The option-down / call-up writes
-  // land in a later pass.
+  // roster max). Both directions are now live: tap a player to open the sheet,
+  // which carries "Place on IR" (worker deactivate_ir) and "Activate from IR"
+  // (worker activate_ir). Same shape as the Taxi subtab above — the buckets
+  // list, the sheet writes — so there is exactly one place in mobile where a
+  // roster move is submitted.
+  //
+  // Eligibility comes from DATA.irEligibilityFor (the single §B3 predicate,
+  // app.js). It reports `known` separately from `eligible`, and this view is
+  // required to honour that: when MFL's injuries export didn't read we say so
+  // instead of printing "0 eligible", which would be a confident lie about a
+  // cap-relevant question. The worker re-checks §B3 before writing anything.
   function renderIr(mount) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
@@ -878,14 +885,19 @@
     }
     var roster = DATA.getRosterFor(fid) || [];
     var injuries = M.state.injuriesByPid || {};
-    function irEligible(pid) {
-      var s = injuries[String(pid)] || "";
-      return s === "IR" || s === "PUP" || s === "NFI" || s.indexOf("SUSPEND") === 0 || s.indexOf("COVID") >= 0;
-    }
+    var feed = DATA.injuryFeedState ? DATA.injuryFeedState() : { ok: false, rows: 0 };
+    // The "on IR" bucket is derived from the ROSTER's own status field, so it
+    // stays trustworthy even when the injuries export is down — call-ups are
+    // unaffected by an unreadable feed.
     var onIr = roster.filter(function (r) { return /ir|injured|reserve/i.test(U.safeStr(r.status)); });
-    var candidates = roster.filter(function (r) {
-      return !/ir|injured|reserve|taxi/i.test(U.safeStr(r.status)) && irEligible(r.id);
-    });
+    // Candidates need the injuries feed. If it didn't read, there is no honest
+    // candidate list to build — an empty array here would render as "nobody
+    // qualifies" and that is the exact fail-open shape we refuse.
+    var candidates = feed.ok ? roster.filter(function (r) {
+      if (/ir|injured|reserve|taxi/i.test(U.safeStr(r.status))) return false;
+      var e = DATA.irEligibilityFor(r.id);
+      return e.known && e.eligible;
+    }) : [];
     onIr.sort(function (a, b) { return (Number(b.salary) || 0) - (Number(a.salary) || 0); });
     candidates.sort(function (a, b) { return (Number(b.salary) || 0) - (Number(a.salary) || 0); });
 
@@ -898,15 +910,38 @@
     }
 
     var html = subTabs("ir") +
-      '<div class="ups-m-action-blurb">Canon §B3 — IR players get <b>50% cap relief</b> and don\'t count against the active roster max. Eligible: NFL IR / PUP / suspended / holdout.</div>';
+      '<div class="ups-m-action-blurb">Canon §B3 — IR players get <b>50% cap relief</b> and don\'t count against the active roster max (15 IR slots). Eligible NFL designations: IR / IR-PUP / IR-NFI / Suspended / Holdout. Tap a player to place them on IR or activate them.</div>';
     html += bucketHead("On IR — available to call up", onIr.length);
     html += onIr.length
       ? '<div class="ups-m-player-list">' + onIr.map(irRow).join("") + '</div>'
       : '<div class="ups-m-bucket-empty">No players on IR.</div>';
-    html += bucketHead("Eligible to option to IR", candidates.length);
-    html += candidates.length
-      ? '<div class="ups-m-player-list">' + candidates.map(irRow).join("") + '</div>'
-      : '<div class="ups-m-bucket-empty">No active players currently hold an IR-eligible NFL designation.</div>';
+    html += bucketHead("Eligible to option to IR", feed.ok ? candidates.length : "—");
+    if (!feed.ok) {
+      // UNKNOWN, stated as unknown. Note the sheet still offers Place on IR
+      // here: the worker reads the injury report server-side over its own
+      // session, so our read failing says nothing about its read — and if the
+      // worker cannot read it either, it refuses (IR_ELIGIBILITY_UNKNOWN, 502)
+      // rather than writing. Nothing is being waved through.
+      html += '<div class="ups-m-bucket-empty">' +
+        '<b>IR eligibility couldn\'t be checked.</b><br>' +
+        'MFL\'s injury report didn\'t load, so we don\'t know who qualifies — this list is empty because we couldn\'t look, not because nobody is eligible. ' +
+        'Pull to refresh, or open a player from your Roster and use <b>Place on IR</b>; the server verifies §B3 before it writes anything.' +
+        '</div>';
+    } else if (candidates.length) {
+      html += '<div class="ups-m-player-list">' + candidates.map(irRow).join("") + '</div>';
+    } else {
+      // Read fine, genuinely nobody on THIS roster — and say which of the two
+      // it is. rows>0 means the league-wide report is live (339 designations on
+      // 2026-08-15) and simply doesn't name anyone you own. rows===0 means the
+      // report itself is carrying nothing at all, which is a different thing to
+      // tell an owner even though the bucket looks the same.
+      html += '<div class="ups-m-bucket-empty">' +
+        'No active players currently hold an IR-eligible NFL designation.' +
+        (feed.rows > 0
+          ? '<br>MFL\'s injury report is live (' + U.escapeHtml(String(feed.rows)) + ' NFL designations league-wide) — none of them are on your active roster.'
+          : '<br>MFL\'s injury report is carrying <b>no designations at all</b> right now, so nobody can qualify yet.') +
+        '</div>';
+    }
     mount.innerHTML = html;
     bindRowClicks(mount);
   }
