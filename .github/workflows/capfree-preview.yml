@@ -1,0 +1,31 @@
+name: Cap-free retirement review — DRY RUN preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Season"
+        required: false
+        default: "2026"
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      YEAR: ${{ github.event.inputs.year }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: call capfree-preview (READ-ONLY)
+        run: |
+          Y="${YEAR:-2026}"
+          curl -s "https://upsmflproduction.keith-creelman.workers.dev/admin/drops/capfree-preview?L=74598&YEAR=${Y}&LIMIT=120&APIKEY=${KEY}" \
+            -o /tmp/cf.json
+          echo "bytes: $(wc -c < /tmp/cf.json)"
+      - name: show
+        run: python3 scripts/ci_show_capfree_preview.py /tmp/cf.json
