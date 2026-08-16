@@ -1,35 +1,53 @@
 {
-  "_note": "Member-facing rulebook. Canon (docs/league_context_v1.md) stays the source of truth: every topic cites the canon rules behind it and scripts/build_rulebook_data.py FAILS the build if a citation stops resolving. Written in the present tense - what is true today. History is compressed to short era notes. Topics with needs_canon:true state a rule that canon does not yet contain; promote it into canon and clear the flag.",
+  "_note": "Member-facing rulebook. Canon (docs/league_context_v1.md) stays the source of truth: every topic cites the canon rules behind it and scripts/build_rulebook_data.py FAILS the build if a citation stops resolving. Written in the present tense - what is true today. History is compressed to short era notes. Topics with needs_canon:true state a rule that canon does not yet contain; promote it into canon and clear the flag. Topics are grouped via the `group` key into the sections defined in `groups`; `order` remains a complete flat list of every topic key and sets the sequence within each group.",
+  "groups": [
+    {
+      "key": "roster",
+      "title": "Your Roster",
+      "blurb": "What you can hold and start"
+    },
+    {
+      "key": "moves",
+      "title": "Adding & Dropping",
+      "blurb": "Moving players in and out"
+    },
+    {
+      "key": "contracts",
+      "title": "Contracts",
+      "blurb": "What a player costs and for how long"
+    },
+    {
+      "key": "season",
+      "title": "The Season",
+      "blurb": "The year, the game, the money"
+    }
+  ],
   "order": [
     "lineups",
     "salary-cap",
+    "taxi",
     "acquiring",
-    "contracts",
+    "cutting",
+    "trades",
     "extending-restructuring",
     "tags",
-    "trades",
-    "cutting",
-    "taxi",
+    "contracts",
     "deadlines",
-    "league-year",
-    "scoring",
     "standings",
+    "scoring",
     "dues-fines-payouts"
   ],
   "topics": [
     {
       "key": "lineups",
-      "title": "Rosters & Lineups",
+      "group": "roster",
+      "title": "Setting Your Lineup",
       "one_liner": "You start 18: 1 QB, 2 RB, 2 WR, 1 TE, 2 flex, 1 superflex, K, P and 7 IDP.",
       "today": [
-        "Superflex is the only slot a second quarterback fits into. Two is the most you'll ever have scoring in a week.",
-        "Your roster floor gets checked exactly once a year, the moment the FA Auction closes, and you have to be able to field a legal lineup at that same instant. Both halves, same moment.",
-        "After that the floor stops mattering. Drop below it in November and nobody's counting.",
-        "The ceiling is the one that bites. It tightens at the September contract deadline, and MFL enforces that one at write time, so you don't get the chance to argue about it.",
-        "Four NFL starting quarterbacks is your limit, and your taxi squad counts toward it. That gets measured once a year, on the contract deadline, off the FantasyPros depth chart. A backup you're sitting on who steals the job in Week 11 doesn't put you in violation, so enjoy it.",
-        "Separate rule, same position: five QBs on your active roster is a hard ceiling, and that one is live all season.",
-        "Lineups lock player by player as each game kicks off. Once his game starts he's frozen exactly where you left him, in or out. Setting a lineup every week is mandatory.",
-        "A player on IR stops counting against your roster ceiling as well as giving salary back. That's the half people forget when they're doing auction math."
+        "Eighteen starters every week. SuperFlex is the only slot a second quarterback fits into, so two is the most you'll ever have scoring.",
+        "A kicker and a punter are both required. Neither is optional and neither fits in a flex.",
+        "Lineups lock player by player as each game kicks off. Once his game starts he's frozen where you left him, in or out.",
+        "Setting a lineup every week is mandatory. Nobody is going to remind you."
       ],
       "numbers": [
         {
@@ -37,16 +55,12 @@
           "value": "18"
         },
         {
+          "label": "Offense & ST",
+          "value": "11"
+        },
+        {
           "label": "IDP",
           "value": "7"
-        },
-        {
-          "label": "Active roster",
-          "value": "27-30"
-        },
-        {
-          "label": "Starting QBs",
-          "value": "4 max"
         }
       ],
       "table": {
@@ -120,27 +134,19 @@
         ]
       },
       "era_notes": [
-        "SuperFlex since 2022",
-        "Starting-QB cap raised from 3 to 4 in July 2026"
+        "SuperFlex since 2022"
       ],
       "canon_rules": [
         "B4",
-        "B1",
-        "B2",
-        "B3",
-        "T2.4",
         "T6.1"
       ],
       "gotchas": [
-        "A kicker and a punter are both required starters. Neither is optional and neither fits in a flex.",
-        "The 4-starting-QB cap counts your taxi squad too. Stashing a fourth starter down there used to be the workaround; since July 2026 it isn't.",
-        "Go over 4 starters on the contract deadline and the league cuts your most recently acquired ones until you're legal, with normal penalties against next year's cap.",
-        "First-round rookies can't go to the taxi squad. They take an active roster spot the day you draft them.",
-        "You can drop below 27 players mid-season without penalty. That floor only gets checked at auction close."
+        "Benching a player does not undo a call-up or protect him from anything. Only the roster move counts.",
+        "Roster size limits, the QB caps and IR relief all live under Cap & Roster Limits, not here."
       ],
       "open_questions": [
         "Canon states the slot structure but not the per-position maximums above the minimums. The live MFL lineup settings are the authority there.",
-        "The 5-QB active-roster maximum is enforced continuously, but canon does not say what happens if you breach it mid-season."
+        "Canon does not state a penalty for failing to submit a weekly lineup, only that it is mandatory."
       ],
       "layout": [
         "table",
@@ -153,16 +159,20 @@
     },
     {
       "key": "salary-cap",
-      "title": "The Salary Cap",
-      "one_liner": "$300K ceiling, $260K floor. Both live from FA Auction start; taxi never counts.",
+      "group": "roster",
+      "title": "Cap & Roster Limits",
+      "one_liner": "$300K ceiling, $260K floor, 27 to 30 players. The floor holds all season.",
       "today": [
-        "The ceiling is hard in the only sense that matters: MFL simply refuses the move.",
-        "There's no override and no fixing it on Monday.",
+        "The $300K ceiling is hard in the only sense that matters: MFL refuses the move. There's no override and no fixing it on Monday.",
         "It's also only switched on from FA Auction start to the end of the season. In the offseason there's no ceiling at all. Sit well over it in April, let post-season trades push you further over, none of that is a violation. You just have to be legal the second the auction opens.",
-        "The floor is the soft one, and softer than people think. Touch it at any single instant during the FA Auction and you're satisfied for the year. One moment counts. If you'd rather not think about it while you're bidding, the other way to clear it is to be above it at the September contract deadline.",
+        "The $260K floor is softer. Touch it at any single instant during the FA Auction and you're satisfied for the year. One moment counts. The other way to clear it is to be above it at the September contract deadline.",
+        "Your roster floor is 27 players and it applies all season, not just at auction close. The auction window is the one stretch where the roster is allowed to float below it.",
+        "The ceiling runs 35 during the auction and drops to 30 at the September contract deadline. MFL enforces that one at write time.",
+        "Four NFL starting quarterbacks is your limit, taxi squad included, measured once a year on the contract deadline off the FantasyPros depth chart. A backup you're sitting on who steals the job in Week 11 doesn't put you in violation, so enjoy it.",
+        "Five QBs on the active roster is a separate ceiling, and that one is live all season.",
         "Tagged salary counts in full, exactly like any other active-roster salary. That's the line people get wrong most often on their own cap sheet.",
-        "Your real available number: start at the ceiling, subtract every active salary, add back IR refunds and any cap money sent to you, then subtract drop penalties, fines, and cap money you've sent away. The fines are what catch people, because they were charged last August and nobody remembers them.",
-        "Before you fire off a max bid, hold back $1K for every roster spot you still need to reach the 27-man minimum, and for every positional hole you still have to fill. Winning a bidding war with your last dollars and then discovering you have no punter is a UPS tradition, and not a proud one."
+        "For your real available number: start at $300K, subtract every active salary, add back IR refunds and any cap money sent to you, then subtract drop penalties, fines, and cap money you've sent away. The fines are what catch people, because they were charged last August and nobody remembers them.",
+        "Before you fire off a max bid, hold back $1K for every roster spot you still need to reach 27 and for every positional hole you still have to fill. Winning a bidding war with your last dollars and then discovering you have no punter is a UPS tradition, and not a proud one."
       ],
       "numbers": [
         {
@@ -172,6 +182,10 @@
         {
           "label": "Floor",
           "value": "$260K"
+        },
+        {
+          "label": "Active roster",
+          "value": "27-30"
         },
         {
           "label": "IR relief",
@@ -208,7 +222,8 @@
         }
       ],
       "era_notes": [
-        "A taxi player called up for a week has counted against the cap for that week since May 2026"
+        "A taxi player called up for a week has counted against the cap for that week since May 2026",
+        "The 27-player floor was corrected to season-long in August 2026"
       ],
       "canon_rules": [
         "A1",
@@ -222,15 +237,18 @@
       "gotchas": [
         "The ceiling is genuinely off in the offseason. Being $40K over in April is legal. Being $1 over at auction start is not.",
         "Your available cap can be negative in the offseason. That is not a violation, it is a to-do list.",
-        "A called-up taxi player counts fully for that week, and IR does not dodge it.",
         "Touching the floor once during the auction is permanent credit. Dropping back below afterward does not undo it.",
-        "MFL enforces the ceiling at write time. UPS tools only warn - a green light in a preview screen is not approval."
+        "The 4-starting-QB cap counts your taxi squad. Stashing a fourth starter down there used to be the workaround; since July 2026 it isn't.",
+        "Go over 4 starting QBs on the contract deadline and the league cuts your most recently acquired ones until you're legal, with normal penalties against next year's cap.",
+        "First-round rookies cannot go to the taxi squad. They take an active roster spot the day you draft them.",
+        "A player on IR stops counting against the roster ceiling and gives back half his salary. That is the half people forget when they are doing auction math.",
+        "MFL enforces the ceiling at write time. UPS tools only warn, so a green light in a preview screen is not approval."
       ],
       "open_questions": [
         "Canon says missing the floor puts you out of compliance and triggers a cap penalty, but never says how much.",
-        "The 50% IR relief has never been traced against a live case - no player has been on IR since the rule was written.",
+        "The 50% IR relief has not been traced against a live case - no player is currently on IR, so the code path is unverified.",
         "Canon says a called-up taxi player's salary counts 'for that week' but not whether that is a full-salary hit or a one-week slice.",
-        "MFL's stored cap is $300,000.49, not $300,000. Canon names MFL as the enforcer, so the enforced number is not the stated one."
+        "Canon does not say what happens if you breach the 5-QB active maximum mid-season."
       ],
       "layout": [
         "numbers",
@@ -242,17 +260,103 @@
       ]
     },
     {
-      "key": "acquiring",
-      "title": "Getting Players",
-      "one_liner": "Seven ways onto your roster - each sets a different salary and contract length.",
+      "key": "taxi",
+      "group": "roster",
+      "title": "Taxi Squad",
+      "one_liner": "Up to 10 rookies, off the cap, with 3 one-week call-ups before promotion is permanent.",
       "today": [
-        "Rookie draft order runs backwards off last season's brackets. Win the Hawktuah Bowl and you pick 1.01; win the whole thing and you pick 1.12. That's Rounds 1 through 5. Round 6 is drawn at random.",
-        "So the best pick in the draft belongs to the team that just finished worst, and he has to sit in Discord on draft night and be congratulated for it in person.",
-        "The FA Auction is the big one and it runs eBay-style. You set your true maximum, the system bids the minimum needed on your behalf, and nobody finds out what you were actually willing to pay unless somebody pushes you there.",
-        "The Expired Rookie Auction is a smaller, stranger animal. The only players in it are rookies nobody bothered to extend by the May deadline, everyone opens at the same price, and the clock resets every single time somebody raises. Two stubborn owners can keep one lot alive for days.",
-        "In season, waivers run first and first-come-first-serve opens after each Sunday run. An FCFS player stays claimable right up until his own kickoff, which is why the Sunday morning inactive reports are worth refreshing.",
-        "Take over a team and you start clean.",
-        "Every cap penalty the previous owner ran up gets wiped, and you get one cut that costs you nothing."
+        "A taxi player costs you nothing on either count. Not the cap, not a roster spot. That's the whole appeal, and it's why eligibility is as tight as it is.",
+        "Round 1 picks can never be sent down. They take an active roster spot the day you draft them, which is part of the price of picking early. Round 6 IDPs are demotable like everybody else.",
+        "Demotions close at the September contract deadline. Miss it and he sits on your active roster all year, eating cap and a spot you'd rather have.",
+        "When his three-year window runs out he has to be promoted or extended. Do neither and he drops into the Expired Rookie Auction, where the other eleven of you get a crack at the player you spent three years developing."
+      ],
+      "numbers": [
+        {
+          "label": "Squad size",
+          "value": "10"
+        },
+        {
+          "label": "Call-ups",
+          "value": "3"
+        },
+        {
+          "label": "Window",
+          "value": "3 years"
+        }
+      ],
+      "table": {
+        "caption": "Call-up versus permanent promotion",
+        "head": [
+          "",
+          "Temporary call-up",
+          "Permanent promotion"
+        ],
+        "rows": [
+          [
+            "Trigger",
+            "Activation weeks 1-3",
+            "4th active week, or a contract change during a call-up"
+          ],
+          [
+            "Counts vs cap and roster",
+            "That week only",
+            "Every week"
+          ],
+          [
+            "Back to taxi?",
+            "Yes, before the next lock",
+            "Never"
+          ],
+          [
+            "Cut penalty",
+            "$0",
+            "Normal formula"
+          ]
+        ]
+      },
+      "era_notes": [
+        "Temporary call-ups added 2026 - one active week used to be permanent",
+        "Taxi grew to 10 with a 1-IDP minimum in 2018"
+      ],
+      "canon_rules": [
+        "B2",
+        "T2.3",
+        "T2.4",
+        "D2",
+        "T5.3"
+      ],
+      "gotchas": [
+        "Putting a called-up player on IR does not save the week. The only way to avoid burning a call-up is to demote him before rosters lock.",
+        "'Active for the week' means he was on your active roster when rosters locked and he appears in that week's results. Benching him does not help.",
+        "Converting his contract during a call-up, whether that's a multi-year auction contract, an extension or a restructure, promotes him permanently, exactly like a 4th week.",
+        "Cap-free cuts survive call-ups. As long as he has never been permanently promoted you can cut him for $0.",
+        "The 3-year clock counts league years, not NFL service time."
+      ],
+      "open_questions": [
+        "Canon's prose says the taxi clock counts LEAGUE years, but the derivation canon gives computes NFL years off the MFL draft year. The two differ for a player acquired via dispersal or an in-season rookie pickup.",
+        "Canon does not settle what happens to a taxi player acquired mid-season by trade.",
+        "Canon sets a 1-IDP minimum but never says when it is checked."
+      ],
+      "layout": [
+        "numbers",
+        "today",
+        "table",
+        "gotchas",
+        "open_questions",
+        "era_notes"
+      ]
+    },
+    {
+      "key": "acquiring",
+      "group": "moves",
+      "title": "Getting Players",
+      "one_liner": "Seven ways onto your roster, each setting a different salary and contract length.",
+      "today": [
+        "Rookie draft order runs backwards off last season's brackets. Win the Hawktuah Bowl and you pick 1.01; win the whole thing and you pick 1.12. That's Rounds 1 through 5, and Round 6 is drawn at random. So the best pick in the draft belongs to the team that just finished worst, who then has to sit in Discord on draft night and be congratulated for it in person.",
+        "The FA Auction is the big one and it runs eBay-style. You set your true maximum, the system bids the minimum needed on your behalf, and nobody finds out what you were willing to pay unless somebody pushes you there.",
+        "The Expired Rookie Auction is smaller and stranger. The only players in it are rookies nobody extended by the May deadline, every lot opens at $1K, and the 36-hour clock resets every time somebody raises. Two stubborn owners can keep one lot alive for days.",
+        "In season, waivers run Thursday through Sunday and first-come-first-serve opens only after the Sunday run. An FCFS player stays claimable right up until his own kickoff, which is why the Sunday morning inactive reports are worth refreshing.",
+        "Take over a team and you start clean: every cap penalty the previous owner ran up is wiped, and you get one cut that costs you nothing."
       ],
       "numbers": [
         {
@@ -303,7 +407,7 @@
           ],
           [
             "First come, first serve",
-            "After each Sunday run",
+            "After the Sunday run only",
             "$1K",
             "1 year"
           ],
@@ -337,12 +441,13 @@
       ],
       "gotchas": [
         "Cut a player who still had contract years left and you cannot nominate or bid on him in that summer's FA Auction. Two exceptions: he was on a tag, or you cut him in the few days right before the auction.",
-        "In the FA Auction you must nominate exactly 2 per ET calendar day until you can field a legal lineup - and 2 is a hard ceiling every day. A third is a violation.",
+        "In the FA Auction you must nominate exactly 2 per ET calendar day until you can field a legal lineup. Two is also a hard ceiling every day. A third is a violation.",
         "The Expired Rookie Auction is the opposite: no nomination requirement, no fines, at most 1 nomination per 12-hour window.",
         "Round 6 must be an IDP. No kickers, no punters, and the pick itself cannot be traded.",
         "Round 1 picks cannot be sent to the taxi squad. Rounds 2 through 6 all can.",
         "Win a player in the Expired Rookie Auction and you cannot cut him until that summer's FA Auction closes.",
-        "Waiver bid groups are not a priority list. Inside a group the highest bid wins, and groups do not outrank each other."
+        "Waiver bid groups are not a priority list. Inside a group the highest bid wins, and groups do not outrank each other.",
+        "Missing the Thursday, Friday or Saturday run does not free a player. He re-locks until the next run. Only the Sunday run opens FCFS."
       ],
       "open_questions": [
         "Canon gives two different ERA start points: the Saturday before Memorial Day, and nomination windows opening Memorial Day Monday.",
@@ -360,15 +465,18 @@
       ]
     },
     {
-      "key": "contracts",
-      "title": "Contracts",
-      "one_liner": "A contract is a length, a salary per year, and a TCV that is 75% guaranteed.",
+      "key": "cutting",
+      "group": "moves",
+      "title": "Cutting a Player",
+      "one_liner": "Penalty = 75% of the contract's total value, minus what he's already earned.",
       "today": [
-        "TCV is the sum of the salaries still left on the deal. Not the average times the years. The sum.",
-        "A remarkable share of this league's arguments trace back to somebody multiplying when they should have been adding.",
-        "AAV is the rate the deal was priced at, and on a fresh contract it's just TCV spread evenly. Extensions break that. The new AAV applies only to the extension years, the old years keep their old numbers, and from then on TCV and AAV-times-years give you two different answers. The sum is the real one.",
-        "There are four kinds of contract. Rookie deals come flat out of the draft. Veteran and auction deals run one, two or three years. A loaded deal is a two- or three-year contract with an uneven year-by-year split. A WW is the one-year deal you get for an in-season pickup.",
-        "Rookie three-year deals don't count against your three-year limit, which is the only reason anyone can carry a full rookie class and still do business. A taxi contract can never be loaded at all."
+        "Everything turns on the word earned. Salary earns one completed NFL week at a time, and it earns against that year's actual salary rather than the contract average. On an uneven deal that gap is worth real money in one direction or the other.",
+        "Any season he played all the way through is fully earned and sunk at the March roll-forward. It stops counting toward the penalty forever, so old contracts get cheaper to walk away from just by sitting there.",
+        "Timing decides which cap year pays, and there are only two doors. Cut him between the end of the season and the start of the FA Auction and it hits the season you're about to play. Cut him from auction start onward, right through to the end of the season, and it lands on next year instead.",
+        "Some cuts cost nothing: a 1-year deal under $5K, a waiver pickup at $4K or less, a taxi player who was never permanently promoted, a tagged player cut before the auction opens, a retired player, a jailed player at the commissioner's discretion (the Jail Bird Rule), an offseason season-long suspension you opt out of, and a new owner's first cut.",
+        "Cap-free is not automatically free on a loaded deal. If he was front-loaded or back-loaded, you settle the gap between what his AAV said he was worth per year and what you actually paid him. Back-load a guy you expect to retire and you owe the shortfall; front-load him and the league owes you a credit. That settlement replaces the normal penalty rather than stacking on top of it.",
+        "The Amari Cooper Rule lets you cut a retired player mid-auction and spend the freed salary immediately. The retirement has to be genuine, the commissioner verifies it, and a player cut this way is off the board for the rest of that auction. It's the only reason anybody in this league reads retirement news in July.",
+        "Very small multi-year deals get their own carve-out. If the whole contract is worth $4K or less, cutting with two or more years left costs a flat $1K and cutting in the final year costs nothing."
       ],
       "numbers": [
         {
@@ -376,275 +484,98 @@
           "value": "75% of TCV"
         },
         {
-          "label": "Rookie deal",
-          "value": "3 years, flat"
+          "label": "Earning",
+          "value": "1/17 a week"
         },
         {
-          "label": "Pick 1.01",
-          "value": "$15K/yr"
-        },
-        {
-          "label": "Picks 1.11-2.12",
-          "value": "$5K/yr"
+          "label": "Free cut under",
+          "value": "$5K"
         }
       ],
-      "table": {
-        "caption": "Rookie salary by pick",
-        "head": [
-          "Pick",
-          "Salary per year"
-        ],
-        "rows": [
-          [
-            "1.01",
-            "$15K"
-          ],
-          [
-            "1.02 - 1.10",
-            "drops $1K a slot, to $6K"
-          ],
-          [
-            "1.11, 1.12, all of Round 2",
-            "$5K"
-          ],
-          [
-            "Rounds 3-5",
-            "$2K"
-          ],
-          [
-            "Round 6 (IDP only)",
-            "$1K"
-          ]
-        ]
-      },
       "examples": [
         {
-          "title": "Reading a 1.05 rookie contract",
+          "title": "3-year $30K veteran, cut in March",
           "lines": [
-            "Drafted at 1.05 = $11K, flat all 3 years",
-            "TCV = $11K + $11K + $11K = $33K",
-            "AAV = $11K",
-            "Guaranteed = 75% x $33K = $24.75K"
+            "TCV = $90K (3 x $30K)",
+            "Year 1 played out, so $30K is earned and sunk",
+            "Penalty = (75% x $90K) - $30K = $37.5K",
+            "Hits the cap of the season about to start"
           ]
         },
         {
-          "title": "Why TCV is not AAV times years",
+          "title": "Front-loaded $40K / $30K / $20K, cut in March of year 2",
           "lines": [
-            "Final year at $17K, extended 1 year (offense: +$10K)",
-            "Extension year = $27K. Current year stays $17K",
-            "TCV = $17K + $27K = $44K",
-            "Not $27K x 2 = $54K"
+            "TCV = $90K and never moves",
+            "Earned = $40K - the actual year-1 salary, not the $30K average",
+            "Penalty = (75% x $90K) - $40K = $27.5K",
+            "Front-loading pays the guarantee down faster than the average suggests"
+          ]
+        },
+        {
+          "title": "Back-loaded $10K / $30K, player retires after year 1",
+          "lines": [
+            "TCV $40K, so AAV = $20K. You actually paid $10K",
+            "Retirement is a cap-free path, so the 75% formula does not apply",
+            "Settlement = (AAV x years served) - paid = $20K - $10K = $10K owed",
+            "Front-load the same deal instead and the $10K runs the other way, as a credit"
+          ]
+        },
+        {
+          "title": "$25K waiver pickup in Week 5, dropped after Week 9",
+          "lines": [
+            "Eligible window = Weeks 5-17 = 13 weeks. Active = 5 weeks",
+            "Earned = (5/13) x $25K = $9,615",
+            "Penalty = (75% x $25K) - $9,615 = $9,135",
+            "In-season cut, so it hits next season's cap"
+          ]
+        },
+        {
+          "title": "$4K waiver pickup, dropped mid-season",
+          "lines": [
+            "Salary is $4K or less, so the cap-free carve-out applies",
+            "Penalty = $0, whenever in the season you drop him"
+          ]
+        },
+        {
+          "title": "$30K tagged player, cut in May before the auction",
+          "lines": [
+            "Cutting before FA Auction start nullifies the tag",
+            "Penalty = $0",
+            "And you may bid on him in that same auction - tags are exempt from the cut-then-rebid lockout"
           ]
         }
       ],
       "era_notes": [
-        "The 75% guarantee replaced a flat 20%-of-remaining-salary cut cost in 2019",
-        "ERA lots have opened at a flat $1K since 2025"
+        "Per-week pro-rated earning since May 2026",
+        "Retired players cuttable mid-auction since July 2026",
+        "The loaded-contract settlement dates to 2013 and was restored to canon in August 2026"
       ],
       "canon_rules": [
+        "D1",
+        "D2",
+        "D2a",
         "C1",
         "C2",
-        "C7",
-        "A1",
-        "A2",
-        "A3"
-      ],
-      "gotchas": [
-        "TCV is a sum of the remaining years, not AAV times years. After an extension the two stop matching, and that is the single biggest source of contract arguments.",
-        "TCV is locked when the contract is created or extended. It does not drift at rollover. Only a restructure re-cuts it.",
-        "An NFL rookie picked up in-season is a WW contract all season, then converted to Rookie status at year-end so he goes to the Expired Rookie Auction, not free agency."
-      ],
-      "open_questions": [
-        "Whether a 3-year MYM counts toward the 6-three-year-contract limit. Canon excludes only rookie deals and says nothing about MYM.",
-        "Canon puts no upper bound on front-loading. A back-loaded deal must keep year 1 at 20% of TCV, but a front-load has no stated ceiling."
-      ],
-      "layout": [
-        "numbers",
-        "today",
-        "table",
-        "examples",
-        "gotchas",
-        "open_questions",
-        "era_notes"
-      ]
-    },
-    {
-      "key": "extending-restructuring",
-      "title": "Extending & Restructuring",
-      "one_liner": "Extensions add 1 or 2 years: +$10K/+$20K on offense, +$3K/+$5K on defense.",
-      "today": [
-        "An extension is for a player in his final year, or an expired rookie you're catching before the May deadline. His current-year salary never moves. The added years get his current AAV plus a flat escalator, and his TCV re-bases to the sum of whatever's left.",
-        "Which escalator depends on the side of the ball. QB, RB, WR and TE run on the expensive schedule. DL, LB, DB and (this one catches somebody every year) kickers and punters run on the cheap one.",
-        "A one-year extension can't be loaded. A two-year one can.",
-        "First-round rookies carry a fourth-year option, priced off the original year-three salary. You have to call it by the September contract deadline of his last original-contract season. Exercising it doesn't use up his extension either: you can still extend him afterwards, off the option-year number, which is how a 1.01 ends up on your roster for six straight seasons.",
-        "MYAC is what turns an auction win into a real contract. By the September deadline you declare it two or three years, split evenly or loaded, whichever suits your cap.",
-        "MYM is the poor man's version. Same salary, more years, no raise and never loaded. That's the entire mechanism, and it's deliberately boring.",
-        "A restructure shuffles money around inside a deal without adding a year, so you need at least two years left to have anything worth shuffling. Offseason through the September deadline only. AAV doesn't budge, but TCV, length and the guarantee all re-base onto the years that remain, which quietly makes him cheaper to cut later.",
-        "One anti-cleverness rule. You can't drop a player and immediately re-sign him onto a multi-year deal. He has to clear a full waiver run first, unclaimed and open to all twelve teams, and his 14-day window starts over from scratch when you get him back."
-      ],
-      "numbers": [
-        {
-          "label": "Extension length",
-          "value": "1 or 2 years"
-        },
-        {
-          "label": "Offense escalator",
-          "value": "+$10K / +$20K"
-        },
-        {
-          "label": "Defense & ST escalator",
-          "value": "+$3K / +$5K"
-        },
-        {
-          "label": "MYM limit",
-          "value": "4 per season"
-        }
-      ],
-      "examples": [
-        {
-          "title": "Extending a $25K veteran one year",
-          "lines": [
-            "Current year: $25K, unchanged",
-            "Offense +$10K = extension year $35K",
-            "New TCV = $25K + $35K = $60K",
-            "Guarantee = 75% x $60K = $45K"
-          ]
-        },
-        {
-          "title": "The defense discount",
-          "lines": [
-            "Final-year LB at $12K AAV",
-            "2-year extension, defense schedule: +$5K = $17K each",
-            "New TCV = $12K + $17K + $17K = $46K",
-            "The same extension on a WR would add $20K a year, not $5K"
-          ]
-        },
-        {
-          "title": "A 1.01 taken out six years",
-          "lines": [
-            "Rookie deal: $15K / $15K / $15K",
-            "Option year = $15K + $5K = $20K",
-            "Then a 2-year extension off $20K: +$20K = $40K / $40K",
-            "Full path: 15 / 15 / 15 / 20 / 40 / 40"
-          ]
-        },
-        {
-          "title": "Restructuring after year 1",
-          "lines": [
-            "3-year deal, TCV $100K, split $30K / $40K / $30K",
-            "Year 1 is played and paid: $30K",
-            "Restructure the remaining $70K = new TCV $70K, 2 years left",
-            "Guarantee re-bases to 75% x $70K = $52.5K"
-          ]
-        }
-      ],
-      "era_notes": [
-        "MYM limit rose from 3 to 4 in 2025",
-        "Re-adding a dropped player for MYM has needed a waiver-run cooldown since July 2026"
-      ],
-      "canon_rules": [
-        "C4",
-        "C5",
-        "C6",
-        "C2",
         "C3",
-        "T3.3",
-        "T3.4",
-        "T3.7"
+        "C7"
       ],
       "gotchas": [
-        "The escalator is added to the current AAV, not the current-year salary, and it only touches the extension years. On a loaded deal in its final year those two numbers differ.",
-        "Extend a final-year player and he now has 2 years left, which makes him restructure-eligible.",
-        "Loaded extensions, loaded auction contracts and restructures all draw from the same 5-loaded-contract limit. Cutting or trading a loaded player reopens the slot immediately.",
-        "The MYM 14-day clock does not reset on a trade. Acquire him on day 20 and there is no MYM.",
-        "A restructure never re-averages AAV. AAV changes at an extension and nowhere else.",
-        "Nothing in the software blocks an out-of-window or 4th restructure. The window and the limit are enforced by the commissioner.",
-        "A tagged player cannot be extended or given a MYM by anyone, including a team that trades for him."
+        "A restructure is the one thing that moves the penalty. TCV and the guarantee re-base to the years still remaining, so a restructured deal is cut against a smaller number.",
+        "A cap-free cut on an evenly split contract really is $0. The settlement only bites when the deal was loaded.",
+        "Two different sub-$5K rules get mixed up constantly. A 1-year contract under $5K is free to cut. A multi-year deal whose TOTAL is $4K or less costs $1K with 2+ years left and $0 in the final year. A 2-year deal at $4K a year totals $8K and gets the normal formula.",
+        "A taxi player stays cap-free to cut through 3 temporary call-ups. The 4th activation makes the promotion permanent and normal penalties apply from then on.",
+        "Cut a player who was still under contract during the offseason and you cannot nominate or bid on him in that summer's auction. Tagged players are exempt.",
+        "Players won in the Expired Rookie Auction cannot be cut at all until that summer's FA Auction closes.",
+        "A player on IR keeps earning, so his cut penalty keeps shrinking while he sits.",
+        "Penalties round on the summed total you owe, not on each cut in isolation."
       ],
       "open_questions": [
-        "The extension deadline for the preseason-pickup edge case is written two ways in canon: Week 4, and Wed Oct 7 / the Week 5 Thursday kickoff on Oct 8.",
-        "An 'Ext3' label appears in canon's contract taxonomy, but every rule says an extension is 1 or 2 years. Three-year extensions do appear in the 2012-2017 forum record.",
-        "Canon does not say what fixes the total value of a multi-year auction contract.",
-        "The year the in-season restructure ban took effect is not pinned down."
-      ],
-      "layout": [
-        "numbers",
-        "today",
-        "examples",
-        "gotchas",
-        "open_questions",
-        "era_notes"
-      ]
-    },
-    {
-      "key": "tags",
-      "title": "Tags",
-      "one_liner": "One offense tag, one defense/ST tag a year - and a tagged player must hit next auction.",
-      "today": [
-        "Only a player with zero years left going into the season can be tagged. In practice: he played out the last year of his deal and you're not ready to let him walk.",
-        "The price is whichever is bigger, his position-tier bid or his prior-season AAV with the 10% bump on top, and then you round the winner up to the nearest $1K. You don't get to pick the cheaper one.",
-        "A tag is a one-year ending, not a one-year pause. He can't be extended and he can't be given a MYM, by you or by anyone who trades for him, ever, on that tag.",
-        "You hold him for the season, then he goes into next summer's FA Auction with everybody else.",
-        "You're welcome to bid. So is the guy you outbid for him last time.",
-        "You can't pre-extend a player and then tag him in the same year, and nobody else can tag a player you've already tagged.",
-        "Tag salary is live cap money like any other active-roster salary, which is exactly why a tag can be the wrong move on a player who's genuinely worth it.",
-        "The deadline is the Thursday before Memorial Day weekend, midnight ET, the same night the rookie extension deadline lands. Until it passes a tag is provisional and you can quietly take it back.",
-        "You can also lock one in early instead of sitting on it. A locked tag is final, and it becomes tradeable like any other contract. Anything you haven't locked auto-locks at the deadline the way it always has."
-      ],
-      "numbers": [
-        {
-          "label": "Tags a year",
-          "value": "2"
-        },
-        {
-          "label": "Salary floor",
-          "value": "AAV x 1.10"
-        },
-        {
-          "label": "Length",
-          "value": "1 year"
-        }
-      ],
-      "examples": [
-        {
-          "title": "Pricing a WR tag",
-          "lines": [
-            "His WR tier bid comes out at $28K",
-            "Prior-season AAV was $30K, so the floor = $30K x 1.10 = $33K",
-            "Tag = the higher of the two = $33K"
-          ]
-        },
-        {
-          "title": "Tagging a kicker",
-          "lines": [
-            "Kicker's prior salary: $3K",
-            "Kicker/punter tag = prior salary + $1K = $4K",
-            "That $4K spends your one defense/ST tag - the same tag your best LB would need"
-          ]
-        }
-      ],
-      "era_notes": [
-        "Franchise and Transition tags became one offense and one defense/ST tag in 2025",
-        "Tags became lockable early, and tradeable, in May 2026"
-      ],
-      "canon_rules": [
-        "C8",
-        "T3.5",
-        "T3.6"
-      ],
-      "gotchas": [
-        "The tag is the end of that contract. There is no tag-then-extend and no second tag.",
-        "Trading for a tagged player unlocks nothing. The acquiring team cannot extend or MYM him either.",
-        "Dropping a tagged player mid-season resets nothing. Dropping him in the offseason before that summer's auction does.",
-        "If you cut a tagged player you are allowed to bid on him in the auction, and the cut costs $0 if it happens before the auction starts.",
-        "A tag is provisional until the deadline. Apply it early and you can still pull it back.",
-        "A tag you trade away doesn't come out of the other team's allocation. They still get their own two."
-      ],
-      "open_questions": [
-        "When a tag actually locks. Canon says both that it auto-locks on the May deadline and that tags are confirmed at the pre-auction cut deadline in July.",
-        "The defense/ST side lists only two tiers. Canon does not say where an unranked DL, LB or DB lands.",
-        "The '10% salary floor' noted on the defense/ST side is never defined.",
-        "Canon flags the tier math itself as pending a rewrite."
+        "The loaded-contract settlement is live but no code implements it. The commissioner applies it by hand until that changes.",
+        "Whether the settlement also covers the other cap-free paths, such as taxi cuts and sub-$5K deals, is not settled. Canon reads them as out of scope for now.",
+        "Canon draws the offseason line in two places - one passage says the penalty hits the current season if the cut comes before the pre-auction roster lock, another says the line is auction start. The days in between are unresolved.",
+        "Canon's own in-season examples disagree on week counting: the cut rule counts a Week 5 pickup dropped after Week 9 as 5 completed weeks, the cap-mechanics table counts the same case as 4.",
+        "Penalties round on the summed total, but canon never says to what increment.",
+        "The Jail Bird Rule has no written test. Being released by an NFL team is explicitly not enough. Commissioner call, case by case."
       ],
       "layout": [
         "numbers",
@@ -657,13 +588,13 @@
     },
     {
       "key": "trades",
+      "group": "moves",
       "title": "Trades",
       "one_liner": "Open from season's end to Thanksgiving. Contracts move as-is. No vetoes.",
       "today": [
         "The window opens the second the season ends. There's no cooling-off period and no waiting for the offseason to formally begin.",
         "Cap money is measured against your own outgoing salary, not out of a shared pot, so the two sides of a deal routinely have very different ceilings on how much cash they can move. Work out your own number before you promise anybody anything.",
-        "Cash on its own isn't a trade.",
-        "Each side has to send a real asset, and no amount of money changes that.",
+        "Cash on its own isn't a trade. Each side has to send a real asset, and no amount of money changes that.",
         "When a player moves, every dollar and year still on his deal moves with him. The team sending him out is clean the moment it processes: no residual salary, no dead money, nothing owed later.",
         "Trades go through immediately and nobody votes on them. Both teams need to be compliant straight away, or inside 24 hours. The commissioner only steps in for blatant collusion or a cap violation you could see from space."
       ],
@@ -761,103 +692,103 @@
       ]
     },
     {
-      "key": "cutting",
-      "title": "Cutting a Player",
-      "one_liner": "Penalty = 75% of the contract's total value, minus what he's already earned.",
+      "key": "extending-restructuring",
+      "group": "contracts",
+      "title": "Changing a Contract",
+      "one_liner": "Extensions add 1 or 2 years: +$10K/+$20K on offense, +$3K/+$5K on defense and special teams.",
       "today": [
-        "Everything turns on the word earned.",
-        "Salary earns one completed NFL week at a time, and it earns against that year's actual salary rather than the contract average. On an uneven deal that gap is worth real money, in one direction or the other.",
-        "Any season he played all the way through is fully earned and sunk at the March roll-forward. It stops counting toward the penalty forever. Old contracts get cheaper to walk away from just by sitting there.",
-        "Timing decides which cap year pays, and there are only two doors. Cut him between the end of the season and the start of the FA Auction and it hits the season you're about to play. Cut him from auction start onward, right through to the end of the season, and it lands on next year instead.",
-        "Some cuts cost nothing at all: a 1-year deal under $5K, a waiver pickup at $4K or less, a taxi player who was never permanently promoted, a tagged player cut before the auction opens, a retired player, a jailed player at the commissioner's discretion (the Jail Bird Rule), an offseason season-long suspension you opt out of, and a new owner's first cut.",
-        "The Amari Cooper Rule lets you cut a retired player mid-auction for nothing and spend the freed salary immediately, which is the only reason anybody in this league reads retirement news in July. The retirement has to be genuine and the commissioner verifies it, and a player cut this way is off the board for the rest of that auction.",
-        "Very small multi-year deals get their own carve-out. If the whole contract is worth $4K or less, cutting with two or more years left costs a flat $1K, and cutting in the final year costs nothing."
+        "An extension is for a player in his final year, or an expired rookie you're catching before the May deadline. His current-year salary never moves. The added years get his current AAV plus a flat escalator, and his TCV re-bases to the sum of whatever's left.",
+        "Which escalator depends on the side of the ball. QB, RB, WR and TE run on the expensive schedule. DL, LB, DB, kickers and punters run on the cheap one, and the kickers catch somebody out every year.",
+        "A one-year extension can't be loaded. A two-year one can.",
+        "First-round rookies carry a fourth-year option priced off the original year-three salary, and you have to call it by the September contract deadline of his last original-contract season. Exercising it doesn't use up his extension. You can still extend him afterwards off the option-year number, which is how a 1.01 ends up on your roster for six straight seasons.",
+        "MYAC turns an auction win into a real contract. By the September deadline you declare it two or three years, split evenly or loaded, whichever suits your cap.",
+        "MYM is the poor man's version: same salary, more years, no raise, never loaded. That's the entire mechanism, and it's deliberately boring.",
+        "A restructure shuffles money around inside a deal without adding a year, so you need at least two years left to have anything worth shuffling. Offseason through the September deadline only. AAV doesn't budge, but TCV, length and the guarantee all re-base onto the years that remain, which quietly makes him cheaper to cut later.",
+        "One anti-cleverness rule: you can't drop a player and immediately re-sign him onto a multi-year deal. He has to clear a full waiver run first, unclaimed and open to all twelve teams, and his 14-day window starts over from scratch when you get him back."
       ],
       "numbers": [
         {
-          "label": "Guarantee",
-          "value": "75% of TCV"
+          "label": "Extension length",
+          "value": "1 or 2 years"
         },
         {
-          "label": "Earning",
-          "value": "1/17 a week"
+          "label": "Offense escalator",
+          "value": "+$10K / +$20K"
         },
         {
-          "label": "Free cut under",
-          "value": "$5K"
+          "label": "Defense & ST escalator",
+          "value": "+$3K / +$5K"
+        },
+        {
+          "label": "MYM limit",
+          "value": "4 per season"
         }
       ],
       "examples": [
         {
-          "title": "3-year $30K veteran, cut in March",
+          "title": "Extending a $25K veteran one year",
           "lines": [
-            "TCV = $90K (3 x $30K)",
-            "Year 1 played out, so $30K is earned and sunk",
-            "Penalty = (75% x $90K) - $30K = $37.5K",
-            "Hits the cap of the season about to start"
+            "Current year: $25K, unchanged",
+            "Offense +$10K = extension year $35K",
+            "New TCV = $25K + $35K = $60K",
+            "Guarantee = 75% x $60K = $45K"
           ]
         },
         {
-          "title": "Front-loaded $40K / $30K / $20K, cut in March of year 2",
+          "title": "The defense discount",
           "lines": [
-            "TCV = $90K and never moves",
-            "Earned = $40K - the actual year-1 salary, not the $30K average",
-            "Penalty = (75% x $90K) - $40K = $27.5K",
-            "Front-loading pays the guarantee down faster than the average suggests"
+            "Final-year LB at $12K AAV",
+            "2-year extension, defense schedule: +$5K = $17K each",
+            "New TCV = $12K + $17K + $17K = $46K",
+            "The same extension on a WR would add $20K a year, not $5K"
           ]
         },
         {
-          "title": "$25K waiver pickup in Week 5, dropped after Week 9",
+          "title": "A 1.01 taken out six years",
           "lines": [
-            "Eligible window = Weeks 5-17 = 13 weeks. Active = 5 weeks",
-            "Earned = (5/13) x $25K = $9,615",
-            "Penalty = (75% x $25K) - $9,615 = $9,135",
-            "In-season cut, so it hits next season's cap"
+            "Rookie deal: $15K / $15K / $15K",
+            "Option year = $15K + $5K = $20K",
+            "Then a 2-year extension off $20K: +$20K = $40K / $40K",
+            "Full path: 15 / 15 / 15 / 20 / 40 / 40"
           ]
         },
         {
-          "title": "$4K waiver pickup, dropped mid-season",
+          "title": "Restructuring after year 1",
           "lines": [
-            "Salary is $4K or less, so the cap-free carve-out applies",
-            "Penalty = $0, whenever in the season you drop him"
-          ]
-        },
-        {
-          "title": "$30K tagged player, cut in May before the auction",
-          "lines": [
-            "Cutting before FA Auction start nullifies the tag",
-            "Penalty = $0",
-            "And you may bid on him in that same auction - tags are exempt from the cut-then-rebid lockout"
+            "3-year deal, TCV $100K, split $30K / $40K / $30K",
+            "Year 1 is played and paid: $30K",
+            "Restructure the remaining $70K = new TCV $70K, 2 years left",
+            "Guarantee re-bases to 75% x $70K = $52.5K"
           ]
         }
       ],
       "era_notes": [
-        "Per-week pro-rated earning since May 2026",
-        "Retired players cuttable mid-auction since July 2026"
+        "MYM limit rose from 3 to 4 in 2025",
+        "Re-adding a dropped player for MYM has needed a waiver-run cooldown since July 2026"
       ],
       "canon_rules": [
-        "D1",
-        "D2",
-        "C1",
+        "C4",
+        "C5",
+        "C6",
         "C2",
         "C3",
-        "C7"
+        "T3.3",
+        "T3.4",
+        "T3.7"
       ],
       "gotchas": [
-        "A restructure is the one thing that moves it. TCV and the guarantee re-base to the years still remaining, so a restructured deal is cut against a smaller number.",
-        "Two different sub-$5K rules get mixed up constantly. A 1-year contract under $5K is free to cut. A multi-year deal whose TOTAL is $4K or less costs $1K with 2+ years left and $0 in the final year. A 2-year deal at $4K a year totals $8K and gets the normal formula.",
-        "A taxi player stays cap-free to cut through 3 temporary call-ups. The 4th activation makes the promotion permanent and normal penalties apply from then on.",
-        "Cut a player who was still under contract during the offseason and you cannot nominate or bid on him in that summer's auction. Tagged players are exempt.",
-        "Players won in the Expired Rookie Auction cannot be cut at all until that summer's FA Auction closes.",
-        "A player on IR keeps earning, so his cut penalty keeps shrinking while he sits.",
-        "Penalties round on the summed total you owe, not on each cut in isolation."
+        "The escalator is added to the current AAV, not the current-year salary, and it only touches the extension years. On a loaded deal in its final year those two numbers differ.",
+        "Extend a final-year player and he now has 2 years left, which makes him restructure-eligible.",
+        "Loaded extensions, loaded auction contracts and restructures all draw from the same 5-loaded-contract limit. Cutting or trading a loaded player reopens the slot immediately.",
+        "The MYM 14-day clock does not reset on a trade. Acquire him on day 20 and there is no MYM.",
+        "A restructure never re-averages AAV. AAV changes at an extension and nowhere else.",
+        "Nothing in the software blocks an out-of-window or 4th restructure. The window and the limit are enforced by the commissioner.",
+        "A tagged player cannot be extended or given a MYM by anyone, including a team that trades for him."
       ],
       "open_questions": [
-        "Canon draws the offseason line in two places - one passage says the penalty hits the current season if the cut comes before the pre-auction roster lock, another says the line is auction start. The days in between are unresolved.",
-        "Canon's own in-season examples disagree on week counting: the cut rule counts a Week 5 pickup dropped after Week 9 as 5 completed weeks, the cap-mechanics table counts the same case as 4.",
-        "Several worked examples in canon's cap-mechanics section still use the retired monthly buckets and have not been recomputed under the per-week rule.",
-        "Penalties round on the summed total, but canon never says to what increment.",
-        "The Jail Bird Rule has no written test. Being released by an NFL team is explicitly not enough. Commissioner call, case by case."
+        "The extension deadline for the preseason-pickup edge case is written two ways in canon: Week 4, and Wed Oct 7 / the Week 5 Thursday kickoff on Oct 8.",
+        "Canon does not say what fixes the total value of a multi-year auction contract.",
+        "The year the in-season restructure ban took effect is not pinned down."
       ],
       "layout": [
         "numbers",
@@ -869,87 +800,214 @@
       ]
     },
     {
-      "key": "taxi",
-      "title": "Taxi Squad",
-      "one_liner": "Up to 10 rookies, off the cap, with 3 one-week call-ups before promotion is permanent.",
+      "key": "tags",
+      "group": "contracts",
+      "title": "Tagging a Player",
+      "one_liner": "One offense tag and one defense/ST tag a year. A tagged player hits next summer's auction.",
       "today": [
-        "A taxi player costs you nothing on either count. Not the cap, not a roster spot.",
-        "That's the whole appeal, and it's exactly why eligibility is as tight as it is.",
-        "Round 1 picks can never be sent down. They take an active roster spot the day you draft them, which is part of the price of picking early. Round 6 IDPs are demotable like everybody else.",
-        "Demotions close at the September contract deadline. Miss it and he sits on your active roster all year, eating cap and a spot you'd rather have.",
-        "When his three-year window runs out he has to be promoted or extended. Do neither and he drops into the Expired Rookie Auction, where the other eleven of you get a crack at the player you spent three years developing."
+        "Only a player with zero years left going into the season can be tagged. In practice that's a guy who played out the last year of his deal and you're not ready to let him walk.",
+        "The price is the higher of his position-tier bid or his prior-season AAV with 10% on top, rounded up to the nearest $1K. You don't get to pick the cheaper one.",
+        "A tag is a one-year ending, not a one-year pause. He can't be extended and he can't be given a MYM, by you or by anyone who trades for him, ever, on that tag.",
+        "You hold him for the season, then he goes into next summer's FA Auction with everybody else. You're welcome to bid. So is the guy you outbid for him last time.",
+        "You can't pre-extend a player and then tag him in the same year, and nobody else can tag a player you've already tagged.",
+        "Tag salary is live cap money like any other active-roster salary, which is exactly why a tag can be the wrong move on a player who's genuinely worth it.",
+        "The deadline is midnight ET on the Thursday before Memorial Day weekend, the same night the rookie extension deadline lands. Until it passes a tag is provisional and you can quietly take it back.",
+        "You can also lock one in early instead of sitting on it. A locked tag is final, and it becomes tradeable like any other contract. Anything you haven't locked auto-locks at the deadline."
       ],
       "numbers": [
         {
-          "label": "Squad size",
-          "value": "10"
+          "label": "Tags a year",
+          "value": "2"
         },
         {
-          "label": "Call-ups",
-          "value": "3"
+          "label": "Salary floor",
+          "value": "AAV x 1.10"
         },
         {
-          "label": "Window",
-          "value": "3 years"
+          "label": "Length",
+          "value": "1 year"
+        }
+      ],
+      "examples": [
+        {
+          "title": "Pricing a WR tag",
+          "lines": [
+            "His WR tier bid comes out at $28K",
+            "Prior-season AAV was $30K, so the floor = $30K x 1.10 = $33K",
+            "Tag = the higher of the two = $33K"
+          ]
+        },
+        {
+          "title": "Tagging a kicker",
+          "lines": [
+            "Kicker's prior salary: $3K",
+            "Kicker/punter tag = prior salary + $1K = $4K",
+            "That $4K spends your one defense/ST tag - the same tag your best LB would need"
+          ]
+        }
+      ],
+      "era_notes": [
+        "Franchise and Transition tags became one offense and one defense/ST tag in 2025",
+        "Tags became lockable early, and tradeable, in May 2026"
+      ],
+      "canon_rules": [
+        "C8",
+        "T3.5",
+        "T3.6"
+      ],
+      "gotchas": [
+        "The tag is the end of that contract. There is no tag-then-extend and no second tag.",
+        "Trading for a tagged player unlocks nothing. The acquiring team cannot extend or MYM him either.",
+        "Dropping a tagged player mid-season resets nothing. Dropping him in the offseason before that summer's auction does.",
+        "If you cut a tagged player you are allowed to bid on him in the auction, and the cut costs $0 if it happens before the auction starts.",
+        "A tag you trade away doesn't come out of the other team's allocation. They still get their own two."
+      ],
+      "open_questions": [
+        "When a tag actually locks. Canon says both that it auto-locks on the May deadline and that tags are confirmed at the pre-auction cut deadline in July.",
+        "The defense/ST side lists only two tiers. Canon does not say where an unranked DL, LB or DB lands.",
+        "The '10% salary floor' noted on the defense/ST side is never defined.",
+        "Canon flags the tier math itself as pending a rewrite."
+      ],
+      "layout": [
+        "numbers",
+        "today",
+        "examples",
+        "gotchas",
+        "open_questions",
+        "era_notes"
+      ]
+    },
+    {
+      "key": "contracts",
+      "group": "contracts",
+      "title": "Reading a Contract",
+      "one_liner": "A contract is a length, a salary per year, and a TCV that is 75% guaranteed.",
+      "today": [
+        "TCV is the sum of the salaries still left on the deal. Not the average times the years. The sum, and a remarkable share of this league's arguments trace back to somebody multiplying when they should have been adding.",
+        "AAV is the rate the deal was priced at. On a fresh contract that's just TCV spread evenly, but extensions break it: the new AAV applies only to the extension years, the old years keep their old numbers, and from then on TCV and AAV-times-years give you two different answers. The sum is the real one.",
+        "Loaded is not a contract type, it's a modifier. Any two or three-year deal can be front-loaded or back-loaded, which is the same total money split unevenly across the years. A one-year deal, a MYM and a taxi contract can never be loaded.",
+        "Rookie three-year deals don't count toward your limit of six three-year contracts, which is the only reason anyone can carry a full rookie class and still do business."
+      ],
+      "numbers": [
+        {
+          "label": "Guarantee",
+          "value": "75% of TCV"
+        },
+        {
+          "label": "Rookie deal",
+          "value": "3 years, flat"
+        },
+        {
+          "label": "Pick 1.01",
+          "value": "$15K/yr"
+        },
+        {
+          "label": "Picks 1.11-2.12",
+          "value": "$5K/yr"
         }
       ],
       "table": {
-        "caption": "Call-up versus permanent promotion",
+        "caption": "Every kind of contract",
         "head": [
-          "",
-          "Temporary call-up",
-          "Permanent promotion"
+          "Contract",
+          "Length",
+          "Where it comes from"
         ],
         "rows": [
           [
-            "Trigger",
-            "Activation weeks 1-3",
-            "4th active week, or a contract change during a call-up"
+            "Rookie",
+            "3 years (Round 1 adds a 4th-year option)",
+            "Rookie Draft"
           ],
           [
-            "Counts vs cap and roster",
-            "That week only",
-            "Every week"
+            "Auction (Veteran)",
+            "1, 2 or 3 years",
+            "FA Auction or Expired Rookie Auction"
           ],
           [
-            "Back to taxi?",
-            "Yes, before the next lock",
-            "Never"
+            "WW",
+            "1 year",
+            "In-season blind bid, or FCFS at $1K"
           ],
           [
-            "Cut penalty",
-            "$0",
-            "Normal formula"
+            "Extension",
+            "Adds 1 or 2 years",
+            "A player in his final year, or an expired rookie before May"
+          ],
+          [
+            "MYM",
+            "Adds years, same salary",
+            "Multi-Year Minimum, never loaded"
+          ],
+          [
+            "Restructure",
+            "Length unchanged",
+            "Reshuffling a deal with 2+ years left"
+          ],
+          [
+            "Tag",
+            "1 year, terminal",
+            "Franchise tag. Cannot be extended or MYM'd"
           ]
         ]
       },
+      "examples": [
+        {
+          "title": "Reading a 1.05 rookie contract",
+          "lines": [
+            "Drafted at 1.05 = $11K, flat all 3 years",
+            "TCV = $11K + $11K + $11K = $33K",
+            "AAV = $11K",
+            "Guaranteed = 75% x $33K = $24.75K"
+          ]
+        },
+        {
+          "title": "Why TCV is not AAV times years",
+          "lines": [
+            "Final year at $17K, extended 1 year (offense: +$10K)",
+            "Extension year = $27K. Current year stays $17K",
+            "TCV = $17K + $27K = $44K",
+            "Not $27K x 2 = $54K"
+          ]
+        },
+        {
+          "title": "Rookie salary by pick",
+          "lines": [
+            "1.01 = $15K a year",
+            "1.02 through 1.10 drops $1K a slot, down to $6K",
+            "1.11, 1.12 and all of Round 2 = $5K",
+            "Rounds 3-5 = $2K. Round 6 (IDP only) = $1K"
+          ]
+        }
+      ],
       "era_notes": [
-        "Temporary call-ups added 2026 - one active week used to be permanent",
-        "Taxi grew to 10 with a 1-IDP minimum in 2018"
+        "The 75% guarantee replaced a flat 20%-of-remaining-salary cut cost in 2019",
+        "The full contract-type list was written into canon in August 2026"
       ],
       "canon_rules": [
-        "B2",
-        "T2.3",
-        "T2.4",
-        "D2",
-        "T5.3"
+        "C1",
+        "C2",
+        "C7",
+        "A1",
+        "A2",
+        "A3"
       ],
       "gotchas": [
-        "Putting a called-up player on IR does not save the week. The only way to avoid burning a call-up is to demote him before rosters lock.",
-        "'Active for the week' means he was on your active roster when rosters locked and he appears in that week's results. Benching him does not help.",
-        "Converting his contract during a call-up - a multi-year auction contract, an extension, or a restructure - promotes him permanently, exactly like a 4th week.",
-        "Cap-free cuts survive call-ups. As long as he has never been permanently promoted you can cut him for $0.",
-        "The 3-year clock counts league years, not NFL service time."
+        "TCV is a sum, not AAV times years. After an extension the two stop matching.",
+        "TCV is locked when the contract is created or extended. It does not drift at rollover. Only a restructure re-cuts it.",
+        "An NFL rookie picked up in-season is a WW contract all season, then converted to Rookie status at year-end so he goes to the Expired Rookie Auction, not free agency.",
+        "Ext1 and Ext2 are not separate contract types. They are the same extension, recording whether you added one year or two."
       ],
       "open_questions": [
-        "Canon's prose says the taxi clock counts LEAGUE years, but the derivation canon gives computes NFL years off the MFL draft year. The two differ for a player acquired via dispersal or an in-season rookie pickup.",
-        "Canon does not settle what happens to a taxi player acquired mid-season by trade.",
-        "Canon sets a 1-IDP minimum but never says when it is checked."
+        "Whether a 3-year MYM counts toward the 6-three-year-contract limit. Canon excludes only rookie deals and says nothing about MYM.",
+        "Canon puts no upper bound on front-loading. A back-loaded deal must keep year 1 at 20% of TCV, but a front-load has no stated ceiling.",
+        "An 'Ext3' label survives in canon's data taxonomy, but every live rule caps an extension at 2 years. Treat it as legacy data."
       ],
       "layout": [
         "numbers",
         "today",
         "table",
+        "examples",
         "gotchas",
         "open_questions",
         "era_notes"
@@ -957,13 +1015,113 @@
     },
     {
       "key": "deadlines",
-      "title": "Deadlines",
-      "one_liner": "Only missed auction nominations and late dues carry fines; the rest just close doors.",
+      "group": "season",
+      "title": "Dates & Deadlines",
+      "one_liner": "Four dates decide your season. Only missed nominations and late dues carry fines.",
       "today": [
+        "Four dates decide your season and the rest is texture. Memorial Day weekend you get your rookies. Late July you spend your money. September locks your contracts. Thanksgiving closes trading.",
+        "September is the one people underestimate. It isn't only the contract deadline. It's the day your roster ceiling drops from 35 to 30, taxi demotions close, and every extension you meant to get round to expires quietly, without anyone tapping you on the shoulder first.",
         "Almost nothing on this page costs you money. Miss one of these and a door just closes: whatever you wanted to do is gone until next year, and nobody says a word about it.",
-        "The exception worth budgeting for is nominations. Those fines come off your salary cap rather than out of your pocket, which sounds gentler and isn't, because cap is the thing you actually need in August.",
-        "If you know you'll be off the grid for an auction day, say so before it happens. The commissioner voids the day and it costs you nothing.",
-        "Say so afterwards and it doesn't."
+        "Nominations are the exception worth budgeting for. Those fines come off your salary cap rather than out of your pocket, which sounds gentler and isn't, because cap is the thing you actually need in August.",
+        "If you know you'll be off the grid for an auction day, tell the league and the commissioner voids the day at no cost. A genuine emergency is covered too."
+      ],
+      "timeline": [
+        {
+          "when": "March 1-15",
+          "what": "Annual roll-forward",
+          "detail": "Every contract drops one year and salaries advance. Last year's salary is now 100% earned and can never create a cut penalty again. Anyone at zero years remaining moves onto the tag, extension or free-agent path.",
+          "approx": false
+        },
+        {
+          "when": "March through Sept 6",
+          "what": "Restructure window",
+          "detail": "Up to 3 contracts per season, and only in this window. Nothing blocks you in the software, so staying inside the limit is on you.",
+          "approx": false
+        },
+        {
+          "when": "Thu April 23",
+          "what": "NFL Draft",
+          "detail": "Sets the rookie pool for your May draft.",
+          "approx": false
+        },
+        {
+          "when": "April into early May",
+          "what": "Tag submissions open",
+          "detail": "One offense tag and one defense/ST tag. Reversible until the deadline locks it.",
+          "approx": true
+        },
+        {
+          "when": "Thu May 21",
+          "what": "Tag + rookie extension deadline",
+          "detail": "Both lock at midnight ET. Any expired rookie you did not extend is dropped that night into the Expired Rookie Auction pool, and expired rookies stop being tradeable.",
+          "approx": false
+        },
+        {
+          "when": "~Sat May 23",
+          "what": "Expired Rookie Auction opens",
+          "detail": "Opening bid $1K, $1K steps, 36-hour lock that resets on every new high bid. Winners get a 1-year deal you can convert later.",
+          "approx": true
+        },
+        {
+          "when": "Sun May 24",
+          "what": "Rookie Draft",
+          "detail": "Six rounds, 12 picks, live in Discord. Mandatory - send a proxy if you cannot be there. Round 1 picks must stay on the active roster; Round 6 must be an IDP. 2026 is a realignment year, so Captains snake-draft the divisions on draft night.",
+          "approx": false
+        },
+        {
+          "when": "Last weekend of July",
+          "what": "FA Auction starts",
+          "detail": "Saturday start, 12-day window, proxy bidding with a 24-hour lock. Exactly 2 nominations per day. Roster can run to 35. Half your dues are due by the start. Cut penalties start hitting next year's cap from this moment on.",
+          "approx": true
+        },
+        {
+          "when": "Early to mid August",
+          "what": "FA Auction closes",
+          "detail": "At close you must have at least 27 players and be able to field a complete lineup. From here the 27 floor holds for the rest of the season.",
+          "approx": true
+        },
+        {
+          "when": "First Thursday after close",
+          "what": "Waivers open",
+          "detail": "Blind bid runs Thu, Fri, Sat, Sun at 9 AM ET. First-come, first-serve opens after the Sunday run only, at $1K.",
+          "approx": true
+        },
+        {
+          "when": "Sun Sept 6",
+          "what": "Contract deadline",
+          "detail": "The biggest date on the calendar. Last call for multi-year auction contracts, extensions, restructures, taxi demotions and rookie options. Roster max drops from 35 to 30. The cap floor is checked here.",
+          "approx": false
+        },
+        {
+          "when": "Thu Sept 10",
+          "what": "NFL Week 1",
+          "detail": "Lineups lock player by player at each kickoff. First-come-first-serve claiming begins.",
+          "approx": false
+        },
+        {
+          "when": "Thu Sept 24",
+          "what": "Preseason MYM deadline",
+          "detail": "Week 3 kickoff. Last chance to turn a 1-year auction or preseason pickup into a 2 or 3-year deal at the same salary.",
+          "approx": false
+        },
+        {
+          "when": "Thu Nov 26",
+          "what": "Trade deadline",
+          "detail": "Thanksgiving kickoff. Trading closes until the offseason. Remaining dues are due. Waivers still run, but nobody is trading you out of a hole.",
+          "approx": false
+        },
+        {
+          "when": "Weeks 15-17",
+          "what": "Playoffs",
+          "detail": "Three-week bracket, Dec 17 to Dec 31. Both the championship and the Hawktuah Bowl run the full three weeks. Where you finish sets your rookie draft slot.",
+          "approx": false
+        },
+        {
+          "when": "January",
+          "what": "Offseason begins",
+          "detail": "The cap ceiling switches off until next year's auction. Trading reopens. Salaries hold until March roll-forward.",
+          "approx": false
+        }
       ],
       "table": {
         "caption": "Every hard deadline an owner can miss",
@@ -1005,7 +1163,7 @@
           ],
           [
             "27 players and a legal lineup",
-            "At FA Auction close",
+            "At FA Auction close, then all season",
             "Out of compliance."
           ],
           [
@@ -1066,7 +1224,7 @@
           [
             "Return a called-up taxi player",
             "Before the next week's roster lock",
-            "The week burns one of his 3 lifetime call-ups."
+            "A second week burns off another of his 3 lifetime call-ups."
           ],
           [
             "Weekly lineup",
@@ -1076,7 +1234,7 @@
           [
             "Blind bid waiver claims",
             "Thu, Fri, Sat, Sun 9 AM ET",
-            "You miss the run; he goes first-come, first-serve."
+            "He re-locks until the next run. Only Sunday opens FCFS."
           ],
           [
             "Trade deadline",
@@ -1092,53 +1250,61 @@
       },
       "numbers": [
         {
+          "label": "Rookie Draft",
+          "value": "Sun May 24"
+        },
+        {
+          "label": "Contract deadline",
+          "value": "Sun Sept 6"
+        },
+        {
+          "label": "Trade deadline",
+          "value": "Thu Nov 26"
+        },
+        {
           "label": "1st missed nomination",
           "value": "$3K"
-        },
-        {
-          "label": "2nd missed nomination",
-          "value": "$7K more"
-        },
-        {
-          "label": "3rd missed nomination",
-          "value": "$15K more"
-        },
-        {
-          "label": "Late dues",
-          "value": "$3K per week"
         }
       ],
       "era_notes": [
-        "Missed-nomination fine amounts were written down for the first time in 2026"
+        "Missed-nomination fine amounts were written down for the first time in 2026",
+        "ERA moved to Memorial Day weekend in 2025, so it now overlaps the Rookie Draft"
       ],
       "canon_rules": [
+        "A1",
         "A2",
+        "A3",
         "A4",
+        "A5",
         "B1",
         "B2",
         "C2",
         "C3",
         "C4",
         "C6",
+        "C7",
         "C8",
+        "D4",
         "T4.3a",
         "T4.4"
       ],
       "gotchas": [
-        "If you can already field a legal lineup, the 2-per-day nomination floor is waived. But skip a day and then jump back in without curing first, and the skipped day counts as a real miss.",
-        "Give the league a heads-up before a day you will miss and it is voided entirely. It is a heads-up, not an application.",
+        "If you can already field a legal lineup, the 2-per-day nomination floor is waived. Skip a day and then jump back in without curing first, though, and the skipped day counts as a real miss.",
+        "Advance notice is a heads-up, not an application. A genuine emergency is covered whether or not you got word out first.",
         "A day cannot be judged until it is over. Nobody can be fined for today until midnight ET passes.",
         "The 14-day MYM clock does not reset on a trade.",
         "The tag deadline locks at midnight ET Thursday, not the end of the business day."
       ],
       "open_questions": [
-        "The exact 2026 FA Auction dates are not in canon, so the dues deadline tied to auction start is not pinned either.",
+        "Canon does not pin the exact 2026 FA Auction start and close dates, so the dues deadline tied to auction start is not pinned either.",
         "The preseason extension deadline appears in canon as both Wed Oct 7 and the Week 5 Thursday kickoff on Oct 8.",
         "Whether the late-dues fine comes off your cap or out of your pocket is explicitly undecided.",
-        "Canon does not state a penalty for failing to submit a weekly lineup, only that it is mandatory."
+        "Canon says no drops are allowed in the offseason, but also details offseason cuts and their penalties throughout. The two cannot both be right.",
+        "The 2026 kickoff times behind these dates are placeholders until the NFL publishes its schedule."
       ],
       "layout": [
         "today",
+        "timeline",
         "table",
         "numbers",
         "gotchas",
@@ -1147,219 +1313,17 @@
       ]
     },
     {
-      "key": "league-year",
-      "title": "The League Year",
-      "one_liner": "Roll-forward in March, two auctions and a draft by August, then Sept 6 locks contracts.",
-      "today": [
-        "Four dates decide your season and the rest is texture. Memorial Day weekend you get your rookies. Late July you spend your money. September locks your contracts. Thanksgiving closes trading.",
-        "September is the one people underestimate. It isn't only the contract deadline. It's the day your roster ceiling drops, taxi demotions close, and every extension you meant to get round to expires quietly, without anyone tapping you on the shoulder first.",
-        "After Thanksgiving you're done dealing. Waivers still run, but nobody's trading you out of a hole.",
-        "The team you've built by then is the team you finish with."
-      ],
-      "timeline": [
-        {
-          "when": "March 1-15",
-          "what": "Annual roll-forward",
-          "detail": "Every contract drops one year and salaries advance. Last year's salary is now 100% earned and can never create a cut penalty again. Anyone at zero years remaining moves onto the tag, extension or free-agent path.",
-          "approx": false
-        },
-        {
-          "when": "March through Sept 6",
-          "what": "Restructure window",
-          "detail": "Up to 3 contracts per season, and only in this window. Nothing blocks you in the software, so staying inside the limit is on you.",
-          "approx": false
-        },
-        {
-          "when": "Thu April 23",
-          "what": "NFL Draft",
-          "detail": "Sets the rookie pool for your May draft.",
-          "approx": false
-        },
-        {
-          "when": "April into early May",
-          "what": "Tag submissions open",
-          "detail": "One offense tag and one defense/ST tag. Reversible until the deadline locks it.",
-          "approx": true
-        },
-        {
-          "when": "Thu May 21",
-          "what": "Tag + rookie extension deadline",
-          "detail": "Both lock at midnight ET. Any expired rookie you did not extend is dropped that night into the Expired Rookie Auction pool, and expired rookies stop being tradeable.",
-          "approx": false
-        },
-        {
-          "when": "~Sat May 23",
-          "what": "Expired Rookie Auction opens",
-          "detail": "Opening bid $1K, $1K steps, 36-hour lock that resets on every new high bid. Winners get a 1-year deal you can convert later.",
-          "approx": true
-        },
-        {
-          "when": "Sun May 24",
-          "what": "Rookie Draft",
-          "detail": "Six rounds, 12 picks, live in Discord. Mandatory - send a proxy if you cannot be there. Round 1 picks must stay on the active roster; Round 6 must be an IDP. 2026 is a realignment year, so Captains snake-draft the divisions on draft night.",
-          "approx": false
-        },
-        {
-          "when": "Last weekend of July",
-          "what": "FA Auction starts",
-          "detail": "Saturday start, 12-day window, proxy bidding with a 24-hour lock. Exactly 2 nominations per day. Roster can run to 35. Half your dues are due by the start.",
-          "approx": true
-        },
-        {
-          "when": "Early to mid August",
-          "what": "FA Auction closes",
-          "detail": "At close you must have at least 27 players and be able to field a complete lineup.",
-          "approx": true
-        },
-        {
-          "when": "First Thursday after close",
-          "what": "Waivers open",
-          "detail": "Blind bid runs Thu, Fri, Sat, Sun at 9 AM ET. First-come, first-serve opens after each run at $1K.",
-          "approx": true
-        },
-        {
-          "when": "Sun Sept 6",
-          "what": "Contract deadline",
-          "detail": "The biggest date on the calendar. Last call for multi-year auction contracts, extensions, restructures, taxi demotions and rookie options. Roster max drops from 35 to 30. The floor is checked here.",
-          "approx": false
-        },
-        {
-          "when": "Thu Sept 10",
-          "what": "NFL Week 1",
-          "detail": "Lineups lock player by player at each kickoff, and cut penalties start hitting next year's cap instead of this year's.",
-          "approx": false
-        },
-        {
-          "when": "Thu Sept 24",
-          "what": "Preseason MYM deadline",
-          "detail": "Week 3 kickoff. Last chance to turn a 1-year auction or preseason pickup into a 2 or 3-year deal at the same salary.",
-          "approx": false
-        },
-        {
-          "when": "Thu Nov 26",
-          "what": "Trade deadline",
-          "detail": "Thanksgiving kickoff. Trading closes until the offseason. Remaining dues are due.",
-          "approx": false
-        },
-        {
-          "when": "Weeks 15-17",
-          "what": "Playoffs",
-          "detail": "Three-week bracket, Dec 17 to Dec 31. Both the championship and the Hawktuah Bowl run the full three weeks. Where you finish sets your rookie draft slot.",
-          "approx": false
-        },
-        {
-          "when": "January",
-          "what": "Offseason begins",
-          "detail": "The cap ceiling switches off until next year's auction. Trading reopens. Salaries hold until March roll-forward.",
-          "approx": false
-        }
-      ],
-      "numbers": [
-        {
-          "label": "Roll-forward",
-          "value": "March 1-15"
-        },
-        {
-          "label": "Tag + rookie extension",
-          "value": "Thu May 21"
-        },
-        {
-          "label": "Rookie Draft",
-          "value": "Sun May 24"
-        },
-        {
-          "label": "Contract deadline",
-          "value": "Sun Sept 6"
-        }
-      ],
-      "era_notes": [
-        "ERA moved to Memorial Day weekend in 2025, so it now overlaps the Rookie Draft"
-      ],
-      "canon_rules": [
-        "C7",
-        "A1",
-        "A2",
-        "A3",
-        "A4",
-        "A5",
-        "C2",
-        "C3",
-        "C4",
-        "C6",
-        "C8",
-        "D4"
-      ],
-      "open_questions": [
-        "Canon does not pin the exact 2026 FA Auction start and close dates.",
-        "The date tag submissions open is not stated in canon, only that it falls before the May deadline.",
-        "Canon says no drops are allowed in the offseason, but also details offseason cuts and their penalties throughout. The two cannot both be right.",
-        "The 2026 kickoff times behind these dates are placeholders until the NFL publishes its schedule."
-      ],
-      "layout": [
-        "today",
-        "timeline",
-        "open_questions",
-        "era_notes"
-      ]
-    },
-    {
-      "key": "scoring",
-      "title": "Scoring",
-      "one_liner": "1 point per catch - but RBs get 0.8 and TEs get 1.5. Every first down is 0.2.",
-      "today": [
-        "The tight end premium is the single biggest reason UPS prices look wrong to anyone arriving from another league. A tight end catch is worth more than a wide receiver catch here, and a running back catch is worth less. Every auction, somebody forgets and pays flat-PPR money for a running back.",
-        "First downs pay everybody. Rushing first downs, receiving first downs, quarterback sneaks, all of it. A three-yard catch that moves the chains beats an eleven-yard catch that doesn't, and once you've noticed that you can't stop noticing it.",
-        "Defence here is tackle volume. Defensive linemen and defensive backs earn 1.5 a tackle, a pass defensed is worth 1.5 at every position, and tackles stop paying once you hit the cap, so even an absurd tackle night has a ceiling on it.",
-        "Kickers are paid by distance, so a long make is worth real points. Misses are deliberately asymmetric: from 45 yards and out a miss costs you nothing, and from inside 45 it carries a penalty. The rule is quietly telling your kicker to take the long one.",
-        "Punters score almost nothing, and gross punting yardage doesn't score at all. He's a required slot, not a strategy.",
-        "Two bonuses run league-wide. Any player who puts up 60 points in a game gets 5 more, and any defensive or special-teams return touchdown of 50 yards or longer is worth 7."
-      ],
-      "numbers": [
-        {
-          "label": "Reception (WR/QB)",
-          "value": "1.0"
-        },
-        {
-          "label": "Reception (RB)",
-          "value": "0.8"
-        },
-        {
-          "label": "Reception (TE)",
-          "value": "1.5"
-        },
-        {
-          "label": "First down",
-          "value": "0.2"
-        }
-      ],
-      "era_notes": [
-        "TE premium since 2025",
-        "RB receptions cut to 0.8 in 2018"
-      ],
-      "canon_rules": [],
-      "open_questions": [
-        "Scoring is recorded in canon as provisional — the live MFL settings remain authoritative for what actually scored in a given week.",
-        "The linebacker tackle rate is not recorded. The 2018 rebalance raised DL and DB to 1.5; whether LB stayed at 1.0 is unknown.",
-        "Canon says a missed field goal inside 45 yards carries a penalty but never states how large."
-      ],
-      "layout": [
-        "today",
-        "numbers",
-        "open_questions"
-      ]
-    },
-    {
       "key": "standings",
-      "title": "Standings, Playoffs & Divisions",
+      "group": "season",
+      "title": "Playoffs & Seeding",
       "one_liner": "Playoff seeding is by All-Play %, not by your win-loss record.",
       "today": [
-        "Divisions of three are too small to fill fourteen weeks with single games, so some weeks are double- or triple-headers. You face two or three opponents at once and you get a separate result against each of them. A bad week costs you three times.",
-        "All-Play is the number this league actually runs on. Every week your score is compared against all eleven other teams and each comparison is logged as a win, a loss or a tie. That record sets your playoff seed, your waiver order, and who gets to be a Division Captain.",
-        "NFL Week 18 isn't used. Both brackets run the same three weeks, so nobody's season ends in Week 14 and nobody spends December with nothing to play for.",
-        "All four division winners are in automatically. The top two seeds are reserved for division winners and skip the first round. Seeds three through six are ranked on All-Play % alone, which means a division winner with the worst All-Play of the qualifiers lands at the six seed, plays the first round, and hears about it all week.",
-        "Both brackets set next year's rookie draft order, which is the entire reason the Hawktuah Bowl is worth winning.",
-        "Divisions get redrawn every three years, next in 2029. The top four teams by All-Play % become Division Captains and draft their own divisions live at the Rookie Draft, snake order, 1-2-3-4 then 4-3-2-1. It happens with everyone in the room on purpose.",
-        "You have to have been in the league for the whole preceding three-year window to be Captain-eligible."
+        "Some weeks are double or triple headers. You face two or three opponents at once and get a separate result against each. A bad week costs you three times.",
+        "All-Play is the number this league actually runs on. Every week your score is compared against all eleven other teams and each comparison is logged as a win, a loss or a tie. That record sets your playoff seed and decides who gets to be a Division Captain.",
+        "All four division winners are in automatically. The top two seeds are reserved for division winners and skip the first round, and seeds three through six are ranked on All-Play % alone, which means a division winner with the worst All-Play of the qualifiers lands at the six seed, plays the first round, and hears about it all week.",
+        "The playoffs run Weeks 15 through 17 and NFL Week 18 isn't used. Both brackets run the same three weeks, so nobody's season ends in Week 14 and nobody spends December with nothing to play for.",
+        "Both brackets also set next year's rookie draft order through Round 5, which is the entire reason the Hawktuah Bowl is worth winning.",
+        "Divisions get redrawn every three years, next in 2029. The top four teams by All-Play % become Division Captains and draft their own divisions live at the Rookie Draft, snake order, 1-2-3-4 then 4-3-2-1. You have to have been in the league for the whole preceding three-year window to be Captain-eligible, and the draft happens with everyone in the room on purpose."
       ],
       "numbers": [
         {
@@ -1392,12 +1356,15 @@
         "Winning your division guarantees a spot, not a good one. A division winner can be the 6 seed.",
         "Two different tiebreakers exist and people mix them up. Who wins a division is settled by MFL's own standings sort. Who gets which seed is settled by All-Play, then overall, then points for, then head-to-head.",
         "A bye week does not pause your All-Play. Your score is still compared to all 11 other teams.",
+        "Waivers are blind-bid, so there is no waiver priority order. All-Play only breaks a tie between identical bids.",
         "Splitting the pot is only recognized in an actual tie. A pre-agreed split before a final is not."
       ],
       "open_questions": [
         "The 2026 division alignment is drafted at the Rookie Draft and is not recorded in canon yet.",
         "The exact chain MFL uses to pick a division winner changes year to year. Check the live settings.",
-        "The championship bracket has no official name yet. Only the Toilet Bowl side is named."
+        "Canon reserves the top two seeds for division winners but never states the first-round bye outright.",
+        "The championship bracket has no official name yet. Only the Toilet Bowl side is named.",
+        "Canon does not record the scheduling pattern behind double and triple headers."
       ],
       "layout": [
         "numbers",
@@ -1408,16 +1375,65 @@
       ]
     },
     {
+      "key": "scoring",
+      "group": "season",
+      "title": "Scoring",
+      "one_liner": "1 point per catch, except RBs get 0.8 and TEs get 1.5. Every first down is 0.2.",
+      "today": [
+        "A tight end catch is worth 1.5 here and a running back catch is worth 0.8, which is the single biggest reason UPS prices look wrong to anyone arriving from another league. Every auction, somebody forgets and pays flat-PPR money for a running back.",
+        "First downs pay everybody at 0.2 apiece: rushing, receiving, quarterback sneaks, all of it. A three-yard catch that moves the chains beats an eleven-yard catch that doesn't, and once you've noticed that you can't stop noticing it.",
+        "Defence here is tackle volume. Defensive linemen and defensive backs earn 1.5 a tackle, a pass defensed is worth 1.5 at every position, and tackles stop paying after 25 in a game, so even an absurd tackle night has a ceiling on it.",
+        "Kickers are paid by distance at 0.1 a yard, so a long make is worth real points. Misses are deliberately asymmetric: from 45 yards and out a miss costs you nothing, inside 45 it carries a penalty. The rule is quietly telling your kicker to take the long one.",
+        "Gross punting yardage doesn't score at all. Your punter is a required slot, not a strategy.",
+        "Two bonuses run league-wide. Any player who puts up 60 points in a game gets 5 more, and any defensive or special-teams return touchdown of 50 yards or longer is worth 7."
+      ],
+      "numbers": [
+        {
+          "label": "Reception (WR/QB)",
+          "value": "1.0"
+        },
+        {
+          "label": "Reception (RB)",
+          "value": "0.8"
+        },
+        {
+          "label": "Reception (TE)",
+          "value": "1.5"
+        },
+        {
+          "label": "First down",
+          "value": "0.2"
+        }
+      ],
+      "era_notes": [
+        "TE premium since 2025",
+        "RB receptions cut to 0.8 in 2018"
+      ],
+      "canon_rules": [],
+      "open_questions": [
+        "Scoring is recorded in canon as provisional - the live MFL settings remain authoritative for what actually scored in a given week.",
+        "The linebacker tackle rate is not recorded. The 2018 rebalance raised DL and DB to 1.5; whether LB stayed at 1.0 is unknown.",
+        "Canon's summary table gives DB tackles at 1.5, but the underlying 2018 entry splits the codes and puts one of them at 1.3.",
+        "Canon says a missed field goal inside 45 yards carries a penalty but never states how large."
+      ],
+      "layout": [
+        "today",
+        "numbers",
+        "open_questions"
+      ]
+    },
+    {
       "key": "dues-fines-payouts",
-      "title": "Dues, Fines & Payouts",
+      "group": "season",
+      "title": "Dues & Prize Money",
       "one_liner": "Dues are $250 a year: $225 into the annual pot, $25 into the Dynasty Pot.",
       "today": [
-        "The base is due in two halves: $100 by the start of the FA Auction and $100 by the trade deadline. Late weeks that pile up before the September contract deadline are charged against this season's cap; anything after that lands on next season's.",
-        "The Dynasty Pot runs on the same three-year clock as divisional realignment, and that's the point. It's $25 a year, separate from the rest of your dues, building toward a three-year prize that rewards whoever was consistently good for three years rather than whoever got hot in December.",
-        "You have to be here for all three years to collect.",
-        "Join mid-cycle and you still pay your $25, you're just not eligible until you've done a full one. Leave and you forfeit everything you put in.",
+        "The annual pot is due in two halves: $100 by the start of the FA Auction and $100 by the trade deadline. Late weeks that pile up before the September contract deadline are charged against this season's cap. Anything after that lands on next season's.",
+        "The Dynasty Pot is the other $25 and it runs on the same three-year clock as divisional realignment. That's the point: it rewards whoever was consistently good for three years rather than whoever got hot in December.",
+        "You have to be here for all three years to collect. Join mid-cycle and you still pay your $25, you're just not eligible until you've done a full one. Leave and you forfeit everything you put in.",
         "Missed auction nominations are the other thing that costs you, and the ladder is cumulative rather than replacing. A third miss doesn't cancel the first two, it stacks on top of them.",
-        "Payouts: $1,080 to the champion, $530 to the runner-up, $150 for third, $75 to each division winner, and $30 a week for high score. Whatever's left after all of that, plus site & technology fees, goes to the Hawktuah Bowl winner. It was never a fixed number, just what's left over — this year that's $0."
+        "Payouts: $1,080 to the champion, $530 to the runner-up, $150 for third, $75 to each division winner, and $30 a week for high score.",
+        "Whatever's left after all of that and the site and technology fees goes to the Hawktuah Bowl winner. It was never a fixed number, just the leftovers. This year the leftovers are $0."
       ],
       "numbers": [
         {
@@ -1425,12 +1441,12 @@
           "value": "$250"
         },
         {
-          "label": "Annual / Dynasty Pot",
+          "label": "Annual / Dynasty",
           "value": "$225 + $25"
         },
         {
-          "label": "Dynasty Pot per cycle",
-          "value": "$1,800"
+          "label": "Champion",
+          "value": "$1,080"
         },
         {
           "label": "3-year prize",
@@ -1438,7 +1454,7 @@
         }
       ],
       "era_notes": [
-        "Dues went $200 to $250 in May 2026 — $25 into the Dynasty Pot, $25 into the regular annual pot",
+        "Dues went $200 to $250 in May 2026 - $25 into the Dynasty Pot, $25 into the regular annual pot",
         "Division winners bumped $50 to $75 and Hawktuah Bowl formalized as a residual in August 2026"
       ],
       "canon_rules": [
@@ -1449,10 +1465,10 @@
       "gotchas": [
         "Every nomination fine is charged against two cap years. People budget for $3K and get charged $3K twice.",
         "The escalation is cumulative, not replacing. Three misses is $25K a year, not $15K.",
-        "Nomination days are anchored ET calendar days, the same for every team - not a rolling 24 hours from your last nomination.",
+        "Nomination days are anchored ET calendar days, the same for every team. It is not a rolling 24 hours from your last nomination.",
         "If your roster can already field a legal lineup, nominating zero times is fine.",
         "The Expired Rookie Auction has no nomination requirement and no fines.",
-        "Prize splitting is only recognized when there is an actual tie."
+        "Prize splitting is recognized only on an actual tie."
       ],
       "open_questions": [
         "Canon does not say when the $25 Dynasty Pot contribution is collected.",

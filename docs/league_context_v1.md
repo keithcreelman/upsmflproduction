@@ -158,9 +158,9 @@ There are **7 entry paths**. Each creates a different default contract and const
   - **Contrast with ERA (§A3):** ERA is *at most* 1 per anchored 12-hour window and carries **no** mandatory-nomination obligation. FAA is the mandatory one. Do not apply one rule's cadence to the other.
 - **Roster window during auction:**
   - Max roster: **35** during auction
-  - Min roster: **27 at CLOSE of auction** (not during — roster floats during)
+  - Min roster: **27 at CLOSE of auction** (not during — roster floats during). The auction window is the *only* period the roster may sit below 27; from auction close onward the 27 floor applies continuously through the season (§B1).
   - Cap floor: **$260K** committed at SOME point during the auction. Front-loading is an explicit tool to satisfy the floor. If a team hits $270K and then loses cap to an IR designation, they're still considered compliant.
-  - Cap ceiling: **$300K** (system-enforced)
+  - Cap ceiling: **$300K** (system-enforced). MFL's stored `salaryCapAmount` historically read **$300,000.49** — deliberate, not a typo: the spare pennies let Keith flag micro cap adjustments before better tooling existed. **Corrected to an exact $300,000 (Keith 2026-08-16);** older snapshots under `data/mfl-snapshots/` still carry the `.49`.
   - Owner is responsible for managing minimum-roster headroom — system doesn't enforce that.
 - **Auction Roster Lock Date:** historically 3 days before auction. Existed so commissioner could compile cap penalties + cut lists. Keith's note: probably collapse this into "no cuts during auction" + auto-unlock at auction start via MFL API call.
 - **Cut-then-rebid prohibition (with example, v10 rules):** if you cut a player who was **under contractual control** in the offseason, you **cannot nominate or bid on them in the FA Auction**. Commissioner-enforced (NOT MFL-enforced). Mostly self-enforcing because cut players are usually disappointments owners don't want back.
@@ -301,11 +301,12 @@ A rostered player is always in exactly one of three states.
 ### B1. Active Roster
 
 **QB starter cap (UPDATED 2026-07-21):** a franchise may roster at most **4 NFL starting QBs** across active roster + taxi combined, measured once a year on the September contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team; unresolved camp battles are commissioner-determined. Going over on the deadline means the league cuts the most recently acquired starting QBs in reverse-acquisition order until compliant, as standard cuts with normal penalties charged to the following season's cap. A backup who wins a job later in the season does not create a violation. Separately, the **5-QB active-roster maximum** is unchanged and is enforced continuously.
-- **Size:** 27 (min, at close of auction) – 30 (max, after contract deadline).
+- **Size:** 27 (min) – 30 (max, after contract deadline).
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
-- **Enforcement model (Keith, 2026-05-16 review session):**
-  - **27-active minimum applies ONLY at end of auction**, AND the team must be able to **start a complete lineup** at that moment (per the lineup spec in §B4). Not continuously enforced through the season — owners can drop below 27 mid-season; the floor is only re-checked at auction close.
+- **Enforcement model (CORRECTED 2026-08-16, Keith):**
+  - **27-active minimum applies ALL SEASON**, not only at auction close. At auction close the team must additionally be able to **start a complete lineup** at that moment (per the lineup spec in §B4). Dropping below 27 mid-season is a compliance violation, not a permitted state.
+  - **Supersedes the 2026-05-16 review-session note**, which recorded the floor as auction-close-only and explicitly permitted dropping below 27 mid-season. That was wrong; Keith corrected it on 2026-08-16 while reviewing the member rulebook, which had faithfully repeated the error.
   - **30-active maximum (post-contract-deadline) is enforced via MFL settings** (Keith maintains in MFL config). No UPS worker-side enforcement — MFL blocks adds that would push a team over 30 once the deadline passes.
   - **UPS-side safeguarding** (auction-close compliance cron, complete-lineup pre-flight at auction close, 30-max display chips) is **parked** for the broader auction tooling discussion — see `CROSS_CODEBASE_ALIGNMENT.md §4.1` (Auction Room scope).
 
@@ -382,6 +383,22 @@ for 2022-2025.
 ## C. CONTRACT EVENTS — what happens to a player's contract while rostered
 
 These are transactions you can do TO a player who's already on your roster. Defined `contract_type` values: **Auction, Extension, MYM, Restructure** (per `R-D-1` data standard).
+
+**Complete contract-type enumeration (ADDED 2026-08-16).** The `R-D-1` list above covers only the in-roster *events*; it is not the full set of contracts a player can be on, which is what a member actually needs. The authoritative list:
+
+| Contract | Length | Where it comes from |
+|---|---|---|
+| **Rookie** | 3 years (Round 1 adds a 4th-year option) | Rookie Draft |
+| **Auction** (a.k.a. Veteran) | 1, 2, or 3 years | FA Auction or Expired Rookie Auction |
+| **WW** | 1 year | In-season Blind Bid ($5K+ earns like an auction deal) or FCFS ($1K) |
+| **Extension** | adds 1 or 2 years | Extending a player in his final year, or an expired rookie before the May deadline |
+| **MYM** | adds years at the same salary | Multi-Year Minimum, never loaded |
+| **Restructure** | length unchanged | Reshuffling money inside a deal with 2+ years left |
+| **Tag** | 1 year, terminal | Franchise tag; cannot be extended or MYM'd |
+
+**Loaded is a modifier, not a type.** Any 2- or 3-year contract can be front-loaded (`FL`) or back-loaded (`BL`) — an uneven year-by-year split of the same TCV. It attaches to Auction, Extension, and MYAC deals; it can never attach to a 1-year deal, a MYM, or a taxi contract.
+
+**`EXT1` / `EXT2` are not separate contract types** — they are the same Extension mechanism recording how many years were added. (`EXT3` also appears in the A3.1 taxonomy; every current rule caps an extension at 2 years, so treat `EXT3` as legacy data, not a live option.)
 
 ### C1. Initial contract assignment (varies by entry path)
 
@@ -614,7 +631,7 @@ settlement = (AAV × years served) − (salary actually paid over those years)
 
 **Provenance.** Forumotion thread [t28 — salary cap penalities](https://upsdynastycap.forumotion.com/t28-salary-cap-penalities). Proposed by Raining Bullets 2013-08-05 (*"the recent loophole that was fixed in regards to backloaded contracts should be applied to players who are granted immunity for retirement/jail bird"*), seconded by Blake Bombers 2013-08-06, confirmed passed 2013-08-18: *"This rule was passed so that the loophole w. front/backloads were closed."*
 
-> **⚠️ NOT YET IMPLEMENTED ANYWHERE.** Verified 2026-08-15: no settlement logic exists in `computeDropPenalty()`, `worker/src/lib/cap_penalty.js`, or any ETL script, and this rule was absent from canon entirely. Every cap-free retirement since has settled at $0 regardless of loading. Restoring it to canon does not make it live.
+> **⚠️ NOT YET IMPLEMENTED IN CODE.** Verified 2026-08-15: no settlement logic exists in `computeDropPenalty()`, `worker/src/lib/cap_penalty.js`, or any ETL script, and this rule was absent from canon entirely. Every cap-free retirement since has settled at $0 regardless of loading. **The rule is nonetheless LIVE and correct (Keith 2026-08-16):** the settlement is owed on a loaded contract, and only an unloaded contract exits genuinely cap-free. Until the code catches up the commissioner applies it by hand, so the member rulebook states it as a real rule rather than a pending one.
 
 **The credit direction is CONFIRMED symmetric (Keith 2026-08-15):** *"yes give them a credit if they paid more than they should...if they FL Gonzo then it would be a 10K credit."* Worked: front-load the same Gonzalez deal so Y1 pays $35K against a $25K AAV, and retirement after Y1 settles to $25,000 − $35,000 = **−$10,000, a credit to the owner.** The rule is one formula run in both directions — an owner is made whole for overpayment exactly as they are held to underpayment.
 
@@ -1270,7 +1287,13 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **FA Auction completes** ~early-to-mid August (date TBD; depends on auction format option chosen).
 - **Min roster check (27)** at close.
 - **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. **These pre-season Sundays still immediately re-lock, same as Thu/Fri/Sat — FCFS does NOT open yet.** FCFS itself does not start until NFL Week 1 (Keith 2026-08-13); see §A5 and §B.
-- **Half of the base league dues** ($100 of the $200 base) due by FA Auction start. Total annual dues are **$250** — the $200 base plus the **$50 Dynasty Pot** contribution (added 2026-05-11). Canon does not yet state when the $50 is collected. Venmo to **@Keith-Creelman** for routing to treasurer **Josh Martel**.
+- **Half of the base league dues** ($100 of the $225 annual pot) due by FA Auction start. Total annual dues are **$250** — $225 into the annual pot plus **$25 into the Dynasty Pot** (see §4.B 2026). Canon does not yet state when the $25 is collected. Venmo to treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; previously routed through @Keith-Creelman).
+
+**Dynasty Pot eligibility (promoted into canon 2026-08-16 from the 2026-05-11 proposal body, `docs/league_context_changelog.md`):**
+- An owner must be in the league for **all 3 years** of a cycle to be eligible for that cycle's prize.
+- An owner who **leaves forfeits every contribution** they made.
+- A **new owner pays the $25 on joining** but is not eligible until they have completed a full cycle.
+- **Prize splitting is recognized only on an actual All-Play % tie**, never voluntarily.
 
 ### September 2026 → Contract Deadline + NFL Week 1
 - **Tag confirmations are NOT here.** Tags are confirmed at the **FA Auction Cut Deadline** (the auction roster lock 3 days before auction start). That same date locks the **next-season tagging baseline** — data snapshot for next year's tag eligibility freezes there.
