@@ -300,7 +300,7 @@ A rostered player is always in exactly one of three states.
 
 ### B1. Active Roster
 
-**QB starter cap (UPDATED 2026-07-21):** a franchise may roster at most **4 NFL starting QBs** across active roster + taxi combined, measured once a year on the September contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team; unresolved camp battles are commissioner-determined. Going over on the deadline means the league cuts the most recently acquired starting QBs in reverse-acquisition order until compliant, as standard cuts with normal penalties charged to the following season's cap. A backup who wins a job later in the season does not create a violation. Separately, the **5-QB active-roster maximum** is unchanged and is enforced continuously.
+**QB starter cap (UPDATED 2026-07-21):** a franchise may roster at most **4 NFL starting QBs** across active roster + taxi combined, measured once a year on the September contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team; unresolved camp battles are commissioner-determined. Going over on the deadline means the league cuts the most recently acquired starting QBs in reverse-acquisition order until compliant, as standard cuts with normal penalties charged to the following season's cap. A backup who wins a job later in the season does not create a violation. Separately, the **5-QB active-roster maximum** is unchanged and, like the starter cap, is **measured as of the September contract deadline** — corrected 2026-08-16 (Keith: *"The rule was always as of contract deadline but likely not clear"*). The prior wording, "enforced continuously," was never the rule; it was imprecision in this line, and the member rulebook faithfully repeated it. **No code enforces either QB cap** (verified 2026-08-16 across worker, site and ETL) — both are commissioner-checked by hand.
 - **Size:** 27 (min) – 30 (max, after contract deadline).
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
@@ -631,7 +631,9 @@ settlement = (AAV × years served) − (salary actually paid over those years)
 
 **Provenance.** Forumotion thread [t28 — salary cap penalities](https://upsdynastycap.forumotion.com/t28-salary-cap-penalities). Proposed by Raining Bullets 2013-08-05 (*"the recent loophole that was fixed in regards to backloaded contracts should be applied to players who are granted immunity for retirement/jail bird"*), seconded by Blake Bombers 2013-08-06, confirmed passed 2013-08-18: *"This rule was passed so that the loophole w. front/backloads were closed."*
 
-> **⚠️ NOT YET IMPLEMENTED IN CODE.** Verified 2026-08-15: no settlement logic exists in `computeDropPenalty()`, `worker/src/lib/cap_penalty.js`, or any ETL script, and this rule was absent from canon entirely. Every cap-free retirement since has settled at $0 regardless of loading. **The rule is nonetheless LIVE and correct (Keith 2026-08-16):** the settlement is owed on a loaded contract, and only an unloaded contract exits genuinely cap-free. Until the code catches up the commissioner applies it by hand, so the member rulebook states it as a real rule rather than a pending one.
+> **✅ LIVE AND IMPLEMENTED (corrected 2026-08-16).** The rule is in force: the settlement is owed on a loaded contract, and only an unloaded contract exits genuinely cap-free.
+>
+> **The 2026-08-15 note claiming "NOT YET IMPLEMENTED ANYWHERE" was wrong** and is retracted. `_d2aSettlement()` exists at `worker/src/index.js:43932-43962`, is wired into `/admin/drops/capfree-decide` (`:44740`, where it *replaces* `penalty_amount` rather than stacking), and applies automatically on the `auto` retirement route (`:46229`). Verified against this section's own worked example: AAV $20K × 1 year served − $10K paid = $10K owed. The front-load credit works by the same formula. The earlier note was written from a stale grep and repeated into the member rulebook; both are corrected.
 
 **The credit direction is CONFIRMED symmetric (Keith 2026-08-15):** *"yes give them a credit if they paid more than they should...if they FL Gonzo then it would be a 10K credit."* Worked: front-load the same Gonzalez deal so Y1 pays $35K against a $25K AAV, and retirement after Y1 settles to $25,000 − $35,000 = **−$10,000, a credit to the owner.** The rule is one formula run in both directions — an owner is made whole for overpayment exactly as they are held to underpayment.
 
@@ -1694,7 +1696,7 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 
 ### 2013
 - Rookie contracts: 2 years → **3 years** (by league vote).
-- **Trade votes removed.** Commissioner-led trade processing replaced league veto poll. 5 collusion votes still trigger a veto poll.
+- **Trade votes removed.** Commissioner-led trade processing replaced the league veto poll. ~~5 collusion votes still trigger a veto poll.~~ **RETIRED — there is no veto of any kind (Keith 2026-08-16).** The 2013 mechanism (2 objections → poll → 5 collusion votes) and the 2012/2014 CC veto are both dead. Collusion is identified from **patterns across repeated transactions, evidenced in the data — not from any single trade** — so no trade is ever blocked or reversed on suspicion. The 2022 removals of AJ and Rico Balderelli (§4) were decided that way. This line previously contradicted §1's "No vetoes" and is the contradiction the member rulebook flagged.
 - Contract dynamics for the bid sheet: extension + restructure data from Forumotion is the primary source for understanding how contracts behaved pre-2018.
 
 ### 2014 — multiple forum votes 2014-02-11 (CONFIRMED via Forumotion)
@@ -2254,6 +2256,100 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 
 ---
 
+# Section 7 — Governance & Owner Conduct (NEW 2026-08-16)
+
+Rules the league actually operates by that had never been written into canon. Recovered from the 2012 / 2013 / 2014 / 2018 rulebooks (Google Docs, fetched 2026-08-16 — see `docs/rulebook_source_archive.md`), from live enforcement in Discord, and from behavior already shipping in code. Every item below is either **ratifying existing practice** or **explicitly retiring** a rule that survived in an old document. Where Keith gave a ruling on 2026-08-16 it is attributed inline.
+## G. Governance & Owner Conduct
+
+
+### G1. Voting thresholds
+
+| Class of change | Threshold | Status |
+|---|---|---|
+| General rule change | **7 YES** (of 12) | Live. Enforced by the bot: `hall_proposals.pass_yes_count DEFAULT 7` (`worker/migrations/0022_round_item_close.sql:22`), read at `worker/src/discord_round.js:762`. |
+| League dues change | **9 YES** (of 12) | Live. Applied verbatim to the 2026-05-11 Dynasty Pot vote, which passed 9-1-0. |
+
+- **Non-votes count against a proposal (Keith 2026-08-16: *"We would need 7 votes."*).** The threshold is **7 raw YES regardless of turnout** — 6 YES out of 8 ballots cast does NOT pass. This **retires** the 2014 rule *"Polls that are not responded to will not be factored into the results,"* which would have passed that same proposal. The bot's behavior was already the real rule; the 2014 text was the stale one.
+- **Three thresholds are configured but only one is read.** `quorum_min DEFAULT 8` and `threshold_yes_pct DEFAULT 60` exist in `worker/migrations/0020_hall_schema.sql:25-26` and are set by `worker/src/hall.js:583`, but the auto-close path consults **only** `pass_yes_count`. They should be wired up or deleted; leaving three numbers where one governs is how this rule got lost the first time.
+- ❓ **The 90% in-season bar is UNRESOLVED (Keith 2026-08-16: *"Im not sure about the 90%"*).** The 2012/2014/2018 rulebooks all require 90% for in-season changes. No code implements it, and the July 2026 round passed three rules in-season at 7 YES. Either it is retired or those three were passed under the wrong threshold. **Do not implement either reading until Keith rules.**
+
+### G2. Commissioner authority
+
+Restored from the 2024 rulebook §1.5, which the 2026 canon rebuild dropped:
+
+> "The commissioner has full authority on decisions that fall outside the rulebook. In cases where league precedent has been set, this will guide the decision-making process. The commissioner may confer with senior league members or expand discussions to the entire league as deemed necessary… The commissioner always acts in the best interest of the league."
+
+The 2018 rulebook adds the test still worth applying to any judgment call: **the betterment of the league, consistency, and historical precedence.**
+
+Canon relies on commissioner discretion in at least eight places (Jail Bird §D2, 4th-offense league-fit review §T4.3a, new-owner cap-free-cut window §A7b, Round 6 reversal §A1, re-engagement forfeit §A2, QB camp battles §B1, restructure enforcement §C5.2, ERA/tag judgment) without this section existing. It does now.
+
+**The Competition Committee is dissolved and has been for years (Keith 2026-08-16: *"hasn't existed in years"*).** Every CC power in the 2012/2013/2014/2018 rulebooks — trade vetoes, unanimous approval of minor rule changes, running orphaned teams, tag-period rulings — is retired and vests in the commissioner. ⚠️ `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` is a 2026-dated file naming **Ryan Bousquet and Eric Mannila** to the CC with veto-adjacent powers. It is a legacy artifact, it is wrong, and it should be deleted.
+
+**Succession has never been written in 16 years.** Still open.
+
+### G3. Lineup submission and the violation ladder
+
+Recovered from the 2018 rulebook, **which is still being enforced under its own numbering** — Discord, 2025-12-15: *"**1st Violation** for @Whitman for Kamara, listed as OUT on Friday's injury report."*
+
+A lineup is a **violation** when it contains a missing starter, a player on bye, a player listed **Out**, or a player listed **Doubtful** who does not play.
+
+| Violation | Consequence |
+|---|---|
+| 1st | Warning, no penalty |
+| 2nd | Loss of a 4th-round pick + $5K against next season's cap |
+| 3rd | Loss of a 2nd-round pick + a further $5K |
+| 4th | League vote on retention; if retained, a further $10K |
+| 5th | Automatic expulsion |
+
+If a stripped pick isn't held, it is taken the next time one becomes available, by trade or at league-year rollover. **Failing to submit any lineup** is separate: the owner has until the following Tuesday to explain, the league votes on retention, and a second occurrence is automatic expulsion.
+
+**Injury-report timing is now 24 hours before that player's kickoff (Keith 2026-08-16).** This replaces the 2018 wording ("Sunday & Monday games — Friday PM; Thursday — Wednesday PM"), which broke on Wednesday games and any non-standard slate. The 24-hour frame is itself a restoration: the 2012 rulebook already used it (*"Questionable designations becoming deactivated within 24 hours of kickoff do not trigger warnings, while Doubtful designations that become deactivated do"*).
+
+⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. ❓ Whether violations 2–5 are still priced correctly is worth a ruling before the next one is issued — draft-pick stripping is a heavy 2018-era hammer, and nobody has been past violation 1 in the current era.
+
+### G4. Roster and cap compliance windows
+
+**In-season (transaction-triggered).** The 2014 rulebook: *"If an in-season transaction results in an owner not being able to put out a full starting lineup, that GM will have 24 hours to fulfill their roster requirements. If this does not occur within 24 hours the transaction will be reversed."* The same 24-hour cure applies to going over the cap (§E, live in canon).
+
+⚠️ **Keith is changing the reversal mechanic this offseason (2026-08-16) — see G7.1.** The rule as written above is the legacy version. Do not build to it.
+
+**Offseason, before the FA Auction: there is no cap ceiling and no roster limit at all (Keith 2026-08-16).** Not a floor, not a ceiling, not 27, not 30/35. A team may sit far over $300K and carry any number of players. Compliance begins at auction start. This was never stated anywhere and both §B1 and §A2 implied year-round limits.
+
+### G5. Owners without teams, and teams without owners
+
+From the 2011 dues-lockout announcement, the earliest written form:
+
+> "As stipulated in the league manifesto the team will be run by the competition committee to ensure a complete lineup, however no pickups will be made unless it is necessary to produce a starting lineup."
+
+**Ratified with the commissioner in place of the CC:** an orphaned or locked-out team is caretaken by the commissioner, who sets a legal lineup each week and makes **no discretionary moves** — additions only where required to field a legal lineup.
+
+This matters more than it used to. UPS has removed or replaced three owners in four years (§4), All-Play drives seeding *and* realignment captaincy, and the Dynasty Pot now puts $900 on a 3-year All-Play figure that an unmanaged roster distorts for all eleven other teams.
+
+❓ The **"league manifesto"** cited above is not in this repo and may not survive. Worth asking whether Keith still has it.
+
+### G6. Stat corrections
+
+Never written down in 16 years, despite being decisive twice:
+
+- A correction moved a team from the 1 seed to the 3 seed on the final regular-season week (Keith, Discord 2024-11-26).
+- A championship was held open pending one (Keith, 2023-12-31: *"2.3 points to overcome in Elias isn't unprecedented, so we'll sit tight until Thursday morning and we'll confirm it then"*).
+
+**The rule, ratifying that practice (Keith 2026-08-16):** MFL does not auto-apply Elias corrections. Scores and All-Play remain provisional until **Thursday morning of the following week**, at which point they are final. Corrections landing after that do not reopen a settled week.
+
+Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year All-Play %, and realignment captaincy runs on the same figure.
+
+### G7. Open governance items
+
+1. **Roster/lineup non-compliance: replace transaction reversal (Keith 2026-08-16).** Reversal is the wrong control for three reasons Keith named: it **punishes the counterparty** to a trade the non-compliant owner made; it is exploitable as **buyer's remorse**; and a mechanism already exists that blocks further roster changes until the roster is fixed, which is a cleaner lever than undoing a completed transaction. Direction: **in-season**, the weekly valid-lineup requirement is the control. **Pre-season**, cure by the earlier of the next two waiver cycles or roster deadline day. Penalty for non-compliance still to be set — see item 2.
+2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
+3. **The 90% in-season voting bar** — retire it, or acknowledge July 2026 passed three rules under the wrong threshold (G1).
+4. **Commissioner succession** — never written.
+5. **Violations 2–5 pricing** — confirm or re-set before the next one is issued (G3).
+
+## END Section 7 (NEW 2026-08-16)
+
+---
+
 # Section 8 — Contract Activity & Player Lineage Tracking (placeholder, added v13)
 
 > Keith v13 (L1167): "let's use this as a means to start our tracking of contract activity. This can be section 8...not critical but I want it. Has to do with confirming the player's life cycle. We should be able to reconcile the data and supporting documentation. Forum was clean. Ever since it's not — you'll need to work through that. We'll start from beginning and work forward rather than backwards. I do believe there's a player lineage file(s) in repo already started — we should start there."
@@ -2288,6 +2384,7 @@ Reconcile every player's contract lifecycle event-by-event — from initial acqu
 ---
 
 ## END Section 8 (placeholder, v13)
+
 
 ---
 
