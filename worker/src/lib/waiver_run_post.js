@@ -73,10 +73,67 @@ const BASIS_LABELS = {
   guarantee_minus_earned: "75% guarantee minus earned-to-date",
   no_penalty_zero: "Earned already exceeds guarantee",
   no_pre_drop_contract: "Pre-drop contract not found",
+  contract_unstamped_needs_review: "MFL has not stamped a contract for this player yet — unpriced, not cap-free",
 };
 export function humanizeDropBasis(basis) {
   const key = _s(basis);
   return BASIS_LABELS[key] || key;
+}
+
+// The TRUE calculation, not a label for it (Keith 2026-08-16: "let's review
+// these messages, they're not very clear for 'penalty basis' ... if there's
+// no penalty there's nothing to show. If there is a penalty show the true
+// calculation. 75K GTD - 60K Earned = 15K or something like that").
+//
+// Returns null in exactly the case where nothing should be printed: no
+// penalty. "1-year contract under $5K" under a green heading used to explain
+// why NOT — that explanation is gone; a $0/exempt drop needs no further
+// justification. `known === false` also returns null here on purpose — that
+// state gets its own amber heading and unknown_reason line, not a basis field.
+//
+// Both real-penalty bases this SSOT can emit (guarantee_minus_earned,
+// tcv_under_5k_guarantee) carry `guaranteed` and `earned` — see
+// _computeDropPenalty, index.js ~line 1947 — so the subtraction is always
+// available for anything computed live. A penalty > 0 with either figure
+// missing means an OLDER ups_drop_events row that predates those columns;
+// print the label rather than inventing numbers to subtract.
+export function explainPenalty(pen) {
+  if (!pen || pen.known === false) return null;
+  const penalty = Number(pen.penalty) || 0;
+  if (pen.exempt || penalty === 0) return null;
+  const g = pen.guaranteed, e = pen.earned;
+  if (g != null && e != null) {
+    return `${fmtK(g)} GTD − ${fmtK(e)} Earned = ${fmtK(penalty)}`;
+  }
+  return humanizeDropBasis(pen.basis) || null;
+}
+
+// Which CAP YEAR a real penalty lands on (canon §6 — index.js
+// _dropPenaltyCapSeason): drop before the FA Auction opens → current season;
+// drop at/after auction open → the FOLLOWING season, ledger-only until
+// rollover. Keith 2026-08-16, re: this exact case (Ja'Tavion Sanders, dropped
+// 2026-08-13, auction opened 2026-07-25): "we do know the penalties won't be
+// applied to 2026, only 2027, based on when it occurred" — true, and until
+// this note existed neither poster said so. A reader seeing "$1K cap penalty"
+// with no season attached has every reason to assume it hits the season the
+// post is about.
+//
+// Silent in the ordinary case — the penalty lands on the season being
+// announced, which needs no comment — and silent for $0/exempt, same as
+// explainPenalty. Only speaks up when the year is NOT what a reader would
+// assume, or when the year itself could not be resolved (a data gap, never
+// papered over as "must be this season").
+export function capYearNote(pen, currentSeason) {
+  if (!pen || pen.known === false) return null;
+  const penalty = Number(pen.penalty) || 0;
+  if (pen.exempt || penalty === 0) return null;
+  if (pen.cap_year_ok === false) {
+    return "⚠️ _which cap year this hits could not be resolved — needs review_";
+  }
+  const applies = pen.applies_to_season;
+  const cur = Number(currentSeason) || 0;
+  if (applies == null || !cur || Number(applies) === cur) return null;
+  return `⏭️ applies to the **${applies}** cap — dropped on or after the FA Auction open, ledger-only until rollover (§6)`;
 }
 
 // "Frankie Luvu  `LB · CAR`" — position/team in code ticks so the eye can
@@ -177,7 +234,9 @@ function moneyLines(move) {
 }
 
 // One thread message per move: ＋added / －dropped + penalty / money / windows.
-export function buildMoveMessage(move) {
+// currentSeason drives capYearNote — the season this run is being announced
+// under, so a penalty rolling to the NEXT season's cap can say so.
+export function buildMoveMessage(move, currentSeason) {
   const drops = moveDrops(move);
   const pen = drops.length ? capPenaltyDisplay(combineDropPenalties(drops)) : null;
   const lines = [playerLine("＋", move.added)];
@@ -204,22 +263,27 @@ export function buildMoveMessage(move) {
     { name: "Contract", value: clampField(contract), inline: false },
     { name: "Eligibility", value: clampField(buildEligibilityLines(move.eligibility).join("\n")), inline: false },
   ];
-  // The penalty BASIS earns a line only when there is a penalty story to tell;
-  // "1-year contract under $5K" under a green ✅ is the answer to the question
-  // an owner is about to ask in this very thread.
-  // With more than one drop the basis is ambiguous unless it is attributed, so
-  // the player's name leads each line; a single drop keeps the bare label.
+  // A penalty line earns a field only when there is money to explain — a
+  // $0/exempt drop gets none (explainPenalty returns null; nothing to show).
+  // An UNKNOWN drop still gets a line — that is a data gap needing review,
+  // not "no penalty" — and a real penalty gets the actual subtraction, not a
+  // label for it. With more than one drop the line is ambiguous unless
+  // attributed, so the player's name leads each line; a single drop keeps
+  // the bare text. A trailing capYearNote line, when present, says WHICH
+  // season's cap the number above actually hits — silent whenever that is
+  // the obvious/current season (see capYearNote).
   if (drops.length) {
     const basisLines = drops.map((d) => {
-      const label = _s(d.penalty && (d.penalty.basis_label || d.penalty.basis))
-        || (d.penalty && d.penalty.known === false
-          ? (_s(d.penalty.unknown_reason) || "Pre-drop contract could not be resolved — this drop has NOT been priced.")
-          : (!d.penalty ? "Pre-drop contract could not be resolved — this drop has NOT been priced." : ""));
-      if (!label) return "";
-      return drops.length > 1 ? `**${_s(d.player && d.player.name) || "Unknown player"}** — ${label}` : label;
+      const text = (d.penalty && d.penalty.known === false)
+        ? (_s(d.penalty.unknown_reason) || "Pre-drop contract could not be resolved — this drop has NOT been priced.")
+        : (!d.penalty ? "Pre-drop contract could not be resolved — this drop has NOT been priced." : explainPenalty(d.penalty));
+      if (!text) return "";
+      const yearNote = d.penalty ? capYearNote(d.penalty, currentSeason) : null;
+      const full = yearNote ? `${text}\n${yearNote}` : text;
+      return drops.length > 1 ? `**${_s(d.player && d.player.name) || "Unknown player"}** — ${full}` : full;
     }).filter(Boolean);
     if (basisLines.length) {
-      fields.push({ name: "Penalty basis", value: clampField(basisLines.join("\n")), inline: false });
+      fields.push({ name: "Penalty calculation", value: clampField(basisLines.join("\n")), inline: false });
     }
   }
   const embed = {
@@ -239,8 +303,8 @@ export function buildMoveMessage(move) {
 //
 // `run` (everything pre-resolved by the route):
 //   { franchise_name, franchise_id, icon_url, processed_at_et, run_date_label,
-//     moves: [ { row_id, player_id, source, amount_dollars, added, dropped,
-//                penalty, also_dropped: [ { ...player, penalty } ],
+//     season, moves: [ { row_id, player_id, source, amount_dollars, added,
+//                dropped, penalty, also_dropped: [ { ...player, penalty } ],
 //                eligibility } ] }
 export function buildWaiverRunPlan(run) {
   const moves = Array.isArray(run && run.moves) ? run.moves : [];
@@ -324,6 +388,6 @@ export function buildWaiverRunPlan(run) {
     thread_name: threadName,
     parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
     parent_embed: parentEmbed,
-    move_messages: moves.map(buildMoveMessage),
+    move_messages: moves.map((m) => buildMoveMessage(m, run && run.season)),
   };
 }
