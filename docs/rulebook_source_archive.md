@@ -31,18 +31,40 @@ For a Drive PDF, `https://drive.google.com/uc?export=download&id=<FILE_ID>` redi
 
 ---
 
-## Not yet mined
+## The old forum — how to navigate it
 
-**The old forum is the biggest remaining gap.** The index is reachable; individual sections are not, because Forumotion needs the exact `/fN-slug` path and the index fetch does not expose them. Two sections are worth real effort:
+**Forumotion resolves a section by its number and ignores the slug**, so `/f20-league-rules` silently serves whatever forum is #20 (in this case 2017 Transition Tags) rather than 404ing. Never trust a guessed number; read the href off the index.
 
-| Section | Volume | Why it matters |
+Verified section paths:
+
+| Section | Path | Volume |
 |---|---|---|
-| **League Rules** | 18 topics, 184 posts | Described on the index as *"Request clarification on rules. Propose New Rules."* This is where rule *interpretations* live — the arguments that settled how a rule actually works. Nothing of this kind survives anywhere else. |
-| **Trade Violations** | 6 topics, 53 posts | Index blurb: *"3 strikes against an owner will result in trade privileges being revoked."* Six real cases of the strike system being applied. |
+| **League Rules** | `/f6-league-rules` | 8 threads — rule clarifications and proposals |
+| **Trade Violations** | `/f5-trade-violations` | 6 threads, one per year 2012–2017 |
+| Completed Rule Discussions | *(no direct href on the index — nested under League Rules)* | Unmined |
+| 2012 FA Auction Contracts | `/f13-2012-free-agent-auction-contracts` | 69 topics |
 
-Also present, lower value: Free Agent Auction Contracts (69 topics), Contract Extensions (117), Franchise & Transition Tags (49), Mid-Season Multi-Yr Offers (59), New Owner's Distribution Draft (3), Conditional Trades (4).
+Threads are `/t<N>-<slug>`.
 
-**To unblock:** one thread URL from either section is enough to derive the section path and crawl from there.
+### Mined 2026-08-16
+
+**`/f6-league-rules`** — 8 threads. The high-value ones are the rule debates that pre-date every surviving rulebook: `/t92-ability-to-restructure-contracts` (16 replies — the 2014 restructure vote, already resolved in canon §C5), `/t83-taxi-squad-thoughts` (18 replies — the tiered-taxi proposal, superseded by flat 10 + 1 IDP), `/t65-contract-length` (8), `/t91-taxi-squad-contracts-guaranteed` (7), `/t15-general-thought` (30, sticky).
+
+**`/f5-trade-violations`** — `/t12-trade-violation-rules` is the sticky that defines the strike system:
+
+> "an owner **MUST** respond to a trade offer within **96 hours**" (two weeks in the offseason). Three unanswered offers in a season — defined as **February 1 through January 31** — and "that owner will have his trading privileges revoked for the remainder of the season." Legitimate reasons can be appealed; "simply not responding to an offer is pure laziness and will not be tolerated."
+
+Six annual violation threads (2012–2017) show it was actively enforced. **Assessment: dead in the current era** — no strike since 2017, and MFL now auto-expires offers at 7 days (`defaultTradeExpirationDays: "7"`), which is the mechanical residue of the same intent. Worth retiring explicitly so nobody quotes the 96-hour rule.
+
+### ⚠️ An open question this surfaced, never resolved
+
+`/t15-general-thought` (30 replies) debates: **when you trade *for* a loaded contract and then cut it, do you eat the loading penalty the original owner created?** The case was a 3rd-round pick traded for Jonathan Stewart on a back-loaded deal ($19K / $26K); the acquiring owner argued he never got the year-1 discount and had already paid acquisition cost. The commissioner said he would "go whatever way the league decides" and sent it to a vote. **The thread records no outcome, and no rulebook since has answered it.**
+
+This is live again: canon §D2a settles a loaded contract against "what the owner actually paid," and on a mid-contract trade it is unstated whether "the owner" means the franchise or the person. Belongs in §G7.
+
+### Not yet mined
+
+Completed Rule Discussions (no href found on the index — needs one thread URL to derive). Lower value: Contract Extensions (117 topics), FA Auction Contracts (69), Franchise & Transition Tags (49), Mid-Season Multi-Yr Offers (59), New Owner's Distribution Draft (3), Conditional Trades (4).
 
 **The Calvin Johnson Rule doc has never been read.** Canon §D2/§T1.10 describes the rule secondhand. The doc is auth-gated; it needs sharing or a paste.
 

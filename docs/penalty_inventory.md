@@ -68,7 +68,7 @@ If a stripped pick isn't held, it's taken at the next opportunity (trade or roll
 | Over-cap auction bid | $10 fine | MFL blocks the bid |
 | Logo change | $15 | Retired (§T4.5) |
 | Not voting | Franchise forfeited to a new owner | Retired (2011) |
-| Trade response > 96 hours | Strike; 3 strikes = no trading | Retired; MFL auto-expires offers at 7 days |
+| Trade response > 96 hours in-season (2 weeks offseason) | Strike; 3 strikes in a Feb 1–Jan 31 season = trading privileges revoked for the rest of it | Retired — no strike since 2017. MFL now auto-expires offers at 7 days, which is the same intent mechanized. Full text: forum `/t12-trade-violation-rules`. |
 
 ---
 
@@ -86,7 +86,7 @@ If a stripped pick isn't held, it's taken at the next opportunity (trade or roll
 
 **6. One penalty punishes the wrong person.** Transaction reversal (C6) unwinds a trade the *counterparty* completed in good faith. Keith's ruling in §G7.1.
 
-**7. Cap penalties are self-defeating on the teams that trigger them most.** The owner who misses nominations, misses lineups, and pays late is usually the disengaged owner on a bad roster. Cap penalties make his team worse, which makes him more disengaged. The punishment accelerates the behavior.
+**7. ~~Cap penalties are self-defeating on the teams that trigger them most.~~** *(Argued, then withdrawn.)* The claim was that cap penalties make a bad team worse and feed disengagement. **Keith 2026-08-16: "Cap Penalties is the same as draft capital imo even less painful."** That is the commissioner's read of how the two currencies actually land in this league, and it is better evidence than the theory — a $15K cap hit is absorbable, a lost 2nd-rounder is not. Recorded here rather than deleted so the reasoning isn't re-proposed later. **Open for the league**: if cap and draft capital really are near-equivalent, the two ladders in issue 2 are less mismatched than they look, and the fix is mostly to align their *escalation shape* rather than their currency.
 
 ---
 
@@ -94,13 +94,15 @@ If a stripped pick isn't held, it's taken at the next opportunity (trade or roll
 
 Not a rule change. A shape to react to.
 
-### Principle 1 — Match the currency to the failure
+### Principle 1 — Match the severity to the harm
 
-| Failure type | Currency | Why |
+Per Keith (2026-08-16), cap and draft capital are near-equivalent in felt cost, with cap arguably the *lighter* of the two. So currency is the weaker lever; **severity and escalation are the real ones.** Revised:
+
+| Failure type | Response | Why |
 |---|---|---|
-| **Competitive** (illegal lineup, tanking) — distorts other teams' results | **Draft capital + membership** | The harm is to competitive integrity, so the cost should be to future competitiveness. Cap penalties make a bad team worse and feed the spiral. |
-| **Administrative** (missed nomination, late dues) — inconveniences process | **Cap** | Self-limiting, automatable, precise. Already works. |
-| **Compliance** (illegal roster/cap state) — a state to fix, not an act to punish | **Blocked privileges until cured** | The goal is the fix, not the fine. Keith's §G7.1 direction. |
+| **Compliance** (illegal roster or cap state) — a state to fix, not an act to punish | **Block further moves until cured.** Penalty only if the cure window lapses. | The goal is a legal roster, not revenue. Keith's §G7.1 direction, and it can't be gamed as buyer's remorse. |
+| **Administrative** (missed nomination, late dues) — costs the league process | **Cap**, escalating | Automatable and precise. Already works; leave it. |
+| **Competitive** (illegal lineup, not fielding a real team) — distorts every other team's record | **Cap or draft capital, escalating to membership** | This is where severity has to exceed the administrative ladder, because the harm is to everyone else. Whether it's paid in cap or picks matters less than that it out-weighs a missed nomination — which today it does not consistently. |
 
 ### Principle 2 — One escalation shape everywhere
 
@@ -126,7 +128,7 @@ For roster/cap state, the lever is blocking further moves until legal:
 
 ### Open questions for the league
 
-1. **Is a 4th-round pick worth more or less than $15K in cap?** Answering this once makes every other tradeoff decidable.
+1. ~~**Is a 4th-round pick worth more or less than $15K in cap?**~~ **Answered (Keith 2026-08-16): they're roughly equivalent, cap possibly lighter.** Follow-on: if that's true, is a $5K cap hit for a lineup violation (§G3) actually *weaker* than the $7K for a second missed nomination — punishing the more damaging failure less?
 2. **What does missing the $260K floor actually cost?** (§6.A2 has never said.)
 3. **Should lineup violations reset annually, or accumulate across seasons?** Neither ladder says.
 4. **Do violations 2–5 keep their 2018 prices?** Pick-stripping is heavy; nobody has been past violation 1 in the current era.

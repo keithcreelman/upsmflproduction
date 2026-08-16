@@ -2344,7 +2344,8 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
 3. **The 90% in-season voting bar** — retire it, or acknowledge July 2026 passed three rules under the wrong threshold (G1).
 4. **Commissioner succession** — never written.
-5. **Violations 2–5 pricing** — confirm or re-set before the next one is issued (G3).
+5. **Violations 2–5 pricing** — confirm or re-set before the next one is issued (G3). Note Keith's 2026-08-16 read that cap and draft capital cost about the same, cap possibly less: on that view a $5K violation-2 hit may be *lighter* than the $7K for a second missed nomination, which inverts the severity.
+6. **Who eats the loading settlement on a traded contract? — UNRESOLVED SINCE 2014.** §D2a settles a loaded deal against "what the owner actually paid." On a mid-contract trade it has never been stated whether that means the *franchise* or the *person*: the acquiring owner never received the year-1 discount the original owner banked, and paid acquisition cost on top. Raised on the old forum (`/t12`… thread `/t15-general-thought`, 30 replies) over a back-loaded Jonathan Stewart deal ($19K/$26K) acquired for a 3rd; the commissioner sent it to a league vote and **no outcome was ever recorded**. No rulebook since has answered it. Live again now that §D2a is in force and implemented.
 
 ## END Section 7 (NEW 2026-08-16)
 
