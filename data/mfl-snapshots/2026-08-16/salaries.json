@@ -438,11 +438,11 @@
           "salary": "22000"
         },
         {
-          "contractInfo": "CL 3| TCV 24K| AAV 8K| Y1-8, Y2-8, Y3-8| GTD: 18K",
-          "contractStatus": "Vet-FAA",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "14105",
-          "salary": "8000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
