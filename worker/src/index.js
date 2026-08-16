@@ -45059,6 +45059,79 @@ export default {
         });
       }
 
+      // GET /api/cap-adjustments/season?L=&YEAR=
+      // Past/current season cap adjustments — MFL's real salaryAdjustments
+      // export (the ground truth once posted), shaped to MIRROR
+      // /api/cap-adjustments/next-season's response (same by_fid/rows/
+      // grand_total shape) so a consumer can branch by year without learning
+      // a second contract. Each row is categorized traded_salary / cap_penalty
+      // / other (Keith 2026-08-16: "Traded Salary vs. Cap Penalties").
+      //
+      // Category rule mirrors _adjIsDropPenalty's substrings (not
+      // salaryAdjustmentCategory, worker's OTHER existing 3-way classifier —
+      // that one lacks the id:ups_drop_rounding_ exclusion _adjIsDropPenalty
+      // has). Unlike a re-SUM, a rounding-reconciliation row is correctly
+      // SHOWN here as a cap_penalty line, not hidden — it is real money and
+      // the exclusion elsewhere exists only to stop a re-sum double-counting
+      // an amount already folded into a prior total, which doesn't apply to
+      // a plain listing.
+      if (path === "/api/cap-adjustments/season" && request.method === "GET") {
+        const csSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const csLeague = safeStr(url.searchParams.get("L") || L || "");
+        if (!csLeague) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const csRes = await mflExportJson(csSeason, csLeague, "salaryAdjustments", {}, { useCookie: true });
+        if (!csRes.ok) {
+          return jsonNoStore(200, {
+            ok: false, error: "mfl_salary_adjustments_unreadable", season: csSeason, league_id: csLeague,
+            by_fid: {}, rows: [], grand_total: 0,
+            message: "Could not read MFL's salaryAdjustments export, so this season's adjustments cannot be shown.",
+          });
+        }
+        const csRoot = csRes.data?.salaryAdjustments || csRes.data?.salaryadjustments || csRes.data || {};
+        const csRawRows = collectSalaryAdjustmentExportRows(csRoot);
+        const csLeagueRes = await mflExportJson(csSeason, csLeague, "league", {}, { useCookie: true });
+        const csFidName = {};
+        let csFl = csLeagueRes.ok && csLeagueRes.data?.league?.franchises?.franchise;
+        csFl = Array.isArray(csFl) ? csFl : (csFl ? [csFl] : []);
+        for (const f of csFl) {
+          const fid = padFranchiseId(f && f.id);
+          if (fid) csFidName[fid] = safeStr(f && f.name) || ("Team " + fid);
+        }
+        const csClassify = (explanation) => {
+          const t = safeStr(explanation).toLowerCase();
+          if (t.indexOf("trade") !== -1) return "traded_salary";
+          if (t.indexOf("drop") !== -1 || t.indexOf("cut") !== -1 || t.indexOf("penalt") !== -1 ||
+              t.indexOf("waiv") !== -1 || t.indexOf("dead cap") !== -1) return "cap_penalty";
+          return "other";
+        };
+        const csByFid = {};
+        const csRows = [];
+        for (const r of csRawRows) {
+          const fid = padFranchiseId(r.franchise_id);
+          if (!fid) continue;
+          const category = csClassify(r.explanation);
+          const item = {
+            franchise_id: fid, franchise_name: csFidName[fid] || `Team ${fid}`,
+            amount: safeInt(r.amount, 0), explanation: safeStr(r.explanation), category,
+          };
+          csRows.push(item);
+          if (!csByFid[fid]) {
+            csByFid[fid] = {
+              franchise_id: fid, franchise_name: item.franchise_name, total: 0,
+              traded_salary_total: 0, cap_penalty_total: 0, other_total: 0, items: [],
+            };
+          }
+          csByFid[fid].total += item.amount;
+          csByFid[fid][`${category}_total`] += item.amount;
+          csByFid[fid].items.push(item);
+        }
+        return jsonNoStore(200, {
+          ok: true, season: csSeason, league_id: csLeague,
+          by_fid: csByFid, rows: csRows,
+          grand_total: csRows.reduce((a, r) => a + r.amount, 0),
+        });
+      }
+
       // POST /admin/drops/post-mfl
       // Body: { season, league_id?, limit?, dry_run?, only_pid? }
       //

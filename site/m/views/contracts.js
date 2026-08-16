@@ -407,6 +407,11 @@
     // Ledger — read-only contract-activity log (audit), self-contained here.
     chips.push('<a class="ups-m-subtab' + ("ledger" === active ? ' active' : '') +
       '" href="#myteam/contracts/ledger">Ledger</a>');
+    // Cap Adj — league-wide salaryAdjustments (trades + drop penalties),
+    // by year + team (Keith 2026-08-16). Same shape as Ledger's chip: a
+    // hardcoded entry outside CONTRACT_ACTIONS, its own render function.
+    chips.push('<a class="ups-m-subtab' + ("adjustments" === active ? ' active' : '') +
+      '" href="#myteam/contracts/adjustments">Cap Adj</a>');
     return '<div class="ups-m-subtabs ups-m-action-chips">' + chips.join("") + '</div>';
   }
 
@@ -790,6 +795,168 @@
     });
   }
 
+  // ── Cap Adjustments tab (Keith 2026-08-16) ───────────────────────────
+  // "Have a dropdown for year and show the adjustments for '26 line item by
+  // line item ... have a filter by team. Traded Salary vs. Cap Penalties.
+  // This data must align with D1 and also with all other instances where we
+  // show cap adjustments. So future year won't source from MFL but current
+  // and past should."
+  //
+  // Two data sources, picked purely by whether the selected year is already
+  // playable-past-or-current or strictly in the future:
+  //   - current/past → GET /api/cap-adjustments/season (worker) — MFL's real
+  //     salaryAdjustments export, the ground truth once posted. Same
+  //     franchise totals the FO's 2026 "+$9,000 adj" line already shows —
+  //     verified live 2026-08-16 (Real Deal Creel: $9,000 cap-penalty here,
+  //     matches the FO exactly).
+  //   - next season → GET /api/cap-adjustments/next-season — D1's ledger for
+  //     drops that happened but are NOT yet in MFL (canon §6, ledger-only
+  //     until the rollover). Same object the FO's Cap Planning 2027 total and
+  //     "Cap Adjustments" popup both already read, so this tab can't disagree
+  //     with either.
+  // A year further than one season out is not offered — neither source
+  // covers it.
+  var ADJ_CATEGORY_LABEL = { traded_salary: "Trade", cap_penalty: "Penalty", other: "Other" };
+
+  // MFL's own description string is the label ("UPS drop penalty Tyreek Hill
+  // 26500 id:...", "UPS traded salary settlement (trade_...): net -20K") —
+  // extract just the human part rather than showing the raw ledger-key tail.
+  function humanizeAdjExplanation(explanation, category) {
+    var t = U.safeStr(explanation);
+    if (category === "cap_penalty") {
+      if (/rounding/i.test(t)) return "Rounding adjustment";
+      var m = t.match(/drop penalty\s+(.+?)\s+-?[\d.]+\s+id:/i);
+      return (m && m[1]) ? m[1].trim() : "Drop penalty";
+    }
+    if (category === "traded_salary") return "Trade settlement";
+    return t || "Adjustment";
+  }
+
+  // [next season, current, current-1, … 2012] — matches the same "full
+  // league history" convention views/league.js uses for its own year picker.
+  function adjYears() {
+    var cur = parseInt(M.state.ctx.year, 10) || new Date().getUTCFullYear();
+    var out = [cur + 1];
+    for (var y = cur; y >= 2012; y -= 1) out.push(y);
+    return out;
+  }
+
+  function renderContractAdjustments(mount) {
+    var box = document.createElement("div");
+    box.className = "ups-m-adj";
+    mount.appendChild(box);
+
+    var cur = parseInt(M.state.ctx.year, 10) || new Date().getUTCFullYear();
+    var year = M.state.adjYear != null ? parseInt(M.state.adjYear, 10) : cur;
+    if (!year) year = cur;
+    var teamFilter = M.state.adjTeamFilter || "";
+    var league = (M.state.ctx && M.state.ctx.leagueId) || "74598";
+
+    var teamOpts = '<option value="">All teams</option>' +
+      (M.state.franchises || []).slice()
+        .sort(function (a, b) { return U.safeStr(a.name).localeCompare(U.safeStr(b.name)); })
+        .map(function (f) {
+          return '<option value="' + U.escapeHtml(f.id) + '"' + (f.id === teamFilter ? " selected" : "") + '>' +
+            U.escapeHtml(f.name) + '</option>';
+        }).join("");
+    var yearOpts = adjYears().map(function (y) {
+      var label = y > cur ? (y + " (upcoming)") : String(y);
+      return '<option value="' + y + '"' + (y === year ? " selected" : "") + '>' + label + '</option>';
+    }).join("");
+
+    box.innerHTML =
+      '<div class="ups-m-adj-controls">' +
+        '<label>Year<select id="ups-m-adj-year">' + yearOpts + '</select></label>' +
+        '<label>Team<select id="ups-m-adj-team">' + teamOpts + '</select></label>' +
+      '</div>' +
+      '<div class="ups-m-adj-body"><div class="ups-m-stub">Loading adjustments…</div></div>';
+
+    var ySel = box.querySelector("#ups-m-adj-year");
+    var tSel = box.querySelector("#ups-m-adj-team");
+    if (ySel) ySel.addEventListener("change", function (e) { M.state.adjYear = e.target.value; M.route.renderRoute(); });
+    if (tSel) tSel.addEventListener("change", function (e) { M.state.adjTeamFilter = e.target.value; M.route.renderRoute(); });
+
+    var isFuture = year > cur;
+    var url = isFuture
+      ? M.api.workerUrl("/api/cap-adjustments/next-season") + "?L=" + encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(cur)
+      : M.api.workerUrl("/api/cap-adjustments/season") + "?L=" + encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(year);
+    var bodyEl = box.querySelector(".ups-m-adj-body");
+
+    fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || j.ok !== true) {
+          bodyEl.innerHTML = '<div class="ups-m-stub"><div>Couldn\'t read ' + U.escapeHtml(String(year)) + ' adjustments' +
+            (j && j.error ? ' (' + U.escapeHtml(j.error) + ')' : '') + '. Pull to retry.</div></div>';
+          return;
+        }
+        // Normalize both response shapes (next-season's by_fid/items vs
+        // season's flat rows[]) into one common row list before rendering.
+        var rows = [];
+        if (isFuture) {
+          Object.keys(j.by_fid || {}).forEach(function (fid) {
+            var grp = j.by_fid[fid];
+            (grp.items || []).forEach(function (it) {
+              rows.push({
+                franchise_id: fid, franchise_name: grp.franchise_name || ledgerTeam(fid),
+                amount: U.safeInt(it.amount, 0), category: "cap_penalty",
+                label: it.player || ("Player " + it.player_id),
+                detail: it.dropped_at_iso ? U.safeStr(it.dropped_at_iso).slice(0, 10) : "",
+                note: "ledger only — not yet in MFL"
+              });
+            });
+          });
+        } else {
+          (j.rows || []).forEach(function (it) {
+            rows.push({
+              franchise_id: it.franchise_id, franchise_name: it.franchise_name || ledgerTeam(it.franchise_id),
+              amount: U.safeInt(it.amount, 0), category: it.category,
+              label: humanizeAdjExplanation(it.explanation, it.category),
+              detail: "", note: ""
+            });
+          });
+        }
+        if (teamFilter) rows = rows.filter(function (r) { return r.franchise_id === teamFilter; });
+
+        if (!rows.length) {
+          bodyEl.innerHTML = '<div class="ups-m-stub"><div>No adjustments for ' + U.escapeHtml(String(year)) +
+            (teamFilter ? " · " + U.escapeHtml(ledgerTeam(teamFilter)) : "") + '.</div></div>';
+          return;
+        }
+
+        var grand = rows.reduce(function (s, r) { return s + r.amount; }, 0);
+        var tradeSum = rows.filter(function (r) { return r.category === "traded_salary"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+        var penSum = rows.filter(function (r) { return r.category === "cap_penalty"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+        var otherSum = rows.filter(function (r) { return r.category === "other"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+
+        var html = '<div class="ups-m-adj-summary">' +
+          '<span class="chip">' + rows.length + ' line' + (rows.length === 1 ? "" : "s") + '</span>' +
+          '<span class="chip">Net ' + U.fmtUsd(grand) + '</span>' +
+          (tradeSum ? '<span class="chip">Trade ' + U.fmtUsd(tradeSum) + '</span>' : '') +
+          (penSum ? '<span class="chip">Penalty ' + U.fmtUsd(penSum) + '</span>' : '') +
+          (otherSum ? '<span class="chip">Other ' + U.fmtUsd(otherSum) + '</span>' : '') +
+        '</div>';
+
+        rows.sort(function (a, b) { return Math.abs(b.amount) - Math.abs(a.amount); });
+        rows.forEach(function (r) {
+          html += '<div class="ups-m-adj-row">' +
+            '<span class="ups-m-adj-cat cat-' + U.escapeHtml(r.category) + '">' + U.escapeHtml(ADJ_CATEGORY_LABEL[r.category] || "Other") + '</span>' +
+            '<div class="ups-m-adj-item">' +
+              '<div class="ups-m-adj-label">' + U.escapeHtml(r.label) + '</div>' +
+              '<div class="ups-m-adj-meta">' + U.escapeHtml(r.franchise_name) +
+                (r.detail ? " · " + U.escapeHtml(r.detail) : "") +
+                (r.note ? " · " + U.escapeHtml(r.note) : "") + '</div>' +
+            '</div>' +
+            '<span class="ups-m-adj-amt' + (r.amount < 0 ? " neg" : "") + '">' + U.fmtUsd(r.amount) + '</span>' +
+          '</div>';
+        });
+        bodyEl.innerHTML = html;
+      })
+      .catch(function (e) {
+        bodyEl.innerHTML = '<div class="ups-m-stub"><div>Couldn\'t load adjustments: ' + U.escapeHtml(String((e && e.message) || e)) + '</div></div>';
+      });
+  }
+
   function renderContractsHub(mount, action) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
@@ -797,7 +964,8 @@
       return;
     }
     action = action || "myac";
-    var valid = action === "ledger" || CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
+    var valid = action === "ledger" || action === "adjustments" ||
+      CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
     if (!valid) action = "myac";
     // Self-contained Contracts section: its OWN contract-ops nav (action
     // chips + Ledger) — no roster tabs bleed in. Reach Roster/Lineup/Taxi/IR
@@ -805,6 +973,11 @@
     if (action === "ledger") {
       mount.innerHTML = actionChips(action);
       renderContractLedger(mount);
+      return;
+    }
+    if (action === "adjustments") {
+      mount.innerHTML = actionChips(action);
+      renderContractAdjustments(mount);
       return;
     }
     // Per-player deadlines live in the lists themselves (each player has their
