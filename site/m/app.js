@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.08.15.3";
+  var BUILD = "2026.08.15.4";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -114,11 +114,35 @@
     return /^https?:\/\//i.test(s) ? s : "";
   }
 
+  // Whole-K rounding here silently ate real money on the cap hero card: a
+  // team at $279,500 (a $1,000 IR player contributing its rounded-DOWN half
+  // salary — see front_office_cap.js) displayed as "$280K", $500 too high,
+  // even after computeCapMath itself was fixed (PR #901) to stop rounding
+  // the underlying total. The bug had moved from computation to display.
+  // One decimal place whenever the value isn't a clean multiple of $1K —
+  // same rule already proven correct for the Discord drop-penalty messages
+  // (worker/src/lib/waiver_run_post.js fmtK) — fixes it without truncating
+  // at some upper magnitude the way fmtUsdPrecise does. Individual player
+  // salaries are always set in whole $1K per canon, so this only ever
+  // surfaces on aggregates (cap totals, adjustments, penalties) — nowhere
+  // does a normal salary chip start showing decimals.
   function fmtUsd(n) {
     var x = Number(n || 0);
     if (!isFinite(x)) return "$0";
-    if (Math.abs(x) >= 1000) return "$" + Math.round(x / 1000) + "K";
-    return "$" + Math.round(x);
+    var neg = x < 0;
+    var abs = Math.abs(x);
+    var out;
+    if (abs >= 1000) {
+      var k = abs / 1000;
+      out = "$" + (Number.isInteger(k) ? k : Math.round(k * 10) / 10) + "K";
+    } else {
+      out = "$" + Math.round(abs);
+    }
+    // Sign leads the whole string ("-$20.5K"), not stuck between the $ and
+    // the number ("$-20.5K") — a pre-existing bug in the old whole-K path
+    // too (Math.round(-20500/1000) = -20 -> "$-20K"), just never noticed
+    // because capRoom rarely if ever posted as a fraction until this fix.
+    return neg ? "-" + out : out;
   }
   // Rookie salary derivation — verbatim from league_context_v1.md §A1.4.
   // Returns the per-year salary for a given UPS draft pick. Flat across
