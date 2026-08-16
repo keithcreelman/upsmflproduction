@@ -56,11 +56,13 @@ Threads are `/t<N>-<slug>`.
 
 Six annual violation threads (2012–2017) show it was actively enforced. **Assessment: dead in the current era** — no strike since 2017, and MFL now auto-expires offers at 7 days (`defaultTradeExpirationDays: "7"`), which is the mechanical residue of the same intent. Worth retiring explicitly so nobody quotes the 96-hour rule.
 
-### ⚠️ An open question this surfaced, never resolved
+### ✅ A 12-year-old open question, closed by finding the thread
 
-`/t15-general-thought` (30 replies) debates: **when you trade *for* a loaded contract and then cut it, do you eat the loading penalty the original owner created?** The case was a 3rd-round pick traded for Jonathan Stewart on a back-loaded deal ($19K / $26K); the acquiring owner argued he never got the year-1 discount and had already paid acquisition cost. The commissioner said he would "go whatever way the league decides" and sent it to a vote. **The thread records no outcome, and no rulebook since has answered it.**
+`/t15-general-thought` (30 replies) debates: **when you trade *for* a loaded contract and then cut it, do you eat the loading penalty the original owner created?** The case was a 3rd-round pick traded for Jonathan Stewart on a back-loaded deal ($19K / $26K); the acquiring owner argued he never got the year-1 discount and had already paid acquisition cost. The commissioner said he would "go whatever way the league decides" and sent it to a vote. The thread records no outcome, and no rulebook between 2014 and 2026 answered it.
 
-This is live again: canon §D2a settles a loaded contract against "what the owner actually paid," and on a mid-contract trade it is unstated whether "the owner" means the franchise or the person. Belongs in §G7.
+**Resolved 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the whole contract, loading and eventual §D2a settlement included. Recorded in canon §G7.6.
+
+Worth noting as a pattern: the question was recoverable only from the forum, and it had gone unanswered for twelve years purely because nobody knew it was open.
 
 ### Not yet mined
 
