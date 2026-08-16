@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.15.4",
-  "label": "Cap Room now shows the real number. $279,500 used was displaying as $280K — the fix in the last update stopped the math from rounding away IR relief, but the display was still rounding it right back. Dollar figures on the cap cards now show a decimal when the number isn't a clean multiple of $1,000."
+  "build": "2026.08.15.5",
+  "label": "Contracts: new Cap Adj tab. Every trade settlement and cap penalty for a season, filterable by team, with a year picker that reaches one season ahead — next year's drop penalties that haven't hit MFL yet show up here too, same numbers as the Front Office."
 }
