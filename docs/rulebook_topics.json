@@ -1410,14 +1410,14 @@
     {
       "key": "dues-fines-payouts",
       "title": "Dues, Fines & Payouts",
-      "one_liner": "Dues are $250 a year: a $200 base plus $50 into the Dynasty Pot.",
+      "one_liner": "Dues are $250 a year: $225 into the annual pot, $25 into the Dynasty Pot.",
       "today": [
         "The base is due in two halves: $100 by the start of the FA Auction and $100 by the trade deadline. Late weeks that pile up before the September contract deadline are charged against this season's cap; anything after that lands on next season's.",
-        "The Dynasty Pot runs on the same three-year clock as divisional realignment, and that's the point. It rewards whoever was consistently good for three years rather than whoever got hot in December. Half of it builds toward that three-year prize; the other half gets folded straight into the champion and runner-up checks each year — it's not a separate pot with its own winner, it's a boost on the trophies everyone's already chasing.",
+        "The Dynasty Pot runs on the same three-year clock as divisional realignment, and that's the point. It's $25 a year, separate from the rest of your dues, building toward a three-year prize that rewards whoever was consistently good for three years rather than whoever got hot in December.",
         "You have to be here for all three years to collect.",
-        "Join mid-cycle and you still pay your $50, you're just not eligible until you've done a full one. Leave and you forfeit everything you put in.",
+        "Join mid-cycle and you still pay your $25, you're just not eligible until you've done a full one. Leave and you forfeit everything you put in.",
         "Missed auction nominations are the other thing that costs you, and the ladder is cumulative rather than replacing. A third miss doesn't cancel the first two, it stacks on top of them.",
-        "Payouts: $1,080 to the champion and $530 to the runner-up (base prize plus that year's Dynasty Pot boost), $150 for third, $75 to each division winner, and $30 a week for high score. Whatever's left after all of that, plus site & technology fees, goes to the Hawktuah Bowl winner. It was never a fixed number, just what's left over — this year that's $0."
+        "Payouts: $1,080 to the champion, $530 to the runner-up, $150 for third, $75 to each division winner, and $30 a week for high score. Whatever's left after all of that, plus site & technology fees, goes to the Hawktuah Bowl winner. It was never a fixed number, just what's left over — this year that's $0."
       ],
       "numbers": [
         {
@@ -1425,8 +1425,8 @@
           "value": "$250"
         },
         {
-          "label": "Base / Dynasty Pot",
-          "value": "$200 + $50"
+          "label": "Annual / Dynasty Pot",
+          "value": "$225 + $25"
         },
         {
           "label": "Dynasty Pot per cycle",
@@ -1438,8 +1438,8 @@
         }
       ],
       "era_notes": [
-        "Dues went $200 to $250 in May 2026 to fund the Dynasty Pot",
-        "Division winners bumped $50 to $75 and Hawktuah Bowl formalized as a residual in August 2026, funded partly by trimming the Dynasty Pot's annual boost to the champion and runner-up"
+        "Dues went $200 to $250 in May 2026 — $25 into the Dynasty Pot, $25 into the regular annual pot",
+        "Division winners bumped $50 to $75 and Hawktuah Bowl formalized as a residual in August 2026"
       ],
       "canon_rules": [
         "T4.4",
@@ -1455,7 +1455,7 @@
         "Prize splitting is only recognized when there is an actual tie."
       ],
       "open_questions": [
-        "Canon does not say when the $50 Dynasty Pot contribution is collected.",
+        "Canon does not say when the $25 Dynasty Pot contribution is collected.",
         "Whether the late-dues fine comes off your cap or out of your pocket is explicitly undecided."
       ],
       "layout": [
