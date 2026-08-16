@@ -47,7 +47,7 @@
         "Eighteen starters every week. SuperFlex is the only slot a second quarterback fits into, so two is the most you'll ever have scoring.",
         "A kicker and a punter are both required. Neither is optional and neither fits in a flex.",
         "Lineups lock player by player as each game kicks off. Once his game starts he's frozen where you left him, in or out.",
-        "Setting a lineup every week is mandatory. Nobody is going to remind you."
+        "A complete lineup is required each week."
       ],
       "numbers": [
         {
@@ -161,15 +161,16 @@
       "key": "salary-cap",
       "group": "roster",
       "title": "Cap & Roster Limits",
-      "one_liner": "$300K ceiling, $260K floor, 27 to 30 players. The floor holds all season.",
+      "one_liner": "$300K ceiling, $260K floor, 27 to 30 players. All of it switches off in the offseason.",
       "today": [
-        "The $300K ceiling is hard in the only sense that matters: MFL refuses the move. There's no override and no fixing it on Monday.",
+        "The $300K ceiling is enforced by MFL at write time: a move that would put you over it is simply rejected. Don't plan on sorting it out on Monday.",
         "It's also only switched on from FA Auction start to the end of the season. In the offseason there's no ceiling at all. Sit well over it in April, let post-season trades push you further over, none of that is a violation. You just have to be legal the second the auction opens.",
         "The $260K floor is softer. Touch it at any single instant during the FA Auction and you're satisfied for the year. One moment counts. The other way to clear it is to be above it at the September contract deadline.",
-        "Your roster floor is 27 players and it applies all season, not just at auction close. The auction window is the one stretch where the roster is allowed to float below it.",
+        "Your roster floor is 27 players, and it holds from auction close through the end of the season. The auction window is the one stretch in-season where the roster may float below it.",
+        "Before the FA Auction there are no limits at all — no cap ceiling, no floor, no roster minimum or maximum. You can sit $40K over the cap in April with 40 players. Compliance starts when the auction opens.",
         "The ceiling runs 35 during the auction and drops to 30 at the September contract deadline. MFL enforces that one at write time.",
         "Four NFL starting quarterbacks is your limit, taxi squad included, measured once a year on the contract deadline off the FantasyPros depth chart. A backup you're sitting on who steals the job in Week 11 doesn't put you in violation, so enjoy it.",
-        "Five QBs on the active roster is a separate ceiling, and that one is live all season.",
+        "Five QBs on the active roster is a separate ceiling, and it is measured at the September contract deadline, the same day as the 4-starter cap.",
         "Tagged salary counts in full, exactly like any other active-roster salary. That's the line people get wrong most often on their own cap sheet.",
         "For your real available number: start at $300K, subtract every active salary, add back IR refunds and any cap money sent to you, then subtract drop penalties, fines, and cap money you've sent away. The fines are what catch people, because they were charged last August and nobody remembers them.",
         "Before you fire off a max bid, hold back $1K for every roster spot you still need to reach 27 and for every positional hole you still have to fill. Winning a bidding war with your last dollars and then discovering you have no punter is a UPS tradition, and not a proud one."
@@ -242,7 +243,9 @@
         "Go over 4 starting QBs on the contract deadline and the league cuts your most recently acquired ones until you're legal, with normal penalties against next year's cap.",
         "First-round rookies cannot go to the taxi squad. They take an active roster spot the day you draft them.",
         "A player on IR stops counting against the roster ceiling and gives back half his salary. That is the half people forget when they are doing auction math.",
-        "MFL enforces the ceiling at write time. UPS tools only warn, so a green light in a preview screen is not approval."
+        "Bid through the UPS app during the auction and it will refuse a bid outright — roster already at 35, a bid above your funds minus the $1K you owe each empty spot, or a position you can no longer afford to take because every remaining spot is owed elsewhere.",
+        "Those checks only exist in UPS's own tools. Bid through MFL Lite or MFL directly and none of them run — only MFL's own cap enforcement applies, so it is possible to put yourself somewhere the UPS app would have stopped you.",
+        "Neither QB cap is enforced by any software. Both are checked by hand at the contract deadline."
       ],
       "open_questions": [
         "Canon says missing the floor puts you out of compliance and triggers a cap penalty, but never says how much.",
@@ -476,7 +479,8 @@
         "Some cuts cost nothing: a 1-year deal under $5K, a waiver pickup at $4K or less, a taxi player who was never permanently promoted, a tagged player cut before the auction opens, a retired player, a jailed player at the commissioner's discretion (the Jail Bird Rule), an offseason season-long suspension you opt out of, and a new owner's first cut.",
         "Cap-free is not automatically free on a loaded deal. If he was front-loaded or back-loaded, you settle the gap between what his AAV said he was worth per year and what you actually paid him. Back-load a guy you expect to retire and you owe the shortfall; front-load him and the league owes you a credit. That settlement replaces the normal penalty rather than stacking on top of it.",
         "The Amari Cooper Rule lets you cut a retired player mid-auction and spend the freed salary immediately. The retirement has to be genuine, the commissioner verifies it, and a player cut this way is off the board for the rest of that auction. It's the only reason anybody in this league reads retirement news in July.",
-        "Very small multi-year deals get their own carve-out. If the whole contract is worth $4K or less, cutting with two or more years left costs a flat $1K and cutting in the final year costs nothing."
+        "Very small multi-year deals get their own carve-out. If the whole contract is worth $4K or less, cutting with two or more years left costs a flat $1K and cutting in the final year costs nothing. The $1K replaces the normal formula rather than being netted against it.",
+        "Cutting a retiring Tier-1 player can earn you a compensatory pick — 1.13 for an offensive player, 3.13 for a defensive one, awarded in order if more than one retires, and not tradeable until the following season. It stacks with the cap-free cut and with any loading settlement you owe: retire a WR1 off a back-loaded deal and you can be handed a comp pick and a salary adjustment in the same breath."
       ],
       "numbers": [
         {
@@ -557,7 +561,8 @@
         "C1",
         "C2",
         "C3",
-        "C7"
+        "C7",
+        "T1.10"
       ],
       "gotchas": [
         "A restructure is the one thing that moves the penalty. TCV and the guarantee re-base to the years still remaining, so a restructured deal is cut against a smaller number.",
@@ -806,7 +811,7 @@
       "one_liner": "One offense tag and one defense/ST tag a year. A tagged player hits next summer's auction.",
       "today": [
         "Only a player with zero years left going into the season can be tagged. In practice that's a guy who played out the last year of his deal and you're not ready to let him walk.",
-        "The price is the higher of his position-tier bid or his prior-season AAV with 10% on top, rounded up to the nearest $1K. You don't get to pick the cheaper one.",
+        "The price is the higher of his position-tier bid or his contract-deadline AAV with 10% on top, rounded up to the nearest $1K. It is the deadline snapshot and nothing else, so a late waiver claim can't inflate a tag and a cheap late pickup can't deflate one. A player who wasn't under contract at that deadline has no bump baseline at all, and the tier price governs.",
         "A tag is a one-year ending, not a one-year pause. He can't be extended and he can't be given a MYM, by you or by anyone who trades for him, ever, on that tag.",
         "You hold him for the season, then he goes into next summer's FA Auction with everybody else. You're welcome to bid. So is the guy you outbid for him last time.",
         "You can't pre-extend a player and then tag him in the same year, and nobody else can tag a player you've already tagged.",
@@ -821,7 +826,7 @@
         },
         {
           "label": "Salary floor",
-          "value": "AAV x 1.10"
+          "value": "Deadline AAV x 1.10"
         },
         {
           "label": "Length",
@@ -833,7 +838,8 @@
           "title": "Pricing a WR tag",
           "lines": [
             "His WR tier bid comes out at $28K",
-            "Prior-season AAV was $30K, so the floor = $30K x 1.10 = $33K",
+            "His AAV in the contract-deadline snapshot was $30K",
+            "Floor = $30K x 1.10, rounded up = $33K",
             "Tag = the higher of the two = $33K"
           ]
         },
@@ -883,7 +889,7 @@
       "title": "Reading a Contract",
       "one_liner": "A contract is a length, a salary per year, and a TCV that is 75% guaranteed.",
       "today": [
-        "TCV is the sum of the salaries still left on the deal. Not the average times the years. The sum, and a remarkable share of this league's arguments trace back to somebody multiplying when they should have been adding.",
+        "TCV is the sum of the year-by-year salaries the deal was written at. It is fixed when the contract is created or extended and does not shrink as years fall off, which is what makes it the number your cut penalty is measured against.",
         "AAV is the rate the deal was priced at. On a fresh contract that's just TCV spread evenly, but extensions break it: the new AAV applies only to the extension years, the old years keep their old numbers, and from then on TCV and AAV-times-years give you two different answers. The sum is the real one.",
         "Loaded is not a contract type, it's a modifier. Any two or three-year deal can be front-loaded or back-loaded, which is the same total money split unevenly across the years. A one-year deal, a MYM and a taxi contract can never be loaded.",
         "Rookie three-year deals don't count toward your limit of six three-year contracts, which is the only reason anyone can carry a full rookie class and still do business."
@@ -1381,7 +1387,7 @@
       "one_liner": "1 point per catch, except RBs get 0.8 and TEs get 1.5. Every first down is 0.2.",
       "today": [
         "A tight end catch is worth 1.5 here and a running back catch is worth 0.8, which is the single biggest reason UPS prices look wrong to anyone arriving from another league. Every auction, somebody forgets and pays flat-PPR money for a running back.",
-        "First downs pay everybody at 0.2 apiece: rushing, receiving, quarterback sneaks, all of it. A three-yard catch that moves the chains beats an eleven-yard catch that doesn't, and once you've noticed that you can't stop noticing it.",
+        "First downs pay 0.2 apiece at every position: rushing, receiving and quarterback sneaks. It is not enough to beat yardage on its own — a 3-yard catch that moves the chains is 1.5 points and an 11-yard catch that doesn't is 2.1 — but it means possession work is worth more here than in a yardage-only league, and the break-even sits around 5 yards.",
         "Defence here is tackle volume. Defensive linemen and defensive backs earn 1.5 a tackle, a pass defensed is worth 1.5 at every position, and tackles stop paying after 25 in a game, so even an absurd tackle night has a ceiling on it.",
         "Kickers are paid by distance at 0.1 a yard, so a long make is worth real points. Misses are deliberately asymmetric: from 45 yards and out a miss costs you nothing, inside 45 it carries a penalty. The rule is quietly telling your kicker to take the long one.",
         "Gross punting yardage doesn't score at all. Your punter is a required slot, not a strategy.",

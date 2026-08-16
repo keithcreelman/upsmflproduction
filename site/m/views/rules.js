@@ -338,7 +338,7 @@
       examples: function () { return examplesBlock(t.examples); },
       gotchas: function () {
         if (!t.gotchas || !t.gotchas.length) return "";
-        return '<div class="ups-m-rb-sub-h">Where people get caught out</div>' +
+        return '<div class="ups-m-rb-sub-h">Details</div>' +
           '<ul class="ups-m-rb-gotchas">' +
           t.gotchas.map(function (g) { return "<li>" + esc(g) + "</li>"; }).join("") +
           "</ul>";
@@ -346,7 +346,7 @@
       open_questions: function () {
         if (!t.open_questions || !t.open_questions.length) return "";
         return '<div class="ups-m-rb-open">' +
-          '<div class="ups-m-rb-open-h">Not settled yet</div>' +
+          '<div class="ups-m-rb-open-h">Open questions</div>' +
           "<ul>" + t.open_questions.map(function (q) { return "<li>" + esc(q) + "</li>"; }).join("") +
           "</ul></div>";
       },
