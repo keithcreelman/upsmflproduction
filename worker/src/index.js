@@ -1789,6 +1789,33 @@ async function processAuctionPoll(env) {
 // drop-penalty cron AND GET /api/cap-penalty/preview. Keep at module scope so
 // both the FO/mobile preview and the real cap charge run identical logic.
 const _s = (v) => String(v == null ? "" : v).trim();
+
+// Which player ids a transaction DROPPED, read positionally by type.
+// Shapes confirmed live 2026-08-16 against every ups_transactions row:
+//   FREE_AGENT   "added,|dropped,"       → field 1   (e.g. "|13189,")
+//   BBID_WAIVER  "added,|bid|dropped,"   → field 2   (e.g. "16649,|1000|15271,")
+//
+// Positional is load-bearing. Scanning the whole blob for digit clusters — what
+// this used to do — charges a drop penalty against the player the owner just
+// ADDED, and on a waiver row also mints a phantom drop from the bid amount
+// ("...|1000|..." parses as player 1000).
+//
+// Returns null for any type whose shape is not established here, so the caller
+// can surface it. Notably NOT parseable:
+//   BBID_WAIVER_REQUEST  "priority|add_bid_drop,..."  — a submitted bid, and
+//     some are later withdrawn (action:"DEL"). A losing or withdrawn bid drops
+//     nobody; charging off one would invent a penalty out of nothing.
+//   BBID_AUTO_PROCESS_WAIVERS — a marker row, empty franchise and transaction.
+const _dropPidsFromTx = (type, blob) => {
+  const parts = _s(blob).split("|");
+  const ty = _s(type).toUpperCase();
+  let field;
+  if (ty === "FREE_AGENT") field = parts[1];
+  else if (ty === "BBID_WAIVER" || ty === "WAIVER") field = parts[2];
+  else return null;
+  return _s(field).match(/\d{3,6}/g) || [];
+};
+
 // NFL Week-1 kickoff = Thursday after Labor Day (first Monday of Sept + 3 days).
 const _nflWeek1Iso = (year) => {
   const y = Number(year) || 0;
@@ -45689,6 +45716,12 @@ export default {
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const days = Math.max(1, Math.min(90, safeInt(body?.days, 7)));
         const dryRun = !!body?.dry_run;
+        // Conditional drops riding inside a won BBID waiver claim (canon gate:
+        // real money, so OFF until the commish signs off on the dry-run).
+        // Body flag wins so a dry-run can preview it while the cron stays put.
+        const includeWaivers = body?.include_waivers != null
+          ? !!body.include_waivers
+          : safeStr(env.DROP_SCAN_WAIVERS_ENABLED) === "1";
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
@@ -45787,11 +45820,26 @@ export default {
           return null;
         };
 
-        // ── Pull FREE_AGENT transactions ──
-        const txRes = await mflExportJson(targetSeason, leagueId, "transactions",
-          { TRANS_TYPE: "FREE_AGENT", DAYS: String(days) }, { useCookie: true });
-        let txs = txRes.data?.transactions?.transaction || [];
-        if (!Array.isArray(txs)) txs = [txs];
+        // ── Pull the transaction types that can carry a drop ──
+        // FREE_AGENT always; BBID_WAIVER only when enabled (see includeWaivers).
+        // Each type is fetched separately: MFL's TRANS_TYPE takes one value, and
+        // a combined no-filter pull would drag in types whose payload shape we
+        // deliberately refuse to guess at (see _dropPidsFromTx).
+        const scanTypes = ["FREE_AGENT"].concat(includeWaivers ? ["BBID_WAIVER"] : []);
+        const txByType = [];
+        for (const tt of scanTypes) {
+          const r = await mflExportJson(targetSeason, leagueId, "transactions",
+            { TRANS_TYPE: tt, DAYS: String(days) }, { useCookie: true });
+          // An unreadable pull is NOT an empty one — recording a partial scan as
+          // complete would silently drop real penalties on the floor.
+          if (!r || !r.ok) {
+            return jsonOut(502, { ok: false, error: `transactions fetch failed for TRANS_TYPE=${tt}`,
+              season: targetSeason, league_id: leagueId });
+          }
+          let rows = r.data?.transactions?.transaction || [];
+          if (!Array.isArray(rows)) rows = [rows];
+          for (const row of rows) txByType.push({ tt, row });
+        }
 
         // Player + franchise meta for enrichment
         const [playersRes, leagueRes] = await Promise.all([
@@ -45813,16 +45861,22 @@ export default {
         }
 
         // Walk transactions → resolve every dropped player_id.
+        // Positional per type — see _dropPidsFromTx. Anything the parser refuses
+        // is surfaced, never silently treated as "this transaction dropped
+        // nobody": that is how a real penalty would go missing without a trace.
         const drops = [];
-        for (const tx of txs) {
+        const unparsedTx = [];
+        for (const { tt, row: tx } of txByType) {
           const fid = padFranchiseId(tx?.franchise || "");
           const ts = Number(tx?.timestamp) || 0;
           if (!fid || !ts) continue;
-          // The `transaction` field is "|pid1,|pid2,..." — extract digit clusters.
-          const blob = safeStr(tx?.transaction);
-          const pids = blob.match(/\d{3,6}/g) || [];
-          for (const pid of pids) {
-            drops.push({ pid, fid, ts, raw: tx });
+          const parsed = _dropPidsFromTx(tt, tx?.transaction);
+          if (parsed == null) {
+            unparsedTx.push({ type: tt, timestamp: ts, franchise: fid, transaction: safeStr(tx?.transaction) });
+            continue;
+          }
+          for (const pid of parsed) {
+            drops.push({ pid, fid, ts, raw: tx, tx_type: tt });
           }
         }
 
@@ -45877,6 +45931,7 @@ export default {
             if (dryRun) {
               written.push({
                 pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+                tx_type: drop.tx_type, raw_transaction: safeStr(drop.raw?.transaction),
                 pre_drop: preDrop, penalty: penaltyInfo,
                 applies_to_season: capYear.ok ? capYear.applies_to_season : null,
                 cap_year_bucket: capYear.bucket || "",
@@ -46014,6 +46069,7 @@ export default {
             }
             written.push({
               pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+              tx_type: drop.tx_type,
               penalty_amount: penaltyInfo.penalty, penalty_basis: penaltyInfo.basis,
               exempt: penaltyInfo.exempt,
               applies_to_season: capYear.ok ? capYear.applies_to_season : null,
@@ -46031,7 +46087,13 @@ export default {
           season: targetSeason,
           league_id: leagueId,
           window_days: days,
+          scanned_types: scanTypes,
+          include_waivers: includeWaivers,
           transactions_seen: drops.length,
+          // Rows whose payload shape the parser refuses to guess at. Reported,
+          // never silently skipped — a real drop hiding in here is real money.
+          unparsed_transaction_count: unparsedTx.length,
+          unparsed_transactions: unparsedTx,
           written_count: written.length,
           skipped_count: skipped.length,
           auction_start: {
