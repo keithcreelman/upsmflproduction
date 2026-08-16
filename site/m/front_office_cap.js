@@ -210,7 +210,22 @@
     });
     var cap = Number(capAmount || 0);
     function roundToK(n) { return Math.round(Number(n || 0) / 1000) * 1000; }
-    var playerSalaryUsedR = roundToK(playerSalaryUsed);
+    // Player salary is NOT rounded. IR charges half a salary, so a single
+    // $1,000 IR player contributes $500 — rounding the subtotal to the nearest
+    // $1,000 swallows exactly that relief and reports the owner's cap as if the
+    // IR move never happened (Keith 2026-08-15: mobile showed $280K where the
+    // true figure is $279.5K, one $1K player on IR).
+    //
+    // Front Office v2 — the desktop surface that is actually current — sums the
+    // raw charges (`capAlloc = salaryCap + adjTotal`, front_office.js ~3375) and
+    // does not round. This file's header calls itself a verbatim mirror of
+    // team_operations.js, which DOES round; that made mobile a faithful copy of
+    // the older desktop rather than of the live one.
+    //
+    // The ADJUSTMENT rounding stays: drop penalties genuinely round by the
+    // per-franchise sum to the nearest $1K (half-up), which is a real rule about
+    // penalties, not a display convenience.
+    var playerSalaryUsedR = Math.round(playerSalaryUsed);
     var adjustmentTotalR  = roundToK(adjustmentTotal);
     var capTotalR         = playerSalaryUsedR + adjustmentTotalR;
     var remainR           = cap - capTotalR;

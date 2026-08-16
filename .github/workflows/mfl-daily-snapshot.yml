@@ -41,7 +41,20 @@ jobs:
           # Prefer api.myfantasyleague.com for read endpoints that support it;
           # fall back to www48 for league-context endpoints.
           for t in salaries transactions rosters injuries league freeAgents draftResults weeklyResults schedule leagueStandings; do
+            # LEAGUE-AGNOSTIC types carry NO L= and must go to api.*.
+            # `injuries` is platform-wide NFL data, not league data. Sending L=
+            # gets the request rejected with HTTP 200 and an error envelope
+            # ("This API request must go to api.myfantasyleague.com"), which
+            # decodes to an EMPTY list — so every snapshot since 2026-04-21
+            # stored `{"injuries":{}}` and ~4 months of injury history was lost
+            # without a single failed run. Verified 2026-08-15: with L= -> 0
+            # rows, without -> 341.
+            LPARAM="&L=$LEAGUE_ID"
             case "$t" in
+              injuries)
+                BASE="https://api.myfantasyleague.com"
+                LPARAM=""
+                ;;
               salaries|draftResults|weeklyResults|schedule|leagueStandings)
                 BASE="https://api.myfantasyleague.com"
                 ;;
@@ -53,7 +66,7 @@ jobs:
             # season so the snapshot is self-contained for back-fills.
             EXTRA=""
             if [ "$t" = "weeklyResults" ]; then EXTRA="&W=YTD"; fi
-            URL="$BASE/$YEAR/export?TYPE=$t&L=$LEAGUE_ID&JSON=1$EXTRA"
+            URL="$BASE/$YEAR/export?TYPE=$t$LPARAM&JSON=1$EXTRA"
             echo "fetch $t -> $DIR/$t.json"
             curl -fsSL -A "$UA" "$URL" -o "$DIR/$t.json.tmp"
             # Pretty-print so git diff is readable and compresses well
