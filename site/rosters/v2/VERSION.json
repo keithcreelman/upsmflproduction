@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.10",
+  "version": "2.0.11",
   "released": "2026-08-16",
-  "checkpoint": 12,
-  "scope": "Cap Planning's 2027 total now includes real drop penalties that are ledgered but not yet posted to MFL (canon §6 — a drop from the FA Auction open through end of season is next-season money until the rollover). Before this, the only thing that could move the 2027 number was an in-session preview toggle; a real, already-happened drop like Ja'Tavion Sanders' $1,000 sat correctly in the D1 ledger and in the separate Cap Adjustments popup, but never reached the number this tab actually shows. It now reuses that same ledger fetch, so the two surfaces can't disagree. 2028 is unchanged — the data source only carries one year out.",
+  "checkpoint": 13,
+  "scope": "The next-season ledger (Cap Planning's 2027 total + the Cap Adjustments popup) now includes §F RULE 2 missed-nomination fines, not just drop penalties. A fine books TWO rows at the moment it's assessed — one for this season, one for next, same amount both times — and only the current-season half ever had a display surface. The Hawks' 2026-07-28 miss ($3,000) sat correctly computed in D1 the whole time; it just never reached a screen. The popup's line-item label ('Drop · ...') was also hardcoded regardless of what kind of adjustment it was — a RULE 2 fine would have read as a drop. Both are fixed by the same worker route change, so nothing here needed a second implementation.",
   "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

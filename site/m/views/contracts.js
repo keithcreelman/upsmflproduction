@@ -404,14 +404,15 @@
       return '<a class="ups-m-subtab' + (a.key === active ? ' active' : '') +
         '" href="#myteam/contracts/' + a.key + '">' + U.escapeHtml(a.label) + '</a>';
     });
-    // Ledger — read-only contract-activity log (audit), self-contained here.
-    chips.push('<a class="ups-m-subtab' + ("ledger" === active ? ' active' : '') +
-      '" href="#myteam/contracts/ledger">Ledger</a>');
     // Cap Adj — league-wide salaryAdjustments (trades + drop penalties),
     // by year + team (Keith 2026-08-16). Same shape as Ledger's chip: a
     // hardcoded entry outside CONTRACT_ACTIONS, its own render function.
+    // Ordered before Ledger (Keith 2026-08-16 follow-up).
     chips.push('<a class="ups-m-subtab' + ("adjustments" === active ? ' active' : '') +
       '" href="#myteam/contracts/adjustments">Cap Adj</a>');
+    // Ledger — read-only contract-activity log (audit), self-contained here.
+    chips.push('<a class="ups-m-subtab' + ("ledger" === active ? ' active' : '') +
+      '" href="#myteam/contracts/ledger">Ledger</a>');
     return '<div class="ups-m-subtabs ups-m-action-chips">' + chips.join("") + '</div>';
   }
 

@@ -45051,6 +45051,49 @@ export default {
           byFid[fid].total += item.amount;
           byFid[fid].items.push(item);
         }
+
+        // §F RULE 2 missed-nomination fines — bookPenaltyForMiss
+        // (auction_compliance.js) writes TWO rows per fine at booking time,
+        // one applies_to_season=season and one =season+1, same amount both
+        // times. The current-season row already reaches MFL via
+        // /admin/auction/post-rule2-fines; the next-season row is booked
+        // ledger-only and had NO surface anywhere until now (Keith
+        // 2026-08-16, re: the Hawks' 2026 $3K miss: "that should be flowing
+        // into '27" — it was sitting in ups_faa_nom_penalties, correctly
+        // computed, simply never read by this route).
+        const r2Sel = await env.UPS_MFL_DB.prepare(
+          `SELECT penalty_id, fid, et_day, offense_no, amount_k, posted_to_mfl
+             FROM ups_faa_nom_penalties
+            WHERE season = ? AND league_id = ? AND applies_to_season = ? AND voided = 0`
+        ).bind(nsSeasonNum, nsLeague, nsSeasonNum + 1).all();
+        const r2Rows = (r2Sel && r2Sel.results) || [];
+        if (r2Rows.length) {
+          const r2LeagueRes = await mflExportJson(nsSeason, nsLeague, "league", {}, { useCookie: true });
+          const r2FidName = {};
+          let r2Fl = r2LeagueRes.ok && r2LeagueRes.data?.league?.franchises?.franchise;
+          r2Fl = Array.isArray(r2Fl) ? r2Fl : (r2Fl ? [r2Fl] : []);
+          for (const f of r2Fl) {
+            const fFid = padFranchiseId(f && f.id);
+            if (fFid) r2FidName[fFid] = safeStr(f && f.name) || `Team ${fFid}`;
+          }
+          for (const r of r2Rows) {
+            const fid = padFranchiseId(r.fid);
+            const item = {
+              player_id: null, player: `Missed nomination — offense ${safeInt(r.offense_no, 0)}`,
+              franchise_id: fid, franchise_name: r2FidName[fid] || `Team ${fid}`,
+              amount: safeInt(r.amount_k, 0) * 1000,
+              applies_to_season: nsSeasonNum + 1,
+              dropped_at_iso: safeStr(r.et_day),
+              kind: "RULE 2 fine (next season)",
+              in_mfl: Number(r.posted_to_mfl) === 1,
+            };
+            nsRows.push(item);
+            if (!byFid[fid]) byFid[fid] = { franchise_id: fid, franchise_name: item.franchise_name, total: 0, items: [] };
+            byFid[fid].total += item.amount;
+            byFid[fid].items.push(item);
+          }
+        }
+
         return jsonNoStore(200, {
           ok: true, season: nsSeason, next_season: nsSeasonNum + 1, league_id: nsLeague,
           auction_start_unix: nsStart.unix, auction_start_source: nsStart.source,

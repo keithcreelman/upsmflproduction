@@ -3416,7 +3416,7 @@
     if (!ns.ok) {
       // "Could not read" is not "nothing owed" — say which one this is.
       return '<div class="fo-adj-year">' + escapeHtml(String(year)) + " cap — ledger only</div>" +
-        '<div class="fo-adj-row"><span>Next-season drop penalties unavailable (' +
+        '<div class="fo-adj-row"><span>Next-season adjustments unavailable (' +
         escapeHtml(String(ns.error || "unreadable")) + ") — not confirmed empty.</span><span></span></div>";
     }
     const byFid = ns.byFid || {};
@@ -3430,7 +3430,14 @@
       out += '<div class="fo-adj-team">' + escapeHtml(grp.franchise_name || fid) + "</div>";
       (grp.items || []).forEach(function (it) {
         total += safeInt(it.amount, 0);
-        out += adjRow("Drop · " + (it.player || it.player_id || "—") +
+        // it.kind distinguishes a drop from a §F RULE 2 missed-nomination
+        // fine (worker/src/index.js /api/cap-adjustments/next-season) —
+        // both land in this same next-season ledger, and hardcoding "Drop ·"
+        // on every row mislabeled the RULE 2 half (Keith 2026-08-16: the
+        // Hawks' 2026 miss "should be flowing into '27" — it was, the total
+        // already counted it, only the label lied about what it was).
+        const prefix = /rule ?2/i.test(safeStr(it.kind)) ? "RULE 2 · " : "Drop · ";
+        out += adjRow(prefix + (it.player || it.player_id || "—") +
           (it.dropped_at_iso ? " (" + String(it.dropped_at_iso).slice(0, 10) + ")" : ""), safeInt(it.amount, 0));
       });
     });
@@ -7318,7 +7325,12 @@
     if (adjTotal) noteCy.push((adjTotal > 0 ? "+" : "−") + fmtUSD(Math.abs(adjTotal)) + " adj");
     if (previewDropPen && !penNextSeason) noteCy.push("+" + fmtUSD(previewDropPen) + " previewed drop");
     const noteNy = [];
-    if (nsAdj) noteNy.push("+" + fmtUSD(nsAdj) + " ledgered drop pen (D1, not yet in MFL)");
+    // "ledgered adjustment", not "drop pen" — nsAdj is a sum across whatever
+    // the next-season ledger holds, which is drop penalties AND §F RULE 2
+    // missed-nomination fines (both booked ledger-only-until-rollover); a
+    // team whose only next-season money is a RULE 2 fine (no drop at all)
+    // would have read this note backwards.
+    if (nsAdj) noteNy.push("+" + fmtUSD(nsAdj) + " ledgered adjustment (D1, not yet in MFL)");
     if (nsUnresolved) noteNy.push("⚠ next-season ledger unavailable — total may be understated");
     if (previewDropPen && penNextSeason) noteNy.push("+" + fmtUSD(previewDropPen) + " previewed drop (§D1)");
     const totalsNote = function (parts, rawSalary, title) {
@@ -7345,7 +7357,7 @@
       </p>
       <div class="fo-cap-totals">
         <div><span class="lbl">${yr0} cap</span><span class="val">${fmtUSD(adjustedCy)}</span>${totalsNote(noteCy, totals.cy, "Cap adjustments (drop pen · traded $ · other) from MFL's salaryAdjustments feed, plus any previewed-drop dead cap landing this season. Planning only — not written to MFL.")}</div>
-        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(adjustedNy)}</span>${totalsNote(noteNy, totals.ny, "§D1 — a cut previewed from the auction start through end of season lands on the FOLLOWING season's cap, not this one. Real (already-happened) drops in that window are pulled from D1's next-season ledger — canon §6 — since they're ledger-only until the rollover and won't show in MFL's own feed until then. Planning only — not written to MFL.")}</div>
+        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(adjustedNy)}</span>${totalsNote(noteNy, totals.ny, "§D1 — a cut previewed from the auction start through end of season lands on the FOLLOWING season's cap, not this one. Real, already-booked drops and §F RULE 2 missed-nomination fines that land in that window are pulled from D1's next-season ledger — canon §6 — since they're ledger-only until the rollover and won't show in MFL's own feed until then. Planning only — not written to MFL.")}</div>
         <div><span class="lbl">${yr0 + 2}</span><span class="val">${fmtUSD(totals.ny2)}</span></div>
       </div>
       ${renderCapRosterCounters(team)}
