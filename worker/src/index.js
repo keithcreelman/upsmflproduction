@@ -45967,6 +45967,37 @@ export default {
               season: scanSeasonNum, dropUnix: drop.ts, auctionStartUnix: scanAuctionStart.unix,
             });
 
+            // A BBID-sourced drop was ALREADY announced — the adds/waiver-run
+            // poster (/admin/adds/post-discord) reads MFL's transaction log
+            // directly and runs regardless of this scanner's state, so it told
+            // the league about this exact drop, paired with its add, in that
+            // claim's own thread, at claim-processing time. Writing this row
+            // with the normal default (discord_posted=0) hands it straight to
+            // the drops-poster's auto-post cron, which repeats what the
+            // channel already saw. Caught live 2026-08-16 (Emanuel Wilson
+            // posted twice — waiver-run thread at 9:06 AM, standalone drop
+            // card at 10:50 PM after this scanner started seeing BBID rows).
+            //
+            // Correlated on (franchise_id, acquired_at_unix) — the add and its
+            // paired drop are parsed from the SAME MFL transaction, so this is
+            // an exact match, not a fuzzy one. Only suppressed when a
+            // MATCHING, SUCCESSFULLY-POSTED add is found — if the adds poster
+            // never announced it (a failed post, or some edge case with no
+            // add-side row at all), this row is left discord_posted=0 so the
+            // drops-poster still tells the league. Never silently unannounced.
+            let alreadyAnnouncedViaAdd = false;
+            if (drop.tx_type === "BBID_WAIVER" || drop.tx_type === "WAIVER") {
+              try {
+                const matchedAdd = await env.UPS_MFL_DB.prepare(
+                  `SELECT id FROM ups_add_events
+                     WHERE season = ? AND league_id = ? AND franchise_id = ?
+                       AND acquired_at_unix = ? AND discord_posted = 1
+                     LIMIT 1`
+                ).bind(targetSeason, leagueId, drop.fid, drop.ts).first();
+                alreadyAnnouncedViaAdd = !!matchedAdd;
+              } catch (_) { alreadyAnnouncedViaAdd = false; }
+            }
+
             if (dryRun) {
               written.push({
                 pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
@@ -45975,6 +46006,8 @@ export default {
                 applies_to_season: capYear.ok ? capYear.applies_to_season : null,
                 cap_year_bucket: capYear.bucket || "",
                 cap_year_needs_review: capYear.ok ? "" : capYear.reason,
+                already_announced_via_add: alreadyAnnouncedViaAdd,
+                would_auto_post_to_discord: !alreadyAnnouncedViaAdd,
               });
               continue;
             }
@@ -45988,8 +46021,9 @@ export default {
                  pre_drop_aav, pre_drop_years_remaining, pre_drop_taxi,
                  earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
                  penalty_exempt, penalty_exempt_reason,
-                 ledger_key, source, detected_at_utc, raw_transaction_json, snapshot_source
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ledger_key, source, detected_at_utc, raw_transaction_json, snapshot_source,
+                 discord_posted, notes
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT (season, league_id, player_id, dropped_at_unix) DO NOTHING`
             ).bind(
               targetSeason, leagueId, drop.pid,
@@ -46015,7 +46049,9 @@ export default {
               safeStr(penaltyInfo.exempt_reason),
               ledgerKey, "transactions_poll", nowIso,
               JSON.stringify(drop.raw),
-              preDrop?.snapshot_source || null
+              preDrop?.snapshot_source || null,
+              alreadyAnnouncedViaAdd ? 1 : 0,
+              alreadyAnnouncedViaAdd ? "Already announced via the adds/waiver-run poster at claim time — drop-ledger post suppressed to avoid a duplicate." : null
             ).run();
             // Stamp the cap year. Separate statement on purpose: migration 0125
             // is hand-applied, so the worker can be live before the columns
