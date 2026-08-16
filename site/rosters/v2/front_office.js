@@ -7288,8 +7288,25 @@
     const penNextSeason = dropPenaltyLandsNextSeason();
     const penCy = penNextSeason ? 0 : previewDropPen;
     const penNy = penNextSeason ? previewDropPen : 0;
+    // Real (not previewed) drops already ledgered to NEXT season — canon §6:
+    // a drop from FA-Auction-start through end of season is ledger-only until
+    // the rollover, so it never reaches MFL's live salaryAdjustments feed
+    // (adjTotal, above) even though the money is genuinely owed. Same
+    // STATE.nextSeasonAdj the Cap Adjustments popup already renders
+    // (renderNextSeasonAdjBlock) — reused here, not recomputed, so the two
+    // surfaces can't disagree (Keith 2026-08-16: "my Sanders Penalty should
+    // show in '27"). Zeroed under a player filter for the same reason adjTotal
+    // is — it's team-wide, not attributable to the filtered subset.
+    //
+    // Fails CLOSED, not to $0: an unresolved ledger (calendar unreadable, or
+    // the fetch itself failed) must not look identical to "nothing owed" —
+    // it shows as a dash and a note instead of folding into adjustedNy.
+    const nsLedger = STATE.nextSeasonAdj;
+    const nsUnresolved = !anyFilter && nsLedger && nsLedger.ok === false;
+    const nsAdj = (!anyFilter && nsLedger && nsLedger.ok && nsLedger.byFid && nsLedger.byFid[team.fid])
+      ? safeInt(nsLedger.byFid[team.fid].total, 0) : 0;
     const adjustedCy = totals.cy + adjTotal + penCy;
-    const adjustedNy = totals.ny + penNy;
+    const adjustedNy = totals.ny + penNy + nsAdj;
     // ONE set of 3 year numbers, not a raw-salary strip plus a competing
     // "adjusted cap" box underneath (Keith 2026-08-03: the two boxes didn't
     // visually add up). Each column's big number IS the true total — salary +
@@ -7301,6 +7318,8 @@
     if (adjTotal) noteCy.push((adjTotal > 0 ? "+" : "−") + fmtUSD(Math.abs(adjTotal)) + " adj");
     if (previewDropPen && !penNextSeason) noteCy.push("+" + fmtUSD(previewDropPen) + " previewed drop");
     const noteNy = [];
+    if (nsAdj) noteNy.push("+" + fmtUSD(nsAdj) + " ledgered drop pen (D1, not yet in MFL)");
+    if (nsUnresolved) noteNy.push("⚠ next-season ledger unavailable — total may be understated");
     if (previewDropPen && penNextSeason) noteNy.push("+" + fmtUSD(previewDropPen) + " previewed drop (§D1)");
     const totalsNote = function (parts, rawSalary, title) {
       return parts.length
@@ -7326,7 +7345,7 @@
       </p>
       <div class="fo-cap-totals">
         <div><span class="lbl">${yr0} cap</span><span class="val">${fmtUSD(adjustedCy)}</span>${totalsNote(noteCy, totals.cy, "Cap adjustments (drop pen · traded $ · other) from MFL's salaryAdjustments feed, plus any previewed-drop dead cap landing this season. Planning only — not written to MFL.")}</div>
-        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(adjustedNy)}</span>${totalsNote(noteNy, totals.ny, "§D1 — a cut previewed from the auction start through end of season lands on the FOLLOWING season's cap, not this one. Planning only — not written to MFL.")}</div>
+        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(adjustedNy)}</span>${totalsNote(noteNy, totals.ny, "§D1 — a cut previewed from the auction start through end of season lands on the FOLLOWING season's cap, not this one. Real (already-happened) drops in that window are pulled from D1's next-season ledger — canon §6 — since they're ledger-only until the rollover and won't show in MFL's own feed until then. Planning only — not written to MFL.")}</div>
         <div><span class="lbl">${yr0 + 2}</span><span class="val">${fmtUSD(totals.ny2)}</span></div>
       </div>
       ${renderCapRosterCounters(team)}

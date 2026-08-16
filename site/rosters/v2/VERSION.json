@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.9",
-  "released": "2026-08-08",
-  "checkpoint": 11,
-  "scope": "A blank contract is rendered as PENDING, never invented — on BOTH desktop surfaces. MFL records only the SALARY on a waiver/FCFS award and leaves contractStatus/contractYear/contractInfo empty. The legacy Roster Workbench (site/rosters/roster_workbench.js, the surface wired to MESSAGE7) had no contract-unknown notion and was chipping such a row EXPIRED — a state MFL never claimed — and dropping its salary out of the cap total. It now mirrors FO v2: a PENDING pill, \"pending\" contract-shape cells, no Expired label and no risk chip, and the real salary still counted against the cap. The worker, both clients and the WW stamp's blank-only write guard now share one definition of \"MFL has not said\", so a pending row is always stampable.",
-  "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
+  "version": "2.0.10",
+  "released": "2026-08-16",
+  "checkpoint": 12,
+  "scope": "Cap Planning's 2027 total now includes real drop penalties that are ledgered but not yet posted to MFL (canon §6 — a drop from the FA Auction open through end of season is next-season money until the rollover). Before this, the only thing that could move the 2027 number was an in-session preview toggle; a real, already-happened drop like Ja'Tavion Sanders' $1,000 sat correctly in the D1 ledger and in the separate Cap Adjustments popup, but never reached the number this tab actually shows. It now reuses that same ledger fetch, so the two surfaces can't disagree. 2028 is unchanged — the data source only carries one year out.",
+  "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }
