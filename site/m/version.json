@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.15.3",
-  "label": "Lineup: taxi and IR players on the bench list now carry a tag showing why you cannot start them, and they sort below the players you can. Before, a taxi guy with a big projection sat at the top of your bench looking like your best option."
+  "build": "2026.08.15.4",
+  "label": "Cap Room now shows the real number. $279,500 used was displaying as $280K — the fix in the last update stopped the math from rounding away IR relief, but the display was still rounding it right back. Dollar figures on the cap cards now show a decimal when the number isn't a clean multiple of $1,000."
 }
