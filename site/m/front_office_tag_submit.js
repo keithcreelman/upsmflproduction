@@ -58,16 +58,28 @@
     return OFFENSE[key] ? "OFFENSE" : "DEFENSE";
   }
 
+  // CANON §C8-A (🔒, supersedes the earlier §C8 text; Keith 2026-08-16 "treat
+  // as gospel"): the 10% bump is computed off the player's CONTRACT-DEADLINE
+  // AAV SNAPSHOT and nothing else. Not current AAV, and never any salary field.
+  // A player absent from that snapshot has NO bump baseline — the tier price
+  // governs on its own.
+  //
+  // This file is the submit path (mobile, plus the native Tag button on every
+  // surface via player_actions_native.js), and the worker does not re-derive a
+  // tag price — whatever is computed here is what gets written. It previously
+  // took max(prior_aav_week1, prior_salary_week1, aav, salary), which is the
+  // live bug canon names: Malik Willis, deadline AAV $2K, claimed in-season for
+  // $37K, tagged at $41K when the correct answer was his Tier 3 price of $16K.
+  // The symmetric Kyler Murray case (high deadline AAV, cheap late re-sign)
+  // fails the same way in the other direction.
+  //
+  // Matches build_tag_tracking.py, which is the canonical implementation:
+  // `bump_base = prior_aav`, one value, no max.
   function effectiveTagSalaryForRow(row) {
     var ref = row || {};
-    var baseBid = safeInt(ref.tag_salary, 0);
-    var floorBase = Math.max(
-      safeInt(ref.prior_aav_week1, 0),
-      safeInt(ref.prior_salary_week1, 0),
-      safeInt(ref.aav, 0),
-      safeInt(ref.salary, 0)
-    );
-    var bumpFloor = floorBase > 0 ? Math.ceil((floorBase * 1.1) / 1000) * 1000 : 0;
+    var baseBid = safeInt(ref.tag_base_bid, 0) || safeInt(ref.tag_salary, 0);
+    var bumpBase = safeInt(ref.prior_aav_week1, 0);
+    var bumpFloor = bumpBase > 0 ? Math.ceil((bumpBase * 1.1) / 1000) * 1000 : 0;
     return Math.max(baseBid, bumpFloor);
   }
   function effectiveTagFormulaForRow(row) {

@@ -1473,10 +1473,21 @@
     const rec = EXTENSION_RATES[key] || EXTENSION_RATES.OTHER;
     return safeInt(rec && rec[y], 0);
   }
+  // Escalator base = the contract's AAV, NOT the loaded current-year salary
+  // (canon §C4). Same PR #780 fix as trade_workbench.js and
+  // site/shared/pretrade_extension.js; this duplicate never received it. On a
+  // loaded final year the two differ — Drake London (TCV 66K / CL 2 = $33K AAV,
+  // $52K loaded current year) quoted $62K instead of $43K. Order matches the
+  // worker: normalized aav field, then the contract-info AAV token, then salary.
+  function extensionAavBase(p) {
+    const aav = Math.max(0, safeInt(p && p.aav, 0)) ||
+                Math.max(0, currentAavForContractInfo(p && p.special));
+    return aav > 0 ? aav : Math.max(0, safeInt(p && p.salary, 0));
+  }
   function projectedExtensionSalary(p, years) {
     const y = safeInt(years, 0);
     if (y !== 1 && y !== 2) return 0;
-    return Math.max(1000, roundToK(safeInt(p && p.salary, 0) + extensionRaiseForPlayer(p, y)));
+    return Math.max(1000, roundToK(extensionAavBase(p) + extensionRaiseForPlayer(p, y)));
   }
   // RULE-EXT-003 — same franchise can't extend the same player twice.
   // Parses the `Ext: <team1>, <team2>` segment from contract_info and
@@ -8942,14 +8953,15 @@
       return true;
     }).map(function (r) {
       const live = currentRosterStateFor(r.player_id, r.franchise_id);
-      // AAV floor base — the value that gets multiplied by 1.10 in the
-      // tag formula. Canon: AAV ONLY, never salary fields (Keith
-      // 2026-05-19). For Mahomes that's $54K (his AAV), not $68K
-      // (his BL Y2 salary). Formula = max(this, tier base bid).
-      const floorBase = Math.max(
-        safeInt(r.prior_aav_week1, 0),
-        safeInt(r.aav, 0)
-      );
+      // AAV floor base — the value multiplied by 1.10 in the tag formula.
+      // NARROWED 2026-08-16 to the CONTRACT-DEADLINE SNAPSHOT ONLY, per canon
+      // §C8-A ("the deadline-snapshot AAV, and nothing else"). Dropping salary
+      // in 2026-05-19 fixed Mahomes but not Malik Willis: an in-season claim
+      // raises current `aav` as well, so max(prior, current) still priced him
+      // at $41K off a $2K deadline snapshot when his $16K tier price governs.
+      // A player absent from the snapshot has no baseline; tier price stands.
+      // Now matches build_tag_tracking.py and both submit paths.
+      const floorBase = safeInt(r.prior_aav_week1, 0);
       return Object.assign({}, r, {
         effective_tag_salary: effectiveTagSalaryForRow(r),
         effective_formula: effectiveTagFormulaForRow(r),
@@ -8993,7 +9005,7 @@
       // AAV Floor column — the value feeding the 1.10 floor. AAV only;
       // current/prior salary are intentionally ignored per canon.
       // Tooltip shows the breakdown.
-      const floorTip = `current_aav=${fmtUSD(r.aav)} · prior_aav=${fmtUSD(r.prior_aav_week1)} → max = ${fmtUSD(r.floor_base)} × 1.10 → ${fmtUSD(Math.ceil((r.floor_base * 1.10) / 1000) * 1000)}`;
+      const floorTip = `deadline-snapshot aav=${fmtUSD(r.prior_aav_week1)} × 1.10 → ${fmtUSD(Math.ceil((r.floor_base * 1.10) / 1000) * 1000)} (current aav ${fmtUSD(r.aav)} is not used — canon §C8-A)`;
       const priorCol = r.floor_base > 0
         ? `<span class="fo-tt" data-tip="${escapeHtml(floorTip)}">${fmtUSD(r.floor_base)}</span>`
         : "—";
