@@ -1892,6 +1892,50 @@ const _nflWeekForUnix = (unixSec, year) => {
 // pickups; players acquired preseason / Week 1 (or not this season) are absent →
 // the caller treats them as continuing (acquisitionWeek 1, eligible 17). Trades
 // (empty transaction string) are not parsed here — a known v1 gap.
+// player_id -> true when the player has confirmed taxi call-up history and has
+// NOT been permanently promoted, i.e. the §D2 cap-free cut still applies even
+// though MFL currently reports him on the active roster. Mirrors the derivation
+// behind /api/taxi-callups: `used` counts confirmed (pending=0) call-ups and
+// permanence is `used >= 4`, aggregated across seasons and franchises.
+//
+// Only ever returns entries for players who appear in ups_taxi_callups, so a
+// player who has never been on taxi is simply absent — callers must treat a
+// missing key as "not exempt", never as "never promoted".
+//
+// Fails CLOSED: any DB error yields {} and every player is priced normally.
+// A wrong $0 is far worse than a wrong charge, which is at least visible and
+// reversible by the commissioner.
+const _taxiNeverPromotedMap = async (env, playerIds) => {
+  const out = {};
+  if (!env || !env.UPS_MFL_DB) return out;
+  const ids = (playerIds || []).map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean);
+  if (!ids.length) return out;
+  try {
+    // D1 caps bound parameters at 100 per statement; chunk well under it.
+    const chunkSize = 80;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => "?").join(",");
+      const rows = await env.UPS_MFL_DB.prepare(
+        `SELECT player_id,
+                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used
+           FROM ups_taxi_callups
+          WHERE player_id IN (${placeholders})
+          GROUP BY player_id`
+      ).bind(...chunk).all();
+      for (const row of rows?.results || []) {
+        const pid = String(row?.player_id || "");
+        if (!pid) continue;
+        const used = Number(row?.used || 0);
+        if (used > 0 && used < 4) out[pid] = true;
+      }
+    }
+  } catch (_) {
+    return {};
+  }
+  return out;
+};
+
 const _acquisitionWeekMapFromTxs = (txs, year) => {
   const ACQ = { FREE_AGENT: 1, BBID_WAIVER: 1, AUCTION_WON: 1 };
   const byPid = {};
@@ -1971,12 +2015,29 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned };
         };
 
-        const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi }, opts) => {
+        const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
           const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
           // Exemption checks (priority order):
           // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
           if (isTaxi) {
             return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
+          }
+          // 1a. Taxi player mid-CALL-UP. `isTaxi` above is MFL's roster status
+          // at drop time, so during a temporary call-up it reads false and the
+          // exemption was skipped entirely — the player fell through to the
+          // standard 75% formula. Canon §D2 and §B2 are explicit that the
+          // cap-free cut survives call-ups: the exemption ends at PERMANENT
+          // promotion (the 4th activation), not the moment he is activated.
+          // A stamped "CL 3| TCV 6K| AAV 2K" rookie cut during his call-up week
+          // was being charged floor(6000 × 0.75) = $4,500 against a promised $0.
+          //
+          // `taxiNeverPromoted` is supplied by the caller from ups_taxi_callups
+          // (has confirmed call-up history AND permanent_promotion is false).
+          // It is deliberately NOT defaulted true: a player with no call-up
+          // history at all must not be exempted, so an absent value means "not
+          // a taxi call-up case" and this branch is skipped.
+          if (taxiNeverPromoted === true) {
+            return { ...ctx, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
           }
 
           // 1.4 UNSTAMPED CONTRACT — refuse to price it. NOT an exemption.
@@ -2065,14 +2126,29 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           // Same $1K/$0 penalties as the old fixed rule, but the GUARANTEE is now
           // logged correctly (progressive, not floor(TCV×0.75)).
           if (ctx.tcv > 0 && ctx.tcv <= 4000) {
-            const capUnits = Math.max(0, (ctx.cl || 1) - 1);
-            const gUnits = Math.max(0, Math.min(ctx.yearsPlayed + 1, capUnits));
-            const subGuar = gUnits * 1000;
-            const subPen = Math.max(0, subGuar - ctx.earned);
-            if (subPen <= 0) {
-              return { ...ctx, guaranteed: subGuar, penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: `Sub-5K TCV: earned ($${ctx.earned}) ≥ accrued guarantee ($${subGuar} = min(played+1, CL−1)×$1K) — cap-free (§D2).` };
+            // FLAT $1K, NOT netted against earned (Keith 2026-08-16: "if CL > 1
+            // and years remain > 1 then 1K penalty"). Canon §D1 is explicit that
+            // this "overrides the standard guaranteed-minus-earned formula
+            // entirely" — it is a fixed price, not a guarantee to earn down.
+            //
+            // The accrual this replaces looked right against the worked examples
+            // above ONLY because those assume `earned` is completed years. Once
+            // per-week in-season earning landed (§6.B), `earned` gained a partial
+            // current-year term and the subtraction started drifting week to
+            // week: a CL-3 $1K/yr deal dropped in Week 10 of year 2 came out at
+            // earned = 1000 + round(10/17 × 1000) = 1588 against a $2K accrued
+            // guarantee, so $412 instead of $1,000 — and a different number every
+            // week of the season. The flat form reproduces all three worked
+            // examples exactly and cannot drift:
+            //   yr 1 cut (cl 3, remaining 3): remaining > 1 → $1K
+            //   yr 2 cut (cl 3, remaining 2): remaining > 1 → $1K   (Tanner McKee)
+            //   yr 3 cut (cl 3, remaining 1): final year      → $0
+            //   1-year deal (cl 1):           cl not > 1      → $0  (§D2 cap-free)
+            const subMulti = (ctx.cl || 1) > 1 && ctx.yearsRemaining > 1;
+            if (!subMulti) {
+              return { ...ctx, guaranteed: 0, penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: "Sub-5K TCV in its final year (or a 1-year deal) — cap-free (§D2)." };
             }
-            return { ...ctx, guaranteed: subGuar, penalty: subPen, basis: "tcv_under_5k_guarantee", exempt: false, exempt_reason: "" };
+            return { ...ctx, guaranteed: 1000, penalty: 1000, basis: "tcv_under_5k_flat", exempt: false, exempt_reason: "" };
           }
           // Standard formula for TCV > $4K
           const guaranteed = Math.floor(ctx.tcv * 0.75);
@@ -21839,8 +21915,20 @@ export default {
           };
         }
         const base = Math.max(0, safeInt(baseSalary, 0));
-        const raise = getAcqExtensionRaise(position, classSeason, 1);
-        const optionSalary = base + Math.round(raise / 2);
+        // Canon §C6: "Salary = original Year-3 salary + $5K" — FLAT, every
+        // position. Confirmed by Keith 2026-08-16.
+        //
+        // This was `base + Math.round(getAcqExtensionRaise(position, ...) / 2)`,
+        // which halves the position-specific EXTENSION escalator: $10K for
+        // QB/RB/WR/TE gave the correct $5K, but $3K for DL/LB/DB/PK/PN gave
+        // $1,500 — position-dependent where canon is flat, and not even a $1K
+        // multiple. Both clients already hardcode a flat +$5K
+        // (rookie_draft_hub.js, front_office.js), but the worker writes the ROPT
+        // token that roster_workbench parses back, so the worker's number is the
+        // one that sticks. In practice R1 IDPs are rare, which is why nobody hit
+        // it — not a reason to leave it wrong.
+        const ROOKIE_OPTION_RAISE = 5000;
+        const optionSalary = base + ROOKIE_OPTION_RAISE;
         return {
           rookie_option_eligible: true,
           rookie_option_exercised: false,
@@ -46046,6 +46134,12 @@ export default {
           } catch (_) {}
         }
 
+        // This is the path that posts the REAL charge, so it needs the same
+        // call-up awareness as the preview: `preDrop.is_taxi` is MFL's roster
+        // status, which reads false for a taxi player dropped mid-call-up and
+        // silently costs him the §D2 exemption.
+        const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid));
+
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
         const skipped = [];
@@ -46075,6 +46169,7 @@ export default {
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
+                taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)] === true,
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid] });
             }
 
@@ -46982,6 +47077,18 @@ export default {
               pvAcqMap = _acquisitionWeekMapFromTxs(txRes && txRes.data && txRes.data.transactions && txRes.data.transactions.transaction, pvSeason);
             } catch (_) {}
           }
+          // A taxi player on a temporary call-up reads as ACTIVE in MFL, so
+          // status alone loses him his §D2 cap-free cut. Look up call-up history
+          // for every rostered player once, up front, rather than per-player.
+          const pvAllPids = [];
+          for (const f of frs) {
+            let pls = f && f.player; pls = Array.isArray(pls) ? pls : (pls ? [pls] : []);
+            for (const pl of pls) {
+              const id = safeStr(pl && pl.id).replace(/\D/g, "");
+              if (id) pvAllPids.push(id);
+            }
+          }
+          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids);
           const penaltyFor = (pl) => {
             const pid = safeStr(pl.id).replace(/\D/g, "");
             const input = {
@@ -46990,6 +47097,7 @@ export default {
               contractInfo: safeStr(pl.contractInfo),
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
+              taxiNeverPromoted: pvTaxiNeverPromoted[pid] === true,
             };
             const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
             const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk });

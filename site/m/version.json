@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.16.2",
-  "label": "The Rules tab is reorganized: 13 topics grouped under Your Roster, Adding & Dropping, Contracts and The Season, plus a row of tap-to-answer buttons for the ten questions that come up mid-argument. Several rules were corrected too, including the 27-player roster floor, which holds all season rather than only at auction close."
+  "build": "2026.08.16.3",
+  "label": "Tag prices now use the contract-deadline AAV snapshot, so an in-season waiver claim can no longer inflate a tag (or a cheap late pickup deflate one). Cutting a taxi player during a temporary call-up is cap-free again, as the rulebook always said. Extension quotes on loaded contracts use the contract's AAV rather than the loaded current-year salary."
 }
