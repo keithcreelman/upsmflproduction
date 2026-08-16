@@ -28,7 +28,7 @@ import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
   flagReengagementMiss, rule2FineK,
 } from "./auction_compliance.js";
-import { buildWaiverRunPlan, humanizeDropBasis } from "./lib/waiver_run_post.js";
+import { buildWaiverRunPlan, humanizeDropBasis, explainPenalty } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
 // Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
@@ -40640,6 +40640,12 @@ export default {
                   exempt: !!calc.exempt,
                   basis: safeStr(calc.basis),
                   basis_label: humanizeDropBasis(calc.basis),
+                  // Carried through so explainPenalty (waiver_run_post.js) can
+                  // print the actual subtraction instead of a vague label —
+                  // both real-penalty bases (guarantee_minus_earned,
+                  // tcv_under_5k_guarantee) always set these.
+                  guaranteed: calc.guaranteed != null ? (Number(calc.guaranteed) || 0) : null,
+                  earned: calc.earned != null ? (Number(calc.earned) || 0) : null,
                   contract_source: preDrop.contract_source,
                   pre_drop_contract_info: preDrop.contract_info,
                 };
@@ -43556,27 +43562,6 @@ export default {
           };
           const droppedAtET = fmtEastern(r.dropped_at_iso);
 
-          // Humanize penalty basis (Keith 2026-05-22 — "more human readable").
-          const humanizeBasis = (b) => {
-            const key = safeStr(b);
-            const map = {
-              "tcv_under_5k_fixed_1k":          "Sub-$5K TCV, multi-year contract",
-              "tcv_under_5k_final_year_exempt": "Sub-$5K TCV, final year of contract",
-              "one_year_under_5k_exempt":       "1-year contract under $5K",
-              "ww_under_5k_exempt":             "WW pickup at $4K or below",
-              "taxi_exempt":                    "Taxi squad (cap-free)",
-              "guarantee_minus_earned":         "75% guarantee minus earned-to-date",
-              "no_penalty_zero":                "Earned already exceeds guarantee",
-              "no_pre_drop_contract":           "Pre-drop contract not found",
-            };
-            return map[key] || key;
-          };
-          // Strip canon references like "(§D2 — Keith 2026-05-22)" from
-          // exempt-reason text so they don't leak into the embed.
-          const humanizeReason = (s) => safeStr(s)
-            .replace(/\s*\(§[A-Z0-9.]+(?:\s*[-—]\s*[^)]+)?\)\s*/g, "")
-            .trim();
-
           const fields = [
             { name: "Team", value: safeStr(r.franchise_name) || `Team ${r.franchise_id}`, inline: true },
             { name: "Player", value: safeStr(r.player_name) || `Player ${r.player_id}`, inline: true },
@@ -43593,17 +43578,31 @@ export default {
           ].filter(Boolean).join(" · ");
           if (stateLine) fields.push({ name: "Pre-drop state", value: stateLine, inline: false });
 
-          let penaltyLine;
-          if (exempt) {
-            const reason = humanizeReason(r.penalty_exempt_reason) || "Exempt";
-            penaltyLine = `**$0 penalty** — ${reason}`;
-          } else if (penalty === 0) {
-            penaltyLine = `**$0 penalty** — ${humanizeBasis(r.penalty_basis)}`;
-          } else {
-            penaltyLine = `**${fmtK(penalty)} cap penalty** — ${humanizeBasis(r.penalty_basis)}\n` +
-              `Guaranteed: ${fmtK(guaranteed)} · Earned: ${fmtK(earned)}`;
+          // Cap-penalty field: TRUE calculation when there is one, nothing at
+          // all when there isn't (Keith 2026-08-16: "if there's no penalty
+          // there's nothing to show. If there is a penalty show the true
+          // calculation. 75K GTD - 60K Earned = 15K"). explainPenalty is the
+          // SAME function the adds/waiver-run poster uses, so a drop never
+          // again explains itself two different ways depending on which
+          // poster announced it — one basis vocabulary (humanizeDropBasis),
+          // one arithmetic (explainPenalty), both in waiver_run_post.js.
+          //
+          // The two "we could not price this" bases are NOT "no penalty" —
+          // showing nothing for them would silently relabel an unpriced drop
+          // as a clean one, exactly what rule_no_fail_open_guards exists to
+          // catch. They keep their own visible line instead of going quiet.
+          const UNPRICED_BASES = new Set(["no_pre_drop_contract", "contract_unstamped_needs_review"]);
+          let penaltyLine = null;
+          if (UNPRICED_BASES.has(safeStr(r.penalty_basis))) {
+            penaltyLine = `⚠️ **Unpriced** — ${humanizeDropBasis(r.penalty_basis)}`;
+          } else if (!exempt && penalty > 0) {
+            const calc = explainPenalty({ known: true, penalty, exempt, guaranteed, earned, basis: r.penalty_basis });
+            penaltyLine = `**${fmtK(penalty)} cap penalty** — ${calc || humanizeDropBasis(r.penalty_basis)}`;
           }
-          fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
+          // exempt or penalty === 0 and not one of the unpriced bases: no
+          // field at all — the embed's own heading already says
+          // "✅ No Cap Penalty" (below); nothing more needs saying.
+          if (penaltyLine) fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
           if (droppedAtET) fields.push({ name: "Dropped", value: droppedAtET, inline: false });
 
           // Lead GIF — random nfl-sad reaction from pickDropLeadGif

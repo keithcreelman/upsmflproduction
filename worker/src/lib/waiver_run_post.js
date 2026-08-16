@@ -73,10 +73,39 @@ const BASIS_LABELS = {
   guarantee_minus_earned: "75% guarantee minus earned-to-date",
   no_penalty_zero: "Earned already exceeds guarantee",
   no_pre_drop_contract: "Pre-drop contract not found",
+  contract_unstamped_needs_review: "MFL has not stamped a contract for this player yet — unpriced, not cap-free",
 };
 export function humanizeDropBasis(basis) {
   const key = _s(basis);
   return BASIS_LABELS[key] || key;
+}
+
+// The TRUE calculation, not a label for it (Keith 2026-08-16: "let's review
+// these messages, they're not very clear for 'penalty basis' ... if there's
+// no penalty there's nothing to show. If there is a penalty show the true
+// calculation. 75K GTD - 60K Earned = 15K or something like that").
+//
+// Returns null in exactly the case where nothing should be printed: no
+// penalty. "1-year contract under $5K" under a green heading used to explain
+// why NOT — that explanation is gone; a $0/exempt drop needs no further
+// justification. `known === false` also returns null here on purpose — that
+// state gets its own amber heading and unknown_reason line, not a basis field.
+//
+// Both real-penalty bases this SSOT can emit (guarantee_minus_earned,
+// tcv_under_5k_guarantee) carry `guaranteed` and `earned` — see
+// _computeDropPenalty, index.js ~line 1947 — so the subtraction is always
+// available for anything computed live. A penalty > 0 with either figure
+// missing means an OLDER ups_drop_events row that predates those columns;
+// print the label rather than inventing numbers to subtract.
+export function explainPenalty(pen) {
+  if (!pen || pen.known === false) return null;
+  const penalty = Number(pen.penalty) || 0;
+  if (pen.exempt || penalty === 0) return null;
+  const g = pen.guaranteed, e = pen.earned;
+  if (g != null && e != null) {
+    return `${fmtK(g)} GTD − ${fmtK(e)} Earned = ${fmtK(penalty)}`;
+  }
+  return humanizeDropBasis(pen.basis) || null;
 }
 
 // "Frankie Luvu  `LB · CAR`" — position/team in code ticks so the eye can
@@ -204,22 +233,23 @@ export function buildMoveMessage(move) {
     { name: "Contract", value: clampField(contract), inline: false },
     { name: "Eligibility", value: clampField(buildEligibilityLines(move.eligibility).join("\n")), inline: false },
   ];
-  // The penalty BASIS earns a line only when there is a penalty story to tell;
-  // "1-year contract under $5K" under a green ✅ is the answer to the question
-  // an owner is about to ask in this very thread.
-  // With more than one drop the basis is ambiguous unless it is attributed, so
-  // the player's name leads each line; a single drop keeps the bare label.
+  // A penalty line earns a field only when there is money to explain — a
+  // $0/exempt drop gets none (explainPenalty returns null; nothing to show).
+  // An UNKNOWN drop still gets a line — that is a data gap needing review,
+  // not "no penalty" — and a real penalty gets the actual subtraction, not a
+  // label for it. With more than one drop the line is ambiguous unless
+  // attributed, so the player's name leads each line; a single drop keeps
+  // the bare text.
   if (drops.length) {
     const basisLines = drops.map((d) => {
-      const label = _s(d.penalty && (d.penalty.basis_label || d.penalty.basis))
-        || (d.penalty && d.penalty.known === false
-          ? (_s(d.penalty.unknown_reason) || "Pre-drop contract could not be resolved — this drop has NOT been priced.")
-          : (!d.penalty ? "Pre-drop contract could not be resolved — this drop has NOT been priced." : ""));
-      if (!label) return "";
-      return drops.length > 1 ? `**${_s(d.player && d.player.name) || "Unknown player"}** — ${label}` : label;
+      const text = (d.penalty && d.penalty.known === false)
+        ? (_s(d.penalty.unknown_reason) || "Pre-drop contract could not be resolved — this drop has NOT been priced.")
+        : (!d.penalty ? "Pre-drop contract could not be resolved — this drop has NOT been priced." : explainPenalty(d.penalty));
+      if (!text) return "";
+      return drops.length > 1 ? `**${_s(d.player && d.player.name) || "Unknown player"}** — ${text}` : text;
     }).filter(Boolean);
     if (basisLines.length) {
-      fields.push({ name: "Penalty basis", value: clampField(basisLines.join("\n")), inline: false });
+      fields.push({ name: "Penalty calculation", value: clampField(basisLines.join("\n")), inline: false });
     }
   }
   const embed = {
