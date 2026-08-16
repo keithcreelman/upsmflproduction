@@ -43995,6 +43995,9 @@ export default {
           // never the post.
           let irName = `Player ${playerId}`;
           let irTeam = franchiseId ? `Franchise ${franchiseId}` : "";
+          let irIcon = "";
+          let irPos = "";
+          let irNfl = "";
           try {
             const [plRes, lgRes] = await Promise.all([
               mflExportJson(season, leagueId, "players", { PLAYERS: safeStr(playerId) }, { useCookie: true }),
@@ -44009,35 +44012,118 @@ export default {
             const frs = asArray(lgRes?.data?.league?.franchises?.franchise).filter(Boolean);
             const me = frs.find((f) => padFranchiseId(f && f.id) === padFranchiseId(franchiseId));
             if (me && safeStr(me.name)) irTeam = safeStr(me.name);
+            // Discord renders https images only; anything else would post as a
+            // broken embed, so it is dropped rather than sent.
+            const rawIcon = safeStr(me && (me.icon || me.iconURL || me.iconUrl || me.logo || me.logoURL || me.logoUrl));
+            if (/^https:\/\//i.test(rawIcon)) irIcon = rawIcon;
+            irPos = safeStr(pl && pl.position).toUpperCase();
+            irNfl = safeStr(pl && pl.team).toUpperCase();
           } catch (_) { /* decoration only */ }
 
           const reason = desig ? (suspended ? "Suspended" : desig) : "";
-          const lines = placing
-            ? [
-                `🏥 **${irName}** placed on **Injured Reserve** by ${irTeam}`,
-                reason ? `NFL status: **${reason}**` : "",
-                "50% cap relief while on IR · does not count against the active-roster max · reversible.",
-              ]
-            : [
-                `💪 **${irName}** activated **off IR** by ${irTeam}`,
-                "Back on the active roster — full salary counts against the cap again.",
-              ];
-          const content = lines.filter(Boolean).join("\n") + (irGif ? `\n${irGif}` : "");
-          // A dry run must NOT post. Build the exact copy, return it, send nothing.
+          const who = [irPos, irNfl].filter(Boolean).join(" · ");
+
+          // Mirrors the waiver/add poster's shape (worker/src/lib/waiver_run_post.js):
+          // a bold PARENT EMBED with inline fields carrying the numbers, a THREAD
+          // hung off it, and the GIF posted INTO the thread as an embed image.
+          // Posting the GIF url as message text — which the first cut did — renders
+          // a raw link instead of the image and reads nothing like the rest of the
+          // transactions feed (Keith 2026-08-15).
+          const parentEmbed = {
+            title: placing
+              ? `${irName} — placed on Injured Reserve`
+              : `${irName} — activated off Injured Reserve`,
+            description: `${irTeam}${who ? ` · ${who}` : ""}`,
+            // Red going onto IR, green coming off — same read-at-a-glance
+            // convention the drop/add embeds use.
+            color: placing ? 0xdc2626 : 0x25c37d,
+            fields: placing
+              ? [
+                  { name: "NFL status", value: reason || "—", inline: true },
+                  { name: "Cap relief", value: "50% while on IR", inline: true },
+                  { name: "Roster max", value: "Does not count", inline: true },
+                  { name: "Reversible", value: "Yes — can be activated", inline: true },
+                ]
+              : [
+                  { name: "Roster", value: "Back on active", inline: true },
+                  { name: "Cap", value: "Full salary counts again", inline: true },
+                ],
+          };
+          if (irIcon) parentEmbed.thumbnail = { url: irIcon };
+
           if (dryRun) {
-            return { posted: false, dry_run: true, gif: !!irGif, designation: desig || "(none)", preview: content, error: "" };
+            return {
+              posted: false, dry_run: true, gif: !!irGif,
+              designation: desig || "(none)",
+              parent_embed: parentEmbed,
+              thread_name: `${irName} · ${placing ? "Injured Reserve" : "Activated off IR"}`.slice(0, 100),
+              gif_url: irGif,
+              error: "",
+            };
           }
-          const sent = await discordBotRequest(irBot, "POST",
+
+          const parentRes = await discordBotRequest(irBot, "POST",
             `/channels/${encodeURIComponent(irChannel)}/messages`,
-            { content: content.slice(0, 1900), allowed_mentions: { parse: [] } });
-          const mid = safeStr(sent?.data?.id);
+            { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } });
+          const parentId = safeStr(parentRes?.data?.id);
+          if (!parentId) {
+            return { posted: false, error: `discord parent ${parentRes?.status}: ${safeStr(parentRes?.text).slice(0, 120)}` };
+          }
+
+          // Thread on the parent. A message-anchored thread carries the SAME id
+          // as its message, so a retry that finds one already there can address
+          // it directly (same handling as the adds poster).
+          let threadId = "";
+          try {
+            const tRes = await discordBotRequest(irBot, "POST",
+              `/channels/${encodeURIComponent(irChannel)}/messages/${encodeURIComponent(parentId)}/threads`,
+              { name: `${irName} · ${placing ? "Injured Reserve" : "Activated off IR"}`.slice(0, 100), auto_archive_duration: 1440 });
+            threadId = safeStr(tRes?.data?.id);
+            if (!threadId && (safeInt(tRes?.data?.code, 0) === 160004 || /thread.*already/i.test(safeStr(tRes?.text)))) {
+              threadId = parentId;
+            }
+          } catch (_) { /* the parent is up; a missing thread must not fail the post */ }
+
+          // GIF + detail go INTO the thread when there is one, so the channel
+          // stays a clean ledger and the colour lives with the detail.
+          const detail = placing
+            ? [
+                reason ? `**${irName}** is listed **${reason}**.` : `**${irName}** has been placed on IR.`,
+                "",
+                "· 50% cap relief while on IR",
+                "· Does not count against the active-roster max",
+                "· Reversible — he can be activated back onto the active roster",
+              ].join("\n")
+            : [
+                `**${irName}** is back on the active roster.`,
+                "",
+                "· Full salary counts against the cap again",
+                "· Counts against the active-roster max",
+              ].join("\n");
+          let threadPosted = false;
+          if (threadId) {
+            try {
+              if (irGif) {
+                await discordBotRequest(irBot, "POST",
+                  `/channels/${encodeURIComponent(threadId)}/messages`,
+                  { embeds: [{ image: { url: irGif } }], allowed_mentions: { parse: [] } });
+              }
+              const dRes = await discordBotRequest(irBot, "POST",
+                `/channels/${encodeURIComponent(threadId)}/messages`,
+                { content: detail.slice(0, 1900), allowed_mentions: { parse: [] } });
+              threadPosted = !!safeStr(dRes?.data?.id);
+            } catch (_) { /* decoration */ }
+          }
+
           return {
-            posted: !!mid,
-            message_id: mid,
+            posted: true,
+            message_id: parentId,
+            thread_id: threadId,
+            thread_posted: threadPosted,
             gif: !!irGif,
             designation: desig || "(none)",
-            preview: content.slice(0, 400),
-            error: mid ? "" : `discord ${sent?.status}: ${safeStr(sent?.text).slice(0, 120)}`,
+            parent_embed: parentEmbed,
+            error: "",
           };
         } catch (e) {
           return { posted: false, error: String((e && e.message) || e).slice(0, 160) };
