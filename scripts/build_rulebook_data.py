@@ -554,15 +554,17 @@ def index_rules(sections: list[dict]) -> dict[str, list[dict]]:
     return idx
 
 
-def attach_topics(sections: list[dict]) -> tuple[list[dict], list[str]]:
+def attach_topics(sections: list[dict]) -> tuple[list[dict], list[str], list[dict]]:
     """Load the curated topics and bind each to real canon rules.
 
-    Returns (topics, problems). A problem is a citation that no longer resolves
-    — canon renamed or dropped the rule out from under a topic. That is exactly
-    the drift we are guarding against, so --check treats it as a build failure.
+    Returns (topics, problems, groups). A problem is a citation that no longer
+    resolves — canon renamed or dropped the rule out from under a topic. That is
+    exactly the drift we are guarding against, so --check treats it as a build
+    failure. `groups` carries the index-screen sections; each topic's own
+    `group` key rides along inside the topic dict via `dict(topic)` below.
     """
     if not os.path.exists(TOPICS):
-        return [], []
+        return [], [], []
     with open(TOPICS, "r", encoding="utf-8") as f:
         doc = json.load(f)
 
@@ -602,24 +604,39 @@ def attach_topics(sections: list[dict]) -> tuple[list[dict], list[str]]:
     for key in by_key:
         if key not in order:
             problems.append("topic %r is defined but missing from order" % key)
-    return out, problems
+
+    # Index-screen grouping. A topic pointing at a group that doesn't exist would
+    # silently vanish from a grouped index, so treat it as drift like a bad citation.
+    groups = doc.get("groups") or []
+    known = {g.get("key") for g in groups}
+    if known:
+        for t in out:
+            g = t.get("group")
+            if g and g not in known:
+                problems.append("topic %r is in unknown group %r" % (t["key"], g))
+            if not g:
+                problems.append("topic %r has no group" % t["key"])
+    return out, problems, groups
 
 
 # ---------------------------------------------------------------- quick answers
 
-# The questions that actually get asked mid-argument. Each maps to canon rule
-# ids so the card deep-links into the full text instead of duplicating it.
+# The questions that actually get asked mid-argument. `topic` is the topic key a
+# tap opens, so the ten most common lookups never touch the index at all. `rules`
+# stays as the canon deep-link, so a card can point at the full text rather than
+# duplicating it. Every `topic` here must exist in docs/rulebook_topics.json —
+# validated in build() so a topic rename can't quietly break a button.
 QUICK = [
-    {"q": "What's my starting lineup?", "tag": "lineups", "rules": ["B1"]},
-    {"q": "Can I still trade him?", "tag": "trades", "rules": ["T1.7", "E1"]},
-    {"q": "What's the cut penalty?", "tag": "penalty", "rules": ["C1", "D1"]},
-    {"q": "Is this cut cap-free?", "tag": "penalty", "rules": ["D2", "C2"]},
-    {"q": "How do taxi call-ups work?", "tag": "taxi", "rules": ["B2", "T2.4"]},
-    {"q": "When's the next deadline?", "tag": "calendar", "rules": []},
-    {"q": "Can I extend him?", "tag": "contracts", "rules": ["C4", "T3.3"]},
-    {"q": "How does tagging work?", "tag": "tags", "rules": ["C8", "T3.5"]},
-    {"q": "What's my cap room?", "tag": "cap", "rules": ["A1", "A2", "F"]},
-    {"q": "How do waivers run?", "tag": "waivers", "rules": ["A4", "A5"]},
+    {"q": "What's my starting lineup?", "topic": "lineups", "rules": ["B1"]},
+    {"q": "What's my cap room?", "topic": "salary-cap", "rules": ["A1", "A2", "F"]},
+    {"q": "What's the cut penalty?", "topic": "cutting", "rules": ["C1", "D1"]},
+    {"q": "Is this cut cap-free?", "topic": "cutting", "rules": ["D2", "C2"]},
+    {"q": "Can I still trade him?", "topic": "trades", "rules": ["T1.7", "E1"]},
+    {"q": "Can I extend him?", "topic": "extending-restructuring", "rules": ["C4", "T3.3"]},
+    {"q": "How does tagging work?", "topic": "tags", "rules": ["C8", "T3.5"]},
+    {"q": "How do taxi call-ups work?", "topic": "taxi", "rules": ["B2", "T2.4"]},
+    {"q": "How do waivers run?", "topic": "acquiring", "rules": ["A4", "A5"]},
+    {"q": "When's the next deadline?", "topic": "deadlines", "rules": []},
 ]
 
 
@@ -722,7 +739,15 @@ def build() -> dict:
     for e in entries:
         prune(e["proposal"])
 
-    topics, topic_problems = attach_topics(parsed["sections"])
+    topics, topic_problems, topic_groups = attach_topics(parsed["sections"])
+
+    # A quick-answer button pointing at a renamed/merged topic would render as a
+    # dead tap. Same class of drift as a stale citation, so fail the same way.
+    _tkeys = {t["key"] for t in topics}
+    for q in QUICK:
+        if q.get("topic") and q["topic"] not in _tkeys:
+            topic_problems.append(
+                "quick answer %r points at unknown topic %r" % (q["q"], q["topic"]))
 
     payload = {
         "title": parsed["title"],
@@ -737,6 +762,7 @@ def build() -> dict:
                    "sections": len(parsed["sections"]), "changelog": len(entries),
                    "topics": len(topics)},
         "quick": QUICK,
+        "groups": topic_groups,
         "topics": topics,
         "sections": parsed["sections"],
         "changelog": entries,

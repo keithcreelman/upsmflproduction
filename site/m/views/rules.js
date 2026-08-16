@@ -244,19 +244,64 @@
 
   // ---------------------------------------------------------------- panes
 
+  // The ten questions that get asked mid-argument, straight to the topic that
+  // answers them. Cheaper than scrolling the index for the common cases.
+  function renderQuick(data) {
+    var quick = (data.quick || []).filter(function (q) { return q.topic; });
+    if (!quick.length) return "";
+    return '<div class="ups-m-rb-quickwrap"><div class="ups-m-rb-quick">' +
+      quick.map(function (q) {
+        return '<button class="ups-m-rb-qbtn" data-rb-topic="' + esc(q.topic) + '">' +
+          esc(q.q) + "</button>";
+      }).join("") + "</div></div>";
+  }
+
+  function topicRow(t) {
+    return '<button class="ups-m-rb-topic" data-rb-topic="' + esc(t.key) + '">' +
+      '<span class="ups-m-rb-topic-t">' + esc(t.title) + "</span>" +
+      '<span class="ups-m-rb-caret" aria-hidden="true">›</span>' +
+    "</button>";
+  }
+
   function renderIndex(data) {
     var topics = data.topics || [];
     if (!topics.length) {
       return '<div class="ups-m-rb-empty">The rulebook is still being written. ' +
         'Search below to read the rulebook directly.</div>';
     }
-    return '<div class="ups-m-rb-topics">' + topics.map(function (t) {
-      return '<button class="ups-m-rb-topic" data-rb-topic="' + esc(t.key) + '">' +
-        '<span class="ups-m-rb-topic-t">' + esc(t.title) + "</span>" +
-        '<span class="ups-m-rb-topic-b">' + esc(t.one_liner) + "</span>" +
-        '<span class="ups-m-rb-caret" aria-hidden="true">›</span>' +
-      "</button>";
-    }).join("") + "</div>";
+    var quick = renderQuick(data);
+    var groups = data.groups || [];
+
+    // No groups defined (or an older payload) — fall back to the flat list so
+    // the tab still renders rather than coming up empty.
+    if (!groups.length) {
+      return quick + '<div class="ups-m-rb-topics">' +
+        topics.map(topicRow).join("") + "</div>";
+    }
+
+    var h = quick;
+    groups.forEach(function (g) {
+      var mine = topics.filter(function (t) { return t.group === g.key; });
+      if (!mine.length) return;
+      h += '<div class="ups-m-rb-group">' +
+        '<div class="ups-m-rb-group-h">' + esc(g.title) +
+          (g.blurb ? '<span class="ups-m-rb-group-b">' + esc(g.blurb) + "</span>" : "") +
+        "</div>" +
+        '<div class="ups-m-rb-topics">' + mine.map(topicRow).join("") + "</div>" +
+      "</div>";
+    });
+
+    // Anything whose group was dropped from the payload still needs a home.
+    var known = {};
+    groups.forEach(function (g) { known[g.key] = 1; });
+    var orphans = topics.filter(function (t) { return !t.group || !known[t.group]; });
+    if (orphans.length) {
+      h += '<div class="ups-m-rb-group">' +
+        '<div class="ups-m-rb-group-h">More</div>' +
+        '<div class="ups-m-rb-topics">' + orphans.map(topicRow).join("") + "</div>" +
+      "</div>";
+    }
+    return h;
   }
 
   function renderTopic(data, key) {
