@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-15T09:57:48.813302+00:00",
+    "generated_at_utc": "2026-08-16T09:58:13.224092+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3068,6 +3068,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_12263",
+          "display": "Darren Waller",
+          "player_id": "12263",
+          "position": "TE",
+          "nfl_team": "CAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_14170",
           "display": "Devin Bush",
           "player_id": "14170",
@@ -3148,6 +3160,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15702",
+          "display": "Tanner McKee",
+          "player_id": "15702",
+          "position": "QB",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4272,7 +4296,7 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -5247,18 +5271,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16432",
-          "display": "Emanuel Wilson",
-          "player_id": "16432",
-          "position": "RB",
-          "nfl_team": "SEA",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16723",
           "display": "AJ Barner",
           "player_id": "16723",
@@ -5363,6 +5375,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17169",
+          "display": "Upton Stout",
+          "player_id": "17169",
+          "position": "CB",
+          "nfl_team": "SFO",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -6245,18 +6269,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_14105",
-          "display": "Marquise Brown",
-          "player_id": "14105",
-          "position": "WR",
-          "nfl_team": "PHI",
-          "salary": 8000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17048",
           "display": "Kaleb Johnson",
           "player_id": "17048",
@@ -6425,18 +6437,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_13189",
-          "display": "Evan Engram",
-          "player_id": "13189",
-          "position": "TE",
-          "nfl_team": "DEN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15808",
           "display": "George Karlaftis",
           "player_id": "15808",
@@ -6493,18 +6493,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_11679",
-          "display": "Odell Beckham",
-          "player_id": "11679",
-          "position": "WR",
-          "nfl_team": "NYG",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
