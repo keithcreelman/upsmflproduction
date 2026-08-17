@@ -2271,9 +2271,21 @@ Rules the league actually operates by that had never been written into canon. Re
 
 - **Non-votes count against a proposal (Keith 2026-08-16: *"We would need 7 votes."*).** The threshold is **7 raw YES regardless of turnout** — 6 YES out of 8 ballots cast does NOT pass. This **retires** the 2014 rule *"Polls that are not responded to will not be factored into the results,"* which would have passed that same proposal. The bot's behavior was already the real rule; the 2014 text was the stale one.
 - **Three thresholds are configured but only one is read.** `quorum_min DEFAULT 8` and `threshold_yes_pct DEFAULT 60` exist in `worker/migrations/0020_hall_schema.sql:25-26` and are set by `worker/src/hall.js:583`, but the auto-close path consults **only** `pass_yes_count`. They should be wired up or deleted; leaving three numbers where one governs is how this rule got lost the first time.
-- ❓ **The 90% in-season bar is UNRESOLVED, but nothing is retroactively at risk (Keith 2026-08-16: *"Im not sure about the 90%"*).** The 2012/2014/2018 rulebooks all require 90% for a rule change made *in-season*, against 51% in the offseason. No code implements it, and the bot applies 7 YES to everything.
-  - **Correction (2026-08-16):** an earlier draft of this line claimed the July 2026 round passed three rules in-season at 7 YES and might therefore be invalid. That was wrong. Every 2026 round ran **2026-05-08/11 and 2026-07-21/24**, and NFL Week 1 is **2026-09-10** — so all of them were offseason votes, where 51% (7 YES) is the correct threshold. Nothing has been passed under the wrong bar.
-  - What remains open is forward-looking only: **the 90% bar has never actually been tested, because no rule change has ever been put to a vote during the season.** If it stands, an in-season proposal needs 11 of 12 YES, which is close to unanimous and effectively means in-season rule changes don't happen. Decide whether that's the intent, then either write it in or retire it. **Do not implement either reading until Keith rules.**
+- **The 90% in-season bar is RETIRED — dropped in the 2018 rewrite (traced 2026-08-16).** It was a real rule for the 2012–2017 era and then simply stopped being carried forward:
+
+  | Source | 90% in-season bar |
+  |---|---|
+  | 2012 by-laws | ✅ *"In-season votes, though discouraged, require 90% to pass."* |
+  | 2014 bylaws §2 | ✅ *"Any in-season rule that would directly impact the current season… will require 90% owners' approval."* |
+  | **2018 rulebook** | ❌ **Absent.** The voting section reads only *"League Wide Voting requires 51% league approval to pass"* and *"Rules involving league dues require at least 75% approval to pass."* No in-season/offseason distinction survives. |
+  | 2024 rulebook | ❌ No thresholds stated |
+  | Canon | ❌ Never carried |
+
+  The 2018 rewrite replaced the whole voting section with the flat 51% + 75%-for-dues pair that is still in force today — the same 75% applied to the 2026-05-11 Dynasty Pot vote. There is no repeal vote on record; the rule died by omission, which is why it kept resurfacing from the old documents.
+
+  *Caveat, stated rather than buried:* the 2018 document is truncated at the end (its tag-compensation section stops mid-sentence). But the voting section sits early and reads complete — 51%, then dues 75%, then straight into League Setup — so the omission is structural, not lost text.
+
+  **Nothing was ever passed under the wrong bar.** An earlier draft of this line claimed the July 2026 round passed three rules in-season at 7 YES and might be invalid. That was wrong: every 2026 round ran 2026-05-08/11 and 2026-07-21/24, and NFL Week 1 is 2026-09-10, so all were offseason votes where 51% is correct. Recorded here because the error reached canon before it was caught.
 
 ### G2. Commissioner authority
 
@@ -2344,7 +2356,7 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 
 1. **Roster/lineup non-compliance: replace transaction reversal (Keith 2026-08-16).** Reversal is the wrong control for three reasons Keith named: it **punishes the counterparty** to a trade the non-compliant owner made; it is exploitable as **buyer's remorse**; and a mechanism already exists that blocks further roster changes until the roster is fixed, which is a cleaner lever than undoing a completed transaction. Direction: **in-season**, the weekly valid-lineup requirement is the control. **Pre-season**, cure by the earlier of the next two waiver cycles or roster deadline day. Penalty for non-compliance still to be set — see item 2.
 2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
-3. **The 90% in-season voting bar** — write it in or retire it. Forward-looking only; no past vote is affected (G1). Note that 90% of 12 is 11 YES, so keeping it means in-season rule changes are effectively off the table.
+3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. The only live copy was `ups_v2_rulebook_v4.html`, which is a legacy artifact slated for deletion (G2).
 4. **Commissioner succession** — never written.
 5. **Violations 2–5 pricing** — confirm or re-set before the next one is issued (G3). Note Keith's 2026-08-16 read that cap and draft capital cost about the same, cap possibly less: on that view a $5K violation-2 hit may be *lighter* than the $7K for a second missed nomination, which inverts the severity.
 6. ~~**Who eats the loading settlement on a traded contract?**~~ — **RESOLVED 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the contract whole — its years, its salaries, its loading, and any §D2a settlement that loading eventually produces. There is no adjustment for the fact that the original owner banked the cheap year. This closes a question left open since 2014, when the same case (a back-loaded Jonathan Stewart deal, $19K/$26K, acquired for a 3rd) was sent to a league vote on the old forum and no outcome was ever recorded (`/t15-general-thought`, 30 replies). It follows directly from the existing trade rule — a contract moves unchanged and the sending team is clean immediately — so no new mechanism is needed.
