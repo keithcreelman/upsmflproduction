@@ -2413,6 +2413,39 @@ The failure being caught is not an owner submitting a short lineup; MFL already 
 | On a bye | **Violation** — byes are published months ahead, so no notice question arises |
 | Fewer than 18 starters | **Violation** — counted once, however many slots are empty |
 
+**The full rule, walked through case by case with Keith on 2026-08-17 and confirmed before any of it was built:**
+
+| Scenario | Outcome |
+|---|---|
+| Out **before** your notice deadline, doesn't play | **Violation** |
+| Out **after** it (late news) | Advisory — never a fine |
+| Out before it, then **upgraded and plays** | **Clean.** Keith: *"if a player is declared out he'll never play… no this would never be a penalty. Upgraded Sun AM is inside the window."* |
+| **Doubtful** at the deadline, doesn't play | **Violation** — start at own risk. The Doubtful branch governs even if the Out comes late |
+| Doubtful at the deadline, **plays** | Clean |
+| **IR** | Same as Out. Keith: *"even more egregious unless it's a late IR submission"* — and a late IR is already excused by the anchor |
+| On a **bye** | Violation. Published months ahead, so no notice question arises |
+| **No eligible replacement** on your roster | **No penalty.** Keith: *"if you don't have a player on your roster you can sub out."* A rule that fines the impossible is not a rule about conduct |
+| Fewer than 18 starters | Violation, but judged at **end of week** — see below |
+| You **win** anyway | Still a violation. Keith: *"doesn't matter if you break the alltime scoring record it's the priciple"* |
+
+**The notice deadline is `min(kickoff − 24h, Saturday 8:00pm ET)`.** The Saturday cap exists because a plain 24-hour window breaks on Monday night: MNF kicks off ~8:15pm Monday, putting the mark at ~8:15pm **Sunday** — by which time every other player you own has already played and locked. Keith:
+
+> *"If there's a MNF game and player declared out on Sunday @4PM and you don't have a player on your roster you can sub out… most of your players have already played… it's possible this would force you to cut a player. So let's set MNF Deadline as Saturday at 8PM. This allows you time to reassess your roster before sunday AM lineups lock."*
+
+The cap applies only to games kicking off **Sunday or later**. For Wed/Thu/Fri/Sat games the roster isn't locked up yet and the plain 24 hours already gives real time to react; capping those would demand six days' notice. The cap can only ever move the deadline **earlier**, so it can turn a violation into an advisory but never create one.
+
+**"Did not play" is NFL injury status and nothing else** (Keith: *"do not worry about playing time or performance"*). Still listed Out or IR at kickoff = did not play; anything else = played. This is the more honest signal, not a shortcut: snap counts and fantasy points cannot separate "never dressed" from "played forty snaps and caught nothing" — both score 0.0. Status can.
+
+**A short lineup is judged at end of week, not at kickoff** (Keith: *"in theory you could pick someone up off waivers and start… its not the same as starting an injured player and locking the position up once the game starts"*). An injured starter locks that slot the moment his game begins and nothing can be done; an empty slot stays fillable until the week's last kickoff. Before the week ends a short lineup is flagged as fixable, not as a violation.
+
+**Scope: every week, all season, no exceptions** (Keith 2026-08-17). Playoffs included, and it applies to a team with nothing left to play for — *"playing for top score weekly and it is a league mandate to not throw in the towel. Counts towards historical rankings etc."* That is precisely the team most likely to field a junk lineup, and All-Play makes it everyone else's problem.
+
+**One violation per week**, however many starters were bad — the ladder counts illegal *lineups*. Keith: *"One violation per week though the more eggregious the less thrilled we will be"* — severity is noted, not multiplied.
+
+**Orphaned teams are exempt** (§G5): the commissioner is caretaking, so there is no owner to penalize.
+
+**Immunity is retroactive and commissioner-granted.** Unlike §F RULE 2, which requires notice *ahead* of time, a lineup violation can be excused after the fact — Keith: *"Some emergencies happen after the fact. If i give approval then remove the violation."* Voiding re-derives the ladder, so an excused week never pushes a later one into a heavier rung.
+
 **Two things it refuses to do.** It never fines on absent data: MFL's `TYPE=injuries` keeps no history, so `ups_injury_status` records first-seen timestamps hourly, and if polling did not cover a player's 24-hour window the verdict is `unknown`, never a violation — an unwatched window and a healthy player look identical in the data, and only one may cost a 4th-rounder. And it never quietly softens canon: a player listed Out who then *plays* is booked as a violation (canon says "a player listed Out" with no did-not-play qualifier) but flagged `needs_review`, so a human rules on the oddity rather than the machine deciding the rule means something it doesn't say.
 
 **Anchor choice (Keith 2026-08-17).** The §H proposal (`docs/FOLLOWUP_TASKS_2026-05-26.md`) specified a **Friday midnight ET** snapshot. Retired in favor of the per-player 24-hour window for the same reason the 2018 fixed-day wording was retired: a weekly anchor cannot evaluate a Wednesday or Thursday game, and **2026 opens Wednesday Sept 9** — Friday midnight is two days after that game kicked off. §H's own DM schedule was already per-kickoff (Wed, Sun 9:30, Sun 1pm, Sun 4pm, SNF, MNF, TNF, Saturday); only its violation *test* was weekly, so the two halves disagreed with each other. Everything else in §H is kept: the 1.5-hour-before DMs, the D1 logging, and the load-bearing distinction between a *"possible lineup violation"* and a *"courtesy heads-up"*.

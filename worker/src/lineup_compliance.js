@@ -59,6 +59,71 @@ export const LINEUP_LADDER = [
 export const REQUIRED_STARTERS = 18;         // §B4
 export const INJURY_NOTICE_SECONDS = 24 * 3600;
 
+// THE SATURDAY 8PM ET CAP (Keith 2026-08-17).
+//
+// A plain 24-hour window breaks on Monday night games. MNF kicks off ~8:15pm
+// Monday, so the mark lands ~8:15pm SUNDAY — by which time every other player
+// on your roster has already played and locked. Keith: "most of your players
+// have already played and while you can pick up players that are FA... it's
+// possible this would force you to cut a player. So let's set MNF Deadline as
+// Saturday at 8PM. This allows you time to reassess your roster before sunday
+// AM lineups lock."
+//
+// So the mark is min(kickoff − 24h, Saturday 8:00pm ET), applied only to games
+// that kick off Sunday or later. For Wed/Thu/Fri/Sat games the roster is not
+// locked up yet and the plain 24-hour rule already gives real time to react;
+// capping those at "the previous Saturday" would demand six days of notice.
+//
+// The cap only ever moves the mark EARLIER, which can only turn a violation
+// into an advisory. It never creates one.
+export const SATURDAY_CAP_HOUR_ET = 20;
+
+const _etOffsetSeconds = (unix) => {
+  const d = new Date(unix * 1000);
+  return (new Date(d.toLocaleString("en-US", { timeZone: "America/New_York" }))
+        - new Date(d.toLocaleString("en-US", { timeZone: "UTC" }))) / 1000;
+};
+
+// ET wall-clock -> unix. Two passes because the offset itself depends on the
+// instant: guess, measure the offset there, correct. Matters in November when
+// the season crosses out of EDT.
+const _etWallToUnix = (y, m, d, hh) => {
+  const naive = Date.UTC(y, m - 1, d, hh, 0, 0) / 1000;
+  let unix = naive;
+  for (let i = 0; i < 2; i += 1) unix = naive - _etOffsetSeconds(unix);
+  return unix;
+};
+
+const _etPartsOf = (unix) => {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short",
+    year: "numeric", month: "2-digit", day: "2-digit", hour12: false,
+  }).formatToParts(new Date(unix * 1000));
+  const g = (t) => (f.find((p) => p.type === t) || {}).value;
+  return { weekday: g("weekday"), y: Number(g("year")), m: Number(g("month")), d: Number(g("day")) };
+};
+
+// Saturday 8:00pm ET preceding this kickoff — or null when the cap does not
+// apply (Wed through Sat games).
+export function saturdayCapUnix(kickoffUnix) {
+  const ko = Number(kickoffUnix) || 0;
+  if (!ko) return null;
+  const { weekday } = _etPartsOf(ko);
+  const backTo = { Sun: 1, Mon: 2, Tue: 3 }[weekday];
+  if (!backTo) return null;   // Wed/Thu/Fri/Sat — roster is not locked up yet
+  const sat = _etPartsOf(ko - backTo * 86400);
+  return _etWallToUnix(sat.y, sat.m, sat.d, SATURDAY_CAP_HOUR_ET);
+}
+
+// The instant an owner's notice is measured from, for one player's game.
+export function noticeMarkUnix(kickoffUnix) {
+  const ko = Number(kickoffUnix) || 0;
+  if (!ko) return 0;
+  const plain = ko - INJURY_NOTICE_SECONDS;
+  const cap = saturdayCapUnix(ko);
+  return cap == null ? plain : Math.min(plain, cap);
+}
+
 export function lineupLadderRung(offenseNo) {
   const n = Number(offenseNo || 0);
   if (n < 1) return null;
@@ -108,11 +173,17 @@ export function statusAsOf(history, atUnix) {
 // One starter's verdict.
 //
 // `player`   { id, name, nfl_team }
-// `ctx`      { kickoffUnix, onBye, played, history, observedFromUnix }
+// `ctx`      { kickoffUnix, onBye, history, observedFromUnix, replacementAvailable }
 //
 // observedFromUnix is the earliest injury poll we have for this week. If the
-// 24-hour mark falls before it, we never watched the window that decides the
+// notice mark falls before it, we never watched the window that decides the
 // verdict and must not judge it — see the header note on refusing to guess.
+//
+// replacementAvailable must be supplied by the caller when known. `false`
+// downgrades a violation to an advisory (Keith 2026-08-17 — no eligible bench
+// player means nothing could have been done). Leaving it undefined means "not
+// checked" and does NOT excuse; the wiring is responsible for resolving it, and
+// the commissioner's void path is the backstop until it does.
 export function evaluateStarter(player, ctx) {
   const name = _s(player && player.name) || _s(player && player.id);
   const base = { player_id: _s(player && player.id), name };
@@ -128,7 +199,8 @@ export function evaluateStarter(player, ctx) {
     return { ...base, verdict: "unknown", reason: "no_kickoff", detail: `No kickoff time resolved for ${name}; not judged.` };
   }
 
-  const mark = kickoff - INJURY_NOTICE_SECONDS;
+  const mark = noticeMarkUnix(kickoff);
+  const capped = saturdayCapUnix(kickoff) != null && saturdayCapUnix(kickoff) < kickoff - INJURY_NOTICE_SECONDS;
   const observedFrom = Number(ctx && ctx.observedFromUnix) || 0;
   const status = statusAsOf(ctx && ctx.history, mark);
 
@@ -139,41 +211,68 @@ export function evaluateStarter(player, ctx) {
       // We saw a bad designation even though coverage started late — real, judge it.
     } else {
       return { ...base, verdict: "unknown", reason: "window_unobserved",
-               detail: `Injury polling for ${name} began after the 24-hour mark; not judged.` };
+               detail: `Injury polling for ${name} began after his notice deadline; not judged.` };
     }
   }
 
-  const played = !!(ctx && ctx.played);
+  // "Did he play?" is decided by NFL INJURY STATUS AND NOTHING ELSE (Keith
+  // 2026-08-17: "do not worry about playing time or performance"). A player
+  // still listed Out or IR at kickoff did not play; anyone else did.
+  //
+  // This is not a shortcut, it is the more honest signal. Snap counts and
+  // fantasy points cannot tell "never dressed" from "played 40 snaps and caught
+  // nothing" — both are 0.0. Status can.
+  const atKickoff = statusAsOf(ctx && ctx.history, kickoff);
+  const played = !(atKickoff === "OUT" || atKickoff === "IR");
+  const window = capped ? "notice deadline (Sat 8pm ET)" : "24-hour mark";
+
+  // NO REPLACEMENT, NO PENALTY (Keith 2026-08-17). "if you don't have a player
+  // on your roster you can sub out" there is nothing the owner could have done,
+  // and a rule that fines the impossible is not a rule about conduct.
+  //
+  // Must be supplied explicitly by the caller — the evaluator will not infer it.
+  // Undefined means "not checked", which is deliberately NOT the same as "there
+  // was one": see the wiring note in the header.
+  const noReplacement = ctx && ctx.replacementAvailable === false;
 
   if (status === "OUT" || status === "IR") {
+    // Ruled out with notice, then upgraded and played. Keith 2026-08-17: "no
+    // this would never be a penalty. Upgraded Sun AM is inside the window."
+    // The upgrade is late news in the owner's favour, and the same lateness
+    // that excuses a late downgrade excuses this.
     if (played) {
-      // Canon says "a player listed Out" with no did-not-play qualifier, so this
-      // is still a violation — but an Out player who suits up is exactly the
-      // case a human should look at rather than the machine deciding the rule
-      // means something it does not say.
-      return { ...base, verdict: "violation", reason: "out_but_played", needs_review: true,
-               detail: `${name} was listed ${status} 24h before kickoff but played. Canon books this; worth a look.` };
+      return { ...base, verdict: "clean", reason: "upgraded_and_played",
+               detail: `${name} was listed ${status} but was upgraded before kickoff and played.` };
     }
+    if (noReplacement) {
+      return { ...base, verdict: "advisory", reason: "no_replacement",
+               detail: `${name} was listed ${status}, but you had nobody eligible to start in his place. Not a violation.` };
+    }
+    // A late IR designation is not a violation for the same reason a late Out
+    // is not — the anchor already handles it, because a status first seen after
+    // the mark is not `status` here (Keith: "even more egregious unless it's a
+    // late IR submission... treat this the same as Out").
     return { ...base, verdict: "violation", reason: "out",
-             detail: `${name} was listed ${status} more than 24 hours before kickoff.` };
+             detail: `${name} was listed ${status} before your ${window} and did not play.` };
   }
 
   if (status === "DOUBTFUL") {
     if (played) return { ...base, verdict: "clean", reason: "doubtful_played", detail: `${name} was Doubtful and played.` };
+    if (noReplacement) {
+      return { ...base, verdict: "advisory", reason: "no_replacement",
+               detail: `${name} was Doubtful and did not play, but you had nobody eligible to start in his place. Not a violation.` };
+    }
+    // Doubtful at the mark and ruled out by kickoff. The Doubtful branch
+    // governs, not the late Out — you were on notice (Keith 2026-08-17).
     return { ...base, verdict: "violation", reason: "doubtful_did_not_play",
-             detail: `${name} was Doubtful 24 hours before kickoff and did not play.` };
+             detail: `${name} was Doubtful at your ${window} and did not play.` };
   }
 
   // Healthy or merely Questionable at the mark. If he later turned Out, that is
   // late news — §H's "courtesy advisory", never a fine.
-  const now = statusAsOf(ctx && ctx.history, kickoff);
-  if ((now === "OUT" || now === "IR") && !played) {
+  if (!played) {
     return { ...base, verdict: "advisory", reason: "late_out",
-             detail: `${name} was ruled ${now} inside the 24-hour window. Not a violation.` };
-  }
-  if (now === "DOUBTFUL" && !played) {
-    return { ...base, verdict: "advisory", reason: "late_doubtful",
-             detail: `${name} turned Doubtful inside the 24-hour window and did not play. Not a violation.` };
+             detail: `${name} was ruled ${atKickoff} after your ${window}. Not a violation.` };
   }
   return { ...base, verdict: "clean", reason: "ok", detail: "" };
 }
@@ -185,16 +284,30 @@ export function evaluateStarter(player, ctx) {
 // the DM needs the detail and the ladder needs only the verdict.
 export function evaluateLineup(starters, ctxFor, opts) {
   const required = Number((opts && opts.requiredStarters) || REQUIRED_STARTERS);
+  // `final` = the week is over and this is the booking pass. Before that, a
+  // short lineup is still fixable and must not read as a violation.
+  const final = !(opts && opts.final === false);
   const list = Array.isArray(starters) ? starters : [];
   const lines = list.map((p) => evaluateStarter(p, ctxFor(p) || {}));
 
-  // A short lineup is its own violation and needs no injury data — you did not
-  // field a team. Counted once however many slots are empty.
+  // A short lineup is judged at END OF WEEK, not at kickoff — Keith 2026-08-17:
+  // "if a lineup is just short, that would get penalized at the end of the week
+  // because in theory you could pick someone up off waivers and start... its not
+  // the same as starting an injured player and locking the position up once the
+  // game starts."
+  //
+  // That is the real distinction: an injured starter locks the slot the moment
+  // his game begins, and nothing can be done. An empty slot stays fillable right
+  // up to the last kickoff of the week.
   const short = list.length < required;
   if (short) {
     lines.unshift({
-      player_id: "", name: "", verdict: "violation", reason: "missing_starter",
-      detail: `Only ${list.length} of ${required} starting slots filled.`,
+      player_id: "", name: "",
+      verdict: final ? "violation" : "advisory",
+      reason: "missing_starter",
+      detail: final
+        ? `Only ${list.length} of ${required} starting slots filled.`
+        : `Only ${list.length} of ${required} starting slots filled — still fixable off waivers.`,
     });
   }
 

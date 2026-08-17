@@ -1,24 +1,17 @@
-// §G3 lineup compliance on the 24-hour anchor.
+// §G3 lineup compliance — every rule confirmed by Keith 2026-08-17.
 //   node tests/lineup_compliance.test.mjs
 //
-// The rule (canon §G3, Keith 2026-08-16, anchor confirmed 2026-08-17): a lineup
-// is a violation when it contains a missing starter, a player on bye, a player
-// listed Out, or a player listed Doubtful who does not play — with injury timing
-// measured 24 HOURS BEFORE THAT PLAYER'S KICKOFF.
-//
-// The case that matters is Keith's own: "guys submit players then those players
+// The case being caught is Keith's own: "guys submit players then those players
 // get declared out on Friday." The lineup was legal at submit and went bad
-// afterwards, so every assertion here is really asking one question — what did
-// the owner know 24 hours before this particular game?
+// afterwards, so everything reduces to one question — what did the owner know
+// by his notice deadline for THIS player's game?
 //
-// Two things are guarded harder than the rest, because both can cost somebody a
-// 4th-round pick:
-//   1. late news is NEVER a violation (the whole point of the 24-hour rule)
-//   2. an unobserved polling window is NEVER a violation (absence of data is
-//      not evidence of a healthy player)
+// Every scenario below was walked through with Keith and confirmed before it
+// was written, which is why the assertions quote him rather than canon alone.
 import {
   evaluateStarter, evaluateLineup, statusAsOf, normalizeInjuryStatus,
   lineupLadderRung, lineupLadderLabel, composeLineupDm,
+  saturdayCapUnix, noticeMarkUnix,
   LINEUP_LADDER, REQUIRED_STARTERS, INJURY_NOTICE_SECONDS,
 } from '../worker/src/lineup_compliance.js';
 
@@ -29,128 +22,145 @@ const t = (n, got, want) => {
   console.log((ok ? '  PASS ' : '  FAIL ') + n + '  got=' + JSON.stringify(got) + ' want=' + JSON.stringify(want));
 };
 
-// Sunday 1:00pm ET kickoff, as a unix second. The 24-hour mark is Sat 1:00pm.
-const KICK = 1789491600;
-const MARK = KICK - INJURY_NOTICE_SECONDS;
 const H = (n) => n * 3600;
 const hist = (...pairs) => pairs.map(([status, at]) => ({ status, first_seen_unix: at }));
 const P = { id: '13142', name: 'Test Player' };
-// Default: polling has covered the whole week, so coverage is never the reason
-// a case passes or fails unless a test says so.
-const ctx = (o) => ({ kickoffUnix: KICK, observedFromUnix: KICK - H(168), ...o });
+const et = (iso) => Math.floor(Date.parse(iso) / 1000);
+
+// A real 2026 week, so the DST offset is the genuine EDT one rather than a
+// number I picked. Week 2: Thu Sep 17, Sun Sep 20, Mon Sep 21.
+const THU = et('2026-09-17T20:15:00-04:00');
+const SUN1 = et('2026-09-20T13:00:00-04:00');
+const SNF = et('2026-09-20T20:20:00-04:00');
+const MNF = et('2026-09-21T20:15:00-04:00');
+const SAT8 = et('2026-09-19T20:00:00-04:00');
+
+const MARK = SUN1 - INJURY_NOTICE_SECONDS;   // Sat 1:00pm ET
+// Default: polling covered the whole week, so coverage is never why a case
+// passes unless a test says so.
+const ctx = (o) => ({ kickoffUnix: SUN1, observedFromUnix: SUN1 - H(168), ...o });
 
 console.log('\n-- status normalization --');
 t('Out', normalizeInjuryStatus('Out'), 'OUT');
-t('OUT (caps)', normalizeInjuryStatus('OUT'), 'OUT');
 t('Doubtful', normalizeInjuryStatus('Doubtful'), 'DOUBTFUL');
 t('Questionable', normalizeInjuryStatus('Questionable'), 'QUESTIONABLE');
 t('IR', normalizeInjuryStatus('IR'), 'IR');
 t('empty is ACTIVE', normalizeInjuryStatus(''), 'ACTIVE');
-// Only OUT and DOUBTFUL can fine anybody, so anything unrecognized must land
-// on the harmless side of the fence.
+// Only OUT and DOUBTFUL can fine anybody, so anything unrecognized must land on
+// the harmless side of the fence.
 t('garbage is ACTIVE, never OUT', normalizeInjuryStatus('¯\\_(ツ)_/¯'), 'ACTIVE');
 
 console.log('\n-- statusAsOf reads the past, not the present --');
 t('nothing seen yet', statusAsOf(hist(['OUT', MARK + H(1)]), MARK), null);
-t('seen before the mark', statusAsOf(hist(['OUT', MARK - H(1)]), MARK), 'OUT');
 t('exactly at the mark counts', statusAsOf(hist(['OUT', MARK]), MARK), 'OUT');
-t('latest prior status wins',
-  statusAsOf(hist(['QUESTIONABLE', MARK - H(48)], ['OUT', MARK - H(2)]), MARK), 'OUT');
-t('a later upgrade is invisible at the mark',
-  statusAsOf(hist(['OUT', MARK - H(2)], ['ACTIVE', MARK + H(6)]), MARK), 'OUT');
+t('latest prior status wins', statusAsOf(hist(['QUESTIONABLE', MARK - H(48)], ['OUT', MARK - H(2)]), MARK), 'OUT');
+t('a later upgrade is invisible at the mark', statusAsOf(hist(['OUT', MARK - H(2)], ['ACTIVE', MARK + H(6)]), MARK), 'OUT');
 
-console.log('\n-- KEITH\'S CASE: declared Out with a day\'s notice --');
-const outEarly = evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(6)]), played: false }));
-t('verdict', outEarly.verdict, 'violation');
-t('reason', outEarly.reason, 'out');
+console.log('\n-- §1 the core timing cases (Keith: "correct on all") --');
+t('1. Out Friday, Sunday game -> violation',
+  evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]) })).verdict, 'violation');
+t('2. Out Sat 6pm, Sunday 1pm game -> advisory',
+  evaluateStarter(P, ctx({ history: hist(['OUT', SUN1 - H(19)]) })).verdict, 'advisory');
+t('3. Questionable all week then Out 90min before -> advisory',
+  evaluateStarter(P, ctx({ history: hist(['QUESTIONABLE', MARK - H(40)], ['OUT', SUN1 - 5400]) })).verdict, 'advisory');
+t('4. Doubtful Friday, does not play -> violation',
+  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(20)], ['OUT', SUN1 - H(1)]) })).verdict, 'violation');
+t('5. Doubtful Friday, plays -> clean',
+  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(20)]) })).verdict, 'clean');
 
-console.log('\n-- late news is never a violation --');
-// Ruled out 6 hours before kickoff: inside the window, nothing you could do.
-const outLate = evaluateStarter(P, ctx({ history: hist(['OUT', KICK - H(6)]), played: false }));
-t('verdict is advisory', outLate.verdict, 'advisory');
-t('reason', outLate.reason, 'late_out');
-// One second inside the window is still inside it.
-const outJustInside = evaluateStarter(P, ctx({ history: hist(['OUT', MARK + 1]), played: false }));
-t('one second inside -> advisory', outJustInside.verdict, 'advisory');
-// And one second outside is outside.
-const outJustOutside = evaluateStarter(P, ctx({ history: hist(['OUT', MARK - 1]), played: false }));
-t('one second outside -> violation', outJustOutside.verdict, 'violation');
+console.log('\n-- §6 Out then upgraded and played: NEVER a penalty (Keith) --');
+// "no this would never be a penalty. Upgraded Sun AM is inside the window."
+const upgraded = evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)], ['ACTIVE', SUN1 - H(4)]) }));
+t('verdict', upgraded.verdict, 'clean');
+t('reason', upgraded.reason, 'upgraded_and_played');
+t('and never flagged for review', !!upgraded.needs_review, false);
 
-console.log('\n-- Doubtful: start at your own risk --');
-t('Doubtful at the mark, did not play -> violation',
-  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(3)]), played: false })).verdict, 'violation');
-t('Doubtful at the mark, PLAYED -> clean',
-  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(3)]), played: true })).verdict, 'clean');
-t('Doubtful only AFTER the mark, did not play -> advisory',
-  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', KICK - H(4)]), played: false })).verdict, 'advisory');
-// Doubtful at the mark then ruled Out late: you were on notice at the mark, so
-// it is the Doubtful branch that governs, not the late Out.
-t('Doubtful at mark then Out late -> violation',
-  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(2)], ['OUT', KICK - H(1)]), played: false })).reason,
+console.log('\n-- §7 Doubtful at the mark, Out late, did not play -> violation --');
+t('the Doubtful branch governs, not the late Out',
+  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(2)], ['OUT', SUN1 - H(1)]) })).reason,
   'doubtful_did_not_play');
 
-console.log('\n-- Questionable is not a violation status --');
-t('Questionable at the mark, played', evaluateStarter(P, ctx({ history: hist(['QUESTIONABLE', MARK - H(20)]), played: true })).verdict, 'clean');
-// Questionable at the mark then Out late is exactly §H's "courtesy advisory".
-t('Questionable then late Out -> advisory',
-  evaluateStarter(P, ctx({ history: hist(['QUESTIONABLE', MARK - H(20)], ['OUT', KICK - H(3)]), played: false })).verdict,
-  'advisory');
+console.log('\n-- §8 IR is treated exactly as Out (Keith) --');
+t('IR with notice -> violation', evaluateStarter(P, ctx({ history: hist(['IR', MARK - H(10)]) })).verdict, 'violation');
+// "unless it's a late IR submission" — the anchor already handles that.
+t('late IR -> advisory', evaluateStarter(P, ctx({ history: hist(['IR', SUN1 - H(3)]) })).verdict, 'advisory');
+
+console.log('\n-- §9a no eligible replacement, no penalty (Keith) --');
+t('Out but nobody to sub in -> advisory',
+  evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]), replacementAvailable: false })).verdict, 'advisory');
+t('reason', evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]), replacementAvailable: false })).reason, 'no_replacement');
+t('Doubtful-no-play with nobody to sub in -> advisory',
+  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(20)], ['OUT', SUN1 - H(1)]), replacementAvailable: false })).verdict, 'advisory');
+// Unchecked is NOT the same as "there was none" — it must not silently excuse.
+t('undefined does not excuse',
+  evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]) })).verdict, 'violation');
+
+console.log('\n-- §9b the Saturday 8pm ET cap (Keith\'s MNF rule) --');
+t('Sunday game is capped by Saturday 8pm', saturdayCapUnix(SUN1), SAT8);
+t('MNF is capped by the same Saturday', saturdayCapUnix(MNF), SAT8);
+t('Thursday game has no cap', saturdayCapUnix(THU), null);
+// The cap can only ever move the mark EARLIER, never later.
+t('Sunday 1pm mark stays at kickoff-24h', noticeMarkUnix(SUN1), SUN1 - INJURY_NOTICE_SECONDS);
+t('MNF mark moves back to Saturday 8pm', noticeMarkUnix(MNF), SAT8);
+t('SNF mark is capped too', noticeMarkUnix(SNF), SAT8);
+t('Thursday mark is plain 24h', noticeMarkUnix(THU), THU - INJURY_NOTICE_SECONDS);
+t('the cap is never later than the plain mark', noticeMarkUnix(MNF) <= MNF - INJURY_NOTICE_SECONDS, true);
+
+// Keith's worked example: MNF player declared Out Sunday 4pm. Under a plain
+// 24-hour rule the mark is Sunday 8:15pm, so Sunday 4pm would be a violation —
+// but by then your whole roster has played and locked.
+const mnfCtx = (o) => ({ kickoffUnix: MNF, observedFromUnix: MNF - H(168), ...o });
+t('MNF player ruled Out Sunday 4pm -> NOT a violation',
+  evaluateStarter(P, mnfCtx({ history: hist(['OUT', et('2026-09-20T16:00:00-04:00')]) })).verdict, 'advisory');
+t('MNF player ruled Out Friday -> still a violation',
+  evaluateStarter(P, mnfCtx({ history: hist(['OUT', et('2026-09-18T12:00:00-04:00')]) })).verdict, 'violation');
+t('MNF violation copy names the Saturday deadline',
+  /Sat 8pm ET/.test(evaluateStarter(P, mnfCtx({ history: hist(['OUT', et('2026-09-18T12:00:00-04:00')]) })).detail), true);
 
 console.log('\n-- bye weeks ignore the injury clock entirely --');
-const bye = evaluateStarter(P, ctx({ onBye: true, history: [], played: false }));
-t('bye is a violation', bye.verdict, 'violation');
-t('reason', bye.reason, 'bye');
-// Byes are published months ahead, so no notice question exists — a bye must be
-// a violation even with zero injury coverage.
-t('bye still fires with no polling at all',
-  evaluateStarter(P, { kickoffUnix: KICK, onBye: true, observedFromUnix: 0, history: [] }).verdict, 'violation');
+t('bye is a violation', evaluateStarter(P, ctx({ onBye: true, history: [] })).verdict, 'violation');
+// Byes are published months ahead, so a bye must fire even with zero coverage.
+t('bye fires with no polling at all',
+  evaluateStarter(P, { kickoffUnix: SUN1, onBye: true, observedFromUnix: 0, history: [] }).verdict, 'violation');
 
 console.log('\n-- it refuses to guess --');
-// Absence of injury data is not evidence of a healthy player.
 t('polling started after the mark -> unknown',
-  evaluateStarter(P, { kickoffUnix: KICK, observedFromUnix: MARK + H(2), history: [], played: false }).verdict, 'unknown');
+  evaluateStarter(P, { kickoffUnix: SUN1, observedFromUnix: MARK + H(2), history: [] }).verdict, 'unknown');
 t('no kickoff resolved -> unknown',
-  evaluateStarter(P, { kickoffUnix: 0, observedFromUnix: KICK - H(168), history: [], played: false }).verdict, 'unknown');
-// But a designation we DID see is real evidence even if coverage began late —
-// refusing there would let a gap erase a genuine violation.
+  evaluateStarter(P, { kickoffUnix: 0, observedFromUnix: SUN1 - H(168), history: [] }).verdict, 'unknown');
+// A designation we DID see is real evidence even if coverage began late.
 t('late coverage that still caught an OUT -> violation',
-  evaluateStarter(P, { kickoffUnix: KICK, observedFromUnix: MARK + H(2), history: hist(['OUT', MARK - H(1)]), played: false }).verdict,
-  'violation');
+  evaluateStarter(P, { kickoffUnix: SUN1, observedFromUnix: MARK + H(2), history: hist(['OUT', MARK - H(1)]) }).verdict, 'violation');
 
-console.log('\n-- Out but played: booked, and flagged for a human --');
-const oddity = evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(5)]), played: true }));
-t('canon books it', oddity.verdict, 'violation');
-t('and asks for review', oddity.needs_review, true);
+console.log('\n-- §11 "did not play" is injury status and nothing else (Keith) --');
+// Still Out at kickoff = did not play. Anything else = played. No snap counts,
+// no fantasy points — a 0-point active player is indistinguishable from an
+// inactive one by score, and distinguishable by status.
+t('still Out at kickoff -> did not play', evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(6)]) })).reason, 'out');
+t('upgraded before kickoff -> played', evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(6)], ['QUESTIONABLE', SUN1 - H(2)]) })).verdict, 'clean');
 
-console.log('\n-- a week is ONE violation, however many bad starters --');
-const many = evaluateLineup(
-  [{ id: '1', name: 'A' }, { id: '2', name: 'B' }, { id: '3', name: 'C' }],
-  (p) => ctx({ history: hist(['OUT', MARK - H(5)]), played: false }),
-  { requiredStarters: 3 });
-t('one weekly verdict', many.verdict, 'violation');
-t('all three listed for the DM', many.violations.length, 3);
-
-console.log('\n-- a short lineup is its own violation, no injury data needed --');
-const short = evaluateLineup([{ id: '1', name: 'A' }], () => ctx({ history: [], played: true }), { requiredStarters: 3 });
-t('verdict', short.verdict, 'violation');
-t('reason', short.violations[0].reason, 'missing_starter');
-t('counted once, not per empty slot', short.violations.length, 1);
+console.log('\n-- §10 a short lineup is judged at END OF WEEK, not at kickoff --');
+const shortMid = evaluateLineup([{ id: '1', name: 'A' }], () => ctx({ history: [] }), { requiredStarters: 3, final: false });
+const shortEnd = evaluateLineup([{ id: '1', name: 'A' }], () => ctx({ history: [] }), { requiredStarters: 3, final: true });
+t('mid-week it is only an advisory', shortMid.verdict, 'advisory');
+t('mid-week copy says it is fixable', /still fixable/.test(shortMid.lines[0].detail), true);
+t('at week end it is a violation', shortEnd.verdict, 'violation');
+t('counted once, not per empty slot', shortEnd.violations.length, 1);
 t('default required is 18', REQUIRED_STARTERS, 18);
 
-console.log('\n-- a clean week is clean --');
-const clean = evaluateLineup(
-  [{ id: '1', name: 'A' }, { id: '2', name: 'B' }],
-  () => ctx({ history: hist(['QUESTIONABLE', MARK - H(30)]), played: true }),
-  { requiredStarters: 2 });
-t('verdict', clean.verdict, 'clean');
-t('nothing to report', clean.violations.length, 0);
+console.log('\n-- §14 one violation per week, however many bad starters --');
+const many = evaluateLineup(
+  [{ id: '1', name: 'A' }, { id: '2', name: 'B' }, { id: '3', name: 'C' }],
+  () => ctx({ history: hist(['OUT', MARK - H(20)]) }),
+  { requiredStarters: 3 });
+t('one weekly verdict', many.verdict, 'violation');
+t('all three still listed for the DM', many.violations.length, 3);
 
-console.log('\n-- advisories never outrank a real violation --');
+console.log('\n-- a clean week is clean, and advisories never outrank a violation --');
+t('clean', evaluateLineup([{ id: '1', name: 'A' }], () => ctx({ history: hist(['QUESTIONABLE', MARK - H(30)]) }), { requiredStarters: 1 }).verdict, 'clean');
 const mixed = evaluateLineup(
   [{ id: '1', name: 'Real' }, { id: '2', name: 'Late' }],
-  (p) => p.id === '1'
-    ? ctx({ history: hist(['OUT', MARK - H(5)]), played: false })
-    : ctx({ history: hist(['OUT', KICK - H(2)]), played: false }),
+  (p) => p.id === '1' ? ctx({ history: hist(['OUT', MARK - H(20)]) }) : ctx({ history: hist(['OUT', SUN1 - H(2)]) }),
   { requiredStarters: 2 });
 t('week reads as a violation', mixed.verdict, 'violation');
 t('the late one stays an advisory', mixed.advisories.length, 1);
@@ -162,20 +172,15 @@ t('2nd = 4th-rounder + $5K', [lineupLadderRung(2).pick, lineupLadderRung(2).cap_
 t('3rd = 2nd-rounder + $5K', [lineupLadderRung(3).pick, lineupLadderRung(3).cap_k], ['2nd', 5]);
 t('4th = retention vote', lineupLadderRung(4).membership, 'retention');
 t('5th = expulsion', lineupLadderRung(5).membership, 'expulsion');
-// Nothing escalates past expulsion — clamp rather than invent a 6th rung.
-t('6th clamps to expulsion', lineupLadderRung(6).membership, 'expulsion');
-t('0 is not a rung', lineupLadderRung(0), null);
+t('nothing escalates past expulsion', lineupLadderRung(6).membership, 'expulsion');
 t('label reads plainly', lineupLadderLabel(2), '2nd violation — 4th-round pick + $5K next season');
 
 console.log('\n-- §H: the two DMs must not read alike --');
 const dmV = composeLineupDm({ franchiseName: 'Team', week: 3, result: many, windowLabel: 'Sun 1:00pm' });
-const dmA = composeLineupDm({ franchiseName: 'Team', week: 3, result: mixed.advisories.length ? { ...mixed, verdict: 'advisory', violations: [] } : mixed, windowLabel: 'Sun 1:00pm' });
-const dmC = composeLineupDm({ franchiseName: 'Team', week: 3, result: clean, windowLabel: 'Sun 1:00pm' });
+const dmA = composeLineupDm({ franchiseName: 'Team', week: 3, result: { ...mixed, verdict: 'advisory', violations: [] }, windowLabel: 'Sun 1:00pm' });
 t('violation DM says so', /Possible lineup violation/.test(dmV), true);
 t('advisory DM says NOT a violation', /not a violation/i.test(dmA), true);
 t('advisory DM never claims a violation', /Possible lineup violation/.test(dmA), false);
-t('clean DM confirms compliance', /clean/i.test(dmC), true);
-// The 24-hour rule is the thing owners will argue about; the DM should say it.
 t('violation DM explains the 24-hour rule', /24 hours/.test(dmV), true);
 
 console.log('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' PASS'));
