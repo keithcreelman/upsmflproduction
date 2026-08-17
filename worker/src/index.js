@@ -45895,7 +45895,11 @@ export default {
           rowsToPost.push({
             franchise_id: fid,
             amount,
-            explanation: `UPS RULE 2 missed nomination ${safeStr(pen.et_day)} offense ${safeInt(pen.offense_no, 0)} id:${key}`,
+            // Both RULE 2 ladders post through here. The owner reads this line
+            // on their MFL cap sheet months later, so it has to say WHICH rule
+            // they broke — "missed nomination" on an extra-nomination fine
+            // would be an unarguable-looking charge for a thing they didn't do.
+            explanation: `UPS RULE 2 ${safeStr(pen.kind) === "over" ? "extra nomination" : "missed nomination"} ${safeStr(pen.et_day)} offense ${safeInt(pen.offense_no, 0)} id:${key}`,
             penalty_id: pen.penalty_id,
             key,
           });

@@ -160,6 +160,6 @@ Every auction-period cap penalty charges **the current season and the next**: no
 
 1. ~~**Is a 4th-round pick worth more or less than $15K in cap?**~~ **Answered (Keith 2026-08-16): roughly equivalent, cap possibly lighter.** The follow-on I raised — whether a $5K lineup violation is weaker than a $7K nomination miss — **was my arithmetic error and is withdrawn.** It compared the cash halves only, dropping the 4th-round pick attached to violation #2 and the fact that nomination fines charge to two cap years while the lineup fine charges to one. Corrected: lineup #2 ≈ $20K vs nomination #2 = $20K; lineup #3 ≈ $55K vs nomination #3 = $50K. **The ladders match. Neither needs re-pricing.**
 2. ~~**What does missing the $260K floor actually cost?**~~ **ANSWERED 2026-08-17** — the shortfall, current season and next (§6.A2, §F RULE 1).
-3. **Should lineup violations reset annually, or accumulate across seasons?** Neither ladder says.
+3. ~~**Should lineup violations reset annually, or accumulate across seasons?**~~ **ANSWERED 2026-08-17 (Keith): they reset each season.** Count starts at zero every year, which means expulsion at #5 requires five illegal lineups *in one season*. Matches §F RULE 2, which was already season-scoped in code. See §G3.
 4. ~~**Do violations 2–5 keep their 2018 prices?**~~ **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."**
 5. **What's the penalty for lapsing the compliance cure window** under the new §G7.1 model?

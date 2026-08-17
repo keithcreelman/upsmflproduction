@@ -142,7 +142,8 @@
       ],
       "gotchas": [
         "Benching a player does not undo a call-up or protect him from anything. Only the roster move counts.",
-        "Roster size limits, the QB caps and IR relief all live under Cap & Roster Limits, not here."
+        "Roster size limits, the QB caps and IR relief all live under Cap & Roster Limits, not here.",
+        "Lineup violations reset every season. Whatever you racked up last year does not follow you, and the count starts at zero each September."
       ],
       "open_questions": [
         "Canon states the slot structure but not the per-position maximums above the minimums. The live MFL lineup settings are the authority there.",

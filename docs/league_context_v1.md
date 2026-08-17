@@ -2388,6 +2388,14 @@ A lineup is a **violation** when it contains a missing starter, a player on bye,
 
 If a stripped pick isn't held, it is taken the next time one becomes available, by trade or at league-year rollover. **Failing to submit any lineup** is separate: the owner has until the following Tuesday to explain, the league votes on retention, and a second occurrence is automatic expulsion.
 
+**The ladder resets every season (Keith 2026-08-17).** Violations are counted within a single season and the count starts at zero each year. An owner who reached violation 3 in 2024 comes into 2025 clean, at violation 0.
+
+This is a real narrowing of the ladder, and worth stating plainly because it changes what the top rungs mean: **expulsion at #5 now requires five illegal lineups in one season** — roughly a third of a 17-week schedule — rather than five accumulated slowly across a decade. Under a never-resetting count, an owner who slipped up once every couple of years would eventually face a retention vote for a pattern nobody would recognize as one. Season-scoped, the ladder measures what it is actually aiming at: an owner who is not managing their team *this year*.
+
+Consistent with §F RULE 2, which already works this way — `bookPenaltyForMiss` counts *"PRIOR un-voided misses this auction"*, scoped to the season, so nomination offenses have always reset annually. Both ladders now answer the same question the same way.
+
+> Closes `penalty_inventory.md` open question 3 (*"Should lineup violations reset annually, or accumulate across seasons?"*), which neither ladder had ever answered.
+
 **Injury-report timing is now 24 hours before that player's kickoff (Keith 2026-08-16).** This replaces the 2018 wording ("Sunday & Monday games — Friday PM; Thursday — Wednesday PM"), which broke on Wednesday games and any non-standard slate. The 24-hour frame is itself a restoration: the 2012 rulebook already used it (*"Questionable designations becoming deactivated within 24 hours of kickoff do not trigger warnings, while Doubtful designations that become deactivated do"*).
 
 ✅ **The ladder above is confirmed current (Keith 2026-08-16: "yes that's the current penalty").** Asked because nobody has been past violation 1 in the current era and the pick-stripping reads as a heavy 2018-era hammer; it stands as written. Live as of the 2026 season — the next owner to reach violation 2 loses a 4th and $5K.
