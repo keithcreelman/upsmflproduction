@@ -1878,6 +1878,33 @@ async function nflWeekFirstKickoffUnix(season, week) {
   return earliest;
 }
 
+// Week-1 boundary DATE (YYYY-MM-DD, ET) taken from MFL's real schedule, for the
+// cut-penalty math to use as `opts.week1ThursdayIso`.
+//
+// _nflWeek1Iso() below derives Week 1 as "the Thursday after Labor Day", which
+// is the usual embodiment of the rule but not the rule — 2026 opens WEDNESDAY
+// Sep 9, so the derived boundary lands a day late and every week boundary in the
+// penalty math shifts with it. A Wednesday drop is then attributed to the prior
+// week, moving `earned` by roughly one week's share of salary. Keith ruled on
+// this directly on 2026-08-07: "earliest game of the week, typically that's
+// thursday but this yr it's wednesday."
+//
+// ET, not UTC: a Wednesday 8:20pm ET kickoff is Thursday 00:20 UTC, so slicing
+// toISOString() would silently reintroduce the very off-by-one this fixes.
+// en-CA renders as YYYY-MM-DD.
+//
+// Returns null — never a guess — when the schedule does not answer, so callers
+// fall through to the _nflWeek1Iso() approximation rather than a bad date.
+const _week1BoundaryIsoET = async (season) => {
+  try {
+    const unix = await nflWeekFirstKickoffUnix(season, 1);
+    if (!(unix > 0)) return null;
+    return new Date(unix * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  } catch (_) {
+    return null;
+  }
+};
+
 // NFL regular-season week for a unix timestamp (0 = preseason / outside weeks 1-17).
 const _nflWeekForUnix = (unixSec, year) => {
   const wk1 = _nflWeek1Iso(year);
@@ -1888,10 +1915,10 @@ const _nflWeekForUnix = (unixSec, year) => {
   return (wk >= 1 && wk <= 17) ? wk : 0;
 };
 // player_id -> most-recent IN-SEASON acquisition week this season (waiver / FCFS /
-// auction). Used as the per-week eligible-weeks denominator (18−W) for mid-season
-// pickups; players acquired preseason / Week 1 (or not this season) are absent →
-// the caller treats them as continuing (acquisitionWeek 1, eligible 17). Trades
-// (empty transaction string) are not parsed here — a known v1 gap.
+// auction / trade). Used as the per-week eligible-weeks denominator (18−W) for
+// mid-season pickups; players acquired preseason / Week 1 (or not this season)
+// are absent → the caller treats them as continuing (acquisitionWeek 1,
+// eligible 17). Trades were a known v1 gap and are now parsed — see below.
 // player_id -> true when the player has confirmed taxi call-up history and has
 // NOT been permanently promoted, i.e. the §D2 cap-free cut still applies even
 // though MFL currently reports him on the active roster. Mirrors the derivation
@@ -1936,14 +1963,46 @@ const _taxiNeverPromotedMap = async (env, playerIds) => {
   return out;
 };
 
+// Pure-numeric player ids out of a TRADE's comma-separated gave-up list.
+// Draft picks ride in the same field as `FP_0008_2027_5`, and a bare
+// /\d{3,6}/g scan over that string would happily yield "0008" and "2027" as
+// player ids — so match whole tokens only.
+const _tradePidsFromGaveUp = (s) =>
+  _s(s).split(",").map((x) => x.trim()).filter((x) => /^\d{3,6}$/.test(x));
+
 const _acquisitionWeekMapFromTxs = (txs, year) => {
   const ACQ = { FREE_AGENT: 1, BBID_WAIVER: 1, AUCTION_WON: 1 };
   const byPid = {};
   for (const t of (Array.isArray(txs) ? txs : (txs ? [txs] : []))) {
-    if (!t || !ACQ[_s(t.type)]) continue;
+    if (!t) continue;
+    const ty = _s(t.type);
     const ts = Number(t.timestamp) || 0;
     const wk = _nflWeekForUnix(ts, year);
     if (wk <= 1) continue; // preseason / Week-1 add → continuing window (17)
+
+    // TRADE is an acquisition too — canon §D1 line 574 and §6.B's table both
+    // list it beside WW/FCFS as a mid-season pickup on the 18−W window. It was
+    // omitted here (the file's own comment called it "a known v1 gap"), so a
+    // player traded in Week 10 and cut in Week 12 was priced as though his new
+    // owner had held him since Week 1: ~17 weeks of earning credited instead of
+    // 3, which inflates `earned` and therefore UNDERCHARGES the penalty. Silent
+    // in both directions — nobody complains about being undercharged.
+    //
+    // Trades carry a different shape from adds: no `transaction` field, but
+    // franchise1_gave_up / franchise2_gave_up. Whatever one side gave up, the
+    // other side acquired, so every player id in either list is an acquisition
+    // at this timestamp for somebody. The map is keyed by pid alone and keeps
+    // the LATEST timestamp, which is exactly the current owner's acquisition.
+    if (ty === "TRADE") {
+      const traded = _tradePidsFromGaveUp(t.franchise1_gave_up)
+        .concat(_tradePidsFromGaveUp(t.franchise2_gave_up));
+      for (const pid of traded) {
+        if (!byPid[pid] || ts > byPid[pid].ts) byPid[pid] = { ts, wk };
+      }
+      continue;
+    }
+
+    if (!ACQ[ty]) continue;
     const added = _s(t.transaction).split("|")[0]; // added pids precede the first |
     for (const pid of (added.match(/\d{3,6}/g) || [])) {
       if (!byPid[pid] || ts > byPid[pid].ts) byPid[pid] = { ts, wk };
@@ -46140,6 +46199,10 @@ export default {
         // silently costs him the §D2 exemption.
         const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid));
 
+        // Real Week-1 boundary (2026 opens Wednesday; the derived "Thursday
+        // after Labor Day" is a day late). Resolved once for the whole scan.
+        const scanWeek1Iso = await _week1BoundaryIsoET(targetSeason);
+
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
         const skipped = [];
@@ -46170,7 +46233,8 @@ export default {
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
                 taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)] === true,
-              }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid] });
+              }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid],
+                   week1ThursdayIso: scanWeek1Iso || undefined });
             }
 
             // Which cap year this penalty belongs to (canon §6 penalty timing).
@@ -47065,7 +47129,11 @@ export default {
           // ?drop_date=YYYY-MM-DD and ?acquisition_week=W drive the per-week math.
           const pvDropIso = url.searchParams.get("drop_date") || new Date().toISOString();
           const pvAcqWhatIf = url.searchParams.get("acquisition_week");
-          const pvOpts = { season: pvSeason, dropDateIso: pvDropIso };
+          // Real Week-1 boundary from MFL's schedule (2026 opens Wednesday, so
+          // the "Thursday after Labor Day" derivation is a day late). null →
+          // _parseContractData falls back to that derivation.
+          const pvWeek1Iso = await _week1BoundaryIsoET(pvSeason);
+          const pvOpts = { season: pvSeason, dropDateIso: pvDropIso, week1ThursdayIso: pvWeek1Iso || undefined };
           // In-season only: derive each player's mid-season pickup week so the
           // eligible-weeks denominator is 18−W (canon §D1). Offseason or an explicit
           // ?acquisition_week= skips the extra transactions fetch (irrelevant then).

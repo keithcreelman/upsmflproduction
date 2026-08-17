@@ -2727,6 +2727,14 @@ These are corrections + clarifications fed back from solo-test of the AI explain
 - **All cap penalties are rounded based on the SUM of penalties accrued, not per-penalty rounding.**
 - Rounding is applied to the cumulative total, not to each individual drop penalty in isolation.
 
+> **⚠️ This rule is a NO-OP as written, and cannot be implemented until canon states the increment (verified 2026-08-16).**
+>
+> The rule says to round the sum, but nowhere does canon say *to what* — nearest $1K? $100? dollar? Meanwhile the code applies **no increment rounding at all**: the guarantee is `Math.floor(tcv × 0.75)`, floored to a whole dollar, and everything after it is exact-integer arithmetic. Canon's own worked examples confirm it — $37,500, $27,500, $9,135 are exact dollars and none is a $1K multiple.
+>
+> With exact integers, summing and then rounding is arithmetically identical to rounding each and then summing. So per-cut posting (which is what `/admin/drops/*` does — one MFL salary-adjustment row per drop) produces exactly the same total the rule asks for. **Nothing is currently wrong, and nothing needs to change.**
+>
+> It only becomes a real rule if an increment is introduced. Two ways to close it: state the increment, or retire the line as vestigial from the era when penalties were rounded to $1K. Until then, do **not** implement a rounding step — inventing an increment would create the very discrepancy this rule exists to prevent.
+
 ### Taxi squad — temporary call-up "active week" definition (effective 2026-05-08)
 
 This clarifies the rule in **B2 / T2.4** for the bot.
