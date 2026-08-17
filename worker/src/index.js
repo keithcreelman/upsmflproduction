@@ -28,6 +28,11 @@ import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
   flagReengagementMiss, rule2FineK,
 } from "./auction_compliance.js";
+import {
+  recordInjurySnapshot, injuryObservedFrom, injuryHistoryForWeek,
+  evaluateLineup, bookLineupViolation, lineupStandings, voidLineupViolation,
+  composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
+} from "./lineup_compliance.js";
 import { buildWaiverRunPlan, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -6248,6 +6253,61 @@ export default {
       // Unknown cron pattern — log and bail.
       console.log(`[scheduled] unknown cron trigger: "${cronTrigger}"`);
       return;
+    }
+
+    // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
+    // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
+    // "was he declared Out more than 24 hours before kickoff?" is unanswerable
+    // unless somebody is writing it down as it happens. This is that somebody.
+    // Nothing in UPS ever recorded injury status over time, which is why §G3's
+    // 24-hour rule was not merely unenforced — it was not computable.
+    //
+    // Hourly is the right cadence and it errs the safe way. Worst case a
+    // designation is first recorded up to an hour after it appeared, which can
+    // only push a borderline case from "violation" toward "advisory" — i.e.
+    // toward the owner. Polling faster would buy precision the rule's own
+    // 24-hour margin does not need.
+    //
+    // Runs all season regardless of whether anything consumes it yet: the
+    // history has to already exist by the time a verdict is asked for, and
+    // Week 1 2026 kicks off Wed Sept 9. Starting to collect after a violation
+    // is exactly when the data is useless.
+    try {
+      // env.YEAR / env.LEAGUE_ID, NOT the request-scoped YEAR / L — those are
+      // parsed off the URL in fetch() and simply do not exist here. Same
+      // pattern as every other job on this cron.
+      const injSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const injLeague = String(env.LEAGUE_ID || "74598");
+      const injWeek = _nflWeekForUnix(Math.floor(Date.now() / 1000), Number(injSeason));
+      if (injWeek >= 1 && env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            // League-agnostic export — omitLeagueParam, same as every other
+            // TYPE=injuries call in this file (see the §D2a note at ~44114).
+            const ir = await mflExportJson(injSeason, injLeague, "injuries", {},
+              { useCookie: false, omitLeagueParam: true });
+            if (!ir.ok || !ir.data) {
+              // Do NOT record a poll on a failed fetch. ups_injury_polls is the
+              // evidence that we were watching; stamping it on a failure would
+              // claim coverage we did not have, and coverage is what licenses a
+              // fine. A gap must look like a gap.
+              console.warn("[scheduled hourly] injury poll: export unreadable, no coverage recorded");
+              return;
+            }
+            let rows = ir.data.injuries && (ir.data.injuries.injury || ir.data.injuries.player);
+            rows = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+            const res = await recordInjurySnapshot(env, {
+              season: injSeason, week: injWeek, rows,
+              nowUnix: Math.floor(Date.now() / 1000),
+            });
+            if (res.written) console.log(`[scheduled hourly] injury poll: wk${injWeek}, ${res.written} statuses`);
+          } catch (e) {
+            console.error(`[scheduled hourly] injury poll failed: ${e && e.message}`);
+          }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] injury poll dispatch failed: ${e && e.message}`);
     }
 
     // Phase 2 backup: once per day (at the 09:05 UTC firing) snapshot the

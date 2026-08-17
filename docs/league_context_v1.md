@@ -2398,6 +2398,25 @@ Consistent with §F RULE 2, which already works this way — `bookPenaltyForMiss
 
 **Injury-report timing is now 24 hours before that player's kickoff (Keith 2026-08-16).** This replaces the 2018 wording ("Sunday & Monday games — Friday PM; Thursday — Wednesday PM"), which broke on Wednesday games and any non-standard slate. The 24-hour frame is itself a restoration: the 2012 rulebook already used it (*"Questionable designations becoming deactivated within 24 hours of kickoff do not trigger warnings, while Doubtful designations that become deactivated do"*).
 
+**Detection (built 2026-08-17).** `worker/src/lineup_compliance.js` evaluates every starter against the 24-hour anchor and books one violation per franchise-week — a week with three bad starters is ONE violation, because the ladder counts illegal *lineups*.
+
+The failure being caught is not an owner submitting a short lineup; MFL already errors on submit. It is Keith's actual case: *"guys submit players then those players get declared out on Friday."* The lineup was legal when submitted and went bad afterwards, which is why the verdict can only be reached at kickoff.
+
+**Everything reduces to one question: what did the owner know 24 hours before *this player's* game?**
+
+| Status at the 24-hour mark | Outcome |
+|---|---|
+| **Out** (or IR) | **Violation** — you had a day to react |
+| **Doubtful**, and he did not play | **Violation** — §G3, and Keith's "start at own risk" |
+| **Doubtful**, and he played | Clean |
+| Out/Doubtful only *after* the mark | **Advisory** — late news is never a fine |
+| On a bye | **Violation** — byes are published months ahead, so no notice question arises |
+| Fewer than 18 starters | **Violation** — counted once, however many slots are empty |
+
+**Two things it refuses to do.** It never fines on absent data: MFL's `TYPE=injuries` keeps no history, so `ups_injury_status` records first-seen timestamps hourly, and if polling did not cover a player's 24-hour window the verdict is `unknown`, never a violation — an unwatched window and a healthy player look identical in the data, and only one may cost a 4th-rounder. And it never quietly softens canon: a player listed Out who then *plays* is booked as a violation (canon says "a player listed Out" with no did-not-play qualifier) but flagged `needs_review`, so a human rules on the oddity rather than the machine deciding the rule means something it doesn't say.
+
+**Anchor choice (Keith 2026-08-17).** The §H proposal (`docs/FOLLOWUP_TASKS_2026-05-26.md`) specified a **Friday midnight ET** snapshot. Retired in favor of the per-player 24-hour window for the same reason the 2018 fixed-day wording was retired: a weekly anchor cannot evaluate a Wednesday or Thursday game, and **2026 opens Wednesday Sept 9** — Friday midnight is two days after that game kicked off. §H's own DM schedule was already per-kickoff (Wed, Sun 9:30, Sun 1pm, Sun 4pm, SNF, MNF, TNF, Saturday); only its violation *test* was weekly, so the two halves disagreed with each other. Everything else in §H is kept: the 1.5-hour-before DMs, the D1 logging, and the load-bearing distinction between a *"possible lineup violation"* and a *"courtesy heads-up"*.
+
 ✅ **The ladder above is confirmed current (Keith 2026-08-16: "yes that's the current penalty").** Asked because nobody has been past violation 1 in the current era and the pick-stripping reads as a heavy 2018-era hammer; it stands as written. Live as of the 2026 season — the next owner to reach violation 2 loses a 4th and $5K.
 
 ⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. Nothing in the app flags a violation, counts one, or knows what number an owner is on — the count lives only in Discord history.

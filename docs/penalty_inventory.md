@@ -90,7 +90,7 @@ If a stripped pick isn't held, it's taken at the next opportunity (trade or roll
 | Missed nomination | Fully automated: detected, priced, ledgered, re-derived on excuse |
 | Roster < 27 | **Blocked by MFL.** Nothing to enforce |
 | 3rd nomination in a day | Blocked by the UPS app — but **not by MFL**, so a native MFL nom slips through and nothing books the offense (`closeEtDay` tests only the miss side) |
-| Illegal lineup | MFL **shows the owner an error on submit**, so they are warned — but `partialLineupAllowed: YES` accepts it anyway and **nothing counts it**. The offense number lives only in Discord history |
+| Illegal lineup | **Built 2026-08-17** (`lineup_compliance.js`). Hourly injury-status snapshots make the 24-hour anchor computable for the first time; one violation per franchise-week; refuses to judge an unobserved window |
 | $260K floor | No worker-side check. Now that the amount exists, it is computable |
 | 4-starting-QB cap, 5-QB cap, 4-MYM limit | No implementation at all |
 
