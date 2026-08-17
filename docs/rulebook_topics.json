@@ -1162,7 +1162,7 @@
             "$3K, then $7K more, then $15K more - charged to this season and next."
           ],
           [
-            "Half league dues, $100",
+            "Half league dues, $125",
             "By FA Auction start",
             "Nothing automatic. The commissioner will come find you."
           ],
@@ -1247,7 +1247,7 @@
             "No trades until the offseason."
           ],
           [
-            "Remaining dues, $100",
+            "Remaining dues, $125",
             "By the trade deadline",
             "Nothing automatic. The commissioner will come find you."
           ]
@@ -1432,7 +1432,7 @@
       "title": "Dues & Prize Money",
       "one_liner": "Dues are $250 a year: $225 into the annual pot, $25 into the Dynasty Pot.",
       "today": [
-        "The annual pot is due in two halves: the first by the start of the FA Auction, the second by the trade deadline. There is no automatic late fee - the $3K a week cap charge was retired in August 2026. Pay late anyway and you are having a conversation with the commissioner instead of taking a cap hit.",
+        "Dues are $250 and you pay them in two halves of $125: the first by the start of the FA Auction, the second by the trade deadline. That $250 covers everything - $225 into the annual pot and $25 into the Dynasty Pot - so there is no separate Dynasty payment to remember. There is no automatic late fee either; the $3K a week cap charge was retired in August 2026. Pay late anyway and you are having a conversation with the commissioner instead of taking a cap hit.",
         "The Dynasty Pot is the other $25 and it runs on the same three-year clock as divisional realignment. That's the point: it rewards whoever was consistently good for three years rather than whoever got hot in December.",
         "You have to be here for all three years to collect. Join mid-cycle and you still pay your $25, you're just not eligible until you've done a full one. Leave and you forfeit everything you put in.",
         "Missed auction nominations are the other thing that costs you, and the ladder is cumulative rather than replacing. A third miss doesn't cancel the first two, it stacks on top of them.",
@@ -1475,8 +1475,7 @@
         "Prize splitting is recognized only on an actual tie."
       ],
       "open_questions": [
-        "Canon does not say when the $25 Dynasty Pot contribution is collected.",
-        "The two dues payments are written as $100 and $100, which totals $200 - but the annual pot is $225 and total dues are $250. Canon does not say when the remaining $25 annual or the $25 Dynasty Pot contribution is collected."
+        "Canon does not say when the $25 Dynasty Pot contribution is collected."
       ],
       "layout": [
         "numbers",

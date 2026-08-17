@@ -1312,7 +1312,9 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **FA Auction completes** ~early-to-mid August (date TBD; depends on auction format option chosen).
 - **Min roster check (27)** at close.
 - **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. **These pre-season Sundays still immediately re-lock, same as Thu/Fri/Sat — FCFS does NOT open yet.** FCFS itself does not start until NFL Week 1 (Keith 2026-08-13); see §A5 and §B.
-- **Half of the base league dues** ($100 of the $225 annual pot) due by FA Auction start. Total annual dues are **$250** — $225 into the annual pot plus **$25 into the Dynasty Pot** (see §4.B 2026). Canon does not yet state when the $25 is collected. Venmo to treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; previously routed through @Keith-Creelman).
+- **League dues: $250 a year, paid in two halves of $125** — the first by FA Auction start, the second by the trade deadline (NFL Thanksgiving week kickoff). The $250 covers both pieces: **$225 into the annual pot plus $25 into the Dynasty Pot** (see §4.B 2026). There is no separate Dynasty Pot collection; it rides along with the two halves.
+  - **Corrected 2026-08-17 (Keith: "OLD use what we just created at 250").** The split had read "$100 of the $225 annual pot," left over from the $200-dues era — it totalled $200 against a $250 obligation and canon separately admitted it did not know when the remaining $25 was collected. Both gaps close at $125 + $125.
+  - Venmo to treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; previously routed through @Keith-Creelman).
 
 **Dynasty Pot eligibility (promoted into canon 2026-08-16 from the 2026-05-11 proposal body, `docs/league_context_changelog.md`):**
 - An owner must be in the league for **all 3 years** of a cycle to be eligible for that cycle's prize.
@@ -1341,7 +1343,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 ### November 2026 → Trade Deadline
 - **2026-11-26 (Thu, Thanksgiving, Week 12 kickoff):** **UPS trade deadline.** No trades until next offseason after this kickoff.
 - **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 12 (Thanksgiving week), ~12/17 ≈ 71% of an auction salary is earned.
-- **Remaining base league dues** ($100 of the $200 base) due by trade deadline. Venmo to @Keith-Creelman → treasurer Josh Martel.
+- **Second half of league dues — $125 of the $250** — due by the trade deadline. Venmo treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; @Keith-Creelman is no longer the route). *Amount corrected 2026-08-17 — this had read "$100 of the $200 base" from the pre-increase era.*
 
 ### December 2026 → Fantasy Playoffs
 - **2026-12-17 (Thu, Week 15):** **UPS Playoffs Round 1 starts.** 3-week format.
@@ -1399,7 +1401,7 @@ These are MANDATORY league events. Skipping or failing to engage = penalty risk.
 1. **Rookie Draft** (Memorial Day Sunday) — must participate or have proxy
 2. **Free Agent Auction** (last weekend of July) — must nominate exactly 2/day (ET calendar day; a minimum AND a maximum — see §A2), must be reachable
 3. **Lineup submissions** every fantasy week
-4. **League dues payment** (split: half by FA Auction, half by Thanksgiving)
+4. **League dues payment** — $250/yr, split $125 by FA Auction start and $125 by the trade deadline (Thanksgiving week kickoff)
 
 There is **no automatic fine for late dues** — the $3K/week cap fine was retired 2026-08-17 (§T4.4). Non-payment is a commissioner conversation.
 
