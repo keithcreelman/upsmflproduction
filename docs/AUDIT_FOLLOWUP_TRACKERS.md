@@ -223,7 +223,7 @@
 
 - **Q4 cap floor/ceiling tooling:** parked under auction-tooling discussion (`CROSS_CODEBASE_ALIGNMENT.md §4.1`).
 - **Q7 27-active/30-max safeguards:** parked under auction tooling (§4.1).
-- **Q15 Late dues + missed-nomination fines:** legacy; pending broader overhaul discussion with Keith.
+- **Q15 Late dues + missed-nomination fines:** ✅ **CLOSED 2026-08-17.** Late dues fine retired (canon §T4.4, Keith). Missed-nomination fines settled as cap adjustments when the §F RULE 2 schedule was ratified 2026-07-14 (§T4.3a); code-enforced in `auction_compliance.js`.
 - **Q16 Auction Room scope:** scope undecided; Keith will circle back.
 
 ---

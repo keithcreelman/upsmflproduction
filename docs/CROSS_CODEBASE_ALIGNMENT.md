@@ -307,7 +307,7 @@ When the audit hit something ambiguous in `league_context_v1.md`, the question l
 | Q12 | Round 1 active-only lock | 🔵 Follow-up | Greenlit on demote endpoint rejecting R1 → taxi. → `league_context_v1.md §A1 Round 1` updated. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q12. |
 | Q13 | Tag WW players → $1K floor | 🟡 Parked (rule proposal) | NOT confirmed; Keith to propose via league pipeline. Existing partial implementation found: `build_tag_tracking.py:436-457` blocks WW from `prior_aav_map`. → `league_context_v1.md §C8` documents current behavior + proposal status. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q13 (rule-proposal). |
 | Q14 | Restructure D1 audit table | 🔵 Follow-up | Add `ups_restructure_submissions` (or `ups_restructure_history`); wire existing `log-restructure-submission` event. → `league_context_v1.md §C5` updated. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q14. |
-| Q15 | Late dues + missed-nomination fines | 🟡 Parked | Legacy — pending overhaul discussion. Cash-vs-cap treatment undecided. Do NOT implement either model. → `league_context_v1.md §6.D` marks legacy + parked. |
+| Q15 | Late dues + missed-nomination fines | ✅ Closed | Late dues fine **retired** 2026-08-17 (§T4.4, Keith). Missed-nomination fines are **cap** adjustments — settled 2026-07-14 with the §F RULE 2 schedule (§T4.3a), code-enforced in `auction_compliance.js`. No cash-vs-cap question remains. |
 | Q16 | Auction Room scope | 🟡 Parked | Scope undecided; Keith will circle back. §4 context preserved. No canon change. |
 
 ### §6.1 — Original audit questions (kept for traceability)
@@ -328,5 +328,5 @@ When the audit hit something ambiguous in `league_context_v1.md`, the question l
 | Q12 | Round 1 active-only lock | Canon §A says R1 rookies "must stay on active roster" — NOT taxi-eligible. No code blocks demoting a R1 to taxi. Should the demote endpoint reject? | §3.3 |
 | Q13 | Tag WW players → $1K floor | Keith MobileNotesV1: "Tag - WW guys are considered 1K for tag purpose purpose in other words lowest tier." This isn't explicit in `league_context_v1.md §C8`. Confirm the rule + add to canon. Tag salary calc may need a check: if `prior_contract_type === "WW"` → treat prior AAV as $1K when applying the `max(formula tier, prior AAV × 1.10)` rule. | §3.1 (`MOBILE_DRIFT_PREVENTION.md §5.1`) |
 | Q14 | Restructure D1 audit table | Restructure submissions dispatch `log-restructure-submission` event but no dedicated `ups_restructure_submissions` table found. Where does the audit row land? Should there be a dedicated table for consistency with tags + extensions? | §3.6 |
-| Q15 | Late dues + missed-nomination fines | Canon §6.D flags these for review. Are they real-dollar cash penalties (don't touch cap) or cap adjustments? Implementation differs based on answer. | §3.2 |
+| Q15 | Late dues + missed-nomination fines | ✅ Answered 2026-08-17. Late dues: retired, no fine to classify (§T4.4). Missed nomination: cap adjustment, ratified 2026-07-14 (§T4.3a). | §3.2 |
 | Q16 | Auction Room scope | Full UPS-side auction tool, or "war room dashboard" overlaying MFL's email auction with UPS rule warnings? See §4.1. | §4.1 |

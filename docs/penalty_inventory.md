@@ -19,7 +19,6 @@ Every consequence the league can impose, in one place, so a coherent system can 
 | A5 | 2nd missed nomination | +$7K (cumulative), two cap years | Code | §F R2 |
 | A6 | 3rd missed nomination | +$15K (cumulative), two cap years | Code | §F R2 |
 | A7 | 4th+ missed nomination | **$0** — "a conversation about league fit, not a transaction" | Code (ladder caps at 3) | §T4.3a |
-| A8 | Late dues | $3K per week late | Commissioner, manual | §T4.4 |
 | A9 | Over the 4-starting-QB cap at the contract deadline | Forced cuts in reverse-acquisition order, normal penalties to next season | **Nobody** — no code found | §B1 |
 | A10 | Missing the $260K floor | "Out of compliance, draws a cap penalty" — **amount never stated** | Advisory only | §6.A2 |
 | A11 | Lineup violation #2 | $5K next season (+ a 4th-round pick) | Commissioner, manual | §G3 |
@@ -68,6 +67,7 @@ If a stripped pick isn't held, it's taken at the next opportunity (trade or roll
 | Over-cap auction bid | $10 fine | MFL blocks the bid |
 | Logo change | $15 | Retired (§T4.5) |
 | Not voting | Franchise forfeited to a new owner | Retired (2011) |
+| Late dues | $3K per week against the cap (was A8) | **Retired 2026-08-17 (Keith).** *"We had to do [this] occasionally but that might've been a 1 or 2 off because we had some bad eggs in the league."* Ad-hoc enforcement aimed at specific owners who are gone, not a standing rule. Never had code behind it. Non-payment is now a commissioner conversation. |
 | Trade response > 96 hours in-season (2 weeks offseason) | Strike; 3 strikes in a Feb 1–Jan 31 season = trading privileges revoked for the rest of it | Retired — no strike since 2017. MFL now auto-expires offers at 7 days, which is the same intent mechanized. Full text: forum `/t12-trade-violation-rules`. |
 
 ---
@@ -101,7 +101,7 @@ Per Keith (2026-08-16), cap and draft capital are near-equivalent in felt cost, 
 | Failure type | Response | Why |
 |---|---|---|
 | **Compliance** (illegal roster or cap state) — a state to fix, not an act to punish | **Block further moves until cured.** Penalty only if the cure window lapses. | The goal is a legal roster, not revenue. Keith's §G7.1 direction, and it can't be gamed as buyer's remorse. |
-| **Administrative** (missed nomination, late dues) — costs the league process | **Cap**, escalating | Automatable and precise. Already works; leave it. |
+| **Administrative** (missed nomination) — costs the league process | **Cap**, escalating | Automatable and precise. Already works; leave it. **Late dues no longer belongs in this row** — retired 2026-08-17 (§T4.4). It was also the one cross-currency case here: a cap fine for a cash obligation. If the league ever wants a standing consequence for non-payment, design it as a *cash* one. |
 | **Competitive** (illegal lineup, not fielding a real team) — distorts every other team's record | **Cap or draft capital, escalating to membership** | This is where severity has to exceed the administrative ladder, because the harm is to everyone else. Whether it's paid in cap or picks matters less than that it out-weighs a missed nomination — which today it does not consistently. |
 
 ### Principle 2 — One escalation shape everywhere
