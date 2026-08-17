@@ -45072,6 +45072,27 @@ export default {
         });
       }
 
+      // GET /admin/mfl-raw-polls?L=&YEAR=
+      // READ-ONLY, temporary lookup — TYPE=polls is owner-access-restricted
+      // (docs/MFL_IMPORT_EXPORT_DETAILED.md ~line 246), so a plain unauthenticated
+      // curl can't read it; this proxies it with the stored commish cookie.
+      // Keith 2026-08-17: hunting for an old league poll (~2016 or earlier,
+      // "MCM"/"Man Crush Monday"). MFL's own doc says "all CURRENT league
+      // polls" — unclear whether a YEAR-scoped historical call actually
+      // returns that year's archived polls or just whatever's live today;
+      // this route exists to find out, one YEAR at a time. No new schema, no
+      // write path — safe to remove once the lookup is done.
+      if (path === "/admin/mfl-raw-polls" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        const rpSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const rpLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const rpRes = await mflExportJson(rpSeason, rpLeague, "polls", {}, { useCookie: true });
+        return jsonOut(rpRes.ok ? 200 : 502, {
+          ok: rpRes.ok, season: rpSeason, league_id: rpLeague,
+          status: rpRes.status, error: rpRes.error || "", data: rpRes.data || null,
+        });
+      }
+
       // GET /admin/drops/cap-season-preview?L=&YEAR=
       // READ-ONLY dry run for the cap-year bucketing. Shows, for every priced
       // drop this season: when it happened, which cap year canon puts it on,
