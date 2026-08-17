@@ -2297,7 +2297,7 @@ The 2018 rulebook adds the test still worth applying to any judgment call: **the
 
 Canon relies on commissioner discretion in at least eight places (Jail Bird §D2, 4th-offense league-fit review §T4.3a, new-owner cap-free-cut window §A7b, Round 6 reversal §A1, re-engagement forfeit §A2, QB camp battles §B1, restructure enforcement §C5.2, ERA/tag judgment) without this section existing. It does now.
 
-**The Competition Committee is dissolved and has been for years (Keith 2026-08-16: *"hasn't existed in years"*).** Every CC power in the 2012/2013/2014/2018 rulebooks — trade vetoes, unanimous approval of minor rule changes, running orphaned teams, tag-period rulings — is retired and vests in the commissioner. ⚠️ `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` is a 2026-dated file naming **Ryan Bousquet and Eric Mannila** to the CC with veto-adjacent powers. It is a legacy artifact, it is wrong, and it should be deleted.
+**The Competition Committee is dissolved and has been for years (Keith 2026-08-16: *"hasn't existed in years"*).** Every CC power in the 2012/2013/2014/2018 rulebooks — trade vetoes, unanimous approval of minor rule changes, running orphaned teams, tag-period rulings — is retired and vests in the commissioner. ✅ `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` — a 2026-dated file naming **Ryan Bousquet and Eric Mannila** to the CC with veto-adjacent powers — was **DELETED 2026-08-16**. `claude_canonical_rules.md` had named it "the authoritative HTML" and deferred to it on conflict; that header now points at canon instead.
 
 **Succession has never been written in 16 years.** Still open.
 
@@ -2356,7 +2356,7 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 
 1. **Roster/lineup non-compliance: replace transaction reversal (Keith 2026-08-16).** Reversal is the wrong control for three reasons Keith named: it **punishes the counterparty** to a trade the non-compliant owner made; it is exploitable as **buyer's remorse**; and a mechanism already exists that blocks further roster changes until the roster is fixed, which is a cleaner lever than undoing a completed transaction. Direction: **in-season**, the weekly valid-lineup requirement is the control. **Pre-season**, cure by the earlier of the next two waiver cycles or roster deadline day. Penalty for non-compliance still to be set — see item 2.
 2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
-3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. The only live copy was `ups_v2_rulebook_v4.html`, which is a legacy artifact slated for deletion (G2).
+3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. Its only surviving copy, `ups_v2_rulebook_v4.html`, was deleted 2026-08-16 (G2).
 4. **Commissioner succession** — never written.
 5. **Violations 2–5 pricing** — confirm or re-set before the next one is issued (G3). Note Keith's 2026-08-16 read that cap and draft capital cost about the same, cap possibly less: on that view a $5K violation-2 hit may be *lighter* than the $7K for a second missed nomination, which inverts the severity.
 6. ~~**Who eats the loading settlement on a traded contract?**~~ — **RESOLVED 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the contract whole — its years, its salaries, its loading, and any §D2a settlement that loading eventually produces. There is no adjustment for the fact that the original owner banked the cheap year. This closes a question left open since 2014, when the same case (a back-loaded Jonathan Stewart deal, $19K/$26K, acquired for a 3rd) was sent to a league vote on the old forum and no outcome was ever recorded (`/t15-general-thought`, 30 replies). It follows directly from the existing trade rule — a contract moves unchanged and the sending team is clean immediately — so no new mechanism is needed.
@@ -2788,7 +2788,7 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 | `services/rulebook/sources/rules/archive/current_rulebook_struct.json` | JSON | **ARCHIVED 2026-05-08** | `_archived_note` header added. Kept as historical reference. |
 | `services/rulebook/tools/build_rulebook_json.py` | Python | **DEPRECATED 2026-05-08** | Header comment marks DO NOT RUN — its source HTML was deleted. Kept for historical reference. |
 | `docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md` | MD | LEGACY ARTIFACT | Reconcile any unique content into context file (next pass). Then archive. |
-| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` | HTML | LEGACY ARTIFACT | Slated for deletion in next cleanup pass. |
+| ~~`docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html`~~ | HTML | **DELETED 2026-08-16** | Asserted a dissolved Competition Committee (naming two current owners) and a 90% in-season voting bar retired in 2018. See §G1/§G2. |
 | `services/rulebook/web/rulebook_embed.html` | HTML | EMBED widget | Verify consumers (rules.json?). If yes, retire the widget. |
 | `docs/rulebook_inbox.md` | MD | NOT-A-LEAGUE-RULE | Keep. Engineering notes (Claude operating rules), different concern. |
 | `services/rulebook/sources/rules/archive/league_divisions.csv` | CSV | DATA SOURCE | Keep as archived input. MFL DB `franchises` table is the live equivalent. |
@@ -2828,7 +2828,8 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 - [x] `services/rulebook/tools/build_rulebook_json.py` marked DEPRECATED (its source HTML was deleted)
 - [x] DELETE the entire `site/rulebook/` directory (Keith confirmed 2026-05-08 the redirect page was never trafficked — no need to keep a "moved" placeholder)
 - [ ] Move `claude_canonical_rules.md` to `docs/archive/` (next pass)
-- [ ] Decide fate of remaining draft HTML: `ups_v2_rulebook_v4.html`, `services/rulebook/web/rulebook_embed.html` (next pass)
+- [x] `ups_v2_rulebook_v4.html` — **deleted 2026-08-16** (see §G2)
+- [ ] Decide fate of remaining draft HTML: `services/rulebook/web/rulebook_embed.html`, `ups_v2_rulebook_browser_first_pass.html`, `ups_v2_fantasy_rulebook_browser_first_pass.html` (next pass)
 
 **Phase 5 — Owner-facing public surface (DEFERRED):**
 Per Keith 2026-05-08: a future "all rules" public HTML site will be a separate dedicated build. For now, owners consult:
