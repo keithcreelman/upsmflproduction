@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.16.3",
-  "label": "Tag prices now use the contract-deadline AAV snapshot, so an in-season waiver claim can no longer inflate a tag (or a cheap late pickup deflate one). Cutting a taxi player during a temporary call-up is cap-free again, as the rulebook always said. Extension quotes on loaded contracts use the contract's AAV rather than the loaded current-year salary."
+  "build": "2026.08.16.4",
+  "label": "Cut penalties round on your season total, not on each cut — the rulebook now spells out that it's to the nearest $1K, when it posts, and what rounding each cut separately would have cost you. Also corrects two rulebook lines that said mechanics weren't implemented when they were."
 }

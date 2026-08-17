@@ -5,11 +5,24 @@
 > the commissioner's instructions during review sessions. Append-only — prior
 > rules are never deleted; they're superseded by a new rule with a back-reference.
 >
-> **Authority.** This file complements the human-facing
-> [`ups_v2_rulebook_v4.html`](./ups_v2_rulebook_v4.html) and the governance
-> trackers (`rule_ambiguity_register.csv`, `commissioner_directive_register.csv`).
-> When a rule here conflicts with the authoritative HTML, the HTML wins and I
-> should log the discrepancy as an ambiguity.
+> **Authority (UPDATED 2026-08-16).** The single source of truth is
+> [`docs/league_context_v1.md`](../../../league_context_v1.md). **When a rule
+> here conflicts with canon, canon wins** — log the discrepancy and promote the
+> correct version into canon.
+>
+> This file previously deferred to `ups_v2_rulebook_v4.html` as "the
+> authoritative HTML." **That file was deleted on 2026-08-16.** It was last
+> reviewed in March 2026 and carried two claims that were wrong by then and
+> materially so: it named two current owners to a Competition Committee that had
+> not existed for years, granting them veto-adjacent powers over rule changes,
+> and it asserted a 90% in-season voting threshold that was dropped in the 2018
+> rewrite. Being 2026-dated and owner-formatted made it the most credible-looking
+> wrong document in the repo. Canon §G1/§G2 record both corrections.
+>
+> This file itself remains a **legacy artifact** pending the Phase 3
+> reconciliation into canon (see canon's migration appendix). Rules still only
+> present here — RULE-EXT-003 (one extension per team per player) is the live
+> example — should be promoted, not cited from here.
 
 ## Rule format
 

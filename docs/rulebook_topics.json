@@ -572,14 +572,14 @@
         "Cut a player who was still under contract during the offseason and you cannot nominate or bid on him in that summer's auction. Tagged players are exempt.",
         "Players won in the Expired Rookie Auction cannot be cut at all until that summer's FA Auction closes.",
         "A player on IR keeps earning, so his cut penalty keeps shrinking while he sits.",
-        "Penalties round on the summed total you owe, not on each cut in isolation."
+        "Trading for a player does not reset his earning clock. You inherit the contract exactly as it stands, weeks already earned included, so he costs you the same to cut as he would have cost the guy who sent him. A $25K deal cut after Week 12 is $1,103 whether he changed hands at the deadline or never moved. What the trade moves is who owes it, not how much.",
+        "Penalties round on the summed total you owe, not on each cut in isolation. Every cut posts at its exact dollar amount all season; once, at the auction cut deadline, your whole season's penalties get added up and rounded to the nearest $1K, and a single line posts the difference. Rounding each cut instead would cost you real money - $1,200 and $3,400 sum to $4,600 and round to $5,000, but rounded separately they become $1,000 and $3,000, which is $4,000."
       ],
       "open_questions": [
-        "The loaded-contract settlement is live but no code implements it. The commissioner applies it by hand until that changes.",
-        "Whether the settlement also covers the other cap-free paths, such as taxi cuts and sub-$5K deals, is not settled. Canon reads them as out of scope for now.",
+        "Whether the loaded-contract settlement also covers the other cap-free paths, such as taxi cuts and sub-$5K deals, is not settled. Canon reads them as out of scope for now.",
         "Canon draws the offseason line in two places - one passage says the penalty hits the current season if the cut comes before the pre-auction roster lock, another says the line is auction start. The days in between are unresolved.",
         "Canon's own in-season examples disagree on week counting: the cut rule counts a Week 5 pickup dropped after Week 9 as 5 completed weeks, the cap-mechanics table counts the same case as 4.",
-        "Penalties round on the summed total, but canon never says to what increment.",
+        "The rounding is on penalties - cuts, drops and waiver hits. Whether a traded-salary adjustment belongs in that same total has not been stated either way. Worth at most $1K to any one team.",
         "The Jail Bird Rule has no written test. Being released by an NFL team is explicitly not enough. Commissioner call, case by case."
       ],
       "layout": [

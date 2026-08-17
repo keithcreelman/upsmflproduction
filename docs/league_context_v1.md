@@ -571,7 +571,9 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - **Cap penalty formula:** `(TCV × 75%) − Salary Earned`
 - **Earning schedule (per-week pro-rated, effective 2026-05-08):** Each completed NFL regular-season week earns one share of that year's salary. The denominator is the player's **eligible weeks remaining at acquisition**.
   - **Auction + Week-1 acquisitions:** 17 weeks total. After Week 1 → **1/17 earned**, Week 2 → 2/17, Week 3 → 3/17, … Week 17 → 17/17 = 100%.
-  - **Mid-season pickups (Waiver Wire / FCFS / trade):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+  - **Mid-season pickups (Waiver Wire / FCFS):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+    - **The window is the length of the CONTRACT, not the length of your ownership.** A Week-9 pickup gets a 9-week denominator because his contract *begins* in Week 9 — its TCV only ever covered Weeks 9–17, and nobody paid him for Weeks 1–8 under it.
+    - **A trade therefore does NOT re-window anything (Keith 2026-08-16).** The deal has been running since Week 1, its TCV covers the whole season, and the earning clock runs straight through the trade. The acquiring owner inherits the earned salary along with everything else — the direct consequence of §G7.6, *"you inherit the contract as you received it."* Keith: *"the 1st 9 weeks were paid and therefore the new owner wouldn't owe. So it's essentially the same."* This line **used to list "trade"** beside WW/FCFS; that word was never implemented in 16 years of running penalties and never matched practice. Corrected, not changed. See the correction note below.
     - Example A — picked up in Week 9 (9 weeks remaining: Weeks 9–17): Week 9 → 1/9, Week 10 → 2/9, … Week 17 → 9/9 = 100%.
     - Example B — picked up in Week 7 (11 weeks remaining: Weeks 7–17): Week 7 → 1/11, Week 8 → 2/11, … Week 17 → 11/11 = 100%.
   - **WW pickups under the new model are treated identically to auction contracts** — same 75% guarantee, same earning math, same cap-penalty timing. The only difference is the eligible-weeks window. The flat 35% WW rule is RETIRED.
@@ -585,7 +587,7 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
     - **`years_remaining ≤ 1` (final year drop) → $0** — cap-free, regardless of what the standard `(TCV × 75%) − earned` formula would have produced.
     - This **overrides** the standard guaranteed-minus-earned formula entirely for sub-$5K-TCV deals. (Replaces prior reading where the $1K was a "floor" on top of the formula. Worked example: Tyler Higbee, CL 3 / TCV $3K / cy=1 dropped 2026-05-22 → final-year sub-5K → $0 penalty.)
     - Worker enforcement: `computeDropPenalty()` in `worker/src/index.js`. D1 audit: `ups_drop_events` table, `penalty_basis` field.
-  - All cap penalties are **rounded based on the SUM of penalties accrued**, not per-penalty.
+  - All cap penalties are **rounded to the nearest $1,000 (half-up) on the SUM of penalties accrued**, not per-penalty. Individual cuts post exact all season; a single per-franchise true-up posts at the **FA Auction Cut Deadline**. Increment stated by Keith 2026-08-16; implemented as `RULE-CAP-002`. Full mechanics under "Penalty rounding rule" in the Bot Grounding Clarifications appendix.
 - **Penalty timing (3 buckets — unchanged):**
   - Penalty incurred **before Roster Lock Date** (i.e., offseason early) → applies to **current season** cap.
   - Penalty incurred **from auction start through end of season** → applies to **following season** cap.
@@ -598,6 +600,27 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
   - Earned = (5/13) × $25K = **$9,615 earned**.
   - TCV = $25K (1-year WW). Penalty = ($25K × 75%) − $9,615 = $18,750 − $9,615 = **$9,135 cap hit** to the **following season** (in-season cut bucket).
   - Under the OLD rule (flat 35% WW), this would have been: 35% × $25K = $8,750 earned → ($25K × 75%) − $8,750 = $10,000. The new rule earns slightly more here because the player was active for 5/13 of the eligible window.
+
+#### Traded-player example, and a correction (2026-08-16)
+
+Same $25K one-year deal, cut after Week 12. Guarantee is $18,750 either way, so the only question is how much of it has already been satisfied:
+
+| | Weeks earned | Earned | **Penalty** |
+|---|---|---|---|
+| One owner all season | 12 of 17 | $17,647 | **$1,103** |
+| Traded in Week 10 | 12 of 17 — *unchanged* | $17,647 | **$1,103** |
+
+The trade moves who owes the $1,103. It does not change the number.
+
+> **⚠️ Correction.** On 2026-08-16 I read the old "trade" in the mid-season list literally, shipped a parser that reset the window at the trade, and reported the prior behavior as an undercharge bug. **It was the fix that was wrong, and it overcharged.** On the case above it would have credited only 3/8 of the salary as earned and billed **$9,375 instead of $1,103** — an **$8,272 surcharge** on the identical player cut on the identical day, owed purely because the contract changed hands.
+>
+> Three things make it wrong, and I should have checked any one of them:
+>
+> 1. **It bills the same dollars twice.** The sending team already paid Weeks 1–9 against this contract's guarantee. Re-windowing erases those payments and charges the receiving team for them again.
+> 2. **It taxes trading.** A contract you might cut becomes materially more expensive the moment you acquire it — a penalty aimed squarely at the deadline trades the league wants to encourage.
+> 3. **It contradicts §G7.6**, ruled one week earlier: *"you inherit the contract as you received it."* As received means with 12/17 already earned.
+>
+> The code never behaved the way canon's word implied — `_acquisitionWeekMapFromTxs` has read `{ FREE_AGENT, BBID_WAIVER, AUCTION_WON }` since it was written, and 16 years of posted penalties match that. **Canon's word was the error, not the code**, so this is a correction, not a rule change. Reverted; the function is byte-identical to its pre-2026-08-16 form. `tests/acquisition_week_canon.test.mjs` now guards the *absence* of trade parsing, verified to fail 5/8 against the version that had it.
 
 ### D2. Cap-free cut categories (no penalty)
 
@@ -1962,11 +1985,14 @@ Salary Earned (year's actual salary basis)
    = (completed_eligible_weeks / total_eligible_weeks) × year's actual salary
 ```
 
-| Acquisition path | Total eligible weeks | Notes |
+**The denominator is set by when the CONTRACT started, not by when you got the player.** A trade transfers an existing contract, so it never resets the window (see §D1 and §G7.6).
+
+| Contract start | Total eligible weeks | Notes |
 |---|---|---|
-| FA Auction + pre-Week-1 pickups (BBID, FCFS, trade) | **17** | Full season available |
-| Mid-season pickup in Week W (W ≥ 1) | **18 − W** | Weeks W through 17, inclusive |
-| Pre-rolloover offseason cut | **N/A — 100% earned at rollover** | Prior year is sunk |
+| FA Auction + pre-Week-1 signings (BBID, FCFS) | **17** | Full season available |
+| Mid-season signing in Week W (W ≥ 1) — BBID / FCFS | **18 − W** | Weeks W through 17, inclusive |
+| **Acquired by trade** | **whatever the contract already had** | 17 if it started at auction, 18 − W if it started on waivers in Week W. The clock keeps running through the trade. |
+| Pre-rollover offseason cut | **N/A — 100% earned at rollover** | Prior year is sunk |
 
 **Worked rates:**
 - Auction acquisition, dropped after **Week 9** completes: 9/17 = ~53% of year's actual salary earned.
@@ -1977,7 +2003,7 @@ Salary Earned (year's actual salary basis)
 **Key clarifications:**
 - Earning ticks up at the **end of each completed NFL regular-season week** (Tuesday after Monday Night Football kicks off the next NFL week, or per the league_events week-boundary convention — see Section 3.A and the NFL calendar reference in the Bot Grounding appendix).
 - "Active for the week" follows the same definition as the taxi-squad rule: rosters and lineups locked, player appears in weekly results.
-- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts. The flat 35% WW rule is RETIRED.
+- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts — same 75% guarantee, same per-week math. What differs between them is only the **denominator**, and a trade doesn't change it. The flat 35% WW rule is RETIRED.
 
 ### B2. ⚠️ Code follow-up (transition note)
 
@@ -2271,7 +2297,21 @@ Rules the league actually operates by that had never been written into canon. Re
 
 - **Non-votes count against a proposal (Keith 2026-08-16: *"We would need 7 votes."*).** The threshold is **7 raw YES regardless of turnout** — 6 YES out of 8 ballots cast does NOT pass. This **retires** the 2014 rule *"Polls that are not responded to will not be factored into the results,"* which would have passed that same proposal. The bot's behavior was already the real rule; the 2014 text was the stale one.
 - **Three thresholds are configured but only one is read.** `quorum_min DEFAULT 8` and `threshold_yes_pct DEFAULT 60` exist in `worker/migrations/0020_hall_schema.sql:25-26` and are set by `worker/src/hall.js:583`, but the auto-close path consults **only** `pass_yes_count`. They should be wired up or deleted; leaving three numbers where one governs is how this rule got lost the first time.
-- ❓ **The 90% in-season bar is UNRESOLVED (Keith 2026-08-16: *"Im not sure about the 90%"*).** The 2012/2014/2018 rulebooks all require 90% for in-season changes. No code implements it, and the July 2026 round passed three rules in-season at 7 YES. Either it is retired or those three were passed under the wrong threshold. **Do not implement either reading until Keith rules.**
+- **The 90% in-season bar is RETIRED — dropped in the 2018 rewrite (traced 2026-08-16).** It was a real rule for the 2012–2017 era and then simply stopped being carried forward:
+
+  | Source | 90% in-season bar |
+  |---|---|
+  | 2012 by-laws | ✅ *"In-season votes, though discouraged, require 90% to pass."* |
+  | 2014 bylaws §2 | ✅ *"Any in-season rule that would directly impact the current season… will require 90% owners' approval."* |
+  | **2018 rulebook** | ❌ **Absent.** The voting section reads only *"League Wide Voting requires 51% league approval to pass"* and *"Rules involving league dues require at least 75% approval to pass."* No in-season/offseason distinction survives. |
+  | 2024 rulebook | ❌ No thresholds stated |
+  | Canon | ❌ Never carried |
+
+  The 2018 rewrite replaced the whole voting section with the flat 51% + 75%-for-dues pair that is still in force today — the same 75% applied to the 2026-05-11 Dynasty Pot vote. There is no repeal vote on record; the rule died by omission, which is why it kept resurfacing from the old documents.
+
+  *Caveat, stated rather than buried:* the 2018 document is truncated at the end (its tag-compensation section stops mid-sentence). But the voting section sits early and reads complete — 51%, then dues 75%, then straight into League Setup — so the omission is structural, not lost text.
+
+  **Nothing was ever passed under the wrong bar.** An earlier draft of this line claimed the July 2026 round passed three rules in-season at 7 YES and might be invalid. That was wrong: every 2026 round ran 2026-05-08/11 and 2026-07-21/24, and NFL Week 1 is 2026-09-10, so all were offseason votes where 51% is correct. Recorded here because the error reached canon before it was caught.
 
 ### G2. Commissioner authority
 
@@ -2283,7 +2323,7 @@ The 2018 rulebook adds the test still worth applying to any judgment call: **the
 
 Canon relies on commissioner discretion in at least eight places (Jail Bird §D2, 4th-offense league-fit review §T4.3a, new-owner cap-free-cut window §A7b, Round 6 reversal §A1, re-engagement forfeit §A2, QB camp battles §B1, restructure enforcement §C5.2, ERA/tag judgment) without this section existing. It does now.
 
-**The Competition Committee is dissolved and has been for years (Keith 2026-08-16: *"hasn't existed in years"*).** Every CC power in the 2012/2013/2014/2018 rulebooks — trade vetoes, unanimous approval of minor rule changes, running orphaned teams, tag-period rulings — is retired and vests in the commissioner. ⚠️ `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` is a 2026-dated file naming **Ryan Bousquet and Eric Mannila** to the CC with veto-adjacent powers. It is a legacy artifact, it is wrong, and it should be deleted.
+**The Competition Committee is dissolved and has been for years (Keith 2026-08-16: *"hasn't existed in years"*).** Every CC power in the 2012/2013/2014/2018 rulebooks — trade vetoes, unanimous approval of minor rule changes, running orphaned teams, tag-period rulings — is retired and vests in the commissioner. ✅ `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` — a 2026-dated file naming **Ryan Bousquet and Eric Mannila** to the CC with veto-adjacent powers — was **DELETED 2026-08-16**. `claude_canonical_rules.md` had named it "the authoritative HTML" and deferred to it on conflict; that header now points at canon instead.
 
 **Succession has never been written in 16 years.** Still open.
 
@@ -2305,7 +2345,9 @@ If a stripped pick isn't held, it is taken the next time one becomes available, 
 
 **Injury-report timing is now 24 hours before that player's kickoff (Keith 2026-08-16).** This replaces the 2018 wording ("Sunday & Monday games — Friday PM; Thursday — Wednesday PM"), which broke on Wednesday games and any non-standard slate. The 24-hour frame is itself a restoration: the 2012 rulebook already used it (*"Questionable designations becoming deactivated within 24 hours of kickoff do not trigger warnings, while Doubtful designations that become deactivated do"*).
 
-⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. ❓ Whether violations 2–5 are still priced correctly is worth a ruling before the next one is issued — draft-pick stripping is a heavy 2018-era hammer, and nobody has been past violation 1 in the current era.
+✅ **The ladder above is confirmed current (Keith 2026-08-16: "yes that's the current penalty").** Asked because nobody has been past violation 1 in the current era and the pick-stripping reads as a heavy 2018-era hammer; it stands as written. Live as of the 2026 season — the next owner to reach violation 2 loses a 4th and $5K.
+
+⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. Nothing in the app flags a violation, counts one, or knows what number an owner is on — the count lives only in Discord history.
 
 ### G4. Roster and cap compliance windows
 
@@ -2342,10 +2384,11 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 
 1. **Roster/lineup non-compliance: replace transaction reversal (Keith 2026-08-16).** Reversal is the wrong control for three reasons Keith named: it **punishes the counterparty** to a trade the non-compliant owner made; it is exploitable as **buyer's remorse**; and a mechanism already exists that blocks further roster changes until the roster is fixed, which is a cleaner lever than undoing a completed transaction. Direction: **in-season**, the weekly valid-lineup requirement is the control. **Pre-season**, cure by the earlier of the next two waiver cycles or roster deadline day. Penalty for non-compliance still to be set — see item 2.
 2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
-3. **The 90% in-season voting bar** — retire it, or acknowledge July 2026 passed three rules under the wrong threshold (G1).
+3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. Its only surviving copy, `ups_v2_rulebook_v4.html`, was deleted 2026-08-16 (G2).
 4. **Commissioner succession** — never written.
-5. **Violations 2–5 pricing** — confirm or re-set before the next one is issued (G3). Note Keith's 2026-08-16 read that cap and draft capital cost about the same, cap possibly less: on that view a $5K violation-2 hit may be *lighter* than the $7K for a second missed nomination, which inverts the severity.
-6. **Who eats the loading settlement on a traded contract? — UNRESOLVED SINCE 2014.** §D2a settles a loaded deal against "what the owner actually paid." On a mid-contract trade it has never been stated whether that means the *franchise* or the *person*: the acquiring owner never received the year-1 discount the original owner banked, and paid acquisition cost on top. Raised on the old forum (`/t12`… thread `/t15-general-thought`, 30 replies) over a back-loaded Jonathan Stewart deal ($19K/$26K) acquired for a 3rd; the commissioner sent it to a league vote and **no outcome was ever recorded**. No rulebook since has answered it. Live again now that §D2a is in force and implemented.
+5. ~~**Violations 2–5 pricing**~~ — **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."** The 2018 ladder stands unchanged (G3). Carried into item 2 as a data point, not an open question: on Keith's own read that cap and draft capital cost about the same, a $5K violation-2 hit lands *lighter* than the $7K for a second missed nomination, which inverts the severity between a repeated lineup failure and a missed auction nomination. That's a system-design problem for the penalty pass, not a reason to re-price the ladder now.
+7. **Rounding scope: "cap adjustments" or "cap penalties"?** Keith's 2026-08-16 statement of the rounding rule says *"the sum of all of the **Cap Adjustments**"*; canon's own line and the shipped code both use **cap penalties** — drop/cut/waiver rows only, with traded-salary rows excluded from the sum. The two readings diverge for any team that has both a penalty and a traded-salary adjustment in the same season, which is common. Low stakes (a $1K swing at most) but it should be stated once rather than inferred. See the Penalty rounding rule in the Bot Grounding appendix.
+6. ~~**Who eats the loading settlement on a traded contract?**~~ — **RESOLVED 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the contract whole — its years, its salaries, its loading, and any §D2a settlement that loading eventually produces. There is no adjustment for the fact that the original owner banked the cheap year. This closes a question left open since 2014, when the same case (a back-loaded Jonathan Stewart deal, $19K/$26K, acquired for a 3rd) was sent to a league vote on the old forum and no outcome was ever recorded (`/t15-general-thought`, 30 replies). It follows directly from the existing trade rule — a contract moves unchanged and the sending team is clean immediately — so no new mechanism is needed.
 
 ## END Section 7 (NEW 2026-08-16)
 
@@ -2713,6 +2756,27 @@ These are corrections + clarifications fed back from solo-test of the AI explain
 - **All cap penalties are rounded based on the SUM of penalties accrued, not per-penalty rounding.**
 - Rounding is applied to the cumulative total, not to each individual drop penalty in isolation.
 
+**The increment is $1,000, to the nearest, half-up** — stated by Keith 2026-08-16 and already implemented. The rounding happens **once per team, at the FA Auction Cut Deadline**, on the summed total:
+
+> "Right after we lock down cuts before the FAA we take the sum of all of the Cap Adjustments and then apply rounding at that level. So a 1200+3400 = 4600 = 5000 (Correct) vs. 1200=1000 + 3400=3000 = 4000 (Incorrect)."
+
+That worked example is the whole rule. Rounding each cut in isolation loses $1,000 against rounding the sum, which is exactly what the rule exists to prevent.
+
+**How it runs (`RULE-CAP-002`, shipped 2026-06-03 in #435):**
+
+| Stage | Behavior |
+|---|---|
+| Every drop, all season | Posts to MFL at its **exact** computed dollar amount. No rounding per cut. |
+| Displays (Discord, Cap Summary) | Show raw total → rounded total → delta, labeled **dynamic** — it moves as more cuts land. |
+| FA Auction Cut Deadline (2026: **Jul 22, 9:00pm ET**) | The `*/5` cron fires `/admin/drops/reconcile-post`, which sums each franchise's posted drop penalties, rounds to the nearest $1K half-up, and posts **one reconciliation line for the delta** so the team total lands clean. |
+| After that | Locked. Fire-once per season per league, guarded by a ledger key (`ups_drop_rounding_<fid>_<season>`) *and* a deadline lock, so it cannot double-post. |
+
+Two details worth knowing before touching it: the reconciliation reads **MFL's own `salaryAdjustments` export**, not `ups_drop_events`, so it trues up against what members actually see; and its classifier deliberately **excludes its own prior reconciliation rows** from the sum, since re-summing a delta that's already folded into the total would double-count it.
+
+> ⚠️ **Correction, 2026-08-16.** I had recorded here that this rule was a no-op with no increment anywhere in the code, and that nothing needed to change. **Both halves were wrong.** I checked the per-cut penalty math (`_computeDropPenalty`), correctly found no rounding *there*, and concluded the rule was unimplemented league-wide — without checking whether rounding happened at a different layer. It does, at the team layer, which is precisely where the rule says it should. Keith supplied the increment and the worked example. Recorded rather than quietly deleted, because "I verified X" carries weight and this one didn't earn it.
+>
+> One boundary still open: Keith's wording says *"the sum of all of the Cap Adjustments,"* while the code sums **drop/cut/waiver penalties only** and skips traded-salary rows. Canon's own line says "all cap **penalties**," which matches the code. Flagged in §G7 rather than changed.
+
 ### Taxi squad — temporary call-up "active week" definition (effective 2026-05-08)
 
 This clarifies the rule in **B2 / T2.4** for the bot.
@@ -2774,7 +2838,7 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 | `services/rulebook/sources/rules/archive/current_rulebook_struct.json` | JSON | **ARCHIVED 2026-05-08** | `_archived_note` header added. Kept as historical reference. |
 | `services/rulebook/tools/build_rulebook_json.py` | Python | **DEPRECATED 2026-05-08** | Header comment marks DO NOT RUN — its source HTML was deleted. Kept for historical reference. |
 | `docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md` | MD | LEGACY ARTIFACT | Reconcile any unique content into context file (next pass). Then archive. |
-| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` | HTML | LEGACY ARTIFACT | Slated for deletion in next cleanup pass. |
+| ~~`docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html`~~ | HTML | **DELETED 2026-08-16** | Asserted a dissolved Competition Committee (naming two current owners) and a 90% in-season voting bar retired in 2018. See §G1/§G2. |
 | `services/rulebook/web/rulebook_embed.html` | HTML | EMBED widget | Verify consumers (rules.json?). If yes, retire the widget. |
 | `docs/rulebook_inbox.md` | MD | NOT-A-LEAGUE-RULE | Keep. Engineering notes (Claude operating rules), different concern. |
 | `services/rulebook/sources/rules/archive/league_divisions.csv` | CSV | DATA SOURCE | Keep as archived input. MFL DB `franchises` table is the live equivalent. |
@@ -2814,7 +2878,8 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 - [x] `services/rulebook/tools/build_rulebook_json.py` marked DEPRECATED (its source HTML was deleted)
 - [x] DELETE the entire `site/rulebook/` directory (Keith confirmed 2026-05-08 the redirect page was never trafficked — no need to keep a "moved" placeholder)
 - [ ] Move `claude_canonical_rules.md` to `docs/archive/` (next pass)
-- [ ] Decide fate of remaining draft HTML: `ups_v2_rulebook_v4.html`, `services/rulebook/web/rulebook_embed.html` (next pass)
+- [x] `ups_v2_rulebook_v4.html` — **deleted 2026-08-16** (see §G2)
+- [ ] Decide fate of remaining draft HTML: `services/rulebook/web/rulebook_embed.html`, `ups_v2_rulebook_browser_first_pass.html`, `ups_v2_fantasy_rulebook_browser_first_pass.html` (next pass)
 
 **Phase 5 — Owner-facing public surface (DEFERRED):**
 Per Keith 2026-05-08: a future "all rules" public HTML site will be a separate dedicated build. For now, owners consult:
