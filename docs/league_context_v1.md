@@ -45,7 +45,7 @@ Material v4 corrections (full list in `league_rules_2026_corrections.md`):
 - **Tagged player block:** can't be extended/MYM'd by anyone until they enter FA Auction (mid-season drop doesn't reset)
 - **WW-Rookie contract sub-type** for rookies picked up via in-season waivers (preserves ERA eligibility)
 - **New owner onboarding:** cap-penalty wipe + 1 cap-free cut
-- **Cap "penalties" → "cap adjustments"** (subtypes: drop penalty, traded salary, late dues, etc.)
+- **Cap "penalties" → "cap adjustments"** (subtypes: drop penalty, traded salary, missed-nomination fine, etc.)
 - **$300K ceiling does NOT apply offseason pre-FA-Auction**
 - **$260K floor: by FA Auction completion OR contract deadline date**
 - Survivor Pool / NFL Pool — UPS doesn't run them, removed from catalog
@@ -997,7 +997,7 @@ These hit cap directly without involving a player transaction.
 - **Source:** Same as T4.2.
 - **Initiator:** Commissioner.
 - **Cap effect:** Negative amount = cap penalty.
-- **Examples:** Late dues fines ($3K/week), drop penalties, missed-nomination fines (**§F RULE 2** — $3K → $7K → $15K, escalating; full schedule in §T4.3a below).
+- **Examples:** Drop penalties, missed-nomination fines (**§F RULE 2** — $3K → $7K → $15K, escalating; full schedule in §T4.3a below). *(Late dues fines were listed here until 2026-08-17 — retired, see §T4.4.)*
 
 ### T4.3a §F RULE 2 — Missed Nomination / Extra Nomination fines (Keith, 2026-07-14)
 
@@ -1025,13 +1025,13 @@ These hit cap directly without involving a player transaction.
 
 **Implementation:** `worker/src/auction_compliance.js` (`RULE2_FINE_K_BY_OFFENSE = [3, 7, 15]`), ledger `ups_faa_nom_days` + `ups_faa_nom_penalties` (migration 0097, `override_reason`/`override_by`/`override_at_utc` columns added 2026-07-29 for the re-engagement-forfeit path). The MFL write is gated behind `AUCTION_FAA_PENALTIES_ENABLED`, **dark by default** so pre-auction test weeks can't manufacture fines. Re-engagement forfeits book through `flagReengagementMiss()` (`POST /admin/auction/flag-reengagement-miss`, dry-run supported) — the commish-driven mirror image of `voidNomDay()`.
 
-### T4.4 Late Dues Fine ($3K/week)
-- **Source:** UPS-custom; tracked as `salary_adjustments`.
-- **Initiator:** Commissioner.
-- **Cap effect:** -$3K per week late.
-- **Timing:**
-  - Accrued before contract deadline → applied to current season.
-  - Accrued after → applied to following season.
+### T4.4 Late Dues Fine — RETIRED (Keith 2026-08-17)
+
+Previously $3K/week against the cap, commissioner-applied. **Retired.** Keith: *"we had to do [this] occasionally but that might've been a 1 or 2 off because we had some bad eggs in the league."*
+
+It was ad-hoc enforcement aimed at a couple of specific owners, not a standing rule the league runs on — and those owners are gone. It had no code behind it (verified 2026-08-17 across worker, site and ETL: nothing reads or writes a late-dues fine), so retiring it changes no behavior. Nobody currently in the league has been charged one.
+
+**Late dues are now a commissioner conversation, not an automatic cap charge.** If the league later wants a standing consequence for non-payment, it should come out of the penalty-system design pass (§G7.2) rather than be restored as-is — a cap fine for a *cash* obligation is exactly the cross-currency mismatch that pass exists to sort out.
 
 ### T4.5 Logo Change Fee — RETIRED
 - Previously $15 cash fee for logo changes. UPS now uses AI for logos and **does not charge** for changes. Removed from active fee list.
@@ -1105,7 +1105,7 @@ These hit cap directly without involving a player transaction.
 
 These are invariants that must hold across the data layer for any 2026 contract state to be consistent. The bid sheet's cap math depends on these.
 
-> **Naming:** "cap penalty" is one *type* of cap adjustment. The general term is **cap adjustment**, with subtypes including: drop penalty, traded salary (positive/negative), late dues fine, missed-nomination fine, IR cap relief (positive), and more. Below uses "cap adjustments" as the umbrella.
+> **Naming:** "cap penalty" is one *type* of cap adjustment. The general term is **cap adjustment**, with subtypes including: drop penalty, traded salary (positive/negative), missed-nomination fine, IR cap relief (positive), and more. Below uses "cap adjustments" as the umbrella. (Late dues fines were a subtype until 2026-08-17 — retired, §T4.4.)
 
 1. **Sum of all rostered active salaries + tagged salaries − IR refunds + outstanding cap adjustments ≤ $300K** for every team — **applies from FA Auction completion onward.** Does NOT apply during offseason before FA Auction starts (no upper cap then).
 2. **Sum of all rostered active salaries + tagged salaries ≥ $260K** must be true at SOME timestamp during the FA Auction OR by the September contract deadline. Failing both → out of compliance.
@@ -1312,7 +1312,9 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **FA Auction completes** ~early-to-mid August (date TBD; depends on auction format option chosen).
 - **Min roster check (27)** at close.
 - **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. **These pre-season Sundays still immediately re-lock, same as Thu/Fri/Sat — FCFS does NOT open yet.** FCFS itself does not start until NFL Week 1 (Keith 2026-08-13); see §A5 and §B.
-- **Half of the base league dues** ($100 of the $225 annual pot) due by FA Auction start. Total annual dues are **$250** — $225 into the annual pot plus **$25 into the Dynasty Pot** (see §4.B 2026). Canon does not yet state when the $25 is collected. Venmo to treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; previously routed through @Keith-Creelman).
+- **League dues: $250 a year, paid in two halves of $125** — the first by FA Auction start, the second by the trade deadline (NFL Thanksgiving week kickoff). The $250 covers both pieces: **$225 into the annual pot plus $25 into the Dynasty Pot** (see §4.B 2026). There is no separate Dynasty Pot collection; it rides along with the two halves.
+  - **Corrected 2026-08-17 (Keith: "OLD use what we just created at 250").** The split had read "$100 of the $225 annual pot," left over from the $200-dues era — it totalled $200 against a $250 obligation and canon separately admitted it did not know when the remaining $25 was collected. Both gaps close at $125 + $125.
+  - Venmo to treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; previously routed through @Keith-Creelman).
 
 **Dynasty Pot eligibility (promoted into canon 2026-08-16 from the 2026-05-11 proposal body, `docs/league_context_changelog.md`):**
 - An owner must be in the league for **all 3 years** of a cycle to be eligible for that cycle's prize.
@@ -1341,7 +1343,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 ### November 2026 → Trade Deadline
 - **2026-11-26 (Thu, Thanksgiving, Week 12 kickoff):** **UPS trade deadline.** No trades until next offseason after this kickoff.
 - **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 12 (Thanksgiving week), ~12/17 ≈ 71% of an auction salary is earned.
-- **Remaining base league dues** ($100 of the $200 base) due by trade deadline. Venmo to @Keith-Creelman → treasurer Josh Martel.
+- **Second half of league dues — $125 of the $250** — due by the trade deadline. Venmo treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; @Keith-Creelman is no longer the route). *Amount corrected 2026-08-17 — this had read "$100 of the $200 base" from the pre-increase era.*
 
 ### December 2026 → Fantasy Playoffs
 - **2026-12-17 (Thu, Week 15):** **UPS Playoffs Round 1 starts.** 3-week format.
@@ -1399,9 +1401,9 @@ These are MANDATORY league events. Skipping or failing to engage = penalty risk.
 1. **Rookie Draft** (Memorial Day Sunday) — must participate or have proxy
 2. **Free Agent Auction** (last weekend of July) — must nominate exactly 2/day (ET calendar day; a minimum AND a maximum — see §A2), must be reachable
 3. **Lineup submissions** every fantasy week
-4. **League dues payment** (split: half by FA Auction, half by Thanksgiving)
+4. **League dues payment** — $250/yr, split $125 by FA Auction start and $125 by the trade deadline (Thanksgiving week kickoff)
 
-Late dues fines accrue at $3K/week.
+There is **no automatic fine for late dues** — the $3K/week cap fine was retired 2026-08-17 (§T4.4). Non-payment is a commissioner conversation.
 
 ---
 
@@ -2154,8 +2156,8 @@ The umbrella term is **cap adjustment** for things that move the cap. "Cap penal
 | Trade salary cash | ± | Trade event (paired adjustment — see E1) |
 | IR cap relief | + | Player on IR (50% of salary refunded for duration on IR) |
 | Manual commissioner adjustment | ± | One-off corrections |
-| ❓ Late dues fine | − | $3K per week late — **legacy — pending overhaul discussion** (Keith, 2026-05-16). Cash-vs-cap treatment undecided pending broader framework overhaul. Do NOT implement either model until Keith reopens the discussion. |
-| ❓ Missed nomination fine | − | Auction nomination missed (escalates from $3K) — **legacy — pending overhaul discussion** (Keith, 2026-05-16), same as Late dues fine. |
+| ~~Late dues fine~~ | − | **RETIRED 2026-08-17 (§T4.4).** Was $3K/week. The cash-vs-cap question that sat open here since 2026-05-16 is moot — there is no fine to classify. |
+| Missed nomination fine | − | Auction nomination missed, escalating $3K → $7K → $15K. **Live and code-enforced** (`auction_compliance.js`, §F RULE 2 / §T4.3a). The 2026-05-16 "pending overhaul" note is stale — the schedule was ratified 2026-07-14. |
 
 > **Removed in v10:** Logo change fee — that was real dollars (and now $0 since AI). Not a cap adjustment.
 
@@ -2262,7 +2264,7 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 ## H. STILL-OPEN ITEMS for Section 6
 
 1. ~~**Per-game prorated earning**~~ — **RESOLVED 2026-05-08** (Hall round May 2026, 7-0-0). See Section 6.B.
-2. **Late dues fines + missed-nomination fines** — Keith flagged for review. May be real-dollar (cash) penalties, not cap adjustments. Confirm before bid sheet uses them as cap inputs.
+2. ~~**Late dues fines + missed-nomination fines**~~ — **CLOSED.** Late dues retired 2026-08-17 (§T4.4). Missed-nomination fines were settled as **cap** adjustments when the §F RULE 2 schedule was ratified 2026-07-14 (§T4.3a) and are code-enforced. Neither is an open cash-vs-cap question any more.
 3. **Auction Roster Lock future direction** (Open A1.4) — also: a 2-day-before-auction "cutdown day" is being added for testing purposes per Keith v10. Reconcile with the current 3-day-prior roster lock rule.
 
 ✅ **Resolved in v11 (closed):**
@@ -2387,7 +2389,7 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. Its only surviving copy, `ups_v2_rulebook_v4.html`, was deleted 2026-08-16 (G2).
 4. **Commissioner succession** — never written.
 5. ~~**Violations 2–5 pricing**~~ — **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."** The 2018 ladder stands unchanged (G3). Carried into item 2 as a data point, not an open question: on Keith's own read that cap and draft capital cost about the same, a $5K violation-2 hit lands *lighter* than the $7K for a second missed nomination, which inverts the severity between a repeated lineup failure and a missed auction nomination. That's a system-design problem for the penalty pass, not a reason to re-price the ladder now.
-7. **Rounding scope: "cap adjustments" or "cap penalties"?** Keith's 2026-08-16 statement of the rounding rule says *"the sum of all of the **Cap Adjustments**"*; canon's own line and the shipped code both use **cap penalties** — drop/cut/waiver rows only, with traded-salary rows excluded from the sum. The two readings diverge for any team that has both a penalty and a traded-salary adjustment in the same season, which is common. Low stakes (a $1K swing at most) but it should be stated once rather than inferred. See the Penalty rounding rule in the Bot Grounding appendix.
+7. ~~**Rounding scope: "cap adjustments" or "cap penalties"?**~~ — **CLOSED 2026-08-17 (Keith): "you trade in whole thousands of dollars so no rounding needed."** The two readings are arithmetically identical, so there is nothing to decide. Traded salary is denominated in $K throughout (`traded_salary_adjustment_k`, posted as `× 1000` — verified 2026-08-17), so any traded amount `T` is a multiple of $1,000. The reconciliation posts `round(sum/1000)×1000 − sum`; adding `T` shifts both terms by exactly `T`, leaving **the same delta**. Including or excluding traded salary changes the posted true-up by $0. Only rows that can carry a non-$1K remainder — drop, cut and waiver penalties, which come out of `(TCV × 75%) − earned` and land on exact dollars like $9,135 — can move the result, and those are precisely what the code sums.
 6. ~~**Who eats the loading settlement on a traded contract?**~~ — **RESOLVED 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the contract whole — its years, its salaries, its loading, and any §D2a settlement that loading eventually produces. There is no adjustment for the fact that the original owner banked the cheap year. This closes a question left open since 2014, when the same case (a back-loaded Jonathan Stewart deal, $19K/$26K, acquired for a 3rd) was sent to a league vote on the old forum and no outcome was ever recorded (`/t15-general-thought`, 30 replies). It follows directly from the existing trade rule — a contract moves unchanged and the sending team is clean immediately — so no new mechanism is needed.
 
 ## END Section 7 (NEW 2026-08-16)
@@ -2487,7 +2489,7 @@ For audit trail. These were open in earlier versions and are now closed:
 - ✅ Tagged players: NO extensions, NO MYM — must go to next FA Auction. Strict rule confirmed v8.
 - ✅ WW-Rookie sub-type → not a separate type; Keith manually converts WW → Rookie at year-end for ERA path. Clarified v8.
 - ✅ New owner onboarding: cap-penalty wipe + 1 cap-free cut. Resolved v4.
-- ✅ Cap "penalties" → "cap adjustments" (subtypes including traded salary, drop penalty, late dues). Resolved v4.
+- ✅ Cap "penalties" → "cap adjustments" (subtypes including traded salary, drop penalty, late dues). Resolved v4. *(Late dues retired 2026-08-17 — §T4.4. Entry left as written; it is a log of what was decided then.)*
 - ✅ $300K ceiling does NOT apply offseason pre-FA-Auction. Resolved v4.
 - ✅ $260K floor: by FA Auction completion OR contract deadline. Resolved v4.
 - ✅ Survivor Pool / NFL Pool removed from catalog (UPS doesn't run them). Resolved v4.
@@ -2775,7 +2777,7 @@ Two details worth knowing before touching it: the reconciliation reads **MFL's o
 
 > ⚠️ **Correction, 2026-08-16.** I had recorded here that this rule was a no-op with no increment anywhere in the code, and that nothing needed to change. **Both halves were wrong.** I checked the per-cut penalty math (`_computeDropPenalty`), correctly found no rounding *there*, and concluded the rule was unimplemented league-wide — without checking whether rounding happened at a different layer. It does, at the team layer, which is precisely where the rule says it should. Keith supplied the increment and the worked example. Recorded rather than quietly deleted, because "I verified X" carries weight and this one didn't earn it.
 >
-> One boundary still open: Keith's wording says *"the sum of all of the Cap Adjustments,"* while the code sums **drop/cut/waiver penalties only** and skips traded-salary rows. Canon's own line says "all cap **penalties**," which matches the code. Flagged in §G7 rather than changed.
+> **Scope question closed 2026-08-17.** Keith's wording said *"the sum of all of the Cap Adjustments"* while the code sums drop/cut/waiver penalties only, skipping traded-salary rows — so I flagged the gap. Keith: *"you trade in whole thousands of dollars so no rounding needed."* The two readings give the **same answer**: traded salary is denominated in $K (`traded_salary_adjustment_k`, posted `× 1000`), so adding it shifts `sum` and `round(sum)` by the identical multiple of $1,000 and the posted delta is unchanged. Only rows that can carry a sub-$1K remainder — the penalties, which land on exact dollars like $9,135 — can move the result, and those are exactly what the code sums. Nothing to decide. See §G7.7.
 
 ### Taxi squad — temporary call-up "active week" definition (effective 2026-05-08)
 

@@ -579,7 +579,6 @@
         "Whether the loaded-contract settlement also covers the other cap-free paths, such as taxi cuts and sub-$5K deals, is not settled. Canon reads them as out of scope for now.",
         "Canon draws the offseason line in two places - one passage says the penalty hits the current season if the cut comes before the pre-auction roster lock, another says the line is auction start. The days in between are unresolved.",
         "Canon's own in-season examples disagree on week counting: the cut rule counts a Week 5 pickup dropped after Week 9 as 5 completed weeks, the cap-mechanics table counts the same case as 4.",
-        "The rounding is on penalties - cuts, drops and waiver hits. Whether a traded-salary adjustment belongs in that same total has not been stated either way. Worth at most $1K to any one team.",
         "The Jail Bird Rule has no written test. Being released by an NFL team is explicitly not enough. Commissioner call, case by case."
       ],
       "layout": [
@@ -1023,7 +1022,7 @@
       "key": "deadlines",
       "group": "season",
       "title": "Dates & Deadlines",
-      "one_liner": "Four dates decide your season. Only missed nominations and late dues carry fines.",
+      "one_liner": "Four dates decide your season. Missed auction nominations are the only one that carries an automatic fine.",
       "today": [
         "Four dates decide your season and the rest is texture. Memorial Day weekend you get your rookies. Late July you spend your money. September locks your contracts. Thanksgiving closes trading.",
         "September is the one people underestimate. It isn't only the contract deadline. It's the day your roster ceiling drops from 35 to 30, taxi demotions close, and every extension you meant to get round to expires quietly, without anyone tapping you on the shoulder first.",
@@ -1163,9 +1162,9 @@
             "$3K, then $7K more, then $15K more - charged to this season and next."
           ],
           [
-            "Half league dues, $100",
+            "Half league dues, $125",
             "By FA Auction start",
-            "$3K per week late."
+            "Nothing automatic. The commissioner will come find you."
           ],
           [
             "27 players and a legal lineup",
@@ -1248,9 +1247,9 @@
             "No trades until the offseason."
           ],
           [
-            "Remaining dues, $100",
+            "Remaining dues, $125",
             "By the trade deadline",
-            "$3K per week late."
+            "Nothing automatic. The commissioner will come find you."
           ]
         ]
       },
@@ -1304,7 +1303,6 @@
       "open_questions": [
         "Canon does not pin the exact 2026 FA Auction start and close dates, so the dues deadline tied to auction start is not pinned either.",
         "The preseason extension deadline appears in canon as both Wed Oct 7 and the Week 5 Thursday kickoff on Oct 8.",
-        "Whether the late-dues fine comes off your cap or out of your pocket is explicitly undecided.",
         "Canon says no drops are allowed in the offseason, but also details offseason cuts and their penalties throughout. The two cannot both be right.",
         "The 2026 kickoff times behind these dates are placeholders until the NFL publishes its schedule."
       ],
@@ -1434,7 +1432,7 @@
       "title": "Dues & Prize Money",
       "one_liner": "Dues are $250 a year: $225 into the annual pot, $25 into the Dynasty Pot.",
       "today": [
-        "The annual pot is due in two halves: $100 by the start of the FA Auction and $100 by the trade deadline. Late weeks that pile up before the September contract deadline are charged against this season's cap. Anything after that lands on next season's.",
+        "Dues are $250 and you pay them in two halves of $125: the first by the start of the FA Auction, the second by the trade deadline. That $250 covers everything - $225 into the annual pot and $25 into the Dynasty Pot - so there is no separate Dynasty payment to remember. There is no automatic late fee either; the $3K a week cap charge was retired in August 2026. Pay late anyway and you are having a conversation with the commissioner instead of taking a cap hit.",
         "The Dynasty Pot is the other $25 and it runs on the same three-year clock as divisional realignment. That's the point: it rewards whoever was consistently good for three years rather than whoever got hot in December.",
         "You have to be here for all three years to collect. Join mid-cycle and you still pay your $25, you're just not eligible until you've done a full one. Leave and you forfeit everything you put in.",
         "Missed auction nominations are the other thing that costs you, and the ladder is cumulative rather than replacing. A third miss doesn't cancel the first two, it stacks on top of them.",
@@ -1477,8 +1475,7 @@
         "Prize splitting is recognized only on an actual tie."
       ],
       "open_questions": [
-        "Canon does not say when the $25 Dynasty Pot contribution is collected.",
-        "Whether the late-dues fine comes off your cap or out of your pocket is explicitly undecided."
+        "Canon does not say when the $25 Dynasty Pot contribution is collected."
       ],
       "layout": [
         "numbers",
