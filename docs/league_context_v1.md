@@ -585,7 +585,7 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
     - **`years_remaining ≤ 1` (final year drop) → $0** — cap-free, regardless of what the standard `(TCV × 75%) − earned` formula would have produced.
     - This **overrides** the standard guaranteed-minus-earned formula entirely for sub-$5K-TCV deals. (Replaces prior reading where the $1K was a "floor" on top of the formula. Worked example: Tyler Higbee, CL 3 / TCV $3K / cy=1 dropped 2026-05-22 → final-year sub-5K → $0 penalty.)
     - Worker enforcement: `computeDropPenalty()` in `worker/src/index.js`. D1 audit: `ups_drop_events` table, `penalty_basis` field.
-  - All cap penalties are **rounded based on the SUM of penalties accrued**, not per-penalty.
+  - All cap penalties are **rounded to the nearest $1,000 (half-up) on the SUM of penalties accrued**, not per-penalty. Individual cuts post exact all season; a single per-franchise true-up posts at the **FA Auction Cut Deadline**. Increment stated by Keith 2026-08-16; implemented as `RULE-CAP-002`. Full mechanics under "Penalty rounding rule" in the Bot Grounding Clarifications appendix.
 - **Penalty timing (3 buckets — unchanged):**
   - Penalty incurred **before Roster Lock Date** (i.e., offseason early) → applies to **current season** cap.
   - Penalty incurred **from auction start through end of season** → applies to **following season** cap.
@@ -2319,7 +2319,9 @@ If a stripped pick isn't held, it is taken the next time one becomes available, 
 
 **Injury-report timing is now 24 hours before that player's kickoff (Keith 2026-08-16).** This replaces the 2018 wording ("Sunday & Monday games — Friday PM; Thursday — Wednesday PM"), which broke on Wednesday games and any non-standard slate. The 24-hour frame is itself a restoration: the 2012 rulebook already used it (*"Questionable designations becoming deactivated within 24 hours of kickoff do not trigger warnings, while Doubtful designations that become deactivated do"*).
 
-⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. ❓ Whether violations 2–5 are still priced correctly is worth a ruling before the next one is issued — draft-pick stripping is a heavy 2018-era hammer, and nobody has been past violation 1 in the current era.
+✅ **The ladder above is confirmed current (Keith 2026-08-16: "yes that's the current penalty").** Asked because nobody has been past violation 1 in the current era and the pick-stripping reads as a heavy 2018-era hammer; it stands as written. Live as of the 2026 season — the next owner to reach violation 2 loses a 4th and $5K.
+
+⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. Nothing in the app flags a violation, counts one, or knows what number an owner is on — the count lives only in Discord history.
 
 ### G4. Roster and cap compliance windows
 
@@ -2358,7 +2360,8 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
 3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. Its only surviving copy, `ups_v2_rulebook_v4.html`, was deleted 2026-08-16 (G2).
 4. **Commissioner succession** — never written.
-5. **Violations 2–5 pricing** — confirm or re-set before the next one is issued (G3). Note Keith's 2026-08-16 read that cap and draft capital cost about the same, cap possibly less: on that view a $5K violation-2 hit may be *lighter* than the $7K for a second missed nomination, which inverts the severity.
+5. ~~**Violations 2–5 pricing**~~ — **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."** The 2018 ladder stands unchanged (G3). Carried into item 2 as a data point, not an open question: on Keith's own read that cap and draft capital cost about the same, a $5K violation-2 hit lands *lighter* than the $7K for a second missed nomination, which inverts the severity between a repeated lineup failure and a missed auction nomination. That's a system-design problem for the penalty pass, not a reason to re-price the ladder now.
+7. **Rounding scope: "cap adjustments" or "cap penalties"?** Keith's 2026-08-16 statement of the rounding rule says *"the sum of all of the **Cap Adjustments**"*; canon's own line and the shipped code both use **cap penalties** — drop/cut/waiver rows only, with traded-salary rows excluded from the sum. The two readings diverge for any team that has both a penalty and a traded-salary adjustment in the same season, which is common. Low stakes (a $1K swing at most) but it should be stated once rather than inferred. See the Penalty rounding rule in the Bot Grounding appendix.
 6. ~~**Who eats the loading settlement on a traded contract?**~~ — **RESOLVED 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the contract whole — its years, its salaries, its loading, and any §D2a settlement that loading eventually produces. There is no adjustment for the fact that the original owner banked the cheap year. This closes a question left open since 2014, when the same case (a back-loaded Jonathan Stewart deal, $19K/$26K, acquired for a 3rd) was sent to a league vote on the old forum and no outcome was ever recorded (`/t15-general-thought`, 30 replies). It follows directly from the existing trade rule — a contract moves unchanged and the sending team is clean immediately — so no new mechanism is needed.
 
 ## END Section 7 (NEW 2026-08-16)
@@ -2727,13 +2730,26 @@ These are corrections + clarifications fed back from solo-test of the AI explain
 - **All cap penalties are rounded based on the SUM of penalties accrued, not per-penalty rounding.**
 - Rounding is applied to the cumulative total, not to each individual drop penalty in isolation.
 
-> **⚠️ This rule is a NO-OP as written, and cannot be implemented until canon states the increment (verified 2026-08-16).**
+**The increment is $1,000, to the nearest, half-up** — stated by Keith 2026-08-16 and already implemented. The rounding happens **once per team, at the FA Auction Cut Deadline**, on the summed total:
+
+> "Right after we lock down cuts before the FAA we take the sum of all of the Cap Adjustments and then apply rounding at that level. So a 1200+3400 = 4600 = 5000 (Correct) vs. 1200=1000 + 3400=3000 = 4000 (Incorrect)."
+
+That worked example is the whole rule. Rounding each cut in isolation loses $1,000 against rounding the sum, which is exactly what the rule exists to prevent.
+
+**How it runs (`RULE-CAP-002`, shipped 2026-06-03 in #435):**
+
+| Stage | Behavior |
+|---|---|
+| Every drop, all season | Posts to MFL at its **exact** computed dollar amount. No rounding per cut. |
+| Displays (Discord, Cap Summary) | Show raw total → rounded total → delta, labeled **dynamic** — it moves as more cuts land. |
+| FA Auction Cut Deadline (2026: **Jul 22, 9:00pm ET**) | The `*/5` cron fires `/admin/drops/reconcile-post`, which sums each franchise's posted drop penalties, rounds to the nearest $1K half-up, and posts **one reconciliation line for the delta** so the team total lands clean. |
+| After that | Locked. Fire-once per season per league, guarded by a ledger key (`ups_drop_rounding_<fid>_<season>`) *and* a deadline lock, so it cannot double-post. |
+
+Two details worth knowing before touching it: the reconciliation reads **MFL's own `salaryAdjustments` export**, not `ups_drop_events`, so it trues up against what members actually see; and its classifier deliberately **excludes its own prior reconciliation rows** from the sum, since re-summing a delta that's already folded into the total would double-count it.
+
+> ⚠️ **Correction, 2026-08-16.** I had recorded here that this rule was a no-op with no increment anywhere in the code, and that nothing needed to change. **Both halves were wrong.** I checked the per-cut penalty math (`_computeDropPenalty`), correctly found no rounding *there*, and concluded the rule was unimplemented league-wide — without checking whether rounding happened at a different layer. It does, at the team layer, which is precisely where the rule says it should. Keith supplied the increment and the worked example. Recorded rather than quietly deleted, because "I verified X" carries weight and this one didn't earn it.
 >
-> The rule says to round the sum, but nowhere does canon say *to what* — nearest $1K? $100? dollar? Meanwhile the code applies **no increment rounding at all**: the guarantee is `Math.floor(tcv × 0.75)`, floored to a whole dollar, and everything after it is exact-integer arithmetic. Canon's own worked examples confirm it — $37,500, $27,500, $9,135 are exact dollars and none is a $1K multiple.
->
-> With exact integers, summing and then rounding is arithmetically identical to rounding each and then summing. So per-cut posting (which is what `/admin/drops/*` does — one MFL salary-adjustment row per drop) produces exactly the same total the rule asks for. **Nothing is currently wrong, and nothing needs to change.**
->
-> It only becomes a real rule if an increment is introduced. Two ways to close it: state the increment, or retire the line as vestigial from the era when penalties were rounded to $1K. Until then, do **not** implement a rounding step — inventing an increment would create the very discrepancy this rule exists to prevent.
+> One boundary still open: Keith's wording says *"the sum of all of the Cap Adjustments,"* while the code sums **drop/cut/waiver penalties only** and skips traded-salary rows. Canon's own line says "all cap **penalties**," which matches the code. Flagged in §G7 rather than changed.
 
 ### Taxi squad — temporary call-up "active week" definition (effective 2026-05-08)
 
