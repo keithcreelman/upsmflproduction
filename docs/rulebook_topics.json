@@ -572,6 +572,7 @@
         "Cut a player who was still under contract during the offseason and you cannot nominate or bid on him in that summer's auction. Tagged players are exempt.",
         "Players won in the Expired Rookie Auction cannot be cut at all until that summer's FA Auction closes.",
         "A player on IR keeps earning, so his cut penalty keeps shrinking while he sits.",
+        "Trading for a player does not reset his earning clock. You inherit the contract exactly as it stands, weeks already earned included, so he costs you the same to cut as he would have cost the guy who sent him. A $25K deal cut after Week 12 is $1,103 whether he changed hands at the deadline or never moved. What the trade moves is who owes it, not how much.",
         "Penalties round on the summed total you owe, not on each cut in isolation. Every cut posts at its exact dollar amount all season; once, at the auction cut deadline, your whole season's penalties get added up and rounded to the nearest $1K, and a single line posts the difference. Rounding each cut instead would cost you real money - $1,200 and $3,400 sum to $4,600 and round to $5,000, but rounded separately they become $1,000 and $3,000, which is $4,000."
       ],
       "open_questions": [

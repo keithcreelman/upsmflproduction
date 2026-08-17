@@ -1914,11 +1914,11 @@ const _nflWeekForUnix = (unixSec, year) => {
   const wk = Math.floor((unixSec - w1Sec) / (7 * 86400)) + 1;
   return (wk >= 1 && wk <= 17) ? wk : 0;
 };
-// player_id -> most-recent IN-SEASON acquisition week this season (waiver / FCFS /
-// auction / trade). Used as the per-week eligible-weeks denominator (18−W) for
-// mid-season pickups; players acquired preseason / Week 1 (or not this season)
-// are absent → the caller treats them as continuing (acquisitionWeek 1,
-// eligible 17). Trades were a known v1 gap and are now parsed — see below.
+// player_id -> most-recent IN-SEASON week this season a NEW CONTRACT began
+// (waiver / FCFS / auction). Used as the per-week eligible-weeks denominator
+// (18−W); players whose contract started preseason / Week 1 (or in an earlier
+// season) are absent → the caller treats them as continuing (acquisitionWeek 1,
+// eligible 17). Trades are excluded on purpose — see the block comment below.
 // player_id -> true when the player has confirmed taxi call-up history and has
 // NOT been permanently promoted, i.e. the §D2 cap-free cut still applies even
 // though MFL currently reports him on the active roster. Mirrors the derivation
@@ -1963,46 +1963,39 @@ const _taxiNeverPromotedMap = async (env, playerIds) => {
   return out;
 };
 
-// Pure-numeric player ids out of a TRADE's comma-separated gave-up list.
-// Draft picks ride in the same field as `FP_0008_2027_5`, and a bare
-// /\d{3,6}/g scan over that string would happily yield "0008" and "2027" as
-// player ids — so match whole tokens only.
-const _tradePidsFromGaveUp = (s) =>
-  _s(s).split(",").map((x) => x.trim()).filter((x) => /^\d{3,6}$/.test(x));
-
+// TRADE IS DELIBERATELY NOT AN ACQUISITION HERE. Do not "fix" this.
+//
+// The 18−W window is the length of the CONTRACT, not the length of your
+// ownership. A waiver/FCFS/auction pickup in Week 9 gets a 9-week denominator
+// because his contract *begins* in Week 9 — its TCV only ever covered Weeks
+// 9–17, and nobody paid him for Weeks 1–8 under it. A trade creates no
+// contract. The deal has been running since Week 1 and its TCV covers the
+// whole season, so the earning clock keeps running through the trade and the
+// original acquisition week (or the full 17) still governs.
+//
+// Resetting the window on trade would erase the salary the SENDING team
+// already paid against that same guarantee, and charge the receiving team for
+// it a second time. Concretely, on a $25K deal cut after Week 12 ($18,750
+// guaranteed): $1,103 if one owner held him the whole way, but $9,375 if he
+// changed hands in Week 10 — an $8,272 surcharge for the identical player cut
+// on the identical day, payable only because the contract moved. That taxes
+// exactly the deadline trades the league wants, and it contradicts §G7.6
+// (Keith 2026-08-16: "you inherit the contract as you received it") — as
+// received means with 12/17 already earned.
+//
+// Canon §D1 line 574 used to list "trade" beside WW/FCFS. That word was never
+// implemented in 16 years of running penalties and never matched practice;
+// canon was corrected 2026-08-16 to state the contract-length principle
+// instead. (Keith: "the 1st 9 weeks were paid and therefore the new owner
+// wouldn't owe.") Regression guard: tests/acquisition_week_canon.test.mjs.
 const _acquisitionWeekMapFromTxs = (txs, year) => {
   const ACQ = { FREE_AGENT: 1, BBID_WAIVER: 1, AUCTION_WON: 1 };
   const byPid = {};
   for (const t of (Array.isArray(txs) ? txs : (txs ? [txs] : []))) {
-    if (!t) continue;
-    const ty = _s(t.type);
+    if (!t || !ACQ[_s(t.type)]) continue;
     const ts = Number(t.timestamp) || 0;
     const wk = _nflWeekForUnix(ts, year);
     if (wk <= 1) continue; // preseason / Week-1 add → continuing window (17)
-
-    // TRADE is an acquisition too — canon §D1 line 574 and §6.B's table both
-    // list it beside WW/FCFS as a mid-season pickup on the 18−W window. It was
-    // omitted here (the file's own comment called it "a known v1 gap"), so a
-    // player traded in Week 10 and cut in Week 12 was priced as though his new
-    // owner had held him since Week 1: ~17 weeks of earning credited instead of
-    // 3, which inflates `earned` and therefore UNDERCHARGES the penalty. Silent
-    // in both directions — nobody complains about being undercharged.
-    //
-    // Trades carry a different shape from adds: no `transaction` field, but
-    // franchise1_gave_up / franchise2_gave_up. Whatever one side gave up, the
-    // other side acquired, so every player id in either list is an acquisition
-    // at this timestamp for somebody. The map is keyed by pid alone and keeps
-    // the LATEST timestamp, which is exactly the current owner's acquisition.
-    if (ty === "TRADE") {
-      const traded = _tradePidsFromGaveUp(t.franchise1_gave_up)
-        .concat(_tradePidsFromGaveUp(t.franchise2_gave_up));
-      for (const pid of traded) {
-        if (!byPid[pid] || ts > byPid[pid].ts) byPid[pid] = { ts, wk };
-      }
-      continue;
-    }
-
-    if (!ACQ[ty]) continue;
     const added = _s(t.transaction).split("|")[0]; // added pids precede the first |
     for (const pid of (added.match(/\d{3,6}/g) || [])) {
       if (!byPid[pid] || ts > byPid[pid].ts) byPid[pid] = { ts, wk };

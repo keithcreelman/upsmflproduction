@@ -571,7 +571,9 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - **Cap penalty formula:** `(TCV × 75%) − Salary Earned`
 - **Earning schedule (per-week pro-rated, effective 2026-05-08):** Each completed NFL regular-season week earns one share of that year's salary. The denominator is the player's **eligible weeks remaining at acquisition**.
   - **Auction + Week-1 acquisitions:** 17 weeks total. After Week 1 → **1/17 earned**, Week 2 → 2/17, Week 3 → 3/17, … Week 17 → 17/17 = 100%.
-  - **Mid-season pickups (Waiver Wire / FCFS / trade):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+  - **Mid-season pickups (Waiver Wire / FCFS):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+    - **The window is the length of the CONTRACT, not the length of your ownership.** A Week-9 pickup gets a 9-week denominator because his contract *begins* in Week 9 — its TCV only ever covered Weeks 9–17, and nobody paid him for Weeks 1–8 under it.
+    - **A trade therefore does NOT re-window anything (Keith 2026-08-16).** The deal has been running since Week 1, its TCV covers the whole season, and the earning clock runs straight through the trade. The acquiring owner inherits the earned salary along with everything else — the direct consequence of §G7.6, *"you inherit the contract as you received it."* Keith: *"the 1st 9 weeks were paid and therefore the new owner wouldn't owe. So it's essentially the same."* This line **used to list "trade"** beside WW/FCFS; that word was never implemented in 16 years of running penalties and never matched practice. Corrected, not changed. See the correction note below.
     - Example A — picked up in Week 9 (9 weeks remaining: Weeks 9–17): Week 9 → 1/9, Week 10 → 2/9, … Week 17 → 9/9 = 100%.
     - Example B — picked up in Week 7 (11 weeks remaining: Weeks 7–17): Week 7 → 1/11, Week 8 → 2/11, … Week 17 → 11/11 = 100%.
   - **WW pickups under the new model are treated identically to auction contracts** — same 75% guarantee, same earning math, same cap-penalty timing. The only difference is the eligible-weeks window. The flat 35% WW rule is RETIRED.
@@ -598,6 +600,27 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
   - Earned = (5/13) × $25K = **$9,615 earned**.
   - TCV = $25K (1-year WW). Penalty = ($25K × 75%) − $9,615 = $18,750 − $9,615 = **$9,135 cap hit** to the **following season** (in-season cut bucket).
   - Under the OLD rule (flat 35% WW), this would have been: 35% × $25K = $8,750 earned → ($25K × 75%) − $8,750 = $10,000. The new rule earns slightly more here because the player was active for 5/13 of the eligible window.
+
+#### Traded-player example, and a correction (2026-08-16)
+
+Same $25K one-year deal, cut after Week 12. Guarantee is $18,750 either way, so the only question is how much of it has already been satisfied:
+
+| | Weeks earned | Earned | **Penalty** |
+|---|---|---|---|
+| One owner all season | 12 of 17 | $17,647 | **$1,103** |
+| Traded in Week 10 | 12 of 17 — *unchanged* | $17,647 | **$1,103** |
+
+The trade moves who owes the $1,103. It does not change the number.
+
+> **⚠️ Correction.** On 2026-08-16 I read the old "trade" in the mid-season list literally, shipped a parser that reset the window at the trade, and reported the prior behavior as an undercharge bug. **It was the fix that was wrong, and it overcharged.** On the case above it would have credited only 3/8 of the salary as earned and billed **$9,375 instead of $1,103** — an **$8,272 surcharge** on the identical player cut on the identical day, owed purely because the contract changed hands.
+>
+> Three things make it wrong, and I should have checked any one of them:
+>
+> 1. **It bills the same dollars twice.** The sending team already paid Weeks 1–9 against this contract's guarantee. Re-windowing erases those payments and charges the receiving team for them again.
+> 2. **It taxes trading.** A contract you might cut becomes materially more expensive the moment you acquire it — a penalty aimed squarely at the deadline trades the league wants to encourage.
+> 3. **It contradicts §G7.6**, ruled one week earlier: *"you inherit the contract as you received it."* As received means with 12/17 already earned.
+>
+> The code never behaved the way canon's word implied — `_acquisitionWeekMapFromTxs` has read `{ FREE_AGENT, BBID_WAIVER, AUCTION_WON }` since it was written, and 16 years of posted penalties match that. **Canon's word was the error, not the code**, so this is a correction, not a rule change. Reverted; the function is byte-identical to its pre-2026-08-16 form. `tests/acquisition_week_canon.test.mjs` now guards the *absence* of trade parsing, verified to fail 5/8 against the version that had it.
 
 ### D2. Cap-free cut categories (no penalty)
 
@@ -1962,11 +1985,14 @@ Salary Earned (year's actual salary basis)
    = (completed_eligible_weeks / total_eligible_weeks) × year's actual salary
 ```
 
-| Acquisition path | Total eligible weeks | Notes |
+**The denominator is set by when the CONTRACT started, not by when you got the player.** A trade transfers an existing contract, so it never resets the window (see §D1 and §G7.6).
+
+| Contract start | Total eligible weeks | Notes |
 |---|---|---|
-| FA Auction + pre-Week-1 pickups (BBID, FCFS, trade) | **17** | Full season available |
-| Mid-season pickup in Week W (W ≥ 1) | **18 − W** | Weeks W through 17, inclusive |
-| Pre-rolloover offseason cut | **N/A — 100% earned at rollover** | Prior year is sunk |
+| FA Auction + pre-Week-1 signings (BBID, FCFS) | **17** | Full season available |
+| Mid-season signing in Week W (W ≥ 1) — BBID / FCFS | **18 − W** | Weeks W through 17, inclusive |
+| **Acquired by trade** | **whatever the contract already had** | 17 if it started at auction, 18 − W if it started on waivers in Week W. The clock keeps running through the trade. |
+| Pre-rollover offseason cut | **N/A — 100% earned at rollover** | Prior year is sunk |
 
 **Worked rates:**
 - Auction acquisition, dropped after **Week 9** completes: 9/17 = ~53% of year's actual salary earned.
@@ -1977,7 +2003,7 @@ Salary Earned (year's actual salary basis)
 **Key clarifications:**
 - Earning ticks up at the **end of each completed NFL regular-season week** (Tuesday after Monday Night Football kicks off the next NFL week, or per the league_events week-boundary convention — see Section 3.A and the NFL calendar reference in the Bot Grounding appendix).
 - "Active for the week" follows the same definition as the taxi-squad rule: rosters and lineups locked, player appears in weekly results.
-- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts. The flat 35% WW rule is RETIRED.
+- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts — same 75% guarantee, same per-week math. What differs between them is only the **denominator**, and a trade doesn't change it. The flat 35% WW rule is RETIRED.
 
 ### B2. ⚠️ Code follow-up (transition note)
 
