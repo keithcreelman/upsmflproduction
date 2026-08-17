@@ -1012,7 +1012,37 @@ These hit cap directly without involving a player transaction.
 | **3rd** | **$15K** | current + next (**$25K total each year**, cumulative) |
 | **4th** | **no fine** | league-fit review — see below |
 
-- **Cumulative, not replacing.** The totals in Keith's text (3 → 10 → 25) are running sums: the 2nd offense *adds* $7K on top of the 1st's $3K.
+#### Extra Nominations — the second half of RULE 2 (added to canon 2026-08-17)
+
+This ladder is **named in this section's own heading and has never been written down**. Keith supplied the original text 2026-08-17:
+
+> **Extra Nominations** — This also happens where you nominate more than the allotted amount for a given day. This fucks shit up and forces me to go in and remove nominations, which if I don't get to it right away, other owners will bid up a player that will end up being removed. It's just unnecessary and I think most of us can count to one or two which is the maximum number of noms for a day.
+
+| Offense | Fine | Applied to |
+|---|---|---|
+| **1st** | **Warning** | *"It can happen by accident we've all done it. Don't let it happen again."* |
+| **2nd** | **$3K** | current season **and** next season |
+| **3rd** | **$7K** | current + next (**$10K total each year**, cumulative) |
+| **4th** | **$15K** | current + next (**$25K total each year**, cumulative) |
+| **5th** | **no fine** | league-fit review (Keith's text: *"required to pull a Billy Madison and pass all grades 1-12"*) |
+
+**It is the missed-nomination ladder shifted one rung**, with a warning inserted at the front. Same $3K/$7K/$15K amounts, same cumulative running totals, same current-and-next-season doubling, same league-fit review at the end. The only difference is the free first offense — and that difference is the system's design rule, stated below.
+
+**Enforcement gap (verified 2026-08-17).** The UPS app blocks a 3rd same-day nomination before it reaches MFL (`performAuctionAction`, §A2 — counting live off `AUCTION_INIT` so native MFL noms count toward the ceiling). But **MFL itself does not block one**, so an owner nominating directly on MFL can still over-nominate, which is exactly the scenario Keith describes having to clean up by hand. Nothing books an offense: `closeEtDay` tests only `used < required` (the miss side) and never `used > required`. The data is already there — `ups_faa_nom_days.noms_used` is written every day for every franchise — so detection is one comparison against a column that already exists.
+
+#### The design rule behind the free first offense (Keith 2026-08-17)
+
+Three ladders, and whether offense #1 is free is **not** a function of how much harm it causes. It tracks **how easy the failure is to commit by accident**:
+
+| Failure | Offense #1 | Keith's reasoning |
+|---|---|---|
+| Missed nomination | **$3K + $3K** | *"You need to be dumb as shit not to understand to nominate 2 guys in a day."* |
+| Extra nomination | **Warning** | *"It can happen by accident we've all done it."* |
+| Illegal lineup (§G3) | **Warning** | *"It's easy to overlook a lineup decision especially with all of the roster spots. So we allow for 1 mistake."* |
+
+One deliberate action a day, with a phone in your pocket, has no accident story. Eighteen starting slots across a 30-man roster does. **This corrects an analysis error of mine** — I had read the free first lineup violation as a severity inversion, on the grounds that an illegal lineup harms eleven other teams while a missed nomination inconveniences a queue. The harm ranking is right; it just isn't the axis the first rung is priced on. Recorded because the principle is load-bearing: any new penalty should ask "can a diligent owner do this by accident?" before deciding whether #1 is free.
+
+- **Cumulative, not replacing.** The totals in Keith's text (3 → 10 → 25) are running sums: the 2nd offense *adds* $7K on top of the 1st's $3K. Same for the extra-nomination ladder.
 - **Both years, but not both now.** The current-season fine posts to MFL as a `salaryAdj` when armed. The **next-season fine is ledger-only and must NOT reach MFL until the rollover** — it shows in reporting immediately, crosses over next year (Keith 2026-07-14: *"store the 3K on the ledger for 2027... never pass to MFL until we roll forward next year"*).
 - **4th offense is a conversation, not a transaction.** Keith's words: *"You should reconsider if your a good fit for the league."* The league posts that message to the owner and asks them to make their case; the league then decides. **Never automated.**
 - **CAVEAT — immunity (load-bearing).** Keith: *"Obviously if there's some family emergency that prevents you from making a nomination, let us know and it won't be held against you. If you let a member of a CC. know ahead of time that you need to miss a day for whatever reason you will also be granted immunity."* The commish **voids the day**, which voids its penalties and removes it from the offense count. A penalty system without this will fine somebody who called ahead — worse than no system at all.
@@ -1963,8 +1993,21 @@ The bid sheet's math depends on getting cap mechanics right. This section enumer
 
 ### A2. Cap floor = $260,000
 
+**Source: §F RULE 1, Keith's original rule text (supplied verbatim 2026-08-17).** The floor's *amount* has been in canon since v4; its **purpose, scope and penalty** were never written down until now.
+
+> **Specifics:** Floor is $260K, which must be met either by the completion of the auction OR by Roster Cut down day. Once you have met this obligation you're free and clear. In other words, should you end the auction at $265K and you sustain an injury of a big name player that gets put on IR, you would still be in compliance. Should you end the auction at $250K, you will need to put on an additional $10K of cap prior to cut down date. The easiest most logical way to do this is to Front Load a contract which serves as a benefit to you the owner.
+>
+> This rule **DOES NOT APPLY during the season**, it is only for this auction/preseason period. Again, this is merely being implemented to curb the **'auction sleeping'** that has occurred from time to time with some of the owners. We recognize this hurts the team that is sleeping, but this is being implemented to ensure that everyone is fully engaged.
+>
+> **Penalty for non compliance:** Immediate Cap Hit applied to the current season in the amount necessary to bring your team in compliance. Ex. You end auction with $250K and fail to get your salary to the floor, you'll receive a $10K cap hit for current season. **Additionally, you'll receive the same $10K cap hit for next season.**
+
 - **Soft floor.** Must be hit by **end of the FA Auction window OR by the Roster Contract Deadline (September contract deadline), whichever comes later** (Keith, 2026-05-16 review session). Touch-and-go during the auction also counts — once the floor is touched at any timestamp in the window, compliance is satisfied.
-- Failing both = out of compliance → cap penalty.
+- **"Roster Cut down day" = the September contract deadline** — the day the active-roster ceiling drops 35 → 30. This is canon's existing reading (Keith, 2026-05-16) and it is consistent with "does not apply during the season": the 2026 contract deadline is **Sun 2026-09-06**, the last Sunday *before* NFL Week 1 (Thu 2026-09-10). The cure window closes before the season starts.
+- **Penalty = the shortfall, twice.** A team that ends the window $10K light takes **$10K against the current season and $10K against the next**. Not a flat fine — it scales to exactly how far short you were, so a $1K miss costs $1K/$1K and a $30K miss costs $30K/$30K.
+  - **The doubling is the deterrent.** Paying the shortfall once would be a no-op: you'd owe the same cap dollars you declined to commit, and sleeping through the auction would be free. The second year is what makes it a penalty rather than a settlement.
+  - Structurally identical to the §F RULE 2 nomination fines (current + next season), which is the shared shape across every auction-period penalty — see §T4.3a.
+- **This penalty amount was missing from canon until 2026-08-17.** §6.A2 said only "out of compliance → cap penalty" with no number, which made it unenforceable — flagged in `penalty_inventory.md` as one of two penalties with no stated amount. Now stated.
+- **Front-loading is the intended cure, not a loophole.** Keith calls it *"the easiest most logical way"* and *"a benefit to you the owner"* — paying more now against a floor you must meet anyway buys you a cheaper contract to cut later (§D1: the guarantee is `TCV × 75%`, and front-loaded money earns off early).
 - **Touch-and-go example (corrected v10):** team hits $270K mid-auction, then a $40K player goes IR. **IR refund = 50% × $40K = $20K**, so committed salary drops to **$250K** (still < $260K, but the team had touched $260K earlier so they're compliant for floor purposes).
 - **Front-loading contracts OR restructuring** is the explicit tool to satisfy the floor when an owner is light on commitments.
 - **Enforcement:** no UPS worker-side hard block today. Compliance is checked at end of the window via the cap-penalty audit path. Auction-tooling enhancements that would surface a floor warning earlier are parked (see Auction Room scope in `CROSS_CODEBASE_ALIGNMENT.md §4.1`).
@@ -2388,7 +2431,15 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
 3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. Its only surviving copy, `ups_v2_rulebook_v4.html`, was deleted 2026-08-16 (G2).
 4. **Commissioner succession** — never written.
-5. ~~**Violations 2–5 pricing**~~ — **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."** The 2018 ladder stands unchanged (G3). Carried into item 2 as a data point, not an open question: on Keith's own read that cap and draft capital cost about the same, a $5K violation-2 hit lands *lighter* than the $7K for a second missed nomination, which inverts the severity between a repeated lineup failure and a missed auction nomination. That's a system-design problem for the penalty pass, not a reason to re-price the ladder now.
+5. ~~**Violations 2–5 pricing**~~ — **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."** The 2018 ladder stands unchanged (G3).
+   - **My "severity inversion" claim here was wrong — withdrawn 2026-08-17.** I wrote that a $5K violation-2 lands lighter than the $7K for a second missed nomination. That compares the cash halves only. It drops the **4th-round pick** attached to violation #2, and it misses that nomination fines are charged to **two cap years** while the lineup fine is charged to one. At Keith's own exchange rate (a 4th ≈ $15K cap, cap possibly lighter) the two ladders are closely matched, not inverted:
+
+     | Offense | Lineup violation (§G3) | Missed nomination (§T4.3a) |
+     |---|---|---|
+     | #2 | $5K × 1 yr + a 4th ≈ **$20K** | $10K cumulative × 2 yrs = **$20K** |
+     | #3 | $10K + a 4th + a 2nd ≈ **$55K** | $25K × 2 yrs = **$50K** |
+
+   - **Neither ladder needs re-pricing.** They already track each other. The genuine gaps are detection and the two ladders that had no schedule or no amount written down — see §T4.3a (Extra Nominations) and §6.A2 (cap floor), both closed 2026-08-17.
 7. ~~**Rounding scope: "cap adjustments" or "cap penalties"?**~~ — **CLOSED 2026-08-17 (Keith): "you trade in whole thousands of dollars so no rounding needed."** The two readings are arithmetically identical, so there is nothing to decide. Traded salary is denominated in $K throughout (`traded_salary_adjustment_k`, posted as `× 1000` — verified 2026-08-17), so any traded amount `T` is a multiple of $1,000. The reconciliation posts `round(sum/1000)×1000 − sum`; adding `T` shifts both terms by exactly `T`, leaving **the same delta**. Including or excluding traded salary changes the posted true-up by $0. Only rows that can carry a non-$1K remainder — drop, cut and waiver penalties, which come out of `(TCV × 75%) − earned` and land on exact dollars like $9,135 — can move the result, and those are precisely what the code sums.
 6. ~~**Who eats the loading settlement on a traded contract?**~~ — **RESOLVED 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the contract whole — its years, its salaries, its loading, and any §D2a settlement that loading eventually produces. There is no adjustment for the fact that the original owner banked the cheap year. This closes a question left open since 2014, when the same case (a back-loaded Jonathan Stewart deal, $19K/$26K, acquired for a 3rd) was sent to a league vote on the old forum and no outcome was ever recorded (`/t15-general-thought`, 30 replies). It follows directly from the existing trade rule — a contract moves unchanged and the sending team is clean immediately — so no new mechanism is needed.
 

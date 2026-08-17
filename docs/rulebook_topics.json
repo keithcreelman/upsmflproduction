@@ -165,7 +165,7 @@
       "today": [
         "The $300K ceiling is enforced by MFL at write time: a move that would put you over it is simply rejected. Don't plan on sorting it out on Monday.",
         "It's also only switched on from FA Auction start to the end of the season. In the offseason there's no ceiling at all. Sit well over it in April, let post-season trades push you further over, none of that is a violation. You just have to be legal the second the auction opens.",
-        "The $260K floor is softer. Touch it at any single instant during the FA Auction and you're satisfied for the year. One moment counts. The other way to clear it is to be above it at the September contract deadline.",
+        "The $260K floor is softer, and it only exists for the auction and preseason. Touch it at any single instant during the FA Auction and you are satisfied for the year - one moment counts, and a player going on IR afterwards does not undo it. If you finish the auction short you have until the September contract deadline to get there, and front-loading a contract is the intended way to do it. Miss both and you are charged exactly what you were short, against this season and next: end $10K light and never fix it, that is $10K now and $10K next year. The doubling is the point, because paying it once would just be the money you declined to spend.",
         "Your roster floor is 27 players, and it holds from auction close through the end of the season. The auction window is the one stretch in-season where the roster may float below it.",
         "Before the FA Auction there are no limits at all — no cap ceiling, no floor, no roster minimum or maximum. You can sit $40K over the cap in April with 40 players. Compliance starts when the auction opens.",
         "The ceiling runs 35 during the auction and drops to 30 at the September contract deadline. MFL enforces that one at write time.",
@@ -444,7 +444,7 @@
       ],
       "gotchas": [
         "Cut a player who still had contract years left and you cannot nominate or bid on him in that summer's FA Auction. Two exceptions: he was on a tag, or you cut him in the few days right before the auction.",
-        "In the FA Auction you must nominate exactly 2 per ET calendar day until you can field a legal lineup. Two is also a hard ceiling every day. A third is a violation.",
+        "In the FA Auction you must nominate exactly 2 per ET calendar day until you can field a legal lineup. Two is also a hard ceiling every day, and a third is its own violation with its own fine ladder - a warning first, then $3K, $7K and $15K, each charged to this season and next. The app blocks a third before it reaches MFL, but MFL will not stop you if you nominate there directly.",
         "The Expired Rookie Auction is the opposite: no nomination requirement, no fines, at most 1 nomination per 12-hour window.",
         "Round 6 must be an IDP. No kickers, no punters, and the pick itself cannot be traded.",
         "Round 1 picks cannot be sent to the taxi squad. Rounds 2 through 6 all can.",
@@ -1162,6 +1162,16 @@
             "$3K, then $7K more, then $15K more - charged to this season and next."
           ],
           [
+            "FA Auction: never more than 2 a day",
+            "Every ET calendar day",
+            "Warning, then $3K, then $7K more, then $15K more - this season and next."
+          ],
+          [
+            "$260K cap floor",
+            "Auction close, or the Sept contract deadline",
+            "Whatever you were short, charged this season and next."
+          ],
+          [
             "Half league dues, $125",
             "By FA Auction start",
             "Nothing automatic. The commissioner will come find you."
@@ -1468,6 +1478,7 @@
       ],
       "gotchas": [
         "Every nomination fine is charged against two cap years. People budget for $3K and get charged $3K twice.",
+        "Going over 2 nominations in a day is its own offense, separate from missing one. It gets a free warning first because everyone has done it by accident, then runs the same $3K, $7K, $15K ladder.",
         "The escalation is cumulative, not replacing. Three misses is $25K a year, not $15K.",
         "Nomination days are anchored ET calendar days, the same for every team. It is not a rolling 24 hours from your last nomination.",
         "If your roster can already field a legal lineup, nominating zero times is fine.",
