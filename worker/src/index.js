@@ -33,6 +33,7 @@ import {
   evaluateLineup, bookLineupViolation, lineupStandings, voidLineupViolation,
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
+import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
 import { buildWaiverRunPlan, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -6308,6 +6309,42 @@ export default {
       }
     } catch (e) {
       console.error(`[scheduled hourly] injury poll dispatch failed: ${e && e.message}`);
+    }
+
+    // ── §G3/§H LINEUP COMPLIANCE ──────────────────────────────────────────
+    // Two passes, both cheap and both no-ops most hours:
+    //   • DM sweep — fires only when a game window is 1–2.5h out, so an owner
+    //     still has time to act. Deduped per (fid, week, window) in
+    //     ups_lineup_dm_log, so an extra tick cannot double-DM anybody.
+    //   • Booking  — fires only once the week's last kickoff is >4h past, then
+    //     evaluates and books onto the §G3 ladder. Idempotent per
+    //     franchise-week.
+    //
+    // Deliberately AFTER the injury poll above and in its own try/catch: the
+    // poll is the one that must never be skipped, because its history cannot
+    // be backfilled. These two can miss an hour and recover on the next tick.
+    try {
+      const lcSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const lcLeague = String(env.LEAGUE_ID || "74598");
+      const lcWeek = _nflWeekForUnix(Math.floor(Date.now() / 1000), Number(lcSeason));
+      if (lcWeek >= 1 && env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            const dm = await runLineupDmSweep(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek });
+            if (dm && dm.sent) console.log(`[scheduled hourly] lineup DMs: wk${lcWeek} ${dm.window_label} -> ${dm.sent} owner(s)`);
+          } catch (e) { console.error(`[scheduled hourly] lineup DM sweep failed: ${e && e.message}`); }
+          try {
+            // Book the week that just finished, not the one in progress.
+            for (const wk of [lcWeek - 1, lcWeek]) {
+              if (wk < 1) continue;
+              const bk = await runLineupBooking(env, { season: lcSeason, leagueId: lcLeague, week: wk });
+              if (bk && bk.booked) console.log(`[scheduled hourly] lineup violations booked: wk${wk} -> ${bk.booked} (${bk.clean} clean, ${bk.skipped} skipped)`);
+            }
+          } catch (e) { console.error(`[scheduled hourly] lineup booking failed: ${e && e.message}`); }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] lineup compliance dispatch failed: ${e && e.message}`);
     }
 
     // Phase 2 backup: once per day (at the 09:05 UTC firing) snapshot the
