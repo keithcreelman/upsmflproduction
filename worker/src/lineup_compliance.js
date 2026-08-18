@@ -370,12 +370,29 @@ export async function injuryObservedFrom(env, { season, week }) {
   return Number(r && r.first) || 0;
 }
 
+// Reads week W **and W-1**, keeping the EARLIEST sighting of each status.
+//
+// The extra week is load-bearing, not caution. A Thursday game's 24-hour mark
+// falls on WEDNESDAY, which belongs to the previous NFL week's bucket. Reading
+// week W alone would miss it, and the miss is not a null — it re-dates the
+// designation. A player ruled Out on Wednesday would show a first sighting of
+// Thursday morning, ~10h before an 8:15pm kickoff, and score as INSIDE the
+// 24-hour window: advisory instead of violation, on a designation the owner had
+// a full day to act on.
+//
+// MIN(first_seen_unix) is what makes the overlap safe. The same status seen in
+// both buckets collapses to the earlier sighting, which is the true one — a
+// status carried across a week boundary gets a fresh first_seen in the new
+// bucket, and taking that later value would be the same re-dating bug.
 export async function injuryHistoryForWeek(env, { season, week }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return {};
   const { results } = await db.prepare(
-    `SELECT player_id, status, first_seen_unix FROM ups_injury_status WHERE season=? AND week=?`
-  ).bind(Number(season), Number(week)).all();
+    `SELECT player_id, status, MIN(first_seen_unix) AS first_seen_unix
+       FROM ups_injury_status
+      WHERE season=? AND week IN (?, ?)
+      GROUP BY player_id, status`
+  ).bind(Number(season), Number(week) - 1, Number(week)).all();
   const out = {};
   for (const r of (results || [])) {
     const pid = _s(r.player_id);

@@ -1901,6 +1901,45 @@ async function nflWeekFirstKickoffUnix(season, week) {
 //
 // Returns null — never a guess — when the schedule does not answer, so callers
 // fall through to the _nflWeek1Iso() approximation rather than a bad date.
+// Which NFL week should an injury poll be filed under?
+//
+// NOT _nflWeekForUnix. That derives Week 1 as "the Thursday after Labor Day"
+// and returns 0 for anything earlier — which in 2026 means it reports week 0
+// on Wed Sep 9, the day Week 1 actually kicks off, and never fires at all
+// during the lead-in. Both are fatal here: the 24-hour notice window for a
+// Week 1 game opens on Tue Sep 8, so a poller that starts at "Week 1" has
+// ZERO coverage of the window every Week 1 verdict depends on, and injury
+// history is the one input that cannot be backfilled.
+//
+// Weeks are also not uniform — 2026 Week 1→2 is EIGHT days (Wed Sep 9 → Thu
+// Sep 17) — so 7-day blocks off Week 1 would misfile the rest of the season.
+// Real kickoffs are the only reliable boundary; nflWeekFirstKickoffUnix memoizes
+// them for an hour, so the walk below costs at most a couple of cached reads.
+//
+// Returns 0 when the schedule cannot be read. Never a guess: filing a poll under
+// the wrong week is worse than not filing it, because a misfiled designation
+// re-dates itself and can flip a violation to an advisory.
+const INJURY_POLL_LEAD_IN_SEC = 12 * 86400;
+const _injuryPollWeek = async (season) => {
+  const now = Math.floor(Date.now() / 1000);
+  const w1 = await nflWeekFirstKickoffUnix(season, 1);
+  if (!(w1 > 0)) return 0;
+  if (now < w1 - INJURY_POLL_LEAD_IN_SEC) return 0;   // preseason, nothing to watch yet
+  if (now < w1) return 1;                             // lead-in IS Week 1's notice window
+  let wk = Math.min(17, Math.max(1, Math.floor((now - w1) / (7 * 86400)) + 1));
+  // Correct the estimate against real kickoffs, in both directions. Bounded so a
+  // pathological schedule can't spin.
+  for (let i = 0; i < 4 && wk > 1; i += 1) {
+    const k = await nflWeekFirstKickoffUnix(season, wk);
+    if (k > 0 && now < k) wk -= 1; else break;
+  }
+  for (let i = 0; i < 4 && wk < 17; i += 1) {
+    const kn = await nflWeekFirstKickoffUnix(season, wk + 1);
+    if (kn > 0 && now >= kn) wk += 1; else break;
+  }
+  return wk;
+};
+
 const _week1BoundaryIsoET = async (season) => {
   try {
     const unix = await nflWeekFirstKickoffUnix(season, 1);
@@ -6279,12 +6318,13 @@ export default {
       // pattern as every other job on this cron.
       const injSeason = String(env.YEAR || new Date().getUTCFullYear());
       const injLeague = String(env.LEAGUE_ID || "74598");
-      const injWeek = _nflWeekForUnix(Math.floor(Date.now() / 1000), Number(injSeason));
-      if (injWeek >= 1 && env.UPS_MFL_DB) {
+      if (env.UPS_MFL_DB) {
         ctx.waitUntil((async () => {
           try {
             // League-agnostic export — omitLeagueParam, same as every other
             // TYPE=injuries call in this file (see the §D2a note at ~44114).
+            const injWeek = await _injuryPollWeek(injSeason);
+            if (!injWeek) return;   // preseason, or the schedule could not be read
             const ir = await mflExportJson(injSeason, injLeague, "injuries", {},
               { useCookie: false, omitLeagueParam: true });
             if (!ir.ok || !ir.data) {
@@ -6326,9 +6366,10 @@ export default {
     try {
       const lcSeason = String(env.YEAR || new Date().getUTCFullYear());
       const lcLeague = String(env.LEAGUE_ID || "74598");
-      const lcWeek = _nflWeekForUnix(Math.floor(Date.now() / 1000), Number(lcSeason));
-      if (lcWeek >= 1 && env.UPS_MFL_DB) {
+      if (env.UPS_MFL_DB) {
         ctx.waitUntil((async () => {
+          const lcWeek = await _injuryPollWeek(lcSeason);
+          if (!lcWeek) return;
           try {
             const dm = await runLineupDmSweep(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek });
             if (dm && dm.sent) console.log(`[scheduled hourly] lineup DMs: wk${lcWeek} ${dm.window_label} -> ${dm.sent} owner(s)`);
