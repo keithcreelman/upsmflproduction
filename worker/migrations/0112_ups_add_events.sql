@@ -1,3 +1,8 @@
+-- ⚠️ THE "NEVER RUN migrations apply" WARNING BELOW IS OBSOLETE (2026-08-17).
+--    The tracker was reconciled; `wrangler d1 migrations apply` is now correct.
+--    See migrations/README.md. The old text is left intact below on purpose —
+--    it was true when written.
+
 -- 0112_ups_add_events
 --
 -- ⚠️ APPLY WITH:  wrangler d1 execute UPS_MFL_DB --remote --file=worker/migrations/0112_ups_add_events.sql

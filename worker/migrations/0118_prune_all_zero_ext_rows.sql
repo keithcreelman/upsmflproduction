@@ -1,3 +1,8 @@
+-- ⚠️ THE "NEVER RUN migrations apply" WARNING BELOW IS OBSOLETE (2026-08-17).
+--    The tracker was reconciled; `wrangler d1 migrations apply` is now correct.
+--    See migrations/README.md. The old text is left intact below on purpose —
+--    it was true when written.
+
 -- 0118_prune_all_zero_ext_rows.sql
 -- Claude 2026-08-04 — housekeeping for nfl_player_weekly_ext.
 --

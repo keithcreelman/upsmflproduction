@@ -20,7 +20,10 @@ Every consequence the league can impose, in one place, so a coherent system can 
 | A6 | 3rd missed nomination | +$15K (cumulative), two cap years | Code | §F R2 |
 | A7 | 4th+ missed nomination | **$0** — "a conversation about league fit, not a transaction" | Code (ladder caps at 3) | §T4.3a |
 | A9 | Over the 4-starting-QB cap at the contract deadline | Forced cuts in reverse-acquisition order, normal penalties to next season | **Nobody** — no code found | §B1 |
-| A10 | Missing the $260K floor | "Out of compliance, draws a cap penalty" — **amount never stated** | Advisory only | §6.A2 |
+| A10 | Missing the $260K floor (auction → contract deadline) | **The shortfall, charged to the current season AND the next.** End $10K light → $10K + $10K | **Nobody** — no worker-side check | §6.A2 |
+| A14 | 2nd extra nomination | $3K current + next | **Nobody** — `closeEtDay` never tests `used > required` | §T4.3a |
+| A15 | 3rd extra nomination | +$7K cumulative, current + next | Nobody | §T4.3a |
+| A16 | 4th extra nomination | +$15K cumulative, current + next | Nobody | §T4.3a |
 | A11 | Lineup violation #2 | $5K next season (+ a 4th-round pick) | Commissioner, manual | §G3 |
 | A12 | Lineup violation #3 | +$5K (+ a 2nd-round pick) | Commissioner, manual | §G3 |
 | A13 | Lineup violation #4 | +$10K if retained by league vote | Commissioner, manual | §G3 |
@@ -74,15 +77,26 @@ If a stripped pick isn't held, it's taken at the next opportunity (trade or roll
 
 ## Part 2 — What's wrong with it
 
-**1. Four currencies, no exchange rate.** Cap dollars, draft picks, privileges, membership. Nothing relates them. Is losing a 4th-rounder heavier or lighter than $15K in cap? Nobody can say, so nobody can tell whether the ladder is proportionate.
+**1. ~~Four currencies, no exchange rate.~~** *(Overstated — revised 2026-08-17.)* The four currencies are real, but the **cap-dollar penalties are already one consistent family**: every auction-period penalty charges the current season *and* the next, and the three offense ladders all run $3K → $7K → $15K cumulative, ending in a league-fit review. Keith supplied the exchange rate that was missing (a 4th ≈ $15K cap, cap possibly lighter), which is enough to check proportionality — and on it, the lineup and nomination ladders match rather than diverge. What is left is not an exchange-rate problem.
 
-**2. The two ladders disagree with each other.** Missed nominations: $3K → $7K → $15K → **free**. Lineup violations: warning → 4th + $5K → 2nd + $5K → retention vote → expulsion. One de-escalates to nothing on the 4th offense; the other escalates to expulsion. Both are "you didn't do a required thing repeatedly."
+**2. ~~The two ladders disagree with each other.~~** *(Wrong — withdrawn 2026-08-17.)* I read the nomination ladder's 4th offense as de-escalating "to nothing." It isn't a de-escalation: the 4th offense is a **league-fit review**, which escalates *out of* the cap currency into membership — the heaviest rung there is. Both ladders end at a membership review. There are in fact **three** ladders (missed nomination, extra nomination, lineup violation) and they share one shape: an optional free first offense, then $3K/$7K/$15K-equivalent escalation, then membership. They agree.
 
-**3. Severity doesn't track harm.** Missing a nomination inconveniences an auction. Fielding an illegal lineup hands a free win to whoever you played and distorts All-Play for all eleven other teams — which now moves $900 of Dynasty Pot. The nomination miss is automated and precise; the lineup violation is manual and priced from a 2018 document.
+**3. ~~Severity doesn't track harm.~~** *(Half wrong — revised 2026-08-17.)* The harm ranking is right — an illegal lineup hands a free win to your opponent and distorts All-Play for eleven other teams, which now moves $900 of Dynasty Pot, while a missed nomination inconveniences a queue. But I used it to argue the free first lineup violation was mispriced, and **the first rung is not priced on harm at all.** Keith 2026-08-17: it is priced on whether a diligent owner can trip it by accident. Eighteen starting slots can be overlooked; nominating two players in a day cannot. From offense #2 onward the ladders do track harm and do match each other. What survives from this item is only the enforcement half: the nomination ladder is automated and exact, the lineup ladder is counted by hand in Discord.
 
-**4. Enforcement is wildly uneven.** Nomination fines are fully automated and exact. The 4-starting-QB cap, the 5-QB cap, the 4-MYM limit, the $260K floor, and every lineup violation have **no implementation at all**. A rule nobody can detect isn't a rule.
+**4. Enforcement is wildly uneven — the one real problem left.** Missed-nomination fines are fully automated, exact, ledgered, and have a working immunity path. Against that:
 
-**5. Two penalties have no stated amount.** Missing the cap floor "draws a cap penalty" (§6.A2) — how much has never been written. Dropping below 27 is "a compliance violation" with no consequence named.
+| Rule | What actually happens |
+|---|---|
+| Missed nomination | Fully automated: detected, priced, ledgered, re-derived on excuse |
+| Roster < 27 | **Blocked by MFL.** Nothing to enforce |
+| 3rd nomination in a day | Blocked by the UPS app — but **not by MFL**, so a native MFL nom slips through and nothing books the offense (`closeEtDay` tests only the miss side) |
+| Illegal lineup | **Built 2026-08-17** (`lineup_compliance.js`). Hourly injury-status snapshots make the 24-hour anchor computable for the first time; one violation per franchise-week; refuses to judge an unobserved window |
+| $260K floor | No worker-side check. Now that the amount exists, it is computable |
+| 4-starting-QB cap, 5-QB cap, 4-MYM limit | No implementation at all |
+
+The pattern: where a rung is automated it is uncontroversial, and where it is manual it has never been applied past #1. Detection — not pricing — is what separates the two.
+
+**5. ~~Two penalties have no stated amount.~~** — **BOTH CLOSED 2026-08-17.** The cap floor now has its amount: the shortfall, charged to the current season *and* the next (§6.A2, from Keith's §F RULE 1 text). And dropping below 27 needs no penalty — **MFL blocks it outright** (Keith 2026-08-17), so it is a hard constraint, not an unenforced rule. It should never have been on this list.
 
 **6. One penalty punishes the wrong person.** Transaction reversal (C6) unwinds a trade the *counterparty* completed in good faith. Keith's ruling in §G7.1.
 
@@ -93,6 +107,18 @@ If a stripped pick isn't held, it's taken at the next opportunity (trade or roll
 ## Part 3 — A proposed system
 
 Not a rule change. A shape to react to.
+
+### Principle 0 — The free first offense is priced on accident-risk, not harm (Keith 2026-08-17)
+
+Whether offense #1 is free tracks **whether a diligent owner can trip it by accident**, not how much damage it does:
+
+| Failure | #1 | Why |
+|---|---|---|
+| Missed nomination | **$3K + $3K** | *"You need to be dumb as shit not to understand to nominate 2 guys in a day."* |
+| Extra nomination | **Warning** | *"It can happen by accident we've all done it."* |
+| Illegal lineup | **Warning** | *"It's easy to overlook a lineup decision especially with all of the roster spots. So we allow for 1 mistake."* |
+
+The lineup warning is also doing the job I thought was missing — it absorbs the genuine emergency, and Keith 2026-08-17 confirms *"in a situation like this we give deference to family issues"* on top of it. **Test for any new penalty: can a diligent owner do this by accident?** Yes → free first offense. No → price it from #1.
 
 ### Principle 1 — Match the severity to the harm
 
@@ -126,10 +152,14 @@ For roster/cap state, the lever is blocking further moves until legal:
 - **Pre-season:** cure by the earlier of the next two waiver cycles or roster deadline day
 - Penalty only if the cure window lapses — and then it's a competitive penalty, since by then you've fielded an illegal roster
 
+### Principle 5 — One structure, already in use
+
+Every auction-period cap penalty charges **the current season and the next**: nomination fines, extra-nomination fines, and the cap-floor shortfall. It is worth stating as the house rule rather than rediscovering it per penalty — and the floor case shows why it exists. Charging a floor shortfall *once* would be a no-op, since you'd owe exactly the cap dollars you declined to commit; the second year is the entire deterrent.
+
 ### Open questions for the league
 
-1. ~~**Is a 4th-round pick worth more or less than $15K in cap?**~~ **Answered (Keith 2026-08-16): they're roughly equivalent, cap possibly lighter.** Follow-on: if that's true, is a $5K cap hit for a lineup violation (§G3) actually *weaker* than the $7K for a second missed nomination — punishing the more damaging failure less?
-2. **What does missing the $260K floor actually cost?** (§6.A2 has never said.)
-3. **Should lineup violations reset annually, or accumulate across seasons?** Neither ladder says.
-4. **Do violations 2–5 keep their 2018 prices?** Pick-stripping is heavy; nobody has been past violation 1 in the current era.
+1. ~~**Is a 4th-round pick worth more or less than $15K in cap?**~~ **Answered (Keith 2026-08-16): roughly equivalent, cap possibly lighter.** The follow-on I raised — whether a $5K lineup violation is weaker than a $7K nomination miss — **was my arithmetic error and is withdrawn.** It compared the cash halves only, dropping the 4th-round pick attached to violation #2 and the fact that nomination fines charge to two cap years while the lineup fine charges to one. Corrected: lineup #2 ≈ $20K vs nomination #2 = $20K; lineup #3 ≈ $55K vs nomination #3 = $50K. **The ladders match. Neither needs re-pricing.**
+2. ~~**What does missing the $260K floor actually cost?**~~ **ANSWERED 2026-08-17** — the shortfall, current season and next (§6.A2, §F RULE 1).
+3. ~~**Should lineup violations reset annually, or accumulate across seasons?**~~ **ANSWERED 2026-08-17 (Keith): they reset each season.** Count starts at zero every year, which means expulsion at #5 requires five illegal lineups *in one season*. Matches §F RULE 2, which was already season-scoped in code. See §G3.
+4. ~~**Do violations 2–5 keep their 2018 prices?**~~ **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."**
 5. **What's the penalty for lapsing the compliance cure window** under the new §G7.1 model?

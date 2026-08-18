@@ -28,6 +28,12 @@ import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
   flagReengagementMiss, rule2FineK,
 } from "./auction_compliance.js";
+import {
+  recordInjurySnapshot, injuryObservedFrom, injuryHistoryForWeek,
+  evaluateLineup, bookLineupViolation, lineupStandings, voidLineupViolation,
+  composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
+} from "./lineup_compliance.js";
+import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
 import { buildWaiverRunPlan, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -1895,6 +1901,45 @@ async function nflWeekFirstKickoffUnix(season, week) {
 //
 // Returns null — never a guess — when the schedule does not answer, so callers
 // fall through to the _nflWeek1Iso() approximation rather than a bad date.
+// Which NFL week should an injury poll be filed under?
+//
+// NOT _nflWeekForUnix. That derives Week 1 as "the Thursday after Labor Day"
+// and returns 0 for anything earlier — which in 2026 means it reports week 0
+// on Wed Sep 9, the day Week 1 actually kicks off, and never fires at all
+// during the lead-in. Both are fatal here: the 24-hour notice window for a
+// Week 1 game opens on Tue Sep 8, so a poller that starts at "Week 1" has
+// ZERO coverage of the window every Week 1 verdict depends on, and injury
+// history is the one input that cannot be backfilled.
+//
+// Weeks are also not uniform — 2026 Week 1→2 is EIGHT days (Wed Sep 9 → Thu
+// Sep 17) — so 7-day blocks off Week 1 would misfile the rest of the season.
+// Real kickoffs are the only reliable boundary; nflWeekFirstKickoffUnix memoizes
+// them for an hour, so the walk below costs at most a couple of cached reads.
+//
+// Returns 0 when the schedule cannot be read. Never a guess: filing a poll under
+// the wrong week is worse than not filing it, because a misfiled designation
+// re-dates itself and can flip a violation to an advisory.
+const INJURY_POLL_LEAD_IN_SEC = 12 * 86400;
+const _injuryPollWeek = async (season) => {
+  const now = Math.floor(Date.now() / 1000);
+  const w1 = await nflWeekFirstKickoffUnix(season, 1);
+  if (!(w1 > 0)) return 0;
+  if (now < w1 - INJURY_POLL_LEAD_IN_SEC) return 0;   // preseason, nothing to watch yet
+  if (now < w1) return 1;                             // lead-in IS Week 1's notice window
+  let wk = Math.min(17, Math.max(1, Math.floor((now - w1) / (7 * 86400)) + 1));
+  // Correct the estimate against real kickoffs, in both directions. Bounded so a
+  // pathological schedule can't spin.
+  for (let i = 0; i < 4 && wk > 1; i += 1) {
+    const k = await nflWeekFirstKickoffUnix(season, wk);
+    if (k > 0 && now < k) wk -= 1; else break;
+  }
+  for (let i = 0; i < 4 && wk < 17; i += 1) {
+    const kn = await nflWeekFirstKickoffUnix(season, wk + 1);
+    if (kn > 0 && now >= kn) wk += 1; else break;
+  }
+  return wk;
+};
+
 const _week1BoundaryIsoET = async (season) => {
   try {
     const unix = await nflWeekFirstKickoffUnix(season, 1);
@@ -6248,6 +6293,111 @@ export default {
       // Unknown cron pattern — log and bail.
       console.log(`[scheduled] unknown cron trigger: "${cronTrigger}"`);
       return;
+    }
+
+    // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
+    // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
+    // "was he declared Out more than 24 hours before kickoff?" is unanswerable
+    // unless somebody is writing it down as it happens. This is that somebody.
+    // Nothing in UPS ever recorded injury status over time, which is why §G3's
+    // 24-hour rule was not merely unenforced — it was not computable.
+    //
+    // Hourly is the right cadence and it errs the safe way. Worst case a
+    // designation is first recorded up to an hour after it appeared, which can
+    // only push a borderline case from "violation" toward "advisory" — i.e.
+    // toward the owner. Polling faster would buy precision the rule's own
+    // 24-hour margin does not need.
+    //
+    // Runs all season regardless of whether anything consumes it yet: the
+    // history has to already exist by the time a verdict is asked for, and
+    // Week 1 2026 kicks off Wed Sept 9. Starting to collect after a violation
+    // is exactly when the data is useless.
+    try {
+      // env.YEAR / env.LEAGUE_ID, NOT the request-scoped YEAR / L — those are
+      // parsed off the URL in fetch() and simply do not exist here. Same
+      // pattern as every other job on this cron.
+      const injSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const injLeague = String(env.LEAGUE_ID || "74598");
+      if (env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            // League-agnostic export — omitLeagueParam, same as every other
+            // TYPE=injuries call in this file (see the §D2a note at ~44114).
+            const injWeek = await _injuryPollWeek(injSeason);
+            if (!injWeek) return;   // preseason, or the schedule could not be read
+            // Plain fetch, NOT mflExportJson — that helper is declared inside
+            // the fetch() handler and does not exist in scheduled(). Same class
+            // of scope error as YEAR/L, and the eslint no-undef deploy gate is
+            // what caught it. TYPE=injuries is league-agnostic and needs no
+            // cookie, so there is nothing the helper was providing here.
+            const ir = await (async () => {
+              try {
+                const r = await fetch(
+                  `https://api.myfantasyleague.com/${encodeURIComponent(injSeason)}/export?TYPE=injuries&W=&JSON=1`,
+                  { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 60 } }
+                );
+                return r.ok ? { ok: true, data: await r.json().catch(() => null) } : { ok: false, data: null };
+              } catch (_) { return { ok: false, data: null }; }
+            })();
+            if (!ir.ok || !ir.data) {
+              // Do NOT record a poll on a failed fetch. ups_injury_polls is the
+              // evidence that we were watching; stamping it on a failure would
+              // claim coverage we did not have, and coverage is what licenses a
+              // fine. A gap must look like a gap.
+              console.warn("[scheduled hourly] injury poll: export unreadable, no coverage recorded");
+              return;
+            }
+            let rows = ir.data.injuries && (ir.data.injuries.injury || ir.data.injuries.player);
+            rows = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+            const res = await recordInjurySnapshot(env, {
+              season: injSeason, week: injWeek, rows,
+              nowUnix: Math.floor(Date.now() / 1000),
+            });
+            if (res.written) console.log(`[scheduled hourly] injury poll: wk${injWeek}, ${res.written} statuses`);
+          } catch (e) {
+            console.error(`[scheduled hourly] injury poll failed: ${e && e.message}`);
+          }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] injury poll dispatch failed: ${e && e.message}`);
+    }
+
+    // ── §G3/§H LINEUP COMPLIANCE ──────────────────────────────────────────
+    // Two passes, both cheap and both no-ops most hours:
+    //   • DM sweep — fires only when a game window is 1–2.5h out, so an owner
+    //     still has time to act. Deduped per (fid, week, window) in
+    //     ups_lineup_dm_log, so an extra tick cannot double-DM anybody.
+    //   • Booking  — fires only once the week's last kickoff is >4h past, then
+    //     evaluates and books onto the §G3 ladder. Idempotent per
+    //     franchise-week.
+    //
+    // Deliberately AFTER the injury poll above and in its own try/catch: the
+    // poll is the one that must never be skipped, because its history cannot
+    // be backfilled. These two can miss an hour and recover on the next tick.
+    try {
+      const lcSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const lcLeague = String(env.LEAGUE_ID || "74598");
+      if (env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          const lcWeek = await _injuryPollWeek(lcSeason);
+          if (!lcWeek) return;
+          try {
+            const dm = await runLineupDmSweep(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek });
+            if (dm && dm.sent) console.log(`[scheduled hourly] lineup DMs: wk${lcWeek} ${dm.window_label} -> ${dm.sent} owner(s)`);
+          } catch (e) { console.error(`[scheduled hourly] lineup DM sweep failed: ${e && e.message}`); }
+          try {
+            // Book the week that just finished, not the one in progress.
+            for (const wk of [lcWeek - 1, lcWeek]) {
+              if (wk < 1) continue;
+              const bk = await runLineupBooking(env, { season: lcSeason, leagueId: lcLeague, week: wk });
+              if (bk && bk.booked) console.log(`[scheduled hourly] lineup violations booked: wk${wk} -> ${bk.booked} (${bk.clean} clean, ${bk.skipped} skipped)`);
+            }
+          } catch (e) { console.error(`[scheduled hourly] lineup booking failed: ${e && e.message}`); }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] lineup compliance dispatch failed: ${e && e.message}`);
     }
 
     // Phase 2 backup: once per day (at the 09:05 UTC firing) snapshot the
@@ -45895,7 +46045,11 @@ export default {
           rowsToPost.push({
             franchise_id: fid,
             amount,
-            explanation: `UPS RULE 2 missed nomination ${safeStr(pen.et_day)} offense ${safeInt(pen.offense_no, 0)} id:${key}`,
+            // Both RULE 2 ladders post through here. The owner reads this line
+            // on their MFL cap sheet months later, so it has to say WHICH rule
+            // they broke — "missed nomination" on an extra-nomination fine
+            // would be an unarguable-looking charge for a thing they didn't do.
+            explanation: `UPS RULE 2 ${safeStr(pen.kind) === "over" ? "extra nomination" : "missed nomination"} ${safeStr(pen.et_day)} offense ${safeInt(pen.offense_no, 0)} id:${key}`,
             penalty_id: pen.penalty_id,
             key,
           });

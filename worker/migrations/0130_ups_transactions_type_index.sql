@@ -1,0 +1,23 @@
+-- 0130_ups_transactions_type_index.sql
+-- The index 0075 meant to create and never could.
+--
+-- 0075 ends with:
+--     CREATE INDEX IF NOT EXISTS idx_txn_type ON ups_transactions(type, season);
+--
+-- That statement is a permanent no-op. SQLite index names are DATABASE-GLOBAL,
+-- not per-table, and `idx_txn_type` was already taken by
+-- mfl_historical_transactions (season, type). So `IF NOT EXISTS` matched the
+-- OTHER table's index and skipped creation — silently, on every run 0075 has
+-- ever had or ever will have. ups_transactions has been serving type+season
+-- lookups as a full scan since 2026-06-05.
+--
+-- Found 2026-08-17 while reconciling the migration ledger: 0075's other three
+-- indexes came back present and this one did not, which is only possible if the
+-- name resolved somewhere else.
+--
+-- Named idx_ups_txn_type to be collision-proof. 0075 is left as written —
+-- history stays honest, and this file records why the line in it is dead.
+--
+-- WRITES: one index. No schema change to any table. No data touched.
+
+CREATE INDEX IF NOT EXISTS idx_ups_txn_type ON ups_transactions(type, season);
