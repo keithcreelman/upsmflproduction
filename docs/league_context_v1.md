@@ -2488,6 +2488,17 @@ Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year
 ### G7. Open governance items
 
 1. **Roster/lineup non-compliance: replace transaction reversal (Keith 2026-08-16).** Reversal is the wrong control for three reasons Keith named: it **punishes the counterparty** to a trade the non-compliant owner made; it is exploitable as **buyer's remorse**; and a mechanism already exists that blocks further roster changes until the roster is fixed, which is a cleaner lever than undoing a completed transaction. Direction: **in-season**, the weekly valid-lineup requirement is the control. **Pre-season**, cure by the earlier of the next two waiver cycles or roster deadline day. Penalty for non-compliance still to be set — see item 2.
+1a. **The cure-window penalty — RESOLVED 2026-08-17 (Keith).** §G7.1 replaced transaction reversal but left the consequence open. It is now derived from structures that already exist rather than invented:
+
+   | When | If the cure window lapses |
+   |---|---|
+   | **Pre-season** (cap non-compliance) | **The amount you are out by, charged to this season AND next** — §F RULE 1's floor penalty, pointed at the ceiling. Same shape, same doubling, same reason: paying it once is merely the money you declined to commit, so the second year is the entire deterrent. |
+   | **In-season** (illegal roster) | **It becomes a §G3 lineup violation** and enters that ladder at the franchise's current rung. |
+
+   The in-season half follows from harm, not convenience. By the time a cure window has lapsed you have fielded an illegal roster, which distorts All-Play for the other eleven teams exactly as an illegal lineup does — and All-Play is money now (the $900 Dynasty Pot). §G3 is also the ladder that is *already* season-scoped, already carries a commissioner immunity path, and as of 2026-08-17 is actually detected.
+
+   **No new currency, no new numbers, nothing re-priced.** That is the test this proposal had to pass: the penalty system does not need a fifth currency, it needs its existing ones pointed at the gaps.
+
 2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
 3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. Its only surviving copy, `ups_v2_rulebook_v4.html`, was deleted 2026-08-16 (G2).
 4. **Commissioner succession** — never written.

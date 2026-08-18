@@ -162,4 +162,24 @@ Every auction-period cap penalty charges **the current season and the next**: no
 2. ~~**What does missing the $260K floor actually cost?**~~ **ANSWERED 2026-08-17** — the shortfall, current season and next (§6.A2, §F RULE 1).
 3. ~~**Should lineup violations reset annually, or accumulate across seasons?**~~ **ANSWERED 2026-08-17 (Keith): they reset each season.** Count starts at zero every year, which means expulsion at #5 requires five illegal lineups *in one season*. Matches §F RULE 2, which was already season-scoped in code. See §G3.
 4. ~~**Do violations 2–5 keep their 2018 prices?**~~ **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."**
-5. **What's the penalty for lapsing the compliance cure window** under the new §G7.1 model?
+5. ~~**What's the penalty for lapsing the compliance cure window?**~~ **ANSWERED 2026-08-17 (Keith).** Pre-season cap non-compliance → **the amount you are out by, this season and next** (§F RULE 1's floor penalty pointed at the ceiling). In-season illegal roster → **it becomes a §G3 lineup violation**, since by then you have fielded an illegal roster and the harm is the same. Derived from existing structures: no new currency, no new numbers. See canon §G7.1a.
+
+### Detection, as of 2026-08-17
+
+Principle 3 says a rule nobody can detect is not a rule. Where each stands now:
+
+| Rule | Before | Now |
+|---|---|---|
+| Missed nomination | automated | automated |
+| Extra nomination | **nothing** — app-side block only, bypassable via MFL | **built** — `closeEtDay` books the over side (0128) |
+| Illegal lineup | **nothing** — counted by hand in Discord | **built** — `lineup_compliance.js` + `lineup_wiring.js` (0129) |
+| 4 MYMs/season | **nothing** — the client claimed the worker did it | **built** — `mym_guard.js`, blocks at submit |
+| 14-day MYM window | **nothing** — same false claim | **built** — same guard |
+| 5-QB active max | **nothing** | **built** — `/admin/qb-caps/check`, deterministic |
+| 4-starting-QB cap | **nothing** | **reported** — same endpoint; starter status is a commissioner input, never inferred |
+| Roster < 27 | blocked by MFL | blocked by MFL |
+| $260K floor | no check | amount now stated (§6.A2); check still unbuilt |
+
+The 4-starting-QB cap stops at *reported* on purpose. Canon's consequence is real cuts with real dead money, and canon itself makes starter status a commissioner determination — FantasyPros' depth-chart page is client-rendered (verified 2026-08-17: zero `QB` in the served HTML), so there is no honest scrape behind an automated answer either. Making it **visible** is the most a rule of that shape can honestly be.
+
+**Still unbuilt:** the $260K floor check. It is now computable — the amount is stated — but nothing runs it.
