@@ -1,3 +1,8 @@
+-- ⚠️ THE "NEVER RUN migrations apply" WARNING BELOW IS OBSOLETE (2026-08-17).
+--    The tracker was reconciled; `wrangler d1 migrations apply` is now correct.
+--    See migrations/README.md. The old text is left intact below on purpose —
+--    it was true when written.
+
 -- 0114_tackle_semantics_and_first_downs.sql
 -- Claude 2026-08-04 — Phase 0 data remediation for the UPS predictive model.
 -- See docs/MODEL_RESEARCH_AND_DATA_AUDIT.md §1.3 / §1.4.
