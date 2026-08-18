@@ -6325,8 +6325,20 @@ export default {
             // TYPE=injuries call in this file (see the §D2a note at ~44114).
             const injWeek = await _injuryPollWeek(injSeason);
             if (!injWeek) return;   // preseason, or the schedule could not be read
-            const ir = await mflExportJson(injSeason, injLeague, "injuries", {},
-              { useCookie: false, omitLeagueParam: true });
+            // Plain fetch, NOT mflExportJson — that helper is declared inside
+            // the fetch() handler and does not exist in scheduled(). Same class
+            // of scope error as YEAR/L, and the eslint no-undef deploy gate is
+            // what caught it. TYPE=injuries is league-agnostic and needs no
+            // cookie, so there is nothing the helper was providing here.
+            const ir = await (async () => {
+              try {
+                const r = await fetch(
+                  `https://api.myfantasyleague.com/${encodeURIComponent(injSeason)}/export?TYPE=injuries&W=&JSON=1`,
+                  { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 60 } }
+                );
+                return r.ok ? { ok: true, data: await r.json().catch(() => null) } : { ok: false, data: null };
+              } catch (_) { return { ok: false, data: null }; }
+            })();
             if (!ir.ok || !ir.data) {
               // Do NOT record a poll on a failed fetch. ups_injury_polls is the
               // evidence that we were watching; stamping it on a failure would
