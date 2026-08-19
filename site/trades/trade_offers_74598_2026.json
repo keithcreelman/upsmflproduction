@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-08-15T15:36:57.789Z",
+    "updated_at": "2026-08-19T11:12:34.994Z",
     "row_count": 58,
     "source": "worker-trade-offers"
   },
@@ -1024,31 +1024,31 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-11T00:43:55.528Z",
-      "updated_at": "2026-03-11T00:43:55.528Z",
+      "updated_at": "2026-08-19T11:12:34.994Z",
       "from_franchise_id": "0010",
       "to_franchise_id": "0008",
       "from_franchise_name": "Blake Bombers",
       "to_franchise_name": "Real Deal Creel",
-      "message": "",
-      "comment": "",
-      "comments": "",
-      "raw_comment": "",
-      "will_give_up": "DP_1_3",
-      "will_receive": "17043",
+      "message": "Throw him on your taxi you have room",
+      "comment": "Throw him on your taxi you have room",
+      "comments": "Throw him on your taxi you have room",
+      "raw_comment": "Throw him on your taxi you have room",
+      "will_give_up": "17064",
+      "will_receive": "FP_0008_2027_4,FP_0012_2027_4",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
-        "to_asset_count": 1,
+        "to_asset_count": 2,
         "from_trade_salary_k": 0,
         "to_trade_salary_k": 0,
         "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-03-11T00:43:53.257Z",
-        "source": "ups-trade-workbench",
+        "generated_at": "2026-08-19T11:12:33.413Z",
+        "source": "ups-mobile-trade-builder",
         "league_id": "74598",
-        "season": 2026,
+        "season": "2026",
         "teams": [
           {
             "role": "left",
@@ -1056,47 +1056,20 @@
             "franchise_name": "Blake Bombers",
             "selected_assets": [
               {
-                "asset_id": "pick:DP_1_3",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2026 Rookie 2.04",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": "Pick",
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "DP_1_3",
-                "pick_season": 2026,
-                "pick_round": 2,
-                "pick_slot": 4
-              }
-            ],
-            "traded_salary_adjustment_dollars": 0,
-            "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 0,
-            "selected_non_taxi_salary_dollars": 0
-          },
-          {
-            "role": "right",
-            "franchise_id": "0008",
-            "franchise_name": "Real Deal Creel",
-            "selected_assets": [
-              {
-                "asset_id": "player:17043",
+                "asset_id": "P_17064",
                 "type": "PLAYER",
-                "player_id": "17043",
-                "player_name": "Henderson, TreVeyon",
+                "player_id": "17064",
+                "player_name": "Jarquez Hunter",
                 "description": null,
                 "position": "RB",
-                "nfl_team": "NEP",
-                "salary": 12000,
-                "years": 0,
-                "contract_type": "Rookie",
-                "contract_info": "CL 3| TCV 36K| AAV 12K | Option Eligible",
-                "taxi": false,
+                "nfl_team": "LAR",
+                "salary": 2000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": true,
                 "pick_key": null,
                 "pick_season": null,
                 "pick_round": null,
@@ -1105,8 +1078,55 @@
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 6,
-            "selected_non_taxi_salary_dollars": 12000
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "FP_0008_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R4",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0008_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0012_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R4  (via Hawks)",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0012_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
           }
         ],
         "extension_requests": [],
@@ -1116,89 +1136,11 @@
         "ui": {
           "left_team_id": "0010",
           "right_team_id": "0008"
-        },
-        "salary_reconciliation": {
-          "left": {
-            "franchise_id": "0010",
-            "franchise_name": "Blake Bombers",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 118000,
-            "outgoing_dollars": 0,
-            "incoming_dollars": 12000,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 12000,
-            "new_salary_dollars": 130000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 0,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": -12000,
-            "available_salary_before_dollars": 182000,
-            "available_salary_after_dollars": 170000,
-            "over_cap_dollars": 0
-          },
-          "right": {
-            "franchise_id": "0008",
-            "franchise_name": "Real Deal Creel",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 113000,
-            "outgoing_dollars": 12000,
-            "incoming_dollars": 0,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": -12000,
-            "new_salary_dollars": 101000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 6,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 12000,
-            "available_salary_before_dollars": 187000,
-            "available_salary_after_dollars": 199000,
-            "over_cap_dollars": 0
-          },
-          "has_over_cap": false
-        },
-        "multi_year_salary_impact": {
-          "current_season": 2026,
-          "left_franchise_name": "Blake Bombers",
-          "right_franchise_name": "Real Deal Creel",
-          "rows": [
-            {
-              "season": 2026,
-              "left_before_dollars": 118000,
-              "left_after_dollars": 130000,
-              "left_change_dollars": 12000,
-              "right_before_dollars": 113000,
-              "right_after_dollars": 101000,
-              "right_change_dollars": -12000
-            },
-            {
-              "season": 2027,
-              "left_before_dollars": 118000,
-              "left_after_dollars": 130000,
-              "left_change_dollars": 12000,
-              "right_before_dollars": 94000,
-              "right_after_dollars": 82000,
-              "right_change_dollars": -12000
-            },
-            {
-              "season": 2028,
-              "left_before_dollars": 89000,
-              "left_after_dollars": 101000,
-              "left_change_dollars": 12000,
-              "right_before_dollars": 26000,
-              "right_after_dollars": 14000,
-              "right_change_dollars": -12000
-            }
-          ]
-        },
-        "validation": {
-          "status": "ready",
-          "issues": []
-        },
-        "comment": ""
+        }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1003",
-      "trade_id": "1003",
+      "mfl_trade_id": "1164",
+      "trade_id": "1164",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
