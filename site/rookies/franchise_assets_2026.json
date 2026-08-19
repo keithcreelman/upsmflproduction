@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-16T09:58:13.224092+00:00",
+    "generated_at_utc": "2026-08-19T10:03:09.323609+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -4316,7 +4316,7 @@
           "display": "Keenan Allen",
           "player_id": "11222",
           "position": "WR",
-          "nfl_team": "FA",
+          "nfl_team": "IND",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
