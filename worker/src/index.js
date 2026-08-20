@@ -45222,6 +45222,125 @@ export default {
         });
       }
 
+      // GET /admin/waivers/processed?L=&YEAR=&raw=1
+      //
+      // MFL's "Previously Processed Waivers" report — the ONLY place that says
+      // which claims were DENIED and why. There is no export for it: the API
+      // offers pendingWaivers (pre-run) and BBID_WAIVER transactions (granted
+      // only), so a losing claim appears in neither. This scrapes the HTML page
+      // with the commissioner cookie, which is also what makes it LEAGUE-WIDE —
+      // the transactions feed is franchise-scoped (verified: all 25 stored
+      // BBID_WAIVER_REQUEST rows are fid 0008), this page is not.
+      //
+      // ⚠️ FAIL CLOSED ON AUTH. A signed-out fetch returns HTTP 200 with the
+      // page fully rendered and the report section EMPTY — indistinguishable
+      // from "nobody was denied" unless you look for the login marker. That is
+      // exactly the fail-open shape rule_no_fail_open_guards exists to stop, so
+      // an unauthenticated response is an ERROR here, never an empty result.
+      //
+      // raw=1 returns the script/style-stripped report region (≈10KB of the
+      // 500KB page) instead of parsed rows — the page is wrapped in our own
+      // HPM header injection, so this is how the real table shape gets read
+      // before any column mapping is trusted.
+      if (path === "/admin/waivers/processed" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        const pwSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const pwLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const pwRaw = String(url.searchParams.get("raw") || "") === "1";
+        const pwCookie = String(env.MFL_COOKIE || "").trim();
+        if (!pwCookie) return jsonOut(403, { ok: false, error: "MFL_COOKIE missing — this report is owner-gated." });
+        const pwCookieHeader = pwCookie.includes("=") ? pwCookie : `MFL_USER_ID=${pwCookie}`;
+        const pwStripTags = (v) => safeStr(String(v).replace(/<[^>]+>/g, " "))
+          .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'")
+          .replace(/&quot;/gi, '"').replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+          .replace(/\s+/g, " ").trim();
+        const pwUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(pwSeason)}/processed_waivers?L=${encodeURIComponent(pwLeague)}`;
+        let pwHtml = "";
+        try {
+          const r = await fetch(pwUrl, {
+            headers: {
+              Cookie: pwCookieHeader,
+              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Accept": "text/html,application/xhtml+xml",
+            },
+            redirect: "follow",
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          if (!r.ok) return jsonOut(502, { ok: false, error: "mfl_fetch_failed", status: r.status, url: pwUrl });
+          pwHtml = await r.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: "mfl_fetch_threw", detail: String((e && e.message) || e) });
+        }
+
+        // AUTH CHECK FIRST, and against MFL's own identity cell — which sits
+        // BEFORE the report container, so it must be read from the full page,
+        // not the sliced region. MFL renders:
+        //     <td ... class="welcome"><b>Guest</b> (<a href=".../login?...">Login</a>)</td>
+        // when signed out, and the franchise/user identity there when signed in.
+        // Verified against a real signed-out fetch — an earlier version of this
+        // guard searched the sliced region and silently passed, which is the
+        // precise failure it exists to prevent.
+        const pwWelcome = /class="welcome"[^>]*>([\s\S]{0,400}?)<\/td>/i.exec(pwHtml);
+        if (!pwWelcome) {
+          return jsonOut(502, {
+            ok: false, error: "auth_state_unreadable",
+            message: "Could not find MFL's identity cell, so whether this page is authenticated is UNKNOWN. Refusing to report a possibly-empty result as real.",
+            page_bytes: pwHtml.length,
+          });
+        }
+        if (/\bGuest\b/i.test(pwWelcome[1]) || /\/login\?/i.test(pwWelcome[1])) {
+          return jsonOut(502, {
+            ok: false, error: "not_authenticated",
+            message: "MFL served this page as a guest, so the report renders EMPTY — that is NOT the same as no denied claims. Check MFL_COOKIE.",
+            identity_cell: pwStripTags(pwWelcome[1]).slice(0, 120),
+          });
+        }
+
+        // Isolate the report region — slicing by index keeps the regex work off
+        // the ~490KB of custom-header script that precedes it.
+        const pwAnchor = pwHtml.indexOf('id="processed_waivers"');
+        if (pwAnchor < 0) {
+          return jsonOut(502, {
+            ok: false, error: "report_region_not_found",
+            message: "The processed_waivers container was not in the response — MFL's page shape may have changed.",
+            page_bytes: pwHtml.length,
+          });
+        }
+        const pwRegion = pwHtml.slice(pwAnchor)
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "");
+
+        if (pwRaw) {
+          return jsonOut(200, {
+            ok: true, raw: true, season: pwSeason, league_id: pwLeague,
+            page_bytes: pwHtml.length, region_bytes: pwRegion.length,
+            region_html: pwRegion.slice(0, 60000),
+          });
+        }
+
+        // Generic table extraction — every row, every cell, no column mapping.
+        // Deliberately assumption-free until the real header row is confirmed
+        // against a live authenticated fetch; a guessed column order would
+        // silently mislabel who lost what.
+        const pwTables = pwRegion.match(/<table[\s\S]*?<\/table>/gi) || [];
+        const pwParsed = [];
+        for (const t of pwTables) {
+          const trs = t.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+          const rows = [];
+          for (const tr of trs) {
+            const cells = (tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [])
+              .map((c) => pwStripTags(c.replace(/^<t[dh][^>]*>/i, "").replace(/<\/t[dh]>$/i, "")));
+            if (cells.some((c) => c)) rows.push(cells);
+          }
+          if (rows.length) pwParsed.push({ row_count: rows.length, rows });
+        }
+        return jsonOut(200, {
+          ok: true, season: pwSeason, league_id: pwLeague,
+          page_bytes: pwHtml.length, region_bytes: pwRegion.length,
+          table_count: pwParsed.length, tables: pwParsed,
+        });
+      }
+
       // GET /admin/drops/cap-season-preview?L=&YEAR=
       // READ-ONLY dry run for the cap-year bucketing. Shows, for every priced
       // drop this season: when it happened, which cap year canon puts it on,
