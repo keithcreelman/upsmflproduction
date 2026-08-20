@@ -391,3 +391,102 @@ export function buildWaiverRunPlan(run) {
     move_messages: moves.map((m) => buildMoveMessage(m, run && run.season)),
   };
 }
+
+// ── ONE REPORT PER RUN (league-wide) ────────────────────────────────────
+// buildWaiverRunPlan above posts ONE PARENT PER TEAM. That reads fine for a
+// 2-team run and floods the channel at league scale: eight teams claiming on
+// the same Thursday is eight top-level posts, and the run has no single
+// object you can point at. Keith 2026-08-20: "a 'Thursday Waiver Report'
+// then thread each add/drop within that thread ... it could get crazy with
+// 10+ waiver claims a week."
+//
+// This shape posts exactly ONE top-level message no matter how big the run
+// is — the parent is a fixed-size scoreboard, and every claim lives in its
+// thread. 3 claims and 30 claims cost the channel the same real estate.
+//
+// `report`:
+//   { run_date_label, processed_at_et, season, icon_url?,
+//     teams: [ { franchise_id, franchise_name, moves: [...] } ] }
+// Each move is the SAME shape buildWaiverRunPlan takes, so the per-move
+// message body is the identical builder — one vocabulary for penalties and
+// money regardless of which shape announced them.
+export function buildWaiverReportPlan(report) {
+  const teams = Array.isArray(report && report.teams) ? report.teams : [];
+  const dayLabel = _s(report && report.run_date_label) || "Waiver";
+  const processedAt = _s(report && report.processed_at_et);
+  const season = report && report.season;
+
+  const allMoves = teams.reduce((acc, t) => acc.concat(Array.isArray(t.moves) ? t.moves : []), []);
+  const allDrops = allMoves.reduce((acc, m) => acc.concat(moveDrops(m)), []);
+  const unpaired = allMoves.filter((m) => !moveDrops(m).length && m.pairing_known === false);
+  const unknownPen = allDrops.filter((d) => !d.penalty || d.penalty.known === false);
+  const knownPenTotal = allDrops.reduce(
+    (sum, d) => sum + (d.penalty && d.penalty.known !== false ? (Number(d.penalty.penalty) || 0) : 0), 0
+  );
+  const known$ = allMoves.filter((m) => m.amount_dollars != null);
+  const spendTotal = known$.reduce((sum, m) => sum + (Number(m.amount_dollars) || 0), 0);
+  const unknown$ = allMoves.length - known$.length;
+
+  // Same "silence is not zero" discipline as the per-team parent.
+  const unresolved = unknownPen.length + unpaired.length;
+  const capValue = unresolved
+    ? `${fmtK(knownPenTotal)} priced · ⚠️ ${unresolved} unpriced`
+    : (knownPenTotal === 0 ? "None — $0" : fmtK(knownPenTotal));
+
+  // The scoreboard: one line per team, so a reader sees who did what without
+  // opening the thread. This is the ONLY part that grows with the run, and it
+  // grows by a line — not by a post.
+  const teamLines = teams.map((t) => {
+    const mv = Array.isArray(t.moves) ? t.moves : [];
+    const drops = mv.reduce((acc, m) => acc.concat(moveDrops(m)), []);
+    const spend = mv.filter((m) => m.amount_dollars != null)
+      .reduce((s, m) => s + (Number(m.amount_dollars) || 0), 0);
+    const pen = drops.reduce((s, d) => s + (d.penalty && d.penalty.known !== false ? (Number(d.penalty.penalty) || 0) : 0), 0);
+    const anyUnknown = drops.some((d) => !d.penalty || d.penalty.known === false);
+    const bits = [`${mv.length} claim${mv.length === 1 ? "" : "s"}`, fmtK(spend)];
+    if (pen > 0) bits.push(`${fmtK(pen)} pen`);
+    if (anyUnknown) bits.push("⚠️ unpriced");
+    return `**${_s(t.franchise_name) || _s(t.franchise_id)}** — ${bits.join(" · ")}`;
+  });
+
+  const claimNoun = `${allMoves.length} claim${allMoves.length === 1 ? "" : "s"}`;
+  const teamNoun = `${teams.length} team${teams.length === 1 ? "" : "s"}`;
+  const parentEmbed = {
+    title: `🧾 ${dayLabel} Waiver Report`,
+    description: clampDesc(
+      `${claimNoun} across ${teamNoun}${processedAt ? ` · processed ${processedAt}` : ""}.`
+    ),
+    color: capPenaltyDisplay(
+      unresolved ? { known: false } : { known: true, penalty: knownPenTotal, exempt: false }
+    ).color,
+    fields: [
+      { name: "Claims", value: String(allMoves.length), inline: true },
+      { name: "Total spent", value: clampField(known$.length ? `${fmtK(spendTotal)}${unknown$ ? ` · ${unknown$} unknown` : ""}` : "amount unknown"), inline: true },
+      { name: "Players dropped", value: clampField(unpaired.length ? `${allDrops.length} known · ${unpaired.length} unknown` : String(allDrops.length)), inline: true },
+      { name: "Cap penalties", value: clampField(capValue), inline: true },
+      { name: "By team", value: clampField(teamLines.join("\n") || "—"), inline: false },
+    ],
+  };
+  if (_s(report && report.icon_url)) parentEmbed.thumbnail = { url: _s(report.icon_url) };
+
+  // Every claim in ONE thread, each labelled with its team — without the
+  // label a league-wide thread is unreadable, since the per-move embed only
+  // names the players.
+  const moveMessages = [];
+  for (const t of teams) {
+    for (const m of (Array.isArray(t.moves) ? t.moves : [])) {
+      const msg = buildMoveMessage(m, season);
+      const team = _s(t.franchise_name) || _s(t.franchise_id);
+      const emb = msg.body.embeds[0];
+      emb.description = clampDesc(`**${team}**\n${emb.description || ""}`);
+      moveMessages.push({ ...msg, franchise_id: _s(t.franchise_id), franchise_name: team });
+    }
+  }
+
+  return {
+    thread_name: `${dayLabel} Waivers`.replace(/\s+/g, " ").trim().slice(0, 100),
+    parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
+    parent_embed: parentEmbed,
+    move_messages: moveMessages,
+  };
+}

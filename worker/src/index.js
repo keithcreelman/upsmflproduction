@@ -40523,6 +40523,28 @@ export default {
         const apTarget = safeStr(pbody?.target || env.ADD_TRACKER_DISCORD_TARGET || "test").toLowerCase();
         const apLimit = Math.max(1, Math.min(50, safeInt(pbody?.limit, 20)));
         const apDryRun = !!pbody?.dry_run;
+        // REPLAY — re-render one already-posted run (YYYY-MM-DD, matched on
+        // acquired_at_iso) so it can be previewed in the test channel without
+        // touching prod state. Two things make this safe, and both matter:
+        //   1. it selects by DAY and IGNORES discord_posted, so it never needs
+        //      to clear that flag. Clearing it would hand those rows straight
+        //      to the */5 cron, which posts to PROD — the run would be
+        //      re-announced to the league within five minutes.
+        //   2. every D1 write in this route is skipped while replaying, so the
+        //      prod message/parent ids stay exactly as they were.
+        // The parent-reuse guard already requires a channel-id match, so a
+        // prod parent id can't be reused in the test channel either.
+        const apReplayDay = safeStr(pbody?.replay_day || "");
+        if (apReplayDay && !/^\d{4}-\d{2}-\d{2}$/.test(apReplayDay)) {
+          return jsonOut(400, { ok: false, error: "replay_day must be YYYY-MM-DD" });
+        }
+        const apReplay = !!apReplayDay;
+        if (apReplay && apTarget === "prod" && !pbody?.i_really_mean_prod) {
+          return jsonOut(400, {
+            ok: false, error: "replay_to_prod_blocked",
+            message: "Replaying into the PROD channel would double-announce a run the league already saw. Use target:\"test\", or pass i_really_mean_prod:true.",
+          });
+        }
         if (!apSeason) return jsonOut(400, { ok: false, error: "Missing season" });
 
         const apBotToken = contractDiscordBotToken();
@@ -40568,15 +40590,23 @@ export default {
 
         let apRows = null;
         try {
-          const sel = await env.UPS_MFL_DB.prepare(
-            `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
+          const apCols = `id, season, league_id, player_id, player_name, position, nfl_team,
                     franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
                     source, bid_dollars, acquisition_week,
-                    discord_channel_id, discord_message_id, discord_parent_message_id
-               FROM ups_add_events
-              WHERE season = ? AND league_id = ? AND discord_posted = 0
-              ORDER BY acquired_at_unix ASC LIMIT ?`
-          ).bind(apSeason, apLeagueId, apLimit).all();
+                    discord_channel_id, discord_message_id, discord_parent_message_id`;
+          const sel = apReplay
+            ? await env.UPS_MFL_DB.prepare(
+                `SELECT ${apCols}
+                   FROM ups_add_events
+                  WHERE season = ? AND league_id = ? AND substr(acquired_at_iso, 1, 10) = ?
+                  ORDER BY acquired_at_unix ASC LIMIT ?`
+              ).bind(apSeason, apLeagueId, apReplayDay, apLimit).all()
+            : await env.UPS_MFL_DB.prepare(
+                `SELECT ${apCols}
+                   FROM ups_add_events
+                  WHERE season = ? AND league_id = ? AND discord_posted = 0
+                  ORDER BY acquired_at_unix ASC LIMIT ?`
+              ).bind(apSeason, apLeagueId, apLimit).all();
           apRows = sel?.results || null;
         } catch (e) {
           // NO FAIL-OPEN. If we cannot read the work queue we do not know what
@@ -41311,7 +41341,12 @@ export default {
             // the moment that move lands) and is no longer load-bearing for
             // reuse, so a legacy per-add id sitting in it can no longer be
             // mistaken for a parent.
-            try {
+            // Replay never records — the prod ids for this run must survive a
+            // test-channel preview untouched.
+            if (apReplay) {
+              result.parent_recorded = false;
+              result.replay_no_write = true;
+            } else try {
               const upd = await env.UPS_MFL_DB.prepare(
                 `UPDATE ups_add_events
                     SET discord_channel_id = ?, discord_message_id = ?, discord_parent_message_id = ?
@@ -41429,7 +41464,12 @@ export default {
               // beats a silent duplicate loop.
               let recorded = false;
               let recordError = "";
-              try {
+              if (apReplay) {
+                // Replay must not flip discord_posted or overwrite the prod
+                // ids. Marked recorded so the caller's counters read normally;
+                // replay_no_write is what says nothing was persisted.
+                recorded = true;
+              } else try {
                 // discord_channel_id becomes the THREAD — that is where the
                 // message actually lives, so the id pair still resolves.
                 const upd = await env.UPS_MFL_DB.prepare(
