@@ -1,0 +1,38 @@
+name: Read MFL waiver settings (BBID sort + custom order)
+
+# Read-only. Fetches the two commish setup pages Keith pointed at and dumps
+# their form state, so the BBID tiebreaker criteria and the custom waiver
+# order can be verified from the source of truth rather than inferred.
+# Neither is exposed by the API: TYPE=league carries bbidTiebreaker='SORT'
+# but never says what the SORT is, and there is no waiverOrder export.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    env:
+      MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+      LEAGUE: "74598"
+      SEASON: "2026"
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$MFL_COOKIE" ] || { echo "::error::MFL_COOKIE not set"; exit 1; }'
+      - name: fetch both setup pages
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          for C in BBIDWAIV WAIVORD; do
+            curl -sS -L -H "Cookie: $COOKIE" \
+              -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+              "https://www48.myfantasyleague.com/${SEASON}/csetup?L=${LEAGUE}&C=${C}" -o "/tmp/${C}.html"
+            echo "$C bytes: $(wc -c < /tmp/${C}.html)"
+          done
+      - name: dump settings
+        run: python3 scripts/ci_read_waiver_settings.py /tmp/BBIDWAIV.html /tmp/WAIVORD.html
