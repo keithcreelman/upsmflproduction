@@ -622,10 +622,16 @@ export function parseWaiverMisses(rows) {
       const deniedPlayer = d.added || namedInReason || parsePlayerCell(wanted[0] || "");
       const deniedName = _s(deniedPlayer && deniedPlayer.name);
       const grantedName = _s(granted && granted.added && granted.added.name);
+      // Rank is the owner's OWN ordering in the request, so "#3" means their
+      // third choice — not an MFL priority score.
       const notReached = wanted
-        .map((w) => parsePlayerCell(w))
-        .filter((p) => p && p.name !== deniedName && p.name !== grantedName)
-        .map((p) => p.name);
+        .map((w, idx) => ({ rank: idx + 1, player: parsePlayerCell(w) }))
+        .filter((o) => o.player && o.player.name !== deniedName && o.player.name !== grantedName)
+        .map((o) => ({ rank: o.rank, name: o.player.name }));
+      const grantedRank = wanted.findIndex((w) => {
+        const p = parsePlayerCell(w);
+        return p && p.name === grantedName;
+      }) + 1;
       const takenBy = deniedName ? _s(wonBy.get(deniedName)) : "";
       out.push({
         franchise_name: sub.franchise_name,
@@ -637,6 +643,8 @@ export function parseWaiverMisses(rows) {
         reason_raw: d.reason,
         granted_instead: granted ? granted.added : null,
         options_not_reached: notReached,
+        granted_rank: grantedRank || null,
+        options_total: wanted.length || null,
         round: d.round,
       });
     }
@@ -660,10 +668,17 @@ export function buildMissMessage(miss) {
   }
   const g = miss.granted_instead;
   if (g) {
+    const rankTag = miss.granted_rank && miss.options_total
+      ? ` (choice ${miss.granted_rank} of ${miss.options_total})` : "";
     let v = `✅ ${_s(g.name)}${g.position || g.nfl_team ? `  \`${[g.position, g.nfl_team].filter(Boolean).join(" · ")}\`` : ""}` +
-            (g.bid_dollars != null ? ` — ${fmtK(g.bid_dollars)} · granted` : " · granted");
-    if (miss.options_not_reached && miss.options_not_reached.length) {
-      v += `\n_${miss.options_not_reached.join(", ")} not reached_`;
+            (g.bid_dollars != null ? ` — ${fmtK(g.bid_dollars)} · granted${rankTag}` : ` · granted${rankTag}`);
+    // NOT "low priority" — MFL never ranked these down. The owner ordered them,
+    // MFL stops at the first success, so anything after the winner was simply
+    // never evaluated. Say the cause (Keith 2026-08-21).
+    const nr = Array.isArray(miss.options_not_reached) ? miss.options_not_reached : [];
+    if (nr.length) {
+      const names = nr.map((o) => `#${o.rank} ${o.name}`).join(", ");
+      v += `\n_${names} never came up — ${_s(g.name)} landed first_`;
     }
     fields.push({ name: "Fell through to", value: clampField(v), inline: false });
   } else {
