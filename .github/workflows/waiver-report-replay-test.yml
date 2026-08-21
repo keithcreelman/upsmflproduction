@@ -18,11 +18,11 @@ on:
         required: true
         default: "2026-08-20"
       shape:
-        description: "report = ONE league-wide post · per_team = one post per team"
+        description: "misses = ONLY the denied-claims post · report = one league-wide post · per_team = one post per team"
         required: true
-        default: "report"
+        default: "misses"
         type: choice
-        options: [report, per_team]
+        options: [misses, report, per_team]
       mode:
         description: "post = actually send to the test channel · dry_run = build only"
         required: true
