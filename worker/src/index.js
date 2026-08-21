@@ -41261,33 +41261,6 @@ export default {
           });
         }
 
-        if (apDryRun) {
-          return jsonOut(200, {
-            ok: true,
-            dry_run: true,
-            target: apTarget,
-            channel_id: apChannelId,
-            shape: apShape === "report" ? "report" : "per_team",
-            shape_note: apShapeNote,
-            replay_day: apReplayDay || null,
-            run_count: apPlans.length,
-            move_count: apPlans.reduce((n, p) => n + p.plan.move_messages.length, 0),
-            contract_deadline_et: apDeadlineLabel,
-            // Which deadline the league is about to be told: "calendar" = the
-            // commish-set value, "hardcoded" = nothing configured (normal),
-            // "hardcoded_fallback_after_error" = the enforcing path could not
-            // be read and this is the PINNED baseline, which may be stale if
-            // the commish moved the date. Only a source of "error" with no
-            // fallback means no date is printed at all.
-            contract_deadline_source: apDeadlineSource,
-            contract_deadline_error: apDeadlineError,
-            week3_kickoff_et: apWeek3Label,
-            week5_kickoff_et: apWeek5Label,
-            runs: apPlans,
-          });
-        }
-
-        const apResults = [];
         // shape:"report" — collapse every team's run into ONE league-wide post.
         // Produces a single apPlans entry with the SAME field names the posting
         // loop below already consumes (plan / row_ids / existing_parent_message_id),
@@ -41327,6 +41300,33 @@ export default {
           apShapeNote = `shape:"report" requested but this batch spans ${apDayKeys.length} days (${apDayKeys.join(", ")}) — kept per-team so a day-titled report can't fold in another day's claims.`;
         }
 
+        if (apDryRun) {
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            target: apTarget,
+            channel_id: apChannelId,
+            shape: apShape === "report" ? "report" : "per_team",
+            shape_note: apShapeNote,
+            replay_day: apReplayDay || null,
+            run_count: apPlans.length,
+            move_count: apPlans.reduce((n, p) => n + p.plan.move_messages.length, 0),
+            contract_deadline_et: apDeadlineLabel,
+            // Which deadline the league is about to be told: "calendar" = the
+            // commish-set value, "hardcoded" = nothing configured (normal),
+            // "hardcoded_fallback_after_error" = the enforcing path could not
+            // be read and this is the PINNED baseline, which may be stale if
+            // the commish moved the date. Only a source of "error" with no
+            // fallback means no date is printed at all.
+            contract_deadline_source: apDeadlineSource,
+            contract_deadline_error: apDeadlineError,
+            week3_kickoff_et: apWeek3Label,
+            week5_kickoff_et: apWeek5Label,
+            runs: apPlans,
+          });
+        }
+
+        const apResults = [];
         for (const entry of apPlans) {
           const result = {
             run_key: entry.run_key,
