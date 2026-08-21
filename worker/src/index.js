@@ -41277,6 +41277,12 @@ export default {
         // the test/preview mode, so a denial layout can be eyeballed without
         // re-announcing granted claims the channel already saw.
         if (apShape === "report" || apShape === "misses") {
+          // Declared here because the miss-report entry keys off it. The
+          // earlier report-collapse block owned this and was replaced wholesale,
+          // taking the declaration with it — caught by the deploy's no-undef
+          // lint gate, which `node --check` cannot see (it validates syntax,
+          // not resolution).
+          const apDayKeys = [...new Set(apReportTeams.map((t) => t.day_key))];
           const missRes = await _waiverMissesForRun(
             env, apSeason, apLeagueId,
             apReportTeams.reduce((acc, t) => acc.concat(
