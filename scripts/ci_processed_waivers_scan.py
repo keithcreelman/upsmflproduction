@@ -22,8 +22,27 @@ from collections import Counter, defaultdict
 
 
 def strip_tags(v: str) -> str:
-    v = re.sub(r"<[^>]+>", " ", v or "")
-    return re.sub(r"\s+", " ", html.unescape(v)).strip()
+    """Text of a cell — falling back to image metadata when there is no text.
+
+    The Franchise column renders as a franchise LOGO, not a name, so a naive
+    tag-strip returns "" and the report looks franchise-less. That is what made
+    an earlier read of this page look like it was scoped to one team when it is
+    in fact league-wide (Keith 2026-08-21: "You can see this from the report
+    whether you're commish or not"). Recover the name from alt/title, or the
+    fid from the icon filename (…74598_franchise_icon0005.jpg -> 0005).
+    """
+    raw = v or ""
+    text = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", raw))).strip()
+    if text:
+        return text
+    for attr in ("alt", "title"):
+        m = re.search(rf'{attr}="([^"]+)"', raw, re.I)
+        if m and m.group(1).strip():
+            return html.unescape(m.group(1)).strip()
+    m = re.search(r"franchise_(?:icon|logo)(\d{4})", raw, re.I)
+    if m:
+        return f"fid:{m.group(1)}"
+    return ""
 
 
 def auth_state(page: str) -> str:
