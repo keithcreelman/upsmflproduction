@@ -34,7 +34,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
-import { buildWaiverRunPlan, buildWaiverReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
+import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
 // Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
@@ -41261,60 +41261,62 @@ export default {
           });
         }
 
-        // shape:"report" — collapse every team's run into ONE league-wide post.
-        // Produces a single apPlans entry with the SAME field names the posting
-        // loop below already consumes (plan / row_ids / existing_parent_message_id),
-        // so the parent → thread → per-move sequence, the id recording and the
-        // replay guards all work unchanged. Only grouped when the whole batch is
-        // one calendar day: a report titled for one day must not silently fold in
-        // another day's claims, so a mixed batch stays per-team.
-        const apDayKeys = [...new Set(apReportTeams.map((t) => t.day_key))];
-        if (apShape === "report" && apReportTeams.length && apDayKeys.length === 1) {
-          const firstTeam = apReportTeams.reduce(
-            (a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b)
-          );
-          // Denied claims, scoped to THIS run (see _waiverMissesForRun for why
-          // the page cannot be scoped by date). A null result renders no
-          // misses section rather than an unearned "0 not granted".
+        // MISS REPORT — a SEPARATE post, appended after the per-team plans.
+        //
+        // Keith 2026-08-21: "i only want this on the miss report." The
+        // granted-claim posts keep their existing one-parent-per-team shape;
+        // nothing above this line changes. Denials get their own object
+        // because they answer a different question, and because burying them
+        // inside a team's own post hides a loss to ANOTHER team.
+        //
+        // Appended, never substituted: apPlans keeps every per-team entry and
+        // gains at most one more, so the posting loop, the id recording and
+        // the replay guards all apply to it unchanged.
+        //
+        // shape:"misses" posts ONLY the miss report (nothing else) — that is
+        // the test/preview mode, so a denial layout can be eyeballed without
+        // re-announcing granted claims the channel already saw.
+        if (apShape === "report" || apShape === "misses") {
           const missRes = await _waiverMissesForRun(
             env, apSeason, apLeagueId,
             apReportTeams.reduce((acc, t) => acc.concat(
               (t.moves || []).map((m) => safeStr(m.added && m.added.name))
             ), [])
           );
-          if (missRes.reason) apShapeNote = (apShapeNote ? apShapeNote + " " : "") + `Misses omitted: ${missRes.reason}.`;
-          const reportPlan = buildWaiverReportPlan({
+          if (missRes.reason) {
+            apShapeNote = (apShapeNote ? apShapeNote + " " : "") + `Misses omitted: ${missRes.reason}.`;
+          }
+          const firstTeam = apReportTeams.length
+            ? apReportTeams.reduce((a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b))
+            : null;
+          const missPlan = buildMissReportPlan({
+            run_date_label: firstTeam
+              ? apFmtEtDay(new Date(safeInt(firstTeam.first_acquired_unix, 0) * 1000), false)
+              : "",
+            processed_at_et: firstTeam ? apFmtEastern(firstTeam.first_acquired_iso) : "",
             misses: missRes.misses,
-            run_date_label: apFmtEtDay(new Date(safeInt(firstTeam.first_acquired_unix, 0) * 1000), false),
-            processed_at_et: apFmtEastern(firstTeam.first_acquired_iso),
-            season: apSeason,
-            teams: apReportTeams.map((t) => ({
-              franchise_id: t.franchise_id, franchise_name: t.franchise_name, moves: t.moves,
-            })),
           });
-          const allRowIds = apReportTeams.reduce((acc, t) => acc.concat(t.row_ids), []);
-          apPlans.length = 0;
-          apPlans.push({
-            run_key: `REPORT|${apDayKeys[0]}`,
-            franchise_id: "",
-            franchise_name: `League — ${reportPlan.thread_name}`,
-            day_key: apDayKeys[0],
-            row_ids: allRowIds,
-            unmatched_rows: [],
-            malformed_transaction_rows: [],
-            // A league-wide report has no per-franchise parent to reuse; the
-            // per-team ids belong to a different shape entirely. Always fresh.
-            existing_parent_message_id: "",
-            // Both required by the posting loop. parent_id_candidates is read
-            // as `.length` unguarded, so omitting it threw before a single
-            // Discord call was made — the collapsed entry must satisfy the
-            // loop's full contract, not just the fields the plan needs.
-            parent_id_candidates: [],
-            existing_thread_id: "",
-            plan: reportPlan,
-          });
-        } else if (apShape === "report" && apDayKeys.length > 1) {
-          apShapeNote = `shape:"report" requested but this batch spans ${apDayKeys.length} days (${apDayKeys.join(", ")}) — kept per-team so a day-titled report can't fold in another day's claims.`;
+          if (apShape === "misses") apPlans.length = 0;   // preview: misses only
+          if (missPlan) {
+            apPlans.push({
+              run_key: `MISSES|${apDayKeys[0] || apSeason}`,
+              franchise_id: "",
+              franchise_name: `League — ${missPlan.thread_name}`,
+              day_key: apDayKeys[0] || "",
+              // No ups_add_events rows belong to this post — it announces
+              // denials, which have no add row. Empty means the posting loop
+              // marks nothing, which is correct: there is nothing to mark.
+              row_ids: [],
+              unmatched_rows: [],
+              malformed_transaction_rows: [],
+              existing_parent_message_id: "",
+              parent_id_candidates: [],
+              existing_thread_id: "",
+              plan: missPlan,
+            });
+          } else if (!missRes.reason) {
+            apShapeNote = (apShapeNote ? apShapeNote + " " : "") + "No denied claims in this run.";
+          }
         }
 
         if (apDryRun) {
