@@ -702,3 +702,60 @@ export function buildMissMessage(miss) {
     },
   };
 }
+
+// ── STANDALONE MISS REPORT ──────────────────────────────────────────────
+// Keith 2026-08-21: "i only want this on the miss report" — the granted-claim
+// posts stay exactly as they are (one parent per team); the DENIALS get their
+// own post. So this is not the consolidated run report with misses folded in;
+// it is a separate object about one thing.
+//
+// Deliberately silent when there are no denials. A "0 not granted" post every
+// week is noise, and worse, it would be indistinguishable from the case where
+// the misses source could not be read at all — the route omits `misses`
+// entirely rather than passing [] when it could not check.
+export function buildMissReportPlan(report) {
+  const misses = Array.isArray(report && report.misses) ? report.misses : [];
+  if (!misses.length) return null;
+  const dayLabel = _s(report && report.run_date_label) || "Waiver";
+  const processedAt = _s(report && report.processed_at_et);
+
+  const byTeam = new Map();
+  for (const m of misses) {
+    const k = _s(m.franchise_name) || "—";
+    byTeam.set(k, (byTeam.get(k) || 0) + 1);
+  }
+  // Head-to-head losses are the interesting ones; a rules rejection is a
+  // different animal and is counted separately rather than blurred together.
+  const lost = misses.filter((m) => _s(m.lost_to));
+  const rejected = misses.filter((m) => !_s(m.lost_to));
+
+  const teamLines = [...byTeam.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name, n]) => `**${name}** — ${n} missed`);
+
+  const fields = [
+    { name: "Not granted", value: String(misses.length), inline: true },
+    { name: "Teams affected", value: String(byTeam.size), inline: true },
+  ];
+  if (lost.length) fields.push({ name: "Lost to another team", value: String(lost.length), inline: true });
+  if (rejected.length) fields.push({ name: "Rejected by rule", value: String(rejected.length), inline: true });
+  fields.push({ name: "By team", value: clampField(teamLines.join("\n")), inline: false });
+
+  const parentEmbed = {
+    title: `❌ ${dayLabel} Waiver Misses`,
+    description: clampDesc(
+      `${misses.length} claim${misses.length === 1 ? "" : "s"} not granted` +
+      `${processedAt ? ` · ${processedAt}` : ""}.`
+    ),
+    color: 0xed4245,
+    fields,
+  };
+  if (_s(report && report.icon_url)) parentEmbed.thumbnail = { url: _s(report.icon_url) };
+
+  return {
+    thread_name: `${dayLabel} Misses`.replace(/\s+/g, " ").trim().slice(0, 100),
+    parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
+    parent_embed: parentEmbed,
+    move_messages: misses.map((m) => buildMissMessage(m)),
+  };
+}
