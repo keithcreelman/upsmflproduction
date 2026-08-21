@@ -41294,6 +41294,12 @@ export default {
             // A league-wide report has no per-franchise parent to reuse; the
             // per-team ids belong to a different shape entirely. Always fresh.
             existing_parent_message_id: "",
+            // Both required by the posting loop. parent_id_candidates is read
+            // as `.length` unguarded, so omitting it threw before a single
+            // Discord call was made — the collapsed entry must satisfy the
+            // loop's full contract, not just the fields the plan needs.
+            parent_id_candidates: [],
+            existing_thread_id: "",
             plan: reportPlan,
           });
         } else if (apShape === "report" && apDayKeys.length > 1) {
