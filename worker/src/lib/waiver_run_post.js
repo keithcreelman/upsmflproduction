@@ -412,6 +412,15 @@ export function buildWaiverRunPlan(run) {
 // money regardless of which shape announced them.
 export function buildWaiverReportPlan(report) {
   const teams = Array.isArray(report && report.teams) ? report.teams : [];
+  // Denied claims from MFL's processed-waivers report (parseWaiverMisses).
+  // Absent => the report simply has no misses section; it must NOT render as
+  // "0 not granted", which would assert we checked when we may not have.
+  const misses = Array.isArray(report && report.misses) ? report.misses : null;
+  const missByTeam = new Map();
+  for (const m of (misses || [])) {
+    const k = _s(m.franchise_name);
+    missByTeam.set(k, (missByTeam.get(k) || 0) + 1);
+  }
   const dayLabel = _s(report && report.run_date_label) || "Waiver";
   const processedAt = _s(report && report.processed_at_et);
   const season = report && report.season;
@@ -436,6 +445,9 @@ export function buildWaiverReportPlan(report) {
   // The scoreboard: one line per team, so a reader sees who did what without
   // opening the thread. This is the ONLY part that grows with the run, and it
   // grows by a line — not by a post.
+  const missOnlyTeams = [...missByTeam.keys()].filter(
+    (name) => !teams.some((t) => _s(t.franchise_name) === name)
+  );
   const teamLines = teams.map((t) => {
     const mv = Array.isArray(t.moves) ? t.moves : [];
     const drops = mv.reduce((acc, m) => acc.concat(moveDrops(m)), []);
@@ -446,6 +458,8 @@ export function buildWaiverReportPlan(report) {
     const bits = [`${mv.length} claim${mv.length === 1 ? "" : "s"}`, fmtK(spend)];
     if (pen > 0) bits.push(`${fmtK(pen)} pen`);
     if (anyUnknown) bits.push("⚠️ unpriced");
+    const missed = missByTeam.get(_s(t.franchise_name)) || 0;
+    if (missed) bits.push(`${missed} missed`);
     return `**${_s(t.franchise_name) || _s(t.franchise_id)}** — ${bits.join(" · ")}`;
   });
 
@@ -454,17 +468,27 @@ export function buildWaiverReportPlan(report) {
   const parentEmbed = {
     title: `🧾 ${dayLabel} Waiver Report`,
     description: clampDesc(
-      `${claimNoun} across ${teamNoun}${processedAt ? ` · processed ${processedAt}` : ""}.`
+      `${claimNoun} across ${teamNoun}` +
+      (misses && misses.length ? ` · **${misses.length} not granted**` : "") +
+      `${processedAt ? ` · processed ${processedAt}` : ""}.`
     ),
     color: capPenaltyDisplay(
       unresolved ? { known: false } : { known: true, penalty: knownPenTotal, exempt: false }
     ).color,
     fields: [
-      { name: "Claims", value: String(allMoves.length), inline: true },
+      { name: "Claims won", value: String(allMoves.length), inline: true },
+      // Only rendered when the misses source was actually consulted.
+      ...(misses ? [{ name: "Not granted", value: String(misses.length), inline: true }] : []),
       { name: "Total spent", value: clampField(known$.length ? `${fmtK(spendTotal)}${unknown$ ? ` · ${unknown$} unknown` : ""}` : "amount unknown"), inline: true },
       { name: "Players dropped", value: clampField(unpaired.length ? `${allDrops.length} known · ${unpaired.length} unknown` : String(allDrops.length)), inline: true },
       { name: "Cap penalties", value: clampField(capValue), inline: true },
-      { name: "By team", value: clampField(teamLines.join("\n") || "—"), inline: false },
+      { name: "By team", value: clampField(
+        teamLines.concat(
+          // A team that won nothing but lost something is still part of the
+          // run; omitting it would make the miss look like it came from nowhere.
+          missOnlyTeams.map((n) => `**${n}** — 0 claims · ${missByTeam.get(n)} missed`)
+        ).join("\n") || "—"
+      ), inline: false },
     ],
   };
   if (_s(report && report.icon_url)) parentEmbed.thumbnail = { url: _s(report.icon_url) };
@@ -483,10 +507,198 @@ export function buildWaiverReportPlan(report) {
     }
   }
 
+  // Misses ride in the SAME thread, after the granted claims — a separate
+  // post would divorce "lost Harris" from "got Miller instead", which is the
+  // one connection the fallback chain exists to show.
+  for (const m of (misses || [])) moveMessages.push(buildMissMessage(m));
+
   return {
     thread_name: `${dayLabel} Waivers`.replace(/\s+/g, " ").trim().slice(0, 100),
     parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
     parent_embed: parentEmbed,
     move_messages: moveMessages,
+  };
+}
+
+// ── DENIED CLAIMS ───────────────────────────────────────────────────────
+// MFL's Previously Processed Waivers report is the only source that says a
+// claim was DENIED and why (no export carries it). Its columns are:
+//   Round (or Group) | Franchise | Player Added | Player Dropped |
+//   Original Waiver Request | Reason Not Granted
+//
+// THE GROUPING KEY IS THE REQUEST STRING. One submission can carry several
+// RANKED options, and MFL emits one ROW PER OPTION — every row repeating the
+// same full request text. Real example (2026-08-20, Real Deal Creel):
+//   row A  added:None                 reason:"Harris, Najee ... Is Not Available."
+//   row B  added:"Miller, Kendre ..."  reason:""
+// Both rows share one request: "Add Harris … Add Miller … Add Hunt …".
+// So A and B are not two events — they are the miss and the fallback of ONE
+// submission. Reporting them separately tells the owner they lost a player
+// AND (elsewhere) gained another, never that the second happened BECAUSE the
+// first failed. The pair is the story, so they are grouped, not listed.
+//
+// `parsePlayerCell` handles "Harris, Najee NYG RB ($1000.00)" and the
+// bid-less dropped variant; "None" is empty, not a player named None.
+const _pwNone = (v) => { const t = _s(v); return (!t || t.toLowerCase() === "none") ? "" : t; };
+
+export function parsePlayerCell(cell) {
+  const raw = _pwNone(cell);
+  if (!raw) return null;
+  let bid = null;
+  const money = raw.match(/\(\$?([\d,]+(?:\.\d+)?)\)/);
+  let body = raw;
+  if (money) {
+    bid = Math.round(Number(money[1].replace(/,/g, "")) || 0);
+    body = raw.slice(0, money.index).trim();
+  }
+  // "Last, First TEAM POS" — trailing team+pos, comma-swapped name.
+  const m = body.match(/^(.*?),\s*([^,]+?)\s+([A-Z]{2,3})\s+([A-Z]{1,3})$/);
+  if (m) {
+    return { name: `${m[2].trim()} ${m[1].trim()}`, nfl_team: m[3], position: m[4], bid_dollars: bid };
+  }
+  return { name: body, nfl_team: "", position: "", bid_dollars: bid };
+}
+
+// Strip MFL's echo of the player name off the front of its reason text, so
+// the card doesn't say the player's name twice.
+export function cleanDenialReason(reason, deniedName) {
+  let t = _s(reason).replace(/\s+/g, " ");
+  if (!t) return "";
+  t = t.replace(/^.*?\bCannot Be Added Because\b\s*/i, "");
+  t = t.replace(/^Error\s*-\s*/i, "");
+  if (deniedName) {
+    const last = _s(deniedName).split(" ").pop();
+    if (last) t = t.replace(new RegExp(`^${last}[^A-Za-z]*`, "i"), "");
+  }
+  t = t.replace(/\.\s*$/, "").trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+}
+
+// rows: the report table INCLUDING its header row. Returns one entry per
+// submission that had at least one denied option.
+export function parseWaiverMisses(rows) {
+  const body = Array.isArray(rows) ? rows.filter((r) => Array.isArray(r) && r.length >= 6) : [];
+  if (!body.length) return [];
+  const start = /round/i.test(_s(body[0][0])) ? 1 : 0;
+  const bySubmission = new Map();
+  // Who actually landed each player, league-wide. MFL's denial text says only
+  // "Is Not Available" — true but useless; the owner's real question is who
+  // took him. Answerable because the winning row is in this same report.
+  const wonBy = new Map();
+  for (let i = start; i < body.length; i += 1) {
+    const gotP = parsePlayerCell(body[i][2]);
+    if (gotP && !_s(body[i][5])) wonBy.set(gotP.name, _s(body[i][1]));
+  }
+  for (let i = start; i < body.length; i += 1) {
+    const [round, franchise, added, dropped, request, reason] = body[i];
+    const key = `${_s(franchise)}||${_s(request)}`;
+    if (!bySubmission.has(key)) {
+      bySubmission.set(key, { franchise_name: _s(franchise), request: _s(request), options: [] });
+    }
+    bySubmission.get(key).options.push({
+      round: _s(round),
+      added: parsePlayerCell(added),
+      dropped: parsePlayerCell(dropped),
+      reason: _s(reason),
+    });
+  }
+  const out = [];
+  for (const sub of bySubmission.values()) {
+    const denied = sub.options.filter((o) => o.reason);
+    if (!denied.length) continue;
+    // The fallback is the option from the SAME submission that landed.
+    const granted = sub.options.find((o) => !o.reason && o.added) || null;
+    // Ranked options are recoverable from the request text even when MFL gave
+    // the losing row added:"None" — that is how "Hunt was never reached" is
+    // knowable at all.
+    const wanted = [];
+    const re = /Add\s+(.+?)\s+for\s+\$?([\d,.]+)\s+and\s+drop\s+(.+?)(?=\s+Add\s+|\s+Submitted\b|$)/gi;
+    let mm;
+    while ((mm = re.exec(sub.request)) !== null) wanted.push(_s(mm[1]));
+    for (const d of denied) {
+      // MFL names the denied player in the reason even when the Added cell is
+      // "None"; fall back to the first requested option in rank order.
+      const namedInReason = parsePlayerCell((d.reason.match(/^(.*?)\s+Cannot Be Added/i) || [])[1] || "");
+      const deniedPlayer = d.added || namedInReason || parsePlayerCell(wanted[0] || "");
+      const deniedName = _s(deniedPlayer && deniedPlayer.name);
+      const grantedName = _s(granted && granted.added && granted.added.name);
+      // Rank is the owner's OWN ordering in the request, so "#3" means their
+      // third choice — not an MFL priority score.
+      const notReached = wanted
+        .map((w, idx) => ({ rank: idx + 1, player: parsePlayerCell(w) }))
+        .filter((o) => o.player && o.player.name !== deniedName && o.player.name !== grantedName)
+        .map((o) => ({ rank: o.rank, name: o.player.name }));
+      const grantedRank = wanted.findIndex((w) => {
+        const p = parsePlayerCell(w);
+        return p && p.name === grantedName;
+      }) + 1;
+      const takenBy = deniedName ? _s(wonBy.get(deniedName)) : "";
+      out.push({
+        franchise_name: sub.franchise_name,
+        // Empty when nobody won him (a roster-limit or rules rejection) —
+        // distinct from a head-to-head loss, and the card must not imply one.
+        lost_to: takenBy && takenBy !== sub.franchise_name ? takenBy : "",
+        player: deniedPlayer,
+        reason: cleanDenialReason(d.reason, deniedName),
+        reason_raw: d.reason,
+        granted_instead: granted ? granted.added : null,
+        options_not_reached: notReached,
+        granted_rank: grantedRank || null,
+        options_total: wanted.length || null,
+        round: d.round,
+      });
+    }
+  }
+  return out;
+}
+
+// One thread message per denied claim. Same embed vocabulary as a granted
+// move so the two read as one feed.
+export function buildMissMessage(miss) {
+  const p = miss && miss.player;
+  const team = _s(miss && miss.franchise_name);
+  const bid = p && p.bid_dollars != null ? ` — ${fmtK(p.bid_dollars)} bid` : "";
+  const lines = [`**${team}**`, playerLine("✖", p) + bid];
+  const fields = [];
+  if (_s(miss.reason) || _s(miss.lost_to)) {
+    const why = _s(miss.lost_to)
+      ? `No longer available — **${_s(miss.lost_to)}** won him earlier in this run.`
+      : _s(miss.reason);
+    fields.push({ name: "MFL's reason", value: clampField(why), inline: false });
+  }
+  const g = miss.granted_instead;
+  if (g) {
+    const rankTag = miss.granted_rank && miss.options_total
+      ? ` (choice ${miss.granted_rank} of ${miss.options_total})` : "";
+    let v = `✅ ${_s(g.name)}${g.position || g.nfl_team ? `  \`${[g.position, g.nfl_team].filter(Boolean).join(" · ")}\`` : ""}` +
+            (g.bid_dollars != null ? ` — ${fmtK(g.bid_dollars)} · granted${rankTag}` : ` · granted${rankTag}`);
+    // NOT "low priority" — MFL never ranked these down. The owner ordered them,
+    // MFL stops at the first success, so anything after the winner was simply
+    // never evaluated. Say the cause (Keith 2026-08-21).
+    const nr = Array.isArray(miss.options_not_reached) ? miss.options_not_reached : [];
+    if (nr.length) {
+      const names = nr.map((o) => `#${o.rank} ${o.name}`).join(", ");
+      v += `\n_${names} never came up — ${_s(g.name)} landed first_`;
+    }
+    fields.push({ name: "Fell through to", value: clampField(v), inline: false });
+  } else {
+    // Say it explicitly — a blank here would read as "we didn't check".
+    fields.push({ name: "Fell through to", value: "_nothing — no other option on this request_", inline: false });
+  }
+  return {
+    row_id: null,
+    player_id: null,
+    player_name: _s(p && p.name),
+    franchise_name: team,
+    is_miss: true,
+    body: {
+      content: "",
+      embeds: [{
+        description: clampDesc(lines.join("\n") + "\n# ❌ Not Granted"),
+        color: 0xed4245,
+        fields,
+      }],
+      allowed_mentions: { parse: [] },
+    },
   };
 }

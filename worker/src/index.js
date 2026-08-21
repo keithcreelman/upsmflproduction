@@ -34,7 +34,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
-import { buildWaiverRunPlan, buildWaiverReportPlan, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
+import { buildWaiverRunPlan, buildWaiverReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
 // Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
@@ -41273,7 +41273,18 @@ export default {
           const firstTeam = apReportTeams.reduce(
             (a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b)
           );
+          // Denied claims, scoped to THIS run (see _waiverMissesForRun for why
+          // the page cannot be scoped by date). A null result renders no
+          // misses section rather than an unearned "0 not granted".
+          const missRes = await _waiverMissesForRun(
+            env, apSeason, apLeagueId,
+            apReportTeams.reduce((acc, t) => acc.concat(
+              (t.moves || []).map((m) => safeStr(m.added && m.added.name))
+            ), [])
+          );
+          if (missRes.reason) apShapeNote = (apShapeNote ? apShapeNote + " " : "") + `Misses omitted: ${missRes.reason}.`;
           const reportPlan = buildWaiverReportPlan({
+            misses: missRes.misses,
             run_date_label: apFmtEtDay(new Date(safeInt(firstTeam.first_acquired_unix, 0) * 1000), false),
             processed_at_et: apFmtEastern(firstTeam.first_acquired_iso),
             season: apSeason,
@@ -45332,6 +45343,86 @@ export default {
           rows: out,
         });
       }
+
+
+// Denied claims for a run, from MFL's Previously Processed Waivers page.
+//
+// ⚠️ THAT PAGE SHOWS ONLY THE MOST RECENT RUN. Verified on the live 2026
+// report: 6 rows = the Aug 20 run's 5 granted claims + 1 denial, and nothing
+// from any earlier run — even though rows carry SUBMITTED dates as old as
+// Aug 16 (a claim sits until the next run processes it, so the submitted date
+// is NOT the run date and cannot be used to scope by day).
+//
+// So the misses can only be trusted when the page is describing the run we are
+// posting. Proven by overlap: at least one player granted on the page must
+// also be an add in this run. No overlap => the page is about a different run
+// => return null. null renders NO misses section at all, which is honest;
+// an empty array would print "0 not granted" and assert a check we did not do.
+async function _waiverMissesForRun(env, season, leagueId, addedNames) {
+  const cookie = String(env.MFL_COOKIE || "").trim();
+  if (!cookie) return { misses: null, reason: "MFL_COOKIE missing" };
+  const cookieHeader = cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`;
+  let html = "";
+  try {
+    const r = await fetch(
+      `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/processed_waivers?L=${encodeURIComponent(leagueId)}`,
+      { headers: { Cookie: cookieHeader, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)", Accept: "text/html" },
+        redirect: "follow", cf: { cacheTtl: 0, cacheEverything: false } }
+    );
+    if (!r.ok) return { misses: null, reason: `processed_waivers HTTP ${r.status}` };
+    html = await r.text();
+  } catch (e) { return { misses: null, reason: `processed_waivers fetch failed: ${String(e?.message || e)}` }; }
+
+  // Signed out renders the report EMPTY at HTTP 200 — never "no denials".
+  const welcome = /class="welcome"[^>]*>([\s\S]{0,400}?)<\/td>/i.exec(html);
+  if (!welcome) return { misses: null, reason: "auth state unreadable" };
+  if (/\bGuest\b/i.test(welcome[1]) || /\/login\?/i.test(welcome[1])) {
+    return { misses: null, reason: "not authenticated (report renders empty)" };
+  }
+
+  const anchor = html.indexOf('id="processed_waivers"');
+  if (anchor < 0) return { misses: null, reason: "report container not found" };
+  const region = html.slice(anchor)
+    .replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "");
+  // Franchise renders as a LOGO, so recover the name from alt/title or the
+  // fid in the icon filename before falling back to "".
+  const cellText = (c) => {
+    const txt = safeStr(c.replace(/<[^>]+>/g, " ")).replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim();
+    if (txt) return txt;
+    const at = /(?:alt|title)="([^"]+)"/i.exec(c);
+    if (at && at[1].trim()) return at[1].trim();
+    const fid = /franchise_(?:icon|logo)(\d{4})/i.exec(c);
+    return fid ? `fid:${fid[1]}` : "";
+  };
+  let rows = [];
+  for (const t of (region.match(/<table[\s\S]*?<\/table>/gi) || [])) {
+    const trs = t.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+    const parsed = [];
+    for (const tr of trs) {
+      const cells = (tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [])
+        .map((c) => cellText(c.replace(/^<t[dh][^>]*>/i, "").replace(/<\/t[dh]>$/i, "")));
+      if (cells.some(Boolean)) parsed.push(cells);
+    }
+    if (parsed.some((r) => r.length === 6)) { rows = parsed; break; }
+  }
+  if (!rows.length) return { misses: null, reason: "report table not found" };
+
+  // Overlap check against this run's adds.
+  const norm = (n) => safeStr(n).toLowerCase().replace(/[^a-z ]/g, "").trim();
+  const mine = new Set((addedNames || []).map(norm).filter(Boolean));
+  // parsePlayerCell — the SAME parser the misses use. An ad-hoc re-split here
+  // got "Wilson, Emanuel SEA RB" wrong ("emanuel sea rb wilson"), so the gate
+  // never matched and misses would have been silently dropped from every run.
+  const grantedOnPage = rows.slice(1)
+    .filter((r) => r.length >= 6 && !safeStr(r[5]))
+    .map((r) => { const p = parsePlayerCell(r[2]); return p ? norm(p.name) : ""; });
+  const overlap = grantedOnPage.filter((n) => n && mine.has(n));
+  if (!overlap.length) {
+    return { misses: null, reason: "processed-waivers page describes a different run (no granted player overlaps this one)" };
+  }
+  return { misses: parseWaiverMisses(rows), reason: "", matched: overlap.length };
+}
 
       // GET /admin/waivers/processed?L=&YEAR=&raw=1
       //
