@@ -22,8 +22,27 @@ from collections import Counter, defaultdict
 
 
 def strip_tags(v: str) -> str:
-    v = re.sub(r"<[^>]+>", " ", v or "")
-    return re.sub(r"\s+", " ", html.unescape(v)).strip()
+    """Text of a cell — falling back to image metadata when there is no text.
+
+    The Franchise column renders as a franchise LOGO, not a name, so a naive
+    tag-strip returns "" and the report looks franchise-less. That is what made
+    an earlier read of this page look like it was scoped to one team when it is
+    in fact league-wide (Keith 2026-08-21: "You can see this from the report
+    whether you're commish or not"). Recover the name from alt/title, or the
+    fid from the icon filename (…74598_franchise_icon0005.jpg -> 0005).
+    """
+    raw = v or ""
+    text = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", raw))).strip()
+    if text:
+        return text
+    for attr in ("alt", "title"):
+        m = re.search(rf'{attr}="([^"]+)"', raw, re.I)
+        if m and m.group(1).strip():
+            return html.unescape(m.group(1)).strip()
+    m = re.search(r"franchise_(?:icon|logo)(\d{4})", raw, re.I)
+    if m:
+        return f"fid:{m.group(1)}"
+    return ""
 
 
 def auth_state(page: str) -> str:
@@ -75,16 +94,21 @@ def scan(path: str) -> None:
         print("  (no report tables — league may have run no waivers this season)")
         return
 
+    # The REPORT table is the 6-column one; dump it in full (the others are
+    # sidebar noise). Full dump matters: the interesting rows are the DENIALS,
+    # and they are not always in the first three.
     for ti, rows in enumerate(tbls):
         widths = Counter(len(r) for r in rows)
-        print(f"\n  --- table {ti}: {len(rows)} rows, cell-count distribution {dict(widths)} ---")
-        for r in rows[:3]:
+        is_report = 6 in widths
+        print(f"\n  --- table {ti}: {len(rows)} rows, cells {dict(widths)}{' <-- REPORT' if is_report else ''} ---")
+        show = rows if is_report else rows[:2]
+        for r in show:
             print(f"      {r}")
-        if len(rows) > 3:
-            print(f"      ... {len(rows) - 3} more")
+        if not is_report and len(rows) > 2:
+            print(f"      ... {len(rows) - 2} more")
 
     # Contested analysis on the widest table (the real report).
-    rows = max(tbls, key=len)
+    rows = next((t for t in tbls if any(len(r) == 6 for r in t)), max(tbls, key=len))
     if len(rows) < 2:
         return
     header = rows[0]

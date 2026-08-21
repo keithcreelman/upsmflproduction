@@ -46637,17 +46637,34 @@ export default {
             // never announced it (a failed post, or some edge case with no
             // add-side row at all), this row is left discord_posted=0 so the
             // drops-poster still tells the league. Never silently unannounced.
+            // Does the ADDS poster own this drop? Decided from the drop's OWN
+            // transaction, with no cross-table read.
+            //
+            // The previous version asked ups_add_events whether a matching add
+            // was already discord_posted=1 — and LOST A RACE. Both scanners run
+            // in the same */5 tick: the add is inserted (discord_posted=0), the
+            // drop is scanned seconds later, and only afterwards does the adds
+            // poster flip the flag. Verified on the real 2026-08-20 run —
+            // Emanuel Wilson's add detected 13:05:09.034, Calvin Ridley's drop
+            // 13:05:14.177, correlation keys identical — so the guard saw an
+            // unposted add, declined to suppress, and the league got Calvin
+            // Ridley announced twice: once as a standalone "Drop" card and
+            // again inside the waiver post (Keith 2026-08-21, with receipts).
+            //
+            // A BBID/WAIVER transaction is "added,|bid|dropped,". If the ADDED
+            // field is populated then this drop is the paired side of somebody's
+            // claim, and the adds/waiver-run poster announces it as part of that
+            // claim — always, since that pairing comes from the same MFL
+            // transaction string rather than from a join. So the standalone card
+            // is redundant by construction, not by timing, and there is no state
+            // anywhere that can flip mid-tick to change the answer.
+            //
+            // A waiver drop with NO added player is not owned by anyone else and
+            // still gets its own card.
             let alreadyAnnouncedViaAdd = false;
             if (drop.tx_type === "BBID_WAIVER" || drop.tx_type === "WAIVER") {
-              try {
-                const matchedAdd = await env.UPS_MFL_DB.prepare(
-                  `SELECT id FROM ups_add_events
-                     WHERE season = ? AND league_id = ? AND franchise_id = ?
-                       AND acquired_at_unix = ? AND discord_posted = 1
-                     LIMIT 1`
-                ).bind(targetSeason, leagueId, drop.fid, drop.ts).first();
-                alreadyAnnouncedViaAdd = !!matchedAdd;
-              } catch (_) { alreadyAnnouncedViaAdd = false; }
+              const addedField = safeStr(drop.raw?.transaction).split("|")[0] || "";
+              alreadyAnnouncedViaAdd = addedField.replace(/\D/g, "").length > 0;
             }
 
             if (dryRun) {
