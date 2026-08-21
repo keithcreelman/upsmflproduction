@@ -1,0 +1,60 @@
+name: Discord — delete bot messages in a thread window
+
+# Narrow cleanup tool. Deletes ONLY this bot's own messages, ONLY in the
+# threads you name, ONLY inside the time window you state. Defaults to
+# dry_run so a mis-typed window lists instead of deletes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      thread_ids:
+        description: "Comma-separated thread ids"
+        required: true
+      after_iso:
+        description: "Delete messages AFTER this UTC time (ISO)"
+        required: true
+      before_iso:
+        description: "…and BEFORE this UTC time (ISO)"
+        required: true
+      mode:
+        description: "dry_run = list only · delete = actually remove"
+        required: true
+        default: "dry_run"
+        type: choice
+        options: [dry_run, delete]
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      THREADS: ${{ github.event.inputs.thread_ids }}
+      AFTER: ${{ github.event.inputs.after_iso }}
+      BEFORE: ${{ github.event.inputs.before_iso }}
+      MODE: ${{ github.event.inputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: call cleanup
+        run: |
+          if [ "$MODE" = "delete" ]; then DRY=false; else DRY=true; fi
+          IDS=$(python3 -c "import os,json;print(json.dumps([t.strip() for t in os.environ['THREADS'].split(',') if t.strip()]))")
+          curl -sS -X POST \
+            "https://upsmflproduction.keith-creelman.workers.dev/admin/discord/cleanup-messages?L=74598&YEAR=2026&APIKEY=${KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"thread_ids\":${IDS},\"after_iso\":\"${AFTER}\",\"before_iso\":\"${BEFORE}\",\"dry_run\":${DRY}}" \
+            -o /tmp/cleanup.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("/tmp/cleanup.json"))
+          print("ok:",d.get("ok"),"| dry_run:",d.get("dry_run"),"| bot:",d.get("bot_id"))
+          print("threads:",d.get("threads_scanned"),"| matched:",d.get("matched"),"| deleted:",d.get("deleted"))
+          if d.get("error"): print("ERROR:",d.get("error"))
+          for m in (d.get("messages") or []):
+              print(f"  {m.get('timestamp')}  thread={m.get('thread_id')}  msg={m.get('message_id')}")
+              print(f"      {str(m.get('preview','')).splitlines()[:1]}")
+          for e in (d.get("errors") or []): print("  ERR:",e)
+          PY

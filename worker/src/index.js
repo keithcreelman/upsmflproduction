@@ -41352,6 +41352,28 @@ export default {
         }
 
         const apResults = [];
+        // A REPLAY MUST NEVER ENTER A PRE-EXISTING THREAD OR PARENT.
+        //
+        // 2026-08-21: a replay aimed at the TEST channel posted 5 messages into
+        // the LIVE Aug 20 threads. target:"test" only ever governed where a NEW
+        // parent goes; step 0 below ("this run already has a live thread") takes
+        // a stored THREAD id and posts straight into it, and a thread is
+        // addressable no matter which channel it lives in. The channel-match
+        // guard I relied on compared x.discord_channel_id to apChannelId — but
+        // that column stores the THREAD id, not a channel, so the comparison
+        // could never be true and never protected anything.
+        //
+        // Blanked here rather than at the two read sites so there is ONE place
+        // this invariant lives: on a replay, every entry starts with no thread
+        // and no parent, which forces a fresh post in the target channel.
+        if (apReplay) {
+          for (const entry of apPlans) {
+            entry.existing_thread_id = "";
+            entry.existing_parent_message_id = "";
+            entry.parent_id_candidates = [];
+          }
+        }
+
         for (const entry of apPlans) {
           const result = {
             run_key: entry.run_key,
@@ -45431,6 +45453,84 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
   }
   return { misses: parseWaiverMisses(rows), reason: "", matched: overlap.length };
 }
+
+
+      // POST /admin/discord/cleanup-messages
+      // Body: { thread_ids: [...], after_iso, before_iso, dry_run }
+      //
+      // Deletes THIS BOT'S OWN messages from specific threads inside a time
+      // window. Written to clean up a replay that posted into live threads
+      // (2026-08-21): the replay guard blocked D1 writes but not Discord
+      // posts, because the route's "this run already has a live thread" path
+      // reuses a stored THREAD id, and a thread is addressable regardless of
+      // which channel it lives in.
+      //
+      // Deliberately narrow, because this deletes real messages:
+      //   - only messages authored by our own bot are eligible
+      //   - only inside an explicit time window the caller states
+      //   - only in threads the caller names
+      //   - dry_run lists exactly what WOULD go, and is the default
+      // A message outside the window, or by anyone else, is never touched.
+      if (path === "/admin/discord/cleanup-messages" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        let cbody = {};
+        try { cbody = (await request.json()) || {}; } catch (_) { cbody = {}; }
+        const cThreads = (Array.isArray(cbody.thread_ids) ? cbody.thread_ids : [])
+          .map((t) => safeStr(t).replace(/\D/g, "")).filter(Boolean);
+        const cAfter = Date.parse(safeStr(cbody.after_iso));
+        const cBefore = Date.parse(safeStr(cbody.before_iso));
+        // Default to dry-run: an omitted flag must not delete.
+        const cDry = cbody.dry_run === false ? false : true;
+        if (!cThreads.length) return jsonOut(400, { ok: false, error: "thread_ids[] required" });
+        if (!Number.isFinite(cAfter) || !Number.isFinite(cBefore) || cBefore <= cAfter) {
+          return jsonOut(400, { ok: false, error: "after_iso/before_iso required, and before must be later than after" });
+        }
+        const cToken = contractDiscordBotToken();
+        if (!cToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+
+        // Who we are — so we only ever delete our own posts.
+        let meId = "";
+        try {
+          const me = await discordBotRequest(cToken, "GET", "/users/@me", null);
+          meId = safeStr(me?.data?.id);
+        } catch (_) {}
+        if (!meId) return jsonOut(502, { ok: false, error: "could_not_resolve_bot_identity" });
+
+        const found = [];
+        const deleted = [];
+        const errors = [];
+        for (const th of cThreads) {
+          let msgs = [];
+          try {
+            const r = await discordBotRequest(cToken, "GET", `/channels/${encodeURIComponent(th)}/messages?limit=100`, null);
+            msgs = Array.isArray(r?.data) ? r.data : [];
+          } catch (e) { errors.push({ thread_id: th, error: String(e?.message || e).slice(0, 200) }); continue; }
+          for (const m of msgs) {
+            const authorId = safeStr(m?.author?.id);
+            const ts = Date.parse(safeStr(m?.timestamp));
+            if (authorId !== meId) continue;
+            if (!Number.isFinite(ts) || ts < cAfter || ts > cBefore) continue;
+            const brief = {
+              thread_id: th, message_id: safeStr(m.id), timestamp: safeStr(m.timestamp),
+              preview: safeStr((m.embeds && m.embeds[0] && m.embeds[0].description) || m.content).slice(0, 100),
+            };
+            found.push(brief);
+            if (cDry) continue;
+            try {
+              await discordBotRequest(cToken, "DELETE", `/channels/${encodeURIComponent(th)}/messages/${encodeURIComponent(m.id)}`, null);
+              deleted.push(brief);
+            } catch (e) { errors.push({ ...brief, error: String(e?.message || e).slice(0, 200) }); }
+            await new Promise((res) => setTimeout(res, 400));   // polite pacing
+          }
+        }
+        return jsonOut(200, {
+          ok: errors.length === 0, dry_run: cDry, bot_id: meId,
+          threads_scanned: cThreads.length,
+          matched: found.length, deleted: deleted.length,
+          window: { after_iso: safeStr(cbody.after_iso), before_iso: safeStr(cbody.before_iso) },
+          messages: cDry ? found : deleted, errors,
+        });
+      }
 
       // GET /admin/waivers/processed?L=&YEAR=&raw=1
       //
