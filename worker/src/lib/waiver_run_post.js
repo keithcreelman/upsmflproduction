@@ -654,7 +654,13 @@ export function parseWaiverMisses(rows) {
 
 // One thread message per denied claim. Same embed vocabulary as a granted
 // move so the two read as one feed.
-export function buildMissMessage(miss) {
+// showFallback=false for the STANDALONE miss report (Keith 2026-08-21: "we
+// dont need the fell through to so in this report though you can keep that in
+// the hits report"). The denial post answers "what did you not get, and why";
+// what you got INSTEAD is the wins report's job. The data is still parsed and
+// still carried on the miss object either way — only the rendering differs, so
+// nothing has to be re-derived if it is wanted back.
+export function buildMissMessage(miss, showFallback = true) {
   const p = miss && miss.player;
   const team = _s(miss && miss.franchise_name);
   const bid = p && p.bid_dollars != null ? ` — ${fmtK(p.bid_dollars)} bid` : "";
@@ -666,7 +672,7 @@ export function buildMissMessage(miss) {
       : _s(miss.reason);
     fields.push({ name: "MFL's reason", value: clampField(why), inline: false });
   }
-  const g = miss.granted_instead;
+  const g = showFallback ? miss.granted_instead : null;
   if (g) {
     const rankTag = miss.granted_rank && miss.options_total
       ? ` (choice ${miss.granted_rank} of ${miss.options_total})` : "";
@@ -681,7 +687,7 @@ export function buildMissMessage(miss) {
       v += `\n_${names} never came up — ${_s(g.name)} landed first_`;
     }
     fields.push({ name: "Fell through to", value: clampField(v), inline: false });
-  } else {
+  } else if (showFallback) {
     // Say it explicitly — a blank here would read as "we didn't check".
     fields.push({ name: "Fell through to", value: "_nothing — no other option on this request_", inline: false });
   }
@@ -756,6 +762,6 @@ export function buildMissReportPlan(report) {
     thread_name: `${dayLabel} Misses`.replace(/\s+/g, " ").trim().slice(0, 100),
     parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
     parent_embed: parentEmbed,
-    move_messages: misses.map((m) => buildMissMessage(m)),
+    move_messages: misses.map((m) => buildMissMessage(m, false)),
   };
 }
