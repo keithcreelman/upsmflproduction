@@ -34,7 +34,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
-import { buildWaiverRunPlan, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
+import { buildWaiverRunPlan, buildWaiverReportPlan, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
 // Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
@@ -40523,6 +40523,32 @@ export default {
         const apTarget = safeStr(pbody?.target || env.ADD_TRACKER_DISCORD_TARGET || "test").toLowerCase();
         const apLimit = Math.max(1, Math.min(50, safeInt(pbody?.limit, 20)));
         const apDryRun = !!pbody?.dry_run;
+        // REPLAY — re-render one already-posted run (YYYY-MM-DD, matched on
+        // acquired_at_iso) so it can be previewed in the test channel without
+        // touching prod state. Two things make this safe, and both matter:
+        //   1. it selects by DAY and IGNORES discord_posted, so it never needs
+        //      to clear that flag. Clearing it would hand those rows straight
+        //      to the */5 cron, which posts to PROD — the run would be
+        //      re-announced to the league within five minutes.
+        //   2. every D1 write in this route is skipped while replaying, so the
+        //      prod message/parent ids stay exactly as they were.
+        // The parent-reuse guard already requires a channel-id match, so a
+        // prod parent id can't be reused in the test channel either.
+        // shape: "report" = ONE league-wide post per run; anything else keeps
+        // the historical one-parent-per-team layout.
+        const apShape = safeStr(pbody?.shape || "").toLowerCase();
+        let apShapeNote = "";
+        const apReplayDay = safeStr(pbody?.replay_day || "");
+        if (apReplayDay && !/^\d{4}-\d{2}-\d{2}$/.test(apReplayDay)) {
+          return jsonOut(400, { ok: false, error: "replay_day must be YYYY-MM-DD" });
+        }
+        const apReplay = !!apReplayDay;
+        if (apReplay && apTarget === "prod" && !pbody?.i_really_mean_prod) {
+          return jsonOut(400, {
+            ok: false, error: "replay_to_prod_blocked",
+            message: "Replaying into the PROD channel would double-announce a run the league already saw. Use target:\"test\", or pass i_really_mean_prod:true.",
+          });
+        }
         if (!apSeason) return jsonOut(400, { ok: false, error: "Missing season" });
 
         const apBotToken = contractDiscordBotToken();
@@ -40568,15 +40594,23 @@ export default {
 
         let apRows = null;
         try {
-          const sel = await env.UPS_MFL_DB.prepare(
-            `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
+          const apCols = `id, season, league_id, player_id, player_name, position, nfl_team,
                     franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
                     source, bid_dollars, acquisition_week,
-                    discord_channel_id, discord_message_id, discord_parent_message_id
-               FROM ups_add_events
-              WHERE season = ? AND league_id = ? AND discord_posted = 0
-              ORDER BY acquired_at_unix ASC LIMIT ?`
-          ).bind(apSeason, apLeagueId, apLimit).all();
+                    discord_channel_id, discord_message_id, discord_parent_message_id`;
+          const sel = apReplay
+            ? await env.UPS_MFL_DB.prepare(
+                `SELECT ${apCols}
+                   FROM ups_add_events
+                  WHERE season = ? AND league_id = ? AND substr(acquired_at_iso, 1, 10) = ?
+                  ORDER BY acquired_at_unix ASC LIMIT ?`
+              ).bind(apSeason, apLeagueId, apReplayDay, apLimit).all()
+            : await env.UPS_MFL_DB.prepare(
+                `SELECT ${apCols}
+                   FROM ups_add_events
+                  WHERE season = ? AND league_id = ? AND discord_posted = 0
+                  ORDER BY acquired_at_unix ASC LIMIT ?`
+              ).bind(apSeason, apLeagueId, apLimit).all();
           apRows = sel?.results || null;
         } catch (e) {
           // NO FAIL-OPEN. If we cannot read the work queue we do not know what
@@ -40969,6 +41003,9 @@ export default {
         // ── Build the plan for every run (no Discord contact yet — dry_run
         // returns exactly this, so the commish reviews the real payload).
         const apPlans = [];
+        // Collected alongside the per-team plans so shape:"report" can collapse
+        // the whole run into ONE post without re-deriving any of the moves.
+        const apReportTeams = [];
         for (const run of apRunsByKey.values()) {
           const first = run.rows[0];
           const meta = await loadContractDiscordFranchiseMeta({
@@ -41138,6 +41175,16 @@ export default {
             season: apSeason,
             moves,
           });
+          apReportTeams.push({
+            franchise_id: run.franchise_id,
+            franchise_name: safeStr(first.franchise_name) || safeStr(meta.franchise_name),
+            icon_url: safeStr(meta.icon_url),
+            day_key: run.day_key,
+            first_acquired_iso: safeStr(first.acquired_at_iso),
+            first_acquired_unix: safeInt(first.acquired_at_unix, 0),
+            row_ids: run.rows.map((x) => x.id),
+            moves,
+          });
           apPlans.push({
             run_key: `${run.franchise_id}|${run.day_key}`,
             franchise_id: run.franchise_id,
@@ -41220,6 +41267,9 @@ export default {
             dry_run: true,
             target: apTarget,
             channel_id: apChannelId,
+            shape: apShape === "report" ? "report" : "per_team",
+            shape_note: apShapeNote,
+            replay_day: apReplayDay || null,
             run_count: apPlans.length,
             move_count: apPlans.reduce((n, p) => n + p.plan.move_messages.length, 0),
             contract_deadline_et: apDeadlineLabel,
@@ -41238,6 +41288,45 @@ export default {
         }
 
         const apResults = [];
+        // shape:"report" — collapse every team's run into ONE league-wide post.
+        // Produces a single apPlans entry with the SAME field names the posting
+        // loop below already consumes (plan / row_ids / existing_parent_message_id),
+        // so the parent → thread → per-move sequence, the id recording and the
+        // replay guards all work unchanged. Only grouped when the whole batch is
+        // one calendar day: a report titled for one day must not silently fold in
+        // another day's claims, so a mixed batch stays per-team.
+        const apDayKeys = [...new Set(apReportTeams.map((t) => t.day_key))];
+        if (apShape === "report" && apReportTeams.length && apDayKeys.length === 1) {
+          const firstTeam = apReportTeams.reduce(
+            (a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b)
+          );
+          const reportPlan = buildWaiverReportPlan({
+            run_date_label: apFmtEtDay(new Date(safeInt(firstTeam.first_acquired_unix, 0) * 1000), false),
+            processed_at_et: apFmtEastern(firstTeam.first_acquired_iso),
+            season: apSeason,
+            teams: apReportTeams.map((t) => ({
+              franchise_id: t.franchise_id, franchise_name: t.franchise_name, moves: t.moves,
+            })),
+          });
+          const allRowIds = apReportTeams.reduce((acc, t) => acc.concat(t.row_ids), []);
+          apPlans.length = 0;
+          apPlans.push({
+            run_key: `REPORT|${apDayKeys[0]}`,
+            franchise_id: "",
+            franchise_name: `League — ${reportPlan.thread_name}`,
+            day_key: apDayKeys[0],
+            row_ids: allRowIds,
+            unmatched_rows: [],
+            malformed_transaction_rows: [],
+            // A league-wide report has no per-franchise parent to reuse; the
+            // per-team ids belong to a different shape entirely. Always fresh.
+            existing_parent_message_id: "",
+            plan: reportPlan,
+          });
+        } else if (apShape === "report" && apDayKeys.length > 1) {
+          apShapeNote = `shape:"report" requested but this batch spans ${apDayKeys.length} days (${apDayKeys.join(", ")}) — kept per-team so a day-titled report can't fold in another day's claims.`;
+        }
+
         for (const entry of apPlans) {
           const result = {
             run_key: entry.run_key,
@@ -41311,7 +41400,12 @@ export default {
             // the moment that move lands) and is no longer load-bearing for
             // reuse, so a legacy per-add id sitting in it can no longer be
             // mistaken for a parent.
-            try {
+            // Replay never records — the prod ids for this run must survive a
+            // test-channel preview untouched.
+            if (apReplay) {
+              result.parent_recorded = false;
+              result.replay_no_write = true;
+            } else try {
               const upd = await env.UPS_MFL_DB.prepare(
                 `UPDATE ups_add_events
                     SET discord_channel_id = ?, discord_message_id = ?, discord_parent_message_id = ?
@@ -41429,7 +41523,12 @@ export default {
               // beats a silent duplicate loop.
               let recorded = false;
               let recordError = "";
-              try {
+              if (apReplay) {
+                // Replay must not flip discord_posted or overwrite the prod
+                // ids. Marked recorded so the caller's counters read normally;
+                // replay_no_write is what says nothing was persisted.
+                recorded = true;
+              } else try {
                 // discord_channel_id becomes the THREAD — that is where the
                 // message actually lives, so the id pair still resolves.
                 const upd = await env.UPS_MFL_DB.prepare(
@@ -41477,6 +41576,12 @@ export default {
           dry_run: false,
           target: apTarget,
           channel_id: apChannelId,
+          shape: apShape === "report" ? "report" : "per_team",
+          shape_note: apShapeNote,
+          // replay posts to Discord but deliberately writes NOTHING to D1 —
+          // posted_count therefore counts messages sent, not rows marked.
+          replay_day: apReplayDay || null,
+          replay_no_db_writes: apReplay,
           run_count: apResults.length,
           posted_count: apResults.reduce((n, x) => n + x.posted_row_ids.length, 0),
           failed_count: apResults.reduce((n, x) => n + (x.row_ids.length - x.posted_row_ids.length), 0),
