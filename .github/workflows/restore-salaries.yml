@@ -13,6 +13,10 @@ name: RECOVERY — restore full league salaries
 on:
   workflow_dispatch:
     inputs:
+      payload:
+        description: "Payload under data/recovery/ to write"
+        required: true
+        default: "2026-08-22_salaries_restore.json"
       mode:
         description: "dry_run = build + validate only · apply = write to MFL"
         required: true
@@ -36,4 +40,4 @@ jobs:
           FLAG=""
           [ "${{ github.event.inputs.mode }}" = "apply" ] && FLAG="--apply"
           python3 scripts/ci_restore_salaries.py \
-            data/recovery/2026-08-22_salaries_restore.json $FLAG
+            "data/recovery/${{ github.event.inputs.payload }}" $FLAG
