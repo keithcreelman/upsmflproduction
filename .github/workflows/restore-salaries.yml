@@ -1,0 +1,39 @@
+name: RECOVERY — restore full league salaries
+
+# 2026-08-22: a one-player salaries import blanked contract fields on 502
+# players. MFL's import?TYPE=salaries REPLACES the whole <leagueUnit>; omitted
+# players are wiped. This restores all 503 rows from the pre-write read,
+# cross-validated against the independent daily snapshot in the repo.
+#
+# The script is fail-closed: it refuses a short payload, refuses rows with any
+# empty field, refuses if too many rows are uncorroborated, no-ops if the live
+# table is already whole, and verifies afterwards by ROW COUNT (never a
+# spot-check on a single player — that is what missed the original wipe).
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run = build + validate only · apply = write to MFL"
+        required: true
+        default: dry_run
+        type: choice
+        options: [dry_run, apply]
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    env:
+      COMMISH_API_KEY: ${{ secrets.COMMISH_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$COMMISH_API_KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: restore
+        run: |
+          FLAG=""
+          [ "${{ github.event.inputs.mode }}" = "apply" ] && FLAG="--apply"
+          python3 scripts/ci_restore_salaries.py \
+            data/recovery/2026-08-22_salaries_restore.json $FLAG
