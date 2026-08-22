@@ -62,8 +62,24 @@ def main(path, apply):
     live_ok = complete_rows(live)
     print(f"LIVE NOW    : {len(live)} rows, {len(live_ok)} with contract data")
     print(f"RESTORING   : {len(rows)} rows ({len(rows)-len(bad)} corroborated, {len(bad)} not)")
-    if len(live_ok) >= len(rows):
-        print("NO-OP: live table already has at least as many complete rows. Not writing.")
+    # The property that actually protects the league is "never write FEWER rows
+    # than are live" — a short payload blanks the difference. Gating on
+    # "live has fewer than the payload" instead would be stricter than needed
+    # and makes a content-only backfill (same row count) impossible to apply.
+    if len(rows) < len(live_ok):
+        print(f"REFUSE: payload has {len(rows)} rows but {len(live_ok)} are live. "
+              f"Writing it would blank {len(live_ok)-len(rows)} players."); return 2
+
+    live_by_id = {str(p["id"]): {f: str(p.get(f, "") or "") for f in FIELDS} for p in live_ok}
+    diff = [r for r in rows
+            if live_by_id.get(str(r["id"])) != {f: str(r.get(f, "") or "") for f in FIELDS}]
+    print(f"ROWS DIFFERING FROM LIVE: {len(diff)}")
+    for r in diff[:15]:
+        cur = live_by_id.get(str(r["id"]))
+        print(f"    {r['id']}: {cur.get('contractInfo') if cur else '(absent)'}")
+        print(f"       -> {r['contractInfo']}")
+    if not diff:
+        print("NO-OP: live table already matches the payload exactly. Not writing.")
         return 0
 
     body = "\n".join(
