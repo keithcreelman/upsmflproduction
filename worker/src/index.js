@@ -199,7 +199,11 @@ async function snapshotMflToR2(env, nowUtc) {
     ["salaries",     `https://api.myfantasyleague.com/${season}/export?TYPE=salaries&L=${leagueId}&JSON=1`],
     ["transactions", `https://www48.myfantasyleague.com/${season}/export?TYPE=transactions&L=${leagueId}&JSON=1`],
     ["rosters",      `https://www48.myfantasyleague.com/${season}/export?TYPE=rosters&L=${leagueId}&JSON=1`],
-    ["injuries",     `https://www48.myfantasyleague.com/${season}/export?TYPE=injuries&L=${leagueId}&JSON=1`],
+    // ⚠️ `injuries` needs BOTH halves: the api.* host AND no L=. Verified live
+    // 2026-08-22 — www48+L, www48 no-L, and api.*+L ALL return an error
+    // envelope; only api.* with no L returns rows (368). Sending L here
+    // silently emptied 111 daily snapshots.
+    ["injuries",     `https://api.myfantasyleague.com/${season}/export?TYPE=injuries&JSON=1`],
     ["league",       `https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1`],
     ["freeAgents",   `https://www48.myfantasyleague.com/${season}/export?TYPE=freeAgents&L=${leagueId}&JSON=1`],
     ["draftResults", `https://api.myfantasyleague.com/${season}/export?TYPE=draftResults&L=${leagueId}&JSON=1`],
@@ -12169,7 +12173,9 @@ export default {
         const [profileRes, detailsRes, injRes, rostersRes, leagueRes] = await Promise.allSettled([
           mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=playerProfile&P=${encodeURIComponent(pid)}&JSON=1`, 60),
           mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(pid)}&JSON=1`, 86400),
-          mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=injuries&L=${encodeURIComponent(leagueId)}&JSON=1`, 300),
+          // ⚠️ api.* host AND no L= — every other combination returns an error
+          // envelope (verified live 2026-08-22). See the snapshot list ~line 202.
+          mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=injuries&JSON=1`, 300),
           mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, 60),
           mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`, 600),
         ]);

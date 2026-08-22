@@ -197,7 +197,10 @@ def build_player_bundle(pid: str, year: str = "2026") -> dict:
         bundle["details_error"] = str(e)
     # 2. Injuries
     try:
-        url = f"https://www48.myfantasyleague.com/{year}/export?TYPE=injuries&L={mfl.LEAGUE_ID}&JSON=1"
+        # `injuries` needs BOTH the api.* host AND no L=. Verified live
+        # 2026-08-22: www48+L, www48 no-L and api.*+L all return an error
+        # envelope; only api.* with no L returns rows.
+        url = f"https://api.myfantasyleague.com/{year}/export?TYPE=injuries&JSON=1"
         with _urlopen(url, timeout=15) as r:
             data = json.loads(r.read())
         players = data.get("injuries", {}).get("injury", []) or []
