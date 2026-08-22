@@ -6075,6 +6075,50 @@ export default {
                 );
                 const apData = await apRes.json().catch(() => ({}));
                 addsPosted = Number(apData?.posted_count) || 0;
+
+                // ── PREVIEW THE SINGLE WW THREAD, TEST CHANNEL ONLY ────────
+                // Keith 2026-08-21: "Fix the WW thread but pass it to my test
+                // channel not for rest of the league."
+                //
+                // The league's posts above are UNTOUCHED — they keep the
+                // per-team shape they have always had. This is an ADDITIONAL
+                // render of the same run in the one-report shape, sent only to
+                // the test channel, so the format can be judged on real runs
+                // without changing what the league sees.
+                //
+                // Uses replay_day rather than a second normal post: the rows
+                // were just marked discord_posted=1 by the call above, so a
+                // plain call would find nothing. Replay selects by DAY, ignores
+                // that flag, and writes NOTHING to D1 — so the league's real
+                // message ids are untouched and this cannot double-charge or
+                // re-announce anything.
+                //
+                // Failure here must never affect the league's post, which has
+                // already succeeded by this point: fully isolated, logged, and
+                // swallowed.
+                if (addsPosted > 0) {
+                  try {
+                    const wwDay = new Date().toISOString().slice(0, 10);
+                    const wwRes = await env.SELF.fetch(
+                      `${origin}/admin/adds/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                      {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          season, league_id: leagueId,
+                          target: "test", shape: "report", replay_day: wwDay, limit: 50,
+                        }),
+                      }
+                    );
+                    const wwData = await wwRes.json().catch(() => ({}));
+                    console.log(
+                      `[scheduled */5] WW report preview -> test: ok=${wwData?.ok} shape=${wwData?.shape} ` +
+                      `day=${wwDay} runs=${wwData?.run_count} posted=${wwData?.posted_count}` +
+                      (wwData?.shape_note ? ` note="${wwData.shape_note}"` : "")
+                    );
+                  } catch (e) {
+                    console.warn(`[scheduled */5] WW report preview failed (league post unaffected): ${e?.message || e}`);
+                  }
+                }
                 // posted_count used to be the ONLY field read here, and this
                 // self-fetch is the route's only production caller. So the one
                 // failure the route is most careful to report — a move that IS
