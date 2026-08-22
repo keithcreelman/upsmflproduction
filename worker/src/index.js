@@ -34,6 +34,8 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
+import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
+import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -46074,6 +46076,30 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
         };
       };
 
+      // GET /admin/qb-caps/check?L=&YEAR=&starters=<pid,pid,...>
+      // §B1's two QB caps, measured at the September contract deadline. READ
+      // ONLY — it reports and never cuts, because canon's consequence is real
+      // cuts with real dead money and starter status is explicitly a
+      // commissioner determination. See qb_cap_check.js for why that is not
+      // squeamishness: FantasyPros' depth chart is client-rendered, so there is
+      // no honest scrape behind an automated answer.
+      //
+      // `starters` is the commissioner's list of NFL starting QBs (mfl player
+      // ids). Omit it and the 5-QB active check still reports exactly, while
+      // the 4-starter half reports `starters_known: false` rather than
+      // resolving to zero and calling everyone compliant.
+      if (path === "/admin/qb-caps/check" && request.method === "GET") {
+        const qSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const qLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const qStarters = safeStr(url.searchParams.get("starters"))
+          .split(",").map((x) => x.trim()).filter(Boolean);
+        const rep = await checkQbCaps(env, {
+          season: qSeason, leagueId: qLeague,
+          startingQbIds: qStarters.length ? qStarters : null,
+        });
+        return jsonNoStore(rep.ok ? 200 : 502, rep);
+      }
+
       // GET /admin/drops/reconciliation?L=&YEAR= — read-only per-franchise SUM-rounding
       // preview (powers the FO display). No writes.
       if (path === "/admin/drops/reconciliation" && request.method === "GET") {
@@ -52677,6 +52703,42 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
           } catch (_) {}
           return 0;
         })();
+
+        // ── §C3 MYM GUARDS (Keith 2026-08-17) ─────────────────────────────
+        // The 4-per-season cap and the 14-day window. Both were believed to
+        // live here — front_office_mym_submit.js says "the WORKER enforces the
+        // 14-day window AND the 4-per-season cap on submit; this client is
+        // best-effort" — and neither existed. The only thing enforcing §C3 was
+        // a client that disclaims authority, so a direct POST bypassed both.
+        //
+        // Placed BEFORE the MFL write, after the flags are known, so a blocked
+        // submission never reaches MFL and never books an audit row.
+        //
+        // Dry runs are checked but not blocked: the whole point of a dry run is
+        // to see what would happen, and a guard that refuses to simulate hides
+        // the answer the owner asked for. The verdict rides in the response.
+        if (isMymSubmission && !isRestructure) {
+          const mymGuard = await checkMymEligibility(env, {
+            season: year, leagueId,
+            fid: franchiseId, playerId,
+            isCommishOverride: !!(sessionByApiKey || commishOverrideFlag),
+          }).catch((e) => ({ allowed: true, reason: "guard_error", detail: String(e && e.message || e) }));
+          if (mymGuard.overridden) {
+            console.log(`[offer-mym] §C3 ${mymGuard.reason} OVERRIDDEN by commish for fid=${franchiseId} pid=${playerId}`);
+          }
+          if (!mymGuard.allowed && !dryRunFlag) {
+            return mutationResponse("validation_fail", "", {
+              reason: mymGuard.detail || "Mid-Year Multi not permitted (§C3).",
+              rule: mymGuard.reason,
+              mym_used: mymGuard.cap && mymGuard.cap.used,
+              mym_max: mymGuard.cap && mymGuard.cap.max,
+              window_closes_unix: mymGuard.window && mymGuard.window.closes_unix,
+            }, 422);
+          }
+          if (!mymGuard.allowed && dryRunFlag) {
+            console.log(`[offer-mym] DRY RUN would be blocked: ${mymGuard.reason}`);
+          }
+        }
 
         // silence_discord flag (Keith 2026-05-18) — for manual contract
         // reverts where the MFL change must land but Discord must NOT
