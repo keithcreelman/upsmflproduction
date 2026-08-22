@@ -41342,7 +41342,11 @@ export default {
               processed_at_et: apFmtEastern(firstTeamR.first_acquired_iso),
               season: apSeason,
               teams: apReportTeams.map((t) => ({
-                franchise_id: t.franchise_id, franchise_name: t.franchise_name, moves: t.moves,
+                // icon_url must ride along — it is what puts the franchise logo
+                // on every move card's author row. Dropping it here is why the
+                // icon was missing entirely rather than merely small.
+                franchise_id: t.franchise_id, franchise_name: t.franchise_name,
+                icon_url: t.icon_url, moves: t.moves,
               })),
             });
             const allRowIdsR = apReportTeams.reduce((acc, t) => acc.concat(t.row_ids), []);
