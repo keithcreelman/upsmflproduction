@@ -242,7 +242,7 @@ export function buildMoveMessage(move, currentSeason) {
   const lines = [playerLine("＋", move.added)];
   if (drops.length) {
     for (const d of drops) lines.push(playerLine("－", d.player));
-    lines.push(pen.heading);
+    // heading is prepended at the embed, not appended here — see below
   } else if (move.pairing_known === false) {
     // We do NOT know whether this add displaced anyone — either the add is not
     // in MFL's transaction log at all, or the row that carries it did not have
@@ -286,11 +286,27 @@ export function buildMoveMessage(move, currentSeason) {
       fields.push({ name: "Penalty calculation", value: clampField(basisLines.join("\n")), inline: false });
     }
   }
+  // TITLE carries the headline — an embed title renders larger and heavier
+  // than any markdown inside the description, so the claim reads at a glance
+  // in a busy channel (Keith 2026-08-22: "make it bigger make it stand out
+  // more ... make sure the no cap penalty or cap penalty is pronounced").
+  const addName = _s(move.added && move.added.name);
+  const title = addName ? `🎯 Waiver Claim — ${addName}` : "🎯 Waiver Claim";
+
+  // The penalty heading leads the DESCRIPTION as an H1, above the ＋/－ pair,
+  // rather than trailing it. It is the consequence an owner scans for, so it
+  // sits at the top of the body instead of under two player lines.
+  const headed = pen ? [pen.heading, ""].concat(lines) : lines;
+
   const embed = {
-    description: clampDesc(lines.join("\n")),
+    title,
+    description: clampDesc(headed.join("\n")),
     color: drops.length ? pen.color : (move.pairing_known === false ? 0xf0a020 : 0x25c37d),
     fields,
   };
+  // Franchise logo, when the caller has one — the visual anchor that makes a
+  // card scannable by team without reading it.
+  if (_s(move.icon_url)) embed.thumbnail = { url: _s(move.icon_url) };
   return {
     row_id: move.row_id,
     player_id: move.player_id,
