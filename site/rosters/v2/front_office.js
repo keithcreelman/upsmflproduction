@@ -605,6 +605,28 @@
     if (!match) return "";
     return safeStr(match[1]).replace(/\bY\d+\s*-[^|]*$/i, "").trim();
   }
+  // Segments a restructure OWNS — it recomputes every one of these, so the prior
+  // value is expected to be replaced.
+  var RESTRUCTURE_OWNED_SEGMENT = /^\s*(CL\b|TCV\b|AAV\b|Y\d+\s*-|GTD\b|[Rr]estructur)/i;
+  // Everything ELSE in a prior contractInfo is recorded history this form has no
+  // business editing — `Ext:` (which franchises spent an extension, and so gates
+  // future extension eligibility), and the tag quartet `Tag | Tier N | Formula: … |
+  // 10% salary floor`. Carry them through verbatim.
+  //
+  // 🔒 Enumerating what to KEEP is what makes this rebuild lose fields. It has now
+  // dropped three: AAV and the -FL/-BL suffix (Cook/London, 2026-07), then `Ext:`
+  // on nine contracts restructured via this form in 2026 (backfilled 2026-08-22 —
+  // FO v2 was the ONLY writer missing it; roster_workbench.js and the mobile
+  // submitter both already re-push it). Preserving the unrecognized remainder is
+  // what stops the next field from going the same way — a restructure of a TAGGED
+  // player would have silently destroyed all four tag segments.
+  function preservedContractSegments(contractInfo) {
+    return safeStr(contractInfo).split("|").map(function (seg) {
+      return safeStr(seg).trim();
+    }).filter(function (seg) {
+      return seg && !RESTRUCTURE_OWNED_SEGMENT.test(seg);
+    });
+  }
   function parseContractGuaranteeValue(contractInfo) {
     var info = safeStr(contractInfo);
     if (!info) return 0;
@@ -8465,9 +8487,17 @@
     // AAV segment = the prior token VERBATIM (dual preserved); fall back to the
     // naive average only when no prior AAV token existed.
     const aavSegment = priorAavToken || fmtK(aav).replace(/\$/, "");
-    const info = "CL " + years + "|TCV " + fmtK(tcv).replace(/\$/, "") +
-                 "|AAV " + aavSegment + "|" + yearTokens.join(", ") +
-                 "|GTD: " + fmtK(gtd).replace(/\$/, "") + "|Restructured " + new Date().getFullYear();
+    // Carry through every segment the restructure does not own (Ext:, tag
+    // quartet, anything added later) — see preservedContractSegments().
+    const carriedSegments = preservedContractSegments(p.special);
+    const info = ["CL " + years,
+                  "TCV " + fmtK(tcv).replace(/\$/, ""),
+                  "AAV " + aavSegment,
+                  yearTokens.join(", "),
+                  "GTD: " + fmtK(gtd).replace(/\$/, "")]
+                 .concat(carriedSegments)
+                 .concat(["Restructured " + new Date().getFullYear()])
+                 .join("|");
     const confirmLines = ["Confirm restructure for " + p.name + "?", "",
       "Y1: " + fmtUSD(y1), "Y2: " + fmtUSD(y2)];
     if (years >= 3) confirmLines.push("Y3: " + fmtUSD(y3));
