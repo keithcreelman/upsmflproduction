@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-21T10:05:32.630994+00:00",
+    "generated_at_utc": "2026-08-22T09:58:27.033483+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -4216,6 +4216,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_15795",
+          "display": "Charlie Kolar",
+          "player_id": "15795",
+          "position": "TE",
+          "nfl_team": "LAC",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15789",
           "display": "Christian Watson",
           "player_id": "15789",
@@ -4285,18 +4297,6 @@
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
           "roster_status": "INJURED_RESERVE",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16773",
-          "display": "Jawhar Jordan",
-          "player_id": "16773",
-          "position": "RB",
-          "nfl_team": "HOU",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
           "taxi": false
         },
         {
