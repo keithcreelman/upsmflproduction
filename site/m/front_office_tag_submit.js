@@ -82,12 +82,23 @@
     var bumpFloor = bumpBase > 0 ? Math.ceil((bumpBase * 1.1) / 1000) * 1000 : 0;
     return Math.max(baseBid, bumpFloor);
   }
+  // Canonical tag floor annotation — the ONE spelling all writers emit.
+  var TAG_FLOOR_NOTE = "10% AAV floor (rounded up to $1K)";
   function effectiveTagFormulaForRow(row) {
-    var formula = safeStr(row && row.tag_formula);
+    // §C8-A: the floor is 10% over the CONTRACT-DEADLINE AAV snapshot — AAV only,
+    // never salary — so "10% AAV floor" is the accurate label and "10% salary
+    // floor" is the stale salary-inclusive one. Strip EITHER wording and every
+    // occurrence, then write the canonical note: the old regex stripped only
+    // "salary floor" while emitting "AAV floor", so it never matched its own
+    // output and re-tagging appended forever (Javonte Williams carried it twice).
+    // Mobile previously wrote "10% salary floor (rounded up)" — the stale
+    // salary-inclusive label — and guarded on indexOf("10%"), which made it
+    // idempotent but preserved whichever wording landed first.
+    var formula = safeStr(row && row.tag_formula).replace(/\s*\|\s*10%\s*(?:salary|AAV)\s+floor[^|]*/ig, "");
     var baseBid = safeInt(row && row.tag_salary, 0);
     var effectiveBid = effectiveTagSalaryForRow(row);
-    if (effectiveBid > baseBid && formula.toLowerCase().indexOf("10%") === -1) {
-      formula += (formula ? " | " : "") + "10% salary floor (rounded up)";
+    if (effectiveBid > baseBid) {
+      formula += (formula ? " | " : "") + TAG_FLOOR_NOTE;
     }
     return formula;
   }
