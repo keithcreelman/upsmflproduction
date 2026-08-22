@@ -8692,16 +8692,21 @@
     const bumpFloor = aavFloor > 0 ? Math.ceil((aavFloor * 1.1) / 1000) * 1000 : 0;
     return Math.max(baseBid, bumpFloor);
   }
+  // Canonical tag floor annotation — the ONE spelling all writers emit.
+  var TAG_FLOOR_NOTE = "10% AAV floor (rounded up to $1K)";
   function effectiveTagFormulaForRow(r) {
     // Start from the canonical tier label (e.g. "Avg Top 1-5 QB AAV").
-    // Strip the JSON's "10% salary floor" suffix because v2 recomputes
-    // floor using AAV only — the JSON suffix is misleading when it was
-    // built on the salary-inclusive formula.
-    let f = safeStr(r && r.tag_formula).replace(/\s*\|\s*10% salary floor[^|]*$/i, "");
+    // §C8-A: the floor is 10% over the CONTRACT-DEADLINE AAV snapshot — AAV only,
+    // never salary — so "10% AAV floor" is the accurate label and "10% salary
+    // floor" is the stale salary-inclusive one. Strip EITHER wording and every
+    // occurrence, then write the canonical note: the old regex stripped only
+    // "salary floor" while emitting "AAV floor", so it never matched its own
+    // output and re-tagging appended forever (Javonte Williams carried it twice).
+    let f = safeStr(r && r.tag_formula).replace(/\s*\|\s*10%\s*(?:salary|AAV)\s+floor[^|]*/ig, "");
     const baseBid = safeInt(r && r.tag_base_bid, 0);
     const eff = effectiveTagSalaryForRow(r);
     if (eff > baseBid) {
-      f += (f ? " | " : "") + "10% AAV floor (rounded up to $1K)";
+      f += (f ? " | " : "") + TAG_FLOOR_NOTE;
     }
     return f;
   }
