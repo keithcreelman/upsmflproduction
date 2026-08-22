@@ -41320,6 +41320,55 @@ export default {
         // shape:"misses" posts ONLY the miss report (nothing else) — that is
         // the test/preview mode, so a denial layout can be eyeballed without
         // re-announcing granted claims the channel already saw.
+        // shape:"report" — collapse the per-team plans into ONE league-wide
+        // post. This was removed in #928 when denials were rescoped to their
+        // own post, and nothing noticed until a real run rendered 2 per-team
+        // parents while reporting shape:"report" (2026-08-22). Removing the
+        // consolidation was right for the LEAGUE feed; it was wrong to remove
+        // the capability, which the test-channel preview depends on.
+        //
+        // Only ever reached when a caller explicitly asks for shape:"report" —
+        // the cron's league post passes no shape, so the league keeps per-team.
+        // Grouped only when the whole batch is one calendar day: a report
+        // titled for one day must not fold in another day's claims.
+        if (apShape === "report" && apReportTeams.length) {
+          const apDayKeysR = [...new Set(apReportTeams.map((t) => t.day_key))];
+          if (apDayKeysR.length === 1) {
+            const firstTeamR = apReportTeams.reduce(
+              (a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b)
+            );
+            const reportPlan = buildWaiverReportPlan({
+              run_date_label: apFmtEtDay(new Date(safeInt(firstTeamR.first_acquired_unix, 0) * 1000), false),
+              processed_at_et: apFmtEastern(firstTeamR.first_acquired_iso),
+              season: apSeason,
+              teams: apReportTeams.map((t) => ({
+                franchise_id: t.franchise_id, franchise_name: t.franchise_name, moves: t.moves,
+              })),
+            });
+            const allRowIdsR = apReportTeams.reduce((acc, t) => acc.concat(t.row_ids), []);
+            apPlans.length = 0;
+            apPlans.push({
+              run_key: `REPORT|${apDayKeysR[0]}`,
+              franchise_id: "",
+              franchise_name: `League — ${reportPlan.thread_name}`,
+              day_key: apDayKeysR[0],
+              row_ids: allRowIdsR,
+              unmatched_rows: [],
+              malformed_transaction_rows: [],
+              // Always a FRESH parent: per-team parent ids belong to a
+              // different shape, and reusing one would hang a league-wide
+              // thread off a single team's post.
+              existing_parent_message_id: "",
+              parent_id_candidates: [],
+              existing_thread_id: "",
+              plan: reportPlan,
+            });
+          } else {
+            apShapeNote = (apShapeNote ? apShapeNote + " " : "") +
+              `shape:"report" requested but this batch spans ${apDayKeysR.length} days (${apDayKeysR.join(", ")}) — kept per-team.`;
+          }
+        }
+
         if (apShape === "report" || apShape === "misses") {
           // Declared here because the miss-report entry keys off it. The
           // earlier report-collapse block owned this and was replaced wholesale,
