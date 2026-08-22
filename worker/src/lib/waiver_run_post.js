@@ -587,7 +587,9 @@ export function parseWaiverMisses(rows) {
   const wonBy = new Map();
   for (let i = start; i < body.length; i += 1) {
     const gotP = parsePlayerCell(body[i][2]);
-    if (gotP && !_s(body[i][5])) wonBy.set(gotP.name, _s(body[i][1]));
+    if (gotP && !_s(body[i][5])) {
+      wonBy.set(gotP.name, { team: _s(body[i][1]), bid: gotP.bid_dollars });
+    }
   }
   for (let i = start; i < body.length; i += 1) {
     const [round, franchise, added, dropped, request, reason] = body[i];
@@ -632,12 +634,36 @@ export function parseWaiverMisses(rows) {
         const p = parsePlayerCell(w);
         return p && p.name === grantedName;
       }) + 1;
-      const takenBy = deniedName ? _s(wonBy.get(deniedName)) : "";
+      const winner = deniedName ? wonBy.get(deniedName) : null;
+      const takenBy = winner ? _s(winner.team) : "";
+      // The bid the LOSER put on the player MFL denied — stated in their own
+      // request text, per option, so it survives even when MFL blanks the
+      // Added cell on a denial.
+      let deniedBid = null;
+      const bidM = sub.request.match(/Add\s+([^$]+?)\s+for\s+\$?([\d,.]+)/gi) || [];
+      for (const seg of bidM) {
+        const mm = /Add\s+(.+?)\s+for\s+\$?([\d,.]+)/i.exec(seg);
+        if (!mm) continue;
+        const p = parsePlayerCell(mm[1]);
+        if (p && p.name === deniedName) { deniedBid = Math.round(Number(mm[2].replace(/,/g, "")) || 0); break; }
+      }
+      // TIE vs OUTBID — the distinction the owner actually cares about, and
+      // derivable because both bids are on the page. Only a TIE was decided by
+      // waiver order; calling an outbid a tiebreaker loss would be wrong.
+      const winBid = winner ? winner.bid : null;
+      let lossKind = "";
+      if (takenBy && deniedBid != null && winBid != null) {
+        lossKind = winBid > deniedBid ? "outbid" : (winBid === deniedBid ? "tiebreaker" : "");
+      }
       out.push({
         franchise_name: sub.franchise_name,
         // Empty when nobody won him (a roster-limit or rules rejection) —
         // distinct from a head-to-head loss, and the card must not imply one.
         lost_to: takenBy && takenBy !== sub.franchise_name ? takenBy : "",
+        // "" when the bids could not both be read — unknown, not "tie".
+        loss_kind: takenBy && takenBy !== sub.franchise_name ? lossKind : "",
+        bid_dollars: deniedBid,
+        winning_bid_dollars: winBid,
         player: deniedPlayer,
         reason: cleanDenialReason(d.reason, deniedName),
         reason_raw: d.reason,
@@ -667,9 +693,26 @@ export function buildMissMessage(miss, showFallback = true) {
   const lines = [`**${team}**`, playerLine("✖", p) + bid];
   const fields = [];
   if (_s(miss.reason) || _s(miss.lost_to)) {
-    const why = _s(miss.lost_to)
-      ? `No longer available — **${_s(miss.lost_to)}** won him earlier in this run.`
-      : _s(miss.reason);
+    let why;
+    if (_s(miss.lost_to)) {
+      const who = `**${_s(miss.lost_to)}**`;
+      if (miss.loss_kind === "outbid") {
+        // Outbid is NOT a tiebreaker loss and must not be dressed as one.
+        why = `Outbid — ${who} bid ${fmtK(miss.winning_bid_dollars)}` +
+              (miss.bid_dollars != null ? ` to your ${fmtK(miss.bid_dollars)}` : "") + ".";
+      } else if (miss.loss_kind === "tiebreaker") {
+        // Equal bids, so waiver order decided it — bbidTiebreaker=SORT.
+        // The CRITERION is deliberately not named here: it is the custom
+        // order until Week 2 and All-Play % after, and this builder cannot
+        // see the date or the order. Naming the wrong one is worse than
+        // naming none, so it says the mechanism and stops.
+        why = `Tied at ${fmtK(miss.bid_dollars)} — ${who} won on waiver order.`;
+      } else {
+        why = `No longer available — ${who} won him earlier in this run.`;
+      }
+    } else {
+      why = _s(miss.reason);
+    }
     fields.push({ name: "MFL's reason", value: clampField(why), inline: false });
   }
   const g = showFallback ? miss.granted_instead : null;
