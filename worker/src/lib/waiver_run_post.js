@@ -299,6 +299,16 @@ export function buildMoveMessage(move, currentSeason) {
   const headed = pen ? [pen.heading, ""].concat(lines) : lines;
 
   const embed = {
+    // Author renders the logo INLINE with the team name at the top of the
+    // card — visually stronger than a corner thumbnail, which Discord scales
+    // down hard (Keith 2026-08-22: "missing the team icon it's small make it
+    // more pronounced"). Both are set: author for identity, thumbnail for size.
+    ...( _s(move.franchise_name) || _s(move.icon_url)
+      ? { author: {
+            name: _s(move.franchise_name) || "\u200b",
+            ...(_s(move.icon_url) ? { icon_url: _s(move.icon_url) } : {}),
+          } }
+      : {}),
     title,
     description: clampDesc(headed.join("\n")),
     color: drops.length ? pen.color : (move.pairing_known === false ? 0xf0a020 : 0x25c37d),
@@ -515,10 +525,14 @@ export function buildWaiverReportPlan(report) {
   const moveMessages = [];
   for (const t of teams) {
     for (const m of (Array.isArray(t.moves) ? t.moves : [])) {
-      const msg = buildMoveMessage(m, season);
+      const msg = buildMoveMessage(
+        { ...m, franchise_name: _s(t.franchise_name), icon_url: _s(t.icon_url) },
+        season
+      );
       const team = _s(t.franchise_name) || _s(t.franchise_id);
       const emb = msg.body.embeds[0];
-      emb.description = clampDesc(`**${team}**\n${emb.description || ""}`);
+      // Team identity is carried by the author row now, so it is NOT repeated
+      // as a bold line in the body.
       moveMessages.push({ ...msg, franchise_id: _s(t.franchise_id), franchise_name: team });
     }
   }
