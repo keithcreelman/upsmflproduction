@@ -52247,11 +52247,17 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
         // commish-owned and read verbatim from league_events; weeks 3/5 come
         // from nflWeekFirstKickoffUnix, the same helper the Discord waiver post
         // and the mobile ladder use, so no surface can hold a different answer.
-        let contractLadder = { stage: "unresolved", end_unix: null };
+        // `reason` is carried on every unresolved result. The first cut of this
+        // block queried a `season` column that does not exist (it is
+        // `nfl_season`), and the catch below turned that SQL error into a bare
+        // "unresolved" — indistinguishable from a legitimately unseeded season.
+        // A fail-closed guard must still say WHY it closed, or it hides the bug
+        // it just caught.
+        let contractLadder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
         try {
           let cdUnix = null;
           const cdRow = await env.UPS_MFL_DB.prepare(
-            "SELECT date FROM league_events WHERE season = ? AND event = 'ups_contract_deadline' LIMIT 1"
+            "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
           ).bind(String(season)).first();
           const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
           if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
@@ -52270,8 +52276,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
             week5KickoffUnix: wk5,
             nowUnix: Math.floor(Date.now() / 1000),
           });
-        } catch (_) {
-          contractLadder = { stage: "unresolved", end_unix: null };
+          if (contractLadder.stage === "unresolved") {
+            contractLadder.reason = !cdUnix ? "no_contract_deadline"
+              : (!wk3 || !wk5) ? "no_week_kickoffs" : "boundaries_out_of_order";
+          }
+        } catch (err) {
+          contractLadder = { stage: "unresolved", end_unix: null, reason: "error: " + safeStr(err && err.message).slice(0, 120) };
         }
 
         const response = jsonOut(200, {
