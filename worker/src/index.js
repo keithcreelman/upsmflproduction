@@ -16556,6 +16556,52 @@ export default {
             out.week_kickoffs = map;
             out.week_kickoffs_source = "mfl_nflSchedule_first_kickoff";
           }
+
+          // ── contract_ladder: which pre-season rung is open RIGHT NOW ──────
+          // Stamped on the SHARED endpoint every ladder consumer already calls
+          // (FO v2, mobile app.js, player_actions_native, team_operations), so
+          // the five browser copies of this boundary can read one answer instead
+          // of each porting the math from the last. Copy drift is what dropped
+          // `Ext:` from nine contracts on 2026-08-22.
+          //
+          // Additive and unconditional — it does not depend on &kickoffs=, so a
+          // caller that never asked for kickoffs still gets the rung. Weeks 3/5
+          // resolve through nflWeekFirstKickoffUnix (memoized; the map above
+          // usually warmed it), and the September deadline is the commish-owned
+          // ups_contract_deadline row read verbatim.
+          //
+          // FAIL-CLOSED, and LOUD: `reason` rides every unresolved result. A
+          // silent unresolved is indistinguishable from an unseeded season and
+          // hid a real bug for a full deploy cycle (#952).
+          out.contract_ladder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
+          try {
+            let cdUnix = null;
+            const cdRow = await db.prepare(
+              "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
+            ).bind(String(season)).first();
+            const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
+              const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
+              if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
+            }
+            const [lw3, lw5] = await Promise.all([
+              nflWeekFirstKickoffUnix(season, 3),
+              nflWeekFirstKickoffUnix(season, 5),
+            ]);
+            out.contract_ladder = contractLadderStage({
+              contractDeadlineUnix: cdUnix,
+              week3KickoffUnix: lw3,
+              week5KickoffUnix: lw5,
+              nowUnix: Math.floor(Date.now() / 1000),
+            });
+            if (out.contract_ladder.stage === "unresolved") {
+              out.contract_ladder.reason = !cdUnix ? "no_contract_deadline"
+                : (!lw3 || !lw5) ? "no_week_kickoffs" : "boundaries_out_of_order";
+            }
+          } catch (err) {
+            out.contract_ladder = { stage: "unresolved", end_unix: null, reason: "error: " + safeStr(err && err.message).slice(0, 120) };
+          }
+
           return jsonOut(200, out);
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
