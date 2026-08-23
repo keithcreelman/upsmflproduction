@@ -35,7 +35,7 @@ import {
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
-import { checkRestructureCap, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
+import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
@@ -52855,6 +52855,23 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
         // never books an audit row. Dry runs report the verdict instead of
         // being blocked.
         if (isRestructure) {
+          // WINDOW first: an out-of-window restructure is refused whether or not
+          // the team has cap room, and saying "you have 2 left" to someone who
+          // cannot restructure at all is the wrong sentence.
+          const rwin = await checkRestructureWindow(env, { season: year });
+          if (!rwin.open && !dryRunFlag && !(sessionByApiKey || commishOverrideFlag)) {
+            return mutationResponse("validation_fail", "", {
+              reason: rwin.detail || "Restructures are offseason-only.",
+              rule: rwin.reason,
+              window_closes_unix: rwin.deadline_unix,
+            }, 422);
+          }
+          if (!rwin.open && (sessionByApiKey || commishOverrideFlag)) {
+            console.log(`[offer-restructure] window ${rwin.reason} OVERRIDDEN by commish for fid=${franchiseId}`);
+          }
+          if (!rwin.open && dryRunFlag) {
+            console.log(`[offer-restructure] DRY RUN would be blocked: ${rwin.reason}`);
+          }
           const rcap = await checkRestructureCap(env, {
             season: year, leagueId,
             fid: franchiseId,

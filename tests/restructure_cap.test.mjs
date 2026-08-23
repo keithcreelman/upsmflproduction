@@ -5,7 +5,7 @@
 // 2026-08-23 after CBP reached 4 — three of them on Nico Collins, the last
 // exactly undoing their own previous restructure.
 import assert from 'assert';
-import { checkRestructureCap, RESTRUCTURE_MAX_PER_SEASON } from '../worker/src/restructure_cap.js';
+import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from '../worker/src/restructure_cap.js';
 
 const envWith = (n) => ({ UPS_MFL_DB: { prepare: () => ({ bind: () => ({ first: async () => ({ n }) }) }) } });
 const envThrows = () => ({ UPS_MFL_DB: { prepare: () => ({ bind: () => ({ first: async () => { throw new Error('D1 down'); } }) }) } });
@@ -80,6 +80,54 @@ await check('counts only non-dry-run, non-voided rows', async () => {
   assert.match(sql, /voided_at_utc IS NULL/, 'a reversed restructure must not count');
   assert.match(sql, /season = \? AND franchise_id = \?/, 'scoped per team per season');
   assert.ok(!/player_id/.test(sql), 'cap is per TEAM, not per player');
+});
+
+
+console.log('\nthe offseason window (canon: offseason until the September contract deadline)');
+const DEADLINE_ISO = '2026-09-06';
+const DEADLINE = Math.floor(new Date(DEADLINE_ISO + 'T23:59:59-04:00').getTime()/1000);
+const envDeadline = (date) => ({ UPS_MFL_DB: { prepare: () => ({ bind: () => ({ first: async () => (date === undefined ? null : { date }) }) }) } });
+const envWinThrows = () => ({ UPS_MFL_DB: { prepare: () => ({ bind: () => ({ first: async () => { throw new Error('D1 down'); } }) }) } });
+
+await check('today (well before the deadline) -> OPEN', async () => {
+  const r = await checkRestructureWindow(envDeadline(DEADLINE_ISO), { season: '2026', nowUnix: DEADLINE - 86400*14 });
+  assert.strictEqual(r.open, true);
+});
+await check('the deadline instant itself is still OPEN (<=)', async () => {
+  const r = await checkRestructureWindow(envDeadline(DEADLINE_ISO), { season: '2026', nowUnix: DEADLINE });
+  assert.strictEqual(r.open, true);
+});
+await check('one second later is CLOSED — in-season restructures are banned', async () => {
+  const r = await checkRestructureWindow(envDeadline(DEADLINE_ISO), { season: '2026', nowUnix: DEADLINE + 1 });
+  assert.strictEqual(r.open, false);
+  assert.strictEqual(r.reason, 'window_closed');
+});
+await check('mid-season -> CLOSED', async () => {
+  const r = await checkRestructureWindow(envDeadline(DEADLINE_ISO), { season: '2026', nowUnix: DEADLINE + 86400*60 });
+  assert.strictEqual(r.open, false);
+});
+
+console.log('\nwindow fails closed');
+await check('no deadline row -> closed, not open', async () => {
+  const r = await checkRestructureWindow(envDeadline(undefined), { season: '2027' });
+  assert.strictEqual(r.open, false);
+  assert.strictEqual(r.reason, 'window_unreadable');
+});
+await check('malformed date -> closed', async () => {
+  const r = await checkRestructureWindow(envDeadline('not-a-date'), { season: '2026' });
+  assert.strictEqual(r.open, false);
+});
+await check('D1 throws -> closed', async () => {
+  const r = await checkRestructureWindow(envWinThrows(), { season: '2026' });
+  assert.strictEqual(r.open, false);
+  assert.strictEqual(r.reason, 'window_unreadable');
+});
+await check('missing season -> closed', async () => {
+  assert.strictEqual((await checkRestructureWindow(envDeadline(DEADLINE_ISO), {})).open, false);
+});
+await check('window shares the ladder\'s instant parser (same second)', async () => {
+  const r = await checkRestructureWindow(envDeadline(DEADLINE_ISO), { season: '2026', nowUnix: DEADLINE });
+  assert.strictEqual(r.deadline_unix, DEADLINE, 'must be 23:59:59 ET on the deadline day');
 });
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');

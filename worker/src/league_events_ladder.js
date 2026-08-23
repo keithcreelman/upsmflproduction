@@ -238,3 +238,16 @@ export function contractLadderStage({
   if (now < wk5) return { stage: "extension", end_unix: wk5 };
   return { stage: "closed", end_unix: wk5 };
 }
+
+// The September contract deadline as an INSTANT, from its stored ISO day.
+// 23:59:59 ET on the deadline day — the boundary every other arm already gates
+// MYAC on (front_office.js ~3360). Shared so the ladder stamp and the
+// restructure window guard cannot drift on the one detail that matters here:
+// which second the day ends. Returns null on anything unparseable — never a
+// guessed instant.
+export function contractDeadlineUnixFromIso(iso) {
+  const day = String(iso || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const ms = new Date(day + "T23:59:59-04:00").getTime();
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
