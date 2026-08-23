@@ -1892,24 +1892,41 @@
   // unused. Reads STATE.contractDeadlineMs / STATE.weekKickoffs directly,
   // same as mobile reads window.UPS_MOBILE.state.contractLadder directly.
   function contractLadderStageFO_desktop(p) {
-    var cdEnd = finiteMsOrNullFO(STATE.contractDeadlineMs);
-    var mymEnd = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[3]);   // Week 3 kickoff
-    var extEnd = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[5]);   // Week 5 kickoff
-    var now = Date.now();
+    // The rung is RESOLVED SERVER-SIDE (worker/src/league_events_ladder.js
+    // contractLadderStage, stamped on /api/league-events) and read here. It is
+    // no longer recomputed on the client.
+    //
+    // This was the LAST of the two browser implementations; mobile's
+    // front_office_actions.js migrated first. Its header called this one a port
+    // of that one, and two copies of a rule drift — that is what dropped `Ext:`
+    // from nine contracts on 2026-08-22, where one of three writers never
+    // received a fix.
+    //
+    // Verified identical before switching: same rung and same end instant on
+    // live data, and the deadline event resolves to the same date on 2024/2025/
+    // 2026 (2027 is unseeded and correctly reports unresolved). Desktop matched
+    // the deadline row by SUBSTRING and took the first hit in array order; the
+    // server matches `ups_contract_deadline` EXACTLY, so this also closes a
+    // latent hazard — a second event containing "contract_deadline" would have
+    // made desktop and server disagree.
+    //
+    // Shape is UNCHANGED ({stage, date, endMs}); `date` is derived from the
+    // server's end instant for display only, never a comparison. `p` stays in
+    // the signature for call-site symmetry with isPreseasonWwPickupFO(p).
+    //
+    // FAIL-CLOSED: an absent or unresolved stamp is "unresolved", never a rung.
+    var srv = STATE.contractLadderServer || null;
+    var stage = String((srv && srv.stage) || "").toLowerCase();
     var UNRESOLVED = { stage: "unresolved", date: "", endMs: null };
-    // Out-of-order boundaries mean our inputs are telling us something we
-    // can't act on. Refuse rather than pick an interpretation.
-    if (cdEnd != null && mymEnd != null && mymEnd <= cdEnd) return UNRESOLVED;
-    if (mymEnd != null && extEnd != null && extEnd <= mymEnd) return UNRESOLVED;
-    if (cdEnd == null) return UNRESOLVED;
-    if (now <= cdEnd) return { stage: "myac", date: isoEtDayFromMsFO(cdEnd), endMs: cdEnd };
-    if (mymEnd == null) return UNRESOLVED;
-    // Strictly BEFORE kickoff: the window closes when the week starts playing.
-    if (now < mymEnd) return { stage: "mym", date: isoEtDayFromMsFO(mymEnd), endMs: mymEnd };
-    if (extEnd == null) return UNRESOLVED;
-    if (now < extEnd) return { stage: "extension", date: isoEtDayFromMsFO(extEnd), endMs: extEnd };
-    return { stage: "closed", date: "", endMs: null };
+    if (!stage || stage === "unresolved") return UNRESOLVED;
+    if (stage === "closed") return { stage: "closed", date: "", endMs: null };
+    var endMs = finiteMsOrNullFO(srv && srv.end_unix ? srv.end_unix * 1000 : null);
+    if (stage === "myac" || stage === "mym" || stage === "extension") {
+      return { stage: stage, date: endMs ? isoEtDayFromMsFO(endMs) : "", endMs: endMs };
+    }
+    return UNRESOLVED;
   }
+
 
   // Is THIS player on the PRE-SEASON waiver rung of the ladder? Returns
   // "yes" | "no" | "unknown". Verbatim-as-possible port of mobile's
@@ -3376,6 +3393,11 @@
         3: kickoffMsFromFO(ko, 3),
         5: kickoffMsFromFO(ko, 5)
       };
+      // The RUNG itself, resolved server-side. The boundaries above are still
+      // read — Week 1 separates pre-season from in-season, and the ms instants
+      // feed display — but the open/closed DECISION now comes from here.
+      // null = the server did not answer, which is never "open".
+      STATE.contractLadderServer = (data && data.contract_ladder) || null;
     } catch (e) {}
   }
   function renderContractSummary() {
