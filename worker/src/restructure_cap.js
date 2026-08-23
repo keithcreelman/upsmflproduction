@@ -18,7 +18,50 @@
 // what would happen, and a guard that refuses to simulate hides the answer the
 // owner asked for. The verdict rides in the response instead.
 
+import { contractDeadlineUnixFromIso } from "./league_events_ladder.js";
+
 export const RESTRUCTURE_MAX_PER_SEASON = 3;
+
+// ── The WINDOW: offseason until the September contract deadline ────────────
+// Canon states it twice (lines 471 and 933): "Window: OFFSEASON UNTIL CONTRACT
+// DEADLINE. Mid-season restructures are BANNED. The window opens at season's
+// end (or roll-forward) and closes at the September contract deadline."
+//
+// Suspended alongside the 3-per-season cap on 2026-07-31; reinstated with it on
+// 2026-08-23.
+//
+// This is the SAME upper bound the ladder's MYAC rung uses, and it reads the
+// SAME commish-owned ups_contract_deadline row through the SAME instant parser
+// (contractDeadlineUnixFromIso) — so the two cannot disagree about which second
+// the window shuts. `<=` matches the ladder: deadline day itself is still open.
+//
+// FAILS CLOSED. A deadline we cannot read is not an open window.
+export async function checkRestructureWindow(env, opts = {}) {
+  const season = String(opts.season || "");
+  const nowUnix = Number.isFinite(opts.nowUnix) ? opts.nowUnix : Math.floor(Date.now() / 1000);
+  if (!season) {
+    return { open: false, reason: "window_indeterminate",
+             detail: "Could not identify the season for the restructure window." };
+  }
+  let deadline = null;
+  try {
+    const row = await env.UPS_MFL_DB.prepare(
+      "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
+    ).bind(season).first();
+    deadline = contractDeadlineUnixFromIso(row && row.date);
+  } catch (_) {
+    deadline = null;
+  }
+  if (!deadline) {
+    return { open: false, reason: "window_unreadable",
+             detail: `No contract deadline on file for ${season} — refusing rather than assuming the window is open.`,
+             deadline_unix: null };
+  }
+  if (nowUnix <= deadline) return { open: true, reason: "offseason", deadline_unix: deadline };
+  return { open: false, reason: "window_closed",
+           detail: "Restructures are offseason-only and closed at the September contract deadline.",
+           deadline_unix: deadline };
+}
 
 export async function checkRestructureCap(env, opts = {}) {
   const season = String(opts.season || "");
