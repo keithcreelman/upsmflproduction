@@ -12,7 +12,7 @@ import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } f
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
-import { buildLeagueEvents } from "./league_events_ladder.js";
+import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -52236,12 +52236,51 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
           });
         }
 
+        // Which pre-season ladder rung is open right now (MYAC -> MYM ->
+        // Extension). Stamped here so the trade workbench does not become a
+        // SIXTH browser copy of this boundary: five already exist and drift is
+        // exactly what dropped `Ext:` from nine contracts on 2026-08-22.
+        //
+        // FAIL-CLOSED end to end. Any throw, any missing boundary, and this
+        // stays "unresolved" — the client must read that as "offer no
+        // extension", never as "no restriction". The Sept deadline is
+        // commish-owned and read verbatim from league_events; weeks 3/5 come
+        // from nflWeekFirstKickoffUnix, the same helper the Discord waiver post
+        // and the mobile ladder use, so no surface can hold a different answer.
+        let contractLadder = { stage: "unresolved", end_unix: null };
+        try {
+          let cdUnix = null;
+          const cdRow = await env.UPS_MFL_DB.prepare(
+            "SELECT date FROM league_events WHERE season = ? AND event = 'ups_contract_deadline' LIMIT 1"
+          ).bind(String(season)).first();
+          const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
+            // 23:59:59 ET on the deadline DAY — matches the instant every other
+            // arm already gates MYAC on (front_office.js ~3360).
+            const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
+            if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
+          }
+          const [wk3, wk5] = await Promise.all([
+            nflWeekFirstKickoffUnix(season, 3),
+            nflWeekFirstKickoffUnix(season, 5),
+          ]);
+          contractLadder = contractLadderStage({
+            contractDeadlineUnix: cdUnix,
+            week3KickoffUnix: wk3,
+            week5KickoffUnix: wk5,
+            nowUnix: Math.floor(Date.now() / 1000),
+          });
+        } catch (_) {
+          contractLadder = { stage: "unresolved", end_unix: null };
+        }
+
         const response = jsonOut(200, {
           ok: true,
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           generated_at: new Date().toISOString(),
           source: "worker:/trade-workbench",
+          contract_ladder: contractLadder,
           salary_cap_dollars: leagueSalaryCapDollars,
           teams,
           extension_previews: extRowsNormalized.rows || [],
