@@ -341,6 +341,41 @@
     // desktop) must NOT fall into the fresh-contract branch. A taxi player
     // heading into its FINAL year (years_remaining === 1) is still extendable
     // via the first branch, exactly like any other player (Keith 2026-06-12).
+    // ── Pre-season ladder window ────────────────────────────────────────
+    // A pre-season WW/waiver pickup walks MYAC -> MYM -> Extension, and the
+    // EXTENSION rung does not open until NFL Week 3 kickoff. Without this the
+    // badge showed on Vet-WW $1K pickups during MYAC time (Benson, Miller,
+    // Smith — reported 2026-08-22).
+    //
+    // The rung is READ from the server stamp (worker/src/league_events_ladder.js
+    // contractLadderStage) rather than recomputed here. Five browser copies of
+    // this boundary already exist and each is a port of the last; a sixth is how
+    // they drift apart, which is exactly what dropped `Ext:` from nine contracts.
+    //
+    // Scope, deliberately narrow:
+    //   * Only WW-class assets on the 1-year default (status carries WW, 1 year
+    //     remaining, CL 1, not a tag, not acquired by trade) — mirrors FO's
+    //     isPreseasonWwPickupFO classification.
+    //   * Only while the ladder is on a PRE-SEASON rung (myac/mym/extension).
+    //     "closed" means we are past Week 5 and into in-season 14/28-day-clock
+    //     territory, a DIFFERENT rule this gate must not answer for, so it falls
+    //     through to the shape rule below rather than blocking.
+    //   * A missing/unresolved stamp blocks. An unresolvable window is not an
+    //     open one.
+    var wwLadderClass = (
+      /\bww\b/.test(type) &&
+      type.indexOf("tag") === -1 &&
+      yearsRemaining === 1 &&
+      safeInt(asset.contract_length, 0) === 1 &&
+      safeStr(asset.acquisition_type_label || asset.acquisitionTypeLabel).toLowerCase().indexOf("trade") === -1
+    );
+    if (wwLadderClass) {
+      var ladder = (state && state.data && state.data.contract_ladder) || null;
+      var rung = safeStr(ladder && ladder.stage).toLowerCase();
+      if (rung === "myac" || rung === "mym") return false;      // window not open yet
+      if (rung !== "extension" && rung !== "closed") return false; // unresolved/absent -> closed
+    }
+
     return yearsRemaining === 1 || (rookieLikeTradeContractStatus(type) && yearsRemaining <= 0 && !parseBool(asset.taxi, false));
   }
 
@@ -1334,6 +1369,9 @@
         ).toUpperCase() === "N" ? "N" : "Y"
       },
       teams: teams,
+      // Server-resolved pre-season ladder rung (worker /trade-workbench).
+      // null when the server did not stamp it — treated as CLOSED, never open.
+      contract_ladder: raw.contract_ladder || null,
       extension_previews: raw.extension_previews || raw.extensionPreviews || [],
           filtersMeta: {
             positions: uniqueSorted(allPositions),
