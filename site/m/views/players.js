@@ -416,12 +416,18 @@
   // The read-only escape hatch. Offered instead of a write whenever the kill
   // switch is dark — never a button whose only outcome is a 503.
   function openNativeWaiverPage() {
+    // "Switched off" is only true when we actually LOADED state and it said so.
+    // A failed load is a different sentence — see app.js waiverStateKnown().
+    var known = !(M.waivers && M.waivers.stateKnown) || M.waivers.stateKnown();
+    var why = known
+      ? "In-app waiver moves are switched off right now."
+      : "Couldn't reach the waiver service — retrying in the background.";
     var link = nativeLink();
     if (!link) {
-      M.ui.showToast("In-app waiver moves are switched off right now.", "err");
+      M.ui.showToast(why, "err");
       return;
     }
-    if (window.confirm("In-app waiver moves are switched off right now.\n\nOpen MFL's own add/drop page?")) {
+    if (window.confirm(why + "\n\nOpen MFL's own add/drop page?")) {
       window.open(link, "_blank");
     }
   }

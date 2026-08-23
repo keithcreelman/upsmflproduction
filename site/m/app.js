@@ -1797,8 +1797,25 @@
       return Promise.resolve(state.waiverState);
     }
     if (state.waiverStatePromise) return state.waiverStatePromise;
-    var p = fetch(waiverUrl("/api/waivers/state"), { mode: "cors", credentials: "omit", cache: "no-store" })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    // RETRY a transient failure. A single failed fetch used to leave
+    // state.waiverState null, and every waiver surface reads that as
+    // read-only — so one dropped request told the whole league "in-app waiver
+    // moves are switched off" until they force-quit the app. Owners will not
+    // do that, and should not have to. Three attempts, short backoff.
+    function attempt(n) {
+      return fetch(waiverUrl("/api/waivers/state"), { mode: "cors", credentials: "omit", cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (j && j.ok) return j;
+          if (n < 2) return new Promise(function (res) { setTimeout(res, n === 0 ? 600 : 1500); }).then(function () { return attempt(n + 1); });
+          return null;
+        })
+        .catch(function () {
+          if (n < 2) return new Promise(function (res) { setTimeout(res, n === 0 ? 600 : 1500); }).then(function () { return attempt(n + 1); });
+          return null;
+        });
+    }
+    var p = attempt(0)
       .then(function (j) {
         state.waiverStatePromise = null;
         if (j && j.ok) {
@@ -1963,6 +1980,16 @@
     return !!(state.waiverState && state.waiverState.write_enabled === true);
   }
 
+  // Did we ever actually LOAD waiver state? The write gate above is strict on
+  // purpose — no state means no submit button, because the only thing it could
+  // produce is a 503. But "we could not reach the server" is NOT "the commish
+  // switched waivers off", and telling owners the second thing when the first
+  // is true sent the league to MFL's add/drop page on a live waiver night
+  // (2026-08-22). Copy branches on this; the gate does not.
+  function waiverStateKnown() {
+    return !!(state.waiverState && state.waiverState.ok);
+  }
+
   // MFL's own add/drop page — the escape hatch every read-only waiver surface
   // links to. The worker hands the same URL back as `native_link` on a dark
   // 503; we mirror it so a surface can offer the way out WITHOUT having to
@@ -2032,7 +2059,11 @@
     out.writeEnabled = acquisitionWindow && waiverWriteEnabled();
     if (acquisitionWindow && !out.writeEnabled) {
       out.label = "";
-      out.detail += " In-app waiver moves are switched off — use MFL's own add/drop page.";
+      // Distinguish a real kill switch from a failed load. Retrying is already
+      // in flight (fetchWaiverState); say so instead of sending them away.
+      out.detail += waiverStateKnown()
+        ? " In-app waiver moves are switched off — use MFL's own add/drop page."
+        : " Couldn't reach the waiver service — retrying. You can also use MFL's own add/drop page.";
     }
     return out;
   }
@@ -3329,6 +3360,9 @@
       mode: waiverMode,
       // §5 kill switch + the read-only escape hatch every surface links to.
       writeEnabled: waiverWriteEnabled,
+      // Exposed so a view can tell "switched off" from "could not load" —
+      // players.js branches its copy on this.
+      stateKnown: waiverStateKnown,
       nativeLink: waiverNativeLink,
       limits: waiverLimits,
       when: waiverWhen,

@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.22.1",
-  "label": "Contract windows now come from one place. Whether MYAC, Mid-Year Multi or Extension is open is decided in one spot and shared by every screen, so the app and the desktop Front Office can no longer disagree about which window you're in."
+  "build": "2026.08.22.2",
+  "label": "Waivers no longer report themselves as switched off when the app simply could not reach the server. It now retries on its own and says what is actually happening, so a dropped request no longer sends you to the MFL site."
 }
