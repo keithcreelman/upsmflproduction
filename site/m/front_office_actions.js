@@ -236,25 +236,39 @@
   // `date`/`endMs` are the END of the open window (blank/null when
   // unresolved or closed).
   function contractLadderStageFO() {
+    // The rung is RESOLVED SERVER-SIDE (worker/src/league_events_ladder.js
+    // contractLadderStage, stamped on /api/league-events) and read here. It is
+    // no longer recomputed on the client.
+    //
+    // Why: desktop front_office.js carried a second implementation of this same
+    // boundary, described in its own header as a port of this one. Two copies of
+    // a rule drift; that is exactly what dropped `Ext:` from nine contracts on
+    // 2026-08-22, where one of three writers never received a fix. One answer,
+    // server-side, is the fix for the class.
+    //
+    // Before the switch the two were verified to agree exactly — same stage,
+    // same end instant, same boundary semantics (`<=` on the contract deadline,
+    // `<` on each kickoff).
+    //
+    // Return shape is UNCHANGED ({stage, date, endMs}) because player_sheet.js
+    // and views/contracts.js read it. `date` still comes from the ISO twins in
+    // state — display only, never a comparison.
+    //
+    // FAIL-CLOSED: an absent or unresolved stamp is "unresolved", never a rung.
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    var srv = (s && s.contractLadder && s.contractLadder.server) || null;
+    var stage = safeStr(srv && srv.stage).toLowerCase();
     var d = contractLadderDatesFO();
-    var now = Date.now();
-    var cdEnd = endOfEtDayMs(d.contractDeadline);
-    var mymEnd = d.mymWindowEndMs;   // Week 3 kickoff
-    var extEnd = d.extensionWindowEndMs; // Week 5 kickoff
     var UNRESOLVED = { stage: "unresolved", date: "", endMs: null };
-    // Out-of-order boundaries mean our inputs are telling us something we
-    // can't act on. Refuse rather than pick an interpretation.
-    if (cdEnd != null && mymEnd != null && mymEnd <= cdEnd) return UNRESOLVED;
-    if (mymEnd != null && extEnd != null && extEnd <= mymEnd) return UNRESOLVED;
-    if (cdEnd == null) return UNRESOLVED;
-    if (now <= cdEnd) return { stage: "myac", date: d.contractDeadline, endMs: cdEnd };
-    if (mymEnd == null) return UNRESOLVED;
-    // Strictly BEFORE kickoff: the window closes when the week starts playing.
-    if (now < mymEnd) return { stage: "mym", date: d.mymWindowEnd, endMs: mymEnd };
-    if (extEnd == null) return UNRESOLVED;
-    if (now < extEnd) return { stage: "extension", date: d.extensionWindowEnd, endMs: extEnd };
-    return { stage: "closed", date: "", endMs: null };
+    if (!stage || stage === "unresolved") return UNRESOLVED;
+    var endMs = finiteMsOrNull(srv && srv.end_unix ? srv.end_unix * 1000 : null);
+    if (stage === "myac") return { stage: "myac", date: d.contractDeadline, endMs: endMs };
+    if (stage === "mym") return { stage: "mym", date: d.mymWindowEnd, endMs: endMs };
+    if (stage === "extension") return { stage: "extension", date: d.extensionWindowEnd, endMs: endMs };
+    if (stage === "closed") return { stage: "closed", date: "", endMs: null };
+    return UNRESOLVED;
   }
+
 
   // ── The ONE contract-length gate every ladder entry point uses ───────
   // A fresh acquisition's DEFAULT contract is one year — "CL 1". CL 2+ means an

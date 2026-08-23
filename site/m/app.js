@@ -680,7 +680,10 @@
       contractDeadline: "",
       seasonStart: "", seasonStartMs: null,
       mymWindowEnd: "", mymWindowEndMs: null,
-      extensionWindowEnd: "", extensionWindowEndMs: null
+      extensionWindowEnd: "", extensionWindowEndMs: null,
+      // The rung the WORKER resolved (/api/league-events contract_ladder).
+      // null = the server did not answer, which is never "open".
+      server: null
     };
   }
   function kickoffMsFrom(map, week) {
@@ -707,6 +710,11 @@
         out.seasonStart = out.seasonStartMs ? isoEtDayFromUnix(out.seasonStartMs / 1000) : "";
         out.mymWindowEnd = out.mymWindowEndMs ? isoEtDayFromUnix(out.mymWindowEndMs / 1000) : "";
         out.extensionWindowEnd = out.extensionWindowEndMs ? isoEtDayFromUnix(out.extensionWindowEndMs / 1000) : "";
+        // The rung itself, resolved server-side. The ISO/ms boundaries above are
+        // still read for DISPLAY (which date a window ends on); the open/closed
+        // DECISION now comes from here so mobile and desktop cannot drift apart.
+        // Verified identical to the local math before the switch (2026-08-22).
+        out.server = data.contract_ladder || null;
         return out;
       })
       .catch(function () { return emptyContractLadder(); });
