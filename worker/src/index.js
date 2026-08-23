@@ -35,6 +35,7 @@ import {
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
+import { checkRestructureCap, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
@@ -52838,6 +52839,40 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
           }
           if (!mymGuard.allowed && dryRunFlag) {
             console.log(`[offer-mym] DRY RUN would be blocked: ${mymGuard.reason}`);
+          }
+        }
+
+        // ── RESTRUCTURE CAP — 3 per team per season (Keith 2026-08-23) ─────
+        // Canon line 40 says "Restructure limit = 3". Keith suspended it on
+        // 2026-07-31 ("allow the team to do as they please") and nothing
+        // enforced it anywhere, so on 2026-08-23 CBP reached 4 — three of them
+        // on Nico Collins, the last one exactly undoing their own previous
+        // restructure. Cap reinstated; the offseason-only window stays
+        // suspended, only the count is enforced.
+        //
+        // Same placement as the MYM guard above: BEFORE the MFL write, after
+        // the flags are known, so a blocked submission never reaches MFL and
+        // never books an audit row. Dry runs report the verdict instead of
+        // being blocked.
+        if (isRestructure) {
+          const rcap = await checkRestructureCap(env, {
+            season: year, leagueId,
+            fid: franchiseId,
+            isCommishOverride: !!(sessionByApiKey || commishOverrideFlag),
+          });
+          if (rcap.overridden) {
+            console.log(`[offer-restructure] cap ${rcap.cap.used}/${rcap.cap.max} OVERRIDDEN by commish for fid=${franchiseId}`);
+          }
+          if (!rcap.allowed && !dryRunFlag) {
+            return mutationResponse("validation_fail", "", {
+              reason: rcap.detail || `Restructure limit is ${RESTRUCTURE_MAX_PER_SEASON} per team per season.`,
+              rule: rcap.reason,
+              restructures_used: rcap.cap && rcap.cap.used,
+              restructures_max: rcap.cap && rcap.cap.max,
+            }, 422);
+          }
+          if (!rcap.allowed && dryRunFlag) {
+            console.log(`[offer-restructure] DRY RUN would be blocked: ${rcap.reason}`);
           }
         }
 
