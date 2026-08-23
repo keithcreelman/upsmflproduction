@@ -20,7 +20,13 @@ import json, os, sys, urllib.parse, urllib.request
 
 LEAGUE, SEASON = "74598", "2026"
 FIELDS = ("salary", "contractYear", "contractStatus", "contractInfo")
-MIN_ROWS = 500          # league carries ~503; anything less means a truncated payload
+# A CATASTROPHE floor, not an assertion about roster size. It was 500 on
+# 2026-08-22 when the league carried 503; a day of ordinary cuts took it to 492
+# and this guard would have refused a CORRECT payload. The real protection is
+# the live comparison below — never write fewer rows than are live — which
+# tracks reality instead of a number someone typed. Keep this low enough that
+# normal churn never trips it, high enough to catch a truncated read.
+MIN_ROWS = 400
 MAX_UNCORROBORATED = 10 # rows the independent snapshot could not confirm
 
 
