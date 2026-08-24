@@ -11247,11 +11247,25 @@ export default {
             team: teamFilter || null, count: rows.length,
             rows,
           });
-          // 5 minutes: long enough that a browsing session and a page reload
-          // never re-run the query, short enough that a fresh ETL week shows
-          // up on its own. Only successful responses are stored — a 500 must
-          // never be cached, or one bad minute would stick.
-          lbResponse.headers.set("Cache-Control", "public, max-age=300");
+          // TTL depends on whether the requested seasons can still CHANGE.
+          //
+          // 5 minutes was applied to everything. That is right for the season in
+          // progress — a fresh ETL week should show up on its own — and badly
+          // wrong for a completed one, whose numbers are frozen forever. On
+          // 2026-08-24, D1 insights showed 304,185,193 rows read from this
+          // endpoint and **100% of it was seasons 2023/2024/2025**: immutable
+          // data, re-queried from scratch every 5 minutes, at 2-3.7 MILLION rows
+          // per run. D1's free tier allows 5 million rows read PER DAY, so a
+          // single miss on a completed season burned ~half a day's budget.
+          //
+          // A completed season gets 30 days. The season in progress keeps 5
+          // minutes. Only successful responses are stored — a 500 must never be
+          // cached, or one bad minute would stick.
+          const lbCurrentSeason = safeInt(YEAR, 0) || new Date().getUTCFullYear();
+          const lbAllCompleted = seasons.length > 0 &&
+            seasons.every((sn) => safeInt(sn, 0) > 0 && safeInt(sn, 0) < lbCurrentSeason);
+          const lbTtl = lbAllCompleted ? 2592000 : 300;   // 30d vs 5m
+          lbResponse.headers.set("Cache-Control", `public, max-age=${lbTtl}`);
           if (!lbNoCache) {
             try { ctx.waitUntil(caches.default.put(lbCacheKey, lbResponse.clone())); } catch (_) {}
           }
