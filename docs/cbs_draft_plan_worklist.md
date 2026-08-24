@@ -1,4 +1,81 @@
-# CBS (grffl) draft-plan worklist — written 2026-08-23 to survive compaction
+# CBS (grffl) draft-plan worklist — written 2026-08-23, updated 2026-08-24
+
+## ⏸️ RESUME HERE (state as of 2026-08-24, pre-compaction)
+
+**Draft: Tue 8 Sep 2026, 19:30 ET. Keith picks 10th of 12, snake, 18 rounds.**
+
+### The live board (published, private artifact)
+https://claude.ai/code/artifact/9ee90ce9-6a4f-41ef-a4e1-12e38c83be0a
+Rebuild with `python3 scripts/cbs_build_draft_board.py`; the page is a BUILD
+OUTPUT from `scripts/_draft_board_template.html`. To update the SAME artifact
+URL, republish `docs/cbs_draft_board_2026.html` — passing the url param if the
+publishing conversation has changed.
+
+### TWO THINGS WERE IN FLIGHT WHEN WE COMPACTED
+1. **Re-run the analyst verify pass.** The script is already edited (cap raised
+   40 -> 130, first 40 prompts byte-identical so they replay from cache):
+   `Workflow({scriptPath: ".../workflows/scripts/analyst-podcast-sweep-wf_46c3587e-9af.js", resumeFromRunId: "wf_46c3587e-9af"})`
+   Previous run: 29 verdicts, 23 supported, **6 REJECTED**, 11 killed by a
+   session limit (Love, Jeanty, Tyson, Tate, Hall, Dart, Sadiq, Stafford,
+   Willis, III, Nabers).
+2. **Fold the verified analyst layer into the board page** — a per-player column
+   for JJ's cheat-sheet rank + any VERIFIED analyst stance.
+
+### Data on disk (⚠️ data/analyst/ is GITIGNORED — paid-guide extracts)
+| file | what |
+|---|---|
+| `data/analyst/jj_takes.json` | 627 takes, 263 players, incl. JJ's FULL 250-player cheat sheet with Ovr/pos rank, tier, auction value |
+| `data/analyst/pod_takes.json` | 184 podcast/article takes w/ source URLs (Silva 69, Barrett 75, JJ 40) |
+| `data/analyst/final_board.json` | the grffl board at BOTH rulebooks (PaTD 4 and 6) |
+| `data/analyst/reconciled.json` | JJ rank vs grffl VOR, 209 joined players |
+| `data/analyst/verify_summary.json` | verify verdicts incl. the 6 rejections |
+
+### Sources that actually work (all free, all fetched)
+- **ListenNotes** serves FULL ASR transcripts inline (`id="transcript"`) for the
+  Late-Round podcast. ⚠️ Some URLs serve a DIFFERENT episode than the slug says
+  — that caused 3 of the 6 verify rejections. Always confirm `<title>`.
+- **stackedfantasy.com** mirrors verbatim multi-hundred-segment transcripts of
+  Barrett's RotoWire and Fantasy Points shows.
+- **establishtherun.com/takes/** — FREE, continuously updated, 72 Silva-attributed
+  episode summaries with timestamps (validated against YouTube chapter markers).
+- ETR/Fantasy Points ARTICLES are paywalled after the first tier; the PODCASTS
+  are free. Those are different problems — do not conflate them again.
+- YouTube: WebFetch drops the description; `curl` + `ytInitialPlayerResponse.shortDescription` works.
+
+### ⚠️ VERIFY EVERYTHING ATTRIBUTED TO A NAMED PERSON
+A search summary claimed Barrett's Exodia was "Mike Evans and George Kittle."
+The actual transcript: Exodia is FIVE must-drafts, the two revealed are **Mike
+Evans and Parker Washington**, and Barrett says of Kittle *"He's not my Exodia
+tight end on FFPC."* 6 of 29 verified claims failed re-fetch. Search snippets
+are not sources.
+
+### Verified analyst takes (quote-level)
+FADE: Courtland Sutton, Matthew Stafford (7.7% TD rate; 12 of 13 comps averaged
+18 ppg after), Tony Pollard, TreVeyon Henderson.
+LIKE: Bhayshul Tuten (">ceiling than Henderson"), Parker Washington (Barrett
+Exodia, "single most mispriced player"), Luther Burden III, Jaylen Waddle, Blake
+Corum, Malik Willis, Kyler Murray, Jaxson Dart, Dalton Kincaid, McCaffrey.
+⚠️ ~120 further takes are UNVERIFIED — plausible, sourced, unchecked.
+
+### The reconciliation finding
+**8 of the top 14 "grffl likes more than JJ" are TIGHT ENDS** (Hockenson +83,
+Freiermuth +81, Ferguson +66, Goedert +51, Andrews +50, Kelce +47) — the 1.5/rec
+premium. The other direction is almost all mid-round WRs (Downs -60, Diggs -51,
+Godwin -51, Evans -50) because grffl's WR replacement is high (WR31 starts).
+Elite WR early is right; WR DEPTH is not.
+
+### Live collisions to resolve at the table
+- **De'Von Achane**: Barrett calls the fade "embarrassing"; Silva has him on the
+  Shy Away List. Board has him +130 at 2.03.
+- **Matthew Stafford**: verified JJ fade, AND the biggest riser if PaTD -> 6.
+- **Mike Evans**: Barrett Exodia must-draft, JJ ranks him 52, grffl VOR -14.
+
+### ⚠️ CBS may already default to 6-point passing TDs
+JJ's 2026-08-20 episode breaks down ADP per platform and names CBS's
+6-pt-passing-TD setting as a pricing driver. If true, grffl's 4 is the CUSTOM
+setting, the vote moves you TO the default, and CBS-sourced ADP is already
+priced at 6 while the FFC ADP on the board is not. UNVERIFIED — check it.
+
 
 Keith's CBS league drafts BEFORE his ESPN league. ESPN is already draft-ready;
 CBS is not. This is the ordered work, with every hard-won fact needed to do it
