@@ -66,6 +66,34 @@ def stats_points(season: int, league_id: str = "grffl") -> dict[str, float]:
         CbsClient(load_cookies(), min_interval_sec=0.6), season, league_id,
         positions=STATS_POSITIONS, key_fn=adpmod.player_key)
 
+def owner_label(loader, slug: str, seasons: list[int]) -> str:
+    """'<manager> (<franchise>)' for a franchise slug, read from D1.
+
+    Names every manager who ran it in the window rather than picking one, so a
+    franchise that changed hands is visibly two people instead of silently one.
+    """
+    from fantasy.providers.cbs.constants import team_key      # noqa: PLC0415
+    rows = loader.query(
+        "SELECT t.team_name, m.display_name, tm.season FROM fantasy_team_managers tm "
+        "JOIN fantasy_managers m ON m.manager_uid = tm.manager_uid "
+        "AND m.platform = tm.platform "
+        "JOIN fantasy_teams t ON t.team_key = tm.team_key AND t.platform = tm.platform "
+        f"WHERE tm.platform = '{PLATFORM}';")
+    names, franchise = set(), None
+    for r in rows:
+        if not r.get("team_name") or not r.get("display_name"):
+            continue
+        if team_key(2000, "grffl", r["team_name"]).split(".t.")[-1] != slug:
+            continue
+        franchise = r["team_name"]
+        if int(r["season"]) in seasons:
+            names.add(r["display_name"])
+    if not names:
+        # ⚠️ Never fall back to the slug dressed up as a person's name.
+        return f"(owner unknown) [{slug}]"
+    return f"{' / '.join(sorted(names))} ({franchise})"
+
+
 def load(loader):
     rows = loader.query(
         "SELECT season, pick_number, round_number, team_key, "
@@ -90,8 +118,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", default="bayou-billy", help="franchise slug A")
     ap.add_argument("--b", default="raining-bullets", help="franchise slug B")
-    ap.add_argument("--label-a", default="chuck (Bayou Billy)")
-    ap.add_argument("--label-b", default="Keith (Raining Bullets)")
+    # ⚠️ LABELS ARE RESOLVED FROM D1, NOT TYPED IN. Hand-written labels are how
+    # five seasons of Corey Smith's picks ended up displayed under the name of
+    # the person who took over his franchise slot in 2026. The owner who
+    # actually ran a franchise is a fact in fantasy_team_managers now, so it is
+    # read rather than asserted. --label-* remain as overrides only.
+    ap.add_argument("--label-a", default=None)
+    ap.add_argument("--label-b", default=None)
     ap.add_argument("--teams", type=int, default=12)
     ap.add_argument("--rounds", type=int, default=18)
     ap.add_argument("--target", choices=["local", "remote"], default="remote")
@@ -101,6 +134,9 @@ def main() -> int:
                           worker_cwd=REPO / "worker", dry_run=False, verbose=False)
     picks = load(loader)
     seasons = sorted({p["season"] for p in picks})
+    label_a = a.label_a or owner_label(loader, a.a, seasons)
+    label_b = a.label_b or owner_label(loader, a.b, seasons)
+    a.label_a, a.label_b = label_a, label_b
 
     # ── recover the seasons CBS stopped publishing on the draft page ─────────
     need = sorted({p["season"] for p in picks
