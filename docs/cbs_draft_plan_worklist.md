@@ -1,4 +1,73 @@
-# CBS (grffl) draft-plan worklist — written 2026-08-23, updated 2026-08-24
+# CBS grffl draft plan — worklist
+
+## RESUME HERE
+
+**Board (private artifact, do not share):**
+https://claude.ai/code/artifact/9ee90ce9-6a4f-41ef-a4e1-12e38c83be0a
+
+**Draft:** Tue 8 Sep 2026, 7:30 pm ET. Pick 10 of 12, snake, 18 rounds, no keepers.
+
+### State — both in-flight tasks are DONE
+
+* **Verify pass re-run** — 136 agents, 0 errors. **116 takes verified, 14
+  rejected, 49 dead ends.** Up from 23 verified before the cap was raised.
+* **Analyst layer folded into the board.** 209 players carry JJ's own rank;
+  111 verified podcast takes attach to 82 of them; 3 more are position-level.
+
+### How to rebuild
+
+```
+# the committed board — no analyst data, safe for git
+python3 scripts/cbs_build_draft_board.py --out docs/cbs_draft_board_2026.html
+
+# the overlay build — REFUSES to write anywhere git tracks
+python3 scripts/cbs_extract_verified_takes.py --result <workflow-output.json> \
+    --journal <run>/journal.jsonl
+python3 scripts/cbs_build_draft_board.py \
+    --payload-in data/analyst/board_payload.json \
+    --analyst-dir data/analyst \
+    --out data/analyst/draft_board_2026_analyst.html
+```
+
+`--payload-in` skips remote D1 entirely. Drop it (and add `--payload-out`) to
+recompute projections from scratch.
+
+### Data (all gitignored — paid-guide extracts, personal reference only)
+
+| file | what |
+|---|---|
+| `data/analyst/jj_takes.json` | 627 takes, 263 players, JJ's 250-player cheat sheet |
+| `data/analyst/pod_takes.json` | 184 candidate podcast takes with source URLs |
+| `data/analyst/verified_takes.json` | the 116 that survived re-fetch, with attribution |
+| `data/analyst/reconciled.json` | JJ rank vs grffl VOR, 209 joined |
+| `data/analyst/board_payload.json` | the board at both rulebooks |
+| `data/analyst/final_board.json` | full projection detail |
+
+### What the verify pass established
+
+* **Transcripts are machine-generated and mangle names.** "Lad Maki" is Ladd
+  McConkey; "Ashen Genty" is Ashton Jeanty; "Taj Spears" is Tyjae Spears. The
+  verifier refused to resolve those, so a few substantively-correct takes were
+  rejected on the name alone. Rejected here means *unconfirmed*, not *false*.
+* **The analyst searched for is not always the analyst speaking.** 11 verified
+  takes carry an explicit speaker caveat — Rich Hribar guesting on JJ's show,
+  Ryan Heath co-hosting with Barrett, Evan Silva rather than Adam Levitan. The
+  board hedges those chips and shows the verifier's own sentence.
+* **One name needed an explicit alias**: "Jackson Dart" → "Jaxson Dart",
+  confirmed by reading the take (QB12 ADP, Nagy calling plays), not by string
+  distance. `ALIASES` in `cbs_build_draft_board.py` — never make it fuzzy.
+* **Two verified takes never joined**: Eli Stowers and Jake Tonges are outside
+  ESPN's projected 215.
+
+### Still open
+
+* **Does CBS default to 6-point passing TDs?** JJ's 20 Aug 2026 episode treats
+  it as a per-platform ADP driver. If true, grffl's 4 is the custom setting,
+  the vote moves *toward* the default, and CBS-sourced ADP is already priced at
+  6 while the FFC ADP on the board is not. **Unverified.**
+* Task #37: ingest nflverse `sack_fumbles_lost` into `nfl_player_weekly_ext`.
+* Task #38: build CBS `fetch_rosters` after the draft.
+
 
 ## ⏸️ RESUME HERE (state as of 2026-08-24, pre-compaction)
 

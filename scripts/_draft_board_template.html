@@ -28,11 +28,11 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
-.wrap{max-width:1240px;margin:0 auto;padding:0 20px 64px}
+.wrap{max-width:1300px;margin:0 auto;padding:0 20px 64px}
 
 /* ── command bar ─────────────────────────────────────────── */
 .bar{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:1px solid var(--rule);padding:14px 0 12px}
-.bar-in{max-width:1240px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
+.bar-in{max-width:1300px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
 h1{
   margin:0; font-size:clamp(19px,2.4vw,25px); font-weight:800; letter-spacing:-.02em;
   text-wrap:balance;
@@ -61,7 +61,7 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .rail-note{font-size:12px;color:var(--ink-3);margin:2px 0 22px}
 
 /* ── layout ──────────────────────────────────────────────── */
-.cols{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:22px;align-items:start}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 252px;gap:18px;align-items:start}
 @media (max-width:960px){.cols{grid-template-columns:minmax(0,1fr)}}
 
 /* ── board ───────────────────────────────────────────────── */
@@ -73,9 +73,9 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
 thead th{
   position:sticky;top:0;background:var(--panel);z-index:2;
   text-align:left;font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--ink-3);padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap;
+  color:var(--ink-3);padding:8px 8px;border-bottom:1px solid var(--rule);white-space:nowrap;
 }
-tbody td{padding:7px 10px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+tbody td{padding:7px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
 tbody tr{cursor:pointer}
 tbody tr:hover{background:var(--rule-2)}
 tbody tr.gone td{opacity:.32;text-decoration:line-through}
@@ -103,24 +103,31 @@ tr.rookie .nm{font-style:italic}
 td.an{white-space:nowrap}
 .jj{
   display:inline-block;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
-  font-size:11px;font-weight:700;padding:1px 5px;border-radius:4px;
+  font-size:11px;font-weight:700;padding:1px 4px;border-radius:4px;
   border:1px solid var(--rule);color:var(--ink-2);background:var(--rule-2);
 }
 .jj.gap{border-color:var(--brass);color:var(--brass);background:transparent}
 .jj.none{border-style:dashed;color:var(--ink-3);background:transparent;font-weight:500}
 .stn{
-  display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;
-  padding:1px 5px;border-radius:4px;margin-left:4px;border:1px solid transparent;
+  display:inline-block;font-size:10px;font-weight:750;letter-spacing:.03em;
+  padding:1px 4px;border-radius:4px;margin-left:3px;border:1px solid transparent;
 }
 .stn.like{color:var(--good);border-color:var(--good)}
 .stn.fade{color:var(--crit);border-color:var(--crit)}
 .stn.neutral{color:var(--ink-3);border-color:var(--rule)}
+.stn.hedge{border-style:dashed}
+.stn.gd{border-color:transparent;background:var(--rule-2);margin-left:3px}
+.stn.more{color:var(--ink-3);border-color:var(--rule);font-weight:600}
+.cav{margin-top:6px;font-size:11.5px;line-height:1.5;color:var(--ink-3);font-style:italic}
+.cav b{color:var(--ink-3);font-style:normal;font-weight:700}
 .dv{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:750;color:var(--brass);margin-left:3px}
 .clashes{display:flex;flex-direction:column;gap:7px}
 .cl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;font-size:12.5px}
 .cl b{font-weight:640;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cl .g{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--brass);font-weight:700}
 .cnote{margin:11px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-3)}
+.posn{display:flex;flex-direction:column;gap:11px}
+.posn .q{padding-left:11px;border-left:2px solid var(--rule);font-size:12.5px;line-height:1.5;color:var(--ink-2)}
 .clh{font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--brass);margin:6px 0 1px}
 .clh:first-child{margin-top:0}
 .legend{margin:14px 0 0;font-size:11.5px;line-height:1.6;color:var(--ink-3)}
@@ -203,6 +210,10 @@ tr.det{cursor:default}
           scoring, and this league pays out-of-position TDs double.
         </p>
       </div>
+      <div class="card" id="poscard" hidden>
+        <h2>Takes about a round, not a player</h2>
+        <div class="posn" id="posn"></div>
+      </div>
       <div class="card">
         <h2>Your guardrails</h2>
         <ul class="rules">
@@ -236,6 +247,8 @@ const AN = DATA.an || null;
 // A disagreement only matters if it is big enough to change when you'd draft
 // someone. 18 picks is a round and a half at 12 teams.
 const CLASH = 18;
+//: Stance chips shown inline before the cell starts crowding out ADP.
+const CHIPS = 2;
 let rule = "p4", filter = "ALL", hideNew = false, clashOnly = false;
 let gone = new Set(JSON.parse(localStorage.getItem("grffl_gone") || "[]"));
 let open = new Set();
@@ -249,6 +262,7 @@ el("posf").innerHTML = ["ALL", ...POS].map(p =>
   + `<button id="hidenew" aria-pressed="false">Hide unproven</button>`;
 
 if (AN) { el("anh").hidden = false; el("clash").hidden = false; }
+
 
 function board() { return DATA[rule]; }
 function repl() { return rule === "p4" ? DATA.repl4 : DATA.repl6; }
@@ -265,6 +279,8 @@ const ESC = t => String(t == null ? "" : t)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const STANCE = { target: "like", avoid: "fade", dart: "neutral", neutral: "neutral",
                  like: "like", fade: "fade" };
+const WHO = { "JJ Zachariason": "JJ", "Scott Barrett": "Barrett", "Evan Silva": "Silva" };
+const shortName = a => WHO[a] || (a || "?").split(" ").pop();
 
 function delta(nm) {
   const a = AN && AN[nm];
@@ -290,13 +306,22 @@ function anCell(nm) {
     h += `<span class="jj none">JJ &ndash;</span>`;
   }
   if (a.v && a.v !== "neutral") {
-    h += `<span class="stn ${STANCE[a.v] || "neutral"}">${a.v}</span>`;
+    // Sits right beside the JJ pill, so it reads as part of that group rather
+    // than needing to repeat his name.
+    h += `<span class="stn gd ${STANCE[a.v] || "neutral"}" title="JJ's written guide">`
+       + `${a.v}</span>`;
   }
-  for (const t of (a.p || [])) {
-    const who = (t.a || "?").split(" ").pop().slice(0, 6);
-    h += `<span class="stn ${STANCE[t.s] || "neutral"}" title="verified on the source page">`
-       + `${ESC(who)} ${t.s === "like" ? "\u25b2" : t.s === "fade" ? "\u25bc" : "\u2022"}</span>`;
+  // Cap the chips: some players carry five verified takes, and a cell that wide
+  // shoves ADP off the right edge on a phone. The rest are one tap away.
+  const pods = a.p || [];
+  for (const t of pods.slice(0, CHIPS)) {
+    const who = shortName(t.a);
+    h += `<span class="stn ${STANCE[t.s] || "neutral"}${t.q ? " hedge" : ""}" `
+       + `title="${t.q ? "verified on the page, but the speaker may be a guest rather than "
+                        + ESC(t.a) : "verified on the source page"}">`
+       + `${ESC(who)}${t.q ? "?" : ""} ${t.s === "like" ? "\u25b2" : t.s === "fade" ? "\u25bc" : "\u2022"}</span>`;
   }
+  if (pods.length > CHIPS) h += `<span class="stn more">+${pods.length - CHIPS}</span>`;
   if (a.t || (a.p || []).length) h += `<button class="tk" data-tk="${ESC(nm)}">${open.has(nm) ? "\u2212" : "+"}</button>`;
   return `<td class="an">${h}</td>`;
 }
@@ -315,8 +340,10 @@ function detRow(nm, cols) {
   }
   for (const t of (a.p || [])) {
     const yr = t.y && t.y !== "2026" ? ` <span class="unv">[${ESC(t.y)} take]</span>` : "";
-    body += `<div class="q ${STANCE[t.s] || "neutral"}"><b>${ESC(t.a)}</b>${yr} &mdash; ${ESC(t.t)}`
+    const who = t.q ? `${ESC(t.a)}'s show` : ESC(t.a);
+    body += `<div class="q ${STANCE[t.s] || "neutral"}"><b>${who}</b>${yr} &mdash; ${ESC(t.t)}`
           + (t.u ? ` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>` : "")
+          + (t.c ? `<div class="cav"><b>Who said it:</b> ${ESC(t.c)}</div>` : "")
           + `</div>`;
   }
   return `<tr class="det"><td colspan="${cols}"><div class="det-in">${body}</div></td></tr>`;
@@ -331,7 +358,7 @@ function render() {
   el("rows").innerHTML = rows.map((r, i) => {
     const [nm, pos, tm, bye, pts, vor, adp, flag] = r;
     const g = gone.has(nm);
-    const note = flag === 1 ? "rushing QB" : flag === 2 ? "receiving RB" : "";
+    const note = flag === 1 ? "rush QB" : flag === 2 ? "rec RB" : "";
     const rook = r[8] === 1;
     return `<tr class="${g ? "gone" : ""} ${rook ? "rookie" : ""}" data-n="${nm.replace(/"/g, "&quot;")}">
       <td class="rk mono">${i + 1}</td>
@@ -438,6 +465,18 @@ document.addEventListener("click", e => {
     render();
   }
 });
+// Verified takes that are about a position rather than a person. They fail a
+// player join by construction, and dropping them would lose the takes most
+// relevant to how you spend a whole round.
+if (DATA.an_pos && DATA.an_pos.length) {
+  el("poscard").hidden = false;
+  el("posn").innerHTML = DATA.an_pos.map(t =>
+    `<div class="q ${STANCE[t.s] || "neutral"}"><b>${ESC(t.a)}</b>`
+    + `${t.p ? ` &middot; ${ESC(t.p)}` : ""} &mdash; ${ESC(t.t)}`
+    + (t.u ? ` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>` : "")
+    + `</div>`).join("");
+}
+
 // ── provenance for the analyst column ──────────────────────
 // Says plainly how many takes were re-fetched and confirmed, and how many are
 // merely unchecked. "Unverified" is NOT "false" — but it is not evidence either,

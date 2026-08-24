@@ -51,6 +51,13 @@ VOR_FLOOR = -60
 #: "Kenneth Walker III" / "Kenneth Walker"), so the analyst join runs on a
 #: normalised key — 22 of 209 rows miss on the raw string.
 SUFFIXES = (" jr", " sr", " ii", " iii", " iv", " v")
+#: ⚠️ EXPLICIT ALIASES ONLY — never a fuzzy matcher. Podcast transcripts are
+#: machine-generated and mangle names ("Lad Maki" for Ladd McConkey, "Ashen
+#: Genty" for Ashton Jeanty), so string distance would happily merge two real
+#: people. Every entry here was confirmed by READING the take, not by scoring
+#: it: the "Jackson Dart" take is about a QB12 ADP with Matt Nagy calling
+#: plays, and the board has exactly one Dart.
+ALIASES = {"jackson dart": "jaxson dart"}
 #: Paths git tracks. An analyst-bearing page may never be written under one.
 TRACKED = ("docs", "site", "worker", "scripts", "pipelines", "tests")
 
@@ -59,8 +66,23 @@ def akey(name: str) -> str:
     k = adpmod.player_key(name or "")
     for suf in SUFFIXES:
         if k.endswith(suf):
-            return k[: -len(suf)].strip()
-    return k
+            k = k[: -len(suf)].strip()
+            break
+    return ALIASES.get(k, k)
+
+
+def looks_like_a_person(name: str) -> bool:
+    """Distinguish a player from a topic.
+
+    "Bhayshul Tuten" is someone the board can rank; "Quarterback position
+    (draft strategy)" is a take about how to spend a round. Both come back
+    from the same sweep, and only the first can join to a player row.
+    """
+    n = (name or "").strip()
+    if not n or "(" in n:
+        return False
+    parts = n.split()
+    return 2 <= len(parts) <= 4 and all(p[:1].isupper() for p in parts)
 
 
 def load_analyst(root: Path, board_names) -> dict:
@@ -87,22 +109,43 @@ def load_analyst(root: Path, board_names) -> dict:
             continue
         out[nm] = {"jj": r.get("jj"), "v": r.get("v"), "t": r.get("take"), "p": []}
 
-    verified = 0
+    verified, positional = 0, []
     if ver_p.exists():
         for t in json.loads(ver_p.read_text()):
             nm = by_key.get(akey(t.get("player", "")))
             if nm is None:
+                # Some verified takes are about a POSITION, not a person
+                # ("Quarterback position (draft strategy)"). Dropping them
+                # because they fail a player join throws away the takes most
+                # relevant to how you spend a round.
+                if not looks_like_a_person(t.get("player", "")):
+                    positional.append({"a": t.get("analyst", "?"),
+                                       "s": t.get("stance", "neutral"),
+                                       "t": t.get("take", ""),
+                                       "u": t.get("source_url", ""),
+                                       "p": t.get("position"),
+                                       "w": t.get("player")})
+                    continue
                 missed.append(t.get("player", "?"))
                 continue
             out.setdefault(nm, {"jj": None, "v": None, "t": None, "p": []})
             out[nm]["p"].append({"a": t.get("analyst", "?"), "s": t.get("stance", "neutral"),
                                  "t": t.get("take", ""), "u": t.get("source_url", ""),
-                                 "y": t.get("season")})
+                                 "y": t.get("season"),
+                                 # These shows have guests. Where the verifier
+                                 # said the speaker is someone other than the
+                                 # analyst we went looking for, the page shows
+                                 # its words instead of asserting a name.
+                                 "q": 1 if t.get("speaker_uncertain") else 0,
+                                 "c": t.get("speaker_caveat")})
             verified += 1
     else:
         print(f"  note: no {ver_p.name} — JJ's ranks only, no verified podcast takes")
 
-    print(f"  analyst: {len(out)} players joined, {verified} verified takes"
+    if positional:
+        out["__positional__"] = positional
+    print(f"  analyst: {len(out) - (1 if positional else 0)} players joined, "
+          f"{verified} verified takes, {len(positional)} position-level"
           + (f", {len(missed)} unjoined ({', '.join(sorted(set(missed))[:6])}"
              + (" ..." if len(set(missed)) > 6 else "") + ")" if missed else ""))
     return out
@@ -205,7 +248,11 @@ def main() -> int:
 
 def finish(a, payload, p4, r4, r6) -> int:
     if a.analyst_dir:
-        payload["an"] = load_analyst(Path(a.analyst_dir), [r[0] for r in payload["p4"]])
+        an = load_analyst(Path(a.analyst_dir), [r[0] for r in payload["p4"]])
+        pos = an.pop("__positional__", None)
+        payload["an"] = an
+        if pos:
+            payload["an_pos"] = pos
     tpl = TEMPLATE.read_text(encoding="utf-8")
     if "__PAYLOAD__" not in tpl:
         raise SystemExit(f"{TEMPLATE} has no __PAYLOAD__ placeholder — refusing "
