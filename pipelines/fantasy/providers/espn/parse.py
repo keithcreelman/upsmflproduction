@@ -365,6 +365,49 @@ def parse_transactions(
 # Weekly: matchups, rosters, points — one call, three tables
 # ─────────────────────────────────────────────────────────────────────────────
 
+def parse_players(data: dict, *, season: int) -> list[dict]:
+    """One kona_player_info page -> fantasy_players rows.
+
+    ⚠️ REUSES _player_row's MAPPING, NOT ITS SHAPE. That helper takes a ROSTER
+    entry (playerId at the top level, lineup slot alongside); this view nests
+    the same player object one level down under `player` with no slot at all.
+    Feeding one to the other silently yields rows with a null id, which is why
+    the id is asserted here rather than assumed.
+
+    first/last_season_seen are stamped from the season actually requested — a
+    player appearing in the 2025 universe is evidence about 2025 and nothing
+    else. The loader's upsert widens the range as later seasons arrive.
+    """
+    out = []
+    for item in data.get("players") or []:
+        player = item.get("player") or {}
+        pid = player.get("id", item.get("id"))
+        if pid is None:
+            continue
+        first = player.get("firstName") or ""
+        last = player.get("lastName") or ""
+        pos_id = player.get("defaultPositionId")
+        team_id = player.get("proTeamId")
+        out.append({
+            "platform": PLATFORM,
+            "player_uid": player_uid(pid),
+            "provider_player_id": str(pid),
+            "full_name": (f"{first} {last}").strip() or player.get("fullName"),
+            "first_name": first or None,
+            "last_name": last or None,
+            "display_position": (DEFAULT_POSITION_MAP.get(pos_id)
+                                 if pos_id is not None else None),
+            "primary_position": (DEFAULT_POSITION_MAP.get(pos_id)
+                                 if pos_id is not None else None),
+            "editorial_team_abbr": (PRO_TEAM_MAP.get(team_id)
+                                    if team_id is not None else None),
+            "is_undroppable": 1 if player.get("droppable") is False else 0,
+            "first_season_seen": season,
+            "last_season_seen": season,
+        })
+    return out
+
+
 def _player_row(entry: dict) -> dict | None:
     """One roster entry (from mRoster or mBoxscore) -> a fantasy_players +
     roster-slot fragment. Returns None if the entry carries no player id."""

@@ -610,7 +610,6 @@ def test_adapter_scope_honesty() -> None:
     for name, fn in (
         ("discover_leagues", lambda: provider.discover_leagues()),
         ("fetch_draft_results", lambda: provider.fetch_draft_results(ref)),
-        ("fetch_players", lambda: provider.fetch_players(ref)),
     ):
         check_raises(f"{name} raises NotImplementedInThisPass, never returns "
                      "complete=False empty (that would claim 'not offered', "
@@ -622,8 +621,15 @@ def test_adapter_scope_honesty() -> None:
 
     check("⚠️ fetch_transactions is NO LONGER on the unbuilt list — implemented "
           "2026-08-12 (FAAB/waiver scope; see section E and K)",
-          "fetch_transactions" not in {"discover_leagues", "fetch_league_settings",
-                                        "fetch_draft_results", "fetch_players"})
+          "fetch_transactions" not in {"discover_leagues", "fetch_draft_results"})
+    # ⚠️ fetch_players LEFT this list on 2026-08-24. The assertion that it
+    # raises was correct until it wasn't; a stale "this is unbuilt" test is
+    # just as misleading as a stale "this is built" one, and this suite is the
+    # thing that decides which resources look implemented.
+    check("fetch_players is NO LONGER unbuilt — it paginates kona_player_info; "
+          "section N covers the parser",
+          hasattr(provider, "PLAYER_PAGE")
+          and provider.resource_supported("league.players"))
     check("'trade_transactions' (not 'failed_waiver_claims') is the honest "
           "unsupported label now — TRADE_* types are excluded, but failed/"
           "losing waiver claims ARE supported",
@@ -829,6 +835,45 @@ def test_adapter_full_path_schema() -> None:
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+def test_player_universe() -> None:
+    section("N. PLAYER UNIVERSE — kona_player_info, and the shape trap")
+    # ⚠️ THIS VIEW NESTS THE PLAYER ONE LEVEL DOWN under `player`, with no
+    # lineup slot. A ROSTER entry puts playerId at the top level alongside a
+    # slot. Feeding one shape to the other's helper yields rows with a null id
+    # — silently, since nothing else in the row looks wrong.
+    page = {"players": [
+        {"id": 111, "player": {"id": 111, "firstName": "Jahmyr", "lastName": "Gibbs",
+                               "defaultPositionId": 2, "proTeamId": 8, "droppable": True}},
+        {"id": 222, "player": {"id": 222, "firstName": "Ja'Marr", "lastName": "Chase",
+                               "defaultPositionId": 3, "proTeamId": 4, "droppable": False}},
+        {"id": None, "player": {"firstName": "No", "lastName": "Id"}},
+    ]}
+    rows = parse.parse_players(page, season=2025)
+    check("a player with no id is DROPPED, not written with a null key",
+          len(rows) == 2)
+    check("names, positions and pro teams map through",
+          rows[0]["full_name"] == "Jahmyr Gibbs"
+          and rows[0]["primary_position"] == "RB"
+          and rows[1]["primary_position"] == "WR")
+    check("droppable=False becomes is_undroppable=1, and True becomes 0 — "
+          "the flag is inverted, which is exactly the kind of thing that "
+          "passes review and fails in production",
+          rows[0]["is_undroppable"] == 0 and rows[1]["is_undroppable"] == 1)
+    # ⚠️ Seeing a player in the 2025 universe is evidence about 2025 ONLY.
+    check("first/last_season_seen are stamped from the season REQUESTED, not "
+          "widened to a guess", rows[0]["first_season_seen"] == 2025
+          and rows[0]["last_season_seen"] == 2025)
+    check("an empty page yields no rows and does not raise — that is how "
+          "pagination terminates", parse.parse_players({}, season=2025) == [])
+
+    real = _real_columns()
+    extra = sorted({k for r in rows for k in r} - real["fantasy_players"])
+    check("no phantom columns on fantasy_players", extra == [], str(extra))
+    pk = d1mod.PRIMARY_KEYS["fantasy_players"]
+    empty = sorted({c for r in rows for c in pk if r.get(c) in (None, "")})
+    check("every primary-key column populated", empty == [], str(empty))
+
 def main() -> None:
     print("ESPN PIPELINE TEST — lighter first pass: parse, client, auth, adapter scope\n")
     print(f"  fixtures: {FIXTURES.relative_to(REPO_ROOT)}  "
@@ -838,7 +883,7 @@ def main() -> None:
                test_parse_weekly, test_parse_transactions, test_auth,
                test_client_urls_and_errors, test_league_settings, test_adp_source, test_adapter_scope_honesty,
                test_keychain_shared, test_schema_audit,
-               test_adapter_full_path_schema):
+               test_adapter_full_path_schema, test_player_universe):
         fn()
 
     print()

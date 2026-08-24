@@ -89,6 +89,24 @@ class EspnClient:
             return f"{API_BASE}/seasons/{season}/segments/0/leagues/{league_id}"
         return f"{API_BASE}/leagueHistory/{league_id}?seasonId={season}"
 
+    def fetch_players_page(self, *, season: int, league_id: str,
+                           limit: int, offset: int) -> dict:
+        """One page of the player universe (kona_player_info).
+
+        ⚠️ THE LEAGUE ENDPOINT, NOT /players. The bare /players route ACCEPTS
+        the same filter and then ignores its limit — it returned 11,613 rows for
+        a limit of 5 — so paging against it silently re-reads the whole universe
+        every call. The league-scoped route honours limit AND offset (verified:
+        no overlap between consecutive pages, stable ordering).
+        """
+        return self.fetch_league(
+            season=season, league_id=league_id, views=["kona_player_info"],
+            resource="league.players",
+            extra_headers={"x-fantasy-filter": json.dumps({"players": {
+                "limit": limit, "offset": offset,
+                "sortPercOwned": {"sortPriority": 1, "sortAsc": False}}})},
+        )
+
     def fetch_league(
         self, *, season: int, league_id: str, views: list[str], week: int | None = None,
         resource: str = "league", extra_headers: dict[str, str] | None = None,

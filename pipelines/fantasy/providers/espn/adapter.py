@@ -297,15 +297,62 @@ class EspnProvider(FantasyProvider):
 
     # ── players ──────────────────────────────────────────────────────────────
 
+    #: Page size for the player universe. ESPN honours limit+offset on the
+    #: LEAGUE endpoint (verified: no overlap between pages, stable ordering).
+    PLAYER_PAGE = 500
+
     def fetch_players(
         self, league: LeagueRef, *, status: str | None = None, max_pages: int | None = None,
     ) -> FetchResult:
-        raise NotImplementedInThisPass(
-            "league.players",
-            "Full player-universe pagination (ESPN's kona_player_info view) "
-            "is not built. fantasy_players is still populated incidentally "
-            "for every player who appears on a fetched roster.",
-        )
+        """The player universe, paginated to exhaustion.
+
+        ⚠️ THE ABC REQUIRES EXHAUSTION, AND A BOUNDED READ MUST SAY SO. Stopping
+        at the first page is the classic failure here and it looks exactly like
+        success. When --max-pages truncates the walk, this returns
+        complete=False and names the cap in `notes`; a bounded read that
+        reports itself complete is worse than no read at all.
+
+        ⚠️ A SHORT PAGE ENDS THE WALK; AN EMPTY ONE ALSO ENDS IT. Both are
+        normal termination. What is NOT tolerated is a page that repeats the
+        previous page's ids — that means the offset was ignored and the loop
+        would spin forever writing the same rows, so it raises.
+        """
+        rows: list[dict] = []
+        seen: set[str] = set()
+        pages = 0
+        before = self.client.stats.api_calls
+        while True:
+            page = self.client.fetch_players_page(
+                season=league.season, league_id=league.league_id,
+                limit=self.PLAYER_PAGE, offset=pages * self.PLAYER_PAGE,
+            )
+            batch = parse.parse_players(page, season=league.season)
+            pages += 1
+            if not batch:
+                break
+            ids = {r["player_uid"] for r in batch}
+            if ids and ids <= seen:
+                raise ProviderError(
+                    f"players: page {pages} repeated ids already seen — ESPN "
+                    f"ignored the offset. Refusing to loop.",
+                    resource="league.players", error_kind="pagination")
+            seen |= ids
+            rows += [r for r in batch if r["player_uid"] not in
+                     {x["player_uid"] for x in rows}]
+            if len(batch) < self.PLAYER_PAGE:
+                break
+            if max_pages and pages >= max_pages:
+                return FetchResult(
+                    rows=[{**r, "_table": "fantasy_players"} for r in rows],
+                    resource="league.players", complete=False,
+                    api_calls=self.client.stats.api_calls - before,
+                    notes=f"STOPPED at --max-pages={max_pages} ({len(rows)} "
+                          f"players); the universe is larger than this.")
+        return FetchResult(
+            rows=[{**r, "_table": "fantasy_players"} for r in rows],
+            resource="league.players", complete=True,
+            api_calls=self.client.stats.api_calls - before,
+            notes=f"{len(rows)} players over {pages} page(s)")
 
     # ── orchestration ────────────────────────────────────────────────────────
 
