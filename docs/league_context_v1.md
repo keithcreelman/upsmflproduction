@@ -301,7 +301,7 @@ A rostered player is always in exactly one of three states.
 ### B1. Active Roster
 
 **QB starter cap (UPDATED 2026-07-21):** a franchise may roster at most **4 NFL starting QBs** across active roster + taxi combined, measured once a year on the September contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team; unresolved camp battles are commissioner-determined. Going over on the deadline means the league cuts the most recently acquired starting QBs in reverse-acquisition order until compliant, as standard cuts with normal penalties charged to the following season's cap. A backup who wins a job later in the season does not create a violation. Separately, the **5-QB active-roster maximum** is unchanged and, like the starter cap, is **measured as of the September contract deadline** — corrected 2026-08-16 (Keith: *"The rule was always as of contract deadline but likely not clear"*). The prior wording, "enforced continuously," was never the rule; it was imprecision in this line, and the member rulebook faithfully repeated it. **No code enforces either QB cap** (verified 2026-08-16 across worker, site and ETL) — both are commissioner-checked by hand.
-- **Size:** 27 (min) – 30 (max, after contract deadline).
+- **Size:** 27 (min) – 30 (max, after contract deadline). ⚠️ **This band is a UPS rule, NOT an MFL setting.** MFL's only roster setting is `rosterSize = 35`, a looser hard cap, and the league export exposes no minimum at all (read live 2026-08-24). So unlike the IR and taxi limits above, MFL will happily let a roster sit outside 27–30 — anything relying on this band has to enforce or detect it itself.
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
 - **Enforcement model (CORRECTED 2026-08-16, Keith):**
@@ -374,7 +374,7 @@ for 2022-2025.
 - **Roster impact:** IR players do NOT count against active roster max — **and do NOT count toward the 27 minimum either (Keith 2026-08-18).**
   - **Consequence, and it is load-bearing: a franchise at exactly 27 active cannot use IR at all.** IR'ing a player would leave 26 active, below the floor. So IR — the league's only unilateral 50% cap-relief valve — is available down to 28 active and no further.
   - Combined with the 27 floor blocking drops and MFL refusing any add that would exceed the cap, **a franchise at exactly 27 that is over the cap has NO unilateral cure on any day of the week.** Its only exit is trading salary away, which requires a willing counterparty. This is not a Mon–Thu gap; it is permanent while the roster sits at 27. See §G7.1b.
-- **Team-side IR limit is 15** (MFL `injuredReserve = 15`, read live 2026-08-18). Corrected from "very high — effectively unlimited", which was an estimate. Generous, but finite.
+- **Team-side IR limit is 15** (MFL `injuredReserve = 15`, read live 2026-08-18). Corrected from "very high — effectively unlimited", which was an estimate. Generous, but finite. **MFL-ENFORCED — no app-side check needed** (Keith 2026-08-24); an owner cannot exceed it on MFL, so do not build a guard for it. Same for the 10-man taxi squad (`taxiSquad = 10`).
 - **IR + guarantee earning:** confirmed — earning continues on Oct/Nov/Dec checkpoints while on IR.
 - **Suspended player handling:**
   - **Off-season suspension** (season-long): owner can opt to NOT roll forward the contract → salary $0 that year, original salary resumes after suspension. Decision before contract deadline.
