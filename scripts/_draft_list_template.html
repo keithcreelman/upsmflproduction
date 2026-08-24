@@ -68,6 +68,19 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .said.nocall{background:var(--rule-2)}
 .said.nocall .hd{color:var(--ink-3)}
 .said.nocall .txt{border-left-color:var(--rule);font-style:italic}
+.said.dart{background:var(--panel);border-top:1px solid var(--rule-2)}
+.said.dart .hd{color:var(--ink-3)}
+.dt{display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:baseline;font-size:12.5px}
+.dt .conf{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:10.5px;
+  font-weight:750;padding:1px 5px;border-radius:4px;border:1px solid var(--rule);color:var(--ink-3)}
+.dt .conf.hi{border-color:var(--good);color:var(--good)}
+.dt .conf.lo{border-color:var(--rule);color:var(--ink-3);opacity:.75}
+.dt .nm4{font-weight:700}
+.dt .body{grid-column:1/-1;font-size:12px;line-height:1.5;color:var(--ink-2);
+  padding-left:11px;border-left:2px solid var(--rule)}
+.dt.avoid .body{border-left-color:var(--crit)}
+.dt.dart .body,.dt.target .body{border-left-color:var(--brass)}
+.dt .adpn{color:var(--ink-3);font-style:italic}
 .sd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;line-height:1.5}
 .sd .nm3{font-weight:700}
 .sd .by{font-size:11px;color:var(--ink-3);font-family:ui-monospace,monospace}
@@ -232,11 +245,16 @@ function said(rd){
     const rds = Object.keys(named).map(Number);
     const last = rds.length ? Math.max(...rds) : 0;
     if (last > 0 && rd > last) {
-      return `<div class="said nocall"><span class="hd">No round call for round ${rd}</span>`
-        + `<div class="sd"><span class="txt">The round-by-round series stops at round ${last}. `
-        + `JJ's co-host closes that episode saying rounds 11\u201315 are dart throws you get by `
-        + `buying the guide, and Barrett's list is rounds 1\u201310. Nobody went quiet on these `
-        + `players \u2014 the free content simply ends here.</span></div></div>`;
+      const has = ((L.darts || {})[String(rd)] || []).length;
+      return `<div class="said nocall"><span class="hd">No per-round call for round ${rd}</span>`
+        + `<div class="sd"><span class="txt">The free round-by-round series stops at round ${last} `
+        + `\u2014 JJ's co-host closes that episode saying rounds 11\u201315 are dart throws you get `
+        + `by buying the guide, and Barrett's list is rounds 1\u201310. `
+        + (has ? `You own the guide, so its dart chapter fills the gap below \u2014 but it is a `
+                 + `list, not a pick per round, so those are placed by ADP rather than chosen for `
+                 + `this round.`
+               : `No dart from the guide lands in this band either.`)
+        + `</span></div></div>`;
     }
     return "";
   }
@@ -257,6 +275,28 @@ function said(rd){
       }).join("") + `</div>`;
 }
 
+function darts(rd){
+  const list = (L.darts || {})[String(rd)] || [];
+  if (!list.length) return "";
+  // !! A LIST, NOT A PICK PER ROUND. Rounds 1-10 carry JJ naming his single
+  // favourite inside a round he was handed. This chapter has no round attached
+  // at all, so it is placed by ADP and labelled as placed -- and the verdict is
+  // carried, because four entries in the chapter are players he does NOT like.
+  return `<div class="said dart"><span class="hd">From the guide's dart-throw chapter `
+    + `\u00b7 placed by ADP, not chosen for this round</span>`
+    + list.map(x => {
+        const c = x.conf;
+        const cls = c == null ? "" : c >= 8 ? "hi" : c <= 5 ? "lo" : "";
+        return `<div class="dt ${ESC(x.v || "dart")}">`
+          + `<span class="conf ${cls}">${c == null ? "no conf" : "conf " + c + "/10"}</span>`
+          + `<span class="nm4">${ESC(x.nm)}</span>`
+          + `<span class="stn ${STANCE[x.v] || "neutral"}">${ESC(x.v || "dart")}</span>`
+          + `<span class="body">${ESC(x.t)}`
+          + (x.adp_note ? ` <span class="adpn">${ESC(x.adp_note)}</span>` : "")
+          + `</span></div>`;
+      }).join("") + `</div>`;
+}
+
 function render(){
   const g = L.groups[rule];
   let h = "";
@@ -273,6 +313,7 @@ function render(){
       + `<span class="adp">ADP ${lo}\u2013${hi}</span><span class="spacer"></span>`
       + `<span class="eyebrow">${shown.length} of ${all.length}</span></div>`
       + said(rd)
+      + darts(rd)
       + strip(all)
       + `<div class="scroll"><table><thead><tr>`
       + `<th class="num">ADP</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>`
@@ -316,6 +357,11 @@ el("posf").innerHTML = ["ALL", ...POS].map(p =>
   const last = rds.length ? Math.max(...rds) : 0;
   const mism = Object.entries(named).reduce((a, [rd, v]) =>
     a + v.filter(x => x.ffc && x.ffc !== Number(rd)).length, 0);
+  const dv = Object.values(L.darts || {}).flat();
+  const ndart = dv.length;
+  const dlate = Object.entries(L.darts || {})
+    .reduce((a, [rd, v]) => a + (Number(rd) > last ? v.length : 0), 0);
+  const davoid = dv.filter(x => x.v === "avoid" || x.v === "neutral").length;
   el("caveat").innerHTML = !calls
     ? `<b>The analysts' own round calls are not in this build.</b> The highlight in each band `
       + `is this page's construction: the most expert backing, scored from confirmed stances.`
@@ -326,14 +372,20 @@ el("posf").innerHTML = ["ALL", ...POS].map(p =>
     + `${calls} of those calls appear below, each re-fetched and confirmed by a second reader who `
     + `had to find both the claim <em>and</em> the round tie on the page. Evan Silva has no such `
     + `series \u2014 his round-framed takes are scattered, not a list.<br><br>`
-    + `<b>The series stops at round ${last}.</b> JJ's co-host says so on air: rounds 11\u201315 are `
-    + `dart throws behind the paid guide. From round ${last + 1} on there is no round call to show, `
-    + `and the highlight reverts to this page's own construction \u2014 the most expert `
-    + `<em>backing</em> in the band, from ${takes} confirmed stances across ${n} players. A verified `
-    + `like or a guide target is +2, a dart +1, and a fade <em>subtracts</em>, because a player two `
-    + `analysts like and one fades is not the same as one nobody argues about. That score is mine, `
-    + `not theirs, and where nobody covered a band it says so rather than crowning the `
-    + `least-uncovered name.<br><br>`
+    + `<b>The free series stops at round ${last}, and the guide picks it up.</b> JJ's co-host says `
+    + `so on air: rounds 11\u201315 are dart throws you get by buying the guide. You own it, so its `
+    + `Late-Round Dart Throws chapter fills those bands \u2014 ${ndart} entries with JJ's own `
+    + `confidence score, ${dlate} of them in round ${last + 1} or later. <b>But a dart chapter is a `
+    + `list, not a pick per round.</b> Rounds 1\u2013${last} are him naming his single favourite `
+    + `inside a round he was handed; the darts carry no round at all, so they are placed by ADP and `
+    + `sit in their own block, labelled as placed. Their verdict is carried too \u2014 `
+    + `${davoid} entries in that chapter are players he does <em>not</em> like, and reading the `
+    + `chapter as a recommendation list would invert them.<br><br>`
+    + `<b>The band highlight is still mine, not theirs.</b> The most expert <em>backing</em>, from `
+    + `${takes} confirmed stances across ${n} players: a verified like or a guide target is +2, a `
+    + `dart +1, and a fade <em>subtracts</em>, because a player two analysts like and one fades is `
+    + `not the same as one nobody argues about. Where nobody covered a band it says so rather than `
+    + `crowning the least-uncovered name.<br><br>`
     + `<b>His round is not this page's round, and that gap is wide.</b> He reads FantasyPros ADP; `
     + `these bands are cut on FantasyFootballCalculator, and <b>${mism} of the ${calls} calls land `
     + `in a different round under the two sources</b> \u2014 Jaxson Dart is his round-6 pick and FFC `

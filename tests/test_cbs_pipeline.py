@@ -1279,6 +1279,55 @@ def test_draft_board_overlay() -> None:
     check("a boolean does not sneak through as round 1",
           rpk.clean_round(True) is None)
 
+    # ── the guide's dart chapter ─────────────────────────────────────────────
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        jt = Path(td) / "jj.json"
+        jt.write_text(json.dumps([
+            {"player": "Malik Willis", "position": "QB", "verdict": "dart",
+             "rank": "Confidence Level: 10", "take": "rushing", "adp_note": "QB20s",
+             "section": "Late-Round Dart Throws (first) - Chapter 03"},
+            {"player": "Antonio Williams", "position": "WR", "verdict": "avoid",
+             "rank": "Confidence Level: 5", "take": "popular, not for me",
+             "section": "Late-Round Dart Throws (second)"},
+            {"player": "No Confidence Guy", "position": "WR", "verdict": "dart",
+             "rank": "", "take": "unscored",
+             "section": "Late-Round Dart Throws (second)"},
+            {"player": "Nobody On This Board", "position": "WR", "verdict": "dart",
+             "rank": "Confidence Level: 9", "take": "deep",
+             "section": "Late-Round Dart Throws (second)"},
+            {"player": "Jahmyr Gibbs", "position": "RB", "verdict": "neutral",
+             "rank": "Ovr 1 | RB1 | Tier 1", "take": "cheat sheet, not a dart",
+             "section": "Cheat Sheets + Market Score (pp. 288-294)"},
+        ]))
+        names = ["Malik Willis", "Antonio Williams", "No Confidence Guy", "Jahmyr Gibbs"]
+        adp = {"Malik Willis": 162.6, "Antonio Williams": 170.0,
+               "No Confidence Guy": 200.0, "Jahmyr Gibbs": 1.5}
+        darts, missed = dl.guide_darts(jt, names, adp)
+        flat = [x for v in darts.values() for x in v]
+
+        check("only the dart chapter is read - a cheat-sheet row is not a dart",
+              all(x["nm"] != "Jahmyr Gibbs" for x in flat))
+        # ⚠️ THE CHAPTER IS NOT A RECOMMENDATION LIST. Four of its real entries
+        # are players JJ does NOT like; flattening them to "dart" would invert
+        # his opinion on the page.
+        av = [x for x in flat if x["nm"] == "Antonio Williams"]
+        check("an `avoid` inside the dart chapter keeps its verdict",
+              len(av) == 1 and av[0]["v"] == "avoid")
+        check("the guide's own confidence score is parsed",
+              [x["conf"] for x in flat if x["nm"] == "Malik Willis"] == [10])
+        # ⚠️ NO SCORE IS NOT A ZERO SCORE. Sorting an unscored dart as 0 buries
+        # it below every low-confidence name instead of marking it unscored.
+        nc = [x for x in flat if x["nm"] == "No Confidence Guy"]
+        check("a dart with no confidence line is NULL, not zero",
+              len(nc) == 1 and nc[0]["conf"] is None)
+        check("darts are placed by the player's own ADP round",
+              "14" in darts and any(x["nm"] == "Malik Willis" for x in darts["14"]))
+        check("a dart naming someone off the board is REPORTED, not dropped in "
+              "silence - an analyst liking a player the board never heard of is "
+              "a coverage gap, not agreement",
+              missed == ["Nobody On This Board"])
+
     check("ADP maps to the round the market drafts in, not to your own picks",
           (dl.round_of(1.0), dl.round_of(12.9), dl.round_of(13.0),
            dl.round_of(72.0)) == (1, 1, 2, 6))

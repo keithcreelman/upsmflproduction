@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -61,6 +62,54 @@ W = {"like": 2.0, "fade": -2.0, "neutral": 0.0,
      "target": 2.0, "avoid": -2.0, "dart": 1.0}
 #: JJ's written guide and JJ's podcast appearances are the same person.
 GUIDE_AUTHOR = "JJ Zachariason"
+#: The guide's own confidence scale, printed beside each dart.
+CONF = re.compile(r"Confidence Level:\s*(\d+)", re.I)
+DART_SECTION = "Dart Throw"
+
+
+def guide_darts(jj_takes: Path, board_names, adp_by_name) -> tuple[dict, list]:
+    """The guide's Late-Round Dart Throws chapter, placed by ADP.
+
+    ⚠️ THIS IS A LIST, NOT A PICK PER ROUND, AND THE PAGE MUST NOT BLUR THEM.
+    Rounds 1-10 carry JJ naming his single favourite pick inside a round he was
+    handed. The guide's dart chapter is a flat list with a confidence score and
+    no round attached — his co-host says on air that rounds 11-15 "are dart
+    throws you can buy by purchasing the guide", but that is the co-host
+    describing where the material lives, not JJ assigning a dart to a round.
+    So these are placed by the player's own ADP and labelled as placed, and
+    they render in their own block rather than as "his round-13 pick".
+
+    ⚠️ AND THE VERDICT IS CARRIED, NOT ASSUMED. Four entries in this chapter
+    are marked `avoid` and six `neutral` — JJ writing about a popular dart he
+    does not like. Rendering the chapter as a recommendation list would invert
+    those.
+    """
+    by_key = {}
+    for nm in board_names:
+        by_key.setdefault(bdb.akey(nm), nm)
+    out, unjoined = collections.defaultdict(list), []
+    for t in json.loads(jj_takes.read_text()):
+        if DART_SECTION not in (t.get("section") or ""):
+            continue
+        nm = by_key.get(bdb.akey(t.get("player", "")))
+        if nm is None:
+            unjoined.append(t.get("player"))
+            continue
+        rd = round_of(adp_by_name.get(nm))
+        if rd is None:
+            unjoined.append(t.get("player"))
+            continue
+        m = CONF.search(t.get("rank") or "")
+        out[str(rd)].append({
+            "nm": nm, "v": t.get("verdict"), "t": t.get("take"),
+            "adp_note": t.get("adp_note"),
+            "conf": int(m.group(1)) if m else None,
+        })
+    for v in out.values():
+        # Highest confidence first; an unscored dart sorts last rather than
+        # being treated as a zero.
+        v.sort(key=lambda x: (x["conf"] is None, -(x["conf"] or 0), x["nm"]))
+    return dict(out), unjoined
 
 
 def round_of(adp: float | None) -> int | None:
@@ -180,8 +229,16 @@ def main() -> int:
         print("  note: no round_picks.json - the analysts' own round calls are "
               "absent from this build, and the page will say so")
 
+    darts, dart_missed = guide_darts(
+        root / "jj_takes.json", list(people), {n: p["adp"] for n, p in people.items()})
+    nd = sum(len(v) for v in darts.values())
+    late = sum(len(v) for k, v in darts.items() if int(k) >= 11)
+    print(f"  guide darts: {nd} placed by ADP ({late} in rounds 11+), "
+          f"{len(dart_missed)} outside the board"
+          + (f": {', '.join(sorted(set(dart_missed)))}" if dart_missed else ""))
+
     payload = {"teams": TEAMS, "rounds": ROUNDS, "players": people,
-               "groups": groups, "named": named}
+               "groups": groups, "named": named, "darts": darts}
     tpl = TEMPLATE.read_text(encoding="utf-8")
     if "__LIST__" not in tpl:
         raise SystemExit(f"{TEMPLATE} has no __LIST__ placeholder.")

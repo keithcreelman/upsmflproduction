@@ -20,6 +20,15 @@ such series.
 find both the claim *and* the round tie. 7 corroborated by two independent
 routes (omny.fm word-level JSON vs yt-dlp captions).
 
+**Rounds 11+ come from the guide you own.** The co-host paywalls rounds 11-15
+as "dart throws you can buy by purchasing the guide" — so the guide's
+Late-Round Dart Throws chapter fills those bands: 31 entries placed by ADP, 24
+of them in round 11 or later, each with JJ's own Confidence Level.
+⚠️ It is a LIST, not a pick per round, and renders in its own block labelled as
+placed. 7 of its entries are `avoid`/`neutral` — players he does NOT like — and
+the verdict is carried, because reading the chapter as a recommendation list
+would invert them.
+
 **⚠️ 27 of the 41 land in a DIFFERENT round under FFC ADP than under
 FantasyPros.** Jaxson Dart is JJ's round-6 pick and FFC has him in round 10.
 The board and list are cut on FFC; the calls are filed under the analyst's own
