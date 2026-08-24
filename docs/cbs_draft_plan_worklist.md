@@ -170,6 +170,53 @@ out-of-position premium, or are they still drafting off standard boards? If the
 latter, that is a systematic, repeatable edge — quantify it as picks-of-value
 left on the table per owner per season.
 
+## ✅ LEAGUE HISTORY FOUND — /history/team-overview (2026-08-24)
+
+```bash
+python3 scripts/cbs_history_backfill.py --target remote
+```
+
+**23 seasons, 2003-2025, 22 franchises, 276 franchise-seasons** — records, PF/PA,
+finish, and critically **a MANAGERS column naming the person who ran each
+franchise each year.** Every other CBS surface names franchises and never
+people, which is why owner continuity previously rested on testimony.
+
+### What it settled
+- All twelve 2021-2025 franchises had **exactly ONE manager each** — now read
+  from data, not assumed.
+- The franchise absent from 2026 is **history id 14 = Corey Smith** (Savage
+  Beavers), verified by matching W-L against `/standings/overall` for all five
+  seasons. The -129 previously parked under "(prior owner)" is his. Geoff
+  Woods's 2026 franchise has an **empty** history table, confirming he is new.
+- `RENAMES` / `CONTINUITY_SOURCE` are GONE from cbs_draft_history.py; owner
+  attribution reads `fantasy_team_managers`.
+
+### The join nobody could make before
+History keys on a numeric franchise id and mostly omits the NAME; drafts key on
+a slug of the name and never the id. `history.crosswalk()` binds them on the
+season W-L-T record — the only field both surfaces carry — and **refuses on
+ambiguity** (two teams can finish 8-8).
+
+### Three parser traps
+1. **Two header shapes** — some franchises render a `Team Name` column, some
+   don't. One fixed pattern silently returns zero rows for half the league.
+2. **Row patterns must LOOK AHEAD at the trailing delimiter.** Consuming it
+   eats the pipe the next row needs, so `finditer` skips every other season.
+   Latent on the live page (it emits an empty cell between rows) and exposed
+   only by a whitespace-formatted fixture.
+3. **Manager names are dirty and must NEVER be fuzzy-matched**: this league has
+   both `Chuck Schoolcraft` and `chuck shcoolcraft` as DIFFERENT people running
+   DIFFERENT franchises. Normalise case/spacing only. History uids reconcile to
+   the API's real GUIDs where the name matches (11 of 28) and otherwise carry a
+   `name:` prefix that announces their basis.
+
+### Still not available
+No league-wide **weekly** scores for any past season. `/schedule/<YEAR>` serves
+only the authenticated user's own 17 games under every URL form and printer
+variant; `/scoring/` pages are JS-rendered with scores absent from the HTML;
+`api.cbssports.com` ignores `season` under all five spellings, same as the
+league subdomain. **All-Play accumulates from 2026 week 1 and cannot reach back.**
+
 ## RULES SCENARIOS + the PaTD-6 board — 2026-08-23
 
 ```bash

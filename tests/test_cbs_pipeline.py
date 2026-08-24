@@ -1039,6 +1039,86 @@ def test_scoreboard() -> None:
         check(f"{tbl}: no phantom columns", extra == [], str(extra))
         check(f"{tbl}: every primary-key column populated", empty == [], str(empty))
 
+
+def test_history() -> None:
+    section("M. LEAGUE HISTORY — the only CBS surface that names PEOPLE")
+    from fantasy.providers.cbs import history as H          # noqa: PLC0415
+
+    named = H.parse_team_overview(
+        (FIXTURES / "cbs_history_team_overview.html").read_text(), "10")
+    plain = H.parse_team_overview(
+        (FIXTURES / "cbs_history_team_overview_noname.html").read_text(), "14")
+    empty = H.parse_team_overview(
+        (FIXTURES / "cbs_history_team_overview_empty.html").read_text(), "16")
+
+    # ⚠️ THE HEADER SHAPE VARIES BY TEAM — some render a Team Name column and
+    # some do not. One fixed pattern silently returns ZERO rows for half the
+    # league, which reads as "this franchise has no history".
+    check("the WIDE header shape (with Team Name) parses", len(named) == 3)
+    check("the NARROW shape (no Team Name) parses too", len(plain) == 2)
+    check("an EMPTY table is a real answer — a franchise created this season "
+          "genuinely has no rows, and that is not a parse failure", empty == [])
+    check_raises("a page with no YEARLY RESULTS block RAISES rather than "
+                 "reporting a franchise with no history",
+                 H.CbsHistoryError,
+                 lambda: H.parse_team_overview("<html>nope</html>", "9"))
+
+    check("records and points come through", named[0]["wins"] == 10
+          and named[0]["points_for"] == 2326.9 and named[0]["season"] == 2025)
+    check("'CHAMPION' resolves to rank 1 and '4th' to 4",
+          H._finish_rank("CHAMPION") == 1 and H._finish_rank("4th") == 4)
+    check("an unrecognised finish is None, never a guessed rank",
+          H._finish_rank("--") is None)
+
+    # ⚠️ NEVER FUZZY-MATCH MANAGERS. This league really contains both
+    # 'Chuck Schoolcraft' and 'chuck shcoolcraft' as DIFFERENT people running
+    # DIFFERENT franchises. Any edit-distance merge fuses two humans.
+    check("manager_key normalises case and spacing only",
+          H.manager_key("Chris Klingenberg") == H.manager_key("chris klingenberg"))
+    check("...and does NOT merge two genuinely different people whose names "
+          "are one transposition apart",
+          H.manager_key("Chuck Schoolcraft") != H.manager_key("chuck shcoolcraft"))
+
+    rows = H.to_rows({"10": named, "14": plain}, league_id="grffl")
+    check("a '-' manager is dropped rather than becoming a person named '-'",
+          all(l["nickname_at_time"] != "-" for l in rows["fantasy_team_managers"]))
+    check("as_of_week is derived from W+L+T, because it is part of the primary "
+          "key and NULL would collide every season into one row",
+          rows["fantasy_standings_snapshots"][0]["as_of_week"] == 17)
+
+    # ⚠️ RECONCILE IDENTIFIER SPACES. Without this the same human is stored
+    # twice — once under the API's real GUID, once under a name-derived id —
+    # and every career query silently halves him.
+    recon = H.to_rows({"10": named}, league_id="grffl",
+                      known_managers={H.manager_key("Manager 01"): "GUID-1"})
+    check("a manager matching a known API GUID adopts it instead of minting a "
+          "name-derived id",
+          any(m["manager_uid"] == "GUID-1" for m in recon["fantasy_managers"]))
+    check("...and one with no match keeps an id that ANNOUNCES its basis",
+          all(m["manager_uid"].startswith("name:")
+              for m in rows["fantasy_managers"]))
+
+    # ── the crosswalk that makes history joinable at all ─────────────────────
+    hist = {"10": named, "14": plain}
+    stand = {2025: [{"team_name": "Raining Bullets", "wins": 10, "losses": 7, "ties": 0},
+                    {"team_name": "Savage Beavers", "wins": 8, "losses": 8, "ties": 0}]}
+    x = H.crosswalk(hist, stand)
+    check("franchise NAME binds to history id via the season record — the only "
+          "field both surfaces share",
+          x == {"Raining Bullets": "10", "Savage Beavers": "14"})
+    # ⚠️ TWO TEAMS CAN FINISH 8-8. A single ambiguous season must not bind.
+    dup = {"a": [{"season": 2025, "team_name": None, "wins": 8, "losses": 8,
+                  "ties": 0, "points_for": 1.0, "points_against": 1.0,
+                  "manager": "X", "finish": "7th", "team_id": "a"}],
+           "b": [{"season": 2025, "team_name": None, "wins": 8, "losses": 8,
+                  "ties": 0, "points_for": 2.0, "points_against": 2.0,
+                  "manager": "Y", "finish": "8th", "team_id": "b"}]}
+    check_raises("an ambiguous record match RAISES rather than binding a "
+                 "franchise to an id on a coin flip",
+                 H.CbsHistoryError,
+                 lambda: H.crosswalk(dup, {2025: [
+                     {"team_name": "Tied Team", "wins": 8, "losses": 8, "ties": 0}]}))
+
 def main() -> None:
     print("CBS PIPELINE TEST — draft-results HTML scraper")
     print(f"  fixture: {FIXTURES.name}/cbs_draft_results_2019.html "
@@ -1046,7 +1126,7 @@ def main() -> None:
     for fn in (test_urls, test_parse, test_no_fail_open, test_schema_audit,
                test_rules, test_stats_solver, test_api_envelope,
                test_api_parsers, test_api_schema_audit, test_adapter_guards,
-               test_scoring_engine, test_scoreboard):
+               test_scoring_engine, test_scoreboard, test_history):
         fn()
     print()
     if FAILURES:

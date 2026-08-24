@@ -50,30 +50,23 @@ from fantasy.providers.cbs.client import CbsClient         # noqa: E402
 from fantasy.providers.cbs.stats import season_points_by_player   # noqa: E402
 
 PLATFORM = "cbs"
-#: ⚠️ A FRANCHISE PERSISTING IS NOT AN OWNER PERSISTING. This started as a
+#: ⚠️ A FRANCHISE PERSISTING IS NOT AN OWNER PERSISTING. This began as a
 #: RENAMES map — savage-beavers -> the-champ-is-here — which silently credited
-#: five seasons of picks to Geoffrey Woods. Keith: "Geoff is new this yr." The
-#: franchise slot continued; the person did not, so none of that history is his.
+#: five seasons of somebody else's picks to the incoming owner of that slot.
 #:
-#: CBS's history pages carry franchise names and NO owner names (verified on
-#: /standings/overall/<YEAR> and /teams/<YEAR>), so ownership changes cannot be
-#: detected from the data at all — they have to be asserted by someone who was
-#: there. Anything listed here is attributed to an explicit unknown, never to
-#: the current owner.
-OWNER_CHANGES = {
-    "savage-beavers": {
-        "took_over_in": 2026,
-        "now_called": "the-champ-is-here",
-        "note": "Geoff Woods is new in 2026; the 2021-2025 picks are the "
-                "PRIOR owner's and that person is not identifiable from CBS.",
-    },
-}
-
-#: The other eleven franchises are treated as owner-continuous on Keith's
-#: statement that Geoff is the only new manager. That is TESTIMONY, not data —
-#: there is no CBS field that confirms it — so it is named here rather than
-#: buried as an assumption.
-CONTINUITY_SOURCE = "Keith, 2026-08-23: Geoff is the only new owner in 2026"
+#: It was then downgraded to an assumption resting on Keith's testimony, because
+#: no CBS surface appeared to name PEOPLE. That turned out to be wrong:
+#: /history/team-overview/<ID> carries a MANAGERS column per season, and
+#: scripts/cbs_history_backfill.py now loads it into fantasy_team_managers.
+#: Owner attribution is therefore READ FROM DATA (see owner_map below) and the
+#: hardcoded table is gone.
+#:
+#: What the data says for 2021-2025: all twelve franchises had exactly ONE
+#: manager each, and the franchise absent from 2026 is history id 14 — Corey
+#: Smith — confirmed by matching W-L against /standings/overall for all five
+#: seasons. The 2026 slot holder has an EMPTY history table.
+HISTORY_ATTRIBUTION_NOTE = (
+    "owners read from CBS /history/team-overview MANAGERS column, not assumed")
 
 
 def load_picks(loader) -> list[dict]:
@@ -107,24 +100,31 @@ def load_picks(loader) -> list[dict]:
 
 
 def owner_map(loader) -> dict[str, str]:
-    """history slug -> owner display name, via the 2026 API's stable GUIDs."""
-    rows = loader.query(
-        "SELECT t.team_name, m.display_name FROM fantasy_teams t "
-        "JOIN fantasy_team_managers tm ON tm.team_key = t.team_key "
-        "AND tm.platform = t.platform "
-        "JOIN fantasy_managers m ON m.manager_uid = tm.manager_uid "
-        f"AND m.platform = t.platform WHERE t.platform = '{PLATFORM}' "
-        "AND t.season = 2026;")
+    """franchise slug -> the person who actually ran it, READ FROM D1.
+
+    Joins fantasy_team_managers (populated from CBS's /history MANAGERS column)
+    to fantasy_teams for the franchise name, then slugs the name to match the
+    key the draft pages produce. No hardcoded renames, no testimony.
+
+    ⚠️ Returns the owner per SLUG, and refuses to collapse a franchise that
+    genuinely changed hands into one name — a slug with more than one manager
+    across the window is reported so the caller can decide, rather than being
+    silently attributed to whoever happens to sort first.
+    """
     from fantasy.providers.cbs.constants import team_key    # noqa: PLC0415
-    out = {}
+    rows = loader.query(
+        "SELECT t.team_name, m.display_name, tm.season FROM fantasy_team_managers tm "
+        "JOIN fantasy_managers m ON m.manager_uid = tm.manager_uid "
+        "AND m.platform = tm.platform "
+        "JOIN fantasy_teams t ON t.team_key = tm.team_key AND t.platform = tm.platform "
+        f"WHERE tm.platform = '{PLATFORM}';")
+    by_slug: dict[str, dict[int, str]] = {}
     for r in rows:
-        slug = team_key(2026, "grffl", r["team_name"]).split(".t.")[-1]
-        out[slug] = r["display_name"]
-    for old, ch in OWNER_CHANGES.items():
-        # Deliberately NOT the current owner's name. An explicit unknown keeps
-        # a stranger's draft record out of a real person's row.
-        out[old] = f"(prior owner of {old.replace('-', ' ').title()})"
-    return out
+        if not r.get("team_name") or not r.get("display_name"):
+            continue
+        slug = team_key(2000, "grffl", r["team_name"]).split(".t.")[-1]
+        by_slug.setdefault(slug, {})[int(r["season"])] = r["display_name"]
+    return by_slug
 
 
 def main() -> int:
@@ -136,7 +136,16 @@ def main() -> int:
                           worker_cwd=REPO / "worker", dry_run=False, verbose=False)
 
     picks = load_picks(loader)
-    owners = owner_map(loader)
+    by_slug = owner_map(loader)
+    seasons_all = sorted({p["season"] for p in picks})
+    owners, multi = {}, []
+    for slug, per_season in by_slug.items():
+        names = {n for yr, n in per_season.items() if yr in seasons_all}
+        if not names:
+            continue
+        owners[slug] = sorted(names)[0] if len(names) == 1 else " / ".join(sorted(names))
+        if len(names) > 1:
+            multi.append((slug, sorted(names)))
     slugs = {p["slug"] for p in picks}
     unmapped = sorted(slugs - set(owners))
     if unmapped:
@@ -144,7 +153,7 @@ def main() -> int:
             f"no owner for franchise slug(s) {unmapped}. Every historical "
             f"franchise must resolve to a manager before per-owner claims are "
             f"made about them.")
-    seasons = sorted({p["season"] for p in picks})
+    seasons = seasons_all
 
     # ⚠️ CBS DROPPED THE DRAFT-PAGE POINTS COLUMNS AFTER 2023. Without this
     # recovery every outcome number below silently covers 2021-2023 while the
@@ -170,9 +179,13 @@ def main() -> int:
 
     print(f"{len(picks)} picks, {len(seasons)} seasons {seasons[0]}-{seasons[-1]}, "
           f"{len(slugs)} franchises, all mapped to owners")
-    print(f"   owner continuity: {CONTINUITY_SOURCE}")
-    for slug, ch in OWNER_CHANGES.items():
-        print(f"   ⚠️ {slug}: {ch['note']}")
+    print(f"   {HISTORY_ATTRIBUTION_NOTE}")
+    if multi:
+        for slug, names in multi:
+            print(f"   ⚠️ {slug} changed hands in this window: {names}")
+    else:
+        print("   every franchise had ONE manager across the whole window "
+              "(read from data, not assumed)")
     print()
 
     # ── attach market price ──────────────────────────────────────────────────
