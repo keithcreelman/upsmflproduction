@@ -244,13 +244,32 @@ def main() -> int:
     # ── 2. per-owner behaviour ───────────────────────────────────────────────
     print("\n2. PER-OWNER: discipline, positional timing, and draft-day outcome")
     print(f"{'owner':<20}{'reach':>7}{'|dev|':>7}   {'QB':>4}{'RB':>4}{'WR':>4}{'TE':>4}"
-          f"   {'pts/pick':>9}{'vs slot':>9}")
+          f"   {'pts/pick':>9}{'vs slot':>9}{'vs pos':>9}")
     # Expected points for a slot, from what the whole league actually got there.
     by_slot: dict[int, list[float]] = collections.defaultdict(list)
     for p in picks:
         if p["points"] is not None:
             by_slot[(p["pick_number"] - 1) // a.teams].append(float(p["points"]))
     slot_exp = {r: statistics.median(v) for r, v in by_slot.items() if v}
+
+    # ⚠️ THE ROUND-ONLY BENCHMARK IS POSITION-BLIND, AND THAT BIAS IS REAL.
+    # It compares a pick to the league median for that ROUND across ALL
+    # positions — and quarterbacks simply score more raw points than running
+    # backs in this league. So a QB-heavy drafter looks good and an RB-heavy one
+    # looks bad BY CONSTRUCTION, before any judgment enters into it. On this
+    # league it moved one owner from 7th to 12th purely as an artifact.
+    #
+    # Both are reported. `vs slot` answers "did this pick beat what the round
+    # returned"; `vs pos` answers "did it beat what that POSITION returned in
+    # that round", which is the one that survives scrutiny.
+    def bucket(r):
+        return "1-3" if r <= 3 else "4-6" if r <= 6 else "7-9" if r <= 9 else \
+               "10-12" if r <= 12 else "13-18"
+    cell: dict[tuple, list[float]] = collections.defaultdict(list)
+    for p in picks:
+        if p["points"] is not None:
+            cell[(p["season"], p["pos"], bucket(p["round_number"]))].append(float(p["points"]))
+    pos_exp = {k: statistics.median(v) for k, v in cell.items() if len(v) >= 4}
 
     rows = []
     for slug in sorted(slugs):
@@ -271,20 +290,29 @@ def main() -> int:
                and (p["pick_number"] - 1) // a.teams in slot_exp]
         ppp = statistics.mean(got) if got else 0.0
         vs = (sum(got) - sum(exp)) / len(seasons) if exp else 0.0
-        rows.append((owners[slug], reach, dev, first, ppp, vs))
-    for nm, reach, dev, first, ppp, vs in sorted(rows, key=lambda r: -r[5]):
+        vp = sum(float(p["points"]) - pos_exp[(p["season"], p["pos"], bucket(p["round_number"]))]
+                 for p in mine
+                 if p["points"] is not None
+                 and (p["season"], p["pos"], bucket(p["round_number"])) in pos_exp
+                 ) / len(seasons)
+        rows.append((owners[slug], reach, dev, first, ppp, vs, vp))
+    for nm, reach, dev, first, ppp, vs, vp in sorted(rows, key=lambda r: -r[6]):
         print(f"{nm:<20}{reach:>+7.0f}{dev:>7.0f}   "
               + "".join(f"{first[p]:>4.0f}" for p in ("QB", "RB", "WR", "TE"))
-              + f"   {ppp:>9.0f}{vs:>+9.0f}")
+              + f"   {ppp:>9.0f}{vs:>+9.0f}{vp:>+9.0f}")
     # value = ADP - pick. A player taken at 30 whose ADP is 20 gives -10: he
     # was picked TEN SPOTS LATER than the market would have, i.e. he fell.
     print("   reach   = median (ADP - pick) over picks 1-%d. NEGATIVE = they let "
           "players FALL to them; POSITIVE = they reach ahead of the market."
           % market_depth)
     print("   QB/RB/WR/TE = mean ROUND of that owner's first pick at the position.")
-    print("   vs slot = season points above/below what the league median got "
-          "from the same rounds. DRAFT-DAY judgment only — a player cut in "
-          "week 3 still carries his full season total.")
+    print("   vs slot = vs the league median for that ROUND, ALL POSITIONS "
+          "MIXED. ⚠️ Position-blind, so it flatters QB-heavy drafters and "
+          "penalises RB-heavy ones by construction.")
+    print("   vs pos  = vs the median that POSITION returned in that round "
+          "bucket. This is the ranking to trust; the table is sorted by it.")
+    print("   Both are DRAFT-DAY judgment only — a player cut in week 3 still "
+          "carries his full season total.")
 
     # ── 3. does ANYONE draft for the scoring system? ─────────────────────────
     # This is the payoff. Out-of-position touchdowns pay double here, so a
