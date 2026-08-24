@@ -11,6 +11,13 @@ the change and the board still works either way, and it marks every player with
 no NFL games of his own — their totals are ESPN's and are sound, but their
 per-game milestone bonuses are a positional average rather than a read on that
 specific player, which is a wider error bar and worth seeing on draft night.
+
+⚠️ THE ANALYST OVERLAY IS DELIBERATELY NOT PART OF THE COMMITTED BOARD.
+--analyst-dir folds in a paid guide's player ranks and third-party podcast takes.
+Those are licensed for personal reference, and a repo — private or not — is a
+distribution vector, so this script REFUSES to write an analyst-bearing page
+anywhere git tracks. Build the plain board into docs/ and the overlay build into
+the gitignored data/analyst/ alongside its sources.
 """
 from __future__ import annotations
 
@@ -40,6 +47,65 @@ OUT = REPO / "docs" / "cbs_draft_board_2026.html"
 #: Below this VOR an unranked player is noise, not a sleeper. Keeps the page
 #: small enough to stay snappy on a phone at the draft table.
 VOR_FLOOR = -60
+#: Suffix forms differ between sources ("T.J. Hockenson" / "TJ Hockenson",
+#: "Kenneth Walker III" / "Kenneth Walker"), so the analyst join runs on a
+#: normalised key — 22 of 209 rows miss on the raw string.
+SUFFIXES = (" jr", " sr", " ii", " iii", " iv", " v")
+#: Paths git tracks. An analyst-bearing page may never be written under one.
+TRACKED = ("docs", "site", "worker", "scripts", "pipelines", "tests")
+
+
+def akey(name: str) -> str:
+    k = adpmod.player_key(name or "")
+    for suf in SUFFIXES:
+        if k.endswith(suf):
+            return k[: -len(suf)].strip()
+    return k
+
+
+def load_analyst(root: Path, board_names) -> dict:
+    """Join the analyst layer onto board names. Reports what did not join.
+
+    ⚠️ NEVER treats a missing file as "no analyst data" — a guide extract that
+    failed to load is an unreadable input, not an empty one, and silently
+    shipping a board with the column quietly absent is exactly the failure this
+    codebase keeps getting bitten by.
+    """
+    rec_p, ver_p = root / "reconciled.json", root / "verified_takes.json"
+    if not rec_p.exists():
+        raise SystemExit(f"--analyst-dir given but {rec_p} is missing. Refusing to "
+                         f"build a board that silently drops the analyst layer.")
+    by_key = {}
+    for name in board_names:
+        by_key.setdefault(akey(name), name)
+
+    out, missed = {}, []
+    for r in json.loads(rec_p.read_text()):
+        nm = by_key.get(akey(r["name"]))
+        if nm is None:
+            missed.append(r["name"])
+            continue
+        out[nm] = {"jj": r.get("jj"), "v": r.get("v"), "t": r.get("take"), "p": []}
+
+    verified = 0
+    if ver_p.exists():
+        for t in json.loads(ver_p.read_text()):
+            nm = by_key.get(akey(t.get("player", "")))
+            if nm is None:
+                missed.append(t.get("player", "?"))
+                continue
+            out.setdefault(nm, {"jj": None, "v": None, "t": None, "p": []})
+            out[nm]["p"].append({"a": t.get("analyst", "?"), "s": t.get("stance", "neutral"),
+                                 "t": t.get("take", ""), "u": t.get("source_url", ""),
+                                 "y": t.get("season")})
+            verified += 1
+    else:
+        print(f"  note: no {ver_p.name} — JJ's ranks only, no verified podcast takes")
+
+    print(f"  analyst: {len(out)} players joined, {verified} verified takes"
+          + (f", {len(missed)} unjoined ({', '.join(sorted(set(missed))[:6])}"
+             + (" ..." if len(set(missed)) > 6 else "") + ")" if missed else ""))
+    return out
 
 
 def build(table, projs, shapes, fb, adp, mix):
@@ -87,7 +153,30 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=400)
     ap.add_argument("--out", default=str(OUT))
+    ap.add_argument("--analyst-dir", default=None,
+                    help="folder holding reconciled.json / verified_takes.json. "
+                         "Adds the analyst column; forces an untracked --out.")
+    ap.add_argument("--payload-in", default=None,
+                    help="reuse a saved payload instead of re-querying D1")
+    ap.add_argument("--payload-out", default=None)
     a = ap.parse_args()
+
+    if a.analyst_dir:
+        rel = Path(a.out).resolve()
+        try:
+            top = rel.relative_to(REPO).parts[0]
+        except ValueError:
+            top = None
+        if top in TRACKED:
+            raise SystemExit(
+                f"refusing to write the analyst overlay to {a.out} — {top}/ is "
+                f"tracked by git, and the guide extract is licensed for personal "
+                f"reference only. Write it under data/analyst/ instead.")
+
+    if a.payload_in:
+        payload = json.loads(Path(a.payload_in).read_text())
+        p4, r4, r6 = payload["p4"], payload["repl4"], payload["repl6"]
+        return finish(a, payload, p4, r4, r6)
 
     loader = fd1.D1Loader(target="remote", db=fd1.DEFAULT_DB,
                           worker_cwd=REPO / "worker", dry_run=False, verbose=False)
@@ -109,6 +198,14 @@ def main() -> int:
     p6, r6, _ = build(bumped, projs, shapes, fb, adp, mix)
 
     payload = {"p4": p4, "p6": p6, "repl4": r4, "repl6": r6, "starters": s4}
+    if a.payload_out:
+        Path(a.payload_out).write_text(json.dumps(payload, separators=(",", ":")))
+    return finish(a, payload, p4, r4, r6)
+
+
+def finish(a, payload, p4, r4, r6) -> int:
+    if a.analyst_dir:
+        payload["an"] = load_analyst(Path(a.analyst_dir), [r[0] for r in payload["p4"]])
     tpl = TEMPLATE.read_text(encoding="utf-8")
     if "__PAYLOAD__" not in tpl:
         raise SystemExit(f"{TEMPLATE} has no __PAYLOAD__ placeholder — refusing "

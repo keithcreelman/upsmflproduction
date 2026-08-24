@@ -99,6 +99,46 @@ tr.rookie .nm{font-style:italic}
 .vor{font-weight:700}
 .dim{color:var(--ink-3)}
 
+/* ── analyst overlay ─────────────────────────────────────── */
+td.an{white-space:nowrap}
+.jj{
+  display:inline-block;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11px;font-weight:700;padding:1px 5px;border-radius:4px;
+  border:1px solid var(--rule);color:var(--ink-2);background:var(--rule-2);
+}
+.jj.gap{border-color:var(--brass);color:var(--brass);background:transparent}
+.jj.none{border-style:dashed;color:var(--ink-3);background:transparent;font-weight:500}
+.stn{
+  display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;
+  padding:1px 5px;border-radius:4px;margin-left:4px;border:1px solid transparent;
+}
+.stn.like{color:var(--good);border-color:var(--good)}
+.stn.fade{color:var(--crit);border-color:var(--crit)}
+.stn.neutral{color:var(--ink-3);border-color:var(--rule)}
+.dv{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:750;color:var(--brass);margin-left:3px}
+.clashes{display:flex;flex-direction:column;gap:7px}
+.cl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;font-size:12.5px}
+.cl b{font-weight:640;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl .g{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--brass);font-weight:700}
+.cnote{margin:11px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-3)}
+.clh{font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--brass);margin:6px 0 1px}
+.clh:first-child{margin-top:0}
+.legend{margin:14px 0 0;font-size:11.5px;line-height:1.6;color:var(--ink-3)}
+.tk{
+  font:inherit;font-size:10.5px;font-weight:750;line-height:1;margin-left:5px;
+  padding:2px 5px;border-radius:4px;border:1px solid var(--brass);
+  background:transparent;color:var(--brass);cursor:pointer;vertical-align:1px;
+}
+tr.det td{white-space:normal;background:var(--rule-2);padding:11px 14px 13px}
+tr.det{cursor:default}
+.det-in{display:flex;flex-direction:column;gap:9px;max-width:78ch}
+.q{font-size:12.5px;line-height:1.5;color:var(--ink-2);padding-left:11px;border-left:2px solid var(--rule)}
+.q.like{border-left-color:var(--good)} .q.fade{border-left-color:var(--crit)}
+.q b{color:var(--ink);font-weight:700}
+.q a{color:var(--ink-3);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+.q a:hover{color:var(--brass);border-bottom-color:var(--brass)}
+.q .unv{color:var(--ink-3);font-style:italic}
+
 /* ── side panels ─────────────────────────────────────────── */
 .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:16px}
 .card h2{margin:0 0 10px;font-size:11px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
@@ -124,6 +164,7 @@ tr.rookie .nm{font-style:italic}
     <button id="r6" aria-pressed="false">6</button>
   </span>
   <span class="ctl" id="posf"></span>
+  <button id="clash" aria-pressed="false" hidden>Clashes only</button>
   <button id="reset">Reset drafted</button>
 </div></div>
 
@@ -141,7 +182,8 @@ tr.rookie .nm{font-style:italic}
       <div class="scroll"><table>
         <thead><tr>
           <th>#</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>
-          <th class="num">Pts</th><th class="num">VOR</th><th class="num">ADP</th><th>Note</th>
+          <th class="num">Pts</th><th class="num">VOR</th>
+          <th id="anh" hidden>Analyst</th><th class="num">ADP</th><th>Note</th>
         </tr></thead>
         <tbody id="rows"></tbody>
       </table></div>
@@ -151,6 +193,15 @@ tr.rookie .nm{font-style:italic}
       <div class="card">
         <h2>Startable left</h2>
         <div class="scar" id="scar"></div>
+      </div>
+      <div class="card" id="ancard" hidden>
+        <h2>Where JJ and this board disagree</h2>
+        <div class="clashes" id="clashes"></div>
+        <p class="cnote">
+          &#9650; JJ higher than this board &middot; &#9660; lower. The gap is
+          the reason to look, not the answer &mdash; he is ranking for generic
+          scoring, and this league pays out-of-position TDs double.
+        </p>
       </div>
       <div class="card">
         <h2>Your guardrails</h2>
@@ -171,6 +222,7 @@ tr.rookie .nm{font-style:italic}
     <b>Rookies and other unproven players are IN.</b> 29 of the 215 carry <span class="rk-pill">NO TRACK RECORD</span> &mdash; ESPN projects them, but they have no NFL games of their own, so their season is spread using a positional template instead of their own game-to-game shape. Their totals are sound; their <em>milestone bonuses</em> are the league average for the position rather than a read on how lumpy they actually are. Treat the VOR as having a wider error bar, not as wrong. Jeremiyah Love is the highest at #14 overall.<br><br>
     <b>What it genuinely can't see.</b> K and DST are unranked &mdash; take one of each in rounds 17&ndash;18. Picks 202 and 207 fall past the ADP universe entirely.
   </p>
+  <p class="foot" id="anfoot" hidden></p>
 </div>
 
 <script>
@@ -178,8 +230,15 @@ const DATA = {"p4":[["Jahmyr Gibbs","RB","DET",6,414,209,1.5,2,0],["Puka Nacua",
 const POS = ["QB","RB","WR","TE"];
 const MY = [10,15,34,39,58,63,82,87,106,111,130,135,154,159,178,183,202,207];
 const TEAMS = 12;
-let rule = "p4", filter = "ALL", hideNew = false;
+// The analyst overlay is optional: the committed board ships without it, so
+// every reference below has to survive AN being null rather than assume it.
+const AN = DATA.an || null;
+// A disagreement only matters if it is big enough to change when you'd draft
+// someone. 18 picks is a round and a half at 12 teams.
+const CLASH = 18;
+let rule = "p4", filter = "ALL", hideNew = false, clashOnly = false;
 let gone = new Set(JSON.parse(localStorage.getItem("grffl_gone") || "[]"));
+let open = new Set();
 
 const el = id => document.getElementById(id);
 const save = () => localStorage.setItem("grffl_gone", JSON.stringify([...gone]));
@@ -189,12 +248,86 @@ el("posf").innerHTML = ["ALL", ...POS].map(p =>
   `<button data-p="${p}" aria-pressed="${p === "ALL"}">${p}</button>`).join("")
   + `<button id="hidenew" aria-pressed="false">Hide unproven</button>`;
 
+if (AN) { el("anh").hidden = false; el("clash").hidden = false; }
+
 function board() { return DATA[rule]; }
 function repl() { return rule === "p4" ? DATA.repl4 : DATA.repl6; }
 
+// Overall board rank, recomputed per rulebook — the same player sits in a
+// different place at PaTD 6, so the divergence has to move with the toggle.
+let RANK = {};
+function ranks() {
+  RANK = {};
+  board().forEach((r, i) => { RANK[r[0]] = i + 1; });
+}
+
+const ESC = t => String(t == null ? "" : t)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const STANCE = { target: "like", avoid: "fade", dart: "neutral", neutral: "neutral",
+                 like: "like", fade: "fade" };
+
+function delta(nm) {
+  const a = AN && AN[nm];
+  if (!a || a.jj == null) return null;
+  return RANK[nm] - a.jj;                 // >0 : JJ is higher on him than we are
+}
+
+function anCell(nm) {
+  if (!AN) return "";
+  const a = AN[nm];
+  // ⚠️ absent ≠ disliked. A player JJ never wrote about gets a dashed marker,
+  // not a silent blank that reads as "no opinion worth showing".
+  if (!a) return `<td class="an"><span class="jj none">JJ &ndash;</span></td>`;
+  let h = "";
+  if (a.jj != null) {
+    const d = delta(nm);
+    const cls = Math.abs(d) >= CLASH ? "gap" : "";
+    h += `<span class="jj ${cls}">JJ ${a.jj}</span>`;
+    if (Math.abs(d) >= CLASH) {
+      h += `<span class="dv">${d > 0 ? "\u25b2" : "\u25bc"}${(Math.abs(d) / TEAMS).toFixed(1)}r</span>`;
+    }
+  } else {
+    h += `<span class="jj none">JJ &ndash;</span>`;
+  }
+  if (a.v && a.v !== "neutral") {
+    h += `<span class="stn ${STANCE[a.v] || "neutral"}">${a.v}</span>`;
+  }
+  for (const t of (a.p || [])) {
+    const who = (t.a || "?").split(" ").pop().slice(0, 6);
+    h += `<span class="stn ${STANCE[t.s] || "neutral"}" title="verified on the source page">`
+       + `${ESC(who)} ${t.s === "like" ? "\u25b2" : t.s === "fade" ? "\u25bc" : "\u2022"}</span>`;
+  }
+  if (a.t || (a.p || []).length) h += `<button class="tk" data-tk="${ESC(nm)}">${open.has(nm) ? "\u2212" : "+"}</button>`;
+  return `<td class="an">${h}</td>`;
+}
+
+function detRow(nm, cols) {
+  const a = AN && AN[nm];
+  if (!a) return "";
+  let body = "";
+  if (a.t) {
+    const d = delta(nm);
+    const gap = (d == null || d === 0) ? "" :
+      ` <span class="unv">&mdash; he has him #${a.jj}, ${Math.abs(d)} picks `
+      + `${d > 0 ? "earlier" : "later"} than this board.</span>`;
+    body += `<div class="q ${STANCE[a.v] || "neutral"}"><b>JJ Zachariason</b> &middot; `
+          + `Late-Round Draft Guide 2026 &mdash; ${ESC(a.t)}${gap}</div>`;
+  }
+  for (const t of (a.p || [])) {
+    const yr = t.y && t.y !== "2026" ? ` <span class="unv">[${ESC(t.y)} take]</span>` : "";
+    body += `<div class="q ${STANCE[t.s] || "neutral"}"><b>${ESC(t.a)}</b>${yr} &mdash; ${ESC(t.t)}`
+          + (t.u ? ` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>` : "")
+          + `</div>`;
+  }
+  return `<tr class="det"><td colspan="${cols}"><div class="det-in">${body}</div></td></tr>`;
+}
+
 function render() {
+  ranks();
+  const cols = AN ? 10 : 9;
   const rows = board().filter(r =>
-    (filter === "ALL" || r[1] === filter) && !(hideNew && r[8] === 1));
+    (filter === "ALL" || r[1] === filter) && !(hideNew && r[8] === 1)
+    && !(clashOnly && Math.abs(delta(r[0]) ?? 0) < CLASH));
   el("rows").innerHTML = rows.map((r, i) => {
     const [nm, pos, tm, bye, pts, vor, adp, flag] = r;
     const g = gone.has(nm);
@@ -208,15 +341,43 @@ function render() {
       <td class="num dim">${bye || "\u2013"}</td>
       <td class="num">${pts}</td>
       <td class="num vor">${vor > 0 ? "+" + vor : vor}</td>
+      ${anCell(nm)}
       <td class="num dim">${adp ? adp.toFixed(1) : "\u2013"}</td>
-      <td class="flag">${note}</td></tr>`;
+      <td class="flag">${note}</td></tr>`
+      + (open.has(nm) ? detRow(nm, cols) : "");
   }).join("");
   const left = rows.filter(r => !gone.has(r[0])).length;
   const nr = rows.filter(r => r[8] === 1).length;
   el("count").textContent =
-    `${left} available of ${rows.length}` + (nr ? ` \u00b7 ${nr} unproven` : "");
+    `${left} available of ${rows.length}` + (nr ? ` \u00b7 ${nr} unproven` : "")
+    + (clashOnly ? ` \u00b7 \u2265${CLASH} picks apart from JJ` : "");
   scarcity();
+  clashes();
   rail();
+}
+
+function clashes() {
+  if (!AN) return;
+  el("ancard").hidden = false;
+  // Only players still on the board — a disagreement about someone already
+  // drafted is trivia, and this card is meant to be read between picks.
+  const all = board()
+    .filter(r => !gone.has(r[0]) && AN[r[0]] && AN[r[0]].jj != null)
+    .map(r => ({ nm: r[0], pos: r[1], d: delta(r[0]) }))
+    .filter(x => Math.abs(x.d) >= CLASH);
+  // Both directions are actionable, and one of them usually dominates the raw
+  // top-N, so each gets its own short list rather than competing for slots.
+  const grp = (sign, label) => {
+    const rows = all.filter(x => Math.sign(x.d) === sign)
+                    .sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 5);
+    if (!rows.length) return "";
+    return `<div class="clh">${label}</div>` + rows.map(x =>
+      `<div class="cl"><b><span class="chip ${x.pos}">${x.pos}</span> ${x.nm}</b>`
+      + `<span class="g">${x.d > 0 ? "\u25b2" : "\u25bc"}${Math.abs(x.d)}</span></div>`).join("");
+  };
+  const html = grp(1, "\u25b2 JJ takes them earlier") + grp(-1, "\u25bc JJ takes them later");
+  el("clashes").innerHTML = html
+    || `<p class="cnote" style="margin:0">No unresolved gaps of ${CLASH}+ picks left on the board.</p>`;
 }
 
 function scarcity() {
@@ -246,10 +407,22 @@ function rail() {
 }
 
 document.addEventListener("click", e => {
+  // The expand button lives inside a row whose click marks a player drafted,
+  // so it has to be claimed BEFORE the row handler ever sees the event.
+  const tk = e.target.closest("button.tk");
+  if (tk) {
+    const n = tk.dataset.tk;
+    open.has(n) ? open.delete(n) : open.add(n);
+    render(); return;
+  }
+  if (e.target.closest("tr.det")) return;      // reading a take is not a draft pick
   const tr = e.target.closest("tbody tr");
   if (tr) { const n = tr.dataset.n; gone.has(n) ? gone.delete(n) : gone.add(n); save(); render(); return; }
   const b = e.target.closest("button"); if (!b) return;
   if (b.id === "reset") { gone.clear(); save(); render(); return; }
+  if (b.id === "clash") {
+    clashOnly = !clashOnly; b.setAttribute("aria-pressed", clashOnly); render(); return;
+  }
   if (b.id === "hidenew") {
     hideNew = !hideNew; b.setAttribute("aria-pressed", hideNew); render(); return;
   }
@@ -265,5 +438,32 @@ document.addEventListener("click", e => {
     render();
   }
 });
+// ── provenance for the analyst column ──────────────────────
+// Says plainly how many takes were re-fetched and confirmed, and how many are
+// merely unchecked. "Unverified" is NOT "false" — but it is not evidence either,
+// and the page should never let the two look the same.
+if (AN) {
+  const names = Object.keys(AN);
+  const pods = names.reduce((a, n) => a + (AN[n].p || []).length, 0);
+  const total = board().length;
+  const covered = board().filter(r => AN[r[0]] && AN[r[0]].jj != null).length;
+  el("anfoot").hidden = false;
+  el("anfoot").innerHTML =
+    `<b>The analyst column.</b> <span class="jj">JJ 5</span> is JJ Zachariason's own `
+    + `overall rank from the Late-Round Draft Guide 2026. ${covered} of the ${total} players `
+    + `here carry one. The arrow appears only when he and this board are `
+    + `${CLASH}+ picks apart (&#9650; he would take them earlier, &#9660; later); a dashed `
+    + `<span class="jj none">JJ &ndash;</span> means he never wrote about that player at all, `
+    + `which is not the same as a fade &mdash; ${total - covered} of the players on this board `
+    + `are in that position. Tap <b>+</b> to read what he actually said.<br><br>`
+    + `<b>Every podcast take here was re-fetched and confirmed.</b> ${pods} take`
+    + `${pods === 1 ? "" : "s"} from Evan Silva, Scott Barrett and JJ survived a second pass `
+    + `in which a fresh reader was handed only the URL and asked whether the page's own text `
+    + `supports the claim, defaulting to <em>no</em>. Takes that failed that check were dropped `
+    + `rather than softened &mdash; one widely-repeated summary attributed a specific list to an `
+    + `analyst that his own episode contradicts. Anything he said that is not on this page is `
+    + `<em>unchecked</em>, not disproved.`;
+}
+
 render();
 </script>

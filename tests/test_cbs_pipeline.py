@@ -1119,6 +1119,76 @@ def test_history() -> None:
                  lambda: H.crosswalk(dup, {2025: [
                      {"team_name": "Tied Team", "wins": 8, "losses": 8, "ties": 0}]}))
 
+def test_draft_board_overlay() -> None:
+    """The draft board's analyst overlay must never reach a tracked path.
+
+    ⚠️ THIS IS A LICENSING GUARD, NOT A STYLE RULE. The overlay folds in a paid
+    guide's player ranks and third-party podcast takes, licensed for personal
+    reference. A repo — private or not — is a distribution vector, so the
+    builder refuses to write an analyst-bearing page under docs/, site/ or any
+    other tracked directory. The failure mode this catches is silent: someone
+    adds a default, the overlay lands in docs/, and the next push publishes it.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "bdb", str(REPO_ROOT / "scripts" / "cbs_build_draft_board.py"))
+    bdb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bdb)
+
+    check("docs/ is on the tracked list the builder refuses to write into",
+          "docs" in bdb.TRACKED and "site" in bdb.TRACKED)
+
+    # ── the join key, which 22 of 209 rows need ──────────────────────────────
+    check("suffix and punctuation differences collapse to one key so "
+          "'T.J. Hockenson' finds 'TJ Hockenson'",
+          bdb.akey("T.J. Hockenson") == bdb.akey("TJ Hockenson"))
+    check("...and a trailing generational suffix is stripped too",
+          bdb.akey("Kenneth Walker III") == bdb.akey("Kenneth Walker"))
+    # ⚠️ NORMALISING IS NOT FUZZY MATCHING. Two different players must not merge.
+    check("two genuinely different players still key apart",
+          bdb.akey("Chris Godwin") != bdb.akey("Chris Olave"))
+
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        # An analyst dir whose reconciled.json is missing is an UNREADABLE
+        # input, never an empty one — building a board with the column quietly
+        # absent is the fail-open this codebase keeps getting bitten by.
+        check_raises("a missing reconciled.json RAISES rather than yielding a "
+                     "board with the analyst layer silently dropped",
+                     SystemExit, lambda: bdb.load_analyst(tmp, ["Jahmyr Gibbs"]))
+
+        (tmp / "reconciled.json").write_text(json.dumps([
+            {"name": "TJ Hockenson", "jj": 177, "v": "avoid", "take": "t"},
+            {"name": "Nobody At All", "jj": 5, "v": "target", "take": "t"}]))
+        an = bdb.load_analyst(tmp, ["T.J. Hockenson", "Jahmyr Gibbs"])
+        check("the overlay joins across the punctuation difference",
+              "T.J. Hockenson" in an and an["T.J. Hockenson"]["jj"] == 177)
+        check("a board player the analyst never mentioned gets NO entry, so the "
+              "page can show 'never written about' rather than a blank that "
+              "reads as no opinion",
+              "Jahmyr Gibbs" not in an)
+        check("an analyst name that matches nothing on the board is dropped "
+              "from the overlay, not attached to a near-miss",
+              len(an) == 1)
+
+    tpl = (REPO_ROOT / "scripts" / "_draft_board_template.html").read_text()
+    check("the template still carries the payload placeholder the builder "
+          "refuses to write without",
+          "__PAYLOAD__" in tpl)
+    check("the analyst column, its filter and its card are all hidden until "
+          "DATA.an exists, so the plain board renders unchanged",
+          'id="anh" hidden' in tpl and 'id="clash" aria-pressed="false" hidden' in tpl
+          and 'id="ancard" hidden' in tpl)
+
+    board = (REPO_ROOT / "docs" / "cbs_draft_board_2026.html").read_text()
+    # The built artefact itself is the last line of defence: assert the shipped
+    # page carries no analyst PAYLOAD, only the (inert) code that would render one.
+    head = board.split("</script>")[0]
+    check("the COMMITTED board ships with no analyst payload in it",
+          '"an":{' not in head and '"an": {' not in head)
+
+
 def main() -> None:
     print("CBS PIPELINE TEST — draft-results HTML scraper")
     print(f"  fixture: {FIXTURES.name}/cbs_draft_results_2019.html "
@@ -1126,7 +1196,8 @@ def main() -> None:
     for fn in (test_urls, test_parse, test_no_fail_open, test_schema_audit,
                test_rules, test_stats_solver, test_api_envelope,
                test_api_parsers, test_api_schema_audit, test_adapter_guards,
-               test_scoring_engine, test_scoreboard, test_history):
+               test_scoring_engine, test_scoreboard, test_history,
+               test_draft_board_overlay):
         fn()
     print()
     if FAILURES:
