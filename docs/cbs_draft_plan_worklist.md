@@ -2,8 +2,22 @@
 
 ## RESUME HERE
 
-**Board (private artifact, do not share):**
-https://claude.ai/code/artifact/9ee90ce9-6a4f-41ef-a4e1-12e38c83be0a
+**Pages (private artifacts, do not share):**
+* Draft board — https://claude.ai/code/artifact/9ee90ce9-6a4f-41ef-a4e1-12e38c83be0a
+* Round-by-round plan — https://claude.ai/code/artifact/e6b5d898-c5eb-4afb-8a9c-7577907015cd
+
+### ⚠️ POSITIONAL RANK ONLY — never compare overall
+
+An analyst's overall list encodes HIS scoring and HIS positional weighting. JJ
+devalues QB against ADP and says so on the record, so "he has Maye 64th, this
+board has him 52nd" compares two different questions. Both pages now compare
+**within position** only; the scoring adjustment is already inside VOR.
+
+This was not cosmetic. Under overall rank the disagreement list was dominated
+by tight ends (Hockenson ▼83, Freiermuth ▼81, Ferguson ▼66) — pure artifact of
+1.5-PPR TE receptions lifting every TE's *overall* slot. Positionally, **only 2
+of 28 tight ends disagree by 8+ places** and the top eight are within three of
+each other. The real disagreement is at receiver: **34 of 89**.
 
 **Draft:** Tue 8 Sep 2026, 7:30 pm ET. Pick 10 of 12, snake, 18 rounds, no keepers.
 

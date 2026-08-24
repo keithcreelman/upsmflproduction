@@ -94,6 +94,14 @@ def load_analyst(root: Path, board_names) -> dict:
     codebase keeps getting bitten by.
     """
     rec_p, ver_p = root / "reconciled.json", root / "verified_takes.json"
+    # The guide's own positional rank / tier / auction value, parsed from its
+    # cheat sheet. cbs_round_plan.py owns the parser; reuse it rather than
+    # writing a second regex that can drift.
+    import importlib.util as _ilu
+    _s = _ilu.spec_from_file_location("rp", str(REPO / "scripts" / "cbs_round_plan.py"))
+    _rp = _ilu.module_from_spec(_s)
+    _s.loader.exec_module(_rp)
+    cheat = _rp.jj_positional(root / "jj_takes.json") if (root / "jj_takes.json").exists() else {}
     if not rec_p.exists():
         raise SystemExit(f"--analyst-dir given but {rec_p} is missing. Refusing to "
                          f"build a board that silently drops the analyst layer.")
@@ -108,6 +116,13 @@ def load_analyst(root: Path, board_names) -> dict:
             missed.append(r["name"])
             continue
         out[nm] = {"jj": r.get("jj"), "v": r.get("v"), "t": r.get("take"), "p": []}
+        # ⚠️ POSITIONAL RANK IS THE ONLY COMPARABLE ONE. His overall list encodes
+        # his scoring and his own positional weighting — he devalues QB against
+        # ADP on the record — so an overall-rank delta compares two different
+        # questions. Within a position both are ranking the same pool.
+        c = cheat.get(akey(r["name"]))
+        if c:
+            out[nm].update(jp=c["pr"], jt=c["tier"], jv=c["aav"], jpos=c["pos"])
 
     verified, positional = 0, []
     if ver_p.exists():

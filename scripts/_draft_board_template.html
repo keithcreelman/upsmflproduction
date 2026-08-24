@@ -30,7 +30,7 @@ body{
 .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
 .wrap{max-width:1300px;margin:0 auto;padding:0 20px 64px}
 
-/* ── command bar ─────────────────────────────────────────── */
+/* -- command bar ------------------------------------------- */
 .bar{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:1px solid var(--rule);padding:14px 0 12px}
 .bar-in{max-width:1300px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
 h1{
@@ -49,7 +49,7 @@ button:hover{border-color:var(--ink-3);color:var(--ink)}
 button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
 button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
-/* ── pick rail ───────────────────────────────────────────── */
+/* -- pick rail --------------------------------------------- */
 .rail{display:flex;gap:5px;flex-wrap:wrap;margin:18px 0 6px}
 .pk{
   font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
@@ -60,11 +60,11 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .pk.done{opacity:.4;text-decoration:line-through}
 .rail-note{font-size:12px;color:var(--ink-3);margin:2px 0 22px}
 
-/* ── layout ──────────────────────────────────────────────── */
+/* -- layout ------------------------------------------------ */
 .cols{display:grid;grid-template-columns:minmax(0,1fr) 252px;gap:18px;align-items:start}
 @media (max-width:960px){.cols{grid-template-columns:minmax(0,1fr)}}
 
-/* ── board ───────────────────────────────────────────────── */
+/* -- board ------------------------------------------------- */
 .board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
 .board-hd{display:flex;gap:10px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
 .eyebrow{font-size:10.5px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
@@ -99,7 +99,7 @@ tr.rookie .nm{font-style:italic}
 .vor{font-weight:700}
 .dim{color:var(--ink-3)}
 
-/* ── analyst overlay ─────────────────────────────────────── */
+/* -- analyst overlay --------------------------------------- */
 td.an{white-space:nowrap}
 .jj{
   display:inline-block;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
@@ -146,7 +146,7 @@ tr.det{cursor:default}
 .q a:hover{color:var(--brass);border-bottom-color:var(--brass)}
 .q .unv{color:var(--ink-3);font-style:italic}
 
-/* ── side panels ─────────────────────────────────────────── */
+/* -- side panels ------------------------------------------- */
 .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:16px}
 .card h2{margin:0 0 10px;font-size:11px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
 .scar{display:flex;flex-direction:column;gap:9px}
@@ -163,7 +163,7 @@ tr.det{cursor:default}
 
 <div class="bar"><div class="bar-in">
   <h1>Raining Bullets Draft Board</h1>
-  <span class="sub mono">TUE 8 SEP · 7:30 PM ET · PICK 10 OF 12 · SNAKE · 18 RD</span>
+  <span class="sub mono">TUE 8 SEP &middot; 7:30 PM ET &middot; PICK 10 OF 12 &middot; SNAKE &middot; 18 RD</span>
   <span class="spacer"></span>
   <span class="ctl">
     <span class="eyebrow">Passing TD</span>
@@ -202,12 +202,13 @@ tr.det{cursor:default}
         <div class="scar" id="scar"></div>
       </div>
       <div class="card" id="ancard" hidden>
-        <h2>Where JJ and this board disagree</h2>
+        <h2>Positional disagreements</h2>
         <div class="clashes" id="clashes"></div>
         <p class="cnote">
-          &#9650; JJ higher than this board &middot; &#9660; lower. The gap is
-          the reason to look, not the answer &mdash; he is ranking for generic
-          scoring, and this league pays out-of-position TDs double.
+          Places apart <em>within the position</em> &mdash; &#9650; JJ has him
+          higher, &#9660; lower. Overall rank is deliberately not compared: his
+          list encodes his own scoring and his stated QB devaluation. The gap is
+          the reason to look, not the answer.
         </p>
       </div>
       <div class="card" id="poscard" hidden>
@@ -244,9 +245,9 @@ const TEAMS = 12;
 // The analyst overlay is optional: the committed board ships without it, so
 // every reference below has to survive AN being null rather than assume it.
 const AN = DATA.an || null;
-// A disagreement only matters if it is big enough to change when you'd draft
-// someone. 18 picks is a round and a half at 12 teams.
-const CLASH = 18;
+// Measured in POSITIONAL places, not overall picks. Eight spots at a position
+// is roughly a tier, and a tier is the unit that changes when you draft someone.
+const CLASH = 8;
 //: Stance chips shown inline before the cell starts crowding out ADP.
 const CHIPS = 2;
 let rule = "p4", filter = "ALL", hideNew = false, clashOnly = false;
@@ -267,14 +268,9 @@ if (AN) { el("anh").hidden = false; el("clash").hidden = false; }
 function board() { return DATA[rule]; }
 function repl() { return rule === "p4" ? DATA.repl4 : DATA.repl6; }
 
-// Overall board rank, recomputed per rulebook — the same player sits in a
+// Overall board rank, recomputed per rulebook \u2014 the same player sits in a
 // different place at PaTD 6, so the divergence has to move with the toggle.
 let RANK = {};
-function ranks() {
-  RANK = {};
-  board().forEach((r, i) => { RANK[r[0]] = i + 1; });
-}
-
 const ESC = t => String(t == null ? "" : t)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const STANCE = { target: "like", avoid: "fade", dart: "neutral", neutral: "neutral",
@@ -282,25 +278,44 @@ const STANCE = { target: "like", avoid: "fade", dart: "neutral", neutral: "neutr
 const WHO = { "JJ Zachariason": "JJ", "Scott Barrett": "Barrett", "Evan Silva": "Silva" };
 const shortName = a => WHO[a] || (a || "?").split(" ").pop();
 
+// Positional rank on THIS board, recomputed per rulebook.
+let PRANK = {};
+function ranks() {
+  RANK = {}; PRANK = {};
+  const seen = {};
+  board().forEach((r, i) => {
+    RANK[r[0]] = i + 1;
+    seen[r[1]] = (seen[r[1]] || 0) + 1;
+    PRANK[r[0]] = seen[r[1]];
+  });
+}
+
+// !! POSITIONAL ONLY. The overall-rank delta that used to live here compared
+// two different questions: his overall list encodes his own scoring and his
+// stated QB devaluation, so "he has him 64th, this board has him 52nd" is not
+// a disagreement about the player. Within a position both are ranking the
+// same pool, and the scoring adjustment is already inside VOR.
 function delta(nm) {
   const a = AN && AN[nm];
-  if (!a || a.jj == null) return null;
-  return RANK[nm] - a.jj;                 // >0 : JJ is higher on him than we are
+  if (!a || a.jp == null) return null;
+  return PRANK[nm] - a.jp;              // >0 : JJ ranks him higher at his position
 }
 
 function anCell(nm) {
   if (!AN) return "";
   const a = AN[nm];
-  // ⚠️ absent ≠ disliked. A player JJ never wrote about gets a dashed marker,
+  // !! absent != disliked. A player JJ never wrote about gets a dashed marker,
   // not a silent blank that reads as "no opinion worth showing".
   if (!a) return `<td class="an"><span class="jj none">JJ &ndash;</span></td>`;
   let h = "";
-  if (a.jj != null) {
+  if (a.jp != null) {
     const d = delta(nm);
     const cls = Math.abs(d) >= CLASH ? "gap" : "";
-    h += `<span class="jj ${cls}">JJ ${a.jj}</span>`;
+    h += `<span class="jj ${cls}" title="JJ has him ${a.jpos}${a.jp}`
+       + `${a.jt != null ? `, tier ${a.jt}` : ""}${a.jv != null ? `, $${a.jv}` : ""}`
+       + ` \u00b7 this board has him ${a.jpos}${PRANK[nm]}">JJ ${a.jpos}${a.jp}</span>`;
     if (Math.abs(d) >= CLASH) {
-      h += `<span class="dv">${d > 0 ? "\u25b2" : "\u25bc"}${(Math.abs(d) / TEAMS).toFixed(1)}r</span>`;
+      h += `<span class="dv">${d > 0 ? "\u25b2" : "\u25bc"}${Math.abs(d)}</span>`;
     }
   } else {
     h += `<span class="jj none">JJ &ndash;</span>`;
@@ -333,8 +348,9 @@ function detRow(nm, cols) {
   if (a.t) {
     const d = delta(nm);
     const gap = (d == null || d === 0) ? "" :
-      ` <span class="unv">&mdash; he has him #${a.jj}, ${Math.abs(d)} picks `
-      + `${d > 0 ? "earlier" : "later"} than this board.</span>`;
+      ` <span class="unv">&mdash; he has him ${a.jpos}${a.jp}, ${Math.abs(d)} `
+      + `place${Math.abs(d) === 1 ? "" : "s"} ${d > 0 ? "higher" : "lower"} than this board`
+      + `${a.jt != null ? `, his tier ${a.jt}` : ""}${a.jv != null ? ` at $${a.jv}` : ""}.</span>`;
     body += `<div class="q ${STANCE[a.v] || "neutral"}"><b>JJ Zachariason</b> &middot; `
           + `Late-Round Draft Guide 2026 &mdash; ${ESC(a.t)}${gap}</div>`;
   }
@@ -386,10 +402,10 @@ function render() {
 function clashes() {
   if (!AN) return;
   el("ancard").hidden = false;
-  // Only players still on the board — a disagreement about someone already
+  // Only players still on the board \u2014 a disagreement about someone already
   // drafted is trivia, and this card is meant to be read between picks.
   const all = board()
-    .filter(r => !gone.has(r[0]) && AN[r[0]] && AN[r[0]].jj != null)
+    .filter(r => !gone.has(r[0]) && AN[r[0]] && AN[r[0]].jp != null)
     .map(r => ({ nm: r[0], pos: r[1], d: delta(r[0]) }))
     .filter(x => Math.abs(x.d) >= CLASH);
   // Both directions are actionable, and one of them usually dominates the raw
@@ -402,7 +418,7 @@ function clashes() {
       `<div class="cl"><b><span class="chip ${x.pos}">${x.pos}</span> ${x.nm}</b>`
       + `<span class="g">${x.d > 0 ? "\u25b2" : "\u25bc"}${Math.abs(x.d)}</span></div>`).join("");
   };
-  const html = grp(1, "\u25b2 JJ takes them earlier") + grp(-1, "\u25bc JJ takes them later");
+  const html = grp(1, "\u25b2 JJ ranks them higher") + grp(-1, "\u25bc JJ ranks them lower");
   el("clashes").innerHTML = html
     || `<p class="cnote" style="margin:0">No unresolved gaps of ${CLASH}+ picks left on the board.</p>`;
 }
@@ -477,24 +493,28 @@ if (DATA.an_pos && DATA.an_pos.length) {
     + `</div>`).join("");
 }
 
-// ── provenance for the analyst column ──────────────────────
+// -- provenance for the analyst column ----------------------
 // Says plainly how many takes were re-fetched and confirmed, and how many are
-// merely unchecked. "Unverified" is NOT "false" — but it is not evidence either,
+// merely unchecked. "Unverified" is NOT "false" \u2014 but it is not evidence either,
 // and the page should never let the two look the same.
 if (AN) {
   const names = Object.keys(AN);
   const pods = names.reduce((a, n) => a + (AN[n].p || []).length, 0);
   const total = board().length;
-  const covered = board().filter(r => AN[r[0]] && AN[r[0]].jj != null).length;
+  const covered = board().filter(r => AN[r[0]] && AN[r[0]].jp != null).length;
   el("anfoot").hidden = false;
   el("anfoot").innerHTML =
-    `<b>The analyst column.</b> <span class="jj">JJ 5</span> is JJ Zachariason's own `
-    + `overall rank from the Late-Round Draft Guide 2026. ${covered} of the ${total} players `
-    + `here carry one. The arrow appears only when he and this board are `
-    + `${CLASH}+ picks apart (&#9650; he would take them earlier, &#9660; later); a dashed `
-    + `<span class="jj none">JJ &ndash;</span> means he never wrote about that player at all, `
-    + `which is not the same as a fade &mdash; ${total - covered} of the players on this board `
-    + `are in that position. Tap <b>+</b> to read what he actually said.<br><br>`
+    `<b>The analyst column.</b> <span class="jj">JJ WR5</span> is JJ Zachariason's `
+    + `rank <em>at that position</em> from the Late-Round Draft Guide 2026. His overall `
+    + `rank is deliberately not shown: an overall list encodes the analyst's own scoring `
+    + `and positional weighting \u2014 he says on the record that he devalues quarterbacks `
+    + `against ADP \u2014 so "he has him 64th and this board has him 52nd" compares two `
+    + `different questions. Within a position both are ranking the same pool, and this `
+    + `league's scoring is already inside VOR. ${covered} of the ${total} players here carry `
+    + `one. The arrow appears when the two are ${CLASH}+ places apart at the position; a `
+    + `dashed <span class="jj none">JJ &ndash;</span> means he never wrote about that player, `
+    + `which is not the same as a fade \u2014 ${total - covered} are in that position. Tap `
+    + `<b>+</b> to read what he actually said.<br><br>`
     + `<b>Every podcast take here was re-fetched and confirmed.</b> ${pods} take`
     + `${pods === 1 ? "" : "s"} from Evan Silva, Scott Barrett and JJ survived a second pass `
     + `in which a fresh reader was handed only the URL and asked whether the page's own text `
