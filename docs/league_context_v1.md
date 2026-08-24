@@ -301,7 +301,24 @@ A rostered player is always in exactly one of three states.
 ### B1. Active Roster
 
 **QB starter cap (UPDATED 2026-07-21):** a franchise may roster at most **4 NFL starting QBs** across active roster + taxi combined, measured once a year on the September contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team; unresolved camp battles are commissioner-determined. Going over on the deadline means the league cuts the most recently acquired starting QBs in reverse-acquisition order until compliant, as standard cuts with normal penalties charged to the following season's cap. A backup who wins a job later in the season does not create a violation. Separately, the **5-QB active-roster maximum** is unchanged and, like the starter cap, is **measured as of the September contract deadline** — corrected 2026-08-16 (Keith: *"The rule was always as of contract deadline but likely not clear"*). The prior wording, "enforced continuously," was never the rule; it was imprecision in this line, and the member rulebook faithfully repeated it. **No code enforces either QB cap** (verified 2026-08-16 across worker, site and ETL) — both are commissioner-checked by hand.
-- **Size:** 27 (min) – 30 (max, after contract deadline). ⚠️ **This band is a UPS rule, NOT an MFL setting.** MFL's only roster setting is `rosterSize = 35`, a looser hard cap, and the league export exposes no minimum at all (read live 2026-08-24). So unlike the IR and taxi limits above, MFL will happily let a roster sit outside 27–30 — anything relying on this band has to enforce or detect it itself.
+- **Size:** 27 (min) – 30 (max, after contract deadline).
+  - **The 27 MINIMUM is MFL-ENFORCED** (Keith set it 2026-08-24). It lives on the
+    commish page **Roster Position Limits Setup** → *Total across all positions*,
+    which reads `min 27 / max 35`. Do not build a floor guard; MFL blocks the drop.
+  - **The maximum is MFL-enforced too, and it MOVES.** It is **35 until the
+    September contract deadline, then 30** (Keith 2026-08-24). MFL's page reads 35
+    today, which is CORRECT for right now — 31–35 is legal in the pre-deadline
+    window, not a gap.
+  - ⚠️ **Dropping the max to 30 is a MANUAL commish step at the deadline.** MFL
+    holds one number; it does not switch on a date. If nobody edits *Roster
+    Position Limits Setup* when the deadline passes, MFL keeps enforcing 35 and
+    the 30 ceiling goes unenforced for the rest of the season. Pair it with the
+    contract-deadline date in the league calendar (2026: 2026-09-06).
+  - ⚠️ **Neither number appears in `TYPE=league`.** That export carries
+    `rosterSize = 35` and no minimum field at all, so reading the API and
+    concluding "there is no minimum" is wrong — a mistake made on 2026-08-24. Same
+    trap as the BBID waiver sort: the real value lives only on `csetup`. See
+    [[mfl_waiver_sort_not_in_api]].
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
 - **Enforcement model (CORRECTED 2026-08-16, Keith):**
