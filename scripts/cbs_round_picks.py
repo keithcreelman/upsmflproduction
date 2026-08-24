@@ -46,6 +46,23 @@ _s.loader.exec_module(bdb)
 
 BARE_ROUND = re.compile(r"^\s*(\d{1,2})\s*$")
 MAX_ROUND = 18
+#: ⚠️ THE SAME PERSON ARRIVES UNDER DIFFERENT LABELS. One sweep angle returned
+#: "JJ Zachariason", another "JJ Zachariason (Late-Round Fantasy Football /
+#: LateRound.com, @LateRoundQB)" — so keying on the raw string left his rounds
+#: 1-5 picks rendered twice and reported one corroboration instead of five.
+#: Canonicalise to the person; the surname is the only stable part.
+CANON = {"zachariason": "JJ Zachariason", "barrett": "Scott Barrett",
+         "silva": "Evan Silva"}
+
+
+def canon_analyst(a: str | None) -> str:
+    low = (a or "").lower()
+    for surname, name in CANON.items():
+        if surname in low:
+            return name
+    # Never guess. An unrecognised byline keeps its own text, trimmed of the
+    # parenthetical, so it cannot silently merge with someone else.
+    return re.split(r"\s*[(/]", (a or "unattributed").strip())[0] or "unattributed"
 
 
 def clean_round(v) -> int | None:
@@ -90,10 +107,36 @@ def main() -> int:
         if nm is None:
             unjoined.append(t.get("player"))
             continue
-        kept.append({"round": rd, "player": nm, "analyst": t.get("analyst"),
+        kept.append({"round": rd, "player": nm,
+                     "analyst": canon_analyst(t.get("analyst")),
                      "stance": t.get("stance"), "take": t.get("take"),
                      "url": t.get("source_url"),
                      "quoted": t.get("quoted_or_paraphrased")})
+
+    # ── collapse the same call found more than once ──────────────────────────
+    # ⚠️ A DUPLICATE HERE IS CORROBORATION, NOT NOISE. Two angles reached JJ's
+    # rounds 1-5 by different routes — one pulled the omny.fm word-level JSON
+    # transcript, the other yt-dlp auto-captions off the YouTube stream — and
+    # both landed on the same picks. Rendering him twice is wrong; throwing the
+    # second away loses the fact that two independent extractions agree. So the
+    # call collapses and carries the count, and the longer take wins because
+    # the two transcripts garble different words.
+    merged: dict = {}
+    for k in kept:
+        key = (k["round"], k["player"], k["analyst"], k["stance"])
+        cur = merged.get(key)
+        if cur is None:
+            merged[key] = {**k, "sources": [k["url"]] if k["url"] else []}
+            continue
+        if k["url"] and k["url"] not in cur["sources"]:
+            cur["sources"].append(k["url"])
+        if len(k.get("take") or "") > len(cur.get("take") or ""):
+            cur["take"], cur["url"] = k["take"], k["url"]
+        # A quoted reading beats a paraphrased one.
+        if k.get("quoted") == "quoted":
+            cur["quoted"] = "quoted"
+    dupes = len(kept) - len(merged)
+    kept = sorted(merged.values(), key=lambda k: (k["round"], k["stance"], k["player"]))
 
     Path(a.out).write_text(json.dumps(
         {"picks": kept, "refused_rounds": refused, "unjoined": unjoined},
@@ -103,7 +146,10 @@ def main() -> int:
     for k in kept:
         by_rd[k["round"]].append(k)
     print(f"wrote {a.out}")
-    print(f"  {len(kept)} verified round-tied picks across {len(by_rd)} rounds")
+    corrob = sum(1 for k in kept if len(k.get("sources") or []) > 1)
+    print(f"  {len(kept)} verified round-tied calls across {len(by_rd)} rounds "
+          f"({dupes} duplicate extractions collapsed; {corrob} corroborated by "
+          f"two independent sources)")
     print(f"  {len(refused)} refused: the round field held a relative phrase, "
           f"not a round" + (f" (e.g. {refused[0]['round']!r})" if refused else ""))
     print(f"  {len(unjoined)} named a player outside the board" +

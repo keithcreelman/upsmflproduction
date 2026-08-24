@@ -5,6 +5,25 @@
 **Pages (private artifacts, do not share):**
 * Draft board — https://claude.ai/code/artifact/9ee90ce9-6a4f-41ef-a4e1-12e38c83be0a
 * Round-by-round plan — https://claude.ai/code/artifact/e6b5d898-c5eb-4afb-8a9c-7577907015cd
+* Full draft list by ADP round — https://claude.ai/code/artifact/ece3cc3c-356b-46c8-b037-48766da4d28b
+
+### ✅ THE ROUND-BY-ROUND CONTENT EXISTS — I was wrong to say it didn't
+
+JJ Zachariason runs a two-part segment (30 Jul, 6 Aug 2026) where a co-host
+reads each round's **FantasyPros** ADP tier and JJ names his single favourite
+pick in it. Scott Barrett does the inverse on Fantasy Points — one player he
+refuses to draft in every round. Both stop at **round 10**: JJ's co-host says
+on air that rounds 11–15 are dart throws behind the paid guide. Silva has no
+such series.
+
+**41 verified round-tied calls**, each re-fetched by a second reader who had to
+find both the claim *and* the round tie. 7 corroborated by two independent
+routes (omny.fm word-level JSON vs yt-dlp captions).
+
+**⚠️ 27 of the 41 land in a DIFFERENT round under FFC ADP than under
+FantasyPros.** Jaxson Dart is JJ's round-6 pick and FFC has him in round 10.
+The board and list are cut on FFC; the calls are filed under the analyst's own
+round and flagged. Which market you draft against is a real open question.
 
 ### ⚠️ POSITIONAL RANK ONLY — never compare overall
 

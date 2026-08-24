@@ -65,6 +65,9 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .said{display:flex;flex-direction:column;gap:8px;padding:11px 14px;border-bottom:1px solid var(--rule-2);
   background:var(--brass-soft)}
 .said .hd{font-size:9.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--brass)}
+.said.nocall{background:var(--rule-2)}
+.said.nocall .hd{color:var(--ink-3)}
+.said.nocall .txt{border-left-color:var(--rule);font-style:italic}
 .sd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;line-height:1.5}
 .sd .nm3{font-weight:700}
 .sd .by{font-size:11px;color:var(--ink-3);font-family:ui-monospace,monospace}
@@ -220,8 +223,23 @@ function strip(names){
 }
 
 function said(rd){
-  const list = (L.named || {})[String(rd)] || [];
-  if (!list.length) return "";
+  const named = L.named || {};
+  const list = named[String(rd)] || [];
+  if (!list.length) {
+    // !! EMPTY IS NOT THE SAME AS UNCOVERED. Past the last round they cover,
+    // the series does not exist - JJ's co-host says so on air - and silently
+    // rendering nothing reads as "no opinion" rather than "behind the paywall".
+    const rds = Object.keys(named).map(Number);
+    const last = rds.length ? Math.max(...rds) : 0;
+    if (last > 0 && rd > last) {
+      return `<div class="said nocall"><span class="hd">No round call for round ${rd}</span>`
+        + `<div class="sd"><span class="txt">The round-by-round series stops at round ${last}. `
+        + `JJ's co-host closes that episode saying rounds 11\u201315 are dart throws you get by `
+        + `buying the guide, and Barrett's list is rounds 1\u201310. Nobody went quiet on these `
+        + `players \u2014 the free content simply ends here.</span></div></div>`;
+    }
+    return "";
+  }
   return `<div class="said"><span class="hd">What they actually said about round ${rd}</span>`
     + list.map(x => {
         // !! HIS ROUND vs THIS PAGE'S ROUND. He reads FantasyPros ADP tiers,
@@ -292,17 +310,36 @@ el("posf").innerHTML = ["ALL", ...POS].map(p =>
 (function(){
   const n = Object.values(PL).filter(r => r.sup !== 0 || r.jjnote).length;
   const takes = Object.values(PL).reduce((a, r) => a + (r.who||[]).length, 0);
-  el("caveat").innerHTML =
-    `<b>"Best pick of round N" is this page's construction, not a quote.</b> A hunt across `
-    + `JJ Zachariason's, Scott Barrett's and Evan Silva's 2026 output found their published `
-    + `work organised by <em>tier</em> and positional band (WR19\u2013WR42), or as target and `
-    + `avoid lists \u2014 not round by round. So the highlight in each band is defined here and `
-    + `labelled as such: the most expert <em>backing</em>, scored from stances that were each `
-    + `re-fetched and confirmed against the page they came from. A verified like or a guide `
-    + `target is worth +2, a late-round dart +1, and a fade <em>subtracts</em> \u2014 a player `
-    + `two analysts like and one fades is not the same as one nobody argues about. `
-    + `${takes} takes across ${n} players. Where nobody covered a band, it says so rather than `
-    + `crowning the least-uncovered name.`;
+  const named = L.named || {};
+  const calls = Object.values(named).reduce((a, v) => a + v.length, 0);
+  const rds = Object.keys(named).map(Number);
+  const last = rds.length ? Math.max(...rds) : 0;
+  const mism = Object.entries(named).reduce((a, [rd, v]) =>
+    a + v.filter(x => x.ffc && x.ffc !== Number(rd)).length, 0);
+  el("caveat").innerHTML = !calls
+    ? `<b>The analysts' own round calls are not in this build.</b> The highlight in each band `
+      + `is this page's construction: the most expert backing, scored from confirmed stances.`
+    : `<b>They really do publish round-by-round picks, and rounds 1\u2013${last} carry them.</b> `
+    + `JJ Zachariason runs a two-part segment where a co-host reads the twelve players in each `
+    + `round's FantasyPros ADP tier and JJ names his single favourite pick in it; Scott Barrett `
+    + `does the inverse on Fantasy Points, one player he refuses to draft in every round. `
+    + `${calls} of those calls appear below, each re-fetched and confirmed by a second reader who `
+    + `had to find both the claim <em>and</em> the round tie on the page. Evan Silva has no such `
+    + `series \u2014 his round-framed takes are scattered, not a list.<br><br>`
+    + `<b>The series stops at round ${last}.</b> JJ's co-host says so on air: rounds 11\u201315 are `
+    + `dart throws behind the paid guide. From round ${last + 1} on there is no round call to show, `
+    + `and the highlight reverts to this page's own construction \u2014 the most expert `
+    + `<em>backing</em> in the band, from ${takes} confirmed stances across ${n} players. A verified `
+    + `like or a guide target is +2, a dart +1, and a fade <em>subtracts</em>, because a player two `
+    + `analysts like and one fades is not the same as one nobody argues about. That score is mine, `
+    + `not theirs, and where nobody covered a band it says so rather than crowning the `
+    + `least-uncovered name.<br><br>`
+    + `<b>His round is not this page's round, and that gap is wide.</b> He reads FantasyPros ADP; `
+    + `these bands are cut on FantasyFootballCalculator, and <b>${mism} of the ${calls} calls land `
+    + `in a different round under the two sources</b> \u2014 Jaxson Dart is his round-6 pick and FFC `
+    + `has him in round 10. Each call is filed under the round <em>he</em> said and flagged with `
+    + `where FFC puts the player, because collapsing them would quietly answer a question about `
+    + `which market you are drafting against.`;
 })();
 
 el("foot").innerHTML =
