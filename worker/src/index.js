@@ -11261,9 +11261,15 @@ export default {
           // A completed season gets 30 days. The season in progress keeps 5
           // minutes. Only successful responses are stored — a 500 must never be
           // cached, or one bad minute would stick.
-          const lbCurrentSeason = safeInt(YEAR, 0) || new Date().getUTCFullYear();
+          // NOTE: plain Number(), NOT safeInt(). safeInt is declared later in
+          // this module and calling it here throws
+          // "Cannot access 'safeInt4' before initialization" — a temporal dead
+          // zone error that 500s the whole endpoint. Shipped exactly that on
+          // 2026-08-24 and caught it verifying the deploy.
+          const _lbNum = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; };
+          const lbCurrentSeason = _lbNum(YEAR) || new Date().getUTCFullYear();
           const lbAllCompleted = seasons.length > 0 &&
-            seasons.every((sn) => safeInt(sn, 0) > 0 && safeInt(sn, 0) < lbCurrentSeason);
+            seasons.every((sn) => _lbNum(sn) > 0 && _lbNum(sn) < lbCurrentSeason);
           const lbTtl = lbAllCompleted ? 2592000 : 300;   // 30d vs 5m
           lbResponse.headers.set("Cache-Control", `public, max-age=${lbTtl}`);
           if (!lbNoCache) {
