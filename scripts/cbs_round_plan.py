@@ -44,8 +44,17 @@ from fantasy import adp as adpmod                                # noqa: E402
 
 TEMPLATE = REPO / "scripts" / "_round_plan_template.html"
 TEAMS = 12
-#: Keith picks 10th of 12, snake, 18 rounds.
-MY_PICKS = [10, 15, 34, 39, 58, 63, 82, 87, 106, 111, 130, 135, 154, 159, 178, 183, 202, 207]
+ROUNDS = 18
+#: ⚠️ THE DRAFT SLOT IS NOT DECIDED. It was hardcoded at 10-of-12, which made
+#: "rerun it later" a no-op — the same eighteen picks would come back. Every
+#: slot is now computed, because which slot you draw changes the plan more than
+#: any other single input: from the turn you get two picks five apart, from the
+#: ends you get two picks two apart and a 22-pick wait in between.
+def snake_picks(slot: int, teams: int = TEAMS, rounds: int = ROUNDS) -> list[int]:
+    if not 1 <= slot <= teams:
+        raise SystemExit(f"slot {slot} is outside 1..{teams}")
+    return [(r - 1) * teams + (slot if r % 2 else teams - slot + 1)
+            for r in range(1, rounds + 1)]
 #: An ADP with no spread is a lie of precision. FFC reports one for every
 #: player, but floor it anyway so a heavily-mocked stud does not read as
 #: mathematically certain.
@@ -344,9 +353,9 @@ def why(step, rows) -> str:
                 f"you set for the position, and the board runs out of them "
                 f"before your next turn — deferring again means not filling it.")
     if step.get("forced"):
-        return (f"Your own guardrail: WR at 1.10 and 2.03. You took four WRs in "
-                f"the first three rounds across five seasons; the league's best "
-                f"drafter took nine, at +60 a pick.")
+        return (f"Your own guardrail: receiver with each of your first two picks. "
+                f"You took four WRs in the first three rounds across five "
+                f"seasons; the league's best drafter took nine, at +60 a pick.")
     if pos == "QB":
         return (f"First round the QB window opens. QB1 beats QB12 by 132 while "
                 f"RB1 beats RB28 by 209 — the position is deep, so this is where "
@@ -368,6 +377,11 @@ def main() -> int:
     ap.add_argument("--payload-in", default=str(REPO / "data/analyst/board_payload.json"))
     ap.add_argument("--analyst-dir", default=str(REPO / "data/analyst"))
     ap.add_argument("--out", default=str(REPO / "data/analyst/round_plan_2026.html"))
+    ap.add_argument("--teams", type=int, default=TEAMS)
+    ap.add_argument("--rounds", type=int, default=ROUNDS)
+    ap.add_argument("--slot", type=int, default=None,
+                    help="build only this slot. Default builds all of them, so "
+                         "the page works whichever you draw.")
     a = ap.parse_args()
 
     rel = Path(a.out).resolve()
@@ -386,31 +400,56 @@ def main() -> int:
     ffc = {adpmod.player_key(r["player_name"]): r
            for r in adpmod.fetch_ffc(2026, scoring="ppr", teams=12).rows}
 
+    slots = [a.slot] if a.slot else list(range(1, a.teams + 1))
     out = {}
-    for book in ("p4", "p6"):
-        rows = enrich(pay[book], ffc, jj, st)
-        steps = plan(rows, MY_PICKS)
-        for s in steps:
-            s["why"] = why(s, rows)
-        out[book] = steps
+    for slot in slots:
+        picks = snake_picks(slot, a.teams, a.rounds)
+        out[slot] = {}
+        for book in ("p4", "p6"):
+            rows = enrich(pay[book], ffc, jj, st)
+            steps = plan(rows, picks)
+            for s in steps:
+                s["why"] = why(s, rows)
+            out[slot][book] = steps
 
-    def slim(r):
+    # ⚠️ ONE RECORD PER PLAYER, REFERENCED BY NAME. Inlining the full record at
+    # every mention duplicated each take and each guide note twelve times over
+    # (once per slot) and pushed the page past 1.4 MB — a real cost on a phone
+    # at the draft table. Steps carry names; the page resolves them.
+    people: dict = {}
+
+    def slim(r, book):
+        """Fold a row into the shared player table and return its name.
+
+        ⚠️ VOR AND POSITIONAL RANK ARE PER-RULEBOOK. A first version stored one
+        record per player and kept whichever book was packed first, which meant
+        the PaTD 6 view silently rendered PaTD 4 numbers — the exact class of
+        bug this page exists to avoid. Those two fields are keyed by book; the
+        rest genuinely do not move.
+        """
         if r is None:
             return None
-        return {k: r[k] for k in ("nm", "pos", "team", "bye", "vor", "adp", "pr",
-                                  "jjpr", "jjtier", "jjaav", "jjnote", "jjpos",
-                                  "st", "flag", "unproven", "lo", "hi")}
+        rec = people.setdefault(r["nm"], {
+            **{k: r[k] for k in ("nm", "pos", "team", "bye", "adp", "jjpr",
+                                 "jjtier", "jjaav", "jjnote", "jjpos", "st",
+                                 "flag", "unproven", "lo", "hi")},
+            "v": {}, "r": {},
+        })
+        rec["v"][book] = r["vor"]
+        rec["r"][book] = r["pr"]
+        return r["nm"]
 
-    packed = {}
-    for book, steps in out.items():
-        packed[book] = [{
+    packed = {"teams": a.teams, "rounds": a.rounds, "slots": {}}
+    for slot, books in out.items():
+      for book, steps in books.items():
+        packed["slots"].setdefault(str(slot), {})[book] = [{
             "pick": s["pick"], "round": s["round"], "pos": s["pos"],
             "why": s["why"], "kdst": bool(s.get("kdst")), "drop": s.get("drop"),
-            "target": slim(s.get("target")),
-            "alts": [slim(r) for r in s.get("alts", [])],
-            "flips": [slim(r) for r in s.get("flips", [])],
-            "steals": [slim(r) for r in s.get("steals", [])],
-            "alt_pos": [[q, slim(r)] for q, r in s.get("alt_pos", [])],
+            "target": slim(s.get("target"), book),
+            "alts": [slim(r, book) for r in s.get("alts", [])],
+            "flips": [slim(r, book) for r in s.get("flips", [])],
+            "steals": [slim(r, book) for r in s.get("steals", [])],
+            "alt_pos": [[q, slim(r, book)] for q, r in s.get("alt_pos", [])],
             "alt_gain": s.get("alt_gain", []),
             "av": {r["nm"]: round(avail(s["pick"], r["adp"], r["sd"]), 3)
                    for r in ([s["target"]] + s.get("alts", []) + s.get("flips", [])
@@ -418,6 +457,7 @@ def main() -> int:
                    if r} if not s.get("kdst") else {},
         } for s in steps]
 
+    packed["players"] = people
     tpl = TEMPLATE.read_text(encoding="utf-8")
     if "__PLAN__" not in tpl:
         raise SystemExit(f"{TEMPLATE} has no __PLAN__ placeholder.")
@@ -425,11 +465,12 @@ def main() -> int:
         tpl.replace("__PLAN__", json.dumps(packed, separators=(",", ":"))),
         encoding="utf-8")
 
-    shape = collections.Counter(s["pos"] or "(none)" for s in out["p4"])
-    print(f"wrote {a.out}")
-    print("  roster the plan builds (PaTD 4): "
+    ref = slots[len(slots) // 2] if len(slots) > 1 else slots[0]
+    shape = collections.Counter(s["pos"] or "(none)" for s in out[ref]["p4"])
+    print(f"wrote {a.out}  ({len(slots)} slot(s))")
+    print(f"  slot {ref} of {a.teams}, PaTD 4 -> "
           + ", ".join(f"{k} {v}" for k, v in sorted(shape.items())))
-    for s in out["p4"]:
+    for s in out[ref]["p4"]:
         t = s.get("target")
         print(f"  {s['round']:>2}.{((s['pick']-1) % TEAMS)+1:02d}  #{s['pick']:<4}"
               f"{(s['pos'] or '--'):<4}" + (f"{t['nm']:<24}VOR {t['vor']:>+5}  "

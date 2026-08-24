@@ -261,7 +261,16 @@ def main() -> int:
     return finish(a, payload, p4, r4, r6)
 
 
+def snake_picks(slot: int, teams: int = 12, rounds: int = 18) -> list[int]:
+    return [(r - 1) * teams + (slot if r % 2 else teams - slot + 1)
+            for r in range(1, rounds + 1)]
+
+
 def finish(a, payload, p4, r4, r6) -> int:
+    # ⚠️ THE DRAFT SLOT IS NOT DRAWN YET. The pick rail used to be a hardcoded
+    # list for 10-of-12, which quietly became wrong the moment the order was
+    # set. Every slot ships; the page picks one.
+    payload["picks"] = {str(s): snake_picks(s) for s in range(1, 13)}
     if a.analyst_dir:
         an = load_analyst(Path(a.analyst_dir), [r[0] for r in payload["p4"]])
         pos = an.pop("__positional__", None)

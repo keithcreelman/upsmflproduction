@@ -19,7 +19,11 @@ by tight ends (Hockenson ▼83, Freiermuth ▼81, Ferguson ▼66) — pure artif
 of 28 tight ends disagree by 8+ places** and the top eight are within three of
 each other. The real disagreement is at receiver: **34 of 89**.
 
-**Draft:** Tue 8 Sep 2026, 7:30 pm ET. Pick 10 of 12, snake, 18 rounds, no keepers.
+**Draft:** Tue 8 Sep 2026, 7:30 pm ET. 12 teams, snake, 18 rounds, no keepers.
+**The slot is NOT drawn yet.** Both pages ship all 12 and let you pick one —
+nothing needs rebuilding when the order comes out. Slot changes the plan more
+than any other single input: from the turn you get two picks five apart, from
+the ends two picks two apart and then a 22-pick wait.
 
 ### State — both in-flight tasks are DONE
 

@@ -1181,12 +1181,44 @@ def test_draft_board_overlay() -> None:
           'id="anh" hidden' in tpl and 'id="clash" aria-pressed="false" hidden' in tpl
           and 'id="ancard" hidden' in tpl)
 
+    # ── the draft slot, which is not drawn yet ───────────────────────────────
+    spec2 = importlib.util.spec_from_file_location(
+        "rpl", str(REPO_ROOT / "scripts" / "cbs_round_plan.py"))
+    rpl = importlib.util.module_from_spec(spec2)
+    spec2.loader.exec_module(rpl)
+
+    check("slot 1 of 12 snakes 1, 24, 25, 48 - the ends get their picks two "
+          "apart and then wait a full round and a half",
+          rpl.snake_picks(1, 12, 4) == [1, 24, 25, 48])
+    check("slot 12 mirrors it", rpl.snake_picks(12, 12, 4) == [12, 13, 36, 37])
+    check("a middle slot gets evenly spaced turns",
+          rpl.snake_picks(6, 12, 4) == [6, 19, 30, 43])
+    check_raises("a slot outside the league RAISES rather than silently "
+                 "producing picks nobody owns",
+                 SystemExit, lambda: rpl.snake_picks(13, 12, 18))
+    # Every pick in the draft is owned by exactly one slot, exactly once.
+    allp = sorted(p for s in range(1, 13) for p in rpl.snake_picks(s, 12, 18))
+    check("the twelve slots partition all 216 picks with no gap or overlap",
+          allp == list(range(1, 217)))
+    check("the board and the plan agree on the snake, so the pick rail on one "
+          "cannot drift from the targets on the other",
+          bdb.snake_picks(7, 12, 18) == rpl.snake_picks(7, 12, 18))
+
     board = (REPO_ROOT / "docs" / "cbs_draft_board_2026.html").read_text()
     # The built artefact itself is the last line of defence: assert the shipped
     # page carries no analyst PAYLOAD, only the (inert) code that would render one.
     head = board.split("</script>")[0]
     check("the COMMITTED board ships with no analyst payload in it",
           '"an":{' not in head and '"an": {' not in head)
+    # Both pages must be pure ASCII: they render wherever the host declares no
+    # charset, and this league has already shipped mojibake once.
+    for name, path in (("board", REPO_ROOT / "docs" / "cbs_draft_board_2026.html"),
+                       ("board template", REPO_ROOT / "scripts" / "_draft_board_template.html"),
+                       ("plan template", REPO_ROOT / "scripts" / "_round_plan_template.html")):
+        txt = path.read_text(encoding="utf-8")
+        bad = sorted({hex(ord(c)) for c in txt if ord(c) > 127})
+        check(f"the {name} is pure ASCII, so it cannot render as mojibake where "
+              f"the host declares no charset", not bad, )
 
 
 def main() -> None:

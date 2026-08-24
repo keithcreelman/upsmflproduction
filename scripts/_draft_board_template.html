@@ -163,7 +163,7 @@ tr.det{cursor:default}
 
 <div class="bar"><div class="bar-in">
   <h1>Raining Bullets Draft Board</h1>
-  <span class="sub mono">TUE 8 SEP &middot; 7:30 PM ET &middot; PICK 10 OF 12 &middot; SNAKE &middot; 18 RD</span>
+  <span class="sub mono">TUE 8 SEP &middot; 7:30 PM ET &middot; SNAKE &middot; 18 RD &middot; SLOT NOT DRAWN</span>
   <span class="spacer"></span>
   <span class="ctl">
     <span class="eyebrow">Passing TD</span>
@@ -171,13 +171,14 @@ tr.det{cursor:default}
     <button id="r6" aria-pressed="false">6</button>
   </span>
   <span class="ctl" id="posf"></span>
+  <span class="ctl" id="slotf"></span>
   <button id="clash" aria-pressed="false" hidden>Clashes only</button>
   <button id="reset">Reset drafted</button>
 </div></div>
 
 <div class="wrap">
   <div class="rail" id="rail"></div>
-  <p class="rail-note">Click any player to mark them gone. Your next pick is highlighted.</p>
+  <p class="rail-note">Click any player to mark them gone. Your next pick is highlighted &mdash; set your slot above once the order is drawn.</p>
 
   <div class="cols">
     <div class="board">
@@ -240,7 +241,9 @@ tr.det{cursor:default}
 <script>
 const DATA = __PAYLOAD__;
 const POS = ["QB","RB","WR","TE"];
-const MY = [10,15,34,39,58,63,82,87,106,111,130,135,154,159,178,183,202,207];
+const PICKS = DATA.picks || {};
+let mySlot = 10;
+const MY = () => PICKS[String(mySlot)] || [];
 const TEAMS = 12;
 // The analyst overlay is optional: the committed board ships without it, so
 // every reference below has to survive AN being null rather than assume it.
@@ -258,6 +261,18 @@ const el = id => document.getElementById(id);
 const save = () => localStorage.setItem("grffl_gone", JSON.stringify([...gone]));
 
 // position filter buttons
+if (Object.keys(PICKS).length) {
+  el("slotf").innerHTML = `<span class="eyebrow">Slot</span>`
+    + `<select id="slotsel" style="font:inherit;font-size:12.5px;padding:4px 6px;`
+    + `border-radius:6px;border:1px solid var(--rule);background:var(--panel);color:var(--ink-2)">`
+    + Object.keys(PICKS).map(Number).sort((a,b)=>a-b).map(s =>
+        `<option value="${s}"${s === mySlot ? " selected" : ""}>${s}</option>`).join("")
+    + `</select>`;
+  document.addEventListener("change", e => {
+    if (e.target.id === "slotsel") { mySlot = Number(e.target.value); render(); }
+  });
+}
+
 el("posf").innerHTML = ["ALL", ...POS].map(p =>
   `<button data-p="${p}" aria-pressed="${p === "ALL"}">${p}</button>`).join("")
   + `<button id="hidenew" aria-pressed="false">Hide unproven</button>`;
@@ -440,10 +455,10 @@ function scarcity() {
 
 function rail() {
   const taken = gone.size;
-  el("rail").innerHTML = MY.map(p => {
+  el("rail").innerHTML = MY().map(p => {
     const rd = Math.floor((p - 1) / TEAMS) + 1, inr = ((p - 1) % TEAMS) + 1;
     const done = taken >= p;
-    const next = !done && MY.filter(x => taken < x)[0] === p;
+    const next = !done && MY().filter(x => taken < x)[0] === p;
     return `<span class="pk ${done ? "done" : ""} ${next ? "next" : ""}">${rd}.${String(inr).padStart(2, "0")}
       <span class="dim">#${p}</span></span>`;
   }).join("");

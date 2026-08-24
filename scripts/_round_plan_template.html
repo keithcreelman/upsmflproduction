@@ -49,6 +49,22 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .TE{background:var(--te)} .K{background:var(--k)} .DST{background:var(--dst)}
 
 /* -- roster shape ------------------------------------------- */
+.slots{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:22px 0 0}
+.slots .eyebrow{margin-right:4px}
+.slots button{min-width:30px;padding:5px 7px;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.undec{font-size:12px;color:var(--ink-3);margin-left:6px}
+.grid-wrap{overflow-x:auto;margin:14px 0 0}
+.grid{border-collapse:collapse;font-size:11px}
+.grid th{font-size:9.5px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  padding:3px 4px;text-align:center;font-family:ui-monospace,monospace}
+.grid td{padding:1px 2px;text-align:center}
+.grid td.slotlab{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11px;font-weight:700;color:var(--ink-3);padding-right:7px;text-align:right}
+.grid tr.on td.slotlab{color:var(--brass)}
+.grid tr.on td .g{outline:1px solid var(--brass)}
+.grid .g{display:block;width:19px;height:15px;border-radius:3px;color:#fff;font-size:8.5px;
+  font-weight:750;line-height:15px;opacity:.85}
+.grid tr:hover .g{opacity:1}
 .shape{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 6px;align-items:center}
 .sh{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--rule);
   border-radius:7px;padding:5px 9px;font-size:12.5px;box-shadow:var(--shadow)}
@@ -121,7 +137,7 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
 <div class="bar"><div class="bar-in">
   <h1>Raining Bullets Round Plan</h1>
-  <span class="sub mono">TUE 8 SEP &middot; PICK 10 OF 12 &middot; SNAKE &middot; 18 RD</span>
+  <span class="sub mono" id="meta"></span>
   <span class="spacer"></span>
   <span class="eyebrow">Passing TD</span>
   <button id="r4" aria-pressed="true">4</button>
@@ -129,6 +145,12 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 </div></div>
 
 <div class="wrap">
+  <div class="slots">
+    <span class="eyebrow">Draft slot</span>
+    <span id="slotbtns"></span>
+    <span class="undec">not drawn yet &mdash; every slot is built</span>
+  </div>
+  <div class="grid-wrap"><table class="grid" id="grid"></table></div>
   <div class="shape" id="shape"></div>
   <p class="verdict" id="verdict" hidden></p>
   <p class="shape-note" id="shapenote"></p>
@@ -138,7 +160,17 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
 <script>
 const P = __PLAN__;
-const TEAMS = 12;
+const TEAMS = P.teams || 12;
+const SLOTS = Object.keys(P.slots).map(Number).sort((a, b) => a - b);
+// Steps carry player NAMES; the record lives once in P.players.
+const PL = P.players;
+const R = n => (n == null ? null : PL[n]);
+const VOR = r => r.v[rule];
+const PR = r => r.r[rule];
+const RL = l => (l || []).map(R).filter(Boolean);
+// Default to the middle of whatever was built rather than hardcoding a slot
+// again \u2014 that is the assumption this page exists to stop making.
+let slot = SLOTS.includes(10) ? 10 : SLOTS[Math.floor(SLOTS.length / 2)];
 let rule = "p4";
 const el = id => document.getElementById(id);
 const ESC = t => String(t == null ? "" : t)
@@ -146,8 +178,8 @@ const ESC = t => String(t == null ? "" : t)
 const STANCE = {like:"like", fade:"fade", neutral:"neutral"};
 const WHO = {"JJ Zachariason":"JJ","Scott Barrett":"Barrett","Evan Silva":"Silva"};
 const shortName = a => WHO[a] || (a||"?").split(" ").pop();
-const slot = p => `${Math.floor((p-1)/TEAMS)+1}.${String(((p-1)%TEAMS)+1).padStart(2,"0")}`;
-const steps = () => P[rule];
+const pickLabel = p => `${Math.floor((p-1)/TEAMS)+1}.${String(((p-1)%TEAMS)+1).padStart(2,"0")}`;
+const steps = () => P.slots[String(slot)][rule];
 
 function meter(pct){
   const col = pct > .66 ? "var(--good)" : pct > .38 ? "var(--warn)" : "var(--crit)";
@@ -168,8 +200,8 @@ function stances(r){
 // positional weighting; comparing it to this board's overall rank compares two
 // different questions. Within a position, both are ranking the same pool.
 function ranks(r){
-  const gap = (r.jjpr != null) ? Math.abs(r.pr - r.jjpr) : null;
-  let h = `<div class="rk pos"><span>this board</span><b>${r.pos}${r.pr}</b></div>`;
+  const gap = (r.jjpr != null) ? Math.abs(PR(r) - r.jjpr) : null;
+  let h = `<div class="rk pos"><span>this board</span><b>${r.pos}${PR(r)}</b></div>`;
   if (r.jjpr != null) {
     const wrong = r.jjpos && r.jjpos !== r.pos;
     h += `<div class="rk jj${gap >= 8 ? " gapd" : ""}"><span>JJ${wrong ? " \u26a0" : ""}</span>`
@@ -179,12 +211,12 @@ function ranks(r){
   } else {
     h += `<div class="rk jj"><span>JJ</span><b>&ndash;</b></div>`;
   }
-  h += `<div class="rk"><span>VOR</span><b>${r.vor > 0 ? "+" : ""}${r.vor}</b></div>`;
+  h += `<div class="rk"><span>VOR</span><b>${VOR(r) > 0 ? "+" : ""}${VOR(r)}</b></div>`;
   return `<div class="ranks">${h}</div>`;
 }
 
 function target(s){
-  const r = s.target;
+  const r = R(s.target);
   if (!r) return `<p class="empty">${ESC(s.why)}</p>`;
   const av = s.av[r.nm], avn = s.avn ? s.avn[r.nm] : null;
   const fl = r.flag === 1 ? "rushing QB" : r.flag === 2 ? "receiving RB" : "";
@@ -212,7 +244,7 @@ function rows(list, av, label, note){
   return `<div class="sec"><span class="eyebrow">${label}</span>`
     + list.map(r => `<div class="row"><span class="chip ${r.pos}">${r.pos}</span>`
         + `<span class="nm2">${ESC(r.nm)}</span>`
-        + `<span class="v">${r.vor>0?"+":""}${r.vor}</span>`
+        + `<span class="v">${VOR(r)>0?"+":""}${VOR(r)}</span>`
         + `<span class="p">${Math.round((av[r.nm]||0)*100)}%</span></div>`).join("")
     + (note ? `<p class="note" style="margin-top:7px;color:var(--ink-3)">${note}</p>` : "")
     + `</div>`;
@@ -222,34 +254,52 @@ function card(s){
   if (s.kdst) {
     return `<div class="card"><div class="card-hd">`
       + `<span class="chip ${s.pos}">${s.pos}</span>`
-      + `<span class="pk">${slot(s.pick)}<span class="ov">#${s.pick}</span></span></div>`
+      + `<span class="pk">${pickLabel(s.pick)}<span class="ov">#${s.pick}</span></span></div>`
       + `<div class="card-bd"><p class="why">${ESC(s.why)}</p></div></div>`;
   }
   return `<div class="card"><div class="card-hd">`
     + (s.pos ? `<span class="chip ${s.pos}">${s.pos}</span>` : `<span class="chip K">?</span>`)
-    + `<span class="pk">${slot(s.pick)}<span class="ov">#${s.pick}</span></span>`
+    + `<span class="pk">${pickLabel(s.pick)}<span class="ov">#${s.pick}</span></span>`
     + (s.drop ? `<span class="spacer"></span><span class="eyebrow">costs ${s.drop} to wait</span>` : "")
     + `</div><div class="card-bd">`
     + `<p class="why">${ESC(s.why)}</p>`
     + target(s)
-    + rows(s.alts, s.av, "If he is gone")
-    + rows(s.flips, s.av, "Coin flips above him",
+    + rows(RL(s.alts), s.av, "If he is gone")
+    + rows(RL(s.flips), s.av, "Coin flips above him",
         "Better on this board, but under even money to last to your pick.")
-    + rows(s.steals, s.av, "If one of these falls",
+    + rows(RL(s.steals), s.av, "If one of these falls",
         "Long shots at this pick. If the board hands you one, take it over the plan.")
     + (s.alt_pos && s.alt_pos.length
         ? `<div class="sec"><span class="eyebrow">The other positions</span>`
-          + s.alt_pos.map(([q, r], i) => r ? `<div class="row"><span class="chip ${q}">${q}</span>`
-              + `<span class="nm2">${ESC(r.nm)}</span><span class="v">${r.vor>0?"+":""}${r.vor}</span>`
-              + `<span class="p">${(s.alt_gain && s.alt_gain[i]) ? s.alt_gain[i][1] : 0}</span></div>` : "").join("")
+          + s.alt_pos.map(([q, nm], i) => { const r = R(nm); return r ? `<div class="row"><span class="chip ${q}">${q}</span>`
+              + `<span class="nm2">${ESC(r.nm)}</span><span class="v">${r.v.p4>0?"+":""}${r.v[rule]}</span>`
+              + `<span class="p">${(s.alt_gain && s.alt_gain[i]) ? s.alt_gain[i][1] : 0}</span></div>` : ""; }).join("")
           + `<p class="note" style="margin-top:7px;color:var(--ink-3)">Right column is what waiting `
           + `costs at that position &mdash; lower than the pick above, which is why it lost.</p></div>`
         : "")
     + `</div></div>`;
 }
 
+function grid(){
+  // Which slot you draw changes the shape of the draft, so show all of them at
+  // once: one row per slot, one cell per round, coloured by position.
+  const rounds = P.rounds || 18;
+  let h = `<tr><th></th>` + Array.from({length: rounds}, (_, i) =>
+    `<th>${i + 1}</th>`).join("") + `</tr>`;
+  for (const sl of SLOTS) {
+    const st = P.slots[String(sl)][rule];
+    h += `<tr class="${sl === slot ? "on" : ""}" data-slot="${sl}"><td class="slotlab">${sl}</td>`
+      + st.map(s => `<td><span class="g ${s.pos || "K"}" style="${s.pos ? "" : "background:var(--rule)"}">`
+          + `${s.pos || "?"}</span></td>`).join("") + `</tr>`;
+  }
+  el("grid").innerHTML = h;
+  el("slotbtns").innerHTML = SLOTS.map(sl =>
+    `<button data-slot="${sl}" aria-pressed="${sl === slot}">${sl}</button>`).join("");
+}
+
 function render(){
   const st = steps();
+  grid();
   // Picks arrive in pairs five apart from the 10 slot. That is real structure,
   // not decoration: at 3.10 and 4.03 you are choosing two players at once, and
   // the plan commits them one at a time.
@@ -274,6 +324,9 @@ function render(){
     `<span class="sh"><span class="chip ${p}">${p}</span><b>${shape[p]}</b></span>`).join("")
     + `<span class="sh"><b>${st.filter(s => s.target || s.kdst).length}</b>&nbsp;of 18 filled</span>`;
   const held = st.filter(s => !s.pos).length;
+  verdict();
+  el("meta").textContent =
+    `TUE 8 SEP \u00b7 PICK ${slot} OF ${TEAMS} \u00b7 SNAKE \u00b7 ${P.rounds || 18} RD`;
   el("shapenote").innerHTML =
     `This is the roster the plan builds if the market behaves like its ADP. `
     + (held ? `${held} round${held === 1 ? "" : "s"} could not be filled from a position `
@@ -281,18 +334,19 @@ function render(){
     + `It is a prior, not a prediction: re-read it from whichever pick you are actually at.`;
 }
 
-// ⚠️ A CONTROL THAT APPEARS TO DO NOTHING HAS TO EXPLAIN ITSELF. The passing-TD
+// !! A CONTROL THAT APPEARS TO DO NOTHING HAS TO EXPLAIN ITSELF. The passing-TD
 // vote moves quarterbacks by at most ~20 points of VOR, which is not enough to
-// change a single pick — so the toggle looks broken unless the page says the
+// change a single pick \u2014 so the toggle looks broken unless the page says the
 // result out loud.
-(function () {
-  const same = P.p4.every((s, i) =>
-    s.pos === P.p6[i].pos &&
-    (s.target ? s.target.nm : null) === (P.p6[i].target ? P.p6[i].target.nm : null));
+function verdict() {
+  const A = P.slots[String(slot)].p4, B = P.slots[String(slot)].p6;
+  const same = A.every((s, i) => s.pos === B[i].pos && s.target === B[i].target);
   const moved = [];
-  P.p4.forEach((s, i) => {
-    const a = s.target, b = P.p6[i].target;
-    if (a && b && a.pos === "QB" && a.vor !== b.vor) moved.push(`${a.nm} ${a.vor > 0 ? "+" : ""}${a.vor} to ${b.vor > 0 ? "+" : ""}${b.vor}`);
+  A.forEach((s, i) => {
+    const a = R(s.target);
+    if (a && a.pos === "QB" && a.v.p4 !== a.v.p6) {
+      moved.push(`${a.nm} ${a.v.p4 > 0 ? "+" : ""}${a.v.p4} to ${a.v.p6 > 0 ? "+" : ""}${a.v.p6}`);
+    }
   });
   el("verdict").hidden = false;
   el("verdict").innerHTML = same
@@ -306,7 +360,7 @@ function render(){
       + (moved.length ? ` Your quarterback targets: ${moved.join("; ")}.` : "")
     : `<b>The passing-TD vote changes this plan.</b> Toggle between 4 and 6 above `
       + `\u2014 the picks differ.`;
-})();
+}
 
 el("foot").innerHTML =
   `<b>Why positional rank and not overall.</b> An analyst's overall list encodes his `
@@ -330,6 +384,10 @@ el("foot").innerHTML =
   + `spends each pick where the <em>marginal</em> loss from waiting is largest: best player `
   + `now against the k-th best survivor at your next turn, where k is how many of that `
   + `position you still need, scaled by the chance you would actually lose him.<br><br>`
+  + `<b>The slot is not decided.</b> Every one of the ${SLOTS.length} is built, and the grid `
+  + `above shows the position sequence each produces. It matters: from the turn you get two `
+  + `picks five apart, from the ends two picks two apart and then a long wait, and the plan `
+  + `spends a pick on whatever will not survive that wait.<br><br>`
   + `<b>What it cannot see.</b> Your leaguemates' tendencies are not in the availability `
   + `model &mdash; it is national ADP, and this league drafts to market at r=0.90 but not `
   + `perfectly. K and DST are unranked by the projection engine. And the plan commits one `
@@ -342,8 +400,9 @@ document.addEventListener("click", e => {
     rule = b.id === "r4" ? "p4" : "p6";
     el("r4").setAttribute("aria-pressed", rule === "p4");
     el("r6").setAttribute("aria-pressed", rule === "p6");
-    render();
+    render(); return;
   }
+  if (b.dataset.slot) { slot = Number(b.dataset.slot); render(); }
 });
 render();
 </script>
