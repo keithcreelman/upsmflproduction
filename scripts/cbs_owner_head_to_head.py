@@ -30,10 +30,17 @@ Those seasons are recovered here from CBS's own STATS pages
 total under this league's scoring. That source is TOP-100-PER-POSITION, so deep
 picks stay unpriced — reported per season, never silently zero-filled.
 
-⚠️ 'ABOVE SLOT' IS RELATIVE TO THIS LEAGUE, NOT TO ADP. The benchmark is the
-MEDIAN points the whole league actually got from that round, so it already
-absorbs the fact that later rounds return less. A pick beats its slot by
-out-producing what the other eleven owners got from the same round that year.
+⚠️ THE BENCHMARK IS WITHIN-POSITION BY DEFAULT, AND THAT MATTERS A LOT. An
+earlier version compared each pick to the median the whole league got from that
+ROUND with all positions mixed — but quarterbacks simply score more raw points
+than running backs under this league's rules, so a QB-heavy drafter scored well
+and an RB-heavy one scored badly BY CONSTRUCTION. On this league the artifact
+was worth five places in the standings.
+
+`--benchmark pos` (default) compares a pick to the median that POSITION returned
+in that round bucket that season. `--benchmark round` reproduces the old,
+position-blind view for comparison. Both are printed in the summary so the size
+of the bias stays visible rather than being quietly corrected away.
 """
 from __future__ import annotations
 
@@ -127,6 +134,9 @@ def main() -> int:
     ap.add_argument("--label-b", default=None)
     ap.add_argument("--teams", type=int, default=12)
     ap.add_argument("--rounds", type=int, default=18)
+    ap.add_argument("--benchmark", choices=["pos", "round"], default="pos",
+                    help="pos = vs that POSITION in that round bucket (sound); "
+                         "round = vs the whole round, all positions mixed (biased)")
     ap.add_argument("--target", choices=["local", "remote"], default="remote")
     a = ap.parse_args()
 
@@ -164,7 +174,11 @@ def main() -> int:
         if slug not in have:
             raise SystemExit(f"no picks for franchise {slug!r}; known: {sorted(have)}")
 
-    # Benchmark: the league's own median return from each (season, round).
+    # Two benchmarks, both from the league's own returns.
+    def bucket(r):
+        return "1-3" if r <= 3 else "4-6" if r <= 6 else "7-9" if r <= 9 else \
+               "10-12" if r <= 12 else "13-18"
+
     med: dict[tuple[int, int], float] = {}
     for (yr, rnd), grp in itertools.groupby(
             sorted(picks, key=lambda p: (p["season"], p["round_number"])),
@@ -173,17 +187,39 @@ def main() -> int:
         if vals:
             med[(yr, rnd)] = statistics.median(vals)
 
+    # ⚠️ THIN CELLS ARE DROPPED, NOT AVERAGED INTO NONSENSE. A (season,
+    # position, bucket) cell with two picks in it has no meaningful median, so
+    # those picks go unbenchmarked and the count is reported rather than
+    # quietly folded in.
+    cells: dict[tuple, list[float]] = collections.defaultdict(list)
+    for p in picks:
+        if p["pts"] is not None:
+            cells[(p["season"], p["pos"], bucket(p["round_number"]))].append(float(p["pts"]))
+    pmed = {k: statistics.median(v) for k, v in cells.items() if len(v) >= 4}
+    thin = sum(len(v) for k, v in cells.items() if len(v) < 4)
+
     A = [p for p in picks if p["slug"] == a.a]
     B = [p for p in picks if p["slug"] == a.b]
 
-    def above(p):
+    def above_round(p):
         m = med.get((p["season"], p["round_number"]))
         return None if (m is None or p["pts"] is None) else float(p["pts"]) - m
 
+    def above_pos(p):
+        m = pmed.get((p["season"], p["pos"], bucket(p["round_number"])))
+        return None if (m is None or p["pts"] is None) else float(p["pts"]) - m
+
+    above = above_pos if a.benchmark == "pos" else above_round
+    label_bm = ("vs that POSITION in the same round bucket"
+                if a.benchmark == "pos" else
+                "vs the whole ROUND, all positions mixed (POSITION-BLIND)")
+    print(f"benchmark: {label_bm}"
+          + (f"   [{thin} picks in cells too thin to benchmark]" if a.benchmark == "pos" and thin else ""))
+
     # ── 1. side by side, round by round, per season ──────────────────────────
     print(f"PICK-BY-PICK — {a.label_a}  vs  {a.label_b}")
-    print("(pts = what that player scored that season under this league's "
-          "scoring; ± = vs the league median for the same round)\n")
+    print(f"(pts = what that player scored that season under this league's "
+          f"scoring; ± = {label_bm})\n")
     for yr in seasons:
         ay = {p["round_number"]: p for p in A if p["season"] == yr}
         by = {p["round_number"]: p for p in B if p["season"] == yr}
@@ -209,9 +245,21 @@ def main() -> int:
             print(f"{rnd:>3}  {cell(pa)}   {cell(pb)}")
         print()
 
+    # ── how much the benchmark choice is worth, stated rather than hidden ────
+    print("BENCHMARK SENSITIVITY — the same two drafts, both ways")
+    print(f"{'':<32}{'vs POSITION':>14}{'vs ROUND (blind)':>19}")
+    for lbl, lst in ((a.label_a, A), (a.label_b, B)):
+        vp = sum(x for x in (above_pos(p) for p in lst) if x is not None)
+        vr = sum(x for x in (above_round(p) for p in lst) if x is not None)
+        print(f"  {lbl.split(' (')[0][:30]:<30}{vp:>+14.0f}{vr:>+19.0f}")
+    print("  The round-only column mixes positions, and quarterbacks outscore "
+          "running backs in raw points here — so it rewards whoever drafted "
+          "more QBs regardless of judgment.\n")
+
     # ── 2. where the gap comes from: ROUND ───────────────────────────────────
     print("WHERE THE GAP COMES FROM — BY ROUND (summed over all seasons)")
-    print(f"{'rounds':<10}{a.label_a:>24}{a.label_b:>26}{'gap':>9}")
+    short_a, short_b = a.label_a.split(" (")[0][:22], a.label_b.split(" (")[0][:22]
+    print(f"{'rounds':<10}{short_a:>24}{short_b:>26}{'gap':>9}")
     buckets = [("1-3", 1, 3), ("4-6", 4, 6), ("7-9", 7, 9),
                ("10-12", 10, 12), ("13-18", 13, 18)]
     for lbl, lo, hi in buckets:
@@ -234,13 +282,13 @@ def main() -> int:
         print(f"{pos:<6}{len(pa):>5}{va:>+9.0f}{len(pb):>6}{vb:>+9.0f}{va - vb:>+9.0f}")
 
     # ── 4. HIT RATE, which separates strategy from evaluation ────────────────
-    print("\nHIT RATE — share of picks that beat the league median for their round")
+    print(f"\nHIT RATE — share of picks that beat the benchmark ({a.benchmark})")
     for lbl, lst in ((a.label_a, A), (a.label_b, B)):
         d = [x for x in (above(p) for p in lst) if x is not None]
         hits = sum(1 for x in d if x > 0)
         big = sum(1 for x in d if x > 100)
         bust = sum(1 for x in d if x < -50)
-        print(f"  {lbl:<26} {hits}/{len(d)} ({100*hits/len(d):.0f}%)   "
+        print(f"  {lbl.split(' (')[0][:24]:<26} {hits}/{len(d)} ({100*hits/len(d):.0f}%)   "
               f"100+ hits: {big:>2}   busts (-50 or worse): {bust:>2}   "
               f"median {statistics.median(d):+.0f}")
 
@@ -249,7 +297,7 @@ def main() -> int:
     for lbl, lst in ((a.label_a, A), (a.label_b, B)):
         ranked = sorted(((above(p), p) for p in lst if above(p) is not None),
                         key=lambda t: -t[0])
-        print(f"  {lbl}")
+        print(f"  {lbl.split(' (')[0]}")
         for d, p in ranked[:3]:
             print(f"      +{d:>5.0f}  {p['season']} rd{p['round_number']:<3} "
                   f"{p['name']} ({p['pos']})")
@@ -268,7 +316,7 @@ def main() -> int:
                   for y in seasons]
             rs = [r for r in rs if r]
             cells.append(f"{statistics.mean(rs):>6.1f}" if rs else f"{'—':>6}")
-        print(f"{lbl:<26}" + "".join(cells))
+        print(f"{lbl.split(' (')[0][:24]:<26}" + "".join(cells))
     return 0
 
 
