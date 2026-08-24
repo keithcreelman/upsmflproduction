@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-08-24T00:31:59.754Z",
-    "row_count": 58,
+    "updated_at": "2026-08-24T02:28:39.181Z",
+    "row_count": 59,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -10502,6 +10502,282 @@
       "twb_meta": null,
       "mfl_trade_id": "1161",
       "trade_id": "1161",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1174",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-08-24T02:28:39.181Z",
+      "updated_at": "2026-08-24T02:28:39.181Z",
+      "from_franchise_id": "0002",
+      "to_franchise_id": "0010",
+      "from_franchise_name": "CBP",
+      "to_franchise_name": "Blake Bombers",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "16622,17477,FP_0002_2027_4",
+      "will_receive": "16184,17685,17502,17064,BB_12000",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 3,
+        "to_asset_count": 4,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 12,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-08-24T02:28:37.598Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "selected_assets": [
+              {
+                "asset_id": "player:16622",
+                "type": "PLAYER",
+                "player_id": "16622",
+                "player_name": "Pearsall, Ricky",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "SFO",
+                "salary": 5000,
+                "years": 1,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:17477",
+                "type": "PLAYER",
+                "player_id": "17477",
+                "player_name": "Coleman, Jonah",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "DEN",
+                "salary": 5000,
+                "years": 3,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K",
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0002_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 4th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0002_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 2,
+            "selected_non_taxi_salary_dollars": 5000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "player:16184",
+                "type": "PLAYER",
+                "player_id": "16184",
+                "player_name": "Reed, Jayden",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "GBP",
+                "salary": 15000,
+                "years": 1,
+                "contract_type": "Vet-Ext1",
+                "contract_info": "CL 1|TCV 15K|AAV 15K|Y1-15K|Ext: Bomb|GTD: 11.3K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:17685",
+                "type": "PLAYER",
+                "player_id": "17685",
+                "player_name": "Heidenreich, Eli",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "PIT",
+                "salary": 2000,
+                "years": 3,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:17502",
+                "type": "PLAYER",
+                "player_id": "17502",
+                "player_name": "Cooper Jr., Omar",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "NYJ",
+                "salary": 7000,
+                "years": 3,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3|TCV 21K|AAV 7K|Y1-7K, Y2-7K, Y3-7K, Y4-12K Option|GTD: 15.8K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:17064",
+                "type": "PLAYER",
+                "player_id": "17064",
+                "player_name": "Hunter, Jarquez",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "LAR",
+                "salary": 2000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 12000,
+            "traded_salary_adjustment_k": 12,
+            "traded_salary_adjustment_max_k": 12,
+            "selected_non_taxi_salary_dollars": 24000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0002",
+          "right_team_id": "0010"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 278000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 5000,
+            "incoming_dollars": 24000,
+            "salary_trade_adjustment_dollars": -12000,
+            "net_salary_adjustment_dollars": 7000,
+            "new_salary_dollars": 285000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 2,
+            "net_trade_salary_k": -12,
+            "net_cap_change_dollars": -7000,
+            "available_salary_before_dollars": 18000,
+            "available_salary_after_dollars": 11000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 311000,
+            "salary_adjustment_total_dollars": 6250,
+            "outgoing_dollars": 24000,
+            "incoming_dollars": 5000,
+            "salary_trade_adjustment_dollars": 12000,
+            "net_salary_adjustment_dollars": -7000,
+            "new_salary_dollars": 304000,
+            "trade_salary_adjustment_k": 12,
+            "trade_salary_adjustment_max_k": 12,
+            "net_trade_salary_k": 12,
+            "net_cap_change_dollars": 7000,
+            "available_salary_before_dollars": -17250,
+            "available_salary_after_dollars": -10250,
+            "over_cap_dollars": 10250
+          },
+          "has_over_cap": true
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "CBP",
+          "right_franchise_name": "Blake Bombers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 278000,
+              "left_after_dollars": 285000,
+              "left_change_dollars": 7000,
+              "right_before_dollars": 311000,
+              "right_after_dollars": 304000,
+              "right_change_dollars": -7000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 192000,
+              "left_after_dollars": 196000,
+              "left_change_dollars": 4000,
+              "right_before_dollars": 239000,
+              "right_after_dollars": 235000,
+              "right_change_dollars": -4000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 24000,
+              "left_after_dollars": 33000,
+              "left_change_dollars": 9000,
+              "right_before_dollars": 78000,
+              "right_after_dollars": 69000,
+              "right_change_dollars": -9000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1174",
+      "trade_id": "1174",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
