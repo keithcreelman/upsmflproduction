@@ -2022,9 +2022,21 @@
     // writes "CL 2"/"CL 3" and keeps status Vet-FAA), so CL===1 is canon C2's
     // "currently on 1-year default". FAILS CLOSED on an unreadable CL: a hidden
     // button is recoverable, an irreversible multi-year MFL write is not.
+    // NOTE: this used to read `!rookieLikeContractStatus(status)`, which excluded
+    // ANY status containing "rookie" — including **Rookie-FAA**, a rookie WON IN
+    // THE FA AUCTION. Canon line 394 puts every auction win (FA or Expired
+    // Rookie) at "1, 2, or 3 years", so those players are entitled to a
+    // multi-year auction contract and were being offered Extension as their only
+    // option (8 players across 5 teams on 2026-08-23; reported by an owner about
+    // Cyrus Allen). The status vocabulary fix that started writing "Rookie-FAA"
+    // instead of "Vet-FAA" is what walked them into this clause.
+    //
+    // The clause's real intent is "don't offer MYAC to someone whose path is the
+    // ROOKIE OPTION" — so test that directly. A drafted rookie carries
+    // Rookie-Draft and never matches `-faa` anyway.
     var isFreshFaaStatus = status.indexOf("-faa") !== -1 &&
                            parseContractLengthValue(p && p.special) === 1 &&
-                           !rookieLikeContractStatus(status) && status.indexOf("tag") === -1 &&
+                           !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
                            inAuctionMyacMonthWindowFO("faa");
 
     // ── Pre-season acquisition ladder (canon ~379/~785) ─────────────────

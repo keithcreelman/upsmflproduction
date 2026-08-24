@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.22.2",
-  "label": "Waivers no longer report themselves as switched off when the app simply could not reach the server. It now retries on its own and says what is actually happening, so a dropped request no longer sends you to the MFL site."
+  "build": "2026.08.23.1",
+  "label": "Rookies you won in the FA Auction can now be signed to a 1, 2 or 3-year deal like any other auction player. They were only being offered an extension."
 }
