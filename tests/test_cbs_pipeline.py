@@ -1204,6 +1204,26 @@ def test_draft_board_overlay() -> None:
           "cannot drift from the targets on the other",
           bdb.snake_picks(7, 12, 18) == rpl.snake_picks(7, 12, 18))
 
+    # ── availability must be physically possible ─────────────────────────────
+    check("the consensus 1.01 is 100% available at pick 1 - nobody has had a "
+          "chance to take him, whatever the distribution says",
+          rpl.avail(1, 1.5, 0.7) == 1.0)
+    check("...and effectively gone by pick 5",
+          rpl.avail(5, 1.5, 0.7) < 0.02)
+    check("availability never exceeds 1 or drops below 0 anywhere on the board",
+          all(0.0 <= rpl.avail(p, adp, sd) <= 1.0
+              for p in (1, 10, 100, 216)
+              for adp in (1.5, 50.0, 210.0)
+              for sd in (0.1, 5.0, 40.0)))
+    check("it decreases monotonically as the pick gets later",
+          all(rpl.avail(p, 99.8, 23.1) >= rpl.avail(p + 7, 99.8, 23.1)
+              for p in range(1, 200, 7)))
+    # ⚠️ NO ADP IS NOT ZERO ADP. A player outside FFC's universe is undrafted in
+    # most rooms, not unavailable — treating a missing value as 0 would make
+    # every deep sleeper read as long gone.
+    check("a player with no ADP reads as available, not as gone",
+          rpl.avail(200, None, None) > 0.9 and rpl.avail(200, 0, None) > 0.9)
+
     board = (REPO_ROOT / "docs" / "cbs_draft_board_2026.html").read_text()
     # The built artefact itself is the last line of defence: assert the shipped
     # page carries no analyst PAYLOAD, only the (inert) code that would render one.

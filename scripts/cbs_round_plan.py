@@ -55,10 +55,11 @@ def snake_picks(slot: int, teams: int = TEAMS, rounds: int = ROUNDS) -> list[int
         raise SystemExit(f"slot {slot} is outside 1..{teams}")
     return [(r - 1) * teams + (slot if r % 2 else teams - slot + 1)
             for r in range(1, rounds + 1)]
-#: An ADP with no spread is a lie of precision. FFC reports one for every
-#: player, but floor it anyway so a heavily-mocked stud does not read as
-#: mathematically certain.
-MIN_STDEV = 2.5
+#: Guard against a literal zero only. An earlier floor of 2.5 was overriding
+#: FFC's own measurement — it reports 0.7 for the consensus 1.01 across 1,888
+#: drafts, which is a real number, not false precision — and inflating it put
+#: probability mass on him going before the draft started.
+MIN_STDEV = 1.0
 #: A player outside FFC's universe is undrafted in most rooms, not unavailable.
 UNRANKED_AVAIL = 0.97
 #: What the plan is willing to call a realistic target, a coin flip, and a
@@ -91,7 +92,16 @@ WINDOWS = {
 }
 #: Round past which a WR pick gets the conflict note attached.
 LATE_WR = 8
-FORCED = {1: "WR", 2: "WR"}          # the 1.10 / 2.03 guardrail, stated outright
+#: ⚠️ A GUARDRAIL IS AN ALLOCATION RULE, NOT A VETO ON THE BEST PLAYER ALIVE.
+#: "WR at 1.10 and 2.03" was Keith's own shorthand, and encoding it as a forced
+#: position at rounds 1 and 2 produced an indefensible plan from the top of the
+#: draft: at 1.01 it passed on Jahmyr Gibbs, +209 VOR and 91 clear of the field,
+#: to take a receiver. The lesson behind the shorthand was that he takes too FEW
+#: receivers across the opening rounds — four in the first three rounds over five
+#: seasons against nine for the league's best drafter, at +60 a pick. So it is a
+#: FLOOR on the count by the end of round 3, enforced only when the picks left
+#: inside that window are about to run out.
+WR_FLOOR, WR_FLOOR_BY = 2, 3
 KDST = {17: "K", 18: "DST"}
 CHEAT = re.compile(r"Ovr\s*(\d+)\s*\|\s*(QB|RB|WR|TE|K|DST)\s*(\d+)\s*\|\s*Tier\s*(\d+)")
 AUCTION = re.compile(r"\$(\d+)")
@@ -102,11 +112,23 @@ def phi(z: float) -> float:
 
 
 def avail(pick: int, adp: float | None, sd: float | None) -> float:
-    """P(this player is still on the board when pick `pick` comes round)."""
+    """P(this player is still on the board when pick `pick` comes round).
+
+    ⚠️ THE DISTRIBUTION IS TRUNCATED AT PICK 1. A normal centred on an ADP of
+    1.5 puts real mass below zero, so the untruncated form reported the
+    consensus first overall as "66% still here at #1" — at a pick where, by
+    construction, nobody has had a chance to take him. Conditioning on the only
+    outcomes that can physically happen fixes it and leaves deep ADPs untouched,
+    because for them the denominator is already 1.
+    """
     if adp is None or adp <= 0:
         return UNRANKED_AVAIL
     s = max(sd or 0.0, MIN_STDEV)
-    return max(0.0, min(1.0, 1.0 - phi((pick - 0.5 - adp) / s)))
+    num = 1.0 - phi((pick - 0.5 - adp) / s)
+    den = 1.0 - phi((0.5 - adp) / s)          # P(he goes at pick 1 or later)
+    if den <= 0.0:
+        return 0.0
+    return max(0.0, min(1.0, num / den))
 
 
 def jj_positional(path: Path) -> dict:
@@ -238,10 +260,18 @@ def plan(rows, picks):
                     n += 1
             return n
         forced_now = [q for q in elig if need[q] >= window_picks_left(q)]
+
+        # The receiver floor is its own last call: only bite when the picks left
+        # inside the opening window can no longer cover the shortfall.
+        wr_have = sum(1 for t in taken if t.get("pos") == "WR")
+        wr_short = WR_FLOOR - wr_have
+        floor_bites = False
+        if rnd <= WR_FLOOR_BY and wr_short > 0 and "WR" in elig:
+            left = sum(1 for pp in picks[i:] if (pp - 1) // TEAMS + 1 <= WR_FLOOR_BY)
+            if wr_short >= left:
+                forced_now, floor_bites = ["WR"], True
         if forced_now:
             elig = forced_now
-        elif rnd in FORCED and FORCED[rnd] in elig:
-            elig = [FORCED[rnd]]
         if not elig:                       # every window closed: take best left
             elig = [q for q in ROSTER_TARGET if need.get(q, 0) > 0] or list(ROSTER_TARGET)
 
@@ -322,7 +352,7 @@ def plan(rows, picks):
             "pick": p, "round": rnd, "pos": pos, "drop": round(drop),
             "target": pick_row, "alts": alts, "flips": flips, "steals": steals,
             "alt_pos": alt_pos, "alt_gain": alt_gain,
-            "forced": rnd in FORCED, "next": nxt, "hor": hor,
+            "forced": floor_bites, "next": nxt, "hor": hor,
             "lastcall": bool(forced_now) and pos in forced_now,
             "late_wr": pos == "WR" and rnd > LATE_WR,
             "why": None,
@@ -353,9 +383,11 @@ def why(step, rows) -> str:
                 f"you set for the position, and the board runs out of them "
                 f"before your next turn — deferring again means not filling it.")
     if step.get("forced"):
-        return (f"Your own guardrail: receiver with each of your first two picks. "
-                f"You took four WRs in the first three rounds across five "
-                f"seasons; the league's best drafter took nine, at +60 a pick.")
+        return (f"Your receiver floor bites here. This is the last pick inside "
+                f"the first {WR_FLOOR_BY} rounds that can still get you to "
+                f"{WR_FLOOR} receivers \u2014 and taking too few of them early is "
+                f"the gap: four in the first three rounds across five seasons "
+                f"against nine for the league's best drafter, at +60 a pick.")
     if pos == "QB":
         return (f"First round the QB window opens. QB1 beats QB12 by 132 while "
                 f"RB1 beats RB28 by 209 — the position is deep, so this is where "
@@ -464,6 +496,19 @@ def main() -> int:
     Path(a.out).write_text(
         tpl.replace("__PLAN__", json.dumps(packed, separators=(",", ":"))),
         encoding="utf-8")
+
+    # ⚠️ ASSERT THE FLOOR ACTUALLY HELD. It is enforced by a last-call branch
+    # that, on this data, never has to fire — which means a regression in it
+    # would be completely invisible. Check the output, not the intention.
+    for slot, books in out.items():
+        for book, steps in books.items():
+            wr = sum(1 for st in steps
+                     if st.get("pos") == "WR" and st["round"] <= WR_FLOOR_BY)
+            if wr < WR_FLOOR:
+                raise SystemExit(
+                    f"slot {slot} ({book}) ends round {WR_FLOOR_BY} with {wr} "
+                    f"receiver(s), under the floor of {WR_FLOOR}. The floor "
+                    f"branch did not fire when it had to.")
 
     ref = slots[len(slots) // 2] if len(slots) > 1 else slots[0]
     shape = collections.Counter(s["pos"] or "(none)" for s in out[ref]["p4"])
