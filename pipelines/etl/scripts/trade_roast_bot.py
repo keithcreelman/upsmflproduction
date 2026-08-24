@@ -1086,7 +1086,17 @@ def build_multiway_context_text(summary: dict) -> str:
             sched = " → ".join(f"${s:,}" for s in rem)
             sal = (f"${p.salary:,} salary (schedule {sched}; "
                    f"${sum(rem):,} over {len(rem)} yrs)")
-        ppg = (f", {round(p.expected_ppg, 1)} PPG ({p.ppg_basis or 'proj'})"
+        # PPG is NEVER observed production here — it is a trade-value model, a
+        # rollover estimate, or a forward projection. `ppg_basis` says which.
+        # An EMPTY basis means the projection overlay set the number and nobody
+        # recorded where it came from, which used to render as a bare "(proj)".
+        # An owner read that as production for a player who has never taken a
+        # snap and concluded the bot was making things up (2026-08-23). Say it
+        # in words the model cannot quietly drop.
+        _basis = (p.ppg_basis or "").strip()
+        if not _basis:
+            _basis = "PROJECTED — not games played"
+        ppg = (f", {round(p.expected_ppg, 1)} PPG ({_basis})"
                if p.expected_ppg else "")
         adp = ""
         if getattr(p, "adp_overall", 0):
