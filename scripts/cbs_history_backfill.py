@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -46,11 +47,23 @@ def main() -> int:
 
     hist, empty, failed = {}, [], []
     for tid in ids:
-        try:
-            rows = H.parse_team_overview(
-                client.get_html(f"{base}/history/team-overview/{tid}"), tid)
-        except (CbsFetchError, H.CbsHistoryError) as e:
-            failed.append((tid, str(e)[:70]))
+        # ⚠️ RETRY A MISSING BLOCK, BUT NEVER ACCEPT IT. CBS intermittently
+        # serves these pages without the YEARLY RESULTS table — observed on
+        # different franchises on different runs, so it is throttling rather
+        # than a parse failure. Retrying is right; treating the empty render as
+        # "this franchise has no history" would silently delete 23 seasons.
+        rows, err = None, None
+        for attempt in range(3):
+            try:
+                rows = H.parse_team_overview(
+                    client.get_html(f"{base}/history/team-overview/{tid}"), tid)
+                break
+            except (CbsFetchError, H.CbsHistoryError) as e:
+                err = str(e)[:70]
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+        if rows is None:
+            failed.append((tid, err))
             continue
         if not rows:
             # A franchise with no rows is REAL — a slot created this season.

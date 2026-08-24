@@ -28,6 +28,7 @@ DIFFERENT people in this league and a fuzzy match would fuse them.
 """
 from __future__ import annotations
 
+import json as _json
 import re
 
 from .constants import PLATFORM, league_key, team_key_from_id
@@ -155,7 +156,13 @@ def to_rows(history: dict[str, list[dict]], *, league_id: str,
                 "win_percentage": r["win_percentage"],
                 "points_for": r["points_for"], "points_against": r["points_against"],
                 "is_final": 1, "is_inferred": 0,
-                "raw_standings_json": None,
+                # ⚠️ KEEP THE VERBATIM FINISH. 'CHAMPION' and '1st' are
+                # DIFFERENT labels in CBS's vocabulary — every season has
+                # exactly one CHAMPION, while '1st' appears in only 7 of 23
+                # seasons and means the regular-season leader. Mapping both to
+                # rank 1 produced two champions in 2025. Any champion analysis
+                # must filter on this string, not on rank.
+                "raw_standings_json": _json.dumps({"finish": r["finish"]}),
             })
             # ⚠️ WITHOUT A fantasy_teams ROW THE HISTORY IS UNJOINABLE. Draft
             # rows key on a slug of the franchise NAME; these key on a numeric
@@ -261,9 +268,20 @@ def crosswalk(history: dict[str, list[dict]],
 
 
 def _finish_rank(finish: str) -> int | None:
-    """'CHAMPION' -> 1, '4th' -> 4, anything else -> None (never a guess)."""
+    """'CHAMPION' -> 1, '4th' -> 4, anything else -> None (never a guess).
+
+    ⚠️ RANK IS NOT A CHAMPION FLAG. CBS also emits a separate '1st' for the
+    regular-season leader in some seasons, which lands on rank 1 as well — so a
+    season can legitimately contain two rank-1 rows. The verbatim finish is
+    preserved in raw_standings_json precisely so champion questions can be
+    answered from the label rather than from this number.
+    """
     f = (finish or "").strip().upper()
     if f.startswith("CHAMPION"):
         return 1
     m = re.match(r"(\d+)", f)
     return int(m.group(1)) if m else None
+
+
+def _j_finish(finish: str) -> str:
+    return finish
