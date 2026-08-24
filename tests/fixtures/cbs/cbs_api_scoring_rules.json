@@ -1,0 +1,1035 @@
+{
+ "body": {
+  "scoring_rules": {
+   "categories": [
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Fum2PK",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "15",
+       "points": "1.5",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "20",
+       "points": "1.5",
+       "scale_bonus": 1,
+       "to": "+"
+      }
+     ],
+     "group": "Offensive",
+     "name": "Recpt",
+     "ranges": [
+      {
+       "from": null,
+       "points": null,
+       "to": null
+      }
+     ]
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "IFRTD",
+     "points": "6",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Re2P",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "PaInt",
+     "points": "-2",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "100",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "200",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "300",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      }
+     ],
+     "group": "Offensive",
+     "name": "ReYd",
+     "ranges": [
+      {
+       "from": "0",
+       "per": "1",
+       "points": ".1",
+       "to": "+"
+      }
+     ]
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Fum2PT",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "XP",
+     "points": "1",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "ReTD",
+     "points": "6",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Pa2P",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Ru2P",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "PaTD",
+     "points": "4",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "FL",
+     "points": "-2",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "40",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "49"
+      },
+      {
+       "from": "50",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "+"
+      }
+     ],
+     "group": "Offensive",
+     "name": "FG",
+     "points": "3",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "RuTD",
+     "points": "6",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "IPRTD",
+     "points": "6",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "IKRTD",
+     "points": "6",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "100",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "200",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "300",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      }
+     ],
+     "group": "Offensive",
+     "name": "RuYd",
+     "ranges": [
+      {
+       "from": "0",
+       "per": "1",
+       "points": ".1",
+       "to": "+"
+      }
+     ]
+    },
+    {
+     "bonuses": [
+      {
+       "from": "300",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "400",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "500",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      },
+      {
+       "from": "600",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      }
+     ],
+     "group": "Offensive",
+     "name": "PaYd",
+     "ranges": [
+      {
+       "from": "0",
+       "per": "2.5",
+       "points": ".1",
+       "to": "+"
+      }
+     ]
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "STY",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "STY1PT",
+     "points": "1",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "SACK",
+     "points": "1",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "YDS",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "ST2PT",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "DFR",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "50",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "+"
+      }
+     ],
+     "group": "Defensive",
+     "name": "DTD",
+     "points": "6",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "Int",
+     "points": "2",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Defensive",
+     "name": "DSTPA",
+     "ranges": [
+      {
+       "from": "0",
+       "points": "12",
+       "to": "0"
+      },
+      {
+       "from": "1",
+       "points": "6",
+       "to": "13"
+      },
+      {
+       "from": "14",
+       "points": "4",
+       "to": "20"
+      },
+      {
+       "from": "21",
+       "points": "2",
+       "to": "27"
+      },
+      {
+       "from": "28",
+       "points": "-2",
+       "to": "35"
+      },
+      {
+       "from": "36",
+       "points": "-4",
+       "to": "49"
+      },
+      {
+       "from": "50",
+       "points": "-6",
+       "to": "99"
+      }
+     ]
+    }
+   ],
+   "league_id": "grffl",
+   "league_name": "Greatness League",
+   "position_scoring": 1,
+   "positions": [
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Recpt",
+     "points": "1",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Ru2P",
+     "points": "2",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Pa2P",
+     "points": "4",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Re2P",
+     "points": "4",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "PaInt",
+     "points": "-2",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "PaTD",
+     "points": "8",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "RuTD",
+     "points": "6",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "ReTD",
+     "points": "12",
+     "pos": "RB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Recpt",
+     "points": "1.5",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Ru2P",
+     "points": "4",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Pa2P",
+     "points": "4",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Re2P",
+     "points": "2",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "PaInt",
+     "points": "-2",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "PaTD",
+     "points": "8",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "RuTD",
+     "points": "12",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "ReTD",
+     "points": "6",
+     "pos": "TE",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Recpt",
+     "points": "1",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Ru2P",
+     "points": "4",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Pa2P",
+     "points": "4",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Re2P",
+     "points": "2",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "PaInt",
+     "points": "-2",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "PaTD",
+     "points": "8",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "RuTD",
+     "points": "12",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "ReTD",
+     "points": "6",
+     "pos": "WR",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "PaInt",
+     "points": "-2",
+     "pos": "TQB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Ru2P",
+     "points": "4",
+     "pos": "TQB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "RuTD",
+     "points": "12",
+     "pos": "TQB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "PaTD",
+     "points": "4",
+     "pos": "TQB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "ReTD",
+     "points": "12",
+     "pos": "TQB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Re2P",
+     "points": "4",
+     "pos": "TQB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Recpt",
+     "points": "1",
+     "pos": "K",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Ru2P",
+     "points": "4",
+     "pos": "K",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Pa2P",
+     "points": "4",
+     "pos": "K",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Recpt",
+     "points": "1",
+     "pos": "QB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Ru2P",
+     "points": "4",
+     "pos": "QB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "Re2P",
+     "points": "4",
+     "pos": "QB",
+     "ranges": []
+    },
+    {
+     "bonuses": [],
+     "group": "Offensive",
+     "name": "PaInt",
+     "points": "-2",
+     "pos": "QB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "1",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "3",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "5",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "PaTD",
+     "points": "4",
+     "pos": "QB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "RuTD",
+     "points": "12",
+     "pos": "QB",
+     "ranges": []
+    },
+    {
+     "bonuses": [
+      {
+       "from": "10",
+       "points": "2",
+       "scale_bonus": 1,
+       "to": "39"
+      },
+      {
+       "from": "40",
+       "points": "6",
+       "scale_bonus": 1,
+       "to": "69"
+      },
+      {
+       "from": "70",
+       "points": "10",
+       "scale_bonus": 1,
+       "to": "100"
+      }
+     ],
+     "group": "Offensive",
+     "name": "ReTD",
+     "points": "12",
+     "pos": "QB",
+     "ranges": []
+    }
+   ],
+   "system": "h2h"
+  }
+ },
+ "statusCode": 200,
+ "statusMessage": "OK",
+ "uri": "/league/scoring/rules",
+ "uriAlias": "/league/scoring/rules"
+}

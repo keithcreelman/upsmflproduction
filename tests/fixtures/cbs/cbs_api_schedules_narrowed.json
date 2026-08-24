@@ -1,0 +1,171 @@
+{
+ "body": {
+  "schedule": {
+   "periods": [
+    {
+     "end": "9/14/26",
+     "id": "1",
+     "label": "Week 1",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "9/9/26",
+     "type": "Regular Season"
+    }
+   ]
+  }
+ },
+ "statusCode": 200,
+ "statusMessage": "OK",
+ "uri": "/league/schedules",
+ "uriAlias": "/league/schedules"
+}

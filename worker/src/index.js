@@ -1,4 +1,5 @@
 import { handleHallRequest } from "./hall.js";
+import { handleYahooRequest } from "./yahoo_oauth.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -6299,6 +6300,15 @@ export default {
       // continues. Defined in worker/src/hall.js.
       const hallResp = await handleHallRequest(request, env, corsHeaders);
       if (hallResp) return hallResp;
+
+      // ---------- Yahoo Fantasy OAuth (multi-platform ingestion) ----------
+      // Owns every /admin/yahoo/* path (auth start/callback, CLI token mint,
+      // status, revoke) and returns null for everything else so the main
+      // dispatcher continues. Commish-gated (?APIKEY=) and dark behind
+      // YAHOO_SYNC_ENABLED. Defined in worker/src/yahoo_oauth.js; the encrypted
+      // refresh token lives in fantasy_oauth_tokens (migration 0127).
+      const yahooResp = await handleYahooRequest(request, env, corsHeaders);
+      if (yahooResp) return yahooResp;
 
       // ---------- Discord bot interactions (POST /discord/interactions) ----------
       // Discord sends every button click, slash command, and modal submit here.
@@ -19481,6 +19491,17 @@ export default {
           { key: "DISCORD_BUG_TEST_CHANNEL_ID",            required: false, category: "discord-channels" },
           { key: "OTB_CHANNEL_ID",                         required: true, category: "discord-channels" },
           { key: "OTB_TEST_CHANNEL_ID",                    required: true, category: "discord-channels" },
+          // Yahoo Fantasy OAuth (worker/src/yahoo_oauth.js). All four are
+          // required together — the module REFUSES rather than defaulting any of
+          // them, so there is no silent_fallback here by construction:
+          // YAHOO_REDIRECT_URI must byte-match the value registered at Yahoo
+          // (a mismatch is a bare 401), and YAHOO_TOKEN_ENCRYPTION_KEY must be
+          // base64 32 bytes or the refresh token is never written at all —
+          // there is deliberately no plaintext fallback.
+          { key: "YAHOO_CLIENT_ID",              required: true, category: "yahoo" },
+          { key: "YAHOO_CLIENT_SECRET",          required: true, category: "yahoo" },
+          { key: "YAHOO_REDIRECT_URI",           required: true, category: "yahoo" },
+          { key: "YAHOO_TOKEN_ENCRYPTION_KEY",   required: true, category: "yahoo" },
         ];
         const chHas = (k) => { try { return String(env[k] || "").trim().length > 0; } catch (_) { return false; } };
         const chMissing = [];

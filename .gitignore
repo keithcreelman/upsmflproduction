@@ -55,3 +55,20 @@ pipelines/reports/*.csv
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# ── Fantasy multi-platform ingestion (Yahoo) ────────────────────────────────
+# Raw provider payloads. Gzipped API responses; a full historical backfill is
+# ~180MB, which does NOT belong in a repo already pruned to stay under
+# jsDelivr's 50MB package limit. Keep locally, or send to R2 with --raw-sink=r2.
+data/yahoo-raw/
+data/fantasy-raw/
+
+# The real counterpart of pipelines/etl/config/runtime.env.example. The root
+# `.env` pattern above matches ONLY a file literally named `.env`, so this
+# needed its own entry — a credentials file here would otherwise be committable.
+pipelines/etl/config/runtime.env
+pipelines/fantasy/config/*.env
+
+# Root node_modules — the root package.json ships zero dependencies, but npm
+# creates this directory anyway on some commands.
+/node_modules/
