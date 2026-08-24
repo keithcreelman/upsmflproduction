@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-08-24 11:54:09",
+    "generated_at": "2026-08-24 11:54:40",
     "source": "contract-activity-log",
-    "count": 115,
+    "count": 116,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "d94e0ea9dd5e3aef576630b1",
+      "submission_id": "d94e0ea9dd5e3aef576630b1",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "16276",
+      "player_name": "Young, Byron",
+      "position": "DE",
+      "salary": 2000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K",
+      "tcv": 6000,
+      "aav": 2000,
+      "guaranteed": 4500,
+      "submitted_at_utc": "2026-08-24T11:54:04.658Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1541415381913313364",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "e10a892efcec677c5784de6f",
       "submission_id": "e10a892efcec677c5784de6f",
