@@ -151,7 +151,37 @@ def main() -> int:
             g[str(round_of(people[nm]["adp"]) or 0)].append(nm)
         groups[book] = dict(g)
 
-    payload = {"teams": TEAMS, "rounds": ROUNDS, "players": people, "groups": groups}
+    # ── the analysts' own round-by-round calls, if they have been extracted ──
+    rp = root / "round_picks.json"
+    named: dict = {}
+    if rp.exists():
+        d = json.loads(rp.read_text())
+        by_key = {}
+        for nm in people:
+            by_key.setdefault(bdb.akey(nm), nm)
+        for k in d["picks"]:
+            nm = by_key.get(bdb.akey(k["player"]))
+            if nm is None:
+                continue
+            # ⚠️ HIS ROUND, NOT THIS PAGE'S. JJ reads FantasyPros ADP tiers and
+            # this list is cut on FFC ADP, so the same player can sit in
+            # different rounds. Store what he said and carry the FFC round
+            # alongside it, so a disagreement shows rather than resolving into
+            # whichever number happened to be written last.
+            named.setdefault(str(k["round"]), []).append({
+                "nm": nm, "a": k["analyst"], "s": k["stance"], "t": k["take"],
+                "u": k["url"], "q": k["quoted"],
+                "ffc": round_of(people[nm]["adp"]),
+            })
+        print(f"  round-by-round: {sum(len(v) for v in named.values())} verified "
+              f"calls across {len(named)} rounds; {len(d.get('refused_rounds') or [])} "
+              f"refused for a non-round round field")
+    else:
+        print("  note: no round_picks.json - the analysts' own round calls are "
+              "absent from this build, and the page will say so")
+
+    payload = {"teams": TEAMS, "rounds": ROUNDS, "players": people,
+               "groups": groups, "named": named}
     tpl = TEMPLATE.read_text(encoding="utf-8")
     if "__LIST__" not in tpl:
         raise SystemExit(f"{TEMPLATE} has no __LIST__ placeholder.")

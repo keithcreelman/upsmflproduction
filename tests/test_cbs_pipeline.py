@@ -1257,6 +1257,28 @@ def test_draft_board_overlay() -> None:
           "genuine split, which also scores zero",
           r["sup"] == 0.0 and r["nvoice"] == 0)
 
+    # ── the round field, which is not always a round ─────────────────────────
+    rpk = importlib.util.module_from_spec(importlib.util.spec_from_file_location(
+        "rpk", str(REPO_ROOT / "scripts" / "cbs_round_picks.py")))
+    importlib.util.spec_from_file_location(
+        "rpk", str(REPO_ROOT / "scripts" / "cbs_round_picks.py")).loader.exec_module(rpk)
+
+    check("a bare round survives", rpk.clean_round(7) == 7 and rpk.clean_round(" 7 ") == 7)
+    # ⚠️ THESE ARE RELATIVE DISTANCES, NOT ROUNDS. The extractor really produced
+    # them, and coercing the leading digit would file Harold Fannin as a round-4
+    # pick when the source says he goes four rounds LATER than someone else.
+    for bad in ("4 rounds after Loveland", "7 rounds before Jefferson",
+                "5 rounds cheaper than fair", "2-3 turn", "late rounds",
+                "late rounds (best ball)", "1 (1.01)", "", None):
+        check(f"a round field of {bad!r} is REFUSED, never coerced to a number",
+              rpk.clean_round(bad) is None)
+    check("a round outside the draft is refused too",
+          rpk.clean_round(0) is None and rpk.clean_round(19) is None)
+    # ⚠️ True is an int in Python. Without the bool guard, a JSON `true` would
+    # silently become round 1.
+    check("a boolean does not sneak through as round 1",
+          rpk.clean_round(True) is None)
+
     check("ADP maps to the round the market drafts in, not to your own picks",
           (dl.round_of(1.0), dl.round_of(12.9), dl.round_of(13.0),
            dl.round_of(72.0)) == (1, 1, 2, 6))

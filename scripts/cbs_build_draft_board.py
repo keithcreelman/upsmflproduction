@@ -57,7 +57,11 @@ SUFFIXES = (" jr", " sr", " ii", " iii", " iv", " v")
 #: people. Every entry here was confirmed by READING the take, not by scoring
 #: it: the "Jackson Dart" take is about a QB12 ADP with Matt Nagy calling
 #: plays, and the board has exactly one Dart.
-ALIASES = {"jackson dart": "jaxson dart"}
+ALIASES = {
+    "jackson dart": "jaxson dart",       # QB12 ADP, Nagy calling plays
+    "jonathan brooks": "jonathon brooks",  # JJ's round-9 favourite; one Brooks
+    "jordan tyson": "jordyn tyson",        # JJ's round-8 second name
+}
 #: Paths git tracks. An analyst-bearing page may never be written under one.
 TRACKED = ("docs", "site", "worker", "scripts", "pipelines", "tests")
 

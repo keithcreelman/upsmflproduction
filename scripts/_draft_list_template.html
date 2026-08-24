@@ -62,6 +62,15 @@ button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .pk .say{font-size:11.5px;line-height:1.45;color:var(--ink-2);margin-top:2px}
 .pk.none{border-left-color:var(--rule);color:var(--ink-3);font-style:italic;font-size:12.5px;
   justify-content:center}
+.said{display:flex;flex-direction:column;gap:8px;padding:11px 14px;border-bottom:1px solid var(--rule-2);
+  background:var(--brass-soft)}
+.said .hd{font-size:9.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--brass)}
+.sd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;line-height:1.5}
+.sd .nm3{font-weight:700}
+.sd .by{font-size:11px;color:var(--ink-3);font-family:ui-monospace,monospace}
+.sd .txt{flex:1 1 100%;color:var(--ink-2);font-size:12px;padding-left:11px;border-left:2px solid var(--rule)}
+.sd.like .txt{border-left-color:var(--good)} .sd.fade .txt{border-left-color:var(--crit)}
+.sd .mism{color:var(--crit);font-size:10.5px;font-weight:700}
 .scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:13px}
 thead th{text-align:left;font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;
@@ -210,6 +219,26 @@ function strip(names){
   return `<div class="pickstrip">${h}</div>`;
 }
 
+function said(rd){
+  const list = (L.named || {})[String(rd)] || [];
+  if (!list.length) return "";
+  return `<div class="said"><span class="hd">What they actually said about round ${rd}</span>`
+    + list.map(x => {
+        // !! HIS ROUND vs THIS PAGE'S ROUND. He reads FantasyPros ADP tiers,
+        // this list is cut on FFC ADP. Where they disagree, say so.
+        const mism = (x.ffc && x.ffc !== rd)
+          ? `<span class="mism">FFC ADP puts him in round ${x.ffc}</span>` : "";
+        return `<div class="sd ${x.s}">`
+          + `<span class="stn ${x.s}">${x.s === "like" ? "\u25b2 pick" : x.s === "fade" ? "\u25bc refuses" : "\u2022"}</span>`
+          + `<span class="nm3">${ESC(x.nm)}</span>`
+          + `<span class="by">${ESC(x.a)}${x.q === "paraphrased" ? " \u00b7 paraphrased" : ""}</span>`
+          + mism
+          + `<span class="txt">${ESC(x.t)}`
+          + (x.u ? ` <a href="${ESC(x.u)}" target="_blank" rel="noopener">source</a>` : "")
+          + `</span></div>`;
+      }).join("") + `</div>`;
+}
+
 function render(){
   const g = L.groups[rule];
   let h = "";
@@ -225,6 +254,7 @@ function render(){
     h += `<section class="rnd"><div class="rnd-hd"><h2>Round ${rd}</h2>`
       + `<span class="adp">ADP ${lo}\u2013${hi}</span><span class="spacer"></span>`
       + `<span class="eyebrow">${shown.length} of ${all.length}</span></div>`
+      + said(rd)
       + strip(all)
       + `<div class="scroll"><table><thead><tr>`
       + `<th class="num">ADP</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>`
