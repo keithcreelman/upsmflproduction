@@ -370,7 +370,13 @@ async function runReplyPipeline({
     postBody = "Interesting take. Logged for model review.";
     postKind = "value_signal";
   } else if (cat === "DATA_ERROR") {
-    postBody = "Noted. We'll verify against the source data.";
+    // Concede in the same words the launchd bot uses
+    // (pipelines/etl/scripts/trade_roast_bot.py). DATA_ERROR is the one
+    // category where the owner is probably RIGHT, so the reply should sound
+    // like agreement rather than a filing receipt. This path already posts
+    // unconditionally; the python copy used to swallow it behind the
+    // clap-back gate and say nothing at all.
+    postBody = "Fair — that one's on us. Logged for a look at the source data.";
     postKind = "data_error";
   } else {
     // 3a. COPE → generate clap-back (Sonnet).
