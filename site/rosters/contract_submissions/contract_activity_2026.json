@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-08-24 03:09:31",
+    "generated_at": "2026-08-24 11:52:40",
     "source": "contract-activity-log",
-    "count": 112,
+    "count": 113,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "8ce589525385e5241dac9802",
+      "submission_id": "8ce589525385e5241dac9802",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "15751",
+      "player_name": "London, Drake",
+      "position": "WR",
+      "salary": 33000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1-FL",
+      "contract_info": "CL 2| TCV 95K| AAV 33K, 43K| Y1-33K, Y2-62K| GTD: 71.3K| Restructured 2026",
+      "tcv": 95000,
+      "aav": 0,
+      "guaranteed": 71300,
+      "submitted_at_utc": "2026-08-24T11:52:23.323Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1541414879192158259",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "fa01a8034b31aec2cdfb9094",
       "submission_id": "fa01a8034b31aec2cdfb9094",
