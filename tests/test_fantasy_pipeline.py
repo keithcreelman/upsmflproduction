@@ -760,7 +760,7 @@ def test_parse_league_and_players() -> None:
 # D. IDEMPOTENCY — the upsert contract
 # ─────────────────────────────────────────────────────────────────────────────
 
-#: Tables created by 0127-0132 that the PYTHON loader deliberately never writes.
+#: Tables created by 0132-0139 that the PYTHON loader deliberately never writes.
 #: They are owned end-to-end by worker/src/yahoo_oauth.js, which uses prepared
 #: statements rather than d1.py. Listing them explicitly (instead of loosening
 #: the diff) keeps the check honest: a NEW table added to a migration and
@@ -778,7 +778,15 @@ def test_idempotency() -> None:
     # "013[0-2]*" and silently stopped auditing at 0132, so migration 0133
     # (fantasy_adp) was invisible to the audit and its table read as "not a real
     # table". Any new fantasy_* migration is picked up automatically now.
-    sql_files = sorted(p for p in MIGRATIONS.glob("0*.sql") if p.name >= "0127")
+    # Selected by NAME, not by a number floor. `p.name >= "0127"` swept in every
+    # UPS migration from 0127 up — and while this branch sat unmerged, main took
+    # 0127-0131 for the penalty/lineup work. The audit then found ups_lineup_* and
+    # ups_injury_* inside what it believed were fantasy migrations and failed on
+    # their missing PRIMARY_KEYS entries (2026-08-24). The comment below already
+    # records an EARLIER version of this same bug ("013[0-2]*" silently stopping
+    # at 0132), which is the tell: a numeric window cannot express "is a fantasy
+    # migration". The name can.
+    sql_files = sorted(p for p in MIGRATIONS.glob("0*.sql") if "_fantasy_" in p.name)
     check("every fantasy_* migration from 0127 on is present on disk",
           len(sql_files) >= 7, ", ".join(p.name for p in sql_files))
 
@@ -1531,7 +1539,15 @@ _ALTER_ADD_RE = re.compile(
 
 def _real_columns() -> dict[str, set[str]]:
     """Parse the ACTUAL migration DDL for every table's real column set."""
-    sql_files = sorted(p for p in MIGRATIONS.glob("0*.sql") if p.name >= "0127")
+    # Selected by NAME, not by a number floor. `p.name >= "0127"` swept in every
+    # UPS migration from 0127 up — and while this branch sat unmerged, main took
+    # 0127-0131 for the penalty/lineup work. The audit then found ups_lineup_* and
+    # ups_injury_* inside what it believed were fantasy migrations and failed on
+    # their missing PRIMARY_KEYS entries (2026-08-24). The comment below already
+    # records an EARLIER version of this same bug ("013[0-2]*" silently stopping
+    # at 0132), which is the tell: a numeric window cannot express "is a fantasy
+    # migration". The name can.
+    sql_files = sorted(p for p in MIGRATIONS.glob("0*.sql") if "_fantasy_" in p.name)
     all_sql = "\n".join(p.read_text(encoding="utf-8") for p in sql_files)
     out: dict[str, set[str]] = {}
     for table, body in _FULL_CREATE_TABLE_RE.findall(all_sql):

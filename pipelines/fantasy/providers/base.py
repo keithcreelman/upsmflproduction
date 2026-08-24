@@ -3,7 +3,7 @@
 DESIGN CONTRACT — the thing that makes CBS and ESPN cheap later:
 
   Each method returns PLATFORM-NEUTRAL row dicts keyed exactly like the
-  fantasy_* columns in migrations 0127-0132. Yahoo's JSON pathologies, CBS's
+  fantasy_* columns in migrations 0132-0139. Yahoo's JSON pathologies, CBS's
   session auth, ESPN's cookie scheme — all of that stays inside its own adapter
   and never reaches the normalizer, the loader, the quality checks or the CLI.
 

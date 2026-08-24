@@ -4,7 +4,7 @@ UPS/MFL side of the database. Read-only static check; stdlib only.
 
 WHAT THIS DOES. It reads every file the Yahoo/fantasy ingestion is allowed to
 consist of — the pipelines/fantasy/ Python, the Worker OAuth module, migrations
-0127-0132, and the manual analytical-views file — and fails the job if any of
+0132-0139, and the manual analytical-views file — and fails the job if any of
 them contains a WRITE statement (INSERT / UPDATE / DELETE / REPLACE / DROP /
 ALTER / TRUNCATE) naming a table on the UPS/MFL side of the house, or a
 committed credential, or a command that would target production implicitly.
@@ -183,7 +183,7 @@ COLUMN_SHAPED_RE = re.compile(r"_(?:id|ids|key|keys|uid|name|abbr|url|status|cod
 # Prohibition prose is not a violation.
 #
 # House style REQUIRES the dangerous string to appear in the warning that bans
-# it: every one of 0127-0132 opens with "NEVER `wrangler d1 migrations apply`".
+# it: every one of 0132-0139 opens with "NEVER `wrangler d1 migrations apply`".
 # A checker that fired on its own safety documentation would be deleted within a
 # day. So a match is exempt when a negation word appears BEFORE it on the same
 # line — the shape a prohibition actually takes in prose. "Before", not
@@ -415,7 +415,7 @@ def inert_spans(text: str, filename: str) -> list[tuple[int, int]]:
     """Spans that cannot execute: comments, and bare string-expression statements.
 
     WHY THIS EXISTS. House style REQUIRES the dangerous thing to be named in the
-    warning that bans it — every one of 0127-0132 opens with "NEVER `wrangler d1
+    warning that bans it — every one of 0132-0139 opens with "NEVER `wrangler d1
     migrations apply`", and pipelines/fantasy/d1.py documents at length why it
     refuses to hardcode `--remote`. A checker that failed on its own safety
     documentation would be switched off inside a day, and then it would stop
@@ -757,16 +757,21 @@ SCAN_KINDS = (
     ),
     ScanKind(
         "fantasy migrations",
-        (
-            "worker/migrations/0127*.sql",
-            "worker/migrations/0128*.sql",
-            "worker/migrations/0129*.sql",
-            "worker/migrations/0130*.sql",
-            "worker/migrations/0131*.sql",
-            "worker/migrations/0132*.sql",
-        ),
+        # Matched by NAME, not by number.
+        #
+        # This was a numeric range (0132-0139). Migration numbers are assigned by
+        # whoever merges first, and while this branch sat unmerged main took
+        # 0127-0131 for the penalty/lineup work. The globs then matched main's UPS
+        # migrations, and the isolation check reported `ALTER TABLE ups_drop_events`
+        # as "the fantasy pipeline writing UPS tables" — a false positive that
+        # blocked the PR (2026-08-24). The companion test failed the same way,
+        # finding ups_lineup_* tables inside what it believed was a fantasy
+        # migration. Second collision of this kind; wire's 0113 was the first.
+        #
+        # A number cannot identify what a file IS. The name can.
+        ("worker/migrations/*_fantasy_*.sql",),
         6,
-        "the schema contract; 0132 is the one file that touches an existing table",
+        "the schema contract; the crosswalk is the one file that touches an existing table",
     ),
     ScanKind(
         "manual analytical views",

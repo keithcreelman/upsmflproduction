@@ -2,7 +2,7 @@
 
 This is the only module in the pipeline that knows what Yahoo's JSON looks like.
 Everything downstream — the loader, the quality checks, the analytical views —
-sees column names from migrations 0127-0132 and nothing else. That boundary is
+sees column names from migrations 0132-0139 and nothing else. That boundary is
 what makes a CBS or ESPN adapter a new directory rather than a rewrite.
 
 THREE RULES, APPLIED EVERYWHERE IN THIS FILE:

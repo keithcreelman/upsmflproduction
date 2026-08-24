@@ -44,7 +44,7 @@ DEFAULT_DB = "ups-mfl-db"
 CHUNK_WIDE = 60
 CHUNK_NARROW = 150
 
-#: Composite primary keys, mirroring migrations 0127-0132 exactly. Getting one
+#: Composite primary keys, mirroring migrations 0132-0139 exactly. Getting one
 #: wrong here means the upsert silently inserts duplicates instead of updating,
 #: which is the failure mode idempotency tests exist to catch.
 PRIMARY_KEYS: dict[str, list[str]] = {
@@ -192,7 +192,7 @@ class D1Loader:
         if table not in PRIMARY_KEYS:
             raise D1Error(
                 f"unknown table {table!r}. Add it to PRIMARY_KEYS with its exact "
-                "composite key from migrations 0127-0132, or the upsert will "
+                "composite key from migrations 0132-0139, or the upsert will "
                 "insert duplicates instead of updating."
             )
         pk = PRIMARY_KEYS[table]
