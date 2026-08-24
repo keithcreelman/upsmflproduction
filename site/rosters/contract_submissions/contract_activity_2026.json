@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-08-24 11:52:40",
+    "generated_at": "2026-08-24 11:53:33",
     "source": "contract-activity-log",
-    "count": 113,
+    "count": 114,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "6c453c511cc1dcab1d87bf64",
+      "submission_id": "6c453c511cc1dcab1d87bf64",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "16223",
+      "player_name": "Anderson, Will",
+      "position": "DE",
+      "salary": 1000,
+      "contract_year": 2,
+      "contract_status": "VET-EXT1",
+      "contract_info": "CL 2|TCV 5K|AAV 1K, 4K|Y1-1K, Y2-4K|Ext: Bomb|GTD: 3.8K",
+      "tcv": 5000,
+      "aav": 0,
+      "guaranteed": 3800,
+      "submitted_at_utc": "2026-08-24T11:53:15.351Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1541415100538298379",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "8ce589525385e5241dac9802",
       "submission_id": "8ce589525385e5241dac9802",
