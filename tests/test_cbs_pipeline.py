@@ -1224,6 +1224,45 @@ def test_draft_board_overlay() -> None:
     check("a player with no ADP reads as available, not as gone",
           rpl.avail(200, None, None) > 0.9 and rpl.avail(200, 0, None) > 0.9)
 
+    # ── the expert-backing score ─────────────────────────────────────────────
+    dl = importlib.util.module_from_spec(importlib.util.spec_from_file_location(
+        "dl", str(REPO_ROOT / "scripts" / "cbs_draft_list.py")))
+    importlib.util.spec_from_file_location(
+        "dl", str(REPO_ROOT / "scripts" / "cbs_draft_list.py")).loader.exec_module(dl)
+
+    def score(takes, verdict=None):
+        r = {"st": [{"a": a, "s": st, "t": "", "u": "", "q": 0} for a, st in takes],
+             "jjverdict": verdict}
+        return dl.build([r])[0]
+
+    # ⚠️ ONE ANALYST IS ONE VOTE. Summing takes let a single person vote twice:
+    # Ashton Jeanty scored -4 because Barrett faded him on two shows, and Chase
+    # Brown scored +4 because JJ's guide and JJ's podcast counted separately.
+    r = score([("Scott Barrett", "fade"), ("Scott Barrett", "fade")])
+    check("the same analyst fading a player twice still counts once",
+          r["sup"] == -2.0 and r["nvoice"] == 1)
+    r = score([("JJ Zachariason", "like")], verdict="target")
+    check("JJ's written guide and JJ's podcast are the same person, not two",
+          r["sup"] == 2.0 and r["nvoice"] == 1)
+    r = score([("Scott Barrett", "like"), ("Evan Silva", "like"),
+               ("JJ Zachariason", "like")])
+    check("three analysts agreeing is the ceiling at +6", r["sup"] == 6.0)
+    # A fade must not be averaged away into agreement.
+    r = score([("Scott Barrett", "like"), ("Evan Silva", "fade")])
+    check("a like and a fade from different people cancel to zero and report "
+          "TWO voices, so the disagreement is still visible",
+          r["sup"] == 0.0 and r["nvoice"] == 2)
+    r = score([])
+    check("no coverage scores zero with zero voices - distinguishable from a "
+          "genuine split, which also scores zero",
+          r["sup"] == 0.0 and r["nvoice"] == 0)
+
+    check("ADP maps to the round the market drafts in, not to your own picks",
+          (dl.round_of(1.0), dl.round_of(12.9), dl.round_of(13.0),
+           dl.round_of(72.0)) == (1, 1, 2, 6))
+    check("a player with no ADP gets no round rather than round 1",
+          dl.round_of(None) is None and dl.round_of(0) is None)
+
     board = (REPO_ROOT / "docs" / "cbs_draft_board_2026.html").read_text()
     # The built artefact itself is the last line of defence: assert the shipped
     # page carries no analyst PAYLOAD, only the (inert) code that would render one.

@@ -1,0 +1,312 @@
+<title>Raining Bullets Draft List</title>
+<style>
+:root{
+  --ground:#F5F4F1; --panel:#FFFFFF; --ink:#191E25; --ink-2:#4A5560; --ink-3:#77828E;
+  --rule:#DFDDD7; --rule-2:#EAE8E3; --brass:#B8862B; --brass-soft:#F0E4C6;
+  --qb:#6B5B95; --rb:#2E7D5B; --wr:#2A6FA8; --te:#A34E7B; --k:#6E7681; --dst:#7A5C3E;
+  --good:#2E7D5B; --warn:#B8862B; --crit:#A8412F;
+  --shadow:0 1px 2px rgba(25,30,37,.06),0 8px 24px rgba(25,30,37,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font:400 15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px 72px}
+.bar{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:1px solid var(--rule);padding:14px 0 12px}
+.bar-in{max-width:1120px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+h1{margin:0;font-size:clamp(19px,2.4vw,25px);font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.sub{color:var(--ink-3);font-size:13px}
+.spacer{flex:1 1 auto}
+.eyebrow{font-size:10.5px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
+button{font:inherit;font-size:12.5px;font-weight:600;background:var(--panel);color:var(--ink-2);
+  border:1px solid var(--rule);border-radius:6px;padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--ink-3);color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.chip{display:inline-block;min-width:32px;text-align:center;font-size:10px;font-weight:750;
+  letter-spacing:.05em;padding:2px 5px;border-radius:4px;color:#fff}
+.QB{background:var(--qb)} .RB{background:var(--rb)} .WR{background:var(--wr)}
+.TE{background:var(--te)} .K{background:var(--k)} .DST{background:var(--dst)}
+
+.caveat{margin:20px 0 6px;padding:12px 14px;border-radius:9px;background:var(--brass-soft);
+  border:1px solid var(--brass);font-size:12.5px;line-height:1.55;color:var(--ink-2);max-width:84ch}
+.caveat b{color:var(--ink)}
+
+.rnd{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:11px;
+  box-shadow:var(--shadow);overflow:hidden}
+.rnd-hd{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:11px 14px;
+  border-bottom:1px solid var(--rule-2);background:var(--rule-2)}
+.rnd-hd h2{margin:0;font-size:14px;font-weight:750;letter-spacing:-.01em}
+.rnd-hd .adp{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--ink-3)}
+.pickstrip{display:flex;flex-wrap:wrap;gap:9px;padding:11px 14px;border-bottom:1px solid var(--rule-2)}
+.pk{flex:1 1 250px;display:flex;flex-direction:column;gap:3px;padding:9px 11px;border-radius:8px;
+  background:var(--rule-2);border-left:3px solid var(--brass)}
+.pk.board{border-left-color:var(--ink-3)}
+.pk .lab{font-size:9.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.pk .who{font-size:14px;font-weight:700;display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}
+.pk .num{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--ink-3)}
+.pk .say{font-size:11.5px;line-height:1.45;color:var(--ink-2);margin-top:2px}
+.pk.none{border-left-color:var(--rule);color:var(--ink-3);font-style:italic;font-size:12.5px;
+  justify-content:center}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+thead th{text-align:left;font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);padding:7px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap;background:var(--panel)}
+tbody td{padding:6px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+tbody tr.has{cursor:pointer}
+tbody tr.has:hover{background:var(--rule-2)}
+tbody tr.top td{background:var(--brass-soft)}
+.num{text-align:right;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.nm{font-weight:600}
+.dim{color:var(--ink-3)}
+.stn{display:inline-block;font-size:10px;font-weight:750;padding:1px 4px;border-radius:4px;
+  margin-right:3px;border:1px solid transparent}
+.stn.like{color:var(--good);border-color:var(--good)}
+.stn.fade{color:var(--crit);border-color:var(--crit)}
+.stn.neutral{color:var(--ink-3);border-color:var(--rule)}
+.stn.hedge{border-style:dashed}
+.stn.gd{background:var(--rule-2);border-color:transparent}
+.sup{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-weight:700}
+.sup.pos{color:var(--good)} .sup.neg{color:var(--crit)} .sup.zero{color:var(--ink-3);font-weight:400}
+.rook{display:inline-block;font-size:9px;font-weight:750;letter-spacing:.07em;padding:1px 4px;
+  border-radius:3px;border:1px solid var(--ink-3);color:var(--ink-3);margin-left:5px;vertical-align:1px}
+tr.det td{white-space:normal;background:var(--rule-2);padding:10px 14px 12px}
+tr.det{cursor:default}
+.det-in{display:flex;flex-direction:column;gap:8px;max-width:80ch}
+.q{font-size:12.5px;line-height:1.5;color:var(--ink-2);padding-left:11px;border-left:2px solid var(--rule)}
+.q.like{border-left-color:var(--good)} .q.fade{border-left-color:var(--crit)}
+.q b{color:var(--ink);font-weight:700}
+.q a{color:var(--ink-3);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+.q a:hover{color:var(--brass);border-bottom-color:var(--brass)}
+.foot{margin-top:34px;padding-top:18px;border-top:1px solid var(--rule);font-size:12.5px;
+  color:var(--ink-3);line-height:1.65;max-width:82ch}
+.foot b{color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="bar"><div class="bar-in">
+  <h1>Raining Bullets Draft List</h1>
+  <span class="sub mono">12 TEAMS &middot; 18 RD &middot; GROUPED BY ADP</span>
+  <span class="spacer"></span>
+  <span class="eyebrow">Passing TD</span>
+  <button id="r4" aria-pressed="true">4</button>
+  <button id="r6" aria-pressed="false">6</button>
+  <span id="posf"></span>
+  <button id="expo" aria-pressed="false">Expert-backed only</button>
+</div></div>
+
+<div class="wrap">
+  <p class="caveat" id="caveat"></p>
+  <div id="rounds"></div>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+const L = __LIST__;
+const PL = L.players;
+const POS = ["QB","RB","WR","TE"];
+let rule = "p4", filter = "ALL", expertOnly = false;
+let open = new Set();
+const el = id => document.getElementById(id);
+const ESC = t => String(t == null ? "" : t)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const STANCE = {like:"like", fade:"fade", neutral:"neutral",
+                target:"like", avoid:"fade", dart:"neutral"};
+const WHO = {"JJ Zachariason":"JJ","Scott Barrett":"Barrett","Evan Silva":"Silva"};
+const shortName = a => WHO[a] || (a||"?").split(" ").pop();
+const VOR = r => r.v[rule];
+const PR  = r => r.r[rule];
+
+function chips(r){
+  let h = "";
+  if (r.jjv && r.jjv !== "neutral")
+    h += `<span class="stn gd ${STANCE[r.jjv]||"neutral"}" title="JJ's written guide">${r.jjv}</span>`;
+  for (const t of (r.who||[]).slice(0,3))
+    h += `<span class="stn ${STANCE[t.s]||"neutral"}${t.q?" hedge":""}" title="${t.q
+      ? "verified on the page, but the speaker may be a guest rather than "+ESC(t.a)
+      : "verified on the source page"}">${ESC(shortName(t.a))}${t.q?"?":""} `
+      + `${t.s==="like"?"\u25b2":t.s==="fade"?"\u25bc":"\u2022"}</span>`;
+  if ((r.who||[]).length > 3) h += `<span class="stn neutral">+${r.who.length-3}</span>`;
+  return h;
+}
+
+function detail(r, cols){
+  let b = "";
+  if (r.jjnote) b += `<div class="q ${STANCE[r.jjv]||"neutral"}"><b>JJ Zachariason</b> `
+    + `&middot; Late-Round Draft Guide 2026 &mdash; ${ESC(r.jjnote)}`
+    + (r.jjpr != null ? ` <span class="dim">(${ESC(r.jjpos||r.pos)}${r.jjpr}`
+        + (r.jjtier!=null?`, tier ${r.jjtier}`:"") + (r.jjaav!=null?`, $${r.jjaav}`:"") + `)</span>` : "")
+    + `</div>`;
+  for (const t of (r.who||[]))
+    b += `<div class="q ${STANCE[t.s]||"neutral"}"><b>${ESC(t.a)}${t.q?"'s show":""}</b> &mdash; `
+      + `${ESC(t.t)}` + (t.u?` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>`:"") + `</div>`;
+  return b ? `<tr class="det"><td colspan="${cols}"><div class="det-in">${b}</div></td></tr>` : "";
+}
+
+function row(r, isTop){
+  const has = !!(r.jjnote || (r.who||[]).length);
+  const s = r.sup;
+  const cls = s > 0 ? "pos" : s < 0 ? "neg" : "zero";
+  return `<tr class="${has?"has":""} ${isTop?"top":""}" data-n="${ESC(r.nm)}">
+    <td class="num dim">${r.adp ? r.adp.toFixed(1) : "\u2013"}</td>
+    <td class="nm">${ESC(r.nm)}${r.unproven?'<span class="rook">NO TRACK RECORD</span>':""}</td>
+    <td><span class="chip ${r.pos}">${r.pos}</span></td>
+    <td class="dim mono">${ESC(r.team||"")}</td>
+    <td class="num dim">${r.bye||"\u2013"}</td>
+    <td class="num">${VOR(r)>0?"+":""}${VOR(r)}</td>
+    <td class="num dim">${r.pos}${PR(r)}</td>
+    <td class="num dim">${r.jjpr!=null?ESC(r.jjpos||r.pos)+r.jjpr:"\u2013"}</td>
+    <td class="num dim">${r.jjtier!=null?r.jjtier:"\u2013"}</td>
+    <td>${chips(r)}</td>
+    <td class="num sup ${cls}" title="${r.nvoice||0} of 3 analysts on record: `
+    + `${Object.entries(r.voices||{}).map(([a,v])=>ESC(shortName(a))+" "+(v>0?"+":"")+v).join(", ")||"none"}">${s>0?"+":""}${s}</td>
+  </tr>` + (open.has(r.nm) ? detail(r, 11) : "");
+}
+
+function strip(names){
+  // !! ONLY CROWN A PICK WHEN SOMEONE ACTUALLY SAID SOMETHING. Taking the max
+  // of a set of zeroes silently promotes an arbitrary player into a slot the
+  // page labels "most expert support", which reads as an endorsement nobody
+  // gave. A band with no coverage says so.
+  const backed = names.map(n => PL[n]).filter(r => r.sup > 0);
+  const best = backed.length
+    ? backed.reduce((a, b) => (b.sup > a.sup || (b.sup === a.sup && VOR(b) > VOR(a))) ? b : a)
+    : null;
+  const vor = names.map(n => PL[n]).reduce((a, b) => VOR(b) > VOR(a) ? b : a);
+  let h = "";
+  if (best) {
+    const say = (best.who||[]).find(t => t.s === "like") || (best.who||[])[0];
+    h += `<div class="pk"><span class="lab">Most expert support</span>`
+      + `<span class="who"><span class="chip ${best.pos}">${best.pos}</span>${ESC(best.nm)}`
+      + `<span class="num">ADP ${best.adp?best.adp.toFixed(1):"\u2013"} \u00b7 VOR `
+      + `${VOR(best)>0?"+":""}${VOR(best)} \u00b7 backing ${best.sup>0?"+":""}${best.sup}</span></span>`
+      + `<span>${chips(best)}</span>`
+      + (say ? `<span class="say">${ESC(say.t.slice(0,150))}${say.t.length>150?"\u2026":""}</span>` : "")
+      + `</div>`;
+  } else {
+    h += `<div class="pk none">No verified expert take on anyone in this band.</div>`;
+  }
+  if (!best || vor.nm !== best.nm) {
+    h += `<div class="pk board"><span class="lab">Best on this board</span>`
+      + `<span class="who"><span class="chip ${vor.pos}">${vor.pos}</span>${ESC(vor.nm)}`
+      + `<span class="num">ADP ${vor.adp?vor.adp.toFixed(1):"\u2013"} \u00b7 VOR `
+      + `${VOR(vor)>0?"+":""}${VOR(vor)} \u00b7 ${vor.pos}${PR(vor)}</span></span>`
+      + `<span>${chips(vor)}</span></div>`;
+  }
+  return `<div class="pickstrip">${h}</div>`;
+}
+
+function render(){
+  const g = L.groups[rule];
+  let h = "";
+  for (let rd = 1; rd <= L.rounds; rd++) {
+    const all = (g[String(rd)] || []);
+    if (!all.length) continue;
+    const shown = all.filter(n => {
+      const r = PL[n];
+      return (filter === "ALL" || r.pos === filter) && (!expertOnly || r.sup > 0 || r.jjnote);
+    });
+    if (!shown.length) continue;
+    const lo = (rd - 1) * L.teams + 1, hi = rd * L.teams;
+    h += `<section class="rnd"><div class="rnd-hd"><h2>Round ${rd}</h2>`
+      + `<span class="adp">ADP ${lo}\u2013${hi}</span><span class="spacer"></span>`
+      + `<span class="eyebrow">${shown.length} of ${all.length}</span></div>`
+      + strip(all)
+      + `<div class="scroll"><table><thead><tr>`
+      + `<th class="num">ADP</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>`
+      + `<th class="num">VOR</th><th class="num">Rank</th><th class="num">JJ</th>`
+      + `<th class="num">Tier</th><th>Experts</th><th class="num">Back</th>`
+      + `</tr></thead><tbody>`
+      + shown.map(n => row(PL[n], PL[n].sup > 0 && n === (() => {
+          const b = all.map(x => PL[x]).filter(r => r.sup > 0);
+          if (!b.length) return null;
+          return b.reduce((x, y) => (y.sup > x.sup || (y.sup === x.sup && VOR(y) > VOR(x))) ? y : x).nm;
+        })())).join("")
+      + `</tbody></table></div></section>`;
+  }
+  // !! OUTSIDE THE ADP UNIVERSE IS NOT ABSENT. Undrafted in most rooms is a
+  // fact about the player, so these get a section rather than disappearing.
+  const un = (g["0"] || []).filter(n =>
+    (filter === "ALL" || PL[n].pos === filter) && (!expertOnly || PL[n].sup > 0 || PL[n].jjnote));
+  if (un.length) {
+    h += `<section class="rnd"><div class="rnd-hd"><h2>Outside the ADP universe</h2>`
+      + `<span class="adp">no national ADP</span><span class="spacer"></span>`
+      + `<span class="eyebrow">${un.length}</span></div>`
+      + `<div class="scroll"><table><thead><tr>`
+      + `<th class="num">ADP</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>`
+      + `<th class="num">VOR</th><th class="num">Rank</th><th class="num">JJ</th>`
+      + `<th class="num">Tier</th><th>Experts</th><th class="num">Back</th>`
+      + `</tr></thead><tbody>` + un.map(n => row(PL[n], false)).join("")
+      + `</tbody></table></div></section>`;
+  }
+  el("rounds").innerHTML = h;
+}
+
+el("posf").innerHTML = ["ALL", ...POS].map(p =>
+  `<button data-p="${p}" aria-pressed="${p==="ALL"}">${p}</button>`).join("");
+
+(function(){
+  const n = Object.values(PL).filter(r => r.sup !== 0 || r.jjnote).length;
+  const takes = Object.values(PL).reduce((a, r) => a + (r.who||[]).length, 0);
+  el("caveat").innerHTML =
+    `<b>"Best pick of round N" is this page's construction, not a quote.</b> A hunt across `
+    + `JJ Zachariason's, Scott Barrett's and Evan Silva's 2026 output found their published `
+    + `work organised by <em>tier</em> and positional band (WR19\u2013WR42), or as target and `
+    + `avoid lists \u2014 not round by round. So the highlight in each band is defined here and `
+    + `labelled as such: the most expert <em>backing</em>, scored from stances that were each `
+    + `re-fetched and confirmed against the page they came from. A verified like or a guide `
+    + `target is worth +2, a late-round dart +1, and a fade <em>subtracts</em> \u2014 a player `
+    + `two analysts like and one fades is not the same as one nobody argues about. `
+    + `${takes} takes across ${n} players. Where nobody covered a band, it says so rather than `
+    + `crowning the least-uncovered name.`;
+})();
+
+el("foot").innerHTML =
+  `<b>Rounds come from ADP, not from your picks.</b> Round 6 here means ADP 61\u201372 \u2014 `
+  + `where the market drafts a player, not where you personally pick. Cross-reference the `
+  + `round plan for what to do at your own slot.<br><br>`
+  + `<b>Positional rank on both sides.</b> The <em>Rank</em> column is this board's rank at the `
+  + `position under the current rulebook; <em>JJ</em> is his. Overall rank is deliberately absent `
+  + `\u2014 an analyst's overall list encodes his own scoring and positional weighting, so `
+  + `comparing it to this board's compares two different questions.<br><br>`
+  + `<b>What is missing.</b> K and DST are unranked by the projection engine. Coverage is `
+  + `uneven by design: these analysts write most about the rounds where drafts are won, so `
+  + `the deep bands are thin and that thinness is real, not a gap in the fetch.`;
+
+document.addEventListener("click", e => {
+  const tr = e.target.closest("tbody tr.has");
+  if (tr && !e.target.closest("a")) {
+    const n = tr.dataset.n;
+    open.has(n) ? open.delete(n) : open.add(n);
+    render(); return;
+  }
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "r4" || b.id === "r6") {
+    rule = b.id === "r4" ? "p4" : "p6";
+    el("r4").setAttribute("aria-pressed", rule === "p4");
+    el("r6").setAttribute("aria-pressed", rule === "p6");
+    render(); return;
+  }
+  if (b.id === "expo") { expertOnly = !expertOnly; b.setAttribute("aria-pressed", expertOnly); render(); return; }
+  if (b.dataset.p) {
+    filter = b.dataset.p;
+    [...el("posf").children].forEach(x => x.setAttribute("aria-pressed", x.dataset.p === filter));
+    render();
+  }
+});
+render();
+</script>
