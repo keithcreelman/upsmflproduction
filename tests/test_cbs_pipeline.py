@@ -767,7 +767,11 @@ def test_adapter_guards() -> None:
                 return {"draft": {"rounds": 18, "order_type": "snake",
                                   "timestamp": 1788910200, "time_limit": "60"}}
             if endpoint == "league/scoring/live":
-                return {"live_scoring": {"my_team_id": "10"}}
+                # ⚠️ Must be a REAL payload, not a my_team_id stub: sync_season
+                # now walks the played weeks, so a stub here would make the
+                # adapter test pass against a shape that cannot occur.
+                body = api_fixture("cbs_api_scoring_live_unplayed.json")
+                return {"live_scoring": {**body["live_scoring"], "my_team_id": "10"}}
             return api_fixture(self.map[endpoint])
 
     p = CbsProvider(FakeApi())
@@ -797,8 +801,8 @@ def test_adapter_guards() -> None:
         for row in fr.rows:
             tables.setdefault(row["_table"], 0)
             tables[row["_table"]] += 1
-    check("a full sync_season emits all eleven league-state tables",
-          len(tables) == 11, ", ".join(f"{k}={v}" for k, v in sorted(tables.items())))
+    check("a full sync_season emits every league-state table, weekly scores "
+          "included", len(tables) == 13, ", ".join(f"{k}={v}" for k, v in sorted(tables.items())))
 
     # ⚠️ SILENT NARROWING, ENDPOINT #1. The rosters fixture was captured
     # WITHOUT team_id=all: one team, HTTP 200, no marker.
@@ -974,6 +978,67 @@ def test_scoring_engine() -> None:
           "evidence with bonuses already inside them, not rules",
           t2.resolve("RB", "RuYd")[0] == 0.1 and len(t2.rates) == 1)
 
+
+def test_scoreboard() -> None:
+    section("L. SCOREBOARD — every team appears twice, and zero is not 'unplayed'")
+    unplayed = api_fixture("cbs_api_scoring_live_unplayed.json")
+    played = api_fixture("cbs_api_scoring_live_played.json")
+
+    t = parse_api.parse_scoreboard(played, season=2026, league_id="grffl",
+                                   week=1, expected_teams=12)
+    ms, sc = t["fantasy_matchups"], t["fantasy_team_week_scores"]
+    # ⚠️ CBS lists every team AND lists it again as somebody's opponent. Taking
+    # one matchup per team would double every game in the league.
+    check("12 teams collapse to 6 matchups, not 12", len(ms) == 6 and len(sc) == 12)
+    check("each team appears in exactly one matchup",
+          sorted([m["team_a_key"] for m in ms] + [m["team_b_key"] for m in ms])
+          == sorted(r["team_key"] for r in sc))
+    check_raises("a team count that cannot pair up is refused — a bye or a "
+                 "duplicated pair would make the week's records wrong",
+                 parse_api.CbsPayloadError,
+                 lambda: parse_api.parse_scoreboard(
+                     {"live_scoring": {"teams": played["live_scoring"]["teams"][:3]}},
+                     season=2026, league_id="grffl", week=1))
+
+    won = [m for m in ms if m["winner_team_key"]]
+    tied = [m for m in ms if m["is_tied"]]
+    check("a winner is named only where the scores actually differ",
+          len(won) == 5 and len(tied) == 1)
+    check("...and the winner is the higher score, not the first listed",
+          all((m["team_a_points"] > m["team_b_points"])
+              == (m["winner_team_key"] == m["team_a_key"]) for m in won))
+    check("a TIE names no winner rather than defaulting to one",
+          tied[0]["winner_team_key"] is None
+          and tied[0]["team_a_points"] == tied[0]["team_b_points"])
+
+    # ⚠️ THE DISTINCTION THAT MATTERS PRE-SEASON. An unplayed week and a week
+    # nobody scored are byte-identical in this payload apart from
+    # matchup_status, so the status is carried and never inferred from zeros.
+    u = parse_api.parse_scoreboard(unplayed, season=2026, league_id="grffl", week=1)
+    check("an unplayed week still emits its 12 rows — that is what CBS says",
+          len(u["fantasy_team_week_scores"]) == 12)
+    check("...with every score a real 0.0, never NULL",
+          all(r["points_provider"] == 0.0 for r in u["fantasy_team_week_scores"]))
+    check("...and the provider's own status is preserved so a caller can tell "
+          "'not played' from 'shut out'",
+          u["fantasy_matchups"][0]["status"] == "scheduled"
+          and ms[0]["status"] == "final")
+
+    # ⚠️ NULL, not a computed guess: the optimal lineup depends on slot
+    # eligibility this payload does not carry.
+    check("points_optimal and lineup_efficiency stay NULL rather than being "
+          "invented from data that is not in the payload",
+          all(r["points_optimal"] is None and r["lineup_efficiency"] is None
+              for r in sc))
+
+    real = real_columns()
+    for tbl, rows in t.items():
+        extra = sorted({k for r in rows for k in r} - real[tbl])
+        pk = d1mod.PRIMARY_KEYS[tbl]
+        empty = sorted({c for r in rows for c in pk if r.get(c) in (None, "")})
+        check(f"{tbl}: no phantom columns", extra == [], str(extra))
+        check(f"{tbl}: every primary-key column populated", empty == [], str(empty))
+
 def main() -> None:
     print("CBS PIPELINE TEST — draft-results HTML scraper")
     print(f"  fixture: {FIXTURES.name}/cbs_draft_results_2019.html "
@@ -981,7 +1046,7 @@ def main() -> None:
     for fn in (test_urls, test_parse, test_no_fail_open, test_schema_audit,
                test_rules, test_stats_solver, test_api_envelope,
                test_api_parsers, test_api_schema_audit, test_adapter_guards,
-               test_scoring_engine):
+               test_scoring_engine, test_scoreboard):
         fn()
     print()
     if FAILURES:

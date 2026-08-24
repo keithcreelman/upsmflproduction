@@ -332,10 +332,40 @@ class CbsProvider(FantasyProvider):
     # ── weekly ───────────────────────────────────────────────────────────────
 
     def fetch_scoreboard(self, league: LeagueRef, week: int) -> FetchResult:
-        raise NotImplementedInThisPass(
-            "scoreboard", "league/schedules?period=all carries the matchups; the "
-            "score side needs league/scoring/live, which is only meaningful "
-            "in-season.")
+        """Matchups and team scores for one week, from `league/scoring/live`.
+
+        ⚠️ CURRENT SEASON ONLY, AND THAT IS A HARD LIMIT FOR HISTORY. CBS serves
+        no weekly scores for past seasons through any interface found:
+        `/schedule/<YEAR>` returns ONLY the authenticated user's own 17 games
+        under every URL form and printer variant tried, and the `/scoring/`
+        pages are JS-rendered with no scores in the HTML at all. So All-Play and
+        anything else needing league-wide weekly scores can be built from the
+        moment this runs, but cannot be backfilled.
+        """
+        self._assert_current("scoreboard", league.season)
+        before = self.api.api_calls
+        body = self._get("league/scoring/live", {"period": str(week)})
+        want = parse_api._int(
+            (self._details().get("league_details") or {}).get("num_teams"))
+        t = parse_api.parse_scoreboard(body, season=league.season,
+                                       league_id=league.league_id, week=week,
+                                       expected_teams=want)
+        status = (body.get("live_scoring") or {}).get("matchup_status")
+        scored = [r for r in t["fantasy_team_week_scores"]
+                  if (r.get("points_provider") or 0) > 0]
+        rows = [{**r, "_table": "fantasy_team_week_scores"}
+                for r in t["fantasy_team_week_scores"]]
+        rows += [{**r, "_table": "fantasy_matchups"} for r in t["fantasy_matchups"]]
+        # ⚠️ AN ALL-ZERO WEEK IS REPORTED, NOT HIDDEN. Pre-season every team
+        # reads 0, which is structurally identical to a week nobody scored.
+        # The rows are still emitted (they are what CBS says) but the result
+        # says so, so a caller never mistakes an unplayed week for a played one.
+        note = (f"week {week}, {len(t['fantasy_matchups'])} matchups, "
+                f"status={status!r}")
+        if not scored:
+            note += " — EVERY TEAM SCORED 0; this week has not been played"
+        return FetchResult(rows=rows, resource="scoreboard", complete=True,
+                           api_calls=self.api.api_calls - before, notes=note)
 
     def fetch_rosters(self, league: LeagueRef, week: int) -> FetchResult:
         """Every team's roster for one week.
@@ -363,8 +393,12 @@ class CbsProvider(FantasyProvider):
                        f"— the {league.season} draft has not happened yet."))
         raise NotImplementedInThisPass(
             "rosters (populated)",
-            "Rosters are empty pre-draft, so the player-row mapping has never "
-            "seen a real payload. Built after the draft, against the real shape.")
+            "The team objects carry NO `players` key at all before the draft, so "
+            "the populated shape has never been observed — building a parser now "
+            "would be guessing at exactly the thing that has caused every silent "
+            "data bug in this pipeline. The 2026 draft is 8 Sep; this is buildable "
+            "the day after, against a real payload. team_id=all already works and "
+            "is asserted above, so only the player rows are missing.")
 
     def fetch_player_stats(self, league: LeagueRef, week: int) -> FetchResult:
         raise NotImplementedInThisPass(
@@ -390,6 +424,17 @@ class CbsProvider(FantasyProvider):
         yield self.fetch_managers(league)
         yield self.fetch_schedule(league)
         yield self.fetch_draft_order(league)
+        # ⚠️ WEEKLY SCORES CANNOT BE BACKFILLED, so they must be collected as
+        # the season runs. CBS serves no league-wide weekly scores for any past
+        # season (see fetch_scoreboard), which means a week missed here is
+        # missed permanently. Bounded by the league's own scoring_periods
+        # rather than a hardcoded 17.
+        d = (self._details().get("league_details") or {})
+        last = parse_api._int(d.get("scoring_periods")) or 0
+        current = parse_api._int(d.get("current_period")) or 1
+        start = since_week if since_week else 1
+        for wk in range(start, min(current, last) + 1):
+            yield self.fetch_scoreboard(league, wk)
 
     def fetch_schedule(self, league: LeagueRef) -> FetchResult:
         self._assert_current("schedule", league.season)

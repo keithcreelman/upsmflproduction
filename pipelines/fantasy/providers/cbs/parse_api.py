@@ -680,6 +680,100 @@ def _mdy(v: Any) -> str | None:
     return f"{y:04d}-{m:02d}-{d:02d}"
 
 
+# ── weekly ───────────────────────────────────────────────────────────────────
+
+def parse_scoreboard(live: dict, *, season: int, league_id: str, week: int,
+                     expected_teams: int | None = None) -> dict[str, list[dict]]:
+    """`league/scoring/live?period=N` → fantasy_matchups + fantasy_team_week_scores.
+
+    ⚠️ EVERY TEAM APPEARS TWICE — once as itself and once as somebody's
+    opponent. Emitting a matchup row per team would double every game in the
+    league. Matchups are de-duplicated on the unordered team pair, and the
+    count is asserted against teams/2.
+
+    ⚠️ ZERO IS A REAL SCORE, AND SO IS AN UNPLAYED WEEK. Pre-season CBS returns
+    all twelve teams with pts=0, which is structurally identical to a week
+    everybody was shut out. `matchup_status` is what separates them, and it is
+    carried through so the caller can tell "nobody has played" from "nobody
+    scored" rather than inferring it from the zeros.
+    """
+    ls = _require(live, "live_scoring", "league/scoring/live")
+    teams = ls.get("teams")
+    if not isinstance(teams, list) or not teams:
+        raise CbsPayloadError("league/scoring/live: no teams.")
+    if expected_teams is not None and len(teams) != expected_teams:
+        raise CbsPayloadError(
+            f"league/scoring/live returned {len(teams)} teams, expected "
+            f"{expected_teams}. CBS narrows collections silently.")
+    lk = league_key(season, league_id)
+    status = ls.get("matchup_status")
+
+    scores, seen_pairs, matchups = [], set(), []
+    for t in teams:
+        tid = str(t.get("id") or "").strip()
+        if not tid:
+            raise CbsPayloadError(f"league/scoring/live: team with no id: {t!r}")
+        scores.append({
+            "platform": PLATFORM, "league_key": lk, "season": season,
+            "week": week, "team_key": team_key_from_id(season, league_id, tid),
+            "points_provider": _float(t.get("pts")),
+            "points_bench": _float(t.get("reserve_pts")),
+            # CBS states neither an optimal lineup nor an efficiency figure.
+            # NULL, not a computed guess — the optimal lineup depends on slot
+            # eligibility this payload does not carry.
+            "points_optimal": None,
+            "lineup_efficiency": None,
+            "projected_points": _float(t.get("p")),
+            "scores_reconciled": None,
+            "reconcile_delta": None,
+            "is_derived": 0,
+        })
+        for m in t.get("matchups") or []:
+            opp = str(m.get("opponent_team_id") or "").strip()
+            if not opp:
+                continue
+            pair = tuple(sorted((tid, opp)))
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            ids = m.get("team_ids") or {}
+            home = str(ids.get("home") or tid)
+            away = str(ids.get("away") or opp)
+            hp = _float(m.get("pts") if home == tid else m.get("opponent_pts"))
+            ap = _float(m.get("pts") if away == tid else m.get("opponent_pts"))
+            matchups.append({
+                "platform": PLATFORM, "league_key": lk, "season": season,
+                "week": week,
+                # ⚠️ COLUMN NAMES COME FROM THE MIGRATION, NOT FROM THE PROVIDER.
+                # The table is team_a/team_b, deliberately NOT home/away: CBS
+                # states a home_away flag but many leagues have no such concept,
+                # so the neutral pair is the schema's contract. Writing
+                # home_team_key here produced eight phantom columns on the first
+                # attempt — the schema audit is what caught it.
+                "matchup_key": f"{lk}.w{week}.m{m.get('id') or pair[0] + 'v' + pair[1]}",
+                "team_a_key": team_key_from_id(season, league_id, home),
+                "team_b_key": team_key_from_id(season, league_id, away),
+                "team_a_points": hp, "team_b_points": ap,
+                "team_a_projected": None, "team_b_projected": None,
+                "is_playoffs": 1 if str(m.get("type", "")).lower() != "regular" else 0,
+                "is_consolation": _int(m.get("thirdplace")) or 0,
+                "is_division_matchup": None,   # CBS does not state it per matchup
+                "winner_team_key": None if (hp is None or ap is None or hp == ap)
+                else team_key_from_id(season, league_id, home if hp > ap else away),
+                "is_tied": 1 if (hp is not None and ap is not None and hp == ap) else 0,
+                "status": status,
+                "raw_matchup_json": _j(m),
+                "unmapped_fields": _j(["home_away", "opponent_team_logo",
+                                       "championship"]),
+            })
+    if len(matchups) * 2 != len(teams):
+        raise CbsPayloadError(
+            f"{len(matchups)} matchups from {len(teams)} teams — every team must "
+            f"appear in exactly one game. A bye or a duplicated pair would make "
+            f"the week's records wrong.")
+    return {"fantasy_team_week_scores": scores, "fantasy_matchups": matchups}
+
+
 # ── draft ────────────────────────────────────────────────────────────────────
 
 def parse_draft_order(order_body: dict, *, season: int, league_id: str
