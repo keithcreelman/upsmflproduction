@@ -29,7 +29,7 @@
      §6 roster/cap headroom is ADVISORY — never hard-block a move on a number
         we are not sure of. One carve-out (Keith 2026-08-08): "No drop" is
         withheld when the active roster is KNOWN full against the UPS roster
-        ceiling (canon 27 min / 35 pre-deadline / 30 post-deadline, via
+        ceiling (27 min / 35 pre-deadline / 30 post-deadline, via
         DATA.rosterCapMax()), because that option can only be refused. Anything
         unknown still offers it. See rosterHeadroom().
 
@@ -416,12 +416,18 @@
   // The read-only escape hatch. Offered instead of a write whenever the kill
   // switch is dark — never a button whose only outcome is a 503.
   function openNativeWaiverPage() {
+    // "Switched off" is only true when we actually LOADED state and it said so.
+    // A failed load is a different sentence — see app.js waiverStateKnown().
+    var known = !(M.waivers && M.waivers.stateKnown) || M.waivers.stateKnown();
+    var why = known
+      ? "In-app waiver moves are switched off right now."
+      : "Couldn't reach the waiver service — retrying in the background.";
     var link = nativeLink();
     if (!link) {
-      M.ui.showToast("In-app waiver moves are switched off right now.", "err");
+      M.ui.showToast(why, "err");
       return;
     }
-    if (window.confirm("In-app waiver moves are switched off right now.\n\nOpen MFL's own add/drop page?")) {
+    if (window.confirm(why + "\n\nOpen MFL's own add/drop page?")) {
       window.open(link, "_blank");
     }
   }
@@ -911,7 +917,7 @@
         '</div>' +
         '<div class="ups-m-drop-body">' + noneRow + rows + '</div>' +
         (anyEstimate
-          ? '<div class="ups-m-drop-foot">Penalties are estimates until the cap service responds — MFL charges the league-canonical amount.</div>'
+          ? '<div class="ups-m-drop-foot">Penalties are estimates until the cap service responds — MFL charges the official amount.</div>'
           : '') +
       '</div>' +
     '</div>';

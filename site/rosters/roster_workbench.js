@@ -1653,10 +1653,26 @@
     return safeInt(rec && rec[y], 0);
   }
 
+  // Escalator base = the contract's AAV, NOT the loaded current-year salary
+  // (canon §C4: "AAV escalator, applied to the extension years only"). This is
+  // the PR #780 fix — it shipped in site/shared/pretrade_extension.js and in
+  // trade_workbench.js, but this desktop duplicate never got it. On a loaded
+  // deal in its final year — exactly the case the rulebook's own gotcha warns
+  // about — the two bases differ: Drake London (TCV 66K / CL 2 = $33K AAV,
+  // loaded to $52K in the current year) quoted 52+10 = $62K instead of the
+  // correct 33+10 = $43K, a $19K overquote. Order matches the worker's
+  // recomputeExtPreviewsLive: normalized aav field, then the contract-info AAV
+  // token, then flat salary as a last resort.
+  function extensionAavBase(player) {
+    var aav = Math.max(0, safeInt(player && player.aav, 0)) ||
+              Math.max(0, currentAavForContractInfo(player && player.special));
+    return aav > 0 ? aav : Math.max(0, safeInt(player && player.salary, 0));
+  }
+
   function projectedExtensionSalary(player, yearsToAdd) {
     var y = safeInt(yearsToAdd, 0);
     if (y !== 1 && y !== 2) return 0;
-    return Math.max(1000, roundToK(safeInt(player && player.salary, 0) + extensionRaiseForPlayer(player, y)));
+    return Math.max(1000, roundToK(extensionAavBase(player) + extensionRaiseForPlayer(player, y)));
   }
 
   function extensionTermYearsForStatus(status) {
@@ -2145,20 +2161,22 @@
       };
     }
 
-    if (isLikelyWaiverPickup(player) && contractLength === 1 && currentYearSalary >= 5000) {
-      var waiverAmount = Math.round(currentYearSalary * 0.35);
-      return {
-        amount: waiverAmount,
-        note: "Waiver pickup rule: 35% of current-year salary (" + money(currentYearSalary) + " x 35%).",
-        tcv: totalContractValue,
-        guaranteed: guaranteed,
-        currentYearSalary: currentYearSalary,
-        priorEarned: priorEarned,
-        accrued: accrued,
-        earned: earned
-      };
-    }
-
+    // REMOVED (2026-08-16). The flat 35%-of-current-year-salary branch that
+    // stood here was retired by canon §D1.4 back on 2026-05-08: a WW pickup at
+    // $5K+ now earns like any other contract — 75% × TCV minus per-week
+    // pro-rated earning, which is what `guaranteed - earned` below already
+    // computes and what the worker's _computeDropPenalty actually charges.
+    //
+    // site/m/front_office_penalty.js dropped it on 2026-07-30 and spelled out
+    // the hazard: "an owner could be quoted $3,500 on a $10K waiver claim and
+    // then be charged $7,500." This desktop original never got that fix, so the
+    // understatement was still reachable here — mitigated only by the fact that
+    // dropPenaltyEstimate prefers the worker's authoritative batch, which means
+    // it surfaced before the batch resolved and for players missing from it.
+    //
+    // The cheap-WW exemption is unaffected: a 1-year deal under $5K is handled
+    // by the branch directly above. isLikelyWaiverPickup() is left in place so
+    // this file still diffs cleanly against the mobile mirror; it is now unused.
     var penalty = Math.max(0, guaranteed - earned);
     var guaranteeLabel = explicitGuarantee > 0
       ? "contract guarantee"
@@ -3047,24 +3065,37 @@
     // tag_salary in the row is the precomputed (formerly buggy) value
     // and is NOT used as input — we use it only as a min-floor below
     // for back-compat with rows that lack tag_base_bid.
+    // NARROWED 2026-08-16 to the deadline snapshot ONLY. Dropping salary from
+    // the max (the 2026-05-19 fix above) was necessary but not sufficient:
+    // keeping current `aav` in it still reproduced the bug canon §C8-A names,
+    // because an in-season claim raises current AAV too. Malik Willis —
+    // deadline AAV $2K, claimed for $37K — still priced at $41K under
+    // max(prior, current) when canon says his Tier 3 price of $16K governs.
+    // §C8-A is explicit: the bump base is the contract-deadline AAV snapshot
+    // "and nothing else", and a player absent from that snapshot has no
+    // baseline at all. Now matches build_tag_tracking.py (`bump_base =
+    // prior_aav`) and the mobile submit path.
     var ref = row || {};
     var baseBid = safeInt(ref.tag_base_bid, 0) || safeInt(ref.tag_salary, 0);
-    var aavFloor = Math.max(
-      safeInt(ref.prior_aav_week1, 0),
-      safeInt(ref.aav, 0)
-    );
-    var bumpFloor = aavFloor > 0 ? Math.ceil((aavFloor * 1.1) / 1000) * 1000 : 0;
+    var bumpBase = safeInt(ref.prior_aav_week1, 0);
+    var bumpFloor = bumpBase > 0 ? Math.ceil((bumpBase * 1.1) / 1000) * 1000 : 0;
     return Math.max(baseBid, bumpFloor);
   }
 
+  // Canonical tag floor annotation — the ONE spelling all writers emit.
+  var TAG_FLOOR_NOTE = "10% AAV floor (rounded up to $1K)";
   function effectiveTagFormulaForRow(row) {
-    // Strip the JSON's "10% salary floor" suffix because the formula
-    // is now AAV-only — the suffix label was misleading.
-    var formula = safeStr(row && row.tag_formula).replace(/\s*\|\s*10% salary floor[^|]*$/i, "");
+    // §C8-A: the floor is 10% over the CONTRACT-DEADLINE AAV snapshot — AAV only,
+    // never salary — so "10% AAV floor" is the accurate label and "10% salary
+    // floor" is the stale salary-inclusive one. Strip EITHER wording and every
+    // occurrence, then write the canonical note: the old regex stripped only
+    // "salary floor" while emitting "AAV floor", so it never matched its own
+    // output and re-tagging appended forever (Javonte Williams carried it twice).
+    var formula = safeStr(row && row.tag_formula).replace(/\s*\|\s*10%\s*(?:salary|AAV)\s+floor[^|]*/ig, "");
     var baseBid = safeInt(row && row.tag_base_bid, 0) || safeInt(row && row.tag_salary, 0);
     var effectiveBid = effectiveTagSalaryForRow(row);
     if (effectiveBid > baseBid) {
-      formula += (formula ? " | " : "") + "10% AAV floor (rounded up to $1K)";
+      formula += (formula ? " | " : "") + TAG_FLOOR_NOTE;
     }
     return formula;
   }
@@ -11249,18 +11280,18 @@
           taxiContextText =
             usedLine +
             "\n⚠ This will be call-up #" + aboutToBeNth + " of a " + max + "-call-up budget." +
-            "\nCanon §B2: 4th call-up = PERMANENT PROMOTION." +
+            "\n4th call-up = PERMANENT PROMOTION." +
             "\nPlayer will no longer be cap-free cut after this NFL week locks.";
         } else {
           taxiContextText =
             usedLine +
-            "\nCanon §B2: each NFL week the player is active on your roster burns 1 call-up." +
+            "\nEach NFL week the player is active on your roster burns 1 call-up." +
             "\nDemoting before the next NFL week locks DOES NOT count.";
         }
       } else {
         // demote_taxi
         taxiContextText =
-          "\n\nCanon §B2: demoting before the next NFL week locks does NOT" +
+          "\n\nDemoting before the next NFL week locks does NOT" +
           "\nburn a call-up. Pending call-ups awaiting confirmation will be" +
           "\nautomatically cleared on the next weeklyresults sweep.";
       }

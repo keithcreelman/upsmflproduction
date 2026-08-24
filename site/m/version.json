@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.08.5",
-  "label": "Contracts: pre-season waiver pickups (Vet-WW) can take a multi-year deal, and every contract window — MYAC, MYM, Extension — is offered only inside its own window. The Week 3 / Week 5 boundaries now come from the real NFL kickoffs, so the app and the Discord waiver post print the same dates for the same player."
+  "build": "2026.08.23.1",
+  "label": "Rookies you won in the FA Auction can now be signed to a 1, 2 or 3-year deal like any other auction player. They were only being offered an extension."
 }

@@ -39,7 +39,7 @@ import { resolveDiscordUserIds } from "./trade_dm.js";
 import { sendDm, openDmChannel } from "./discord_round.js";
 import {
   closeEtDay, complianceStandings, previousEtDay, etDayKeyOf, rule2Label, rule2FineK,
-  RULE2_MAX_FINED_OFFENSE,
+  RULE2_MAX_FINED_OFFENSE, rule2OverLabel,
 } from "./auction_compliance.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -128,6 +128,26 @@ function buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesAr
     } else {
       L.push("🧪 _This was only a test — no penalties assessed at this time._");
     }
+  }
+
+  // ---- extra nominations: the OTHER half of §F RULE 2 ----
+  // Its own block, never folded into the misses list above. They are separate
+  // offenses on separate ladders, and an owner who over-nominated should not
+  // read a line implying they skipped a day.
+  const overs = (closed && closed.overs) || [];
+  if (overs.length) {
+    L.push("");
+    L.push(`**🔁 EXTRA NOMINATIONS (${closed?.day || "—"})**`);
+    for (const o of overs) {
+      const p = (closed.over_penalties || []).find((x) => x.fid === o.fid);
+      const offense = Number(p?.offense_no || 1);
+      const tag = (mentionsByFid[o.fid] || []).map((id) => `<@${id}>`).join(" ");
+      L.push(`⚠️ **${o.franchise_name}** — ${o.noms_used} nominations, max is ${o.noms_max} — **${rule2OverLabel(offense)}**${tag ? ` — ${tag}` : ""}`);
+    }
+    if (penaltiesArmed && overs.some((o) => Number(((closed.over_penalties || []).find((x) => x.fid === o.fid) || {}).amount_k || 0) > 0)) {
+      L.push("_Same two-season split as a missed nomination._");
+    }
+    L.push("_A third nomination is blocked in the UPS app — these came in through MFL directly. The extras have to be pulled by hand before anyone bids on them._");
   }
   L.push("");
 

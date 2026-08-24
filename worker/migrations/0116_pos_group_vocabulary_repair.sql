@@ -1,3 +1,8 @@
+-- ⚠️ THE "NEVER RUN migrations apply" WARNING BELOW IS OBSOLETE (2026-08-17).
+--    The tracker was reconciled; `wrangler d1 migrations apply` is now correct.
+--    See migrations/README.md. The old text is left intact below on purpose —
+--    it was true when written.
+
 -- 0116_pos_group_vocabulary_repair.sql
 -- Claude 2026-08-04 — repairs nfl_player_weekly.pos_group to match the fixed
 -- pos_group_of() in pipelines/etl/scripts/fetch_nflverse_weekly.py.

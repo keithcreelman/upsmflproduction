@@ -876,10 +876,17 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-review-note { margin: 4px 0 10px; padding: 6px 10px; font-size: 11px; color: var(--warn); background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); border-radius: 6px; }
 
 /* Roster-row indicators: NFL game status (O/Q/D, from MFL) + news flag. */
-.fo-nfl-status { display: inline-block; font-size: 9px; font-weight: 800; padding: 0 4px; border-radius: 3px; vertical-align: middle; line-height: 14px; }
-.fo-nfl-status.fo-nfl-out { background: rgba(248,113,113,0.18); color: var(--err); }
-.fo-nfl-status.fo-nfl-doubtful { background: rgba(251,146,60,0.18); color: #fb923c; }
-.fo-nfl-status.fo-nfl-questionable { background: rgba(251,191,36,0.18); color: var(--warn); }
+/* Louder than the original 9px/no-border pill (Keith 2026-08-15: "make him
+   stand out more with a red S or something"). A suspension is roster-level
+   news; at 9px with a 0.18-alpha wash it read as decoration. Bigger type, a
+   real border, and a brighter fill so it registers in a dense table. */
+.fo-nfl-status { display: inline-block; font-size: 10px; font-weight: 900; padding: 1px 5px; border-radius: 4px; vertical-align: middle; line-height: 14px; letter-spacing: .03em; border: 1px solid transparent; }
+.fo-nfl-status.fo-nfl-out { background: rgba(220,38,38,0.30); color: #fecaca; border-color: rgba(248,113,113,0.65); }
+.fo-nfl-status.fo-nfl-doubtful { background: rgba(234,88,12,0.28); color: #fed7aa; border-color: rgba(251,146,60,0.55); }
+.fo-nfl-status.fo-nfl-questionable { background: rgba(202,138,4,0.28); color: #fde68a; border-color: rgba(250,204,21,0.50); }
+/* "we don't know" — deliberately colourless so it never reads as a designation.
+   Player modal only (the roster row stays silent); see nflStatusBadgeDetailed. */
+.fo-nfl-status.fo-nfl-unknown { background: rgba(148,163,184,0.14); color: var(--muted); font-weight: 700; }
 .fo-news-flag { font-size: 13px; line-height: 1; vertical-align: middle; cursor: pointer; margin-left: 3px; }
 
 /* Contract summary strip near the top of the roster (mirrors RWB's Cap Summary). */

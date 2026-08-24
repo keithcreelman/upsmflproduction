@@ -891,6 +891,14 @@ button.ups-m-busy::before,
 .ups-m-bench-proj { text-align: right; font-size: 14px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
 .ups-m-bench .ups-m-slot-mu { border-left: 0; padding-left: 12px; }
 .ups-m-bench-empty { padding: 12px; text-align: center; color: var(--fg-muted); font-size: 12px; }
+/* Taxi / IR / expired — on the bench list but NOT startable. */
+.ups-m-bench-tag { display: inline-block; margin-left: 6px; padding: 0 4px; border-radius: 3px; line-height: 14px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.3px; vertical-align: middle; }
+.ups-m-bench-tag.taxi { background: rgba(91, 141, 255, 0.16); color: var(--accent); }
+.ups-m-bench-tag.ir   { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
+.ups-m-bench-tag.exp  { background: rgba(138, 151, 173, 0.16); color: var(--fg-muted); }
+.ups-m-bench-row.blocked .ups-m-bench-id .nm { color: var(--fg-muted); }
+.ups-m-bench-row.blocked .ups-m-bench-proj { opacity: 0.45; }
 .ups-m-mu-form { font-weight: 700; color: var(--fg); }
 .ups-m-slot-hz { font-size: 9.5px; color: var(--fg-muted); padding: 0 12px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.4; }
 .ups-m-slot-hz .ups-m-hz { font-weight: 700; margin-left: 5px; }
@@ -1063,6 +1071,37 @@ button.ups-m-busy::before,
 .ups-m-ledger-player .pos { font-size: 11px; color: var(--fg-muted); font-weight: 500; margin-left: 2px; }
 .ups-m-ledger-meta { font-size: 12px; color: var(--fg-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ups-m-ledger-date { flex: 0 0 auto; font-size: 11px; color: var(--fg-muted); }
+/* Cap Adjustments tab — year + team controls, category-split summary, rows. */
+.ups-m-adj-controls { display: flex; gap: 10px; margin: 10px 2px 12px; }
+.ups-m-adj-controls label {
+  flex: 1 1 0; display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--fg-muted);
+}
+.ups-m-adj-controls select {
+  display: block; width: 100%; margin-top: 6px; background: var(--bg-elev); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font-size: 14px;
+  font-family: inherit; -webkit-appearance: none; appearance: none;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238a97ad"><path d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.ups-m-adj-summary { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 2px 10px; }
+.ups-m-adj-summary .chip {
+  background: var(--bg-elev2); border: 1px solid var(--line); padding: 4px 9px;
+  border-radius: 999px; font-size: 11px; color: var(--fg-muted);
+}
+.ups-m-adj-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.ups-m-adj-cat {
+  flex: 0 0 auto; min-width: 56px; text-align: center; font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 7px; border-radius: 6px;
+  background: rgba(91, 141, 255, 0.16); color: #9cc0ff;
+}
+.ups-m-adj-cat.cat-cap_penalty { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
+.ups-m-adj-cat.cat-other { background: rgba(138, 151, 173, 0.16); color: var(--fg-muted); }
+.ups-m-adj-item { flex: 1 1 auto; min-width: 0; }
+.ups-m-adj-label { font-size: 14px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-adj-meta { font-size: 12px; color: var(--fg-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-adj-amt { flex: 0 0 auto; font-size: 14px; font-weight: 700; color: var(--ok); font-variant-numeric: tabular-nums; }
+.ups-m-adj-amt.neg { color: var(--danger); }
 .ups-m-pos-chips {
   display: flex;
   gap: 6px;
@@ -1540,33 +1579,539 @@ button.ups-m-busy::before,
 .ups-m-otb-row .name { font-size: 14px; font-weight: 600; }
 .ups-m-otb-row .sub { font-size: 11px; color: var(--fg-muted); margin-top: 2px; display: flex; gap: 8px; }
 
-/* ----- Rules view ----- */
-.ups-m-rules-intro {
-  font-size: 12px;
+/* ----- Rulebook view (views/rules.js, data from data/rules_data.js) -----
+   Reference doc read one-handed, usually mid-argument: search is pinned to the
+   top, everything else starts collapsed, and tap targets stay >= 44px. */
+
+.ups-m-rb-head { padding: 12px 14px 0; }
+.ups-m-rb-stamp {
+  font-size: 11px;
   color: var(--fg-muted);
-  line-height: 1.6;
+  letter-spacing: .01em;
 }
-.ups-m-rules-card { padding: 14px 16px; }
-.ups-m-rules-title {
-  font-size: 14px;
+.ups-m-rb-tabs { display: flex; gap: 6px; margin: 10px 0 0; }
+.ups-m-rb-tab {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ups-m-rb-tab.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0e1320;
+}
+
+/* Search stays reachable while the member scrolls a long section. */
+.ups-m-rb-searchbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.ups-m-rb-input {
+  flex: 1;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  font-size: 16px;          /* < 16px makes iOS Safari zoom on focus */
+  -webkit-appearance: none;
+}
+.ups-m-rb-input::placeholder { color: var(--fg-muted); }
+.ups-m-rb-clear {
+  min-width: 34px; min-height: 34px;
+  border: none; border-radius: 8px;
+  background: var(--bg-elev2);
+  color: var(--fg-muted);
+  font-size: 14px; cursor: pointer;
+}
+
+.ups-m-rb-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 10px 14px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ups-m-rb-chips::-webkit-scrollbar { display: none; }
+.ups-m-rb-chip {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ups-m-rb-chip.is-on {
+  background: var(--teal); border-color: var(--teal); color: #0e1320;
+}
+
+/* --- Topic index: what an owner is actually looking up --- */
+.ups-m-rb-topics { display: flex; flex-direction: column; }
+/* Rows carry the title only — the one-liner still shows on the topic page and
+   in search results, so repeating it here just cost a screen and a half of
+   scrolling. 46px keeps the row above the 44px touch-target minimum. */
+.ups-m-rb-topic {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "title caret" "blurb caret";
+  align-items: center;
+  gap: 2px 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+.ups-m-rb-topic:active { background: var(--bg-elev); }
+.ups-m-rb-topic-t { grid-area: title; font-size: 16px; font-weight: 650; }
+.ups-m-rb-topic-b { grid-area: blurb; font-size: 12.5px; color: var(--fg-muted); line-height: 1.4; }
+.ups-m-rb-topic .ups-m-rb-caret { grid-area: caret; }
+
+.ups-m-rb-back {
+  border: none; background: none; padding: 12px 14px 4px;
+  color: var(--accent); font-size: 13px; cursor: pointer;
+}
+.ups-m-rb-topic-head { padding: 4px 14px 12px; }
+.ups-m-rb-topic-head h2 {
+  margin: 0; font-size: 24px; font-weight: 700; line-height: 1.15;
+  text-wrap: balance;
+}
+.ups-m-rb-lede {
+  margin: 8px 0 0; font-size: 15px; line-height: 1.45; color: var(--fg);
+}
+
+/* The at-a-glance answer: the numbers people came for. */
+.ups-m-rb-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border-block: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.ups-m-rb-fact { background: var(--bg); padding: 10px 14px; }
+/* Odd tile counts otherwise leave a dead cell on a 2-column phone grid. */
+.ups-m-rb-facts > .ups-m-rb-fact:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.ups-m-rb-fact-v {
+  font-size: 17px; font-weight: 700; color: var(--accent);
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.ups-m-rb-fact-l {
+  font-size: 11px; color: var(--fg-muted); margin-top: 2px;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+
+.ups-m-rb-today { padding: 0 14px; }
+.ups-m-rb-today p {
+  margin: 0 0 12px; font-size: 15px; line-height: 1.55;
+}
+.ups-m-rb-sub-h {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--fg-muted);
+  padding: 16px 14px 8px;
+}
+.ups-m-rb-cap {
+  font-size: 11px; color: var(--fg-muted); padding: 0 14px 12px;
+}
+
+/* Worked examples — cap math a person can follow line by line. */
+.ups-m-rb-ex {
+  margin: 0 14px 10px; padding: 12px 14px;
+  background: var(--bg-elev); border-radius: 10px;
+  border-left: 3px solid var(--teal);
+}
+.ups-m-rb-ex-t { font-size: 13.5px; font-weight: 650; margin-bottom: 8px; }
+.ups-m-rb-ex-l {
+  margin: 0; padding-left: 18px;
+  font-size: 13px; line-height: 1.65; color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-rb-ex-l li:last-child { color: var(--fg); font-weight: 600; }
+
+.ups-m-rb-time { padding: 0 14px; }
+.ups-m-rb-tl {
+  display: grid; grid-template-columns: 92px 1fr; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+}
+.ups-m-rb-tl-when {
+  font-size: 11.5px; font-weight: 650; color: var(--accent); line-height: 1.35;
+}
+.ups-m-rb-approx {
+  display: inline-block; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--warn); background: rgba(255,184,107,.14);
+  padding: 1px 4px; border-radius: 3px;
+}
+.ups-m-rb-tl-what { font-size: 14px; font-weight: 600; }
+.ups-m-rb-tl-d { font-size: 12.5px; color: var(--fg-muted); line-height: 1.5; margin-top: 3px; }
+
+.ups-m-rb-gotchas {
+  margin: 0; padding: 0 14px 0 32px;
+  font-size: 13.5px; line-height: 1.55;
+}
+.ups-m-rb-gotchas li { margin-bottom: 9px; }
+
+.ups-m-rb-open {
+  margin: 16px 14px 0; padding: 12px 14px;
+  border: 1px dashed var(--line-soft); border-radius: 10px;
+}
+.ups-m-rb-open-h {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--warn); margin-bottom: 6px;
+}
+.ups-m-rb-open ul {
+  margin: 0; padding-left: 16px;
+  font-size: 12.5px; line-height: 1.55; color: var(--fg-muted);
+}
+.ups-m-rb-open li { margin-bottom: 6px; }
+
+/* A rule the app states but canon does not yet carry. */
+.ups-m-rb-nocanon {
+  margin: 0 14px 14px; padding: 10px 12px;
+  background: rgba(255,184,107,.10);
+  border-left: 3px solid var(--warn);
+  border-radius: 0 8px 8px 0;
+  font-size: 12.5px; line-height: 1.5; color: var(--fg-muted);
+}
+.ups-m-rb-nocanon b { color: var(--warn); }
+
+/* Era notes — the "SuperFlex since 2022" line, deliberately the quietest
+   thing on the page. History must never compete with the current rule. */
+.ups-m-rb-eras {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 16px 14px 0;
+}
+.ups-m-rb-era {
+  font-size: 11.5px; color: var(--fg-muted);
+  background: var(--bg-elev); border-radius: 999px; padding: 4px 10px;
+}
+
+.ups-m-rb-drawer { margin: 18px 14px 0; border-top: 1px solid var(--line); }
+.ups-m-rb-drawer-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; min-height: 46px; padding: 0;
+  border: none; background: none; color: var(--fg-muted);
+  font-size: 13px; cursor: pointer; text-align: left;
+}
+.ups-m-rb-drawer.is-open .ups-m-rb-caret { transform: rotate(90deg); }
+.ups-m-rb-drawer-body { padding-bottom: 8px; }
+.ups-m-rb-cite {
+  margin-bottom: 14px; padding: 10px 12px;
+  background: var(--bg-elev); border-radius: 8px;
+  font-size: 13px; line-height: 1.55;
+}
+.ups-m-rb-cite-h {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 6px; flex-wrap: wrap;
+}
+.ups-m-rb-cite-t { font-weight: 650; font-size: 13px; }
+.ups-m-rb-cite-s { font-size: 11px; color: var(--fg-muted); margin-left: auto; }
+
+.ups-m-rb-hit {
+  display: block; width: 100%; text-align: left;
+  padding: 12px 14px; border: none; border-bottom: 1px solid var(--line);
+  background: none; color: var(--fg); cursor: default;
+}
+.ups-m-rb-hit-topic { cursor: pointer; }
+.ups-m-rb-hit-topic:active { background: var(--bg-elev); }
+.ups-m-rb-hit-k {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--accent); background: rgba(91,141,255,.14);
+  padding: 2px 7px; border-radius: 999px; margin-bottom: 6px;
+}
+.ups-m-rb-hit-canon { color: var(--fg-muted); background: var(--bg-elev2); }
+.ups-m-rb-hit-t { display: block; font-size: 15px; font-weight: 620; line-height: 1.3; }
+.ups-m-rb-hit-b {
+  display: block; font-size: 12.5px; color: var(--fg-muted);
+  line-height: 1.5; margin-top: 4px;
+}
+.ups-m-rb-hit-b mark {
+  background: rgba(91,141,255,.28); color: var(--fg);
+  border-radius: 3px; padding: 0 2px;
+}
+
+.ups-m-rb-chg-h {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 52px; padding: 10px 14px;
+  border: none; background: none; color: var(--fg);
+  text-align: left; cursor: pointer;
+}
+.ups-m-rb-chg.is-open .ups-m-rb-caret { transform: rotate(90deg); }
+
+.ups-m-rb-secttl {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--fg-muted);
+  padding: 14px 14px 8px;
+}
+.ups-m-rb-note, .ups-m-rb-resultcount {
+  font-size: 12px; color: var(--fg-muted);
+  padding: 0 14px 10px; line-height: 1.5;
+}
+.ups-m-rb-empty {
+  padding: 18px 14px; font-size: 13px;
+  color: var(--fg-muted); line-height: 1.6;
+}
+.ups-m-rb-loading { font-size: 13px; color: var(--fg-muted); }
+
+/* Quick answers — the questions that start arguments. */
+.ups-m-rb-quickwrap { padding-bottom: 4px; }
+.ups-m-rb-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 14px;
+}
+.ups-m-rb-qbtn {
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.ups-m-rb-qbtn:active { background: var(--bg-elev2); }
+
+/* Grouped topic index. Headers stay put while the list scrolls so you always
+   know which section you are in — the whole point of grouping 13 topics. */
+.ups-m-rb-group { padding-top: 10px; }
+.ups-m-rb-group-h {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 8px 14px 6px;
+  background: var(--bg);
+  font-size: 12px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--fg-muted);
+}
+.ups-m-rb-group-b {
+  font-size: 11.5px; font-weight: 500; letter-spacing: 0;
+  text-transform: none; color: var(--fg-dim, var(--fg-muted)); opacity: .85;
+}
+
+/* Section / rule accordions */
+.ups-m-rb-sec { border-bottom: 1px solid var(--line); }
+.ups-m-rb-sec-head, .ups-m-rb-rule-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+}
+.ups-m-rb-secnum {
+  flex: 0 0 auto;
+  min-width: 30px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--accent);
-  margin-bottom: 8px;
 }
-.ups-m-rules-list {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--fg);
+.ups-m-rb-sectitle { flex: 1; font-weight: 600; line-height: 1.25; }
+.ups-m-rb-seccount {
+  flex: 0 0 auto; font-size: 11px; color: var(--fg-muted);
+  background: var(--bg-elev2); border-radius: 999px; padding: 2px 8px;
 }
-.ups-m-rules-list li { margin-bottom: 6px; }
-.ups-m-rules-list li:last-child { margin-bottom: 0; }
-.ups-m-rules-list code {
-  font-size: 11px;
-  background: var(--bg-elev2);
-  padding: 1px 5px;
-  border-radius: 3px;
+.ups-m-rb-caret {
+  flex: 0 0 auto; color: var(--fg-muted); font-size: 18px;
+  transition: transform .15s ease;
+}
+.is-open > .ups-m-rb-sec-head .ups-m-rb-caret,
+.is-open > .ups-m-rb-rule-head .ups-m-rb-caret { transform: rotate(90deg); }
+.ups-m-rb-sec-body { padding-bottom: 6px; }
+
+.ups-m-rb-grp {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--fg-muted);
+  padding: 12px 14px 4px;
+}
+.ups-m-rb-grpkey { color: var(--accent); }
+
+.ups-m-rb-rule { border-top: 1px solid var(--line); }
+.ups-m-rb-rule:first-child { border-top: none; }
+.ups-m-rb-rid {
+  flex: 0 0 auto; min-width: 44px;
+  font-size: 12px; font-weight: 700; color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-rb-rtitle { flex: 1; font-size: 14px; font-weight: 600; line-height: 1.3; }
+.ups-m-rb-where {
+  font-size: 11px; color: var(--fg-muted); padding: 0 14px 2px 14px;
+}
+.ups-m-rb-meta {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 0 14px 8px 14px;
+}
+.ups-m-rb-meta:empty { display: none; }
+.ups-m-rb-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  padding: 2px 7px; border-radius: 999px;
+  background: var(--bg-elev2); color: var(--fg-muted);
+}
+.ups-m-rb-badge-chg { background: rgba(45,212,191,.16); color: var(--teal); }
+.ups-m-rb-badge-ok { background: rgba(139,229,139,.16); color: var(--ok); }
+.ups-m-rb-badge-no { background: rgba(255,107,107,.16); color: var(--danger); }
+.ups-m-rb-badge-adopt { background: rgba(91,141,255,.16); color: var(--accent); }
+.ups-m-rb-badge-provisional,
+.ups-m-rb-badge-new,
+.ups-m-rb-badge-caution { background: rgba(255,184,107,.16); color: var(--warn); }
+.ups-m-rb-badge-ambiguous { background: rgba(255,107,107,.16); color: var(--danger); }
+.ups-m-rb-badge-int { background: rgba(138,151,173,.18); color: var(--fg-muted); }
+
+.ups-m-rb-snip {
+  font-size: 12.5px; color: var(--fg-muted); line-height: 1.55;
+  padding: 0 14px 12px;
+}
+.ups-m-rb-snip mark {
+  background: rgba(91,141,255,.28); color: var(--fg);
+  border-radius: 3px; padding: 0 2px;
+}
+
+/* Rule body — the actual canon prose. */
+.ups-m-rb-rule:not(.is-open) > .ups-m-rb-body { display: none; }
+.ups-m-rb-body { padding: 0 14px 14px; font-size: 13.5px; line-height: 1.6; }
+.ups-m-rb-body p { margin: 0 0 10px; }
+.ups-m-rb-body p:last-of-type { margin-bottom: 6px; }
+.ups-m-rb-list { margin: 0 0 10px; padding-left: 20px; }
+.ups-m-rb-list li { margin-bottom: 6px; }
+.ups-m-rb-sub { margin-top: 6px; margin-bottom: 0; }
+.ups-m-rb-body code {
+  font-size: 11.5px; background: var(--bg-elev2);
+  padding: 1px 5px; border-radius: 3px;
+  overflow-wrap: anywhere;
+}
+.ups-m-rb-body a { color: var(--accent); }
+.ups-m-rb-quote {
+  margin: 0 0 10px; padding: 8px 12px;
+  border-left: 3px solid var(--line-soft);
+  background: var(--bg-elev); color: var(--fg-muted);
+  border-radius: 0 6px 6px 0;
+}
+/* Wide tables scroll inside their own box — the page itself must never
+   scroll sideways on a phone. */
+.ups-m-rb-tablewrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  margin: 0 0 10px; border: 1px solid var(--line); border-radius: 8px;
+}
+.ups-m-rb-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.ups-m-rb-table th, .ups-m-rb-table td {
+  padding: 7px 10px; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+.ups-m-rb-table th { background: var(--bg-elev2); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-muted); }
+.ups-m-rb-table tr:last-child td { border-bottom: none; }
+
+.ups-m-rb-child {
+  margin: 10px 0; padding: 10px 12px;
+  background: var(--bg-elev); border-radius: 8px;
+}
+.ups-m-rb-child-title {
+  font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px;
+}
+
+/* Commish-only material. These styles apply only once the footer toggle is on:
+   for a member, whole internal blocks are never emitted and internal <li>s are
+   removed from the fragment before insert (see blockHtml in views/rules.js), so
+   the rendered page genuinely does not contain them. */
+.ups-m-rb-int-block, .ups-m-rb-int {
+  color: var(--fg-muted);
+  border-left: 2px solid var(--line-soft);
+  padding-left: 8px;
+}
+.ups-m-rb-int { list-style: none; margin-left: -14px; }
+
+.ups-m-rb-copy {
+  margin-top: 4px; min-height: 34px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg-elev); color: var(--fg-muted);
+  font-size: 12px; cursor: pointer;
+}
+
+.ups-m-rb-chg { border-bottom: 1px solid var(--line); }
+.ups-m-rb-chg:not(.is-open) > .ups-m-rb-body { display: none; }
+.ups-m-rb-chgdate {
+  flex: 0 0 auto; font-size: 11px; font-weight: 700;
+  color: var(--fg-muted); font-variant-numeric: tabular-nums;
+}
+.ups-m-rb-affected {
+  font-size: 12px; color: var(--fg-muted);
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+  line-height: 1.5;
+}
+.ups-m-rb-thread {
+  display: inline-block; margin-top: 8px; font-size: 12px; color: var(--accent);
+}
+
+.ups-m-rb-foot {
+  padding: 18px 14px calc(24px + var(--safe-bot));
+  font-size: 11px; color: var(--fg-muted); line-height: 1.6;
+}
+.ups-m-rb-footrow { display: flex; gap: 14px; margin-top: 8px; }
+.ups-m-rb-link {
+  border: none; background: none; padding: 0;
+  color: var(--accent); font-size: 12px; cursor: pointer;
+  text-decoration: underline;
+}
+.ups-m-rb-link.is-on { color: var(--warn); }
+
+/* Deep-link landing cue: a link pasted into Discord should make it obvious
+   which rule it meant. */
+.ups-m-rb-flash { animation: ups-m-rb-flash 1.6s ease-out; }
+@keyframes ups-m-rb-flash {
+  0%, 30% { background: rgba(91,141,255,.20); }
+  100% { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ups-m-rb-flash { animation: none; }
+  .ups-m-rb-caret { transition: none; }
+}
+
+/* Tablet / desktop: same page, wider grid, and the column stops growing —
+   a rule set in a 1280px-wide line is not readable, and full-bleed rows make
+   the section list look empty. */
+@media (min-width: 700px) {
+  .ups-m-rb-wrap { max-width: 920px; margin: 0 auto; }
+  .ups-m-rb-quick { grid-template-columns: repeat(4, 1fr); }
+  .ups-m-rb-body, .ups-m-rb-snip { max-width: 74ch; }
+  .ups-m-rb-sec-head, .ups-m-rb-rule-head { min-height: 46px; }
+}
+@media (min-width: 1100px) {
+  .ups-m-rb-wrap { max-width: 1040px; }
 }
 
 /* ----- Roster row enrichment (Contracts view) ----- */

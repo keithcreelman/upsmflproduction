@@ -1,0 +1,39 @@
+name: Reminder — drop the MFL roster max 35 → 30 at the contract deadline
+
+# The UPS roster maximum MOVES: 35 until the September contract deadline, then
+# 30. MFL holds ONE number and does not switch it on a date, so it is a manual
+# commish edit. Miss it and MFL enforces 35 all season while canon says 30 —
+# silently, because nothing errors.
+#
+# Runs daily through Aug/Sep and posts only on deadline-minus-1 and deadline day.
+# The date is READ from the league calendar, not hardcoded: it moves every season
+# and this chore recurs every season.
+#
+# Goes to the TEST channel on purpose — it is a commish chore, not league news.
+
+on:
+  schedule:
+    - cron: "0 13 * 8,9 *"   # 13:00 UTC ≈ 9am ET, daily in August and September
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "post regardless of the date (test)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    env:
+      COMMISH_API_KEY: ${{ secrets.COMMISH_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$COMMISH_API_KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: check the date and remind
+        run: |
+          FLAG=""
+          [ "${{ github.event.inputs.force }}" = "true" ] && FLAG="--force"
+          python3 scripts/ci_roster_max_reminder.py $FLAG

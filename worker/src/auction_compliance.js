@@ -45,6 +45,29 @@ import { getAuctionCalendar } from "./auction_calendar.js";
 export const RULE2_FINE_K_BY_OFFENSE = [3, 7, 15];
 export const RULE2_MAX_FINED_OFFENSE = RULE2_FINE_K_BY_OFFENSE.length;
 
+// EXTRA NOMINATIONS — the other half of §F RULE 2 (canon §T4.3a, Keith's text
+// supplied 2026-08-17). The same ladder shifted one rung, with a warning at the
+// front: warning -> $3K -> $7K -> $15K -> league-fit review.
+//
+// The free first offense is not leniency about harm. Canon's Principle 0 prices
+// offense #1 on whether a diligent owner can trip it BY ACCIDENT — Keith on
+// over-nominating: "It can happen by accident we've all done it"; on missing
+// one: "you need to be dumb as shit not to understand to nominate 2 guys in a
+// day." A stray tap explains one; a whole ET day of silence does not.
+export const RULE2_OVER_FINE_K_BY_OFFENSE = [0, 3, 7, 15];
+export const RULE2_OVER_MAX_OFFENSE = RULE2_OVER_FINE_K_BY_OFFENSE.length;
+
+// The nomination CEILING is a hard 2, every franchise, every day — §A2: "The
+// ceiling is unconditional — it applies to every franchise every day, including
+// one that has already met its roster requirement."
+//
+// Deliberately NOT `noms_required`. The floor is conditional (waived once the
+// roster is legal) and could in principle be set to something other than 2; the
+// ceiling is neither. Deriving the ceiling from the floor would silently let a
+// franchise with a waived floor nominate freely, which is the exact case §A2
+// calls out.
+export const NOM_MAX_PER_DAY = 2;
+
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 function padFid(v) { const d = safeStr(v).replace(/\D/g, ""); return d ? d.padStart(4, "0") : ""; }
 
@@ -62,6 +85,26 @@ export function rule2Label(offenseNo) {
   if (n > RULE2_MAX_FINED_OFFENSE) return `${ord} offense — league-fit review (no fine)`;
   const k = rule2FineK(n);
   return `${ord} offense — $${k}K this season + $${k}K next`;
+}
+
+// The fine for extra-nomination offense N (1-based), in $K. 0 = no fine, which
+// means TWO different things on this ladder — a 1st-offense warning and a
+// 5th-offense league-fit review. Callers that show it to a human must use
+// rule2OverLabel(), which distinguishes them; callers that only write money can
+// treat both as "no rows".
+export function rule2OverFineK(offenseNo) {
+  const n = Number(offenseNo || 0);
+  if (n < 1 || n > RULE2_OVER_MAX_OFFENSE) return 0;
+  return RULE2_OVER_FINE_K_BY_OFFENSE[n - 1];
+}
+
+export function rule2OverLabel(offenseNo) {
+  const n = Number(offenseNo || 0);
+  const ord = n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
+  if (n === 1) return "1st extra nomination — warning, no fine";
+  if (n > RULE2_OVER_MAX_OFFENSE) return `${ord} extra nomination — league-fit review (no fine)`;
+  const k = rule2OverFineK(n);
+  return `${ord} extra nomination — $${k}K this season + $${k}K next`;
 }
 
 // ET calendar day for a unix second, 'YYYY-MM-DD'. en-CA gives ISO order.
@@ -223,6 +266,7 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows, positions
   const armed = !!(await getFeatureFlag(env, "AUCTION_FAA_PENALTIES_ENABLED"));
 
   const misses = [];
+  const overs = [];
   for (const r of (rows || [])) {
     const fid = padFid(r.franchise_id);
     if (!fid) continue;
@@ -233,18 +277,24 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows, positions
     // ballgame: judging on `used < required` alone fines the one owner who
     // finished.
     const missed = !rosterMet && used < required;
-    const autoVoid = missed && !armed;
+    // The CEILING is not waived by anything (§A2), so this is deliberately
+    // independent of rosterMet and of `required` — see NOM_MAX_PER_DAY. The two
+    // verdicts are mutually exclusive (used cannot be both < 2 and > 2), which
+    // is why one row per franchise per day still holds.
+    const over = used > NOM_MAX_PER_DAY;
+    const autoVoid = (missed || over) && !armed;
     await db.prepare(
       `INSERT OR IGNORE INTO ups_faa_nom_days
-         (season, league_id, fid, et_day, noms_used, noms_required, roster_met, total_deficit, missed,
+         (season, league_id, fid, et_day, noms_used, noms_required, roster_met, total_deficit, missed, over,
           voided, void_reason, voided_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       Number(season), String(leagueId), fid, String(etDay),
-      used, required, rosterMet ? 1 : 0, Number(r.total_deficit || 0), missed ? 1 : 0,
+      used, required, rosterMet ? 1 : 0, Number(r.total_deficit || 0), missed ? 1 : 0, over ? 1 : 0,
       autoVoid ? 1 : 0, autoVoid ? "auto: fines dark (pre-auction test)" : null, autoVoid ? "system" : null
     ).run();
     if (missed) misses.push({ fid, franchise_name: r.franchise_name, noms_used: used, noms_required: required });
+    if (over) overs.push({ fid, franchise_name: r.franchise_name, noms_used: used, noms_max: NOM_MAX_PER_DAY });
   }
 
   // Book penalties for each miss, in a stable order so offense numbers are
@@ -254,7 +304,20 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows, positions
     const p = await bookPenaltyForMiss(env, { season, leagueId, fid: m.fid, etDay, armed });
     if (p) penalties.push({ ...p, franchise_name: m.franchise_name });
   }
-  return { ok: true, day: etDay, closed: true, misses, penalties, penalties_armed: armed };
+  // Same for over-nominations, on their own ladder and their own offense count.
+  // The two ladders never share an offense number: missing Tuesday and
+  // over-nominating Friday is a 1st offense on each, not a 2nd on either.
+  const overPenalties = [];
+  for (const o of overs.sort((a, b) => a.fid.localeCompare(b.fid))) {
+    const p = await bookPenaltyForOver(env, { season, leagueId, fid: o.fid, etDay, armed });
+    if (p) overPenalties.push({ ...p, franchise_name: o.franchise_name, noms_used: o.noms_used });
+  }
+  return {
+    ok: true, day: etDay, closed: true,
+    misses, penalties,
+    overs, over_penalties: overPenalties,
+    penalties_armed: armed,
+  };
 }
 
 // Count PRIOR un-voided misses this auction, stamp the next offense number, and
@@ -287,19 +350,61 @@ async function bookPenaltyForMiss(env, { season, leagueId, fid, etDay, armed = t
   return { fid, et_day: etDay, offense_no: offenseNo, amount_k: amountK, rows: 2, voided: !armed };
 }
 
+// The over-nomination twin of bookPenaltyForMiss. Same shape, different ladder
+// and a different counting column, so the two offense counts stay independent.
+async function bookPenaltyForOver(env, { season, leagueId, fid, etDay, armed = true }) {
+  const db = env.UPS_MFL_DB;
+  const prior = await db.prepare(
+    `SELECT COUNT(*) AS n FROM ups_faa_nom_days
+      WHERE season=? AND league_id=? AND fid=? AND over=1 AND voided=0 AND et_day < ?`
+  ).bind(Number(season), String(leagueId), fid, String(etDay)).first();
+  const offenseNo = Number(prior?.n || 0) + 1;
+  const amountK = rule2OverFineK(offenseNo);
+
+  // Two different no-money outcomes, both returning zero rows: the 1st-offense
+  // warning and the 5th-offense league-fit review. The offense number is what
+  // tells them apart — rule2OverLabel() renders the difference for the report.
+  if (amountK <= 0) {
+    return {
+      fid, et_day: etDay, offense_no: offenseNo, amount_k: 0, rows: 0,
+      kind: "over",
+      outcome: offenseNo === 1 ? "warning" : "league_fit_review",
+    };
+  }
+
+  for (const applies of [Number(season), Number(season) + 1]) {
+    // '|over' suffix keeps these distinct from miss ids. Miss ids stay in their
+    // original 5-part form — rewriting them would orphan rows already posted to
+    // MFL whose salaryAdj notes reference them.
+    const id = `${season}|${leagueId}|${fid}|${etDay}|${applies}|over`;
+    await db.prepare(
+      `INSERT OR IGNORE INTO ups_faa_nom_penalties
+         (penalty_id, season, league_id, fid, et_day, offense_no, amount_k, applies_to_season,
+          kind, voided, void_reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'over', ?, ?)`
+    ).bind(id, Number(season), String(leagueId), fid, String(etDay), offenseNo, amountK, applies,
+      armed ? 0 : 1, armed ? null : "auto: fines dark (pre-auction test)").run();
+  }
+  return { fid, et_day: etDay, offense_no: offenseNo, amount_k: amountK, rows: 2, kind: "over", voided: !armed };
+}
+
 // Per-franchise standing this auction, for the reports.
 // Returns Map<fid, { offenses, fined_k_this_season, fined_k_next_season, days: [] }>
 export async function complianceStandings(env, { season, leagueId }) {
   const db = env.UPS_MFL_DB;
   const out = new Map();
   if (!db) return out;
+  // kind='miss' is LOAD-BEARING, not tidiness. Without it, extra-nomination
+  // rows landing in the same table would silently inflate every existing
+  // report's offense count and fine total the first time somebody
+  // over-nominates. The two ladders are separate offenses and must never merge.
   const { results } = await db.prepare(
     `SELECT fid,
             SUM(CASE WHEN applies_to_season = ?      THEN amount_k ELSE 0 END) AS k_now,
             SUM(CASE WHEN applies_to_season = ? + 1  THEN amount_k ELSE 0 END) AS k_next,
             COUNT(DISTINCT et_day)                                            AS offenses
        FROM ups_faa_nom_penalties
-      WHERE season=? AND league_id=? AND voided=0
+      WHERE season=? AND league_id=? AND voided=0 AND kind='miss'
       GROUP BY fid`
   ).bind(Number(season), Number(season), Number(season), String(leagueId)).all();
   for (const r of (results || [])) {
@@ -307,7 +412,44 @@ export async function complianceStandings(env, { season, leagueId }) {
       offenses: Number(r.offenses || 0),
       fined_k_this_season: Number(r.k_now || 0),
       fined_k_next_season: Number(r.k_next || 0),
+      over_offenses: 0,
+      over_fined_k_this_season: 0,
+      over_fined_k_next_season: 0,
     });
+  }
+
+  // Over-nomination standing, counted from the DAYS table rather than the
+  // penalties table — a 1st offense is a warning and books no penalty rows, so
+  // counting money would report an owner who over-nominated as having done
+  // nothing. The fine totals still come from the penalties table.
+  const { results: overDays } = await db.prepare(
+    `SELECT fid, COUNT(*) AS n FROM ups_faa_nom_days
+      WHERE season=? AND league_id=? AND over=1 AND voided=0
+      GROUP BY fid`
+  ).bind(Number(season), String(leagueId)).all();
+  const { results: overMoney } = await db.prepare(
+    `SELECT fid,
+            SUM(CASE WHEN applies_to_season = ?      THEN amount_k ELSE 0 END) AS k_now,
+            SUM(CASE WHEN applies_to_season = ? + 1  THEN amount_k ELSE 0 END) AS k_next
+       FROM ups_faa_nom_penalties
+      WHERE season=? AND league_id=? AND voided=0 AND kind='over'
+      GROUP BY fid`
+  ).bind(Number(season), Number(season), Number(season), String(leagueId)).all();
+
+  const blank = () => ({
+    offenses: 0, fined_k_this_season: 0, fined_k_next_season: 0,
+    over_offenses: 0, over_fined_k_this_season: 0, over_fined_k_next_season: 0,
+  });
+  for (const r of (overDays || [])) {
+    const f = padFid(r.fid);
+    if (!out.has(f)) out.set(f, blank());
+    out.get(f).over_offenses = Number(r.n || 0);
+  }
+  for (const r of (overMoney || [])) {
+    const f = padFid(r.fid);
+    if (!out.has(f)) out.set(f, blank());
+    out.get(f).over_fined_k_this_season = Number(r.k_now || 0);
+    out.get(f).over_fined_k_next_season = Number(r.k_next || 0);
   }
   return out;
 }
@@ -341,10 +483,31 @@ export async function pendingMflPenalties(env, { season, leagueId }) {
 // owner was already told — the schedule is a pure function of how many misses
 // survive, so there is no version of this that surprises someone upward.
 async function recomputeOffenses(env, { season, leagueId, fid }) {
+  // BOTH ladders re-derive, independently. An excused day excuses everything
+  // that happened on it, so a void can shift either count — and leaving the
+  // over ladder un-derived would reintroduce the exact bug §T4.3a forbids, one
+  // rung over: excuse someone's 2nd extra nomination and their 3rd would still
+  // price at $7K instead of dropping to $3K.
+  const missRepriced = await recomputeLadder(env, { season, leagueId, fid, kind: "miss" });
+  const overRepriced = await recomputeLadder(env, { season, leagueId, fid, kind: "over" });
+  return missRepriced.concat(overRepriced);
+}
+
+// One ladder's worth of re-derivation. `kind` selects both the counting column
+// on ups_faa_nom_days and the fine schedule, so the two ladders can never read
+// each other's offenses.
+async function recomputeLadder(env, { season, leagueId, fid, kind }) {
   const db = env.UPS_MFL_DB;
+  const isOver = kind === "over";
+  const flagCol = isOver ? "over" : "missed";
+  const fineK = isOver ? rule2OverFineK : rule2FineK;
+  const idFor = (etDay, applies) =>
+    isOver ? `${season}|${leagueId}|${fid}|${etDay}|${applies}|over`
+           : `${season}|${leagueId}|${fid}|${etDay}|${applies}`;
+
   const { results: days } = await db.prepare(
     `SELECT et_day FROM ups_faa_nom_days
-      WHERE season=? AND league_id=? AND fid=? AND missed=1 AND voided=0
+      WHERE season=? AND league_id=? AND fid=? AND ${flagCol}=1 AND voided=0
       ORDER BY et_day ASC`
   ).bind(Number(season), String(leagueId), fid).all();
 
@@ -352,30 +515,34 @@ async function recomputeOffenses(env, { season, leagueId, fid }) {
   for (let i = 0; i < (days || []).length; i += 1) {
     const etDay = days[i].et_day;
     const offenseNo = i + 1;
-    const amountK = rule2FineK(offenseNo);
-    // Past the fined tiers (4th+) there is no money — drop any rows that exist
-    // so the ledger can't hold a fine the schedule doesn't define.
+    const amountK = fineK(offenseNo);
+    // No money at this rung — a 1st-offense warning on the over ladder, or
+    // past the fined tiers on either. Drop any rows that exist so the ledger
+    // can't hold a fine the schedule doesn't define.
     if (amountK <= 0) {
+      const why = (isOver && offenseNo === 1)
+        ? "1st extra nomination — warning, no fine"
+        : "beyond fine schedule (league-fit review)";
       await db.prepare(
-        `UPDATE ups_faa_nom_penalties SET voided=1, void_reason='beyond fine schedule (league-fit review)'
-          WHERE season=? AND league_id=? AND fid=? AND et_day=? AND voided=0`
-      ).bind(Number(season), String(leagueId), fid, etDay).run();
+        `UPDATE ups_faa_nom_penalties SET voided=1, void_reason=?
+          WHERE season=? AND league_id=? AND fid=? AND et_day=? AND kind=? AND voided=0`
+      ).bind(why, Number(season), String(leagueId), fid, etDay, kind).run();
       continue;
     }
     for (const applies of [Number(season), Number(season) + 1]) {
-      const id = `${season}|${leagueId}|${fid}|${etDay}|${applies}`;
+      const id = idFor(etDay, applies);
       const before = await db.prepare(
         `SELECT amount_k, posted_to_mfl FROM ups_faa_nom_penalties WHERE penalty_id=?`
       ).bind(id).first();
       await db.prepare(
         `INSERT INTO ups_faa_nom_penalties
-           (penalty_id, season, league_id, fid, et_day, offense_no, amount_k, applies_to_season, voided)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+           (penalty_id, season, league_id, fid, et_day, offense_no, amount_k, applies_to_season, kind, voided)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
          ON CONFLICT(penalty_id) DO UPDATE SET
            offense_no = excluded.offense_no,
            amount_k   = excluded.amount_k,
            voided     = 0`
-      ).bind(id, Number(season), String(leagueId), fid, etDay, offenseNo, amountK, applies).run();
+      ).bind(id, Number(season), String(leagueId), fid, etDay, offenseNo, amountK, applies, kind).run();
       // A row already posted to MFL whose price just changed needs a human —
       // the salaryAdj out there is now the wrong number.
       if (before && Number(before.posted_to_mfl) === 1 && Number(before.amount_k) !== amountK) {

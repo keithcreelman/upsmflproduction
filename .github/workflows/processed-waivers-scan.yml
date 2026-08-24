@@ -1,0 +1,48 @@
+name: Processed-waivers scan (contested claims, multi-season)
+
+# Finds the busiest real waiver runs in league history — most requests and
+# most TEAMS chasing one player, including the ones denied on a tiebreaker.
+# That is the case the Discord waiver report has to survive, so we design
+# against it rather than a hypothetical. Read-only: fetches MFL pages and
+# prints an analysis. No writes, no Discord, no D1.
+
+on:
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "Space-separated seasons to scan"
+        required: false
+        default: "2024 2025 2026"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+      LEAGUE: "74598"
+      SEASONS: ${{ github.event.inputs.seasons || '2024 2025 2026' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: guard
+        run: '[ -n "$MFL_COOKIE" ] || { echo "::error::MFL_COOKIE not set"; exit 1; }'
+      - name: fetch each season's processed-waivers page
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          for Y in $SEASONS; do
+            echo "fetching $Y ..."
+            curl -sS -L \
+              -H "Cookie: $COOKIE" \
+              -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+              -H "Accept: text/html,application/xhtml+xml" \
+              "https://www48.myfantasyleague.com/${Y}/processed_waivers?L=${LEAGUE}" \
+              -o "/tmp/pw_${Y}.html" || echo "(fetch failed for $Y, continuing)"
+            echo "  $Y bytes: $(wc -c < /tmp/pw_${Y}.html 2>/dev/null || echo 0)"
+          done
+      - name: scan
+        run: python3 scripts/ci_processed_waivers_scan.py /tmp/pw_*.html

@@ -300,6 +300,49 @@
       items.push({ icon: p.icon, href: "#myteam/contracts/" + p.key, text: text, sub: p.sub });
     });
 
+    // IR-eligible (canon §B3). Surfaced here because IR is worth real money —
+    // 50% cap relief, and the player comes off the active-roster max — and an
+    // owner has no reason to go hunting for it. The action itself lives on the
+    // player sheet ("Place on IR"); this alert only points at the list.
+    //
+    // NO FAIL-OPEN on the feed. DATA.irEligibilityFor returns { known, ... },
+    // and `known` is false when MFL's injuries export did not read. An
+    // unreadable feed must NOT render as "0 eligible" — that is exactly the bug
+    // that kept this bucket silently empty (the export was fetched with L=,
+    // which MFL rejects, decoding to an empty list). When we cannot tell, say
+    // so rather than show a count we did not earn.
+    (function () {
+      var roster = DATA.getRosterFor(fid) || [];
+      if (!roster.length || !DATA.irEligibilityFor) return;
+      var feed = DATA.injuryFeedState ? DATA.injuryFeedState() : null;
+      if (feed && feed.ok === false) {
+        items.push({
+          icon: ic("alert-triangle"),
+          href: "#myteam/ir",
+          text: "IR eligibility unavailable",
+          sub: "Couldn't read MFL's injury report — not the same as nobody being eligible"
+        });
+        return;
+      }
+      var n = 0;
+      for (var i = 0; i < roster.length; i += 1) {
+        var r = roster[i] || {};
+        var st = U.safeStr(r.status).toUpperCase();
+        // Already on IR, or on taxi — neither is a candidate to option down.
+        if (st.indexOf("IR") !== -1 || st.indexOf("INJURED") !== -1 ||
+            st.indexOf("RESERVE") !== -1 || st.indexOf("TAXI") !== -1) continue;
+        var e = DATA.irEligibilityFor(r.id);
+        if (e && e.known && e.eligible) n += 1;
+      }
+      if (!n) return;
+      items.push({
+        icon: ic("heart-pulse"),
+        href: "#myteam/ir",
+        text: n + " player" + (n > 1 ? "s" : "") + " can go on IR",
+        sub: "50% cap relief · off the active-roster max · reversible"
+      });
+    })();
+
     // Cap compliance.
     var cap = DATA.computeCap(fid);
     if (cap && U.safeInt(cap.capRoom, 0) < 0) {
@@ -361,6 +404,12 @@
       return '<a class="ups-m-subtab' + (a.key === active ? ' active' : '') +
         '" href="#myteam/contracts/' + a.key + '">' + U.escapeHtml(a.label) + '</a>';
     });
+    // Cap Adj — league-wide salaryAdjustments (trades + drop penalties),
+    // by year + team (Keith 2026-08-16). Same shape as Ledger's chip: a
+    // hardcoded entry outside CONTRACT_ACTIONS, its own render function.
+    // Ordered before Ledger (Keith 2026-08-16 follow-up).
+    chips.push('<a class="ups-m-subtab' + ("adjustments" === active ? ' active' : '') +
+      '" href="#myteam/contracts/adjustments">Cap Adj</a>');
     // Ledger — read-only contract-activity log (audit), self-contained here.
     chips.push('<a class="ups-m-subtab' + ("ledger" === active ? ' active' : '') +
       '" href="#myteam/contracts/ledger">Ledger</a>');
@@ -747,6 +796,168 @@
     });
   }
 
+  // ── Cap Adjustments tab (Keith 2026-08-16) ───────────────────────────
+  // "Have a dropdown for year and show the adjustments for '26 line item by
+  // line item ... have a filter by team. Traded Salary vs. Cap Penalties.
+  // This data must align with D1 and also with all other instances where we
+  // show cap adjustments. So future year won't source from MFL but current
+  // and past should."
+  //
+  // Two data sources, picked purely by whether the selected year is already
+  // playable-past-or-current or strictly in the future:
+  //   - current/past → GET /api/cap-adjustments/season (worker) — MFL's real
+  //     salaryAdjustments export, the ground truth once posted. Same
+  //     franchise totals the FO's 2026 "+$9,000 adj" line already shows —
+  //     verified live 2026-08-16 (Real Deal Creel: $9,000 cap-penalty here,
+  //     matches the FO exactly).
+  //   - next season → GET /api/cap-adjustments/next-season — D1's ledger for
+  //     drops that happened but are NOT yet in MFL (canon §6, ledger-only
+  //     until the rollover). Same object the FO's Cap Planning 2027 total and
+  //     "Cap Adjustments" popup both already read, so this tab can't disagree
+  //     with either.
+  // A year further than one season out is not offered — neither source
+  // covers it.
+  var ADJ_CATEGORY_LABEL = { traded_salary: "Trade", cap_penalty: "Penalty", other: "Other" };
+
+  // MFL's own description string is the label ("UPS drop penalty Tyreek Hill
+  // 26500 id:...", "UPS traded salary settlement (trade_...): net -20K") —
+  // extract just the human part rather than showing the raw ledger-key tail.
+  function humanizeAdjExplanation(explanation, category) {
+    var t = U.safeStr(explanation);
+    if (category === "cap_penalty") {
+      if (/rounding/i.test(t)) return "Rounding adjustment";
+      var m = t.match(/drop penalty\s+(.+?)\s+-?[\d.]+\s+id:/i);
+      return (m && m[1]) ? m[1].trim() : "Drop penalty";
+    }
+    if (category === "traded_salary") return "Trade settlement";
+    return t || "Adjustment";
+  }
+
+  // [next season, current, current-1, … 2012] — matches the same "full
+  // league history" convention views/league.js uses for its own year picker.
+  function adjYears() {
+    var cur = parseInt(M.state.ctx.year, 10) || new Date().getUTCFullYear();
+    var out = [cur + 1];
+    for (var y = cur; y >= 2012; y -= 1) out.push(y);
+    return out;
+  }
+
+  function renderContractAdjustments(mount) {
+    var box = document.createElement("div");
+    box.className = "ups-m-adj";
+    mount.appendChild(box);
+
+    var cur = parseInt(M.state.ctx.year, 10) || new Date().getUTCFullYear();
+    var year = M.state.adjYear != null ? parseInt(M.state.adjYear, 10) : cur;
+    if (!year) year = cur;
+    var teamFilter = M.state.adjTeamFilter || "";
+    var league = (M.state.ctx && M.state.ctx.leagueId) || "74598";
+
+    var teamOpts = '<option value="">All teams</option>' +
+      (M.state.franchises || []).slice()
+        .sort(function (a, b) { return U.safeStr(a.name).localeCompare(U.safeStr(b.name)); })
+        .map(function (f) {
+          return '<option value="' + U.escapeHtml(f.id) + '"' + (f.id === teamFilter ? " selected" : "") + '>' +
+            U.escapeHtml(f.name) + '</option>';
+        }).join("");
+    var yearOpts = adjYears().map(function (y) {
+      var label = y > cur ? (y + " (upcoming)") : String(y);
+      return '<option value="' + y + '"' + (y === year ? " selected" : "") + '>' + label + '</option>';
+    }).join("");
+
+    box.innerHTML =
+      '<div class="ups-m-adj-controls">' +
+        '<label>Year<select id="ups-m-adj-year">' + yearOpts + '</select></label>' +
+        '<label>Team<select id="ups-m-adj-team">' + teamOpts + '</select></label>' +
+      '</div>' +
+      '<div class="ups-m-adj-body"><div class="ups-m-stub">Loading adjustments…</div></div>';
+
+    var ySel = box.querySelector("#ups-m-adj-year");
+    var tSel = box.querySelector("#ups-m-adj-team");
+    if (ySel) ySel.addEventListener("change", function (e) { M.state.adjYear = e.target.value; M.route.renderRoute(); });
+    if (tSel) tSel.addEventListener("change", function (e) { M.state.adjTeamFilter = e.target.value; M.route.renderRoute(); });
+
+    var isFuture = year > cur;
+    var url = isFuture
+      ? M.api.workerUrl("/api/cap-adjustments/next-season") + "?L=" + encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(cur)
+      : M.api.workerUrl("/api/cap-adjustments/season") + "?L=" + encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(year);
+    var bodyEl = box.querySelector(".ups-m-adj-body");
+
+    fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || j.ok !== true) {
+          bodyEl.innerHTML = '<div class="ups-m-stub"><div>Couldn\'t read ' + U.escapeHtml(String(year)) + ' adjustments' +
+            (j && j.error ? ' (' + U.escapeHtml(j.error) + ')' : '') + '. Pull to retry.</div></div>';
+          return;
+        }
+        // Normalize both response shapes (next-season's by_fid/items vs
+        // season's flat rows[]) into one common row list before rendering.
+        var rows = [];
+        if (isFuture) {
+          Object.keys(j.by_fid || {}).forEach(function (fid) {
+            var grp = j.by_fid[fid];
+            (grp.items || []).forEach(function (it) {
+              rows.push({
+                franchise_id: fid, franchise_name: grp.franchise_name || ledgerTeam(fid),
+                amount: U.safeInt(it.amount, 0), category: "cap_penalty",
+                label: it.player || ("Player " + it.player_id),
+                detail: it.dropped_at_iso ? U.safeStr(it.dropped_at_iso).slice(0, 10) : "",
+                note: "ledger only — not yet in MFL"
+              });
+            });
+          });
+        } else {
+          (j.rows || []).forEach(function (it) {
+            rows.push({
+              franchise_id: it.franchise_id, franchise_name: it.franchise_name || ledgerTeam(it.franchise_id),
+              amount: U.safeInt(it.amount, 0), category: it.category,
+              label: humanizeAdjExplanation(it.explanation, it.category),
+              detail: "", note: ""
+            });
+          });
+        }
+        if (teamFilter) rows = rows.filter(function (r) { return r.franchise_id === teamFilter; });
+
+        if (!rows.length) {
+          bodyEl.innerHTML = '<div class="ups-m-stub"><div>No adjustments for ' + U.escapeHtml(String(year)) +
+            (teamFilter ? " · " + U.escapeHtml(ledgerTeam(teamFilter)) : "") + '.</div></div>';
+          return;
+        }
+
+        var grand = rows.reduce(function (s, r) { return s + r.amount; }, 0);
+        var tradeSum = rows.filter(function (r) { return r.category === "traded_salary"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+        var penSum = rows.filter(function (r) { return r.category === "cap_penalty"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+        var otherSum = rows.filter(function (r) { return r.category === "other"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+
+        var html = '<div class="ups-m-adj-summary">' +
+          '<span class="chip">' + rows.length + ' line' + (rows.length === 1 ? "" : "s") + '</span>' +
+          '<span class="chip">Net ' + U.fmtUsd(grand) + '</span>' +
+          (tradeSum ? '<span class="chip">Trade ' + U.fmtUsd(tradeSum) + '</span>' : '') +
+          (penSum ? '<span class="chip">Penalty ' + U.fmtUsd(penSum) + '</span>' : '') +
+          (otherSum ? '<span class="chip">Other ' + U.fmtUsd(otherSum) + '</span>' : '') +
+        '</div>';
+
+        rows.sort(function (a, b) { return Math.abs(b.amount) - Math.abs(a.amount); });
+        rows.forEach(function (r) {
+          html += '<div class="ups-m-adj-row">' +
+            '<span class="ups-m-adj-cat cat-' + U.escapeHtml(r.category) + '">' + U.escapeHtml(ADJ_CATEGORY_LABEL[r.category] || "Other") + '</span>' +
+            '<div class="ups-m-adj-item">' +
+              '<div class="ups-m-adj-label">' + U.escapeHtml(r.label) + '</div>' +
+              '<div class="ups-m-adj-meta">' + U.escapeHtml(r.franchise_name) +
+                (r.detail ? " · " + U.escapeHtml(r.detail) : "") +
+                (r.note ? " · " + U.escapeHtml(r.note) : "") + '</div>' +
+            '</div>' +
+            '<span class="ups-m-adj-amt' + (r.amount < 0 ? " neg" : "") + '">' + U.fmtUsd(r.amount) + '</span>' +
+          '</div>';
+        });
+        bodyEl.innerHTML = html;
+      })
+      .catch(function (e) {
+        bodyEl.innerHTML = '<div class="ups-m-stub"><div>Couldn\'t load adjustments: ' + U.escapeHtml(String((e && e.message) || e)) + '</div></div>';
+      });
+  }
+
   function renderContractsHub(mount, action) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
@@ -754,7 +965,8 @@
       return;
     }
     action = action || "myac";
-    var valid = action === "ledger" || CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
+    var valid = action === "ledger" || action === "adjustments" ||
+      CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
     if (!valid) action = "myac";
     // Self-contained Contracts section: its OWN contract-ops nav (action
     // chips + Ledger) — no roster tabs bleed in. Reach Roster/Lineup/Taxi/IR
@@ -762,6 +974,11 @@
     if (action === "ledger") {
       mount.innerHTML = actionChips(action);
       renderContractLedger(mount);
+      return;
+    }
+    if (action === "adjustments") {
+      mount.innerHTML = actionChips(action);
+      renderContractAdjustments(mount);
       return;
     }
     // Per-player deadlines live in the lists themselves (each player has their
@@ -852,7 +1069,7 @@
     }
 
     var html = subTabs("taxi") +
-      '<div class="ups-m-action-blurb">Canon §B2 — taxi players cost <b>$0</b> against the cap. Each gets <b>3 call-ups</b>; the 4th makes the promotion permanent. Tap a player to promote or demote.</div>';
+      '<div class="ups-m-action-blurb">Taxi players cost <b>$0</b> against the cap. Each gets <b>3 call-ups</b>; the 4th makes the promotion permanent. Tap a player to promote or demote.</div>';
     html += bucketHead("Available to promote", onTaxi.length);
     html += onTaxi.length
       ? '<div class="ups-m-player-list">' + onTaxi.map(taxiRow).join("") + '</div>'
@@ -866,10 +1083,17 @@
   }
 
   // IR subtab — TWO buckets (Canon §B3: IR = 50% cap relief, off the active
-  // roster max). Display-only for now: surfaces who can come OFF IR and which
-  // active players hold an IR-eligible NFL designation (IR / PUP / suspended /
-  // holdout, from the MFL injuries export). The option-down / call-up writes
-  // land in a later pass.
+  // roster max). Both directions are now live: tap a player to open the sheet,
+  // which carries "Place on IR" (worker deactivate_ir) and "Activate from IR"
+  // (worker activate_ir). Same shape as the Taxi subtab above — the buckets
+  // list, the sheet writes — so there is exactly one place in mobile where a
+  // roster move is submitted.
+  //
+  // Eligibility comes from DATA.irEligibilityFor (the single §B3 predicate,
+  // app.js). It reports `known` separately from `eligible`, and this view is
+  // required to honour that: when MFL's injuries export didn't read we say so
+  // instead of printing "0 eligible", which would be a confident lie about a
+  // cap-relevant question. The worker re-checks §B3 before writing anything.
   function renderIr(mount) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
@@ -878,14 +1102,19 @@
     }
     var roster = DATA.getRosterFor(fid) || [];
     var injuries = M.state.injuriesByPid || {};
-    function irEligible(pid) {
-      var s = injuries[String(pid)] || "";
-      return s === "IR" || s === "PUP" || s === "NFI" || s.indexOf("SUSPEND") === 0 || s.indexOf("COVID") >= 0;
-    }
+    var feed = DATA.injuryFeedState ? DATA.injuryFeedState() : { ok: false, rows: 0 };
+    // The "on IR" bucket is derived from the ROSTER's own status field, so it
+    // stays trustworthy even when the injuries export is down — call-ups are
+    // unaffected by an unreadable feed.
     var onIr = roster.filter(function (r) { return /ir|injured|reserve/i.test(U.safeStr(r.status)); });
-    var candidates = roster.filter(function (r) {
-      return !/ir|injured|reserve|taxi/i.test(U.safeStr(r.status)) && irEligible(r.id);
-    });
+    // Candidates need the injuries feed. If it didn't read, there is no honest
+    // candidate list to build — an empty array here would render as "nobody
+    // qualifies" and that is the exact fail-open shape we refuse.
+    var candidates = feed.ok ? roster.filter(function (r) {
+      if (/ir|injured|reserve|taxi/i.test(U.safeStr(r.status))) return false;
+      var e = DATA.irEligibilityFor(r.id);
+      return e.known && e.eligible;
+    }) : [];
     onIr.sort(function (a, b) { return (Number(b.salary) || 0) - (Number(a.salary) || 0); });
     candidates.sort(function (a, b) { return (Number(b.salary) || 0) - (Number(a.salary) || 0); });
 
@@ -898,15 +1127,38 @@
     }
 
     var html = subTabs("ir") +
-      '<div class="ups-m-action-blurb">Canon §B3 — IR players get <b>50% cap relief</b> and don\'t count against the active roster max. Eligible: NFL IR / PUP / suspended / holdout.</div>';
+      '<div class="ups-m-action-blurb">IR players get <b>50% cap relief</b> and don\'t count against the active roster max (15 IR slots). Eligible NFL designations: IR / IR-PUP / IR-NFI / Suspended / Holdout. Tap a player to place them on IR or activate them.</div>';
     html += bucketHead("On IR — available to call up", onIr.length);
     html += onIr.length
       ? '<div class="ups-m-player-list">' + onIr.map(irRow).join("") + '</div>'
       : '<div class="ups-m-bucket-empty">No players on IR.</div>';
-    html += bucketHead("Eligible to option to IR", candidates.length);
-    html += candidates.length
-      ? '<div class="ups-m-player-list">' + candidates.map(irRow).join("") + '</div>'
-      : '<div class="ups-m-bucket-empty">No active players currently hold an IR-eligible NFL designation.</div>';
+    html += bucketHead("Eligible to option to IR", feed.ok ? candidates.length : "—");
+    if (!feed.ok) {
+      // UNKNOWN, stated as unknown. Note the sheet still offers Place on IR
+      // here: the worker reads the injury report server-side over its own
+      // session, so our read failing says nothing about its read — and if the
+      // worker cannot read it either, it refuses (IR_ELIGIBILITY_UNKNOWN, 502)
+      // rather than writing. Nothing is being waved through.
+      html += '<div class="ups-m-bucket-empty">' +
+        '<b>IR eligibility couldn\'t be checked.</b><br>' +
+        'MFL\'s injury report didn\'t load, so we don\'t know who qualifies — this list is empty because we couldn\'t look, not because nobody is eligible. ' +
+        'Pull to refresh, or open a player from your Roster and use <b>Place on IR</b>; the server verifies §B3 before it writes anything.' +
+        '</div>';
+    } else if (candidates.length) {
+      html += '<div class="ups-m-player-list">' + candidates.map(irRow).join("") + '</div>';
+    } else {
+      // Read fine, genuinely nobody on THIS roster — and say which of the two
+      // it is. rows>0 means the league-wide report is live (339 designations on
+      // 2026-08-15) and simply doesn't name anyone you own. rows===0 means the
+      // report itself is carrying nothing at all, which is a different thing to
+      // tell an owner even though the bucket looks the same.
+      html += '<div class="ups-m-bucket-empty">' +
+        'No active players currently hold an IR-eligible NFL designation.' +
+        (feed.rows > 0
+          ? '<br>MFL\'s injury report is live (' + U.escapeHtml(String(feed.rows)) + ' NFL designations league-wide) — none of them are on your active roster.'
+          : '<br>MFL\'s injury report is carrying <b>no designations at all</b> right now, so nobody can qualify yet.') +
+        '</div>';
+    }
     mount.innerHTML = html;
     bindRowClicks(mount);
   }

@@ -1,0 +1,66 @@
+name: Read MFL waiver settings (BBID sort + custom order)
+
+# Read-only. Fetches the two commish setup pages Keith pointed at and dumps
+# their form state, so the BBID tiebreaker criteria and the custom waiver
+# order can be verified from the source of truth rather than inferred.
+# Neither is exposed by the API: TYPE=league carries bbidTiebreaker='SORT'
+# but never says what the SORT is, and there is no waiverOrder export.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    env:
+      MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+      LEAGUE: "74598"
+      SEASON: "2026"
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$MFL_COOKIE" ] || { echo "::error::MFL_COOKIE not set"; exit 1; }'
+      - name: fetch both setup pages (as COMMISSIONER)
+        run: |
+          case "$MFL_COOKIE" in
+            *=*) COOKIE="$MFL_COOKIE" ;;
+            *)   COOKIE="MFL_USER_ID=$MFL_COOKIE" ;;
+          esac
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          JAR=/tmp/mfl_jar.txt; : > "$JAR"
+
+          # csetup is the COMMISSIONER setup path. As an owner-mode session MFL
+          # serves the league skin instead of the form — which is why the first
+          # read came back 554KB with no named fields. BECOME=0000 elevates.
+          #
+          # Mirrors establishCommishCookieHeader (worker/src/index.js): the
+          # elevated session is captured in a LOCAL cookie jar, so the stored
+          # MFL_COOKIE secret is never rewritten. The jar dies with the job.
+          # Seed the jar from the secret ONCE. From here the JAR is the only
+          # cookie source: passing -H "Cookie: $COOKIE" alongside -b "$JAR"
+          # sent two competing sessions, and MFL intermittently honoured the
+          # owner one — which is why WAIVORD read 576KB on one run and 54KB
+          # "unreadable" on the next with identical code.
+          KEYV="${COOKIE#*=}"; KEYN="${COOKIE%%=*}"
+          printf 'www48.myfantasyleague.com\tFALSE\t/\tFALSE\t0\t%s\t%s\n' "$KEYN" "$KEYV" > "$JAR"
+          printf '.myfantasyleague.com\tTRUE\t/\tFALSE\t0\t%s\t%s\n' "$KEYN" "$KEYV" >> "$JAR"
+
+          echo "elevating to commissioner…"
+          curl -sS -L -c "$JAR" -b "$JAR" -H "User-Agent: $UA" \
+            "https://www48.myfantasyleague.com/${SEASON}/logout?L=${LEAGUE}&BECOME=0000" -o /tmp/become.html
+          echo "  become bytes: $(wc -c < /tmp/become.html)"
+
+          for C in BBIDWAIV WAIVORD; do
+            curl -sS -L -c "$JAR" -b "$JAR" -H "User-Agent: $UA" \
+              "https://www48.myfantasyleague.com/${SEASON}/csetup?L=${LEAGUE}&C=${C}" -o "/tmp/${C}.html"
+            echo "$C bytes: $(wc -c < /tmp/${C}.html)"
+          done
+
+          # Always hand the session back, even if a fetch above failed.
+          echo "restoring owner identity…"
+          curl -sS -L -c "$JAR" -b "$JAR" -H "User-Agent: $UA" \
+            "https://www48.myfantasyleague.com/${SEASON}/logout?L=${LEAGUE}&BECOME=0008" -o /dev/null || true
+      - name: dump settings
+        run: python3 scripts/ci_read_waiver_settings.py /tmp/BBIDWAIV.html /tmp/WAIVORD.html

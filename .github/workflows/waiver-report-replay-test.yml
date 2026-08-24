@@ -1,0 +1,81 @@
+name: Waiver report — replay a run into the TEST channel
+
+# Re-renders an already-posted waiver run so a shape can be eyeballed in
+# Discord without touching prod. The worker's replay mode selects by DAY and
+# ignores discord_posted rather than clearing it (clearing would hand those
+# rows to the */5 cron, which posts to PROD), and skips every D1 write, so the
+# real run's message ids survive untouched.
+#
+# target is hard-wired to "test" here. The route additionally refuses a replay
+# aimed at prod unless explicitly overridden, so this cannot double-announce a
+# run the league already saw.
+
+on:
+  workflow_dispatch:
+    inputs:
+      day:
+        description: "Run day to replay (YYYY-MM-DD)"
+        required: true
+        default: "2026-08-20"
+      shape:
+        description: "misses = ONLY the denied-claims post · report = one league-wide post · per_team = one post per team"
+        required: true
+        default: "misses"
+        type: choice
+        options: [misses, report, per_team]
+      mode:
+        description: "post = actually send to the test channel · dry_run = build only"
+        required: true
+        default: "post"
+        type: choice
+        options: [post, dry_run]
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      DAY: ${{ github.event.inputs.day }}
+      SHAPE: ${{ github.event.inputs.shape }}
+      MODE: ${{ github.event.inputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: replay into test channel
+        run: |
+          if [ "$MODE" = "dry_run" ]; then DRY=true; else DRY=false; fi
+          curl -sS -X POST \
+            "https://upsmflproduction.keith-creelman.workers.dev/admin/adds/post-discord?L=74598&YEAR=2026&APIKEY=${KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"season\":\"2026\",\"league_id\":\"74598\",\"target\":\"test\",\"replay_day\":\"${DAY}\",\"shape\":\"${SHAPE}\",\"dry_run\":${DRY},\"limit\":50}" \
+            -o /tmp/replay.json
+          echo "bytes: $(wc -c < /tmp/replay.json)"
+      - name: summarize
+        run: |
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/replay.json"))
+          print("ok:", d.get("ok"), "| shape:", d.get("shape"), "| target:", d.get("target"))
+          print("replay_day:", d.get("replay_day"), "| no-DB-writes:", d.get("replay_no_db_writes"))
+          if d.get("shape_note"):
+              print("NOTE:", d["shape_note"])
+          if d.get("error"):
+              print("ERROR:", d.get("error"), d.get("message", ""))
+          print("runs:", d.get("run_count"), "| posted:", d.get("posted_count"),
+                "| failed:", d.get("failed_count"))
+          # dry-run carries the built plans; show the parent scoreboard.
+          for r in (d.get("runs") or [])[:2]:
+              emb = (r.get("plan") or {}).get("parent_embed") or {}
+              print("\n--- parent:", emb.get("title"), "---")
+              print("   ", emb.get("description"))
+              for f in emb.get("fields") or []:
+                  print(f"    {f['name']}: " + str(f["value"]).replace("\n", "\n      "))
+              print("    thread:", (r.get("plan") or {}).get("thread_name"),
+                    "·", len((r.get("plan") or {}).get("move_messages") or []), "messages")
+          for r in (d.get("results") or [])[:3]:
+              print("\nposted:", r.get("thread_name"), "| parent:", r.get("parent_message_id"),
+                    "| replay_no_write:", r.get("replay_no_write"))
+          PY

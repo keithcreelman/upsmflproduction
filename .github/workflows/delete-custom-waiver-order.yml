@@ -1,0 +1,124 @@
+name: Delete CUSTOM waiver order (after Week 1 Sunday run)
+
+# Keith 2026-08-21: the custom order (prior year's draft finish) runs until
+# the Week 1 Sunday waiver run completes at 9 AM; delete it that evening so
+# every later run uses WAIVER_SORT_* (All-Play % first).
+#
+# Cron is Sunday 8 PM ET = Monday 00:00 UTC. It fires every week, and the job
+# itself refuses unless today really is Week 1's Sunday — the date comes from
+# MFL's own schedule at runtime, never hardcoded (Week 1 2026 opens WEDNESDAY
+# Sep 9, so assuming "season start + N days" would be wrong).
+#
+# dry_run is the default for manual runs and prints the exact POST body.
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run = show the POST body · delete = actually remove"
+        required: true
+        default: "dry_run"
+        type: choice
+        options: [dry_run, delete]
+      force_date:
+        description: "Skip the Week-1-Sunday date gate (manual override)"
+        required: false
+        default: "no"
+        type: choice
+        options: ["no", "yes"]
+
+permissions:
+  contents: read
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    env:
+      MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+      LEAGUE: "74598"
+      SEASON: "2026"
+      MODE: ${{ github.event.inputs.mode || 'delete' }}
+      FORCE: ${{ github.event.inputs.force_date || 'no' }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$MFL_COOKIE" ] || { echo "::error::MFL_COOKIE not set"; exit 1; }'
+
+      - name: gate on Week 1 Sunday (from MFL's schedule)
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.request, datetime
+          from zoneinfo import ZoneInfo
+          ET = ZoneInfo("America/New_York")
+          season = os.environ["SEASON"]
+          url = f"https://api.myfantasyleague.com/{season}/export?TYPE=nflSchedule&W=1&JSON=1"
+          d = json.load(urllib.request.urlopen(url, timeout=60))
+          ms = d.get("nflSchedule", {}).get("matchup", [])
+          ms = ms if isinstance(ms, list) else [ms]
+          ks = sorted({int(m["kickoff"]) for m in ms if m.get("kickoff")})
+          if not ks:
+              print("REFUSE: could not read Week 1 schedule."); sys.exit(2)
+          # Week 1's SUNDAY, taken from the games themselves.
+          sundays = {datetime.datetime.fromtimestamp(k, ET).date()
+                     for k in ks if datetime.datetime.fromtimestamp(k, ET).weekday() == 6}
+          if not sundays:
+              print("REFUSE: Week 1 has no Sunday games?"); sys.exit(2)
+          target = min(sundays)
+          today = datetime.datetime.now(ET).date()
+          print(f"Week 1 Sunday = {target} · today (ET) = {today}")
+          if os.environ.get("FORCE") == "yes":
+              print("date gate FORCED open by manual input."); sys.exit(0)
+          if today != target:
+              print("Not Week 1's Sunday — nothing to do."); sys.exit(78)
+          print("date gate open ✅")
+          PY
+
+      - name: load WAIVORD as commissioner
+        run: |
+          case "$MFL_COOKIE" in *=*) COOKIE="$MFL_COOKIE" ;; *) COOKIE="MFL_USER_ID=$MFL_COOKIE" ;; esac
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          JAR=/tmp/jar.txt
+          KEYV="${COOKIE#*=}"; KEYN="${COOKIE%%=*}"
+          printf 'www48.myfantasyleague.com\tFALSE\t/\tFALSE\t0\t%s\t%s\n' "$KEYN" "$KEYV" >  "$JAR"
+          printf '.myfantasyleague.com\tTRUE\t/\tFALSE\t0\t%s\t%s\n'      "$KEYN" "$KEYV" >> "$JAR"
+          curl -sS -L -c "$JAR" -b "$JAR" -H "User-Agent: $UA" \
+            "https://www48.myfantasyleague.com/${SEASON}/logout?L=${LEAGUE}&BECOME=0000" -o /dev/null
+          curl -sS -L -c "$JAR" -b "$JAR" -H "User-Agent: $UA" \
+            "https://www48.myfantasyleague.com/${SEASON}/csetup?L=${LEAGUE}&C=WAIVORD" -o /tmp/WAIVORD.html
+          echo "bytes: $(wc -c < /tmp/WAIVORD.html)"
+
+      - name: plan the delete
+        run: python3 scripts/ci_delete_custom_waiver_order.py /tmp/WAIVORD.html /tmp/post_body.txt
+
+      - name: submit (delete mode only)
+        if: ${{ github.event.inputs.mode == 'delete' || github.event_name == 'schedule' }}
+        run: |
+          [ -s /tmp/post_body.txt ] || { echo "no POST body — nothing to submit (no custom order)"; exit 0; }
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          JAR=/tmp/jar.txt
+          curl -sS -L -c "$JAR" -b "$JAR" -H "User-Agent: $UA" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data "@/tmp/post_body.txt" \
+            "https://www48.myfantasyleague.com/${SEASON}/csetup" -o /tmp/after_post.html
+          echo "post response bytes: $(wc -c < /tmp/after_post.html)"
+
+          # A 200 proves nothing — re-read and confirm the order is gone.
+          curl -sS -L -c "$JAR" -b "$JAR" -H "User-Agent: $UA" \
+            "https://www48.myfantasyleague.com/${SEASON}/csetup?L=${LEAGUE}&C=WAIVORD" -o /tmp/verify.html
+          python3 scripts/ci_delete_custom_waiver_order.py /tmp/verify.html /tmp/verify_body.txt > /tmp/verify.out || true
+          cat /tmp/verify.out
+          if grep -q "NO-OP: no custom waiver order in effect" /tmp/verify.out; then
+            echo "✅ VERIFIED: custom waiver order removed."
+          else
+            echo "::error::Custom order still present after POST — delete did NOT take."
+            exit 1
+          fi
+
+      - name: restore owner identity
+        if: always()
+        run: |
+          UA="Mozilla/5.0 (compatible; ups-worker)"
+          curl -sS -L -c /tmp/jar.txt -b /tmp/jar.txt -H "User-Agent: $UA" \
+            "https://www48.myfantasyleague.com/${SEASON}/logout?L=${LEAGUE}&BECOME=0008" -o /dev/null || true
+          echo "owner identity restored"

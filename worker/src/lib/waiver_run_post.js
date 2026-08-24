@@ -73,10 +73,67 @@ const BASIS_LABELS = {
   guarantee_minus_earned: "75% guarantee minus earned-to-date",
   no_penalty_zero: "Earned already exceeds guarantee",
   no_pre_drop_contract: "Pre-drop contract not found",
+  contract_unstamped_needs_review: "MFL has not stamped a contract for this player yet — unpriced, not cap-free",
 };
 export function humanizeDropBasis(basis) {
   const key = _s(basis);
   return BASIS_LABELS[key] || key;
+}
+
+// The TRUE calculation, not a label for it (Keith 2026-08-16: "let's review
+// these messages, they're not very clear for 'penalty basis' ... if there's
+// no penalty there's nothing to show. If there is a penalty show the true
+// calculation. 75K GTD - 60K Earned = 15K or something like that").
+//
+// Returns null in exactly the case where nothing should be printed: no
+// penalty. "1-year contract under $5K" under a green heading used to explain
+// why NOT — that explanation is gone; a $0/exempt drop needs no further
+// justification. `known === false` also returns null here on purpose — that
+// state gets its own amber heading and unknown_reason line, not a basis field.
+//
+// Both real-penalty bases this SSOT can emit (guarantee_minus_earned,
+// tcv_under_5k_guarantee) carry `guaranteed` and `earned` — see
+// _computeDropPenalty, index.js ~line 1947 — so the subtraction is always
+// available for anything computed live. A penalty > 0 with either figure
+// missing means an OLDER ups_drop_events row that predates those columns;
+// print the label rather than inventing numbers to subtract.
+export function explainPenalty(pen) {
+  if (!pen || pen.known === false) return null;
+  const penalty = Number(pen.penalty) || 0;
+  if (pen.exempt || penalty === 0) return null;
+  const g = pen.guaranteed, e = pen.earned;
+  if (g != null && e != null) {
+    return `${fmtK(g)} GTD − ${fmtK(e)} Earned = ${fmtK(penalty)}`;
+  }
+  return humanizeDropBasis(pen.basis) || null;
+}
+
+// Which CAP YEAR a real penalty lands on (canon §6 — index.js
+// _dropPenaltyCapSeason): drop before the FA Auction opens → current season;
+// drop at/after auction open → the FOLLOWING season, ledger-only until
+// rollover. Keith 2026-08-16, re: this exact case (Ja'Tavion Sanders, dropped
+// 2026-08-13, auction opened 2026-07-25): "we do know the penalties won't be
+// applied to 2026, only 2027, based on when it occurred" — true, and until
+// this note existed neither poster said so. A reader seeing "$1K cap penalty"
+// with no season attached has every reason to assume it hits the season the
+// post is about.
+//
+// Silent in the ordinary case — the penalty lands on the season being
+// announced, which needs no comment — and silent for $0/exempt, same as
+// explainPenalty. Only speaks up when the year is NOT what a reader would
+// assume, or when the year itself could not be resolved (a data gap, never
+// papered over as "must be this season").
+export function capYearNote(pen, currentSeason) {
+  if (!pen || pen.known === false) return null;
+  const penalty = Number(pen.penalty) || 0;
+  if (pen.exempt || penalty === 0) return null;
+  if (pen.cap_year_ok === false) {
+    return "⚠️ _which cap year this hits could not be resolved — needs review_";
+  }
+  const applies = pen.applies_to_season;
+  const cur = Number(currentSeason) || 0;
+  if (applies == null || !cur || Number(applies) === cur) return null;
+  return `⏭️ applies to the **${applies}** cap — dropped on or after the FA Auction open, ledger-only until rollover (§6)`;
 }
 
 // "Frankie Luvu  `LB · CAR`" — position/team in code ticks so the eye can
@@ -177,13 +234,15 @@ function moneyLines(move) {
 }
 
 // One thread message per move: ＋added / －dropped + penalty / money / windows.
-export function buildMoveMessage(move) {
+// currentSeason drives capYearNote — the season this run is being announced
+// under, so a penalty rolling to the NEXT season's cap can say so.
+export function buildMoveMessage(move, currentSeason) {
   const drops = moveDrops(move);
   const pen = drops.length ? capPenaltyDisplay(combineDropPenalties(drops)) : null;
   const lines = [playerLine("＋", move.added)];
   if (drops.length) {
     for (const d of drops) lines.push(playerLine("－", d.player));
-    lines.push(pen.heading);
+    // heading is prepended at the embed, not appended here — see below
   } else if (move.pairing_known === false) {
     // We do NOT know whether this add displaced anyone — either the add is not
     // in MFL's transaction log at all, or the row that carries it did not have
@@ -204,29 +263,60 @@ export function buildMoveMessage(move) {
     { name: "Contract", value: clampField(contract), inline: false },
     { name: "Eligibility", value: clampField(buildEligibilityLines(move.eligibility).join("\n")), inline: false },
   ];
-  // The penalty BASIS earns a line only when there is a penalty story to tell;
-  // "1-year contract under $5K" under a green ✅ is the answer to the question
-  // an owner is about to ask in this very thread.
-  // With more than one drop the basis is ambiguous unless it is attributed, so
-  // the player's name leads each line; a single drop keeps the bare label.
+  // A penalty line earns a field only when there is money to explain — a
+  // $0/exempt drop gets none (explainPenalty returns null; nothing to show).
+  // An UNKNOWN drop still gets a line — that is a data gap needing review,
+  // not "no penalty" — and a real penalty gets the actual subtraction, not a
+  // label for it. With more than one drop the line is ambiguous unless
+  // attributed, so the player's name leads each line; a single drop keeps
+  // the bare text. A trailing capYearNote line, when present, says WHICH
+  // season's cap the number above actually hits — silent whenever that is
+  // the obvious/current season (see capYearNote).
   if (drops.length) {
     const basisLines = drops.map((d) => {
-      const label = _s(d.penalty && (d.penalty.basis_label || d.penalty.basis))
-        || (d.penalty && d.penalty.known === false
-          ? (_s(d.penalty.unknown_reason) || "Pre-drop contract could not be resolved — this drop has NOT been priced.")
-          : (!d.penalty ? "Pre-drop contract could not be resolved — this drop has NOT been priced." : ""));
-      if (!label) return "";
-      return drops.length > 1 ? `**${_s(d.player && d.player.name) || "Unknown player"}** — ${label}` : label;
+      const text = (d.penalty && d.penalty.known === false)
+        ? (_s(d.penalty.unknown_reason) || "Pre-drop contract could not be resolved — this drop has NOT been priced.")
+        : (!d.penalty ? "Pre-drop contract could not be resolved — this drop has NOT been priced." : explainPenalty(d.penalty));
+      if (!text) return "";
+      const yearNote = d.penalty ? capYearNote(d.penalty, currentSeason) : null;
+      const full = yearNote ? `${text}\n${yearNote}` : text;
+      return drops.length > 1 ? `**${_s(d.player && d.player.name) || "Unknown player"}** — ${full}` : full;
     }).filter(Boolean);
     if (basisLines.length) {
-      fields.push({ name: "Penalty basis", value: clampField(basisLines.join("\n")), inline: false });
+      fields.push({ name: "Penalty calculation", value: clampField(basisLines.join("\n")), inline: false });
     }
   }
+  // TITLE carries the headline — an embed title renders larger and heavier
+  // than any markdown inside the description, so the claim reads at a glance
+  // in a busy channel (Keith 2026-08-22: "make it bigger make it stand out
+  // more ... make sure the no cap penalty or cap penalty is pronounced").
+  const addName = _s(move.added && move.added.name);
+  const title = addName ? `🎯 Waiver Claim — ${addName}` : "🎯 Waiver Claim";
+
+  // The penalty heading leads the DESCRIPTION as an H1, above the ＋/－ pair,
+  // rather than trailing it. It is the consequence an owner scans for, so it
+  // sits at the top of the body instead of under two player lines.
+  const headed = pen ? [pen.heading, ""].concat(lines) : lines;
+
   const embed = {
-    description: clampDesc(lines.join("\n")),
+    // Author renders the logo INLINE with the team name at the top of the
+    // card — visually stronger than a corner thumbnail, which Discord scales
+    // down hard (Keith 2026-08-22: "missing the team icon it's small make it
+    // more pronounced"). Both are set: author for identity, thumbnail for size.
+    ...( _s(move.franchise_name) || _s(move.icon_url)
+      ? { author: {
+            name: _s(move.franchise_name) || "\u200b",
+            ...(_s(move.icon_url) ? { icon_url: _s(move.icon_url) } : {}),
+          } }
+      : {}),
+    title,
+    description: clampDesc(headed.join("\n")),
     color: drops.length ? pen.color : (move.pairing_known === false ? 0xf0a020 : 0x25c37d),
     fields,
   };
+  // Franchise logo, when the caller has one — the visual anchor that makes a
+  // card scannable by team without reading it.
+  if (_s(move.icon_url)) embed.thumbnail = { url: _s(move.icon_url) };
   return {
     row_id: move.row_id,
     player_id: move.player_id,
@@ -239,8 +329,8 @@ export function buildMoveMessage(move) {
 //
 // `run` (everything pre-resolved by the route):
 //   { franchise_name, franchise_id, icon_url, processed_at_et, run_date_label,
-//     moves: [ { row_id, player_id, source, amount_dollars, added, dropped,
-//                penalty, also_dropped: [ { ...player, penalty } ],
+//     season, moves: [ { row_id, player_id, source, amount_dollars, added,
+//                dropped, penalty, also_dropped: [ { ...player, penalty } ],
 //                eligibility } ] }
 export function buildWaiverRunPlan(run) {
   const moves = Array.isArray(run && run.moves) ? run.moves : [];
@@ -324,6 +414,427 @@ export function buildWaiverRunPlan(run) {
     thread_name: threadName,
     parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
     parent_embed: parentEmbed,
-    move_messages: moves.map(buildMoveMessage),
+    move_messages: moves.map((m) => buildMoveMessage(m, run && run.season)),
+  };
+}
+
+// ── ONE REPORT PER RUN (league-wide) ────────────────────────────────────
+// buildWaiverRunPlan above posts ONE PARENT PER TEAM. That reads fine for a
+// 2-team run and floods the channel at league scale: eight teams claiming on
+// the same Thursday is eight top-level posts, and the run has no single
+// object you can point at. Keith 2026-08-20: "a 'Thursday Waiver Report'
+// then thread each add/drop within that thread ... it could get crazy with
+// 10+ waiver claims a week."
+//
+// This shape posts exactly ONE top-level message no matter how big the run
+// is — the parent is a fixed-size scoreboard, and every claim lives in its
+// thread. 3 claims and 30 claims cost the channel the same real estate.
+//
+// `report`:
+//   { run_date_label, processed_at_et, season, icon_url?,
+//     teams: [ { franchise_id, franchise_name, moves: [...] } ] }
+// Each move is the SAME shape buildWaiverRunPlan takes, so the per-move
+// message body is the identical builder — one vocabulary for penalties and
+// money regardless of which shape announced them.
+export function buildWaiverReportPlan(report) {
+  const teams = Array.isArray(report && report.teams) ? report.teams : [];
+  // Denied claims from MFL's processed-waivers report (parseWaiverMisses).
+  // Absent => the report simply has no misses section; it must NOT render as
+  // "0 not granted", which would assert we checked when we may not have.
+  const misses = Array.isArray(report && report.misses) ? report.misses : null;
+  const missByTeam = new Map();
+  for (const m of (misses || [])) {
+    const k = _s(m.franchise_name);
+    missByTeam.set(k, (missByTeam.get(k) || 0) + 1);
+  }
+  const dayLabel = _s(report && report.run_date_label) || "Waiver";
+  const processedAt = _s(report && report.processed_at_et);
+  const season = report && report.season;
+
+  const allMoves = teams.reduce((acc, t) => acc.concat(Array.isArray(t.moves) ? t.moves : []), []);
+  const allDrops = allMoves.reduce((acc, m) => acc.concat(moveDrops(m)), []);
+  const unpaired = allMoves.filter((m) => !moveDrops(m).length && m.pairing_known === false);
+  const unknownPen = allDrops.filter((d) => !d.penalty || d.penalty.known === false);
+  const knownPenTotal = allDrops.reduce(
+    (sum, d) => sum + (d.penalty && d.penalty.known !== false ? (Number(d.penalty.penalty) || 0) : 0), 0
+  );
+  const known$ = allMoves.filter((m) => m.amount_dollars != null);
+  const spendTotal = known$.reduce((sum, m) => sum + (Number(m.amount_dollars) || 0), 0);
+  const unknown$ = allMoves.length - known$.length;
+
+  // Same "silence is not zero" discipline as the per-team parent.
+  const unresolved = unknownPen.length + unpaired.length;
+  const capValue = unresolved
+    ? `${fmtK(knownPenTotal)} priced · ⚠️ ${unresolved} unpriced`
+    : (knownPenTotal === 0 ? "None — $0" : fmtK(knownPenTotal));
+
+  // The scoreboard: one line per team, so a reader sees who did what without
+  // opening the thread. This is the ONLY part that grows with the run, and it
+  // grows by a line — not by a post.
+  const missOnlyTeams = [...missByTeam.keys()].filter(
+    (name) => !teams.some((t) => _s(t.franchise_name) === name)
+  );
+  const teamLines = teams.map((t) => {
+    const mv = Array.isArray(t.moves) ? t.moves : [];
+    const drops = mv.reduce((acc, m) => acc.concat(moveDrops(m)), []);
+    const spend = mv.filter((m) => m.amount_dollars != null)
+      .reduce((s, m) => s + (Number(m.amount_dollars) || 0), 0);
+    const pen = drops.reduce((s, d) => s + (d.penalty && d.penalty.known !== false ? (Number(d.penalty.penalty) || 0) : 0), 0);
+    const anyUnknown = drops.some((d) => !d.penalty || d.penalty.known === false);
+    const bits = [`${mv.length} claim${mv.length === 1 ? "" : "s"}`, fmtK(spend)];
+    if (pen > 0) bits.push(`${fmtK(pen)} pen`);
+    if (anyUnknown) bits.push("⚠️ unpriced");
+    const missed = missByTeam.get(_s(t.franchise_name)) || 0;
+    if (missed) bits.push(`${missed} missed`);
+    return `**${_s(t.franchise_name) || _s(t.franchise_id)}** — ${bits.join(" · ")}`;
+  });
+
+  const claimNoun = `${allMoves.length} claim${allMoves.length === 1 ? "" : "s"}`;
+  const teamNoun = `${teams.length} team${teams.length === 1 ? "" : "s"}`;
+  const parentEmbed = {
+    title: `🧾 ${dayLabel} Waiver Report`,
+    description: clampDesc(
+      `${claimNoun} across ${teamNoun}` +
+      (misses && misses.length ? ` · **${misses.length} not granted**` : "") +
+      `${processedAt ? ` · processed ${processedAt}` : ""}.`
+    ),
+    color: capPenaltyDisplay(
+      unresolved ? { known: false } : { known: true, penalty: knownPenTotal, exempt: false }
+    ).color,
+    fields: [
+      { name: "Claims won", value: String(allMoves.length), inline: true },
+      // Only rendered when the misses source was actually consulted.
+      ...(misses ? [{ name: "Not granted", value: String(misses.length), inline: true }] : []),
+      { name: "Total spent", value: clampField(known$.length ? `${fmtK(spendTotal)}${unknown$ ? ` · ${unknown$} unknown` : ""}` : "amount unknown"), inline: true },
+      { name: "Players dropped", value: clampField(unpaired.length ? `${allDrops.length} known · ${unpaired.length} unknown` : String(allDrops.length)), inline: true },
+      { name: "Cap penalties", value: clampField(capValue), inline: true },
+      { name: "By team", value: clampField(
+        teamLines.concat(
+          // A team that won nothing but lost something is still part of the
+          // run; omitting it would make the miss look like it came from nowhere.
+          missOnlyTeams.map((n) => `**${n}** — 0 claims · ${missByTeam.get(n)} missed`)
+        ).join("\n") || "—"
+      ), inline: false },
+    ],
+  };
+  if (_s(report && report.icon_url)) parentEmbed.thumbnail = { url: _s(report.icon_url) };
+
+  // Every claim in ONE thread, each labelled with its team — without the
+  // label a league-wide thread is unreadable, since the per-move embed only
+  // names the players.
+  const moveMessages = [];
+  for (const t of teams) {
+    for (const m of (Array.isArray(t.moves) ? t.moves : [])) {
+      const msg = buildMoveMessage(
+        { ...m, franchise_name: _s(t.franchise_name), icon_url: _s(t.icon_url) },
+        season
+      );
+      const team = _s(t.franchise_name) || _s(t.franchise_id);
+      const emb = msg.body.embeds[0];
+      // Team identity is carried by the author row now, so it is NOT repeated
+      // as a bold line in the body.
+      moveMessages.push({ ...msg, franchise_id: _s(t.franchise_id), franchise_name: team });
+    }
+  }
+
+  // Misses ride in the SAME thread, after the granted claims — a separate
+  // post would divorce "lost Harris" from "got Miller instead", which is the
+  // one connection the fallback chain exists to show.
+  for (const m of (misses || [])) moveMessages.push(buildMissMessage(m));
+
+  return {
+    thread_name: `${dayLabel} Waivers`.replace(/\s+/g, " ").trim().slice(0, 100),
+    parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
+    parent_embed: parentEmbed,
+    move_messages: moveMessages,
+  };
+}
+
+// ── DENIED CLAIMS ───────────────────────────────────────────────────────
+// MFL's Previously Processed Waivers report is the only source that says a
+// claim was DENIED and why (no export carries it). Its columns are:
+//   Round (or Group) | Franchise | Player Added | Player Dropped |
+//   Original Waiver Request | Reason Not Granted
+//
+// THE GROUPING KEY IS THE REQUEST STRING. One submission can carry several
+// RANKED options, and MFL emits one ROW PER OPTION — every row repeating the
+// same full request text. Real example (2026-08-20, Real Deal Creel):
+//   row A  added:None                 reason:"Harris, Najee ... Is Not Available."
+//   row B  added:"Miller, Kendre ..."  reason:""
+// Both rows share one request: "Add Harris … Add Miller … Add Hunt …".
+// So A and B are not two events — they are the miss and the fallback of ONE
+// submission. Reporting them separately tells the owner they lost a player
+// AND (elsewhere) gained another, never that the second happened BECAUSE the
+// first failed. The pair is the story, so they are grouped, not listed.
+//
+// `parsePlayerCell` handles "Harris, Najee NYG RB ($1000.00)" and the
+// bid-less dropped variant; "None" is empty, not a player named None.
+const _pwNone = (v) => { const t = _s(v); return (!t || t.toLowerCase() === "none") ? "" : t; };
+
+export function parsePlayerCell(cell) {
+  const raw = _pwNone(cell);
+  if (!raw) return null;
+  let bid = null;
+  const money = raw.match(/\(\$?([\d,]+(?:\.\d+)?)\)/);
+  let body = raw;
+  if (money) {
+    bid = Math.round(Number(money[1].replace(/,/g, "")) || 0);
+    body = raw.slice(0, money.index).trim();
+  }
+  // "Last, First TEAM POS" — trailing team+pos, comma-swapped name.
+  const m = body.match(/^(.*?),\s*([^,]+?)\s+([A-Z]{2,3})\s+([A-Z]{1,3})$/);
+  if (m) {
+    return { name: `${m[2].trim()} ${m[1].trim()}`, nfl_team: m[3], position: m[4], bid_dollars: bid };
+  }
+  return { name: body, nfl_team: "", position: "", bid_dollars: bid };
+}
+
+// Strip MFL's echo of the player name off the front of its reason text, so
+// the card doesn't say the player's name twice.
+export function cleanDenialReason(reason, deniedName) {
+  let t = _s(reason).replace(/\s+/g, " ");
+  if (!t) return "";
+  t = t.replace(/^.*?\bCannot Be Added Because\b\s*/i, "");
+  t = t.replace(/^Error\s*-\s*/i, "");
+  if (deniedName) {
+    const last = _s(deniedName).split(" ").pop();
+    if (last) t = t.replace(new RegExp(`^${last}[^A-Za-z]*`, "i"), "");
+  }
+  t = t.replace(/\.\s*$/, "").trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+}
+
+// rows: the report table INCLUDING its header row. Returns one entry per
+// submission that had at least one denied option.
+export function parseWaiverMisses(rows) {
+  const body = Array.isArray(rows) ? rows.filter((r) => Array.isArray(r) && r.length >= 6) : [];
+  if (!body.length) return [];
+  const start = /round/i.test(_s(body[0][0])) ? 1 : 0;
+  const bySubmission = new Map();
+  // Who actually landed each player, league-wide. MFL's denial text says only
+  // "Is Not Available" — true but useless; the owner's real question is who
+  // took him. Answerable because the winning row is in this same report.
+  const wonBy = new Map();
+  for (let i = start; i < body.length; i += 1) {
+    const gotP = parsePlayerCell(body[i][2]);
+    if (gotP && !_s(body[i][5])) {
+      wonBy.set(gotP.name, { team: _s(body[i][1]), bid: gotP.bid_dollars });
+    }
+  }
+  for (let i = start; i < body.length; i += 1) {
+    const [round, franchise, added, dropped, request, reason] = body[i];
+    const key = `${_s(franchise)}||${_s(request)}`;
+    if (!bySubmission.has(key)) {
+      bySubmission.set(key, { franchise_name: _s(franchise), request: _s(request), options: [] });
+    }
+    bySubmission.get(key).options.push({
+      round: _s(round),
+      added: parsePlayerCell(added),
+      dropped: parsePlayerCell(dropped),
+      reason: _s(reason),
+    });
+  }
+  const out = [];
+  for (const sub of bySubmission.values()) {
+    const denied = sub.options.filter((o) => o.reason);
+    if (!denied.length) continue;
+    // The fallback is the option from the SAME submission that landed.
+    const granted = sub.options.find((o) => !o.reason && o.added) || null;
+    // Ranked options are recoverable from the request text even when MFL gave
+    // the losing row added:"None" — that is how "Hunt was never reached" is
+    // knowable at all.
+    const wanted = [];
+    const re = /Add\s+(.+?)\s+for\s+\$?([\d,.]+)\s+and\s+drop\s+(.+?)(?=\s+Add\s+|\s+Submitted\b|$)/gi;
+    let mm;
+    while ((mm = re.exec(sub.request)) !== null) wanted.push(_s(mm[1]));
+    for (const d of denied) {
+      // MFL names the denied player in the reason even when the Added cell is
+      // "None"; fall back to the first requested option in rank order.
+      const namedInReason = parsePlayerCell((d.reason.match(/^(.*?)\s+Cannot Be Added/i) || [])[1] || "");
+      const deniedPlayer = d.added || namedInReason || parsePlayerCell(wanted[0] || "");
+      const deniedName = _s(deniedPlayer && deniedPlayer.name);
+      const grantedName = _s(granted && granted.added && granted.added.name);
+      // Rank is the owner's OWN ordering in the request, so "#3" means their
+      // third choice — not an MFL priority score.
+      const notReached = wanted
+        .map((w, idx) => ({ rank: idx + 1, player: parsePlayerCell(w) }))
+        .filter((o) => o.player && o.player.name !== deniedName && o.player.name !== grantedName)
+        .map((o) => ({ rank: o.rank, name: o.player.name }));
+      const grantedRank = wanted.findIndex((w) => {
+        const p = parsePlayerCell(w);
+        return p && p.name === grantedName;
+      }) + 1;
+      const winner = deniedName ? wonBy.get(deniedName) : null;
+      const takenBy = winner ? _s(winner.team) : "";
+      // The bid the LOSER put on the player MFL denied — stated in their own
+      // request text, per option, so it survives even when MFL blanks the
+      // Added cell on a denial.
+      let deniedBid = null;
+      const bidM = sub.request.match(/Add\s+([^$]+?)\s+for\s+\$?([\d,.]+)/gi) || [];
+      for (const seg of bidM) {
+        const mm = /Add\s+(.+?)\s+for\s+\$?([\d,.]+)/i.exec(seg);
+        if (!mm) continue;
+        const p = parsePlayerCell(mm[1]);
+        if (p && p.name === deniedName) { deniedBid = Math.round(Number(mm[2].replace(/,/g, "")) || 0); break; }
+      }
+      // TIE vs OUTBID — the distinction the owner actually cares about, and
+      // derivable because both bids are on the page. Only a TIE was decided by
+      // waiver order; calling an outbid a tiebreaker loss would be wrong.
+      const winBid = winner ? winner.bid : null;
+      let lossKind = "";
+      if (takenBy && deniedBid != null && winBid != null) {
+        lossKind = winBid > deniedBid ? "outbid" : (winBid === deniedBid ? "tiebreaker" : "");
+      }
+      out.push({
+        franchise_name: sub.franchise_name,
+        // Empty when nobody won him (a roster-limit or rules rejection) —
+        // distinct from a head-to-head loss, and the card must not imply one.
+        lost_to: takenBy && takenBy !== sub.franchise_name ? takenBy : "",
+        // "" when the bids could not both be read — unknown, not "tie".
+        loss_kind: takenBy && takenBy !== sub.franchise_name ? lossKind : "",
+        bid_dollars: deniedBid,
+        winning_bid_dollars: winBid,
+        player: deniedPlayer,
+        reason: cleanDenialReason(d.reason, deniedName),
+        reason_raw: d.reason,
+        granted_instead: granted ? granted.added : null,
+        options_not_reached: notReached,
+        granted_rank: grantedRank || null,
+        options_total: wanted.length || null,
+        round: d.round,
+      });
+    }
+  }
+  return out;
+}
+
+// One thread message per denied claim. Same embed vocabulary as a granted
+// move so the two read as one feed.
+// showFallback=false for the STANDALONE miss report (Keith 2026-08-21: "we
+// dont need the fell through to so in this report though you can keep that in
+// the hits report"). The denial post answers "what did you not get, and why";
+// what you got INSTEAD is the wins report's job. The data is still parsed and
+// still carried on the miss object either way — only the rendering differs, so
+// nothing has to be re-derived if it is wanted back.
+export function buildMissMessage(miss, showFallback = true) {
+  const p = miss && miss.player;
+  const team = _s(miss && miss.franchise_name);
+  const bid = p && p.bid_dollars != null ? ` — ${fmtK(p.bid_dollars)} bid` : "";
+  const lines = [`**${team}**`, playerLine("✖", p) + bid];
+  const fields = [];
+  if (_s(miss.reason) || _s(miss.lost_to)) {
+    let why;
+    if (_s(miss.lost_to)) {
+      const who = `**${_s(miss.lost_to)}**`;
+      if (miss.loss_kind === "outbid") {
+        // Outbid is NOT a tiebreaker loss and must not be dressed as one.
+        why = `Outbid — ${who} bid ${fmtK(miss.winning_bid_dollars)}` +
+              (miss.bid_dollars != null ? ` to your ${fmtK(miss.bid_dollars)}` : "") + ".";
+      } else if (miss.loss_kind === "tiebreaker") {
+        // Equal bids, so waiver order decided it — bbidTiebreaker=SORT.
+        // The CRITERION is deliberately not named here: it is the custom
+        // order until Week 2 and All-Play % after, and this builder cannot
+        // see the date or the order. Naming the wrong one is worse than
+        // naming none, so it says the mechanism and stops.
+        why = `Tied at ${fmtK(miss.bid_dollars)} — ${who} won on waiver order.`;
+      } else {
+        why = `No longer available — ${who} won him earlier in this run.`;
+      }
+    } else {
+      why = _s(miss.reason);
+    }
+    fields.push({ name: "MFL's reason", value: clampField(why), inline: false });
+  }
+  const g = showFallback ? miss.granted_instead : null;
+  if (g) {
+    const rankTag = miss.granted_rank && miss.options_total
+      ? ` (choice ${miss.granted_rank} of ${miss.options_total})` : "";
+    let v = `✅ ${_s(g.name)}${g.position || g.nfl_team ? `  \`${[g.position, g.nfl_team].filter(Boolean).join(" · ")}\`` : ""}` +
+            (g.bid_dollars != null ? ` — ${fmtK(g.bid_dollars)} · granted${rankTag}` : ` · granted${rankTag}`);
+    // NOT "low priority" — MFL never ranked these down. The owner ordered them,
+    // MFL stops at the first success, so anything after the winner was simply
+    // never evaluated. Say the cause (Keith 2026-08-21).
+    const nr = Array.isArray(miss.options_not_reached) ? miss.options_not_reached : [];
+    if (nr.length) {
+      const names = nr.map((o) => `#${o.rank} ${o.name}`).join(", ");
+      v += `\n_${names} never came up — ${_s(g.name)} landed first_`;
+    }
+    fields.push({ name: "Fell through to", value: clampField(v), inline: false });
+  } else if (showFallback) {
+    // Say it explicitly — a blank here would read as "we didn't check".
+    fields.push({ name: "Fell through to", value: "_nothing — no other option on this request_", inline: false });
+  }
+  return {
+    row_id: null,
+    player_id: null,
+    player_name: _s(p && p.name),
+    franchise_name: team,
+    is_miss: true,
+    body: {
+      content: "",
+      embeds: [{
+        description: clampDesc(lines.join("\n") + "\n# ❌ Not Granted"),
+        color: 0xed4245,
+        fields,
+      }],
+      allowed_mentions: { parse: [] },
+    },
+  };
+}
+
+// ── STANDALONE MISS REPORT ──────────────────────────────────────────────
+// Keith 2026-08-21: "i only want this on the miss report" — the granted-claim
+// posts stay exactly as they are (one parent per team); the DENIALS get their
+// own post. So this is not the consolidated run report with misses folded in;
+// it is a separate object about one thing.
+//
+// Deliberately silent when there are no denials. A "0 not granted" post every
+// week is noise, and worse, it would be indistinguishable from the case where
+// the misses source could not be read at all — the route omits `misses`
+// entirely rather than passing [] when it could not check.
+export function buildMissReportPlan(report) {
+  const misses = Array.isArray(report && report.misses) ? report.misses : [];
+  if (!misses.length) return null;
+  const dayLabel = _s(report && report.run_date_label) || "Waiver";
+  const processedAt = _s(report && report.processed_at_et);
+
+  const byTeam = new Map();
+  for (const m of misses) {
+    const k = _s(m.franchise_name) || "—";
+    byTeam.set(k, (byTeam.get(k) || 0) + 1);
+  }
+  // Head-to-head losses are the interesting ones; a rules rejection is a
+  // different animal and is counted separately rather than blurred together.
+  const lost = misses.filter((m) => _s(m.lost_to));
+  const rejected = misses.filter((m) => !_s(m.lost_to));
+
+  const teamLines = [...byTeam.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name, n]) => `**${name}** — ${n} missed`);
+
+  const fields = [
+    { name: "Not granted", value: String(misses.length), inline: true },
+    { name: "Teams affected", value: String(byTeam.size), inline: true },
+  ];
+  if (lost.length) fields.push({ name: "Lost to another team", value: String(lost.length), inline: true });
+  if (rejected.length) fields.push({ name: "Rejected by rule", value: String(rejected.length), inline: true });
+  fields.push({ name: "By team", value: clampField(teamLines.join("\n")), inline: false });
+
+  const parentEmbed = {
+    title: `❌ ${dayLabel} Waiver Misses`,
+    description: clampDesc(
+      `${misses.length} claim${misses.length === 1 ? "" : "s"} not granted` +
+      `${processedAt ? ` · ${processedAt}` : ""}.`
+    ),
+    color: 0xed4245,
+    fields,
+  };
+  if (_s(report && report.icon_url)) parentEmbed.thumbnail = { url: _s(report.icon_url) };
+
+  return {
+    thread_name: `${dayLabel} Misses`.replace(/\s+/g, " ").trim().slice(0, 100),
+    parent_body: { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } },
+    parent_embed: parentEmbed,
+    move_messages: misses.map((m) => buildMissMessage(m, false)),
   };
 }

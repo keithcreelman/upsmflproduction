@@ -184,3 +184,70 @@ export async function buildLeagueEvents({ rows, season, from, limit, kickoffFor,
 
   return { events, ladder };
 }
+
+// ── Which ladder rung is open RIGHT NOW ────────────────────────────────────
+// Pure: all four inputs are unix SECONDS, supplied by the caller.
+//
+// The pre-season acquisition ladder (canon ~379/~785), one sequential walk:
+//   MYAC        now               -> September contract deadline
+//   MYM         contract deadline -> NFL Week 3 kickoff
+//   Extension   Week 3 kickoff    -> NFL Week 5 kickoff
+//   (after Wk5) closed
+//
+// This is the SERVER-side implementation. As of 2026-08-22 the boundary logic
+// exists in five browser copies (front_office.js, front_office_actions.js,
+// player_sheet.js, app.js, views/contracts.js), each a port of the last. The
+// trade workbench needed a sixth and did not get one: three-copy drift is
+// exactly what dropped `Ext:` from nine contracts earlier the same day, when
+// one of three writers never received the fix. New consumers read the stamped
+// value instead; the existing five can migrate onto it later.
+//
+// FAIL-CLOSED. A missing or out-of-order boundary returns "unresolved", never a
+// guessed rung — callers must treat "unresolved" as "offer nothing". Ordering
+// must be strictly increasing: an inverted pair means the inputs are telling us
+// something we cannot act on.
+//
+// Comparison operators mirror the browser copies exactly: `<=` on the contract
+// deadline (deadline day itself is still MYAC) and `<` on each kickoff (the
+// window closes the instant the week starts playing).
+export function contractLadderStage({
+  contractDeadlineUnix,
+  week3KickoffUnix,
+  week5KickoffUnix,
+  nowUnix,
+} = {}) {
+  const num = (v) => {
+    const n = typeof v === "number" ? v : parseInt(v, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const cd = num(contractDeadlineUnix);
+  const wk3 = num(week3KickoffUnix);
+  const wk5 = num(week5KickoffUnix);
+  const now = num(nowUnix);
+  const UNRESOLVED = { stage: "unresolved", end_unix: null };
+
+  if (now == null) return UNRESOLVED;
+  if (cd != null && wk3 != null && wk3 <= cd) return UNRESOLVED;
+  if (wk3 != null && wk5 != null && wk5 <= wk3) return UNRESOLVED;
+
+  if (cd == null) return UNRESOLVED;
+  if (now <= cd) return { stage: "myac", end_unix: cd };
+  if (wk3 == null) return UNRESOLVED;
+  if (now < wk3) return { stage: "mym", end_unix: wk3 };
+  if (wk5 == null) return UNRESOLVED;
+  if (now < wk5) return { stage: "extension", end_unix: wk5 };
+  return { stage: "closed", end_unix: wk5 };
+}
+
+// The September contract deadline as an INSTANT, from its stored ISO day.
+// 23:59:59 ET on the deadline day — the boundary every other arm already gates
+// MYAC on (front_office.js ~3360). Shared so the ladder stamp and the
+// restructure window guard cannot drift on the one detail that matters here:
+// which second the day ends. Returns null on anything unparseable — never a
+// guessed instant.
+export function contractDeadlineUnixFromIso(iso) {
+  const day = String(iso || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const ms = new Date(day + "T23:59:59-04:00").getTime();
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}

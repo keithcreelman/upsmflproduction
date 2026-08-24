@@ -46,6 +46,148 @@ Each entry follows this structure:
      point. New entries push older ones further down so reverse-chronological
      order is preserved. -->
 
+## 2026-07-24 — Mid-Year Multi (2B): no cheap multi-year reset after the trade deadline (REJECTED)
+
+**Round:** July2026 · **Integration:** backfilled 2026-08-15 from the Discord record
+**Discord thread:** https://discord.com/channels/1057655884475531324/1528806469732925630
+
+Recorded for the audit trail. The proposal did not pass, so nothing in canon changed.
+
+---
+
+## 2026-07-21 — Mid-Year Multi (2A): waiver-run cooldown before reacquiring a dropped player (PASSED)
+
+**Round:** July2026 · **Integration:** backfilled 2026-08-15 from the Discord record
+**Discord thread:** https://discord.com/channels/1057655884475531324/1528806463504650350
+
+### Proposal body
+> After dropping a player you cannot immediately re-add him and convert him to a multi-year
+> contract. He must clear at least one waiver run open to the rest of the league, unclaimed,
+> before you are eligible to reacquire him for MYM. This stops rapid drop-and-extend loops on
+> the same player.
+
+### Sections affected
+- `C3. Mid-Year Multi (MYM)` — replaced the 1-calendar-week waiting period with a one-waiver-run clearing requirement
+
+### Before
+> 1 calendar week waiting period before reacquisition and MYM eligibility.
+
+### After
+> The player must clear a full waiver run open to the league, unclaimed. Earliest reacquisition
+> is the run after that. The 14-day MYM window starts fresh on the valid re-add.
+
+---
+
+## 2026-07-21 — Amari Cooper Rule: cap-free cuts of retired players during the FA Auction (PASSED)
+
+**Round:** July2026 · **Integration:** backfilled 2026-08-15 from the Discord record
+**Discord thread:** https://discord.com/channels/1057655884475531324/1528806486556282890
+
+### Proposal body
+> Retired players may be cut cap-free during the FA Auction, freeing that salary for more bids.
+> Retirement must be genuine — official announcement or credible report, commissioner-verified.
+> Injured players use IR instead. A player cut this way cannot be re-nominated during the same
+> auction.
+
+### Sections affected
+- `D2. Cap-free cut categories` — added the retired-during-auction exception and the same-auction re-nomination lockout
+
+### Before
+> Cuts blocked during the FA Auction window (exception: IR cap relief). Retired players could be
+> cut cap-free but only outside the auction window.
+
+### After
+> Retired players may be cut cap-free during the FA Auction. The freed salary is available for
+> new bids in that same window. The player cannot be nominated or bid on again for the rest of
+> that auction, and returns to the waiver pool at the first run after it closes.
+
+---
+
+## 2026-07-21 — QB Starter Cap: 4 NFL starters at the contract deadline, regardless of taxi (PASSED 7-0-0)
+
+**Round:** July2026 · **Integration:** backfilled 2026-08-15 from the Discord record
+**Discord thread:** https://discord.com/channels/1057655884475531324/1528806456877383860
+
+### Proposal body
+> A franchise may roster up to 4 NFL starting QBs outright, measured at the September contract
+> deadline. Previously a 4th starter was allowed only if kept on the taxi squad. The existing
+> max-5-active-QB roster limit is unchanged.
+>
+> The prior rule let a 4th starting QB through only if he sat on taxi. With the 2026 move to a
+> more flexible taxi squad, stashing QBs there became much easier, which was never the intent.
+
+### Sections affected
+- `B1. Active Roster` — added the 4-starter cap, the deadline measurement, and the enforcement order
+- `Section 4 — Superflex era` — corrected the era table from a 3-starting-QB cap to 4
+
+### Before
+> Max 3 starting QBs; a 4th was only allowed if kept on the taxi squad.
+
+### After
+> Max 4 starting QBs across active roster and taxi combined, measured once on the September
+> contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team.
+> Over the cap on the deadline, the league cuts the most recently acquired starting QBs in
+> reverse-acquisition order until compliant, with normal penalties charged to the following
+> season's cap. A backup who wins a job later in the season is not a violation. The 5-QB
+> active-roster maximum is unchanged.
+
+---
+
+## 2026-05-11 — Dynasty Pot: +$50 annual dues, 3-year prize (PASSED 9-1-0)
+
+**Round:** May2026 · **Integration:** backfilled 2026-08-15 from the Discord record
+**Discord thread:** https://discord.com/channels/1057655884475531324/1501643158604349500
+
+Dues changes require 75% approval (9 of 12 YES). This passed 9-1-0.
+
+### Proposal body
+> Add $50 to annual dues to fund a 3-year Dynasty Pot, tracking the same 3-year window as the
+> divisional realignment cycle. 12 teams x $50 x 3 years = $1,800 per cycle: $900 to the best
+> 3-year All-Play %, and $900 paid out annually.
+>
+> Owners must be in the league all 3 years to be eligible. Owners who leave forfeit their
+> contributions. New owners pay the $50 on joining but are not eligible until they complete a
+> full cycle. Prize splitting is recognized only on an actual All-Play % tie.
+
+### Sections affected
+- `Section 3 — August` — annual dues corrected from $200 to $250 ($200 base + $50 Dynasty Pot)
+- `Section 3 — November` — clarified that the $100 trade-deadline payment is half of the base
+
+### Before
+> Annual league dues: $200.
+
+### After
+> Annual league dues: $250 — the $200 base plus a $50 Dynasty Pot contribution. Base payouts
+> (champion, 2nd, 3rd, division winners, weekly high score, Toilet Bowl) are unchanged.
+
+**Open:** canon does not yet say when the $50 Dynasty Pot contribution is collected, or confirm
+the annual split ($300 to 1st / $100 to 2nd was proposed as a suggestion, open to adjustment).
+
+---
+
+## 2026-05-08 — Tagging: early lock-in becomes a tradeable asset (PASSED)
+
+**Round:** May2026 · **Integration:** backfilled 2026-08-15 from the Discord record
+**Discord thread:** https://discord.com/channels/1057655884475531324/1501643171862679622
+
+### Proposal body
+> Tags can be locked in early, which makes them tradeable assets. Once locked, a tag is final and
+> can be included in trades like any other contract. Tags not locked early still auto-lock on the
+> deadline.
+
+### Sections affected
+- `C8. Tags` — added voluntary early lock-in and tag tradeability
+
+### Before
+> Tags auto-locked on tag deadline day only; not tradeable until locked.
+
+### After
+> An owner may voluntarily lock a tag early. Once locked it is final and tradeable. Tags not
+> locked early auto-lock on the deadline as before. A traded tag does not consume any of the
+> receiving team's own 2-tag allocation.
+
+---
+
 ## 2026-05-08 — Realignment — captain-based division draft (PASSED 7-0-0)
 
 **Round:** May2026 · **Locked:** 2026-05-08 (post-vote, locked at threshold + 5 min grace)

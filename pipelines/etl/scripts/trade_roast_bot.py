@@ -487,13 +487,6 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
     details = classification.get("details", "")
     print(f"[{datetime.now()}] Classified as: {category} — {details}")
 
-    # Actually honour the gate. `clap_back_warranted` was computed and then never
-    # read, so the bot answered everything — including replies the classifier had
-    # explicitly flagged as not worth answering.
-    if not classification.get("clap_back_warranted", False):
-        print(f"[{datetime.now()}]   → clap-back NOT warranted ({category}); staying quiet")
-        return
-
     # Identify replier franchise
     discord_users = load_discord_users()
     replier_fid = None
@@ -510,11 +503,29 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
 
     if category == "DATA_ERROR":
         log_data_error(details, reply_text, replier_fid or "")
-        await post_destination.send("Noted. We'll verify against the source data.",
-                                    allowed_mentions=discord.AllowedMentions.none())
+        # CONCEDE OUT LOUD. This used to be silent: the `clap_back_warranted`
+        # gate sat ABOVE this branch and returned first, so a DATA_ERROR — the
+        # one category where the owner is probably RIGHT — produced no reply at
+        # all. From the owner's side a correct concession was indistinguishable
+        # from the bot crashing ("think the bot gave up on my trade roast",
+        # shawnblake on Jonah Coleman, 2026-08-23).
+        #
+        # The gate belongs to the COPE branch only. A clap-back is an
+        # ARGUMENT; these two are acknowledgements, and declining to argue is
+        # not a reason to say nothing.
+        await post_destination.send(
+            "Fair — that one's on us. Logged for a look at the source data.",
+            allowed_mentions=discord.AllowedMentions.none())
         return
 
-    # COPE → full clap-back. Use OWNER-tenure stats not franchise stats.
+    # COPE → full clap-back, and the ONLY branch the clap-back gate governs.
+    # The classifier decides whether an argument is worth having; it does not
+    # decide whether an owner deserves an answer.
+    if not classification.get("clap_back_warranted", False):
+        print(f"[{datetime.now()}]   → clap-back NOT warranted ({category}); staying quiet")
+        return
+
+    # Use OWNER-tenure stats not franchise stats.
     replier_context = ""
     if replier_fid:
         career_stats = load_career_stats()
@@ -1086,7 +1097,17 @@ def build_multiway_context_text(summary: dict) -> str:
             sched = " → ".join(f"${s:,}" for s in rem)
             sal = (f"${p.salary:,} salary (schedule {sched}; "
                    f"${sum(rem):,} over {len(rem)} yrs)")
-        ppg = (f", {round(p.expected_ppg, 1)} PPG ({p.ppg_basis or 'proj'})"
+        # PPG is NEVER observed production here — it is a trade-value model, a
+        # rollover estimate, or a forward projection. `ppg_basis` says which.
+        # An EMPTY basis means the projection overlay set the number and nobody
+        # recorded where it came from, which used to render as a bare "(proj)".
+        # An owner read that as production for a player who has never taken a
+        # snap and concluded the bot was making things up (2026-08-23). Say it
+        # in words the model cannot quietly drop.
+        _basis = (p.ppg_basis or "").strip()
+        if not _basis:
+            _basis = "PROJECTED — not games played"
+        ppg = (f", {round(p.expected_ppg, 1)} PPG ({_basis})"
                if p.expected_ppg else "")
         adp = ""
         if getattr(p, "adp_overall", 0):

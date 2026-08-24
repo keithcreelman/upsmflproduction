@@ -1,3 +1,8 @@
+-- ⚠️ THE "NEVER RUN migrations apply" WARNING BELOW IS OBSOLETE (2026-08-17).
+--    The tracker was reconciled; `wrangler d1 migrations apply` is now correct.
+--    See migrations/README.md. The old text is left intact below on purpose —
+--    it was true when written.
+
 -- 0117_return_game_scoring_inputs.sql
 -- Claude 2026-08-04 — Phase 0 task 0.3 (Appendix C item C9).
 -- See docs/MODEL_RESEARCH_AND_DATA_AUDIT.md §1.3.

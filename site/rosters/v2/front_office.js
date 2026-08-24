@@ -210,6 +210,23 @@
     version: null,
     me: null,           // { configured, franchise_id, franchise_name, isAdmin }
     nflStatus: {},      // pid -> MFL injury status string ("Questionable", "Out", ...)
+    // Did we actually READ MFL's injuries export? NO FAIL-OPEN: an empty
+    // nflStatus map is NOT the same fact as "nobody carries a designation", and
+    // the §B3 IR gate below is not allowed to confuse the two.
+    //   "pending" — the fetch has not resolved yet (boot race).
+    //   "ok"      — the export was read. nflStatusRows says how many rows it had.
+    //   "error"   — the fetch threw / non-200. We know NOTHING about anyone.
+    nflStatusFeed: "pending",
+    // Row count of the LAST successful read. null until one succeeds. 0 is
+    // load-bearing but NOT trustworthy as data: MFL's injuries export normally
+    // carries hundreds of rows league-wide (339 on 2026-08-15), so a 0-row read
+    // is treated as "we learned nothing", never as "nobody is designated".
+    nflStatusRows: null,
+    // pid -> { exp_return, details } from the SAME injuries rows as nflStatus.
+    // Purely descriptive colour for the badge tooltip ("Suspension · expected
+    // back Nov 8, 2026"); nothing in the §B3 gate reads it, and a missing entry
+    // is never inferred to mean anything.
+    nflStatusMeta: {},
     newsFlags: {},      // pid -> "injury" | "news" when the player has a news item
     contractDeadline: null, // ISO date of the Sept contract deadline (league_events)
     // Sept contract deadline as a real unix instant (ms) — set from
@@ -332,6 +349,77 @@
     String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+  // ── decodeEntities — ONLY for text the upstream news feed already encoded ──
+  //
+  // Ported verbatim in behaviour from site/team_operations/team_operations.js
+  // (same feed, same bug, already fixed there). /api/player-news hands us
+  // HTML-entity-encoded prose — ESPN bodies and Sleeper notes arrive with
+  // "&#8217;", "&#39;", "&quot;", "&amp;". escapeHtml() re-encodes the
+  // ampersand FIRST, so "&#8217;" became "&amp;#8217;" and the browser painted
+  // the literal characters on screen:
+  //   Falcons&#8217; James Pearce Jr. ...  /  Pearce&#8217;s eight-game ban
+  // The fix is to decode ONCE, then escape. escapeHtml still runs last, so a
+  // literal <script> in the feed decodes to <script> and is escaped right back
+  // to &lt;script&gt; — inert. NEVER inject the decoded string raw.
+  //
+  // SECURITY: this decodes with a plain regex over an explicit ALLOWLIST and
+  // never touches the DOM. Decoding via innerHTML / a detached element /
+  // DOMParser parses markup, which would let a feed carrying
+  // <img src=x onerror=...> turn a display fix into an injection vector on a
+  // surface that renders untrusted third-party text (the worker aggregates six
+  // upstreams, one of them reddit). Nothing below builds or parses a node.
+  //
+  // Unknown or malformed tokens ("&notanentity;", "&#999999999;") are returned
+  // EXACTLY as they arrived — never dropped, never guessed at.
+  // NOTE for the next editor: this literal is module-level and carries /g.
+  // That is safe HERE because String.prototype.replace resets lastIndex on
+  // every call — but .test()/.exec() on a /g regex do NOT, and would return
+  // alternating results across calls. Use it only with .replace().
+  const ENTITY_TOKEN_RE = /&(#[0-9]{1,10}|#[xX][0-9a-fA-F]{1,8}|lt|gt|quot|apos|amp);/g;
+  function decodeEntities(v) {
+    var s = safeStr(v);
+    if (!s || s.indexOf("&") === -1) return s;
+    // ONE pass, and `amp` is deliberately the LAST alternative. Order is
+    // load-bearing: a decoder that resolves &amp; before the others (or that
+    // chains sequential .replace() calls with &amp; anywhere but last) turns
+    // "&amp;lt;" into "&lt;" and then into "<" — double-decoding, which is
+    // exactly how an escaped tag climbs back out of its escaping. String
+    // .replace() never re-scans the text a replacement produced, so this single
+    // pass cannot double-decode: "&amp;#39;" yields the literal text "&#39;".
+    return s.replace(ENTITY_TOKEN_RE, function (whole, token) {
+      if (token.charAt(0) === "#") {
+        var isHex = token.charAt(1) === "x" || token.charAt(1) === "X";
+        var cp = parseInt(isHex ? token.slice(2) : token.slice(1), isHex ? 16 : 10);
+        // Reject anything that is not a real, lone code point: NaN, zero,
+        // beyond Unicode's ceiling, or a surrogate half.
+        if (!isFinite(cp) || cp <= 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return whole;
+        try { return String.fromCodePoint(cp); } catch (e) { return whole; }
+      }
+      if (token === "lt") return "<";
+      if (token === "gt") return ">";
+      if (token === "quot") return '"';
+      if (token === "apos") return "'";
+      if (token === "amp") return "&";
+      return whole;
+    });
+  }
+
+  // Is this a URL we are willing to put in an href?
+  //
+  // escapeHtml() encodes & < > " ' — it does NOT neutralise a URL SCHEME, so
+  // escaping alone lets `javascript:...` through as a clickable, same-origin
+  // script link. The news feed is genuinely third-party and partly
+  // user-submitted, and the item url is passed along unvalidated, so the scheme
+  // has to be checked at the sink. http/https only; anything else renders as
+  // plain text instead of a link. Protocol-relative "//host" is deliberately
+  // NOT allowed — it inherits the page's scheme and reads as a path to a
+  // careless reader. Same guard as team_operations.js safeHttpUrl().
+  function safeHttpUrl(v) {
+    var s = safeStr(v).trim();
+    return /^https?:\/\//i.test(s) ? s : "";
+  }
+
   // Display helpers — salaries are stored as RAW DOLLARS in the worker
   // payload (Watson Y1 = 2000 = $2,000), not K-units. Keith 2026-05-19:
   // prefer comma-separated full dollars in this table view.
@@ -516,6 +604,28 @@
     var match = info.match(/(?:^|\|)\s*AAV\s+([^|]+)/i);
     if (!match) return "";
     return safeStr(match[1]).replace(/\bY\d+\s*-[^|]*$/i, "").trim();
+  }
+  // Segments a restructure OWNS — it recomputes every one of these, so the prior
+  // value is expected to be replaced.
+  var RESTRUCTURE_OWNED_SEGMENT = /^\s*(CL\b|TCV\b|AAV\b|Y\d+\s*-|GTD\b|[Rr]estructur)/i;
+  // Everything ELSE in a prior contractInfo is recorded history this form has no
+  // business editing — `Ext:` (which franchises spent an extension, and so gates
+  // future extension eligibility), and the tag quartet `Tag | Tier N | Formula: … |
+  // 10% salary floor`. Carry them through verbatim.
+  //
+  // 🔒 Enumerating what to KEEP is what makes this rebuild lose fields. It has now
+  // dropped three: AAV and the -FL/-BL suffix (Cook/London, 2026-07), then `Ext:`
+  // on nine contracts restructured via this form in 2026 (backfilled 2026-08-22 —
+  // FO v2 was the ONLY writer missing it; roster_workbench.js and the mobile
+  // submitter both already re-push it). Preserving the unrecognized remainder is
+  // what stops the next field from going the same way — a restructure of a TAGGED
+  // player would have silently destroyed all four tag segments.
+  function preservedContractSegments(contractInfo) {
+    return safeStr(contractInfo).split("|").map(function (seg) {
+      return safeStr(seg).trim();
+    }).filter(function (seg) {
+      return seg && !RESTRUCTURE_OWNED_SEGMENT.test(seg);
+    });
   }
   function parseContractGuaranteeValue(contractInfo) {
     var info = safeStr(contractInfo);
@@ -1385,10 +1495,21 @@
     const rec = EXTENSION_RATES[key] || EXTENSION_RATES.OTHER;
     return safeInt(rec && rec[y], 0);
   }
+  // Escalator base = the contract's AAV, NOT the loaded current-year salary
+  // (canon §C4). Same PR #780 fix as trade_workbench.js and
+  // site/shared/pretrade_extension.js; this duplicate never received it. On a
+  // loaded final year the two differ — Drake London (TCV 66K / CL 2 = $33K AAV,
+  // $52K loaded current year) quoted $62K instead of $43K. Order matches the
+  // worker: normalized aav field, then the contract-info AAV token, then salary.
+  function extensionAavBase(p) {
+    const aav = Math.max(0, safeInt(p && p.aav, 0)) ||
+                Math.max(0, currentAavForContractInfo(p && p.special));
+    return aav > 0 ? aav : Math.max(0, safeInt(p && p.salary, 0));
+  }
   function projectedExtensionSalary(p, years) {
     const y = safeInt(years, 0);
     if (y !== 1 && y !== 2) return 0;
-    return Math.max(1000, roundToK(safeInt(p && p.salary, 0) + extensionRaiseForPlayer(p, y)));
+    return Math.max(1000, roundToK(extensionAavBase(p) + extensionRaiseForPlayer(p, y)));
   }
   // RULE-EXT-003 — same franchise can't extend the same player twice.
   // Parses the `Ext: <team1>, <team2>` segment from contract_info and
@@ -1544,7 +1665,7 @@
       salary: salaryToSend,
       year1_salary: salaryToSend,
       synthesized: true,
-      sourceNote: "Synthesized client-side per canon §C4.6"
+      sourceNote: "Synthesized client-side"
     };
   }
   function synthesizedExtensionOptionsForPlayer(p) {
@@ -1771,24 +1892,41 @@
   // unused. Reads STATE.contractDeadlineMs / STATE.weekKickoffs directly,
   // same as mobile reads window.UPS_MOBILE.state.contractLadder directly.
   function contractLadderStageFO_desktop(p) {
-    var cdEnd = finiteMsOrNullFO(STATE.contractDeadlineMs);
-    var mymEnd = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[3]);   // Week 3 kickoff
-    var extEnd = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[5]);   // Week 5 kickoff
-    var now = Date.now();
+    // The rung is RESOLVED SERVER-SIDE (worker/src/league_events_ladder.js
+    // contractLadderStage, stamped on /api/league-events) and read here. It is
+    // no longer recomputed on the client.
+    //
+    // This was the LAST of the two browser implementations; mobile's
+    // front_office_actions.js migrated first. Its header called this one a port
+    // of that one, and two copies of a rule drift — that is what dropped `Ext:`
+    // from nine contracts on 2026-08-22, where one of three writers never
+    // received a fix.
+    //
+    // Verified identical before switching: same rung and same end instant on
+    // live data, and the deadline event resolves to the same date on 2024/2025/
+    // 2026 (2027 is unseeded and correctly reports unresolved). Desktop matched
+    // the deadline row by SUBSTRING and took the first hit in array order; the
+    // server matches `ups_contract_deadline` EXACTLY, so this also closes a
+    // latent hazard — a second event containing "contract_deadline" would have
+    // made desktop and server disagree.
+    //
+    // Shape is UNCHANGED ({stage, date, endMs}); `date` is derived from the
+    // server's end instant for display only, never a comparison. `p` stays in
+    // the signature for call-site symmetry with isPreseasonWwPickupFO(p).
+    //
+    // FAIL-CLOSED: an absent or unresolved stamp is "unresolved", never a rung.
+    var srv = STATE.contractLadderServer || null;
+    var stage = String((srv && srv.stage) || "").toLowerCase();
     var UNRESOLVED = { stage: "unresolved", date: "", endMs: null };
-    // Out-of-order boundaries mean our inputs are telling us something we
-    // can't act on. Refuse rather than pick an interpretation.
-    if (cdEnd != null && mymEnd != null && mymEnd <= cdEnd) return UNRESOLVED;
-    if (mymEnd != null && extEnd != null && extEnd <= mymEnd) return UNRESOLVED;
-    if (cdEnd == null) return UNRESOLVED;
-    if (now <= cdEnd) return { stage: "myac", date: isoEtDayFromMsFO(cdEnd), endMs: cdEnd };
-    if (mymEnd == null) return UNRESOLVED;
-    // Strictly BEFORE kickoff: the window closes when the week starts playing.
-    if (now < mymEnd) return { stage: "mym", date: isoEtDayFromMsFO(mymEnd), endMs: mymEnd };
-    if (extEnd == null) return UNRESOLVED;
-    if (now < extEnd) return { stage: "extension", date: isoEtDayFromMsFO(extEnd), endMs: extEnd };
-    return { stage: "closed", date: "", endMs: null };
+    if (!stage || stage === "unresolved") return UNRESOLVED;
+    if (stage === "closed") return { stage: "closed", date: "", endMs: null };
+    var endMs = finiteMsOrNullFO(srv && srv.end_unix ? srv.end_unix * 1000 : null);
+    if (stage === "myac" || stage === "mym" || stage === "extension") {
+      return { stage: stage, date: endMs ? isoEtDayFromMsFO(endMs) : "", endMs: endMs };
+    }
+    return UNRESOLVED;
   }
+
 
   // Is THIS player on the PRE-SEASON waiver rung of the ladder? Returns
   // "yes" | "no" | "unknown". Verbatim-as-possible port of mobile's
@@ -1884,9 +2022,21 @@
     // writes "CL 2"/"CL 3" and keeps status Vet-FAA), so CL===1 is canon C2's
     // "currently on 1-year default". FAILS CLOSED on an unreadable CL: a hidden
     // button is recoverable, an irreversible multi-year MFL write is not.
+    // NOTE: this used to read `!rookieLikeContractStatus(status)`, which excluded
+    // ANY status containing "rookie" — including **Rookie-FAA**, a rookie WON IN
+    // THE FA AUCTION. Canon line 394 puts every auction win (FA or Expired
+    // Rookie) at "1, 2, or 3 years", so those players are entitled to a
+    // multi-year auction contract and were being offered Extension as their only
+    // option (8 players across 5 teams on 2026-08-23; reported by an owner about
+    // Cyrus Allen). The status vocabulary fix that started writing "Rookie-FAA"
+    // instead of "Vet-FAA" is what walked them into this clause.
+    //
+    // The clause's real intent is "don't offer MYAC to someone whose path is the
+    // ROOKIE OPTION" — so test that directly. A drafted rookie carries
+    // Rookie-Draft and never matches `-faa` anyway.
     var isFreshFaaStatus = status.indexOf("-faa") !== -1 &&
                            parseContractLengthValue(p && p.special) === 1 &&
-                           !rookieLikeContractStatus(status) && status.indexOf("tag") === -1 &&
+                           !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
                            inAuctionMyacMonthWindowFO("faa");
 
     // ── Pre-season acquisition ladder (canon ~379/~785) ─────────────────
@@ -2954,15 +3104,149 @@
   // NFL game status (O/Q/D) comes straight from MFL's injuries export; the
   // news flag from /api/player-news (same feed the News tab uses). Both load
   // after the table first renders, then trigger one re-render.
-  var NFL_STATUS_ABBR = { out: "O", questionable: "Q", doubtful: "D", probable: "P", ir: "IR", pup: "PUP", suspended: "S", "injured reserve": "IR", "covid-19": "C" };
+  // Keys are the LOWERCASED status string exactly as MFL sends it. The second
+  // group is the set observed live 2026-08-15 across 339 rows — "ir-pup",
+  // "ir-nfi", "holdout" and "retired" were missing, so they fell through to the
+  // `charAt(0)` fallback below and painted a bare "I"/"I"/"H"/"R" chip. A
+  // suspended player (James Pearce Jr., pid 17115) showed nothing at all,
+  // because the feed itself was never being read (see loadRosterIndicators).
+  var NFL_STATUS_ABBR = {
+    out: "O", questionable: "Q", doubtful: "D", probable: "P", ir: "IR", pup: "PUP", nfi: "NFI",
+    suspended: "S", suspension: "S", "injured reserve": "IR", "covid-19": "C",
+    "ir-pup": "PUP", "ir-nfi": "NFI", holdout: "HO", retired: "RET",
+  };
+  // Raw MFL designation for a player, or "" when the export has no row for
+  // them. Uppercased to match the mobile predicate + the worker's §B3 gate,
+  // which both compare against uppercase tokens. Callers that need to know
+  // whether "" means "MFL says no designation" or "we never read the export"
+  // must consult foIrEligibility() — "" alone does NOT answer that.
+  function nflDesignation(pid) {
+    return safeStr(STATE.nflStatus[String(pid)]).trim().toUpperCase();
+  }
   function nflStatusBadge(pid) {
     var s = STATE.nflStatus[String(pid)];
     if (!s) return "";
     var key = String(s).toLowerCase();
     var abbr = NFL_STATUS_ABBR[key] || String(s).charAt(0).toUpperCase();
-    var kls = (key.indexOf("out") >= 0 || key === "ir" || key.indexOf("reserve") >= 0 || key.indexOf("pup") >= 0) ? "out"
+    // Everything that keeps a player OFF the field reads in the "out" colour.
+    // That now explicitly includes IR-PUP / IR-NFI / suspended / holdout /
+    // retired / COVID, all of which previously fell through to the amber
+    // "questionable" bucket and read like a game-time decision. A suspension is
+    // not a game-time decision, and neither is a retirement.
+    var kls = (key.indexOf("out") >= 0 || key.indexOf("ir") === 0 || key.indexOf("reserve") >= 0 ||
+               key.indexOf("pup") >= 0 || key.indexOf("suspend") >= 0 || key.indexOf("nfi") >= 0 ||
+               key.indexOf("covid") >= 0 || key.indexOf("retired") >= 0) ? "out"
       : (key.indexOf("doubt") >= 0 ? "doubtful" : "questionable");
-    return ' <span class="fo-nfl-status fo-nfl-' + kls + '" title="NFL game status: ' + escapeHtml(String(s)) + '">' + escapeHtml(abbr) + "</span>";
+    // Tooltip carries the FULL status plus MFL's own free-text colour, so the
+    // two-or-three-character chip is never the whole story: "S" alone doesn't
+    // tell you it's an eight-game ban ending Nov 8. Both extra fields are
+    // optional — append only what the feed actually sent, never a placeholder.
+    var meta = STATE.nflStatusMeta[String(pid)] || {};
+    var tip = "NFL game status: " + String(s);
+    if (meta.details) tip += " · " + meta.details;
+    if (meta.exp_return) tip += " · expected back " + meta.exp_return;
+    return ' <span class="fo-nfl-status fo-nfl-' + kls + '" title="' + escapeHtml(tip) + '">' + escapeHtml(abbr) + "</span>";
+  }
+  // Modal-header variant. The roster row stays silent when there is no
+  // designation (35 rows of "unknown" chips is noise), but the player modal has
+  // room to be HONEST about the difference between:
+  //   • MFL says this player carries nothing  → render nothing
+  //   • we could not read MFL at all          → say so
+  //   • MFL's report is empty league-wide     → say so
+  // Never let case 2 or 3 look like case 1 — that is the whole reason the badge
+  // exists next to a "Place on IR" button.
+  function nflStatusBadgeDetailed(pid) {
+    var badge = nflStatusBadge(pid);
+    if (badge) return badge;
+    if (STATE.nflStatusFeed === "error") {
+      return ' <span class="fo-nfl-status fo-nfl-unknown" title="MFL&#39;s injury report could not be read, so this player&#39;s NFL designation is unknown.">NFL ?</span>';
+    }
+    if (STATE.nflStatusFeed === "pending") {
+      return ' <span class="fo-nfl-status fo-nfl-unknown" title="Still loading MFL&#39;s injury report…">NFL …</span>';
+    }
+    if (STATE.nflStatusFeed === "ok" && STATE.nflStatusRows === 0) {
+      return ' <span class="fo-nfl-status fo-nfl-unknown" title="MFL&#39;s injury report came back empty for the entire NFL, which is not a credible reading — so no NFL designation is known for any player.">NFL —</span>';
+    }
+    return "";
+  }
+
+  // ── §B3 IR eligibility — CLIENT-SIDE PREVIEW ONLY ───────────────────
+  // The real gate is server-side (worker roster-action returns IR_NOT_ELIGIBLE
+  // / IR_ELIGIBILITY_UNKNOWN). This exists so the button does not lie about
+  // what is about to happen — it must never claim more certainty than the data
+  // supports. Returns one of three states, and "unknown" is NEVER collapsed
+  // into either of the other two:
+  //   { state: "eligible"   } — MFL lists an IR-type designation. Server agrees.
+  //   { state: "ineligible" } — MFL was read and lists nothing IR-type. Server
+  //                             will refuse. `designation` may be "" (MFL has
+  //                             no row for them) or e.g. "QUESTIONABLE".
+  //   { state: "unknown"    } — we could not determine it. Do not assert either
+  //                             way; let the server answer.
+  // The predicate is byte-for-byte the worker's §B3 gate (see `deactivate_ir`
+  // in worker/src/index.js) so client and server cannot disagree about who
+  // qualifies — a client that offers a button the server refuses is just a
+  // slower error message.
+  //
+  // ⚠️ Matched against the strings MFL ACTUALLY sends. Observed live 2026-08-15
+  // across 339 rows: IR (32), IR-PUP (2), IR-NFI (1), Suspended (8),
+  // Holdout (2), RETIRED (19), Questionable (234), Out (41).
+  //
+  // Do NOT "simplify" these to equality tests. The predicate in
+  // site/m/views/contracts.js irEligible() does exactly that — `s === "PUP"` /
+  // `s === "NFI"` — and can therefore NEVER match, because MFL prefixes them:
+  // the real strings are "IR-PUP" and "IR-NFI". It also has no HOLDOUT branch
+  // though canon T2.1 lists holdouts explicitly. Prefix tests, not equality.
+  //
+  // RETIRED is deliberately NOT eligible: canon D2 handles retirees through the
+  // cap-free-cut rule, a different mechanic from IR's 50% relief. Note it also
+  // survives the "IR" prefix test on its own — "RETIRED".indexOf("IR") is 3,
+  // not 0 — which is precisely why these are anchored prefix checks.
+  // One wording, used by every §B3 surface in this file (button tooltip, help
+  // note, confirm dialog) so they cannot drift apart. Holdout is listed because
+  // canon T2.1 lists it and the worker's gate accepts it — an earlier draft of
+  // this text omitted it and would have told an owner their holdout was
+  // ineligible while the server happily accepted him.
+  const IR_ELIGIBLE_DESIGNATIONS_NOTE =
+    "Eligible designations: IR / IR-PUP / IR-NFI / suspended / holdout / COVID.";
+  function foIrDesignationEligible(desig) {
+    var s = safeStr(desig).toUpperCase();
+    return s.indexOf("IR") === 0        // IR, IR-PUP, IR-NFI
+        || s.indexOf("SUSPEND") === 0   // Suspended
+        || s.indexOf("HOLDOUT") === 0   // canon T2.1
+        || s.indexOf("COVID") >= 0;     // legacy §B3
+  }
+  function foIrEligibility(pid) {
+    if (STATE.nflStatusFeed === "pending") {
+      return { state: "unknown", designation: "", why: "MFL's injury report hasn't finished loading." };
+    }
+    if (STATE.nflStatusFeed === "error") {
+      return { state: "unknown", designation: "", why: "MFL's injury report could not be read." };
+    }
+    // Read OK, but the report came back EMPTY league-wide. MFL's injuries
+    // export is normally well-populated (339 rows on 2026-08-15, suspensions
+    // and holdouts included), so zero rows across an entire NFL is not a
+    // credible "everyone is healthy" — it is the signature of a request MFL
+    // declined in some way we did not recognise. Absence of evidence, not
+    // evidence of absence: report it as unknown and let the server decide.
+    //
+    // (Do not fold this into the "ineligible" branch. A 0-row read is exactly
+    // what the pre-fix L= bug produced on EVERY load, and reading it as
+    // "this player has no designation" is the fail-closed-but-lying-about-why
+    // twin of the fail-open guards that have burned this codebase.)
+    if (safeInt(STATE.nflStatusRows, 0) === 0) {
+      return {
+        state: "unknown", designation: "",
+        why: "MFL's injury report came back empty for the entire NFL, which is not a credible reading, so it can't confirm or rule out eligibility."
+      };
+    }
+    var desig = nflDesignation(pid);
+    if (foIrDesignationEligible(desig)) return { state: "eligible", designation: desig, why: "" };
+    return {
+      state: "ineligible", designation: desig,
+      why: desig
+        ? 'MFL lists this player as "' + desig + '", which is not an IR-type designation.'
+        : "MFL's injury report has no designation on file for this player."
+    };
   }
   function newsFlagBadge(pid) {
     var f = STATE.newsFlags[String(pid)];
@@ -2976,14 +3260,57 @@
     var pids = allVisiblePlayers().map(function (p) { return p.id; }).filter(Boolean);
     if (!pids.length) return;
     // NFL game status — straight from MFL's injuries export.
+    //
+    // NO FAIL-OPEN: the catch below used to swallow the failure and leave
+    // nflStatus at {}, which is byte-identical to "the whole league is
+    // healthy". That was harmless while this only tinted a roster row, but it
+    // now feeds the §B3 IR eligibility preview, so the outcome has to be
+    // recorded as a FACT (ok / error) rather than inferred from an empty map.
+    //
+    // ⚠️ `injuries` is one of MFL's LEAGUE-AGNOSTIC exports: it must be fetched
+    // from api.myfantasyleague.com with NO L= at all. We still send &L= here —
+    // the worker's global no-L guard 400s "Missing L param" before /api/mfl-export
+    // runs — and the worker strips it and picks the right host for this TYPE
+    // (see leagueAgnosticTypes in worker/src/index.js). Until that worker change
+    // shipped, this request came back as MFL's error envelope and every player
+    // read as "no designation", which is why no IR/PUP/suspended chip has ever
+    // appeared on a roster row.
     try {
       var inj = await fetchJSON(apiUrl("/api/mfl-export") + "?TYPE=injuries&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON) + "&JSON=1");
-      var arr = (inj && inj.injuries && inj.injuries.injury) || [];
-      if (!Array.isArray(arr)) arr = [arr];
+      // MFL signals a REFUSED export with HTTP 200 and an `error` envelope
+      // ({"error":{"$t":"Invalid request. This API request must go to
+      // api.myfantasyleague.com"}}). fetchJSON only throws on a non-2xx, so
+      // without this branch a refusal parses cleanly to zero rows — a 200 that
+      // means "you asked wrong" wearing the costume of "nobody is injured".
+      // Treat it as what it is: we did not read the report.
+      var mflErr = inj && inj.error;
+      if (mflErr) throw new Error("MFL export refused: " + safeStr((mflErr && mflErr.$t) || mflErr));
+      var root = inj && inj.injuries && inj.injuries.injury;
+      // A single-row export arrives as an object, not an array. An absent
+      // `injury` key is a legitimate EMPTY report (0 rows) — distinct from the
+      // throw above, and both distinct from "these players are healthy".
+      var arr = Array.isArray(root) ? root : (root ? [root] : []);
       var m = {};
-      arr.forEach(function (x) { if (x && x.id && x.status) m[String(x.id)] = String(x.status); });
+      var meta = {};
+      arr.forEach(function (x) {
+        if (!x || !x.id || !x.status) return;
+        m[String(x.id)] = String(x.status);
+        // exp_return / details are free-text and OPTIONAL — a row may carry
+        // neither. Store only what is actually present; the badge tooltip
+        // renders whichever half exists and says nothing about the other.
+        meta[String(x.id)] = { exp_return: safeStr(x.exp_return), details: safeStr(x.details) };
+      });
       STATE.nflStatus = m;
-    } catch (e) {}
+      STATE.nflStatusMeta = meta;
+      STATE.nflStatusRows = arr.length;
+      STATE.nflStatusFeed = "ok";
+    } catch (e) {
+      console.warn("[fo] injuries export unreadable — NFL status/IR eligibility will render as unknown:", e);
+      STATE.nflStatus = {};
+      STATE.nflStatusMeta = {};
+      STATE.nflStatusRows = null;
+      STATE.nflStatusFeed = "error";
+    }
     // News flags. The /api/player-news endpoint resolves at most ~50 players per
     // request, so a single all-roster call drops everyone past ~50 (Jalen Hurts
     // had news but no flag). Chunk into ≤40-pid requests and merge.
@@ -3005,6 +3332,23 @@
       STATE.newsFlags = flags;
     } catch (e) {}
     if (Object.keys(STATE.nflStatus).length || Object.keys(STATE.newsFlags).length) renderRosterTable();
+    refreshOpenActionsTabForIndicators();
+  }
+
+  // The player modal can be opened before the injuries export resolves — the
+  // Actions tab would then be stuck showing "eligibility not yet known" for the
+  // rest of the session even though we now have the answer. Re-render it once,
+  // but ONLY if it is still the plain Actions list: renderSlideoverBody() would
+  // otherwise wipe out a half-filled Extension / MYAC / Restructure form the
+  // owner is standing in. `.fo-action-row` is present only on the list itself.
+  function refreshOpenActionsTabForIndicators() {
+    if (!STATE.slideoverPid || STATE.slideoverSubtab !== "actions") return;
+    var body = $("#fo-slideover-body");
+    if (!body || !body.querySelector(".fo-action-row")) return;
+    var titleEl = $("#fo-slideover-title");
+    var p = findPlayer(STATE.slideoverPid, STATE.slideoverFid);
+    if (titleEl && p) titleEl.innerHTML = slideoverTitleHtml(p);
+    renderSlideoverBody();
   }
 
   // ── Contract summary strip near the top of the roster ───────────────
@@ -3061,6 +3405,11 @@
         3: kickoffMsFromFO(ko, 3),
         5: kickoffMsFromFO(ko, 5)
       };
+      // The RUNG itself, resolved server-side. The boundaries above are still
+      // read — Week 1 separates pre-season from in-season, and the ms instants
+      // feed display — but the open/closed DECISION now comes from here.
+      // null = the server did not answer, which is never "open".
+      STATE.contractLadderServer = (data && data.contract_ladder) || null;
     } catch (e) {}
   }
   function renderContractSummary() {
@@ -3134,7 +3483,7 @@
     if (!ns.ok) {
       // "Could not read" is not "nothing owed" — say which one this is.
       return '<div class="fo-adj-year">' + escapeHtml(String(year)) + " cap — ledger only</div>" +
-        '<div class="fo-adj-row"><span>Next-season drop penalties unavailable (' +
+        '<div class="fo-adj-row"><span>Next-season adjustments unavailable (' +
         escapeHtml(String(ns.error || "unreadable")) + ") — not confirmed empty.</span><span></span></div>";
     }
     const byFid = ns.byFid || {};
@@ -3148,7 +3497,14 @@
       out += '<div class="fo-adj-team">' + escapeHtml(grp.franchise_name || fid) + "</div>";
       (grp.items || []).forEach(function (it) {
         total += safeInt(it.amount, 0);
-        out += adjRow("Drop · " + (it.player || it.player_id || "—") +
+        // it.kind distinguishes a drop from a §F RULE 2 missed-nomination
+        // fine (worker/src/index.js /api/cap-adjustments/next-season) —
+        // both land in this same next-season ledger, and hardcoding "Drop ·"
+        // on every row mislabeled the RULE 2 half (Keith 2026-08-16: the
+        // Hawks' 2026 miss "should be flowing into '27" — it was, the total
+        // already counted it, only the label lied about what it was).
+        const prefix = /rule ?2/i.test(safeStr(it.kind)) ? "RULE 2 · " : "Drop · ";
+        out += adjRow(prefix + (it.player || it.player_id || "—") +
           (it.dropped_at_iso ? " (" + String(it.dropped_at_iso).slice(0, 10) + ")" : ""), safeInt(it.amount, 0));
       });
     });
@@ -3203,7 +3559,7 @@
     overlay.innerHTML = '<div class="fo-adj-popup" role="dialog" aria-label="Cap adjustments">' +
       '<div class="fo-adj-head"><span>Cap Adjustments</span><button type="button" class="fo-adj-close" aria-label="Close">×</button></div>' +
       '<div class="fo-adj-body">' + inner + "</div>" +
-      '<div class="fo-adj-foot">Drop / Trade / Other from MFL’s salaryAdjustments feed. Drop penalties round to the nearest $1K by team total (canon §6); the rounding true-up posts to MFL at the Auction Cut Deadline. Penalties from drops on or after the FA Auction start belong to the FOLLOWING season (canon §6 penalty timing) and stay off MFL until the rollover.</div></div>';
+      '<div class="fo-adj-foot">Drop / Trade / Other from MFL’s salaryAdjustments feed. Drop penalties round to the nearest $1K by team total; the rounding true-up posts to MFL at the Auction Cut Deadline. Penalties from drops on or after the FA Auction start belong to the FOLLOWING season and stay off MFL until the rollover.</div></div>';
     overlay.addEventListener("click", function (e) {
       if (e.target === overlay || (e.target.classList && e.target.classList.contains("fo-adj-close"))) {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -3374,6 +3730,26 @@
     return team.players.find(function (p) { return p.id === pid; }) || null;
   }
 
+  // Modal header line: name + NFL designation + commish-override marker.
+  // Split out of openSlideover so loadRosterIndicators can repaint it in place
+  // when the injuries export lands after the modal was already opened.
+  function slideoverTitleHtml(p) {
+    // Commish-override indicator — when viewer is admin AND not the
+    // owning franchise. Tells Keith he's acting on someone else's
+    // roster, every submit will carry commish_override_flag=1 to the
+    // worker (auditable in D1).
+    const me = STATE.me || {};
+    const commishOverride = !!me.isAdmin && pad4(me.franchise_id) !== pad4(p.fid);
+    // NFL designation sits right on the name (same badge as the roster row),
+    // with the honest unknown/empty variants — a "Place on IR" button in the
+    // Actions tab below is only readable if the designation driving it is
+    // visible. See nflStatusBadgeDetailed.
+    return escapeHtml(p.name) + nflStatusBadgeDetailed(p.id) +
+      (commishOverride
+        ? ` <span class="fo-commish-badge" title="Acting on behalf of ${escapeHtml(p.franchise)} — all submits will set commish_override_flag=1.">👑 commish override</span>`
+        : "");
+  }
+
   function openSlideover(pid, fid, subtab) {
     const p = findPlayer(pid, fid);
     if (!p) return;
@@ -3383,20 +3759,8 @@
     const root = $("#fo-slideover");
     root.hidden = false;
     root.setAttribute("aria-hidden", "false");
-    $("#fo-slideover-title").textContent = p.name;
-    // Commish-override indicator — when viewer is admin AND not the
-    // owning franchise. Tells Keith he's acting on someone else's
-    // roster, every submit will carry commish_override_flag=1 to the
-    // worker (auditable in D1).
-    const me = STATE.me || {};
-    const commishOverride = !!me.isAdmin && pad4(me.franchise_id) !== pad4(fid);
     const titleEl = $("#fo-slideover-title");
-    if (titleEl) {
-      titleEl.innerHTML = escapeHtml(p.name) +
-        (commishOverride
-          ? ` <span class="fo-commish-badge" title="Acting on behalf of ${escapeHtml(p.franchise)} — all submits will set commish_override_flag=1.">👑 commish override</span>`
-          : "");
-    }
+    if (titleEl) titleEl.innerHTML = slideoverTitleHtml(p);
     // Same "MFL has not said" rule as the table row: the salary is real, the
     // contract type and remaining years are not yet known — so say pending
     // rather than print "— · 0yr rem", which reads as expired.
@@ -4077,13 +4441,29 @@
     var when = "";
     if (it.timestamp) { try { when = new Date(Number(it.timestamp) * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch (e) {} }
     var meta = (it.source ? escapeHtml(String(it.source)) : "") + (when ? " · " + when : "");
-    var headline = it.url
-      ? '<a href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(it.headline || "") + "</a>"
-      : escapeHtml(it.headline || "");
+    // DECODE, THEN ESCAPE — order is load-bearing and must not be swapped.
+    // The feed hands us prose that is ALREADY entity-encoded, so escapeHtml on
+    // its own re-encoded the ampersand and painted the raw token on screen:
+    //   "Falcons&#8217; James Pearce Jr." → "Falcons&amp;#8217; James Pearce Jr."
+    // decodeEntities() resolves it to a real apostrophe first; escapeHtml()
+    // still runs last, so anything markup-shaped in the feed is neutralised on
+    // the way out. NEVER hand the decoded string straight to innerHTML.
+    // Same fix, same order as team_operations.js (~3436 / ~3562).
+    var headlineText = decodeEntities(it.headline || "");
+    var bodyText = decodeEntities(it.body || "");
+    // escapeHtml() encodes & < > " ' but does NOT neutralise a URL SCHEME, so
+    // it alone would let a feed-supplied `javascript:...` through as a
+    // clickable same-origin script link. This feed is third-party and partly
+    // user-submitted. A non-http(s) url renders as plain text, not a link —
+    // the headline is never dropped.
+    var href = safeHttpUrl(it.url);
+    var headline = href
+      ? '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(headlineText) + "</a>"
+      : escapeHtml(headlineText);
     return '<div class="fo-news-item ' + foNewsItemClass(it.type) + '">' +
       '<div class="fo-news-headline">' + headline + "</div>" +
       '<div class="fo-news-meta">' + meta + "</div>" +
-      (it.body ? '<div class="fo-news-body">' + escapeHtml(it.body) + "</div>" : "") + "</div>";
+      (bodyText ? '<div class="fo-news-body">' + escapeHtml(bodyText) + "</div>" : "") + "</div>";
   }
   async function renderNewsTab(p) {
     var body = $("#fo-slideover-body");
@@ -4105,9 +4485,16 @@
     }
     var injuryNote = "";
     if (p && (p.injuryStatus || p.injury_status)) {
+      // Same decode-then-escape order as foRenderNewsItem. Different upstream
+      // (MFL's own injury detail, not the news aggregator) but it renders in
+      // the SAME panel, and MFL's free-text detail field carries entity-encoded
+      // prose too — a panel that fixes the apostrophes in one paragraph and not
+      // the one above it reads like a rendering bug either way. escapeHtml
+      // still runs last.
+      var injDetail = decodeEntities(safeStr(p.injuryDetails || p.injury_details));
       injuryNote = '<div class="fo-news-item fo-news-injury"><div class="fo-news-headline">MFL Injury · ' +
-        escapeHtml(safeStr(p.injuryStatus || p.injury_status)) + "</div>" +
-        (p.injuryDetails || p.injury_details ? '<div class="fo-news-body">' + escapeHtml(safeStr(p.injuryDetails || p.injury_details)) + "</div>" : "") + "</div>";
+        escapeHtml(decodeEntities(safeStr(p.injuryStatus || p.injury_status))) + "</div>" +
+        (injDetail ? '<div class="fo-news-body">' + escapeHtml(injDetail) + "</div>" : "") + "</div>";
     }
     body.innerHTML =
       '<div class="fo-card-head" style="align-items:center;"><h2 style="margin:0;">News</h2>' +
@@ -4226,6 +4613,46 @@
     if (p.taxiEligible && !p.isTaxi && !p.isIr && !p.taxiPermanentPromotion) {
       moveBtns.push(`<button class="btn small" data-action="demote-taxi">Move to Taxi</button>`);
     }
+    // Place on IR (§B3) — the inverse of Activate IR. Offered only to a player
+    // who is NOT already on IR and NOT on taxi: a taxi player is already off
+    // the active roster at $0, so IR's 50% relief buys nothing, and MFL's
+    // TYPE=ir import operates on the active roster.
+    //
+    // The button's ENABLED/DISABLED state is a PREVIEW, not the gate. The
+    // worker re-checks §B3 against MFL's injury report on every submit and
+    // answers IR_NOT_ELIGIBLE (400) / IR_ELIGIBILITY_UNKNOWN (502) — see
+    // submitRosterMove. What matters here is that the three eligibility states
+    // stay three: "unknown" is never quietly rendered as eligible OR
+    // ineligible. Collapsing it either way would be inventing an answer MFL
+    // never gave — enabled-and-confident invents a "yes", disabled invents a
+    // "no", and the disabled one is worse because it silently removes a legal
+    // move with no way for the owner to tell why.
+    let irHelpNote = "";
+    if (!p.isIr && !p.isTaxi) {
+      const irElig = foIrEligibility(p.id);
+      if (irElig.state === "ineligible") {
+        // MFL was read and affirmatively does not list an IR-type designation.
+        // The server would refuse this exact submit, so don't offer it as live.
+        const irTip = escapeHtml(irElig.why + " " + IR_ELIGIBLE_DESIGNATIONS_NOTE);
+        moveBtns.push(`<button class="btn small" data-action="deactivate-ir" disabled title="${irTip}">Place on IR</button>`);
+        irHelpNote = ' <strong>Place on IR</strong> is disabled — no IR-eligible NFL designation. ' +
+          escapeHtml(irElig.why + " " + IR_ELIGIBLE_DESIGNATIONS_NOTE);
+      } else if (irElig.state === "eligible") {
+        const irTip = escapeHtml('MFL lists "' + irElig.designation + '" — IR-eligible.');
+        moveBtns.push(`<button class="btn small" data-action="deactivate-ir" title="${irTip}">Place on IR</button>`);
+        irHelpNote = ' <strong>Place on IR</strong> — MFL lists "' + escapeHtml(irElig.designation) +
+          '", an IR-eligible designation (§B3). 50% cap relief; off the active roster max; reversible via IR Activate.';
+      } else {
+        // UNKNOWN. Enabled, and labelled as unverified — the server is the
+        // real gate and refuses without writing anything if the player does
+        // not qualify. Silently disabling here would invent a "no" MFL never
+        // said; silently enabling with a confident label would invent a "yes".
+        const irTip = escapeHtml(irElig.why + " Eligibility will be verified by the server on submit.");
+        moveBtns.push(`<button class="btn small" data-action="deactivate-ir" title="${irTip}">Place on IR *</button>`);
+        irHelpNote = ' <strong>Place on IR *</strong> — eligibility <em>not verified here</em>: ' +
+          escapeHtml(irElig.why) + " The server checks §B3 on submit and refuses without writing anything if the player doesn't qualify.";
+      }
+    }
     // Drop is available on ANY rostered player incl taxi (Keith 2026-06-02) —
     // a taxi/§D2-exempt drop just carries a $0 penalty, which the label shows.
     if (!p.isIr) {
@@ -4233,7 +4660,7 @@
     }
     if (moveBtns.length) {
       rows.push(actionRow("Roster Move",
-        "Drop fires §D1 cap penalty. IR Activate / Taxi Promote are owner-confirmed.",
+        "Drop fires §D1 cap penalty. IR Activate / Taxi Promote are owner-confirmed." + irHelpNote,
         moveBtns.join(" ")));
     }
 
@@ -4248,9 +4675,11 @@
   }
 
   function actionRow(label, help, ctrlHtml) {
-    // help may include trusted inline markup (e.g. <em>). All caller
-    // strings are static. If we ever interpolate user data into help,
-    // escapeHtml at the call site.
+    // help may include trusted inline markup (e.g. <em>) and is NOT escaped
+    // here. Most callers pass a static string, but the §B3 "Place on IR" note
+    // interpolates MFL-derived text (the player's NFL designation, and the
+    // reason text built from it) — those are escapeHtml'd AT THE CALL SITE.
+    // Any new caller that interpolates non-static data must do the same.
     return `
       <div class="fo-action-row">
         <div>
@@ -4327,6 +4756,12 @@
     gateEraRetentionDropFO(body, p);
     $$("[data-action='activate-ir']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRosterMove("activate_ir", p); });
+    });
+    // Place on IR (§B3). A disabled button fires no click event, so the
+    // ineligible case never reaches the worker from here — but the worker
+    // still gates it, because a client-side gate is not a gate.
+    $$("[data-action='deactivate-ir']", body).forEach(function (btn) {
+      btn.addEventListener("click", function () { submitRosterMove("deactivate_ir", p); });
     });
     $$("[data-action='promote-taxi']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRosterMove("promote_taxi", p); });
@@ -4683,7 +5118,7 @@
     // Canon §C4.3/§C4.6: each extension year must be ≥ 20% of the extension TCV.
     const minExtYear = Math.max(1000, Math.ceil(extensionTotal * 0.2 / 1000) * 1000);
     if (y2 < minExtYear || y3 < minExtYear) {
-      flashToast("Canon §C4.3: each extension year must be ≥ 20% of the total (" + fmtUSD(minExtYear) + "). Y2=" + fmtUSD(y2) + ", Y3=" + fmtUSD(y3) + ".", "err");
+      flashToast("Each extension year must be ≥ 20% of the total (" + fmtUSD(minExtYear) + "). Y2=" + fmtUSD(y2) + ", Y3=" + fmtUSD(y3) + ".", "err");
       return;
     }
     const suffix = y2 > y3 ? "-FL" : y2 < y3 ? "-BL" : "";
@@ -6927,8 +7362,25 @@
     const penNextSeason = dropPenaltyLandsNextSeason();
     const penCy = penNextSeason ? 0 : previewDropPen;
     const penNy = penNextSeason ? previewDropPen : 0;
+    // Real (not previewed) drops already ledgered to NEXT season — canon §6:
+    // a drop from FA-Auction-start through end of season is ledger-only until
+    // the rollover, so it never reaches MFL's live salaryAdjustments feed
+    // (adjTotal, above) even though the money is genuinely owed. Same
+    // STATE.nextSeasonAdj the Cap Adjustments popup already renders
+    // (renderNextSeasonAdjBlock) — reused here, not recomputed, so the two
+    // surfaces can't disagree (Keith 2026-08-16: "my Sanders Penalty should
+    // show in '27"). Zeroed under a player filter for the same reason adjTotal
+    // is — it's team-wide, not attributable to the filtered subset.
+    //
+    // Fails CLOSED, not to $0: an unresolved ledger (calendar unreadable, or
+    // the fetch itself failed) must not look identical to "nothing owed" —
+    // it shows as a dash and a note instead of folding into adjustedNy.
+    const nsLedger = STATE.nextSeasonAdj;
+    const nsUnresolved = !anyFilter && nsLedger && nsLedger.ok === false;
+    const nsAdj = (!anyFilter && nsLedger && nsLedger.ok && nsLedger.byFid && nsLedger.byFid[team.fid])
+      ? safeInt(nsLedger.byFid[team.fid].total, 0) : 0;
     const adjustedCy = totals.cy + adjTotal + penCy;
-    const adjustedNy = totals.ny + penNy;
+    const adjustedNy = totals.ny + penNy + nsAdj;
     // ONE set of 3 year numbers, not a raw-salary strip plus a competing
     // "adjusted cap" box underneath (Keith 2026-08-03: the two boxes didn't
     // visually add up). Each column's big number IS the true total — salary +
@@ -6940,6 +7392,13 @@
     if (adjTotal) noteCy.push((adjTotal > 0 ? "+" : "−") + fmtUSD(Math.abs(adjTotal)) + " adj");
     if (previewDropPen && !penNextSeason) noteCy.push("+" + fmtUSD(previewDropPen) + " previewed drop");
     const noteNy = [];
+    // "ledgered adjustment", not "drop pen" — nsAdj is a sum across whatever
+    // the next-season ledger holds, which is drop penalties AND §F RULE 2
+    // missed-nomination fines (both booked ledger-only-until-rollover); a
+    // team whose only next-season money is a RULE 2 fine (no drop at all)
+    // would have read this note backwards.
+    if (nsAdj) noteNy.push("+" + fmtUSD(nsAdj) + " ledgered adjustment (D1, not yet in MFL)");
+    if (nsUnresolved) noteNy.push("⚠ next-season ledger unavailable — total may be understated");
     if (previewDropPen && penNextSeason) noteNy.push("+" + fmtUSD(previewDropPen) + " previewed drop (§D1)");
     const totalsNote = function (parts, rawSalary, title) {
       return parts.length
@@ -6965,7 +7424,7 @@
       </p>
       <div class="fo-cap-totals">
         <div><span class="lbl">${yr0} cap</span><span class="val">${fmtUSD(adjustedCy)}</span>${totalsNote(noteCy, totals.cy, "Cap adjustments (drop pen · traded $ · other) from MFL's salaryAdjustments feed, plus any previewed-drop dead cap landing this season. Planning only — not written to MFL.")}</div>
-        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(adjustedNy)}</span>${totalsNote(noteNy, totals.ny, "§D1 — a cut previewed from the auction start through end of season lands on the FOLLOWING season's cap, not this one. Planning only — not written to MFL.")}</div>
+        <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(adjustedNy)}</span>${totalsNote(noteNy, totals.ny, "§D1 — a cut previewed from the auction start through end of season lands on the FOLLOWING season's cap, not this one. Real, already-booked drops and §F RULE 2 missed-nomination fines that land in that window are pulled from D1's next-season ledger — canon §6 — since they're ledger-only until the rollover and won't show in MFL's own feed until then. Planning only — not written to MFL.")}</div>
         <div><span class="lbl">${yr0 + 2}</span><span class="val">${fmtUSD(totals.ny2)}</span></div>
       </div>
       ${renderCapRosterCounters(team)}
@@ -7764,14 +8223,14 @@
   }
 
   // Shared roster-action POST helper (load_player / unload_player /
-  // drop_player / activate_ir / promote_taxi). Same credentials:"omit"
-  // pattern. Returns the parsed JSON or throws.
+  // drop_player / activate_ir / deactivate_ir / promote_taxi). Same
+  // credentials:"omit" pattern. Returns the parsed JSON or throws.
   async function postRosterAction(action, fid, pid, extra) {
     // appendViewerSessionQuery is MANDATORY here. drop_player / activate_ir /
-    // promote_taxi are owner-scoped MFL imports; forwarded without the viewer's
-    // MFL_USER_ID the worker signs them with the commish cookie and MFL returns
-    // 200 while changing nothing — the silent no-op that made FO v2's Drop
-    // button do nothing at all.
+    // deactivate_ir / promote_taxi are owner-scoped MFL imports; forwarded
+    // without the viewer's MFL_USER_ID the worker signs them with the commish
+    // cookie and MFL returns 200 while changing nothing — the silent no-op that
+    // made FO v2's Drop button do nothing at all.
     const url = appendViewerSessionQuery(
       EP_ROSTER_ACTION() +
       "?L=" + encodeURIComponent(LEAGUE_ID) +
@@ -7797,15 +8256,25 @@
     }
     const data = await r.json().catch(function () { return {}; });
     if (!r.ok || (data && data.ok === false)) {
-      throw new Error((data && data.error) || ("HTTP " + r.status));
+      const err = new Error((data && data.error) || ("HTTP " + r.status));
+      // Carry the worker's machine-readable code (and the rest of the body)
+      // through the throw. Flattening a typed refusal like IR_NOT_ELIGIBLE /
+      // IR_ELIGIBILITY_UNKNOWN into a bare string means the caller has to
+      // regex prose to tell "MFL said no" from "we couldn't ask MFL" — two
+      // outcomes that must never be blurred.
+      err.code = safeStr(data && data.code);
+      err.payload = data || {};
+      err.httpStatus = r.status;
+      throw err;
     }
     return data;
   }
 
-  // ── Roster Move (Drop / IR Activate / Promote Taxi) ────────────────
+  // ── Roster Move (Drop / IR Activate / Place on IR / Promote Taxi) ──
   // Mirrors submitRosterMove at roster_workbench.js:10928.
   async function submitRosterMove(action, p) {
     const verb = action === "activate_ir" ? "activate from IR"
+               : action === "deactivate_ir" ? "place on IR"
                : action === "drop_player" ? "drop"
                : action === "demote_taxi" ? "move to taxi"
                : "promote from taxi";
@@ -7814,15 +8283,37 @@
       const pen = dropPenaltyEstimate(p);
       extra = "\n\nEstimated cap penalty: " + fmtUSD(pen.amount) + "\n" + safeStr(pen.note);
     }
+    // §B3 IR — spell out what the owner is buying and what it costs, including
+    // the honest state of the eligibility check. IR is REVERSIBLE (IR Activate
+    // brings the player back), which is why this confirm is informative rather
+    // than a warning.
+    if (action === "deactivate_ir") {
+      const irElig = foIrEligibility(p.id);
+      const irHalf = Math.round(safeInt(p.salary, 0) / 2);
+      extra = "\n\nWhile on IR:" +
+        "\n  • 50% cap relief" +
+        (safeInt(p.salary, 0) > 0
+          ? " — cap hit goes " + fmtUSD(p.salary) + " → " + fmtUSD(irHalf)
+          : "") +
+        "\n  • does NOT count against the active roster max (" + ACTIVE_MAX + ")" +
+        "\n  • REVERSIBLE — use IR Activate to bring the player back" +
+        "\n\n" + IR_ELIGIBLE_DESIGNATIONS_NOTE +
+        "\n" + (irElig.state === "eligible"
+          ? 'MFL currently lists this player as "' + irElig.designation + '".'
+          : irElig.state === "ineligible"
+            ? "⚠ " + irElig.why + " The server will refuse this."
+            : "⚠ Eligibility NOT verified here: " + irElig.why +
+              " The server re-checks §B3 on submit and writes nothing if it refuses.");
+    }
     if (action === "promote_taxi") {
       const used = safeInt(p.taxiCallupsUsed, 0);
       const max = safeInt(p.taxiCallupsMax, 3) || 3;
       const pending = safeInt(p.taxiCallupsPending, 0);
       const nth = used + pending + 1;
       extra = nth >= max + 1
-        ? "\n\n⚠ Call-up #" + nth + " of a 3-call-up budget. Canon §B2: 4th call-up = PERMANENT PROMOTION."
+        ? "\n\n⚠ Call-up #" + nth + " of a 3-call-up budget. 4th call-up = PERMANENT PROMOTION."
         : "\n\nCall-ups used: " + used + " of " + max + (pending ? " (+" + pending + " pending)" : "") +
-          "\nCanon §B2: each NFL week active on roster burns 1 call-up.";
+          "\nEach NFL week active on roster burns 1 call-up.";
     }
     if (!window.confirm("Confirm " + verb + " for " + p.name + "?" + extra)) return;
 
@@ -7833,7 +8324,16 @@
       await loadRosterData(); renderRosterTable(); closeSlideover();
     } catch (e) {
       console.error("[fo] roster-move failed:", e);
-      flashToast("Roster move failed: " + (e.message || String(e)), "err");
+      // Surface the worker's own `error` prose verbatim — it is written for the
+      // owner and already names the offending designation. The typed §B3 codes
+      // get a short prefix so "MFL says this player doesn't qualify" and "we
+      // could not read MFL's report at all" are not read as the same failure.
+      // Both are refusals: nothing was written either way.
+      const code = safeStr(e && e.code);
+      const prefix = code === "IR_NOT_ELIGIBLE" ? "Not IR-eligible (§B3): "
+                   : code === "IR_ELIGIBILITY_UNKNOWN" ? "IR eligibility could not be verified — nothing was written: "
+                   : "Roster move failed: ";
+      flashToast(prefix + (e.message || String(e)), "err");
     }
   }
 
@@ -8021,9 +8521,17 @@
     // AAV segment = the prior token VERBATIM (dual preserved); fall back to the
     // naive average only when no prior AAV token existed.
     const aavSegment = priorAavToken || fmtK(aav).replace(/\$/, "");
-    const info = "CL " + years + "|TCV " + fmtK(tcv).replace(/\$/, "") +
-                 "|AAV " + aavSegment + "|" + yearTokens.join(", ") +
-                 "|GTD: " + fmtK(gtd).replace(/\$/, "") + "|Restructured " + new Date().getFullYear();
+    // Carry through every segment the restructure does not own (Ext:, tag
+    // quartet, anything added later) — see preservedContractSegments().
+    const carriedSegments = preservedContractSegments(p.special);
+    const info = ["CL " + years,
+                  "TCV " + fmtK(tcv).replace(/\$/, ""),
+                  "AAV " + aavSegment,
+                  yearTokens.join(", "),
+                  "GTD: " + fmtK(gtd).replace(/\$/, "")]
+                 .concat(carriedSegments)
+                 .concat(["Restructured " + new Date().getFullYear()])
+                 .join("|");
     const confirmLines = ["Confirm restructure for " + p.name + "?", "",
       "Y1: " + fmtUSD(y1), "Y2: " + fmtUSD(y2)];
     if (years >= 3) confirmLines.push("Y3: " + fmtUSD(y3));
@@ -8218,16 +8726,21 @@
     const bumpFloor = aavFloor > 0 ? Math.ceil((aavFloor * 1.1) / 1000) * 1000 : 0;
     return Math.max(baseBid, bumpFloor);
   }
+  // Canonical tag floor annotation — the ONE spelling all writers emit.
+  var TAG_FLOOR_NOTE = "10% AAV floor (rounded up to $1K)";
   function effectiveTagFormulaForRow(r) {
     // Start from the canonical tier label (e.g. "Avg Top 1-5 QB AAV").
-    // Strip the JSON's "10% salary floor" suffix because v2 recomputes
-    // floor using AAV only — the JSON suffix is misleading when it was
-    // built on the salary-inclusive formula.
-    let f = safeStr(r && r.tag_formula).replace(/\s*\|\s*10% salary floor[^|]*$/i, "");
+    // §C8-A: the floor is 10% over the CONTRACT-DEADLINE AAV snapshot — AAV only,
+    // never salary — so "10% AAV floor" is the accurate label and "10% salary
+    // floor" is the stale salary-inclusive one. Strip EITHER wording and every
+    // occurrence, then write the canonical note: the old regex stripped only
+    // "salary floor" while emitting "AAV floor", so it never matched its own
+    // output and re-tagging appended forever (Javonte Williams carried it twice).
+    let f = safeStr(r && r.tag_formula).replace(/\s*\|\s*10%\s*(?:salary|AAV)\s+floor[^|]*/ig, "");
     const baseBid = safeInt(r && r.tag_base_bid, 0);
     const eff = effectiveTagSalaryForRow(r);
     if (eff > baseBid) {
-      f += (f ? " | " : "") + "10% AAV floor (rounded up to $1K)";
+      f += (f ? " | " : "") + TAG_FLOOR_NOTE;
     }
     return f;
   }
@@ -8509,14 +9022,15 @@
       return true;
     }).map(function (r) {
       const live = currentRosterStateFor(r.player_id, r.franchise_id);
-      // AAV floor base — the value that gets multiplied by 1.10 in the
-      // tag formula. Canon: AAV ONLY, never salary fields (Keith
-      // 2026-05-19). For Mahomes that's $54K (his AAV), not $68K
-      // (his BL Y2 salary). Formula = max(this, tier base bid).
-      const floorBase = Math.max(
-        safeInt(r.prior_aav_week1, 0),
-        safeInt(r.aav, 0)
-      );
+      // AAV floor base — the value multiplied by 1.10 in the tag formula.
+      // NARROWED 2026-08-16 to the CONTRACT-DEADLINE SNAPSHOT ONLY, per canon
+      // §C8-A ("the deadline-snapshot AAV, and nothing else"). Dropping salary
+      // in 2026-05-19 fixed Mahomes but not Malik Willis: an in-season claim
+      // raises current `aav` as well, so max(prior, current) still priced him
+      // at $41K off a $2K deadline snapshot when his $16K tier price governs.
+      // A player absent from the snapshot has no baseline; tier price stands.
+      // Now matches build_tag_tracking.py and both submit paths.
+      const floorBase = safeInt(r.prior_aav_week1, 0);
       return Object.assign({}, r, {
         effective_tag_salary: effectiveTagSalaryForRow(r),
         effective_formula: effectiveTagFormulaForRow(r),
@@ -8560,7 +9074,7 @@
       // AAV Floor column — the value feeding the 1.10 floor. AAV only;
       // current/prior salary are intentionally ignored per canon.
       // Tooltip shows the breakdown.
-      const floorTip = `current_aav=${fmtUSD(r.aav)} · prior_aav=${fmtUSD(r.prior_aav_week1)} → max = ${fmtUSD(r.floor_base)} × 1.10 → ${fmtUSD(Math.ceil((r.floor_base * 1.10) / 1000) * 1000)}`;
+      const floorTip = `deadline-snapshot aav=${fmtUSD(r.prior_aav_week1)} × 1.10 → ${fmtUSD(Math.ceil((r.floor_base * 1.10) / 1000) * 1000)} (current aav ${fmtUSD(r.aav)} is not used — canon §C8-A)`;
       const priorCol = r.floor_base > 0
         ? `<span class="fo-tt" data-tip="${escapeHtml(floorTip)}">${fmtUSD(r.floor_base)}</span>`
         : "—";
@@ -8693,7 +9207,20 @@
         const lo = safeInt(t.rank_min, 0) || 1, hi = safeInt(t.rank_max, 0) || lo;
         const band = ranked.filter(function (pl) { return pl.rank >= lo && pl.rank <= hi; });
         const sum = band.reduce(function (s, pl) { return s + pl.aav; }, 0);
-        const bid = band.length ? Math.round(sum / band.length / 1000) * 1000 : 0;
+        // ROUND UP to $1K, not to nearest. This is the third implementation of
+        // the tier-band average, and it was the only one rounding to nearest:
+        //   build_tag_tracking.py  avg_values()             -> round_up_1000 (ceil)
+        //   roster_workbench.js    projectedTagCalcBreakdown -> Math.ceil
+        //   front_office.js        (here)                    -> Math.round  <-- odd one out
+        // The Python path is the one that actually STAMPS contracts, so an
+        // owner reading this screen was shown a tier price up to $1K below what
+        // the calc would charge (Keith 2026-08-15, live: RB T2 read $33,000
+        // here off a $33,250 mean, while the pipeline would stamp $34,000; RB
+        // T3 read $19,000 off a $19,087 mean vs a stamped $20,000).
+        // "rounded up to $1K" is also the convention canon states throughout,
+        // and round-up reproduces the published 2025 tier table better than
+        // round-to-nearest does.
+        const bid = band.length ? Math.ceil(sum / band.length / 1000) * 1000 : 0;
         return { tier: t.tier, label: t.label, rank_min: lo, rank_max: hi, base_bid: bid, players: band };
       }) };
     });
@@ -8815,8 +9342,8 @@
     }).join("");
     const isProjected = projYear > (safeInt(SEASON, 0) || 0);
     const hint = isProjected
-      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8. <strong>Tier assignment</strong> ranks each player by their ' + safeInt(SEASON, 0) + ' points scored so far this season (falls back to the AAV rank used below when a player has no points data yet — rookies, sparse IDP samples, or before this loads). <strong>Tier pricing</strong> stays AAV-only — the average AAV of the players currently under contract in that rank band — so it shifts as rosters change and settles once the ' + projYear + ' contract deadline freezes contracts for the season. <strong>Already-tagged players are excluded</strong> — once tagged, a player can’t be re-tagged; they must go to the FA auction (a drop before that auction resets them, since they re-enter the auction).'
-      : '💡 <strong>' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only — this cycle\'s tiers (source season ' + escapeHtml(String(m.season || "?")) + ').';
+      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, <strong>Tier assignment</strong> ranks each player by their ' + safeInt(SEASON, 0) + ' points scored so far this season (falls back to the AAV rank used below when a player has no points data yet — rookies, sparse IDP samples, or before this loads). <strong>Tier pricing</strong> stays AAV-only — the average AAV of the players currently under contract in that rank band — so it shifts as rosters change and settles once the ' + projYear + ' contract deadline freezes contracts for the season. <strong>Already-tagged players are excluded</strong> — once tagged, a player can’t be re-tagged; they must go to the FA auction (a drop before that auction resets them, since they re-enter the auction).'
+      : '💡 <strong>' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, AAV-only — this cycle\'s tiers (source season ' + escapeHtml(String(m.season || "?")) + ').';
     const staleness = isProjected
       ? (STATE.tagPointsDataError
           ? '<p class="fo-row-hint" style="color:var(--err);">⚠ ' + escapeHtml(STATE.tagPointsDataError) + ' — Tier assignment is running on the AAV-only fallback until this loads.</p>'

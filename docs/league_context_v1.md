@@ -45,7 +45,7 @@ Material v4 corrections (full list in `league_rules_2026_corrections.md`):
 - **Tagged player block:** can't be extended/MYM'd by anyone until they enter FA Auction (mid-season drop doesn't reset)
 - **WW-Rookie contract sub-type** for rookies picked up via in-season waivers (preserves ERA eligibility)
 - **New owner onboarding:** cap-penalty wipe + 1 cap-free cut
-- **Cap "penalties" → "cap adjustments"** (subtypes: drop penalty, traded salary, late dues, etc.)
+- **Cap "penalties" → "cap adjustments"** (subtypes: drop penalty, traded salary, missed-nomination fine, etc.)
 - **$300K ceiling does NOT apply offseason pre-FA-Auction**
 - **$260K floor: by FA Auction completion OR contract deadline date**
 - Survivor Pool / NFL Pool — UPS doesn't run them, removed from catalog
@@ -158,9 +158,9 @@ There are **7 entry paths**. Each creates a different default contract and const
   - **Contrast with ERA (§A3):** ERA is *at most* 1 per anchored 12-hour window and carries **no** mandatory-nomination obligation. FAA is the mandatory one. Do not apply one rule's cadence to the other.
 - **Roster window during auction:**
   - Max roster: **35** during auction
-  - Min roster: **27 at CLOSE of auction** (not during — roster floats during)
+  - Min roster: **27 at CLOSE of auction** (not during — roster floats during). The auction window is the *only* period the roster may sit below 27; from auction close onward the 27 floor applies continuously through the season (§B1).
   - Cap floor: **$260K** committed at SOME point during the auction. Front-loading is an explicit tool to satisfy the floor. If a team hits $270K and then loses cap to an IR designation, they're still considered compliant.
-  - Cap ceiling: **$300K** (system-enforced)
+  - Cap ceiling: **$300K** (system-enforced). MFL's stored `salaryCapAmount` historically read **$300,000.49** — deliberate, not a typo: the spare pennies let Keith flag micro cap adjustments before better tooling existed. **Corrected to an exact $300,000 (Keith 2026-08-16);** older snapshots under `data/mfl-snapshots/` still carry the `.49`.
   - Owner is responsible for managing minimum-roster headroom — system doesn't enforce that.
 - **Auction Roster Lock Date:** historically 3 days before auction. Existed so commissioner could compile cap penalties + cut lists. Keith's note: probably collapse this into "no cuts during auction" + auto-unlock at auction start via MFL API call.
 - **Cut-then-rebid prohibition (with example, v10 rules):** if you cut a player who was **under contractual control** in the offseason, you **cannot nominate or bid on them in the FA Auction**. Commissioner-enforced (NOT MFL-enforced). Mostly self-enforcing because cut players are usually disappointments owners don't want back.
@@ -254,7 +254,7 @@ Critical: most contract concepts in this canon are **UPS layer constructs** that
 
 ### A5. First-Come, First-Serve (FCFS) Free Agency (Sunday after waiver run → kickoff)
 
-- **Trigger:** after the Sunday morning waiver run, FA opens FCFS until each player's NFL kickoff.
+- **Trigger:** after the Sunday morning waiver run, FA opens FCFS until each player's NFL kickoff. **Sunday only** — Thu/Fri/Sat runs always immediately re-lock, never opening FCFS (Keith 2026-08-13). This window itself only starts at **NFL Week 1**; the pre-season Sundays right after FA Auction close (while rosters are still settling) also immediately re-lock, same as Thu/Fri/Sat.
 - **Salary:** $1K flat for current season.
 - **Contract:** 1-year WW. NFL rookies picked up via FCFS are tagged WW during season; Keith manually converts WW → Rookie at year-end so they hit ERA path next May.
 
@@ -299,11 +299,31 @@ Critical: most contract concepts in this canon are **UPS layer constructs** that
 A rostered player is always in exactly one of three states.
 
 ### B1. Active Roster
-- **Size:** 27 (min, at close of auction) – 30 (max, after contract deadline).
+
+**QB starter cap (UPDATED 2026-07-21):** a franchise may roster at most **4 NFL starting QBs** across active roster + taxi combined, measured once a year on the September contract deadline. Starter status is the FantasyPros No. 1 QB on that player's NFL team; unresolved camp battles are commissioner-determined. Going over on the deadline means the league cuts the most recently acquired starting QBs in reverse-acquisition order until compliant, as standard cuts with normal penalties charged to the following season's cap. A backup who wins a job later in the season does not create a violation. Separately, the **5-QB active-roster maximum** is unchanged and, like the starter cap, is **measured as of the September contract deadline** — corrected 2026-08-16 (Keith: *"The rule was always as of contract deadline but likely not clear"*). The prior wording, "enforced continuously," was never the rule; it was imprecision in this line, and the member rulebook faithfully repeated it. **No code enforces either QB cap** (verified 2026-08-16 across worker, site and ETL) — both are commissioner-checked by hand.
+- **Size:** 27 (min) – 30 (max, after contract deadline).
+  - **The 27 MINIMUM is MFL-ENFORCED** (Keith set it 2026-08-24). It lives on the
+    commish page **Roster Position Limits Setup** → *Total across all positions*,
+    which reads `min 27 / max 35`. Do not build a floor guard; MFL blocks the drop.
+  - **The maximum is MFL-enforced too, and it MOVES.** It is **35 until the
+    September contract deadline, then 30** (Keith 2026-08-24). MFL's page reads 35
+    today, which is CORRECT for right now — 31–35 is legal in the pre-deadline
+    window, not a gap.
+  - ⚠️ **Dropping the max to 30 is a MANUAL commish step at the deadline.** MFL
+    holds one number; it does not switch on a date. If nobody edits *Roster
+    Position Limits Setup* when the deadline passes, MFL keeps enforcing 35 and
+    the 30 ceiling goes unenforced for the rest of the season. Pair it with the
+    contract-deadline date in the league calendar (2026: 2026-09-06).
+  - ⚠️ **Neither number appears in `TYPE=league`.** That export carries
+    `rosterSize = 35` and no minimum field at all, so reading the API and
+    concluding "there is no minimum" is wrong — a mistake made on 2026-08-24. Same
+    trap as the BBID waiver sort: the real value lives only on `csetup`. See
+    [[mfl_waiver_sort_not_in_api]].
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
-- **Enforcement model (Keith, 2026-05-16 review session):**
-  - **27-active minimum applies ONLY at end of auction**, AND the team must be able to **start a complete lineup** at that moment (per the lineup spec in §B/§S). Not continuously enforced through the season — owners can drop below 27 mid-season; the floor is only re-checked at auction close.
+- **Enforcement model (CORRECTED 2026-08-16, Keith):**
+  - **27-active minimum applies ALL SEASON**, not only at auction close. At auction close the team must additionally be able to **start a complete lineup** at that moment (per the lineup spec in §B4). Dropping below 27 mid-season is a compliance violation, not a permitted state.
+  - **Supersedes the 2026-05-16 review-session note**, which recorded the floor as auction-close-only and explicitly permitted dropping below 27 mid-season. That was wrong; Keith corrected it on 2026-08-16 while reviewing the member rulebook, which had faithfully repeated the error.
   - **30-active maximum (post-contract-deadline) is enforced via MFL settings** (Keith maintains in MFL config). No UPS worker-side enforcement — MFL blocks adds that would push a team over 30 once the deadline passes.
   - **UPS-side safeguarding** (auction-close compliance cron, complete-lineup pre-flight at auction close, 30-max display chips) is **parked** for the broader auction tooling discussion — see `CROSS_CODEBASE_ALIGNMENT.md §4.1` (Auction Room scope).
 
@@ -330,6 +350,37 @@ A rostered player is always in exactly one of three states.
   - **Derivation path when UPS needs to compute eligibility independently (e.g., for a UI gate or a synthetic warning):** pull `players.draft_year` from the MFL `TYPE=players` payload, compute `league_years_elapsed = current_league_year − draft_year`, and gate taxi-eligibility at `league_years_elapsed < 3` AND `draft_round >= 2`.
   - The taxi-eligible flag in MFL roster payloads is the authoritative source. The derivation above is only for UPS-side preview displays where the MFL flag isn't already in hand.
 
+### B4. Weekly Starting Lineup (ADDED 2026-08-15 — was missing from canon)
+
+**18 starters each week.** Canon carried no lineup spec until this entry; §B1's
+"start a complete lineup" test pointed at a section that did not exist. These slots come
+from the 2024 rulebook v2 (the edition canon marks as correct in §4) and are confirmed
+against live MFL settings — `starters_count = 18`, `idp_starters_count = 7`, unchanged
+for 2022-2025.
+
+| Slot | Count | Eligible |
+|---|---|---|
+| QB | 1 | QB |
+| RB | 2 | RB |
+| WR | 2 | WR |
+| TE | 1 | TE |
+| Flex | 2 | RB / WR / TE |
+| SuperFlex | 1 | QB / RB / WR / TE |
+| Kicker | 1 | PK |
+| Punter | 1 | PN |
+| DL | 2 | DE / DT |
+| LB | 2 | LB |
+| DB | 2 | CB / S |
+| Defensive Flex | 1 | DL / LB / DB |
+
+- **Offence + specialists = 11; IDP = 7.** Total 18.
+- **SuperFlex is the only slot a second QB may occupy.** Maximum 2 QBs started.
+- **Taxi, IR and expired players are not startable.**
+- **Locks are per player, at his own NFL kickoff.** Once his game begins he cannot be
+  substituted in or out. Submitting a lineup every week is a mandatory league obligation.
+- **Per-position maxima above these minima are governed by the live MFL lineup settings**;
+  canon states only the slot structure.
+
 ### B3. Injured Reserve (IR)
 - **Eligibility:**
   - NFL Injured Reserve (or any IR designation MFL recognizes)
@@ -337,8 +388,10 @@ A rostered player is always in exactly one of three states.
   - **Holdouts**
   - **Suspended players** (special handling, see below)
 - **Cap relief:** **50%** of salary refunded while on IR. (E.g., a player at $20K salary becomes a $10K cap hit while on IR.) **Live verification deferred (Keith, 2026-05-16 review session):** no player is currently on IR, so the worker + client code paths haven't been live-traced against this rule. Follow-up tracker filed in `AUDIT_FOLLOWUP_TRACKERS.md` (Q5) — verify the next time a UPS player IRs.
-- **Roster impact:** IR players do NOT count against active roster max.
-- **No team-side IR limit.** MFL setting is set very high — effectively unlimited.
+- **Roster impact:** IR players do NOT count against active roster max — **and do NOT count toward the 27 minimum either (Keith 2026-08-18).**
+  - **Consequence, and it is load-bearing: a franchise at exactly 27 active cannot use IR at all.** IR'ing a player would leave 26 active, below the floor. So IR — the league's only unilateral 50% cap-relief valve — is available down to 28 active and no further.
+  - Combined with the 27 floor blocking drops and MFL refusing any add that would exceed the cap, **a franchise at exactly 27 that is over the cap has NO unilateral cure on any day of the week.** Its only exit is trading salary away, which requires a willing counterparty. This is not a Mon–Thu gap; it is permanent while the roster sits at 27. See §G7.1b.
+- **Team-side IR limit is 15** (MFL `injuredReserve = 15`, read live 2026-08-18). Corrected from "very high — effectively unlimited", which was an estimate. Generous, but finite. **MFL-ENFORCED — no app-side check needed** (Keith 2026-08-24); an owner cannot exceed it on MFL, so do not build a guard for it. Same for the 10-man taxi squad (`taxiSquad = 10`).
 - **IR + guarantee earning:** confirmed — earning continues on Oct/Nov/Dec checkpoints while on IR.
 - **Suspended player handling:**
   - **Off-season suspension** (season-long): owner can opt to NOT roll forward the contract → salary $0 that year, original salary resumes after suspension. Decision before contract deadline.
@@ -349,6 +402,22 @@ A rostered player is always in exactly one of three states.
 ## C. CONTRACT EVENTS — what happens to a player's contract while rostered
 
 These are transactions you can do TO a player who's already on your roster. Defined `contract_type` values: **Auction, Extension, MYM, Restructure** (per `R-D-1` data standard).
+
+**Complete contract-type enumeration (ADDED 2026-08-16).** The `R-D-1` list above covers only the in-roster *events*; it is not the full set of contracts a player can be on, which is what a member actually needs. The authoritative list:
+
+| Contract | Length | Where it comes from |
+|---|---|---|
+| **Rookie** | 3 years (Round 1 adds a 4th-year option) | Rookie Draft |
+| **Auction** (a.k.a. Veteran) | 1, 2, or 3 years | FA Auction or Expired Rookie Auction |
+| **WW** | 1 year | In-season Blind Bid ($5K+ earns like an auction deal) or FCFS ($1K) |
+| **Extension** | adds 1 or 2 years | Extending a player in his final year, or an expired rookie before the May deadline |
+| **MYM** | adds years at the same salary | Multi-Year Minimum, never loaded |
+| **Restructure** | length unchanged | Reshuffling money inside a deal with 2+ years left |
+| **Tag** | 1 year, terminal | Franchise tag; cannot be extended or MYM'd |
+
+**Loaded is a modifier, not a type.** Any 2- or 3-year contract can be front-loaded (`FL`) or back-loaded (`BL`) — an uneven year-by-year split of the same TCV. It attaches to Auction, Extension, and MYAC deals; it can never attach to a 1-year deal, a MYM, or a taxi contract.
+
+**`EXT1` / `EXT2` are not separate contract types** — they are the same Extension mechanism recording how many years were added. (`EXT3` also appears in the A3.1 taxonomy; every current rule caps an extension at 2 years, so treat `EXT3` as legacy data, not a live option.)
 
 ### C1. Initial contract assignment (varies by entry path)
 
@@ -372,6 +441,8 @@ These are transactions you can do TO a player who's already on your roster. Defi
   - Total 3-year contracts: 6 max (excludes rookie 3-year deals).
 
 ### C3. Mid-Year Multi (MYM)
+
+**Reacquisition cooldown (UPDATED 2026-07-21):** after you drop a player you cannot immediately re-add him and convert him to a multi-year deal. He must first clear a full waiver run open to the rest of the league, unclaimed. The earliest you can reacquire him for MYM is the run after that. The 14-day MYM window then starts fresh on the valid re-add. This replaces the old 1-calendar-week waiting period.
 - **What it is:** Convert an existing 1-year contract into a multi-year deal at the SAME salary (no raise). Cannot be loaded.
 - **Why no loading:** loading would "restructure" Year 1 of the contract, and in-season restructures are banned. So MYMs cannot be loaded.
 - **Limit (UPDATED 2025): MAX 4 MYMs per season per team** (raised from 3).
@@ -485,6 +556,8 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - Prior-year salary becomes 100% earned at rollover (sunk cost — no penalty thereafter).
 
 ### C8. Tags (UPDATED 2025) — STILL ACTIVE
+
+**Early lock-in (ADDED 2026-05-08):** an owner may voluntarily lock a tag in early rather than waiting for the deadline. Once locked the tag is **final and tradeable**, and can be included in a trade like any other contract. Tags not locked early still auto-lock on the deadline as before. A traded tag does not consume any of the receiving team's own 2-tag allocation.
 - **Updated structure:** **1 Offense tag + 1 Defense/ST tag** per team per year (no longer the legacy Franchise/Transition naming).
 - **Tag side assignment by position (Keith, 2026-05-16 review session):**
   - **OFFENSE tag side:** QB, RB, WR, TE.
@@ -498,10 +571,16 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
   - **Once tagged, the player CANNOT be extended OR MYM'd by ANY team — period.** No 1-year tag → re-extension path. The tagged year is a 1-year contract; **the player MUST enter next summer's FA Auction**. The team that tagged them retains the player for that one season only (no extension option afterward).
   - **Exception:** if cut **before FA Auction starts**, normal rules resume — they're treated like any other free agent.
 - **Tag salary fallback (unranked players):** `max(lowest-tier salary for the position, prior-season AAV × 1.10 rounded up to $1K)`.
-- **WW players + tag salary — current behavior + proposed rule (Keith, 2026-05-16 review session):**
-  - **NOT a confirmed rule yet.** A proposed rule of "treat prior WW salary as the lowest tier ($1K floor) when computing a tag's `prior AAV × 1.10` bump" exists but **must be formally proposed via the league's rule-proposal pipeline** before becoming canon. Do **not** modify tag salary calculations to enforce this until passage.
-  - **Current behavior already partially implements the spirit of the proposal:** `pipelines/etl/scripts/build_tag_tracking.py:436-457` — `should_use_prior_aav()` **explicitly blocks** `WW`, `WAIVER`, `FA`, `FREE`, `BL` contracts from contributing to the `prior_aav_map` consumed by tag salary calc. A WW-rostered player therefore falls back to the tier-based base bid (or, no-tier fallback, `max(1000, salary_or_prior)`) without their WW salary acting as a `× 1.10` bump floor. This is documented here so future audits don't mistake the absence of a `prior AAV × 1.10` bump on WW players for a bug.
-  - **After Keith's formal rule proposal lands** (vote + passage), update §C8 to incorporate the rule explicitly and reconcile the code (the existing `blocked` set may be sufficient, or a new `$1K floor` clamp may be needed depending on the proposal text).
+  - **A player with no positional rank is one who did not play** (0 scoring rows — full-season injury, holdout, etc.). The positional floor is what stops a missed season from making a player *cheaper* to tag than any ranked player at his position. **Confirmed Keith 2026-08-14** off the live case: Will Levis, 0 games, was priced at $7,000 (110% of a $6,000 salary) when the QB lowest-tier floor is $16,000 — "Levis sb 16K ... that is correct". In superflex a startable QB at $7,000 rewards not playing. Enforced in `build_tag_tracking.py` (the fallback branch previously used a flat `max(1000, base)` with no positional floor at all).
+
+- **§C8-A. AAV IS LOCKED AT THE CONTRACT DEADLINE — the snapshot is the tag baseline (Keith 2026-08-14, supersedes the 2026-05-16 open proposal below).**
+  - The 10% bump is computed off the player's **deadline-snapshot AAV, and nothing else.** A player's *current* salary never enters the bump base.
+  - **This cuts both ways, and the symmetry is the rule:**
+    - A **late waiver claim cannot inflate** a tag. Doc rule 4.1's stated purpose is "eliminating end of year Waiver Claims that are not representative of the actual market value." Live case: Malik Willis, deadline AAV $2K, claimed in-season for $37K → was tagged at $41K; correct answer is his Tier 3 price, **$16K**.
+    - A **late cheap re-signing cannot deflate** a tag. Precedent: **Kyler Murray** — deadline AAV ~$35K, later dropped and picked up for ~$8K late in the season; his tagging baseline stayed the snapshot value.
+  - **A player absent from the deadline snapshot has no bump baseline at all** — he was not under contract at the deadline. The tier price governs. Per Keith: WW guys "would be based on 1K which means they'd never be above the minimum." The code must **not** substitute their current AAV as a stand-in.
+  - This closes the 2026-05-16 open item below: the intent ("a WW salary must not act as a `× 1.10` bump floor") is now general — *no* post-deadline number acts as a bump floor, WW or otherwise.
+  - ⚠️ **Correction to a prior note in this file:** `should_use_prior_aav()` does **not** "block WW/WAIVER/FA/FREE/BL from contributing to `prior_aav_map`". It returns **True** for those statuses, which causes the pool to **substitute the player's pre-claim `prior_aav`** — i.e. it already does the right thing for WW players. The leak was never in that function; it was `bump_base = max(prior_aav, salary_now)` reaching past the snapshot to grab the live salary.
 
 ---
 
@@ -511,7 +590,9 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - **Cap penalty formula:** `(TCV × 75%) − Salary Earned`
 - **Earning schedule (per-week pro-rated, effective 2026-05-08):** Each completed NFL regular-season week earns one share of that year's salary. The denominator is the player's **eligible weeks remaining at acquisition**.
   - **Auction + Week-1 acquisitions:** 17 weeks total. After Week 1 → **1/17 earned**, Week 2 → 2/17, Week 3 → 3/17, … Week 17 → 17/17 = 100%.
-  - **Mid-season pickups (Waiver Wire / FCFS / trade):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+  - **Mid-season pickups (Waiver Wire / FCFS):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+    - **The window is the length of the CONTRACT, not the length of your ownership.** A Week-9 pickup gets a 9-week denominator because his contract *begins* in Week 9 — its TCV only ever covered Weeks 9–17, and nobody paid him for Weeks 1–8 under it.
+    - **A trade therefore does NOT re-window anything (Keith 2026-08-16).** The deal has been running since Week 1, its TCV covers the whole season, and the earning clock runs straight through the trade. The acquiring owner inherits the earned salary along with everything else — the direct consequence of §G7.6, *"you inherit the contract as you received it."* Keith: *"the 1st 9 weeks were paid and therefore the new owner wouldn't owe. So it's essentially the same."* This line **used to list "trade"** beside WW/FCFS; that word was never implemented in 16 years of running penalties and never matched practice. Corrected, not changed. See the correction note below.
     - Example A — picked up in Week 9 (9 weeks remaining: Weeks 9–17): Week 9 → 1/9, Week 10 → 2/9, … Week 17 → 9/9 = 100%.
     - Example B — picked up in Week 7 (11 weeks remaining: Weeks 7–17): Week 7 → 1/11, Week 8 → 2/11, … Week 17 → 11/11 = 100%.
   - **WW pickups under the new model are treated identically to auction contracts** — same 75% guarantee, same earning math, same cap-penalty timing. The only difference is the eligible-weeks window. The flat 35% WW rule is RETIRED.
@@ -525,7 +606,7 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
     - **`years_remaining ≤ 1` (final year drop) → $0** — cap-free, regardless of what the standard `(TCV × 75%) − earned` formula would have produced.
     - This **overrides** the standard guaranteed-minus-earned formula entirely for sub-$5K-TCV deals. (Replaces prior reading where the $1K was a "floor" on top of the formula. Worked example: Tyler Higbee, CL 3 / TCV $3K / cy=1 dropped 2026-05-22 → final-year sub-5K → $0 penalty.)
     - Worker enforcement: `computeDropPenalty()` in `worker/src/index.js`. D1 audit: `ups_drop_events` table, `penalty_basis` field.
-  - All cap penalties are **rounded based on the SUM of penalties accrued**, not per-penalty.
+  - All cap penalties are **rounded to the nearest $1,000 (half-up) on the SUM of penalties accrued**, not per-penalty. Individual cuts post exact all season; a single per-franchise true-up posts at the **FA Auction Cut Deadline**. Increment stated by Keith 2026-08-16; implemented as `RULE-CAP-002`. Full mechanics under "Penalty rounding rule" in the Bot Grounding Clarifications appendix.
 - **Penalty timing (3 buckets — unchanged):**
   - Penalty incurred **before Roster Lock Date** (i.e., offseason early) → applies to **current season** cap.
   - Penalty incurred **from auction start through end of season** → applies to **following season** cap.
@@ -539,12 +620,67 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
   - TCV = $25K (1-year WW). Penalty = ($25K × 75%) − $9,615 = $18,750 − $9,615 = **$9,135 cap hit** to the **following season** (in-season cut bucket).
   - Under the OLD rule (flat 35% WW), this would have been: 35% × $25K = $8,750 earned → ($25K × 75%) − $8,750 = $10,000. The new rule earns slightly more here because the player was active for 5/13 of the eligible window.
 
+#### Traded-player example, and a correction (2026-08-16)
+
+Same $25K one-year deal, cut after Week 12. Guarantee is $18,750 either way, so the only question is how much of it has already been satisfied:
+
+| | Weeks earned | Earned | **Penalty** |
+|---|---|---|---|
+| One owner all season | 12 of 17 | $17,647 | **$1,103** |
+| Traded in Week 10 | 12 of 17 — *unchanged* | $17,647 | **$1,103** |
+
+The trade moves who owes the $1,103. It does not change the number.
+
+> **⚠️ Correction.** On 2026-08-16 I read the old "trade" in the mid-season list literally, shipped a parser that reset the window at the trade, and reported the prior behavior as an undercharge bug. **It was the fix that was wrong, and it overcharged.** On the case above it would have credited only 3/8 of the salary as earned and billed **$9,375 instead of $1,103** — an **$8,272 surcharge** on the identical player cut on the identical day, owed purely because the contract changed hands.
+>
+> Three things make it wrong, and I should have checked any one of them:
+>
+> 1. **It bills the same dollars twice.** The sending team already paid Weeks 1–9 against this contract's guarantee. Re-windowing erases those payments and charges the receiving team for them again.
+> 2. **It taxes trading.** A contract you might cut becomes materially more expensive the moment you acquire it — a penalty aimed squarely at the deadline trades the league wants to encourage.
+> 3. **It contradicts §G7.6**, ruled one week earlier: *"you inherit the contract as you received it."* As received means with 12/17 already earned.
+>
+> The code never behaved the way canon's word implied — `_acquisitionWeekMapFromTxs` has read `{ FREE_AGENT, BBID_WAIVER, AUCTION_WON }` since it was written, and 16 years of posted penalties match that. **Canon's word was the error, not the code**, so this is a correction, not a rule change. Reverted; the function is byte-identical to its pre-2026-08-16 form. `tests/acquisition_week_canon.test.mjs` now guards the *absence* of trade parsing, verified to fail 5/8 against the version that had it.
+
 ### D2. Cap-free cut categories (no penalty)
+
+**Amari Cooper Rule (ADDED 2026-07-21):** a **retired** player may be cut cap-free **during the FA Auction**, and the freed salary is immediately available to bid with. Retirement must be genuine — an official announcement or a credible report, commissioner-verified; injury does not qualify and uses IR instead. A player cut this way cannot be nominated or bid on for the rest of that auction, and returns to the pool at the first waiver run after it closes. Every other cut-blocking rule during the auction is unchanged.
 - **1-year original-length contracts under $5K (Veteran or WW):** 0% guarantee. Cap-free cut anytime. Note: this only applies to **1-year original** contracts — a 2-year veteran under $5K can still incur penalty depending on cut timing.
 - **Taxi Squad (never *permanently* promoted):** 0% guarantee while on taxi. Cap-free cut. Temporary call-ups (≤3 weeks) do NOT trigger permanent promotion; the player can return to taxi and remain cap-free-cuttable. Permanent promotion (4th activation or explicit MYAC/extension/restructure) ends this — normal cut penalties apply going forward. See **B2** for the call-up budget rule.
 - **WW $5K+ in-season (UPDATED 2026-05-08):** Same 75% guarantee + per-week pro-rated earning as auction contracts (the old flat 35% WW penalty is RETIRED). The eligible-weeks denominator is `18 − pickup_week`. See Section 6.B for the canonical formula and D1 for an in-season worked example.
 - **Jail Bird Rule:** vague rule. Aaron Hernandez was the canonical case, but "released by NFL team" is NOT sufficient — players are released all the time. Commissioner discretion required for what qualifies as a "career derailed by legal case."
-- **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept.
+- **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept. **Subject to the §D2a loaded-contract settlement below** — "cap-free" means free of the *penalty*, not free of salary the owner never actually paid.
+
+#### D2a. Loaded-contract settlement on a cap-free exit (PASSED 2013-08-18 — restored to canon 2026-08-15)
+
+**The rule.** When a player leaves via a **cap-free / immunity** path (Retired, Jail Bird), the owner settles the gap between what the contract's **AAV** said the player was worth per year and what the owner **actually paid** over the years served:
+
+```
+settlement = (AAV × years served) − (salary actually paid over those years)
+```
+
+- **Back-loaded deal → the owner OWES the shortfall** (a positive cap charge).
+- **Front-loaded deal → the owner is OWED a CREDIT** (a negative cap adjustment).
+- **The settlement REPLACES the cut penalty; it does not stack on top of it.** Verbatim from the thread that passed it: *"He is not however assessed the 20% on top of this."* (The 20% era is over — today's §D1 75% guarantee is likewise **not** applied on a cap-free exit. The settlement is the whole charge.)
+
+**Keith's worked example (2026-08-15).** 2-year deal, TCV $40K, AAV $20K, Y1 $10K, Y2 $30K. Player retires after Year 1:
+- Paid: **$10,000**. AAV-earned: 1 × $20,000 = **$20,000**.
+- Settlement: $20,000 − $10,000 = **$10,000 owed.**
+- Retires after Year 2 instead: paid $40,000, earned $40,000 → **$0**. A contract played to term always settles to zero, by construction.
+
+**Original worked example (Tony Gonzalez, 2013).** $25K average on a 3-year back-load puts Y1 at $11K. Retirement after Y1 → *"the owner will be hit with a $14K cap hit in order to pay off his 1st yr salary"* ($25K − $11K). Confirms the formula exactly.
+
+**Why it exists.** Without it, back-loading is a way to *underpay* a player you already expect to retire, then walk away from the balance. The 2013 case was live and named: a franchise planned to give the soon-to-retire Gonzalez a 3-year back-loaded deal precisely to *"save at least $10k on cap"*. Loading is a legitimate cap tool (§D1 explicitly allows front-loading to satisfy the floor) — it just cannot be a discount.
+
+**Provenance.** Forumotion thread [t28 — salary cap penalities](https://upsdynastycap.forumotion.com/t28-salary-cap-penalities). Proposed by Raining Bullets 2013-08-05 (*"the recent loophole that was fixed in regards to backloaded contracts should be applied to players who are granted immunity for retirement/jail bird"*), seconded by Blake Bombers 2013-08-06, confirmed passed 2013-08-18: *"This rule was passed so that the loophole w. front/backloads were closed."*
+
+> **✅ LIVE AND IMPLEMENTED (corrected 2026-08-16).** The rule is in force: the settlement is owed on a loaded contract, and only an unloaded contract exits genuinely cap-free.
+>
+> **The 2026-08-15 note claiming "NOT YET IMPLEMENTED ANYWHERE" was wrong** and is retracted. `_d2aSettlement()` exists at `worker/src/index.js:43932-43962`, is wired into `/admin/drops/capfree-decide` (`:44740`, where it *replaces* `penalty_amount` rather than stacking), and applies automatically on the `auto` retirement route (`:46229`). Verified against this section's own worked example: AAV $20K × 1 year served − $10K paid = $10K owed. The front-load credit works by the same formula. The earlier note was written from a stale grep and repeated into the member rulebook; both are corrected.
+
+**The credit direction is CONFIRMED symmetric (Keith 2026-08-15):** *"yes give them a credit if they paid more than they should...if they FL Gonzo then it would be a 10K credit."* Worked: front-load the same Gonzalez deal so Y1 pays $35K against a $25K AAV, and retirement after Y1 settles to $25,000 − $35,000 = **−$10,000, a credit to the owner.** The rule is one formula run in both directions — an owner is made whole for overpayment exactly as they are held to underpayment.
+
+> **One open question before this is coded — scope.** The 2013 text names *retirement / jail bird* immunity. Does the settlement also apply to the other §D2 cap-free categories (taxi-squad cuts, sub-$5K 1-year deals)? Those are structurally different — a taxi player has no meaningful AAV story — so canon reads them as **out of scope** until stated otherwise.
+
 - **Tier-1 Retired (Calvin Johnson Rule):** Compensation pick awarded when a player retires meeting tier-1 criteria.
   - **Eligibility:** Player must be (1) under contract AND on a roster at retirement, (2) not PK or PN, (3) most recently completed season qualified as **"Tier 1"** at their position. **"Tier 1" definitions align with the Tag Tier Calcs** (see C8 / T3.5):
     - QB Tier 1 = top 1–5 by AAV
@@ -679,7 +815,7 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
 
 ### T1.6 First-Come First-Serve (`FREE_AGENT`)
 - **Source:** MFL `TYPE=transactions&TRANS_TYPE=FREE_AGENT`. Stored in `transactions_adddrop` with `method='FREE_AGENT'`, `move_type='ADD'`.
-- **Initiator:** Owner (any time after the Sunday morning waiver run and before the player's NFL kickoff).
+- **Initiator:** Owner (any time after the Sunday morning waiver run and before the player's NFL kickoff — and only from NFL Week 1 onward; pre-season Sundays re-lock immediately, same as Thu/Fri/Sat. Keith 2026-08-13.)
 - **Eligibility:** Player on free-agent list, not waiver-locked, owner has roster headroom.
 - **Cap effect:** **$1K flat** salary, counts immediately.
 - **Contract impact:** Creates **WW** 1-year contract.
@@ -880,7 +1016,7 @@ These hit cap directly without involving a player transaction.
 - **Source:** Same as T4.2.
 - **Initiator:** Commissioner.
 - **Cap effect:** Negative amount = cap penalty.
-- **Examples:** Late dues fines ($3K/week), drop penalties, missed-nomination fines (**§F RULE 2** — $3K → $7K → $15K, escalating; full schedule in §T4.3a below).
+- **Examples:** Drop penalties, missed-nomination fines (**§F RULE 2** — $3K → $7K → $15K, escalating; full schedule in §T4.3a below). *(Late dues fines were listed here until 2026-08-17 — retired, see §T4.4.)*
 
 ### T4.3a §F RULE 2 — Missed Nomination / Extra Nomination fines (Keith, 2026-07-14)
 
@@ -895,7 +1031,37 @@ These hit cap directly without involving a player transaction.
 | **3rd** | **$15K** | current + next (**$25K total each year**, cumulative) |
 | **4th** | **no fine** | league-fit review — see below |
 
-- **Cumulative, not replacing.** The totals in Keith's text (3 → 10 → 25) are running sums: the 2nd offense *adds* $7K on top of the 1st's $3K.
+#### Extra Nominations — the second half of RULE 2 (added to canon 2026-08-17)
+
+This ladder is **named in this section's own heading and has never been written down**. Keith supplied the original text 2026-08-17:
+
+> **Extra Nominations** — This also happens where you nominate more than the allotted amount for a given day. This fucks shit up and forces me to go in and remove nominations, which if I don't get to it right away, other owners will bid up a player that will end up being removed. It's just unnecessary and I think most of us can count to one or two which is the maximum number of noms for a day.
+
+| Offense | Fine | Applied to |
+|---|---|---|
+| **1st** | **Warning** | *"It can happen by accident we've all done it. Don't let it happen again."* |
+| **2nd** | **$3K** | current season **and** next season |
+| **3rd** | **$7K** | current + next (**$10K total each year**, cumulative) |
+| **4th** | **$15K** | current + next (**$25K total each year**, cumulative) |
+| **5th** | **no fine** | league-fit review (Keith's text: *"required to pull a Billy Madison and pass all grades 1-12"*) |
+
+**It is the missed-nomination ladder shifted one rung**, with a warning inserted at the front. Same $3K/$7K/$15K amounts, same cumulative running totals, same current-and-next-season doubling, same league-fit review at the end. The only difference is the free first offense — and that difference is the system's design rule, stated below.
+
+**Enforcement gap (verified 2026-08-17).** The UPS app blocks a 3rd same-day nomination before it reaches MFL (`performAuctionAction`, §A2 — counting live off `AUCTION_INIT` so native MFL noms count toward the ceiling). But **MFL itself does not block one**, so an owner nominating directly on MFL can still over-nominate, which is exactly the scenario Keith describes having to clean up by hand. Nothing books an offense: `closeEtDay` tests only `used < required` (the miss side) and never `used > required`. The data is already there — `ups_faa_nom_days.noms_used` is written every day for every franchise — so detection is one comparison against a column that already exists.
+
+#### The design rule behind the free first offense (Keith 2026-08-17)
+
+Three ladders, and whether offense #1 is free is **not** a function of how much harm it causes. It tracks **how easy the failure is to commit by accident**:
+
+| Failure | Offense #1 | Keith's reasoning |
+|---|---|---|
+| Missed nomination | **$3K + $3K** | *"You need to be dumb as shit not to understand to nominate 2 guys in a day."* |
+| Extra nomination | **Warning** | *"It can happen by accident we've all done it."* |
+| Illegal lineup (§G3) | **Warning** | *"It's easy to overlook a lineup decision especially with all of the roster spots. So we allow for 1 mistake."* |
+
+One deliberate action a day, with a phone in your pocket, has no accident story. Eighteen starting slots across a 30-man roster does. **This corrects an analysis error of mine** — I had read the free first lineup violation as a severity inversion, on the grounds that an illegal lineup harms eleven other teams while a missed nomination inconveniences a queue. The harm ranking is right; it just isn't the axis the first rung is priced on. Recorded because the principle is load-bearing: any new penalty should ask "can a diligent owner do this by accident?" before deciding whether #1 is free.
+
+- **Cumulative, not replacing.** The totals in Keith's text (3 → 10 → 25) are running sums: the 2nd offense *adds* $7K on top of the 1st's $3K. Same for the extra-nomination ladder.
 - **Both years, but not both now.** The current-season fine posts to MFL as a `salaryAdj` when armed. The **next-season fine is ledger-only and must NOT reach MFL until the rollover** — it shows in reporting immediately, crosses over next year (Keith 2026-07-14: *"store the 3K on the ledger for 2027... never pass to MFL until we roll forward next year"*).
 - **4th offense is a conversation, not a transaction.** Keith's words: *"You should reconsider if your a good fit for the league."* The league posts that message to the owner and asks them to make their case; the league then decides. **Never automated.**
 - **CAVEAT — immunity (load-bearing).** Keith: *"Obviously if there's some family emergency that prevents you from making a nomination, let us know and it won't be held against you. If you let a member of a CC. know ahead of time that you need to miss a day for whatever reason you will also be granted immunity."* The commish **voids the day**, which voids its penalties and removes it from the offense count. A penalty system without this will fine somebody who called ahead — worse than no system at all.
@@ -908,13 +1074,13 @@ These hit cap directly without involving a player transaction.
 
 **Implementation:** `worker/src/auction_compliance.js` (`RULE2_FINE_K_BY_OFFENSE = [3, 7, 15]`), ledger `ups_faa_nom_days` + `ups_faa_nom_penalties` (migration 0097, `override_reason`/`override_by`/`override_at_utc` columns added 2026-07-29 for the re-engagement-forfeit path). The MFL write is gated behind `AUCTION_FAA_PENALTIES_ENABLED`, **dark by default** so pre-auction test weeks can't manufacture fines. Re-engagement forfeits book through `flagReengagementMiss()` (`POST /admin/auction/flag-reengagement-miss`, dry-run supported) — the commish-driven mirror image of `voidNomDay()`.
 
-### T4.4 Late Dues Fine ($3K/week)
-- **Source:** UPS-custom; tracked as `salary_adjustments`.
-- **Initiator:** Commissioner.
-- **Cap effect:** -$3K per week late.
-- **Timing:**
-  - Accrued before contract deadline → applied to current season.
-  - Accrued after → applied to following season.
+### T4.4 Late Dues Fine — RETIRED (Keith 2026-08-17)
+
+Previously $3K/week against the cap, commissioner-applied. **Retired.** Keith: *"we had to do [this] occasionally but that might've been a 1 or 2 off because we had some bad eggs in the league."*
+
+It was ad-hoc enforcement aimed at a couple of specific owners, not a standing rule the league runs on — and those owners are gone. It had no code behind it (verified 2026-08-17 across worker, site and ETL: nothing reads or writes a late-dues fine), so retiring it changes no behavior. Nobody currently in the league has been charged one.
+
+**Late dues are now a commissioner conversation, not an automatic cap charge.** If the league later wants a standing consequence for non-payment, it should come out of the penalty-system design pass (§G7.2) rather than be restored as-is — a cap fine for a *cash* obligation is exactly the cross-currency mismatch that pass exists to sort out.
 
 ### T4.5 Logo Change Fee — RETIRED
 - Previously $15 cash fee for logo changes. UPS now uses AI for logos and **does not charge** for changes. Removed from active fee list.
@@ -988,7 +1154,7 @@ These hit cap directly without involving a player transaction.
 
 These are invariants that must hold across the data layer for any 2026 contract state to be consistent. The bid sheet's cap math depends on these.
 
-> **Naming:** "cap penalty" is one *type* of cap adjustment. The general term is **cap adjustment**, with subtypes including: drop penalty, traded salary (positive/negative), late dues fine, missed-nomination fine, IR cap relief (positive), and more. Below uses "cap adjustments" as the umbrella.
+> **Naming:** "cap penalty" is one *type* of cap adjustment. The general term is **cap adjustment**, with subtypes including: drop penalty, traded salary (positive/negative), missed-nomination fine, IR cap relief (positive), and more. Below uses "cap adjustments" as the umbrella. (Late dues fines were a subtype until 2026-08-17 — retired, §T4.4.)
 
 1. **Sum of all rostered active salaries + tagged salaries − IR refunds + outstanding cap adjustments ≤ $300K** for every team — **applies from FA Auction completion onward.** Does NOT apply during offseason before FA Auction starts (no upper cap then).
 2. **Sum of all rostered active salaries + tagged salaries ≥ $260K** must be true at SOME timestamp during the FA Auction OR by the September contract deadline. Failing both → out of compliance.
@@ -1194,8 +1360,16 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 ### August 2026 → FA Auction Close + Waivers Open
 - **FA Auction completes** ~early-to-mid August (date TBD; depends on auction format option chosen).
 - **Min roster check (27)** at close.
-- **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. FCFS opens immediately after each Sunday waiver run.
-- **Half league dues** ($100 of $200) due by FA Auction start. Venmo to **@Keith-Creelman** for routing to treasurer **Josh Martel**.
+- **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. **These pre-season Sundays still immediately re-lock, same as Thu/Fri/Sat — FCFS does NOT open yet.** FCFS itself does not start until NFL Week 1 (Keith 2026-08-13); see §A5 and §B.
+- **League dues: $250 a year, paid in two halves of $125** — the first by FA Auction start, the second by the trade deadline (NFL Thanksgiving week kickoff). The $250 covers both pieces: **$225 into the annual pot plus $25 into the Dynasty Pot** (see §4.B 2026). There is no separate Dynasty Pot collection; it rides along with the two halves.
+  - **Corrected 2026-08-17 (Keith: "OLD use what we just created at 250").** The split had read "$100 of the $225 annual pot," left over from the $200-dues era — it totalled $200 against a $250 obligation and canon separately admitted it did not know when the remaining $25 was collected. Both gaps close at $125 + $125.
+  - Venmo to treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; previously routed through @Keith-Creelman).
+
+**Dynasty Pot eligibility (promoted into canon 2026-08-16 from the 2026-05-11 proposal body, `docs/league_context_changelog.md`):**
+- An owner must be in the league for **all 3 years** of a cycle to be eligible for that cycle's prize.
+- An owner who **leaves forfeits every contribution** they made.
+- A **new owner pays the $25 on joining** but is not eligible until they have completed a full cycle.
+- **Prize splitting is recognized only on an actual All-Play % tie**, never voluntarily.
 
 ### September 2026 → Contract Deadline + NFL Week 1
 - **Tag confirmations are NOT here.** Tags are confirmed at the **FA Auction Cut Deadline** (the auction roster lock 3 days before auction start). That same date locks the **next-season tagging baseline** — data snapshot for next year's tag eligibility freezes there.
@@ -1218,7 +1392,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 ### November 2026 → Trade Deadline
 - **2026-11-26 (Thu, Thanksgiving, Week 12 kickoff):** **UPS trade deadline.** No trades until next offseason after this kickoff.
 - **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 12 (Thanksgiving week), ~12/17 ≈ 71% of an auction salary is earned.
-- **Remaining league dues** ($100) due by trade deadline. Venmo to @Keith-Creelman → treasurer Josh Martel.
+- **Second half of league dues — $125 of the $250** — due by the trade deadline. Venmo treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; @Keith-Creelman is no longer the route). *Amount corrected 2026-08-17 — this had read "$100 of the $200 base" from the pre-increase era.*
 
 ### December 2026 → Fantasy Playoffs
 - **2026-12-17 (Thu, Week 15):** **UPS Playoffs Round 1 starts.** 3-week format.
@@ -1236,10 +1410,12 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 | Cadence | Event |
 |---|---|
 | **Thu / Fri / Sat / Sun 9 AM ET** | Blind Bid Waiver runs |
-| **Immediately after each waiver run** | FCFS Free Agency opens (until each player's NFL kickoff) |
+| **Immediately after the SUNDAY waiver run only, starting NFL Week 1** | FCFS Free Agency opens (until each player's NFL kickoff) |
 | **Daily during auction** | 2 nominations per owner per 24-hour window |
 
-> **OPEN — waiver lock ambiguity (Keith 2026-04-28):** the precise rules on when a dropped player becomes available depend on drop timing relative to a waiver run.
+**RESOLVED (Keith 2026-08-13, live incident):** FCFS does **not** open after the Thu/Fri/Sat runs — those always immediately re-lock. Only the Sunday run opens FCFS, and only from NFL Week 1 onward; pre-season Sundays (the weeks right after FA Auction close, before Week 1 kickoff) also immediately re-lock, same as Thu/Fri/Sat. This replaces the "immediately after each waiver run" wording that used to be in the table above — that phrasing was too loose and caused a live bug where the app opened FCFS on a plain Thursday run.
+
+> **OPEN — waiver lock duration (Keith 2026-04-28):** separate from the above, the precise number of hours a specific dropped player stays locked before becoming claimable depends on drop timing relative to a waiver run.
 >
 > **Scenario A:** Player dropped at 9 AM Thursday DURING the waiver run.
 > **Scenario B:** Player dropped at 10 PM Thursday (standalone drop after waiver run).
@@ -1274,9 +1450,9 @@ These are MANDATORY league events. Skipping or failing to engage = penalty risk.
 1. **Rookie Draft** (Memorial Day Sunday) — must participate or have proxy
 2. **Free Agent Auction** (last weekend of July) — must nominate exactly 2/day (ET calendar day; a minimum AND a maximum — see §A2), must be reachable
 3. **Lineup submissions** every fantasy week
-4. **League dues payment** (split: half by FA Auction, half by Thanksgiving)
+4. **League dues payment** — $250/yr, split $125 by FA Auction start and $125 by the trade deadline (Thanksgiving week kickoff)
 
-Late dues fines accrue at $3K/week.
+There is **no automatic fine for late dues** — the $3K/week cap fine was retired 2026-08-17 (§T4.4). Non-payment is a commissioner conversation.
 
 ---
 
@@ -1344,6 +1520,32 @@ A franchise may have **no H2H opponent** in a given week. When that happens:
 - `src_weekly_franchise_summary` will **still have a row** for (season, week, franchise) with the franchise's actual score and the week's all-play counts.
 
 This separation means **all-play continues to count even when H2H doesn't**. Any consumer that wants "weeks with a real matchup only" should filter on `EXISTS (SELECT 1 FROM src_schedule …)`.
+
+## D.0 🟡 Current scoring values (ADDED 2026-08-15, PROVISIONAL)
+
+Canon has carried no standing scoring section — only the year-by-year change list in §4.
+The values below are reconstructed from that change list and are **provisional**: the live
+MFL scoring settings remain authoritative for what actually scored in any given week.
+
+| Item | Value |
+|---|---|
+| Reception — WR / QB | 1.0 |
+| Reception — RB | 0.8 |
+| Reception — TE | 1.5 (TE premium, 2025+) |
+| First down (all positions, incl. rushing and QB) | 0.2 |
+| Field goal | 0.1 per yard |
+| Missed FG from 45+ yards | no penalty |
+| Tackle — DL / DB | 1.5 |
+| Pass defensed (all positions) | 1.5 |
+| Tackles counted per game | capped at 25 |
+| Single-game 60-point bonus | +5 |
+| Def / ST return TD of 50+ yards | 7 |
+| Gross punting yardage | does not score |
+
+**Open in this table (do not treat as settled):**
+- **LB tackle rate.** The 2018 rebalance raised DL and DB to 1.5; whether LB stayed at 1.0
+  is not recorded anywhere in canon.
+- **Missed FG inside 45 yards.** Canon records that a penalty applies but never its value.
 
 ## D.1 All-play metrics (regular season / playoff / full)
 
@@ -1527,7 +1729,7 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 | **Pre-history** | 2010 | Closed | One-year **FA Auction only** (no rookie draft, no dynasty cap). Contracts maintained on Forumotion. **EXCLUDE from dynasty-comparable historical data.** |
 | **Founding dynasty** | 2011 | Closed | First year of the current dynasty cap format. **Treat 2011 as Y1 for historical comparisons.** |
 | **IDP / classic format** | 2011–2021 | Closed | Standard QB/RB/WR/TE flex with full IDP support. QB starter limit = 1. No SF, no TE Premium. |
-| **Superflex era** | 2022–**ongoing** | Active | QB starter limit 1 → 1-2. All skill flex maxes +1. **3-starting-QB cap** (rule eased in 2025 — see below). QB market reprices upward. |
+| **Superflex era** | 2022–**ongoing** | Active | QB starter limit 1 → 1-2. All skill flex maxes +1. **4-starting-QB cap** (was 3 with a taxi carve-out; raised to 4 outright 2026-07-21). QB market reprices upward. |
 | **TE Premium era** | 2025–**ongoing** | Active | TE-only `CC=*1.5` (1.5 PPR for TE only). **Concurrent with Superflex era.** Voted year before (2024) per Keith — verify. |
 
 > **Data lineage emphasis (Keith v13):** every stat/scoring change must be documented in enough detail to **convert old data to the modern era.** When this section says "scoring changed," the bid sheet needs to know the EXACT old → new formula to normalize historical points. Cross-reference rulebook archive + `metadata_rawrules` + Forumotion for primary sources.
@@ -1568,7 +1770,7 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 
 ### 2013
 - Rookie contracts: 2 years → **3 years** (by league vote).
-- **Trade votes removed.** Commissioner-led trade processing replaced league veto poll. 5 collusion votes still trigger a veto poll.
+- **Trade votes removed.** Commissioner-led trade processing replaced the league veto poll. ~~5 collusion votes still trigger a veto poll.~~ **RETIRED — there is no veto of any kind (Keith 2026-08-16).** The 2013 mechanism (2 objections → poll → 5 collusion votes) and the 2012/2014 CC veto are both dead. Collusion is identified from **patterns across repeated transactions, evidenced in the data — not from any single trade** — so no trade is ever blocked or reversed on suspicion. The 2022 removals of AJ and Rico Balderelli (§4) were decided that way. This line previously contradicted §1's "No vetoes" and is the contradiction the member rulebook flagged.
 - Contract dynamics for the bid sheet: extension + restructure data from Forumotion is the primary source for understanding how contracts behaved pre-2018.
 
 ### 2014 — multiple forum votes 2014-02-11 (CONFIRMED via Forumotion)
@@ -1705,6 +1907,8 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
   - **For the 2026 realignment specifically:** Captain seeding uses **full historical All-Play %** (the standard 3-year rolling window doesn't apply for the first cycle under the new rule).
   - **Going forward (2029, 2032, …):** Captain seeding uses **rolling 3-year All-Play %** of the immediately prior 3 seasons.
 - **TE Premium year 2** (concurrent with SF). Year-2 TE pricing: open question — see Section C below.
+- **Dynasty Pot mechanism (2026-08-16, final):** the $50/team dues increase from the 2026-05-11 vote splits into two genuinely separate things, not one lump pot. **$25/team/year is the actual Dynasty Pot** — pure 3-year jackpot accrual, unchanged: $900 paid out once per 3-year cycle to the best 3-year All-Play%, nothing more. **The other $25/team/year is a permanent increase to the regular annual pot**, from $200 to $225/team ($2,400 → $2,700 total) — not earmarked for anything specific, just a bigger base pool. This resolves the "$300 to 1st / $100 to 2nd, open to adjustment" note from the 2026-05-11 vote (`docs/league_context_changelog.md`). Earlier same-day drafts of this entry modeled the extra $25/team as a "boost" transferred in from a separate Dynasty Pot side-payout — that framing was needlessly complicated; the dollar outcomes below are unchanged, only the accounting is simpler.
+- **Payout restructuring (2026-08-16, commissioner decision — not a Discord vote, same precedent as the 2022-08-12 payout overhaul above, which also carries no vote tally):** from the $2,700 annual pool (per the bullet above) — Champion $1,080, 2nd $530, 3rd $150 (unchanged), Division Champions $75/winner (4 × $75 = $300, up from $50/$200), Weekly High Score $510 (unchanged), Site & Technology Fees $130/year ($93.11 real 2026 MFL invoice + $36.89 provisional AI-credit budget for the Discord trade-roast bot; any unspent balance rolls forward to reduce next year's line). **Hawktuah Bowl formalized as a residual, not a fixed prize** — it always was (2025 precedent: $86.58, never written down); the pool balances to exactly **$0.00** left over for 2026.
 
 ## C. Implications for the 2026 bid sheet (corrected v13)
 
@@ -1808,8 +2012,21 @@ The bid sheet's math depends on getting cap mechanics right. This section enumer
 
 ### A2. Cap floor = $260,000
 
+**Source: §F RULE 1, Keith's original rule text (supplied verbatim 2026-08-17).** The floor's *amount* has been in canon since v4; its **purpose, scope and penalty** were never written down until now.
+
+> **Specifics:** Floor is $260K, which must be met either by the completion of the auction OR by Roster Cut down day. Once you have met this obligation you're free and clear. In other words, should you end the auction at $265K and you sustain an injury of a big name player that gets put on IR, you would still be in compliance. Should you end the auction at $250K, you will need to put on an additional $10K of cap prior to cut down date. The easiest most logical way to do this is to Front Load a contract which serves as a benefit to you the owner.
+>
+> This rule **DOES NOT APPLY during the season**, it is only for this auction/preseason period. Again, this is merely being implemented to curb the **'auction sleeping'** that has occurred from time to time with some of the owners. We recognize this hurts the team that is sleeping, but this is being implemented to ensure that everyone is fully engaged.
+>
+> **Penalty for non compliance:** Immediate Cap Hit applied to the current season in the amount necessary to bring your team in compliance. Ex. You end auction with $250K and fail to get your salary to the floor, you'll receive a $10K cap hit for current season. **Additionally, you'll receive the same $10K cap hit for next season.**
+
 - **Soft floor.** Must be hit by **end of the FA Auction window OR by the Roster Contract Deadline (September contract deadline), whichever comes later** (Keith, 2026-05-16 review session). Touch-and-go during the auction also counts — once the floor is touched at any timestamp in the window, compliance is satisfied.
-- Failing both = out of compliance → cap penalty.
+- **"Roster Cut down day" = the September contract deadline** — the day the active-roster ceiling drops 35 → 30. This is canon's existing reading (Keith, 2026-05-16) and it is consistent with "does not apply during the season": the 2026 contract deadline is **Sun 2026-09-06**, the last Sunday *before* NFL Week 1 (Thu 2026-09-10). The cure window closes before the season starts.
+- **Penalty = the shortfall, twice.** A team that ends the window $10K light takes **$10K against the current season and $10K against the next**. Not a flat fine — it scales to exactly how far short you were, so a $1K miss costs $1K/$1K and a $30K miss costs $30K/$30K.
+  - **The doubling is the deterrent.** Paying the shortfall once would be a no-op: you'd owe the same cap dollars you declined to commit, and sleeping through the auction would be free. The second year is what makes it a penalty rather than a settlement.
+  - Structurally identical to the §F RULE 2 nomination fines (current + next season), which is the shared shape across every auction-period penalty — see §T4.3a.
+- **This penalty amount was missing from canon until 2026-08-17.** §6.A2 said only "out of compliance → cap penalty" with no number, which made it unenforceable — flagged in `penalty_inventory.md` as one of two penalties with no stated amount. Now stated.
+- **Front-loading is the intended cure, not a loophole.** Keith calls it *"the easiest most logical way"* and *"a benefit to you the owner"* — paying more now against a floor you must meet anyway buys you a cheaper contract to cut later (§D1: the guarantee is `TCV × 75%`, and front-loaded money earns off early).
 - **Touch-and-go example (corrected v10):** team hits $270K mid-auction, then a $40K player goes IR. **IR refund = 50% × $40K = $20K**, so committed salary drops to **$250K** (still < $260K, but the team had touched $260K earlier so they're compliant for floor purposes).
 - **Front-loading contracts OR restructuring** is the explicit tool to satisfy the floor when an owner is light on commitments.
 - **Enforcement:** no UPS worker-side hard block today. Compliance is checked at end of the window via the cap-penalty audit path. Auction-tooling enhancements that would surface a floor warning earlier are parked (see Auction Room scope in `CROSS_CODEBASE_ALIGNMENT.md §4.1`).
@@ -1832,11 +2049,14 @@ Salary Earned (year's actual salary basis)
    = (completed_eligible_weeks / total_eligible_weeks) × year's actual salary
 ```
 
-| Acquisition path | Total eligible weeks | Notes |
+**The denominator is set by when the CONTRACT started, not by when you got the player.** A trade transfers an existing contract, so it never resets the window (see §D1 and §G7.6).
+
+| Contract start | Total eligible weeks | Notes |
 |---|---|---|
-| FA Auction + pre-Week-1 pickups (BBID, FCFS, trade) | **17** | Full season available |
-| Mid-season pickup in Week W (W ≥ 1) | **18 − W** | Weeks W through 17, inclusive |
-| Pre-rolloover offseason cut | **N/A — 100% earned at rollover** | Prior year is sunk |
+| FA Auction + pre-Week-1 signings (BBID, FCFS) | **17** | Full season available |
+| Mid-season signing in Week W (W ≥ 1) — BBID / FCFS | **18 − W** | Weeks W through 17, inclusive |
+| **Acquired by trade** | **whatever the contract already had** | 17 if it started at auction, 18 − W if it started on waivers in Week W. The clock keeps running through the trade. |
+| Pre-rollover offseason cut | **N/A — 100% earned at rollover** | Prior year is sunk |
 
 **Worked rates:**
 - Auction acquisition, dropped after **Week 9** completes: 9/17 = ~53% of year's actual salary earned.
@@ -1847,7 +2067,7 @@ Salary Earned (year's actual salary basis)
 **Key clarifications:**
 - Earning ticks up at the **end of each completed NFL regular-season week** (Tuesday after Monday Night Football kicks off the next NFL week, or per the league_events week-boundary convention — see Section 3.A and the NFL calendar reference in the Bot Grounding appendix).
 - "Active for the week" follows the same definition as the taxi-squad rule: rosters and lineups locked, player appears in weekly results.
-- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts. The flat 35% WW rule is RETIRED.
+- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts — same 75% guarantee, same per-week math. What differs between them is only the **denominator**, and a trade doesn't change it. The flat 35% WW rule is RETIRED.
 
 ### B2. ⚠️ Code follow-up (transition note)
 
@@ -1998,8 +2218,8 @@ The umbrella term is **cap adjustment** for things that move the cap. "Cap penal
 | Trade salary cash | ± | Trade event (paired adjustment — see E1) |
 | IR cap relief | + | Player on IR (50% of salary refunded for duration on IR) |
 | Manual commissioner adjustment | ± | One-off corrections |
-| ❓ Late dues fine | − | $3K per week late — **legacy — pending overhaul discussion** (Keith, 2026-05-16). Cash-vs-cap treatment undecided pending broader framework overhaul. Do NOT implement either model until Keith reopens the discussion. |
-| ❓ Missed nomination fine | − | Auction nomination missed (escalates from $3K) — **legacy — pending overhaul discussion** (Keith, 2026-05-16), same as Late dues fine. |
+| ~~Late dues fine~~ | − | **RETIRED 2026-08-17 (§T4.4).** Was $3K/week. The cash-vs-cap question that sat open here since 2026-05-16 is moot — there is no fine to classify. |
+| Missed nomination fine | − | Auction nomination missed, escalating $3K → $7K → $15K. **Live and code-enforced** (`auction_compliance.js`, §F RULE 2 / §T4.3a). The 2026-05-16 "pending overhaul" note is stale — the schedule was ratified 2026-07-14. |
 
 > **Removed in v10:** Logo change fee — that was real dollars (and now $0 since AI). Not a cap adjustment.
 
@@ -2106,7 +2326,7 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 ## H. STILL-OPEN ITEMS for Section 6
 
 1. ~~**Per-game prorated earning**~~ — **RESOLVED 2026-05-08** (Hall round May 2026, 7-0-0). See Section 6.B.
-2. **Late dues fines + missed-nomination fines** — Keith flagged for review. May be real-dollar (cash) penalties, not cap adjustments. Confirm before bid sheet uses them as cap inputs.
+2. ~~**Late dues fines + missed-nomination fines**~~ — **CLOSED.** Late dues retired 2026-08-17 (§T4.4). Missed-nomination fines were settled as **cap** adjustments when the §F RULE 2 schedule was ratified 2026-07-14 (§T4.3a) and are code-enforced. Neither is an open cash-vs-cap question any more.
 3. **Auction Roster Lock future direction** (Open A1.4) — also: a 2-day-before-auction "cutdown day" is being added for testing purposes per Keith v10. Reconcile with the current 3-day-prior roster lock rule.
 
 ✅ **Resolved in v11 (closed):**
@@ -2123,6 +2343,197 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 ---
 
 ## END Section 6 (**LOCKED v11**)
+
+---
+
+# Section 7 — Governance & Owner Conduct (NEW 2026-08-16)
+
+Rules the league actually operates by that had never been written into canon. Recovered from the 2012 / 2013 / 2014 / 2018 rulebooks (Google Docs, fetched 2026-08-16 — see `docs/rulebook_source_archive.md`), from live enforcement in Discord, and from behavior already shipping in code. Every item below is either **ratifying existing practice** or **explicitly retiring** a rule that survived in an old document. Where Keith gave a ruling on 2026-08-16 it is attributed inline.
+## G. Governance & Owner Conduct
+
+
+### G1. Voting thresholds
+
+| Class of change | Threshold | Status |
+|---|---|---|
+| General rule change | **7 YES** (of 12) | Live. Enforced by the bot: `hall_proposals.pass_yes_count DEFAULT 7` (`worker/migrations/0022_round_item_close.sql:22`), read at `worker/src/discord_round.js:762`. |
+| League dues change | **9 YES** (of 12) | Live. Applied verbatim to the 2026-05-11 Dynasty Pot vote, which passed 9-1-0. |
+
+- **Non-votes count against a proposal (Keith 2026-08-16: *"We would need 7 votes."*).** The threshold is **7 raw YES regardless of turnout** — 6 YES out of 8 ballots cast does NOT pass. This **retires** the 2014 rule *"Polls that are not responded to will not be factored into the results,"* which would have passed that same proposal. The bot's behavior was already the real rule; the 2014 text was the stale one.
+- **Three thresholds are configured but only one is read.** `quorum_min DEFAULT 8` and `threshold_yes_pct DEFAULT 60` exist in `worker/migrations/0020_hall_schema.sql:25-26` and are set by `worker/src/hall.js:583`, but the auto-close path consults **only** `pass_yes_count`. They should be wired up or deleted; leaving three numbers where one governs is how this rule got lost the first time.
+- **The 90% in-season bar is RETIRED — dropped in the 2018 rewrite (traced 2026-08-16).** It was a real rule for the 2012–2017 era and then simply stopped being carried forward:
+
+  | Source | 90% in-season bar |
+  |---|---|
+  | 2012 by-laws | ✅ *"In-season votes, though discouraged, require 90% to pass."* |
+  | 2014 bylaws §2 | ✅ *"Any in-season rule that would directly impact the current season… will require 90% owners' approval."* |
+  | **2018 rulebook** | ❌ **Absent.** The voting section reads only *"League Wide Voting requires 51% league approval to pass"* and *"Rules involving league dues require at least 75% approval to pass."* No in-season/offseason distinction survives. |
+  | 2024 rulebook | ❌ No thresholds stated |
+  | Canon | ❌ Never carried |
+
+  The 2018 rewrite replaced the whole voting section with the flat 51% + 75%-for-dues pair that is still in force today — the same 75% applied to the 2026-05-11 Dynasty Pot vote. There is no repeal vote on record; the rule died by omission, which is why it kept resurfacing from the old documents.
+
+  *Caveat, stated rather than buried:* the 2018 document is truncated at the end (its tag-compensation section stops mid-sentence). But the voting section sits early and reads complete — 51%, then dues 75%, then straight into League Setup — so the omission is structural, not lost text.
+
+  **Nothing was ever passed under the wrong bar.** An earlier draft of this line claimed the July 2026 round passed three rules in-season at 7 YES and might be invalid. That was wrong: every 2026 round ran 2026-05-08/11 and 2026-07-21/24, and NFL Week 1 is 2026-09-10, so all were offseason votes where 51% is correct. Recorded here because the error reached canon before it was caught.
+
+### G2. Commissioner authority
+
+Restored from the 2024 rulebook §1.5, which the 2026 canon rebuild dropped:
+
+> "The commissioner has full authority on decisions that fall outside the rulebook. In cases where league precedent has been set, this will guide the decision-making process. The commissioner may confer with senior league members or expand discussions to the entire league as deemed necessary… The commissioner always acts in the best interest of the league."
+
+The 2018 rulebook adds the test still worth applying to any judgment call: **the betterment of the league, consistency, and historical precedence.**
+
+Canon relies on commissioner discretion in at least eight places (Jail Bird §D2, 4th-offense league-fit review §T4.3a, new-owner cap-free-cut window §A7b, Round 6 reversal §A1, re-engagement forfeit §A2, QB camp battles §B1, restructure enforcement §C5.2, ERA/tag judgment) without this section existing. It does now.
+
+**The Competition Committee is dissolved and has been for years (Keith 2026-08-16: *"hasn't existed in years"*).** Every CC power in the 2012/2013/2014/2018 rulebooks — trade vetoes, unanimous approval of minor rule changes, running orphaned teams, tag-period rulings — is retired and vests in the commissioner. ✅ `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` — a 2026-dated file naming **Ryan Bousquet and Eric Mannila** to the CC with veto-adjacent powers — was **DELETED 2026-08-16**. `claude_canonical_rules.md` had named it "the authoritative HTML" and deferred to it on conflict; that header now points at canon instead.
+
+**Succession has never been written in 16 years.** Still open.
+
+### G3. Lineup submission and the violation ladder
+
+Recovered from the 2018 rulebook, **which is still being enforced under its own numbering** — Discord, 2025-12-15: *"**1st Violation** for @Whitman for Kamara, listed as OUT on Friday's injury report."*
+
+A lineup is a **violation** when it contains a missing starter, a player on bye, a player listed **Out**, or a player listed **Doubtful** who does not play.
+
+| Violation | Consequence |
+|---|---|
+| 1st | Warning, no penalty |
+| 2nd | Loss of a 4th-round pick + $5K against next season's cap |
+| 3rd | Loss of a 2nd-round pick + a further $5K |
+| 4th | League vote on retention; if retained, a further $10K |
+| 5th | Automatic expulsion |
+
+If a stripped pick isn't held, it is taken the next time one becomes available, by trade or at league-year rollover. **Failing to submit any lineup** is separate: the owner has until the following Tuesday to explain, the league votes on retention, and a second occurrence is automatic expulsion.
+
+**The ladder resets every season (Keith 2026-08-17).** Violations are counted within a single season and the count starts at zero each year. An owner who reached violation 3 in 2024 comes into 2025 clean, at violation 0.
+
+This is a real narrowing of the ladder, and worth stating plainly because it changes what the top rungs mean: **expulsion at #5 now requires five illegal lineups in one season** — roughly a third of a 17-week schedule — rather than five accumulated slowly across a decade. Under a never-resetting count, an owner who slipped up once every couple of years would eventually face a retention vote for a pattern nobody would recognize as one. Season-scoped, the ladder measures what it is actually aiming at: an owner who is not managing their team *this year*.
+
+Consistent with §F RULE 2, which already works this way — `bookPenaltyForMiss` counts *"PRIOR un-voided misses this auction"*, scoped to the season, so nomination offenses have always reset annually. Both ladders now answer the same question the same way.
+
+> Closes `penalty_inventory.md` open question 3 (*"Should lineup violations reset annually, or accumulate across seasons?"*), which neither ladder had ever answered.
+
+**Injury-report timing is now 24 hours before that player's kickoff (Keith 2026-08-16).** This replaces the 2018 wording ("Sunday & Monday games — Friday PM; Thursday — Wednesday PM"), which broke on Wednesday games and any non-standard slate. The 24-hour frame is itself a restoration: the 2012 rulebook already used it (*"Questionable designations becoming deactivated within 24 hours of kickoff do not trigger warnings, while Doubtful designations that become deactivated do"*).
+
+**Detection (built 2026-08-17).** `worker/src/lineup_compliance.js` evaluates every starter against the 24-hour anchor and books one violation per franchise-week — a week with three bad starters is ONE violation, because the ladder counts illegal *lineups*.
+
+The failure being caught is not an owner submitting a short lineup; MFL already errors on submit. It is Keith's actual case: *"guys submit players then those players get declared out on Friday."* The lineup was legal when submitted and went bad afterwards, which is why the verdict can only be reached at kickoff.
+
+**Everything reduces to one question: what did the owner know 24 hours before *this player's* game?**
+
+| Status at the 24-hour mark | Outcome |
+|---|---|
+| **Out** (or IR) | **Violation** — you had a day to react |
+| **Doubtful**, and he did not play | **Violation** — §G3, and Keith's "start at own risk" |
+| **Doubtful**, and he played | Clean |
+| Out/Doubtful only *after* the mark | **Advisory** — late news is never a fine |
+| On a bye | **Violation** — byes are published months ahead, so no notice question arises |
+| Fewer than 18 starters | **Violation** — counted once, however many slots are empty |
+
+**The full rule, walked through case by case with Keith on 2026-08-17 and confirmed before any of it was built:**
+
+| Scenario | Outcome |
+|---|---|
+| Out **before** your notice deadline, doesn't play | **Violation** |
+| Out **after** it (late news) | Advisory — never a fine |
+| Out before it, then **upgraded and plays** | **Clean.** Keith: *"if a player is declared out he'll never play… no this would never be a penalty. Upgraded Sun AM is inside the window."* |
+| **Doubtful** at the deadline, doesn't play | **Violation** — start at own risk. The Doubtful branch governs even if the Out comes late |
+| Doubtful at the deadline, **plays** | Clean |
+| **IR** | Same as Out. Keith: *"even more egregious unless it's a late IR submission"* — and a late IR is already excused by the anchor |
+| On a **bye** | Violation. Published months ahead, so no notice question arises |
+| **No eligible replacement** on your roster | **No penalty.** Keith: *"if you don't have a player on your roster you can sub out."* A rule that fines the impossible is not a rule about conduct |
+| Fewer than 18 starters | Violation, but judged at **end of week** — see below |
+| You **win** anyway | Still a violation. Keith: *"doesn't matter if you break the alltime scoring record it's the priciple"* |
+
+**The notice deadline is `min(kickoff − 24h, Saturday 8:00pm ET)`.** The Saturday cap exists because a plain 24-hour window breaks on Monday night: MNF kicks off ~8:15pm Monday, putting the mark at ~8:15pm **Sunday** — by which time every other player you own has already played and locked. Keith:
+
+> *"If there's a MNF game and player declared out on Sunday @4PM and you don't have a player on your roster you can sub out… most of your players have already played… it's possible this would force you to cut a player. So let's set MNF Deadline as Saturday at 8PM. This allows you time to reassess your roster before sunday AM lineups lock."*
+
+The cap applies only to games kicking off **Sunday or later**. For Wed/Thu/Fri/Sat games the roster isn't locked up yet and the plain 24 hours already gives real time to react; capping those would demand six days' notice. The cap can only ever move the deadline **earlier**, so it can turn a violation into an advisory but never create one.
+
+**"Did not play" is NFL injury status and nothing else** (Keith: *"do not worry about playing time or performance"*). Still listed Out or IR at kickoff = did not play; anything else = played. This is the more honest signal, not a shortcut: snap counts and fantasy points cannot separate "never dressed" from "played forty snaps and caught nothing" — both score 0.0. Status can.
+
+**A short lineup is judged at end of week, not at kickoff** (Keith: *"in theory you could pick someone up off waivers and start… its not the same as starting an injured player and locking the position up once the game starts"*). An injured starter locks that slot the moment his game begins and nothing can be done; an empty slot stays fillable until the week's last kickoff. Before the week ends a short lineup is flagged as fixable, not as a violation.
+
+**Scope: every week, all season, no exceptions** (Keith 2026-08-17). Playoffs included, and it applies to a team with nothing left to play for — *"playing for top score weekly and it is a league mandate to not throw in the towel. Counts towards historical rankings etc."* That is precisely the team most likely to field a junk lineup, and All-Play makes it everyone else's problem.
+
+**One violation per week**, however many starters were bad — the ladder counts illegal *lineups*. Keith: *"One violation per week though the more eggregious the less thrilled we will be"* — severity is noted, not multiplied.
+
+**Orphaned teams are exempt** (§G5): the commissioner is caretaking, so there is no owner to penalize.
+
+**Immunity is retroactive and commissioner-granted.** Unlike §F RULE 2, which requires notice *ahead* of time, a lineup violation can be excused after the fact — Keith: *"Some emergencies happen after the fact. If i give approval then remove the violation."* Voiding re-derives the ladder, so an excused week never pushes a later one into a heavier rung.
+
+**Two things it refuses to do.** It never fines on absent data: MFL's `TYPE=injuries` keeps no history, so `ups_injury_status` records first-seen timestamps hourly, and if polling did not cover a player's 24-hour window the verdict is `unknown`, never a violation — an unwatched window and a healthy player look identical in the data, and only one may cost a 4th-rounder. And it never quietly softens canon: a player listed Out who then *plays* is booked as a violation (canon says "a player listed Out" with no did-not-play qualifier) but flagged `needs_review`, so a human rules on the oddity rather than the machine deciding the rule means something it doesn't say.
+
+**Anchor choice (Keith 2026-08-17).** The §H proposal (`docs/FOLLOWUP_TASKS_2026-05-26.md`) specified a **Friday midnight ET** snapshot. Retired in favor of the per-player 24-hour window for the same reason the 2018 fixed-day wording was retired: a weekly anchor cannot evaluate a Wednesday or Thursday game, and **2026 opens Wednesday Sept 9** — Friday midnight is two days after that game kicked off. §H's own DM schedule was already per-kickoff (Wed, Sun 9:30, Sun 1pm, Sun 4pm, SNF, MNF, TNF, Saturday); only its violation *test* was weekly, so the two halves disagreed with each other. Everything else in §H is kept: the 1.5-hour-before DMs, the D1 logging, and the load-bearing distinction between a *"possible lineup violation"* and a *"courtesy heads-up"*.
+
+✅ **The ladder above is confirmed current (Keith 2026-08-16: "yes that's the current penalty").** Asked because nobody has been past violation 1 in the current era and the pick-stripping reads as a heavy 2018-era hammer; it stands as written. Live as of the 2026 season — the next owner to reach violation 2 loses a 4th and $5K.
+
+⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. Nothing in the app flags a violation, counts one, or knows what number an owner is on — the count lives only in Discord history.
+
+### G4. Roster and cap compliance windows
+
+**In-season (transaction-triggered).** The 2014 rulebook: *"If an in-season transaction results in an owner not being able to put out a full starting lineup, that GM will have 24 hours to fulfill their roster requirements. If this does not occur within 24 hours the transaction will be reversed."* The same 24-hour cure applies to going over the cap (§E, live in canon).
+
+⚠️ **Keith is changing the reversal mechanic this offseason (2026-08-16) — see G7.1.** The rule as written above is the legacy version. Do not build to it.
+
+**Offseason, before the FA Auction: there is no cap ceiling and no roster limit at all (Keith 2026-08-16).** Not a floor, not a ceiling, not 27, not 30/35. A team may sit far over $300K and carry any number of players. Compliance begins at auction start. This was never stated anywhere and both §B1 and §A2 implied year-round limits.
+
+### G5. Owners without teams, and teams without owners
+
+From the 2011 dues-lockout announcement, the earliest written form:
+
+> "As stipulated in the league manifesto the team will be run by the competition committee to ensure a complete lineup, however no pickups will be made unless it is necessary to produce a starting lineup."
+
+**Ratified with the commissioner in place of the CC:** an orphaned or locked-out team is caretaken by the commissioner, who sets a legal lineup each week and makes **no discretionary moves** — additions only where required to field a legal lineup.
+
+This matters more than it used to. UPS has removed or replaced three owners in four years (§4), All-Play drives seeding *and* realignment captaincy, and the Dynasty Pot now puts $900 on a 3-year All-Play figure that an unmanaged roster distorts for all eleven other teams.
+
+❓ The **"league manifesto"** cited above is not in this repo and may not survive. Worth asking whether Keith still has it.
+
+### G6. Stat corrections
+
+Never written down in 16 years, despite being decisive twice:
+
+- A correction moved a team from the 1 seed to the 3 seed on the final regular-season week (Keith, Discord 2024-11-26).
+- A championship was held open pending one (Keith, 2023-12-31: *"2.3 points to overcome in Elias isn't unprecedented, so we'll sit tight until Thursday morning and we'll confirm it then"*).
+
+**The rule, ratifying that practice (Keith 2026-08-16):** MFL does not auto-apply Elias corrections. Scores and All-Play remain provisional until **Thursday morning of the following week**, at which point they are final. Corrections landing after that do not reopen a settled week.
+
+Stakes are now higher than seeding alone: the Dynasty Pot's $900 rides on 3-year All-Play %, and realignment captaincy runs on the same figure.
+
+### G7. Open governance items
+
+1. **Roster/lineup non-compliance: replace transaction reversal (Keith 2026-08-16).** Reversal is the wrong control for three reasons Keith named: it **punishes the counterparty** to a trade the non-compliant owner made; it is exploitable as **buyer's remorse**; and a mechanism already exists that blocks further roster changes until the roster is fixed, which is a cleaner lever than undoing a completed transaction. Direction: **in-season**, the weekly valid-lineup requirement is the control. **Pre-season**, cure by the earlier of the next two waiver cycles or roster deadline day. Penalty for non-compliance still to be set — see item 2.
+1a. **The cure-window penalty — RESOLVED 2026-08-17 (Keith).** §G7.1 replaced transaction reversal but left the consequence open. It is now derived from structures that already exist rather than invented:
+
+   | When | If the cure window lapses |
+   |---|---|
+   | **Pre-season** (cap non-compliance) | **The amount you are out by, charged to this season AND next** — §F RULE 1's floor penalty, pointed at the ceiling. Same shape, same doubling, same reason: paying it once is merely the money you declined to commit, so the second year is the entire deterrent. |
+   | **In-season** (illegal roster) | **It becomes a §G3 lineup violation** and enters that ladder at the franchise's current rung. |
+
+   The in-season half follows from harm, not convenience. By the time a cure window has lapsed you have fielded an illegal roster, which distorts All-Play for the other eleven teams exactly as an illegal lineup does — and All-Play is money now (the $900 Dynasty Pot). §G3 is also the ladder that is *already* season-scoped, already carries a commissioner immunity path, and as of 2026-08-17 is actually detected.
+
+   **No new currency, no new numbers, nothing re-priced.** That is the test this proposal had to pass: the penalty system does not need a fifth currency, it needs its existing ones pointed at the gaps.
+
+2. **Build one coherent penalty system.** Penalties have accreted across 16 years in at least four currencies (cash, cap, draft picks, membership) with no relationship between them. Inventory at `docs/penalty_inventory.md`. Needs a design pass, not a patch.
+3. ~~**The 90% in-season voting bar**~~ — **CLOSED 2026-08-16.** Traced through the document history: real in 2012 and 2014, dropped in the 2018 rewrite, absent from everything since. Retired by omission, not by vote. See G1. Its only surviving copy, `ups_v2_rulebook_v4.html`, was deleted 2026-08-16 (G2).
+4. **Commissioner succession** — never written.
+5. ~~**Violations 2–5 pricing**~~ — **CONFIRMED 2026-08-16 (Keith): "yes that's the current penalty."** The 2018 ladder stands unchanged (G3).
+   - **My "severity inversion" claim here was wrong — withdrawn 2026-08-17.** I wrote that a $5K violation-2 lands lighter than the $7K for a second missed nomination. That compares the cash halves only. It drops the **4th-round pick** attached to violation #2, and it misses that nomination fines are charged to **two cap years** while the lineup fine is charged to one. At Keith's own exchange rate (a 4th ≈ $15K cap, cap possibly lighter) the two ladders are closely matched, not inverted:
+
+     | Offense | Lineup violation (§G3) | Missed nomination (§T4.3a) |
+     |---|---|---|
+     | #2 | $5K × 1 yr + a 4th ≈ **$20K** | $10K cumulative × 2 yrs = **$20K** |
+     | #3 | $10K + a 4th + a 2nd ≈ **$55K** | $25K × 2 yrs = **$50K** |
+
+   - **Neither ladder needs re-pricing.** They already track each other. The genuine gaps are detection and the two ladders that had no schedule or no amount written down — see §T4.3a (Extra Nominations) and §6.A2 (cap floor), both closed 2026-08-17.
+7. ~~**Rounding scope: "cap adjustments" or "cap penalties"?**~~ — **CLOSED 2026-08-17 (Keith): "you trade in whole thousands of dollars so no rounding needed."** The two readings are arithmetically identical, so there is nothing to decide. Traded salary is denominated in $K throughout (`traded_salary_adjustment_k`, posted as `× 1000` — verified 2026-08-17), so any traded amount `T` is a multiple of $1,000. The reconciliation posts `round(sum/1000)×1000 − sum`; adding `T` shifts both terms by exactly `T`, leaving **the same delta**. Including or excluding traded salary changes the posted true-up by $0. Only rows that can carry a non-$1K remainder — drop, cut and waiver penalties, which come out of `(TCV × 75%) − earned` and land on exact dollars like $9,135 — can move the result, and those are precisely what the code sums.
+6. ~~**Who eats the loading settlement on a traded contract?**~~ — **RESOLVED 2026-08-16 (Keith): "you inherit the contract as you received it. That has never come into play."** The acquiring owner takes the contract whole — its years, its salaries, its loading, and any §D2a settlement that loading eventually produces. There is no adjustment for the fact that the original owner banked the cheap year. This closes a question left open since 2014, when the same case (a back-loaded Jonathan Stewart deal, $19K/$26K, acquired for a 3rd) was sent to a league vote on the old forum and no outcome was ever recorded (`/t15-general-thought`, 30 replies). It follows directly from the existing trade rule — a contract moves unchanged and the sending team is clean immediately — so no new mechanism is needed.
+
+## END Section 7 (NEW 2026-08-16)
 
 ---
 
@@ -2160,6 +2571,7 @@ Reconcile every player's contract lifecycle event-by-event — from initial acqu
 ---
 
 ## END Section 8 (placeholder, v13)
+
 
 ---
 
@@ -2218,7 +2630,7 @@ For audit trail. These were open in earlier versions and are now closed:
 - ✅ Tagged players: NO extensions, NO MYM — must go to next FA Auction. Strict rule confirmed v8.
 - ✅ WW-Rookie sub-type → not a separate type; Keith manually converts WW → Rookie at year-end for ERA path. Clarified v8.
 - ✅ New owner onboarding: cap-penalty wipe + 1 cap-free cut. Resolved v4.
-- ✅ Cap "penalties" → "cap adjustments" (subtypes including traded salary, drop penalty, late dues). Resolved v4.
+- ✅ Cap "penalties" → "cap adjustments" (subtypes including traded salary, drop penalty, late dues). Resolved v4. *(Late dues retired 2026-08-17 — §T4.4. Entry left as written; it is a log of what was decided then.)*
 - ✅ $300K ceiling does NOT apply offseason pre-FA-Auction. Resolved v4.
 - ✅ $260K floor: by FA Auction completion OR contract deadline. Resolved v4.
 - ✅ Survivor Pool / NFL Pool removed from catalog (UPS doesn't run them). Resolved v4.
@@ -2487,6 +2899,27 @@ These are corrections + clarifications fed back from solo-test of the AI explain
 - **All cap penalties are rounded based on the SUM of penalties accrued, not per-penalty rounding.**
 - Rounding is applied to the cumulative total, not to each individual drop penalty in isolation.
 
+**The increment is $1,000, to the nearest, half-up** — stated by Keith 2026-08-16 and already implemented. The rounding happens **once per team, at the FA Auction Cut Deadline**, on the summed total:
+
+> "Right after we lock down cuts before the FAA we take the sum of all of the Cap Adjustments and then apply rounding at that level. So a 1200+3400 = 4600 = 5000 (Correct) vs. 1200=1000 + 3400=3000 = 4000 (Incorrect)."
+
+That worked example is the whole rule. Rounding each cut in isolation loses $1,000 against rounding the sum, which is exactly what the rule exists to prevent.
+
+**How it runs (`RULE-CAP-002`, shipped 2026-06-03 in #435):**
+
+| Stage | Behavior |
+|---|---|
+| Every drop, all season | Posts to MFL at its **exact** computed dollar amount. No rounding per cut. |
+| Displays (Discord, Cap Summary) | Show raw total → rounded total → delta, labeled **dynamic** — it moves as more cuts land. |
+| FA Auction Cut Deadline (2026: **Jul 22, 9:00pm ET**) | The `*/5` cron fires `/admin/drops/reconcile-post`, which sums each franchise's posted drop penalties, rounds to the nearest $1K half-up, and posts **one reconciliation line for the delta** so the team total lands clean. |
+| After that | Locked. Fire-once per season per league, guarded by a ledger key (`ups_drop_rounding_<fid>_<season>`) *and* a deadline lock, so it cannot double-post. |
+
+Two details worth knowing before touching it: the reconciliation reads **MFL's own `salaryAdjustments` export**, not `ups_drop_events`, so it trues up against what members actually see; and its classifier deliberately **excludes its own prior reconciliation rows** from the sum, since re-summing a delta that's already folded into the total would double-count it.
+
+> ⚠️ **Correction, 2026-08-16.** I had recorded here that this rule was a no-op with no increment anywhere in the code, and that nothing needed to change. **Both halves were wrong.** I checked the per-cut penalty math (`_computeDropPenalty`), correctly found no rounding *there*, and concluded the rule was unimplemented league-wide — without checking whether rounding happened at a different layer. It does, at the team layer, which is precisely where the rule says it should. Keith supplied the increment and the worked example. Recorded rather than quietly deleted, because "I verified X" carries weight and this one didn't earn it.
+>
+> **Scope question closed 2026-08-17.** Keith's wording said *"the sum of all of the Cap Adjustments"* while the code sums drop/cut/waiver penalties only, skipping traded-salary rows — so I flagged the gap. Keith: *"you trade in whole thousands of dollars so no rounding needed."* The two readings give the **same answer**: traded salary is denominated in $K (`traded_salary_adjustment_k`, posted `× 1000`), so adding it shifts `sum` and `round(sum)` by the identical multiple of $1,000 and the posted delta is unchanged. Only rows that can carry a sub-$1K remainder — the penalties, which land on exact dollars like $9,135 — can move the result, and those are exactly what the code sums. Nothing to decide. See §G7.7.
+
 ### Taxi squad — temporary call-up "active week" definition (effective 2026-05-08)
 
 This clarifies the rule in **B2 / T2.4** for the bot.
@@ -2548,7 +2981,7 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 | `services/rulebook/sources/rules/archive/current_rulebook_struct.json` | JSON | **ARCHIVED 2026-05-08** | `_archived_note` header added. Kept as historical reference. |
 | `services/rulebook/tools/build_rulebook_json.py` | Python | **DEPRECATED 2026-05-08** | Header comment marks DO NOT RUN — its source HTML was deleted. Kept for historical reference. |
 | `docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md` | MD | LEGACY ARTIFACT | Reconcile any unique content into context file (next pass). Then archive. |
-| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` | HTML | LEGACY ARTIFACT | Slated for deletion in next cleanup pass. |
+| ~~`docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html`~~ | HTML | **DELETED 2026-08-16** | Asserted a dissolved Competition Committee (naming two current owners) and a 90% in-season voting bar retired in 2018. See §G1/§G2. |
 | `services/rulebook/web/rulebook_embed.html` | HTML | EMBED widget | Verify consumers (rules.json?). If yes, retire the widget. |
 | `docs/rulebook_inbox.md` | MD | NOT-A-LEAGUE-RULE | Keep. Engineering notes (Claude operating rules), different concern. |
 | `services/rulebook/sources/rules/archive/league_divisions.csv` | CSV | DATA SOURCE | Keep as archived input. MFL DB `franchises` table is the live equivalent. |
@@ -2588,7 +3021,8 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 - [x] `services/rulebook/tools/build_rulebook_json.py` marked DEPRECATED (its source HTML was deleted)
 - [x] DELETE the entire `site/rulebook/` directory (Keith confirmed 2026-05-08 the redirect page was never trafficked — no need to keep a "moved" placeholder)
 - [ ] Move `claude_canonical_rules.md` to `docs/archive/` (next pass)
-- [ ] Decide fate of remaining draft HTML: `ups_v2_rulebook_v4.html`, `services/rulebook/web/rulebook_embed.html` (next pass)
+- [x] `ups_v2_rulebook_v4.html` — **deleted 2026-08-16** (see §G2)
+- [ ] Decide fate of remaining draft HTML: `services/rulebook/web/rulebook_embed.html`, `ups_v2_rulebook_browser_first_pass.html`, `ups_v2_fantasy_rulebook_browser_first_pass.html` (next pass)
 
 **Phase 5 — Owner-facing public surface (DEFERRED):**
 Per Keith 2026-05-08: a future "all rules" public HTML site will be a separate dedicated build. For now, owners consult:

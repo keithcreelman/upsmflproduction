@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.9",
-  "released": "2026-08-08",
-  "checkpoint": 11,
-  "scope": "A blank contract is rendered as PENDING, never invented — on BOTH desktop surfaces. MFL records only the SALARY on a waiver/FCFS award and leaves contractStatus/contractYear/contractInfo empty. The legacy Roster Workbench (site/rosters/roster_workbench.js, the surface wired to MESSAGE7) had no contract-unknown notion and was chipping such a row EXPIRED — a state MFL never claimed — and dropping its salary out of the cap total. It now mirrors FO v2: a PENDING pill, \"pending\" contract-shape cells, no Expired label and no risk chip, and the real salary still counted against the cap. The worker, both clients and the WW stamp's blank-only write guard now share one definition of \"MFL has not said\", so a pending row is always stampable.",
-  "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
+  "version": "2.0.16",
+  "released": "2026-08-23",
+  "checkpoint": 14,
+  "scope": "Rookies won in the FA Auction could only be offered an Extension, never a 1/2/3-year auction contract. The eligibility test excluded any status containing the word rookie, which caught Rookie-FAA \u2014 an auction win. Canon line 394 puts every auction win, FA or Expired Rookie, at 1, 2, or 3 years. Eight players across five teams were affected; the clause now defers to the rookie-OPTION path instead of matching on the word.",
+  "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

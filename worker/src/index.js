@@ -13,7 +13,7 @@ import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } f
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
-import { buildLeagueEvents } from "./league_events_ladder.js";
+import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -29,7 +29,16 @@ import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
   flagReengagementMiss, rule2FineK,
 } from "./auction_compliance.js";
-import { buildWaiverRunPlan, humanizeDropBasis } from "./lib/waiver_run_post.js";
+import {
+  recordInjurySnapshot, injuryObservedFrom, injuryHistoryForWeek,
+  evaluateLineup, bookLineupViolation, lineupStandings, voidLineupViolation,
+  composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
+} from "./lineup_compliance.js";
+import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
+import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
+import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
+import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
+import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 
 const acquisitionLiveMemoryCache = new Map();
 // Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
@@ -192,7 +201,11 @@ async function snapshotMflToR2(env, nowUtc) {
     ["salaries",     `https://api.myfantasyleague.com/${season}/export?TYPE=salaries&L=${leagueId}&JSON=1`],
     ["transactions", `https://www48.myfantasyleague.com/${season}/export?TYPE=transactions&L=${leagueId}&JSON=1`],
     ["rosters",      `https://www48.myfantasyleague.com/${season}/export?TYPE=rosters&L=${leagueId}&JSON=1`],
-    ["injuries",     `https://www48.myfantasyleague.com/${season}/export?TYPE=injuries&L=${leagueId}&JSON=1`],
+    // ⚠️ `injuries` needs BOTH halves: the api.* host AND no L=. Verified live
+    // 2026-08-22 — www48+L, www48 no-L, and api.*+L ALL return an error
+    // envelope; only api.* with no L returns rows (368). Sending L here
+    // silently emptied 111 daily snapshots.
+    ["injuries",     `https://api.myfantasyleague.com/${season}/export?TYPE=injuries&JSON=1`],
     ["league",       `https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1`],
     ["freeAgents",   `https://www48.myfantasyleague.com/${season}/export?TYPE=freeAgents&L=${leagueId}&JSON=1`],
     ["draftResults", `https://api.myfantasyleague.com/${season}/export?TYPE=draftResults&L=${leagueId}&JSON=1`],
@@ -1790,6 +1803,33 @@ async function processAuctionPoll(env) {
 // drop-penalty cron AND GET /api/cap-penalty/preview. Keep at module scope so
 // both the FO/mobile preview and the real cap charge run identical logic.
 const _s = (v) => String(v == null ? "" : v).trim();
+
+// Which player ids a transaction DROPPED, read positionally by type.
+// Shapes confirmed live 2026-08-16 against every ups_transactions row:
+//   FREE_AGENT   "added,|dropped,"       → field 1   (e.g. "|13189,")
+//   BBID_WAIVER  "added,|bid|dropped,"   → field 2   (e.g. "16649,|1000|15271,")
+//
+// Positional is load-bearing. Scanning the whole blob for digit clusters — what
+// this used to do — charges a drop penalty against the player the owner just
+// ADDED, and on a waiver row also mints a phantom drop from the bid amount
+// ("...|1000|..." parses as player 1000).
+//
+// Returns null for any type whose shape is not established here, so the caller
+// can surface it. Notably NOT parseable:
+//   BBID_WAIVER_REQUEST  "priority|add_bid_drop,..."  — a submitted bid, and
+//     some are later withdrawn (action:"DEL"). A losing or withdrawn bid drops
+//     nobody; charging off one would invent a penalty out of nothing.
+//   BBID_AUTO_PROCESS_WAIVERS — a marker row, empty franchise and transaction.
+const _dropPidsFromTx = (type, blob) => {
+  const parts = _s(blob).split("|");
+  const ty = _s(type).toUpperCase();
+  let field;
+  if (ty === "FREE_AGENT") field = parts[1];
+  else if (ty === "BBID_WAIVER" || ty === "WAIVER") field = parts[2];
+  else return null;
+  return _s(field).match(/\d{3,6}/g) || [];
+};
+
 // NFL Week-1 kickoff = Thursday after Labor Day (first Monday of Sept + 3 days).
 const _nflWeek1Iso = (year) => {
   const y = Number(year) || 0;
@@ -1852,6 +1892,72 @@ async function nflWeekFirstKickoffUnix(season, week) {
   return earliest;
 }
 
+// Week-1 boundary DATE (YYYY-MM-DD, ET) taken from MFL's real schedule, for the
+// cut-penalty math to use as `opts.week1ThursdayIso`.
+//
+// _nflWeek1Iso() below derives Week 1 as "the Thursday after Labor Day", which
+// is the usual embodiment of the rule but not the rule — 2026 opens WEDNESDAY
+// Sep 9, so the derived boundary lands a day late and every week boundary in the
+// penalty math shifts with it. A Wednesday drop is then attributed to the prior
+// week, moving `earned` by roughly one week's share of salary. Keith ruled on
+// this directly on 2026-08-07: "earliest game of the week, typically that's
+// thursday but this yr it's wednesday."
+//
+// ET, not UTC: a Wednesday 8:20pm ET kickoff is Thursday 00:20 UTC, so slicing
+// toISOString() would silently reintroduce the very off-by-one this fixes.
+// en-CA renders as YYYY-MM-DD.
+//
+// Returns null — never a guess — when the schedule does not answer, so callers
+// fall through to the _nflWeek1Iso() approximation rather than a bad date.
+// Which NFL week should an injury poll be filed under?
+//
+// NOT _nflWeekForUnix. That derives Week 1 as "the Thursday after Labor Day"
+// and returns 0 for anything earlier — which in 2026 means it reports week 0
+// on Wed Sep 9, the day Week 1 actually kicks off, and never fires at all
+// during the lead-in. Both are fatal here: the 24-hour notice window for a
+// Week 1 game opens on Tue Sep 8, so a poller that starts at "Week 1" has
+// ZERO coverage of the window every Week 1 verdict depends on, and injury
+// history is the one input that cannot be backfilled.
+//
+// Weeks are also not uniform — 2026 Week 1→2 is EIGHT days (Wed Sep 9 → Thu
+// Sep 17) — so 7-day blocks off Week 1 would misfile the rest of the season.
+// Real kickoffs are the only reliable boundary; nflWeekFirstKickoffUnix memoizes
+// them for an hour, so the walk below costs at most a couple of cached reads.
+//
+// Returns 0 when the schedule cannot be read. Never a guess: filing a poll under
+// the wrong week is worse than not filing it, because a misfiled designation
+// re-dates itself and can flip a violation to an advisory.
+const INJURY_POLL_LEAD_IN_SEC = 12 * 86400;
+const _injuryPollWeek = async (season) => {
+  const now = Math.floor(Date.now() / 1000);
+  const w1 = await nflWeekFirstKickoffUnix(season, 1);
+  if (!(w1 > 0)) return 0;
+  if (now < w1 - INJURY_POLL_LEAD_IN_SEC) return 0;   // preseason, nothing to watch yet
+  if (now < w1) return 1;                             // lead-in IS Week 1's notice window
+  let wk = Math.min(17, Math.max(1, Math.floor((now - w1) / (7 * 86400)) + 1));
+  // Correct the estimate against real kickoffs, in both directions. Bounded so a
+  // pathological schedule can't spin.
+  for (let i = 0; i < 4 && wk > 1; i += 1) {
+    const k = await nflWeekFirstKickoffUnix(season, wk);
+    if (k > 0 && now < k) wk -= 1; else break;
+  }
+  for (let i = 0; i < 4 && wk < 17; i += 1) {
+    const kn = await nflWeekFirstKickoffUnix(season, wk + 1);
+    if (kn > 0 && now >= kn) wk += 1; else break;
+  }
+  return wk;
+};
+
+const _week1BoundaryIsoET = async (season) => {
+  try {
+    const unix = await nflWeekFirstKickoffUnix(season, 1);
+    if (!(unix > 0)) return null;
+    return new Date(unix * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  } catch (_) {
+    return null;
+  }
+};
+
 // NFL regular-season week for a unix timestamp (0 = preseason / outside weeks 1-17).
 const _nflWeekForUnix = (unixSec, year) => {
   const wk1 = _nflWeek1Iso(year);
@@ -1861,11 +1967,80 @@ const _nflWeekForUnix = (unixSec, year) => {
   const wk = Math.floor((unixSec - w1Sec) / (7 * 86400)) + 1;
   return (wk >= 1 && wk <= 17) ? wk : 0;
 };
-// player_id -> most-recent IN-SEASON acquisition week this season (waiver / FCFS /
-// auction). Used as the per-week eligible-weeks denominator (18−W) for mid-season
-// pickups; players acquired preseason / Week 1 (or not this season) are absent →
-// the caller treats them as continuing (acquisitionWeek 1, eligible 17). Trades
-// (empty transaction string) are not parsed here — a known v1 gap.
+// player_id -> most-recent IN-SEASON week this season a NEW CONTRACT began
+// (waiver / FCFS / auction). Used as the per-week eligible-weeks denominator
+// (18−W); players whose contract started preseason / Week 1 (or in an earlier
+// season) are absent → the caller treats them as continuing (acquisitionWeek 1,
+// eligible 17). Trades are excluded on purpose — see the block comment below.
+// player_id -> true when the player has confirmed taxi call-up history and has
+// NOT been permanently promoted, i.e. the §D2 cap-free cut still applies even
+// though MFL currently reports him on the active roster. Mirrors the derivation
+// behind /api/taxi-callups: `used` counts confirmed (pending=0) call-ups and
+// permanence is `used >= 4`, aggregated across seasons and franchises.
+//
+// Only ever returns entries for players who appear in ups_taxi_callups, so a
+// player who has never been on taxi is simply absent — callers must treat a
+// missing key as "not exempt", never as "never promoted".
+//
+// Fails CLOSED: any DB error yields {} and every player is priced normally.
+// A wrong $0 is far worse than a wrong charge, which is at least visible and
+// reversible by the commissioner.
+const _taxiNeverPromotedMap = async (env, playerIds) => {
+  const out = {};
+  if (!env || !env.UPS_MFL_DB) return out;
+  const ids = (playerIds || []).map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean);
+  if (!ids.length) return out;
+  try {
+    // D1 caps bound parameters at 100 per statement; chunk well under it.
+    const chunkSize = 80;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => "?").join(",");
+      const rows = await env.UPS_MFL_DB.prepare(
+        `SELECT player_id,
+                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used
+           FROM ups_taxi_callups
+          WHERE player_id IN (${placeholders})
+          GROUP BY player_id`
+      ).bind(...chunk).all();
+      for (const row of rows?.results || []) {
+        const pid = String(row?.player_id || "");
+        if (!pid) continue;
+        const used = Number(row?.used || 0);
+        if (used > 0 && used < 4) out[pid] = true;
+      }
+    }
+  } catch (_) {
+    return {};
+  }
+  return out;
+};
+
+// TRADE IS DELIBERATELY NOT AN ACQUISITION HERE. Do not "fix" this.
+//
+// The 18−W window is the length of the CONTRACT, not the length of your
+// ownership. A waiver/FCFS/auction pickup in Week 9 gets a 9-week denominator
+// because his contract *begins* in Week 9 — its TCV only ever covered Weeks
+// 9–17, and nobody paid him for Weeks 1–8 under it. A trade creates no
+// contract. The deal has been running since Week 1 and its TCV covers the
+// whole season, so the earning clock keeps running through the trade and the
+// original acquisition week (or the full 17) still governs.
+//
+// Resetting the window on trade would erase the salary the SENDING team
+// already paid against that same guarantee, and charge the receiving team for
+// it a second time. Concretely, on a $25K deal cut after Week 12 ($18,750
+// guaranteed): $1,103 if one owner held him the whole way, but $9,375 if he
+// changed hands in Week 10 — an $8,272 surcharge for the identical player cut
+// on the identical day, payable only because the contract moved. That taxes
+// exactly the deadline trades the league wants, and it contradicts §G7.6
+// (Keith 2026-08-16: "you inherit the contract as you received it") — as
+// received means with 12/17 already earned.
+//
+// Canon §D1 line 574 used to list "trade" beside WW/FCFS. That word was never
+// implemented in 16 years of running penalties and never matched practice;
+// canon was corrected 2026-08-16 to state the contract-length principle
+// instead. (Keith: "the 1st 9 weeks were paid and therefore the new owner
+// wouldn't owe.") Regression guard: tests/acquisition_week_canon.test.mjs.
 const _acquisitionWeekMapFromTxs = (txs, year) => {
   const ACQ = { FREE_AGENT: 1, BBID_WAIVER: 1, AUCTION_WON: 1 };
   const byPid = {};
@@ -1945,12 +2120,76 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned };
         };
 
-        const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi }, opts) => {
+        const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
           const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
           // Exemption checks (priority order):
           // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
           if (isTaxi) {
             return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
+          }
+          // 1a. Taxi player mid-CALL-UP. `isTaxi` above is MFL's roster status
+          // at drop time, so during a temporary call-up it reads false and the
+          // exemption was skipped entirely — the player fell through to the
+          // standard 75% formula. Canon §D2 and §B2 are explicit that the
+          // cap-free cut survives call-ups: the exemption ends at PERMANENT
+          // promotion (the 4th activation), not the moment he is activated.
+          // A stamped "CL 3| TCV 6K| AAV 2K" rookie cut during his call-up week
+          // was being charged floor(6000 × 0.75) = $4,500 against a promised $0.
+          //
+          // `taxiNeverPromoted` is supplied by the caller from ups_taxi_callups
+          // (has confirmed call-up history AND permanent_promotion is false).
+          // It is deliberately NOT defaulted true: a player with no call-up
+          // history at all must not be exempted, so an absent value means "not
+          // a taxi call-up case" and this branch is skipped.
+          if (taxiNeverPromoted === true) {
+            return { ...ctx, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
+          }
+
+          // 1.4 UNSTAMPED CONTRACT — refuse to price it. NOT an exemption.
+          //
+          // MFL genuinely serves taxi/rookie players with every contract field
+          // blank: verified 2026-08-15 that Audric Estime, Ja'Lynn Polk, Shemar
+          // Stewart and Nic Scourton carried salary='' contractStatus=''
+          // contractInfo='' across all 37 daily snapshots, while Blake Watson
+          // sat blank until 2026-05-22 and was then stamped
+          // "CL 3| TCV 6K| AAV 2K". So blank means "nobody has stamped this
+          // yet", NOT "this contract is worth zero".
+          //
+          // Without this guard an unstamped NON-taxi contract parses to
+          // tcv=0/aav=null/cl=null and falls through to one of the sub-$5K or
+          // no_penalty_zero branches, emitting a confident $0 that is
+          // indistinguishable from a legitimately cap-free cut. That is exactly
+          // the fail-open shape this league has been burned by before: an
+          // unreadable input silently becoming a settled number.
+          //
+          // Every unstamped case on record today is ALSO taxi, so the taxi
+          // branch above already answers them correctly and this changes no
+          // current row. It is here so the first non-taxi one is caught rather
+          // than quietly written off.
+          // Keyed on contractInfo AND salary, deliberately NOT on
+          // contractStatus. A first pass required all three blank, which let a
+          // row with only a bare contractStatus ("Veteran", no salary, no
+          // contractInfo) fall through to no_penalty_zero and emit the same
+          // confident $0 -- the guard would have missed the very shape it
+          // exists for. MFL salaries on real contracts are never zero, so
+          // "no contractInfo AND no salary" is unstamped no matter what the
+          // status string says.
+          const _ciBlank = !_s(contractInfo).trim();
+          const _salBlank = !(Number(salary) > 0);
+          if (_ciBlank && _salBlank) {
+            return {
+              ...ctx,
+              penalty: 0,
+              basis: "contract_unstamped_needs_review",
+              exempt: false,
+              needs_review: true,
+              exempt_reason: "",
+              review_reason:
+                "MFL has no contract stamped for this player (salary, contractStatus and "
+                + "contractInfo are all empty), so a drop penalty cannot be computed. This is "
+                + "NOT a cap-free cut — it is an unpriced one. Stamp the contract in MFL and "
+                + "rescan, or price it by hand.",
+            };
           }
           // 1.5 TAGGED player — cap-FREE to drop until the FA Auction drop
           // deadline (canon §C8 / Keith 2026-06-07: cutting a tagged player
@@ -1992,14 +2231,29 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           // Same $1K/$0 penalties as the old fixed rule, but the GUARANTEE is now
           // logged correctly (progressive, not floor(TCV×0.75)).
           if (ctx.tcv > 0 && ctx.tcv <= 4000) {
-            const capUnits = Math.max(0, (ctx.cl || 1) - 1);
-            const gUnits = Math.max(0, Math.min(ctx.yearsPlayed + 1, capUnits));
-            const subGuar = gUnits * 1000;
-            const subPen = Math.max(0, subGuar - ctx.earned);
-            if (subPen <= 0) {
-              return { ...ctx, guaranteed: subGuar, penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: `Sub-5K TCV: earned ($${ctx.earned}) ≥ accrued guarantee ($${subGuar} = min(played+1, CL−1)×$1K) — cap-free (§D2).` };
+            // FLAT $1K, NOT netted against earned (Keith 2026-08-16: "if CL > 1
+            // and years remain > 1 then 1K penalty"). Canon §D1 is explicit that
+            // this "overrides the standard guaranteed-minus-earned formula
+            // entirely" — it is a fixed price, not a guarantee to earn down.
+            //
+            // The accrual this replaces looked right against the worked examples
+            // above ONLY because those assume `earned` is completed years. Once
+            // per-week in-season earning landed (§6.B), `earned` gained a partial
+            // current-year term and the subtraction started drifting week to
+            // week: a CL-3 $1K/yr deal dropped in Week 10 of year 2 came out at
+            // earned = 1000 + round(10/17 × 1000) = 1588 against a $2K accrued
+            // guarantee, so $412 instead of $1,000 — and a different number every
+            // week of the season. The flat form reproduces all three worked
+            // examples exactly and cannot drift:
+            //   yr 1 cut (cl 3, remaining 3): remaining > 1 → $1K
+            //   yr 2 cut (cl 3, remaining 2): remaining > 1 → $1K   (Tanner McKee)
+            //   yr 3 cut (cl 3, remaining 1): final year      → $0
+            //   1-year deal (cl 1):           cl not > 1      → $0  (§D2 cap-free)
+            const subMulti = (ctx.cl || 1) > 1 && ctx.yearsRemaining > 1;
+            if (!subMulti) {
+              return { ...ctx, guaranteed: 0, penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: "Sub-5K TCV in its final year (or a 1-year deal) — cap-free (§D2)." };
             }
-            return { ...ctx, guaranteed: subGuar, penalty: subPen, basis: "tcv_under_5k_guarantee", exempt: false, exempt_reason: "" };
+            return { ...ctx, guaranteed: 1000, penalty: 1000, basis: "tcv_under_5k_flat", exempt: false, exempt_reason: "" };
           }
           // Standard formula for TCV > $4K
           const guaranteed = Math.floor(ctx.tcv * 0.75);
@@ -2061,6 +2315,64 @@ const _dropPenaltyCapSeason = ({ season, dropUnix, auctionStartUnix }) => {
   };
 };
 
+// ── FA AUCTION START = the drop-penalty cap-year boundary ───────────────
+// Resolved from the SAME commish-maintained source every other gate uses:
+// ups_settings 'auction_calendar' → faa.faa_open_at (see auction_calendar.js).
+// Modelled directly on _eraFaCloseUnix, including its season-staleness guard:
+// setAuctionCalendar MERGES, so last cycle's faa_open_at survives into the
+// next season, and a season-blind read would resolve a start instant a year
+// stale — which here would flip every offseason drop into the wrong bucket.
+// A resolved instant is only trusted when it lands inside the season being
+// evaluated.
+//
+// env.FA_AUCTION_START_AT is an OPTIONAL break-glass override (unix seconds
+// or anything Date.parse understands), mirroring env.FA_AUCTION_CLOSE_AT.
+//
+// NO FAIL-OPEN. Unresolvable ⇒ { unix: null } ⇒ callers must refuse to post.
+// There is no "assume current season" branch anywhere in this path.
+//
+// Module scope (moved 2026-08-16) so both the real charge (/admin/drops/
+// post-mfl, the scanner) and the two ANNOUNCEMENT posters can resolve which
+// cap year a penalty belongs to — before this move, only the charge path
+// could see it, so a real dollar penalty could post to Discord with no
+// indication it lands on next season's cap rather than this one's.
+const _faaAuctionStartUnix = async (env, season) => {
+  const seasonNum = Number(season) || 0;
+  const inSeason = (unix) => {
+    if (!seasonNum) return false;   // no season context ⇒ cannot validate ⇒ unresolved
+    return new Date(unix * 1000).getUTCFullYear() === seasonNum;
+  };
+  const ovRaw = String((env && env.FA_AUCTION_START_AT) || "").trim();
+  if (ovRaw) {
+    const ov = /^\d+$/.test(ovRaw)
+      ? Number(ovRaw)
+      : (Number.isFinite(Date.parse(ovRaw)) ? Math.floor(Date.parse(ovRaw) / 1000) : null);
+    if (ov && ov > 0) {
+      return inSeason(ov)
+        ? { unix: ov, source: "env.FA_AUCTION_START_AT" }
+        : { unix: null, source: "env.FA_AUCTION_START_AT_wrong_season", stale_unix: ov };
+    }
+  }
+  try {
+    const cal = await getAuctionCalendar(env);
+    if (cal && cal.read_error) {
+      console.warn(`[drop-cap-year] auction calendar UNREADABLE (${cal.read_error}) — refusing to bucket any penalty.`);
+      return { unix: null, source: "auction_calendar_read_failed", read_error: cal.read_error };
+    }
+    const wall = String((cal && cal.faa && cal.faa.faa_open_at) || "").trim();
+    if (!wall) return { unix: null, source: "faa_open_at_unset" };
+    const unix = etWallClockToUnix(wall);
+    if (!unix || unix <= 0) return { unix: null, source: "faa_open_at_unparseable", wall };
+    if (!inSeason(unix)) {
+      console.warn(`[drop-cap-year] auction_calendar.faa_open_at (${wall}) is not in season ${seasonNum} — treating as unresolved.`);
+      return { unix: null, source: "auction_calendar_stale_season", stale_unix: unix, wall };
+    }
+    return { unix, source: "auction_calendar.faa_open_at", wall };
+  } catch (e) {
+    console.warn("[drop-cap-year] auction calendar read failed:", (e && e.message) || String(e));
+    return { unix: null, source: "auction_calendar_read_threw", read_error: String((e && e.message) || e) };
+  }
+};
 
 // ── AUCTION-DATA TRUTH: MFL's completed-auction results (O=102) ────────────
 // The ONLY reliable "this auction really completed" signal, established on prod
@@ -5618,6 +5930,34 @@ export default {
                 const postData = await postRes.json().catch(() => ({}));
                 postedCount = Number(postData?.posted_count) || 0;
               }
+
+              // Cap-free review notifications. Announces newly-pending drops
+              // and re-DMs the commish every 24h while any stay undecided
+              // (Keith 2026-08-15: "I will respond but resurface every 24 hours
+              // to me directly"). The route is idempotent and self-throttling —
+              // capfree_thread_message_id stops double-announcing and
+              // capfree_last_nudge_utc enforces the 24h gap — so it is safe on
+              // this 5-minute tick. Best-effort: a Discord failure must never
+              // stop the drop pipeline, and no money depends on it (the charge
+              // cron holds pending rows on its own).
+              let capfreeNotified = 0;
+              try {
+                const cfRes = await env.SELF.fetch(
+                  `${origin}/admin/drops/capfree-notify?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ season, league_id: leagueId }),
+                  }
+                );
+                const cfData = await cfRes.json().catch(() => ({}));
+                capfreeNotified = Number((cfData?.announced || []).length) || 0;
+                if (Array.isArray(cfData?.errors) && cfData.errors.length) {
+                  console.warn("[scheduled] capfree-notify reported errors:", JSON.stringify(cfData.errors).slice(0, 400));
+                }
+              } catch (e) {
+                console.warn("[scheduled] capfree-notify failed:", (e && e.message) || e);
+              }
               // MFL half — post computed penalties to MFL salaryAdjustments.
               // Gated behind its own flag (real cap write) so it's opt-in.
               let mflPostedCount = 0;
@@ -5642,7 +5982,7 @@ export default {
                 const deferredN = Array.isArray(mflData?.deferred_next_season) ? mflData.deferred_next_season.length : 0;
                 const reviewN = Array.isArray(mflData?.cap_year_needs_review) ? mflData.cap_year_needs_review.length : 0;
                 if (deferredN || reviewN) {
-                  console.log(`[scheduled */5] drop-tracker: ${deferredN} penalty row(s) held for NEXT season's cap (canon §6), ${reviewN} unresolved cap year(s).`);
+                  console.log(`[scheduled */5] drop-tracker: ${deferredN} penalty row(s) held for NEXT season's cap, ${reviewN} unresolved cap year(s).`);
                 }
               }
               // SUM-rounding reconciliation (canon §6) — no-ops until the FA Auction
@@ -5743,6 +6083,50 @@ export default {
                 );
                 const apData = await apRes.json().catch(() => ({}));
                 addsPosted = Number(apData?.posted_count) || 0;
+
+                // ── PREVIEW THE SINGLE WW THREAD, TEST CHANNEL ONLY ────────
+                // Keith 2026-08-21: "Fix the WW thread but pass it to my test
+                // channel not for rest of the league."
+                //
+                // The league's posts above are UNTOUCHED — they keep the
+                // per-team shape they have always had. This is an ADDITIONAL
+                // render of the same run in the one-report shape, sent only to
+                // the test channel, so the format can be judged on real runs
+                // without changing what the league sees.
+                //
+                // Uses replay_day rather than a second normal post: the rows
+                // were just marked discord_posted=1 by the call above, so a
+                // plain call would find nothing. Replay selects by DAY, ignores
+                // that flag, and writes NOTHING to D1 — so the league's real
+                // message ids are untouched and this cannot double-charge or
+                // re-announce anything.
+                //
+                // Failure here must never affect the league's post, which has
+                // already succeeded by this point: fully isolated, logged, and
+                // swallowed.
+                if (addsPosted > 0) {
+                  try {
+                    const wwDay = new Date().toISOString().slice(0, 10);
+                    const wwRes = await env.SELF.fetch(
+                      `${origin}/admin/adds/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                      {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          season, league_id: leagueId,
+                          target: "test", shape: "report", replay_day: wwDay, limit: 50,
+                        }),
+                      }
+                    );
+                    const wwData = await wwRes.json().catch(() => ({}));
+                    console.log(
+                      `[scheduled */5] WW report preview -> test: ok=${wwData?.ok} shape=${wwData?.shape} ` +
+                      `day=${wwDay} runs=${wwData?.run_count} posted=${wwData?.posted_count}` +
+                      (wwData?.shape_note ? ` note="${wwData.shape_note}"` : "")
+                    );
+                  } catch (e) {
+                    console.warn(`[scheduled */5] WW report preview failed (league post unaffected): ${e?.message || e}`);
+                  }
+                }
                 // posted_count used to be the ONLY field read here, and this
                 // self-fetch is the route's only production caller. So the one
                 // failure the route is most careful to report — a move that IS
@@ -5961,6 +6345,111 @@ export default {
       // Unknown cron pattern — log and bail.
       console.log(`[scheduled] unknown cron trigger: "${cronTrigger}"`);
       return;
+    }
+
+    // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
+    // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
+    // "was he declared Out more than 24 hours before kickoff?" is unanswerable
+    // unless somebody is writing it down as it happens. This is that somebody.
+    // Nothing in UPS ever recorded injury status over time, which is why §G3's
+    // 24-hour rule was not merely unenforced — it was not computable.
+    //
+    // Hourly is the right cadence and it errs the safe way. Worst case a
+    // designation is first recorded up to an hour after it appeared, which can
+    // only push a borderline case from "violation" toward "advisory" — i.e.
+    // toward the owner. Polling faster would buy precision the rule's own
+    // 24-hour margin does not need.
+    //
+    // Runs all season regardless of whether anything consumes it yet: the
+    // history has to already exist by the time a verdict is asked for, and
+    // Week 1 2026 kicks off Wed Sept 9. Starting to collect after a violation
+    // is exactly when the data is useless.
+    try {
+      // env.YEAR / env.LEAGUE_ID, NOT the request-scoped YEAR / L — those are
+      // parsed off the URL in fetch() and simply do not exist here. Same
+      // pattern as every other job on this cron.
+      const injSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const injLeague = String(env.LEAGUE_ID || "74598");
+      if (env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            // League-agnostic export — omitLeagueParam, same as every other
+            // TYPE=injuries call in this file (see the §D2a note at ~44114).
+            const injWeek = await _injuryPollWeek(injSeason);
+            if (!injWeek) return;   // preseason, or the schedule could not be read
+            // Plain fetch, NOT mflExportJson — that helper is declared inside
+            // the fetch() handler and does not exist in scheduled(). Same class
+            // of scope error as YEAR/L, and the eslint no-undef deploy gate is
+            // what caught it. TYPE=injuries is league-agnostic and needs no
+            // cookie, so there is nothing the helper was providing here.
+            const ir = await (async () => {
+              try {
+                const r = await fetch(
+                  `https://api.myfantasyleague.com/${encodeURIComponent(injSeason)}/export?TYPE=injuries&W=&JSON=1`,
+                  { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 60 } }
+                );
+                return r.ok ? { ok: true, data: await r.json().catch(() => null) } : { ok: false, data: null };
+              } catch (_) { return { ok: false, data: null }; }
+            })();
+            if (!ir.ok || !ir.data) {
+              // Do NOT record a poll on a failed fetch. ups_injury_polls is the
+              // evidence that we were watching; stamping it on a failure would
+              // claim coverage we did not have, and coverage is what licenses a
+              // fine. A gap must look like a gap.
+              console.warn("[scheduled hourly] injury poll: export unreadable, no coverage recorded");
+              return;
+            }
+            let rows = ir.data.injuries && (ir.data.injuries.injury || ir.data.injuries.player);
+            rows = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+            const res = await recordInjurySnapshot(env, {
+              season: injSeason, week: injWeek, rows,
+              nowUnix: Math.floor(Date.now() / 1000),
+            });
+            if (res.written) console.log(`[scheduled hourly] injury poll: wk${injWeek}, ${res.written} statuses`);
+          } catch (e) {
+            console.error(`[scheduled hourly] injury poll failed: ${e && e.message}`);
+          }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] injury poll dispatch failed: ${e && e.message}`);
+    }
+
+    // ── §G3/§H LINEUP COMPLIANCE ──────────────────────────────────────────
+    // Two passes, both cheap and both no-ops most hours:
+    //   • DM sweep — fires only when a game window is 1–2.5h out, so an owner
+    //     still has time to act. Deduped per (fid, week, window) in
+    //     ups_lineup_dm_log, so an extra tick cannot double-DM anybody.
+    //   • Booking  — fires only once the week's last kickoff is >4h past, then
+    //     evaluates and books onto the §G3 ladder. Idempotent per
+    //     franchise-week.
+    //
+    // Deliberately AFTER the injury poll above and in its own try/catch: the
+    // poll is the one that must never be skipped, because its history cannot
+    // be backfilled. These two can miss an hour and recover on the next tick.
+    try {
+      const lcSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const lcLeague = String(env.LEAGUE_ID || "74598");
+      if (env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          const lcWeek = await _injuryPollWeek(lcSeason);
+          if (!lcWeek) return;
+          try {
+            const dm = await runLineupDmSweep(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek });
+            if (dm && dm.sent) console.log(`[scheduled hourly] lineup DMs: wk${lcWeek} ${dm.window_label} -> ${dm.sent} owner(s)`);
+          } catch (e) { console.error(`[scheduled hourly] lineup DM sweep failed: ${e && e.message}`); }
+          try {
+            // Book the week that just finished, not the one in progress.
+            for (const wk of [lcWeek - 1, lcWeek]) {
+              if (wk < 1) continue;
+              const bk = await runLineupBooking(env, { season: lcSeason, leagueId: lcLeague, week: wk });
+              if (bk && bk.booked) console.log(`[scheduled hourly] lineup violations booked: wk${wk} -> ${bk.booked} (${bk.clean} clean, ${bk.skipped} skipped)`);
+            }
+          } catch (e) { console.error(`[scheduled hourly] lineup booking failed: ${e && e.message}`); }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] lineup compliance dispatch failed: ${e && e.message}`);
     }
 
     // Phase 2 backup: once per day (at the 09:05 UTC firing) snapshot the
@@ -10163,7 +10652,7 @@ export default {
               offseason_start_iso: new Date(offseasonStartUnix * 1000).toISOString(),
               evaluated_through_iso: new Date(windowEndUnix * 1000).toISOString(),
               cut_deadline_iso: null,  // §A2 deadline TBD — set when canon pins it down
-              cut_deadline_note: "FA Auction Cut Deadline not yet finalized in canon §A2; using offseason window (Feb 1 → min(now, Aug 1)) as v1 approximation.",
+              cut_deadline_note: "FA Auction Cut Deadline not yet finalized; using offseason window (Feb 1 → min(now, Aug 1)) as v1 approximation.",
             },
             canon_rule: "league_context_v1.md §A2 — block when cut.season = current AND prior_years_remaining ≥ 1 AND timestamp < cut_deadline AND prior_contract_type != Tag",
             franchise_filter: filterFid || null,
@@ -10768,11 +11257,31 @@ export default {
             team: teamFilter || null, count: rows.length,
             rows,
           });
-          // 5 minutes: long enough that a browsing session and a page reload
-          // never re-run the query, short enough that a fresh ETL week shows
-          // up on its own. Only successful responses are stored — a 500 must
-          // never be cached, or one bad minute would stick.
-          lbResponse.headers.set("Cache-Control", "public, max-age=300");
+          // TTL depends on whether the requested seasons can still CHANGE.
+          //
+          // 5 minutes was applied to everything. That is right for the season in
+          // progress — a fresh ETL week should show up on its own — and badly
+          // wrong for a completed one, whose numbers are frozen forever. On
+          // 2026-08-24, D1 insights showed 304,185,193 rows read from this
+          // endpoint and **100% of it was seasons 2023/2024/2025**: immutable
+          // data, re-queried from scratch every 5 minutes, at 2-3.7 MILLION rows
+          // per run. D1's free tier allows 5 million rows read PER DAY, so a
+          // single miss on a completed season burned ~half a day's budget.
+          //
+          // A completed season gets 30 days. The season in progress keeps 5
+          // minutes. Only successful responses are stored — a 500 must never be
+          // cached, or one bad minute would stick.
+          // NOTE: plain Number(), NOT safeInt(). safeInt is declared later in
+          // this module and calling it here throws
+          // "Cannot access 'safeInt4' before initialization" — a temporal dead
+          // zone error that 500s the whole endpoint. Shipped exactly that on
+          // 2026-08-24 and caught it verifying the deploy.
+          const _lbNum = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; };
+          const lbCurrentSeason = _lbNum(YEAR) || new Date().getUTCFullYear();
+          const lbAllCompleted = seasons.length > 0 &&
+            seasons.every((sn) => _lbNum(sn) > 0 && _lbNum(sn) < lbCurrentSeason);
+          const lbTtl = lbAllCompleted ? 2592000 : 300;   // 30d vs 5m
+          lbResponse.headers.set("Cache-Control", `public, max-age=${lbTtl}`);
           if (!lbNoCache) {
             try { ctx.waitUntil(caches.default.put(lbCacheKey, lbResponse.clone())); } catch (_) {}
           }
@@ -11695,7 +12204,9 @@ export default {
         const [profileRes, detailsRes, injRes, rostersRes, leagueRes] = await Promise.allSettled([
           mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=playerProfile&P=${encodeURIComponent(pid)}&JSON=1`, 60),
           mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(pid)}&JSON=1`, 86400),
-          mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=injuries&L=${encodeURIComponent(leagueId)}&JSON=1`, 300),
+          // ⚠️ api.* host AND no L= — every other combination returns an error
+          // envelope (verified live 2026-08-22). See the snapshot list ~line 202.
+          mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=injuries&JSON=1`, 300),
           mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, 60),
           mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`, 600),
         ]);
@@ -14744,6 +15255,42 @@ export default {
         // - Other types use the league shard (www48 for UPS 74598) for
         //   speed; non-UPS leagues use api.* with 302 follow.
         const userScopedTypes = new Set(["myleagues", "myfranchise"]);
+        // ── LEAGUE-AGNOSTIC export types ────────────────────────────────────
+        // A handful of MFL exports are platform-wide NFL data, not league data,
+        // and they reject the request outright when L= is present AT ALL — even
+        // a real league this worker manages. MFL answers HTTP 200 with
+        //   {"error":{"$t":"Invalid request. This API request must go to
+        //    api.myfantasyleague.com"}}
+        // which every caller here decodes to an EMPTY list, because the rows
+        // simply aren't there. A 200 that means "you asked wrong" is the worst
+        // possible failure shape: it looks exactly like "nobody is injured".
+        //
+        // BOTH halves are required — this is not just about the param:
+        //   www48 + L=      → error envelope
+        //   www48, no L=    → error envelope   (the SHARD itself is refused)
+        //   api.*  + L=     → EMPTY body
+        //   api.*, no L=    → 339 rows ✓
+        // Verified live 2026-08-15 for TYPE=injuries and TYPE=nflByeWeeks.
+        //
+        // This mirrors mflExportJson's `omitLeagueParam` option (see its comment
+        // ~19884, added when /api/hot-cold hit the identical trap on
+        // topAdds/topDrops, PR #868). That option only ever covered worker-side
+        // callers; the browser reaches MFL through THIS proxy, which hardcoded
+        // `&L=${lid}` into the upstream URL — so a browser caller could not opt
+        // out no matter how it shaped its own query string. Dropping &L= from
+        // the BROWSER url does not help and in fact makes things worse: the
+        // global no-L guard (~6428) 400s "Missing L param" before this handler
+        // ever runs. That is why the fix belongs here.
+        //
+        // This is why FO's roster rows never showed an IR/PUP/suspended chip and
+        // why mobile's IR view has always listed nobody as eligible.
+        //
+        // Only add a type here after verifying it BOTH ways against live MFL —
+        // every other export in the allowlist IS league-scoped and MUST keep
+        // sending L=. `calendar`, for instance, looks similar but is genuinely
+        // league-scoped ("Missing League ID" without L=).
+        const leagueAgnosticTypes = new Set(["injuries", "nflByeWeeks"]);
+        const isLeagueAgnostic = leagueAgnosticTypes.has(type);
         // Pre-2017 UPS seasons live under DISTINCT league_ids on older shards
         // and are ARCHIVED → their weeklyResults/league export require the
         // authenticated MFL session cookie. Inject it ONLY for these known UPS
@@ -14753,7 +15300,12 @@ export default {
         const isHistUps = HIST_UPS_LEAGUES.has(lid);
         const srvParam = safeStr(url.searchParams.get("SERVER")).replace(/[^a-z0-9]/gi, "");
         let host;
-        if (srvParam) {
+        if (isLeagueAgnostic) {
+          // Not negotiable, and deliberately ahead of &SERVER=: these types are
+          // refused by every shard, so honouring a caller-supplied shard here
+          // would hand back the error envelope described above.
+          host = "https://api.myfantasyleague.com";
+        } else if (srvParam) {
           host = `https://${srvParam}.myfantasyleague.com`;
         } else if (userScopedTypes.has(type)) {
           host = "https://api.myfantasyleague.com";
@@ -14762,7 +15314,10 @@ export default {
         } else {
           host = "https://api.myfantasyleague.com";
         }
-        const upstream = `${host}/${encodeURIComponent(yr)}/export?TYPE=${encodeURIComponent(type)}&L=${encodeURIComponent(lid)}&JSON=1${extraStr ? "&" + extraStr : ""}`;
+        // L= is omitted ONLY for the league-agnostic types above; every other
+        // export stays league-scoped exactly as before.
+        const lParam = isLeagueAgnostic ? "" : `&L=${encodeURIComponent(lid)}`;
+        const upstream = `${host}/${encodeURIComponent(yr)}/export?TYPE=${encodeURIComponent(type)}${lParam}&JSON=1${extraStr ? "&" + extraStr : ""}`;
         const exportHeaders = { "User-Agent": "Mozilla/5.0 (UPS-MFL-Worker)", "Accept": "application/json" };
         if (isHistUps) { const ck = String(env.MFL_COOKIE || "").trim(); if (ck) exportHeaders.Cookie = ck; }
         try {
@@ -16032,6 +16587,52 @@ export default {
             out.week_kickoffs = map;
             out.week_kickoffs_source = "mfl_nflSchedule_first_kickoff";
           }
+
+          // ── contract_ladder: which pre-season rung is open RIGHT NOW ──────
+          // Stamped on the SHARED endpoint every ladder consumer already calls
+          // (FO v2, mobile app.js, player_actions_native, team_operations), so
+          // the five browser copies of this boundary can read one answer instead
+          // of each porting the math from the last. Copy drift is what dropped
+          // `Ext:` from nine contracts on 2026-08-22.
+          //
+          // Additive and unconditional — it does not depend on &kickoffs=, so a
+          // caller that never asked for kickoffs still gets the rung. Weeks 3/5
+          // resolve through nflWeekFirstKickoffUnix (memoized; the map above
+          // usually warmed it), and the September deadline is the commish-owned
+          // ups_contract_deadline row read verbatim.
+          //
+          // FAIL-CLOSED, and LOUD: `reason` rides every unresolved result. A
+          // silent unresolved is indistinguishable from an unseeded season and
+          // hid a real bug for a full deploy cycle (#952).
+          out.contract_ladder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
+          try {
+            let cdUnix = null;
+            const cdRow = await db.prepare(
+              "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
+            ).bind(String(season)).first();
+            const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
+              const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
+              if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
+            }
+            const [lw3, lw5] = await Promise.all([
+              nflWeekFirstKickoffUnix(season, 3),
+              nflWeekFirstKickoffUnix(season, 5),
+            ]);
+            out.contract_ladder = contractLadderStage({
+              contractDeadlineUnix: cdUnix,
+              week3KickoffUnix: lw3,
+              week5KickoffUnix: lw5,
+              nowUnix: Math.floor(Date.now() / 1000),
+            });
+            if (out.contract_ladder.stage === "unresolved") {
+              out.contract_ladder.reason = !cdUnix ? "no_contract_deadline"
+                : (!lw3 || !lw5) ? "no_week_kickoffs" : "boundaries_out_of_order";
+            }
+          } catch (err) {
+            out.contract_ladder = { stage: "unresolved", end_unix: null, reason: "error: " + safeStr(err && err.message).slice(0, 120) };
+          }
+
           return jsonOut(200, out);
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
@@ -21656,8 +22257,20 @@ export default {
           };
         }
         const base = Math.max(0, safeInt(baseSalary, 0));
-        const raise = getAcqExtensionRaise(position, classSeason, 1);
-        const optionSalary = base + Math.round(raise / 2);
+        // Canon §C6: "Salary = original Year-3 salary + $5K" — FLAT, every
+        // position. Confirmed by Keith 2026-08-16.
+        //
+        // This was `base + Math.round(getAcqExtensionRaise(position, ...) / 2)`,
+        // which halves the position-specific EXTENSION escalator: $10K for
+        // QB/RB/WR/TE gave the correct $5K, but $3K for DL/LB/DB/PK/PN gave
+        // $1,500 — position-dependent where canon is flat, and not even a $1K
+        // multiple. Both clients already hardcode a flat +$5K
+        // (rookie_draft_hub.js, front_office.js), but the worker writes the ROPT
+        // token that roster_workbench parses back, so the worker's number is the
+        // one that sticks. In practice R1 IDPs are rare, which is why nobody hit
+        // it — not a reason to leave it wrong.
+        const ROOKIE_OPTION_RAISE = 5000;
+        const optionSalary = base + ROOKIE_OPTION_RAISE;
         return {
           rookie_option_eligible: true,
           rookie_option_exercised: false,
@@ -34052,7 +34665,7 @@ export default {
                     error:
                       `Trade cap-money on franchise ${fidSide} ` +
                       `(${tradedK}K) exceeds the 50%-of-summed-non-taxi-` +
-                      `salary rule (max ${maxK}K). Canon §A6.`,
+                      `salary rule (max ${maxK}K).`,
                     code: "TRADE_CAP_MONEY_50PCT",
                     franchise_id: fidSide,
                     traded_salary_adjustment_k: tradedK,
@@ -37307,6 +37920,21 @@ export default {
         return safeStr(res && res.error) || raw.slice(0, 400);
       };
 
+      // Is this instant a Sunday in America/New_York? DST-correct by the same
+      // construction as _wvEtLabel below. Used only to decide whether a
+      // WAIVER_BBID run is the one that opens FCFS (Keith 2026-08-13: FCFS
+      // opens off the Sunday run only — Thu/Fri/Sat runs always re-lock,
+      // regardless of whether MFL's export includes a paired WAIVER_LOCK row
+      // at the same instant. See the note above PHASE_FOR_EVENT below for why
+      // this can no longer depend on that pairing.)
+      const _wvIsSundayEt = (unixSec) => {
+        const n = Number(unixSec) || 0;
+        if (!n) return false;
+        try {
+          return new Date(n * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short" }) === "Sun";
+        } catch (_) { return false; }
+      };
+
       // "Thu Aug 13, 9:00 AM ET". DST-correct by construction — America/New_York
       // resolves EDT vs EST for us; the trailing "ET" is just the league's label.
       const _wvEtLabel = (unixSec) => {
@@ -37466,10 +38094,52 @@ export default {
         const lastRun = past.length ? past[past.length - 1] : null;
 
         // ── window.mode ──
-        // Phase boundaries, in time order. LOCK opens the blind-bid window; a
-        // BBID run and an UNLOCK both end it.
-        const PHASE_BY_TYPE = { WAIVER_LOCK: "bbid", WAIVER_BBID: "fcfs", WAIVER_UNLOCK: "fcfs" };
-        const boundaries = events.filter((e) => PHASE_BY_TYPE[e.type]);
+        // Phase boundaries, in time order. LOCK opens the blind-bid window;
+        // WAIVER_UNLOCK is an explicit "opened" signal MFL has never actually
+        // sent us but is trusted unconditionally if it ever shows up. A BBID
+        // run only ends the window when it is the SUNDAY run, at/after NFL
+        // Week 1 kickoff (Keith 2026-08-13, canon league_context_v1.md §A5 +
+        // §B) -- Thu/Fri/Sat runs, and pre-Week-1 Sunday runs, immediately
+        // re-lock, same as a LOCK event.
+        //
+        // This used to be encoded the other way -- every BBID run opened
+        // FCFS, relying on MFL's calendar export also sending a same-instant
+        // WAIVER_LOCK row to re-close it (see the tie-break loop below, kept
+        // for that case). That broke live on Thu 2026-08-13: MFL's own
+        // admin calendar has a still-active weekly "Put All Free Agents On
+        // Waivers" series covering that exact Thursday, but the export we
+        // read that morning did not include it -- an MFL export gap, not a
+        // scheduling gap. Deciding "is this the run that opens FCFS" from
+        // the event's OWN day-of-week + Week-1 status, instead of from
+        // whether a second row happened to also come back, means a dropped
+        // or missing LOCK row can no longer silently open FCFS on the wrong
+        // day.
+        const WAIVER_BOUNDARY_TYPES = new Set(["WAIVER_LOCK", "WAIVER_BBID", "WAIVER_UNLOCK"]);
+        const week1KickoffUnix = Number(opts.week1_kickoff_unix) || 0;
+        const _wvPhaseForEvent = (e) => {
+          if (e.type === "WAIVER_LOCK") return "bbid";
+          if (e.type === "WAIVER_UNLOCK") return "fcfs";
+          if (e.type === "WAIVER_BBID") {
+            // week1KickoffUnix === 0 means nflWeekFirstKickoffUnix could not
+            // resolve Week 1 -- "unresolved", never a date (see its own
+            // contract). Treat that the same as "not Week 1 yet": never a
+            // guess that opens a real MFL write surface.
+            //
+            // week1KickoffUnix is Week 1's EARLIEST kickoff (whatever day
+            // that lands on -- 2026 opens Wednesday). This "e.start_unix >=
+            // week1KickoffUnix" compare is only correct as long as that
+            // earliest kickoff falls before the season's first in-week
+            // Sunday 9 AM ET run, which holds for every schedule so far. A
+            // season whose Week 1 opener is itself a Sunday game kicking off
+            // after 9 AM ET would misclassify that Sunday's run as pre-Week-1
+            // -- worth rechecking if the NFL ever schedules a Week 1 with no
+            // Wed/Thu/Fri/Sat opener.
+            const isSundayWeek1Run = week1KickoffUnix > 0 && e.start_unix >= week1KickoffUnix && _wvIsSundayEt(e.start_unix);
+            return isSundayWeek1Run ? "fcfs" : "bbid";
+          }
+          return "";
+        };
+        const boundaries = events.filter((e) => WAIVER_BOUNDARY_TYPES.has(e.type));
         let mode = "";
         let modeReason = "";
         if (opts.calendar_unavailable) {
@@ -37505,22 +38175,26 @@ export default {
           let current = null;
           for (const e of boundaries) {
             if (e.start_unix > nowUnix) break;   // events are sorted ascending
-            // MFL's own calendar schedules WAIVER_LOCK ("Put All Free Agents
-            // On Waivers") at the IDENTICAL instant as WAIVER_BBID ("Process
-            // Blind Bid Waivers") for every recurring run -- process, then
-            // immediately re-lock. Which of the two rows MFL's export lists
-            // first is not documented or guaranteed stable, so "whichever
-            // sorts last wins" made this a coin flip on a decision that gates
-            // a real MFL write surface (Keith 2026-08-10: the app showed
-            // FCFS live when the calendar said locked). LOCK wins any tie
-            // deterministically -- "process, then re-lock" is the only
-            // reading that matches every one of these paired events -- no
-            // matter which order MFL happened to return the two rows in.
-            // WAIVER_BBID vs WAIVER_UNLOCK ties are moot (PHASE_BY_TYPE maps
-            // both to "fcfs"), so this only ever changes behavior for the
-            // LOCK-vs-other case.
+            // MFL's calendar can schedule WAIVER_LOCK ("Put All Free Agents
+            // On Waivers") at the IDENTICAL instant as a WAIVER_BBID/UNLOCK
+            // row -- process, then immediately re-lock. Which row MFL's
+            // export lists first is not documented or guaranteed stable, so
+            // "whichever sorts last wins" made this a coin flip on a
+            // decision that gates a real MFL write surface (Keith
+            // 2026-08-10: the app showed FCFS live when the calendar said
+            // locked). At an exact tie, the resolution that stays LOCKED
+            // wins deterministically -- "process, then re-lock" is the only
+            // reading that matches every paired event MFL has sent, no
+            // matter which order the two rows come back in, and it is the
+            // conservative side of the ambiguity either way. (This no longer
+            // does the actual gating on its own -- _wvPhaseForEvent decides
+            // Thu/Fri/Sat and pre-Week-1 Sunday runs are "bbid" regardless of
+            // whether a paired LOCK row shows up at all, see above -- but a
+            // real same-instant tie can still occur for a LOCK paired with a
+            // genuine Sunday/Week-1 BBID or an UNLOCK, so the tie-break stays
+            // as a second layer.)
             if (current && current.start_unix === e.start_unix &&
-                current.type === "WAIVER_LOCK" && e.type !== "WAIVER_LOCK") {
+                _wvPhaseForEvent(current) === "bbid" && _wvPhaseForEvent(e) === "fcfs") {
               continue;
             }
             current = e;
@@ -37529,8 +38203,8 @@ export default {
             mode = "closed";
             modeReason = "before_first_waiver_event";
           } else {
-            mode = PHASE_BY_TYPE[current.type];
-            modeReason = `after_${current.type.toLowerCase()}`;
+            mode = _wvPhaseForEvent(current);
+            modeReason = `after_${current.type.toLowerCase()}${current.type === "WAIVER_BBID" ? (mode === "fcfs" ? "_sunday_wk1" : "_non_sunday_relock") : ""}`;
           }
         }
         return {
@@ -38299,13 +38973,18 @@ export default {
             if (hit) return hit;
           } catch (_) {}
         }
-        const [calRes, lgRes, wvWriteArm] = await Promise.all([
+        const [calRes, lgRes, wvWriteArm, wvWeek1KickoffUnix] = await Promise.all([
           mflExportJson(wvSeason, wvLeagueId, "calendar", {}, { useCookie: true }),
           mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true }),
           // Contract v2 §5: the kill switch has to be VISIBLE. Without it the UI
           // renders submit buttons whose only possible outcome is a 503.
           // Per-LEAGUE, so the rehearsal mirror reports armed while prod is dark.
           _wvWriteArmed(wvLeagueId),
+          // FCFS only opens off the Sunday run, and only from Week 1 on
+          // (Keith 2026-08-13) — off the SAME nflWeekFirstKickoffUnix helper
+          // the Discord waiver post and mobile contract ladder already use,
+          // so this can never disagree with them about when Week 1 starts.
+          nflWeekFirstKickoffUnix(wvSeason, 1),
         ]);
         const limits = _wvWaiverLimits(lgRes && lgRes.ok ? lgRes.data : null);
         const calOk = !!(calRes && calRes.ok);
@@ -38314,7 +38993,7 @@ export default {
           nowUnix,
           // null when MFL's league export failed or omitted currentWaiverType —
           // the window helper then reports "closed" instead of guessing a mode.
-          { calendar_unavailable: !calOk, waiver_type: limits.waiver_type || "" }
+          { calendar_unavailable: !calOk, waiver_type: limits.waiver_type || "", week1_kickoff_unix: wvWeek1KickoffUnix || 0 }
         );
 
         // PUBLIC payload — provably free of owner data, and the only thing that
@@ -39223,6 +39902,53 @@ export default {
           return jsonNoStore(403, { ok: false, error: "FRANCHISE_MISMATCH", detected_franchise: fcfsDetFid });
         }
         const fcfsFid = fcfsDetFid;
+
+        // ── Real-time window gate ───────────────────────────────────────────
+        // The comment above ("for when waivers are not locked") used to be
+        // aspirational — nothing below this point ever checked it, so this
+        // route would execute an immediate, uncontested add at ANY time,
+        // trusting the client to only show the button during the real FCFS
+        // window. Keith caught this live 2026-08-13 when the app displayed
+        // "Add now" on a plain Thursday. FCFS opens off the Sunday run only,
+        // starting NFL Week 1 (canon league_context_v1.md §A5 + §B) — see
+        // _wvWaiverWindow for the full rule. Checked fresh against MFL here,
+        // not trusted from the client, because a client-only gate is exactly
+        // what let this ship broken the first time.
+        const [fcfsCalRes, fcfsWeek1KickoffUnix] = await Promise.all([
+          mflExportJson(wvSeason, wvLeagueId, "calendar", {}, { useCookie: true }),
+          nflWeekFirstKickoffUnix(wvSeason, 1),
+        ]);
+        const fcfsCalOk = !!(fcfsCalRes && fcfsCalRes.ok);
+        const fcfsWindow = _wvWaiverWindow(
+          fcfsCalOk ? normalizeMflCalendar(fcfsCalRes.data) : [],
+          Math.floor(Date.now() / 1000),
+          { calendar_unavailable: !fcfsCalOk, week1_kickoff_unix: fcfsWeek1KickoffUnix || 0 }
+        );
+        const fcfsWindowOpen = fcfsWindow.mode === "fcfs";
+        if (!fcfsWindowOpen && !fcfsDryRun) {
+          // Named for what it actually is: the next scheduled BLIND-BID
+          // PROCESSING run (Thu/Fri/Sat/Sun), which is not necessarily the
+          // same instant FCFS opens (only the Sunday run, from Week 1 on,
+          // opens it — see _wvWaiverWindow). Naming a specific weekday in
+          // the message was the earlier draft of this fix and was wrong
+          // whenever the next run landed on a Thu/Fri/Sat.
+          const fcfsWindowMessage = fcfsWindow.mode === "blackout"
+            ? "Free agent adds are closed right now — MFL has an add/drop blackout in effect."
+            : "Free agents are not first-come-first-served right now — waivers are locked. FCFS only opens after the Sunday blind-bid run, and only from NFL Week 1 onward.";
+          return jsonNoStore(409, {
+            ok: false,
+            error: "not_fcfs_window",
+            message: fcfsWindowMessage,
+            mode: fcfsWindow.mode,
+            mode_reason: fcfsWindow.mode_reason,
+            // The next scheduled PROCESSING run — may be a Thu/Fri/Sat run,
+            // which does not itself open FCFS. Not "when FCFS opens."
+            next_bbid_run_unix: fcfsWindow.next_bbid_run_unix,
+            next_bbid_run_label: fcfsWindow.next_bbid_run_label,
+            native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+          });
+        }
+
         const addPid = String(fbody.add_pid || fbody.addPid || fbody.player_id || "").replace(/\D/g, "");
         const dropPids = (Array.isArray(fbody.drop_pids) ? fbody.drop_pids : (Array.isArray(fbody.dropPids) ? fbody.dropPids : []))
           .map((x) => String(x || "").replace(/\D/g, ""))
@@ -39277,7 +40003,7 @@ export default {
         // Claiming "contractStatus WW, CL 1" here was the same invention the FO
         // was making on screen.
         const fcfsContractNote =
-          "1-yr WW deal at the add price (canon §A4). MFL records the salary immediately; " +
+          "1-yr WW deal at the add price. MFL records the salary immediately; " +
           "the contract type and length are stamped shortly after the add lands, so they may read " +
           "as pending until then. A WW salary of $4K or less is a cap-free cut.";
         if (fcfsDryRun) {
@@ -39294,6 +40020,12 @@ export default {
             verify_known: false,
             roster_verified: false,      // retained alias of `verified`
             contract_note: fcfsContractNote,
+            // A dry run must never look like server truth — including about
+            // TIMING. window_open:false here means the live version of this
+            // exact call would 409 with not_fcfs_window, not succeed.
+            window_open: fcfsWindowOpen,
+            window_mode: fcfsWindow.mode,
+            window_mode_reason: fcfsWindow.mode_reason,
             would_send: {
               url: `https://www48.myfantasyleague.com/${wvSeason}/import?TYPE=fcfsWaiver&L=${wvLeagueId}&JSON=1`,
               body: { ADD: addPid, DROP: dropPids.join(",") },
@@ -39931,6 +40663,32 @@ export default {
         const apTarget = safeStr(pbody?.target || env.ADD_TRACKER_DISCORD_TARGET || "test").toLowerCase();
         const apLimit = Math.max(1, Math.min(50, safeInt(pbody?.limit, 20)));
         const apDryRun = !!pbody?.dry_run;
+        // REPLAY — re-render one already-posted run (YYYY-MM-DD, matched on
+        // acquired_at_iso) so it can be previewed in the test channel without
+        // touching prod state. Two things make this safe, and both matter:
+        //   1. it selects by DAY and IGNORES discord_posted, so it never needs
+        //      to clear that flag. Clearing it would hand those rows straight
+        //      to the */5 cron, which posts to PROD — the run would be
+        //      re-announced to the league within five minutes.
+        //   2. every D1 write in this route is skipped while replaying, so the
+        //      prod message/parent ids stay exactly as they were.
+        // The parent-reuse guard already requires a channel-id match, so a
+        // prod parent id can't be reused in the test channel either.
+        // shape: "report" = ONE league-wide post per run; anything else keeps
+        // the historical one-parent-per-team layout.
+        const apShape = safeStr(pbody?.shape || "").toLowerCase();
+        let apShapeNote = "";
+        const apReplayDay = safeStr(pbody?.replay_day || "");
+        if (apReplayDay && !/^\d{4}-\d{2}-\d{2}$/.test(apReplayDay)) {
+          return jsonOut(400, { ok: false, error: "replay_day must be YYYY-MM-DD" });
+        }
+        const apReplay = !!apReplayDay;
+        if (apReplay && apTarget === "prod" && !pbody?.i_really_mean_prod) {
+          return jsonOut(400, {
+            ok: false, error: "replay_to_prod_blocked",
+            message: "Replaying into the PROD channel would double-announce a run the league already saw. Use target:\"test\", or pass i_really_mean_prod:true.",
+          });
+        }
         if (!apSeason) return jsonOut(400, { ok: false, error: "Missing season" });
 
         const apBotToken = contractDiscordBotToken();
@@ -39976,15 +40734,23 @@ export default {
 
         let apRows = null;
         try {
-          const sel = await env.UPS_MFL_DB.prepare(
-            `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
+          const apCols = `id, season, league_id, player_id, player_name, position, nfl_team,
                     franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
                     source, bid_dollars, acquisition_week,
-                    discord_channel_id, discord_message_id, discord_parent_message_id
-               FROM ups_add_events
-              WHERE season = ? AND league_id = ? AND discord_posted = 0
-              ORDER BY acquired_at_unix ASC LIMIT ?`
-          ).bind(apSeason, apLeagueId, apLimit).all();
+                    discord_channel_id, discord_message_id, discord_parent_message_id`;
+          const sel = apReplay
+            ? await env.UPS_MFL_DB.prepare(
+                `SELECT ${apCols}
+                   FROM ups_add_events
+                  WHERE season = ? AND league_id = ? AND substr(acquired_at_iso, 1, 10) = ?
+                  ORDER BY acquired_at_unix ASC LIMIT ?`
+              ).bind(apSeason, apLeagueId, apReplayDay, apLimit).all()
+            : await env.UPS_MFL_DB.prepare(
+                `SELECT ${apCols}
+                   FROM ups_add_events
+                  WHERE season = ? AND league_id = ? AND discord_posted = 0
+                  ORDER BY acquired_at_unix ASC LIMIT ?`
+              ).bind(apSeason, apLeagueId, apLimit).all();
           apRows = sel?.results || null;
         } catch (e) {
           // NO FAIL-OPEN. If we cannot read the work queue we do not know what
@@ -40246,6 +41012,15 @@ export default {
             apDeadlineSource = `hardcoded_fallback_after_${apDeadlineSource || "unknown"}`;
           }
         }
+        // Which CAP YEAR each drop's penalty belongs to (canon §6). Resolved
+        // ONCE per run, same instant every drop in this batch is bucketed
+        // against — a drop on/after this unix rolls to the following season,
+        // ledger-only until rollover. Unresolved (calendar unreadable, or the
+        // stored faa_open_at is stale from last season) degrades to
+        // cap_year_ok:false per drop rather than guessing "current season";
+        // capYearNote (waiver_run_post.js) turns that into a visible caveat
+        // instead of posting silence where a wrong assumption could hide.
+        const apAuctionStart = await _faaAuctionStartUnix(env, apSeason);
         // Week kickoffs come from MFL's own schedule, cached per run. Note the
         // HOST: TYPE=nflSchedule must go to api.myfantasyleague.com — www48
         // answers "Invalid request" — which is exactly what mflExportJson
@@ -40368,6 +41143,9 @@ export default {
         // ── Build the plan for every run (no Discord contact yet — dry_run
         // returns exactly this, so the commish reviews the real payload).
         const apPlans = [];
+        // Collected alongside the per-team plans so shape:"report" can collapse
+        // the whole run into ONE post without re-deriving any of the moves.
+        const apReportTeams = [];
         for (const run of apRunsByKey.values()) {
           const first = run.rows[0];
           const meta = await loadContractDiscordFranchiseMeta({
@@ -40423,9 +41201,23 @@ export default {
                   exempt: !!calc.exempt,
                   basis: safeStr(calc.basis),
                   basis_label: humanizeDropBasis(calc.basis),
+                  // Carried through so explainPenalty (waiver_run_post.js) can
+                  // print the actual subtraction instead of a vague label —
+                  // both real-penalty bases (guarantee_minus_earned,
+                  // tcv_under_5k_guarantee) always set these.
+                  guaranteed: calc.guaranteed != null ? (Number(calc.guaranteed) || 0) : null,
+                  earned: calc.earned != null ? (Number(calc.earned) || 0) : null,
                   contract_source: preDrop.contract_source,
                   pre_drop_contract_info: preDrop.contract_info,
                 };
+                // Which cap year (canon §6) — read for capYearNote. A penalty
+                // > 0 with cap_year_ok:false still posts; it just carries a
+                // visible "could not resolve" caveat instead of no comment.
+                const capYear = _dropPenaltyCapSeason({
+                  season: apSeason, dropUnix: ts, auctionStartUnix: apAuctionStart.unix,
+                });
+                side.penalty.cap_year_ok = !!capYear.ok;
+                side.penalty.applies_to_season = capYear.ok ? capYear.applies_to_season : null;
               } else {
                 side.penalty = {
                   known: false,
@@ -40520,6 +41312,17 @@ export default {
             icon_url: safeStr(meta.icon_url),
             processed_at_et: apFmtEastern(first.acquired_at_iso),
             run_date_label: apFmtEtDay(new Date(safeInt(first.acquired_at_unix, 0) * 1000), false),
+            season: apSeason,
+            moves,
+          });
+          apReportTeams.push({
+            franchise_id: run.franchise_id,
+            franchise_name: safeStr(first.franchise_name) || safeStr(meta.franchise_name),
+            icon_url: safeStr(meta.icon_url),
+            day_key: run.day_key,
+            first_acquired_iso: safeStr(first.acquired_at_iso),
+            first_acquired_unix: safeInt(first.acquired_at_unix, 0),
+            row_ids: run.rows.map((x) => x.id),
             moves,
           });
           apPlans.push({
@@ -40598,12 +41401,132 @@ export default {
           });
         }
 
+        // MISS REPORT — a SEPARATE post, appended after the per-team plans.
+        //
+        // Keith 2026-08-21: "i only want this on the miss report." The
+        // granted-claim posts keep their existing one-parent-per-team shape;
+        // nothing above this line changes. Denials get their own object
+        // because they answer a different question, and because burying them
+        // inside a team's own post hides a loss to ANOTHER team.
+        //
+        // Appended, never substituted: apPlans keeps every per-team entry and
+        // gains at most one more, so the posting loop, the id recording and
+        // the replay guards all apply to it unchanged.
+        //
+        // shape:"misses" posts ONLY the miss report (nothing else) — that is
+        // the test/preview mode, so a denial layout can be eyeballed without
+        // re-announcing granted claims the channel already saw.
+        // shape:"report" — collapse the per-team plans into ONE league-wide
+        // post. This was removed in #928 when denials were rescoped to their
+        // own post, and nothing noticed until a real run rendered 2 per-team
+        // parents while reporting shape:"report" (2026-08-22). Removing the
+        // consolidation was right for the LEAGUE feed; it was wrong to remove
+        // the capability, which the test-channel preview depends on.
+        //
+        // Only ever reached when a caller explicitly asks for shape:"report" —
+        // the cron's league post passes no shape, so the league keeps per-team.
+        // Grouped only when the whole batch is one calendar day: a report
+        // titled for one day must not fold in another day's claims.
+        if (apShape === "report" && apReportTeams.length) {
+          const apDayKeysR = [...new Set(apReportTeams.map((t) => t.day_key))];
+          if (apDayKeysR.length === 1) {
+            const firstTeamR = apReportTeams.reduce(
+              (a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b)
+            );
+            const reportPlan = buildWaiverReportPlan({
+              run_date_label: apFmtEtDay(new Date(safeInt(firstTeamR.first_acquired_unix, 0) * 1000), false),
+              processed_at_et: apFmtEastern(firstTeamR.first_acquired_iso),
+              season: apSeason,
+              teams: apReportTeams.map((t) => ({
+                // icon_url must ride along — it is what puts the franchise logo
+                // on every move card's author row. Dropping it here is why the
+                // icon was missing entirely rather than merely small.
+                franchise_id: t.franchise_id, franchise_name: t.franchise_name,
+                icon_url: t.icon_url, moves: t.moves,
+              })),
+            });
+            const allRowIdsR = apReportTeams.reduce((acc, t) => acc.concat(t.row_ids), []);
+            apPlans.length = 0;
+            apPlans.push({
+              run_key: `REPORT|${apDayKeysR[0]}`,
+              franchise_id: "",
+              franchise_name: `League — ${reportPlan.thread_name}`,
+              day_key: apDayKeysR[0],
+              row_ids: allRowIdsR,
+              unmatched_rows: [],
+              malformed_transaction_rows: [],
+              // Always a FRESH parent: per-team parent ids belong to a
+              // different shape, and reusing one would hang a league-wide
+              // thread off a single team's post.
+              existing_parent_message_id: "",
+              parent_id_candidates: [],
+              existing_thread_id: "",
+              plan: reportPlan,
+            });
+          } else {
+            apShapeNote = (apShapeNote ? apShapeNote + " " : "") +
+              `shape:"report" requested but this batch spans ${apDayKeysR.length} days (${apDayKeysR.join(", ")}) — kept per-team.`;
+          }
+        }
+
+        if (apShape === "report" || apShape === "misses") {
+          // Declared here because the miss-report entry keys off it. The
+          // earlier report-collapse block owned this and was replaced wholesale,
+          // taking the declaration with it — caught by the deploy's no-undef
+          // lint gate, which `node --check` cannot see (it validates syntax,
+          // not resolution).
+          const apDayKeys = [...new Set(apReportTeams.map((t) => t.day_key))];
+          const missRes = await _waiverMissesForRun(
+            env, apSeason, apLeagueId,
+            apReportTeams.reduce((acc, t) => acc.concat(
+              (t.moves || []).map((m) => safeStr(m.added && m.added.name))
+            ), [])
+          );
+          if (missRes.reason) {
+            apShapeNote = (apShapeNote ? apShapeNote + " " : "") + `Misses omitted: ${missRes.reason}.`;
+          }
+          const firstTeam = apReportTeams.length
+            ? apReportTeams.reduce((a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b))
+            : null;
+          const missPlan = buildMissReportPlan({
+            run_date_label: firstTeam
+              ? apFmtEtDay(new Date(safeInt(firstTeam.first_acquired_unix, 0) * 1000), false)
+              : "",
+            processed_at_et: firstTeam ? apFmtEastern(firstTeam.first_acquired_iso) : "",
+            misses: missRes.misses,
+          });
+          if (apShape === "misses") apPlans.length = 0;   // preview: misses only
+          if (missPlan) {
+            apPlans.push({
+              run_key: `MISSES|${apDayKeys[0] || apSeason}`,
+              franchise_id: "",
+              franchise_name: `League — ${missPlan.thread_name}`,
+              day_key: apDayKeys[0] || "",
+              // No ups_add_events rows belong to this post — it announces
+              // denials, which have no add row. Empty means the posting loop
+              // marks nothing, which is correct: there is nothing to mark.
+              row_ids: [],
+              unmatched_rows: [],
+              malformed_transaction_rows: [],
+              existing_parent_message_id: "",
+              parent_id_candidates: [],
+              existing_thread_id: "",
+              plan: missPlan,
+            });
+          } else if (!missRes.reason) {
+            apShapeNote = (apShapeNote ? apShapeNote + " " : "") + "No denied claims in this run.";
+          }
+        }
+
         if (apDryRun) {
           return jsonOut(200, {
             ok: true,
             dry_run: true,
             target: apTarget,
             channel_id: apChannelId,
+            shape: apShape === "report" ? "report" : "per_team",
+            shape_note: apShapeNote,
+            replay_day: apReplayDay || null,
             run_count: apPlans.length,
             move_count: apPlans.reduce((n, p) => n + p.plan.move_messages.length, 0),
             contract_deadline_et: apDeadlineLabel,
@@ -40622,6 +41545,28 @@ export default {
         }
 
         const apResults = [];
+        // A REPLAY MUST NEVER ENTER A PRE-EXISTING THREAD OR PARENT.
+        //
+        // 2026-08-21: a replay aimed at the TEST channel posted 5 messages into
+        // the LIVE Aug 20 threads. target:"test" only ever governed where a NEW
+        // parent goes; step 0 below ("this run already has a live thread") takes
+        // a stored THREAD id and posts straight into it, and a thread is
+        // addressable no matter which channel it lives in. The channel-match
+        // guard I relied on compared x.discord_channel_id to apChannelId — but
+        // that column stores the THREAD id, not a channel, so the comparison
+        // could never be true and never protected anything.
+        //
+        // Blanked here rather than at the two read sites so there is ONE place
+        // this invariant lives: on a replay, every entry starts with no thread
+        // and no parent, which forces a fresh post in the target channel.
+        if (apReplay) {
+          for (const entry of apPlans) {
+            entry.existing_thread_id = "";
+            entry.existing_parent_message_id = "";
+            entry.parent_id_candidates = [];
+          }
+        }
+
         for (const entry of apPlans) {
           const result = {
             run_key: entry.run_key,
@@ -40695,7 +41640,12 @@ export default {
             // the moment that move lands) and is no longer load-bearing for
             // reuse, so a legacy per-add id sitting in it can no longer be
             // mistaken for a parent.
-            try {
+            // Replay never records — the prod ids for this run must survive a
+            // test-channel preview untouched.
+            if (apReplay) {
+              result.parent_recorded = false;
+              result.replay_no_write = true;
+            } else try {
               const upd = await env.UPS_MFL_DB.prepare(
                 `UPDATE ups_add_events
                     SET discord_channel_id = ?, discord_message_id = ?, discord_parent_message_id = ?
@@ -40813,7 +41763,12 @@ export default {
               // beats a silent duplicate loop.
               let recorded = false;
               let recordError = "";
-              try {
+              if (apReplay) {
+                // Replay must not flip discord_posted or overwrite the prod
+                // ids. Marked recorded so the caller's counters read normally;
+                // replay_no_write is what says nothing was persisted.
+                recorded = true;
+              } else try {
                 // discord_channel_id becomes the THREAD — that is where the
                 // message actually lives, so the id pair still resolves.
                 const upd = await env.UPS_MFL_DB.prepare(
@@ -40861,6 +41816,12 @@ export default {
           dry_run: false,
           target: apTarget,
           channel_id: apChannelId,
+          shape: apShape === "report" ? "report" : "per_team",
+          shape_note: apShapeNote,
+          // replay posts to Discord but deliberately writes NOTHING to D1 —
+          // posted_count therefore counts messages sent, not rows marked.
+          replay_day: apReplayDay || null,
+          replay_no_db_writes: apReplay,
           run_count: apResults.length,
           posted_count: apResults.reduce((n, x) => n + x.posted_row_ids.length, 0),
           failed_count: apResults.reduce((n, x) => n + (x.row_ids.length - x.posted_row_ids.length), 0),
@@ -43264,6 +44225,13 @@ export default {
           return jsonOut(200, { ok: true, dry_run: dryRun, posted_count: 0, message: "No unposted drops." });
         }
 
+        // Which CAP YEAR a real penalty belongs to (canon §6) — resolved once
+        // for this whole batch, same instant every row is bucketed against.
+        // capYearNote turns a roll-forward (or an unresolved instant) into a
+        // visible line; the ordinary case (applies to targetSeason) stays
+        // silent. See the FA-Auction-open Sanders discussion, 2026-08-16.
+        const dropsAuctionStart = await _faaAuctionStartUnix(env, targetSeason);
+
         const results = [];
         for (const r of rows) {
           // recompute the penalty from stored pre-drop contract fields using the
@@ -43339,27 +44307,6 @@ export default {
           };
           const droppedAtET = fmtEastern(r.dropped_at_iso);
 
-          // Humanize penalty basis (Keith 2026-05-22 — "more human readable").
-          const humanizeBasis = (b) => {
-            const key = safeStr(b);
-            const map = {
-              "tcv_under_5k_fixed_1k":          "Sub-$5K TCV, multi-year contract",
-              "tcv_under_5k_final_year_exempt": "Sub-$5K TCV, final year of contract",
-              "one_year_under_5k_exempt":       "1-year contract under $5K",
-              "ww_under_5k_exempt":             "WW pickup at $4K or below",
-              "taxi_exempt":                    "Taxi squad (cap-free)",
-              "guarantee_minus_earned":         "75% guarantee minus earned-to-date",
-              "no_penalty_zero":                "Earned already exceeds guarantee",
-              "no_pre_drop_contract":           "Pre-drop contract not found",
-            };
-            return map[key] || key;
-          };
-          // Strip canon references like "(§D2 — Keith 2026-05-22)" from
-          // exempt-reason text so they don't leak into the embed.
-          const humanizeReason = (s) => safeStr(s)
-            .replace(/\s*\(§[A-Z0-9.]+(?:\s*[-—]\s*[^)]+)?\)\s*/g, "")
-            .trim();
-
           const fields = [
             { name: "Team", value: safeStr(r.franchise_name) || `Team ${r.franchise_id}`, inline: true },
             { name: "Player", value: safeStr(r.player_name) || `Player ${r.player_id}`, inline: true },
@@ -43376,17 +44323,41 @@ export default {
           ].filter(Boolean).join(" · ");
           if (stateLine) fields.push({ name: "Pre-drop state", value: stateLine, inline: false });
 
-          let penaltyLine;
-          if (exempt) {
-            const reason = humanizeReason(r.penalty_exempt_reason) || "Exempt";
-            penaltyLine = `**$0 penalty** — ${reason}`;
-          } else if (penalty === 0) {
-            penaltyLine = `**$0 penalty** — ${humanizeBasis(r.penalty_basis)}`;
-          } else {
-            penaltyLine = `**${fmtK(penalty)} cap penalty** — ${humanizeBasis(r.penalty_basis)}\n` +
-              `Guaranteed: ${fmtK(guaranteed)} · Earned: ${fmtK(earned)}`;
+          // Cap-penalty field: TRUE calculation when there is one, nothing at
+          // all when there isn't (Keith 2026-08-16: "if there's no penalty
+          // there's nothing to show. If there is a penalty show the true
+          // calculation. 75K GTD - 60K Earned = 15K"). explainPenalty is the
+          // SAME function the adds/waiver-run poster uses, so a drop never
+          // again explains itself two different ways depending on which
+          // poster announced it — one basis vocabulary (humanizeDropBasis),
+          // one arithmetic (explainPenalty), both in waiver_run_post.js.
+          //
+          // The two "we could not price this" bases are NOT "no penalty" —
+          // showing nothing for them would silently relabel an unpriced drop
+          // as a clean one, exactly what rule_no_fail_open_guards exists to
+          // catch. They keep their own visible line instead of going quiet.
+          const UNPRICED_BASES = new Set(["no_pre_drop_contract", "contract_unstamped_needs_review"]);
+          let penaltyLine = null;
+          if (UNPRICED_BASES.has(safeStr(r.penalty_basis))) {
+            penaltyLine = `⚠️ **Unpriced** — ${humanizeDropBasis(r.penalty_basis)}`;
+          } else if (!exempt && penalty > 0) {
+            const capYear = _dropPenaltyCapSeason({
+              season: targetSeason, dropUnix: Number(r.dropped_at_unix) || 0,
+              auctionStartUnix: dropsAuctionStart.unix,
+            });
+            const penForNote = {
+              known: true, penalty, exempt, guaranteed, earned, basis: r.penalty_basis,
+              cap_year_ok: !!capYear.ok, applies_to_season: capYear.ok ? capYear.applies_to_season : null,
+            };
+            const calc = explainPenalty(penForNote);
+            const yearNote = capYearNote(penForNote, targetSeason);
+            penaltyLine = `**${fmtK(penalty)} cap penalty** — ${calc || humanizeDropBasis(r.penalty_basis)}`;
+            if (yearNote) penaltyLine += `\n${yearNote}`;
           }
-          fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
+          // exempt or penalty === 0 and not one of the unpriced bases: no
+          // field at all — the embed's own heading already says
+          // "✅ No Cap Penalty" (below); nothing more needs saying.
+          if (penaltyLine) fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
           if (droppedAtET) fields.push({ name: "Dropped", value: droppedAtET, inline: false });
 
           // Lead GIF — random nfl-sad reaction from pickDropLeadGif
@@ -43542,59 +44513,6 @@ export default {
         });
       }
 
-      // ── FA AUCTION START = the drop-penalty cap-year boundary ───────────────
-      // Resolved from the SAME commish-maintained source every other gate uses:
-      // ups_settings 'auction_calendar' → faa.faa_open_at (see auction_calendar.js).
-      // Modelled directly on _eraFaCloseUnix above, including its season-staleness
-      // guard: setAuctionCalendar MERGES, so last cycle's faa_open_at survives into
-      // the next season, and a season-blind read would resolve a start instant a
-      // year stale — which here would flip every offseason drop into the wrong
-      // bucket. A resolved instant is only trusted when it lands inside the season
-      // being evaluated.
-      //
-      // env.FA_AUCTION_START_AT is an OPTIONAL break-glass override (unix seconds
-      // or anything Date.parse understands), mirroring env.FA_AUCTION_CLOSE_AT.
-      //
-      // NO FAIL-OPEN. Unresolvable ⇒ { unix: null } ⇒ callers must refuse to post.
-      // There is no "assume current season" branch anywhere in this path.
-      const _faaAuctionStartUnix = async (season) => {
-        const seasonNum = Number(season) || 0;
-        const inSeason = (unix) => {
-          if (!seasonNum) return false;   // no season context ⇒ cannot validate ⇒ unresolved
-          return new Date(unix * 1000).getUTCFullYear() === seasonNum;
-        };
-        const ovRaw = String((env && env.FA_AUCTION_START_AT) || "").trim();
-        if (ovRaw) {
-          const ov = /^\d+$/.test(ovRaw)
-            ? Number(ovRaw)
-            : (Number.isFinite(Date.parse(ovRaw)) ? Math.floor(Date.parse(ovRaw) / 1000) : null);
-          if (ov && ov > 0) {
-            return inSeason(ov)
-              ? { unix: ov, source: "env.FA_AUCTION_START_AT" }
-              : { unix: null, source: "env.FA_AUCTION_START_AT_wrong_season", stale_unix: ov };
-          }
-        }
-        try {
-          const cal = await getAuctionCalendar(env);
-          if (cal && cal.read_error) {
-            console.warn(`[drop-cap-year] auction calendar UNREADABLE (${cal.read_error}) — refusing to bucket any penalty.`);
-            return { unix: null, source: "auction_calendar_read_failed", read_error: cal.read_error };
-          }
-          const wall = String((cal && cal.faa && cal.faa.faa_open_at) || "").trim();
-          if (!wall) return { unix: null, source: "faa_open_at_unset" };
-          const unix = etWallClockToUnix(wall);
-          if (!unix || unix <= 0) return { unix: null, source: "faa_open_at_unparseable", wall };
-          if (!inSeason(unix)) {
-            console.warn(`[drop-cap-year] auction_calendar.faa_open_at (${wall}) is not in season ${seasonNum} — treating as unresolved.`);
-            return { unix: null, source: "auction_calendar_stale_season", stale_unix: unix, wall };
-          }
-          return { unix, source: "auction_calendar.faa_open_at", wall };
-        } catch (e) {
-          console.warn("[drop-cap-year] auction calendar read failed:", (e && e.message) || String(e));
-          return { unix: null, source: "auction_calendar_read_threw", read_error: String((e && e.message) || e) };
-        }
-      };
-
       // Does ups_drop_events carry the cap-year ledger columns yet? Migration
       // 0125 is HAND-APPLIED (never `wrangler d1 migrations apply`), and the
       // worker auto-deploys on merge, so code can land before schema does.
@@ -43624,6 +44542,1308 @@ export default {
         auctionStartUnix: startUnix,
       });
 
+      // ── §D2a LOADED-CONTRACT SETTLEMENT ─────────────────────────────────────
+      // A rule the league PASSED 2013-08-18 and which has never existed in code:
+      // on a CAP-FREE exit (retirement / jail bird) the owner settles the gap
+      // between what the AAV said the player was worth per year and what they
+      // actually PAID over the years served.
+      //
+      //     settlement = (AAV × years served) − (salary actually paid)
+      //
+      // Back-loaded  -> positive  -> owner OWES the shortfall.
+      // Front-loaded -> negative  -> owner is OWED a CREDIT (Keith 2026-08-15:
+      //   "yes give them a credit if they paid more than they should ... if
+      //   they FL Gonzo then it would be a 10K credit").
+      // Played to term -> always exactly 0, by construction.
+      //
+      // This REPLACES the §D1 penalty on a cap-free exit; it does not stack.
+      // Verbatim from the thread that passed it: "He is not however assessed
+      // the 20% on top of this."
+      //
+      // Years served and salary-paid both come from the Y1..YN schedule already
+      // parsed out of contractInfo. cy = years REMAINING, so served = CL − cy.
+      // Returns known:false rather than a number whenever the inputs cannot
+      // support the math — NEVER a zero standing in for "we could not tell".
+      const _d2aSettlement = (row) => {
+        const aav = safeInt(row && row.pre_drop_aav, 0);
+        const cl = safeInt(row && row.pre_drop_contract_length, 0);
+        const cy = safeInt(row && row.pre_drop_contract_year, 0);
+        const paidToDate = safeInt(row && row.earned_to_date, 0);
+        if (aav <= 0) {
+          return { known: false, reason: "no pre_drop_aav on the row — cannot value a year of the deal" };
+        }
+        if (cl <= 0) {
+          return { known: false, reason: "no pre_drop_contract_length — cannot derive years served" };
+        }
+        const served = cl - cy;
+        if (served < 0) {
+          return { known: false, reason: `derived years-served is negative (CL ${cl} − cy ${cy})` };
+        }
+        // earned_to_date is the sum of the PAST year salaries (Y1..Y[served]),
+        // i.e. exactly "what the owner actually paid". A served>0 row with a
+        // zero paid figure is not a $0 contract, it is an unparsed schedule.
+        if (served > 0 && paidToDate <= 0) {
+          return { known: false, reason: `served ${served} year(s) but earned_to_date is 0 — the Y1..YN schedule did not parse` };
+        }
+        const owedForService = aav * served;
+        return {
+          known: true,
+          years_served: served,
+          aav,
+          owed_for_service: owedForService,
+          actually_paid: paidToDate,
+          settlement: owedForService - paidToDate,   // + owes, − credit
+        };
+      };
+
+      // ── Retirement evidence for one player ──────────────────────────────────
+      // Two legs, exactly as Keith specified 2026-08-15:
+      //   "if flagged by MFL it should be automatic ... if no MFL flag it
+      //    should query real sources and include those sources in the post
+      //    that I can approve."
+      //
+      // Leg 1 — MFL's own injuries export (status RETIRED). Authoritative for
+      //   AUTO-approval, but slow: verified 2026-08-15 that the flag arrives in
+      //   season-start batches ~6 months after the fact (Aaron Donald and
+      //   Fletcher Cox both retired March 2024, flagged 2024-09-09).
+      //   ⚠️ MUST be fetched with omitLeagueParam — `injuries` is league-agnostic
+      //   and sending L= is rejected, decoding to an empty list.
+      // Leg 2 — /api/player-news, which already aggregates Sleeper's structured
+      //   status plus PFR / ESPN / CBS / Reddit headlines WITH links. Evidence
+      //   only. Never auto-approves anything.
+      //
+      // NO FAIL-OPEN: a leg that cannot be read reports known:false and is
+      // rendered as "couldn't check", never as "not retired".
+      // ONE /api/player-news call for a whole batch of pids.
+      //
+      // The first live dry run (2026-08-15, 35 rows) died with "Too many
+      // subrequests by single Worker invocation" because evidence was gathered
+      // per-row, and player-news itself fans out to Sleeper + ESPN RSS + Reddit
+      // on every call. Every row came back sources_known:false — which the
+      // routing correctly refused to read as "not retired" (it routed them
+      // `unknown`), but it made the evidence leg useless.
+      //
+      // The endpoint takes up to 50 comma-separated pids, so batch. Returns
+      // known:false on failure — never an empty map standing in for "no news".
+      // ── IR move announcement (transactions feed) ────────────────────────
+      // ONE implementation, called by BOTH the write-time roster-action path
+      // and the commish backfill route below. This file has repeatedly been
+      // bitten by the same rule living in two places (the tag tier price in
+      // three, the 10% floor in three), so the copy, the GIF pools and the
+      // failure behaviour all live here.
+      //
+      // Adds, drops and waivers all post; IR was silent, despite being worth
+      // 50% cap relief and changing the active-roster count (Keith 2026-08-15).
+      //
+      // Strictly best-effort. A dead Giphy key, a missing channel id or a
+      // Discord 5xx must NEVER turn a successful roster write into an error for
+      // the owner: every failure path returns { posted:false, error } and the
+      // caller carries on.
+      const _announceIrMove = async ({ season, leagueId, playerId, franchiseId, placing, dryRun }) => {
+        try {
+          const irBot = contractDiscordBotToken();
+          const irChannel = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "").replace(/\D/g, "");
+          if (!irBot || !irChannel) {
+            return { posted: false, error: "missing bot token or DISCORD_DROPS_CHANNEL_ID" };
+          }
+          // What MFL says is wrong with him — drives both the copy and which
+          // GIF pool we pull from. MUST omit L= (league-agnostic export).
+          let desig = "";
+          try {
+            const ir = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+            if (ir && ir.ok) {
+              const root = ir.data && ir.data.injuries && ir.data.injuries.injury;
+              const rows = Array.isArray(root) ? root : (root ? [root] : []);
+              const hit = rows.find((r) => safeStr(r && r.id) === safeStr(playerId));
+              desig = safeStr(hit && hit.status).toUpperCase();
+            }
+          } catch (_) { /* decoration only */ }
+          const suspended = desig.indexOf("SUSPEND") === 0;
+
+          // Two pools, because the tone genuinely differs: a suspension is a
+          // self-inflicted comedy beat, an injury is a wince.
+          const IR_GIF_QUERIES = suspended
+            ? ["nfl suspended", "you done messed up", "caught in 4k", "nfl bad decision", "smh facepalm", "nfl ejected"]
+            : ["nfl injury cart", "football player injured", "nfl player limping", "sports injury ouch", "nfl trainer field", "that looked painful"];
+          const irGif = await (async () => {
+            const apiKey = safeStr(env.GIPHY_API_KEY || "");
+            if (!apiKey) return "";
+            const shuffled = [...IR_GIF_QUERIES].sort(() => Math.random() - 0.5);
+            for (const q of shuffled) {
+              const u = new URL("https://api.giphy.com/v1/gifs/search");
+              u.searchParams.set("api_key", apiKey);
+              u.searchParams.set("q", q);
+              u.searchParams.set("limit", "50");
+              u.searchParams.set("lang", "en");
+              u.searchParams.set("rating", "pg-13");
+              try {
+                const r = await fetch(u.toString(), { cf: { cacheTtl: 300 } });
+                if (!r.ok) continue;
+                const j = await r.json();
+                const rows = Array.isArray(j?.data) ? j.data : [];
+                if (!rows.length) continue;
+                const pick = rows[Math.floor(Math.random() * rows.length)];
+                const g = safeStr(pick?.images?.original?.url) ||
+                          safeStr(pick?.images?.downsized_large?.url) ||
+                          safeStr(pick?.images?.fixed_height?.url);
+                if (g) return g;
+              } catch (_) { /* try the next query */ }
+            }
+            return "";
+          })();
+
+          // Name + franchise, best-effort. A failed lookup degrades the copy,
+          // never the post.
+          let irName = `Player ${playerId}`;
+          let irTeam = franchiseId ? `Franchise ${franchiseId}` : "";
+          let irIcon = "";
+          let irPos = "";
+          let irNfl = "";
+          try {
+            const [plRes, lgRes] = await Promise.all([
+              mflExportJson(season, leagueId, "players", { PLAYERS: safeStr(playerId) }, { useCookie: true }),
+              mflExportJson(season, leagueId, "league", {}, { useCookie: true }),
+            ]);
+            let pl = plRes?.data?.players?.player;
+            if (Array.isArray(pl)) pl = pl[0];
+            const raw = safeStr(pl && pl.name);
+            if (raw) irName = raw.includes(",")
+              ? raw.split(",").reverse().map((x) => x.trim()).join(" ")
+              : raw;
+            const frs = asArray(lgRes?.data?.league?.franchises?.franchise).filter(Boolean);
+            const me = frs.find((f) => padFranchiseId(f && f.id) === padFranchiseId(franchiseId));
+            if (me && safeStr(me.name)) irTeam = safeStr(me.name);
+            // Discord renders https images only; anything else would post as a
+            // broken embed, so it is dropped rather than sent.
+            const rawIcon = safeStr(me && (me.icon || me.iconURL || me.iconUrl || me.logo || me.logoURL || me.logoUrl));
+            if (/^https:\/\//i.test(rawIcon)) irIcon = rawIcon;
+            irPos = safeStr(pl && pl.position).toUpperCase();
+            irNfl = safeStr(pl && pl.team).toUpperCase();
+          } catch (_) { /* decoration only */ }
+
+          const reason = desig ? (suspended ? "Suspended" : desig) : "";
+          const who = [irPos, irNfl].filter(Boolean).join(" · ");
+
+          // Mirrors the waiver/add poster's shape (worker/src/lib/waiver_run_post.js):
+          // a bold PARENT EMBED with inline fields carrying the numbers, a THREAD
+          // hung off it, and the GIF posted INTO the thread as an embed image.
+          // Posting the GIF url as message text — which the first cut did — renders
+          // a raw link instead of the image and reads nothing like the rest of the
+          // transactions feed (Keith 2026-08-15).
+          const parentEmbed = {
+            title: placing
+              ? `${irName} — placed on Injured Reserve`
+              : `${irName} — activated off Injured Reserve`,
+            description: `${irTeam}${who ? ` · ${who}` : ""}`,
+            // Red going onto IR, green coming off — same read-at-a-glance
+            // convention the drop/add embeds use.
+            color: placing ? 0xdc2626 : 0x25c37d,
+            fields: placing
+              ? [
+                  { name: "NFL status", value: reason || "—", inline: true },
+                  { name: "Cap relief", value: "50% while on IR", inline: true },
+                  { name: "Roster max", value: "Does not count", inline: true },
+                  { name: "Reversible", value: "Yes — can be activated", inline: true },
+                ]
+              : [
+                  { name: "Roster", value: "Back on active", inline: true },
+                  { name: "Cap", value: "Full salary counts again", inline: true },
+                ],
+          };
+          if (irIcon) parentEmbed.thumbnail = { url: irIcon };
+
+          if (dryRun) {
+            return {
+              posted: false, dry_run: true, gif: !!irGif,
+              designation: desig || "(none)",
+              parent_embed: parentEmbed,
+              thread_name: `${irName} · ${placing ? "Injured Reserve" : "Activated off IR"}`.slice(0, 100),
+              gif_url: irGif,
+              error: "",
+            };
+          }
+
+          const parentRes = await discordBotRequest(irBot, "POST",
+            `/channels/${encodeURIComponent(irChannel)}/messages`,
+            { content: "", embeds: [parentEmbed], allowed_mentions: { parse: [] } });
+          const parentId = safeStr(parentRes?.data?.id);
+          if (!parentId) {
+            return { posted: false, error: `discord parent ${parentRes?.status}: ${safeStr(parentRes?.text).slice(0, 120)}` };
+          }
+
+          // Thread on the parent. A message-anchored thread carries the SAME id
+          // as its message, so a retry that finds one already there can address
+          // it directly (same handling as the adds poster).
+          let threadId = "";
+          try {
+            const tRes = await discordBotRequest(irBot, "POST",
+              `/channels/${encodeURIComponent(irChannel)}/messages/${encodeURIComponent(parentId)}/threads`,
+              { name: `${irName} · ${placing ? "Injured Reserve" : "Activated off IR"}`.slice(0, 100), auto_archive_duration: 1440 });
+            threadId = safeStr(tRes?.data?.id);
+            if (!threadId && (safeInt(tRes?.data?.code, 0) === 160004 || /thread.*already/i.test(safeStr(tRes?.text)))) {
+              threadId = parentId;
+            }
+          } catch (_) { /* the parent is up; a missing thread must not fail the post */ }
+
+          // GIF + detail go INTO the thread when there is one, so the channel
+          // stays a clean ledger and the colour lives with the detail.
+          const detail = placing
+            ? [
+                reason ? `**${irName}** is listed **${reason}**.` : `**${irName}** has been placed on IR.`,
+                "",
+                "· 50% cap relief while on IR",
+                "· Does not count against the active-roster max",
+                "· Reversible — he can be activated back onto the active roster",
+              ].join("\n")
+            : [
+                `**${irName}** is back on the active roster.`,
+                "",
+                "· Full salary counts against the cap again",
+                "· Counts against the active-roster max",
+              ].join("\n");
+          let threadPosted = false;
+          if (threadId) {
+            try {
+              if (irGif) {
+                await discordBotRequest(irBot, "POST",
+                  `/channels/${encodeURIComponent(threadId)}/messages`,
+                  { embeds: [{ image: { url: irGif } }], allowed_mentions: { parse: [] } });
+              }
+              const dRes = await discordBotRequest(irBot, "POST",
+                `/channels/${encodeURIComponent(threadId)}/messages`,
+                { content: detail.slice(0, 1900), allowed_mentions: { parse: [] } });
+              threadPosted = !!safeStr(dRes?.data?.id);
+            } catch (_) { /* decoration */ }
+          }
+
+          return {
+            posted: true,
+            message_id: parentId,
+            thread_id: threadId,
+            thread_posted: threadPosted,
+            gif: !!irGif,
+            designation: desig || "(none)",
+            parent_embed: parentEmbed,
+            error: "",
+          };
+        } catch (e) {
+          return { posted: false, error: String((e && e.message) || e).slice(0, 160) };
+        }
+      };
+
+      // ── POST /admin/ir/announce ─────────────────────────────────────────────
+      // Backfill an IR announcement for a move that ALREADY happened. The
+      // write-time path only posts at the moment of the write, so anything
+      // placed on IR before that shipped is silent forever without this.
+      //
+      // Verifies against the CURRENT roster before posting — it will not
+      // announce "placed on IR" for a player who is not actually on IR. Supports
+      // dry_run, which returns the exact text it WOULD post.
+      if (path === "/admin/ir/announce" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        let iaBody = {};
+        try { iaBody = (await request.json()) || {}; } catch (_) { iaBody = {}; }
+        const iaSeason = safeStr(iaBody.season || url.searchParams.get("YEAR") || YEAR || "2026");
+        const iaLeague = safeStr(iaBody.league_id || url.searchParams.get("L") || L || "74598");
+        const iaPid = safeStr(iaBody.player_id || url.searchParams.get("PLAYER") || "").replace(/\D/g, "");
+        const iaDry = _wvTruthy(iaBody.dry_run) || _wvTruthy(url.searchParams.get("dry_run"));
+        if (!iaPid) return jsonOut(400, { ok: false, error: "player_id required" });
+
+        // Roster is the fact. Refuse to announce a state the roster does not show.
+        const rosRes = await mflExportJson(iaSeason, iaLeague, "rosters", {}, { useCookie: true });
+        if (!rosRes || !rosRes.ok) {
+          return jsonOut(502, { ok: false, error: "Could not read the roster, so the IR state cannot be confirmed. Nothing posted." });
+        }
+        let located = null;
+        for (const fr of asArray(rosRes.data?.rosters?.franchise).filter(Boolean)) {
+          for (const row of asArray(fr?.player).filter(Boolean)) {
+            if (safeStr(row?.id).replace(/\D/g, "") !== iaPid) continue;
+            located = { franchise_id: padFranchiseId(fr?.id), status: safeStr(row?.status).toUpperCase() };
+            break;
+          }
+          if (located) break;
+        }
+        if (!located) return jsonOut(404, { ok: false, error: "Player is not on any roster in this league.", player_id: iaPid });
+        const onIr = located.status.indexOf("IR") !== -1 || located.status.indexOf("INJURED") !== -1 || located.status.indexOf("RESERVE") !== -1;
+        const placing = iaBody.placing == null ? onIr : !!iaBody.placing;
+        if (placing && !onIr) {
+          return jsonOut(409, {
+            ok: false,
+            error: `Refusing to announce an IR placement — the roster shows this player as "${located.status}", not on IR.`,
+            player_id: iaPid, status: located.status,
+          });
+        }
+        if (iaDry) {
+          const preview = await _announceIrMove({
+            season: iaSeason, leagueId: iaLeague, playerId: iaPid,
+            franchiseId: located.franchise_id, placing, dryRun: true,
+          });
+          return jsonOut(200, { ok: true, dry_run: true, roster: located, placing, result: preview });
+        }
+        const res = await _announceIrMove({
+          season: iaSeason, leagueId: iaLeague, playerId: iaPid,
+          franchiseId: located.franchise_id, placing,
+        });
+        return jsonOut(res.posted ? 200 : 502, { ok: !!res.posted, roster: located, placing, result: res });
+      }
+
+      const _retirementNewsBatch = async (season, leagueId, pids, origin) => {
+        const uniq = Array.from(new Set((pids || []).map((p) => safeStr(p)).filter(Boolean))).slice(0, 50);
+        if (!uniq.length) return { known: true, map: new Map(), error: "" };
+        try {
+          const res = await fetch(
+            `${origin}/api/player-news?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&pids=${encodeURIComponent(uniq.join(","))}`,
+            { headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (!res.ok) return { known: false, map: new Map(), error: `player-news HTTP ${res.status}` };
+          const j = await res.json().catch(() => null);
+          const ibp = (j && j.items_by_pid) || null;
+          if (!ibp) return { known: false, map: new Map(), error: "player-news returned no items_by_pid" };
+          const map = new Map();
+          for (const k of Object.keys(ibp)) map.set(safeStr(k), ibp[k] || []);
+          return { known: true, map, error: "" };
+        } catch (e) {
+          return { known: false, map: new Map(), error: String((e && e.message) || e).slice(0, 160) };
+        }
+      };
+
+      const _retirementEvidence = async (season, leagueId, playerId, newsByPid) => {
+        const out = {
+          player_id: safeStr(playerId),
+          mfl: { known: false, retired: false, designation: "", error: "" },
+          sources: [],
+          sources_known: false,
+          sources_error: "",
+        };
+        try {
+          const res = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          if (res && res.ok) {
+            const root = res.data && res.data.injuries && res.data.injuries.injury;
+            const rows = Array.isArray(root) ? root : (root ? [root] : []);
+            // An empty league-wide read is NOT evidence about this player — it
+            // is the signature of the L= bug and of the preseason gap.
+            if (rows.length) {
+              const hit = rows.find((r) => safeStr(r && r.id) === safeStr(playerId));
+              out.mfl.known = true;
+              out.mfl.designation = safeStr(hit && hit.status).toUpperCase();
+              out.mfl.retired = out.mfl.designation === "RETIRED";
+            } else {
+              out.mfl.error = "injuries export returned zero rows league-wide";
+            }
+          } else {
+            out.mfl.error = `injuries export unreadable (status ${safeInt(res && res.status, 0)})`;
+          }
+        } catch (e) {
+          out.mfl.error = String((e && e.message) || e).slice(0, 160);
+        }
+
+        // Leg 2 reads from the PRE-FETCHED batch (see _retirementNewsBatch).
+        // Never fetches here — one call per row is what blew the subrequest
+        // limit on the first live run.
+        if (newsByPid && newsByPid.known) {
+          out.sources_known = true;
+          const RETIRE_RE = /\bretir(e|es|ed|ing|ement)\b|\bhangs? (it|them) up\b|\bcalls? it a career\b/i;
+          const items = (newsByPid.map && newsByPid.map.get(safeStr(playerId))) || [];
+          for (const it of items) {
+            const head = safeStr(it && it.headline);
+            const body = safeStr(it && it.body);
+            const hay = `${head} ${body}`;
+            if (!RETIRE_RE.test(hay)) continue;
+            out.sources.push({
+              source: safeStr(it && it.source),
+              headline: head,
+              url: safeStr(it && it.url),
+              matched: "retirement language",
+            });
+          }
+        } else {
+          out.sources_error = safeStr(newsByPid && newsByPid.error) || "news batch not supplied";
+        }
+
+        // The routing decision, stated once so every caller agrees.
+        //   auto    — MFL says RETIRED. Cap-free applies with no human step.
+        //   pending — MFL does not say RETIRED, but real sources do. Needs the
+        //             commish. Money is HELD until then.
+        //   none    — no retirement signal at all. Ordinary drop, ordinary
+        //             penalty, nothing stalls.
+        //   unknown — we could not read enough to say. Treated as `none` for
+        //             CHARGING (the normal penalty is the status quo, not a
+        //             windfall) but surfaced so it is never silent.
+        if (out.mfl.known && out.mfl.retired) out.route = "auto";
+        else if (out.sources.length) out.route = "pending";
+        else if (!out.mfl.known && !out.sources_known) out.route = "unknown";
+        else out.route = "none";
+        return out;
+      };
+
+      // ── GET /admin/drops/capfree-backfill?L=&YEAR=[all|2026] ────────────────
+      // AUDIT ONLY — writes nothing, ever, to D1 or MFL.
+      //
+      // The cap-free review only routes NEW drops, and every drop already
+      // carrying a penalty has already been charged (verified 2026-08-15:
+      // /admin/drops/capfree-decide refuses them with `already_posted`). So it
+      // cannot retroactively fix history. This answers the separate question:
+      // was any past drop MISPRICED, and by how much?
+      //
+      // Two ways a row can be wrong, and they point opposite directions:
+      //
+      //   OVERCHARGED — the player is retired, so the exit was cap-free and the
+      //     §D1 penalty should never have been levied. What was owed is the
+      //     §D2a settlement (often far less, and on a front-loaded deal a
+      //     CREDIT). Tyreek Hill is the worked case: charged $26,500 where
+      //     §D2a computes an $18,000 credit — a $44,500 swing.
+      //
+      //   UNDERCHARGED — a row that was written off as exempt/cap-free but sat
+      //     on a BACK-loaded deal, where §D2a says the owner still owed the
+      //     shortfall they never paid. This is the 2013 Gonzalez loophole, and
+      //     since `retired_exempt` has never been set by any code, no row has
+      //     ever had the settlement applied.
+      //
+      // Retirement is judged by MFL's CURRENT flag, which is the honest signal
+      // available in hindsight — it lags ~6 months, so a player who retired in
+      // the past is very likely flagged by now even though he was not at drop
+      // time. Rows we cannot price are reported as such, never as $0.
+      if (path === "/admin/drops/capfree-backfill" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const bfLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const bfYearRaw = safeStr(url.searchParams.get("YEAR") || "").trim();
+        const bfAll = bfYearRaw.toLowerCase() === "all";
+        const bfSeason = bfAll ? "" : (bfYearRaw || safeStr(YEAR || "2026"));
+        const bfLimit = Math.max(1, Math.min(500, safeInt(url.searchParams.get("LIMIT"), 400)));
+
+        const seasonsRes = await env.UPS_MFL_DB.prepare(
+          "SELECT season, COUNT(*) AS n FROM ups_drop_events WHERE league_id = ? GROUP BY season ORDER BY season"
+        ).bind(bfLeague).all();
+        const bfSeasons = ((seasonsRes && seasonsRes.results) || []).map((r) => ({ season: safeStr(r.season), rows: safeInt(r.n, 0) }));
+
+        const rowsRes = await env.UPS_MFL_DB.prepare(
+          `SELECT season, player_id, player_name, position, franchise_id, franchise_name,
+                  dropped_at_iso, pre_drop_aav, pre_drop_contract_length, pre_drop_contract_year,
+                  earned_to_date, penalty_amount, penalty_basis, penalty_exempt,
+                  posted_to_mfl, posted_amount
+             FROM ups_drop_events
+            WHERE league_id = ? ${bfAll ? "" : "AND season = ?"}
+            ORDER BY dropped_at_unix DESC
+            LIMIT ?`
+        ).bind(...(bfAll ? [bfLeague, bfLimit] : [bfLeague, bfSeason, bfLimit])).all();
+        const bfRows = (rowsRes && rowsRes.results) || [];
+
+        // ONE injuries read. MUST omit L= (league-agnostic export).
+        let bfInj = { known: false, map: new Map(), error: "" };
+        try {
+          // The injuries feed is CURRENT state, so it always needs a real
+          // 4-digit season -- never the audit's season FILTER, which may be
+          // the literal "all". YEAR flows straight into the upstream path, so
+          // YEAR=all produced api.myfantasyleague.com/all/export -> 404 and
+          // the whole audit reported zero retirees (2026-08-15).
+          const bfInjYear = /^\d{4}$/.test(safeStr(YEAR)) ? safeStr(YEAR) : "2026";
+          const ires = await mflExportJson(bfInjYear, bfLeague, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          if (ires && ires.ok) {
+            const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
+            const irows = Array.isArray(root) ? root : (root ? [root] : []);
+            if (irows.length) {
+              bfInj.known = true;
+              for (const r of irows) bfInj.map.set(safeStr(r && r.id), safeStr(r && r.status).toUpperCase());
+            } else bfInj.error = "injuries export returned zero rows league-wide";
+          } else bfInj.error = `injuries export unreadable (status ${safeInt(ires && ires.status, 0)})`;
+        } catch (e) {
+          bfInj.error = String((e && e.message) || e).slice(0, 160);
+        }
+
+        const findings = [];
+        let unpriceable = 0;
+        for (const r of bfRows) {
+          const pid = safeStr(r.player_id);
+          const desig = bfInj.known ? safeStr(bfInj.map.get(pid) || "") : "";
+          const isRetired = bfInj.known && desig === "RETIRED";
+          const set = _d2aSettlement(r);
+          const charged = safeInt(r.posted_to_mfl, 0) === 1
+            ? safeInt(r.posted_amount, 0)
+            : safeInt(r.penalty_amount, 0);
+
+          if (!isRetired) continue;                 // only retirees can be cap-free exits
+          if (!set.known) {
+            unpriceable += 1;
+            findings.push({
+              season: safeStr(r.season), player_id: pid, player_name: safeStr(r.player_name),
+              franchise: safeStr(r.franchise_name) || safeStr(r.franchise_id),
+              dropped_at_iso: safeStr(r.dropped_at_iso), nfl_designation: desig,
+              charged, correct: null, delta: null,
+              verdict: "UNPRICEABLE", reason: set.reason,
+              penalty_basis: safeStr(r.penalty_basis),
+              posted_to_mfl: safeInt(r.posted_to_mfl, 0) === 1,
+            });
+            continue;
+          }
+          const correct = set.settlement;           // §D2a REPLACES §D1 on a cap-free exit
+          const delta = correct - charged;          // + owner owes more, − owner was overcharged
+          findings.push({
+            season: safeStr(r.season), player_id: pid, player_name: safeStr(r.player_name),
+            franchise: safeStr(r.franchise_name) || safeStr(r.franchise_id),
+            dropped_at_iso: safeStr(r.dropped_at_iso), nfl_designation: desig,
+            charged, correct, delta,
+            verdict: delta === 0 ? "CORRECT" : (delta < 0 ? "OVERCHARGED" : "UNDERCHARGED"),
+            d2a: set,
+            penalty_basis: safeStr(r.penalty_basis),
+            posted_to_mfl: safeInt(r.posted_to_mfl, 0) === 1,
+          });
+        }
+
+        const priced = findings.filter((f) => f.delta != null);
+        const over = priced.filter((f) => f.delta < 0);
+        const under = priced.filter((f) => f.delta > 0);
+        return jsonOut(200, {
+          ok: true,
+          audit_only: true,
+          note: "READ-ONLY. Nothing written to D1 or MFL. Shows what §D2a says a past cap-free "
+              + "exit SHOULD have settled at versus what was actually charged.",
+          league_id: bfLeague,
+          season: bfAll ? "all" : bfSeason,
+          seasons_available: bfSeasons,
+          rows_examined: bfRows.length,
+          injuries_feed: { known: bfInj.known, error: bfInj.error, rows_seen: bfInj.map.size },
+          retirees_found: findings.length,
+          counts: {
+            correct: priced.filter((f) => f.delta === 0).length,
+            overcharged: over.length,
+            undercharged: under.length,
+            unpriceable,
+          },
+          dollars: {
+            owed_back_to_owners: over.reduce((a, f) => a + Math.abs(f.delta), 0),
+            still_owed_by_owners: under.reduce((a, f) => a + f.delta, 0),
+            net: priced.reduce((a, f) => a + f.delta, 0),
+          },
+          findings,
+        });
+      }
+
+      // ── POST /admin/drops/capfree-notify ────────────────────────────────────
+      // The visible half. Two jobs, both idempotent:
+      //
+      //   1. ANNOUNCE  — a pending row that has never been announced gets a
+      //      Discord post in the transactions channel: the header Keith asked
+      //      for ("CAP FREE CUT CONFIRMATION PENDING COMMISH APPROVAL"), the
+      //      §D2a number that would apply, and the actual SOURCES with links.
+      //      capfree_thread_message_id is the record that it went out, so a
+      //      re-run cannot double-post.
+      //
+      //   2. NUDGE     — anything still pending 24h after its last nudge gets a
+      //      DM to the commish (Keith 2026-08-15: "I will respond but resurface
+      //      every 24 hours to me directly"). One DM listing everything
+      //      outstanding, not one per row.
+      //
+      // Safe to call on a schedule. Called with dry_run to see what WOULD be
+      // sent without sending it.
+      if (path === "/admin/drops/capfree-notify" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let cnBody = {};
+        try { cnBody = (await request.json()) || {}; } catch (_) { cnBody = {}; }
+        const cnSeason = safeStr(cnBody.season || url.searchParams.get("YEAR") || YEAR || "2026");
+        const cnLeague = safeStr(cnBody.league_id || url.searchParams.get("L") || L || "74598");
+        const cnDry = _wvTruthy(cnBody.dry_run) || _wvTruthy(url.searchParams.get("dry_run"));
+        const cnNudgeHours = Math.max(1, safeInt(cnBody.nudge_hours, 24));
+
+        const cnCols = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        if (!cnCols) {
+          return jsonOut(409, {
+            ok: false, error: "capfree_columns_missing",
+            message: "Migration 0127 is not applied on this D1 yet — there is nothing to notify about.",
+          });
+        }
+
+        const cnPending = ((await env.UPS_MFL_DB.prepare(
+          `SELECT id, player_id, player_name, position, franchise_id, franchise_name,
+                  dropped_at_iso, penalty_amount, pre_drop_aav, pre_drop_contract_length,
+                  pre_drop_contract_year, earned_to_date, capfree_evidence_json,
+                  capfree_mfl_designation, capfree_thread_message_id, capfree_last_nudge_utc
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ?
+              AND COALESCE(capfree_review_status,'') = 'pending'
+              AND posted_to_mfl = 0
+            ORDER BY dropped_at_unix ASC`
+        ).bind(cnSeason, cnLeague).all())?.results) || [];
+
+        const cnBot = contractDiscordBotToken();
+        const cnChannel = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "").replace(/\D/g, "");
+        const cnAnnounced = [];
+        const cnNudged = [];
+        const cnErrors = [];
+
+        // ── 1. Announce ──────────────────────────────────────────────────────
+        for (const r of cnPending) {
+          if (safeStr(r.capfree_thread_message_id)) continue;   // already announced
+          const set = _d2aSettlement(r);
+          let sources = [];
+          try { sources = JSON.parse(safeStr(r.capfree_evidence_json) || "[]") || []; } catch (_) { sources = []; }
+          const money = set.known
+            ? (set.settlement > 0
+                ? `**$${set.settlement.toLocaleString()} owed** — back-loaded, the owner underpaid by that much`
+                : set.settlement < 0
+                  ? `**$${Math.abs(set.settlement).toLocaleString()} CREDIT** — front-loaded, the owner overpaid`
+                  : "**$0** — the contract was played to term")
+            : `**cannot be computed** — ${set.reason}`;
+          const lines = [
+            "🛑 **CAP FREE CUT CONFIRMATION PENDING COMMISH APPROVAL**",
+            "",
+            `**${safeStr(r.player_name)}** (${safeStr(r.position) || "?"}) — ${safeStr(r.franchise_name) || safeStr(r.franchise_id)}`,
+            `Dropped ${safeStr(r.dropped_at_iso).slice(0, 10)}`,
+            "",
+            `MFL injury report says: **${safeStr(r.capfree_mfl_designation) || "nothing"}** — so this is **not** auto-approved.`,
+            "",
+            `If APPROVED (cap-free settlement): ${money}`,
+            `If DENIED (normal §D1 penalty): **$${safeInt(r.penalty_amount, 0).toLocaleString()}**`,
+            "",
+            sources.length ? "**Sources reporting retirement:**" : "_No retirement reporting found — approving would rest on the commish's own knowledge._",
+            ...sources.slice(0, 5).map((s) => `• [${safeStr(s.source)}] ${safeStr(s.headline)}${safeStr(s.url) ? `\n<${safeStr(s.url)}>` : ""}`),
+            "",
+            "_No money moves until this is decided — the charge cron is holding it._",
+          ];
+          if (cnDry) { cnAnnounced.push({ player: safeStr(r.player_name), would_post: lines.join("\n") }); continue; }
+          if (!cnBot || !cnChannel) { cnErrors.push({ player: safeStr(r.player_name), error: "missing bot token or DISCORD_DROPS_CHANNEL_ID" }); continue; }
+          try {
+            const res = await discordBotRequest(cnBot, "POST", `/channels/${encodeURIComponent(cnChannel)}/messages`,
+              { content: lines.join("\n").slice(0, 1900), allowed_mentions: { parse: [] } });
+            const mid = safeStr(res?.data?.id);
+            if (!mid) { cnErrors.push({ player: safeStr(r.player_name), error: `discord ${res?.status}: ${safeStr(res?.text).slice(0, 160)}` }); continue; }
+            await env.UPS_MFL_DB.prepare(
+              "UPDATE ups_drop_events SET capfree_thread_message_id = ? WHERE id = ?"
+            ).bind(mid, safeInt(r.id, 0)).run();
+            cnAnnounced.push({ player: safeStr(r.player_name), message_id: mid });
+          } catch (e) {
+            cnErrors.push({ player: safeStr(r.player_name), error: String((e && e.message) || e).slice(0, 160) });
+          }
+        }
+
+        // ── 2. Nudge ─────────────────────────────────────────────────────────
+        const cutoff = Date.now() - cnNudgeHours * 3600 * 1000;
+        const due = cnPending.filter((r) => {
+          const last = Date.parse(safeStr(r.capfree_last_nudge_utc) || "");
+          return !Number.isFinite(last) || last < cutoff;
+        });
+        if (due.length) {
+          const dmLines = [
+            `⏳ **${due.length} cap-free cut decision${due.length === 1 ? "" : "s"} still waiting on you.**`,
+            "",
+            ...due.map((r) => {
+              const s = _d2aSettlement(r);
+              const amt = s.known
+                ? (s.settlement === 0 ? "$0" : (s.settlement > 0 ? `$${s.settlement.toLocaleString()} owed` : `$${Math.abs(s.settlement).toLocaleString()} credit`))
+                : "unpriceable";
+              return `• **${safeStr(r.player_name)}** (${safeStr(r.franchise_name) || safeStr(r.franchise_id)}) — approve → ${amt}, deny → $${safeInt(r.penalty_amount, 0).toLocaleString()}`;
+            }),
+            "",
+            "_Nothing is charged while these sit pending._",
+          ];
+          if (cnDry) {
+            cnNudged.push({ count: due.length, would_dm: dmLines.join("\n") });
+          } else {
+            const commishUserId = commishDiscordUserIds(env)[0] || "";
+            if (!cnBot || !commishUserId) {
+              cnErrors.push({ error: "missing bot token or commish discord user id — cannot DM" });
+            } else {
+              try {
+                const open = await discordBotRequest(cnBot, "POST", "/users/@me/channels", { recipient_id: commishUserId });
+                const dmId = safeStr(open?.data?.id);
+                if (!dmId) {
+                  cnErrors.push({ error: `dm_open_failed ${open?.status}` });
+                } else {
+                  const sent = await discordBotRequest(cnBot, "POST", `/channels/${encodeURIComponent(dmId)}/messages`,
+                    { content: dmLines.join("\n").slice(0, 1900), allowed_mentions: { parse: [] } });
+                  if (safeStr(sent?.data?.id)) {
+                    const stamp = new Date().toISOString();
+                    for (const r of due) {
+                      await env.UPS_MFL_DB.prepare(
+                        "UPDATE ups_drop_events SET capfree_last_nudge_utc = ? WHERE id = ?"
+                      ).bind(stamp, safeInt(r.id, 0)).run();
+                    }
+                    cnNudged.push({ count: due.length, dm_message_id: safeStr(sent.data.id) });
+                  } else {
+                    cnErrors.push({ error: `dm_send_failed ${sent?.status}: ${safeStr(sent?.text).slice(0, 160)}` });
+                  }
+                }
+              } catch (e) {
+                cnErrors.push({ error: String((e && e.message) || e).slice(0, 160) });
+              }
+            }
+          }
+        }
+
+        return jsonOut(200, {
+          ok: cnErrors.length === 0,
+          dry_run: !!cnDry,
+          season: cnSeason,
+          league_id: cnLeague,
+          pending_total: cnPending.length,
+          announced: cnAnnounced,
+          nudged: cnNudged,
+          errors: cnErrors,
+          message: cnPending.length
+            ? `${cnPending.length} drop(s) pending; ${cnAnnounced.length} announced, ${cnNudged.length ? due.length : 0} nudged.`
+            : "Nothing pending.",
+        });
+      }
+
+      // ── POST /admin/drops/capfree-decide ────────────────────────────────────
+      // The commish's ruling on ONE held drop. Body:
+      //   { player_id, dropped_at_unix?, decision: "approve"|"deny", note? }
+      //
+      //   approve → the cut is cap-free. The §D1 penalty is REPLACED by the
+      //             §D2a settlement: (AAV × years served) − salary actually
+      //             paid. Positive = owner owes, negative = owner is owed a
+      //             CREDIT (Keith 2026-08-15: "if they FL Gonzo then it would
+      //             be a 10K credit"). Zero when the deal was played to term.
+      //   deny    → not a cap-free exit. The original §D1 penalty stands
+      //             exactly as computed; nothing about the amount changes.
+      //
+      // Either way the row leaves 'pending', so the charge cron picks it up on
+      // its next tick and posts the settled number.
+      //
+      // REFUSES rather than guessing: an approve whose §D2a inputs cannot be
+      // read is rejected with the reason, leaving the row pending. Writing a
+      // $0 "cap-free" for a contract we could not price is exactly the
+      // fail-open this whole feature exists to avoid.
+      if (path === "/admin/drops/capfree-decide" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let cdBody = {};
+        try { cdBody = (await request.json()) || {}; } catch (_) { cdBody = {}; }
+        const cdSeason = safeStr(cdBody.season || url.searchParams.get("YEAR") || YEAR || "2026");
+        const cdLeague = safeStr(cdBody.league_id || url.searchParams.get("L") || L || "74598");
+        const cdPid = safeStr(cdBody.player_id || url.searchParams.get("PLAYER") || "").replace(/\D/g, "");
+        const cdWhen = safeInt(cdBody.dropped_at_unix, 0);
+        const cdDecision = safeStr(cdBody.decision).toLowerCase();
+        const cdNote = safeStr(cdBody.note).slice(0, 400);
+        const cdDry = _wvTruthy(cdBody.dry_run);
+        if (!cdPid) return jsonOut(400, { ok: false, error: "player_id required" });
+        if (cdDecision !== "approve" && cdDecision !== "deny") {
+          return jsonOut(400, { ok: false, error: "decision must be 'approve' or 'deny'" });
+        }
+
+        const cdCols = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        if (!cdCols) {
+          return jsonOut(409, {
+            ok: false,
+            error: "capfree_columns_missing",
+            message: "Migration 0127 has not been applied to this D1 yet, so there is nowhere to record the decision. "
+                   + "Apply it with `wrangler d1 execute ups-mfl-db --remote --file=worker/migrations/0127_drop_events_capfree_review.sql` "
+                   + "(never `d1 migrations apply` on this database).",
+          });
+        }
+
+        const cdRow = await env.UPS_MFL_DB.prepare(
+          `SELECT id, player_id, player_name, franchise_id, franchise_name, dropped_at_unix,
+                  pre_drop_aav, pre_drop_contract_length, pre_drop_contract_year, earned_to_date,
+                  penalty_amount, penalty_basis, posted_to_mfl, capfree_review_status
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND player_id = ?
+              ${cdWhen ? "AND dropped_at_unix = ?" : ""}
+            ORDER BY dropped_at_unix DESC LIMIT 1`
+        ).bind(...(cdWhen ? [cdSeason, cdLeague, cdPid, cdWhen] : [cdSeason, cdLeague, cdPid])).first();
+        if (!cdRow) return jsonOut(404, { ok: false, error: "no matching drop event", player_id: cdPid });
+        if (safeInt(cdRow.posted_to_mfl, 0) === 1) {
+          return jsonOut(409, {
+            ok: false, error: "already_posted",
+            message: "This penalty has already been charged to MFL. Reversing it is a manual salary-adjustment fix, not a decision.",
+            player_name: safeStr(cdRow.player_name),
+          });
+        }
+
+        const cdSettle = _d2aSettlement(cdRow);
+        if (cdDecision === "approve" && !cdSettle.known) {
+          return jsonOut(409, {
+            ok: false,
+            error: "d2a_inputs_unreadable",
+            message: "Cannot approve a cap-free exit for this row: " + cdSettle.reason
+                   + ". The row stays pending. Stamp the contract in MFL and rescan, or price it by hand.",
+            player_name: safeStr(cdRow.player_name),
+          });
+        }
+
+        const cdNewAmount = cdDecision === "approve" ? cdSettle.settlement : safeInt(cdRow.penalty_amount, 0);
+        const cdNewBasis = cdDecision === "approve"
+          ? "retired_capfree_d2a_settlement"
+          : safeStr(cdRow.penalty_basis);
+        const cdResult = {
+          ok: true,
+          dry_run: !!cdDry,
+          player_id: cdPid,
+          player_name: safeStr(cdRow.player_name),
+          franchise: safeStr(cdRow.franchise_name) || safeStr(cdRow.franchise_id),
+          decision: cdDecision,
+          penalty_before: safeInt(cdRow.penalty_amount, 0),
+          penalty_after: cdNewAmount,
+          basis_after: cdNewBasis,
+          d2a: cdSettle,
+          settlement_direction: cdDecision !== "approve" ? "n/a — §D1 penalty stands"
+            : (cdNewAmount > 0 ? "owner OWES the shortfall"
+              : cdNewAmount < 0 ? "owner is owed a CREDIT"
+              : "settles to $0 — contract was played to term"),
+          note: cdNote,
+        };
+        if (cdDry) return jsonOut(200, { ...cdResult, message: "DRY RUN — nothing written." });
+
+        await env.UPS_MFL_DB.prepare(
+          `UPDATE ups_drop_events
+              SET capfree_review_status = ?,
+                  capfree_settlement_amount = ?,
+                  capfree_decided_at_utc = ?,
+                  capfree_decided_by = ?,
+                  penalty_amount = ?,
+                  penalty_basis = ?,
+                  penalty_exempt = ?,
+                  penalty_exempt_reason = ?
+            WHERE id = ?`
+        ).bind(
+          cdDecision === "approve" ? "approved" : "denied",
+          cdDecision === "approve" ? cdNewAmount : null,
+          new Date().toISOString(),
+          "commish",
+          cdNewAmount,
+          cdNewBasis,
+          cdDecision === "approve" ? 1 : 0,
+          cdDecision === "approve"
+            ? ("Cap-free exit approved by commish. Settlement applied: "
+               + `AAV $${cdSettle.aav} × ${cdSettle.years_served} served − paid $${cdSettle.actually_paid}.`
+               + (cdNote ? ` Note: ${cdNote}` : ""))
+            : "",
+          safeInt(cdRow.id, 0)
+        ).run();
+
+        return jsonOut(200, {
+          ...cdResult,
+          message: cdDecision === "approve"
+            ? "Approved. The §D1 penalty is replaced by the §D2a settlement; the charge cron will post it on its next tick."
+            : "Denied. The original §D1 penalty stands and the charge cron will post it on its next tick.",
+        });
+      }
+
+      // ── GET /admin/drops/capfree-preview?L=&YEAR=[&PLAYER=] ─────────────────
+      // DRY RUN. Reads only. Shows, for every recorded drop, what the cap-free
+      // retirement review WOULD do and what §D2a WOULD settle — next to what
+      // the system does today — so the money is inspected before any of it is
+      // wired to the charge cron.
+      //
+      // Nothing here writes to D1 or MFL, and it does not depend on the new
+      // columns existing.
+      if (path === "/admin/drops/capfree-preview" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const cfSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const cfLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const cfOnlyPid = safeStr(url.searchParams.get("PLAYER") || "").replace(/\D/g, "");
+        const cfLimit = Math.max(1, Math.min(200, safeInt(url.searchParams.get("LIMIT"), 60)));
+        const cfOrigin = new URL(request.url).origin;
+
+        const sel = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name, position, franchise_id, franchise_name,
+                  dropped_at_iso, dropped_at_unix, pre_drop_aav, pre_drop_salary,
+                  pre_drop_tcv, pre_drop_contract_length, pre_drop_contract_year,
+                  pre_drop_contract_info, earned_to_date, penalty_amount,
+                  penalty_basis, penalty_exempt, posted_to_mfl, posted_amount
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ?
+            ORDER BY dropped_at_unix DESC
+            LIMIT ?`
+        ).bind(cfSeason, cfLeague, cfLimit).all();
+        const cfRows = ((sel && sel.results) || []).filter(
+          (r) => !cfOnlyPid || safeStr(r.player_id) === cfOnlyPid
+        );
+
+        // One injuries read for the whole batch rather than one per player.
+        let cfInj = { known: false, byPid: new Map(), error: "" };
+        try {
+          const ires = await mflExportJson(cfSeason, cfLeague, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          if (ires && ires.ok) {
+            const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
+            const irows = Array.isArray(root) ? root : (root ? [root] : []);
+            if (irows.length) {
+              cfInj.known = true;
+              for (const r of irows) cfInj.byPid.set(safeStr(r && r.id), safeStr(r && r.status).toUpperCase());
+            } else {
+              cfInj.error = "injuries export returned zero rows league-wide";
+            }
+          } else {
+            cfInj.error = `injuries export unreadable (status ${safeInt(ires && ires.status, 0)})`;
+          }
+        } catch (e) {
+          cfInj.error = String((e && e.message) || e).slice(0, 160);
+        }
+
+        // ONE news call for every candidate row. Per-row fetching blew the
+        // Worker subrequest limit on the first live run (2026-08-15).
+        const cfCandidates = cfRows.filter((r) => {
+          const pid = safeStr(r.player_id);
+          const desig = cfInj.known ? safeStr(cfInj.byPid.get(pid) || "") : "";
+          if (desig === "RETIRED") return false;                       // already auto
+          return safeInt(r.penalty_amount, 0) !== 0 || safeInt(r.posted_to_mfl, 0) === 0;
+        });
+        const cfNews = await _retirementNewsBatch(
+          cfSeason, cfLeague, cfCandidates.map((r) => safeStr(r.player_id)), cfOrigin
+        );
+
+        const out = [];
+        for (const r of cfRows) {
+          const pid = safeStr(r.player_id);
+          const desig = cfInj.known ? safeStr(cfInj.byPid.get(pid) || "") : "";
+          const mflRetired = cfInj.known && desig === "RETIRED";
+          const isCandidate = cfCandidates.some((c) => safeStr(c.player_id) === pid);
+          let ev = null;
+          if (!mflRetired && isCandidate) {
+            ev = await _retirementEvidence(cfSeason, cfLeague, pid, cfNews);
+          }
+          const route = mflRetired ? "auto" : (ev ? ev.route : "none");
+          const d2a = _d2aSettlement(r);
+
+          const todayAmount = safeInt(r.penalty_amount, 0);
+          let wouldCharge = todayAmount;
+          let wouldBasis = safeStr(r.penalty_basis);
+          if (route === "auto" || route === "pending") {
+            // §D2a REPLACES the §D1 penalty on a cap-free exit.
+            wouldCharge = d2a.known ? d2a.settlement : null;
+            wouldBasis = d2a.known
+              ? (mflRetired ? "retired_exempt_d2a_settlement" : "PENDING — d2a_settlement on approval")
+              : "BLOCKED — §D2a inputs unreadable";
+          }
+          out.push({
+            player_id: pid,
+            player_name: safeStr(r.player_name),
+            position: safeStr(r.position),
+            franchise: safeStr(r.franchise_name) || safeStr(r.franchise_id),
+            dropped_at_iso: safeStr(r.dropped_at_iso),
+            nfl_designation: desig || (cfInj.known ? "(none)" : "(unreadable)"),
+            route,
+            evidence: ev ? { sources: ev.sources, sources_known: ev.sources_known, sources_error: ev.sources_error, mfl: ev.mfl } : null,
+            today: {
+              penalty_amount: todayAmount,
+              penalty_basis: safeStr(r.penalty_basis),
+              posted_to_mfl: safeInt(r.posted_to_mfl, 0) === 1,
+              posted_amount: safeInt(r.posted_amount, 0),
+            },
+            would: {
+              charge: wouldCharge,
+              basis: wouldBasis,
+              held_from_charge_cron: route === "pending",
+              d2a: d2a,
+            },
+            delta: (wouldCharge == null) ? null : (wouldCharge - todayAmount),
+          });
+        }
+
+        const changed = out.filter((r) => r.delta !== 0 && r.delta !== null);
+        return jsonOut(200, {
+          ok: true,
+          dry_run: true,
+          season: cfSeason,
+          league_id: cfLeague,
+          note: "READ-ONLY. Nothing written to D1 or MFL. Shows what the cap-free "
+              + "retirement review and the §D2a settlement WOULD do versus today.",
+          injuries_feed: { known: cfInj.known, error: cfInj.error, rows_seen: cfInj.byPid.size },
+          news_feed: { known: cfNews.known, error: cfNews.error, pids_queried: cfCandidates.length },
+          counts: {
+            rows_examined: out.length,
+            route_auto: out.filter((r) => r.route === "auto").length,
+            route_pending: out.filter((r) => r.route === "pending").length,
+            route_none: out.filter((r) => r.route === "none").length,
+            route_unknown: out.filter((r) => r.route === "unknown").length,
+            would_be_held: out.filter((r) => r.would.held_from_charge_cron).length,
+            d2a_unreadable: out.filter((r) => (r.route === "auto" || r.route === "pending") && !r.would.d2a.known).length,
+            money_changes: changed.length,
+          },
+          money_delta_total: changed.reduce((a, r) => a + (r.delta || 0), 0),
+          rows: out,
+        });
+      }
+
+
+// Denied claims for a run, from MFL's Previously Processed Waivers page.
+//
+// ⚠️ THAT PAGE SHOWS ONLY THE MOST RECENT RUN. Verified on the live 2026
+// report: 6 rows = the Aug 20 run's 5 granted claims + 1 denial, and nothing
+// from any earlier run — even though rows carry SUBMITTED dates as old as
+// Aug 16 (a claim sits until the next run processes it, so the submitted date
+// is NOT the run date and cannot be used to scope by day).
+//
+// So the misses can only be trusted when the page is describing the run we are
+// posting. Proven by overlap: at least one player granted on the page must
+// also be an add in this run. No overlap => the page is about a different run
+// => return null. null renders NO misses section at all, which is honest;
+// an empty array would print "0 not granted" and assert a check we did not do.
+async function _waiverMissesForRun(env, season, leagueId, addedNames) {
+  const cookie = String(env.MFL_COOKIE || "").trim();
+  if (!cookie) return { misses: null, reason: "MFL_COOKIE missing" };
+  const cookieHeader = cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`;
+  let html = "";
+  try {
+    const r = await fetch(
+      `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/processed_waivers?L=${encodeURIComponent(leagueId)}`,
+      { headers: { Cookie: cookieHeader, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)", Accept: "text/html" },
+        redirect: "follow", cf: { cacheTtl: 0, cacheEverything: false } }
+    );
+    if (!r.ok) return { misses: null, reason: `processed_waivers HTTP ${r.status}` };
+    html = await r.text();
+  } catch (e) { return { misses: null, reason: `processed_waivers fetch failed: ${String(e?.message || e)}` }; }
+
+  // Signed out renders the report EMPTY at HTTP 200 — never "no denials".
+  const welcome = /class="welcome"[^>]*>([\s\S]{0,400}?)<\/td>/i.exec(html);
+  if (!welcome) return { misses: null, reason: "auth state unreadable" };
+  if (/\bGuest\b/i.test(welcome[1]) || /\/login\?/i.test(welcome[1])) {
+    return { misses: null, reason: "not authenticated (report renders empty)" };
+  }
+
+  const anchor = html.indexOf('id="processed_waivers"');
+  if (anchor < 0) return { misses: null, reason: "report container not found" };
+  const region = html.slice(anchor)
+    .replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "");
+  // Franchise renders as a LOGO, so recover the name from alt/title or the
+  // fid in the icon filename before falling back to "".
+  const cellText = (c) => {
+    const txt = safeStr(c.replace(/<[^>]+>/g, " ")).replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim();
+    if (txt) return txt;
+    const at = /(?:alt|title)="([^"]+)"/i.exec(c);
+    if (at && at[1].trim()) return at[1].trim();
+    const fid = /franchise_(?:icon|logo)(\d{4})/i.exec(c);
+    return fid ? `fid:${fid[1]}` : "";
+  };
+  let rows = [];
+  for (const t of (region.match(/<table[\s\S]*?<\/table>/gi) || [])) {
+    const trs = t.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+    const parsed = [];
+    for (const tr of trs) {
+      const cells = (tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [])
+        .map((c) => cellText(c.replace(/^<t[dh][^>]*>/i, "").replace(/<\/t[dh]>$/i, "")));
+      if (cells.some(Boolean)) parsed.push(cells);
+    }
+    if (parsed.some((r) => r.length === 6)) { rows = parsed; break; }
+  }
+  if (!rows.length) return { misses: null, reason: "report table not found" };
+
+  // Overlap check against this run's adds.
+  const norm = (n) => safeStr(n).toLowerCase().replace(/[^a-z ]/g, "").trim();
+  const mine = new Set((addedNames || []).map(norm).filter(Boolean));
+  // parsePlayerCell — the SAME parser the misses use. An ad-hoc re-split here
+  // got "Wilson, Emanuel SEA RB" wrong ("emanuel sea rb wilson"), so the gate
+  // never matched and misses would have been silently dropped from every run.
+  const grantedOnPage = rows.slice(1)
+    .filter((r) => r.length >= 6 && !safeStr(r[5]))
+    .map((r) => { const p = parsePlayerCell(r[2]); return p ? norm(p.name) : ""; });
+  const overlap = grantedOnPage.filter((n) => n && mine.has(n));
+  if (!overlap.length) {
+    return { misses: null, reason: "processed-waivers page describes a different run (no granted player overlaps this one)" };
+  }
+  return { misses: parseWaiverMisses(rows), reason: "", matched: overlap.length };
+}
+
+
+      // POST /admin/discord/cleanup-messages
+      // Body: { thread_ids: [...], after_iso, before_iso, dry_run }
+      //
+      // Deletes THIS BOT'S OWN messages from specific threads inside a time
+      // window. Written to clean up a replay that posted into live threads
+      // (2026-08-21): the replay guard blocked D1 writes but not Discord
+      // posts, because the route's "this run already has a live thread" path
+      // reuses a stored THREAD id, and a thread is addressable regardless of
+      // which channel it lives in.
+      //
+      // Deliberately narrow, because this deletes real messages:
+      //   - only messages authored by our own bot are eligible
+      //   - only inside an explicit time window the caller states
+      //   - only in threads the caller names
+      //   - dry_run lists exactly what WOULD go, and is the default
+      // A message outside the window, or by anyone else, is never touched.
+      if (path === "/admin/discord/cleanup-messages" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        let cbody = {};
+        try { cbody = (await request.json()) || {}; } catch (_) { cbody = {}; }
+        const cThreads = (Array.isArray(cbody.thread_ids) ? cbody.thread_ids : [])
+          .map((t) => safeStr(t).replace(/\D/g, "")).filter(Boolean);
+        const cAfter = Date.parse(safeStr(cbody.after_iso));
+        const cBefore = Date.parse(safeStr(cbody.before_iso));
+        // Default to dry-run: an omitted flag must not delete.
+        const cDry = cbody.dry_run === false ? false : true;
+        if (!cThreads.length) return jsonOut(400, { ok: false, error: "thread_ids[] required" });
+        if (!Number.isFinite(cAfter) || !Number.isFinite(cBefore) || cBefore <= cAfter) {
+          return jsonOut(400, { ok: false, error: "after_iso/before_iso required, and before must be later than after" });
+        }
+        const cToken = contractDiscordBotToken();
+        if (!cToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+
+        // Who we are — so we only ever delete our own posts.
+        let meId = "";
+        try {
+          const me = await discordBotRequest(cToken, "GET", "/users/@me", null);
+          meId = safeStr(me?.data?.id);
+        } catch (_) {}
+        if (!meId) return jsonOut(502, { ok: false, error: "could_not_resolve_bot_identity" });
+
+        const found = [];
+        const deleted = [];
+        const errors = [];
+        for (const th of cThreads) {
+          let msgs = [];
+          try {
+            const r = await discordBotRequest(cToken, "GET", `/channels/${encodeURIComponent(th)}/messages?limit=100`, null);
+            msgs = Array.isArray(r?.data) ? r.data : [];
+          } catch (e) { errors.push({ thread_id: th, error: String(e?.message || e).slice(0, 200) }); continue; }
+          for (const m of msgs) {
+            const authorId = safeStr(m?.author?.id);
+            const ts = Date.parse(safeStr(m?.timestamp));
+            if (authorId !== meId) continue;
+            if (!Number.isFinite(ts) || ts < cAfter || ts > cBefore) continue;
+            const brief = {
+              thread_id: th, message_id: safeStr(m.id), timestamp: safeStr(m.timestamp),
+              preview: safeStr((m.embeds && m.embeds[0] && m.embeds[0].description) || m.content).slice(0, 100),
+            };
+            found.push(brief);
+            if (cDry) continue;
+            try {
+              await discordBotRequest(cToken, "DELETE", `/channels/${encodeURIComponent(th)}/messages/${encodeURIComponent(m.id)}`, null);
+              deleted.push(brief);
+            } catch (e) { errors.push({ ...brief, error: String(e?.message || e).slice(0, 200) }); }
+            await new Promise((res) => setTimeout(res, 400));   // polite pacing
+          }
+        }
+        return jsonOut(200, {
+          ok: errors.length === 0, dry_run: cDry, bot_id: meId,
+          threads_scanned: cThreads.length,
+          matched: found.length, deleted: deleted.length,
+          window: { after_iso: safeStr(cbody.after_iso), before_iso: safeStr(cbody.before_iso) },
+          messages: cDry ? found : deleted, errors,
+        });
+      }
+
+      // GET /admin/waivers/processed?L=&YEAR=&raw=1
+      //
+      // MFL's "Previously Processed Waivers" report — the ONLY place that says
+      // which claims were DENIED and why. There is no export for it: the API
+      // offers pendingWaivers (pre-run) and BBID_WAIVER transactions (granted
+      // only), so a losing claim appears in neither. This scrapes the HTML page
+      // with the commissioner cookie, which is also what makes it LEAGUE-WIDE —
+      // the transactions feed is franchise-scoped (verified: all 25 stored
+      // BBID_WAIVER_REQUEST rows are fid 0008), this page is not.
+      //
+      // ⚠️ FAIL CLOSED ON AUTH. A signed-out fetch returns HTTP 200 with the
+      // page fully rendered and the report section EMPTY — indistinguishable
+      // from "nobody was denied" unless you look for the login marker. That is
+      // exactly the fail-open shape rule_no_fail_open_guards exists to stop, so
+      // an unauthenticated response is an ERROR here, never an empty result.
+      //
+      // raw=1 returns the script/style-stripped report region (≈10KB of the
+      // 500KB page) instead of parsed rows — the page is wrapped in our own
+      // HPM header injection, so this is how the real table shape gets read
+      // before any column mapping is trusted.
+      if (path === "/admin/waivers/processed" && request.method === "GET") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        const pwSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const pwLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const pwRaw = String(url.searchParams.get("raw") || "") === "1";
+        const pwCookie = String(env.MFL_COOKIE || "").trim();
+        if (!pwCookie) return jsonOut(403, { ok: false, error: "MFL_COOKIE missing — this report is owner-gated." });
+        const pwCookieHeader = pwCookie.includes("=") ? pwCookie : `MFL_USER_ID=${pwCookie}`;
+        const pwStripTags = (v) => safeStr(String(v).replace(/<[^>]+>/g, " "))
+          .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'")
+          .replace(/&quot;/gi, '"').replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+          .replace(/\s+/g, " ").trim();
+        const pwUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(pwSeason)}/processed_waivers?L=${encodeURIComponent(pwLeague)}`;
+        let pwHtml = "";
+        try {
+          const r = await fetch(pwUrl, {
+            headers: {
+              Cookie: pwCookieHeader,
+              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Accept": "text/html,application/xhtml+xml",
+            },
+            redirect: "follow",
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          if (!r.ok) return jsonOut(502, { ok: false, error: "mfl_fetch_failed", status: r.status, url: pwUrl });
+          pwHtml = await r.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: "mfl_fetch_threw", detail: String((e && e.message) || e) });
+        }
+
+        // AUTH CHECK FIRST, and against MFL's own identity cell — which sits
+        // BEFORE the report container, so it must be read from the full page,
+        // not the sliced region. MFL renders:
+        //     <td ... class="welcome"><b>Guest</b> (<a href=".../login?...">Login</a>)</td>
+        // when signed out, and the franchise/user identity there when signed in.
+        // Verified against a real signed-out fetch — an earlier version of this
+        // guard searched the sliced region and silently passed, which is the
+        // precise failure it exists to prevent.
+        const pwWelcome = /class="welcome"[^>]*>([\s\S]{0,400}?)<\/td>/i.exec(pwHtml);
+        if (!pwWelcome) {
+          return jsonOut(502, {
+            ok: false, error: "auth_state_unreadable",
+            message: "Could not find MFL's identity cell, so whether this page is authenticated is UNKNOWN. Refusing to report a possibly-empty result as real.",
+            page_bytes: pwHtml.length,
+          });
+        }
+        if (/\bGuest\b/i.test(pwWelcome[1]) || /\/login\?/i.test(pwWelcome[1])) {
+          return jsonOut(502, {
+            ok: false, error: "not_authenticated",
+            message: "MFL served this page as a guest, so the report renders EMPTY — that is NOT the same as no denied claims. Check MFL_COOKIE.",
+            identity_cell: pwStripTags(pwWelcome[1]).slice(0, 120),
+          });
+        }
+
+        // Isolate the report region — slicing by index keeps the regex work off
+        // the ~490KB of custom-header script that precedes it.
+        const pwAnchor = pwHtml.indexOf('id="processed_waivers"');
+        if (pwAnchor < 0) {
+          return jsonOut(502, {
+            ok: false, error: "report_region_not_found",
+            message: "The processed_waivers container was not in the response — MFL's page shape may have changed.",
+            page_bytes: pwHtml.length,
+          });
+        }
+        const pwRegion = pwHtml.slice(pwAnchor)
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "");
+
+        if (pwRaw) {
+          return jsonOut(200, {
+            ok: true, raw: true, season: pwSeason, league_id: pwLeague,
+            page_bytes: pwHtml.length, region_bytes: pwRegion.length,
+            region_html: pwRegion.slice(0, 60000),
+          });
+        }
+
+        // Generic table extraction — every row, every cell, no column mapping.
+        // Deliberately assumption-free until the real header row is confirmed
+        // against a live authenticated fetch; a guessed column order would
+        // silently mislabel who lost what.
+        const pwTables = pwRegion.match(/<table[\s\S]*?<\/table>/gi) || [];
+        const pwParsed = [];
+        for (const t of pwTables) {
+          const trs = t.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+          const rows = [];
+          for (const tr of trs) {
+            const cells = (tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [])
+              .map((c) => pwStripTags(c.replace(/^<t[dh][^>]*>/i, "").replace(/<\/t[dh]>$/i, "")));
+            if (cells.some((c) => c)) rows.push(cells);
+          }
+          if (rows.length) pwParsed.push({ row_count: rows.length, rows });
+        }
+        return jsonOut(200, {
+          ok: true, season: pwSeason, league_id: pwLeague,
+          page_bytes: pwHtml.length, region_bytes: pwRegion.length,
+          table_count: pwParsed.length, tables: pwParsed,
+        });
+      }
+
       // GET /admin/drops/cap-season-preview?L=&YEAR=
       // READ-ONLY dry run for the cap-year bucketing. Shows, for every priced
       // drop this season: when it happened, which cap year canon puts it on,
@@ -43636,7 +45856,7 @@ export default {
         const cpSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
         const cpLeague = safeStr(url.searchParams.get("L") || L || "74598");
         const cpSeasonNum = Number(cpSeason) || 0;
-        const cpStart = await _faaAuctionStartUnix(cpSeason);
+        const cpStart = await _faaAuctionStartUnix(env, cpSeason);
         const cpHasCols = await _dropEventsHasCapSeasonCols();
         const sel = await env.UPS_MFL_DB.prepare(
           `SELECT player_id, player_name, franchise_id, franchise_name, penalty_amount, penalty_basis,
@@ -43700,7 +45920,7 @@ export default {
         if (!nsLeague) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         if (!env.UPS_MFL_DB) return jsonNoStore(500, { ok: false, error: "UPS_MFL_DB missing" });
         const nsSeasonNum = Number(nsSeason) || 0;
-        const nsStart = await _faaAuctionStartUnix(nsSeason);
+        const nsStart = await _faaAuctionStartUnix(env, nsSeason);
         // Unresolved auction start ⇒ we cannot say which year anything belongs
         // to. Report that instead of rendering a confident (possibly wrong) list.
         if (!nsStart.unix) {
@@ -43743,11 +45963,127 @@ export default {
           byFid[fid].total += item.amount;
           byFid[fid].items.push(item);
         }
+
+        // §F RULE 2 missed-nomination fines — bookPenaltyForMiss
+        // (auction_compliance.js) writes TWO rows per fine at booking time,
+        // one applies_to_season=season and one =season+1, same amount both
+        // times. The current-season row already reaches MFL via
+        // /admin/auction/post-rule2-fines; the next-season row is booked
+        // ledger-only and had NO surface anywhere until now (Keith
+        // 2026-08-16, re: the Hawks' 2026 $3K miss: "that should be flowing
+        // into '27" — it was sitting in ups_faa_nom_penalties, correctly
+        // computed, simply never read by this route).
+        const r2Sel = await env.UPS_MFL_DB.prepare(
+          `SELECT penalty_id, fid, et_day, offense_no, amount_k, posted_to_mfl
+             FROM ups_faa_nom_penalties
+            WHERE season = ? AND league_id = ? AND applies_to_season = ? AND voided = 0`
+        ).bind(nsSeasonNum, nsLeague, nsSeasonNum + 1).all();
+        const r2Rows = (r2Sel && r2Sel.results) || [];
+        if (r2Rows.length) {
+          const r2LeagueRes = await mflExportJson(nsSeason, nsLeague, "league", {}, { useCookie: true });
+          const r2FidName = {};
+          let r2Fl = r2LeagueRes.ok && r2LeagueRes.data?.league?.franchises?.franchise;
+          r2Fl = Array.isArray(r2Fl) ? r2Fl : (r2Fl ? [r2Fl] : []);
+          for (const f of r2Fl) {
+            const fFid = padFranchiseId(f && f.id);
+            if (fFid) r2FidName[fFid] = safeStr(f && f.name) || `Team ${fFid}`;
+          }
+          for (const r of r2Rows) {
+            const fid = padFranchiseId(r.fid);
+            const item = {
+              player_id: null, player: `Missed nomination — offense ${safeInt(r.offense_no, 0)}`,
+              franchise_id: fid, franchise_name: r2FidName[fid] || `Team ${fid}`,
+              amount: safeInt(r.amount_k, 0) * 1000,
+              applies_to_season: nsSeasonNum + 1,
+              dropped_at_iso: safeStr(r.et_day),
+              kind: "RULE 2 fine (next season)",
+              in_mfl: Number(r.posted_to_mfl) === 1,
+            };
+            nsRows.push(item);
+            if (!byFid[fid]) byFid[fid] = { franchise_id: fid, franchise_name: item.franchise_name, total: 0, items: [] };
+            byFid[fid].total += item.amount;
+            byFid[fid].items.push(item);
+          }
+        }
+
         return jsonNoStore(200, {
           ok: true, season: nsSeason, next_season: nsSeasonNum + 1, league_id: nsLeague,
           auction_start_unix: nsStart.unix, auction_start_source: nsStart.source,
           by_fid: byFid, rows: nsRows, needs_review: nsReview,
           grand_total: nsRows.reduce((a, r) => a + r.amount, 0),
+        });
+      }
+
+      // GET /api/cap-adjustments/season?L=&YEAR=
+      // Past/current season cap adjustments — MFL's real salaryAdjustments
+      // export (the ground truth once posted), shaped to MIRROR
+      // /api/cap-adjustments/next-season's response (same by_fid/rows/
+      // grand_total shape) so a consumer can branch by year without learning
+      // a second contract. Each row is categorized traded_salary / cap_penalty
+      // / other (Keith 2026-08-16: "Traded Salary vs. Cap Penalties").
+      //
+      // Category rule mirrors _adjIsDropPenalty's substrings (not
+      // salaryAdjustmentCategory, worker's OTHER existing 3-way classifier —
+      // that one lacks the id:ups_drop_rounding_ exclusion _adjIsDropPenalty
+      // has). Unlike a re-SUM, a rounding-reconciliation row is correctly
+      // SHOWN here as a cap_penalty line, not hidden — it is real money and
+      // the exclusion elsewhere exists only to stop a re-sum double-counting
+      // an amount already folded into a prior total, which doesn't apply to
+      // a plain listing.
+      if (path === "/api/cap-adjustments/season" && request.method === "GET") {
+        const csSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const csLeague = safeStr(url.searchParams.get("L") || L || "");
+        if (!csLeague) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const csRes = await mflExportJson(csSeason, csLeague, "salaryAdjustments", {}, { useCookie: true });
+        if (!csRes.ok) {
+          return jsonNoStore(200, {
+            ok: false, error: "mfl_salary_adjustments_unreadable", season: csSeason, league_id: csLeague,
+            by_fid: {}, rows: [], grand_total: 0,
+            message: "Could not read MFL's salaryAdjustments export, so this season's adjustments cannot be shown.",
+          });
+        }
+        const csRoot = csRes.data?.salaryAdjustments || csRes.data?.salaryadjustments || csRes.data || {};
+        const csRawRows = collectSalaryAdjustmentExportRows(csRoot);
+        const csLeagueRes = await mflExportJson(csSeason, csLeague, "league", {}, { useCookie: true });
+        const csFidName = {};
+        let csFl = csLeagueRes.ok && csLeagueRes.data?.league?.franchises?.franchise;
+        csFl = Array.isArray(csFl) ? csFl : (csFl ? [csFl] : []);
+        for (const f of csFl) {
+          const fid = padFranchiseId(f && f.id);
+          if (fid) csFidName[fid] = safeStr(f && f.name) || ("Team " + fid);
+        }
+        const csClassify = (explanation) => {
+          const t = safeStr(explanation).toLowerCase();
+          if (t.indexOf("trade") !== -1) return "traded_salary";
+          if (t.indexOf("drop") !== -1 || t.indexOf("cut") !== -1 || t.indexOf("penalt") !== -1 ||
+              t.indexOf("waiv") !== -1 || t.indexOf("dead cap") !== -1) return "cap_penalty";
+          return "other";
+        };
+        const csByFid = {};
+        const csRows = [];
+        for (const r of csRawRows) {
+          const fid = padFranchiseId(r.franchise_id);
+          if (!fid) continue;
+          const category = csClassify(r.explanation);
+          const item = {
+            franchise_id: fid, franchise_name: csFidName[fid] || `Team ${fid}`,
+            amount: safeInt(r.amount, 0), explanation: safeStr(r.explanation), category,
+          };
+          csRows.push(item);
+          if (!csByFid[fid]) {
+            csByFid[fid] = {
+              franchise_id: fid, franchise_name: item.franchise_name, total: 0,
+              traded_salary_total: 0, cap_penalty_total: 0, other_total: 0, items: [],
+            };
+          }
+          csByFid[fid].total += item.amount;
+          csByFid[fid][`${category}_total`] += item.amount;
+          csByFid[fid].items.push(item);
+        }
+        return jsonNoStore(200, {
+          ok: true, season: csSeason, league_id: csLeague,
+          by_fid: csByFid, rows: csRows,
+          grand_total: csRows.reduce((a, r) => a + r.amount, 0),
         });
       }
 
@@ -43833,6 +46169,30 @@ export default {
           time_et: safeStr(cc && cc.deadline_time_et) || "21:00",
         };
       };
+
+      // GET /admin/qb-caps/check?L=&YEAR=&starters=<pid,pid,...>
+      // §B1's two QB caps, measured at the September contract deadline. READ
+      // ONLY — it reports and never cuts, because canon's consequence is real
+      // cuts with real dead money and starter status is explicitly a
+      // commissioner determination. See qb_cap_check.js for why that is not
+      // squeamishness: FantasyPros' depth chart is client-rendered, so there is
+      // no honest scrape behind an automated answer.
+      //
+      // `starters` is the commissioner's list of NFL starting QBs (mfl player
+      // ids). Omit it and the 5-QB active check still reports exactly, while
+      // the 4-starter half reports `starters_known: false` rather than
+      // resolving to zero and calling everyone compliant.
+      if (path === "/admin/qb-caps/check" && request.method === "GET") {
+        const qSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const qLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const qStarters = safeStr(url.searchParams.get("starters"))
+          .split(",").map((x) => x.trim()).filter(Boolean);
+        const rep = await checkQbCaps(env, {
+          season: qSeason, leagueId: qLeague,
+          startingQbIds: qStarters.length ? qStarters : null,
+        });
+        return jsonNoStore(rep.ok ? 200 : 502, rep);
+      }
 
       // GET /admin/drops/reconciliation?L=&YEAR= — read-only per-franchise SUM-rounding
       // preview (powers the FO display). No writes.
@@ -43981,7 +46341,7 @@ export default {
         //    FAIL CLOSED, and note which direction is safe: an unresolved
         //    auction start must NOT fall back to "current season" — that is the
         //    exact wrong answer for every post-auction drop. Refuse the run.
-        const auctionStart = await _faaAuctionStartUnix(targetSeason);
+        const auctionStart = await _faaAuctionStartUnix(env, targetSeason);
         if (!auctionStart.unix) {
           return jsonOut(200, {
             ok: false,
@@ -43996,16 +46356,51 @@ export default {
         const targetSeasonNum = Number(targetSeason) || 0;
 
         // 1. Pull unposted owed penalties from ups_drop_events.
+        //
+        // ⚠️ HOLD anything awaiting the commish's cap-free decision. This cron
+        // runs EVERY 5 MINUTES and posts REAL cap charges to MFL, so without
+        // this clause a drop that is pending review gets charged in full long
+        // before the commish sees the Discord post asking about it — and the
+        // §D2a settlement (which REPLACES the penalty, canon §D2a) could never
+        // be applied, because the money would already be down.
+        //
+        // Written as COALESCE(...) <> 'pending' on purpose: an ordinary drop
+        // has NULL here forever and MUST keep charging normally. Only the
+        // explicit string 'pending' holds money. Column-guarded so a D1 that
+        // has not had migration 0127 hand-applied yet behaves exactly as before
+        // (`d1 migrations apply` is banned on this database).
+        const cfHoldCol = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        const cfHoldClause = cfHoldCol ? "AND COALESCE(capfree_review_status, '') <> 'pending'" : "";
         const selBinds = onlyPid ? [targetSeason, leagueId, onlyPid] : [targetSeason, leagueId];
         const sel = await env.UPS_MFL_DB.prepare(
           `SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, penalty_basis,
                   dropped_at_unix, dropped_at_iso
              FROM ups_drop_events
             WHERE season = ? AND league_id = ? AND posted_to_mfl = 0 AND penalty_amount > 0
+              ${cfHoldClause}
               ${onlyPid ? "AND player_id = ?" : ""}
             ORDER BY dropped_at_unix ASC`
         ).bind(...selBinds).all();
         const owedAll = (sel && sel.results) || [];
+
+        // Count what this run deliberately left alone, so a hold is VISIBLE in
+        // the response rather than looking like "nothing was owed".
+        let cfHeldCount = 0;
+        if (cfHoldCol) {
+          try {
+            const heldRes = await env.UPS_MFL_DB.prepare(
+              `SELECT COUNT(*) AS n FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND posted_to_mfl = 0
+                  AND COALESCE(capfree_review_status, '') = 'pending'`
+            ).bind(targetSeason, leagueId).first();
+            cfHeldCount = safeInt(heldRes && heldRes.n, 0);
+          } catch (_) { cfHeldCount = 0; }
+        }
 
         // 1b. Split by cap year BEFORE anything can be posted.
         //   - current season  → eligible to post to MFL now (unchanged behaviour)
@@ -44151,7 +46546,12 @@ export default {
             deferred_next_season: deferredNextSeason,
             deferred_next_season_total: deferredNextSeason.reduce((a, r) => a + r.amount, 0),
             cap_year_needs_review: bucketNeedsReview,
-            message: "No new penalties to post.",
+            // Rows deliberately NOT charged because they await the commish's
+            // cap-free decision. Reported so a hold never reads as "nothing owed".
+            held_pending_capfree_review: cfHeldCount,
+            message: cfHeldCount
+              ? `No new penalties to post. ${cfHeldCount} drop(s) are HELD awaiting cap-free review.`
+              : "No new penalties to post.",
           });
         }
 
@@ -44291,7 +46691,11 @@ export default {
           rowsToPost.push({
             franchise_id: fid,
             amount,
-            explanation: `UPS RULE 2 missed nomination ${safeStr(pen.et_day)} offense ${safeInt(pen.offense_no, 0)} id:${key}`,
+            // Both RULE 2 ladders post through here. The owner reads this line
+            // on their MFL cap sheet months later, so it has to say WHICH rule
+            // they broke — "missed nomination" on an extra-nomination fine
+            // would be an unarguable-looking charge for a thing they didn't do.
+            explanation: `UPS RULE 2 ${safeStr(pen.kind) === "over" ? "extra nomination" : "missed nomination"} ${safeStr(pen.et_day)} offense ${safeInt(pen.offense_no, 0)} id:${key}`,
             penalty_id: pen.penalty_id,
             key,
           });
@@ -44407,6 +46811,12 @@ export default {
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const days = Math.max(1, Math.min(90, safeInt(body?.days, 7)));
         const dryRun = !!body?.dry_run;
+        // Conditional drops riding inside a won BBID waiver claim (canon gate:
+        // real money, so OFF until the commish signs off on the dry-run).
+        // Body flag wins so a dry-run can preview it while the cron stays put.
+        const includeWaivers = body?.include_waivers != null
+          ? !!body.include_waivers
+          : safeStr(env.DROP_SCAN_WAIVERS_ENABLED) === "1";
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
@@ -44415,9 +46825,39 @@ export default {
         // the bucket independently before any money moves — so an unresolved
         // auction start here is recorded as needs-review rather than aborting
         // the scan. It must never be recorded as "current season".
-        const scanAuctionStart = await _faaAuctionStartUnix(targetSeason);
+        const scanAuctionStart = await _faaAuctionStartUnix(env, targetSeason);
         const scanSeasonNum = Number(targetSeason) || 0;
         const scanHasCapCols = await _dropEventsHasCapSeasonCols();
+
+        // Cap-free retirement routing prerequisites. All optional: if the
+        // columns are missing (migration 0127 not hand-applied yet) or the
+        // injuries feed cannot be read, the scan behaves exactly as it did
+        // before and no row is ever marked pending.
+        const scanOrigin = new URL(request.url).origin;
+        const scanHasCapfreeCols = await (async () => {
+          try {
+            const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
+            return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
+          } catch (_) { return false; }
+        })();
+        // ONE injuries read for the whole scan. MUST omit L= — `injuries` is
+        // league-agnostic and sending it is rejected, decoding to an empty list.
+        const scanInjByPid = await (async () => {
+          try {
+            const ires = await mflExportJson(targetSeason, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+            if (!ires || !ires.ok) return { known: false, map: new Map() };
+            const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
+            const irows = Array.isArray(root) ? root : (root ? [root] : []);
+            // Zero rows league-wide is the signature of the L= bug and of the
+            // preseason gap — NOT evidence that nobody is designated.
+            if (!irows.length) return { known: false, map: new Map() };
+            const m = new Map();
+            for (const r of irows) m.set(safeStr(r && r.id), safeStr(r && r.status).toUpperCase());
+            return { known: true, map: m };
+          } catch (_) { return { known: false, map: new Map() }; }
+        })();
+        // Cap on per-invocation news lookups (see the routing block below).
+        let scanNewsBudget = 5;
 
         // ── Contract parsing + penalty math (canon §6/§D2) ──
         // Ported from pipelines/etl/scripts/build_salary_adjustments_report.py.
@@ -44475,11 +46915,26 @@ export default {
           return null;
         };
 
-        // ── Pull FREE_AGENT transactions ──
-        const txRes = await mflExportJson(targetSeason, leagueId, "transactions",
-          { TRANS_TYPE: "FREE_AGENT", DAYS: String(days) }, { useCookie: true });
-        let txs = txRes.data?.transactions?.transaction || [];
-        if (!Array.isArray(txs)) txs = [txs];
+        // ── Pull the transaction types that can carry a drop ──
+        // FREE_AGENT always; BBID_WAIVER only when enabled (see includeWaivers).
+        // Each type is fetched separately: MFL's TRANS_TYPE takes one value, and
+        // a combined no-filter pull would drag in types whose payload shape we
+        // deliberately refuse to guess at (see _dropPidsFromTx).
+        const scanTypes = ["FREE_AGENT"].concat(includeWaivers ? ["BBID_WAIVER"] : []);
+        const txByType = [];
+        for (const tt of scanTypes) {
+          const r = await mflExportJson(targetSeason, leagueId, "transactions",
+            { TRANS_TYPE: tt, DAYS: String(days) }, { useCookie: true });
+          // An unreadable pull is NOT an empty one — recording a partial scan as
+          // complete would silently drop real penalties on the floor.
+          if (!r || !r.ok) {
+            return jsonOut(502, { ok: false, error: `transactions fetch failed for TRANS_TYPE=${tt}`,
+              season: targetSeason, league_id: leagueId });
+          }
+          let rows = r.data?.transactions?.transaction || [];
+          if (!Array.isArray(rows)) rows = [rows];
+          for (const row of rows) txByType.push({ tt, row });
+        }
 
         // Player + franchise meta for enrichment
         const [playersRes, leagueRes] = await Promise.all([
@@ -44501,16 +46956,22 @@ export default {
         }
 
         // Walk transactions → resolve every dropped player_id.
+        // Positional per type — see _dropPidsFromTx. Anything the parser refuses
+        // is surfaced, never silently treated as "this transaction dropped
+        // nobody": that is how a real penalty would go missing without a trace.
         const drops = [];
-        for (const tx of txs) {
+        const unparsedTx = [];
+        for (const { tt, row: tx } of txByType) {
           const fid = padFranchiseId(tx?.franchise || "");
           const ts = Number(tx?.timestamp) || 0;
           if (!fid || !ts) continue;
-          // The `transaction` field is "|pid1,|pid2,..." — extract digit clusters.
-          const blob = safeStr(tx?.transaction);
-          const pids = blob.match(/\d{3,6}/g) || [];
-          for (const pid of pids) {
-            drops.push({ pid, fid, ts, raw: tx });
+          const parsed = _dropPidsFromTx(tt, tx?.transaction);
+          if (parsed == null) {
+            unparsedTx.push({ type: tt, timestamp: ts, franchise: fid, transaction: safeStr(tx?.transaction) });
+            continue;
+          }
+          for (const pid of parsed) {
+            drops.push({ pid, fid, ts, raw: tx, tx_type: tt });
           }
         }
 
@@ -44524,6 +46985,16 @@ export default {
             acqWeekMap = _acquisitionWeekMapFromTxs(allTxRes && allTxRes.data && allTxRes.data.transactions && allTxRes.data.transactions.transaction, targetSeason);
           } catch (_) {}
         }
+
+        // This is the path that posts the REAL charge, so it needs the same
+        // call-up awareness as the preview: `preDrop.is_taxi` is MFL's roster
+        // status, which reads false for a taxi player dropped mid-call-up and
+        // silently costs him the §D2 exemption.
+        const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid));
+
+        // Real Week-1 boundary (2026 opens Wednesday; the derived "Thursday
+        // after Labor Day" is a day late). Resolved once for the whole scan.
+        const scanWeek1Iso = await _week1BoundaryIsoET(targetSeason);
 
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
@@ -44554,7 +47025,9 @@ export default {
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
-              }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid] });
+                taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)] === true,
+              }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid],
+                   week1ThursdayIso: scanWeek1Iso || undefined });
             }
 
             // Which cap year this penalty belongs to (canon §6 penalty timing).
@@ -44562,13 +47035,64 @@ export default {
               season: scanSeasonNum, dropUnix: drop.ts, auctionStartUnix: scanAuctionStart.unix,
             });
 
+            // A BBID-sourced drop was ALREADY announced — the adds/waiver-run
+            // poster (/admin/adds/post-discord) reads MFL's transaction log
+            // directly and runs regardless of this scanner's state, so it told
+            // the league about this exact drop, paired with its add, in that
+            // claim's own thread, at claim-processing time. Writing this row
+            // with the normal default (discord_posted=0) hands it straight to
+            // the drops-poster's auto-post cron, which repeats what the
+            // channel already saw. Caught live 2026-08-16 (Emanuel Wilson
+            // posted twice — waiver-run thread at 9:06 AM, standalone drop
+            // card at 10:50 PM after this scanner started seeing BBID rows).
+            //
+            // Correlated on (franchise_id, acquired_at_unix) — the add and its
+            // paired drop are parsed from the SAME MFL transaction, so this is
+            // an exact match, not a fuzzy one. Only suppressed when a
+            // MATCHING, SUCCESSFULLY-POSTED add is found — if the adds poster
+            // never announced it (a failed post, or some edge case with no
+            // add-side row at all), this row is left discord_posted=0 so the
+            // drops-poster still tells the league. Never silently unannounced.
+            // Does the ADDS poster own this drop? Decided from the drop's OWN
+            // transaction, with no cross-table read.
+            //
+            // The previous version asked ups_add_events whether a matching add
+            // was already discord_posted=1 — and LOST A RACE. Both scanners run
+            // in the same */5 tick: the add is inserted (discord_posted=0), the
+            // drop is scanned seconds later, and only afterwards does the adds
+            // poster flip the flag. Verified on the real 2026-08-20 run —
+            // Emanuel Wilson's add detected 13:05:09.034, Calvin Ridley's drop
+            // 13:05:14.177, correlation keys identical — so the guard saw an
+            // unposted add, declined to suppress, and the league got Calvin
+            // Ridley announced twice: once as a standalone "Drop" card and
+            // again inside the waiver post (Keith 2026-08-21, with receipts).
+            //
+            // A BBID/WAIVER transaction is "added,|bid|dropped,". If the ADDED
+            // field is populated then this drop is the paired side of somebody's
+            // claim, and the adds/waiver-run poster announces it as part of that
+            // claim — always, since that pairing comes from the same MFL
+            // transaction string rather than from a join. So the standalone card
+            // is redundant by construction, not by timing, and there is no state
+            // anywhere that can flip mid-tick to change the answer.
+            //
+            // A waiver drop with NO added player is not owned by anyone else and
+            // still gets its own card.
+            let alreadyAnnouncedViaAdd = false;
+            if (drop.tx_type === "BBID_WAIVER" || drop.tx_type === "WAIVER") {
+              const addedField = safeStr(drop.raw?.transaction).split("|")[0] || "";
+              alreadyAnnouncedViaAdd = addedField.replace(/\D/g, "").length > 0;
+            }
+
             if (dryRun) {
               written.push({
                 pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+                tx_type: drop.tx_type, raw_transaction: safeStr(drop.raw?.transaction),
                 pre_drop: preDrop, penalty: penaltyInfo,
                 applies_to_season: capYear.ok ? capYear.applies_to_season : null,
                 cap_year_bucket: capYear.bucket || "",
                 cap_year_needs_review: capYear.ok ? "" : capYear.reason,
+                already_announced_via_add: alreadyAnnouncedViaAdd,
+                would_auto_post_to_discord: !alreadyAnnouncedViaAdd,
               });
               continue;
             }
@@ -44582,8 +47106,9 @@ export default {
                  pre_drop_aav, pre_drop_years_remaining, pre_drop_taxi,
                  earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
                  penalty_exempt, penalty_exempt_reason,
-                 ledger_key, source, detected_at_utc, raw_transaction_json, snapshot_source
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ledger_key, source, detected_at_utc, raw_transaction_json, snapshot_source,
+                 discord_posted, notes
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT (season, league_id, player_id, dropped_at_unix) DO NOTHING`
             ).bind(
               targetSeason, leagueId, drop.pid,
@@ -44609,7 +47134,9 @@ export default {
               safeStr(penaltyInfo.exempt_reason),
               ledgerKey, "transactions_poll", nowIso,
               JSON.stringify(drop.raw),
-              preDrop?.snapshot_source || null
+              preDrop?.snapshot_source || null,
+              alreadyAnnouncedViaAdd ? 1 : 0,
+              alreadyAnnouncedViaAdd ? "Already announced via the adds/waiver-run poster at claim time — drop-ledger post suppressed to avoid a duplicate." : null
             ).run();
             // Stamp the cap year. Separate statement on purpose: migration 0125
             // is hand-applied, so the worker can be live before the columns
@@ -44631,8 +47158,78 @@ export default {
                 ledgerKey
               ).run();
             }
+
+            // ── Cap-free retirement routing (Keith 2026-08-15) ────────────────
+            //   "if flagged by MFL it should be automatic ... if no MFL flag it
+            //    should query real sources and include those sources in the
+            //    post that I can approve."
+            //
+            // auto    → MFL says RETIRED. Recorded as approved on the spot; the
+            //           §D2a settlement replaces the §D1 penalty.
+            // pending → real sources say retired, MFL does not. penalty_amount
+            //           is left ALONE and the row is held from the charge cron
+            //           until the commish rules.
+            // none    → no retirement signal. Untouched, charges normally.
+            //
+            // Only rows that actually carry money are considered — a $0 row has
+            // nothing to hold. The news leg is capped per invocation because
+            // /api/player-news fans out to Sleeper + ESPN RSS + Reddit on every
+            // call and exhausted the Worker subrequest budget when the preview
+            // tried 35 rows at once (2026-08-15). Uncapped rows simply route on
+            // the next scan; nothing is lost.
+            if (scanHasCapfreeCols && safeInt(penaltyInfo.penalty, 0) > 0) {
+              const cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(drop.pid) || "").toUpperCase() : "";
+              const cfIsRetired = scanInjByPid.known && cfDesig === "RETIRED";
+              let cfRoute = "none";
+              let cfEvidence = null;
+              if (cfIsRetired) {
+                cfRoute = "auto";
+              } else if (scanNewsBudget > 0) {
+                scanNewsBudget -= 1;
+                const oneNews = await _retirementNewsBatch(targetSeason, leagueId, [drop.pid], scanOrigin);
+                const ev = await _retirementEvidence(targetSeason, leagueId, drop.pid, oneNews);
+                cfRoute = ev.route;
+                if (ev.sources.length) cfEvidence = ev.sources;
+              } else {
+                cfRoute = "deferred_budget";
+              }
+
+              if (cfRoute === "auto" || cfRoute === "pending") {
+                const cfSet = _d2aSettlement({
+                  pre_drop_aav: penaltyInfo.aav,
+                  pre_drop_contract_length: penaltyInfo.cl,
+                  pre_drop_contract_year: preDrop?.contract_year,
+                  earned_to_date: penaltyInfo.earned,
+                });
+                // AUTO only settles when §D2a can actually be computed. If it
+                // cannot, the row drops to `pending` so a human prices it —
+                // never a silent $0 cap-free.
+                const cfAuto = cfRoute === "auto" && cfSet.known;
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_drop_events
+                      SET capfree_route = ?, capfree_review_status = ?, capfree_mfl_designation = ?,
+                          capfree_evidence_json = ?, capfree_settlement_amount = ?,
+                          penalty_amount = COALESCE(?, penalty_amount),
+                          penalty_basis = COALESCE(?, penalty_basis),
+                          capfree_decided_at_utc = ?, capfree_decided_by = ?
+                    WHERE ledger_key = ?`
+                ).bind(
+                  cfRoute,
+                  cfAuto ? "approved" : "pending",
+                  cfDesig || null,
+                  cfEvidence ? JSON.stringify(cfEvidence).slice(0, 4000) : null,
+                  cfAuto ? cfSet.settlement : null,
+                  cfAuto ? cfSet.settlement : null,
+                  cfAuto ? "retired_capfree_d2a_settlement" : null,
+                  cfAuto ? nowIso : null,
+                  cfAuto ? "auto:mfl_retired_flag" : null,
+                  ledgerKey
+                ).run();
+              }
+            }
             written.push({
               pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+              tx_type: drop.tx_type,
               penalty_amount: penaltyInfo.penalty, penalty_basis: penaltyInfo.basis,
               exempt: penaltyInfo.exempt,
               applies_to_season: capYear.ok ? capYear.applies_to_season : null,
@@ -44650,7 +47247,13 @@ export default {
           season: targetSeason,
           league_id: leagueId,
           window_days: days,
+          scanned_types: scanTypes,
+          include_waivers: includeWaivers,
           transactions_seen: drops.length,
+          // Rows whose payload shape the parser refuses to guess at. Reported,
+          // never silently skipped — a real drop hiding in here is real money.
+          unparsed_transaction_count: unparsedTx.length,
+          unparsed_transactions: unparsedTx,
           written_count: written.length,
           skipped_count: skipped.length,
           auction_start: {
@@ -45336,7 +47939,11 @@ export default {
           // ?drop_date=YYYY-MM-DD and ?acquisition_week=W drive the per-week math.
           const pvDropIso = url.searchParams.get("drop_date") || new Date().toISOString();
           const pvAcqWhatIf = url.searchParams.get("acquisition_week");
-          const pvOpts = { season: pvSeason, dropDateIso: pvDropIso };
+          // Real Week-1 boundary from MFL's schedule (2026 opens Wednesday, so
+          // the "Thursday after Labor Day" derivation is a day late). null →
+          // _parseContractData falls back to that derivation.
+          const pvWeek1Iso = await _week1BoundaryIsoET(pvSeason);
+          const pvOpts = { season: pvSeason, dropDateIso: pvDropIso, week1ThursdayIso: pvWeek1Iso || undefined };
           // In-season only: derive each player's mid-season pickup week so the
           // eligible-weeks denominator is 18−W (canon §D1). Offseason or an explicit
           // ?acquisition_week= skips the extra transactions fetch (irrelevant then).
@@ -45348,6 +47955,18 @@ export default {
               pvAcqMap = _acquisitionWeekMapFromTxs(txRes && txRes.data && txRes.data.transactions && txRes.data.transactions.transaction, pvSeason);
             } catch (_) {}
           }
+          // A taxi player on a temporary call-up reads as ACTIVE in MFL, so
+          // status alone loses him his §D2 cap-free cut. Look up call-up history
+          // for every rostered player once, up front, rather than per-player.
+          const pvAllPids = [];
+          for (const f of frs) {
+            let pls = f && f.player; pls = Array.isArray(pls) ? pls : (pls ? [pls] : []);
+            for (const pl of pls) {
+              const id = safeStr(pl && pl.id).replace(/\D/g, "");
+              if (id) pvAllPids.push(id);
+            }
+          }
+          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids);
           const penaltyFor = (pl) => {
             const pid = safeStr(pl.id).replace(/\D/g, "");
             const input = {
@@ -45356,6 +47975,7 @@ export default {
               contractInfo: safeStr(pl.contractInfo),
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
+              taxiNeverPromoted: pvTaxiNeverPromoted[pid] === true,
             };
             const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
             const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk });
@@ -48638,7 +51258,7 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id/L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season/YEAR" });
         if (!playerId) return jsonOut(400, { ok: false, error: "Missing player_id" });
-        const isImportRosterAction = action === "promote_taxi" || action === "activate_ir" || action === "drop_player" || action === "demote_taxi";
+        const isImportRosterAction = action === "promote_taxi" || action === "activate_ir" || action === "deactivate_ir" || action === "drop_player" || action === "demote_taxi";
         const isMembershipRosterAction = action === "load_player" || action === "unload_player";
 
         if (!isImportRosterAction && !isMembershipRosterAction) {
@@ -48723,6 +51343,81 @@ export default {
         // last 4 seasons of draftResults for the draft round. If we can't
         // conclusively determine round, we allow the action (fail-open) so
         // legitimate demotes of older rookies aren't blocked by a bad lookup.
+        // ── §B3 IR eligibility, enforced SERVER-SIDE ─────────────────────────
+        // Same lesson as demote_taxi below and the FCFS write above: a gate that
+        // lives only in the client is not a gate. Canon §B3 / T2.1 -- IR is for
+        // a player holding an NFL IR-type designation (IR / PUP / NFI /
+        // suspended / COVID legacy). IR carries 50% cap relief
+        // (MFL `includeIRWithSalary=50`) and takes the player off the active
+        // roster max, so an ineligible IR placement is a real cap advantage.
+        //
+        // NO FAIL-OPEN: if MFL's injuries export cannot be read we refuse rather
+        // than treat "unreadable" as "no designation" OR as "eligible".
+        //
+        // ⚠️ `injuries` is one of MFL's LEAGUE-AGNOSTIC exports -- sending L= gets
+        // the whole request rejected with "Invalid request. This API request must
+        // go to api.myfantasyleague.com", which decodes to an EMPTY injury list.
+        // omitLeagueParam is therefore mandatory, not optional. This is the same
+        // trap that broke /api/hot-cold (topAdds/topDrops, PR #868), and it is
+        // currently breaking mobile's IR view, whose fetchInjuries() sends L= and
+        // then .catch()es to {} -- so every player reads as "no designation".
+        // Verified live 2026-08-15: with L= -> 0 rows; without L= -> 339 rows.
+        if (action === "deactivate_ir") {
+          const irRes = await mflExportJson(season, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+          const irOvRaw = String((body && body.override_ir_eligibility) != null ? body.override_ir_eligibility : "").toLowerCase();
+          const irOverrideOk = sessionByApiKey && (irOvRaw === "true" || irOvRaw === "1" || irOvRaw === "yes");
+          if (!irRes || !irRes.ok) {
+            if (!irOverrideOk) {
+              return jsonOut(502, {
+                ok: false,
+                code: "IR_ELIGIBILITY_UNKNOWN",
+                error: "Could not read MFL's injury report, so IR eligibility could not be verified. Nothing was written. "
+                     + "The commissioner can override.",
+                player_id: playerId,
+                franchise_id: franchiseId,
+                mfl_status: safeInt(irRes && irRes.status, 0),
+              });
+            }
+          } else {
+            const irRoot = irRes.data && irRes.data.injuries && irRes.data.injuries.injury;
+            const irRows = Array.isArray(irRoot) ? irRoot : (irRoot ? [irRoot] : []);
+            const hit = irRows.find((r) => safeStr(r && r.id) === playerId);
+            const desig = safeStr(hit && hit.status).toUpperCase();
+            // Matched against the values MFL ACTUALLY sends. Observed live
+            // 2026-08-15 across 339 rows: IR (32), IR-PUP (2), IR-NFI (1),
+            // Suspended (8), Holdout (2), RETIRED (19), Questionable (234),
+            // Out (41).
+            //
+            // The predicate in site/m/views/contracts.js irEligible() tests
+            // `s === "PUP"` / `s === "NFI"`, which NEVER match because MFL
+            // prefixes them: the real strings are "IR-PUP" / "IR-NFI". It also
+            // has no HOLDOUT branch though canon T2.1 lists holdouts explicitly.
+            // Fixed here; that client predicate needs the same correction.
+            //
+            // RETIRED is deliberately NOT eligible -- canon D2 handles retirees
+            // separately ("Retired Players Rule: retired = cap-free cut"), which
+            // is a different mechanic from IR's 50% relief.
+            const eligible = desig.indexOf("IR") === 0        // IR, IR-PUP, IR-NFI
+                          || desig.indexOf("SUSPEND") === 0   // Suspended
+                          || desig.indexOf("HOLDOUT") === 0   // canon T2.1
+                          || desig.indexOf("COVID") >= 0;     // legacy §B3
+            if (!eligible && !irOverrideOk) {
+              return jsonOut(400, {
+                ok: false,
+                code: "IR_NOT_ELIGIBLE",
+                error: desig
+                  ? `${playerId} holds NFL designation "${desig}", which is not IR-eligible (IR / PUP / NFI / suspended / COVID).`
+                  : "This player is not on MFL's NFL injury report, so they hold no IR-eligible designation "
+                    + "(IR, IR-PUP, IR-NFI, Suspended, Holdout, COVID). The commissioner can override.",
+                player_id: playerId,
+                franchise_id: franchiseId,
+                nfl_designation: desig,
+                injury_rows_seen: irRows.length,
+              });
+            }
+          }
+        }
+
         if (action === "demote_taxi") {
           const r1Gate = await _checkR1RookieDemoteGate(season, leagueId, playerId);
           if (r1Gate.isR1Rookie) {
@@ -48894,11 +51589,15 @@ export default {
         }
 
         const importFields = {
-          TYPE: action === "activate_ir" ? "ir" : "taxi_squad",
+          TYPE: (action === "activate_ir" || action === "deactivate_ir") ? "ir" : "taxi_squad",
           L: leagueId,
         };
         if (action === "activate_ir") {
           importFields.ACTIVATE = playerId;
+        } else if (action === "deactivate_ir") {
+          // MFL_IMPORT_EXPORT_DETAILED.md ~623: DEACTIVATE = "move from Active
+          // Roster to Injured Reserve". Same TYPE=ir import as ACTIVATE.
+          importFields.DEACTIVATE = playerId;
         } else if (action === "drop_player") {
           importFields.DROP = playerId;
         } else if (action === "demote_taxi") {
@@ -48960,7 +51659,29 @@ export default {
           // noop
         }
 
-        if (!importRes.requestOk) {
+        // Only an EXPLICIT refusal from MFL short-circuits here. A merely
+        // unrecognised response does not.
+        //
+        // requestOk is `isLikelyMflImportSuccess`, which is
+        // `res.ok && !looksLikeMflImportError(text)` -- and that error sniff
+        // fires on the substring "error" appearing ANYWHERE in the body. These
+        // imports return an HTML page, and virtually any MFL HTML page contains
+        // "error" somewhere (a script, a CSS class, a hidden field). So a write
+        // that MFL applied perfectly reports as a failure.
+        //
+        // That is exactly what happened to Keith on 2026-08-15: "Place on IR
+        // failed: MFL import failed (HTTP 200)" -- and the player WAS placed on
+        // IR. Telling an owner a non-idempotent roster move failed when it
+        // succeeded is the worst outcome available, because the obvious next
+        // action is to retry it.
+        //
+        // The roster read below is the fact; the response body is a heuristic.
+        // The drop and FCFS write paths already learned this (see the "(a)/(b)/
+        // (c)" note on /api/waivers/fcfs); this path never did and bailed BEFORE
+        // its own verification could run. Now only `definite_reject` -- MFL
+        // returning a real error payload in its own words -- fails fast. Anything
+        // else falls through and lets the roster decide.
+        if (!importRes.requestOk && importRes.definite_reject) {
           return jsonOut(502, {
             ok: false,
             error: importRes.error || "MFL roster action failed",
@@ -48974,6 +51695,9 @@ export default {
             form_fields: importRes.formFields,
           });
         }
+        // Remembered so the response can say whether the roster overruled the
+        // heuristic, rather than silently papering over it.
+        const importHeuristicSaidFail = !importRes.requestOk;
 
         const verifyRes = await mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
         let verification = {
@@ -49003,6 +51727,8 @@ export default {
             const status = safeStr(located.status);
             const expectedOk = action === "activate_ir"
               ? !status.includes("IR")
+              : action === "deactivate_ir"
+              ? status.includes("IR")
               : (action === "demote_taxi" ? status.includes("TAXI") : !status.includes("TAXI"));
             verification = {
               ok: expectedOk,
@@ -49124,6 +51850,8 @@ export default {
           taxiCallupRecord && taxiCallupRecord.became_permanent;
         const successMessage = action === "activate_ir"
           ? "Player activated from IR in MFL."
+          : action === "deactivate_ir"
+          ? "Player placed on IR in MFL (§B3: 50% cap relief, off the active roster max)."
           : (action === "drop_player"
             ? "Player dropped in MFL."
             : (action === "demote_taxi"
@@ -49131,6 +51859,37 @@ export default {
               : (promotedToPermanent
                 ? "Player promoted from taxi (4th activation — now permanently promoted)."
                 : "Player promoted from taxi in MFL.")));
+
+        // The roster read itself failed — we hold NO evidence either way.
+        // This is NOT "the write failed": MFL may well have applied it and the
+        // verification export simply did not answer. Saying "failed" here
+        // invites a retry, and a retry on a non-idempotent roster move is how
+        // you demote a player twice or re-cut someone. Report it as unconfirmed
+        // and explicitly tell the caller not to resend — the same distinction
+        // /api/waivers/fcfs draws between "MFL rejected" and "read unreadable".
+        if (!verification.ok && verification.reason === "post_import_rosters_export_failed") {
+          return jsonOut(200, {
+            ok: true,
+            verified: false,
+            verify_known: false,
+            retry_safe: false,
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            used_franchise_id: usedFranchiseId,
+            import_heuristic_said_fail: importHeuristicSaidFail,
+            error_code: "MFL_WRITE_UNCONFIRMED",
+            message:
+              `The ${action} request was sent, but MFL's roster export could not be read back, ` +
+              "so we cannot confirm whether it applied. Check MFL directly — do NOT resend, " +
+              "as this action is not idempotent.",
+            verification,
+            response: {
+              upstream_status: importRes.status,
+              upstream_preview: importRes.upstreamPreview,
+            },
+          });
+        }
 
         if (!verification.ok) {
           // Common cause for taxi promote/demote: MFL gates the action
@@ -49167,8 +51926,27 @@ export default {
           });
         }
 
+        // Announce to the transactions feed. See _announceIrMove — the copy,
+        // the GIF pools and the failure behaviour all live there so the
+        // write-time path and the commish backfill route cannot drift apart.
+        let irAnnounce = null;
+        if (action === "deactivate_ir" || action === "activate_ir") {
+          irAnnounce = await _announceIrMove({
+            season, leagueId, playerId, franchiseId,
+            placing: action === "deactivate_ir",
+          });
+        }
+
         return jsonOut(200, {
           ok: true,
+          // True when MFL's response body tripped the "error" substring sniff
+          // but the ROSTER proved the write landed anyway. Surfaced rather than
+          // hidden so a genuine upstream change shows up in logs instead of
+          // being silently smoothed over.
+          import_heuristic_said_fail: importHeuristicSaidFail,
+          // null for non-IR actions. posted:false with a reason when the
+          // announcement failed — the roster move still succeeded.
+          ir_announcement: irAnnounce,
           action,
           player_id: playerId,
           franchise_id: franchiseId,
@@ -49546,12 +52324,61 @@ export default {
           });
         }
 
+        // Which pre-season ladder rung is open right now (MYAC -> MYM ->
+        // Extension). Stamped here so the trade workbench does not become a
+        // SIXTH browser copy of this boundary: five already exist and drift is
+        // exactly what dropped `Ext:` from nine contracts on 2026-08-22.
+        //
+        // FAIL-CLOSED end to end. Any throw, any missing boundary, and this
+        // stays "unresolved" — the client must read that as "offer no
+        // extension", never as "no restriction". The Sept deadline is
+        // commish-owned and read verbatim from league_events; weeks 3/5 come
+        // from nflWeekFirstKickoffUnix, the same helper the Discord waiver post
+        // and the mobile ladder use, so no surface can hold a different answer.
+        // `reason` is carried on every unresolved result. The first cut of this
+        // block queried a `season` column that does not exist (it is
+        // `nfl_season`), and the catch below turned that SQL error into a bare
+        // "unresolved" — indistinguishable from a legitimately unseeded season.
+        // A fail-closed guard must still say WHY it closed, or it hides the bug
+        // it just caught.
+        let contractLadder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
+        try {
+          let cdUnix = null;
+          const cdRow = await env.UPS_MFL_DB.prepare(
+            "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
+          ).bind(String(season)).first();
+          const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
+            // 23:59:59 ET on the deadline DAY — matches the instant every other
+            // arm already gates MYAC on (front_office.js ~3360).
+            const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
+            if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
+          }
+          const [wk3, wk5] = await Promise.all([
+            nflWeekFirstKickoffUnix(season, 3),
+            nflWeekFirstKickoffUnix(season, 5),
+          ]);
+          contractLadder = contractLadderStage({
+            contractDeadlineUnix: cdUnix,
+            week3KickoffUnix: wk3,
+            week5KickoffUnix: wk5,
+            nowUnix: Math.floor(Date.now() / 1000),
+          });
+          if (contractLadder.stage === "unresolved") {
+            contractLadder.reason = !cdUnix ? "no_contract_deadline"
+              : (!wk3 || !wk5) ? "no_week_kickoffs" : "boundaries_out_of_order";
+          }
+        } catch (err) {
+          contractLadder = { stage: "unresolved", end_unix: null, reason: "error: " + safeStr(err && err.message).slice(0, 120) };
+        }
+
         const response = jsonOut(200, {
           ok: true,
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           generated_at: new Date().toISOString(),
           source: "worker:/trade-workbench",
+          contract_ladder: contractLadder,
           salary_cap_dollars: leagueSalaryCapDollars,
           teams,
           extension_previews: extRowsNormalized.rows || [],
@@ -50019,6 +52846,93 @@ export default {
           } catch (_) {}
           return 0;
         })();
+
+        // ── §C3 MYM GUARDS (Keith 2026-08-17) ─────────────────────────────
+        // The 4-per-season cap and the 14-day window. Both were believed to
+        // live here — front_office_mym_submit.js says "the WORKER enforces the
+        // 14-day window AND the 4-per-season cap on submit; this client is
+        // best-effort" — and neither existed. The only thing enforcing §C3 was
+        // a client that disclaims authority, so a direct POST bypassed both.
+        //
+        // Placed BEFORE the MFL write, after the flags are known, so a blocked
+        // submission never reaches MFL and never books an audit row.
+        //
+        // Dry runs are checked but not blocked: the whole point of a dry run is
+        // to see what would happen, and a guard that refuses to simulate hides
+        // the answer the owner asked for. The verdict rides in the response.
+        if (isMymSubmission && !isRestructure) {
+          const mymGuard = await checkMymEligibility(env, {
+            season: year, leagueId,
+            fid: franchiseId, playerId,
+            isCommishOverride: !!(sessionByApiKey || commishOverrideFlag),
+          }).catch((e) => ({ allowed: true, reason: "guard_error", detail: String(e && e.message || e) }));
+          if (mymGuard.overridden) {
+            console.log(`[offer-mym] §C3 ${mymGuard.reason} OVERRIDDEN by commish for fid=${franchiseId} pid=${playerId}`);
+          }
+          if (!mymGuard.allowed && !dryRunFlag) {
+            return mutationResponse("validation_fail", "", {
+              reason: mymGuard.detail || "Mid-Year Multi not permitted (§C3).",
+              rule: mymGuard.reason,
+              mym_used: mymGuard.cap && mymGuard.cap.used,
+              mym_max: mymGuard.cap && mymGuard.cap.max,
+              window_closes_unix: mymGuard.window && mymGuard.window.closes_unix,
+            }, 422);
+          }
+          if (!mymGuard.allowed && dryRunFlag) {
+            console.log(`[offer-mym] DRY RUN would be blocked: ${mymGuard.reason}`);
+          }
+        }
+
+        // ── RESTRUCTURE CAP — 3 per team per season (Keith 2026-08-23) ─────
+        // Canon line 40 says "Restructure limit = 3". Keith suspended it on
+        // 2026-07-31 ("allow the team to do as they please") and nothing
+        // enforced it anywhere, so on 2026-08-23 CBP reached 4 — three of them
+        // on Nico Collins, the last one exactly undoing their own previous
+        // restructure. Cap reinstated; the offseason-only window stays
+        // suspended, only the count is enforced.
+        //
+        // Same placement as the MYM guard above: BEFORE the MFL write, after
+        // the flags are known, so a blocked submission never reaches MFL and
+        // never books an audit row. Dry runs report the verdict instead of
+        // being blocked.
+        if (isRestructure) {
+          // WINDOW first: an out-of-window restructure is refused whether or not
+          // the team has cap room, and saying "you have 2 left" to someone who
+          // cannot restructure at all is the wrong sentence.
+          const rwin = await checkRestructureWindow(env, { season: year });
+          if (!rwin.open && !dryRunFlag && !(sessionByApiKey || commishOverrideFlag)) {
+            return mutationResponse("validation_fail", "", {
+              reason: rwin.detail || "Restructures are offseason-only.",
+              rule: rwin.reason,
+              window_closes_unix: rwin.deadline_unix,
+            }, 422);
+          }
+          if (!rwin.open && (sessionByApiKey || commishOverrideFlag)) {
+            console.log(`[offer-restructure] window ${rwin.reason} OVERRIDDEN by commish for fid=${franchiseId}`);
+          }
+          if (!rwin.open && dryRunFlag) {
+            console.log(`[offer-restructure] DRY RUN would be blocked: ${rwin.reason}`);
+          }
+          const rcap = await checkRestructureCap(env, {
+            season: year, leagueId,
+            fid: franchiseId,
+            isCommishOverride: !!(sessionByApiKey || commishOverrideFlag),
+          });
+          if (rcap.overridden) {
+            console.log(`[offer-restructure] cap ${rcap.cap.used}/${rcap.cap.max} OVERRIDDEN by commish for fid=${franchiseId}`);
+          }
+          if (!rcap.allowed && !dryRunFlag) {
+            return mutationResponse("validation_fail", "", {
+              reason: rcap.detail || `Restructure limit is ${RESTRUCTURE_MAX_PER_SEASON} per team per season.`,
+              rule: rcap.reason,
+              restructures_used: rcap.cap && rcap.cap.used,
+              restructures_max: rcap.cap && rcap.cap.max,
+            }, 422);
+          }
+          if (!rcap.allowed && dryRunFlag) {
+            console.log(`[offer-restructure] DRY RUN would be blocked: ${rcap.reason}`);
+          }
+        }
 
         // silence_discord flag (Keith 2026-05-18) — for manual contract
         // reverts where the MFL change must land but Discord must NOT
@@ -50615,7 +53529,7 @@ export default {
                 return jsonOut(409, {
                   ok: false,
                   error: "LOADED_CAP_EXCEEDED",
-                  reason: `Franchise ${myFid} already holds ${loadedOthers} loaded contracts; this restructure would create a 6th (cap is 5 — canon §C5). Trade or cut a loaded player first.`,
+                  reason: `Franchise ${myFid} already holds ${loadedOthers} loaded contracts; this restructure would create a 6th (cap is 5). Trade or cut a loaded player first.`,
                 });
               }
             }
