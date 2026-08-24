@@ -177,7 +177,7 @@ Principle 3 says a rule nobody can detect is not a rule. Where each stands now:
 | 14-day MYM window | **nothing** — same false claim | **built** — same guard |
 | 5-QB active max | **nothing** | **built** — `/admin/qb-caps/check`, deterministic |
 | 4-starting-QB cap | **nothing** | **reported** — same endpoint; starter status is a commissioner input, never inferred |
-| Roster < 27 | blocked by MFL | blocked by MFL |
+| Roster < 27 | blocked by MFL | blocked by MFL — confirmed Keith 2026-08-18 ("MFL restricts it within our settings"). Not visible in the `TYPE=league` export, so absence there is **not** evidence it is unenforced — I briefly concluded otherwise and was wrong. |
 | $260K floor | no check | amount now stated (§6.A2); check still unbuilt |
 
 The 4-starting-QB cap stops at *reported* on purpose. Canon's consequence is real cuts with real dead money, and canon itself makes starter status a commissioner determination — FantasyPros' depth-chart page is client-rendered (verified 2026-08-17: zero `QB` in the served HTML), so there is no honest scrape behind an automated answer either. Making it **visible** is the most a rule of that shape can honestly be.

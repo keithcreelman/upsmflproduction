@@ -371,8 +371,10 @@ for 2022-2025.
   - **Holdouts**
   - **Suspended players** (special handling, see below)
 - **Cap relief:** **50%** of salary refunded while on IR. (E.g., a player at $20K salary becomes a $10K cap hit while on IR.) **Live verification deferred (Keith, 2026-05-16 review session):** no player is currently on IR, so the worker + client code paths haven't been live-traced against this rule. Follow-up tracker filed in `AUDIT_FOLLOWUP_TRACKERS.md` (Q5) — verify the next time a UPS player IRs.
-- **Roster impact:** IR players do NOT count against active roster max.
-- **No team-side IR limit.** MFL setting is set very high — effectively unlimited.
+- **Roster impact:** IR players do NOT count against active roster max — **and do NOT count toward the 27 minimum either (Keith 2026-08-18).**
+  - **Consequence, and it is load-bearing: a franchise at exactly 27 active cannot use IR at all.** IR'ing a player would leave 26 active, below the floor. So IR — the league's only unilateral 50% cap-relief valve — is available down to 28 active and no further.
+  - Combined with the 27 floor blocking drops and MFL refusing any add that would exceed the cap, **a franchise at exactly 27 that is over the cap has NO unilateral cure on any day of the week.** Its only exit is trading salary away, which requires a willing counterparty. This is not a Mon–Thu gap; it is permanent while the roster sits at 27. See §G7.1b.
+- **Team-side IR limit is 15** (MFL `injuredReserve = 15`, read live 2026-08-18). Corrected from "very high — effectively unlimited", which was an estimate. Generous, but finite.
 - **IR + guarantee earning:** confirmed — earning continues on Oct/Nov/Dec checkpoints while on IR.
 - **Suspended player handling:**
   - **Off-season suspension** (season-long): owner can opt to NOT roll forward the contract → salary $0 that year, original salary resumes after suspension. Decision before contract deadline.
