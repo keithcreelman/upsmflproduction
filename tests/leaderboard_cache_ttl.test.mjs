@@ -30,8 +30,13 @@ check('completed seasons get a long TTL', () => {
     '30 days for frozen data, 5 minutes for the live season');
 });
 check('"completed" means strictly before the current season', () => {
-  assert.ok(/safeInt\(sn, 0\) < lbCurrentSeason/.test(handler),
+  assert.ok(/_lbNum\(sn\) < lbCurrentSeason/.test(handler),
     'the season in progress must NOT be treated as frozen');
+});
+check('does NOT call safeInt here (temporal dead zone)', () => {
+  const ttlBlock = handler.slice(handler.indexOf('const _lbNum'), handler.indexOf('lbResponse.headers.set'));
+  assert.ok(!/safeInt\(/.test(ttlBlock),
+    'safeInt is declared later in the module — calling it here 500s the endpoint');
 });
 check('an empty season list is never treated as completed', () => {
   assert.ok(/seasons\.length > 0 &&/.test(handler),
