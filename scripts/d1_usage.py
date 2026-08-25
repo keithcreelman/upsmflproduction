@@ -15,7 +15,7 @@ Pick the window deliberately. 1d includes anything unusual that happened today
 (a one-off backfill will dominate it); 1h is the better proxy for steady state,
 but is noisy if nobody used the app.
 """
-import json, re, subprocess, sys
+import json, os, re, subprocess, sys
 
 READ_LIMIT_PER_DAY = 5_000_000
 WRITE_LIMIT_PER_DAY = 100_000
@@ -46,10 +46,17 @@ def label(sql: str) -> str:
 def main(window: str) -> int:
     if window not in HOURS:
         print(f"window must be one of {', '.join(HOURS)}"); return 2
+    # wrangler needs to run from worker/ (that is where wrangler.toml lives),
+    # but this script must be runnable from anywhere — including from inside
+    # worker/, which is the first place anyone will try it. Resolve the directory
+    # from THIS file's location rather than the caller's cwd.
+    worker_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "worker")
+    if not os.path.isdir(worker_dir):
+        print(f"could not find the worker/ directory (looked in {worker_dir})"); return 1
     out = subprocess.run(
         ["npx", "wrangler", "d1", "insights", "ups-mfl-db",
          "--time-period", window, "--sort-by", "reads", "--limit", "25", "--json"],
-        capture_output=True, text=True, cwd="worker")
+        capture_output=True, text=True, cwd=worker_dir)
     i = out.stdout.find("[")
     if i < 0:
         print("could not read insights:\n" + (out.stderr or out.stdout)[:400]); return 1
