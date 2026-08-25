@@ -3,7 +3,7 @@
 **League:** 16th Annual Pigskin Classic (2026) · ESPN league `176898` ·
 D1 key `ffl.s2026.l.176898` · 12 teams
 **Keith's team:** Creelman
-**Status:** data connected, analysis started, draft board BLOCKED (see §3)
+**Status:** data connected; QB scoring recovered by fitting (§3), board buildable
 
 > This file exists because the work kept getting rebuilt. The league data has
 > been in D1 since August, the waiver analysis has been an artifact since the
@@ -42,7 +42,7 @@ board. Scoring one with the other's rulebook is worse than useless.
 | Receptions | **1.0 — full PPR** | 1.0, **TE 1.5** |
 | Passing TD | **6** | 4 (vote pending on 6) |
 | Rush / rec yards | 0.1 | 0.1 |
-| Passing yards | **not in the payload — see §3** | 0.04 (a hidden `per` divisor) |
+| Passing yards | **not stated — fitted at ≈0.054, see §3** | 0.04 (a hidden `per` divisor) |
 | Interception | −2 | — |
 | Out-of-position TD | normal | **DOUBLE** |
 | Keepers | **1 per team** | none |
@@ -52,7 +52,7 @@ board. Scoring one with the other's rulebook is worse than useless.
 
 ---
 
-## 3. ⚠️ BLOCKER — the ESPN scoring on file is incomplete
+## 3. ⚠️ WAS A BLOCKER — passing yards recovered by fitting
 
 ESPN's own settings payload returns **41 scoring items and none of them is
 passing yards** (stat id 3) or fumbles lost (72). Verified against the raw JSON
@@ -66,15 +66,51 @@ The pattern — three pairs at 5 and 10 points, three at 2 — *looks* like
 distance touchdown bonuses and two-point conversions. **Looks-like is not
 knows.** A wrong label would be believed.
 
-**Consequence, and it is load-bearing:** quarterbacks cannot be scored for this
-league at all. A QB without passing yards loses roughly 250 points and would
-rank below a backup running back. So:
+### Recovered, not guessed
 
-- skill positions (RB/WR/TE) → scored on the seven confirmed rules
-- quarterbacks → **draft capital only, never a points number**
+ESPN will not state the multiplier, but it publishes its own points for every
+player-week (`fantasy_player_week_points.points_provider`), and real stat lines
+live in `nfl_player_weekly`. Regressing one against the other recovers it.
+`scripts/espn_solve_scoring.py`.
 
-Resolving the stat-id map is the one task standing between this league and a
-full draft board.
+| term | value | how |
+|---|---|---|
+| **passing yards** | **≈0.054 pts/yd** (1 per ~18.5) | fitted |
+| **sacks taken** | **−1.0** | fitted — **identifies unnamed id 64** |
+
+**The fit validates itself, which is the only reason to trust it.** The seven
+stated rules are subtracted from the points first rather than estimated, and
+the control is the 1,371 fitted player-weeks from players who never threw a
+pass: after the stated rules alone their median leftover is **0.000 points**.
+The stated rulebook is therefore exactly right, so whatever is left over on a
+passing week is genuinely passing. Median residual on the 51 passing weeks:
+**0.63 pts**.
+
+⚠️ Four wrong turns are recorded in the script because each one *looked* like it
+worked:
+
+1. Hardcoding the 2026 league key while querying 2025 returned **zero rows** —
+   the key is season-scoped. Only a row-count guard stopped that reading as
+   "no data".
+2. Omitting the unnamed terms did not remove their effect, it **redistributed
+   it**: distance TD bonuses were charged to the yardage rate, returning
+   `rush_yds` 0.113 against a stated 0.100.
+3. Filtering on `rush_long`/`rec_long`/`pass_long` did nothing — those columns
+   are **NULL for all 19,707 rows of 2025**, and `COALESCE(...,0) < 40` turned
+   every missing measurement into "no long play", so the filter matched
+   everything while appearing to work.
+4. Fitting receptions *and* receiving yards together returned 0.82/0.100 —
+   collinear terms trading off, with the sum right and the split meaningless.
+   Both are already stated; estimating them was the error.
+
+⚠️ **The overall residual is a vanity metric here.** 1,371 of 1,423 fitted rows
+are non-passers whose residual is zero by construction, so the overall median of
+0.000 says nothing. Only the passing-week residual measures the answer.
+
+**Still unnamed:** ids `8 12 17 18 19 26 37 38 44 56 57` — the 5/10 pairs are
+almost certainly distance TD bonuses and the three 2s are two-point
+conversions, but that is inference and they stay unnamed. Their absence is why
+the passing residual is 0.63 rather than ~0.
 
 ---
 
@@ -161,6 +197,8 @@ this league.
 
 ## 7. Open
 
-1. **Resolve the ESPN stat-id map** (§3). Blocks the draft board.
+1. Name the remaining 11 stat ids (§3) — the passing residual of 0.63 pts is
+   their footprint. MFL's `detailed?` report carries per-touchdown lengths,
+   which is the source that would settle the distance bands.
 2. Backfill the 2026 season (task #28).
 3. Chase Cox's keeper and Gainwell's projection gap before the draft.
