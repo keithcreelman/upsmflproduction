@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-24T10:21:19.146696+00:00",
+    "generated_at_utc": "2026-08-25T10:05:59.227539+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -4103,7 +4103,7 @@
           "display": "Kayshon Boutte",
           "player_id": "16193",
           "position": "WR",
-          "nfl_team": "NEP",
+          "nfl_team": "HOU",
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Vet-ERA",
@@ -4331,7 +4331,7 @@
           "display": "Trey Benson",
           "player_id": "16594",
           "position": "RB",
-          "nfl_team": "ARI",
+          "nfl_team": "FA",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -4938,6 +4938,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_15751",
+          "display": "Drake London",
+          "player_id": "15751",
+          "position": "WR",
+          "nfl_team": "ATL",
+          "salary": 33000,
+          "contract_year": 2,
+          "contract_status": "Vet-Ext1-FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_13299",
           "display": "George Kittle",
           "player_id": "13299",
@@ -4956,7 +4968,7 @@
           "position": "WR",
           "nfl_team": "PHI",
           "salary": 26000,
-          "contract_year": 1,
+          "contract_year": 3,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -4970,18 +4982,6 @@
           "salary": 22000,
           "contract_year": 2,
           "contract_status": "Vet-FAA-FL",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15751",
-          "display": "Drake London",
-          "player_id": "15751",
-          "position": "WR",
-          "nfl_team": "ATL",
-          "salary": 20000,
-          "contract_year": 2,
-          "contract_status": "Vet-Ext1-BL",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5148,7 +5148,7 @@
           "position": "DE",
           "nfl_team": "LAR",
           "salary": 2000,
-          "contract_year": 1,
+          "contract_year": 3,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -5184,7 +5184,7 @@
           "position": "S",
           "nfl_team": "JAC",
           "salary": 1000,
-          "contract_year": 1,
+          "contract_year": 3,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -5232,7 +5232,7 @@
           "position": "S",
           "nfl_team": "WAS",
           "salary": 1000,
-          "contract_year": 1,
+          "contract_year": 2,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -5292,8 +5292,8 @@
           "position": "DE",
           "nfl_team": "HOU",
           "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-MYM",
+          "contract_year": 2,
+          "contract_status": "VET-EXT1",
           "roster_status": "ROSTER",
           "taxi": false
         },
