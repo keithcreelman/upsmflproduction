@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.16",
-  "released": "2026-08-23",
+  "version": "2.0.17",
+  "released": "2026-08-25",
   "checkpoint": 14,
-  "scope": "Rookies won in the FA Auction could only be offered an Extension, never a 1/2/3-year auction contract. The eligibility test excluded any status containing the word rookie, which caught Rookie-FAA \u2014 an auction win. Canon line 394 puts every auction win, FA or Expired Rookie, at 1, 2, or 3 years. Eight players across five teams were affected; the clause now defers to the rookie-OPTION path instead of matching on the word.",
+  "scope": "Restructure segment preservation extended to the other two writers. #947 fixed only front_office.js; roster_workbench.js and the mobile submitter kept a single-token Ext: extractor whose regex was greedy and anchored to end-of-string, assuming Ext: was the last segment. With the token mid-string it captured the whole tail, and Drake London lost Ext: PG in a restructure on 2026-08-24 \u2014 two days after the class of bug was diagnosed and fixed in one place. All three writers now preserve every segment they do not own.",
   "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

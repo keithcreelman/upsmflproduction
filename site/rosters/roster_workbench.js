@@ -7612,6 +7612,26 @@
     return buildLeagueModuleHashUrl("MESSAGE2", params);
   }
 
+  // Segments a restructure OWNS — it recomputes every one of these.
+  var RESTRUCTURE_OWNED_SEGMENT = /^\s*(CL\b|TCV\b|AAV\b|Y\d+\s*-|GTD\b|[Rr]estructur)/i;
+  // Everything ELSE in a prior contractInfo is recorded history this form has no
+  // business editing — `Ext:` (which gates future extension eligibility) and the
+  // tag quartet `Tag | Tier N | Formula: … | 10% salary floor`. Carry them verbatim.
+  //
+  // 🔒 Replaces a single-token `Ext:` extractor whose regex was `Ext:.*$` —
+  // GREEDY and anchored to end-of-string. It assumed `Ext:` was the LAST segment.
+  // When the token sits mid-string (e.g. before GTD) it captured the entire tail,
+  // and Drake London lost `Ext: PG` in a restructure on 2026-08-24 — two days
+  // after the same class of bug was fixed in front_office.js (#947) and applied
+  // to only ONE of the three writers. Enumerating what to KEEP is the root cause;
+  // preserving the unrecognized remainder is the fix, and it must live in all three.
+  function preservedContractSegments(contractInfo) {
+    return safeStr(contractInfo).split("|").map(function (seg) {
+      return safeStr(seg).trim();
+    }).filter(function (seg) {
+      return seg && !RESTRUCTURE_OWNED_SEGMENT.test(seg);
+    });
+  }
   function extractExtensionSuffix(contractInfo) {
     var info = safeStr(contractInfo);
     if (!info) return "";
@@ -7728,7 +7748,15 @@
       yearParts.join(", "),
       "GTD: " + formatContractK(gtd)
     ];
-    if (safeStr(state.actionModal.restructureExtSuffix)) infoParts.push(safeStr(state.actionModal.restructureExtSuffix));
+    // Carry through every segment the restructure does not own — not just Ext:.
+    var carried = preservedContractSegments(
+      (state.actionModal.restructurePlayer && (state.actionModal.restructurePlayer.special ||
+       state.actionModal.restructurePlayer.contract_info)) ||
+      state.actionModal.restructurePriorInfo || "");
+    if (!carried.length && safeStr(state.actionModal.restructureExtSuffix)) {
+      carried = [safeStr(state.actionModal.restructureExtSuffix)];   // legacy fallback
+    }
+    carried.forEach(function (seg) { infoParts.push(seg); });
     infoParts.push("Restructured " + new Date().getFullYear());
 
     // §C5 / T3.4: the -FL / -BL suffix on a RESTRUCTURE follows which way the money
