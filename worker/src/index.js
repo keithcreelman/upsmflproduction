@@ -10670,92 +10670,6 @@ export default {
       //   include_post (optional)  — 1 to include playoff weeks (default 0 = UPS season)
       //   min_games    (optional)  — filter to rows with games >= N (default 1)
       //   limit        (optional)  — max rows (default 200, max 500)
-      // ── POST /admin/leaderboard-precompute/build ──────────────────────
-      // Populates nfl_leaderboard_precompute for one COMPLETED season by running
-      // the live leaderboard once per position alias and storing the answer.
-      //
-      // It calls the endpoint through env.SELF rather than duplicating the SQL —
-      // a second copy of that query would drift from the first, and this whole
-      // table exists because the original is too expensive to run twice.
-      // (env.SELF, not the public workers.dev URL: that 404s silently from
-      // inside a Worker and once killed deadline reminders for a season.)
-      //
-      // REFUSES the current season: it is still changing, and a frozen snapshot
-      // of a live season would be served as final all year.
-      if (path === "/admin/leaderboard-precompute/build" && request.method === "POST") {
-        // `sessionByApiKey` is the gate every other /admin route uses (?APIKEY=
-        // in the QUERY STRING, not a header). An earlier draft invented
-        // `commishOk`, which exists nowhere — a ReferenceError that would have
-        // 500'd this route exactly like the safeInt temporal-dead-zone bug did
-        // to the leaderboard yesterday.
-        if (!sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required to build the precompute." });
-        }
-        const body = await request.json().catch(() => ({}));
-        const season = safeInt(body.season || url.searchParams.get("season"), 0);
-        const currentSeason = safeInt(YEAR, 0) || new Date().getUTCFullYear();
-        if (!season) return jsonOut(400, { ok: false, error: "season is required" });
-        if (season >= currentSeason) {
-          return jsonOut(400, {
-            ok: false,
-            error: `season ${season} is not complete (current ${currentSeason}) — refusing to freeze a live season`,
-          });
-        }
-        const db = env.UPS_MFL_DB;
-        if (!db) return jsonOut(503, { ok: false, error: "D1 not bound" });
-        // Derived HERE. `leagueId` is declared 25 times in this file, every one
-        // inside a different route's block scope — none of them reachable from
-        // this one. The no-undef gate caught it before it deployed.
-        const preLeagueId = safeStr(url.searchParams.get("L") || body.league_id || L || "");
-        const origin = new URL(request.url).origin;
-        const built = [];
-        for (const alias of ["qb", "skill", "idp", "kicker", "punter"]) {
-          const u = `${origin}/api/advanced-stats-leaderboard?season=${season}&pos=${alias}` +
-                    `&min_games=1&limit=500&NO_CACHE=1&L=${encodeURIComponent(preLeagueId)}`;
-          let rows = [];
-          try {
-            const r = await env.SELF.fetch(u);
-            const j = await r.json();
-            rows = Array.isArray(j?.rows) ? j.rows : [];
-          } catch (err) {
-            built.push({ pos: alias, ok: false, error: String(err && err.message || err) });
-            continue;
-          }
-          // An empty result is NOT a successful build. Writing zero rows and a
-          // meta row saying so would make the read path serve "nobody played".
-          if (!rows.length) {
-            built.push({ pos: alias, ok: false, error: "live query returned 0 rows — not stored" });
-            continue;
-          }
-          const now = new Date().toISOString();
-          const stmts = [
-            db.prepare("DELETE FROM nfl_leaderboard_precompute WHERE season = ? AND pos_alias = ?").bind(season, alias),
-          ];
-          rows.forEach((row, i) => {
-            stmts.push(db.prepare(
-              `INSERT INTO nfl_leaderboard_precompute
-                 (season, pos_alias, rank, gsis_id, games, punts, franchise_id, row_json, built_at_utc)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            ).bind(season, alias, i + 1,
-                   safeStr(row.gsis_id || ""), safeInt(row.games, 0), safeInt(row.punts, 0),
-                   safeStr(row.mfl_franchise_id || ""), JSON.stringify(row), now));
-          });
-          stmts.push(db.prepare(
-            `INSERT INTO nfl_leaderboard_precompute_meta (season, pos_alias, row_count, built_at_utc)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT (season, pos_alias) DO UPDATE SET row_count = excluded.row_count,
-                                                           built_at_utc = excluded.built_at_utc`
-          ).bind(season, alias, rows.length, now));
-          // Chunked: D1 caps statements per batch well below 500.
-          for (let i = 0; i < stmts.length; i += 50) {
-            await db.batch(stmts.slice(i, i + 50));
-          }
-          built.push({ pos: alias, ok: true, rows: rows.length });
-        }
-        const okCount = built.filter((b) => b.ok).length;
-        return jsonOut(okCount ? 200 : 500, { ok: okCount > 0, season, built });
-      }
-
       if (path === "/api/advanced-stats-leaderboard" && request.method === "GET") {
         // Multi-season support: accept `seasons=YYYY,YYYY,...` OR the
         // legacy single `season=YYYY`. Range form "2023-2025" expands.
@@ -48769,6 +48683,102 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
             mismatches: mismatches.slice(0, 50),
           },
         });
+      }
+
+      // PLACEMENT IS LOAD-BEARING. This route sits beside /admin/discord/post
+      // because that route provably has the same dependencies live at this point
+      // — `sessionByApiKey` above all. An earlier draft put it ~2M chars earlier,
+      // BEFORE sessionByApiKey is declared, and every call died with
+      // "Cannot access 'sessionByApiKey' before initialization".
+      //
+      // `eslint no-undef` does NOT catch that: the identifier exists in the
+      // module, it is just in its temporal dead zone. Third TDZ bug in two days
+      // in this file. When adding a route, put it next to one that already uses
+      // the same variables rather than reasoning about where they are declared.
+      // ── POST /admin/leaderboard-precompute/build ──────────────────────
+      // Populates nfl_leaderboard_precompute for one COMPLETED season by running
+      // the live leaderboard once per position alias and storing the answer.
+      //
+      // It calls the endpoint through env.SELF rather than duplicating the SQL —
+      // a second copy of that query would drift from the first, and this whole
+      // table exists because the original is too expensive to run twice.
+      // (env.SELF, not the public workers.dev URL: that 404s silently from
+      // inside a Worker and once killed deadline reminders for a season.)
+      //
+      // REFUSES the current season: it is still changing, and a frozen snapshot
+      // of a live season would be served as final all year.
+      if (path === "/admin/leaderboard-precompute/build" && request.method === "POST") {
+        // `sessionByApiKey` is the gate every other /admin route uses (?APIKEY=
+        // in the QUERY STRING, not a header). An earlier draft invented
+        // `commishOk`, which exists nowhere — a ReferenceError that would have
+        // 500'd this route exactly like the safeInt temporal-dead-zone bug did
+        // to the leaderboard yesterday.
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required to build the precompute." });
+        }
+        const body = await request.json().catch(() => ({}));
+        const season = safeInt(body.season || url.searchParams.get("season"), 0);
+        const currentSeason = safeInt(YEAR, 0) || new Date().getUTCFullYear();
+        if (!season) return jsonOut(400, { ok: false, error: "season is required" });
+        if (season >= currentSeason) {
+          return jsonOut(400, {
+            ok: false,
+            error: `season ${season} is not complete (current ${currentSeason}) — refusing to freeze a live season`,
+          });
+        }
+        const db = env.UPS_MFL_DB;
+        if (!db) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        // Derived HERE. `leagueId` is declared 25 times in this file, every one
+        // inside a different route's block scope — none of them reachable from
+        // this one. The no-undef gate caught it before it deployed.
+        const preLeagueId = safeStr(url.searchParams.get("L") || body.league_id || L || "");
+        const origin = new URL(request.url).origin;
+        const built = [];
+        for (const alias of ["qb", "skill", "idp", "kicker", "punter"]) {
+          const u = `${origin}/api/advanced-stats-leaderboard?season=${season}&pos=${alias}` +
+                    `&min_games=1&limit=500&NO_CACHE=1&L=${encodeURIComponent(preLeagueId)}`;
+          let rows = [];
+          try {
+            const r = await env.SELF.fetch(u);
+            const j = await r.json();
+            rows = Array.isArray(j?.rows) ? j.rows : [];
+          } catch (err) {
+            built.push({ pos: alias, ok: false, error: String(err && err.message || err) });
+            continue;
+          }
+          // An empty result is NOT a successful build. Writing zero rows and a
+          // meta row saying so would make the read path serve "nobody played".
+          if (!rows.length) {
+            built.push({ pos: alias, ok: false, error: "live query returned 0 rows — not stored" });
+            continue;
+          }
+          const now = new Date().toISOString();
+          const stmts = [
+            db.prepare("DELETE FROM nfl_leaderboard_precompute WHERE season = ? AND pos_alias = ?").bind(season, alias),
+          ];
+          rows.forEach((row, i) => {
+            stmts.push(db.prepare(
+              `INSERT INTO nfl_leaderboard_precompute
+                 (season, pos_alias, rank, gsis_id, games, punts, franchise_id, row_json, built_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(season, alias, i + 1,
+                   safeStr(row.gsis_id || ""), safeInt(row.games, 0), safeInt(row.punts, 0),
+                   safeStr(row.mfl_franchise_id || ""), JSON.stringify(row), now));
+          });
+          stmts.push(db.prepare(
+            `INSERT INTO nfl_leaderboard_precompute_meta (season, pos_alias, row_count, built_at_utc)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT (season, pos_alias) DO UPDATE SET row_count = excluded.row_count,
+                                                           built_at_utc = excluded.built_at_utc`
+          ).bind(season, alias, rows.length, now));
+          // Chunked: D1 caps statements per batch well below 500.
+          for (let i = 0; i < stmts.length; i += 50) {
+            await db.batch(stmts.slice(i, i + 50));
+          }
+          built.push({ pos: alias, ok: true, rows: rows.length });
+        }
+        const okCount = built.filter((b) => b.ok).length;
+        return jsonOut(okCount ? 200 : 500, { ok: okCount > 0, season, built });
       }
 
       if (path === "/admin/discord/post" && request.method === "POST") {

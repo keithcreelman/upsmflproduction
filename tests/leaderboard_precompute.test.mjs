@@ -24,8 +24,13 @@ const readPath = (() => {
   assert.ok(b > a, 'could not bound the precompute read block');
   return SRC.slice(a, b);
 })();
-const buildRoute = SRC.slice(SRC.indexOf('if (path === "/admin/leaderboard-precompute/build"'),
-                             SRC.indexOf('if (path === "/api/advanced-stats-leaderboard"'));
+const buildRoute = (() => {
+  const a = SRC.indexOf('if (path === "/admin/leaderboard-precompute/build"');
+  assert.ok(a > 0, 'build route not found');
+  const b = SRC.indexOf('\n      if (path === ', a + 50);
+  assert.ok(b > a, 'could not bound the build route');
+  return SRC.slice(a, b);
+})();
 
 console.log('the read path');
 check('only serves a COMPLETED season', () => {
@@ -77,6 +82,26 @@ check('reuses the live endpoint via env.SELF, not a second copy of the SQL', () 
 });
 check('batches writes rather than one giant batch', () => {
   assert.ok(/i \+= 50/.test(buildRoute), 'D1 caps statements per batch');
+});
+
+// The bug that actually shipped: the route ran BEFORE `sessionByApiKey` was
+// declared, so every call died with "Cannot access 'sessionByApiKey' before
+// initialization". eslint no-undef does NOT catch a temporal dead zone — the
+// identifier exists, it is just not initialized yet. Third TDZ bug in this file
+// in two days, so this is asserted rather than remembered.
+console.log('\nroute placement (temporal dead zone)');
+check('build route is declared AFTER sessionByApiKey', () => {
+  const decl = SRC.search(/\n\s*(const|let)\s+sessionByApiKey\s*=/);
+  const route = SRC.indexOf('if (path === "/admin/leaderboard-precompute/build"');
+  assert.ok(decl > 0 && route > decl,
+    'the route must come after the declaration or it throws on every call');
+});
+check('read path is declared AFTER its `db`', () => {
+  const h = SRC.indexOf('path === "/api/advanced-stats-leaderboard" && request.method === "GET"');
+  const blk = SRC.slice(h, h + 42000);
+  const dbAt = blk.search(/\n\s*const db = /);
+  const mine = blk.indexOf('const lbPreSeason');
+  assert.ok(dbAt > 0 && mine > dbAt, 'the precompute read must come after `const db =`');
 });
 
 console.log('\nthe migration');
