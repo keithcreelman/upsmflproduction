@@ -1144,6 +1144,48 @@ async function processAuctionPoll(env) {
       : p.note;
     bidCandidates.push({ ev, p, lot_id, taggedNote });
   }
+  // ── WATERMARK ────────────────────────────────────────────────────────
+  // Skip events we have already ingested instead of re-attempting them.
+  //
+  // `INSERT OR IGNORE` keeps the table correct — 570 rows, 570 distinct, no
+  // duplicates ever — but D1 bills the ATTEMPT, not the outcome. With the 2026
+  // auction finished (196 lots won, 1 cancelled, 0 open) this loop still fired
+  // ~2,609 inserts an hour against ZERO new bids: ~103k writes a day, essentially
+  // the entire 100k free-tier daily write allowance, spent re-writing rows that
+  // already exist. Cloudflare begins enforcing that limit 2026-09-01.
+  //
+  // A watermark rather than an "is the auction open?" gate, deliberately: this
+  // poller is also what CREATES the first lots of a new auction, so a gate keyed
+  // on open lots would stop the next auction from ever starting. A watermark is
+  // correct in both states — nothing new means nothing written, and the moment
+  // real bids appear they are newer than the mark and flow through untouched.
+  //
+  // LOOKBACK, not a hard cutoff. MFL timestamps can arrive slightly out of order,
+  // and a bid dropped by an off-by-one here is far worse than a wasted write, so
+  // re-offer a 10-minute tail to OR IGNORE and let the primary key settle it.
+  let bidWatermark = 0;
+  try {
+    const wm = await db.prepare(
+      "SELECT MAX(bid_at_unix) AS m FROM ups_auction_bids WHERE season = ? AND league_id = ?"
+    ).bind(season, leagueId).first();
+    const m = Number(wm && wm.m);
+    if (Number.isFinite(m) && m > 0) bidWatermark = m - 600;
+  } catch (e) {
+    // Unreadable watermark => ingest everything, exactly as before. Wasting
+    // writes is recoverable; silently skipping a live bid is not.
+    console.log("[auction-poll] watermark read failed, ingesting all:", String(e?.message || e));
+    bidWatermark = 0;
+  }
+  const bidCandidatesAll = bidCandidates.length;
+  if (bidWatermark > 0) {
+    for (let i = bidCandidates.length - 1; i >= 0; i -= 1) {
+      if (Number(bidCandidates[i].p.bid_at_unix) <= bidWatermark) bidCandidates.splice(i, 1);
+    }
+  }
+  if (bidCandidatesAll !== bidCandidates.length) {
+    console.log(`[auction-poll] watermark ${bidWatermark}: ${bidCandidatesAll - bidCandidates.length} already-ingested event(s) skipped, ${bidCandidates.length} to attempt`);
+  }
+
   const INGEST_BATCH_SIZE = 50;
   for (let bi = 0; bi < bidCandidates.length; bi += INGEST_BATCH_SIZE) {
     const chunk = bidCandidates.slice(bi, bi + INGEST_BATCH_SIZE);
