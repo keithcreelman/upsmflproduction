@@ -1,0 +1,50 @@
+name: Leaderboard precompute — freeze a completed season
+
+# The advanced-stats leaderboard reads 2.0-3.7 MILLION D1 rows per run, against a
+# free-tier limit of 5 MILLION PER DAY that Cloudflare begins enforcing
+# 2026-09-01. 100% of measured reads were COMPLETED seasons — data frozen forever.
+#
+# This stores their finished answer so the endpoint reads one row per player
+# instead of scanning nfl_player_weekly.
+#
+# Run once per completed season. It REFUSES the current season.
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Completed season to freeze (e.g. 2025)"
+        required: true
+        default: "2025"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      SEASON: ${{ github.event.inputs.season }}
+    steps:
+      - run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: build
+        run: |
+          curl -sS -X POST \
+            "https://upsmflproduction.keith-creelman.workers.dev/admin/leaderboard-precompute/build?APIKEY=${KEY}&L=74598&YEAR=2026&season=${SEASON}" \
+            -H 'Content-Type: application/json' -d "{\"season\":${SEASON}}" \
+            -o /tmp/pre.json
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("/tmp/pre.json"))
+          print("ok:", d.get("ok"), "season:", d.get("season"))
+          for b in d.get("built") or []:
+              print(f"  {b.get('pos'):<8} ok={b.get('ok')} rows={b.get('rows', 0)} {b.get('error','')}")
+          if not d.get("ok"):
+              print("::error::precompute build failed"); sys.exit(1)
+          # A partial build is a FAILURE. Half a frozen season is worse than none:
+          # the populated groups serve stale-shaped data while the rest fall back.
+          bad = [b for b in (d.get("built") or []) if not b.get("ok")]
+          if bad:
+              print(f"::error::{len(bad)} position group(s) did not build"); sys.exit(1)
+          PY
