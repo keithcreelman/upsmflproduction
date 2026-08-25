@@ -10703,11 +10703,15 @@ export default {
         }
         const db = env.UPS_MFL_DB;
         if (!db) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        // Derived HERE. `leagueId` is declared 25 times in this file, every one
+        // inside a different route's block scope — none of them reachable from
+        // this one. The no-undef gate caught it before it deployed.
+        const preLeagueId = safeStr(url.searchParams.get("L") || body.league_id || L || "");
         const origin = new URL(request.url).origin;
         const built = [];
         for (const alias of ["qb", "skill", "idp", "kicker", "punter"]) {
           const u = `${origin}/api/advanced-stats-leaderboard?season=${season}&pos=${alias}` +
-                    `&min_games=1&limit=500&NO_CACHE=1&L=${encodeURIComponent(leagueId || L || "")}`;
+                    `&min_games=1&limit=500&NO_CACHE=1&L=${encodeURIComponent(preLeagueId)}`;
           let rows = [];
           try {
             const r = await env.SELF.fetch(u);
@@ -10851,6 +10855,29 @@ export default {
           } catch (_) {}
         }
 
+        // Map pos alias → SQL pos_group IN-list
+        let posGroups;
+        if (pos === "skill") posGroups = ["RB","WR","TE"];
+        else if (pos === "qb") posGroups = ["QB"];
+        else if (pos === "idp") posGroups = ["DL","LB","DB"];
+        else if (pos === "kicker") posGroups = ["PK"];
+        // Punters were stored as pos_group='PK' until 2026-08-04, when
+        // pos_group_of() started emitting 'PN' (UPS scores PK and PN on totally
+        // different rules — PN pays 4 pts per punt inside the 20). Accept BOTH
+        // so this works before, during and after the backfill; the raw-position
+        // post-filter downstream still does the real separation.
+        else if (pos === "punter") posGroups = ["PN", "PK"];
+        else return jsonOut(400, { error: "invalid pos" });
+
+        const weekFilter = weekSqlPredicate;
+
+        const posList = posGroups.map(p => `'${p}'`).join(",");
+        const seasonList = seasons.map(s => String(parseInt(s, 10))).join(",");
+        // Representative season for the team-pace join (the latest queried).
+        const paceSeason = Math.max.apply(null, seasons.map(s => parseInt(s, 10)));
+
+        try {
+          const db = env.UPS_MFL_DB;
         // ── PRECOMPUTE (migration 0140) ───────────────────────────────────
         // A COMPLETED season's leaderboard is frozen forever, and computing it
         // live reads 2.0-3.7 MILLION rows against a 5-MILLION-per-day free tier
@@ -10913,29 +10940,6 @@ export default {
           }
         }
 
-        // Map pos alias → SQL pos_group IN-list
-        let posGroups;
-        if (pos === "skill") posGroups = ["RB","WR","TE"];
-        else if (pos === "qb") posGroups = ["QB"];
-        else if (pos === "idp") posGroups = ["DL","LB","DB"];
-        else if (pos === "kicker") posGroups = ["PK"];
-        // Punters were stored as pos_group='PK' until 2026-08-04, when
-        // pos_group_of() started emitting 'PN' (UPS scores PK and PN on totally
-        // different rules — PN pays 4 pts per punt inside the 20). Accept BOTH
-        // so this works before, during and after the backfill; the raw-position
-        // post-filter downstream still does the real separation.
-        else if (pos === "punter") posGroups = ["PN", "PK"];
-        else return jsonOut(400, { error: "invalid pos" });
-
-        const weekFilter = weekSqlPredicate;
-
-        const posList = posGroups.map(p => `'${p}'`).join(",");
-        const seasonList = seasons.map(s => String(parseInt(s, 10))).join(",");
-        // Representative season for the team-pace join (the latest queried).
-        const paceSeason = Math.max.apply(null, seasons.map(s => parseInt(s, 10)));
-
-        try {
-          const db = env.UPS_MFL_DB;
           // Multi-season: use WHERE season IN (seasonList). Safe since
           // seasonList is rebuilt from parsed integers. Snap/stats joins
           // filter the same way so they stay consistent.
