@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.25.1",
-  "label": "Restructuring a contract no longer drops the note recording which teams have already extended that player. It was preserved on one screen but not the others."
+  "build": "2026.08.25.2",
+  "label": "Extensions submitted from the app now write the contract type in the correct format. They were being saved in all-caps, which the nightly contract check flags as drift."
 }
