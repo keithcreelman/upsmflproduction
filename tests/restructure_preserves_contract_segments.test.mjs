@@ -98,16 +98,36 @@ for (const [name, info, want] of NINE) {
 
 // FO v2 was the ONLY writer missing Ext: handling. Guard all three so a fourth
 // copy, or a regression in one, is caught here rather than in live contracts.
-console.log('\nall restructure writers handle Ext:');
+// All THREE writers must PRESERVE unowned segments, not extract one known token.
+// #947 fixed only FO v2. The other two kept a single-token `Ext:.*$` extractor —
+// greedy, anchored to end-of-string, assuming Ext: was last — and Drake London
+// lost `Ext: PG` on 2026-08-24, two days later, through one of them.
+console.log('\nall restructure writers PRESERVE unowned segments');
 for (const [label, path, needle] of [
   ['FO v2',            foPath,                                     'preservedContractSegments(p.special)'],
-  ['roster workbench', 'site/rosters/roster_workbench.js',         'restructureExtSuffix'],
-  ['mobile submitter', 'site/m/front_office_restructure_submit.js','infoParts.push(extSuffix)'],
+  ['roster workbench', 'site/rosters/roster_workbench.js',         'preservedContractSegments('],
+  ['mobile submitter', 'site/m/front_office_restructure_submit.js','preservedContractSegments('],
 ]) {
   check(label + ' carries the extension token', () => {
     const body = fs.readFileSync(path, 'utf8').replace(/\s+/g, ' ');
     assert.ok(body.includes(needle.replace(/\s+/g, ' ')),
-      path + ' no longer carries the extension token through a restructure');
+      path + ' no longer PRESERVES unowned segments through a restructure');
+  });
+}
+
+// Position independence — the failure that actually bit.
+console.log('\nExt: is preserved wherever it sits, not only when last');
+for (const [label, path] of [
+  ['roster workbench', 'site/rosters/roster_workbench.js'],
+  ['mobile submitter', 'site/m/front_office_restructure_submit.js'],
+]) {
+  const src = fs.readFileSync(path, 'utf8');
+  check(label + ': no greedy end-anchored Ext: capture drives the rebuild', () => {
+    const i = src.indexOf('preservedContractSegments(contractInfo)');
+    assert.ok(i > 0, 'preservedContractSegments missing');
+    const body = src.slice(i, src.indexOf('\n  }', i));
+    assert.ok(!/Ext:\.\*\$/.test(body),
+      'a greedy Ext:.*$ capture swallows GTD and Restructured when Ext: is mid-string');
   });
 }
 
