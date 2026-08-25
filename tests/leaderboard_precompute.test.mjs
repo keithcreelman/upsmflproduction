@@ -13,7 +13,17 @@ let fails = 0;
 const check = (n, fn) => { try { fn(); console.log('  ok   '+n); }
   catch(e){ fails++; console.log('  FAIL '+n+'\n         '+e.message); } };
 
-const readPath = SRC.slice(SRC.indexOf('const lbPreSeason'), SRC.indexOf('// Map pos alias'));
+// Slice by the block's OWN boundaries, not by a neighbouring landmark. The first
+// version sliced from `const lbPreSeason` to `// Map pos alias`, and when the
+// block moved (it had to run AFTER `const db =`, not before) that range inverted
+// and every check silently passed against an empty string.
+const readPath = (() => {
+  const a = SRC.indexOf('// ── PRECOMPUTE (migration 0140)');
+  assert.ok(a > 0, 'precompute read block not found');
+  const b = SRC.indexOf('\n        }', SRC.indexOf('falling through', a));
+  assert.ok(b > a, 'could not bound the precompute read block');
+  return SRC.slice(a, b);
+})();
 const buildRoute = SRC.slice(SRC.indexOf('if (path === "/admin/leaderboard-precompute/build"'),
                              SRC.indexOf('if (path === "/api/advanced-stats-leaderboard"'));
 
