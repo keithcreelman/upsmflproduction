@@ -97,6 +97,31 @@
     if (raw === "1" || raw.indexOf("1YR") === 0) return 1;
     return 0;
   }
+  // ── Canonical contract-status casing ────────────────────────────────────
+  // MFL stores contractStatus verbatim, so whatever this file sends becomes the
+  // contract. `.toUpperCase()` was applied to the status before sending, which
+  // wrote **VET-EXT1** instead of the canonical **Vet-Ext1** — caught by the
+  // nightly reconcile on Will Anderson (2026-08-25, extension submitted from
+  // mobile 2026-08-24). Sam Darnold carried the same drift two days earlier.
+  //
+  // Uppercasing is fine for COMPARISON and stays where it is used that way. It
+  // is never right for a value being written.
+  var CANONICAL_CONTRACT_STATUS = (function () {
+    var out = {};
+    ["Rookie-Draft", "Rookie-FAA", "Rookie-WW", "Rookie-MYM",
+     "Vet-FAA", "Vet-ERA", "Vet-WW", "Vet-MYM", "Vet-Ext1", "Vet-Ext2"].forEach(function (base) {
+      ["", "-FL", "-BL"].forEach(function (suf) { out[(base + suf).toUpperCase()] = base + suf; });
+    });
+    out.TAG = "Tag";
+    return out;
+  })();
+  // Returns the canonical spelling when we recognise the status, and the value
+  // UNCHANGED when we do not — never a guess, and never a silent uppercase.
+  function canonicalContractStatus(value) {
+    var raw = safeStr(value);
+    if (!raw) return "";
+    return CANONICAL_CONTRACT_STATUS[raw.toUpperCase()] || raw;
+  }
   function normalizeExtensionLoadedIndicator(indicator) {
     var raw = safeStr(indicator).toUpperCase();
     if (!raw || raw === "NONE") return "NONE";
@@ -170,9 +195,9 @@
     var contractInfo = safeStr(
       row && (row.contractInfo || row.preview_contract_info_string || row.contract_info)
     );
-    var contractStatus = safeStr(
+    var contractStatus = canonicalContractStatus(
       row && (row.contractStatus || row.new_contract_status || row.contract_status)
-    ).toUpperCase();
+    );
     var currentAav = safeInt(
       row && (
         row.currentAav != null
