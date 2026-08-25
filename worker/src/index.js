@@ -10806,17 +10806,22 @@ export default {
         // that is correct: a season with no precompute rows must NOT return an
         // empty leaderboard — that would report that nobody played. Missing
         // precompute means "fall through", never "no results".
-        const lbPreSeason = seasons.length === 1 ? safeInt(seasons[0], 0) : 0;
+        // Plain Number(), NOT safeInt — safeInt is declared later in this module,
+        // so calling it here throws "Cannot access 'safeInt4' before
+        // initialization" and 500s the endpoint. Yesterday's TTL fix hit exactly
+        // this; I reintroduced it in the same handler. Fourth TDZ in this file.
+        const _preNum = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; };
+        const lbPreSeason = seasons.length === 1 ? _preNum(seasons[0]) : 0;
         const lbPreEligible =
           lbPreSeason > 0 &&
-          lbPreSeason < (safeInt(YEAR, 0) || new Date().getUTCFullYear()) &&
+          lbPreSeason < (_preNum(YEAR) || new Date().getUTCFullYear()) &&
           !weeksParam && !weekMinParam && !weekMaxParam;
         if (lbPreEligible) {
           try {
             const meta = await db.prepare(
               "SELECT row_count FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
             ).bind(lbPreSeason, pos).first();
-            if (meta && safeInt(meta.row_count, 0) > 0) {
+            if (meta && _preNum(meta.row_count) > 0) {
               const pre = await db.prepare(
                 `SELECT row_json, games, punts, franchise_id
                    FROM nfl_leaderboard_precompute

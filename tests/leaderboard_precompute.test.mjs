@@ -34,14 +34,14 @@ const buildRoute = (() => {
 
 console.log('the read path');
 check('only serves a COMPLETED season', () => {
-  assert.ok(/lbPreSeason < \(safeInt\(YEAR, 0\)/.test(readPath),
+  assert.ok(/lbPreSeason < \(_preNum\(YEAR\)/.test(readPath),
     'the live season must never be served from a frozen snapshot');
 });
 check('only serves an unfiltered week window', () => {
   assert.ok(/!weeksParam && !weekMinParam && !weekMaxParam/.test(readPath));
 });
 check('requires a meta row with a POSITIVE row_count', () => {
-  assert.ok(/row_count, 0\) > 0/.test(readPath),
+  assert.ok(/_preNum\(meta\.row_count\) > 0/.test(readPath),
     'a zero-row build must not be treated as a valid precompute');
 });
 check('MISSING precompute falls through to the live query', () => {
@@ -89,6 +89,12 @@ check('batches writes rather than one giant batch', () => {
 // initialization". eslint no-undef does NOT catch a temporal dead zone — the
 // identifier exists, it is just not initialized yet. Third TDZ bug in this file
 // in two days, so this is asserted rather than remembered.
+console.log('\nno safeInt in the leaderboard handler (temporal dead zone)');
+check('the precompute read block does not call safeInt', () => {
+  assert.ok(!/safeInt\(/.test(readPath),
+    "safeInt is declared later in the module; calling it here throws 'Cannot access safeInt4 before initialization' and 500s the endpoint");
+});
+
 console.log('\nroute placement (temporal dead zone)');
 check('build route is declared AFTER sessionByApiKey', () => {
   const decl = SRC.search(/\n\s*(const|let)\s+sessionByApiKey\s*=/);
