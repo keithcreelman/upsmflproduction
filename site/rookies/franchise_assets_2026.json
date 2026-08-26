@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-25T10:05:59.227539+00:00",
+    "generated_at_utc": "2026-08-26T10:16:59.533797+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -5293,7 +5293,7 @@
           "nfl_team": "HOU",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "VET-EXT1",
+          "contract_status": "Vet-Ext1",
           "roster_status": "ROSTER",
           "taxi": false
         },
