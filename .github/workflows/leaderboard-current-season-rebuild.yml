@@ -1,0 +1,135 @@
+name: Leaderboard precompute — rebuild the CURRENT season
+
+# The current season's leaderboard changes every time the nflverse ETL lands a
+# week (nflverse-stats-refresh.yml, cron "0 11 * * 3" = Wednesday 11:00 UTC), so
+# unlike a completed season it has to be rebuilt rather than frozen once.
+#
+# ONE ALIAS PER DAY, deliberately. Measured per-alias cost of the live query on
+# prod 2026-08-27 (`wrangler d1 insights --time-period 7d`), completed seasons:
+#
+#     idp     4.8 - 6.2 M rows read per run
+#     skill   2.2 - 2.4 M
+#     qb      ~0.50 M
+#     punter  ~0.40 M
+#     kicker  ~0.39 M
+#     -------------------------
+#     all five  ~8.8 M
+#
+# The D1 free tier allows 5,000,000 rows read PER DAY (enforced from
+# 2026-09-01), and exceeding it fails EVERY query in the worker for the rest of
+# the day — contracts, lineups, waivers, the auction — not just this endpoint.
+# So all five in one run cannot fit, and the schedule spreads them.
+#
+# ⚠️ idp IS THE OPEN QUESTION. On a completed season it alone is ~100% of a
+# day's budget. It is scheduled here because the alternative is worse — without
+# a stored board every current-season idp request runs that same query live, and
+# site/m/app.js fetches idp for the current season on EVERY app open — but the
+# real figure for 2026 is unknown until Week 1 lands (2026-09-10; the season has
+# zero rows today, so it cannot be measured yet).
+#
+# MEASURE IT IN WEEK 1 before trusting this schedule:
+#     python3 scripts/d1_usage.py 1d
+# If the idp rebuild is at or over the cap, the fix is to make the query cheaper
+# (its cost is materialised-CTE nested loops — 17,298 base rows for 2025 produce
+# 5.25M reads, a ~300x amplification), not to rebuild it less often: a stale
+# board is served, so a slower cadence degrades accuracy without saving reads.
+
+on:
+  schedule:
+    # All after the Wednesday 11:00 UTC stats refresh. One alias per day.
+    - cron: "30 12 * * 3"   # Wed — skill  (~2.3M)
+    - cron: "30 12 * * 4"   # Thu — qb + kicker + punter (~1.3M total)
+    # NO idp CRON — ON PURPOSE. See the idp note above: on a completed season it
+    # alone is ~5M rows, which IS the whole daily cap, so a weekly idp cron is a
+    # guaranteed weekly outage of every D1 query in the worker. Run it by hand
+    # (workflow_dispatch, pos=idp) once Week 1 gives a real 2026 number, and add
+    # the cron here only if that number leaves room:
+    #     - cron: "30 12 * * 5"   # Fri — idp
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season to rebuild (blank = current)"
+        required: false
+        default: ""
+      pos:
+        description: "Which alias to build"
+        required: true
+        default: "skill"
+        type: choice
+        options: [skill, qb, kicker, punter, idp, all]
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      IN_SEASON: ${{ github.event.inputs.season }}
+      IN_POS: ${{ github.event.inputs.pos }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+
+      - name: Pick season and alias
+        run: |
+          SEASON="${IN_SEASON}"
+          [ -n "$SEASON" ] || SEASON="$(date -u +%Y)"
+          echo "SEASON=$SEASON" >> "$GITHUB_ENV"
+
+          # A dispatch names its alias. A cron does not, so derive it from the
+          # UTC day-of-week the schedule fired on (1=Mon .. 7=Sun).
+          POS="${IN_POS}"
+          if [ -z "$POS" ]; then
+            case "$(date -u +%u)" in
+              3) POS="skill" ;;
+              4) POS="qb,kicker,punter" ;;
+              # No case 5: idp is deliberately not on a cron (see the schedule).
+              *) echo "::error::cron fired on an unscheduled day $(date -u +%u)"; exit 1 ;;
+            esac
+          fi
+          echo "POS=$POS" >> "$GITHUB_ENV"
+          echo "rebuilding season=$SEASON aliases=$POS"
+
+      - name: Build
+        run: |
+          RC=0
+          # Comma-separated so Thursday's three cheap aliases share a run while
+          # still being three separate builds — each is its own request, so one
+          # failing does not abandon the others.
+          IFS=',' read -ra ALIASES <<< "$POS"
+          for A in "${ALIASES[@]}"; do
+            echo "--- $A"
+            curl -sS -X POST \
+              "https://upsmflproduction.keith-creelman.workers.dev/admin/leaderboard-precompute/build?APIKEY=${KEY}&L=74598&YEAR=${SEASON}&season=${SEASON}" \
+              -H 'Content-Type: application/json' \
+              -d "{\"season\":${SEASON},\"only_pos\":\"${A}\"}" \
+              -o "/tmp/pre-$A.json" || { echo "::error::curl failed for $A"; RC=1; continue; }
+            python3 - "/tmp/pre-$A.json" <<'PY' || RC=1
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          print("  ok:", d.get("ok"), "season:", d.get("season"))
+          for b in d.get("built") or []:
+              print(f"    {b.get('pos'):<8} ok={b.get('ok')} rows={b.get('rows', 0)} {b.get('error','')}")
+          bad = [b for b in (d.get("built") or []) if not b.get("ok")]
+          if not d.get("ok") or bad:
+              # A build that "succeeded" with zero rows, or that was served the
+              # precompute it was about to overwrite, is a FAILURE. Both are
+              # reported by the route rather than thrown, so they have to be
+              # checked here or they pass silently and the board freezes.
+              print(f"::error::build failed for {sys.argv[1]}")
+              sys.exit(1)
+          PY
+          done
+          exit $RC
+
+      - name: Confirm the stamp actually moved
+        run: |
+          # The whole freshness contract is data_max_week. If it did not get
+          # written, the read gate reports "stale" for the rest of the season
+          # while every rebuild keeps reporting success — the exact failure
+          # mode source_sha has had in this table since 0140.
+          echo "Verify with:"
+          echo "  npx wrangler d1 execute ups-mfl-db --remote --command \\"
+          echo "    \"SELECT season,pos_alias,row_count,data_max_week,built_at_utc FROM nfl_leaderboard_precompute_meta WHERE season=${SEASON}\""
