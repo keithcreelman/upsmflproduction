@@ -1,0 +1,43 @@
+name: Sleeper cache — rebuild player facts
+
+# /api/player-news used to fetch Sleeper's 14.6 MB player file and parse it on
+# every request. That exceeds the Worker's CPU budget, the catch was fail-soft,
+# and EVERY player reported sleeper_matched: 0 — no injury status, no depth chart,
+# for anyone, silently. This does the work where there is no CPU ceiling.
+#
+# Also fixes both broken match paths: MFL's DETAILS export carries gsis_id for 0
+# of 2,609 players, and MFL's team codes (KCC/GBP/SFO/TBB/NEP) never equalled
+# Sleeper's (KC/GB/SF/TB/NE).
+#
+# Injury and depth data changes daily in season, so this runs daily.
+
+on:
+  schedule:
+    - cron: "20 10 * * *"    # after the 09:05 MFL snapshot
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run = report matches only · apply = write to D1"
+        required: true
+        default: dry_run
+        type: choice
+        options: [dry_run, apply]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: |
+          FLAG="--dry-run"
+          [ "${{ github.event.inputs.mode }}" = "apply" ] && FLAG="--apply"
+          # scheduled runs always apply; a dry-run on a cron would do nothing
+          [ "${{ github.event_name }}" = "schedule" ] && FLAG="--apply"
+          python3 scripts/build_sleeper_cache.py $FLAG

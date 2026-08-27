@@ -18246,42 +18246,64 @@ export default {
         //          only the first request pays). Build a gsis_id → sleeper
         //          info map. Fall back to name+team match for players MFL
         //          doesn't have a gsis_id for (rookies, IDP edge cases).
-        let sleeperIndex = {};
+        // Read the RESOLVED facts from D1 (migration 0141) instead of pulling
+        // Sleeper's 14.6 MB player file and JSON.parse-ing 12,225 objects on
+        // every request. That parse exceeds the Worker's CPU budget; the catch
+        // below is fail-soft, so `sleeperIndex` silently stayed {} and EVERY
+        // player reported sleeper_matched: 0 — no injury status, no depth chart,
+        // for anyone. Measured 2026-08-27 on Benson and Mahomes.
+        //
+        // scripts/build_sleeper_cache.py does the fetch + match in CI where
+        // there is no CPU ceiling, and fixes both broken match paths: MFL's
+        // DETAILS export carries gsis_id for 0 of 2,609 players, and MFL's team
+        // codes (KCC/GBP/SFO/TBB/NEP) never equalled Sleeper's (KC/GB/SF/TB/NE).
+        // 1,813 players resolve where the Worker resolved none.
+        const sleeperByPid = {};
         try {
-          const r = await fetch("https://api.sleeper.app/v1/players/nfl", {
-            cf: { cacheTtl: 86400, cacheEverything: true },
-            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
-          });
-          if (r.ok) sleeperIndex = await r.json();
+          const wanted = Object.keys(mflPlayers);
+          const CH = 90;                       // keep each IN(...) well under D1's bind cap
+          for (let ci = 0; ci < wanted.length; ci += CH) {
+            const chunk = wanted.slice(ci, ci + CH);
+            if (!chunk.length) continue;
+            const marks = chunk.map(() => "?").join(",");
+            const res = await env.UPS_MFL_DB.prepare(
+              `SELECT mfl_player_id, injury_status, injury_body_part, injury_notes,
+                      practice_participation, practice_description,
+                      depth_chart_position, depth_chart_order, news_updated
+                 FROM sleeper_player_cache WHERE mfl_player_id IN (${marks})`
+            ).bind(...chunk).all();
+            for (const row of (res.results || [])) {
+              sleeperByPid[String(row.mfl_player_id)] = {
+                injury_status: row.injury_status || "",
+                injury_body_part: row.injury_body_part || "",
+                injury_notes: row.injury_notes || "",
+                practice_participation: row.practice_participation || "",
+                practice_description: row.practice_description || "",
+                depth_chart_position: row.depth_chart_position || "",
+                depth_chart_order: row.depth_chart_order || 0,
+                news_updated: row.news_updated || 0,
+              };
+            }
+          }
         } catch (e) {
-          // Don't fail — sleeper info is supplementary; we can still surface
-          // ESPN/Reddit news without it.
+          // Still fail-soft — headlines come from the article pool and do not
+          // depend on this — but the failure is now LOGGED. It used to be
+          // swallowed entirely, which is why a total outage looked like
+          // "this player has no news".
+          console.error("[player-news] sleeper cache read failed:", e && e.message);
         }
         // Build lookup tables.
-        const byGsis = {};
-        const byNameTeam = {};
-        for (const sid in sleeperIndex) {
-          const p = sleeperIndex[sid];
-          if (!p) continue;
-          const gsis = safeStr(p.gsis_id);
-          if (gsis) byGsis[gsis] = p;
-          const fn = safeStr(p.full_name).toLowerCase();
-          const t = safeStr(p.team).toUpperCase();
-          if (fn && t) byNameTeam[fn + "|" + t] = p;
-        }
-        // Resolve sleeper info per MFL pid.
-        const mflToSleeper = {};
+        // The old byGsis / byNameTeam lookup tables lived here. Both are gone:
+        // gsis_id is absent from MFL's export for every player, and the name+team
+        // key never survived MFL's team codes. Resolution now happens offline —
+        // see scripts/build_sleeper_cache.py.
+const mflToSleeper = {};
         for (const pid in mflPlayers) {
           const m = mflPlayers[pid];
           let sp = null;
-          if (m.gsis_id && byGsis[m.gsis_id]) sp = byGsis[m.gsis_id];
-          if (!sp && m.name && m.team) {
-            // MFL name is "Last, First" — flip to "First Last" for match.
-            const flipped = m.name.includes(",")
-              ? m.name.split(",").reverse().map(s => s.trim()).join(" ")
-              : m.name;
-            sp = byNameTeam[flipped.toLowerCase() + "|" + m.team];
-          }
+          // Resolved offline by mfl_player_id — no gsis lookup, no name+team
+          // guess. Both of those paths were broken (see the cache read above).
+          sp = sleeperByPid[pid] || null;
           mflToSleeper[pid] = sp;
         }
 
