@@ -22757,7 +22757,8 @@ export default {
           const pos = normalizeAcqPos(player?.position);
           const status = safeStr(player?.roster_status || player?.status).toUpperCase();
           const isTaxi = status.includes("TAXI");
-          const isIr = status.includes("IR");
+            // Always false against "INJURED_RESERVE" — IR players were counted as active.
+          const isIr = status.includes("INJURED");
           if (!isTaxi) rosterCount += 1;
           if (isTaxi || isIr) continue;
           if (counts[pos] != null) counts[pos] += 1;
@@ -22910,7 +22911,9 @@ export default {
           const players = Array.isArray(team.players) ? team.players : [];
           const capSpent = players.reduce((sum, player) => {
             const status = safeStr(player.roster_status || player.status).toUpperCase();
-            return sum + currentCapHitAcq(player.salary, player.years, status.includes("TAXI"), status.includes("IR"));
+            // ⚠️ CAP MATH: this was ALWAYS FALSE against MFL's "INJURED_RESERVE",
+            // so every IR player was charged FULL cap instead of the 50% relief.
+            return sum + currentCapHitAcq(player.salary, player.years, status.includes("TAXI"), status.includes("INJURED"));
           }, 0);
           // MFL's franchise `salaryCapAmount` is a per-franchise cap OVERRIDE (it
           // is empty for every UPS team today), NOT remaining funds — reading it
@@ -42535,7 +42538,8 @@ export default {
               const statusRaw = safeStr(asset?.roster_status || "").toUpperCase();
               const status = statusRaw || (asset?.taxi ? "TAXI_SQUAD" : "ROSTER");
               const isTaxi = status.includes("TAXI");
-              const isIr = status.includes("IR");
+                // MFL says INJURED_RESERVE, which does not contain "IR".
+              const isIr = status.includes("INJURED");
 
               // Rookie-contract fallback (mirror of site/rosters/roster_workbench.js
               // repairTaxiContractFallbacks). MFL suppresses contractYear /
@@ -48580,7 +48584,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
           const franchiseId = franchiseIds[i];
           const sourceRows = sourceByFranchise[franchiseId] || [];
           const taxiIds = sourceRows.filter((row) => safeStr(row.status).includes("TAXI")).map((row) => row.player_id);
-          const irIds = sourceRows.filter((row) => safeStr(row.status).includes("IR")).map((row) => row.player_id);
+          const irIds = sourceRows.filter((row) => safeStr(row.status).toUpperCase().includes("INJURED")).map((row) => row.player_id);
           if (!taxiIds.length && !irIds.length) continue;
           if (i > 0) await sleep(PACE_MS);
           const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
@@ -51909,10 +51913,26 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
           }
           if (located) {
             const status = safeStr(located.status);
+            // MFL's roster status for an IR player is "INJURED_RESERVE", which
+            // does NOT contain the substring "IR". Verified live 2026-08-26 —
+            // the only three statuses MFL emits are ROSTER, TAXI_SQUAD and
+            // INJURED_RESERVE.
+            //
+            // `status.includes("IR")` was therefore wrong in BOTH directions:
+            //   deactivate_ir  never matched -> a SUCCESSFUL placement reported
+            //                  "player_status_did_not_change" (Keith hit this;
+            //                  the player was on IR the whole time)
+            //   activate_ir    !includes("IR") is ALWAYS true -> reported success
+            //                  unconditionally, even if MFL did nothing. That is
+            //                  the dangerous half: a silent no-op read as done.
+            //
+            // TAXI_SQUAD contains "TAXI", so the taxi predicates were fine and
+            // are left alone.
+            const onIr = status.includes("INJURED");
             const expectedOk = action === "activate_ir"
-              ? !status.includes("IR")
+              ? !onIr
               : action === "deactivate_ir"
-              ? status.includes("IR")
+              ? onIr
               : (action === "demote_taxi" ? status.includes("TAXI") : !status.includes("TAXI"));
             verification = {
               ok: expectedOk,
