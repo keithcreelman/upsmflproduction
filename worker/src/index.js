@@ -10855,11 +10855,39 @@ export default {
         // it may only be served against PROOF that the stored board still
         // matches the data it was built from. That proof is data_max_week.
         const lbPreIsCurrent = lbPreSeason > 0 && lbPreSeason === lbCurSeason;
+        // WHICH WINDOW THE STORED BOARD ACTUALLY IS.
+        // The builder sends no week params and no include_post, so the board it
+        // stores is always the default predicate, w.week <= 17. The gate must
+        // therefore admit exactly the requests asking for THAT window.
+        //
+        // The old test was "no week params at all", which was wrong twice over:
+        //
+        //  1. TOO PERMISSIVE. It ignored include_post. A request with
+        //     include_post=1 and no week params runs 1=1 live (all 22 weeks),
+        //     but was handed the 17-week board — the wrong answer, silently.
+        //
+        //  2. TOO STRICT. site/stats_workbench sends week_min/week_max on EVERY
+        //     request (getScopeQueryParams, stats_workbench.html:2969-2976) and
+        //     its default scope is mfl_total = weeks 1-17 — precisely the stored
+        //     window. So the endpoint's heaviest consumer was refused its own
+        //     precomputed answer on a technicality and ran the live SQL for
+        //     every page load.
+        //
+        // BETWEEN 1 AND 17 is identical to <= 17 because no row has week < 1:
+        // verified on prod 2026-08-27, SELECT COUNT(*) ... WHERE week < 1 = 0
+        // across ALL seasons. lo is already floored at 1 and hi capped at 22 by
+        // the predicate builder above, so comparing the effective bounds is
+        // exact rather than a guess at intent.
+        const lbHasWeekRange = Number.isFinite(weekMinParam) || Number.isFinite(weekMaxParam);
+        const lbLo = Number.isFinite(weekMinParam) ? Math.max(1, weekMinParam) : 1;
+        const lbHi = Number.isFinite(weekMaxParam) ? Math.min(22, weekMaxParam) : 22;
+        const lbWindowMatchesBoard =
+          !weeksParam && (lbHasWeekRange ? (lbLo === 1 && lbHi === 17) : !includePost);
         const lbPreEligible =
           !lbNoPre &&
           lbPreSeason > 0 &&
           lbPreSeason <= lbCurSeason &&
-          !weeksParam && !weekMinParam && !weekMaxParam;
+          lbWindowMatchesBoard;
         if (lbPreEligible) {
           try {
             const meta = await db.prepare(
@@ -11419,8 +11447,65 @@ export default {
               LEFT JOIN team_rz_player_active trpa ON trpa.gsis_id = a.gsis_id
               LEFT JOIN team_situational_agg tsa ON tsa.team = a.team
               LEFT JOIN mfl_scoring_agg msa   ON msa.gsis_id = a.gsis_id
-              LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
-              LEFT JOIN current_team ctm      ON ctm.player_id = c.mfl_player_id
+              -- ── THE 5-MILLION-ROW BUG (fixed 2026-08-27) ────────────────
+              -- These two joins compared a TEXT column to an INTEGER one:
+              --   src_players.player_id   TEXT NOT NULL  (0062_src_players.sql:29)
+              --   src_contracts.player_id TEXT NOT NULL  (0002_mfl_source_tables.sql:17)
+              --   player_id_crosswalk.mfl_player_id INTEGER PRIMARY KEY
+              -- SQLite applies NUMERIC affinity to the TEXT side of such a
+              -- comparison, and a TEXT B-tree cannot be seeked with a
+              -- numerically-coerced key. So both CTEs silently lost their
+              -- primary key, got flattened into the outer loop, and fell back
+              -- to the only constraint left, season = ?, rescanning the WHOLE
+              -- season slice once per outer row:
+              --
+              --   EXPLAIN QUERY PLAN, before (both at parent 0, inside SCAN a):
+              --     SEARCH c USING INDEX idx_src_contracts_franchise (season=?)
+              --     SEARCH src_players USING idx_src_players_season_pos (season=?)
+              --
+              -- For idp/2025 that is 1,015 outer rows x (2,744 src_players +
+              -- 504 src_contracts) = ~3.3 MILLION row visits, the bulk of this
+              -- query's ~5M cost. The comments elsewhere in this file blaming
+              -- "materialised CTEs SCANNED per outer row" describe the
+              -- 2026-08-05 problem, which that commit genuinely fixed: every
+              -- other CTE is now reached by AUTOMATIC COVERING INDEX. This was
+              -- something else, hiding behind the same symptom.
+              --
+              -- Comparing TEXT to TEXT restores the seek:
+              --     SEARCH src_players USING sqlite_autoindex_src_players_1
+              --       (season=? AND player_id=?)
+              --
+              -- OUTPUT-IDENTICAL, and provably in one direction: any string
+              -- equal to printf(%04d, k) or CAST(k AS TEXT) is a well-formed
+              -- integer literal of value k, so numeric affinity mapped it to k
+              -- and the OLD predicate matched it too. new is a SUBSET of old,
+              -- ALWAYS. The only possible failure is under-matching: never
+              -- fan-out, never a row-count change. Under-matching is ruled out
+              -- by the stored data -- every player_id in both tables is pure
+              -- digits and satisfies
+              --   player_id = printf(%04d, CAST(player_id AS INTEGER))
+              -- (measured on prod 2026-08-27: 0 violations in either table, and
+              -- 0 duplicate CAST(player_id AS INTEGER) keys within a season, so
+              -- the IN-list cannot fan out where the equality did not).
+              -- tests/leaderboard_player_id_affinity.test.mjs pins that invariant.
+              --
+              -- Both IN members are kept deliberately: src_contracts has no
+              -- zero-padded ids today and src_players has 384, so each member
+              -- covers what the other would miss if the loader's padding ever
+              -- changed. SQLite de-duplicates the list when they coincide.
+              --
+              -- The IS NOT NULL guard is LOAD-BEARING, not defensive noise:
+              -- printf(%04d, NULL) returns the STRING 0000, not NULL. Without
+              -- it, a player missing from player_id_crosswalk would match any
+              -- player_id = 0000 row, where the numeric compare matched nothing.
+              -- No such row exists today, which is exactly what makes it a
+              -- fail-silent trap worth closing now.
+              LEFT JOIN latest_contract lc    ON c.mfl_player_id IS NOT NULL
+                                             AND lc.player_id  IN (printf('%04d', c.mfl_player_id),
+                                                                   CAST(c.mfl_player_id AS TEXT))
+              LEFT JOIN current_team ctm      ON c.mfl_player_id IS NOT NULL
+                                             AND ctm.player_id IN (printf('%04d', c.mfl_player_id),
+                                                                   CAST(c.mfl_player_id AS TEXT))
              WHERE a.games >= ?
              ORDER BY ${orderExpr} DESC
              LIMIT ?
