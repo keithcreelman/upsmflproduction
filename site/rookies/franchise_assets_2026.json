@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-26T10:16:59.533797+00:00",
+    "generated_at_utc": "2026-08-27T19:59:48.425490+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -823,6 +823,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_13629",
+          "display": "Calvin Ridley",
+          "player_id": "13629",
+          "position": "WR",
+          "nfl_team": "TEN",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16586",
           "display": "Spencer Rattler",
           "player_id": "16586",
@@ -951,6 +963,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16201",
+          "display": "Xavier Hutchinson",
+          "player_id": "16201",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2617,6 +2641,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_15923",
+          "display": "Quentin Lake",
+          "player_id": "15923",
+          "position": "S",
+          "nfl_team": "LAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17508",
           "display": "Skyler Bell",
           "player_id": "17508",
@@ -3115,6 +3151,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15702",
+          "display": "Tanner McKee",
+          "player_id": "15702",
+          "position": "QB",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4243,6 +4291,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17743",
+          "display": "Jack Strand",
+          "player_id": "17743",
+          "position": "QB",
+          "nfl_team": "ATL",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16712",
           "display": "Jalyx Hunt",
           "player_id": "16712",
@@ -4331,11 +4391,11 @@
           "display": "Trey Benson",
           "player_id": "16594",
           "position": "RB",
-          "nfl_team": "FA",
+          "nfl_team": "ARI",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
