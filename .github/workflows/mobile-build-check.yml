@@ -1,0 +1,35 @@
+name: Mobile build — version drift check
+
+# site/m has THREE places that must agree on a release:
+#   version.json build · the BUILD constant in app.js · index.html's ?v= refs
+#
+# Bump one and not the others and two things happen, both silent:
+#   * "New version available" reappears after every Reload, forever — app.js
+#     compares version.json (fresh) against its own baked-in BUILD
+#   * changed files never reach anyone — the service worker is cache-first keyed
+#     on the ?v= URL, so an unchanged ?v= serves the old file indefinitely
+#
+# On 2026-08-27 six mobile files had shipped fixes no owner could load, and the
+# update banner had been looping for days. Nothing surfaced it: not CI, not the
+# deploy, not the app. Hence this check.
+
+on:
+  pull_request:
+    paths: ["site/m/**"]
+  push:
+    branches: [main]
+    paths: ["site/m/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # the staleness check reads git log per file
+      - name: check mobile build consistency
+        run: python3 scripts/check_mobile_build.py
