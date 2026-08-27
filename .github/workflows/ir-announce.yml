@@ -1,35 +1,60 @@
-name: IR announcement — dry run / post
+name: IR — announce a move to the transactions feed
+
+# Posts "placed on IR" / "activated off IR" via /admin/ir/announce, which calls
+# the SAME _announceIrMove the write path uses — same copy, same thread, same GIF
+# pools — so a backfill cannot drift from a live move.
+#
+# USE THIS, NOT the drops poster. /admin/drops/post-discord announces DROP events;
+# pointed at an IR'd player it will happily post a months-old drop as if it were
+# news. That happened on 2026-08-26 and had to be deleted from the league channel.
+#
+# The route reads the roster first and REFUSES to announce a placement unless MFL
+# actually shows the player on IR, so a wrong player_id fails closed rather than
+# announcing something untrue.
+#
+# Dry-run by default.
+
 on:
   workflow_dispatch:
     inputs:
       player_id:
-        description: "MFL player id"
+        description: "MFL player id (e.g. 16594 = Trey Benson)"
         required: true
-        default: "17115"
       mode:
-        description: "DRY = show the copy only. POST = actually announce."
+        description: "dry_run = build the post only · post = send it"
         required: true
-        default: "DRY"
+        default: dry_run
         type: choice
-        options: [DRY, POST]
+        options: [dry_run, post]
+
 permissions:
   contents: read
+
 jobs:
-  run:
+  announce:
     runs-on: ubuntu-latest
     env:
       KEY: ${{ secrets.COMMISH_API_KEY }}
       PID: ${{ github.event.inputs.player_id }}
       MODE: ${{ github.event.inputs.mode }}
     steps:
-      - uses: actions/checkout@v4
       - run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
-      - name: call
+      - name: announce
         run: |
-          if [ "$MODE" = "POST" ]; then DRY=false; else DRY=true; fi
-          curl -s -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/ir/announce?L=74598&YEAR=2026&APIKEY=${KEY}" \
+          if [ "$MODE" = "dry_run" ]; then DRY=true; else DRY=false; fi
+          curl -sS -X POST \
+            "https://upsmflproduction.keith-creelman.workers.dev/admin/ir/announce?APIKEY=${KEY}&L=74598&YEAR=2026" \
             -H 'Content-Type: application/json' \
-            -d "{\"player_id\":\"${PID}\",\"dry_run\":${DRY}}" -o /tmp/ir.json
-          echo "bytes: $(wc -c < /tmp/ir.json)"
-      - name: show
-        run: python3 scripts/ci_show_ir_announce.py /tmp/ir.json
+            -d "{\"player_id\":\"${PID}\",\"season\":\"2026\",\"league_id\":\"74598\",\"dry_run\":${DRY}}" \
+            -o /tmp/ir.json
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("/tmp/ir.json"))
+          # Print the WHOLE envelope. A summariser that guesses at field names
+          # reported posted=None on a real prod send earlier and could not tell
+          # success from silence — never again.
+          print(json.dumps(d, indent=1)[:2000])
+          if not d.get("ok"):
+              print("::error::" + str(d.get("error") or "announce failed"))
+              sys.exit(1)
+          PY
