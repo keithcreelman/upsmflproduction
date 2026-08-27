@@ -1,0 +1,77 @@
+name: Drops/IR — post to Discord
+
+# /admin/drops/post-discord is what announces drops AND IR moves (the "placed on
+# IR" copy lives inside that route). The IR action route itself never posts — a
+# thing I got wrong on 2026-08-26 and is worth stating here so the next reader
+# does not go looking in the wrong place.
+#
+# DRY RUN BY DEFAULT. This route posts to the whole league, and it announces
+# everything it finds unannounced — not just the move you have in mind. Firing it
+# blind is how twelve owners get a burst of stale notifications. Look at the
+# dry-run list first, then run it again with mode=post.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run = show what WOULD post · post = actually send"
+        required: true
+        default: dry_run
+        type: choice
+        options: [dry_run, post]
+      target:
+        description: "test = your test channel · prod = the league"
+        required: true
+        default: test
+        type: choice
+        options: [test, prod]
+      player_name:
+        description: "Optional — restrict to one player (e.g. Benson)"
+        required: false
+        default: ""
+      limit:
+        description: "Max moves to consider"
+        required: false
+        default: "10"
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      MODE: ${{ github.event.inputs.mode }}
+      TARGET: ${{ github.event.inputs.target }}
+      PLAYER: ${{ github.event.inputs.player_name }}
+      LIMIT: ${{ github.event.inputs.limit }}
+    steps:
+      - run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: post
+        run: |
+          if [ "$MODE" = "dry_run" ]; then DRY=true; else DRY=false; fi
+          curl -sS -X POST \
+            "https://upsmflproduction.keith-creelman.workers.dev/admin/drops/post-discord?APIKEY=${KEY}&L=74598&YEAR=2026" \
+            -H 'Content-Type: application/json' \
+            -d "{\"season\":\"2026\",\"league_id\":\"74598\",\"dry_run\":${DRY},\"target\":\"${TARGET}\",\"player_name\":\"${PLAYER}\",\"limit\":${LIMIT}}" \
+            -o /tmp/drops.json
+          echo "bytes: $(wc -c < /tmp/drops.json)"
+      - name: summarize
+        run: |
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/drops.json"))
+          print("ok:", d.get("ok"), "| dry_run:", d.get("dry_run"), "| target:", d.get("target"))
+          if d.get("error"):
+              print("ERROR:", d.get("error"), d.get("message", ""))
+          rows = d.get("posted") or d.get("results") or d.get("moves") or []
+          print(f"moves: {len(rows)}")
+          for r in rows[:15]:
+              if isinstance(r, dict):
+                  who = r.get("player_name") or r.get("player_id") or "?"
+                  print(f"  - {who} | {r.get('kind') or r.get('action') or ''} "
+                        f"| posted={r.get('posted')} {r.get('error','')}")
+              else:
+                  print("  -", str(r)[:120])
+          PY
