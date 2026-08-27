@@ -10785,7 +10785,20 @@ export default {
           { method: "GET" }
         );
         const lbNoCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
-        if (!lbNoCache) {
+        // NO_PRECOMPUTE=1 — "compute this from source, whatever is stored".
+        // NO_CACHE=1 was never enough: it gates caches.default and nothing else,
+        // so the D1 precompute block below answered it anyway. That did not
+        // matter while only COMPLETED seasons were stored (built once, never
+        // rebuilt), but the builder reaches this endpoint through env.SELF — so
+        // the moment a season is rebuilt, the builder would be served its own
+        // stored rows and re-store them unchanged, freezing the board at the
+        // week it was first built while reporting ok:true forever.
+        //
+        // It must bypass the EDGE too: lbCacheKey does not include these params,
+        // so a precompute-derived body already sitting in caches.default would
+        // be returned before the D1 gate is ever reached.
+        const lbNoPre = safeStr(url.searchParams.get("NO_PRECOMPUTE")) === "1";
+        if (!lbNoCache && !lbNoPre) {
           try {
             const hit = await caches.default.match(lbCacheKey);
             if (hit) return hit;
@@ -10835,22 +10848,75 @@ export default {
         // this; I reintroduced it in the same handler. Fourth TDZ in this file.
         const _preNum = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; };
         const lbPreSeason = seasons.length === 1 ? _preNum(seasons[0]) : 0;
+        const lbCurSeason = _preNum(YEAR) || new Date().getUTCFullYear();
+        // The CURRENT season is now eligible too (it was `< lbCurSeason`). A
+        // completed season is frozen, so storing it raised no freshness
+        // question; the live season changes every time the ETL lands a week, so
+        // it may only be served against PROOF that the stored board still
+        // matches the data it was built from. That proof is data_max_week.
+        const lbPreIsCurrent = lbPreSeason > 0 && lbPreSeason === lbCurSeason;
         const lbPreEligible =
+          !lbNoPre &&
           lbPreSeason > 0 &&
-          lbPreSeason < (_preNum(YEAR) || new Date().getUTCFullYear()) &&
+          lbPreSeason <= lbCurSeason &&
           !weeksParam && !weekMinParam && !weekMaxParam;
         if (lbPreEligible) {
           try {
             const meta = await db.prepare(
-              "SELECT row_count FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
+              "SELECT row_count, data_max_week FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
             ).bind(lbPreSeason, pos).first();
             if (meta && _preNum(meta.row_count) > 0) {
+              // Freshness, current season only. Scoped to week <= 17 because
+              // that is the board the builder stores (it sends no week params,
+              // and the default predicate is `w.week <= 17`). An unscoped
+              // MAX(week) would climb to 18 and then to 22 in the playoffs while
+              // the stored board is genuinely final — reporting "stale" through
+              // the highest-traffic stretch of the year.
+              //
+              // Costs ONE row read: nfl_player_weekly's primary key is
+              // (season, week, gsis_id), so this is a covering-index seek
+              // (verified with EXPLAIN QUERY PLAN on prod, rows_read 1).
+              let lbPreStale = false;
+              let lbPreLiveWeek = 0;
+              if (lbPreIsCurrent) {
+                const lw = await db.prepare(
+                  "SELECT MAX(week) AS mw FROM nfl_player_weekly WHERE season = ? AND week <= 17"
+                ).bind(lbPreSeason).first();
+                lbPreLiveWeek = _preNum(lw && lw.mw);
+                // NULL/absent data_max_week is "cannot prove fresh", never
+                // "week 0" and never "matches" — every row migration 0140 wrote
+                // predates the column, and treating unknown as equal is exactly
+                // the fail-open shape that has bitten this repo before.
+                const builtWeek = (meta.data_max_week === null || meta.data_max_week === undefined)
+                  ? -1 : _preNum(meta.data_max_week);
+                lbPreStale = builtWeek < 0 || builtWeek !== lbPreLiveWeek;
+              }
+              // `AND games >= ?` is OMITTED when it cannot filter, which is
+              // almost always. It looks free and is not: idx_lbpre_season_pos_games
+              // orders by `games`, so with the predicate SQLite walks the whole
+              // (season, pos) group and sorts through a TEMP B-TREE before it can
+              // apply the LIMIT. Without it, the primary key already yields rank
+              // order and the LIMIT stops the scan.
+              //
+              // Measured on prod 2026-08-27, season 2025 / skill:
+              //   LIMIT 200, games >= 1   -> rows_read 1000
+              //   LIMIT 500, games >= 1   -> rows_read 1000   (LIMIT does nothing)
+              //   LIMIT 200, no predicate -> rows_read  200
+              //
+              // min_games defaults to 1 (see its parse above) and every caller in
+              // the repo either sends 1 or omits it, so this predicate has never
+              // filtered a single row while costing 5x on every read.
+              // Interpolated, not bound, because it has to be absent rather than
+              // matched-on — and it is an integer by construction one screen up
+              // (Math.max(1, parseInt(...) || 1)), the same basis on which the
+              // week predicates are interpolated.
               const pre = await db.prepare(
                 `SELECT row_json, games, punts, franchise_id
                    FROM nfl_leaderboard_precompute
-                  WHERE season = ? AND pos_alias = ? AND games >= ?
-                  ORDER BY rank ASC LIMIT ?`
-              ).bind(lbPreSeason, pos, minGames, limit).all();
+                  WHERE season = ? AND pos_alias = ?` +
+                  (minGames > 1 ? ` AND games >= ${minGames}` : ``) +
+                ` ORDER BY rank ASC LIMIT ?`
+              ).bind(lbPreSeason, pos, limit).all();
               let preRows = (pre.results || []).map((r) => {
                 try { return JSON.parse(r.row_json); } catch (_) { return null; }
               }).filter(Boolean);
@@ -10864,13 +10930,53 @@ export default {
                                                 (r.mfl_franchise_id || "") === teamFilter);
               }
               if (preRows.length) {
+                // A STALE current-season board is SERVED, not discarded, and
+                // that is a deliberate inversion of the completed-season rule
+                // one screen up.
+                //
+                // For a completed season, "no precompute -> run the live query"
+                // is the safe direction: the cost is one slow request. For the
+                // current season it is the dangerous one. Measured on prod
+                // 2026-08-27 (d1 insights, 7d), ONE live run costs:
+                //   idp 4.8-6.2M rows · skill 2.2-2.4M · qb ~0.5M · kicker ~0.39M
+                // against a free-tier ceiling of 5,000,000 rows read PER DAY.
+                // A single idp fall-through is the entire daily budget — and
+                // once D1 cuts the account off it fails EVERY query in this
+                // worker, not just this endpoint: contracts, lineups, waivers,
+                // the auction. A leaderboard showing last week's numbers is a
+                // cosmetic problem; that is a total outage.
+                //
+                // So staleness is reported rather than hidden, and the rebuild
+                // is what fixes it. Logged unconditionally: a stuck rebuild is
+                // otherwise invisible precisely because this path keeps working.
+                if (lbPreStale) {
+                  console.error(
+                    `[leaderboard precompute] SERVING STALE season=${lbPreSeason} pos=${pos} ` +
+                    `built_for_week=${meta.data_max_week === null || meta.data_max_week === undefined ? "unknown" : meta.data_max_week} ` +
+                    `live_week=${lbPreLiveWeek} — the rebuild has not run for this week. ` +
+                    `Falling through to the live query instead would read millions of rows per request.`
+                  );
+                }
                 const preResponse = jsonOut(200, {
                   seasons, pos, include_post: includePost, min_games: minGames,
                   team: teamFilter || null, count: preRows.length,
                   source: "precompute",
+                  ...(lbPreIsCurrent ? {
+                    stale: lbPreStale,
+                    built_for_week: (meta.data_max_week === null || meta.data_max_week === undefined)
+                      ? null : _preNum(meta.data_max_week),
+                    current_week: lbPreLiveWeek,
+                  } : {}),
                   rows: preRows,
                 });
-                preResponse.headers.set("Cache-Control", "public, max-age=2592000");
+                // 30 DAYS is only correct for a season that can never change.
+                // The current season gets the same 300s the live path already
+                // uses for it (see lbTtl below) — otherwise a rebuild would land
+                // in D1 and be invisible behind a month-long edge cache, and
+                // lbCacheKey has no week component, so one key covers week 1
+                // through week 17.
+                preResponse.headers.set("Cache-Control",
+                  `public, max-age=${lbPreIsCurrent ? 300 : 2592000}`);
                 if (!lbNoCache) {
                   try { ctx.waitUntil(caches.default.put(lbCacheKey, preResponse.clone())); } catch (_) {}
                 }
@@ -48757,27 +48863,87 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
         const season = safeInt(body.season || url.searchParams.get("season"), 0);
         const currentSeason = safeInt(YEAR, 0) || new Date().getUTCFullYear();
         if (!season) return jsonOut(400, { ok: false, error: "season is required" });
-        if (season >= currentSeason) {
+        // The CURRENT season is now buildable. What is still refused is a
+        // season that has not happened: storing a board for it would write an
+        // empty answer and, with data_max_week absent, the read gate has no way
+        // to tell "not started" from "built and fresh".
+        if (season > currentSeason) {
           return jsonOut(400, {
             ok: false,
-            error: `season ${season} is not complete (current ${currentSeason}) — refusing to freeze a live season`,
+            error: `season ${season} has not started (current ${currentSeason}) — refusing to build a board for it`,
           });
         }
         const db = env.UPS_MFL_DB;
         if (!db) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        // Scoped to week <= 17 to match the board the loop below actually
+        // stores (it sends no week params, so the endpoint's default predicate
+        // is `w.week <= 17`). Stamping an unscoped MAX(week) would make the
+        // read gate compare against a week the stored board never covered.
+        // One row read — (season, week, gsis_id) is the primary key.
+        const covRow = await db.prepare(
+          "SELECT MAX(week) AS mw, COUNT(*) AS n FROM nfl_player_weekly WHERE season = ? AND week <= 17"
+        ).bind(season).first().catch(() => null);
+        // FAIL CLOSED. A coverage read that errored is not "week 0" — building
+        // on an unknown stamp would store a board the read gate then treats as
+        // fresh forever.
+        if (!covRow) {
+          return jsonOut(503, { ok: false, error: "could not read week coverage for the season — refusing to build against an unknown stamp" });
+        }
+        const covWeek = safeInt(covRow.mw, 0);
+        const covRows = safeInt(covRow.n, 0);
+        if (season === currentSeason && covWeek < 1) {
+          return jsonOut(400, {
+            ok: false,
+            error: `season ${season} has no weekly stats yet (max week ${covWeek}) — nothing to build`,
+          });
+        }
         // Derived HERE. `leagueId` is declared 25 times in this file, every one
         // inside a different route's block scope — none of them reachable from
         // this one. The no-undef gate caught it before it deployed.
         const preLeagueId = safeStr(url.searchParams.get("L") || body.league_id || L || "");
         const origin = new URL(request.url).origin;
+        // ONE alias per call, optionally. Building all five in a single run
+        // costs ~8.8M rows read (measured per-alias on prod 2026-08-27, 7d
+        // insights: idp 4.8-6.2M, skill 2.2-2.4M, qb ~0.5M, kicker ~0.39M,
+        // punter ~0.4M) against a 5,000,000/day free-tier ceiling — so an
+        // all-aliases rebuild cannot fit in a day and the caller must be able to
+        // spread it. Absent/"all" keeps the original behaviour.
+        const ALL_ALIASES = ["qb", "skill", "idp", "kicker", "punter"];
+        const onlyPos = safeStr(body.only_pos || url.searchParams.get("only_pos") || "").toLowerCase();
+        if (onlyPos && onlyPos !== "all" && !ALL_ALIASES.includes(onlyPos)) {
+          return jsonOut(400, { ok: false, error: `only_pos must be one of ${ALL_ALIASES.join(", ")} (or "all")` });
+        }
+        const aliases = (onlyPos && onlyPos !== "all") ? [onlyPos] : ALL_ALIASES;
         const built = [];
-        for (const alias of ["qb", "skill", "idp", "kicker", "punter"]) {
+        for (const alias of aliases) {
+          // NO_PRECOMPUTE=1 is what makes a REBUILD possible at all. NO_CACHE=1
+          // gates only caches.default; the D1 precompute block answered it
+          // regardless. Harmless while a season was built once and never again,
+          // fatal the moment the current season is rebuilt weekly: this fetch
+          // would be handed the rows it is about to overwrite, re-store them
+          // unchanged, and report ok:true — freezing the live board at the week
+          // it was first built. Tightening the cron would make that MORE
+          // permanent, not less.
+          //
+          // YEAR is passed explicitly: without it the endpoint falls back to
+          // new Date().getUTCFullYear() and could disagree with the
+          // currentSeason this route just checked against.
           const u = `${origin}/api/advanced-stats-leaderboard?season=${season}&pos=${alias}` +
-                    `&min_games=1&limit=500&NO_CACHE=1&L=${encodeURIComponent(preLeagueId)}`;
+                    `&min_games=1&limit=500&NO_CACHE=1&NO_PRECOMPUTE=1` +
+                    `&YEAR=${encodeURIComponent(String(currentSeason))}` +
+                    `&L=${encodeURIComponent(preLeagueId)}`;
           let rows = [];
           try {
             const r = await env.SELF.fetch(u);
             const j = await r.json();
+            // The live path sets no `source`; only the precompute block does.
+            // If this is ever "precompute", NO_PRECOMPUTE stopped working and we
+            // are about to re-store our own rows — refuse rather than write a
+            // successful-looking no-op.
+            if (j && j.source === "precompute") {
+              built.push({ pos: alias, ok: false, error: "self-fetch was served the precompute — refusing to re-store its own output" });
+              continue;
+            }
             rows = Array.isArray(j?.rows) ? j.rows : [];
           } catch (err) {
             built.push({ pos: alias, ok: false, error: String(err && err.message || err) });
@@ -48802,12 +48968,20 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames) {
                    safeStr(row.gsis_id || ""), safeInt(row.games, 0), safeInt(row.punts, 0),
                    safeStr(row.mfl_franchise_id || ""), JSON.stringify(row), now));
           });
+          // Every column written here must ALSO appear in the DO UPDATE list.
+          // source_sha (migration 0140) is the cautionary case: declared in the
+          // schema, never written, silently always NULL. If data_max_week were
+          // inserted but not updated, week 1's value would persist through every
+          // later rebuild and the read gate would report "stale" forever.
           stmts.push(db.prepare(
-            `INSERT INTO nfl_leaderboard_precompute_meta (season, pos_alias, row_count, built_at_utc)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT (season, pos_alias) DO UPDATE SET row_count = excluded.row_count,
-                                                           built_at_utc = excluded.built_at_utc`
-          ).bind(season, alias, rows.length, now));
+            `INSERT INTO nfl_leaderboard_precompute_meta
+               (season, pos_alias, row_count, built_at_utc, data_max_week, data_row_count)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT (season, pos_alias) DO UPDATE SET row_count      = excluded.row_count,
+                                                           built_at_utc   = excluded.built_at_utc,
+                                                           data_max_week  = excluded.data_max_week,
+                                                           data_row_count = excluded.data_row_count`
+          ).bind(season, alias, rows.length, now, covWeek, covRows));
           // Chunked: D1 caps statements per batch well below 500.
           for (let i = 0; i < stmts.length; i += 50) {
             await db.batch(stmts.slice(i, i + 50));

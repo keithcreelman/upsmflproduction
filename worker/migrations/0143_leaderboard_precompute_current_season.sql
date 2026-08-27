@@ -1,0 +1,44 @@
+-- 0143 — let the precompute serve the CURRENT season, safely
+--
+-- ⚠️ NEVER `wrangler d1 migrations apply` — the tracker is ~47 entries behind and
+-- applying it corrupts contracts. Apply with:
+--   npx wrangler d1 execute ups-mfl-db --remote --file worker/migrations/0143_leaderboard_precompute_current_season.sql
+--
+-- ⚠️ NOT IDEMPOTENT. SQLite has no `ADD COLUMN IF NOT EXISTS`, so re-running this
+-- file fails with "duplicate column name: data_max_week". That error means it
+-- already ran — it is not damage. (Migration 0073 failed exactly this way on
+-- 2026-08-17 and nothing was harmed.) Both statements are metadata-only.
+--
+-- WHY
+--   0140 froze COMPLETED seasons, whose answer never changes, so the read gate
+--   was `season < currentSeason` and no freshness question existed. The current
+--   season is the opposite: it changes every week the ETL lands new stats.
+--
+--   Serving a stale live-season board is worse than serving a slow one — an owner
+--   comparing players would silently be reading last week's numbers. So the
+--   current season may only be served from precompute when we can PROVE the
+--   stored answer still matches the data it was built from.
+--
+--   data_max_week is that proof: MAX(week) of nfl_player_weekly for the season at
+--   build time. On read, if the live MAX(week) has moved, the stored board is by
+--   definition out of date and the request falls through to the live query.
+--   data_row_count catches the other case — same week, more rows (a correction or
+--   a partially-loaded week that has since completed).
+--
+--   Both are NULLable on purpose. Every row written by 0140 predates them, and a
+--   NULL must read as "unknown, cannot prove fresh" → fall through. It must never
+--   read as "week 0" or "matches", which would serve a frozen board forever.
+ALTER TABLE nfl_leaderboard_precompute_meta ADD COLUMN data_max_week INTEGER;
+ALTER TABLE nfl_leaderboard_precompute_meta ADD COLUMN data_row_count INTEGER;
+
+-- NO INDEX IS NEEDED, and adding one would be actively harmful.
+-- nfl_player_weekly's PRIMARY KEY is (season, week, gsis_id) — it already leads
+-- with (season, week), so the freshness check is a covering-index seek.
+-- Measured on prod 2026-08-27:
+--   EXPLAIN QUERY PLAN SELECT MAX(week) FROM nfl_player_weekly WHERE season=2025
+--     -> SEARCH ... USING COVERING INDEX sqlite_autoindex_nfl_player_weekly_1
+--   actual run -> rows_read: 1
+-- An earlier draft of this migration added (season, week) anyway. That index
+-- would have written one entry per row (~270,000) — roughly 270% of the
+-- 100,000/day write cap in a single statement — to speed up a query already
+-- answered in one row read.
