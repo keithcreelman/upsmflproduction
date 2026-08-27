@@ -12463,34 +12463,17 @@ export default {
                 //     rank by SUM(win_chunks). Because WC-β = win_chunks × β
                 //     and β is constant within a pos_group, ranking on raw
                 //     win_chunks inside (season, pos_group) IS the WC-β rank.
-                `WITH season_totals AS (
-                   SELECT w.season, w.player_id,
-                          MIN(w.pos_group) AS pos_group,
-                          COUNT(*) AS games_played_cte,
-                          SUM(COALESCE(w.win_chunks, 0)) AS win_chunks_total
-                     FROM src_weekly w
-                    WHERE w.score > 0 AND w.status = 'starter'
-                    GROUP BY w.season, w.player_id
-                 ),
-                 wc_ranked AS (
-                   -- Total Adj-AP-Wins rank (equivalent to raw-WC rank
-                   -- because β is constant within a pos_group).
-                   -- AND per-game Adj-AP-Wins rank, same logic over
-                   -- (win_chunks_total / games_played_cte).
-                   SELECT season, player_id, pos_group,
-                          win_chunks_total, games_played_cte,
-                          RANK() OVER (
-                            PARTITION BY season, pos_group
-                            ORDER BY win_chunks_total DESC
-                          ) AS wc_pos_rank,
-                          RANK() OVER (
-                            PARTITION BY season, pos_group
-                            ORDER BY (win_chunks_total * 1.0 /
-                                      CASE WHEN games_played_cte > 0
-                                           THEN games_played_cte ELSE 1 END) DESC
-                          ) AS wc_per_game_pos_rank
-                     FROM season_totals
-                 )
+                `-- The season_totals + wc_ranked CTEs used to live here. They scanned ALL of
+                 -- src_weekly — every player, every season — to produce a positional
+                 -- rank the outer SELECT then LEFT JOINed for ONE player. 254,689 rows
+                 -- read PER CALL (measured 2026-08-27), on the player card, which owners
+                 -- open constantly: ~10 opens was half of D1's 5M daily free-tier reads.
+                 --
+                 -- Precomputed into player_season_wc_rank (migration 0142), rebuilt by
+                 -- worker/migrations/manual/rebuild_player_season_wc_rank.sql which
+                 -- carries this exact SQL. One expensive pass instead of one per open.
+                 -- A player absent from the table LEFT JOINs to NULL, exactly as an
+                 -- absence from the CTE did.
                  SELECT w.season,
                         MIN(w.pos_group) AS pos_group,
                         COUNT(*) AS games_played,
@@ -12513,7 +12496,7 @@ export default {
                           ON b.season = w.season AND b.pos_group = w.pos_group
                    LEFT JOIN src_pointssummary ps
                           ON ps.season = w.season AND ps.player_id = w.player_id
-                   LEFT JOIN wc_ranked wcr
+                   LEFT JOIN player_season_wc_rank wcr
                           ON wcr.season = w.season AND wcr.player_id = w.player_id
                   WHERE w.player_id = ? AND w.score > 0
                   GROUP BY w.season

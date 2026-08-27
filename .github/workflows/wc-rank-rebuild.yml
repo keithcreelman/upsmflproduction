@@ -1,0 +1,51 @@
+name: WC rank — rebuild player_season_wc_rank
+
+# /api/player-bundle's career_summary used to scan ALL of src_weekly on every
+# call to compute a positional rank for ONE player: 254,689 rows per open,
+# measured 2026-08-27. That is the player card — roughly ten opens consumed half
+# of D1's 5M daily free-tier reads.
+#
+# The rank depends only on (season, player_id) and changes when src_weekly does,
+# so it is computed once here and read per player. The SQL runs entirely inside
+# D1; nothing is transferred.
+#
+# Weekly in season is enough — src_weekly does not change between game weeks.
+
+on:
+  schedule:
+    - cron: "40 10 * * 2"      # Tuesdays, after the week's stats land
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: rebuild
+        working-directory: worker
+        run: |
+          npx wrangler d1 execute ups-mfl-db --remote \
+            --file migrations/manual/rebuild_player_season_wc_rank.sql
+      - name: verify it is not empty
+        working-directory: worker
+        run: |
+          # A rebuild that DELETEs and then inserts nothing would silently strip
+          # every rank from the player card. Fail loudly instead.
+          npx wrangler d1 execute ups-mfl-db --remote \
+            --command "SELECT COUNT(*) AS n FROM player_season_wc_rank;" > /tmp/n.txt
+          cat /tmp/n.txt
+          python3 - <<'PY'
+          import re, sys
+          m = re.search(r'"n":\s*(\d+)', open("/tmp/n.txt").read())
+          n = int(m.group(1)) if m else 0
+          print(f"rows: {n}")
+          if n < 500:
+              print(f"::error::player_season_wc_rank has only {n} rows — refusing to call this a success")
+              sys.exit(1)
+          PY
