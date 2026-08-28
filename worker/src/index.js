@@ -42187,7 +42187,35 @@ const mflToSleeper = {};
               moveRes = { ok: false, status: 0, text: String(e?.message || e) };
             }
             const moveMsgId = safeStr(moveRes?.data?.id || "");
-            if (moveRes?.ok && moveMsgId) {
+            if (moveRes?.ok && moveMsgId && mm.row_id == null) {
+              // Miss cards (buildMissMessage) carry row_id: null ON PURPOSE —
+              // a denial has no ups_add_events row to stamp discord_posted on.
+              // Before misses were embedded into a report's own move_messages
+              // (#992), every message here had a real row_id and this branch
+              // never had to consider a null one.
+              //
+              // Falling into the "recorded" logic below with row_id === null
+              // was actively wrong: `UPDATE ... WHERE id = ?` bound to NULL
+              // matches ZERO rows in SQLite (NULL = anything is never true),
+              // so `recorded` was unconditionally false for every miss card —
+              // marking the WHOLE report ok:false and firing the
+              // "POSTED-BUT-NOT-RECORDED... will be reposted every 5 minutes"
+              // alarm on every run that had a genuine denial. That is exactly
+              // the case this session's work was built to finally surface
+              // correctly, so it would have fired on the very first real one.
+              // Confirmed live: replaying 2026-08-20 (the real Najee Harris
+              // miss) returned posted_count=6, failed_count=-1 — 5 real
+              // rows minus a phantom null miss row counted as posted, an
+              // impossible negative that only makes sense once you know a
+              // null id was in the row-id arithmetic at all.
+              //
+              // There is nothing to record and nothing to retry here — the
+              // message posted; that is success, full stop.
+              result.moves.push({
+                row_id: null, player_id: mm.player_id, player_name: mm.player_name,
+                message_id: moveMsgId, ok: true, is_miss: true,
+              });
+            } else if (moveRes?.ok && moveMsgId) {
               // The Discord message is LIVE. If we cannot record that on the
               // row, the row stays discord_posted = 0, the next */5 tick
               // re-plans it, resolves this same thread and posts the move a
