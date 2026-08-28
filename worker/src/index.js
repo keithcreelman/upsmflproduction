@@ -41738,11 +41738,25 @@ const mflToSleeper = {};
         // is not zero.
         let missRes = { misses: null, reason: "" };
         if (apShape === "report" || apShape === "misses") {
+          // The run's OWN timestamp, not "now" — see the PERIOD comment on
+          // _waiverMissesForRun. Every team in a same-day report shares one
+          // acquired_at_unix in the data observed so far (2026-08-20 and
+          // 2026-08-27 both had exactly one distinct value across all of that
+          // day's rows), so the earliest team's stamp names the run. If a day
+          // ever DOES span two MFL runs (e.g. BBID then a later FCFS pass),
+          // this picks one of them and the overlap check inside
+          // _waiverMissesForRun is what catches the mismatch on the other.
+          const apMissPeriodUnix = apReportTeams.length
+            ? safeInt(apReportTeams.reduce(
+                (a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b)
+              ).first_acquired_unix, 0)
+            : 0;
           missRes = await _waiverMissesForRun(
             env, apSeason, apLeagueId,
             apReportTeams.reduce((acc, t) => acc.concat(
               (t.moves || []).map((m) => safeStr(m.added && m.added.name))
-            ), [])
+            ), []),
+            apMissPeriodUnix
           );
           if (missRes.reason) {
             apShapeNote = (apShapeNote ? apShapeNote + " " : "") + `Misses omitted: ${missRes.reason}.`;
@@ -45922,14 +45936,43 @@ const mflToSleeper = {};
 // also be an add in this run. No overlap => the page is about a different run
 // => return null. null renders NO misses section at all, which is honest;
 // an empty array would print "0 not granted" and assert a check we did not do.
-async function _waiverMissesForRun(env, season, leagueId, addedNames) {
+// periodUnix — MFL's processed_waivers report is not "most recent run only";
+// it is addressable BY RUN via &PERIOD=<unix seconds>, discovered 2026-08-28
+// from a real MFL URL Keith pulled up in-browser:
+//   .../processed_waivers?LEAGUE_ID=74598&PERIOD=1787835600
+// 1787835600 is not an arbitrary value — it is EXACTLY the acquired_at_unix
+// UPS already had stored in ups_add_events for the 2026-08-27 run (verified:
+// both equal 1787835600, and separately the 2026-08-20 run's period matches
+// that day's stored acquired_at_unix too). So PERIOD is the run's own
+// processing timestamp, and callers already have it — it does not need to be
+// rediscovered or guessed.
+//
+// This retires the "most recent run only" limitation this function's callers
+// have lived with (see mfl_processed_waivers_is_only_denial_source in memory,
+// now partially superseded): omitting PERIOD only ever worked because a LIVE
+// cron fires close to the run it is reporting on, so "most recent" and "the
+// run we mean" were usually the same page — closer to lucky timing than a
+// guarantee. Passing our own recorded timestamp makes it exact instead of
+// probable, for both the live cron AND for replaying any past day, which
+// omitting PERIOD could never do (there was no way to reach an old run's page
+// once MFL moved past it — confirmed live: replaying 2026-08-20 today, without
+// PERIOD, returns whatever run is CURRENTLY most recent, not the 20th's).
+//
+// The overlap check below (grantedOnPage / mine) is UNCHANGED and stays as a
+// second line of defense: a day can in principle contain more than one MFL
+// waiver run (e.g. BBID and a later FCFS pass) sharing one calendar date but
+// not one timestamp, in which case a single PERIOD value only ever targets
+// one of them. If the page PERIOD returns still doesn't overlap this run's
+// own adds, that guard still refuses rather than guess.
+async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix) {
   const cookie = String(env.MFL_COOKIE || "").trim();
   if (!cookie) return { misses: null, reason: "MFL_COOKIE missing" };
   const cookieHeader = cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`;
   let html = "";
   try {
+    const periodQ = safeInt(periodUnix, 0) > 0 ? `&PERIOD=${safeInt(periodUnix, 0)}` : "";
     const r = await fetch(
-      `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/processed_waivers?L=${encodeURIComponent(leagueId)}`,
+      `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/processed_waivers?L=${encodeURIComponent(leagueId)}${periodQ}`,
       { headers: { Cookie: cookieHeader, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)", Accept: "text/html" },
         redirect: "follow", cf: { cacheTtl: 0, cacheEverything: false } }
     );
