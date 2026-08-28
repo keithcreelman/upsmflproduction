@@ -1,0 +1,52 @@
+name: Waiver report — franchise cell raw HTML diag
+
+# One-off diagnostic: a real replay of the 2026-08-20 run rendered one
+# franchise's name as "Owner: Keith Creelman, Record: 0-0-0, PF: 0" instead of
+# its actual team name. Dumps the RAW franchise <td> HTML next to what
+# cellText() derives from it, so the bug can be seen instead of guessed at.
+# Read-only: no D1 write, no Discord post.
+
+on:
+  workflow_dispatch:
+    inputs:
+      period:
+        description: "Unix seconds of the run to inspect (blank = MFL's current most-recent)"
+        required: false
+        default: "1787230800"
+      day:
+        description: "Label only, for the log — not sent to MFL"
+        required: false
+        default: "2026-08-20"
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.COMMISH_API_KEY }}
+      PERIOD: ${{ github.event.inputs.period }}
+      DAY: ${{ github.event.inputs.day }}
+    steps:
+      - run: '[ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }'
+      - name: fetch raw franchise cells
+        run: |
+          echo "period=$PERIOD (day label: $DAY)"
+          curl -sS \
+            "https://upsmflproduction.keith-creelman.workers.dev/admin/waivers/processed-waivers-raw-diag?L=74598&YEAR=2026&period=${PERIOD}&APIKEY=${KEY}" \
+            -o /tmp/diag.json
+          echo "bytes: $(wc -c < /tmp/diag.json)"
+      - name: summarize
+        run: |
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/diag.json"))
+          print("ok:", d.get("ok"), "| row_count:", d.get("row_count"), "| period:", d.get("period"))
+          if d.get("error"):
+              print("ERROR:", d["error"])
+          for i, r in enumerate(d.get("rows") or []):
+              print(f"\n--- row {i} ---")
+              print("  cellText():", r.get("franchise_cell_cellText"))
+              print("  raw html:  ", r.get("franchise_cell_raw_html"))
+          PY
