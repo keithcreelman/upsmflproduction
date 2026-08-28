@@ -41001,12 +41001,17 @@ const mflToSleeper = {};
         // Same cellText() the production parser uses, duplicated here on
         // purpose — this route exists to SEE its output next to the raw
         // input, not to share a code path that could itself hide the bug.
+        // Kept in sync with the real fix (alt before title — see the
+        // production cellText's comment) so this diagnostic never shows a
+        // frozen "before" behavior once the real parser has moved on.
         const dCellText = (c) => {
           const txt = safeStr(c.replace(/<[^>]+>/g, " ")).replace(/&nbsp;/gi, " ")
             .replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim();
           if (txt) return txt;
-          const at = /(?:alt|title)="([^"]+)"/i.exec(c);
-          if (at && at[1].trim()) return at[1].trim();
+          const alt = /\balt="([^"]+)"/i.exec(c);
+          if (alt && alt[1].trim()) return alt[1].trim();
+          const title = /\btitle="([^"]+)"/i.exec(c);
+          if (title && title[1].trim()) return title[1].trim();
           const fid = /franchise_(?:icon|logo)(\d{4})/i.exec(c);
           return fid ? `fid:${fid[1]}` : "";
         };
@@ -46069,12 +46074,27 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
     .replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "");
   // Franchise renders as a LOGO, so recover the name from alt/title or the
   // fid in the icon filename before falling back to "".
+  //
+  // alt is tried BEFORE title, and deliberately not as one unanchored
+  // /(?:alt|title)=/ regex — MFL's actual markup for a franchise cell is
+  //   <a title="Owner: X, Record: 0-0-0, PF: 0" ...><img alt="Team Name" .../></a>
+  // The single-regex form matched WHICHEVER attribute appeared first in the
+  // HTML — which is `title`, since it sits on the outer <a>, before `alt` on
+  // the nested <img>. Verified live via the raw-cell diag route
+  // (/admin/waivers/processed-waivers-raw-diag, 2026-08-28): every row's
+  // franchise cell has NO visible text at all (pure logo), so this branch is
+  // the ONLY source for the name, and it was returning
+  // "Owner: Keith Creelman, Record: 0-0-0, PF: 0" — a real owner/record
+  // tooltip, never a team name — for every row in the report. title is kept
+  // as a fallback only for a markup shape without an alt.
   const cellText = (c) => {
     const txt = safeStr(c.replace(/<[^>]+>/g, " ")).replace(/&nbsp;/gi, " ")
       .replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim();
     if (txt) return txt;
-    const at = /(?:alt|title)="([^"]+)"/i.exec(c);
-    if (at && at[1].trim()) return at[1].trim();
+    const alt = /\balt="([^"]+)"/i.exec(c);
+    if (alt && alt[1].trim()) return alt[1].trim();
+    const title = /\btitle="([^"]+)"/i.exec(c);
+    if (title && title[1].trim()) return title[1].trim();
     const fid = /franchise_(?:icon|logo)(\d{4})/i.exec(c);
     return fid ? `fid:${fid[1]}` : "";
   };
