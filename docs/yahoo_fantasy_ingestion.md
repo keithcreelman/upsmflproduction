@@ -1,9 +1,33 @@
 # Yahoo Fantasy Ingestion — Design + Operations
 
-**Status:** ✅ **APPROVED** — API Access and Use Agreement executed 2026-08-19,
-**effective 2026-08-21**. The access blocker described below is cleared; what
-replaces it is a set of binding contractual limits, in the section immediately
-after this one. Read that BEFORE running anything.
+**Status:** ⚠️ **STILL BLOCKED — the agreement did not clear it.**
+
+⚠️ **RETESTED LIVE 2026-08-28: `/oauth2/request_auth?scope=fspt-r` still
+returns `error=invalid_scope`,** straight back to the redirect URI with no
+consent screen. That is nine days after the API Access and Use Agreement went
+effective, and sixteen days after the first identical result on 2026-08-12.
+
+**The conclusion this forces: the executed agreement and the access application
+are two different things, and only the agreement is done.** The agreement was
+signed 2026-08-19 (countersigned by Yahoo the same day) and went effective
+2026-08-21. It does not attach the Fantasy Sports permission to a Client ID —
+only an approved *access application* at `https://sports.yahoo.com/developer/access/`
+does, and Yahoo attaches the scope per-app after approving it.
+
+An earlier version of this header read "✅ APPROVED — the access blocker
+described below is cleared". That was wrong: it read the countersigned
+agreement as clearing a block that is enforced somewhere else entirely.
+
+**Next action is Keith's, not the code's:** confirm whether the access
+application was ever submitted. If it was, its confirmation email states
+"typically 1-2 weeks" and there is no status page, so the only lever is a
+follow-up on that thread. If it was not, that fully explains the silence and
+there is nothing to chase — there is something to file.
+
+There is no code change that helps. Everything downstream of the authorize step
+is verified against synthetic fixtures and cannot be exercised live until the
+scope is issued. What follows in this document is a set of binding contractual
+limits that apply the moment it is.
 **Raised:** 2026-08-11 — Keith asked for his Yahoo fantasy league's full history
 in the same database as everything else, so that fifteen years of drafts,
 trades, waivers and weekly lineups become queryable instead of trapped behind

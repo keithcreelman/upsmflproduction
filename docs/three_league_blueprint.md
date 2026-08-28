@@ -182,7 +182,9 @@ The weekly questions are identical across leagues; only the scoring changes:
 ### Yahoo: it is not a to-do, it is blocked upstream
 
 ⚠️ **Correcting an earlier reading of my own.** "Approved but never run" implied
-someone just needs to run it. That is wrong. Verified live 2026-08-12:
+someone just needs to run it. That is wrong. Verified live 2026-08-12 **and
+retested 2026-08-28 with the identical result, nine days after the agreement
+went effective**:
 `/oauth2/request_auth` with `scope=fspt-r` returns **`invalid_scope` before the
 consent screen** because the app lacks approval at
 `sports.yahoo.com/developer/access`. **No code change can fix this** — the
