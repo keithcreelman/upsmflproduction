@@ -84,6 +84,16 @@ jobs:
       - name: Python — ESPN pipeline suite
         run: python3 tests/test_espn_pipeline.py
 
+      # scripts/espn_solve_scoring.py (outside pipelines/fantasy/, so the
+      # isolation check above never sees it) once read 4,501,580 D1 rows per
+      # run — an unindexed name join, made worse by a plain JOIN that let
+      # SQLite reorder away from the fix even after the index existed.
+      # Fixed 2026-08-28: n.display_name_lower (indexed, migration 0144 on
+      # the UPS/MFL side) + CROSS JOIN to pin join order. 305x cheaper,
+      # output verified row-for-row identical against the unfixed query.
+      - name: Python — ESPN scoring-fit query shape
+        run: python3 tests/test_espn_solve_scoring_query_shape.py
+
       # AES-GCM round trip + redaction in the Worker OAuth module. SKIPS with an
       # explanation (and still exits 0) if worker/src/yahoo_oauth.js is absent —
       # "not written yet" and "broken" need different people to do different

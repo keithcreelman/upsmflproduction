@@ -91,9 +91,32 @@ def main() -> int:
         FROM fantasy_player_week_points p
         JOIN fantasy_players f
           ON f.platform = p.platform AND f.player_uid = p.player_uid
+        -- display_name_lower is a VIRTUAL GENERATED column + index added on
+        -- nfl_player_names (migration 0144, worker/src is the OTHER project
+        -- sharing this D1 instance). LOWER(n.display_name) = LOWER(f.full_name)
+        -- could use no index on either side -- nfl_player_names had none at
+        -- all -- so every run scanned its full ~25,764 rows PER OUTER ROW.
+        -- Measured on prod 2026-08-28: 4,501,580 rows read for one run of
+        -- this exact query, ~90% of the 5,000,000/day free-tier ceiling this
+        -- D1 instance shares with the live UPS/MFL bookkeeping app.
         JOIN nfl_player_names n
-          ON LOWER(n.display_name) = LOWER(f.full_name)
-        JOIN nfl_player_weekly w
+          ON n.display_name_lower = LOWER(f.full_name)
+        -- CROSS JOIN, not JOIN -- deliberately, to PIN this join's position.
+        -- SQLite reorders plain JOINs freely, and even with the index above
+        -- in place it kept choosing to search nfl_player_weekly by
+        -- (season=?, week=?) alone -- BEFORE n was resolved, so w.gsis_id
+        -- could not be bound yet -- pulling in every player active that NFL
+        -- week (nfl_player_weekly's own PK is (season, week, gsis_id); the
+        -- correct plan waits for n.gsis_id so all three columns bind at once).
+        -- CROSS JOIN tells the optimizer not to reorder this table relative
+        -- to the ones before it (SQLite's documented mechanism for exactly
+        -- this), which produces the seek this join actually needs:
+        --   SEARCH w USING INDEX sqlite_autoindex_nfl_player_weekly_1
+        --     (season=? AND week=? AND gsis_id=?)
+        -- Verified live: 4,501,580 -> 14,731 rows read (305x), output
+        -- IDENTICAL -- same 2,371 rows, every column, diffed row-for-row
+        -- against the unfixed query, not just compared by count.
+        CROSS JOIN nfl_player_weekly w
           ON w.gsis_id = n.gsis_id AND w.season = p.season AND w.week = p.week
         WHERE p.platform='espn' AND p.season={a.season}
           AND p.league_key='{league_key(a.season)}'
