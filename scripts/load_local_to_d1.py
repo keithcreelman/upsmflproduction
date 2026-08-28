@@ -218,6 +218,65 @@ def load_table(
     return total
 
 
+# Tables whose player_id is joined to player_id_crosswalk.mfl_player_id by the
+# advanced-stats leaderboard.
+PLAYER_ID_TEXT_JOIN_TABLES = ("src_players", "src_contracts")
+
+
+def assert_player_id_join_safe(conn: sqlite3.Connection, label: str, src_sql: str) -> None:
+    """Refuse to load a player_id the leaderboard's join would silently miss.
+
+    src_players.player_id and src_contracts.player_id are TEXT; the crosswalk's
+    mfl_player_id is INTEGER. Joining them with `=` made SQLite apply numeric
+    affinity to the TEXT side, which cost ~3.3M row reads per leaderboard query
+    because the TEXT primary key could no longer be seeked (PR #989). The fix
+    compares TEXT to TEXT:
+
+        player_id IN (printf('%04d', mfl_player_id), CAST(mfl_player_id AS TEXT))
+
+    That is output-identical ONLY while every stored player_id is one of those
+    two renderings of its own integer value. Today every row satisfies it. If a
+    load ever wrote '00151' or ' 151' instead, the join would stop matching and
+    that player would silently lose contract, team, salary and franchise — and
+    because the leaderboard's team=FA filter keys on a missing franchise id, a
+    rostered player would appear in the FREE AGENT list. HTTP 200 throughout.
+
+    So this fails CLOSED: an unverifiable or violating load is refused outright,
+    never loaded-and-warned. A wrong contract surfacing as a free agent is
+    exactly the class of silent corruption this repo has been bitten by before.
+    """
+    if label not in PLAYER_ID_TEXT_JOIN_TABLES:
+        return
+    # Mirrors the join's tolerance exactly: valid iff the stored text equals the
+    # zero-padded form OR the bare form. Anything else the join cannot match.
+    sql = (f"SELECT COUNT(*) FROM ( {src_sql} ) "
+           "WHERE player_id IS NULL "
+           "   OR (player_id <> printf('%04d', CAST(player_id AS INTEGER)) "
+           "  AND  player_id <> CAST(CAST(player_id AS INTEGER) AS TEXT))")
+    try:
+        bad = conn.execute(sql).fetchone()[0]
+    except sqlite3.DatabaseError as e:
+        sys.exit(f"REFUSE {label}: could not verify player_id format ({e}). "
+                 "An unverifiable load is not a safe load.")
+    if bad:
+        sample = conn.execute(
+            f"SELECT DISTINCT player_id FROM ( {src_sql} ) "
+            "WHERE player_id IS NULL "
+            "   OR (player_id <> printf('%04d', CAST(player_id AS INTEGER)) "
+            "  AND  player_id <> CAST(CAST(player_id AS INTEGER) AS TEXT)) LIMIT 10"
+        ).fetchall()
+        sys.exit(
+            f"REFUSE {label}: {bad} row(s) have a player_id the leaderboard join "
+            f"cannot match: {[r[0] for r in sample]}\n"
+            "Expected each id to equal printf('%04d', CAST(id AS INTEGER)) or "
+            "CAST(CAST(id AS INTEGER) AS TEXT).\n"
+            "Loading these would blank contract/team for those players and show "
+            "them as FREE AGENTS. Fix the source format, or update the join in "
+            "worker/src/index.js and tests/leaderboard_player_id_affinity.test.mjs "
+            "together."
+        )
+
+
 def record_manifest(db_name: str, rows_by_table: dict[str, int]) -> None:
     import socket
     source_host = socket.gethostname()
@@ -685,6 +744,7 @@ def main():
     for flag, label, src_sql, dst_cols in plan:
         if selected and flag not in selected:
             continue
+        assert_player_id_join_safe(conn, label, src_sql)
         pk_cols = PK_MAP.get(label)
         # Incremental mode: table in PK_MAP → UPSERT (no reset).
         # Legacy mode: no PK known → DELETE+INSERT.

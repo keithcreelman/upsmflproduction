@@ -4,47 +4,36 @@ name: Leaderboard precompute — rebuild the CURRENT season
 # week (nflverse-stats-refresh.yml, cron "0 11 * * 3" = Wednesday 11:00 UTC), so
 # unlike a completed season it has to be rebuilt rather than frozen once.
 #
-# ONE ALIAS PER DAY, deliberately. Measured per-alias cost of the live query on
-# prod 2026-08-27 (`wrangler d1 insights --time-period 7d`), completed seasons:
+# ALL FIVE ALIASES, ONE RUN. That was not possible until 2026-08-27: the query
+# compared src_players.player_id (TEXT) to player_id_crosswalk.mfl_player_id
+# (INTEGER), which made SQLite apply numeric affinity to the TEXT side and
+# silently lose the primary key, so latest_contract and current_team rescanned
+# the whole season slice once per output row (PR #989). Measured per-alias cost
+# on prod, before -> after, each verified output-identical against the stored
+# board:
 #
-#     idp     4.8 - 6.2 M rows read per run
-#     skill   2.2 - 2.4 M
-#     qb      ~0.50 M
-#     punter  ~0.40 M
-#     kicker  ~0.39 M
-#     -------------------------
-#     all five  ~8.8 M
+#     idp     4.8-6.2 M  ->  374,507
+#     skill   2.2-2.4 M  ->  315,781
+#     qb        ~0.50 M  ->  250,915
+#     punter    ~0.40 M  ->  253,916
+#     kicker    ~0.39 M  ->  247,812
+#     ---------------------------------
+#     all five   ~8.8 M  ->  ~1,443,000     = ~29% of the 5,000,000/day free tier
 #
-# The D1 free tier allows 5,000,000 rows read PER DAY (enforced from
-# 2026-09-01), and exceeding it fails EVERY query in the worker for the rest of
-# the day — contracts, lineups, waivers, the auction — not just this endpoint.
-# So all five in one run cannot fit, and the schedule spreads them.
+# So the whole loop now fits in a single run with room to spare, and idp — which
+# used to be the entire daily budget by itself, hence its own scary note here —
+# is no longer special.
 #
-# ⚠️ idp IS THE OPEN QUESTION. On a completed season it alone is ~100% of a
-# day's budget. It is scheduled here because the alternative is worse — without
-# a stored board every current-season idp request runs that same query live, and
-# site/m/app.js fetches idp for the current season on EVERY app open — but the
-# real figure for 2026 is unknown until Week 1 lands (2026-09-10; the season has
-# zero rows today, so it cannot be measured yet).
-#
-# MEASURE IT IN WEEK 1 before trusting this schedule:
-#     python3 scripts/d1_usage.py 1d
-# If the idp rebuild is at or over the cap, the fix is to make the query cheaper
-# (its cost is materialised-CTE nested loops — 17,298 base rows for 2025 produce
-# 5.25M reads, a ~300x amplification), not to rebuild it less often: a stale
-# board is served, so a slower cadence degrades accuracy without saving reads.
+# If a future change pushes this back over budget, the mechanism to spread it
+# still exists: only_pos accepts one alias, and this workflow's `pos` input
+# takes a comma-separated list.
 
 on:
   schedule:
-    # All after the Wednesday 11:00 UTC stats refresh. One alias per day.
-    - cron: "30 12 * * 3"   # Wed — skill  (~2.3M)
-    - cron: "30 12 * * 4"   # Thu — qb + kicker + punter (~1.3M total)
-    # NO idp CRON — ON PURPOSE. See the idp note above: on a completed season it
-    # alone is ~5M rows, which IS the whole daily cap, so a weekly idp cron is a
-    # guaranteed weekly outage of every D1 query in the worker. Run it by hand
-    # (workflow_dispatch, pos=idp) once Week 1 gives a real 2026 number, and add
-    # the cron here only if that number leaves room:
-    #     - cron: "30 12 * * 5"   # Fri — idp
+    # Wednesday, 90 minutes after the 11:00 UTC nflverse stats refresh
+    # (nflverse-stats-refresh.yml), which is the only thing that changes the
+    # answer during a season.
+    - cron: "30 12 * * 3"
   workflow_dispatch:
     inputs:
       season:
@@ -54,7 +43,7 @@ on:
       pos:
         description: "Which alias to build"
         required: true
-        default: "skill"
+        default: "all"
         type: choice
         options: [skill, qb, kicker, punter, idp, all]
 
@@ -78,17 +67,9 @@ jobs:
           [ -n "$SEASON" ] || SEASON="$(date -u +%Y)"
           echo "SEASON=$SEASON" >> "$GITHUB_ENV"
 
-          # A dispatch names its alias. A cron does not, so derive it from the
-          # UTC day-of-week the schedule fired on (1=Mon .. 7=Sun).
+          # A cron sends no inputs, so it lands here empty and means "everything".
           POS="${IN_POS}"
-          if [ -z "$POS" ]; then
-            case "$(date -u +%u)" in
-              3) POS="skill" ;;
-              4) POS="qb,kicker,punter" ;;
-              # No case 5: idp is deliberately not on a cron (see the schedule).
-              *) echo "::error::cron fired on an unscheduled day $(date -u +%u)"; exit 1 ;;
-            esac
-          fi
+          [ -n "$POS" ] || POS="all"
           echo "POS=$POS" >> "$GITHUB_ENV"
           echo "rebuilding season=$SEASON aliases=$POS"
 
