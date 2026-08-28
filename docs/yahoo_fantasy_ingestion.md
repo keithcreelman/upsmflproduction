@@ -7,22 +7,35 @@ returns `error=invalid_scope`,** straight back to the redirect URI with no
 consent screen. That is nine days after the API Access and Use Agreement went
 effective, and sixteen days after the first identical result on 2026-08-12.
 
-**The conclusion this forces: the executed agreement and the access application
-are two different things, and only the agreement is done.** The agreement was
-signed 2026-08-19 (countersigned by Yahoo the same day) and went effective
-2026-08-21. It does not attach the Fantasy Sports permission to a Client ID —
-only an approved *access application* at `https://sports.yahoo.com/developer/access/`
-does, and Yahoo attaches the scope per-app after approving it.
+**⚠️ CORRECTED 2026-08-28 — an earlier draft of this section said the access
+application had never been submitted. That was wrong.** Yahoo's approval email
+from `fantasyapiapplications@yahoosports.com` reads *"Your application for
+access to the Yahoo Fantasy API has been approved"* and then asks for the
+agreement to be signed, closing: *"Upon execution of the agreement, we will
+provide information regarding next steps and API access."*
+
+**So the real sequence, and where it is genuinely stuck:**
+
+1. Access application submitted → **approved by Yahoo**
+2. Agreement sent, signed and countersigned → **executed 2026-08-19,
+   effective 2026-08-21, all parties complete**
+3. *"we will provide information regarding next steps and API access"* →
+   **never delivered**
+
+Nothing is outstanding on our side. The `fspt-r` scope is attached to a Client
+ID by Yahoo as a provisioning step AFTER execution, and that step has not
+happened nine days later. **This is a follow-up on an existing thread, not a
+new application** — resubmitting the form would duplicate something already
+approved.
 
 An earlier version of this header read "✅ APPROVED — the access blocker
 described below is cleared". That was wrong: it read the countersigned
 agreement as clearing a block that is enforced somewhere else entirely.
 
-**Next action is Keith's, not the code's:** confirm whether the access
-application was ever submitted. If it was, its confirmation email states
-"typically 1-2 weeks" and there is no status page, so the only lever is a
-follow-up on that thread. If it was not, that fully explains the silence and
-there is nothing to chase — there is something to file.
+**Next action: reply on the existing approval thread**
+(`fantasyapiapplications@yahoosports.com`), quoting the executed agreement and
+the dated `invalid_scope` evidence, and ask for the provisioning they committed
+to. Do NOT submit a second access application.
 
 There is no code change that helps. Everything downstream of the authorize step
 is verified against synthetic fixtures and cannot be exercised live until the
