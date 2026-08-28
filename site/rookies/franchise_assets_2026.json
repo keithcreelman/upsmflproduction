@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-27T19:59:48.425490+00:00",
+    "generated_at_utc": "2026-08-28T20:59:02.886935+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1031,7 +1031,7 @@
           "display": "Jarquez Hunter",
           "player_id": "17064",
           "position": "RB",
-          "nfl_team": "LAR",
+          "nfl_team": "MIA",
           "salary": 2000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
@@ -2377,18 +2377,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_13193",
-          "display": "Jonnu Smith",
-          "player_id": "13193",
-          "position": "TE",
-          "nfl_team": "FA",
-          "salary": 6000,
-          "contract_year": 2,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15404",
           "display": "Ernest Jones",
           "player_id": "15404",
@@ -2545,18 +2533,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17135",
-          "display": "Donovan Ezeiruaku",
-          "player_id": "17135",
-          "position": "DE",
-          "nfl_team": "DAL",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_11150",
           "display": "Geno Smith",
           "player_id": "11150",
@@ -2610,18 +2586,6 @@
           "player_id": "12860",
           "position": "PK",
           "nfl_team": "HOU",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_12752",
-          "display": "Kevin Byard",
-          "player_id": "12752",
-          "position": "S",
-          "nfl_team": "NEP",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -3704,18 +3668,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17706",
-          "display": "Malik Benson",
-          "player_id": "17706",
-          "position": "WR",
-          "nfl_team": "LVR",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5270,6 +5222,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17623",
+          "display": "Kaleb Elarms-Orr",
+          "player_id": "17623",
+          "position": "LB",
+          "nfl_team": "BUF",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
