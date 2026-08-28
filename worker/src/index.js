@@ -41702,21 +41702,61 @@ const mflToSleeper = {};
           });
         }
 
-        // MISS REPORT — a SEPARATE post, appended after the per-team plans.
+        // MISSES — EMBEDDED in the report thread, not a separate post.
         //
-        // Keith 2026-08-21: "i only want this on the miss report." The
-        // granted-claim posts keep their existing one-parent-per-team shape;
-        // nothing above this line changes. Denials get their own object
-        // because they answer a different question, and because burying them
-        // inside a team's own post hides a loss to ANOTHER team.
+        // Reversed 2026-08-28. The original split (Keith 2026-08-21: "i only
+        // want this on the miss report") put denials in their own thread so a
+        // loss to another team wasn't buried inside the winner's post. Under
+        // shape:"report" that reasoning no longer applies — there IS no
+        // per-team post to bury it inside; the report is already one
+        // league-wide thread, and buildWaiverReportPlan has carried an
+        // embedding path since it was written ("Misses ride in the SAME
+        // thread... a separate post would divorce 'lost Harris' from 'got
+        // Miller instead'") that this call simply never fed. Splitting the
+        // story into two threads was the actual bug.
         //
-        // Appended, never substituted: apPlans keeps every per-team entry and
-        // gains at most one more, so the posting loop, the id recording and
-        // the replay guards all apply to it unchanged.
+        // shape:"misses" keeps its own standalone render — that mode exists to
+        // eyeball the denial layout without re-announcing granted claims, so it
+        // stays a separate object on purpose.
         //
-        // shape:"misses" posts ONLY the miss report (nothing else) — that is
-        // the test/preview mode, so a denial layout can be eyeballed without
-        // re-announcing granted claims the channel already saw.
+        // THE SCRAPE MUST RUN BEFORE THE REPORT IS BUILT, now that misses are
+        // embedded in it — there is only one post, and it can't be edited
+        // after the fact. Moved above the report-collapse block for exactly
+        // that reason; previously it ran after, which was harmless only
+        // because the two rendered into different posts.
+        //
+        // "Scraped before publish" does not by itself protect against reading
+        // a STALE processed_waivers page (MFL's own report can lag its own
+        // waiver run by some unknown amount, and the page shows only the MOST
+        // RECENT run, so an early read would silently return an OLDER day's
+        // page, not an error). _waiverMissesForRun's own overlap check is what
+        // catches that: it requires a GRANTED name on the scraped page to
+        // match a player THIS run actually added, and refuses with
+        // missRes.reason set otherwise. A verified empty result (overlap
+        // found, misses.length === 0) and an unverifiable one (no overlap,
+        // reason set) are kept distinguishable all the way through — silence
+        // is not zero.
+        let missRes = { misses: null, reason: "" };
+        if (apShape === "report" || apShape === "misses") {
+          missRes = await _waiverMissesForRun(
+            env, apSeason, apLeagueId,
+            apReportTeams.reduce((acc, t) => acc.concat(
+              (t.moves || []).map((m) => safeStr(m.added && m.added.name))
+            ), [])
+          );
+          if (missRes.reason) {
+            apShapeNote = (apShapeNote ? apShapeNote + " " : "") + `Misses omitted: ${missRes.reason}.`;
+          }
+        }
+        // Set true only when the report-collapse block below actually embeds
+        // missRes into the one thread it builds. Stays false for shape:"misses"
+        // (no report is built at all) and for the multi-day fallback (the block
+        // below declines to collapse and keeps the legacy per-team plans,
+        // which have nowhere to embed a league-wide miss list). The fallback
+        // block after it exists for exactly those two cases, so denials are
+        // never silently dropped just because there was no report to ride in.
+        let apMissesEmbedded = false;
+
         // shape:"report" — collapse the per-team plans into ONE league-wide
         // post. This was removed in #928 when denials were rescoped to their
         // own post, and nothing noticed until a real run rendered 2 per-team
@@ -41745,6 +41785,11 @@ const mflToSleeper = {};
                 franchise_id: t.franchise_id, franchise_name: t.franchise_name,
                 icon_url: t.icon_url, moves: t.moves,
               })),
+              // NULL means "not consulted" (renders no Not-granted field at
+              // all); [] means "consulted, verified, genuinely zero" (renders
+              // Not granted: 0). buildWaiverReportPlan already keeps those
+              // distinct — this is the only line that was missing.
+              misses: missRes.misses,
             });
             const allRowIdsR = apReportTeams.reduce((acc, t) => acc.concat(t.row_ids), []);
             apPlans.length = 0;
@@ -41764,28 +41809,22 @@ const mflToSleeper = {};
               existing_thread_id: "",
               plan: reportPlan,
             });
+            apMissesEmbedded = true;
+            if (!missRes.reason && !(missRes.misses && missRes.misses.length)) {
+              apShapeNote = (apShapeNote ? apShapeNote + " " : "") + "No denied claims in this run.";
+            }
           } else {
             apShapeNote = (apShapeNote ? apShapeNote + " " : "") +
               `shape:"report" requested but this batch spans ${apDayKeysR.length} days (${apDayKeysR.join(", ")}) — kept per-team.`;
           }
         }
 
-        if (apShape === "report" || apShape === "misses") {
-          // Declared here because the miss-report entry keys off it. The
-          // earlier report-collapse block owned this and was replaced wholesale,
-          // taking the declaration with it — caught by the deploy's no-undef
-          // lint gate, which `node --check` cannot see (it validates syntax,
-          // not resolution).
+        // Fallback standalone miss post — reached only when there was no
+        // single report thread to embed into: the shape:"misses" preview, or
+        // the rare multi-day case the block above declined to collapse. Same
+        // missRes as above; nothing is re-scraped.
+        if (apShape === "misses" || (apShape === "report" && !apMissesEmbedded)) {
           const apDayKeys = [...new Set(apReportTeams.map((t) => t.day_key))];
-          const missRes = await _waiverMissesForRun(
-            env, apSeason, apLeagueId,
-            apReportTeams.reduce((acc, t) => acc.concat(
-              (t.moves || []).map((m) => safeStr(m.added && m.added.name))
-            ), [])
-          );
-          if (missRes.reason) {
-            apShapeNote = (apShapeNote ? apShapeNote + " " : "") + `Misses omitted: ${missRes.reason}.`;
-          }
           const firstTeam = apReportTeams.length
             ? apReportTeams.reduce((a, b) => (a.first_acquired_unix && a.first_acquired_unix <= b.first_acquired_unix ? a : b))
             : null;
