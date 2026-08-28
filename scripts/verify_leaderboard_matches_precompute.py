@@ -36,10 +36,21 @@ def d1(sql: str):
         capture_output=True, text=True, cwd=worker_dir,
         env={k: v for k, v in os.environ.items()
              if k not in ("CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID")})
-    i = out.stdout.find("[")
-    if i < 0:
-        print("wrangler returned no JSON:\n" + (out.stderr or out.stdout)[:800]); sys.exit(1)
-    return json.loads(out.stdout[i:])[0]
+    # wrangler prints a human preamble before the JSON, and that preamble can
+    # itself contain a "[" (version banners, log lines). Taking the FIRST one and
+    # calling json.loads on the rest fails with "Extra data". Scan every "[" and
+    # keep the first that actually decodes as a complete array.
+    dec, text = json.JSONDecoder(), out.stdout
+    for i, ch in enumerate(text):
+        if ch != "[":
+            continue
+        try:
+            val, _ = dec.raw_decode(text, i)
+        except ValueError:
+            continue
+        if isinstance(val, list) and val:
+            return val[0]
+    print("wrangler returned no JSON array:\n" + (out.stderr or out.stdout)[-1200:]); sys.exit(1)
 
 
 def main(season: str, pos: str) -> int:
