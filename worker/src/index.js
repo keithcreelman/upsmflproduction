@@ -11116,6 +11116,38 @@ export default {
                    CAST(tsa.team_fourth_down_go AS REAL) / NULLIF(tsa.team_fourth_down_total, 0) AS team_fourth_down_go_rate,
                    CAST(tsa.team_stall_punts AS REAL) / NULLIF(tsa.team_all_punts, 0) AS team_stall_punt_rate`;
           const _phase = (pos === "idp") ? "idp" : (pos === "kicker" || pos === "punter") ? "special" : "offense";
+          // PHASE-DEAD CTEs (2026-08-27). The projection has been phase-
+          // conditional since 2026-06-20, but the CTEs behind it were not — so
+          // pos=idp still built and joined four team_* aggregates that no idp
+          // column reads, and every phase built the redzone rollup.
+          //
+          // Rather than conditionally emit the CTEs (comma management inside one
+          // 330-line template literal, and a LEFT JOIN removal that has to be
+          // argued not to change cardinality), each stays in place and is gated
+          // to EMPTY with a constant-false predicate. SQLite elides the scan
+          // entirely — measured on prod 2026-08-27:
+          //     WHERE season=2025 AND week<=17            -> 35,445 rows read
+          //     WHERE season=2025 AND week<=17 AND 1=0    ->      1 row  read
+          //
+          // Output is identical BY CONSTRUCTION, which is the point of doing it
+          // this way: the LEFT JOINs all remain, so no outer row can be added or
+          // dropped, and an empty right side only makes columns NULL — columns
+          // this phase does not project. Verified mechanically that no gated
+          // alias, and no redzone-fed column of agg, appears in the surviving
+          // projection or in either orderExpr:
+          //     COL_SHARED  -> a c ctm ff lc msa npn ntp sa
+          //     COL_OFFENSE -> a sv ta tr trpa      (+ 7 redzone columns)
+          //     COL_IDP     -> a sv                 (no redzone columns)
+          //     COL_SPECIAL -> a tsa                (no redzone columns)
+          // Note sv (season_adv_agg) IS needed by idp — only "special" can drop it.
+          const _useTeamShare = (_phase === "offense");   // ta, tr, trpa
+          const _useTeamSitu  = (_phase === "special");   // tsa
+          const _useSeasonAdv = (_phase !== "special");   // sv
+          const _useRedzone   = (_phase === "offense");   // the rz join inside agg
+          const _gTeamShare = _useTeamShare ? "1=1" : "1=0";
+          const _gTeamSitu  = _useTeamSitu  ? "1=1" : "1=0";
+          const _gSeasonAdv = _useSeasonAdv ? "1=1" : "1=0";
+          const _gRedzone   = _useRedzone   ? "1=1" : "1=0";
           const projection = COL_SHARED + ",\n                   " +
             (_phase === "idp" ? COL_IDP : _phase === "special" ? COL_SPECIAL : COL_OFFENSE);
           // IDP ranks/cuts are meaningless ordered by yardage — order defenders
@@ -11303,7 +11335,8 @@ export default {
                      SUM(COALESCE(w.def_pressures,0))                AS def_pressures
                 FROM nfl_player_weekly w
                 LEFT JOIN nfl_player_redzone rz
-                       ON rz.season = w.season
+                       ON ${_gRedzone}
+                      AND rz.season = w.season
                       AND rz.week   = w.week
                       AND rz.gsis_id = w.gsis_id
                WHERE w.season IN (${seasonList}) AND w.pos_group IN (${posList})
@@ -11348,10 +11381,10 @@ export default {
                          SUM(COALESCE(rush_att,0))   AS team_rush_att_wk,
                          SUM(COALESCE(receiving_air_yards,0)) AS team_air_yds_wk
                     FROM nfl_player_weekly
-                   WHERE season IN (${seasonList}) AND ${weekFilter.replace(/w\.week/g, "week")}
+                   WHERE ${_gTeamShare} AND season IN (${seasonList}) AND ${weekFilter.replace(/w\.week/g, "week")}
                    GROUP BY season, week, team
                 ) twt ON twt.season = pw.season AND twt.week = pw.week AND twt.team = pw.team
-               WHERE pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
+               WHERE ${_gTeamShare} AND pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
                  AND pw.pos_group IN (${posList})
                GROUP BY pw.gsis_id
             ),
@@ -11366,7 +11399,7 @@ export default {
                      SUM(COALESCE(tw.stall_punts,0))       AS team_stall_punts,
                      SUM(COALESCE(tw.team_punts,0))        AS team_all_punts
                 FROM nfl_team_weekly tw
-               WHERE tw.season IN (${seasonList})
+               WHERE ${_gTeamSitu} AND tw.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "tw.week")}
                GROUP BY tw.team
             ),
@@ -11380,7 +11413,7 @@ export default {
                 FROM nfl_player_redzone rz
                 JOIN nfl_player_weekly w
                        ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
-               WHERE rz.season IN (${seasonList})
+               WHERE ${_gTeamShare} AND rz.season IN (${seasonList})
                  AND ${rzWeekSqlPredicate}
                GROUP BY w.team
             ),
@@ -11405,11 +11438,11 @@ export default {
                     FROM nfl_player_redzone rz
                     JOIN nfl_player_weekly w
                            ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
-                   WHERE rz.season IN (${seasonList})
+                   WHERE ${_gTeamShare} AND rz.season IN (${seasonList})
                      AND ${rzWeekSqlPredicate}
                    GROUP BY w.season, w.week, w.team
                 ) trzw ON trzw.season = pw.season AND trzw.week = pw.week AND trzw.team = pw.team
-               WHERE pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
+               WHERE ${_gTeamShare} AND pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
                  AND pw.pos_group IN (${posList})
                GROUP BY pw.gsis_id
             ),
@@ -11431,7 +11464,7 @@ export default {
                      SUM(COALESCE(pass_yac,0))  AS s_pass_yac,
                      AVG(def_adot)         AS s_def_adot
                 FROM nfl_player_advstats_season
-               WHERE season IN (${seasonList})
+               WHERE ${_gSeasonAdv} AND season IN (${seasonList})
                  AND gsis_id IN (SELECT gsis_id FROM elig)
                GROUP BY gsis_id
             )
