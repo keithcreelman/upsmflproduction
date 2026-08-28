@@ -78,9 +78,18 @@ on 1,371 non-passers whose residual is 0.000). See
 
 **The asymmetry is exactly inverted between the two live leagues.** CBS has two
 decades of *outcomes* and almost no week-level detail. ESPN has two seasons of
-rich week-level detail and almost no history. Yahoo has nothing at all — the
-agreement went effective 2026-08-21 and **no live Yahoo call has ever been
-made**.
+rich week-level detail and almost no history.
+
+⚠️ **Two provenance facts that matter for reproducing any of this:**
+
+- CBS's 2003–2025 standings and its 2007–2025 draft history were written by
+  `scripts/cbs_history_backfill.py` **scraping HTML**, not by the provider
+  adapter — `CbsProvider.fetch_standings` and the current-season draft branch
+  both raise. The pipeline cannot regenerate that data; the script can.
+- `fantasy_player_week_stats` is **empty for every platform.** There is no
+  per-stat breakdown anywhere in D1. Every scoring question is answered by
+  joining out to `nfl_player_weekly`, which is why the ESPN passing-yards fit
+  was possible at all.
 
 ### Analysis tooling — 18 / 2 / 0
 
@@ -170,11 +179,28 @@ The weekly questions are identical across leagues; only the scoring changes:
   CBS needs transaction ingestion first (it does not exist)
 - **the analyst layer refreshes once**, then reconciles three times
 
-### Yahoo: decide it, do not drift
+### Yahoo: it is not a to-do, it is blocked upstream
 
-Yahoo is approved but empty, and an empty league silently absorbs attention.
-Either run the first live OAuth and backfill it, or write it down as dormant.
-The half-state is the expensive one.
+⚠️ **Correcting an earlier reading of my own.** "Approved but never run" implied
+someone just needs to run it. That is wrong. Verified live 2026-08-12:
+`/oauth2/request_auth` with `scope=fspt-r` returns **`invalid_scope` before the
+consent screen** because the app lacks approval at
+`sports.yahoo.com/developer/access`. **No code change can fix this** — the
+executed API agreement and the app-level scope grant are two different things,
+and only the second one is missing.
+
+The irony is sharp: **Yahoo is the most complete adapter of the three** — 13 of
+14 ABC methods, the only one with full draft *and* transaction *and* per-stat
+parsing, and the only one that derives its week bounds from league settings and
+refuses when they are unknown rather than assuming `range(1,19)` the way ESPN
+does. It is the best-built and the least usable.
+
+So: **park it explicitly.** Chase the developer-access grant as a separate
+errand with its own outcome, and stop counting Yahoo in any plan until the
+scope is actually issued. One more thing worth knowing before it is —
+`fetch_players` refuses by design (`OutsideApprovedUseCase`, Exhibit A §2.c.x):
+compiling the league-wide player universe breaches the agreement, and the
+docstring specifically forbids re-enabling it behind a page cap.
 
 ---
 
@@ -184,6 +210,7 @@ The half-state is the expensive one.
 |---|---|---|
 | 1 | League registry | Everything else depends on it |
 | 2 | `build_board.py --league espn` | Scoring is solved; ESPN has no board |
-| 3 | CBS transaction ingestion | Only league with no waiver data, and its draft is 8 Sep |
+| 3 | CBS transaction ingestion **via HTML** | Only league with no waiver data, draft is 8 Sep. ⚠️ Not an API job: every `/league/transaction*` spelling 404s, so this is the scraper path like the history backfill |
 | 4 | Name the 11 remaining ESPN stat ids | 0.63 pt/wk residual on QBs; MFL `detailed?` has the TD lengths |
-| 5 | Yahoo: run it or park it | Stop paying attention to a maybe |
+| 5 | Yahoo: file the developer-access request | Blocked upstream, not on us; park it until the scope is granted |
+| 6 | ESPN `fetch_draft_results` | Raises today, so ESPN has no draft data at all — `mDraftDetail` exists and is expected to work |
