@@ -114,6 +114,115 @@ the passing residual is 0.63 rather than ~0.
 
 ---
 
+## 3b. The bonus structure — solved, and it decides how to draft QBs
+
+⚠️ **My earlier guess was wrong.** I read the 5/10 pairs as distance-touchdown
+bonuses. They are **yardage milestones**, and the data says so exactly — these
+are medians across hundreds of player-weeks, landing on the integer:
+
+| bonus | stat id | value | n | median leftover |
+|---|---|---|---|---|
+| 100-yd rushing game | 37 | **+5** | 73 | **+5.000** |
+| 200-yd rushing game | 38 | **+10** | 4 | **+10.000** |
+| 100-yd receiving game | 56 | **+5** | 126 | **+5.000** |
+| 200-yd receiving game | 57 | **+10** | 1 | **+10.000** |
+| 300-yd passing game | 17 | **+5** | 48 | +5.4 |
+| 400-yd passing game | 18 | **+10** | 4 | +11.1 |
+| sack taken | 64 | **−1** | — | fitted −1.01 |
+
+⚠️ **The bands are EXCLUSIVE, not cumulative.** 200+ rushing pays 10, not 15.
+Stacking them would overpay every big game — this is the same trap the CBS
+engine hit, where three bonus shapes cannot share a code path.
+
+Passing yards re-fit below every milestone: **0.0542 pts/yd (1 per ~18.5)**,
+stable across every yardage band from 100 up, so there is no hidden threshold
+under 300. Full QB model now reproduces real weeks to a **median 0.46 pts**.
+
+### ⚠️ The 100-yard rushing bonus is worthless to a quarterback
+
+Keith asked whether a rushing bonus is a live route for a QB. **It is not, and
+the margin is not close.** In 2025, across **561 QB starts**:
+
+- **300+ passing yards: 68 times** (12.1% of starts)
+- **100+ rushing yards: ZERO times** — not once
+- The single best QB rushing week all season was **81 yards** (Josh Allen)
+
+Verified against a populated column, not an empty one: Allen ran for 579 yards
+on the season, Herbert 498, Dart 487. The yardage is real; nobody reaches 100
+in a game. **Do not pay up for a rushing quarterback expecting bonus points in
+this league** — the volume bonus is a passing bonus.
+
+### ⚠️ And sacks dwarf every bonus a QB can earn
+
+At **−1 per sack**, the sack line is the largest QB scoring differential here,
+larger than the milestone bonuses it is competing with:
+
+| QB | starts | 300+ | sacks | bonus | net |
+|---|---|---|---|---|---|
+| Dak Prescott | 17 | 6 | 31 | +30 | **−1** |
+| Bo Nix | 17 | 4 | 22 | +20 | **−2** |
+| Trevor Lawrence | 17 | 1 | 41 | +5 | **−36** |
+| Lamar Jackson | 13 | 0 | 36 | 0 | **−36** |
+| Drake Maye | 17 | 1 | 47 | +5 | **−42** |
+| Geno Smith | 15 | 1 | 55 | +5 | **−50** |
+| Cam Ward | 16 | 0 | 55 | 0 | **−55** |
+
+**Net bonus-minus-sacks is negative for almost every quarterback in the
+league.** The archetype that wins here is a high-volume passer on a team that
+protects him — Prescott's six 300-yard games barely cover his 31 sacks, and
+Ward gives back 3.4 points a week before anything else happens.
+
+⚠️ Three ESPN ids remain unnamed: `8` (1.25), `12` (1.0) and the three 2-point
+conversion candidates `19 / 26 / 44`. The 0.46 residual is their footprint.
+
+---
+
+## 3c. What a winning roster actually looked like (2025)
+
+⚠️ **The champion is NOT recoverable from this data and I will not guess one.**
+All twelve teams play every week through week 17, `is_playoffs` is unset on
+every matchup row, and `rank` / `is_final` are NULL in standings. The bracket
+was never ingested. What IS clean is All-Play, computed from real weekly scores
+— every team against every other team, every week, regular season.
+
+| rank | team | all-play | pts for |
+|---|---|---|---|
+| 1 | Delete the Deleted | 86-57 (60.1%) | 1834.7 |
+| 2 | Men Of Maye-Hem | 84-59 (58.7%) | 1881.7 |
+| 3 | The Replacement | 83-60 (58.0%) | 1861.4 |
+| 4 | Tua Turndaballova | 82-61 (57.3%) | **1941.6** |
+| 12 | Chism on maye boutte | 55-88 (38.5%) | 1674.5 |
+
+**Share of starter points by position:**
+
+| team | RB | WR | QB | D/ST | TE |
+|---|---|---|---|---|---|
+| **#1 Delete the Deleted** | **34%** | 27% | 17% | 14% | 8% |
+| **#2 Men Of Maye-Hem** | 27% | **34%** | 18% | 11% | 9% |
+| #4 Tua (most points) | 27% | 37% | 17% | 14% | 5% |
+| #12 Chism | **21%** | 37% | 18% | 12% | 12% |
+
+Four things this says:
+
+1. **D/ST is 11–14% of starter scoring on every team — more than TE, everywhere.**
+   With a required D/ST slot and no kicker, defense is a genuine scoring
+   position, not an afterthought. The waiver study agrees: the single
+   most-contested claim of 2025 was the **Seahawks D/ST**, drawn by 7 of 12
+   teams, and three of the eight most-contested claims were defenses.
+2. **QB is a dead heat: 17–18% for all twelve.** Nobody gained an edge at
+   quarterback. Combined with the sack finding, this is not where the league is
+   won — it is where it can be lost.
+3. **RB and WR are interchangeable at the top; the total is what matters.**
+   The two best All-Play teams inverted their RB/WR split (34/27 vs 27/34) and
+   finished 1-2. Both put ~61% of starter points into RB+WR.
+4. **Under-investing at RB is the failure mode.** The worst All-Play team had
+   the lowest RB share (21%) and the highest TE share (12%).
+
+**And points do not equal wins.** Tua Turndaballova led the league in scoring by
+60 points and finished 4th in All-Play — the points arrived in the wrong weeks.
+
+---
+
 ## 4. 2026 keepers — declared 25 Aug, one per team
 
 Surplus is **what you gain**: cost round minus market round. Projections are
