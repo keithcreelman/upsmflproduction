@@ -72,6 +72,12 @@ body = body.replace(/\$\{([^}]*)\}/g, (m, expr) => {
   if (e === 'paceSeason') return String(paceSeason);
   if (e === 'projection') return projection;
   if (e === 'orderExpr') return orderExpr;
+  // Phase gates (PR for the phase-dead CTEs): "1=1" keeps the CTE, "1=0" makes
+  // SQLite elide its scan. Mirrors the worker's own _phase branch exactly.
+  if (e === '_gTeamShare') return _phase === 'offense' ? '1=1' : '1=0';
+  if (e === '_gTeamSitu')  return _phase === 'special' ? '1=1' : '1=0';
+  if (e === '_gSeasonAdv') return _phase !== 'special' ? '1=1' : '1=0';
+  if (e === '_gRedzone')   return _phase === 'offense' ? '1=1' : '1=0';
   if (e === 'weekFilter' || e === 'weekSqlPredicate') return wk;
   if (e === 'rzWeekSqlPredicate') return rzwk;
   if (/^weekFilter\.replace/.test(e) || /^weekSqlPredicate\.replace/.test(e)) {
