@@ -40952,6 +40952,82 @@ const mflToSleeper = {};
       // The cap penalty is not re-derived either — it runs through the same
       // _computeDropPenalty the drop announcement and the hourly charge use,
       // and renders with that poster's exact wording, fmtK and colour tiers.
+      // GET /admin/waivers/processed-waivers-raw-diag
+      // Read-only, commish-gated. Fetches processed_waivers for a given
+      // PERIOD (unix seconds, optional — omitted = MFL's "most recent") and
+      // returns the RAW inner HTML of each data row's Franchise cell, next to
+      // what _waiverMissesForRun's own cellText() would derive from it.
+      //
+      // Built 2026-08-28 to diagnose a real symptom: a real replay of the
+      // 2026-08-20 run rendered one team's name as
+      // "Owner: Keith Creelman, Record: 0-0-0, PF: 0" instead of its actual
+      // franchise name. cellText() strips ALL tags before reading text, so if
+      // MFL's markup carries a hidden/sr-only tooltip element alongside the
+      // visible name, stripping tags concatenates both — this route makes
+      // that visible instead of guessing at it.
+      //
+      // No D1 write, no Discord post, no mutation of any kind — placed beside
+      // /admin/adds/post-discord so it inherits the same live dependencies
+      // (sessionByApiKey, env) rather than being reasoned about in isolation,
+      // per this file's own TDZ lesson (see the comment on the leaderboard
+      // precompute route).
+      if (path === "/admin/waivers/processed-waivers-raw-diag" && request.method === "GET") {
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const dSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const dLeagueId = safeStr(url.searchParams.get("L") || L || "74598");
+        const dPeriod = safeInt(url.searchParams.get("period"), 0);
+        const dCookie = String(env.MFL_COOKIE || "").trim();
+        if (!dCookie) return jsonOut(400, { ok: false, error: "MFL_COOKIE missing" });
+        const dCookieHeader = dCookie.includes("=") ? dCookie : `MFL_USER_ID=${dCookie}`;
+        const dPeriodQ = dPeriod > 0 ? `&PERIOD=${dPeriod}` : "";
+        let dHtml = "";
+        try {
+          const dr = await fetch(
+            `https://www48.myfantasyleague.com/${encodeURIComponent(dSeason)}/processed_waivers?L=${encodeURIComponent(dLeagueId)}${dPeriodQ}`,
+            { headers: { Cookie: dCookieHeader, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)", Accept: "text/html" },
+              redirect: "follow", cf: { cacheTtl: 0, cacheEverything: false } }
+          );
+          if (!dr.ok) return jsonOut(502, { ok: false, error: `processed_waivers HTTP ${dr.status}` });
+          dHtml = await dr.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `fetch failed: ${String(e?.message || e)}` });
+        }
+        const dAnchor = dHtml.indexOf('id="processed_waivers"');
+        if (dAnchor < 0) return jsonOut(200, { ok: true, period: dPeriod || null, rows: [], note: "report container not found — likely signed out or empty" });
+        const dRegion = dHtml.slice(dAnchor)
+          .replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "");
+        // Same cellText() the production parser uses, duplicated here on
+        // purpose — this route exists to SEE its output next to the raw
+        // input, not to share a code path that could itself hide the bug.
+        const dCellText = (c) => {
+          const txt = safeStr(c.replace(/<[^>]+>/g, " ")).replace(/&nbsp;/gi, " ")
+            .replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim();
+          if (txt) return txt;
+          const at = /(?:alt|title)="([^"]+)"/i.exec(c);
+          if (at && at[1].trim()) return at[1].trim();
+          const fid = /franchise_(?:icon|logo)(\d{4})/i.exec(c);
+          return fid ? `fid:${fid[1]}` : "";
+        };
+        const dOut = [];
+        for (const t of (dRegion.match(/<table[\s\S]*?<\/table>/gi) || [])) {
+          const trs = t.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+          for (const tr of trs) {
+            const cells = (tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [])
+              .map((c) => c.replace(/^<t[dh][^>]*>/i, "").replace(/<\/t[dh]>$/i, ""));
+            if (cells.length < 6) continue;
+            dOut.push({
+              franchise_cell_raw_html: cells[1],
+              franchise_cell_cellText: dCellText(cells[1]),
+              added_cellText: dCellText(cells[2]),
+            });
+          }
+          if (dOut.length) break;
+        }
+        return jsonOut(200, { ok: true, season: dSeason, league_id: dLeagueId, period: dPeriod || null, row_count: dOut.length, rows: dOut.slice(0, 30) });
+      }
+
       if (path === "/admin/adds/post-discord" && request.method === "POST") {
         let pbody = {};
         try { pbody = (await request.json()) || {}; } catch (_) { pbody = {}; }
