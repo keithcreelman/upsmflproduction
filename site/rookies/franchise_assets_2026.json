@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-28T20:59:02.886935+00:00",
+    "generated_at_utc": "2026-08-29T14:41:43.379106+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2013,18 +2013,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_14095",
-          "display": "Ty Johnson",
-          "player_id": "14095",
-          "position": "RB",
-          "nfl_team": "BUF",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17599",
           "display": "Caleb Douglas",
           "player_id": "17599",
@@ -3624,18 +3612,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15252",
-          "display": "Davis Mills",
-          "player_id": "15252",
-          "position": "QB",
-          "nfl_team": "HOU",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17125",
           "display": "Demetrius Knight",
           "player_id": "17125",
@@ -3656,6 +3632,30 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17606",
+          "display": "Jaishawn Barham",
+          "player_id": "17606",
+          "position": "LB",
+          "nfl_team": "DAL",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15484",
+          "display": "Jonathon Cooper",
+          "player_id": "15484",
+          "position": "DE",
+          "nfl_team": "DEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -6341,18 +6341,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16330",
-          "display": "Bryce Baringer",
-          "player_id": "16330",
-          "position": "PN",
-          "nfl_team": "NEP",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15808",
           "display": "George Karlaftis",
           "player_id": "15808",
@@ -6385,7 +6373,7 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
