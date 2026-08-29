@@ -1012,11 +1012,16 @@ button.ups-m-busy::before,
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 14px;
+  /* 16px, not 14px: iOS Safari zooms the whole viewport when you focus an input
+     under 16px, and the page never zooms back out. That put the Stats and
+     Players search boxes one tap away from a stuck, over-zoomed layout. */
+  font-size: 16px;
   font-family: inherit;
   box-sizing: border-box;
   -webkit-appearance: none;
 }
+.ups-m-players-search:focus { outline: none; border-color: var(--accent); }
+.ups-m-players-search::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 .ups-m-players-search:focus { outline: none; border-color: var(--accent); }
 
 /* Players filter — single Team/FA dropdown (replaces the old FA/All toggle
@@ -1199,8 +1204,16 @@ button.ups-m-busy::before,
 .ups-m-st-table { display: flex; flex-direction: column; min-width: 100%; }
 .ups-m-st-row {
   display: grid;
-  grid-template-columns: 22px minmax(118px, 1.4fr) repeat(var(--n, 5), minmax(40px, 1fr));
-  gap: 6px; align-items: center;
+  /* Tuned to fit a 375px phone at the widest column set (5 stat columns):
+     10+10 padding + 6 gaps x 5 + 22 rk + 128 name + 5 x 34 = 360. At the old
+     6px gap / 118px name / 40px minimum this summed past the viewport and the
+     last column sat 11px off-screen on every load.
+     The slack went to the NAME rather than the stats: a stat cell holds four
+     digits ("4482") in 34px, while at 118px the list read "Matthew ...",
+     "Patrick Ma...", "Dak Presc..." — the one column you scan by was the one
+     being truncated. */
+  grid-template-columns: 22px minmax(128px, 1.6fr) repeat(var(--n, 5), minmax(34px, 1fr));
+  gap: 5px; align-items: center;
   padding: 8px 10px; border-top: 1px solid var(--line); background: var(--bg-elev);
   cursor: pointer; min-height: 48px; -webkit-tap-highlight-color: rgba(91,141,255,0.08);
 }
@@ -1211,29 +1224,76 @@ button.ups-m-busy::before,
 }
 .ups-m-st-row .rk { text-align: center; font-variant-numeric: tabular-nums; color: var(--fg-muted); font-weight: 700; font-size: 12px; }
 .ups-m-st-row .nm { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.ups-m-st-row .nm .pos {
+/* `span.pos`, not `.pos`: the punter pos-group modifier is `pn`, which is the
+   SAME class name as the player-name span `.pn` below. At equal specificity the
+   later rule wins, so on the PN tab the position badge was being rendered by
+   the name rule — 13px semibold white instead of 9px bold. Qualifying with the
+   element name outranks it without touching the name rule. */
+.ups-m-st-row .nm span.pos {
   font-size: 9px; font-weight: 700; letter-spacing: 0.03em; padding: 2px 4px; border-radius: 4px;
   background: var(--bg-elev2); border: 1px solid var(--line); color: var(--fg-muted); flex: 0 0 auto;
+  white-space: nowrap;
 }
-.ups-m-st-row .nm .pos.qb { color: #ef9a9a; }
-.ups-m-st-row .nm .pos.rb { color: #80deea; }
-.ups-m-st-row .nm .pos.wr { color: #a5d6a7; }
-.ups-m-st-row .nm .pos.te { color: #ffcc80; }
-.ups-m-st-row .nm .pos.pk { color: #ce93d8; }
-.ups-m-st-row .nm .pos.dl,
-.ups-m-st-row .nm .pos.lb,
-.ups-m-st-row .nm .pos.db { color: #b39ddb; }
+.ups-m-st-row .nm span.pos.qb { color: #ef9a9a; }
+.ups-m-st-row .nm span.pos.rb { color: #80deea; }
+.ups-m-st-row .nm span.pos.wr { color: #a5d6a7; }
+.ups-m-st-row .nm span.pos.te { color: #ffcc80; }
+/* pn was missing entirely, so punters fell through to the muted default even
+   before the specificity collision above. */
+.ups-m-st-row .nm span.pos.pk,
+.ups-m-st-row .nm span.pos.pn { color: #ce93d8; }
+.ups-m-st-row .nm span.pos.dl,
+.ups-m-st-row .nm span.pos.lb,
+.ups-m-st-row .nm span.pos.db { color: #b39ddb; }
 .ups-m-st-row .nm .t { display: flex; flex-direction: column; min-width: 0; }
 .ups-m-st-row .nm .pn { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ups-m-st-row .nm .tm { font-size: 10px; color: var(--fg-muted); }
+/* One line, ellipsised. "SFO · Blake Bombers" used to wrap onto a second line,
+   which made every row 63px tall and fit only seven on an 812px screen — the
+   owner name is secondary information and is not worth a third of the list. */
+.ups-m-st-row .nm .tm {
+  font-size: 10px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .ups-m-st-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--fg); }
 .ups-m-st-row .v:last-child { font-weight: 700; }
 .ups-m-st-row.head .v { font-weight: 600; }
 .ups-m-st-row .nm .tm .own { margin-left: 5px; color: var(--fg-muted); }
 .ups-m-st-row .nm .tm .own.fa { color: var(--accent); font-weight: 600; }
 /* Stats filter row — roster scope + column-set dropdowns */
-.ups-m-st-filters { display: flex; gap: 8px; padding: 0 12px 8px; }
+.ups-m-st-filters { display: flex; gap: 8px; padding: 0 12px 8px; align-items: center; }
 .ups-m-st-filters .ups-m-players-filter { flex: 1 1 0; min-width: 0; }
+/* Season + source caption. Replaces the "PLAYER STATS · 2025 · ADVANCED
+   (NFLVERSE)" heading that cost 35px of vertical space above the search box to
+   repeat what the "Players" inner tab already says. */
+.ups-m-st-src {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* Empty search result → hand off to the league-wide search rather than
+   reporting a real player as missing data. */
+.ups-m-st-noq { color: var(--fg); font-weight: 600; }
+.ups-m-st-nosub { margin-top: 6px; font-size: 13px; color: var(--fg-muted); }
+.ups-m-st-searchall {
+  margin-top: 16px;
+  padding: 10px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-st-searchall:active { background: var(--bg-elev2); }
 
 /* Stats inner switch (Player Stats / Fantasy Points Against) + FPA table */
 .ups-m-stseg-bar { display: flex; gap: 6px; padding: 0 12px 10px; }

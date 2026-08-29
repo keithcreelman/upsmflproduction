@@ -16,13 +16,21 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png" />
-  <link rel="stylesheet" href="./app.css?v=2026.08.16.2" />
+  <link rel="stylesheet" href="./app.css?v=2026.08.29.4" />
   <link rel="stylesheet" href="./player_sheet.css?v=2026.08.15.1" />
+  <link rel="stylesheet" href="./player_search.css?v=2026.08.29.1" />
 </head>
 <body>
   <div id="ups-m-app" class="ups-m-app">
     <header class="ups-m-header">
       <div class="ups-m-header-title" id="ups-m-header-title">UPS</div>
+      <!-- Global player search — every screen, any player (rostered, taxi, IR
+           or free agent). Deliberately a sibling of #ups-m-header-meta rather
+           than a child: updateHeader() overwrites that element's textContent
+           with the season, which would wipe a button placed inside it. -->
+      <button type="button" class="ups-m-header-search" id="ups-m-header-search" aria-label="Search players" title="Search players">
+        <svg class="ups-ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
       <div class="ups-m-header-meta" id="ups-m-header-meta"></div>
     </header>
 
@@ -68,9 +76,11 @@
   <script src="./front_office_restructure_submit.js?v=2026.08.27.1"></script>
   <script src="./front_office_myac_submit.js?v=2026.08.08.5"></script>
   <script src="./front_office_mym_submit.js?v=2026.08.08.5"></script>
-  <script src="./app.js?v=2026.08.29.1"></script>
+  <script src="./app.js?v=2026.08.29.2"></script>
   <script src="./icons.js?v=2026.07.02.1"></script>
   <script src="./player_sheet.js?v=2026.08.29.1"></script>
+  <!-- After player_sheet.js: the search overlay opens the sheet on tap. -->
+  <script src="./player_search.js?v=2026.08.29.1"></script>
   <script src="./views/home.js?v=2026.08.08.4"></script>
   <script src="./views/contracts.js?v=2026.08.16.1"></script>
   <script src="./views/lineup.js?v=2026.08.15.4"></script>
@@ -80,7 +90,7 @@
   <script src="./views/trade.js?v=2026.07.25.1"></script>
   <script src="./views/draft.js?v=2026.07.02.1"></script>
   <script src="./views/auction.js?v=2026.07.02.1"></script>
-  <script src="./views/stats.js?v=2026.07.02.1"></script>
+  <script src="./views/stats.js?v=2026.08.29.1"></script>
   <script src="./views/scores.js?v=2026.07.02.1"></script>
   <script src="./views/rules.js?v=2026.08.16.3"></script>
   <script>
