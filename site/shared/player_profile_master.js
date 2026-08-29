@@ -2304,7 +2304,23 @@
     var closeBtn = bodyEl.querySelector("#upm-close-btn");
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
 
+    /* Bundle race guard. In OVERLAY mode, ensureOverlay() creates
+     * #upm-modal-body ONCE and every call to openPlayerProfile reuses that
+     * same node — so bodyEl here is literally the same object across calls,
+     * not a fresh one. open(A) then open(B) before A's fetchBundle resolves
+     * used to let A's .then() find and overwrite whatever #upm-profile-body
+     * (and <h3> header) is CURRENTLY inside bodyEl, which by then is B's —
+     * a stale player's data landing under a different player's name and
+     * header. Stamping the pid this bodyEl was opened for, synchronously,
+     * before the async fetch even starts, lets the callback tell whether it
+     * is still the one that matters when it finally resolves.
+     * (Inline mode gets a fresh wrapper every call, so the stamp is
+     * redundant there but harmless — it never disagrees with itself.) */
+    var pidAtFire = String(pid);
+    bodyEl.setAttribute("data-upm-pid", pidAtFire);
+
     fetchBundle(pid, ctx).then(function (bundle) {
+      if (bodyEl.getAttribute("data-upm-pid") !== pidAtFire) return;   // a newer profile opened over this one
       bundle = bundle || {};
       // Scope the body lookup to the rendered wrapper so inline-render
       // mode doesn't accidentally pick a sibling instance.
@@ -2431,6 +2447,7 @@
       // returns. Defensive: skip silently if pid is empty.
       wireNewsAsync(bodyContent, ctx, pid);
     }).catch(function (err) {
+      if (bodyEl.getAttribute("data-upm-pid") !== pidAtFire) return;   // a newer profile opened over this one
       var bodyContent = bodyEl.querySelector("#upm-profile-body")
         || document.getElementById("upm-profile-body");
       if (bodyContent) {
