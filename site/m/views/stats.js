@@ -259,11 +259,26 @@
     return rows;
   }
 
+  /* The worker defaults this endpoint to 200 rows and orders them by overall
+   * impact ACROSS the whole alias, so the two aliases that carry three position
+   * groups each were being truncated into near-uselessness. Measured against
+   * prod 2026-08-29, season 2025:
+   *
+   *   idp    @200 → DL 22, LB 85, DB 93      @500 → DL 136, LB 165, DB 199
+   *   skill  @200 → RB 65, WR 95, TE 40      @500 → RB 148, WR 226, TE 126
+   *
+   * The DL tab was showing 22 of 136 players. The single-group aliases (qb 78,
+   * kicker 42, punter 37) never reach 200, so raising their limit would buy
+   * nothing and cost D1 reads for it. 500 is the endpoint's own ceiling; both
+   * calls returned in under 300ms. */
+  var WIDE_ALIASES = { skill: 1, idp: 1 };
+
   function load(alias, yr) {
     var key = alias + "|" + yr;
     if (cache[key]) return Promise.resolve(cache[key]);
     var url = API.workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(yr) +
-      "&pos=" + encodeURIComponent(alias) + "&min_games=1");
+      "&pos=" + encodeURIComponent(alias) + "&min_games=1" +
+      (WIDE_ALIASES[alias] ? "&limit=500" : ""));
     return fetch(url, { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : { rows: [] }; })
       .then(function (j) { var rows = rankByGroup((j && j.rows) || []); cache[key] = rows; return rows; })
@@ -303,28 +318,97 @@
     return raw;
   }
 
+  /* Punctuation-insensitive, order-insensitive matching, the same rule the
+   * global search overlay uses (player_search.js). A raw substring test on the
+   * concatenated row could not find "D.J. Reader" from "dj reader" or
+   * "O'Connell" from "oconnell", and required the words in source order. */
+  function normTokens(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  function normTight(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9\s]+/g, "").replace(/\s+/g, " ").trim();
+  }
+  function matchesQuery(r, qTokens) {
+    if (!qTokens.length) return true;
+    // flip() is a no-op on this endpoint today (verified 2026-08-29: 0 of 557
+    // rows across all five aliases carry a comma) but costs nothing and keeps
+    // the match working on the displayed name if that ever changes.
+    var name = flip(r.player_name);
+    var bag = normTokens(name) + " " + normTight(name) + " " +
+              normTokens(curTeam(r)) + " " + normTokens(mflPos(r.position)) + " " +
+              normTokens(r.mfl_franchise_name);
+    var hay = bag.split(" ").filter(Boolean);
+    for (var i = 0; i < qTokens.length; i++) {
+      var hit = false;
+      for (var j = 0; j < hay.length; j++) {
+        if (hay[j].indexOf(qTokens[i]) === 0) { hit = true; break; }
+      }
+      if (!hit) return false;
+    }
+    return true;
+  }
+  function queryTokens() {
+    return normTokens(view.q).split(" ").filter(Boolean);
+  }
+
   function rowsFor(tab) {
     var all = cache[tab.alias + "|" + curSeason()] || [];
-    var q = view.q.trim().toLowerCase();
+    var qTokens = queryTokens();
     return all.filter(function (r) {
       if (tab.group.indexOf(String(r.pos_group || "").toUpperCase()) === -1) return false;
       // FA vs rostered scope (the leaderboard row carries mfl_franchise_id).
       if (view.scope === "ros" && !r.mfl_franchise_id) return false;
       if (view.scope === "fa" && r.mfl_franchise_id) return false;
-      if (q) {
-        var hay = (String(r.player_name || "") + " " + curTeam(r) + " " + mflPos(r.position) +
-                   " " + String(r.mfl_franchise_name || "")).toLowerCase();
-        if (hay.indexOf(q) === -1) return false;
-      }
-      return true;
+      return matchesQuery(r, qTokens);
     }).sort(function (a, b) { return num(b.mfl_ppg) - num(a.mfl_ppg); });
+  }
+
+  // How many players the query would find on the OTHER position tabs, using
+  // only data already in cache. Drives the "found N elsewhere" handoff below —
+  // never triggers a fetch, so it silently reports 0 for positions the owner
+  // has not opened yet, which is why the copy offers a league-wide search
+  // rather than claiming a total.
+  function matchesElsewhere(tab) {
+    var qTokens = queryTokens();
+    if (!qTokens.length) return 0;
+    var n = 0, seen = {};
+    TABS.forEach(function (t) {
+      if (t.id === tab.id) return;
+      var rows = cache[t.alias + "|" + curSeason()] || [];
+      rows.forEach(function (r) {
+        if (t.group.indexOf(String(r.pos_group || "").toUpperCase()) === -1) return;
+        if (seen[r.mfl_pid]) return;
+        if (matchesQuery(r, qTokens)) { seen[r.mfl_pid] = 1; n++; }
+      });
+    });
+    return n;
   }
 
   function renderList(tab) {
     var rows = rowsFor(tab);
-    if (!rows.length) return '<div class="ups-m-stub"><div>No ' + tab.id + " " +
-      (view.scope === "fa" ? "free agents" : view.scope === "ros" ? "rostered players" : "data") +
-      " for " + curSeason() + ".</div></div>";
+    if (!rows.length) {
+      /* The old copy here was "No QB data for 2025." for EVERY empty result,
+       * including a search. Typing "Bijan" on the QB tab therefore reported a
+       * real, rostered player as missing data (Keith 2026-08-29: "I don't like
+       * the filters and how to find players"). Say which of the three filters
+       * actually emptied the list, and offer the way out. */
+      if (view.q.trim()) {
+        var elsewhere = matchesElsewhere(tab);
+        return '<div class="ups-m-stub"><div class="ups-m-st-noq">' +
+          "No " + U.escapeHtml(tab.id) + ' matches “' + U.escapeHtml(view.q.trim()) + '”' +
+          (view.scope === "fa" ? " among free agents" : view.scope === "ros" ? " among rostered players" : "") +
+          ".</div>" +
+          (elsewhere
+            ? '<div class="ups-m-st-nosub">' + elsewhere + " match" + (elsewhere === 1 ? "" : "es") +
+              " on another position tab.</div>"
+            : "") +
+          '<button type="button" class="ups-m-st-searchall" data-act="search-all">' +
+            "Search all players ›</button></div>";
+      }
+      return '<div class="ups-m-stub"><div>No ' + U.escapeHtml(tab.id) + " " +
+        (view.scope === "fa" ? "free agents" : view.scope === "ros" ? "rostered players" : "data") +
+        " for " + curSeason() + ".</div></div>";
+    }
     var cols = curSet().cols.map(function (k) { return C[k]; });
     var capped = rows.slice(0, 150);
     var head = '<div class="ups-m-st-row head" style="--n:' + cols.length + '">' +
@@ -342,9 +426,31 @@
         cols.map(function (c) { return '<span class="v">' + fmt(c.g(r), c) + "</span>"; }).join("") +
       "</div>";
     }).join("");
+    /* The old footer said "search to narrow", which promised something search
+     * cannot do here: the query only ever filters THIS position's rows, and
+     * those rows are themselves a server-side top-N of the alias. Say what the
+     * list actually is instead of implying there is more behind the box. */
     var more = rows.length > capped.length
-      ? '<div class="ups-m-fa-more">Top ' + capped.length + " of " + rows.length + " — search to narrow.</div>" : "";
+      ? '<div class="ups-m-fa-more">Top ' + capped.length + " of " + rows.length + " " +
+        U.escapeHtml(tab.id) + (view.q.trim() ? " matches" : "s by PPG") + ".</div>"
+      : "";
     return '<div class="ups-m-st-scroll"><div class="ups-m-st-table">' + head + body + "</div></div>" + more;
+  }
+
+  /* A stable wrapper so a keystroke can repaint the ROWS without rebuilding the
+   * toolbar around them. Before this, every character re-ran the whole route:
+   * the <input> was destroyed and recreated, and stats.js carried a
+   * focus()+setSelectionRange() hack to paper over it. Measured 2026-08-29:
+   * five keystrokes produced five new input nodes, focus was lost on every one,
+   * and 140 DOM nodes were removed to type a five-letter name — which on a
+   * phone means the keyboard closes mid-word. */
+  function listShell(tab) {
+    return '<div class="ups-m-st-listwrap" id="ups-m-st-listwrap">' + renderList(tab) + "</div>";
+  }
+  function repaintList() {
+    var wrap = document.getElementById("ups-m-st-listwrap");
+    if (!wrap) return;
+    wrap.innerHTML = renderList(curTab());
   }
 
   function toolbar() {
@@ -363,25 +469,31 @@
           sets.map(function (s, i) { return '<option value="' + i + '"' + (view.set === i ? " selected" : "") + ">" + U.escapeHtml(s.l) + "</option>"; }).join("") +
         "</select>"
       : "";
+    /* The "PLAYER STATS · 2025 · ADVANCED (NFLVERSE)" heading that used to sit
+     * here cost 35px of a 812px screen to repeat what the "Players" inner tab
+     * directly above it already says. Measured before this change: 350px — 43%
+     * of the viewport — was chrome before the first data row, leaving room for
+     * seven. The season and source now ride along the filter row as a caption. */
     return '<div class="ups-m-players-toolbar">' +
-      '<div class="ups-m-auc-sec-head">Player Stats <span class="ct">' + curSeason() + " · advanced (nflverse)</span></div>" +
-      '<input type="search" class="ups-m-players-search" id="ups-m-st-search" placeholder="Search name, team, owner…" autocomplete="off" autocorrect="off" value="' + U.escapeHtml(view.q) + '" />' +
-      '<div class="ups-m-st-filters">' + scopeSel + setSel + "</div>" +
+      '<input type="search" class="ups-m-players-search" id="ups-m-st-search" placeholder="Search ' +
+        U.escapeHtml(curTab().id) + ' by name, team or owner…" autocomplete="off" autocorrect="off" ' +
+        'autocapitalize="off" spellcheck="false" value="' + U.escapeHtml(view.q) + '" />' +
+      '<div class="ups-m-st-filters">' + scopeSel + setSel +
+        '<span class="ups-m-st-src">' + curSeason() + " · nflverse</span>" +
+      "</div>" +
       '<div class="ups-m-pos-chips">' + chips + "</div>" +
     "</div>";
   }
 
   function bindToolbar(mount) {
     var s = document.getElementById("ups-m-st-search");
+    // Repaint only the rows, straight off the keystroke. No debounce: filtering
+    // an already-fetched array of at most 500 rows is sub-millisecond, and the
+    // 220ms timer only ever added lag. No focus restoration either — the input
+    // is no longer in the subtree being replaced, so it never loses focus.
     if (s) s.addEventListener("input", function (e) {
-      var val = e.target.value;
-      clearTimeout(view.debounce);
-      view.debounce = setTimeout(function () {
-        view.q = val;
-        M.route.renderRoute();
-        var s2 = document.getElementById("ups-m-st-search");
-        if (s2) { s2.focus(); try { s2.setSelectionRange(val.length, val.length); } catch (e2) {} }
-      }, 220);
+      view.q = e.target.value;
+      repaintList();
     });
     var chips = mount.querySelectorAll(".ups-m-pos-chip");
     for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () {
@@ -391,16 +503,32 @@
       M.route.renderRoute();
     });
     var scope = document.getElementById("ups-m-st-scope");
-    if (scope) scope.addEventListener("change", function () { view.scope = this.value; M.route.renderRoute(); });
+    // Scope and column-set change the ROWS, not the controls — except the set
+    // list itself, which is per-position and only changes when the tab does.
+    if (scope) scope.addEventListener("change", function () { view.scope = this.value; repaintList(); });
     var setSel = document.getElementById("ups-m-st-set");
-    if (setSel) setSel.addEventListener("change", function () { view.set = parseInt(this.value, 10) || 0; M.route.renderRoute(); });
+    if (setSel) setSel.addEventListener("change", function () { view.set = parseInt(this.value, 10) || 0; repaintList(); });
   }
 
   function bind(mount) {
     bindToolbar(mount);
-    var rows = mount.querySelectorAll(".ups-m-st-row[data-pid]");
-    for (var k = 0; k < rows.length; k++) rows[k].addEventListener("click", function () {
-      var pid = this.getAttribute("data-pid");
+    // Delegated on the stable wrapper, so repaintList() can swap the rows out
+    // from under it without rebinding a listener per row on every keystroke.
+    var wrap = document.getElementById("ups-m-st-listwrap");
+    if (!wrap || wrap.__upsBound) return;
+    wrap.__upsBound = true;
+    wrap.addEventListener("click", function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      // Hand a fruitless position-scoped search over to the league-wide search,
+      // carrying the query across so the owner does not retype it.
+      if (t.closest('[data-act="search-all"]')) {
+        if (M.playerSearch) M.playerSearch.openWith(view.q);
+        return;
+      }
+      var row = t.closest(".ups-m-st-row[data-pid]");
+      if (!row) return;
+      var pid = row.getAttribute("data-pid");
       if (pid && M.sheet) M.sheet.open(pid);
     });
   }
@@ -951,7 +1079,7 @@
       bindInner(mount); bindSched(mount);
       return;
     }
-    mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + renderList(curTab());
+    mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + listShell(curTab());
     bindInner(mount); bind(mount);
   }
 
@@ -1007,14 +1135,24 @@
       return;
     }
     var tab = curTab();
-    // SoS-adjusted points load in the background (per season); re-paint when ready
-    // so the "SoS" column set fills in.
-    loadSos(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
-    loadCons(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
-    loadEpa(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
-    loadMarket().then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
-    loadRoutes(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
-    loadNgs(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
+    /* Six side-loaders feed the optional column sets (SoS, Boom/Bust, EPA,
+     * Market, Routes, NGS). Each used to call paint(), which rebuilds the WHOLE
+     * mount — and because a warm map returns an already-resolved promise, every
+     * render fired six extra full rebuilds on top of the real one, each
+     * re-emitting the subtabs, the toolbar and up to 150 rows.
+     *
+     * They only ever change CELL VALUES, so they repaint the rows and nothing
+     * else. That also stops them from yanking the toolbar (and the focused
+     * search box) out from under someone who is mid-word when one resolves. */
+    function fillColumns() {
+      if (view.inner === "players" && view.tab === tab.id) repaintList();
+    }
+    loadSos(curSeason()).then(fillColumns);
+    loadCons(curSeason()).then(fillColumns);
+    loadEpa(curSeason()).then(fillColumns);
+    loadMarket().then(fillColumns);
+    loadRoutes(curSeason()).then(fillColumns);
+    loadNgs(curSeason()).then(fillColumns);
     if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
     bindInner(mount); bindToolbar(mount);

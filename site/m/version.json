@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.29.1",
-  "label": "Fixed a bug where opening a player's card right after another one could show the wrong player's stats — the first card's data would sometimes land under the second player's name if you moved fast enough."
+  "build": "2026.08.29.2",
+  "label": "New: a search button in the header finds any player in the league — rostered, taxi, IR or free agent — and opens their card. On the Stats page the search box no longer closes your keyboard after every letter, and when a name isn't at the position you're looking at it says so and offers to search everyone instead of reporting 'no data'. The DL board also went from 22 players to 136."
 }

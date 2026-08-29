@@ -1,0 +1,209 @@
+/* UPS Mobile — global player search overlay. See player_search.js for why this
+ * exists. Styling notes that are load-bearing rather than taste:
+ *
+ * z-index 90 sits ABOVE the bottom nav (30) and the sticky header (20) so the
+ * overlay owns the screen, but BELOW the player sheet (100 / backdrop 1000) so
+ * tapping a result stacks the sheet on top and closing it returns you to your
+ * results instead of to the screen you started from.
+ *
+ * The overlay is its own flex column with a single internal scroller, so it
+ * never needs to lock body scroll and therefore never fights the sheet, which
+ * sets and clears document.body.style.overflow on its own.
+ */
+
+.ups-m-psr {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Search bar ─────────────────────────────────────────────────────────── */
+.ups-m-psr-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  padding-top: calc(8px + var(--safe-top));
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.ups-m-psr-back,
+.ups-m-psr-clear {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.ups-m-psr-back:active,
+.ups-m-psr-clear:active { background: var(--bg-elev2); color: var(--fg); }
+
+.ups-m-psr-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--fg);
+  /* 16px keeps iOS Safari from zooming the viewport on focus. */
+  font-size: 16px;
+  font-weight: 500;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ups-m-psr-input::placeholder { color: var(--fg-muted); font-weight: 400; }
+.ups-m-psr-input:focus { outline: none; border-color: var(--accent); }
+/* Kill the native WebKit clear button — we ship our own, and two of them next
+   to each other reads as a bug. */
+.ups-m-psr-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+/* ── Results ────────────────────────────────────────────────────────────── */
+.ups-m-psr-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(24px + var(--safe-bot));
+}
+
+.ups-m-psr-sec {
+  padding: 14px 14px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.ups-m-psr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  /* 56px clears the 44px minimum tap target with room for two text lines. */
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.ups-m-psr-row:active { background: var(--bg-elev); }
+
+.ups-m-psr-row .pos {
+  flex: 0 0 auto;
+  width: 34px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 3px 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  color: var(--fg-muted);
+}
+/* Same position palette the roster, FA and stats rows already use. */
+.ups-m-psr-row .pos.qb { color: #ef9a9a; }
+.ups-m-psr-row .pos.rb { color: #80deea; }
+.ups-m-psr-row .pos.wr { color: #a5d6a7; }
+.ups-m-psr-row .pos.te { color: #ffcc80; }
+.ups-m-psr-row .pos.pk,
+.ups-m-psr-row .pos.pn { color: #ce93d8; }
+.ups-m-psr-row .pos.dl,
+.ups-m-psr-row .pos.lb,
+.ups-m-psr-row .pos.db { color: #b39ddb; }
+
+.ups-m-psr-row .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ups-m-psr-row .nm {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ups-m-psr-row .sub {
+  font-size: 12px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ups-m-psr-row .sub .own.fa { color: var(--accent); font-weight: 700; }
+.ups-m-psr-row .sub .tag {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.ups-m-psr-row .sub .tag.taxi { background: rgba(45, 212, 191, 0.15); color: var(--teal); }
+.ups-m-psr-row .sub .tag.ir { background: rgba(255, 107, 107, 0.15); color: var(--danger); }
+
+.ups-m-psr-row .num {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-psr-row .num .ppg { font-size: 14px; font-weight: 700; color: var(--fg); }
+.ups-m-psr-row .num .ppg i { font-style: normal; font-size: 9px; font-weight: 700; color: var(--fg-muted); margin-left: 3px; }
+.ups-m-psr-row .num .ppg.none { color: var(--fg-muted); font-weight: 500; }
+.ups-m-psr-row .num .rk { font-size: 11px; color: var(--fg-muted); }
+
+/* ── Empty / hint states ────────────────────────────────────────────────── */
+.ups-m-psr-empty { padding: 48px 28px; text-align: center; }
+.ups-m-psr-empty .t { font-size: 15px; font-weight: 600; color: var(--fg); margin-bottom: 6px; }
+.ups-m-psr-empty .s { font-size: 13px; color: var(--fg-muted); line-height: 1.5; }
+
+.ups-m-psr-more {
+  padding: 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+/* ── Header entry point ─────────────────────────────────────────────────── */
+.ups-m-header-search {
+  /* space-between spreads the header's children; this pins the button to the
+     right group next to the year rather than floating it mid-header, where it
+     would collide with the pull-to-refresh spinner. */
+  margin-left: auto;
+  margin-right: 4px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.ups-m-header-search:active { background: var(--bg-elev2); color: var(--fg); }
+/* Embed mode is a single-purpose deep link (Add/Drop from the desktop header);
+   a league-wide search has no place in it. */
+body.ups-m-embed .ups-m-header-search { display: none; }
