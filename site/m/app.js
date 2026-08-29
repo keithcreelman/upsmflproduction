@@ -2979,10 +2979,14 @@
   }
 
   // ---------- Update check ----------
-  // The mobile shell has no service worker, so a browser/Pages can serve a STALE
-  // cached app.js after a deploy. Fetch the DEPLOYED version.json (no-store); if
-  // its build differs from the BUILD baked into this running code, show a
-  // dismissible "Update available — Reload" banner (Keith 2026-06-07).
+  // registerServiceWorker() below is CACHE-FIRST for every .js/.css asset,
+  // keyed by its own ?v= URL (see sw.js) — a browser can be running a stale
+  // app.js indefinitely after a deploy, since cache-first never re-validates
+  // on its own. version.json is the one thing sw.js deliberately does NOT
+  // intercept, so it's the only signal that can still reach a stale client.
+  // Fetch it fresh (no-store); if its build differs from the BUILD baked
+  // into this running code, show a dismissible "Update available — Reload"
+  // banner (Keith 2026-06-07).
   function checkForUpdate() {
     try {
       fetch("./version.json?_=" + Date.now(), { cache: "no-store", credentials: "omit" })
