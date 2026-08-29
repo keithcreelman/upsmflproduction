@@ -528,6 +528,21 @@ def _ingest(args, *, mode: str) -> int:
             statuses.append(qcomp.rollup(comp_rows))
 
             report = qchecks.run_all(bundle, is_auction=_is_auction(bundle), platform=args.platform)
+            # check_cross_contamination needs a LIVE query against current D1
+            # state (fantasy_* rows must all carry a known platform; no UPS
+            # table may carry a fantasy platform row) -- every other check in
+            # run_all() works on the in-memory `bundle` this run just parsed,
+            # so this one genuinely could not be folded into that loop. It was
+            # simply never called from anywhere (verified 2026-08-28: zero
+            # callers repo-wide), which made it dead code despite being the
+            # one check explicitly built to refuse rather than pass when it
+            # cannot verify separation.
+            #
+            # loader.query() always runs a real read regardless of --dry-run
+            # (dry_run only gates WRITES; see D1Loader._run) -- correct here,
+            # since this validates COMMITTED state, not this run's own effect.
+            for finding in qchecks.check_cross_contamination(loader.query):
+                report.add(finding)
             if report.findings:
                 _log("   quality:")
                 print(report.render())

@@ -39,13 +39,20 @@ on:
     branches: [main]
     paths:
       - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
       - "worker/src/yahoo_oauth.js"
-      - "worker/migrations/0127*.sql"
-      - "worker/migrations/0128*.sql"
-      - "worker/migrations/0129*.sql"
-      - "worker/migrations/0130*.sql"
-      - "worker/migrations/0131*.sql"
-      - "worker/migrations/0132*.sql"
+      # Matched by NAME, not by number — same fix, same reason, as SCAN_KINDS'
+      # "fantasy migrations" entry in check_fantasy_isolation.py. This was an
+      # explicit 0127*-0132* list; the fantasy migrations shipped as 0132-0139
+      # after a renumbering, so only one of the six real files matched, and the
+      # stale numbers ALSO collided with two real, unrelated already-shipped
+      # UPS migrations (0130_ups_transactions_type_index.sql,
+      # 0131_league_events_2024_2025_deadlines.sql) — an ordinary UPS PR
+      # touching either would spuriously trip the fantasy-isolation scan.
+      # Verified 2026-08-28: 6 of 8 real fantasy migrations never triggered
+      # this job at all.
+      - "worker/migrations/*_fantasy_*.sql"
       - "worker/migrations/manual/2026-08-11_fantasy_analytical_views.sql"
       - "scripts/check_fantasy_isolation.py"
       # The gate's own definition, so weakening the gate re-runs the gate.
@@ -54,13 +61,10 @@ on:
     branches: [main]
     paths:
       - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
       - "worker/src/yahoo_oauth.js"
-      - "worker/migrations/0127*.sql"
-      - "worker/migrations/0128*.sql"
-      - "worker/migrations/0129*.sql"
-      - "worker/migrations/0130*.sql"
-      - "worker/migrations/0131*.sql"
-      - "worker/migrations/0132*.sql"
+      - "worker/migrations/*_fantasy_*.sql"
       - "worker/migrations/manual/2026-08-11_fantasy_analytical_views.sql"
       - "scripts/check_fantasy_isolation.py"
       - ".github/workflows/lint-fantasy-isolation.yml"

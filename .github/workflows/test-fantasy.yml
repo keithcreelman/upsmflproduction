@@ -42,9 +42,17 @@ on:
     branches: [main]
     paths:
       - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
       - "tests/**"
-      - "worker/migrations/012*.sql"
-      - "worker/migrations/013*.sql"
+      # Matched by NAME, not by number — see the same fix and its full
+      # rationale in lint-fantasy-isolation.yml and check_fantasy_isolation.py's
+      # SCAN_KINDS. The old 012*/013* globs were broader than the true fantasy
+      # migration set (0132-0139) and collided with two real, unrelated UPS
+      # migrations (0130, 0131) — this job's failure mode from that collision
+      # was wasted CI runs rather than a coverage gap, but it is the identical
+      # root cause and the identical fix.
+      - "worker/migrations/*_fantasy_*.sql"
       - "worker/src/yahoo_oauth.js"
       - "scripts/check_fantasy_isolation.py"
       - ".github/workflows/test-fantasy.yml"
@@ -52,9 +60,10 @@ on:
     branches: [main]
     paths:
       - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
       - "tests/**"
-      - "worker/migrations/012*.sql"
-      - "worker/migrations/013*.sql"
+      - "worker/migrations/*_fantasy_*.sql"
       - "worker/src/yahoo_oauth.js"
       - "scripts/check_fantasy_isolation.py"
       - ".github/workflows/test-fantasy.yml"
@@ -100,6 +109,14 @@ jobs:
       # things, so they must not look the same here.
       - name: Node — worker OAuth helpers
         run: node --test tests/fantasy_worker_oauth_test.mjs
+
+      # A 2026-08-28 review found real holes in the checker below itself: 18
+      # CBS/ESPN scripts it never scanned, two exemption regexes that cleared
+      # a real protected table and real executing code, and the dead
+      # check_cross_contamination(). Pins all four fixes plus the matching CI
+      # path-filter fix, each against the exact case the review verified live.
+      - name: Fantasy isolation checker regression guard
+        run: python3 tests/test_fantasy_isolation_checker.py
 
       # Nothing in the fantasy pipeline may write a UPS/MFL table, carry a
       # committed credential, or default to a remote D1 target.

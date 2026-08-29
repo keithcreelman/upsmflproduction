@@ -179,6 +179,21 @@ WRITE_VERB_ANY_RE = re.compile(r"\b(?:" + WRITE_VERB + r")\b", re.IGNORECASE | r
 # no table in this database is named `<prefix>_id`.
 COLUMN_SHAPED_RE = re.compile(r"_(?:id|ids|key|keys|uid|name|abbr|url|status|code|hash)$", re.I)
 
+# ...except when the "column-shaped" name IS a real table. The comment above
+# claims "no table in this database is named `<prefix>_id`" -- false as of
+# ups_injury_status (worker/migrations/0129_lineup_compliance.sql), which ends
+# in _status and was being silently exempted by the loose net: verified live
+# 2026-08-28, `DELETE FROM ups_injury_status` produced ZERO violations while
+# the identical construction against ups_transactions correctly fired.
+#
+# Derived by (re-run whenever a new protected-prefix table is added):
+#   grep -hoE "CREATE TABLE( IF NOT EXISTS)? [a-zA-Z_]+" worker/migrations/*.sql \
+#     | awk '{print $NF}' | sort -u \
+#     | grep -E "^(ups_|src_|mfl_|nfl_|model_|discord_|hall_)" \
+#     | grep -E "_(id|ids|key|keys|uid|name|abbr|url|status|code|hash)$"
+# ups_injury_status was the only hit against main as of 2026-08-28.
+COLUMN_SHAPED_TABLE_EXCEPTIONS = frozenset({"ups_injury_status"})
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Prohibition prose is not a violation.
 #
@@ -335,6 +350,33 @@ def _protected_names_in(text: str) -> list[str]:
 def _excused_by_negation(line: str, match_start_in_line: int) -> bool:
     """A prohibition that quotes the dangerous thing is not the dangerous thing."""
     return bool(NEGATION_RE.search(line[:match_start_in_line]))
+
+
+def _excused_by_negation_in_prose(
+    line: str, match_start_in_line: int, *, line_start_offset: int, inert: list[tuple[int, int]]
+) -> bool:
+    """Same idea as _excused_by_negation, but for the WRITE checks only -- never
+    credentials (inertness is irrelevant to a leak; see inert_spans' own
+    docstring) -- and tightened so the negation word must itself be PROSE.
+
+    _excused_by_negation matched a negation word ANYWHERE earlier on the line,
+    with no distinction between prose and live control flow. Verified live
+    2026-08-28: `if not dry_run: loader.execute("DELETE FROM ups_transactions
+    WHERE id=1")` -- real, executing Python, not a comment -- produced ZERO
+    violations against find_violations(). A single-line guard or a negated
+    boolean earlier in an expression is a common, unremarkable Python idiom;
+    none of it makes the write that follows safe.
+
+    So the negation word must now sit inside an INERT span -- a comment or
+    docstring, the exact same detection every write-match POSITION already
+    uses via _in_spans -- to count as the "prose" the exemption was always
+    meant to excuse. `# NEVER wrangler d1 migrations apply` still exempts
+    itself; `if not dry_run: <a real write>` no longer does.
+    """
+    m = NEGATION_RE.search(line[:match_start_in_line])
+    if not m:
+        return False
+    return _in_spans(line_start_offset + m.start(), inert)
 
 
 def _line_of(text: str, offset: int) -> int:
@@ -609,7 +651,9 @@ def find_violations(text: str, filename: str) -> list[Violation]:
             col = m.start() - (unit.rfind("\n", 0, m.start()) + 1)
             if _in_spans(abs_offset, inert):
                 continue
-            if _excused_by_negation(line_src, max(col, 0)):
+            if _excused_by_negation_in_prose(
+                line_src, max(col, 0), line_start_offset=line_starts[abs_line - 1], inert=inert
+            ):
                 continue
             if _is_allowlisted(unit) or _is_allowlisted(m.group(0)):
                 continue
@@ -636,7 +680,7 @@ def find_violations(text: str, filename: str) -> list[Violation]:
         if not verb_hit:
             continue
         for name in dict.fromkeys(_protected_names_in(unit)):
-            if COLUMN_SHAPED_RE.search(name):
+            if COLUMN_SHAPED_RE.search(name) and _bare_name(name) not in COLUMN_SHAPED_TABLE_EXCEPTIONS:
                 continue
             pos = unit.find(name)
             abs_offset = unit_offset + max(pos, 0)
@@ -648,7 +692,9 @@ def find_violations(text: str, filename: str) -> list[Violation]:
             col = pos - (unit.rfind("\n", 0, pos) + 1) if pos >= 0 else 0
             if _in_spans(abs_offset, inert) or _in_spans(unit_offset + verb_hit.start(), inert):
                 continue
-            if _excused_by_negation(line_src, max(col, 0)):
+            if _excused_by_negation_in_prose(
+                line_src, max(col, 0), line_start_offset=line_starts[abs_line - 1], inert=inert
+            ):
                 continue
             if _is_allowlisted(unit):
                 continue
@@ -754,6 +800,28 @@ SCAN_KINDS = (
         ("worker/src/yahoo_oauth.js",),
         1,
         "the only Worker-side fantasy code path, and the one that handles tokens",
+    ),
+    ScanKind(
+        "fantasy standalone scripts",
+        # Matched by NAME PREFIX, same principle as the migrations kind below:
+        # a number or a directory cannot identify what a file IS, but a fixed
+        # platform-name prefix can. Before this kind existed, SCAN_KINDS only
+        # covered pipelines/fantasy/ -- and 18 real scripts under scripts/
+        # (cbs_persist_scoring_fits.py, cbs_draft_backfill.py, and 16 more,
+        # several writing to D1 directly via D1Loader.write_rows) were never
+        # scanned at all. CI could report "OK -- no UPS/MFL writes" without
+        # ever having opened the file that contained one. Verified 2026-08-28:
+        # find_violations() is never even invoked on these paths, because
+        # collect() only walks SCAN_KINDS patterns.
+        ("scripts/cbs_*.py", "scripts/espn_*.py"),
+        1,
+        "standalone analysis/backfill scripts that write to or read fantasy_* "
+        "tables outside the pipelines/fantasy/ package. NOT scripts/yahoo_*.py "
+        "-- that glob matches zero files today, and this checker treats an "
+        "empty glob as a refusal, same as a moved file (collect()'s own "
+        "docstring). Add it back the day a real yahoo_*.py script exists, not "
+        "before -- a speculative pattern for a file that doesn't exist yet "
+        "just breaks every CI run until one does.",
     ),
     ScanKind(
         "fantasy migrations",
