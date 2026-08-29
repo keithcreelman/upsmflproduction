@@ -1293,7 +1293,30 @@ async function processAuctionPoll(env) {
     let lotIds = (openLots.results || []).map((r) => String(r.lot_id));
     // Touched lots ALWAYS recompute below regardless of this flag — only the
     // full self-heal pass over every other lot is what defers.
-    const runFullSweep = await sweepReady("auction_poll_lot_sweep", 1200, newBids > 0);
+    let runFullSweep = await sweepReady("auction_poll_lot_sweep", 1200, newBids > 0);
+    // The sweep exists to fix STALE state on a LOT STILL BEING BID ON — its
+    // own comment calls it a rare, not-time-critical correctness pass, not
+    // something a closed auction needs kept fresh. Its 20-min throttle has
+    // no memory of "is there even an auction running," so a dead offseason
+    // still runs the full ~196-lot recompute+upsert 72x/day forever. Found
+    // 2026-08-29: this was the single largest D1 write consumer for the
+    // day (~24K of ~75K rows, a third of the free-tier cap) with the last
+    // real bid 26 days old and zero lots in 'open' status — every one of
+    // those sweeps rewrote rows that provably had not changed. One cheap
+    // COUNT gates it on an actual live auction existing; fail OPEN (run the
+    // sweep) if the check itself errors, matching this function's existing
+    // philosophy that a missed self-heal is cheap and a poll that dies here
+    // is not.
+    if (runFullSweep) {
+      try {
+        const openCount = await db.prepare(
+          `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
+        ).bind(season, leagueId).first();
+        if (!(Number(openCount?.n) > 0)) runFullSweep = false;
+      } catch (e) {
+        console.log("[auction-poll] open-lot check failed (sweeping anyway):", String(e?.message || e));
+      }
+    }
     if (!runFullSweep) {
       lotIds = lotIds.filter((id) => touchedLotIds.has(id));
     }
