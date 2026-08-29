@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.27.1",
-  "label": "Fixes from the past week are actually reachable now. The app was still loading cached copies of six files, so recent corrections \u2014 waiver retries, contract actions for auction-won rookies, restructure and extension handling \u2014 never took effect on your device. The endless \u201cNew version available\u201d prompt is gone too."
+  "build": "2026.08.29.1",
+  "label": "Fixed a bug where opening a player's card right after another one could show the wrong player's stats — the first card's data would sometimes land under the second player's name if you moved fast enough."
 }
