@@ -2255,7 +2255,18 @@
 
     renderTabBody();
 
+    /* Guard against the bundle race: open(A) then open(B) before A's fetch
+     * resolves used to let A's .then fire AFTER B's header/footer were already
+     * on screen, unconditionally overwriting currentBundle with A's data and
+     * re-rendering the Stats/Bio tab under B's name — a fast double-tap or the
+     * global player search (player_search.js) reopening in quick succession
+     * both reach this. Same pattern already used for the ERA drop-gate fetch
+     * at gateEraRetentionDrop:613/626 and for news at paintPlayerNews:2064,
+     * just checked against footerState.pid instead of a DOM node's presence
+     * since the bundle has no DOM identity of its own to test. */
+    var pidAtFire = pid;
     loadBundle(pid).then(function (bundle) {
+      if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
       currentBundle = bundle;
       if (activeTab === "stats" || activeTab === "bio") renderTabBody();
     });
