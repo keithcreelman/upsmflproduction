@@ -228,6 +228,60 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
 .asw-table tbody tr{cursor:pointer}
 .asw-table tbody tr.is-active{background:rgba(106,168,255,.14) !important;box-shadow:inset 3px 0 0 var(--accent)}
 
+/* Header "Search players" pill — same idiom as .asw-filters-pill, sitting in
+   .asw-head-actions beside the theme toggle. Keith 2026-08-29: the existing
+   #asw-search only ever matches WITHIN the active position tab's already-
+   fetched rows (state.rowsByWorkerPos[tab.workerPos]) — a WR search while on
+   the QB tab returns "0 of 78 players (search)" even though the player is
+   real. This button opens a search over the WHOLE league (every MFL player,
+   rostered or free agent, even one with no advanced-stats row at all) —
+   mirroring the mobile Stats page's 2026-08-29 rework.
+   (id/kbd label added inline in the HTML, not here.) */
+.asw-search-all-btn{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:5px 14px 5px 12px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.1s;white-space:nowrap}
+.asw-search-all-btn:hover{border-color:var(--border-strong)}
+.asw-search-all-btn .ic{font-size:13px;opacity:.85}
+.asw-search-all-btn .kbd{font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:var(--font-mono)}
+
+/* Cross-tab search hint + handoff — the empty-state message inside the table
+   when a search query matches nothing on the ACTIVE tab. Distinct from
+   .asw-empty's plain-text styling because it carries a live button. */
+.asw-empty-search .hint{display:block;margin-top:6px;color:var(--muted);font-size:12px}
+.asw-empty-search .asw-search-all-btn{margin-top:10px}
+
+/* Whole-league player search — a centered command-palette-style overlay
+   (distinct from the right-side drill-down .asw-drawer, since this is a
+   quick lookup-and-go rather than a drill-down on the CURRENT dataset).
+   z-index 45: above the drawer(41)/scrim(40)/cols-popover(35)/compare-bar(30),
+   below the shared player-profile modal (#upm-overlay, ~z-index 2147483001)
+   so clicking a result stacks the profile OVER these results rather than
+   replacing them — closing the profile returns you to your search. */
+.asw-gsearch-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .15s ease;z-index:44}
+.asw-gsearch-scrim.open{opacity:1;pointer-events:auto}
+.asw-gsearch{position:fixed;top:10vh;left:50%;transform:translate(-50%,-8px);width:min(640px,92vw);max-height:76vh;background:var(--bg);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.55);z-index:45;display:flex;flex-direction:column;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease}
+.asw-gsearch.open{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+.asw-gsearch-bar{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--panel)}
+.asw-gsearch-bar .ic{font-size:16px;color:var(--muted);flex:0 0 auto}
+.asw-gsearch-bar input{flex:1;background:transparent;border:0;color:var(--text);font-size:15px;font-family:inherit;min-width:0}
+.asw-gsearch-bar input:focus{outline:none}
+.asw-gsearch-bar input::placeholder{color:var(--muted)}
+.asw-gsearch-close{flex:0 0 auto;background:transparent;border:1px solid var(--border);color:var(--text);width:28px;height:28px;border-radius:6px;font-size:15px;cursor:pointer;line-height:1}
+.asw-gsearch-close:hover{background:var(--panel-alt);border-color:var(--border-strong)}
+.asw-gsearch-list{flex:1;overflow-y:auto;padding:6px 0}
+.asw-gsearch-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 16px;border:0;background:transparent;color:var(--text);text-align:left;font:inherit;cursor:pointer}
+.asw-gsearch-row:hover,.asw-gsearch-row.sel{background:var(--row-hover)}
+.asw-gsearch-row .pos{flex:0 0 auto;width:32px;text-align:center;font-size:10px;font-weight:800;letter-spacing:.03em;padding:2px 0;border:1px solid var(--border);border-radius:5px;color:var(--muted)}
+.asw-gsearch-row .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.asw-gsearch-row .nm{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asw-gsearch-row .sub{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asw-gsearch-row .sub .fa{color:var(--accent);font-weight:700}
+.asw-gsearch-row .num{flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}
+.asw-gsearch-row .num .ppg{font-size:13px;font-weight:700;color:var(--text)}
+.asw-gsearch-row .num .ppg i{font-style:normal;font-size:9px;font-weight:700;color:var(--muted);margin-left:3px}
+.asw-gsearch-row .num .ppg.none{color:var(--muted);font-weight:500}
+.asw-gsearch-empty{padding:40px 24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6}
+.asw-gsearch-empty b{color:var(--text)}
+.asw-gsearch-more{padding:10px;text-align:center;color:var(--muted);font-size:11.5px}
+
 /* Slide-in drawer for per-week drill-down */
 .asw-drawer-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:40}
 .asw-drawer-scrim.open{opacity:1;pointer-events:auto}
@@ -469,6 +523,13 @@ table.asw-table{font-size:13px}
       <h1 id="asw-page-title">Player Stats <span id="asw-version" class="asw-version" title="Module version"></span></h1>
     </div>
     <div class="asw-head-actions">
+      <!-- Whole-league player search — every MFL player, rostered or free
+           agent, even one with no advanced-stats row (the existing filter
+           row's #asw-search only ever matches within the active position
+           tab's already-fetched rows). Keith 2026-08-29. -->
+      <button type="button" class="asw-search-all-btn" id="asw-gsearch-btn" title="Search any player in the league">
+        <span class="ic">⌕</span> Search players <span class="kbd">/</span>
+      </button>
       <button type="button" class="asw-theme-btn" id="asw-theme-btn" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
     </div>
   </div>
@@ -604,6 +665,24 @@ table.asw-table{font-size:13px}
   </div>
   <div class="asw-drawer-body" id="asw-drawer-body"></div>
 </aside>
+
+<!-- Whole-league player search — centered overlay, every MFL player (rostered,
+     free agent, even one with zero recorded advanced stats), opened from the
+     header button or from the "Search all players" handoff shown when the
+     per-tab #asw-search comes up empty. Keith 2026-08-29. -->
+<!-- No [hidden] attribute: visibility is carried entirely by .open (opacity +
+     pointer-events in CSS) so there is never a display:none transition to
+     sequence around — see the comment on openGsearch() for why that mattered. -->
+<div class="asw-gsearch-scrim" id="asw-gsearch-scrim"></div>
+<div class="asw-gsearch" id="asw-gsearch" role="dialog" aria-modal="true" aria-label="Search all players" aria-hidden="true">
+  <div class="asw-gsearch-bar">
+    <span class="ic">⌕</span>
+    <input type="text" id="asw-gsearch-input" placeholder="Search any player — rostered, taxi, IR, or free agent"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button type="button" class="asw-gsearch-close" id="asw-gsearch-close" aria-label="Close">×</button>
+  </div>
+  <div class="asw-gsearch-list" id="asw-gsearch-list"></div>
+</div>
 
 <!-- Shared UPS player-profile modal. Absolute URL because this page is injected
      as an iframe srcdoc (no base URL for relative paths). Defines window.UPS_openPlayerProfile. -->
@@ -1729,6 +1808,289 @@ table.asw-table{font-size:13px}
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Whole-league player search. Every position tab on this page is bounded by
+  // TWO things: /api/advanced-stats-leaderboard's own 500-row cap per alias,
+  // and — more fundamentally — it only ever returns players who RECORDED
+  // advanced stats. A rookie FA who hasn't played a snap, or any player deep
+  // enough on a roster to have zero usage, can never appear on ANY tab no
+  // matter how the position filter or search is tuned. This indexes MFL's
+  // actual player master list instead (every player the league knows about)
+  // so a name search can find literally anyone.
+  //
+  // Ownership: reuses pidToFid/fidToName, already populated by
+  // leagueStatePromise above (/api/mfl-league-state) — NOT a second rosters
+  // fetch. The only new network call this feature makes is the player-list
+  // export itself.
+  // ─────────────────────────────────────────────────────────────────────────
+  var gsearch = { indexPromise: null, index: null, q: "", results: [] };
+
+  // MFL's player export mixes real players with team units, team defenses,
+  // special teams, offense/defense placeholders, and coaches — 422 of 2,610
+  // rows league-wide, verified live 2026-08-29 (same feed mobile's
+  // player_search.js indexes). Keys are UPPERCASE: MFL writes four of these
+  // in mixed case ("Def","ST","Off","Coach") and a verbatim-cased exclusion
+  // list would silently let all of them through.
+  var GSEARCH_NON_PLAYER_POS = {
+    TMQB: 1, TMRB: 1, TMWR: 1, TMTE: 1, TMPK: 1, TMPN: 1,
+    TMDL: 1, TMLB: 1, TMDB: 1, DEF: 1, ST: 1, OFF: 1, COACH: 1
+  };
+  // 6 of 2,610 rows carry position "XX" instead of a real code — confirmed
+  // live to be REAL players (one active roster player, five 2026 rookie/UDFA
+  // free agents), not placeholder rows. Excluding them would hide real,
+  // searchable people; they just don't have a position group to badge, so the
+  // badge falls back to the raw code rather than guessing.
+  function gsearchPosGroup(pos) {
+    pos = String(pos || "").toUpperCase();
+    if (pos === "DT" || pos === "DE" || pos === "NT") return "DL";
+    if (pos === "S" || pos === "CB" || pos === "SS" || pos === "FS") return "DB";
+    return pos || "—";
+  }
+  // "Purdy, Brock" -> "Brock Purdy". MFL's stored order; the leaderboard's
+  // own player_name field is already flipped, but the raw TYPE=players export
+  // is not.
+  function gsearchFlipName(raw) {
+    raw = String(raw || "");
+    if (raw.indexOf(",") >= 0) {
+      var p = raw.split(",");
+      return ((p[1] || "").trim() + " " + (p[0] || "").trim()).trim();
+    }
+    return raw;
+  }
+  function gsearchLastName(raw) {
+    raw = String(raw || "");
+    return raw.indexOf(",") >= 0 ? raw.split(",")[0].trim() : raw.split(/\s+/).pop();
+  }
+  // Best-effort PPG for ranking: scans whichever position tabs' rows are
+  // ALREADY cached (never fetches) — same "don't lie about coverage you don't
+  // have" discipline as crossTabMatches() above. A player nobody has looked
+  // at yet this session simply sorts with the unranked tail, not as a zero.
+  function gsearchPpgFor(pid) {
+    var keys = Object.keys(state.rowsByWorkerPos || {});
+    for (var i = 0; i < keys.length; i++) {
+      var rows = state.rowsByWorkerPos[keys[i]] || [];
+      for (var j = 0; j < rows.length; j++) {
+        if (String(rows[j].mfl_pid) === pid && rows[j].mfl_ppg != null) return Number(rows[j].mfl_ppg);
+      }
+    }
+    return null;
+  }
+
+  function gsearchBuildIndex() {
+    if (gsearch.indexPromise) return gsearch.indexPromise;
+    var url = API_BASE + "/api/mfl-export?TYPE=players&L=" + encodeURIComponent(LEAGUE_ID) +
+      "&YEAR=" + encodeURIComponent(THIS_YEAR) + "&DETAILS=1&JSON=1";
+    gsearch.indexPromise = Promise.all([
+      fetch(url, { credentials: "omit", mode: "cors" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      leagueStatePromise   // pidToFid / fidToName — already in flight from page load
+    ]).then(function (pair) {
+      var data = pair[0];
+      var universe = (data && data.players && data.players.player) || [];
+      if (!Array.isArray(universe)) universe = universe ? [universe] : [];
+      var out = [];
+      for (var i = 0; i < universe.length; i++) {
+        var p = universe[i];
+        var pos = String(p.position || "").toUpperCase();
+        if (GSEARCH_NON_PLAYER_POS[pos]) continue;
+        var pid = String(p.id || "");
+        if (!pid) continue;
+        var display = gsearchFlipName(p.name);
+        var team = String(p.team || "").toUpperCase();
+        var fid = pidToFid[pid] || "";
+        var bag = gsearchNormSpaced(display) + " " + gsearchNormTight(display) + " " +
+          gsearchNormSpaced(team) + " " + gsearchNormSpaced(fid ? (fidToName[fid] || "") : "");
+        var seen = {}, tokens = [];
+        bag.split(" ").filter(Boolean).forEach(function (t) { if (!seen[t]) { seen[t] = 1; tokens.push(t); } });
+        out.push({
+          pid: pid, name: display, last: gsearchNormTight(gsearchLastName(p.name)),
+          nameTokens: (gsearchNormSpaced(display) + " " + gsearchNormTight(display)).split(" ").filter(Boolean),
+          tokens: tokens, pos: pos, group: gsearchPosGroup(pos), team: team,
+          fid: fid, owner: fid ? (fidToName[fid] || "") : "",
+          ppg: gsearchPpgFor(pid)
+        });
+      }
+      gsearch.index = out;
+      return out;
+    });
+    return gsearch.indexPromise;
+  }
+
+  function gsearchScore(rec, qTokens, qTight) {
+    for (var i = 0; i < qTokens.length; i++) {
+      var t = qTokens[i], hit = false;
+      for (var j = 0; j < rec.tokens.length; j++) {
+        if (rec.tokens[j].indexOf(t) === 0) { hit = true; break; }
+      }
+      if (!hit) return -1;
+    }
+    if (rec.last && rec.last.indexOf(qTight) === 0) return 3;
+    for (var k = 0; k < qTokens.length; k++) {
+      for (var m = 0; m < rec.nameTokens.length; m++) {
+        if (rec.nameTokens[m].indexOf(qTokens[k]) === 0) return 2;
+      }
+    }
+    return 1;
+  }
+  function gsearchRun(q) {
+    var idx = gsearch.index || [];
+    var qTight = gsearchNormTight(q);
+    var qTokens = gsearchQueryTokens(q);
+    if (!qTokens.length) return [];
+    var hits = [];
+    for (var i = 0; i < idx.length; i++) {
+      var s = gsearchScore(idx[i], qTokens, qTight);
+      if (s > 0) hits.push({ r: idx[i], s: s });
+    }
+    hits.sort(function (a, b) {
+      if (b.s !== a.s) return b.s - a.s;
+      var ap = a.r.ppg, bp = b.r.ppg;
+      if (ap == null && bp == null) return a.r.name.localeCompare(b.r.name);
+      if (ap == null) return 1;
+      if (bp == null) return -1;
+      if (bp !== ap) return bp - ap;
+      return a.r.name.localeCompare(b.r.name);
+    });
+    return hits.map(function (h) { return h.r; });
+  }
+
+  var GSEARCH_CAP = 60;
+  function gsearchRowHtml(r) {
+    var ppg = r.ppg != null ? '<span class="ppg">' + r.ppg.toFixed(1) + '<i>PPG</i></span>' : '<span class="ppg none">—</span>';
+    var sub = (r.team ? escapeHtml(r.team) + " · " : "") +
+      (r.fid ? escapeHtml(r.owner || "Rostered") : '<span class="fa">Free Agent</span>');
+    return '<button type="button" class="asw-gsearch-row" data-pid="' + escapeHtml(r.pid) + '">' +
+      '<span class="pos">' + escapeHtml(r.group) + '</span>' +
+      '<span class="body"><span class="nm">' + escapeHtml(r.name) + '</span><span class="sub">' + sub + '</span></span>' +
+      '<span class="num">' + ppg + '</span>' +
+    '</button>';
+  }
+  function gsearchListEl() { return document.getElementById("asw-gsearch-list"); }
+  function gsearchRenderResults() {
+    var el = gsearchListEl();
+    if (!el) return;
+    if (!gsearch.index) {
+      el.innerHTML = '<div class="asw-gsearch-empty">Loading players…</div>';
+      return;
+    }
+    var q = gsearch.q.trim();
+    if (!q) {
+      el.innerHTML = '<div class="asw-gsearch-empty"><b>Search any player in the league</b><br>' +
+        'Rostered, taxi, IR or free agent — ' + gsearch.index.length + ' players. Try a name, an NFL team, or an owner.</div>';
+      return;
+    }
+    var hits = gsearchRun(q);
+    if (!hits.length) {
+      el.innerHTML = '<div class="asw-gsearch-empty">No player matches &ldquo;' + escapeHtml(q) + '&rdquo;.<br>' +
+        'Names match in any order — try just a last name.</div>';
+      return;
+    }
+    var capped = hits.slice(0, GSEARCH_CAP);
+    var more = hits.length > capped.length
+      ? '<div class="asw-gsearch-more">Showing ' + capped.length + " of " + hits.length + " matches</div>" : "";
+    el.innerHTML = capped.map(gsearchRowHtml).join("") + more;
+  }
+
+  function gsearchOpenProfile(pid, rec) {
+    if (typeof window.UPS_openPlayerProfile === "function") {
+      window.UPS_openPlayerProfile(String(pid), {
+        apiBase: API_BASE, leagueId: LEAGUE_ID, year: String(THIS_YEAR), mode: "stats_workbench",
+        playerInfo: { name: rec ? rec.name : "", position: rec ? rec.group : "", team: rec ? rec.team : "" }
+      });
+    } else {
+      // Same fallback the drawer's "Full profile" button uses — this page runs
+      // as an iframe srcdoc with no guaranteed load order for the external
+      // profile-modal script, so its absence is a real, not theoretical, case.
+      window.open("https://www.myfantasyleague.com/" + THIS_YEAR + "/options?L=" + LEAGUE_ID +
+        "&O=04&P=" + encodeURIComponent(pid), "_blank", "noopener");
+    }
+  }
+
+  var gsearchEls = null;   // lazily grabbed — the overlay markup exists at parse time either way, this just avoids a lookup before first use
+  function gsearchRefs() {
+    if (gsearchEls) return gsearchEls;
+    gsearchEls = {
+      scrim: document.getElementById("asw-gsearch-scrim"),
+      panel: document.getElementById("asw-gsearch"),
+      input: document.getElementById("asw-gsearch-input"),
+      list: document.getElementById("asw-gsearch-list"),
+      close: document.getElementById("asw-gsearch-close")
+    };
+    return gsearchEls;
+  }
+  function gsearchIsOpen() {
+    var els = gsearchRefs();
+    return !!(els.panel && els.panel.classList.contains("open"));
+  }
+  function openGsearch(prefillQ) {
+    var els = gsearchRefs();
+    if (!els.panel || !els.scrim || !els.input) return;
+    // Visibility is carried ENTIRELY by .open (opacity + pointer-events, see
+    // CSS) — the panel and scrim stay `display:flex`/`fixed` at all times so
+    // there is no display:none -> displayed jump to sequence around. Was
+    // originally gated by the `hidden` attribute + a requestAnimationFrame to
+    // add `.open` a tick later (so the opacity transition would be observed
+    // instead of skipped) — but rAF never fires in a backgrounded/inactive
+    // tab, which left the overlay permanently invisible despite `hidden`
+    // being correctly cleared. Confirmed live: `hidden` flipped to false,
+    // `.open` never landed even after 400ms. Synchronous classList.add has
+    // no such dependency and still transitions fine for a foregrounded tab.
+    els.scrim.classList.add("open");
+    els.panel.classList.add("open");
+    els.panel.setAttribute("aria-hidden", "false");
+    gsearch.q = prefillQ || "";
+    els.input.value = gsearch.q;
+    gsearchRenderResults();
+    if (!gsearch.index) gsearchBuildIndex().then(gsearchRenderResults);
+    els.input.focus();
+    if (els.input.value) { try { els.input.setSelectionRange(els.input.value.length, els.input.value.length); } catch (e) {} }
+  }
+  function closeGsearch() {
+    var els = gsearchRefs();
+    if (els.scrim) els.scrim.classList.remove("open");
+    if (els.panel) { els.panel.classList.remove("open"); els.panel.setAttribute("aria-hidden", "true"); }
+    // Closing (via Escape, the × button, or the scrim) hides the input but
+    // does NOT move focus off it on its own — confirmed live: document.
+    // activeElement stayed #asw-gsearch-input afterward, which fed straight
+    // into the "/" reopen guard below and made the shortcut a one-shot until
+    // the user clicked elsewhere. Blur explicitly so "/" works every time.
+    if (els.input) els.input.blur();
+  }
+  function wireEmptySearchHandoff(scopeEl) {
+    var btn = scopeEl && scopeEl.querySelector('[data-act="gsearch-open"]');
+    if (btn) btn.addEventListener("click", function () { openGsearch(searchEl.value); });
+  }
+
+  (function wireGsearch() {
+    var els = gsearchRefs();
+    var trigger = document.getElementById("asw-gsearch-btn");
+    if (trigger) trigger.addEventListener("click", function () { openGsearch(""); });
+    if (els.close) els.close.addEventListener("click", closeGsearch);
+    if (els.scrim) els.scrim.addEventListener("click", closeGsearch);
+    if (els.input) els.input.addEventListener("input", function (e) {
+      gsearch.q = e.target.value; gsearchRenderResults();
+    });
+    if (els.list) els.list.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest(".asw-gsearch-row") : null;
+      if (!btn) return;
+      var pid = btn.getAttribute("data-pid");
+      var rec = (gsearch.index || []).filter(function (r) { return r.pid === pid; })[0];
+      gsearchOpenProfile(pid, rec);
+    });
+    // "/" opens search from anywhere on the page — but never while the user
+    // is already typing somewhere (the seasons/team selects, the per-tab
+    // search box, a per-column filter input).
+    document.addEventListener("keydown", function (e) {
+      if (gsearchIsOpen()) {
+        if (e.key === "Escape") { e.preventDefault(); closeGsearch(); }
+        return;
+      }
+      var tag = document.activeElement && document.activeElement.tagName;
+      var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ||
+        (document.activeElement && document.activeElement.isContentEditable);
+      if (e.key === "/" && !typing) { e.preventDefault(); openGsearch(""); }
+    });
+  })();
+
   // ---------- State ----------
   var state = {
     activeTab:    "qb",
@@ -2180,6 +2542,88 @@ table.asw-table{font-size:13px}
       : "";
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Shared name/text matching — used by BOTH the existing per-tab #asw-search
+  // (2026-08-29 fix: was a raw indexOf, so "Kool-Aid McKinstry" never matched
+  // "kool aid" and "B.J. Hill" never matched "bj hill" — real rostered names,
+  // verified live) and the new whole-league search overlay (gsearch*) below.
+  // Two normalizations, unioned, because MFL's real punctuation needs both:
+  //   spaced — punctuation becomes a space: "Reader, D.J." -> "reader d j"
+  //            (so "connell" finds "O'Connell")
+  //   tight  — punctuation is deleted:      "Reader, D.J." -> "reader dj"
+  //            (so "dj" finds "D.J. Reader")
+  // ─────────────────────────────────────────────────────────────────────────
+  function gsearchNormSpaced(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  function gsearchNormTight(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9\s]+/g, "").replace(/\s+/g, " ").trim();
+  }
+  function gsearchQueryTokens(q) {
+    return gsearchNormSpaced(q).split(" ").filter(Boolean);
+  }
+  // Every query token must PREFIX-match some token in the haystack's own
+  // spaced+tight union — order-independent, so "purdy brock" and
+  // "brock purdy" behave the same.
+  function gsearchRowMatches(hayRaw, qTokens) {
+    if (!qTokens.length) return true;
+    var hayTokens = (gsearchNormSpaced(hayRaw) + " " + gsearchNormTight(hayRaw)).split(" ").filter(Boolean);
+    for (var i = 0; i < qTokens.length; i++) {
+      var hit = false;
+      for (var j = 0; j < hayTokens.length; j++) {
+        if (hayTokens[j].indexOf(qTokens[i]) === 0) { hit = true; break; }
+      }
+      if (!hit) return false;
+    }
+    return true;
+  }
+
+  // How many players the query would find on OTHER position tabs, using ONLY
+  // rows already cached in state.rowsByWorkerPos (never triggers a fetch — a
+  // tab the owner hasn't opened yet silently contributes nothing, same
+  // design as mobile's matchesElsewhere() in player_search.js). Drives the
+  // "N matches on RB, WR" handoff line in the empty-search state below.
+  function crossTabMatches(q, currentTab) {
+    var qTokens = gsearchQueryTokens(q);
+    if (!qTokens.length) return { count: 0, tabLabel: "" };
+    var seen = {}, n = 0, labels = [], labelSeen = {};
+    Object.keys(TABS).forEach(function (tabId) {
+      var t = TABS[tabId];
+      if (t === currentTab) return;
+      var rows = state.rowsByWorkerPos[t.workerPos] || [];
+      if (!rows.length) return;
+      var tabHasMatch = false;
+      rows.forEach(function (r) {
+        if (t.positionFilter && t.positionFilter.length && t.positionFilter.indexOf(effPos(r)) < 0) return;
+        var hay = String(r.player_name || "") + " " + String(r.current_team || r.team || "") + " " +
+                  String(r.position || "") + " " + String(r.pos_group || "");
+        if (!gsearchRowMatches(hay, qTokens)) return;
+        var key = r.gsis_id || r.mfl_pid || r.player_name;
+        if (!seen[key]) { seen[key] = 1; n++; }
+        tabHasMatch = true;
+      });
+      if (tabHasMatch && !labelSeen[t.label]) { labelSeen[t.label] = 1; labels.push(t.label); }
+    });
+    return { count: n, tabLabel: labels.join(", ") };
+  }
+
+  // The empty-search message: which filter emptied the list, what's known to
+  // exist elsewhere (from cache only, so this can under-report but never lie),
+  // and a way out. Replaces "No rows match filters." — that line was shown
+  // verbatim for a REAL, rostered player search that just happened to be on
+  // the wrong tab, indistinguishable from an actually-empty position group.
+  function emptySearchHtml(tab, searchQ) {
+    if (!searchQ) return "No rows match filters.";
+    var cross = crossTabMatches(searchQ, tab);
+    var hint = cross.count
+      ? '<span class="hint">' + cross.count + " match" + (cross.count === 1 ? "" : "es") +
+        " on " + escapeHtml(cross.tabLabel) + ".</span>"
+      : "";
+    return 'No ' + escapeHtml(tab.label) + ' matches for &ldquo;' + escapeHtml(searchQ) + '&rdquo;.' + hint +
+      '<button type="button" class="asw-search-all-btn" data-act="gsearch-open">' +
+      '<span class="ic">⌕</span> Search all players</button>';
+  }
+
   function render() {
     var tab = TABS[state.activeTab];
     var blocks = buildBlocks();
@@ -2210,11 +2654,17 @@ table.asw-table{font-size:13px}
     }
 
     // Search — name + NFL team + position (B6), mirrors the mobile auction search.
+    // Token-matched (2026-08-29), not raw indexOf: a plain substring test never
+    // found "Kool-Aid McKinstry" from "kool aid", "B.J. Hill" from "bj hill", or
+    // "Henry To'oTo'o" from "tootoo" — real rostered names, confirmed live
+    // against this exact TYPE=players feed. gsearchQueryTokens/gsearchRowMatches
+    // are declared below, shared with the whole-league search overlay.
     var searchQ = (searchEl.value || "").trim().toLowerCase();
-    if (searchQ) rows = rows.filter(function(r){
-      var hay = (String(r.player_name||"") + " " + String(r.current_team||r.team||"") + " " +
-                 String(r.position||"") + " " + String(r.pos_group||"")).toLowerCase();
-      return hay.indexOf(searchQ) !== -1;
+    var searchQTokens = gsearchQueryTokens(searchQ);
+    if (searchQTokens.length) rows = rows.filter(function(r){
+      var hay = String(r.player_name||"") + " " + String(r.current_team||r.team||"") + " " +
+                 String(r.position||"") + " " + String(r.pos_group||"");
+      return gsearchRowMatches(hay, searchQTokens);
     });
 
     // Per-column filters (only apply to currently visible columns — a filter
@@ -2401,8 +2851,9 @@ table.asw-table{font-size:13px}
     if (state.scatterOn) {
       // Scatter discovery view — swaps the table for a usage-vs-efficiency
       // scatter of the SAME filtered rows. Click a dot → the player drawer.
-      bodyEl.innerHTML = rows.length ? buildScatterHtml(rows) : '<div class="asw-empty">No rows.</div>';
+      bodyEl.innerHTML = rows.length ? buildScatterHtml(rows) : '<div class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</div>';
       wireScatter(rows);
+      wireEmptySearchHandoff(bodyEl);
     } else {
     bodyEl.innerHTML = rows.length || state.filtersVisible
       ? '<table class="asw-table' + (state.heatOn ? ' heat' : '') + '">' +
@@ -2411,9 +2862,10 @@ table.asw-table{font-size:13px}
             '<tr class="asw-col-row">'+colRow+'</tr>' +
             theadFilter +
           '</thead>' +
-          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 2)+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
+          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 2)+'" class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</td></tr>') +'</tbody>' +
         '</table>'
-      : '<div class="asw-empty">No rows.</div>';
+      : '<div class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</div>';
+    wireEmptySearchHandoff(bodyEl);
     }
 
     renderDataNote(cols, state.lastApiCount);
