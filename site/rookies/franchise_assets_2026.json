@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-29T14:41:43.379106+00:00",
+    "generated_at_utc": "2026-08-30T14:31:11.770947+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3083,6 +3083,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_15391",
+          "display": "Milton Williams",
+          "player_id": "15391",
+          "position": "DT",
+          "nfl_team": "NEP",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15254",
           "display": "Najee Harris",
           "player_id": "15254",
@@ -3091,18 +3103,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_13968",
-          "display": "Nick Mullens",
-          "player_id": "13968",
-          "position": "QB",
-          "nfl_team": "JAC",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3135,18 +3135,6 @@
           "display": "Tyjae Spears",
           "player_id": "16165",
           "position": "RB",
-          "nfl_team": "TEN",
-          "salary": 1000,
-          "contract_year": 3,
-          "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16149",
-          "display": "Will Levis",
-          "player_id": "16149",
-          "position": "QB",
           "nfl_team": "TEN",
           "salary": 1000,
           "contract_year": 3,
