@@ -2,13 +2,13 @@
   "schema": 1,
   "packId": "2026-preseason-review",
   "title": "The 2026 Pre-Season Review",
-  "generatedAtUtc": "2026-08-30T13:36:29Z",
+  "generatedAtUtc": "2026-08-30T14:31:28Z",
   "season": 2026,
   "week": null,
   "sources": [
     {
       "name": "GET /api/auction/compliance",
-      "asof": "2026-08-30T13:36:25.354Z",
+      "asof": "2026-08-30T14:31:23.775Z",
       "rows": 12,
       "note": "cap spent/room, roster counts, live warnings"
     },
@@ -46,7 +46,7 @@
       "name": "docs/auction/data/adp_board_current.json",
       "asof": "2026-07-21",
       "rows": 398,
-      "note": "pre-auction dynasty-SF ADP blend (FantasyCalc+KeepTradeCut+DynastyProcess); offense positions only, one-off manual capture ~12-16 days before the auction opened, no auto-refresh"
+      "note": "pre-auction REDRAFT-superflex ADP blend (FantasyCalc+KeepTradeCut+DynastyProcess); offense positions only, one-off manual capture ~12-16 days before the auction opened, no auto-refresh"
     },
     {
       "name": "src_draft_picks",
@@ -92,11 +92,14 @@
   "warnings": [
     "The off-season opened around 2026-03-10 (first contract activity) but the earliest daily snapshot is 2026-04-21, so 'starting point' means 2026-04-21, not the true start of the off-season.",
     "Opening cap figures are active-roster salary only. The daily snapshot does not capture salaryAdjustments, so they are not comparable to the live compliance numbers, which do include them. Do not subtract one from the other.",
-    "ADP-based value covers OFFENSE (QB/RB/WR/TE) only. Dynasty ADP does not meaningfully rank IDP -- see build_auction_tier_dataset.py's own docstring on the same point -- so the 113 rostered defensive players league-wide have no ADP value and are excluded from these sums, never priced at $0.",
-    "6 rostered offensive player(s) have no match on the ADP board (rookies signed after the 2026-07-21 capture, or a name/id the blend dropped) and are excluded from the value sum the same way.",
+    "Player value here is REDRAFT superflex ADP -- what the market thought each player was worth for the 2026 season alone, as of 2026-07-21. It is NOT dynasty value and the two disagree sharply: a productive veteran can be worth many times more on this axis than on a dynasty one, and a young stash can be worth far less. Salary is ignored entirely by design.",
+    "ADP-based value covers OFFENSE (QB/RB/WR/TE) only. ADP does not meaningfully rank IDP -- see build_auction_tier_dataset.py's own docstring on the same point -- so the 113 rostered defensive players league-wide are counted in the O/D/ST split but excluded from the value sums, never priced at zero.",
+    "32 rostered offensive player(s) carry a dynasty price but no redraft one -- college quarterbacks and undraftable NFL backups. On a this-season axis that is a verdict rather than a gap, so they count as zero: a roster spot spent on a player who will not produce this year is exactly what this measure is meant to show.",
+    "6 rostered offensive player(s) are absent from the ADP board entirely (signed after the 2026-07-21 capture, or an id the blend dropped). Those are genuinely unknown rather than worthless, so they are excluded from the value sums rather than counted as zero.",
     "196 lots are marked won but only 210 finalized contracts exist (delta -14). Auction spend and contract counts will not reconcile; prefer the lot ledger for prices and say so.",
     "No ERA-sourced finalizations exist, though ups_era_pool has members. The expired-rookie auction is not represented in the finalization ledger.",
     "The contract log records SUBMISSIONS, not contracts: 118 rows collapse to 89 distinct player-contract outcomes. Owners who revise a deal in the Front Office write a row per attempt, so a raw row count overstates how active the heaviest tool users were. Move counts here are outcomes.",
+    "This pack was built from a checkout 2 commit(s) behind origin/main. Repo-tracked sources (the contract-activity log, the daily snapshots) are auto-committed to main, so the contract log was read from origin/main directly; the daily snapshots were NOT and may lag by a few days.",
     "19 of 89 contract outcomes have a blank franchise_name and player_name. The ids are present, so names are resolved from src_franchises rather than rendered blank.",
     "Nearly every src_* history table stops at 2025 (src_standings, src_trades, src_adddrop, src_contracts). All 2026 figures here come from ups_* tables, the live worker API, and the daily snapshots instead.",
     "The O/D/ST split (from the 2026-08-29 snapshot) and the live active-roster count disagree by 1-2 players for 4 of 12 teams -- a roster move landed between the snapshot and now. Both numbers are real; they are just not the same moment."
@@ -548,11 +551,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0001.skill_value",
-      "label": "Ryan Bousquet -- offense ADP value",
-      "value": 37623,
+      "id": "f.team.0001.redraft_value",
+      "label": "Ryan Bousquet -- 2026 offense redraft value",
+      "value": 56484,
       "unit": "points",
-      "fmt": "37623.0",
+      "fmt": "56484.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -638,11 +641,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0002.skill_value",
-      "label": "Derrick Whitman -- offense ADP value",
-      "value": 46064,
+      "id": "f.team.0002.redraft_value",
+      "label": "Derrick Whitman -- 2026 offense redraft value",
+      "value": 64491,
       "unit": "points",
-      "fmt": "46064.0",
+      "fmt": "64491.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -728,11 +731,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0003.skill_value",
-      "label": "Matt Gerardi -- offense ADP value",
-      "value": 38424,
+      "id": "f.team.0003.redraft_value",
+      "label": "Matt Gerardi -- 2026 offense redraft value",
+      "value": 48968,
       "unit": "points",
-      "fmt": "38424.0",
+      "fmt": "48968.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -818,11 +821,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0004.skill_value",
-      "label": "Brian Cutting -- offense ADP value",
-      "value": 54289,
+      "id": "f.team.0004.redraft_value",
+      "label": "Brian Cutting -- 2026 offense redraft value",
+      "value": 77793,
       "unit": "points",
-      "fmt": "54289.0",
+      "fmt": "77793.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -908,11 +911,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0005.skill_value",
-      "label": "Eric Martel -- offense ADP value",
-      "value": 50165,
+      "id": "f.team.0005.redraft_value",
+      "label": "Eric Martel -- 2026 offense redraft value",
+      "value": 67186,
       "unit": "points",
-      "fmt": "50165.0",
+      "fmt": "67186.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -998,11 +1001,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0006.skill_value",
-      "label": "Brian Cross -- offense ADP value",
-      "value": 35860,
+      "id": "f.team.0006.redraft_value",
+      "label": "Brian Cross -- 2026 offense redraft value",
+      "value": 48673,
       "unit": "points",
-      "fmt": "35860.0",
+      "fmt": "48673.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -1088,11 +1091,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0007.skill_value",
-      "label": "Josh Martel -- offense ADP value",
-      "value": 50836,
+      "id": "f.team.0007.redraft_value",
+      "label": "Josh Martel -- 2026 offense redraft value",
+      "value": 55861,
       "unit": "points",
-      "fmt": "50836.0",
+      "fmt": "55861.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -1178,11 +1181,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0008.skill_value",
-      "label": "Keith Creelman -- offense ADP value",
-      "value": 46771,
+      "id": "f.team.0008.redraft_value",
+      "label": "Keith Creelman -- 2026 offense redraft value",
+      "value": 65513,
       "unit": "points",
-      "fmt": "46771.0",
+      "fmt": "65513.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -1268,11 +1271,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0009.skill_value",
-      "label": "Bear Dunn -- offense ADP value",
-      "value": 59366,
+      "id": "f.team.0009.redraft_value",
+      "label": "Bear Dunn -- 2026 offense redraft value",
+      "value": 74742,
       "unit": "points",
-      "fmt": "59366.0",
+      "fmt": "74742.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -1358,11 +1361,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0010.skill_value",
-      "label": "Shawn Blake -- offense ADP value",
-      "value": 51768,
+      "id": "f.team.0010.redraft_value",
+      "label": "Shawn Blake -- 2026 offense redraft value",
+      "value": 59973,
       "unit": "points",
-      "fmt": "51768.0",
+      "fmt": "59973.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -1448,11 +1451,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0011.skill_value",
-      "label": "Eric Mannila -- offense ADP value",
-      "value": 59813,
+      "id": "f.team.0011.redraft_value",
+      "label": "Eric Mannila -- 2026 offense redraft value",
+      "value": 75215,
       "unit": "points",
-      "fmt": "59813.0",
+      "fmt": "75215.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -1538,11 +1541,11 @@
       "asof": "2026-08-29"
     },
     {
-      "id": "f.team.0012.skill_value",
-      "label": "Chris Klingenberg -- offense ADP value",
-      "value": 35351,
+      "id": "f.team.0012.redraft_value",
+      "label": "Chris Klingenberg -- 2026 offense redraft value",
+      "value": 49817,
       "unit": "points",
-      "fmt": "35351.0",
+      "fmt": "49817.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
@@ -1565,29 +1568,29 @@
       "asof": "2026"
     },
     {
-      "id": "f.value.highest_skill",
-      "label": "Highest offense ADP value",
-      "value": 59813,
+      "id": "f.value.highest_redraft",
+      "label": "Highest 2026 offense redraft value",
+      "value": 77793,
       "unit": "points",
-      "fmt": "59813.0",
+      "fmt": "77793.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
     {
-      "id": "f.value.lowest_skill",
-      "label": "Lowest offense ADP value",
-      "value": 35351,
+      "id": "f.value.lowest_redraft",
+      "label": "Lowest 2026 offense redraft value",
+      "value": 48673,
       "unit": "points",
-      "fmt": "35351.0",
+      "fmt": "48673.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     },
     {
-      "id": "f.value.median_skill",
-      "label": "Median offense ADP value",
-      "value": 50165,
+      "id": "f.value.median_redraft",
+      "label": "Median 2026 offense redraft value",
+      "value": 64491,
       "unit": "points",
-      "fmt": "50165.0",
+      "fmt": "64491.0",
       "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
       "asof": "2026-08-29"
     }
@@ -2104,7 +2107,7 @@
     },
     {
       "id": "t.roster_composition",
-      "title": "Roster composition & offense value (salary ignored)",
+      "title": "Roster composition & 2026 offense value (salary ignored)",
       "columns": [
         {
           "key": "owner",
@@ -2131,98 +2134,98 @@
         },
         {
           "key": "value",
-          "label": "Offense ADP value",
+          "label": "2026 redraft value",
           "type": "points",
           "align": "right"
         }
       ],
       "rows": [
         [
+          "Brian Cutting",
+          19,
+          9,
+          2,
+          77793
+        ],
+        [
           "Eric Mannila",
           20,
           10,
           2,
-          59813
+          75215
         ],
         [
           "Bear Dunn",
           18,
           10,
           2,
-          59366
-        ],
-        [
-          "Brian Cutting",
-          19,
-          9,
-          2,
-          54289
-        ],
-        [
-          "Shawn Blake",
-          18,
-          12,
-          2,
-          51768
-        ],
-        [
-          "Josh Martel",
-          23,
-          10,
-          2,
-          50836
+          74742
         ],
         [
           "Eric Martel",
           19,
           10,
           3,
-          50165
+          67186
         ],
         [
           "Keith Creelman",
           26,
           7,
           2,
-          46771
+          65513
         ],
         [
           "Derrick Whitman",
           20,
           8,
           2,
-          46064
+          64491
         ],
         [
-          "Matt Gerardi",
-          21,
-          8,
+          "Shawn Blake",
+          18,
+          12,
           2,
-          38424
+          59973
         ],
         [
           "Ryan Bousquet",
           23,
           10,
           2,
-          37623
+          56484
         ],
         [
-          "Brian Cross",
-          22,
-          9,
+          "Josh Martel",
+          23,
+          10,
           2,
-          35860
+          55861
         ],
         [
           "Chris Klingenberg",
           17,
           10,
           1,
-          35351
+          49817
+        ],
+        [
+          "Matt Gerardi",
+          21,
+          8,
+          2,
+          48968
+        ],
+        [
+          "Brian Cross",
+          22,
+          9,
+          2,
+          48673
         ]
       ],
-      "note": "\"Offense ADP value\" sums each rostered QB/RB/WR/TE's pre-auction dynasty market value (2026-08-29) and ignores salary entirely -- a $2K rookie and a $60K veteran of equal market standing count the same. IDP and K/P are counted in the O/D/ST columns but excluded from the value sum; dynasty ADP does not meaningfully rank them."
+      "note": "\"2026 redraft value\" sums each rostered QB/RB/WR/TE's pre-auction REDRAFT market value -- what the market thought he was worth for this season alone, captured 2026-07-21 -- and ignores salary entirely, so a $2K rookie and a $60K veteran of equal standing count the same. This is deliberately not dynasty value: a productive veteran is worth far more here than as a long-term asset. IDP and K/P appear in the O/D/ST columns but not in the value sum, because ADP does not meaningfully rank them."
     },
     {
       "id": "t.top_buys",
@@ -2521,76 +2524,76 @@
       "altText": "Horizontal bars of remaining cap room by owner, most first."
     },
     {
-      "id": "c.skill_value",
+      "id": "c.redraft_value",
       "kind": "hbar",
-      "title": "Offense ADP value by owner (salary ignored)",
+      "title": "2026 offense redraft value by owner (salary ignored)",
       "series": [
         {
-          "label": "Eric Mannila",
-          "value": 59813,
+          "label": "Brian Cutting",
+          "value": 77793,
           "accent": "gold"
         },
         {
+          "label": "Eric Mannila",
+          "value": 75215,
+          "accent": null
+        },
+        {
           "label": "Bear Dunn",
-          "value": 59366,
-          "accent": null
-        },
-        {
-          "label": "Brian Cutting",
-          "value": 54289,
-          "accent": null
-        },
-        {
-          "label": "Shawn Blake",
-          "value": 51768,
-          "accent": null
-        },
-        {
-          "label": "Josh Martel",
-          "value": 50836,
+          "value": 74742,
           "accent": null
         },
         {
           "label": "Eric Martel",
-          "value": 50165,
+          "value": 67186,
           "accent": null
         },
         {
           "label": "Keith Creelman",
-          "value": 46771,
+          "value": 65513,
           "accent": null
         },
         {
           "label": "Derrick Whitman",
-          "value": 46064,
+          "value": 64491,
           "accent": null
         },
         {
-          "label": "Matt Gerardi",
-          "value": 38424,
+          "label": "Shawn Blake",
+          "value": 59973,
           "accent": null
         },
         {
           "label": "Ryan Bousquet",
-          "value": 37623,
+          "value": 56484,
           "accent": null
         },
         {
-          "label": "Brian Cross",
-          "value": 35860,
+          "label": "Josh Martel",
+          "value": 55861,
           "accent": null
         },
         {
           "label": "Chris Klingenberg",
-          "value": 35351,
+          "value": 49817,
+          "accent": null
+        },
+        {
+          "label": "Matt Gerardi",
+          "value": 48968,
+          "accent": null
+        },
+        {
+          "label": "Brian Cross",
+          "value": 48673,
           "accent": null
         }
       ],
       "axis": {
         "unit": "points",
-        "max": 59813
+        "max": 77793
       },
-      "altText": "Horizontal bars of offense-only ADP value by owner, highest first, salary not considered. Highest Eric Mannila; lowest Chris Klingenberg."
+      "altText": "Horizontal bars of offense-only 2026 redraft value by owner, highest first, salary not considered. Highest Brian Cutting; lowest Brian Cross."
     }
   ],
   "quotes": [],
@@ -2656,7 +2659,7 @@
         "f.team.0001.lots_won",
         "f.team.0001.moves",
         "f.team.0001.offense",
-        "f.team.0001.skill_value",
+        "f.team.0001.redraft_value",
         "f.team.0001.special_teams",
         "f.team.0002.active",
         "f.team.0002.auction_spend",
@@ -2666,7 +2669,7 @@
         "f.team.0002.lots_won",
         "f.team.0002.moves",
         "f.team.0002.offense",
-        "f.team.0002.skill_value",
+        "f.team.0002.redraft_value",
         "f.team.0002.special_teams",
         "f.team.0003.active",
         "f.team.0003.auction_spend",
@@ -2676,7 +2679,7 @@
         "f.team.0003.lots_won",
         "f.team.0003.moves",
         "f.team.0003.offense",
-        "f.team.0003.skill_value",
+        "f.team.0003.redraft_value",
         "f.team.0003.special_teams",
         "f.team.0004.active",
         "f.team.0004.auction_spend",
@@ -2686,7 +2689,7 @@
         "f.team.0004.lots_won",
         "f.team.0004.moves",
         "f.team.0004.offense",
-        "f.team.0004.skill_value",
+        "f.team.0004.redraft_value",
         "f.team.0004.special_teams",
         "f.team.0005.active",
         "f.team.0005.auction_spend",
@@ -2696,7 +2699,7 @@
         "f.team.0005.lots_won",
         "f.team.0005.moves",
         "f.team.0005.offense",
-        "f.team.0005.skill_value",
+        "f.team.0005.redraft_value",
         "f.team.0005.special_teams",
         "f.team.0006.active",
         "f.team.0006.auction_spend",
@@ -2706,7 +2709,7 @@
         "f.team.0006.lots_won",
         "f.team.0006.moves",
         "f.team.0006.offense",
-        "f.team.0006.skill_value",
+        "f.team.0006.redraft_value",
         "f.team.0006.special_teams",
         "f.team.0007.active",
         "f.team.0007.auction_spend",
@@ -2716,7 +2719,7 @@
         "f.team.0007.lots_won",
         "f.team.0007.moves",
         "f.team.0007.offense",
-        "f.team.0007.skill_value",
+        "f.team.0007.redraft_value",
         "f.team.0007.special_teams",
         "f.team.0008.active",
         "f.team.0008.auction_spend",
@@ -2726,7 +2729,7 @@
         "f.team.0008.lots_won",
         "f.team.0008.moves",
         "f.team.0008.offense",
-        "f.team.0008.skill_value",
+        "f.team.0008.redraft_value",
         "f.team.0008.special_teams",
         "f.team.0009.active",
         "f.team.0009.auction_spend",
@@ -2736,7 +2739,7 @@
         "f.team.0009.lots_won",
         "f.team.0009.moves",
         "f.team.0009.offense",
-        "f.team.0009.skill_value",
+        "f.team.0009.redraft_value",
         "f.team.0009.special_teams",
         "f.team.0010.active",
         "f.team.0010.auction_spend",
@@ -2746,7 +2749,7 @@
         "f.team.0010.lots_won",
         "f.team.0010.moves",
         "f.team.0010.offense",
-        "f.team.0010.skill_value",
+        "f.team.0010.redraft_value",
         "f.team.0010.special_teams",
         "f.team.0011.active",
         "f.team.0011.auction_spend",
@@ -2756,7 +2759,7 @@
         "f.team.0011.lots_won",
         "f.team.0011.moves",
         "f.team.0011.offense",
-        "f.team.0011.skill_value",
+        "f.team.0011.redraft_value",
         "f.team.0011.special_teams",
         "f.team.0012.active",
         "f.team.0012.auction_spend",
@@ -2766,7 +2769,7 @@
         "f.team.0012.lots_won",
         "f.team.0012.moves",
         "f.team.0012.offense",
-        "f.team.0012.skill_value",
+        "f.team.0012.redraft_value",
         "f.team.0012.special_teams"
       ],
       "tableIds": [
@@ -2818,66 +2821,66 @@
     {
       "id": "s6",
       "title": "Roster Composition & Value",
-      "brief": "Each team's offense/defense/special-teams split, and a value ranking built from pre-auction dynasty ADP that ignores salary entirely -- two contracts of very different price can carry the same market value. State clearly that this value covers offense only; IDP is counted in the split but not priced.",
+      "brief": "Each team's offense/defense/special-teams split, and a value ranking built from pre-auction REDRAFT ADP -- what each player was worth for THIS season alone, not as a long-term asset -- that ignores salary entirely, so two contracts of very different price can carry the same value. Say plainly that this is a win-now measure: an aging producer rates highly here and a young stash does not. It covers offense only; IDP is counted in the split but not priced.",
       "factIds": [
         "f.roster.idp_count",
         "f.team.0001.defense",
         "f.team.0001.offense",
-        "f.team.0001.skill_value",
+        "f.team.0001.redraft_value",
         "f.team.0001.special_teams",
         "f.team.0002.defense",
         "f.team.0002.offense",
-        "f.team.0002.skill_value",
+        "f.team.0002.redraft_value",
         "f.team.0002.special_teams",
         "f.team.0003.defense",
         "f.team.0003.offense",
-        "f.team.0003.skill_value",
+        "f.team.0003.redraft_value",
         "f.team.0003.special_teams",
         "f.team.0004.defense",
         "f.team.0004.offense",
-        "f.team.0004.skill_value",
+        "f.team.0004.redraft_value",
         "f.team.0004.special_teams",
         "f.team.0005.defense",
         "f.team.0005.offense",
-        "f.team.0005.skill_value",
+        "f.team.0005.redraft_value",
         "f.team.0005.special_teams",
         "f.team.0006.defense",
         "f.team.0006.offense",
-        "f.team.0006.skill_value",
+        "f.team.0006.redraft_value",
         "f.team.0006.special_teams",
         "f.team.0007.defense",
         "f.team.0007.offense",
-        "f.team.0007.skill_value",
+        "f.team.0007.redraft_value",
         "f.team.0007.special_teams",
         "f.team.0008.defense",
         "f.team.0008.offense",
-        "f.team.0008.skill_value",
+        "f.team.0008.redraft_value",
         "f.team.0008.special_teams",
         "f.team.0009.defense",
         "f.team.0009.offense",
-        "f.team.0009.skill_value",
+        "f.team.0009.redraft_value",
         "f.team.0009.special_teams",
         "f.team.0010.defense",
         "f.team.0010.offense",
-        "f.team.0010.skill_value",
+        "f.team.0010.redraft_value",
         "f.team.0010.special_teams",
         "f.team.0011.defense",
         "f.team.0011.offense",
-        "f.team.0011.skill_value",
+        "f.team.0011.redraft_value",
         "f.team.0011.special_teams",
         "f.team.0012.defense",
         "f.team.0012.offense",
-        "f.team.0012.skill_value",
+        "f.team.0012.redraft_value",
         "f.team.0012.special_teams",
-        "f.value.highest_skill",
-        "f.value.lowest_skill",
-        "f.value.median_skill"
+        "f.value.highest_redraft",
+        "f.value.lowest_redraft",
+        "f.value.median_redraft"
       ],
       "tableIds": [
         "t.roster_composition"
       ],
       "chartIds": [
-        "c.skill_value"
+        "c.redraft_value"
       ],
       "quoteIds": [],
       "cardIds": [],

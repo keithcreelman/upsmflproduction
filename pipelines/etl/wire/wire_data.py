@@ -194,19 +194,39 @@ def player_positions():
 
 
 def adp_value_board():
-    """Pre-2026-auction dynasty-SF ADP value per player, keyed by MFL player id.
+    """Pre-2026-auction ADP value per player, keyed by MFL player id.
 
     docs/auction/data/adp_board_current.json, committed 2026-07-21 -- roughly
     12-16 days before that year's FA auction opened (~Aug 2). It is the same
     live FantasyCalc+KeepTradeCut+DynastyProcess blend fetch_adp_board.py
-    builds, mapped onto FantasyCalc's cardinal SF-dynasty scale, captured once
-    and committed rather than fetched fresh -- there is no auto-refresh, so
-    "start of the year" means THIS snapshot, not literally opening day.
+    builds, captured once and committed rather than fetched fresh -- there is
+    no auto-refresh, so "start of the year" means THIS snapshot, not literally
+    opening day.
 
-    SKILL positions only (QB/RB/WR/TE): dynasty ADP does not meaningfully rank
-    IDP (see build_auction_tier_dataset.py's own docstring on the same point),
-    so a caller must warn() a missing IDP player rather than silently price it
-    at $0.
+    TWO VALUE AXES, and they are not interchangeable:
+      dyn_value  dynasty superflex -- what a player is worth as a long-term
+                 asset. Prices in age and years of control.
+      rsf        REDRAFT superflex -- what a player is worth for THIS SEASON
+                 alone. This is the one a single-season preview wants.
+
+    They diverge enormously at the edges. Nick Chubb is 60 on the dynasty
+    scale and 3,563 on redraft; Keenan Allen 207 vs 3,735. Reading a win-now
+    roster on the dynasty axis makes productive veterans look like dead weight.
+    Both axes share a magnitude (each tops out near 10,000), so a caller may
+    swap one for the other without rescaling -- but must not mix them in a sum.
+
+    `rsf` IS ABSENT FOR ~1 IN 4 BOARD ENTRIES, and that absence is meaningful
+    rather than missing: it is the college quarterbacks (Carson Beck, Cade
+    Klubnik, Quinn Ewers) and undraftable NFL backups (Flacco, Minshew,
+    Mariota) that a dynasty board carries and a redraft board correctly prices
+    out of relevance. On a this-season axis those players really are worth
+    ~nothing, so a caller should treat a missing `rsf` as zero and say so --
+    NOT as unknown. That is the opposite of the IDP case below.
+
+    OFFENSE positions only (QB/RB/WR/TE) on either axis: ADP does not
+    meaningfully rank IDP (see build_auction_tier_dataset.py's own docstring on
+    the same point), so a caller must warn() and EXCLUDE a defensive player
+    rather than silently price it at zero.
     """
     import io as _io
     path = os.path.join(REPO, "docs", "auction", "data", "adp_board_current.json")

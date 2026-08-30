@@ -139,16 +139,22 @@ def build(pack_id=None):
     adp_board = D.adp_value_board()
     pack.source("docs/auction/data/adp_board_current.json", asof="2026-07-21",
                 rows=len(adp_board),
-                note="pre-auction dynasty-SF ADP blend (FantasyCalc+KeepTradeCut+"
+                note="pre-auction REDRAFT-superflex ADP blend (FantasyCalc+KeepTradeCut+"
                      "DynastyProcess); offense positions only, one-off manual capture "
                      "~12-16 days before the auction opened, no auto-refresh")
 
+    # REDRAFT, not dynasty (Keith, 2026-08-30: "all that matters is this yr").
+    # The board carries both axes and they disagree violently on exactly the
+    # players a single-season preview cares about -- Nick Chubb is 60 on the
+    # dynasty scale and 3,563 on redraft, Keenan Allen 207 vs 3,735. Valuing a
+    # win-now roster on the dynasty axis reads productive veterans as dead
+    # weight and rewards devy stashes that will not play a snap this season.
     unresolved_positions = set()
     comp_by_fid, value_by_fid = {}, {}
     for fid in sorted(owners):
         roster = [p for p in current_rosters.get(fid, []) if p["status"] == "ROSTER"]
         counts = {"offense": 0, "defense": 0, "special_teams": 0, "other": 0}
-        skill_value, skill_valued_n = 0, 0
+        redraft_value, priced_n, offboard_n, zeroed_n = 0, 0, 0, 0
         for p in roster:
             pos = positions.get(p["pid"])
             if pos is None:
@@ -157,30 +163,55 @@ def build(pack_id=None):
                 continue
             grp = posgroup(pos)
             counts[grp] += 1
-            if grp == "offense":
-                entry = adp_board.get(p["pid"])
-                if entry:
-                    skill_value += int(entry.get("dyn_value") or 0)
-                    skill_valued_n += 1
+            if grp != "offense":
+                continue
+            entry = adp_board.get(p["pid"])
+            if entry is None:
+                # Not on the board at all -- signed after the capture, or an id
+                # the blend dropped. Genuinely UNKNOWN, so excluded entirely.
+                offboard_n += 1
+            elif entry.get("rsf"):
+                redraft_value += int(entry["rsf"])
+                priced_n += 1
+            else:
+                # On the board with a dynasty price but no redraft one. That is
+                # the redraft market's verdict, not a gap: college QBs and
+                # undraftable backups are worth ~nothing THIS season. Counts as
+                # zero, which is the honest number, and is tallied so the
+                # warning can say how many.
+                zeroed_n += 1
         comp_by_fid[fid] = counts
-        value_by_fid[fid] = {"skill_value": skill_value, "skill_valued_n": skill_valued_n}
+        value_by_fid[fid] = {"redraft_value": redraft_value, "priced_n": priced_n,
+                             "offboard_n": offboard_n, "zeroed_n": zeroed_n}
 
     idp_on_rosters = sum(c["defense"] for c in comp_by_fid.values())
-    unvalued_offense = sum(counts["offense"] - value_by_fid[fid]["skill_valued_n"]
-                           for fid, counts in comp_by_fid.items())
+    offboard_total = sum(v["offboard_n"] for v in value_by_fid.values())
+    zeroed_total = sum(v["zeroed_n"] for v in value_by_fid.values())
     if unresolved_positions:
         pack.warn("%d rostered player id(s) could not be resolved to a position via the "
                   "live MFL player export; counted as \"other\", not guessed."
                   % len(unresolved_positions))
-    pack.warn("ADP-based value covers OFFENSE (QB/RB/WR/TE) only. Dynasty ADP does not "
-              "meaningfully rank IDP -- see build_auction_tier_dataset.py's own docstring "
-              "on the same point -- so the %d rostered defensive players league-wide have "
-              "no ADP value and are excluded from these sums, never priced at $0."
+    pack.warn("Player value here is REDRAFT superflex ADP -- what the market thought each "
+              "player was worth for the 2026 season alone, as of 2026-07-21. It is NOT "
+              "dynasty value and the two disagree sharply: a productive veteran can be worth "
+              "many times more on this axis than on a dynasty one, and a young stash can be "
+              "worth far less. Salary is ignored entirely by design.")
+    pack.warn("ADP-based value covers OFFENSE (QB/RB/WR/TE) only. ADP does not meaningfully "
+              "rank IDP -- see build_auction_tier_dataset.py's own docstring on the same "
+              "point -- so the %d rostered defensive players league-wide are counted in the "
+              "O/D/ST split but excluded from the value sums, never priced at zero."
               % idp_on_rosters)
-    if unvalued_offense:
-        pack.warn("%d rostered offensive player(s) have no match on the ADP board (rookies "
-                  "signed after the 2026-07-21 capture, or a name/id the blend dropped) and "
-                  "are excluded from the value sum the same way." % unvalued_offense)
+    if zeroed_total:
+        pack.warn("%d rostered offensive player(s) carry a dynasty price but no redraft one "
+                  "-- college quarterbacks and undraftable NFL backups. On a this-season axis "
+                  "that is a verdict rather than a gap, so they count as zero: a roster spot "
+                  "spent on a player who will not produce this year is exactly what this "
+                  "measure is meant to show." % zeroed_total)
+    if offboard_total:
+        pack.warn("%d rostered offensive player(s) are absent from the ADP board entirely "
+                  "(signed after the 2026-07-21 capture, or an id the blend dropped). Those "
+                  "are genuinely unknown rather than worthless, so they are excluded from the "
+                  "value sums rather than counted as zero." % offboard_total)
 
     # ------------------------------------------------------------- the auction
     won = [l for l in D.worker_get("/api/auction/lots", YEAR=SEASON, status="won").get("lots", [])
@@ -302,8 +333,8 @@ def build(pack_id=None):
             "offense": comp_by_fid[fid]["offense"],
             "defense": comp_by_fid[fid]["defense"],
             "special_teams": comp_by_fid[fid]["special_teams"],
-            "skill_value": value_by_fid[fid]["skill_value"],
-            "skill_valued_n": value_by_fid[fid]["skill_valued_n"],
+            "redraft_value": value_by_fid[fid]["redraft_value"],
+            "priced_n": value_by_fid[fid]["priced_n"],
         }
 
     # The O/D/ST split comes from the most recent daily snapshot; active_count
@@ -371,12 +402,12 @@ def build(pack_id=None):
       "ups_drop_events", "%d" % SEASON)
 
     roster_src = "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json"
-    values = sorted(v["skill_value"] for v in by_fid.values())
-    F("f.value.median_skill", "Median offense ADP value", values[len(values) // 2],
+    values = sorted(v["redraft_value"] for v in by_fid.values())
+    F("f.value.median_redraft", "Median 2026 offense redraft value", values[len(values) // 2],
       "points", roster_src, current_date)
-    F("f.value.lowest_skill", "Lowest offense ADP value", values[0],
+    F("f.value.lowest_redraft", "Lowest 2026 offense redraft value", values[0],
       "points", roster_src, current_date)
-    F("f.value.highest_skill", "Highest offense ADP value", values[-1],
+    F("f.value.highest_redraft", "Highest 2026 offense redraft value", values[-1],
       "points", roster_src, current_date)
     F("f.roster.idp_count", "Rostered defensive players (leaguewide, ADP-unvalued)",
       idp_on_rosters, "count", roster_src, current_date)
@@ -396,7 +427,7 @@ def build(pack_id=None):
             ("defense", "defense players", v["defense"], "count", roster_src, current_date),
             ("special_teams", "special teams players", v["special_teams"], "count",
              roster_src, current_date),
-            ("skill_value", "offense ADP value", v["skill_value"], "points",
+            ("redraft_value", "2026 offense redraft value", v["redraft_value"], "points",
              roster_src, current_date),
         ):
             F("f.team.%s.%s" % (fid, metric), "%s -- %s" % (v["owner"], label),
@@ -456,21 +487,24 @@ def build(pack_id=None):
                 [by_fid[f]["fl"], by_fid[f]["bl"], by_fid[f]["picks"], by_fid[f]["drops"]]
                 for f in sorted(by_fid, key=lambda k: -by_fid[k]["moves"])])
 
-    value_order = sorted(by_fid, key=lambda k: -by_fid[k]["skill_value"])
-    pack.table("t.roster_composition", "Roster composition & offense value (salary ignored)",
+    value_order = sorted(by_fid, key=lambda k: -by_fid[k]["redraft_value"])
+    pack.table("t.roster_composition", "Roster composition & 2026 offense value (salary ignored)",
                [{"key": "owner", "label": "Owner", "type": "text"},
                 {"key": "offense", "label": "Off", "type": "count", "align": "right"},
                 {"key": "defense", "label": "Def", "type": "count", "align": "right"},
                 {"key": "st", "label": "ST", "type": "count", "align": "right"},
-                {"key": "value", "label": "Offense ADP value", "type": "points", "align": "right"}],
+                {"key": "value", "label": "2026 redraft value", "type": "points",
+                 "align": "right"}],
                [[by_fid[f]["owner"], by_fid[f]["offense"], by_fid[f]["defense"],
-                 by_fid[f]["special_teams"], by_fid[f]["skill_value"]]
+                 by_fid[f]["special_teams"], by_fid[f]["redraft_value"]]
                 for f in value_order],
-               note="\"Offense ADP value\" sums each rostered QB/RB/WR/TE's pre-auction "
-                    "dynasty market value (%s) and ignores salary entirely -- a $2K rookie "
-                    "and a $60K veteran of equal market standing count the same. IDP and K/P "
-                    "are counted in the O/D/ST columns but excluded from the value sum; "
-                    "dynasty ADP does not meaningfully rank them." % current_date)
+               note="\"2026 redraft value\" sums each rostered QB/RB/WR/TE's pre-auction "
+                    "REDRAFT market value -- what the market thought he was worth for this "
+                    "season alone, captured 2026-07-21 -- and ignores salary entirely, so a "
+                    "$2K rookie and a $60K veteran of equal standing count the same. This is "
+                    "deliberately not dynasty value: a productive veteran is worth far more "
+                    "here than as a long-term asset. IDP and K/P appear in the O/D/ST columns "
+                    "but not in the value sum, because ADP does not meaningfully rank them.")
 
     # --------------------------------------------------------------- charts
     pack.chart("c.auction_spend", "hbar", "Auction spend by owner",
@@ -488,12 +522,12 @@ def build(pack_id=None):
                axis={"unit": "usd", "max": max(v["cap_room"] for v in by_fid.values())},
                alt_text="Horizontal bars of remaining cap room by owner, most first.")
 
-    pack.chart("c.skill_value", "hbar", "Offense ADP value by owner (salary ignored)",
-               [{"label": by_fid[f]["owner"], "value": by_fid[f]["skill_value"],
+    pack.chart("c.redraft_value", "hbar", "2026 offense redraft value by owner (salary ignored)",
+               [{"label": by_fid[f]["owner"], "value": by_fid[f]["redraft_value"],
                  "accent": "gold" if f == value_order[0] else None} for f in value_order],
-               axis={"unit": "points", "max": max(v["skill_value"] for v in by_fid.values())},
-               alt_text="Horizontal bars of offense-only ADP value by owner, highest first, "
-                        "salary not considered. Highest %s; lowest %s."
+               axis={"unit": "points", "max": max(v["redraft_value"] for v in by_fid.values())},
+               alt_text="Horizontal bars of offense-only 2026 redraft value by owner, highest "
+                        "first, salary not considered. Highest %s; lowest %s."
                         % (by_fid[value_order[0]]["owner"], by_fid[value_order[-1]]["owner"]))
 
     # -------------------------------------------------------------- outline
@@ -528,15 +562,18 @@ def build(pack_id=None):
                  "snapshot start date, and the 2026 history-table cliff. Render warnings[] here.")
     pack.section("s6", "Roster Composition & Value",
                  "Each team's offense/defense/special-teams split, and a value ranking built "
-                 "from pre-auction dynasty ADP that ignores salary entirely -- two contracts of "
-                 "very different price can carry the same market value. State clearly that this "
-                 "value covers offense only; IDP is counted in the split but not priced.",
-                 fact_ids=(["f.value.median_skill", "f.value.lowest_skill",
-                           "f.value.highest_skill", "f.roster.idp_count"] +
+                 "from pre-auction REDRAFT ADP -- what each player was worth for THIS season "
+                 "alone, not as a long-term asset -- that ignores salary entirely, so two "
+                 "contracts of very different price can carry the same value. Say plainly that "
+                 "this is a win-now measure: an aging producer rates highly here and a young "
+                 "stash does not. It covers offense only; IDP is counted in the split but not "
+                 "priced.",
+                 fact_ids=(["f.value.median_redraft", "f.value.lowest_redraft",
+                           "f.value.highest_redraft", "f.roster.idp_count"] +
                           sorted(k for k in pack._facts
                                  if k.startswith("f.team.") and
                                  k.split(".")[-1] in ("offense", "defense", "special_teams",
-                                                       "skill_value"))),
-                 table_ids=["t.roster_composition"], chart_ids=["c.skill_value"])
+                                                       "redraft_value"))),
+                 table_ids=["t.roster_composition"], chart_ids=["c.redraft_value"])
 
     return pack
