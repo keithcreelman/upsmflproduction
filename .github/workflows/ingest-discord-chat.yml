@@ -1,0 +1,64 @@
+name: Ingest Discord chat
+
+# Mirrors league Discord chat into ups_discord_messages (migration 0113) so UPS
+# Wire recaps can quote what people actually said.
+#
+# WHY IT MATTERS: the first generated weekly recaps had only team totals to work
+# with, so they filled space with generalities. The league's own game-day chat is
+# what makes a recap readable -- real digs tied to real decisions, real injury
+# reactions, real feuds. It only exists inside Discord, so if we do not capture
+# it as it happens we simply do not have it later.
+#
+# Runs on a schedule rather than live: this is an archive, not a feed. Nothing
+# reads it on a request path. Daily is enough because the ingest walks backwards
+# from the newest message already stored, so a missed run self-heals on the next
+# one -- there is no cursor to lose.
+#
+# Deliberately NOT ingested: #private_league_discussion. The bot cannot read it
+# and that should stay true. The channel allowlist lives in the script.
+
+on:
+  schedule:
+    # 08:20 UTC daily = ~03:20 ET, after Monday-night games have finished and
+    # well clear of the 09:05 snapshot / 09:30 config-sync / 09:45 builders.
+    - cron: "20 8 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Backfill from this ISO date (blank = incremental)"
+        required: false
+        type: string
+
+concurrency:
+  group: ingest-discord-chat
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Ingest
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          if [ -z "${DISCORD_BOT_TOKEN}" ]; then
+            echo "::error::DISCORD_BOT_TOKEN secret is not set. Add it with:"
+            echo "::error::  gh secret set DISCORD_BOT_TOKEN --repo keithcreelman/upsmflproduction"
+            exit 1
+          fi
+          if [ -n "${{ inputs.since }}" ]; then
+            python pipelines/etl/scripts/ingest_discord_chat.py --since "${{ inputs.since }}"
+          else
+            python pipelines/etl/scripts/ingest_discord_chat.py --incremental
+          fi
