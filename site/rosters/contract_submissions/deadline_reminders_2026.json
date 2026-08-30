@@ -2,11 +2,32 @@
   "meta": {
     "schema_version": 1,
     "season": 2026,
-    "updated_at": "2026-05-14T15:05:34.788Z",
-    "row_count": 1,
+    "updated_at": "2026-08-30T13:05:35.187Z",
+    "row_count": 2,
     "source": "worker-deadline-reminders"
   },
   "reminders": [
+    {
+      "season": 2026,
+      "league_id": "74598",
+      "reminder_key": "2026|contract_deadline|one_week|primary|2026-09-06",
+      "event_key": "contract_deadline",
+      "event_title": "Contract Deadline",
+      "deadline_date_et": "2026-09-06",
+      "deadline_time_et": "23:59",
+      "trigger_date_et": "2026-08-30",
+      "trigger_time_et": "09:00",
+      "reminder_code": "one_week",
+      "reminder_label": "1 Week",
+      "delivery_target": "primary",
+      "test_flag": 0,
+      "discord_channel_id": "1057657441011109898",
+      "discord_message_id": "1543607618130415657",
+      "gif_query": "calendar marked reminder",
+      "gif_url": "https://media2.giphy.com/media/Rqr92NZ5T6W76/giphy.gif?cid=e4832a7azfmqm2nwo0lgi3d7uui29me2f5utpa239b1hgntp&ep=v1_gifs_search&rid=giphy.gif&ct=g",
+      "posted_at_utc": "2026-08-30T13:05:35.187Z",
+      "source": "worker-deadline-reminders"
+    },
     {
       "season": 2026,
       "league_id": "74598",
