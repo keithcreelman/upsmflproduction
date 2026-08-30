@@ -27,6 +27,22 @@ PACK_ID = "2026-preseason-review"
 # Contract-activity types, in the order a reader meets them in the off-season.
 MOVE_TYPES = ["Extension", "Multi-Year Contract", "MYM", "Restructure", "Tag", "FA Contract"]
 
+# O/D/ST split -- same three buckets build_auction_tier_dataset.py's posgroup()
+# uses for tiering (SKILL/IDP/KP there), renamed here to what a reader expects.
+SKILL = {"QB", "RB", "WR", "TE"}
+IDP = {"DL", "DE", "DT", "LB", "CB", "S", "DB", "EDGE"}
+KP = {"PK", "PN", "K", "P", "TMPK"}
+
+
+def posgroup(pos):
+    if pos in SKILL:
+        return "offense"
+    if pos in IDP:
+        return "defense"
+    if pos in KP:
+        return "special_teams"
+    return "other"
+
 
 def distinct_outcomes(rows):
     """Collapse a SUBMISSION log into contract OUTCOMES.
@@ -103,6 +119,68 @@ def build(pack_id=None):
     now = dict((str(f["fid"]).zfill(4), f) for f in comp.get("franchises", []))
     pack.source("GET /api/auction/compliance", asof=comp.get("generated_at", "live"),
                 rows=len(now), note="cap spent/room, roster counts, live warnings")
+
+    # ------------------------------- roster composition & ADP-based value
+    # Keith's brief: "assign values to players based on ADP at the start of
+    # the year... disregard the salary" -- a second value axis alongside the
+    # cap-dollar one above, deliberately blind to what anyone is actually paid.
+    current_date = snaps[-1]
+    current_rosters = D.current_roster_players(current_date)
+    pack.source("data/mfl-snapshots/%s/rosters.json" % current_date, asof=current_date,
+                rows=sum(len(v) for v in current_rosters.values()),
+                note="most recent daily snapshot; player-level roster for the O/D/ST "
+                     "split and ADP value (separate read from the opening snapshot above)")
+
+    positions = D.player_positions()
+    pack.source("GET /api/mfl-export?TYPE=players", asof="live", rows=len(positions),
+                note="MFL's full player universe; season-agnostic position lookup, "
+                     "covers 2026 rookies that src_players (frozen at 2025) cannot")
+
+    adp_board = D.adp_value_board()
+    pack.source("docs/auction/data/adp_board_current.json", asof="2026-07-21",
+                rows=len(adp_board),
+                note="pre-auction dynasty-SF ADP blend (FantasyCalc+KeepTradeCut+"
+                     "DynastyProcess); offense positions only, one-off manual capture "
+                     "~12-16 days before the auction opened, no auto-refresh")
+
+    unresolved_positions = set()
+    comp_by_fid, value_by_fid = {}, {}
+    for fid in sorted(owners):
+        roster = [p for p in current_rosters.get(fid, []) if p["status"] == "ROSTER"]
+        counts = {"offense": 0, "defense": 0, "special_teams": 0, "other": 0}
+        skill_value, skill_valued_n = 0, 0
+        for p in roster:
+            pos = positions.get(p["pid"])
+            if pos is None:
+                unresolved_positions.add(p["pid"])
+                counts["other"] += 1
+                continue
+            grp = posgroup(pos)
+            counts[grp] += 1
+            if grp == "offense":
+                entry = adp_board.get(p["pid"])
+                if entry:
+                    skill_value += int(entry.get("dyn_value") or 0)
+                    skill_valued_n += 1
+        comp_by_fid[fid] = counts
+        value_by_fid[fid] = {"skill_value": skill_value, "skill_valued_n": skill_valued_n}
+
+    idp_on_rosters = sum(c["defense"] for c in comp_by_fid.values())
+    unvalued_offense = sum(counts["offense"] - value_by_fid[fid]["skill_valued_n"]
+                           for fid, counts in comp_by_fid.items())
+    if unresolved_positions:
+        pack.warn("%d rostered player id(s) could not be resolved to a position via the "
+                  "live MFL player export; counted as \"other\", not guessed."
+                  % len(unresolved_positions))
+    pack.warn("ADP-based value covers OFFENSE (QB/RB/WR/TE) only. Dynasty ADP does not "
+              "meaningfully rank IDP -- see build_auction_tier_dataset.py's own docstring "
+              "on the same point -- so the %d rostered defensive players league-wide have "
+              "no ADP value and are excluded from these sums, never priced at $0."
+              % idp_on_rosters)
+    if unvalued_offense:
+        pack.warn("%d rostered offensive player(s) have no match on the ADP board (rookies "
+                  "signed after the 2026-07-21 capture, or a name/id the blend dropped) and "
+                  "are excluded from the value sum the same way." % unvalued_offense)
 
     # ------------------------------------------------------------- the auction
     won = [l for l in D.worker_get("/api/auction/lots", YEAR=SEASON, status="won").get("lots", [])
@@ -221,7 +299,25 @@ def build(pack_id=None):
                            if str(p["franchise_id"]).zfill(4) == fid), 0),
             "drops": next((int(d["n"]) for d in drops
                            if str(d["franchise_id"]).zfill(4) == fid), 0),
+            "offense": comp_by_fid[fid]["offense"],
+            "defense": comp_by_fid[fid]["defense"],
+            "special_teams": comp_by_fid[fid]["special_teams"],
+            "skill_value": value_by_fid[fid]["skill_value"],
+            "skill_valued_n": value_by_fid[fid]["skill_valued_n"],
         }
+
+    # The O/D/ST split comes from the most recent daily snapshot; active_count
+    # above is LIVE. A move between the snapshot and now (a cut, a pickup) puts
+    # them one player apart -- real, not a bug, and worth saying rather than
+    # letting two roster-size claims disagree silently in the same report.
+    odst_mismatches = [f for f in by_fid
+                       if by_fid[f]["offense"] + by_fid[f]["defense"] + by_fid[f]["special_teams"]
+                       != by_fid[f]["active"]]
+    if odst_mismatches:
+        pack.warn("The O/D/ST split (from the %s snapshot) and the live active-roster count "
+                  "disagree by 1-2 players for %d of 12 teams -- a roster move landed between "
+                  "the snapshot and now. Both numbers are real; they are just not the same "
+                  "moment." % (current_date, len(odst_mismatches)))
 
     prices = sorted(int(l.get("current_high_bid_k") or 0) for l in won)
     total_spend = sum(prices) * 1000
@@ -274,19 +370,37 @@ def build(pack_id=None):
     F("f.drops.count", "Players cut", sum(v["drops"] for v in by_fid.values()), "count",
       "ups_drop_events", "%d" % SEASON)
 
+    roster_src = "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json"
+    values = sorted(v["skill_value"] for v in by_fid.values())
+    F("f.value.median_skill", "Median offense ADP value", values[len(values) // 2],
+      "points", roster_src, current_date)
+    F("f.value.lowest_skill", "Lowest offense ADP value", values[0],
+      "points", roster_src, current_date)
+    F("f.value.highest_skill", "Highest offense ADP value", values[-1],
+      "points", roster_src, current_date)
+    F("f.roster.idp_count", "Rostered defensive players (leaguewide, ADP-unvalued)",
+      idp_on_rosters, "count", roster_src, current_date)
+
     # Per-team facts, so per-team prose can cite a number without typing a digit.
+    comp_src = "GET /api/auction/compliance + lots"
     for fid in sorted(by_fid):
         v = by_fid[fid]
-        for metric, label, value, unit in (
-            ("auction_spend", "auction spend", v["auction_spend"], "usd"),
-            ("lots_won", "lots won", v["lots_won"], "count"),
-            ("cap_room", "cap room", v["cap_room"], "usd"),
-            ("cap_spent", "cap committed", v["cap_spent"], "usd"),
-            ("moves", "contract moves", v["moves"], "count"),
-            ("active", "active roster size", v["active"], "count"),
+        for metric, label, value, unit, src, asof in (
+            ("auction_spend", "auction spend", v["auction_spend"], "usd", comp_src, live),
+            ("lots_won", "lots won", v["lots_won"], "count", comp_src, live),
+            ("cap_room", "cap room", v["cap_room"], "usd", comp_src, live),
+            ("cap_spent", "cap committed", v["cap_spent"], "usd", comp_src, live),
+            ("moves", "contract moves", v["moves"], "count", comp_src, live),
+            ("active", "active roster size", v["active"], "count", comp_src, live),
+            ("offense", "offense players", v["offense"], "count", roster_src, current_date),
+            ("defense", "defense players", v["defense"], "count", roster_src, current_date),
+            ("special_teams", "special teams players", v["special_teams"], "count",
+             roster_src, current_date),
+            ("skill_value", "offense ADP value", v["skill_value"], "points",
+             roster_src, current_date),
         ):
             F("f.team.%s.%s" % (fid, metric), "%s -- %s" % (v["owner"], label),
-              value, unit, "GET /api/auction/compliance + lots", live)
+              value, unit, src, asof)
 
     # --------------------------------------------------------------- tables
     order = sorted(by_fid, key=lambda k: -by_fid[k]["cap_spent"])
@@ -342,6 +456,22 @@ def build(pack_id=None):
                 [by_fid[f]["fl"], by_fid[f]["bl"], by_fid[f]["picks"], by_fid[f]["drops"]]
                 for f in sorted(by_fid, key=lambda k: -by_fid[k]["moves"])])
 
+    value_order = sorted(by_fid, key=lambda k: -by_fid[k]["skill_value"])
+    pack.table("t.roster_composition", "Roster composition & offense value (salary ignored)",
+               [{"key": "owner", "label": "Owner", "type": "text"},
+                {"key": "offense", "label": "Off", "type": "count", "align": "right"},
+                {"key": "defense", "label": "Def", "type": "count", "align": "right"},
+                {"key": "st", "label": "ST", "type": "count", "align": "right"},
+                {"key": "value", "label": "Offense ADP value", "type": "points", "align": "right"}],
+               [[by_fid[f]["owner"], by_fid[f]["offense"], by_fid[f]["defense"],
+                 by_fid[f]["special_teams"], by_fid[f]["skill_value"]]
+                for f in value_order],
+               note="\"Offense ADP value\" sums each rostered QB/RB/WR/TE's pre-auction "
+                    "dynasty market value (%s) and ignores salary entirely -- a $2K rookie "
+                    "and a $60K veteran of equal market standing count the same. IDP and K/P "
+                    "are counted in the O/D/ST columns but excluded from the value sum; "
+                    "dynasty ADP does not meaningfully rank them." % current_date)
+
     # --------------------------------------------------------------- charts
     pack.chart("c.auction_spend", "hbar", "Auction spend by owner",
                [{"label": by_fid[f]["owner"], "value": by_fid[f]["auction_spend"],
@@ -357,6 +487,14 @@ def build(pack_id=None):
                [{"label": by_fid[f]["owner"], "value": by_fid[f]["cap_room"]} for f in room_order],
                axis={"unit": "usd", "max": max(v["cap_room"] for v in by_fid.values())},
                alt_text="Horizontal bars of remaining cap room by owner, most first.")
+
+    pack.chart("c.skill_value", "hbar", "Offense ADP value by owner (salary ignored)",
+               [{"label": by_fid[f]["owner"], "value": by_fid[f]["skill_value"],
+                 "accent": "gold" if f == value_order[0] else None} for f in value_order],
+               axis={"unit": "points", "max": max(v["skill_value"] for v in by_fid.values())},
+               alt_text="Horizontal bars of offense-only ADP value by owner, highest first, "
+                        "salary not considered. Highest %s; lowest %s."
+                        % (by_fid[value_order[0]]["owner"], by_fid[value_order[-1]]["owner"]))
 
     # -------------------------------------------------------------- outline
     pack.section("s1", "The Cap Sheet",
@@ -388,5 +526,17 @@ def build(pack_id=None):
     pack.section("s5", "What Does Not Fit",
                  "The honest limits: the open auction lots, the won-versus-finalized gap, the "
                  "snapshot start date, and the 2026 history-table cliff. Render warnings[] here.")
+    pack.section("s6", "Roster Composition & Value",
+                 "Each team's offense/defense/special-teams split, and a value ranking built "
+                 "from pre-auction dynasty ADP that ignores salary entirely -- two contracts of "
+                 "very different price can carry the same market value. State clearly that this "
+                 "value covers offense only; IDP is counted in the split but not priced.",
+                 fact_ids=(["f.value.median_skill", "f.value.lowest_skill",
+                           "f.value.highest_skill", "f.roster.idp_count"] +
+                          sorted(k for k in pack._facts
+                                 if k.startswith("f.team.") and
+                                 k.split(".")[-1] in ("offense", "defense", "special_teams",
+                                                       "skill_value"))),
+                 table_ids=["t.roster_composition"], chart_ids=["c.skill_value"])
 
     return pack

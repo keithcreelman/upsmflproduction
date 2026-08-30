@@ -2,33 +2,51 @@
   "schema": 1,
   "packId": "2026-preseason-review",
   "title": "The 2026 Pre-Season Review",
-  "generatedAtUtc": "2026-08-01T14:29:20Z",
+  "generatedAtUtc": "2026-08-30T13:36:29Z",
   "season": 2026,
   "week": null,
   "sources": [
     {
       "name": "GET /api/auction/compliance",
-      "asof": "2026-08-01T14:29:17.143Z",
+      "asof": "2026-08-30T13:36:25.354Z",
       "rows": 12,
       "note": "cap spent/room, roster counts, live warnings"
     },
     {
       "name": "GET /api/auction/lots",
       "asof": "live",
-      "rows": 177,
-      "note": "167 won, 10 still open"
+      "rows": 196,
+      "note": "196 won, 0 still open"
+    },
+    {
+      "name": "GET /api/mfl-export?TYPE=players",
+      "asof": "live",
+      "rows": 2195,
+      "note": "MFL's full player universe; season-agnostic position lookup, covers 2026 rookies that src_players (frozen at 2025) cannot"
     },
     {
       "name": "contract_activity_2026.json",
-      "asof": "2026-08-01",
-      "rows": 75,
-      "note": "102 submissions collapsed to 75 contract outcomes; extensions, multi-year, MYM, restructures, tags, FA contracts; read from origin/main (local checkout is behind)"
+      "asof": "2026-08-24",
+      "rows": 89,
+      "note": "118 submissions collapsed to 89 contract outcomes; extensions, multi-year, MYM, restructures, tags, FA contracts; read from working copy (identical to origin/main)"
     },
     {
       "name": "data/mfl-snapshots/2026-04-21/rosters.json",
       "asof": "2026-04-21",
       "rows": 284,
       "note": "earliest snapshot available; active-roster salary only"
+    },
+    {
+      "name": "data/mfl-snapshots/2026-08-29/rosters.json",
+      "asof": "2026-08-29",
+      "rows": 492,
+      "note": "most recent daily snapshot; player-level roster for the O/D/ST split and ADP value (separate read from the opening snapshot above)"
+    },
+    {
+      "name": "docs/auction/data/adp_board_current.json",
+      "asof": "2026-07-21",
+      "rows": 398,
+      "note": "pre-auction dynasty-SF ADP blend (FantasyCalc+KeepTradeCut+DynastyProcess); offense positions only, one-off manual capture ~12-16 days before the auction opened, no auto-refresh"
     },
     {
       "name": "src_draft_picks",
@@ -45,19 +63,19 @@
     {
       "name": "ups_auction_contract_finalizations",
       "asof": "live",
-      "rows": 153,
-      "note": "faa=153"
+      "rows": 210,
+      "note": "faa=182; ww=28"
     },
     {
       "name": "ups_drop_events",
       "asof": "2026",
-      "rows": 28,
+      "rows": 74,
       "note": "cuts and their cap penalties"
     },
     {
       "name": "ups_transactions",
       "asof": "2026",
-      "rows": 17,
+      "rows": 19,
       "note": "type=TRADE only; src_trades stops at 2025"
     }
   ],
@@ -68,19 +86,20 @@
     ],
     "currentSeason": 2026,
     "currentSeasonPartial": true,
-    "auctionComplete": false,
+    "auctionComplete": true,
     "openingSnapshot": "2026-04-21"
   },
   "warnings": [
     "The off-season opened around 2026-03-10 (first contract activity) but the earliest daily snapshot is 2026-04-21, so 'starting point' means 2026-04-21, not the true start of the off-season.",
     "Opening cap figures are active-roster salary only. The daily snapshot does not capture salaryAdjustments, so they are not comparable to the live compliance numbers, which do include them. Do not subtract one from the other.",
-    "THE AUCTION IS NOT FINISHED. 10 lot(s) are still open; the last one locks at 2026-08-02 11:07 UTC. Every auction figure here is a mid-flight snapshot and must be presented as of a timestamp, not as a final result.",
-    "167 lots are marked won but only 153 finalized contracts exist (delta 14). Auction spend and contract counts will not reconcile; prefer the lot ledger for prices and say so.",
+    "ADP-based value covers OFFENSE (QB/RB/WR/TE) only. Dynasty ADP does not meaningfully rank IDP -- see build_auction_tier_dataset.py's own docstring on the same point -- so the 113 rostered defensive players league-wide have no ADP value and are excluded from these sums, never priced at $0.",
+    "6 rostered offensive player(s) have no match on the ADP board (rookies signed after the 2026-07-21 capture, or a name/id the blend dropped) and are excluded from the value sum the same way.",
+    "196 lots are marked won but only 210 finalized contracts exist (delta -14). Auction spend and contract counts will not reconcile; prefer the lot ledger for prices and say so.",
     "No ERA-sourced finalizations exist, though ups_era_pool has members. The expired-rookie auction is not represented in the finalization ledger.",
-    "The contract log records SUBMISSIONS, not contracts: 102 rows collapse to 75 distinct player-contract outcomes. Owners who revise a deal in the Front Office write a row per attempt, so a raw row count overstates how active the heaviest tool users were. Move counts here are outcomes.",
-    "This pack was built from a checkout 44 commit(s) behind origin/main. Repo-tracked sources (the contract-activity log, the daily snapshots) are auto-committed to main, so the contract log was read from origin/main directly; the daily snapshots were NOT and may lag by a few days.",
-    "19 of 75 contract outcomes have a blank franchise_name and player_name. The ids are present, so names are resolved from src_franchises rather than rendered blank.",
-    "Nearly every src_* history table stops at 2025 (src_standings, src_trades, src_adddrop, src_contracts). All 2026 figures here come from ups_* tables, the live worker API, and the daily snapshots instead."
+    "The contract log records SUBMISSIONS, not contracts: 118 rows collapse to 89 distinct player-contract outcomes. Owners who revise a deal in the Front Office write a row per attempt, so a raw row count overstates how active the heaviest tool users were. Move counts here are outcomes.",
+    "19 of 89 contract outcomes have a blank franchise_name and player_name. The ids are present, so names are resolved from src_franchises rather than rendered blank.",
+    "Nearly every src_* history table stops at 2025 (src_standings, src_trades, src_adddrop, src_contracts). All 2026 figures here come from ups_* tables, the live worker API, and the daily snapshots instead.",
+    "The O/D/ST split (from the 2026-08-29 snapshot) and the live active-roster count disagree by 1-2 players for 4 of 12 teams -- a roster move landed between the snapshot and now. Both numbers are real; they are just not the same moment."
   ],
   "entities": {
     "owners": [
@@ -218,60 +237,61 @@
         "name": "Hawks",
         "attributionSource": "src_franchises"
       }
-    ]
+    ],
+    "divisions": []
   },
   "facts": [
     {
       "id": "f.auction.contested_lots",
       "label": "Lots with more than one bidder",
-      "value": 67,
+      "value": 69,
       "unit": "count",
-      "fmt": "67",
+      "fmt": "69",
       "source": "GET /api/auction/lots",
       "asof": "live"
     },
     {
       "id": "f.auction.finalized_contracts",
       "label": "Finalized auction contracts",
-      "value": 153,
+      "value": 210,
       "unit": "count",
-      "fmt": "153",
+      "fmt": "210",
       "source": "ups_auction_contract_finalizations",
       "asof": "live"
     },
     {
       "id": "f.auction.lots_open",
       "label": "Lots still open",
-      "value": 10,
+      "value": 0,
       "unit": "count",
-      "fmt": "10",
+      "fmt": "0",
       "source": "GET /api/auction/lots",
       "asof": "live"
     },
     {
       "id": "f.auction.lots_won",
       "label": "Lots won so far",
-      "value": 167,
+      "value": 196,
       "unit": "count",
-      "fmt": "167",
+      "fmt": "196",
       "source": "GET /api/auction/lots",
       "asof": "live"
     },
     {
       "id": "f.auction.median_price",
       "label": "Median winning bid",
-      "value": 2000,
+      "value": 1000,
       "unit": "usd",
-      "fmt": "$2,000",
+      "fmt": "$1,000",
       "source": "GET /api/auction/lots",
       "asof": "live"
     },
     {
       "id": "f.auction.min_price_lots",
       "label": "Lots won at the $1K opening bid",
-      "value": 76,
+      "value": 103,
       "unit": "count",
-      "fmt": "76",
+      "fmt": "103",
       "source": "GET /api/auction/lots",
       "asof": "live"
     },
@@ -287,54 +307,54 @@
     {
       "id": "f.auction.total_bids",
       "label": "Bids placed",
-      "value": 547,
+      "value": 569,
       "unit": "count",
-      "fmt": "547",
+      "fmt": "569",
       "source": "GET /api/auction/lots",
       "asof": "live"
     },
     {
       "id": "f.auction.total_spend",
       "label": "Total auction spend",
-      "value": 1315000,
+      "value": 1352000,
       "unit": "usd",
-      "fmt": "$1,315,000",
+      "fmt": "$1,352,000",
       "source": "GET /api/auction/lots",
       "asof": "live"
     },
     {
       "id": "f.cap.median_room",
       "label": "Median cap room",
-      "value": 18000,
+      "value": 11000,
       "unit": "usd",
-      "fmt": "$18,000",
+      "fmt": "$11,000",
       "source": "GET /api/auction/compliance",
       "asof": "live"
     },
     {
       "id": "f.cap.most_room",
       "label": "Most cap room",
-      "value": 30000,
+      "value": 32000,
       "unit": "usd",
-      "fmt": "$30,000",
+      "fmt": "$32,000",
       "source": "GET /api/auction/compliance",
       "asof": "live"
     },
     {
       "id": "f.cap.tightest_room",
       "label": "Least cap room",
-      "value": 3000,
+      "value": 0,
       "unit": "usd",
-      "fmt": "$3,000",
+      "fmt": "$0",
       "source": "GET /api/auction/compliance",
       "asof": "live"
     },
     {
       "id": "f.cap.total_committed",
       "label": "League-wide cap committed",
-      "value": 3405000,
+      "value": 3428000,
       "unit": "usd",
-      "fmt": "$3,405,000",
+      "fmt": "$3,428,000",
       "source": "GET /api/auction/compliance",
       "asof": "live"
     },
@@ -350,27 +370,27 @@
     {
       "id": "f.drops.count",
       "label": "Players cut",
-      "value": 28,
+      "value": 74,
       "unit": "count",
-      "fmt": "28",
+      "fmt": "74",
       "source": "ups_drop_events",
       "asof": "2026"
     },
     {
       "id": "f.moves.back_loaded",
       "label": "Back-loaded contracts",
-      "value": 15,
+      "value": 14,
       "unit": "count",
-      "fmt": "15",
+      "fmt": "14",
       "source": "contract_activity_2026.json",
       "asof": "live"
     },
     {
       "id": "f.moves.extension",
       "label": "Extension count",
-      "value": 20,
+      "value": 21,
       "unit": "count",
-      "fmt": "20",
+      "fmt": "21",
       "source": "contract_activity_2026.json",
       "asof": "live"
     },
@@ -386,18 +406,18 @@
     {
       "id": "f.moves.front_loaded",
       "label": "Front-loaded contracts",
-      "value": 4,
+      "value": 8,
       "unit": "count",
-      "fmt": "4",
+      "fmt": "8",
       "source": "contract_activity_2026.json",
       "asof": "live"
     },
     {
       "id": "f.moves.multi_year_contract",
       "label": "Multi-Year Contract count",
-      "value": 24,
+      "value": 37,
       "unit": "count",
-      "fmt": "24",
+      "fmt": "37",
       "source": "contract_activity_2026.json",
       "asof": "live"
     },
@@ -422,9 +442,9 @@
     {
       "id": "f.moves.submissions",
       "label": "Contract submissions logged (includes revisions)",
-      "value": 102,
+      "value": 118,
       "unit": "count",
-      "fmt": "102",
+      "fmt": "118",
       "source": "contract_activity_2026.json",
       "asof": "live"
     },
@@ -440,11 +460,20 @@
     {
       "id": "f.moves.total",
       "label": "Distinct contract outcomes",
-      "value": 75,
+      "value": 89,
       "unit": "count",
-      "fmt": "75",
+      "fmt": "89",
       "source": "contract_activity_2026.json",
       "asof": "live"
+    },
+    {
+      "id": "f.roster.idp_count",
+      "label": "Rostered defensive players (leaguewide, ADP-unvalued)",
+      "value": 113,
+      "unit": "count",
+      "fmt": "113",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
     },
     {
       "id": "f.team.0001.active",
@@ -483,6 +512,15 @@
       "asof": "live"
     },
     {
+      "id": "f.team.0001.defense",
+      "label": "Ryan Bousquet -- defense players",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0001.lots_won",
       "label": "Ryan Bousquet -- lots won",
       "value": 18,
@@ -501,101 +539,173 @@
       "asof": "live"
     },
     {
+      "id": "f.team.0001.offense",
+      "label": "Ryan Bousquet -- offense players",
+      "value": 23,
+      "unit": "count",
+      "fmt": "23",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0001.skill_value",
+      "label": "Ryan Bousquet -- offense ADP value",
+      "value": 37623,
+      "unit": "points",
+      "fmt": "37623.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0001.special_teams",
+      "label": "Ryan Bousquet -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0002.active",
       "label": "Derrick Whitman -- active roster size",
-      "value": 25,
+      "value": 30,
       "unit": "count",
-      "fmt": "25",
+      "fmt": "30",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0002.auction_spend",
       "label": "Derrick Whitman -- auction spend",
-      "value": 162000,
+      "value": 172000,
       "unit": "usd",
-      "fmt": "$162,000",
+      "fmt": "$172,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0002.cap_room",
       "label": "Derrick Whitman -- cap room",
-      "value": 22000,
+      "value": 0,
       "unit": "usd",
-      "fmt": "$22,000",
+      "fmt": "$0",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0002.cap_spent",
       "label": "Derrick Whitman -- cap committed",
-      "value": 278000,
+      "value": 300000,
       "unit": "usd",
-      "fmt": "$278,000",
+      "fmt": "$300,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0002.defense",
+      "label": "Derrick Whitman -- defense players",
+      "value": 8,
+      "unit": "count",
+      "fmt": "8",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0002.lots_won",
       "label": "Derrick Whitman -- lots won",
-      "value": 13,
+      "value": 16,
       "unit": "count",
-      "fmt": "13",
+      "fmt": "16",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0002.moves",
       "label": "Derrick Whitman -- contract moves",
-      "value": 3,
+      "value": 5,
       "unit": "count",
-      "fmt": "3",
+      "fmt": "5",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0002.offense",
+      "label": "Derrick Whitman -- offense players",
+      "value": 20,
+      "unit": "count",
+      "fmt": "20",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0002.skill_value",
+      "label": "Derrick Whitman -- offense ADP value",
+      "value": 46064,
+      "unit": "points",
+      "fmt": "46064.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0002.special_teams",
+      "label": "Derrick Whitman -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0003.active",
       "label": "Matt Gerardi -- active roster size",
-      "value": 25,
+      "value": 31,
       "unit": "count",
-      "fmt": "25",
+      "fmt": "31",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0003.auction_spend",
       "label": "Matt Gerardi -- auction spend",
-      "value": 95000,
+      "value": 101000,
       "unit": "usd",
-      "fmt": "$95,000",
+      "fmt": "$101,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0003.cap_room",
       "label": "Matt Gerardi -- cap room",
-      "value": 22000,
+      "value": 16000,
       "unit": "usd",
-      "fmt": "$22,000",
+      "fmt": "$16,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0003.cap_spent",
       "label": "Matt Gerardi -- cap committed",
-      "value": 278000,
+      "value": 284000,
       "unit": "usd",
-      "fmt": "$278,000",
+      "fmt": "$284,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0003.defense",
+      "label": "Matt Gerardi -- defense players",
+      "value": 8,
+      "unit": "count",
+      "fmt": "8",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0003.lots_won",
       "label": "Matt Gerardi -- lots won",
-      "value": 10,
+      "value": 16,
       "unit": "count",
-      "fmt": "10",
+      "fmt": "16",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
@@ -609,119 +719,218 @@
       "asof": "live"
     },
     {
+      "id": "f.team.0003.offense",
+      "label": "Matt Gerardi -- offense players",
+      "value": 21,
+      "unit": "count",
+      "fmt": "21",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0003.skill_value",
+      "label": "Matt Gerardi -- offense ADP value",
+      "value": 38424,
+      "unit": "points",
+      "fmt": "38424.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0003.special_teams",
+      "label": "Matt Gerardi -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0004.active",
       "label": "Brian Cutting -- active roster size",
-      "value": 28,
+      "value": 30,
       "unit": "count",
-      "fmt": "28",
+      "fmt": "30",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0004.auction_spend",
       "label": "Brian Cutting -- auction spend",
-      "value": 46000,
+      "value": 53000,
       "unit": "usd",
-      "fmt": "$46,000",
+      "fmt": "$53,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0004.cap_room",
       "label": "Brian Cutting -- cap room",
-      "value": 14000,
+      "value": 9000,
       "unit": "usd",
-      "fmt": "$14,000",
+      "fmt": "$9,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0004.cap_spent",
       "label": "Brian Cutting -- cap committed",
-      "value": 286000,
+      "value": 291000,
       "unit": "usd",
-      "fmt": "$286,000",
+      "fmt": "$291,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0004.defense",
+      "label": "Brian Cutting -- defense players",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0004.lots_won",
       "label": "Brian Cutting -- lots won",
-      "value": 13,
+      "value": 19,
       "unit": "count",
-      "fmt": "13",
+      "fmt": "19",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0004.moves",
       "label": "Brian Cutting -- contract moves",
-      "value": 3,
+      "value": 6,
       "unit": "count",
-      "fmt": "3",
+      "fmt": "6",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0004.offense",
+      "label": "Brian Cutting -- offense players",
+      "value": 19,
+      "unit": "count",
+      "fmt": "19",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0004.skill_value",
+      "label": "Brian Cutting -- offense ADP value",
+      "value": 54289,
+      "unit": "points",
+      "fmt": "54289.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0004.special_teams",
+      "label": "Brian Cutting -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0005.active",
       "label": "Eric Martel -- active roster size",
-      "value": 31,
+      "value": 32,
       "unit": "count",
-      "fmt": "31",
+      "fmt": "32",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0005.auction_spend",
       "label": "Eric Martel -- auction spend",
-      "value": 66000,
+      "value": 69000,
       "unit": "usd",
-      "fmt": "$66,000",
+      "fmt": "$69,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0005.cap_room",
       "label": "Eric Martel -- cap room",
-      "value": 3000,
+      "value": 9000,
       "unit": "usd",
-      "fmt": "$3,000",
+      "fmt": "$9,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0005.cap_spent",
       "label": "Eric Martel -- cap committed",
-      "value": 297000,
+      "value": 291000,
       "unit": "usd",
-      "fmt": "$297,000",
+      "fmt": "$291,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0005.defense",
+      "label": "Eric Martel -- defense players",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0005.lots_won",
       "label": "Eric Martel -- lots won",
-      "value": 13,
+      "value": 16,
       "unit": "count",
-      "fmt": "13",
+      "fmt": "16",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0005.moves",
       "label": "Eric Martel -- contract moves",
-      "value": 5,
+      "value": 6,
       "unit": "count",
-      "fmt": "5",
+      "fmt": "6",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0005.offense",
+      "label": "Eric Martel -- offense players",
+      "value": 19,
+      "unit": "count",
+      "fmt": "19",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0005.skill_value",
+      "label": "Eric Martel -- offense ADP value",
+      "value": 50165,
+      "unit": "points",
+      "fmt": "50165.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0005.special_teams",
+      "label": "Eric Martel -- special teams players",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0006.active",
       "label": "Brian Cross -- active roster size",
-      "value": 35,
+      "value": 32,
       "unit": "count",
-      "fmt": "35",
+      "fmt": "32",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
@@ -737,20 +946,29 @@
     {
       "id": "f.team.0006.cap_room",
       "label": "Brian Cross -- cap room",
-      "value": 5000,
+      "value": 9000,
       "unit": "usd",
-      "fmt": "$5,000",
+      "fmt": "$9,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0006.cap_spent",
       "label": "Brian Cross -- cap committed",
-      "value": 295000,
+      "value": 291000,
       "unit": "usd",
-      "fmt": "$295,000",
+      "fmt": "$291,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
+    },
+    {
+      "id": "f.team.0006.defense",
+      "label": "Brian Cross -- defense players",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
     },
     {
       "id": "f.team.0006.lots_won",
@@ -769,6 +987,33 @@
       "fmt": "11",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
+    },
+    {
+      "id": "f.team.0006.offense",
+      "label": "Brian Cross -- offense players",
+      "value": 22,
+      "unit": "count",
+      "fmt": "22",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0006.skill_value",
+      "label": "Brian Cross -- offense ADP value",
+      "value": 35860,
+      "unit": "points",
+      "fmt": "35860.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0006.special_teams",
+      "label": "Brian Cross -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
     },
     {
       "id": "f.team.0007.active",
@@ -791,20 +1036,29 @@
     {
       "id": "f.team.0007.cap_room",
       "label": "Josh Martel -- cap room",
-      "value": 30000,
+      "value": 32000,
       "unit": "usd",
-      "fmt": "$30,000",
+      "fmt": "$32,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0007.cap_spent",
       "label": "Josh Martel -- cap committed",
-      "value": 270000,
+      "value": 268000,
       "unit": "usd",
-      "fmt": "$270,000",
+      "fmt": "$268,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
+    },
+    {
+      "id": "f.team.0007.defense",
+      "label": "Josh Martel -- defense players",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
     },
     {
       "id": "f.team.0007.lots_won",
@@ -825,47 +1079,83 @@
       "asof": "live"
     },
     {
+      "id": "f.team.0007.offense",
+      "label": "Josh Martel -- offense players",
+      "value": 23,
+      "unit": "count",
+      "fmt": "23",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0007.skill_value",
+      "label": "Josh Martel -- offense ADP value",
+      "value": 50836,
+      "unit": "points",
+      "fmt": "50836.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0007.special_teams",
+      "label": "Josh Martel -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0008.active",
       "label": "Keith Creelman -- active roster size",
-      "value": 32,
+      "value": 37,
       "unit": "count",
-      "fmt": "32",
+      "fmt": "37",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0008.auction_spend",
       "label": "Keith Creelman -- auction spend",
-      "value": 195000,
+      "value": 198000,
       "unit": "usd",
-      "fmt": "$195,000",
+      "fmt": "$198,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0008.cap_room",
       "label": "Keith Creelman -- cap room",
-      "value": 23000,
+      "value": 18000,
       "unit": "usd",
-      "fmt": "$23,000",
+      "fmt": "$18,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0008.cap_spent",
       "label": "Keith Creelman -- cap committed",
-      "value": 277000,
+      "value": 282000,
       "unit": "usd",
-      "fmt": "$277,000",
+      "fmt": "$282,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0008.defense",
+      "label": "Keith Creelman -- defense players",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0008.lots_won",
       "label": "Keith Creelman -- lots won",
-      "value": 21,
+      "value": 24,
       "unit": "count",
-      "fmt": "21",
+      "fmt": "24",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
@@ -879,47 +1169,83 @@
       "asof": "live"
     },
     {
+      "id": "f.team.0008.offense",
+      "label": "Keith Creelman -- offense players",
+      "value": 26,
+      "unit": "count",
+      "fmt": "26",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0008.skill_value",
+      "label": "Keith Creelman -- offense ADP value",
+      "value": 46771,
+      "unit": "points",
+      "fmt": "46771.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0008.special_teams",
+      "label": "Keith Creelman -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0009.active",
       "label": "Bear Dunn -- active roster size",
-      "value": 32,
+      "value": 30,
       "unit": "count",
-      "fmt": "32",
+      "fmt": "30",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0009.auction_spend",
       "label": "Bear Dunn -- auction spend",
-      "value": 154000,
+      "value": 156000,
       "unit": "usd",
-      "fmt": "$154,000",
+      "fmt": "$156,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0009.cap_room",
       "label": "Bear Dunn -- cap room",
-      "value": 8000,
+      "value": 11000,
       "unit": "usd",
-      "fmt": "$8,000",
+      "fmt": "$11,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0009.cap_spent",
       "label": "Bear Dunn -- cap committed",
-      "value": 292000,
+      "value": 289000,
       "unit": "usd",
-      "fmt": "$292,000",
+      "fmt": "$289,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0009.defense",
+      "label": "Bear Dunn -- defense players",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0009.lots_won",
       "label": "Bear Dunn -- lots won",
-      "value": 18,
+      "value": 20,
       "unit": "count",
-      "fmt": "18",
+      "fmt": "20",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
@@ -933,11 +1259,38 @@
       "asof": "live"
     },
     {
+      "id": "f.team.0009.offense",
+      "label": "Bear Dunn -- offense players",
+      "value": 18,
+      "unit": "count",
+      "fmt": "18",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0009.skill_value",
+      "label": "Bear Dunn -- offense ADP value",
+      "value": 59366,
+      "unit": "points",
+      "fmt": "59366.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0009.special_teams",
+      "label": "Bear Dunn -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0010.active",
       "label": "Shawn Blake -- active roster size",
-      "value": 35,
+      "value": 33,
       "unit": "count",
-      "fmt": "35",
+      "fmt": "33",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
@@ -953,20 +1306,29 @@
     {
       "id": "f.team.0010.cap_room",
       "label": "Shawn Blake -- cap room",
-      "value": 6000,
+      "value": 2000,
       "unit": "usd",
-      "fmt": "$6,000",
+      "fmt": "$2,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0010.cap_spent",
       "label": "Shawn Blake -- cap committed",
-      "value": 294000,
+      "value": 298000,
       "unit": "usd",
-      "fmt": "$294,000",
+      "fmt": "$298,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
+    },
+    {
+      "id": "f.team.0010.defense",
+      "label": "Shawn Blake -- defense players",
+      "value": 12,
+      "unit": "count",
+      "fmt": "12",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
     },
     {
       "id": "f.team.0010.lots_won",
@@ -980,54 +1342,90 @@
     {
       "id": "f.team.0010.moves",
       "label": "Shawn Blake -- contract moves",
-      "value": 4,
+      "value": 9,
       "unit": "count",
-      "fmt": "4",
+      "fmt": "9",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0010.offense",
+      "label": "Shawn Blake -- offense players",
+      "value": 18,
+      "unit": "count",
+      "fmt": "18",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0010.skill_value",
+      "label": "Shawn Blake -- offense ADP value",
+      "value": 51768,
+      "unit": "points",
+      "fmt": "51768.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0010.special_teams",
+      "label": "Shawn Blake -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0011.active",
       "label": "Eric Mannila -- active roster size",
-      "value": 26,
+      "value": 32,
       "unit": "count",
-      "fmt": "26",
+      "fmt": "32",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0011.auction_spend",
       "label": "Eric Mannila -- auction spend",
-      "value": 28000,
+      "value": 34000,
       "unit": "usd",
-      "fmt": "$28,000",
+      "fmt": "$34,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0011.cap_room",
       "label": "Eric Mannila -- cap room",
-      "value": 17000,
+      "value": 11000,
       "unit": "usd",
-      "fmt": "$17,000",
+      "fmt": "$11,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0011.cap_spent",
       "label": "Eric Mannila -- cap committed",
-      "value": 283000,
+      "value": 289000,
       "unit": "usd",
-      "fmt": "$283,000",
+      "fmt": "$289,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
+      "id": "f.team.0011.defense",
+      "label": "Eric Mannila -- defense players",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0011.lots_won",
       "label": "Eric Mannila -- lots won",
-      "value": 7,
+      "value": 13,
       "unit": "count",
-      "fmt": "7",
+      "fmt": "13",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
@@ -1041,11 +1439,38 @@
       "asof": "live"
     },
     {
+      "id": "f.team.0011.offense",
+      "label": "Eric Mannila -- offense players",
+      "value": 20,
+      "unit": "count",
+      "fmt": "20",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0011.skill_value",
+      "label": "Eric Mannila -- offense ADP value",
+      "value": 59813,
+      "unit": "points",
+      "fmt": "59813.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0011.special_teams",
+      "label": "Eric Mannila -- special teams players",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
       "id": "f.team.0012.active",
       "label": "Chris Klingenberg -- active roster size",
-      "value": 32,
+      "value": 29,
       "unit": "count",
-      "fmt": "32",
+      "fmt": "29",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
@@ -1061,20 +1486,29 @@
     {
       "id": "f.team.0012.cap_room",
       "label": "Chris Klingenberg -- cap room",
-      "value": 18000,
+      "value": 28000,
       "unit": "usd",
-      "fmt": "$18,000",
+      "fmt": "$28,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
       "id": "f.team.0012.cap_spent",
       "label": "Chris Klingenberg -- cap committed",
-      "value": 282000,
+      "value": 272000,
       "unit": "usd",
-      "fmt": "$282,000",
+      "fmt": "$272,000",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
+    },
+    {
+      "id": "f.team.0012.defense",
+      "label": "Chris Klingenberg -- defense players",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
     },
     {
       "id": "f.team.0012.lots_won",
@@ -1088,20 +1522,74 @@
     {
       "id": "f.team.0012.moves",
       "label": "Chris Klingenberg -- contract moves",
-      "value": 4,
+      "value": 7,
       "unit": "count",
-      "fmt": "4",
+      "fmt": "7",
       "source": "GET /api/auction/compliance + lots",
       "asof": "live"
     },
     {
-      "id": "f.trades.count",
-      "label": "Trades completed",
+      "id": "f.team.0012.offense",
+      "label": "Chris Klingenberg -- offense players",
       "value": 17,
       "unit": "count",
       "fmt": "17",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0012.skill_value",
+      "label": "Chris Klingenberg -- offense ADP value",
+      "value": 35351,
+      "unit": "points",
+      "fmt": "35351.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.team.0012.special_teams",
+      "label": "Chris Klingenberg -- special teams players",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.trades.count",
+      "label": "Trades completed",
+      "value": 19,
+      "unit": "count",
+      "fmt": "19",
       "source": "ups_transactions",
       "asof": "2026"
+    },
+    {
+      "id": "f.value.highest_skill",
+      "label": "Highest offense ADP value",
+      "value": 59813,
+      "unit": "points",
+      "fmt": "59813.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.value.lowest_skill",
+      "label": "Lowest offense ADP value",
+      "value": 35351,
+      "unit": "points",
+      "fmt": "35351.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
+    },
+    {
+      "id": "f.value.median_skill",
+      "label": "Median offense ADP value",
+      "value": 50165,
+      "unit": "points",
+      "fmt": "50165.0",
+      "source": "data/mfl-snapshots + /api/mfl-export?TYPE=players + adp_board_current.json",
+      "asof": "2026-08-29"
     }
   ],
   "tables": [
@@ -1142,17 +1630,24 @@
       "rows": [
         [
           "Keith Creelman",
-          21,
-          195000,
+          24,
+          198000,
           63000,
-          9285
+          8250
         ],
         [
           "Derrick Whitman",
-          13,
-          162000,
+          16,
+          172000,
           55000,
-          12461
+          10750
+        ],
+        [
+          "Bear Dunn",
+          20,
+          156000,
+          63000,
+          7800
         ],
         [
           "Josh Martel",
@@ -1160,13 +1655,6 @@
           154000,
           62000,
           10266
-        ],
-        [
-          "Bear Dunn",
-          18,
-          154000,
-          63000,
-          8555
         ],
         [
           "Ryan Bousquet",
@@ -1191,24 +1679,24 @@
         ],
         [
           "Matt Gerardi",
-          10,
-          95000,
+          16,
+          101000,
           48000,
-          9500
+          6312
         ],
         [
           "Eric Martel",
-          13,
-          66000,
+          16,
+          69000,
           30000,
-          5076
+          4312
         ],
         [
           "Brian Cutting",
-          13,
-          46000,
+          19,
+          53000,
           14000,
-          3538
+          2789
         ],
         [
           "Brian Cross",
@@ -1219,10 +1707,10 @@
         ],
         [
           "Eric Mannila",
-          7,
-          28000,
+          13,
+          34000,
           15000,
-          4000
+          2615
         ]
       ],
       "note": null
@@ -1274,93 +1762,84 @@
       ],
       "rows": [
         [
+          "Derrick Whitman",
+          "CBP",
+          132000,
+          300000,
+          0,
+          30,
+          8
+        ],
+        [
+          "Shawn Blake",
+          "Blake Bombers",
+          134000,
+          298000,
+          2000,
+          33,
+          10
+        ],
+        [
+          "Brian Cutting",
+          "Pure Greatness",
+          236000,
+          291000,
+          9000,
+          30,
+          10
+        ],
+        [
           "Eric Martel",
           "HammerTime 🔨 ⏰",
           219000,
-          297000,
-          3000,
-          31,
+          291000,
+          9000,
+          32,
           10
         ],
         [
           "Brian Cross",
           "The Long Haulers",
           270000,
-          295000,
-          5000,
-          35,
-          10
-        ],
-        [
-          "Shawn Blake",
-          "Blake Bombers",
-          134000,
-          294000,
-          6000,
-          35,
+          291000,
+          9000,
+          32,
           10
         ],
         [
           "Bear Dunn",
           "C-Town Chivalry",
           215000,
-          292000,
-          8000,
-          32,
+          289000,
+          11000,
+          30,
           7
-        ],
-        [
-          "Brian Cutting",
-          "Pure Greatness",
-          236000,
-          286000,
-          14000,
-          28,
-          10
         ],
         [
           "Eric Mannila",
           "Cleon Ca$h",
           231000,
-          283000,
-          17000,
-          26,
-          10
-        ],
-        [
-          "Chris Klingenberg",
-          "Hawks",
-          142000,
-          282000,
-          18000,
+          289000,
+          11000,
           32,
-          7
-        ],
-        [
-          "Derrick Whitman",
-          "CBP",
-          132000,
-          278000,
-          22000,
-          25,
-          7
+          10
         ],
         [
           "Matt Gerardi",
           "Gride",
           154000,
-          278000,
-          22000,
-          25,
+          284000,
+          16000,
+          31,
           10
         ],
         [
           "Keith Creelman",
           "Real Deal Creel",
           62000,
-          277000,
-          23000,
-          32,
+          282000,
+          18000,
+          37,
           3
         ],
         [
@@ -1373,11 +1852,20 @@
           10
         ],
         [
+          "Chris Klingenberg",
+          "Hawks",
+          142000,
+          272000,
+          28000,
+          29,
+          7
+        ],
+        [
           "Josh Martel",
           "Sex Manther",
           277000,
-          270000,
-          30000,
+          268000,
+          32000,
           35,
           10
         ]
@@ -1466,7 +1954,7 @@
           0,
           4,
           5,
-          4
+          13
         ],
         [
           "Brian Cross",
@@ -1479,6 +1967,19 @@
           0,
           1,
           7,
+          19
+        ],
+        [
+          "Shawn Blake",
+          3,
+          4,
+          0,
+          2,
+          0,
+          0,
+          1,
+          0,
+          6,
           7
         ],
         [
@@ -1492,7 +1993,7 @@
           1,
           2,
           7,
-          3
+          7
         ],
         [
           "Eric Mannila",
@@ -1508,6 +2009,45 @@
           1
         ],
         [
+          "Chris Klingenberg",
+          0,
+          6,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          7,
+          5
+        ],
+        [
+          "Brian Cutting",
+          0,
+          3,
+          1,
+          0,
+          1,
+          1,
+          1,
+          2,
+          5,
+          6
+        ],
+        [
+          "Eric Martel",
+          1,
+          4,
+          0,
+          0,
+          1,
+          0,
+          0,
+          1,
+          4,
+          6
+        ],
+        [
           "Bear Dunn",
           2,
           1,
@@ -1518,7 +2058,20 @@
           1,
           2,
           2,
-          4
+          8
+        ],
+        [
+          "Derrick Whitman",
+          1,
+          2,
+          0,
+          2,
+          0,
+          0,
+          2,
+          1,
+          6,
+          1
         ],
         [
           "Matt Gerardi",
@@ -1534,45 +2087,6 @@
           1
         ],
         [
-          "Eric Martel",
-          1,
-          3,
-          0,
-          0,
-          1,
-          0,
-          0,
-          1,
-          4,
-          1
-        ],
-        [
-          "Shawn Blake",
-          2,
-          0,
-          0,
-          2,
-          0,
-          0,
-          0,
-          0,
-          6,
-          4
-        ],
-        [
-          "Chris Klingenberg",
-          0,
-          3,
-          0,
-          0,
-          1,
-          0,
-          0,
-          0,
-          7,
-          1
-        ],
-        [
           "Ryan Bousquet",
           1,
           0,
@@ -1584,35 +2098,131 @@
           0,
           6,
           0
-        ],
-        [
-          "Derrick Whitman",
-          1,
-          0,
-          0,
-          2,
-          0,
-          0,
-          0,
-          2,
-          6,
-          0
-        ],
-        [
-          "Brian Cutting",
-          0,
-          0,
-          1,
-          0,
-          1,
-          1,
-          0,
-          2,
-          5,
-          2
         ]
       ],
       "note": null
+    },
+    {
+      "id": "t.roster_composition",
+      "title": "Roster composition & offense value (salary ignored)",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "offense",
+          "label": "Off",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "defense",
+          "label": "Def",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "st",
+          "label": "ST",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "value",
+          "label": "Offense ADP value",
+          "type": "points",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "Eric Mannila",
+          20,
+          10,
+          2,
+          59813
+        ],
+        [
+          "Bear Dunn",
+          18,
+          10,
+          2,
+          59366
+        ],
+        [
+          "Brian Cutting",
+          19,
+          9,
+          2,
+          54289
+        ],
+        [
+          "Shawn Blake",
+          18,
+          12,
+          2,
+          51768
+        ],
+        [
+          "Josh Martel",
+          23,
+          10,
+          2,
+          50836
+        ],
+        [
+          "Eric Martel",
+          19,
+          10,
+          3,
+          50165
+        ],
+        [
+          "Keith Creelman",
+          26,
+          7,
+          2,
+          46771
+        ],
+        [
+          "Derrick Whitman",
+          20,
+          8,
+          2,
+          46064
+        ],
+        [
+          "Matt Gerardi",
+          21,
+          8,
+          2,
+          38424
+        ],
+        [
+          "Ryan Bousquet",
+          23,
+          10,
+          2,
+          37623
+        ],
+        [
+          "Brian Cross",
+          22,
+          9,
+          2,
+          35860
+        ],
+        [
+          "Chris Klingenberg",
+          17,
+          10,
+          1,
+          35351
+        ]
+      ],
+      "note": "\"Offense ADP value\" sums each rostered QB/RB/WR/TE's pre-auction dynasty market value (2026-08-29) and ignores salary entirely -- a $2K rookie and a $60K veteran of equal market standing count the same. IDP and K/P are counted in the O/D/ST columns but excluded from the value sum; dynasty ADP does not meaningfully rank them."
     },
     {
       "id": "t.top_buys",
@@ -1785,21 +2395,21 @@
       "series": [
         {
           "label": "Keith Creelman",
-          "value": 195000,
+          "value": 198000,
           "accent": "gold"
         },
         {
           "label": "Derrick Whitman",
-          "value": 162000,
-          "accent": null
-        },
-        {
-          "label": "Josh Martel",
-          "value": 154000,
+          "value": 172000,
           "accent": null
         },
         {
           "label": "Bear Dunn",
+          "value": 156000,
+          "accent": null
+        },
+        {
+          "label": "Josh Martel",
           "value": 154000,
           "accent": null
         },
@@ -1820,17 +2430,17 @@
         },
         {
           "label": "Matt Gerardi",
-          "value": 95000,
+          "value": 101000,
           "accent": null
         },
         {
           "label": "Eric Martel",
-          "value": 66000,
+          "value": 69000,
           "accent": null
         },
         {
           "label": "Brian Cutting",
-          "value": 46000,
+          "value": 53000,
           "accent": null
         },
         {
@@ -1840,15 +2450,15 @@
         },
         {
           "label": "Eric Mannila",
-          "value": 28000,
+          "value": 34000,
           "accent": null
         }
       ],
       "axis": {
         "unit": "usd",
-        "max": 195000
+        "max": 198000
       },
-      "altText": "Horizontal bars of auction spend by owner, highest first. Top spender Keith Creelman at $195,000; lowest Eric Mannila at $28,000."
+      "altText": "Horizontal bars of auction spend by owner, highest first. Top spender Keith Creelman at $198,000; lowest Eric Mannila at $34,000."
     },
     {
       "id": "c.cap_room",
@@ -1857,7 +2467,11 @@
       "series": [
         {
           "label": "Josh Martel",
-          "value": 30000
+          "value": 32000
+        },
+        {
+          "label": "Chris Klingenberg",
+          "value": 28000
         },
         {
           "label": "Ryan Bousquet",
@@ -1865,52 +2479,123 @@
         },
         {
           "label": "Keith Creelman",
-          "value": 23000
-        },
-        {
-          "label": "Derrick Whitman",
-          "value": 22000
-        },
-        {
-          "label": "Matt Gerardi",
-          "value": 22000
-        },
-        {
-          "label": "Chris Klingenberg",
           "value": 18000
         },
         {
-          "label": "Eric Mannila",
-          "value": 17000
-        },
-        {
-          "label": "Brian Cutting",
-          "value": 14000
+          "label": "Matt Gerardi",
+          "value": 16000
         },
         {
           "label": "Bear Dunn",
-          "value": 8000
+          "value": 11000
         },
         {
-          "label": "Shawn Blake",
-          "value": 6000
+          "label": "Eric Mannila",
+          "value": 11000
         },
         {
-          "label": "Brian Cross",
-          "value": 5000
+          "label": "Brian Cutting",
+          "value": 9000
         },
         {
           "label": "Eric Martel",
-          "value": 3000
+          "value": 9000
+        },
+        {
+          "label": "Brian Cross",
+          "value": 9000
+        },
+        {
+          "label": "Shawn Blake",
+          "value": 2000
+        },
+        {
+          "label": "Derrick Whitman",
+          "value": 0
         }
       ],
       "axis": {
         "unit": "usd",
-        "max": 30000
+        "max": 32000
       },
       "altText": "Horizontal bars of remaining cap room by owner, most first."
+    },
+    {
+      "id": "c.skill_value",
+      "kind": "hbar",
+      "title": "Offense ADP value by owner (salary ignored)",
+      "series": [
+        {
+          "label": "Eric Mannila",
+          "value": 59813,
+          "accent": "gold"
+        },
+        {
+          "label": "Bear Dunn",
+          "value": 59366,
+          "accent": null
+        },
+        {
+          "label": "Brian Cutting",
+          "value": 54289,
+          "accent": null
+        },
+        {
+          "label": "Shawn Blake",
+          "value": 51768,
+          "accent": null
+        },
+        {
+          "label": "Josh Martel",
+          "value": 50836,
+          "accent": null
+        },
+        {
+          "label": "Eric Martel",
+          "value": 50165,
+          "accent": null
+        },
+        {
+          "label": "Keith Creelman",
+          "value": 46771,
+          "accent": null
+        },
+        {
+          "label": "Derrick Whitman",
+          "value": 46064,
+          "accent": null
+        },
+        {
+          "label": "Matt Gerardi",
+          "value": 38424,
+          "accent": null
+        },
+        {
+          "label": "Ryan Bousquet",
+          "value": 37623,
+          "accent": null
+        },
+        {
+          "label": "Brian Cross",
+          "value": 35860,
+          "accent": null
+        },
+        {
+          "label": "Chris Klingenberg",
+          "value": 35351,
+          "accent": null
+        }
+      ],
+      "axis": {
+        "unit": "points",
+        "max": 59813
+      },
+      "altText": "Horizontal bars of offense-only ADP value by owner, highest first, salary not considered. Highest Eric Mannila; lowest Chris Klingenberg."
     }
   ],
+  "quotes": [],
+  "playcards": [],
+  "games": [],
   "sections": [
     {
       "id": "s1",
@@ -1927,7 +2612,10 @@
       ],
       "chartIds": [
         "c.cap_room"
-      ]
+      ],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
     },
     {
       "id": "s2",
@@ -1950,7 +2638,10 @@
       ],
       "chartIds": [
         "c.auction_spend"
-      ]
+      ],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
     },
     {
       "id": "s3",
@@ -1961,79 +2652,130 @@
         "f.team.0001.auction_spend",
         "f.team.0001.cap_room",
         "f.team.0001.cap_spent",
+        "f.team.0001.defense",
         "f.team.0001.lots_won",
         "f.team.0001.moves",
+        "f.team.0001.offense",
+        "f.team.0001.skill_value",
+        "f.team.0001.special_teams",
         "f.team.0002.active",
         "f.team.0002.auction_spend",
         "f.team.0002.cap_room",
         "f.team.0002.cap_spent",
+        "f.team.0002.defense",
         "f.team.0002.lots_won",
         "f.team.0002.moves",
+        "f.team.0002.offense",
+        "f.team.0002.skill_value",
+        "f.team.0002.special_teams",
         "f.team.0003.active",
         "f.team.0003.auction_spend",
         "f.team.0003.cap_room",
         "f.team.0003.cap_spent",
+        "f.team.0003.defense",
         "f.team.0003.lots_won",
         "f.team.0003.moves",
+        "f.team.0003.offense",
+        "f.team.0003.skill_value",
+        "f.team.0003.special_teams",
         "f.team.0004.active",
         "f.team.0004.auction_spend",
         "f.team.0004.cap_room",
         "f.team.0004.cap_spent",
+        "f.team.0004.defense",
         "f.team.0004.lots_won",
         "f.team.0004.moves",
+        "f.team.0004.offense",
+        "f.team.0004.skill_value",
+        "f.team.0004.special_teams",
         "f.team.0005.active",
         "f.team.0005.auction_spend",
         "f.team.0005.cap_room",
         "f.team.0005.cap_spent",
+        "f.team.0005.defense",
         "f.team.0005.lots_won",
         "f.team.0005.moves",
+        "f.team.0005.offense",
+        "f.team.0005.skill_value",
+        "f.team.0005.special_teams",
         "f.team.0006.active",
         "f.team.0006.auction_spend",
         "f.team.0006.cap_room",
         "f.team.0006.cap_spent",
+        "f.team.0006.defense",
         "f.team.0006.lots_won",
         "f.team.0006.moves",
+        "f.team.0006.offense",
+        "f.team.0006.skill_value",
+        "f.team.0006.special_teams",
         "f.team.0007.active",
         "f.team.0007.auction_spend",
         "f.team.0007.cap_room",
         "f.team.0007.cap_spent",
+        "f.team.0007.defense",
         "f.team.0007.lots_won",
         "f.team.0007.moves",
+        "f.team.0007.offense",
+        "f.team.0007.skill_value",
+        "f.team.0007.special_teams",
         "f.team.0008.active",
         "f.team.0008.auction_spend",
         "f.team.0008.cap_room",
         "f.team.0008.cap_spent",
+        "f.team.0008.defense",
         "f.team.0008.lots_won",
         "f.team.0008.moves",
+        "f.team.0008.offense",
+        "f.team.0008.skill_value",
+        "f.team.0008.special_teams",
         "f.team.0009.active",
         "f.team.0009.auction_spend",
         "f.team.0009.cap_room",
         "f.team.0009.cap_spent",
+        "f.team.0009.defense",
         "f.team.0009.lots_won",
         "f.team.0009.moves",
+        "f.team.0009.offense",
+        "f.team.0009.skill_value",
+        "f.team.0009.special_teams",
         "f.team.0010.active",
         "f.team.0010.auction_spend",
         "f.team.0010.cap_room",
         "f.team.0010.cap_spent",
+        "f.team.0010.defense",
         "f.team.0010.lots_won",
         "f.team.0010.moves",
+        "f.team.0010.offense",
+        "f.team.0010.skill_value",
+        "f.team.0010.special_teams",
         "f.team.0011.active",
         "f.team.0011.auction_spend",
         "f.team.0011.cap_room",
         "f.team.0011.cap_spent",
+        "f.team.0011.defense",
         "f.team.0011.lots_won",
         "f.team.0011.moves",
+        "f.team.0011.offense",
+        "f.team.0011.skill_value",
+        "f.team.0011.special_teams",
         "f.team.0012.active",
         "f.team.0012.auction_spend",
         "f.team.0012.cap_room",
         "f.team.0012.cap_spent",
+        "f.team.0012.defense",
         "f.team.0012.lots_won",
-        "f.team.0012.moves"
+        "f.team.0012.moves",
+        "f.team.0012.offense",
+        "f.team.0012.skill_value",
+        "f.team.0012.special_teams"
       ],
       "tableIds": [
         "t.moves_by_team"
       ],
-      "chartIds": []
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
     },
     {
       "id": "s4",
@@ -2057,7 +2799,10 @@
       "tableIds": [
         "t.moves_by_team"
       ],
-      "chartIds": []
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
     },
     {
       "id": "s5",
@@ -2065,7 +2810,78 @@
       "brief": "The honest limits: the open auction lots, the won-versus-finalized gap, the snapshot start date, and the 2026 history-table cliff. Render warnings[] here.",
       "factIds": [],
       "tableIds": [],
-      "chartIds": []
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s6",
+      "title": "Roster Composition & Value",
+      "brief": "Each team's offense/defense/special-teams split, and a value ranking built from pre-auction dynasty ADP that ignores salary entirely -- two contracts of very different price can carry the same market value. State clearly that this value covers offense only; IDP is counted in the split but not priced.",
+      "factIds": [
+        "f.roster.idp_count",
+        "f.team.0001.defense",
+        "f.team.0001.offense",
+        "f.team.0001.skill_value",
+        "f.team.0001.special_teams",
+        "f.team.0002.defense",
+        "f.team.0002.offense",
+        "f.team.0002.skill_value",
+        "f.team.0002.special_teams",
+        "f.team.0003.defense",
+        "f.team.0003.offense",
+        "f.team.0003.skill_value",
+        "f.team.0003.special_teams",
+        "f.team.0004.defense",
+        "f.team.0004.offense",
+        "f.team.0004.skill_value",
+        "f.team.0004.special_teams",
+        "f.team.0005.defense",
+        "f.team.0005.offense",
+        "f.team.0005.skill_value",
+        "f.team.0005.special_teams",
+        "f.team.0006.defense",
+        "f.team.0006.offense",
+        "f.team.0006.skill_value",
+        "f.team.0006.special_teams",
+        "f.team.0007.defense",
+        "f.team.0007.offense",
+        "f.team.0007.skill_value",
+        "f.team.0007.special_teams",
+        "f.team.0008.defense",
+        "f.team.0008.offense",
+        "f.team.0008.skill_value",
+        "f.team.0008.special_teams",
+        "f.team.0009.defense",
+        "f.team.0009.offense",
+        "f.team.0009.skill_value",
+        "f.team.0009.special_teams",
+        "f.team.0010.defense",
+        "f.team.0010.offense",
+        "f.team.0010.skill_value",
+        "f.team.0010.special_teams",
+        "f.team.0011.defense",
+        "f.team.0011.offense",
+        "f.team.0011.skill_value",
+        "f.team.0011.special_teams",
+        "f.team.0012.defense",
+        "f.team.0012.offense",
+        "f.team.0012.skill_value",
+        "f.team.0012.special_teams",
+        "f.value.highest_skill",
+        "f.value.lowest_skill",
+        "f.value.median_skill"
+      ],
+      "tableIds": [
+        "t.roster_composition"
+      ],
+      "chartIds": [
+        "c.skill_value"
+      ],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
     }
   ]
 }

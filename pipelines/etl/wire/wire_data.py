@@ -149,6 +149,78 @@ def roster_salaries(date):
     return out
 
 
+def current_roster_players(date):
+    """Player-id-level roster for one daily snapshot. Companion to
+    roster_salaries(), which only returns per-franchise TOTALS -- this is for
+    anything that needs to know WHO is on the roster (position splits,
+    per-player value), keyed the same way (ROSTER vs TAXI_SQUAD status)."""
+    data = snapshot(date, "rosters")
+    out = {}
+    for fr in data["rosters"]["franchise"]:
+        fid = str(fr["id"]).zfill(4)
+        players = fr.get("player") or []
+        if isinstance(players, dict):
+            players = [players]
+        out[fid] = [{"pid": str(p.get("id")), "status": str(p.get("status", "")).upper()}
+                    for p in players]
+    return out
+
+
+# Non-player rows MFL mixes into its own player export: team defenses, coach
+# slots, and per-team "TM*" mascot placeholders. Left in, these leak into an
+# O/D/ST count as phantom players (see project_mobile_player_search memory:
+# 422 of 2,610 rows in this same export aren't real players).
+_NON_PLAYER_POS = ("Def", "Coach", "Off", "ST")
+
+
+def player_positions():
+    """MFL player id -> position, from the live full player universe.
+
+    Season-agnostic on purpose: a player's position essentially never changes
+    year to year, and MFL's players export isn't year-scoped, so this covers
+    2026 rookies that src_players (frozen at season 2025) cannot.
+    """
+    payload = worker_get("/api/mfl-export", TYPE="players", JSON=1)
+    players = (payload.get("players") or {}).get("player") or []
+    out = {}
+    for p in players:
+        pos = str(p.get("position") or "").strip()
+        if not pos or pos.startswith("TM") or pos in _NON_PLAYER_POS:
+            continue
+        pid = p.get("id")
+        if pid:
+            out[str(pid)] = pos
+    return out
+
+
+def adp_value_board():
+    """Pre-2026-auction dynasty-SF ADP value per player, keyed by MFL player id.
+
+    docs/auction/data/adp_board_current.json, committed 2026-07-21 -- roughly
+    12-16 days before that year's FA auction opened (~Aug 2). It is the same
+    live FantasyCalc+KeepTradeCut+DynastyProcess blend fetch_adp_board.py
+    builds, mapped onto FantasyCalc's cardinal SF-dynasty scale, captured once
+    and committed rather than fetched fresh -- there is no auto-refresh, so
+    "start of the year" means THIS snapshot, not literally opening day.
+
+    SKILL positions only (QB/RB/WR/TE): dynasty ADP does not meaningfully rank
+    IDP (see build_auction_tier_dataset.py's own docstring on the same point),
+    so a caller must warn() a missing IDP player rather than silently price it
+    at $0.
+    """
+    import io as _io
+    path = os.path.join(REPO, "docs", "auction", "data", "adp_board_current.json")
+    if not os.path.exists(path):
+        raise DataError("no adp_board_current.json at %s" % path)
+    raw = json.loads(_io.open(path, encoding="utf-8").read())
+    out = {}
+    for entry in raw.values():
+        pid = str(entry.get("pid") or "")
+        if pid:
+            out[pid] = entry
+    return out
+
+
 def _money(v):
     """MFL salary strings: '15000', '$15,000', '' -> int dollars."""
     s = str(v or "").replace("$", "").replace(",", "").strip()
