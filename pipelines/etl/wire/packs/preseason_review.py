@@ -51,7 +51,10 @@ def distinct_outcomes(rows):
     return [best[k] for k in sorted(best, key=lambda k: tuple(str(x) for x in k))]
 
 
-def build():
+def build(pack_id=None):
+    # pack_id accepted for interface parity with weekly_recap.build(pack_id),
+    # which needs it to parse (season, week); this builder is single-purpose
+    # and ignores it.
     pack = Pack(PACK_ID, SEASON, title="The 2026 Pre-Season Review")
 
     # ---------------------------------------------------------- attribution

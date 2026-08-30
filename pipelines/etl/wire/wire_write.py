@@ -32,7 +32,7 @@ import wire_voice
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-opus-5"
-MAX_TOKENS = 16000
+MAX_TOKENS = 32000
 
 
 class WriteError(RuntimeError):
@@ -87,6 +87,12 @@ def call_model(system, user, model=DEFAULT_MODEL, max_tokens=MAX_TOKENS):
     if not text.strip():
         raise WriteError("model returned no text (stop_reason=%s)"
                          % payload.get("stop_reason"))
+    if payload.get("stop_reason") == "max_tokens":
+        # Otherwise this surfaces downstream as an inscrutable "Unterminated
+        # string" from the JSON parser, which sends you hunting the wrong bug.
+        raise WriteError(
+            "model hit the %d-token output cap and the JSON is truncated. Raise "
+            "MAX_TOKENS or trim the section outline." % max_tokens)
     return text, payload.get("usage", {}), payload.get("model", model)
 
 

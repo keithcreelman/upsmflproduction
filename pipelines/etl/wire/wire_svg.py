@@ -37,6 +37,9 @@ def esc(s):
 def _fmt(value, unit):
     if unit == "usd":
         return "$%s" % format(int(round(value)), ",d")
+    if unit == "points":
+        # Fantasy points, not currency -- see wire_render.render_table.
+        return "%.1f" % float(value)
     if unit == "percent":
         return "%.1f%%" % value
     return format(int(value), ",d")
@@ -104,7 +107,10 @@ def render_chart(chart, caption=None):
 
     parts = ['<figure class="wire-fig">', fn(chart)]
     if caption:
-        parts.append("<figcaption>%s</figcaption>" % esc(caption))
+        # Already escaped and substituted by wire_render.audit_and_substitute.
+        # Escaping again printed the substitution span as literal tag text -- the
+        # same bug that was fixed on the table path and missed here.
+        parts.append("<figcaption>%s</figcaption>" % caption)
     if len(chart.get("series") or []) > 6:
         parts.append('<details><summary>Numbers</summary>'
                      '<div class="wire-tablewrap"><table><tbody>%s</tbody></table></div>'

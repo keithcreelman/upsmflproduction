@@ -261,6 +261,18 @@ class Problems(object):
         self.items.append((where, what))
 
 
+PACK_STAMP_RE = re.compile(r'packGeneratedAtUtc:\s*([^\n]+)')
+PACK_ID_RE_V = re.compile(r'pack:\s*([^\n]+)')
+
+
+def pack_path_for(pack_id):
+    """Where a pack id's built pack lives, or None if the id is not season-scoped."""
+    m = re.match(r'^(\d{4})-', pack_id or "")
+    if not m:
+        return None
+    return os.path.join(REPO, "site", "wire", "packs", m.group(1), "%s.pack.json" % pack_id)
+
+
 def cmd_verify(args):
     p = Problems()
     sha, combined = style_sha()
@@ -271,6 +283,32 @@ def cmd_verify(args):
         html = read(path)
         where = rel(path)
         raw = io.open(path, "rb").read()
+
+        # -- stale render ---------------------------------------------------
+        # An article rendered from an OLDER pack than the one now on disk is
+        # serving claims the data no longer supports, and nothing about it looks
+        # wrong. This is not hypothetical: after did_not_play was corrected, five
+        # articles still accused named owners of starting players who never took
+        # a snap -- accusations the rebuilt packs no longer contain at all,
+        # because every one of them was false. The render stage fail-closes only
+        # if a fact id disappeared; if the VALUES changed it renders happily.
+        #
+        # Compared on the pack's own generatedAtUtc, recorded in the article's
+        # provenance comment at render time, rather than on file mtimes, which a
+        # checkout or a copy silently rewrites.
+        prov = PACK_STAMP_RE.search(html)
+        pid = PACK_ID_RE_V.search(html)
+        if prov and pid:
+            pack_path = pack_path_for(pid.group(1).strip())
+            if pack_path and os.path.exists(pack_path):
+                try:
+                    current = json.load(io.open(pack_path, encoding="utf-8")).get("generatedAtUtc")
+                except ValueError:
+                    current = None
+                if current and current != prov.group(1).strip():
+                    p.add(where, "STALE RENDER -- built from pack %s but %s is now %s. "
+                                 "Re-run `write` then `render`; do not publish this file."
+                                 % (prov.group(1).strip(), rel(pack_path), current))
 
         # -- style sentinel -------------------------------------------------
         m = STYLE_RE.search(html)
@@ -402,6 +440,12 @@ def fail(msg):
 
 PACKS_DIR = os.path.join(WIRE, "packs")
 PACK_BUILDERS = {"2026-preseason-review": "preseason_review"}
+# weekly_recap is generic (season, week) -- one module, five 2025 instances:
+# the last two regular-season weeks plus the full 3-round playoffs. Each pack
+# id is registered explicitly (no wildcard matching) so `_load_builder` keeps
+# failing loudly on a typo rather than silently routing somewhere unintended.
+for _wk in (13, 14, 15, 16, 17):
+    PACK_BUILDERS["2025-wk%02d-recap" % _wk] = "weekly_recap"
 
 
 def _load_builder(pack_id):
@@ -422,7 +466,7 @@ def cmd_build(args):
 
     mod = _load_builder(args.pack)
     print("building %s ..." % args.pack)
-    pack = mod.build()
+    pack = mod.build(args.pack)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     payload = pack.to_dict(stamp)
 
@@ -487,6 +531,8 @@ def cmd_check_pack(args):
 
 PACK_FAMILY = {"2026-preseason-review": "season-review"}
 PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review"}
+for _wk in (13, 14, 15, 16, 17):
+    PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
 
 
 def _load_pack(pack_id):

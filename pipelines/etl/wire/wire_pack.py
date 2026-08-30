@@ -34,7 +34,7 @@ import re
 
 SCHEMA = 1
 FACT_ID_RE = re.compile(r'^f\.[a-z0-9]+(?:[._-][a-z0-9]+)*$', re.I)
-UNITS = ("usd", "usd_k", "count", "percent", "rank", "text", "date", "ratio")
+UNITS = ("usd", "usd_k", "points", "count", "percent", "rank", "text", "date", "ratio")
 
 
 class PackError(ValueError):
@@ -64,9 +64,13 @@ class Pack(object):
         self._facts = {}
         self._tables = {}
         self._charts = {}
+        self._quotes = {}
+        self._playcards = {}
+        self._games = {}
         self._sections = []
         self._owners = {}
         self._franchises = []
+        self._divisions = []
         self.coverage = {}
 
     # ---------------------------------------------------------- provenance
@@ -82,6 +86,18 @@ class Pack(object):
 
     def owner(self, key, display):
         self._owners[key] = {"key": key, "display": display}
+
+    def division(self, name):
+        """A division's real name, e.g. "DOG POUND 4 LIFE".
+
+        Registered as an entity because the digit audit has to know it is a
+        NAME. One of this league's four divisions contains a numeral, and
+        writing it correctly was rejected as a fabricated quantity until the
+        audit could tell a proper noun from a measurement.
+        """
+        if name and name not in self._divisions:
+            self._divisions.append(name)
+        return name
 
     def franchise(self, season, franchise_id, owner_key, name):
         self._franchises.append({
@@ -105,6 +121,7 @@ class Pack(object):
         if fmt is None:
             fmt = (fmt_usd(value) if unit == "usd" else
                    fmt_usd(value * 1000) if unit == "usd_k" else
+                   ("%.1f" % float(value)) if unit == "points" else
                    fmt_percent(value) if unit == "percent" else
                    fmt_count(value) if unit in ("count", "rank") else
                    str(value))
@@ -126,6 +143,99 @@ class Pack(object):
                                   "columns": columns, "rows": rows, "note": note}
         return table_id
 
+    def quote(self, quote_id, text, author, when, owner_key=None, context=None,
+              source="discord", permalink=None):
+        """Real league chat, carried verbatim.
+
+        Quotes are TEXT, so the {{fact_id}} contract that makes fabricated
+        NUMBERS impossible does not cover them -- and a misquote attributed to a
+        real person is a worse failure than a wrong number. So quotes follow the
+        same rule as tables and charts: the model PLACES them by id and the
+        renderer prints the stored text. The model never types a quotation, and
+        wire_render refuses any quote id it was not given.
+        """
+        if quote_id in self._quotes:
+            raise PackError("duplicate quote id %r" % quote_id)
+        if not str(text).strip():
+            raise PackError("quote %s is empty" % quote_id)
+        self._quotes[quote_id] = {
+            "id": quote_id, "text": text, "author": author, "when": when,
+            "ownerKey": owner_key, "context": context, "source": source,
+            "permalink": permalink,
+        }
+        return quote_id
+
+    def playcard(self, card_id, player, position, nfl_matchup, score, box_line=None,
+                 owner=None, note=None, watch_url=None, video=None):
+        """A visual callout for a big performance. Placed by id, like a table.
+
+        This is the "call out the big plays" surface. It states what the box
+        score says, and carries footage when -- and only when -- a specific clip
+        cleared every conviction test in wire_video: official channel, surname
+        in the title, a highlight, published inside the game's own window. A
+        wrong clip asserts a falsehood more convincingly than a wrong sentence
+        does, so a near miss is recorded as no match and the card falls back to
+        a search link.
+
+        The card's DEFAULT rendering has no network dependency at all, so the
+        article still works pasted into a Claude Artifact. Where a real player
+        can run, the runtime upgrades it in place.
+        """
+        if card_id in self._playcards:
+            raise PackError("duplicate playcard id %r" % card_id)
+        self._playcards[card_id] = {
+            "id": card_id, "player": player, "position": position,
+            "nflMatchup": nfl_matchup, "score": score, "boxLine": box_line,
+            "owner": owner, "note": note, "watchUrl": watch_url,
+            # {"videoId", "title", "channel"} or None -- a VERIFIED clip, never
+            # a guess. See wire_video.find_highlight for what verified means.
+            "video": video or None,
+        }
+        return card_id
+
+    def game(self, game_id, winner, loser, winner_score, loser_score, margin,
+             winner_best=None, loser_best=None, loser_bench_miss=None,
+             loser_ceiling=None, divisional=False, note=None,
+             tale=None, billing=None, headline=None, tag=None,
+             card_id=None, quote_ids=(), fact_ids=()):
+        """One game, as a full page in the flip-through deck.
+
+        Everything a reader needs about one matchup lives HERE, not scattered
+        across the section: the tale of the tape, the big performance from THIS
+        game, and the league chat about THESE two owners. The first version hung
+        cards and quotes off the section instead, so a game page about Martel and
+        Dunn rendered a card for a player neither of them owned -- correct data
+        in a place it meant nothing.
+
+        `note` is the model's own blurb for this game, written per matchup, and
+        it goes through the same substitution and digit audit as every other line
+        of prose.
+
+        The block itself is generated. The writer places the set and writes the
+        blurb; it never authors a row.
+        """
+        if game_id in self._games:
+            raise PackError("duplicate game id %r" % game_id)
+        self._games[game_id] = {
+            "id": game_id, "winner": winner, "loser": loser,
+            "winnerScore": winner_score, "loserScore": loser_score, "margin": margin,
+            "winnerBest": winner_best, "loserBest": loser_best,
+            "loserBenchMiss": loser_bench_miss, "loserCeiling": loser_ceiling,
+            "divisional": divisional, "note": note,
+            # tale = [{label, a, b, better}] -- the head-to-head comparison rows.
+            # billing = combined incoming all-play, used to order the deck so the
+            # biggest matchup leads rather than the biggest blowout.
+            "tale": tale or [], "billing": billing, "headline": headline,
+            # tag names the competitive context: which division, or that the two
+            # are from different ones. A reader cannot tell from the names alone.
+            "tag": tag,
+            "cardId": card_id, "quoteIds": sorted(quote_ids),
+            # The fact ids that belong to THIS matchup, so the writer's blurb has
+            # tokens for it without hunting the whole pack.
+            "factIds": sorted(fact_ids),
+        }
+        return game_id
+
     def chart(self, chart_id, kind, title, series, axis=None, alt_text=None):
         if chart_id in self._charts:
             raise PackError("duplicate chart id %r" % chart_id)
@@ -140,11 +250,13 @@ class Pack(object):
 
     # ------------------------------------------------------------ sections
 
-    def section(self, section_id, title, brief, fact_ids=(), table_ids=(), chart_ids=()):
+    def section(self, section_id, title, brief, fact_ids=(), table_ids=(),
+                chart_ids=(), quote_ids=(), card_ids=(), game_ids=()):
         self._sections.append({
             "id": section_id, "title": title, "brief": brief,
             "factIds": sorted(fact_ids), "tableIds": sorted(table_ids),
-            "chartIds": sorted(chart_ids),
+            "chartIds": sorted(chart_ids), "quoteIds": sorted(quote_ids),
+            "cardIds": sorted(card_ids), "gameIds": sorted(game_ids),
         })
 
     # ------------------------------------------------------------ assemble
@@ -164,10 +276,14 @@ class Pack(object):
                 "owners": [self._owners[k] for k in sorted(self._owners)],
                 "franchises": sorted(self._franchises,
                                      key=lambda f: (f["season"], f["franchiseId"])),
+                "divisions": sorted(self._divisions),
             },
             "facts": [self._facts[k] for k in sorted(self._facts)],
             "tables": [self._tables[k] for k in sorted(self._tables)],
             "charts": [self._charts[k] for k in sorted(self._charts)],
+            "quotes": [self._quotes[k] for k in sorted(self._quotes)],
+            "playcards": [self._playcards[k] for k in sorted(self._playcards)],
+            "games": [self._games[k] for k in sorted(self._games)],
             "sections": self._sections,
         }
 
@@ -204,6 +320,9 @@ def validate(pack):
 
     table_ids = set(t["id"] for t in pack["tables"])
     chart_ids = set(c["id"] for c in pack["charts"])
+    quote_ids = set(q["id"] for q in pack.get("quotes", []))
+    card_ids = set(c["id"] for c in pack.get("playcards", []))
+    game_ids = set(g["id"] for g in pack.get("games", []))
 
     for t in pack["tables"]:
         width = len(t["columns"])
@@ -242,8 +361,31 @@ def validate(pack):
         for cid in s["chartIds"]:
             if cid not in chart_ids:
                 problems.append("section %s references unknown chart %s" % (s["id"], cid))
+        for qid in s.get("quoteIds", []):
+            if qid not in quote_ids:
+                problems.append("section %s references unknown quote %s" % (s["id"], qid))
+        for cid in s.get("cardIds", []):
+            if cid not in card_ids:
+                problems.append("section %s references unknown playcard %s" % (s["id"], cid))
+        for gid in s.get("gameIds", []):
+            if gid not in game_ids:
+                problems.append("section %s references unknown game %s" % (s["id"], gid))
 
-    orphans = fact_ids - set(f for s in pack["sections"] for f in s["factIds"])
+    # A game page owns its own card, quotes and facts -- that is the whole point
+    # of the rebuild -- so the same referential check has to apply there.
+    for g in pack.get("games", []):
+        if g.get("cardId") and g["cardId"] not in card_ids:
+            problems.append("game %s references unknown playcard %s" % (g["id"], g["cardId"]))
+        for qid in g.get("quoteIds", []):
+            if qid not in quote_ids:
+                problems.append("game %s references unknown quote %s" % (g["id"], qid))
+        for fid in g.get("factIds", []):
+            if fid not in fact_ids:
+                problems.append("game %s references unknown fact %s" % (g["id"], fid))
+
+    reached = set(f for s in pack["sections"] for f in s["factIds"])
+    reached |= set(f for g in pack.get("games", []) for f in g.get("factIds", []))
+    orphans = fact_ids - reached
     if orphans:
         # Not fatal: a fact can exist for the model to reach for. Surfaced so a
         # builder that forgot to wire a section is visible.

@@ -137,8 +137,87 @@
     try { window.scrollTo(0, 0); } catch (e) {}
   }
 
+
+  // ---- game deck: flip through one full game page at a time ----
+  // The games section carries a page per matchup, ordered so the biggest
+  // billing leads. Showing them all at once is a wall; this pages them the same
+  // way the section rail pages the article.
+  function initGameDeck() {
+    var deck = document.querySelector("[data-wire-gamedeck]");
+    if (!deck) return;
+    var pages = [].slice.call(deck.querySelectorAll(".wire-gamepage"));
+    var rail = deck.querySelector("[data-wire-gamerail]");
+    if (pages.length < 2 || !rail) return;
+
+    var gi = 0, pills = [];
+    var prev = mk("button", "wire-rail-nav", "\u2039");
+    var next = mk("button", "wire-rail-nav", "\u203A");
+    var count = mk("span", "wire-rail-count", "");
+    [prev, next].forEach(function (b) { b.setAttribute("type", "button"); });
+
+    rail.appendChild(prev);
+    pages.forEach(function (pg, i) {
+      var p = mk("button", "wire-gamepill", pg.getAttribute("data-title") || ("Game " + (i + 1)));
+      p.setAttribute("type", "button");
+      p.addEventListener("click", function () { showGame(i); });
+      pills.push(p);
+      rail.appendChild(p);
+    });
+    rail.appendChild(next);
+    rail.appendChild(count);
+
+    prev.addEventListener("click", function () { showGame(gi - 1); });
+    next.addEventListener("click", function () { showGame(gi + 1); });
+
+    function showGame(i) {
+      if (i < 0 || i >= pages.length) return;
+      gi = i;
+      pages.forEach(function (pg, n) { pg.classList.toggle("wire-on", n === i); });
+      pills.forEach(function (p, n) {
+        if (n === i) p.setAttribute("aria-current", "true");
+        else p.removeAttribute("aria-current");
+      });
+      count.textContent = (i + 1) + " / " + pages.length;
+      prev.disabled = i === 0;
+      next.disabled = i === pages.length - 1;
+    }
+    deck.classList.add("wire-deck-on");
+    showGame(0);
+  }
+
+  // ---- video: upgrade a verified link into a real player, where one runs ----
+  // STANDALONE ONLY, and that is the whole design. An article renders in three
+  // places. In a Claude Artifact the CSP blocks every external host. In the MFL
+  // hub the article is sandboxed WITHOUT allow-same-origin -- the thing that
+  // stops model-written HTML running with MFL-origin privileges -- and a
+  // YouTube player cannot function inside that. Both of those keep the named
+  // link, which works. Only the standalone page, which is a real origin with no
+  // such constraint, gets the iframe. Nothing is weakened to make video happen.
+  function initVideos() {
+    if (embedded) return;
+    var slots = [].slice.call(document.querySelectorAll("[data-wire-video]"));
+    for (var i = 0; i < slots.length; i++) {
+      var slot = slots[i];
+      var id = slot.getAttribute("data-wire-video") || "";
+      if (!/^[A-Za-z0-9_-]{6,20}$/.test(id)) continue;   // never interpolate junk
+      var frame = document.createElement("iframe");
+      frame.className = "wire-video-frame";
+      frame.setAttribute("src", "https://www.youtube-nocookie.com/embed/" + id);
+      frame.setAttribute("title", "Highlights");
+      frame.setAttribute("loading", "lazy");
+      frame.setAttribute("allowfullscreen", "");
+      frame.setAttribute(
+        "allow", "accelerometer; encrypted-media; gyroscope; picture-in-picture");
+      frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      slot.insertBefore(frame, slot.firstChild);
+      slot.classList.add("wire-video-live");
+    }
+  }
+
   docEl.classList.add("wire-js");
   docEl.classList.add("wire-paged");
+  initGameDeck();
+  initVideos();
 
   // Initial section: the loader's choice when embedded, the URL hash when
   // standalone, first section otherwise. One resolution path, no special cases.
