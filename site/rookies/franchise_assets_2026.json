@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-30T14:31:11.770947+00:00",
+    "generated_at_utc": "2026-08-31T17:13:35.186722+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -125,7 +125,7 @@
           "salary": 7000,
           "contract_year": 1,
           "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -313,7 +313,7 @@
           "display": "Aaron Donald",
           "player_id": "11757",
           "position": "DT",
-          "nfl_team": "FA",
+          "nfl_team": "LAR",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -365,7 +365,7 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -517,7 +517,7 @@
           "display": "Robert Henry",
           "player_id": "17709",
           "position": "RB",
-          "nfl_team": "WAS",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
@@ -1031,7 +1031,7 @@
           "display": "Jarquez Hunter",
           "player_id": "17064",
           "position": "RB",
-          "nfl_team": "MIA",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
@@ -1278,7 +1278,7 @@
           "display": "Justin Joly",
           "player_id": "17548",
           "position": "TE",
-          "nfl_team": "DEN",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
@@ -1386,7 +1386,7 @@
           "display": "J.K. Scott",
           "player_id": "13791",
           "position": "PN",
-          "nfl_team": "LAC",
+          "nfl_team": "FA",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -2125,7 +2125,7 @@
           "display": "Trevin Wallace",
           "player_id": "16704",
           "position": "LB",
-          "nfl_team": "CAR",
+          "nfl_team": "FA",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
@@ -2277,7 +2277,7 @@
           "salary": 18000,
           "contract_year": 3,
           "contract_status": "Vet-FAA-BL",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -2361,7 +2361,7 @@
           "salary": 7000,
           "contract_year": 3,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -3195,7 +3195,7 @@
           "display": "Jaydon Blue",
           "player_id": "17069",
           "position": "RB",
-          "nfl_team": "DAL",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
@@ -3592,7 +3592,7 @@
           "display": "Damien Martinez",
           "player_id": "17054",
           "position": "RB",
-          "nfl_team": "GBP",
+          "nfl_team": "FA",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -3644,7 +3644,7 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -3668,7 +3668,7 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -4570,7 +4570,7 @@
           "salary": 4000,
           "contract_year": 1,
           "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -5810,7 +5810,7 @@
           "display": "Michael Trigg",
           "player_id": "17546",
           "position": "TE",
-          "nfl_team": "DAL",
+          "nfl_team": "FA",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-FAA",
@@ -5942,7 +5942,7 @@
           "display": "Jam Miller",
           "player_id": "17486",
           "position": "RB",
-          "nfl_team": "NEP",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
@@ -6177,7 +6177,7 @@
           "display": "Kaleb Johnson",
           "player_id": "17048",
           "position": "RB",
-          "nfl_team": "PIT",
+          "nfl_team": "GBP",
           "salary": 6000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
