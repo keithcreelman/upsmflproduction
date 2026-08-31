@@ -6460,6 +6460,156 @@ export default {
       console.error(`[scheduled hourly] injury poll dispatch failed: ${e && e.message}`);
     }
 
+    // ── NATIVE IR-MOVE DETECTOR ─────────────────────────────────────────────
+    // The Discord IR announcement only ever fired at write-time, from this
+    // app's own /roster-workbench/action "deactivate_ir"/"activate_ir"
+    // handler. A move made on MFL's native page never touches that route, so
+    // it was silent forever -- discovered 2026-08-31 when Hammer (franchise
+    // 0005) placed Josh Jacobs on IR with zero announcement. Same blind spot
+    // as the ERA auto-drop incident (unload_player posts MFL's own commish
+    // web form, invisible to import?TYPE=rosters grep).
+    //
+    // Detection is a plain before/after diff against ups_ir_roster_status
+    // (migration 0146). On the FIRST time a (season, franchise, player) row
+    // is ever seen, it is SEEDED with the current status and nothing is
+    // announced -- otherwise the very first tick after this ships would fire
+    // an announcement for every player already sitting on IR league-wide,
+    // which is old news, not a new event.
+    //
+    // BATCHED, not per-row: one SELECT reads the whole ledger, the diff runs
+    // in memory against the roster export (already fetched, no extra I/O),
+    // and every write goes through ONE db.batch() call. A per-row
+    // SELECT+UPDATE loop over ~400-500 rostered players, every hour, is
+    // exactly the query-volume mistake that cost the auction-poll sweep 24K
+    // of the daily D1 write budget for 26 days straight (see
+    // mfl_d1_index_ordering_defeats_limit / the auction-poll fix, PR #1003)
+    // — not repeating that here.
+    //
+    // _announceIrMove lives inside fetch(), not scheduled() -- same scope
+    // boundary the injury poll above already had to work around for
+    // mflExportJson. Calling the EXISTING /admin/ir/announce route via
+    // env.SELF.fetch() (the established cross-scope pattern; see the
+    // wrangler.toml [[services]] comment and the FA-report rule2-fines call
+    // a few hundred lines up) reuses that route's own copy, GIF pools AND
+    // its own re-verification against the live roster before posting --
+    // this detector only needs to notice the transition, not re-implement
+    // how to announce one.
+    //
+    // Dark by default: IR_NATIVE_ANNOUNCE_ENABLED unset/"0" means the diff
+    // still runs and the ledger still updates every hour (keeping it warm so
+    // there is no stale-ledger flood the day this DOES get armed), but every
+    // call passes dry_run:true until the flag is flipped -- the same
+    // ship-dark-then-arm convention already used for
+    // WW_CONTRACT_ANNOTATE_ENABLED / TRADE_SENTINEL_ACT_ENABLED / etc. after
+    // this codebase's history of automated-Discord-post incidents (the FAA
+    // sweep flattening 18 contracts, the roast bot's duplicate posts).
+    if (env.UPS_MFL_DB) {
+      ctx.waitUntil((async () => {
+        try {
+          const irnSeason = String(env.YEAR || new Date().getUTCFullYear());
+          const irnLeague = String(env.LEAGUE_ID || "74598");
+          const db = env.UPS_MFL_DB;
+
+          const rosRes = await (async () => {
+            try {
+              const r = await fetch(
+                `https://api.myfantasyleague.com/${encodeURIComponent(irnSeason)}/export?TYPE=rosters&L=${encodeURIComponent(irnLeague)}&JSON=1`,
+                { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 60 } }
+              );
+              return r.ok ? { ok: true, data: await r.json().catch(() => null) } : { ok: false, data: null };
+            } catch (_) { return { ok: false, data: null }; }
+          })();
+          if (!rosRes.ok || !rosRes.data) {
+            console.warn("[ir-native-detect] roster export unreadable, skipped");
+            return;
+          }
+          let franchises = rosRes.data?.rosters?.franchise;
+          franchises = Array.isArray(franchises) ? franchises : (franchises ? [franchises] : []);
+
+          const existingRows = await db.prepare(
+            "SELECT franchise_id, player_id, last_status FROM ups_ir_roster_status WHERE season = ? AND league_id = ?"
+          ).bind(irnSeason, irnLeague).all();
+          const existing = {};
+          for (const r of (existingRows && existingRows.results) || []) {
+            existing[`${r.franchise_id}|${r.player_id}`] = r.last_status;
+          }
+
+          const isIrStatus = (s) => {
+            const u = String(s || "").toUpperCase();
+            return u.indexOf("IR") !== -1 || u.indexOf("INJURED") !== -1 || u.indexOf("RESERVE") !== -1;
+          };
+          const nowTs = Math.floor(Date.now() / 1000);
+          const seedStmts = [];
+          const updateStmts = [];
+          const transitions = [];   // { fid, pid, placing }
+          const seenKeys = new Set();
+
+          for (const fr of franchises) {
+            const fid = _padFranchiseIdTopLevel(fr && fr.id);
+            let players = fr && fr.player;
+            players = Array.isArray(players) ? players : (players ? [players] : []);
+            for (const row of players) {
+              const pid = String((row && row.id) || "").replace(/\D/g, "");
+              if (!pid || !fid) continue;
+              const key = `${fid}|${pid}`;
+              seenKeys.add(key);
+              const status = String((row && row.status) || "").toUpperCase();
+              const prev = existing[key];
+              if (prev == null) {
+                // Never tracked before -- seed only, never announce.
+                seedStmts.push(db.prepare(
+                  "INSERT INTO ups_ir_roster_status (season, league_id, franchise_id, player_id, last_status, last_checked_at) VALUES (?, ?, ?, ?, ?, ?)"
+                ).bind(irnSeason, irnLeague, fid, pid, status, nowTs));
+                continue;
+              }
+              if (prev === status) continue;   // no change at all — nothing to write, nothing to announce
+              const wasIr = isIrStatus(prev), nowIr = isIrStatus(status);
+              if (wasIr !== nowIr) transitions.push({ fid, pid, placing: nowIr });
+              updateStmts.push(db.prepare(
+                "UPDATE ups_ir_roster_status SET last_status = ?, last_checked_at = ? WHERE season = ? AND league_id = ? AND franchise_id = ? AND player_id = ?"
+              ).bind(status, nowTs, irnSeason, irnLeague, fid, pid));
+            }
+          }
+          // One batch for every write this tick produces. D1 batches run as
+          // a single transaction; a few hundred statements is well within
+          // its limits and this only runs once an hour.
+          const allStmts = seedStmts.concat(updateStmts);
+          if (allStmts.length) await db.batch(allStmts);
+          console.log(`[ir-native-detect] tracked=${Object.keys(existing).length} seen=${seenKeys.size} ` +
+                      `seeded=${seedStmts.length} updated=${updateStmts.length} transitions=${transitions.length}`);
+
+          if (!transitions.length) return;
+          const announceArmed = await getFeatureFlag(env, "IR_NATIVE_ANNOUNCE_ENABLED");
+          const commishKey = String(env.COMMISH_API_KEY || "").trim();
+          if (!env.SELF || !commishKey) {
+            console.log("[ir-native-detect] transitions found but no env.SELF/COMMISH_API_KEY — cannot announce");
+            return;
+          }
+          for (const t of transitions) {
+            try {
+              const res = await env.SELF.fetch(
+                `https://self.invalid/admin/ir/announce?L=${irnLeague}&YEAR=${irnSeason}&APIKEY=${encodeURIComponent(commishKey)}`,
+                {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    season: irnSeason, league_id: irnLeague, player_id: t.pid,
+                    placing: t.placing, dry_run: !announceArmed,
+                  }),
+                }
+              );
+              const j = await res.json().catch(() => null);
+              console.log(`[ir-native-detect] ${t.placing ? "placed" : "activated"} pid=${t.pid} fid=${t.fid} ` +
+                          `armed=${!!announceArmed} -> ${JSON.stringify(j)}`);
+            } catch (e) {
+              console.log(`[ir-native-detect] announce failed pid=${t.pid}:`, String(e && e.message || e));
+            }
+          }
+        } catch (e) {
+          console.error(`[ir-native-detect] failed: ${e && e.message}`);
+        }
+      })());
+    }
+
     // ── §G3/§H LINEUP COMPLIANCE ──────────────────────────────────────────
     // Two passes, both cheap and both no-ops most hours:
     //   • DM sweep — fires only when a game window is 1–2.5h out, so an owner
