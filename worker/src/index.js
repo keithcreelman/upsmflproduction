@@ -44763,6 +44763,68 @@ const mflToSleeper = {};
         }
       }
 
+      // GET /admin/discord/ir-announcements — READ-ONLY. Scrapes the drops
+      // channel for _announceIrMove's own posts (the parent embed, titled
+      // "{name} — placed on Injured Reserve" or "{name} — activated off
+      // Injured Reserve"). This is the ONLY reliable record of what has
+      // actually been announced -- ups_discord_messages cannot be used for
+      // this: its ingest stopped 2026-08-01 (a month before this route was
+      // needed), its channel allowlist does not even include the drops
+      // channel, and its own script skips embed-only posts on purpose
+      // ("pure attachment/embed posts carry no quotable text"). Discord
+      // itself is the only source of truth for "did this already post."
+      // Commish-gated. No writes. Same shape/pattern as
+      // /admin/discord/restructures immediately above.
+      if (path === "/admin/discord/ir-announcements" && request.method === "GET") {
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const irBotToken = contractDiscordBotToken();
+        if (!irBotToken) return jsonOut(500, { ok: false, error: "DISCORD_BOT_TOKEN missing" });
+        const irChannelId = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "").replace(/\D/g, "");
+        if (!irChannelId) return jsonOut(500, { ok: false, error: "DISCORD_DROPS_CHANNEL_ID missing" });
+        const irMaxPages = Math.max(1, Math.min(60, safeInt(url.searchParams.get("pages"), 20)));
+        const irOut = [];
+        let irBefore = "";
+        let irPages = 0;
+        try {
+          while (irPages < irMaxPages) {
+            const u = `https://discord.com/api/v10/channels/${encodeURIComponent(irChannelId)}/messages?limit=100${irBefore ? `&before=${encodeURIComponent(irBefore)}` : ""}`;
+            const r = await fetch(u, { headers: { Authorization: `Bot ${irBotToken}` } });
+            if (!r.ok) {
+              if (irPages === 0) return jsonOut(r.status, { ok: false, error: `discord_${r.status}`, detail: safeStr(await r.text()).slice(0, 240) });
+              break;
+            }
+            const msgs = await r.json();
+            if (!Array.isArray(msgs) || msgs.length === 0) break;
+            for (const m of msgs) {
+              const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+              const title = safeStr((embeds[0] || {}).title);
+              // Exact title shape from _announceIrMove -- see the placing ?
+              // "placed on Injured Reserve" : "activated off Injured
+              // Reserve" ternary a few hundred lines up. Matching the title
+              // string directly (not a loose keyword blob) so this can't
+              // false-positive on some unrelated post that merely mentions
+              // "reserve" in passing.
+              if (!/ — (placed on|activated off) Injured Reserve$/.test(title)) continue;
+              const placing = / — placed on Injured Reserve$/.test(title);
+              const player = title.replace(/ — (placed on|activated off) Injured Reserve$/, "");
+              irOut.push({
+                player, placing,
+                ts: safeStr(m.timestamp),
+                message_id: safeStr(m.id),
+                title,
+              });
+            }
+            irBefore = safeStr(msgs[msgs.length - 1].id);
+            irPages++;
+          }
+          return jsonOut(200, { ok: true, channel_id: irChannelId, pages_scanned: irPages, count: irOut.length, announcements: irOut });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // POST /admin/import-salaries
       // Body: {
       //   season: "2026",
