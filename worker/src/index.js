@@ -15368,10 +15368,10 @@ export default {
         const ADP_SOURCES = [
           { key: "fc",  label: "FantasyCalc",        role: "value",      independent: true,  panel: "observed-trades",
             side: "offense", roster: "sf",   rosters: ["q1", "sf"],        te: "standard", horizon: "dynasty",
-            cardinal: true,  blend: "dynasty-sf",       weight: 1, dynKey: "dsf",  rdKey: "rsf" },
+            cardinal: true,  blend: "dynasty-sf",       weight: 1, rdWeight: 1, dynKey: "dsf",  rdKey: "rsf" },
           { key: "ktc", label: "KeepTradeCut",       role: "value",      independent: true,  panel: "crowd-elo",
             side: "offense", roster: "sf",   rosters: ["q1", "sf", "tep"], te: "premium",  horizon: "dynasty",
-            cardinal: true,  blend: "dynasty-sf",       weight: 1, dynKey: "dtep", rdKey: "rsf" },
+            cardinal: true,  blend: "dynasty-sf",       weight: 1, rdWeight: 1, dynKey: "dtep", rdKey: "rsf" },
           { key: "dp",  label: "DynastyProcess",     role: "value",      independent: false, panel: "expert-ecr",
             side: "offense", roster: "sf",   rosters: ["q1", "sf"],        te: "standard", horizon: "dynasty",
             cardinal: true,  blend: "dynasty-sf",       weight: 1, dynKey: "dsf",  rdKey: null,
@@ -15381,8 +15381,8 @@ export default {
             cardinal: false, blend: "redraft-1qb-adp",  weight: 1, dynKey: null,   rdKey: "ffcAdp" },
           { key: "ffcSf", label: "FFC 2QB ADP",      role: "adp",        independent: true,  panel: "live-drafts",
             side: "offense", roster: "sf",   rosters: ["sf"],             te: "standard", horizon: "redraft",
-            cardinal: false, blend: "redraft-sf-adp",   weight: 1, dynKey: null,   rdKey: "ffcSfAdp",
-            note: "Superflex live-draft ADP (952 drafts, trailing 30d) — real draft BEHAVIOR in this league's roster format. Thin coverage (~156); present-only." },
+            cardinal: false, blend: "redraft-sf-adp",   weight: 1, rdWeight: 1, rdCardinal: false, dynKey: null,   rdKey: "ffcSfAdp",
+            note: "Superflex live-draft ADP (952 drafts, trailing 30d) — real draft BEHAVIOR in this league's roster format. Thin coverage (~156); present-only. rdWeight promotes it to a genuine 3rd redraft-value panel below (ffcSfNrsf), alongside fc.rsf/ktc.rsf — see the REDRAFT VALUE section." },
           { key: "fs",  label: "FantasySharks",      role: "projection", independent: true,  panel: "statistical",
             side: "both",    roster: "1qb", rosters: ["q1"],              te: "standard", horizon: "redraft",
             cardinal: true,  blend: "projection-2026",  weight: 1, dynKey: null,   rdKey: "fsPts",
@@ -16032,6 +16032,115 @@ export default {
           }
 
           // ═════════════════════════════════════════════════════════════════
+          //  REDRAFT VALUE — a genuine 3rd independent panel, then a
+          //  PER-PLAYER confidence check the dynasty axis has no analogue for.
+          // ═════════════════════════════════════════════════════════════════
+          // The dynasty blend above has 3 independent cardinal-$ panels to
+          // triangulate between. The redraft axis only ever had TWO (fc.rsf,
+          // ktc.rsf) — DynastyProcess has no redraft mode at all (dp.rdKey is
+          // null) — so it shipped as a bare unweighted mean with no way to
+          // tell real 2-source agreement (Parker Washington) apart from two
+          // sources describing two different players (Keenan Allen: fc.rsf
+          // $234, ktc.rsf $3730 — a 16x gap a raw mean quietly averages into
+          // $1982, a number matching NEITHER opinion). Manufacturing a genuine
+          // 3rd panel out of ffcSfAdp — FFCalculator's live Superflex-draft
+          // ADP, REVEALED preference from real human drafters rather than a
+          // stated valuation, the same revealed-vs-stated distinction that
+          // already certifies fc/ktc as independent of each other — makes the
+          // leader/expected/inverted math below reusable here, and makes a
+          // per-player 2-of-3 cluster/outlier test possible for the first
+          // time. Non-QB rows missing ffcSfAdp fall back to the 1QB ffcAdp
+          // feed (tagged `ffcSfNrsfSrc`); gated to non-QB because 1QB↔SF ADP
+          // diverges systematically at exactly QB, where a superflex league
+          // drafts the position far earlier than a 1QB pool would.
+          const refCurveRd = board.map((r) => Number((r.fc || {}).rsf) || 0).filter((v) => v > 0).sort((a, b) => b - a);
+          const valueAtPctRd = (q) => {
+            if (!refCurveRd.length) return null;
+            const x = Math.max(0, Math.min(1, q)) * (refCurveRd.length - 1);
+            const i = Math.floor(x), j = Math.min(i + 1, refCurveRd.length - 1);
+            return refCurveRd[i] + (refCurveRd[j] - refCurveRd[i]) * (x - i);
+          };
+          {
+            const withSf = board.filter((r) => !r.isIdp && Number(r.ffcSfAdp) > 0)
+              .sort((a, b) => a.ffcSfAdp - b.ffcSfAdp);   // ascending — lower pick # is better
+            const nSf = withSf.length;
+            withSf.forEach((r, i) => { r.ffcSfNrsf = Math.round(valueAtPctRd((i + 0.5) / nSf)); r.ffcSfNrsfSrc = "sf"; });
+            const withQ1Fallback = board.filter((r) => !r.isIdp && r.pos !== "QB" && !(Number(r.ffcSfAdp) > 0) && Number(r.ffcAdp) > 0)
+              .sort((a, b) => a.ffcAdp - b.ffcAdp);
+            const nQ1 = withQ1Fallback.length;
+            withQ1Fallback.forEach((r, i) => { r.ffcSfNrsf = Math.round(valueAtPctRd((i + 0.5) / nQ1)); r.ffcSfNrsfSrc = "1qb-fallback"; });
+          }
+
+          const RD_VALUE_SRC = ADP_SOURCES.filter((s) => s.rdWeight > 0);
+          const pctBySrcRd = {};   // key → { pid → percentile }, each source ranked ONLY within its own reporting population
+          for (const s of RD_VALUE_SRC) {
+            const vals = {};
+            for (const r of board) {
+              if (r.isIdp) continue;
+              const v = s.key === "ffcSf" ? (Number(r.ffcSfNrsf) || 0) : (Number((r[s.key] || {})[s.rdKey]) || 0);
+              if (v > 0) vals[r.pid] = v;
+            }
+            const ordered = Object.keys(vals).sort((a, b) => vals[b] - vals[a]);
+            const n = ordered.length, m = {};
+            ordered.forEach((pid, i) => { m[pid] = (i + 0.5) / n; });
+            pctBySrcRd[s.key] = m;
+          }
+
+          // Per-player confidence classifier. The dynasty axis has no
+          // equivalent because its board-wide degeneracy check (below) is
+          // sufficient there — 3 well-correlated panels rarely split on one
+          // player without the whole board drifting. Redraft splits are
+          // mostly per-player (a role-uncertain veteran, a depth-chart fight),
+          // not board-wide, so this check has to live at the row level.
+          // Thresholds calibrated against this exact board's real percentile-
+          // gap distribution (2026-08-31): 2-source gap p50=.118 p75=.226
+          // p90=.361; 3-source spread p50=.16 p75=.293 p90=.384-.390.
+          const RD_AGREE = 0.15;        // <= this: ordinary cross-source noise
+          const RD_CONTESTED = 0.35;    // >= this: most-divergent ~10-12% of the board
+          const RD_OUTLIER_ABS = 0.25;  // an outlier panel must itself be this far out...
+          const RD_OUTLIER_REL = 2.0;   // ...and at least this many times farther than the agreeing pair
+          for (const r of board) {
+            if (r.isIdp) { r.redraft = null; continue; }
+            const pcts = {};
+            for (const s of RD_VALUE_SRC) { const q = pctBySrcRd[s.key][r.pid]; if (q != null) pcts[s.key] = q; }
+            const entries = Object.entries(pcts);
+            const k = entries.length;
+            let rd;
+            if (k === 0) {
+              rd = { rsf: null, rsfConsensus: null, rsfConfidence: "no-data", rsfPanels: 0, rsfSpread: null, rsfOutlierSource: null, rsfDetail: {} };
+            } else if (k === 1) {
+              const v = Math.round(valueAtPctRd(entries[0][1]));
+              rd = { rsf: v, rsfConsensus: v, rsfConfidence: "single-source", rsfPanels: 1, rsfSpread: null, rsfOutlierSource: null, rsfDetail: pcts };
+            } else if (k === 2) {
+              const gap = Math.round(Math.abs(entries[0][1] - entries[1][1]) * 10000) / 10000;
+              const mean = (entries[0][1] + entries[1][1]) / 2;
+              const conf = gap <= RD_AGREE ? "agree" : gap >= RD_CONTESTED ? "contested" : "elevated";
+              const v = Math.round(valueAtPctRd(mean));
+              rd = { rsf: v, rsfConsensus: v, rsfConfidence: conf, rsfPanels: 2, rsfSpread: gap, rsfOutlierSource: null, rsfDetail: pcts };
+            } else {
+              const sorted = entries.slice().sort((a, b) => a[1] - b[1]);   // [low, mid, high] by percentile
+              const gLow = sorted[1][1] - sorted[0][1], gHigh = sorted[2][1] - sorted[1][1];
+              const clusterGap = Math.min(gLow, gHigh), outlierGap = Math.max(gLow, gHigh);
+              const totalSpread = Math.round((sorted[2][1] - sorted[0][1]) * 10000) / 10000;
+              if (outlierGap >= RD_OUTLIER_REL * clusterGap && outlierGap >= RD_OUTLIER_ABS) {
+                const outlierEntry = (gHigh === outlierGap) ? sorted[2] : sorted[0];
+                const agree2 = sorted.filter((e) => e !== outlierEntry);
+                const v = Math.round(valueAtPctRd((agree2[0][1] + agree2[1][1]) / 2));
+                rd = { rsf: v, rsfConsensus: v, rsfConfidence: "outlier-adjusted", rsfPanels: 3, rsfSpread: totalSpread, rsfOutlierSource: outlierEntry[0], rsfDetail: pcts };
+              } else if (totalSpread <= RD_AGREE) {
+                const v = Math.round(valueAtPctRd((entries[0][1] + entries[1][1] + entries[2][1]) / 3));
+                rd = { rsf: v, rsfConsensus: v, rsfConfidence: "agree", rsfPanels: 3, rsfSpread: totalSpread, rsfOutlierSource: null, rsfDetail: pcts };
+              } else {
+                const conf = totalSpread >= RD_CONTESTED ? "contested" : "elevated";
+                const v = Math.round(valueAtPctRd(sorted[1][1]));   // median opinion — not a spread-blind mean of the extremes
+                rd = { rsf: v, rsfConsensus: v, rsfConfidence: conf, rsfPanels: 3, rsfSpread: totalSpread, rsfOutlierSource: null, rsfDetail: pcts };
+              }
+            }
+            r.redraft = rd;
+            r.rsfConsensus = rd.rsfConsensus;   // flat back-compat alias so nothing existing breaks
+          }
+
+          // ═════════════════════════════════════════════════════════════════
           //  IDP ORDERING — scarcity-adjusted VORP on UPS-SCORED projections
           // ═════════════════════════════════════════════════════════════════
           // A SEPARATE code path from the dynasty cardinal consensus above, and
@@ -16275,6 +16384,57 @@ export default {
             value_sources: VALUE_SRC.length,
           };
 
+          // Board-wide health check for the redraft axis — the SAME math as
+          // the dynasty degeneracy above, parameterized on the redraft panels.
+          // Catches a DIFFERENT failure than the per-player rsfConfidence
+          // check above: not "is this one player's number untrustworthy" but
+          // "is the FORMULA itself secretly dominated by one source's scale"
+          // — the systemic failure that hit the dynasty axis before
+          // 2026-07-21 (leader=KTC, expected=FantasyCalc) and that any future
+          // redraft blend change could reintroduce without anyone noticing on
+          // a per-player basis.
+          const degUnivRd = board.filter((r) => !r.isIdp && r.redraft && r.redraft.rsfPanels >= 2);
+          const rawOfRd = (r, s) => (s.key === "ffcSf" ? Number(r.ffcSfNrsf) : Number((r[s.key] || {})[s.rdKey])) || null;
+          const vsConsRd = {}, pairwiseRd = {};
+          for (const s of RD_VALUE_SRC) {
+            const pr = degUnivRd.filter((r) => r.redraft.rsfConsensus && rawOfRd(r, s)).map((r) => [r.redraft.rsfConsensus, rawOfRd(r, s)]);
+            vsConsRd[s.key] = spearman(pr);
+            let tot = 0, cnt = 0;
+            for (const t of RD_VALUE_SRC) {
+              if (t.key === s.key) continue;
+              const p2 = degUnivRd.filter((r) => rawOfRd(r, s) && rawOfRd(r, t)).map((r) => [rawOfRd(r, s), rawOfRd(r, t)]);
+              const rho = spearman(p2);
+              if (rho != null) { pairwiseRd[s.key + "|" + t.key] = rho; tot += rho; cnt++; }
+            }
+            vsConsRd[s.key + "_meanPairwise"] = cnt ? Math.round(tot / cnt * 10000) / 10000 : null;
+          }
+          const keysVRd = RD_VALUE_SRC.map((s) => s.key).filter((k) => vsConsRd[k] != null);
+          const leaderRd = keysVRd.slice().sort((a, b) => vsConsRd[b] - vsConsRd[a])[0] || null;
+          const expectedRd = keysVRd.slice().sort((a, b) => (vsConsRd[b + "_meanPairwise"] || 0) - (vsConsRd[a + "_meanPairwise"] || 0))[0] || null;
+          const rhoValsRd = keysVRd.map((k) => vsConsRd[k]);
+          const redraft_degeneracy = {
+            note: "rho(redraft consensus, source-alone). leader must equal expected; if not, one source's scale is driving the redraft board. Separate from the per-player rsfConfidence check on each board row, which catches an individual contested player rather than a board-wide formula problem.",
+            rho_vs_source: keysVRd.reduce((o, k) => { o[k] = vsConsRd[k]; return o; }, {}),
+            mean_pairwise_agreement: keysVRd.reduce((o, k) => { o[k] = vsConsRd[k + "_meanPairwise"]; return o; }, {}),
+            inter_source_rho: pairwiseRd,
+            leader: leaderRd, expected_leader: expectedRd,
+            inverted: !!(leaderRd && expectedRd && leaderRd !== expectedRd),
+            spread: rhoValsRd.length ? Math.round((Math.max.apply(null, rhoValsRd) - Math.min.apply(null, rhoValsRd)) * 10000) / 10000 : null,
+            max_rho: rhoValsRd.length ? Math.max.apply(null, rhoValsRd) : null,
+            independent_panels: Array.from(new Set(RD_VALUE_SRC.map((s) => s.panel))).length,
+            value_sources: RD_VALUE_SRC.length,
+          };
+          const panelsLiveRd = RD_VALUE_SRC.filter((s) => Object.keys(pctBySrcRd[s.key] || {}).length > 0).map((s) => s.panel);
+          const rdConfCounts = {};
+          for (const r of board) { if (r.isIdp || !r.redraft) continue; rdConfCounts[r.redraft.rsfConfidence] = (rdConfCounts[r.redraft.rsfConfidence] || 0) + 1; }
+          const rdOffenseTotal = board.filter((r) => !r.isIdp).length;
+          const redraft_confidence_summary = {
+            by_confidence: rdConfCounts,
+            pct_contested: rdOffenseTotal ? Math.round((rdConfCounts.contested || 0) / rdOffenseTotal * 1000) / 10 : null,
+            thresholds: { AGREE: RD_AGREE, CONTESTED: RD_CONTESTED, OUTLIER_ABS: RD_OUTLIER_ABS, OUTLIER_REL: RD_OUTLIER_REL },
+            method: "percentile-space (each of fc.rsf/ktc.rsf/ffcSf-derived-nrsf ranked within its own reporting population), mapped onto FantasyCalc's redraft-SF cardinal curve; ffcSfAdp (real live Superflex-draft ADP) manufactures a genuine 3rd independent redraft-$ opinion via the same percentile-to-curve technique used on the dynasty axis above",
+          };
+
           // Report which sources actually resolved this request, alongside the
           // declared format signature + independence flag for each, so the UI
           // can show provenance and never present a derivative as corroboration.
@@ -16394,6 +16554,18 @@ export default {
               basis_counts: idpRows.reduce((a, r) => { if (r.idpBasis) a[r.idpBasis] = (a[r.idpBasis] || 0) + 1; return a; }, {}),
               replacementPerGroup: repl },
             degeneracy: degeneracy, tier_check: tierCheck, mfl_aav: mflAavMeta,
+            // Redraft axis: mirrors dynasty_axis's shape. Degrades gracefully
+            // (never a 502) if fewer than 2 of the 3 rdWeight panels resolve —
+            // the per-row `redraft` block already says per-player whether it
+            // had enough sources to say anything, so a thin request is still
+            // informative rather than withheld outright.
+            redraft_axis: {
+              served: RD_VALUE_SRC.length >= 2,
+              reason: RD_VALUE_SRC.length >= 2 ? null : "fewer than 2 redraft-value panels configured",
+              panels_expected: 3, panels_live: panelsLiveRd.length, panels: panelsLiveRd,
+            },
+            redraft_degeneracy: redraft_degeneracy,
+            redraft_confidence_summary: redraft_confidence_summary,
             generated_at: new Date().toISOString(), count: out.length, board: out,
           });
         } catch (e) {

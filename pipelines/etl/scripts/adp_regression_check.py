@@ -44,6 +44,90 @@ BENCHMARKS = [
      "The original bug reported him at WR91."),
 ]
 
+# (name, mfl_id, expected rsfConfidence) — the three players that exposed the
+# 2026-08-31 redraft-degeneracy gap: fc.rsf/ktc.rsf averaged raw with no way
+# to tell Parker Washington's genuine 2-source agreement apart from Keenan
+# Allen's 16x fc-vs-ktc gap ($234 vs $3730), which the mean quietly turned
+# into $1982 — a number matching neither source. See
+# feedback_redraft_not_dynasty_for_season_value / project memory for the full
+# incident. If a benchmark starts failing after a legitimate formula change,
+# re-verify against the live board and update the expected confidence AND
+# this comment — don't just delete the benchmark.
+REDRAFT_CONFIDENCE_BENCHMARKS = [
+    ("Keenan Allen", "11222", "contested",
+     "fc.rsf/ktc.rsf/ffcSf disagree by 0.38 of the position pool (2026-08-31) — "
+     "a genuine 3-way split, not a rescuable 2-vs-1 outlier."),
+    ("Christian Watson", "15789", "agree",
+     "All 3 panels cluster within 0.13 — looks like a real 2.4x raw-dollar gap "
+     "only because ktc.rsf's redraft-$ curve is shaped differently than fc's; "
+     "in percentile terms the sources agree."),
+    ("Parker Washington", "16192", "outlier-adjusted",
+     "fc and ffcSf agree tightly (gap 0.02); ktc alone sits 0.53 away (~28x the "
+     "cluster's own tightness) — KTC's redraft-$ floor compresses hard near "
+     "$1,523, making a real outlier look like a small raw-dollar gap."),
+]
+
+
+def check_redraft_degeneracy(problems: list) -> None:
+    """Board-wide health check for the redraft axis, plus the 3 named
+    per-player confidence benchmarks above. Mirrors check_degeneracy()'s
+    leader/expected/inverted logic exactly, parameterized on the redraft
+    panels (fc.rsf, ktc.rsf, and a manufactured 3rd panel from FFCalculator's
+    live Superflex-draft ADP) — see worker/src/index.js's REDRAFT VALUE
+    section for the full derivation.
+    """
+    import json as _json
+    import urllib.request as _ur
+    import os as _os
+    base = _os.environ.get("UPS_WORKER_BASE",
+                           "https://upsmflproduction.keith-creelman.workers.dev").rstrip("/")
+    try:
+        req = _ur.Request(base + "/api/adp-board",
+                          headers={"User-Agent": "ups-adp-regression", "Accept": "application/json"})
+        d = _json.loads(_ur.urlopen(req, timeout=60).read())
+    except Exception as e:
+        print(f"[SKIP] redraft degeneracy check — board fetch failed ({e})")
+        return
+    dg = d.get("redraft_degeneracy")
+    if not dg:
+        problems.append("board response carries no `redraft_degeneracy` block")
+        return
+    status = "FAIL" if dg.get("inverted") else "OK"
+    print(f"[{status}] redraft degeneracy: leader={dg.get('leader')} expected={dg.get('expected_leader')} "
+          f"spread={dg.get('spread')} max_rho={dg.get('max_rho')} "
+          f"panels={dg.get('independent_panels')}/{dg.get('value_sources')}")
+    if dg.get("inverted"):
+        problems.append(
+            f"redraft degeneracy INVERTED — consensus is closest to '{dg.get('leader')}', but "
+            f"'{dg.get('expected_leader')}' agrees most with the other sources.")
+
+    summary = d.get("redraft_confidence_summary") or {}
+    print(f"        by_confidence: {summary.get('by_confidence')}  "
+          f"pct_contested={summary.get('pct_contested')}")
+    # A healthy board flags a small minority as contested (~5-10% observed).
+    # A spike is itself the operator-facing signal something upstream broke
+    # (most likely KTC's fantasy-rankings scrape), not that a fifth of the
+    # league suddenly became individually uncertain.
+    pct_contested = summary.get("pct_contested")
+    if pct_contested is not None and pct_contested > 20:
+        problems.append(f"redraft pct_contested={pct_contested}% — unusually high; "
+                        f"check whether an upstream (most likely KTC's fantasy-rankings "
+                        f"scrape) degraded rather than treating this as real per-player noise")
+
+    by_pid = {str(r.get("pid")): r for r in (d.get("board") or [])}
+    for name, mfl_id, expected_conf, note in REDRAFT_CONFIDENCE_BENCHMARKS:
+        row = by_pid.get(mfl_id)
+        if row is None:
+            problems.append(f"{name} ({mfl_id}): not found in board at all")
+            continue
+        rd = row.get("redraft") or {}
+        actual_conf = rd.get("rsfConfidence")
+        status = "OK" if actual_conf == expected_conf else "FAIL"
+        print(f"[{status}] {name:20} rsfConfidence={actual_conf} (expected {expected_conf})")
+        print(f"        {note}")
+        if actual_conf != expected_conf:
+            problems.append(f"{name}: rsfConfidence={actual_conf}, expected {expected_conf}")
+
 
 def check_degeneracy(problems: list) -> None:
     """Is the board a real consensus, or one source wearing three hats?
@@ -99,6 +183,8 @@ def main() -> int:
     adp = fetch_adp_board()
     problems = []
     check_degeneracy(problems)
+    print()
+    check_redraft_degeneracy(problems)
     print()
     for name, pos, mfl_id, expected, tol, note in BENCHMARKS:
         row = adp.get(mfl_id)
