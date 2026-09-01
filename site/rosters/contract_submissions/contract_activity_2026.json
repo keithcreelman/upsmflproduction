@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-08-24 11:57:07",
+    "generated_at": "2026-09-01 19:50:31",
     "source": "contract-activity-log",
-    "count": 118,
+    "count": 119,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "a19790f6f15c42e30f171163",
+      "submission_id": "a19790f6f15c42e30f171163",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "17521",
+      "player_name": "Thomas, Zavion",
+      "position": "WR",
+      "salary": 1000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
+      "tcv": 3000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-01T19:50:13.220Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1544434232162521169",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "0fcc975fd92693ef0cfbc941",
       "submission_id": "0fcc975fd92693ef0cfbc941",
