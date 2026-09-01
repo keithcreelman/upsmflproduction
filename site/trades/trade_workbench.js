@@ -2488,7 +2488,22 @@
       var rebuiltSide = rebuiltTeams[i] || {};
       var sideRole = safeStr(rebuiltSide.role).toLowerCase();
       var sideId = pad4(rebuiltSide.franchise_id);
-      var existingSide = getPayloadSideByRole(out, sideRole) || getPayloadSideById(out, sideId) || {};
+      // Match by FRANCHISE ID, not role label. rebuiltPayload is always
+      // oriented with the acting viewer as "left" (buildPayloadFromOfferTokens),
+      // while directPayload (the stored offer) keeps whatever orientation the
+      // ORIGINAL SUBMITTER had — normally themselves as "left". For any offer
+      // you didn't submit yourself (i.e. every incoming offer), those two
+      // orientations are opposite, so "left" in one payload is "right" in the
+      // other. Matching by role blindly grafted each side's selected_assets
+      // onto the WRONG franchise: the recipient's team object ended up
+      // carrying the sender's assets and vice versa. hydrateTeamSelectionsFromPayload
+      // then couldn't find those assets on the (wrong) team's live roster,
+      // silently refused to fabricate them, and both cart sides rendered
+      // empty — the offer showed in the banner list but its contents never
+      // appeared when opened. Franchise id is stable across orientation;
+      // role is not. Keep role as a fallback only for the pathological case
+      // where a side is missing a franchise_id.
+      var existingSide = getPayloadSideById(out, sideId) || getPayloadSideByRole(out, sideRole) || {};
       var mergedSide = clone(existingSide);
       mergedSide.role = safeStr(mergedSide.role || rebuiltSide.role);
       mergedSide.franchise_id = safeStr(mergedSide.franchise_id || rebuiltSide.franchise_id);
