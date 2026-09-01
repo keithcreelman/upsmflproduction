@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-31T17:13:35.186722+00:00",
+    "generated_at_utc": "2026-09-01T14:17:42.100341+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1278,7 +1278,7 @@
           "display": "Justin Joly",
           "player_id": "17548",
           "position": "TE",
-          "nfl_team": "FA",
+          "nfl_team": "MIA",
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
@@ -2125,7 +2125,7 @@
           "display": "Trevin Wallace",
           "player_id": "16704",
           "position": "LB",
-          "nfl_team": "FA",
+          "nfl_team": "NYJ",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
@@ -3584,18 +3584,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17054",
-          "display": "Damien Martinez",
-          "player_id": "17054",
-          "position": "RB",
-          "nfl_team": "FA",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5802,18 +5790,6 @@
           "salary": 1000,
           "contract_year": 3,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17546",
-          "display": "Michael Trigg",
-          "player_id": "17546",
-          "position": "TE",
-          "nfl_team": "FA",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
