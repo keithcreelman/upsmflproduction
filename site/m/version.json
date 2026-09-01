@@ -1,4 +1,4 @@
 {
-  "build": "2026.08.29.2",
-  "label": "New: a search button in the header finds any player in the league — rostered, taxi, IR or free agent — and opens their card. On the Stats page the search box no longer closes your keyboard after every letter, and when a name isn't at the position you're looking at it says so and offers to search everyone instead of reporting 'no data'. The DL board also went from 22 players to 136."
+  "build": "2026.09.01.1",
+  "label": "Fixed: the Waivers red badge could get stuck showing an old claim for days after the run that decided it had already happened, and only a full reload cleared it. It now clears itself the moment the app has fresh waiver data — no reload needed."
 }
