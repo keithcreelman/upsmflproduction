@@ -111,6 +111,10 @@ ADD_TRACKER_AUTO_POST = "0"
 WW_CONTRACT_ANNOTATE_ENABLED = "0"
 WW_CONTRACT_STAMP_ENABLED = "0"
 ADD_TRACKER_DISCORD_TARGET = "prod"   # 1059111651846131833 (shares DISCORD_DROPS_CHANNEL_ID) — Keith 2026-08-07, after reviewing the shape in test
+# IR_NATIVE_ANNOUNCE_ENABLED — env-var default only. The live value is the D1
+# override in ups_settings (see feature_flags.js); armed there 2026-08-31.
+# This "0" only matters if that override is ever cleared.
+IR_NATIVE_ANNOUNCE_ENABLED = "0"
 
 # Trade-offer Discord DMs (worker/src/trade_dm.js). When a recipient gets a
 # trade offer through our app (mobile builder OR desktop War Room), DM them the
