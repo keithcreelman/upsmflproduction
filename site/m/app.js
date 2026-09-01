@@ -1230,6 +1230,17 @@
       try { window.dispatchEvent(new Event("ups-cap-penalty-ready")); } catch (_) {}
       parseLeague();
       resolveViewerFranchise(results[14]);
+      // reconcileWaiverPlanAgainstRun() also runs the instant fetchWaiverState
+      // resolves (see that function) — but at COLD BOOT that fetch is one of
+      // ~20 fired in parallel above, so it typically resolves BEFORE this line,
+      // while state.viewerFranchiseId is still whatever it was before this
+      // load (usually blank). waiverPlanKey() folds the fid into the
+      // localStorage key, so that earlier call reconciles the WRONG (or an
+      // empty "none") slot and silently no-ops on the real one — the plan
+      // read/write key changes under it the instant the line above runs. Re-run
+      // it now that the fid is actually known, so cold boot gets the same
+      // correct behavior the foreground-resume path already had for free.
+      reconcileWaiverPlanAgainstRun();
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
@@ -1821,12 +1832,64 @@
         if (j && j.ok) {
           state.waiverState = j;
           state.waiverStateAt = Date.now();
+          // See reconcileWaiverPlanAgainstRun below. This covers the
+          // foreground-resume path (viewerFranchiseId is already resolved by
+          // then, this app instance was already running) and any other
+          // fetchState(true) caller. At COLD BOOT, viewerFranchiseId is not
+          // resolved yet when this particular fetch settles — see the second
+          // call, right after resolveViewerFranchise() in loadAllData — so
+          // this one is a harmless no-op there (wrong/empty localStorage key)
+          // rather than the fix for that path.
+          reconcileWaiverPlanAgainstRun();
         }
         return state.waiverState;
       })
       .catch(function () { state.waiverStatePromise = null; return state.waiverState; });
     state.waiverStatePromise = p;
     return p;
+  }
+
+  // ── Auto-clear a plan a waiver run has already processed (Keith 2026-09-01) ──
+  // "waiver claims get hung up from days ago... red notification... I need to
+  // reload" — the Home tile's badge reads getWaiverPlan()'s STAGED count, but
+  // until this function existed, that local plan was only ever reconciled
+  // against a processed run inside players.js's Claims screen
+  // (runProcessedClear, see its own long comment for the full mechanism this
+  // mirrors). An owner who never opened Claims — just glanced at Home and
+  // reloaded — kept seeing a stale badge indefinitely: reloading re-fetches
+  // waiver STATE, but nothing had ever told the local PLAN a run already
+  // happened, so the same stale count came right back.
+  //
+  // Same fail-closed comparison as runProcessedClear, minus the notice-
+  // building (a Claims-screen-only concern): known:false, a missing/zero
+  // last-run, or a missing/zero target all change NOTHING (rule_no_fail_open_
+  // guards — leaving a stale claim on screen one more cycle beats clearing a
+  // live one on a guess). `ranAt >= target` — not > — because target IS a run
+  // instant, and both sides come from the same MFL calendar, so there is no
+  // clock to skew.
+  //
+  // Deliberately independent of players.js: this only ever makes
+  // openClaimsScreen()'s own guards see a CORRECTLY empty local plan sooner
+  // (which un-suppresses its "nothing staged → seed from /pending" fetch),
+  // it never replaces that screen's richer reconciliation.
+  function reconcileWaiverPlanAgainstRun() {
+    var lr = waiverLastRun();
+    if (!lr || lr.known !== true) return false;
+    var ranAt = lr.unix;
+    if (typeof ranAt !== "number" || !isFinite(ranAt) || ranAt <= 0) return false;
+    var plan = getWaiverPlan();
+    var target = state.waiverTargetRun;
+    if (typeof target !== "number" || !isFinite(target) || target <= 0) return false;
+    if (!(ranAt >= target)) return false;
+    if (!plan.length) {
+      // Nothing to clear, but the spent target still has to go — see
+      // runProcessedClear's identical note: leaving it would wipe a
+      // genuinely live plan staged tomorrow against a later run.
+      setWaiverPlan(plan, { targetRun: null });
+      return false;
+    }
+    setWaiverPlan([], { targetRun: null });
+    return true;
   }
 
   // GET /api/waivers/pending — the claims MFL currently holds for this owner.
@@ -3051,11 +3114,28 @@
     // Bid to Add; a WAIVER_NONE span opens/closes). Re-check whenever the PWA
     // comes back to the foreground, and repaint if anything actually changed
     // so nobody taps a button the league no longer allows.
+    //
+    // The staleness check used to compare `window` alone — so a run firing
+    // while the PWA sat backgrounded (last_run advances, but the NEXT
+    // scheduled run in `window` is often unchanged) never repainted at all.
+    // fetchWaiverState's success path now also runs
+    // reconcileWaiverPlanAgainstRun(), which can silently clear a staged
+    // plan the instant fresh state lands — so `plan` has to be in this
+    // comparison too, or the Home badge stays showing the pre-clear count
+    // until something else happens to repaint the screen (Keith 2026-09-01:
+    // "I need to reload").
+    function waiverFreshnessSignature(st) {
+      return JSON.stringify({
+        window: (st && st.window) || null,
+        lastRun: (st && st.last_run) || null,
+        plan: planSignature(getWaiverPlan())
+      });
+    }
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState !== "visible") return;
-      var before = JSON.stringify((state.waiverState && state.waiverState.window) || null);
+      var before = waiverFreshnessSignature(state.waiverState);
       fetchWaiverState(true).then(function (st) {
-        var after = JSON.stringify((st && st.window) || null);
+        var after = waiverFreshnessSignature(st);
         if (before !== after) { try { renderRoute(); } catch (_) {} }
       });
     });
