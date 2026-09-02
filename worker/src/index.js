@@ -919,12 +919,14 @@ async function processAuctionPoll(env) {
   // caught into {} upstream and must never vouch for the ledger.
   const finalizePollRun = async (dmBids, dmWins) => {
     const pollEndUnix = Math.floor(Date.now() / 1000);
+    let heartbeatWritten = false;
     try {
       await db.prepare(
         `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
          VALUES ('auction_poll', ?, 'ok', '')
          ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = 'ok'`
       ).bind(pollEndUnix).run();
+      heartbeatWritten = true;
     } catch (e) {
       console.log("[auction-poll] heartbeat stamp failed:", String(e?.message || e));
     }
@@ -933,8 +935,16 @@ async function processAuctionPoll(env) {
     // completed run after a >30 min gap. The very next run sees a ~5 min gap
     // and stays silent. 30 min ≈ six missed */5 ticks — a real outage, never
     // a slow tick. Failure here must not fail the poll.
+    //
+    // Gated on heartbeatWritten (2026-09-02): "the next run sees a ~5 min gap"
+    // assumes THIS run's own stamp above actually lands. During the D1
+    // write-cap incident it kept failing, so prevPollTs never advanced and
+    // every tick recomputed the same growing gap — the DM fired every ~5
+    // minutes for hours instead of once. If we can't confirm we recorded our
+    // own recovery, staying silent is the safe side: a skipped one-time ping
+    // costs nothing, a duplicate every tick pages Keith for hours.
     const gapSec = prevPollTs > 0 ? pollStartUnix - prevPollTs : 0;
-    if (gapSec > 30 * 60) {
+    if (heartbeatWritten && gapSec > 30 * 60) {
       try {
         {
           const gapMin = Math.round(gapSec / 60);
