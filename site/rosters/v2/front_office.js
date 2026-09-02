@@ -4602,12 +4602,15 @@
     // — that's §C4 Extensions). Loadable (FL/BL). Shown INSTEAD of Extension while
     // the MYAC window is open (Keith: nobody extends when they can MYAC).
     if (elig.myacEligible) {
-      const recAs = String(p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
       // A pre-season WW/FCFS pickup on the ladder (canon ~379/~785) is
-      // neither an ERA win nor an FA-Auction win — say so explicitly so
-      // "Records as Vet-FAA" (the actual contract_status token, unchanged
-      // here — that's the write path, out of scope for this fix) doesn't
-      // read as "this was won at the FA Auction."
+      // neither an ERA win nor an FA-Auction win — the write path already
+      // preserves the real "-ww" status token through MYAC (only length/
+      // loading changes), so the preview label should say so too instead
+      // of defaulting to "Vet-FAA" and implying an auction win.
+      const statusLower = String(p.type || "").toLowerCase();
+      const recAs = elig.preseasonWaiverPickup
+        ? (statusLower.indexOf("rookie") !== -1 ? "Rookie-WW" : "Vet-WW")
+        : (statusLower.indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA");
       const acqNote = elig.preseasonWaiverPickup
         ? " (this is a pre-season WW/FCFS pickup, not an FA-Auction or ERA win — see the Contracts list for its true acquisition type)"
         : "";
