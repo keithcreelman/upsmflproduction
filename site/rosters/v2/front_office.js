@@ -1357,9 +1357,25 @@
   //   and it is still sitting at years<=0. The years<=0 guard is strict so a
   //   finalized contract (cy>=1, whether written by the poller or a manual
   //   backfill) is NEVER overwritten.
-  function applyAuctionWinOverlay(teams, season) {
+  //
+  //   ROOKIE CARVE-OUT (Keith 2026-09-02, Zavion Thomas class of bug): an FAA
+  //   win gets "Rookie-FAA" instead of "Vet-FAA" when the winner is an NFL
+  //   rookie — the same distinction worker/src/index.js finalizeFaaContracts
+  //   makes off MFL's own draft_year, and the reason myacStatusBase (below)
+  //   now preserves a "Rookie-" prefix through a MYAC conversion. Without
+  //   this, a rookie who wins the auction and submits MYAC before the
+  //   worker's poller finalizes the real contract gets this OVERLAY's
+  //   "Vet-FAA" baked into the write — the exact bug, through a path the
+  //   myacStatusBase fix alone doesn't touch, since this cosmetic stub value
+  //   is what myacStatusBase(p) reads at that moment. ERA gets no such
+  //   carve-out (unchanged): winning the ERA already means the player's
+  //   original rookie deal expired, so "Vet-ERA" is always correct there.
+  //   Scoped to just the (typically 0-2) candidate ids so this never costs a
+  //   fetch on a normal load with no fresh stub sitting around.
+  async function applyAuctionWinOverlay(teams, season) {
     if (!teams || !teams.length) return;
     var seasonStr = String(season);
+    var candidates = [];
     for (var t = 0; t < teams.length; t += 1) {
       var players = teams[t].players || [];
       for (var pi = 0; pi < players.length; pi += 1) {
@@ -1372,15 +1388,36 @@
         if (safeInt(pl.years, 0) > 0) continue;                 // finalized (cy>=1) → never overwrite
         var price = parseContractMoneyToken(pl.acquisitionDetail);
         if (price <= 0) continue;
-        // 'Expired Rookie Auction' → Vet-ERA; 'Free Agent Auction' → Vet-FAA.
-        var isEraWin = /expired\s*rookie|\bera\b/i.test(label);
-        pl.salary = price;
-        pl.aav = price;
-        pl.years = 1;
-        pl.type = isEraWin ? "Vet-ERA" : "Vet-FAA";
-        pl.special = "CL 1| TCV " + fmtK(price) + "| AAV " + fmtK(price);
+        candidates.push({ pl: pl, price: price, isEraWin: /expired\s*rookie|\bera\b/i.test(label) });
       }
     }
+    if (!candidates.length) return;
+    // Only FAA candidates need the rookie check — ERA never carries one.
+    var faaIds = candidates.filter(function (c) { return !c.isEraWin; })
+      .map(function (c) { return safeStr(c.pl.id).replace(/\D/g, ""); }).filter(Boolean);
+    var rookiePids = Object.create(null);
+    if (faaIds.length) {
+      try {
+        var j = await fetchJSON(apiUrl("/api/mfl-export") + "?TYPE=players&DETAILS=1&P=" +
+          encodeURIComponent(faaIds.join(",")) + "&L=" + encodeURIComponent(LEAGUE_ID) +
+          "&YEAR=" + encodeURIComponent(season) + "&JSON=1");
+        var arr = j && j.players && j.players.player;
+        arr = Array.isArray(arr) ? arr : (arr ? [arr] : []);
+        arr.forEach(function (p) {
+          if (p && String(p.draft_year || "") === seasonStr) rookiePids[String(p.id)] = true;
+        });
+      } catch (e) {
+        console.warn("[fo] auction-overlay rookie lookup failed (defaulting to Vet-FAA for this load):", e.message || e);
+      }
+    }
+    candidates.forEach(function (c) {
+      var pl = c.pl;
+      pl.salary = c.price;
+      pl.aav = c.price;
+      pl.years = 1;
+      pl.type = c.isEraWin ? "Vet-ERA" : (rookiePids[safeStr(pl.id).replace(/\D/g, "")] ? "Rookie-FAA" : "Vet-FAA");
+      pl.special = "CL 1| TCV " + fmtK(c.price) + "| AAV " + fmtK(c.price);
+    });
   }
 
   // ── Rookie draft history loader ──────────────────────────────────────
@@ -2082,7 +2119,13 @@
     // Extension, not MYAC). Match the ERA token specifically (not "vetERAn").
     var acqLabel = safeStr(p && p.acquisitionTypeLabel).toLowerCase();
     var acqYr = safeStr(p && p.acquisitionDate).slice(0, 4);
-    var isEra = status.indexOf("-era") !== -1;
+    // CL===1 gate (Keith 2026-09-02): isEra used to carry none at all, which
+    // would hand a MYAC to an already-converted multi-year ERA deal the
+    // moment it reached its final year — mobile's parallel isEra already
+    // carries this gate (site/m/front_office_actions.js ~388), and
+    // isFreshFaaStatus below already carries the identical gate for the FAA
+    // arm; this file's ERA arm was the one left behind.
+    var isEra = status.indexOf("-era") !== -1 && parseContractLengthValue(p && p.special) === 1;
     var isFreshAuction = !isEra && /auction|faa/.test(acqLabel) &&
                          acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
                          acqYr === String(SEASON) && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
@@ -2511,7 +2554,7 @@
       // the acquisition lookup (it needs the won-price detail + label) and
       // BEFORE the taxi repair. Zero writes — display-only. See
       // applyAuctionWinOverlay for the guards.
-      applyAuctionWinOverlay(STATE.teams, safeInt(SEASON, 0));
+      await applyAuctionWinOverlay(STATE.teams, safeInt(SEASON, 0));
       mergeMflSalaryAdjustments(STATE.teams, mflAdj);
       STATE.adjByFid = mflAdj.byFid || {}; // per-team line items for the Cap Alloc popup
       STATE.nextSeasonAdj = nextSeasonAdj; // ledger-only next-season drop penalties
@@ -4603,14 +4646,12 @@
     // the MYAC window is open (Keith: nobody extends when they can MYAC).
     if (elig.myacEligible) {
       // A pre-season WW/FCFS pickup on the ladder (canon ~379/~785) is
-      // neither an ERA win nor an FA-Auction win — the write path already
-      // preserves the real "-ww" status token through MYAC (only length/
-      // loading changes), so the preview label should say so too instead
-      // of defaulting to "Vet-FAA" and implying an auction win.
-      const statusLower = String(p.type || "").toLowerCase();
-      const recAs = elig.preseasonWaiverPickup
-        ? (statusLower.indexOf("rookie") !== -1 ? "Rookie-WW" : "Vet-WW")
-        : (statusLower.indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA");
+      // neither an ERA win nor an FA-Auction win, and a rookie's acquisition
+      // method both survive MYAC — the write path (myacStatusBase, ~4898)
+      // already gets this right, so the preview calls the SAME function
+      // instead of re-deriving it, which is how this drifted from "Vet-FAA"
+      // in the first place (Zavion Thomas, Keith 2026-08-03).
+      const recAs = myacStatusBase(p);
       const acqNote = elig.preseasonWaiverPickup
         ? " (this is a pre-season WW/FCFS pickup, not an FA-Auction or ERA win — see the Contracts list for its true acquisition type)"
         : "";
