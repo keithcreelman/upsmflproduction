@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-01T14:17:42.100341+00:00",
+    "generated_at_utc": "2026-09-02T13:52:04.805033+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1386,7 +1386,7 @@
           "display": "J.K. Scott",
           "player_id": "13791",
           "position": "PN",
-          "nfl_team": "FA",
+          "nfl_team": "LAC",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -2987,6 +2987,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17105",
+          "display": "Gunnar Helm",
+          "player_id": "17105",
+          "position": "TE",
+          "nfl_team": "TEN",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_13697",
           "display": "Tremaine Edmunds",
           "player_id": "13697",
@@ -3067,18 +3079,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17627",
-          "display": "Matthew Hibner",
-          "player_id": "17627",
-          "position": "TE",
-          "nfl_team": "BAL",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3195,7 +3195,7 @@
           "display": "Jaydon Blue",
           "player_id": "17069",
           "position": "RB",
-          "nfl_team": "FA",
+          "nfl_team": "PHI",
           "salary": 2000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
@@ -3264,15 +3264,6 @@
         }
       ],
       "future_picks": [
-        {
-          "asset_id": "FP_2027_5_0006",
-          "display": "2027 R5",
-          "year": "2027",
-          "round": "5",
-          "original_fid": "0006",
-          "original_team_name": "The Long Haulers",
-          "original_owner_name": "Brian Cross"
-        },
         {
           "asset_id": "FP_2027_5_0001",
           "display": "2027 R5  (via L.A. Looks \u00b7 Ryan Bousquet)",
@@ -3528,18 +3519,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17105",
-          "display": "Gunnar Helm",
-          "player_id": "17105",
-          "position": "TE",
-          "nfl_team": "TEN",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17256",
           "display": "Jacory Croskey-Merritt",
           "player_id": "17256",
@@ -3690,8 +3669,8 @@
           "position": "WR",
           "nfl_team": "CHI",
           "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-FAA",
+          "contract_year": 3,
+          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3888,6 +3867,15 @@
           "original_fid": "0011",
           "original_team_name": "Cleon Ca$h",
           "original_owner_name": "Eric Mannila"
+        },
+        {
+          "asset_id": "FP_2027_5_0006",
+          "display": "2027 R5  (via The Long Haulers \u00b7 Brian Cross)",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
         }
       ],
       "current_picks": []
