@@ -425,6 +425,43 @@ async function runReplyPipeline({
 
 // ── Replier context (owner career stats) ────────────────────────────────────
 
+// Render a ups_roast_owner_ammo row into the SAME "ammo, draw from it, don't
+// recite it" shape format_owner_dossier() (trade_roast_context.py) renders
+// for the Python trade-roast path — so a heckler gets the real dossier
+// (voice, form, device, verbatim receipts, gags, sensitivities) regardless
+// of whether they were a trade participant. Added 2026-09-02 alongside
+// migration 0147 + sync_owner_ammo_to_d1.py: before this, buildReplierContext
+// ONLY ever had a bare ups_owner_career_stats dump to offer, which is what
+// produced the banned "sixteen years, nine playoff trips" résumé recitation
+// within an hour of the dossier rewrite going live (see #1014).
+function renderAmmoRow(row) {
+  const parseJ = (s) => { try { return JSON.parse(s || "[]") || []; } catch (_) { return []; } };
+  const lines = [
+    `Replier: ${safeStr(row.owner_display) || "?"} — ${safeStr(row.team_name)} (discord: ${safeStr(row.discord_handle) || "?"})`,
+  ];
+  if (row.voice) lines.push(`  Voice in-channel: ${row.voice}`);
+  if (row.form) lines.push(`  Assigned form (vary sentence rhythm to match this): ${row.form}`);
+  if (row.device) lines.push(`  Signature device (his and his alone — never lend it to another owner in the same reply): ${row.device}`);
+  const receipts = parseJ(row.discord_receipts_json).slice(0, 5);
+  if (receipts.length) {
+    lines.push("  Discord receipts (verbatim, dated — quote exactly, never paraphrase):");
+    for (const r of receipts) lines.push(`    - [${safeStr(r.date)}] "${safeStr(r.quote)}" — ${safeStr(r.why)}`);
+  }
+  const angles = parseJ(row.roast_angles_json).slice(0, 6);
+  if (angles.length) {
+    lines.push("  Roast angles (each carries its source tag):");
+    for (const a of angles) lines.push(`    - ${safeStr(a.text)} [${safeStr(a.source) || "unsourced — do not cite stats from this"}]`);
+  }
+  const gags = parseJ(row.running_gags_json);
+  if (gags.length) lines.push("  Running gags: " + gags.map(safeStr).join(" | "));
+  const sens = parseJ(row.sensitivities_json);
+  if (sens.length) lines.push("  Handle with care: " + sens.map(safeStr).join(" | "));
+  if (row.best_counterpunch) {
+    lines.push(`  Reference counterpunch (the TARGET length and shape for this owner — match its rhythm, never reuse its words): ${row.best_counterpunch}`);
+  }
+  return lines.join("\n");
+}
+
 async function buildReplierContext(env, replierUserId) {
   // Lookup the replier's franchise via discord_owners (D1).
   if (!env.UPS_MFL_DB || !replierUserId) return { text: "", fid: "" };
@@ -443,7 +480,29 @@ async function buildReplierContext(env, replierUserId) {
   }
   if (!fid) return { text: "", fid: "" };
 
-  // Pull OWNER-attribution career stats from ups_owner_career_stats — this
+  // PRIMARY SOURCE: the real dossier, synced from owner_profiles.json into
+  // D1 by sync_owner_ammo_to_d1.py. Only owners this script has never run
+  // for (a brand-new franchise, a sync that hasn't happened yet) fall
+  // through to the raw-stats path below.
+  try {
+    const { results: ammoRows } = await env.UPS_MFL_DB
+      .prepare(
+        "SELECT owner_display, team_name, discord_handle, voice, form, device, " +
+        "best_counterpunch, roast_angles_json, discord_receipts_json, " +
+        "running_gags_json, sensitivities_json " +
+        "FROM ups_roast_owner_ammo WHERE franchise_id = ? LIMIT 1"
+      )
+      .bind(fid)
+      .all();
+    if (ammoRows?.[0]) {
+      return { text: renderAmmoRow(ammoRows[0]), fid };
+    }
+  } catch (e) {
+    console.log(`[roast-reply] ups_roast_owner_ammo lookup failed: ${e?.message || e}`);
+  }
+
+  // FALLBACK: no ammo row synced for this owner yet. Pull OWNER-attribution
+  // career stats from ups_owner_career_stats — this
   // table is the D1 mirror of pipelines/etl/data/franchise_career_stats.json,
   // populated by rebuild_franchise_career_stats.py. Owner stats are cross-
   // franchise + override-aware, so Keith's row shows his actual 0-rings
