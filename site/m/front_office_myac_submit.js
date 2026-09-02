@@ -84,11 +84,22 @@
   // offering the button. The acquisition method has to survive here as much as
   // it does for ERA, so WW is carried through explicitly (suffix preserved for
   // Rookie-WW, which is a rookie contract, not a veteran one).
+  //
+  // FAA needs the SAME rookie carve-out (Keith 2026-08-03, re: Zavion Thomas —
+  // "shows as Vet where he should show as rookie" — the worker's
+  // finalizeFaaContracts already writes "Rookie-FAA" at auction close for
+  // exactly this reason, worker/src/index.js ~2506). Without it, a rookie won
+  // at the FA Auction loses their rookie designation — and its downstream
+  // ERA-eligibility-on-expiry — the moment they submit a MYAC. ERA itself
+  // carries no rookie carve-out: winning the ERA already means the player's
+  // original rookie deal expired, so "Vet-ERA" is correct regardless of NFL
+  // rookie year.
   function myacStatusBase(row) {
     var t = safeStr(row && (row.contractStatus != null ? row.contractStatus : row.type)).toLowerCase();
     if (t.indexOf("-era") !== -1) return "Vet-ERA";
-    if (/\bww\b/.test(t)) return /rookie/.test(t) ? "Rookie-WW" : "Vet-WW";
-    return "Vet-FAA";
+    var isRookie = /rookie/.test(t);
+    if (/\bww\b/.test(t)) return isRookie ? "Rookie-WW" : "Vet-WW";
+    return isRookie ? "Rookie-FAA" : "Vet-FAA";
   }
 
   // Loaded-contract count for the viewer's roster — mirror of
