@@ -321,12 +321,24 @@ def load_owner_profiles() -> dict:
         return {}
 
 
-def format_owner_dossier(franchise_ids: list, max_angles: int = 4) -> str:
+def format_owner_dossier(franchise_ids: list, max_angles: int = 6, max_receipts: int = 5) -> str:
     """Compact OWNER DOSSIER prompt block for the franchises in a trade.
 
     Personality AMMO the model may draw from — never a script. Every angle
     keeps its source tag so the model knows what it may embellish
     (lore:commish) vs what it must quote accurately (verified:*).
+
+    2026-09-02 (Keith rewrite): form, device, discord_receipts and
+    best_counterpunch now flow through. Before this change they were computed
+    and stored in owner_profiles.json but silently dropped HERE -- the entire
+    Discord-mined rewrite (per-owner rhythm, verbatim receipts) was inert,
+    nothing reached the model. max_angles moved 4 -> 6 and a new max_receipts
+    param was added because the rewrite is built around 6-10 angles and 4-8
+    receipts per owner, not the old file's flat 2-3. best_counterpunch is
+    intentionally NOT included here -- it is a quality bar for review, not a
+    line for the model to recite; including it verbatim in the prompt would
+    just make it the next tired, repeated formula.
+
     Returns "" when no profiles match (missing file, unknown fids).
     """
     profiles = load_owner_profiles()
@@ -341,18 +353,30 @@ def format_owner_dossier(franchise_ids: list, max_angles: int = 4) -> str:
                  f"(franchise {p.get('fid', fid)}, discord: {p.get('discord', '?')})"]
         if p.get("voice"):
             lines.append(f"  Voice in-channel: {p['voice']}")
+        if p.get("form"):
+            lines.append(f"  Assigned form (vary sentence rhythm to match this): {p['form']}")
+        if p.get("device"):
+            lines.append(f"  Signature device (this owner's alone — never lend it to another owner in the same roast): {p['device']}")
         angles = (p.get("roast_angles") or [])[:max_angles]
         if angles:
             lines.append("  Roast angles (each carries its source tag):")
             for a in angles:
                 src = a.get("source", "unsourced — do not cite stats from this")
                 lines.append(f"    - {a.get('text', '')} [{src}]")
+        receipts = (p.get("discord_receipts") or [])[:max_receipts]
+        if receipts:
+            lines.append("  Discord receipts (verbatim, dated — quote exactly, never paraphrase):")
+            for r in receipts:
+                lines.append(f"    - [{r.get('date', '')}] \"{r.get('quote', '')}\" — {r.get('why', '')}")
         gags = p.get("running_gags") or []
         if gags:
             lines.append("  Running gags: " + " | ".join(gags))
         sens = p.get("sensitivities") or []
         if sens:
             lines.append("  Handle with care: " + " | ".join(sens))
+        if p.get("best_counterpunch"):
+            lines.append(f"  Reference counterpunch (the TARGET length and shape for this owner — "
+                         f"match its rhythm, never reuse its words): {p['best_counterpunch']}")
         blocks.append("\n".join(lines))
     if not blocks:
         return ""
@@ -360,7 +384,11 @@ def format_owner_dossier(franchise_ids: list, max_angles: int = 4) -> str:
         "\n=== OWNER DOSSIER (personality ammo — draw from it, don't recite it) ===\n"
         "Rules: [verified:*] facts must be cited ACCURATELY (numbers verbatim). "
         "[lore:commish] items are league lore — comedic embellishment allowed, core claim fixed. "
-        "Do not use any stat that lacks a source tag.")
+        "Do not use any stat that lacks a source tag. Discord receipts are a POOL — "
+        "use at most one or two per roast and vary which one you reach for across "
+        "different roasts for the same owner; check the RECENT BOT POSTS ban list "
+        "below so the same receipt never repeats two roasts running. Form and "
+        "device are per-owner constraints, not suggestions — follow them.")
     return header + "\n" + "\n\n".join(blocks)
 
 
