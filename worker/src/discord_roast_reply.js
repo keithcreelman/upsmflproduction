@@ -513,19 +513,46 @@ async function buildReplierContext(env, replierUserId) {
     ? `Owner held multiple franchises: ${fids.join(", ")} (current is ${fid})`
     : "";
 
+  // Luck gap -- h2h wins minus what all-play scoring actually earned. This is
+  // the SAME framing device the 2026-09-02 dossier rewrite uses everywhere
+  // else; deriving it here too means this path doesn't fall back to a bare
+  // record the instant the model reaches for a number.
+  const h2hGames = ovW + ovL;
+  const luckWins = h2hGames ? Math.round((ovW - h2hGames * apPct) * 10) / 10 : null;
+
   const lines = [
     `Replier: ${display} (current franchise ${fid}${teamName ? ` — ${teamName}` : ""})`,
     fidsLine,
     `Owner tenure: ${seasons} COMPLETED season(s)${firstSeason ? ` since ${firstSeason}` : ""}`,
     `Owner allplay: ${apW}-${apL} (${apPct.toFixed(3)})`,
     `Owner overall (head-to-head): ${ovW}-${ovL}`,
+    luckWins != null ? `Luck (h2h wins above what all-play scoring earned): ${luckWins > 0 ? "+" : ""}${luckWins}` : "",
     ownerRingLine,
     `Owner playoff appearances: ${playoffs}`,
     bestFinish ? `Best finish under this owner: #${bestFinish}` : "",
     worstFinish ? `Worst finish under this owner: #${worstFinish}` : "",
     franchiseRingLine,
   ].filter(Boolean);
-  return { text: lines.join("\n"), fid };
+
+  // 2026-09-02 (Keith): this exact block is where "Sixteen years, nine
+  // playoff trips, and the trophy case still opens to a stranger" came from
+  // -- a clean bulleted stat sheet is an open invitation to recite it as a
+  // résumé, which is the single most banned construction in the whole
+  // rewrite. This is BACKGROUND DATA for a heckler who was NOT a trade
+  // participant (owner_profiles.json's per-owner exclusions -- e.g. Keith's
+  // "no playoff count, no sixteen-season opener, NO CAREER STATS AT ALL" --
+  // live in a file this worker cannot read, so the instruction has to travel
+  // with the data itself instead).
+  const header =
+    "BACKGROUND DATA, NOT A SCRIPT. Do not recite this as a bulleted résumé " +
+    "(\"sixteen years, nine playoff trips\" is exactly the banned construction " +
+    "-- see the system prompt). Pull AT MOST ONE fact that actually earns its " +
+    "place, phrase it as a sentence, and stop. If you cite both a record and " +
+    "an all-play figure, the GAP between them is the point -- never list them " +
+    "side by side as a résumé. Prefer the luck gap or a single specific fact " +
+    "over a season count or a ring count; those two are the most overused " +
+    "material in this bot's history.";
+  return { text: header + "\n" + lines.join("\n"), fid };
 }
 
 // ── Anthropic helpers ───────────────────────────────────────────────────────
