@@ -4882,8 +4882,25 @@
   // MYAC flat (Veteran default) — reuses the extension form/submit, but records
   // the contract as Vet-ERA (§A3, the acquisition method survives MYAC), not
   // Vet-Ext. years 1 → 2-year total, years 2 → 3-year total.
+  //
+  // The acquisition method AND rookie status both have to survive MYAC — a
+  // rookie won at the FA Auction gets "Rookie-FAA" (worker's
+  // finalizeFaaContracts writes exactly this at auction close, per Keith
+  // 2026-08-03 re: Zavion Thomas — "shows as Vet where he should show as
+  // rookie"), and a pre-season WW/FCFS pickup gets "Vet-WW"/"Rookie-WW", not
+  // an FA-Auction label (mirrors site/m/front_office_myac_submit.js
+  // myacStatusBase, which already had the WW half of this — this file never
+  // did, and the pre-season WW ladder is reachable here (canon ~379), so a
+  // desktop MYAC on a WW pickup wrote "Vet-FAA"/"Vet-ERA" instead). ERA
+  // itself carries no rookie carve-out: winning the ERA already means the
+  // player's original rookie deal expired, so "Vet-ERA" is correct
+  // regardless of NFL rookie year.
   function myacStatusBase(p) {
-    return String(p && p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
+    const t = String(p && p.type || "").toLowerCase();
+    if (t.indexOf("-era") !== -1) return "Vet-ERA";
+    const isRookie = t.indexOf("rookie") !== -1;
+    if (/\bww\b/.test(t)) return isRookie ? "Rookie-WW" : "Vet-WW";
+    return isRookie ? "Rookie-FAA" : "Vet-FAA";
   }
   // Submit a Multi-Year Auction Contract (§C2): flat OR loaded, at the AUCTION
   // salary — TCV = SUM(year salaries). There is NO escalator (that's §C4
