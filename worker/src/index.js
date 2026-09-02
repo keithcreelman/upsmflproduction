@@ -6673,31 +6673,58 @@ export default {
       console.error(`[scheduled] snapshot dispatch failed: ${e && e.message}`);
     }
 
-    // UPS Rookie Draft picks → D1 cache, refreshed hourly STRAIGHT FROM MFL
-    // draftResults so taxi-eligibility never goes stale. This is the "nightly
-    // cron" the ups_draft_picks cache comment promised but was never built —
-    // its absence dropped the entire 2026 rookie class out of taxi eligibility
-    // until 2026-06-03. Idempotent upsert; covers the 3-year taxi window + 1yr
+    // UPS Rookie Draft picks → D1 cache. Hourly during the draft window
+    // (§A1/§A3: ERA starts the Saturday before Memorial Day weekend and runs
+    // through the Rookie Draft on Memorial Day Sunday — the only stretch of
+    // the year this table's contents can actually change), daily otherwise.
+    // This used to run hourly STRAIGHT FROM MFL draftResults 24/7/365 for 4
+    // full seasons every tick — confirmed via `wrangler d1 insights` as ~55%
+    // of the account's D1 write-cap blowout on 2026-09-02 (15,831 rows/day
+    // for a table that changes on ~1 real day a year). This is the "nightly
+    // cron" the cache comment promised but was never built — its absence
+    // dropped the entire 2026 rookie class out of taxi eligibility until
+    // 2026-06-03. Idempotent upsert; covers the 3-year taxi window + 1yr
     // buffer. Uses env.MFL_APIKEY via the existing sync endpoint.
+    //
+    // Window derives from _getMemorialDayUtcTopLevel (already used above for
+    // the tag deadline) rather than a hardcoded month/day range, so it
+    // tracks the real date every year without maintenance. Generous on both
+    // ends by design: this table is read-only DISPLAY data (gates the Front
+    // Office "Demote to Taxi" button and GameDay's eligible-candidates
+    // list) — the actual write-path taxi gate always live-fetches MFL
+    // draftResults directly and never reads this cache, so a wide window
+    // only costs a few extra hourly ticks, never a bad write. A rare
+    // off-cycle mid-season correction to MFL's draftResults outside this
+    // window takes up to 24h to reach those display surfaces; POST
+    // /admin/sync-ups-draft-picks manually if that needs to land sooner.
     try {
-      const dpKey = String(env.MFL_APIKEY || "").trim();
-      const dpLeague = String(env.LEAGUE_ID || "74598");
-      const dpYr = parseInt(String(env.YEAR || new Date().getUTCFullYear()), 10) || new Date().getUTCFullYear();
-      if (dpKey && env.SELF && env.UPS_MFL_DB) {
-        const dpSeasons = [dpYr, dpYr - 1, dpYr - 2, dpYr - 3];
-        ctx.waitUntil((async () => {
-          try {
-            const r = await env.SELF.fetch(
-              `https://self.invalid/admin/sync-ups-draft-picks?key=${encodeURIComponent(dpKey)}`,
-              { method: "POST", headers: { "Content-Type": "application/json", "X-MFL-APIKEY": dpKey }, body: JSON.stringify({ seasons: dpSeasons, league_id: dpLeague }) }
-            );
-            const d = await r.json().catch(() => ({}));
-            const tot = d && d.seasons ? Object.values(d.seasons).reduce((a, s) => a + (Number(s && s.upserted) || 0), 0) : 0;
-            if (tot) console.log(`[scheduled hourly] ups-draft-picks sync: upserted=${tot} seasons=${dpSeasons.join(",")}`);
-          } catch (e) {
-            console.error(`[scheduled hourly] ups-draft-picks sync failed: ${e && e.message}`);
-          }
-        })());
+      const dpNowUtc = new Date();
+      const dpMemorial = _getMemorialDayUtcTopLevel(dpNowUtc.getUTCFullYear());
+      const dpDay = 24 * 60 * 60 * 1000;
+      const inDraftWindow = !!dpMemorial &&
+        dpNowUtc >= new Date(dpMemorial.getTime() - 9 * dpDay) &&
+        dpNowUtc <= new Date(dpMemorial.getTime() + 7 * dpDay);
+      const isDailySyncHour = dpNowUtc.getUTCHours() === 5; // one tick/day outside the window
+      if (inDraftWindow || isDailySyncHour) {
+        const dpKey = String(env.MFL_APIKEY || "").trim();
+        const dpLeague = String(env.LEAGUE_ID || "74598");
+        const dpYr = parseInt(String(env.YEAR || new Date().getUTCFullYear()), 10) || new Date().getUTCFullYear();
+        if (dpKey && env.SELF && env.UPS_MFL_DB) {
+          const dpSeasons = [dpYr, dpYr - 1, dpYr - 2, dpYr - 3];
+          ctx.waitUntil((async () => {
+            try {
+              const r = await env.SELF.fetch(
+                `https://self.invalid/admin/sync-ups-draft-picks?key=${encodeURIComponent(dpKey)}`,
+                { method: "POST", headers: { "Content-Type": "application/json", "X-MFL-APIKEY": dpKey }, body: JSON.stringify({ seasons: dpSeasons, league_id: dpLeague }) }
+              );
+              const d = await r.json().catch(() => ({}));
+              const tot = d && d.seasons ? Object.values(d.seasons).reduce((a, s) => a + (Number(s && s.upserted) || 0), 0) : 0;
+              if (tot) console.log(`[scheduled hourly] ups-draft-picks sync: upserted=${tot} seasons=${dpSeasons.join(",")}`);
+            } catch (e) {
+              console.error(`[scheduled hourly] ups-draft-picks sync failed: ${e && e.message}`);
+            }
+          })());
+        }
       }
     } catch (e) {
       console.error(`[scheduled hourly] ups-draft-picks sync dispatch failed: ${e && e.message}`);
