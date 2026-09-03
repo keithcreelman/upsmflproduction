@@ -637,11 +637,11 @@
       ? '<button class="ups-m-sort-btn' + (view.sort === "hot" ? " on" : "") +
           '" data-sort="hot" title="MFL’s most-added free agents this week, platform-wide"' +
           (hcLoading ? ' disabled' : '') + '>' +
-          (hcLoading && view.sort === "hot" ? "🔥 Loading…" : "🔥 Hot") + '</button>' +
+          (hcLoading && view.sort === "hot" ? "🔥 Loading…" : "🔥 Most Added") + '</button>' +
         '<button class="ups-m-sort-btn' + (view.sort === "cold" ? " on" : "") +
           '" data-sort="cold" title="MFL’s most-dropped free agents this week, platform-wide"' +
           (hcLoading ? ' disabled' : '') + '>' +
-          (hcLoading && view.sort === "cold" ? "❄️ Loading…" : "❄️ Cold") + '</button>'
+          (hcLoading && view.sort === "cold" ? "❄️ Loading…" : "❄️ Most Dropped") + '</button>'
       : '';
     // Inline "couldn't read MFL" notice — only once the fetch has actually
     // settled (not mid-flight) and the tapped side came back known:false.
