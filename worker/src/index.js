@@ -6673,17 +6673,21 @@ export default {
       console.error(`[scheduled] snapshot dispatch failed: ${e && e.message}`);
     }
 
-    // UPS Rookie Draft picks → D1 cache. Hourly during the draft window
+    // UPS Rookie Draft picks → D1 cache. Hourly during the draft window ONLY
     // (§A1/§A3: ERA starts the Saturday before Memorial Day weekend and runs
     // through the Rookie Draft on Memorial Day Sunday — the only stretch of
-    // the year this table's contents can actually change), daily otherwise.
-    // This used to run hourly STRAIGHT FROM MFL draftResults 24/7/365 for 4
-    // full seasons every tick — confirmed via `wrangler d1 insights` as ~55%
-    // of the account's D1 write-cap blowout on 2026-09-02 (15,831 rows/day
-    // for a table that changes on ~1 real day a year). This is the "nightly
-    // cron" the cache comment promised but was never built — its absence
-    // dropped the entire 2026 rookie class out of taxi eligibility until
-    // 2026-06-03. Idempotent upsert; covers the 3-year taxi window + 1yr
+    // the year this table's contents can actually change), nothing outside
+    // it. This used to run hourly STRAIGHT FROM MFL draftResults 24/7/365
+    // for 4 full seasons every tick — confirmed via `wrangler d1 insights`
+    // as ~55% of the account's D1 write-cap blowout on 2026-09-02 (15,831
+    // rows/day for a table that changes on ~1 real day a year). A first fix
+    // (2026-09-02) dropped this to once/day outside the window, but Keith's
+    // own read was sharper: a completed draft's picks are a historical fact
+    // — MFL's draftResults for a season doesn't change when a drafted
+    // player is later traded (that's a separate event; canon: "recover
+    // ORIGINAL via TYPE=draftResults" implies this record stays stable) —
+    // so there's no ongoing reason to touch it at all once the window
+    // closes. Idempotent upsert; covers the 3-year taxi window + 1yr
     // buffer. Uses env.MFL_APIKEY via the existing sync endpoint.
     //
     // Window derives from _getMemorialDayUtcTopLevel (already used above for
@@ -6694,9 +6698,11 @@ export default {
     // list) — the actual write-path taxi gate always live-fetches MFL
     // draftResults directly and never reads this cache, so a wide window
     // only costs a few extra hourly ticks, never a bad write. A rare
-    // off-cycle mid-season correction to MFL's draftResults outside this
-    // window takes up to 24h to reach those display surfaces; POST
-    // /admin/sync-ups-draft-picks manually if that needs to land sooner.
+    // off-cycle correction to MFL's draftResults outside this window (a
+    // commish fixing a data-entry error weeks or months later) is not
+    // caught automatically anymore — POST /admin/sync-ups-draft-picks
+    // manually if that ever comes up; it's a standalone endpoint that needs
+    // no cron.
     try {
       const dpNowUtc = new Date();
       const dpMemorial = _getMemorialDayUtcTopLevel(dpNowUtc.getUTCFullYear());
@@ -6704,8 +6710,7 @@ export default {
       const inDraftWindow = !!dpMemorial &&
         dpNowUtc >= new Date(dpMemorial.getTime() - 9 * dpDay) &&
         dpNowUtc <= new Date(dpMemorial.getTime() + 7 * dpDay);
-      const isDailySyncHour = dpNowUtc.getUTCHours() === 5; // one tick/day outside the window
-      if (inDraftWindow || isDailySyncHour) {
+      if (inDraftWindow) {
         const dpKey = String(env.MFL_APIKEY || "").trim();
         const dpLeague = String(env.LEAGUE_ID || "74598");
         const dpYr = parseInt(String(env.YEAR || new Date().getUTCFullYear()), 10) || new Date().getUTCFullYear();
