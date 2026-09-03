@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.03.1",
-  "label": "Renamed the free-agents sort tabs: 🔥 Hot → Most Added, ❄️ Cold → Most Dropped. Also fixes a stale cache reference so a prior contract-status fix actually reaches the app."
+  "build": "2026.09.03.2",
+  "label": "Fixed: a genuinely submitted waiver claim could show a scary \"MFL is holding different claims\" warning after reopening the app, purely because the app forgot it had already confirmed that claim. It now remembers across a relaunch, so only real unsent edits trigger the warning."
 }

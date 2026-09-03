@@ -1391,24 +1391,30 @@
   // NOTHING and had cleared the round correctly. MFL is not at fault and does
   // not echo stale rounds.
   //
-  // THE ACTUAL ROOT CAUSE is the client's own persisted draft plus two guards
-  // that between them guarantee it is never reconciled away:
+  // THE ACTUAL ROOT CAUSE (as of 2026-08-09) was the client's own persisted
+  // draft plus two guards that between them guaranteed it was never
+  // reconciled away:
   //   1. openClaimsScreen() below computes `willFetch` as
   //      `!stagedCount() && !clearCount() && …`, so it seed-reads /pending ONLY
   //      when nothing is staged locally. A stale staged claim therefore
-  //      suppresses the exact read that would have corrected it.
+  //      suppresses the exact read that would have corrected it. STILL TRUE.
   //   2. checkMflHoldingsChanged() above DOES read /pending, but returns at
   //      `if (typeof basis !== "string") return;` whenever the stored MFL basis
   //      is null — and a plan restored from localStorage commonly has mfl:null
-  //      (app.js getWaiverPlan sets it null for the v1 on-disk shape). Even
-  //      with a basis present, a cold-restored plan reads as dirty
-  //      (planIsDirty() compares against state.waiverPlanVerified, which is
-  //      session-only and not persisted), and the dirty branch deliberately
-  //      only raises the "MFL copy differs" banner instead of adopting.
-  // Net: a submitted-and-since-processed plan sits in localStorage
-  // indefinitely, rendering as pending. checkMflHoldingsChanged is left exactly
-  // as it is — everything below is additional, independent signal, not a fix to
-  // that comparison.
+  //      (app.js getWaiverPlan sets it null for the v1 on-disk shape). This
+  //      half still holds for old on-disk shapes. The OTHER half — "even with
+  //      a basis present, a cold-restored plan reads as dirty because
+  //      waiverPlanVerified was session-only" — is FIXED (Keith 2026-09-03,
+  //      "i had a submitted claim not unsubmitted"): the verified signature
+  //      now rides in the same persisted record as the basis, so a plan that
+  //      is genuinely unchanged since MFL last confirmed it correctly reads
+  //      as clean and gets adopted, not just flagged, after a cold start.
+  // Net: a submitted-and-since-processed plan with a KNOWN basis (mfl set)
+  // now reconciles automatically on a fresh check; one with mfl:null (an old
+  // v1/v2 on-disk shape, or a plan never yet hydrated from MFL) still relies
+  // on this sweep. checkMflHoldingsChanged is otherwise left exactly as it
+  // is — everything below is additional, independent signal, not a
+  // replacement for that comparison.
   //
   // WHAT THIS SWEEP ACTUALLY IS: a complementary FAST PATH for the WIN case,
   // not the primary mechanism. Roster membership is ground truth — a player
