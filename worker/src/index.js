@@ -51551,13 +51551,20 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           const rst = await env.UPS_MFL_DB.prepare(
             `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
                     prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
-                    new_contract_status, new_salary, new_contract_year, new_contract_info
+                    new_contract_status, new_salary, new_contract_year, new_contract_info, voided_at_utc
                FROM ups_restructure_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
           ).bind(csSeason).all();
           for (const r of (rst.results || [])) {
+            // voided_at_utc is surfaced (not filtered out here) so the Contract
+            // Log's full history still shows a reversed restructure — it's the
+            // §C5 3/team USAGE COUNT (loadRestructureUsage, front_office.js)
+            // that must exclude it. Found 2026-09-03: CBP showed 4/3 after
+            // Keith reversed Nico Collins's 4th restructure — the count read
+            // every non-dry-run row from this endpoint with no voided check.
             out.push({ table: "ups_restructure_submissions", id: r.id, kind: "restructure",
               player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
               franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
+              voided_at_utc: safeStr(r.voided_at_utc || ""),
               prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info },
               new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info },
               revertable: r.prior_contract_status != null || r.prior_salary != null || r.prior_contract_year != null });

@@ -6387,6 +6387,11 @@
       const d1 = await fetchJSON(apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON));
       (d1 && d1.submissions || []).forEach(function (s) {
         if (String(s.kind || "").toLowerCase() !== "restructure") return;
+        // A reversed restructure didn't use up the team's §C5 slot — it never
+        // happened, that's the whole point of voiding it. Found 2026-09-03:
+        // CBP showed 4/3 after Keith reversed Nico Collins's 4th restructure;
+        // this count read every row regardless of voided_at_utc.
+        if (safeStr(s.voided_at_utc)) return;
         add(s.franchise_id, s.player_id, s.player_name, s.submitted_at_utc);
       });
     } catch (e) { /* D1 unreachable → fall back to the files below */ }
