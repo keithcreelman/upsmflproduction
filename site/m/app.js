@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.09.03.1";
+  var BUILD = "2026.09.03.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -313,9 +313,11 @@
     waiverPlan: null,           // LOCAL staged plan:
                                 //   [{round, picks:[{add_pid,bid_dollars,drop_pid}], clear}]
                                 // clear:true + picks:[] = "clear this round at MFL"
-    waiverPlanVerified: "",     // signature of the last plan the server verified
-                                // (THIS SESSION only — a plan restored from
-                                // storage deliberately reads as dirty)
+    waiverPlanVerified: "",     // signature of the last plan the server verified.
+                                // Default only — getWaiverPlan() restores the
+                                // real value from storage (Keith 2026-09-03),
+                                // so a genuinely-submitted, unchanged plan
+                                // reads as clean across a cold start too.
     waiverMflSig: null,         // mflHoldingsSignature() of what MFL was holding
                                 // when this plan was last hydrated from it.
                                 // PERSISTED with the plan; null = never seen,
@@ -2291,13 +2293,18 @@
       var raw = window.localStorage && window.localStorage.getItem(key);
       if (raw) stored = JSON.parse(raw);
     } catch (e) { stored = null; }
-    // Three on-disk shapes, read in one place so they can't drift:
-    //   { plan:[...], mfl:"<sig>", target_run:<unix|null> }
+    // Four on-disk shapes, read in one place so they can't drift:
+    //   { plan:[...], mfl:"<sig>", target_run:<unix|null>, verified:"<sig>"|"" }
     //                                current — the plan, the MFL holdings it
-    //                                was hydrated against, and WHICH BBID RUN
-    //                                it is aiming at, stored together so a
-    //                                restored plan can never be paired with a
-    //                                basis (or a target) from some other read.
+    //                                was hydrated against, WHICH BBID RUN it
+    //                                is aiming at, and the plan-content
+    //                                signature the server last echoed back,
+    //                                stored together so a restored plan can
+    //                                never be paired with a basis (or a
+    //                                target, or a verified stamp) from some
+    //                                other read.
+    //   { plan:[...], mfl:"<sig>", target_run:<unix|null> }
+    //                                v3, written before verified existed.
     //   { plan:[...], mfl:"<sig>" }  v2, written before target_run existed.
     //   [...]                        v1, written before the basis existed.
     // A missing/blank basis stays null: UNKNOWN, never "MFL was holding
@@ -2306,23 +2313,37 @@
     // reads as null (we do not know which run this plan was for), NEVER 0.
     // 0 would sit before every run in history, so the run-based clear would
     // read any run at all as having processed this plan, and wipe a live one.
+    //
+    // `verified` (Keith 2026-09-03: "i had a submitted claim not
+    // unsubmitted") used to live ONLY on state, not in this record — so a
+    // plan that was genuinely submitted and echoed back by MFL read as
+    // "edited — not submitted" the instant the app cold-started (a relaunch,
+    // a service-worker update, a background/foreground cycle that dropped
+    // memory), because the in-memory verified stamp doesn't survive that, even
+    // though the plan content on disk is byte-identical to what MFL confirmed.
+    // The Claims screen then refused to auto-reconcile a resolved waiver run
+    // against it and demanded a manual "Reload from MFL" for a claim that was
+    // never actually at risk. Persisting it here is safe: waiverPlanDirty()
+    // compares CONTENT signatures (planSignature is a pure, deterministic
+    // JSON.stringify with no timestamps), so a genuine local edit still
+    // naturally produces a different signature and correctly reads as dirty
+    // regardless of what verified stamp is on disk. Only a plan that is
+    // truly unchanged since the server last confirmed it benefits — exactly
+    // the case that should read as clean.
     if (stored && !Array.isArray(stored) && Array.isArray(stored.plan)) {
       state.waiverPlan = stored.plan;
       state.waiverMflSig = (typeof stored.mfl === "string") ? stored.mfl : null;
       state.waiverTargetRun =
         (typeof stored.target_run === "number" && isFinite(stored.target_run) && stored.target_run > 0)
           ? stored.target_run : null;
+      state.waiverPlanVerified = (typeof stored.verified === "string") ? stored.verified : "";
     } else {
       state.waiverPlan = Array.isArray(stored) ? stored : [];
       state.waiverMflSig = null;
       state.waiverTargetRun = null;
+      state.waiverPlanVerified = "";
     }
     _waiverPlanCacheKey = key;
-    // A plan loaded from storage was never echoed back by the server in THIS
-    // session, so it reads as "edited — not submitted" until a submit or a
-    // /pending fetch establishes a clean baseline. That's the safe default:
-    // better to prompt a redundant submit than to imply MFL has claims it
-    // doesn't.
     return state.waiverPlan;
   }
   // A group in the plan is one of two things:
@@ -2358,18 +2379,25 @@
     });
     try {
       if (window.localStorage) {
-        // The MFL basis AND the submitted-at stamp ride in the SAME record as
-        // the plan — one key, one write, so the three can never be restored out
-        // of step with each other. Local edits do not disturb either one: "what
-        // MFL was holding when we last looked" and "when this plan was last at
-        // MFL" are facts about MFL, not about the draft on top of it.
+        // The MFL basis, the submitted-at stamp, AND the verified-content
+        // signature ride in the SAME record as the plan — one key, one write,
+        // so none of the four can ever be restored out of step with each
+        // other. Local edits do not disturb any of them: "what MFL was
+        // holding when we last looked", "when this plan was last at MFL", and
+        // "what content MFL last confirmed" are facts about MFL, not about
+        // the draft on top of it — persisting the current in-memory
+        // `waiverPlanVerified` here (rather than resetting it) is exactly
+        // that: an ordinary edit changes `state.waiverPlan`, which changes
+        // its own signature, which naturally stops matching whatever
+        // verified value is written below — no special-casing needed.
         window.localStorage.setItem(waiverPlanKey(), JSON.stringify({
           plan: state.waiverPlan,
           mfl: (typeof state.waiverMflSig === "string") ? state.waiverMflSig : null,
           target_run:
             (typeof state.waiverTargetRun === "number" && isFinite(state.waiverTargetRun) &&
              state.waiverTargetRun > 0)
-              ? state.waiverTargetRun : null
+              ? state.waiverTargetRun : null,
+          verified: (typeof state.waiverPlanVerified === "string") ? state.waiverPlanVerified : ""
         }));
       }
     } catch (e) {}
@@ -2465,6 +2493,14 @@
     // "now" anywhere in the comparison.
     setWaiverPlan(normalized, { targetRun: waiverNextRunUnix() });
     state.waiverPlanVerified = planSignature(state.waiverPlan);
+    // setWaiverPlan already wrote plan+mfl+target_run to storage, but that
+    // write happened BEFORE waiverPlanVerified above was updated — so the
+    // persisted `verified` field would be one step stale (the value from
+    // whatever was verified before THIS adoption), reintroducing the exact
+    // cold-start-reads-as-dirty bug this is meant to close. Re-persist now
+    // that all four fields agree; plan/mfl/target_run are unchanged so this
+    // is a no-op write for them.
+    setWaiverPlan(state.waiverPlan);
     return true;
   }
 
