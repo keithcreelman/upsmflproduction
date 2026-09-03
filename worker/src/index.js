@@ -5897,7 +5897,18 @@ export default {
         try {
           const db = env.UPS_MFL_DB;
           if (!db) return;
-          if (!(await getFeatureFlag(env, "AUCTION_FAA_ENABLED"))) return;
+          // Both auction TYPES share this one heartbeat/poller (auction_poll),
+          // but the watchdog only ever checked AUCTION_FAA_ENABLED — found
+          // 2026-09-03 while investigating an unrelated auction-poll change.
+          // During the ERA window the commish correctly flips
+          // AUCTION_ERA_ENABLED (the flag the ERA tab and its bid endpoint
+          // actually check) and has no reason to also touch AUCTION_FAA_ENABLED,
+          // whose own help text ties it to the FA Auction two months later — so
+          // a stalled/dead poll during ERA had ZERO automated alerting. Either
+          // flag being on means SOME auction is supposed to be live.
+          const faaOn = await getFeatureFlag(env, "AUCTION_FAA_ENABLED");
+          const eraOn = await getFeatureFlag(env, "AUCTION_ERA_ENABLED");
+          if (!faaOn && !eraOn) return;
           const hb = await db.prepare(
             `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = 'auction_poll'`
           ).first();
