@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-03T13:52:10.228628+00:00",
+    "generated_at_utc": "2026-09-04T13:46:24.166756+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1266,7 +1266,7 @@
           "display": "Devin Neal",
           "player_id": "17046",
           "position": "RB",
-          "nfl_team": "NOS",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
@@ -3005,7 +3005,7 @@
           "position": "TE",
           "nfl_team": "TEN",
           "salary": 2000,
-          "contract_year": 1,
+          "contract_year": 3,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
