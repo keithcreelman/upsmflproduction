@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-04 10:49:53",
+    "generated_at": "2026-09-04 22:00:41",
     "source": "contract-activity-log",
-    "count": 120,
+    "count": 121,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "f2c5ba8c7b84562339f4c4dc",
+      "submission_id": "f2c5ba8c7b84562339f4c4dc",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "15284",
+      "player_name": "Waddle, Jaylen",
+      "position": "WR",
+      "salary": 30000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 90K|AAV 30K|Y1-30K, Y2-30K, Y3-30K|GTD: 67.5K",
+      "tcv": 90000,
+      "aav": 30000,
+      "guaranteed": 67500,
+      "submitted_at_utc": "2026-09-04T22:00:21.571Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545554154749952093",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "b180a638ba764e7832ce52c5",
       "submission_id": "b180a638ba764e7832ce52c5",
