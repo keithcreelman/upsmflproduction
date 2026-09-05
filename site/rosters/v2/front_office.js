@@ -5839,12 +5839,11 @@
     }
     // RESTRUCTURE (§C5) — same years, possibly a different SHAPE, so it can add
     // a loaded contract (flat → loaded) or free one (loaded → flat).
-    // submitRestructure sets the suffix from the new Y1 vs the PRE-restructure
-    // current-year salary: equal → flat (suffix stripped), higher → -FL, lower
-    // → -BL. ev.real[0] IS that prior current-year salary (capRestructureRealYears
-    // reads the Y-token at contractYearIndexForPlayer, the same basis
-    // currentContractYearValue gives submitRestructure), so this mirrors the
-    // write path instead of inventing a second rule.
+    // submitRestructure sets the suffix from the new Y1 vs a FRESH even split
+    // of the money — round(TCV / years) — not the prior current-year salary and
+    // not the preserved AAV token (Keith ruling 2026-09-05, PR #1026). ev.tcv /
+    // ev.years are that same TCV and year-count, so recomputing the split here
+    // mirrors the write path instead of inventing a second rule.
     if (preview === "restructure") {
       const ev = capRestructureEval(p);
       if (!ev.ok) return unresolved(ev.reason);
@@ -5857,8 +5856,9 @@
       // 5 → 4 and could be talked into drafting a sixth loaded shape, against
       // an outcome that was never drafted and isn't even submittable
       // (submittable = legal && dirty). Undrafted ⇒ the committed state stands.
+      const evenSplit = Math.round(ev.tcv / Math.max(1, ev.years));
       return { basis: "restructure", counts: true,
-               loaded: ev.dirty ? (ev.amounts[0] !== ev.real[0]) : committed.loaded,
+               loaded: ev.dirty ? (ev.amounts[0] !== evenSplit) : committed.loaded,
                years: committed.years, rookie: committed.rookie, note: "" };
     }
     // EXTENSION (§C4) — adds years onto the current deal. extensionAddByKind
