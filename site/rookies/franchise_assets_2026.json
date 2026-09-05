@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-04T13:46:24.166756+00:00",
+    "generated_at_utc": "2026-09-05T13:02:09.474528+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2521,18 +2521,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_11936",
-          "display": "Chris Boswell",
-          "player_id": "11936",
-          "position": "PK",
-          "nfl_team": "PIT",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_11150",
           "display": "Geno Smith",
           "player_id": "11150",
@@ -2861,7 +2849,7 @@
           "position": "WR",
           "nfl_team": "IND",
           "salary": 12000,
-          "contract_year": 1,
+          "contract_year": 2,
           "contract_status": "Vet-Ext1",
           "roster_status": "ROSTER",
           "taxi": false
@@ -3267,6 +3255,18 @@
     "0007": {
       "players": [
         {
+          "asset_id": "P_16194",
+          "display": "Rashee Rice",
+          "player_id": "16194",
+          "position": "WR",
+          "nfl_team": "KCC",
+          "salary": 40000,
+          "contract_year": 2,
+          "contract_status": "Vet-Ext2-FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_13593",
           "display": "Lamar Jackson",
           "player_id": "13593",
@@ -3285,7 +3285,7 @@
           "position": "WR",
           "nfl_team": "DEN",
           "salary": 30000,
-          "contract_year": 1,
+          "contract_year": 3,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -3344,18 +3344,6 @@
           "player_id": "16167",
           "position": "RB",
           "nfl_team": "MIA",
-          "salary": 10000,
-          "contract_year": 2,
-          "contract_status": "Vet-Ext2-BL",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16194",
-          "display": "Rashee Rice",
-          "player_id": "16194",
-          "position": "WR",
-          "nfl_team": "KCC",
           "salary": 10000,
           "contract_year": 2,
           "contract_status": "Vet-Ext2-BL",
@@ -4255,18 +4243,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16171",
-          "display": "Kendre Miller",
-          "player_id": "16171",
-          "position": "RB",
-          "nfl_team": "NOS",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_12186",
           "display": "Stefon Diggs",
           "player_id": "12186",
@@ -4285,7 +4261,7 @@
           "position": "RB",
           "nfl_team": "ARI",
           "salary": 1000,
-          "contract_year": 1,
+          "contract_year": 2,
           "contract_status": "Vet-WW",
           "roster_status": "INJURED_RESERVE",
           "taxi": false
