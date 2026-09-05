@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-05 14:18:19",
+    "generated_at": "2026-09-05 14:43:28",
     "source": "contract-activity-log",
-    "count": 125,
+    "count": 126,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "7f9b491f68dddd55b941fecc",
+      "submission_id": "7f9b491f68dddd55b941fecc",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "15889",
+      "player_name": "Okonkwo, Chigoziem",
+      "position": "TE",
+      "salary": 11000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA-FL",
+      "contract_info": "CL 2|TCV 14K|AAV 7K|Y1-11K, Y2-3K|GTD: 10.5K",
+      "tcv": 14000,
+      "aav": 7000,
+      "guaranteed": 10500,
+      "submitted_at_utc": "2026-09-05T14:43:12.344Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545806522859393047",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "f432062f3095d86060d7dd68",
       "submission_id": "f432062f3095d86060d7dd68",
