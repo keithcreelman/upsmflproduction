@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-05 14:54:27",
+    "generated_at": "2026-09-05 17:31:52",
     "source": "contract-activity-log",
-    "count": 130,
+    "count": 131,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "d0ce963f7271bba58297ae0a",
+      "submission_id": "d0ce963f7271bba58297ae0a",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "17518",
+      "player_name": "Allen, Cyrus",
+      "position": "WR",
+      "salary": 2000,
+      "contract_year": 3,
+      "contract_status": "Rookie-FAA",
+      "contract_info": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K",
+      "tcv": 6000,
+      "aav": 2000,
+      "guaranteed": 4500,
+      "submitted_at_utc": "2026-09-05T17:31:35.918Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545848898827063467",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "cb09b7560ba820cc087e2152",
       "submission_id": "cb09b7560ba820cc087e2152",
