@@ -14968,6 +14968,21 @@ export default {
           const willGiveUp = Array.isArray(body.willGiveUp || body.will_give_up)
             ? (body.willGiveUp || body.will_give_up).map((s) => String(s).trim()).filter(Boolean)
             : [];
+          // playerNames is client-supplied and used both for the MFL comment
+          // and the public OTB Discord announcement — an id with no name
+          // means the caller can't actually vouch for what it is. Reject
+          // rather than fall back to an anonymous "Player <id>" in a public,
+          // league-wide announcement (Keith 2026-09-05: a stale/off-roster
+          // id slipped through this way and got posted for real).
+          const playerNamesIn = (body.playerNames && typeof body.playerNames === "object") ? body.playerNames : {};
+          const unresolvedPids = willGiveUp.filter((pid) => !safeStr(playerNamesIn[String(pid)]).trim());
+          if (unresolvedPids.length) {
+            return jsonOut(400, {
+              ok: false,
+              error: "No player name supplied for id(s) " + unresolvedPids.join(", ") +
+                " — refusing to post an anonymous \"Player <id>\" to the public OTB announcement.",
+            });
+          }
           const lookingFor = safeStr(body.lookingFor || body.looking_for || "");
           // Per-player notes — { pid: "note text", ... }. UPS-side only;
           // MFL's tradeBait endpoint doesn't accept per-player notes.
@@ -15029,13 +15044,12 @@ export default {
           // looking for" line + per-player notes (cap 256 chars per MFL
           // spec). The full unwrapped text goes to the OTB Discord
           // announcement below — no truncation there.
-          const _playerNames = (body.playerNames && typeof body.playerNames === "object") ? body.playerNames : {};
           const mflCommentPieces = [];
           if (lookingFor) mflCommentPieces.push(lookingFor);
           for (const pid of willGiveUp) {
             const note = safeStr(notes[String(pid)] || "").trim();
             if (!note) continue;
-            const nm = safeStr(_playerNames[String(pid)]) || ("Player " + pid);
+            const nm = safeStr(playerNamesIn[String(pid)]);
             mflCommentPieces.push(nm + ": " + note);
           }
           let mflComment = mflCommentPieces.join(" · ");
@@ -15129,7 +15143,6 @@ export default {
           // sentinel uses env.OTB_NO_BAIT_GIF_URL.
           let otbResult = { posted: false, reason: "not_attempted" };
           try {
-            const playerNamesIn = (body.playerNames && typeof body.playerNames === "object") ? body.playerNames : {};
             const franchiseName = safeStr(body.franchiseName || "");
             otbResult = await postOtbDiscord(env, {
               franchiseId: fidReq,

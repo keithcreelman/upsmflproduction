@@ -2138,10 +2138,17 @@
         var notes = {};
         (j.notes || []).forEach(function (n) { notes[String(n.player_id)] = String(n.note || ""); });
         state.tradeBaitNotes = notes;
-        // Seed the bait set with players that have notes — the owner cared
-        // enough to annotate them, so they're presumed still available.
+        // Seed the bait set with noted players that are STILL ON THE ROSTER.
+        // A note left for a player since dropped/traded away must not
+        // silently reappear on the next save — that's exactly how a stale
+        // note (player 17071, off-roster) got re-announced to the live OTB
+        // Discord channel as an anonymous "Player 17071" (Keith 2026-09-05).
         if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
-        Object.keys(notes).forEach(function (pid) { state.tradeBaitDraft.add(pid); });
+        var rosterIds = {};
+        getMyRoster().forEach(function (r) { rosterIds[String(r.id)] = true; });
+        Object.keys(notes).forEach(function (pid) {
+          if (rosterIds[pid]) state.tradeBaitDraft.add(pid);
+        });
         if (state.openPanel === "bait") renderTradeBaitPanel();
       })
       .catch(function () { /* non-fatal — UI just shows blank notes */ });
