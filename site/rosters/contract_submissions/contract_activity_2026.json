@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-05 17:40:23",
+    "generated_at": "2026-09-05 18:21:41",
     "source": "contract-activity-log",
-    "count": 135,
+    "count": 136,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "9e397c224e8cb1465dbd85fb",
+      "submission_id": "9e397c224e8cb1465dbd85fb",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16211",
+      "player_name": "Nacua, Puka",
+      "position": "WR",
+      "salary": 22000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext2",
+      "contract_info": "CL 2|TCV 44K|AAV 22K|Y1-22K, Y2-22K|GTD: 33K|Ext: Bomb|Restructured 2026",
+      "tcv": 44000,
+      "aav": 22000,
+      "guaranteed": 33000,
+      "submitted_at_utc": "2026-09-05T18:21:25.236Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545861435463311372",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "ef81974cbcee5f3f1cf3fb26",
       "submission_id": "ef81974cbcee5f3f1cf3fb26",
