@@ -1,0 +1,7332 @@
+{
+  "encoding": "utf-8",
+  "transactions": {
+    "transaction": [
+      {
+        "franchise": "0008",
+        "timestamp": "1788611673",
+        "transaction": "|16171,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1788549127",
+        "transaction": "|11936,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788526800",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788526800",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788440400",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788440400",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1788440400",
+        "transaction": "16896,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1788440400",
+        "transaction": "13322,|1000|13713,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1788440400",
+        "transaction": "16850,|1000|16649,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1788440400",
+        "transaction": "11383,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1788440400",
+        "transaction": "11945,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1788440400",
+        "transaction": "15786,|4000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1788440400",
+        "transaction": "16387,|4000|16630,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788440400",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1788428423",
+        "transaction": "|15391,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1788428037",
+        "transaction": "|15702,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1788378268",
+        "transaction": "|16166,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1788305916",
+        "transaction": "|17627,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "comments": "",
+        "expires": "1788908348",
+        "franchise": "0007",
+        "franchise1_gave_up": "17105,",
+        "franchise2": "0006",
+        "franchise2_gave_up": "FP_0006_2027_5,",
+        "timestamp": "1788305827",
+        "type": "TRADE"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1788223462",
+        "transaction": "|17546,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1788221081",
+        "transaction": "|17054,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "activated": "",
+        "deactivated": "16244,",
+        "franchise": "0009",
+        "timestamp": "1788195340",
+        "type": "IR"
+      },
+      {
+        "activated": "",
+        "deactivated": "16169,13806,",
+        "franchise": "0001",
+        "timestamp": "1788194232",
+        "type": "IR"
+      },
+      {
+        "activated": "",
+        "deactivated": "15484,",
+        "franchise": "0007",
+        "timestamp": "1788175423",
+        "type": "IR"
+      },
+      {
+        "activated": "",
+        "deactivated": "16204,",
+        "franchise": "0007",
+        "timestamp": "1788175323",
+        "type": "IR"
+      },
+      {
+        "activated": "",
+        "deactivated": "15350,",
+        "franchise": "0005",
+        "timestamp": "1788138584",
+        "type": "IR"
+      },
+      {
+        "activated": "",
+        "deactivated": "14073,",
+        "franchise": "0005",
+        "timestamp": "1788120745",
+        "type": "IR"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788094800",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788094800",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1788094800",
+        "transaction": "15391,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788094800",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1788090281",
+        "transaction": "|16149,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1788089472",
+        "transaction": "|13968,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1788009981",
+        "transaction": "|14095,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788008400",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788008400",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1788008400",
+        "transaction": "15484,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1788008400",
+        "transaction": "17606,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1788008400",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1788002063",
+        "transaction": "|15252,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1787975921",
+        "transaction": "|16330,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "activated": "",
+        "deactivated": "15351,",
+        "franchise": "0012",
+        "timestamp": "1787974330",
+        "type": "IR"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1787928848",
+        "transaction": "|17135,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1787928504",
+        "transaction": "|13193,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1787928471",
+        "transaction": "|12752,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787922000",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787922000",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1787922000",
+        "transaction": "17623,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787922000",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1787913839",
+        "transaction": "|17706,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787835600",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787835600",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1787835600",
+        "transaction": "15923,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1787835600",
+        "transaction": "16201,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1787835600",
+        "transaction": "17743,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787835600",
+        "transaction": "15702,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1787835600",
+        "transaction": "13629,|2000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787835600",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "activated": "",
+        "deactivated": "16594,",
+        "franchise": "0008",
+        "timestamp": "1787797643",
+        "type": "IR"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1787539359",
+        "transaction": "|12140,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "17064,",
+        "franchise": "0002",
+        "promoted": "",
+        "timestamp": "1787539049",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17685,",
+        "franchise": "0002",
+        "promoted": "",
+        "timestamp": "1787539013",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17477,",
+        "franchise": "0010",
+        "promoted": "",
+        "timestamp": "1787538794",
+        "type": "TAXI"
+      },
+      {
+        "activated": "",
+        "deactivated": "16622,",
+        "franchise": "0010",
+        "timestamp": "1787538763",
+        "type": "IR"
+      },
+      {
+        "comments": "",
+        "expires": "1788143318",
+        "franchise": "0002",
+        "franchise1_gave_up": "16622,17477,FP_0002_2027_4,",
+        "franchise2": "0010",
+        "franchise2_gave_up": "16184,17685,17502,17064,BB_12000,",
+        "timestamp": "1787538681",
+        "type": "TRADE"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1787515324",
+        "transaction": "|14867,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "activated": "16622,",
+        "deactivated": "",
+        "franchise": "0002",
+        "timestamp": "1787515270",
+        "type": "IR"
+      },
+      {
+        "activated": "",
+        "deactivated": "16622,",
+        "franchise": "0002",
+        "timestamp": "1787515088",
+        "type": "IR"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787499466",
+        "transaction": "|16282,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787499431",
+        "transaction": "|14590,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1787494259",
+        "transaction": "|13595,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1787494217",
+        "transaction": "|11769,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1787494204",
+        "transaction": "|16635,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1787492959",
+        "transaction": "|15484,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787490000",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787490000",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1787490000",
+        "transaction": "16712,|1000|17333,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787490000",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1787486912",
+        "transaction": "|17470,14896,16788,15923,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787403600",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787403600",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1787403600",
+        "transaction": "11936,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787403600",
+        "transaction": "15738,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787403600",
+        "transaction": "14590,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787403600",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787317200",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787317200",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1787317200",
+        "transaction": "15795,|1000|16773,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787317200",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "demoted": "16684,",
+        "franchise": "0006",
+        "promoted": "",
+        "timestamp": "1787281483",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787281427",
+        "transaction": "|17034,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787281139",
+        "transaction": "|12263,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787280974",
+        "transaction": "|15786,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787230800",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787230800",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1787230800",
+        "transaction": "14789,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1787230800",
+        "transaction": "16171,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787230800",
+        "transaction": "15254,|1000|15702,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1787230800",
+        "transaction": "17627,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1787230800",
+        "transaction": "16432,|2000|13629,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1787230800",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786885200",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786885200",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1786851331",
+        "transaction": "|14105,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "activated": "",
+        "deactivated": "17115,",
+        "franchise": "0008",
+        "timestamp": "1786829689",
+        "type": "IR"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1786820311",
+        "transaction": "|13189,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1786820218",
+        "transaction": "|11679,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786798800",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786798800",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1786798800",
+        "transaction": "17169,|1000|16432,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1786798800",
+        "transaction": "15702,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1786798800",
+        "transaction": "12263,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786798800",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "demoted": "17586,",
+        "franchise": "0007",
+        "promoted": "",
+        "timestamp": "1786713951",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786712400",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786712400",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1786712400",
+        "transaction": "12140,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786712400",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786626000",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786626000",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1786626000",
+        "transaction": "17706,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786626000",
+        "transaction": "17333,|1000|16643,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786626000",
+        "transaction": "16773,|1000|15738,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786626000",
+        "transaction": "11222,|1000|14472,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786626000",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1786586817",
+        "transaction": "|11247,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1786405282",
+        "transaction": "|16601,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786280400",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786280400",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786280400",
+        "transaction": "15738,|1000|14974,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1786280400",
+        "transaction": "11247,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786280400",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1786195723",
+        "transaction": "|15418,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1786195656",
+        "transaction": "|17205,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1786195613",
+        "transaction": "|17254,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "17550,",
+        "franchise": "0007",
+        "promoted": "",
+        "timestamp": "1786194402",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1786194240",
+        "transaction": "|16632,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786194000",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786194000",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786194000",
+        "transaction": "17049,|1000|16171,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786194000",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786107600",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786107600",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786107600",
+        "transaction": "13952,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786107600",
+        "transaction": "16649,|1000|15271,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1786107600",
+        "transaction": "16594,|1000|16252,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786107600",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "comments": "upgrade to Chop under contract for 1K for this yr and next",
+        "expires": "1786624041",
+        "franchise": "0008",
+        "franchise1_gave_up": "15808,FP_0008_2027_5,",
+        "franchise2": "0012",
+        "franchise2_gave_up": "FP_0012_2027_4,",
+        "timestamp": "1786072948",
+        "type": "TRADE"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1786021200",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785930774",
+        "transaction": "|16280,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785858057",
+        "transaction": "12801|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785848756",
+        "transaction": "14095|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785831357",
+        "transaction": "14322|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785807057",
+        "transaction": "15271|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785798956",
+        "transaction": "17542|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785798956",
+        "transaction": "17529|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785788456",
+        "transaction": "14169|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785788456",
+        "transaction": "11769|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785778608",
+        "transaction": "15331|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785771058",
+        "transaction": "12801|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785770419",
+        "transaction": "12801|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785768618",
+        "transaction": "14882|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785768618",
+        "transaction": "14405|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785762168",
+        "transaction": "14095|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785744713",
+        "transaction": "14322|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785723957",
+        "transaction": "16696|8000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785723927",
+        "transaction": "15835|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785723181",
+        "transaction": "14921|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785720285",
+        "transaction": "15271|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785712486",
+        "transaction": "17542|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785712405",
+        "transaction": "17529|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785707727",
+        "transaction": "15396|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785707727",
+        "transaction": "13298|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785704604",
+        "transaction": "17135|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785704441",
+        "transaction": "15484|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785701797",
+        "transaction": "11769|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785701771",
+        "transaction": "14169|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785701644",
+        "transaction": "16696|8000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785692048",
+        "transaction": "15331|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785690327",
+        "transaction": "17546|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785690327",
+        "transaction": "17185|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785682187",
+        "transaction": "14882|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785682146",
+        "transaction": "14405|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785669627",
+        "transaction": "14472|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785669627",
+        "transaction": "13713|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785667228",
+        "transaction": "9064|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785667228",
+        "transaction": "14067|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785667228",
+        "transaction": "12141|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785663627",
+        "transaction": "13595|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785637538",
+        "transaction": "16696|7000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785637516",
+        "transaction": "15835|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785636762",
+        "transaction": "14921|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785621215",
+        "transaction": "13298|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785621186",
+        "transaction": "15396|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785618129",
+        "transaction": "17135|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785618009",
+        "transaction": "15484|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785611376",
+        "transaction": "15238|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785610769",
+        "transaction": "17504|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785610769",
+        "transaction": "16679|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785603831",
+        "transaction": "17185|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785603791",
+        "transaction": "17546|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785593126",
+        "transaction": "14303|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785593126",
+        "transaction": "12225|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785591627",
+        "transaction": "13968|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785586548",
+        "transaction": "16441|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785584688",
+        "transaction": "14412|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785584573",
+        "transaction": "16788|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785583319",
+        "transaction": "17145|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785582440",
+        "transaction": "14472|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785582422",
+        "transaction": "13713|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785581448",
+        "transaction": "16635|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785580419",
+        "transaction": "14067|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785580193",
+        "transaction": "9064|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785580172",
+        "transaction": "12141|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785579348",
+        "transaction": "15252|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785578729",
+        "transaction": "15850|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785578729",
+        "transaction": "14630|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785578729",
+        "transaction": "12752|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785577549",
+        "transaction": "17054|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785577249",
+        "transaction": "17105|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785576897",
+        "transaction": "13595|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785576756",
+        "transaction": "16696|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785576607",
+        "transaction": "16696|5000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785575149",
+        "transaction": "15716|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785575149",
+        "transaction": "15346|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785548412",
+        "transaction": "15797|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785537913",
+        "transaction": "17186|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785537913",
+        "transaction": "15788|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785524820",
+        "transaction": "15238|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785524336",
+        "transaction": "16679|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785524193",
+        "transaction": "17504|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785523659",
+        "transaction": "15749|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785523511",
+        "transaction": "14907|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785513816",
+        "transaction": "15349|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785508424",
+        "transaction": "15779|15000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785507483",
+        "transaction": "13132|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785506837",
+        "transaction": "13737|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785506499",
+        "transaction": "14303|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785506459",
+        "transaction": "12225|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785506401",
+        "transaction": "14085|28000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785505447",
+        "transaction": "16696|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785505026",
+        "transaction": "13968|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785504431",
+        "transaction": "15861|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785504091",
+        "transaction": "13629|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785504014",
+        "transaction": "15694|39000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785503671",
+        "transaction": "16649|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785500783",
+        "transaction": "17125|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785500783",
+        "transaction": "16778|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785499952",
+        "transaction": "16441|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785499708",
+        "transaction": "17470|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785498233",
+        "transaction": "17521|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785498184",
+        "transaction": "14412|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785498140",
+        "transaction": "16788|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785497630",
+        "transaction": "16675|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785496797",
+        "transaction": "17145|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785494967",
+        "transaction": "16635|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785494847",
+        "transaction": "13629|4000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785494847",
+        "transaction": "15821|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785494847",
+        "transaction": "15076|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785494579",
+        "transaction": "16696|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785494569",
+        "transaction": "16696|2000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785493334",
+        "transaction": "16696|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785492917",
+        "transaction": "15252|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785492917",
+        "transaction": "12186|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785491849",
+        "transaction": "15850|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785491814",
+        "transaction": "12752|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785491762",
+        "transaction": "14630|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785490898",
+        "transaction": "17054|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785490705",
+        "transaction": "17105|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785490669",
+        "transaction": "15786|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785490669",
+        "transaction": "14909|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785488583",
+        "transaction": "15716|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785488432",
+        "transaction": "15346|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785488199",
+        "transaction": "14974|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785473674",
+        "transaction": "17518|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785473674",
+        "transaction": "14086|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785467633",
+        "transaction": "16224|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785467633",
+        "transaction": "15365|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785461854",
+        "transaction": "15797|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785455847",
+        "transaction": "13189|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785455724",
+        "transaction": "13268|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785455251",
+        "transaction": "16283|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785455251",
+        "transaction": "15721|13000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785451284",
+        "transaction": "17186|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785451071",
+        "transaction": "15788|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785450993",
+        "transaction": "17518|2000|Gride forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785447911",
+        "transaction": "17035|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785446769",
+        "transaction": "16608|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785439156",
+        "transaction": "15889|7000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785437887",
+        "transaction": "13251|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785437153",
+        "transaction": "15749|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785436990",
+        "transaction": "14907|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785429611",
+        "transaction": "13319|12000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785427416",
+        "transaction": "15349|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785422010",
+        "transaction": "15779|15000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785422003",
+        "transaction": "15779|14000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785421078",
+        "transaction": "13132|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785420429",
+        "transaction": "13737|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785420039",
+        "transaction": "15779|13000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785419997",
+        "transaction": "14085|28000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785418052",
+        "transaction": "13629|3000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785418039",
+        "transaction": "13629|2000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785418027",
+        "transaction": "10700|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785418003",
+        "transaction": "15861|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785417844",
+        "transaction": "15452|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785417632",
+        "transaction": "13629|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785417601",
+        "transaction": "15861|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785417416",
+        "transaction": "15694|39000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785414001",
+        "transaction": "17125|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785413880",
+        "transaction": "15452|3000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785413831",
+        "transaction": "15452|2000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785413759",
+        "transaction": "16778|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785413662",
+        "transaction": "16843|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785413662",
+        "transaction": "13671|7000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785413662",
+        "transaction": "11985|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785413153",
+        "transaction": "17470|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785411824",
+        "transaction": "17521|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785411601",
+        "transaction": "14877|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785411601",
+        "transaction": "13164|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785410930",
+        "transaction": "16675|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "demoted": "17553,",
+        "franchise": "0006",
+        "promoted": "",
+        "timestamp": "1785410664",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "",
+        "franchise": "0006",
+        "promoted": "16684,",
+        "timestamp": "1785410449",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785409859",
+        "transaction": "15797|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785408287",
+        "transaction": "15821|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785408200",
+        "transaction": "15076|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785408174",
+        "transaction": "15861|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785407701",
+        "transaction": "15350|7000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785406802",
+        "transaction": "15712|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785406110",
+        "transaction": "12186|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785404368",
+        "transaction": "17105|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785403642",
+        "transaction": "14909|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785403574",
+        "transaction": "15786|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785401433",
+        "transaction": "14974|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0012",
+        "timestamp": "1785401088",
+        "transaction": "11679,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785400788",
+        "transaction": "16295|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785400788",
+        "transaction": "14170|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785393532",
+        "transaction": "16672|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785386512",
+        "transaction": "14086|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785386444",
+        "transaction": "17518|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785384473",
+        "transaction": "16887|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785384473",
+        "transaction": "12956|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785381614",
+        "transaction": "16036|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785381614",
+        "transaction": "13791|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785380714",
+        "transaction": "15355|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785380489",
+        "transaction": "15365|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785380471",
+        "transaction": "16224|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785380113",
+        "transaction": "16619|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785373214",
+        "transaction": "15241|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785369438",
+        "transaction": "13189|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785369318",
+        "transaction": "13268|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785368607",
+        "transaction": "16283|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785368607",
+        "transaction": "15721|13000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785368607",
+        "transaction": "15350|7000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785364987",
+        "transaction": "15821|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785363013",
+        "transaction": "15255|23000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785362285",
+        "transaction": "13130|63000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785361501",
+        "transaction": "17035|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785360324",
+        "transaction": "16608|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785360264",
+        "transaction": "16608|4000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785360116",
+        "transaction": "15350|6000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785360035",
+        "transaction": "15355|5000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785359996",
+        "transaction": "16619|2000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785359413",
+        "transaction": "15428|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785354613",
+        "transaction": "12323|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785352740",
+        "transaction": "15889|7000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785351478",
+        "transaction": "13251|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785343754",
+        "transaction": "13813|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785343085",
+        "transaction": "15694|37000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785343073",
+        "transaction": "13319|12000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785342888",
+        "transaction": "15721|12000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785342691",
+        "transaction": "14085|24000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785342603",
+        "transaction": "15779|12000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785340929",
+        "transaction": "7836|14000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785338649",
+        "transaction": "14861|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785337779",
+        "transaction": "15694|35000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785337435",
+        "transaction": "16675|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785337305",
+        "transaction": "13737|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785335903",
+        "transaction": "15350|5000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785335851",
+        "transaction": "15350|4000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785333850",
+        "transaction": "17664|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785332544",
+        "transaction": "16608|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785331622",
+        "transaction": "10700|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785331597",
+        "transaction": "15779|11000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785331440",
+        "transaction": "15452|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785331228",
+        "transaction": "|11679,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785330049",
+        "transaction": "15779|10000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785329982",
+        "transaction": "15779|9000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785328303",
+        "transaction": "15721|11000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785328213",
+        "transaction": "12616|13000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785327915",
+        "transaction": "16681|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785327915",
+        "transaction": "13844|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785326893",
+        "transaction": "15428|2000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785326868",
+        "transaction": "16843|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785326853",
+        "transaction": "11985|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785326778",
+        "transaction": "13671|7000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785325813",
+        "transaction": "14896|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785325685",
+        "transaction": "10266|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785325315",
+        "transaction": "14056|32000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785324771",
+        "transaction": "13164|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785324636",
+        "transaction": "14877|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785324483",
+        "transaction": "10700|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785323559",
+        "transaction": "16617|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785323133",
+        "transaction": "14167|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785321612",
+        "transaction": "13251|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785321167",
+        "transaction": "15365|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785321146",
+        "transaction": "15350|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785320299",
+        "transaction": "15350|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785320180",
+        "transaction": "10700|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785320123",
+        "transaction": "15712|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785320083",
+        "transaction": "16276|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785320083",
+        "transaction": "15839|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785320083",
+        "transaction": "15822|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785315093",
+        "transaction": "16283|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785314049",
+        "transaction": "14170|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785313711",
+        "transaction": "16295|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785313519",
+        "transaction": "15712|2000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785307513",
+        "transaction": "16282|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785307213",
+        "transaction": "15404|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785307213",
+        "transaction": "14927|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785306357",
+        "transaction": "16672|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785297696",
+        "transaction": "12956|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785297629",
+        "transaction": "16887|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785294943",
+        "transaction": "13791|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785294901",
+        "transaction": "16036|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785294286",
+        "transaction": "15355|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785293505",
+        "transaction": "16619|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785286984",
+        "transaction": "15241|4000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785286732",
+        "transaction": "15241|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785285372",
+        "transaction": "14085|19000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785282867",
+        "transaction": "15259|9000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785276546",
+        "transaction": "15255|23000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785275745",
+        "transaction": "13130|63000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785275061",
+        "transaction": "13130|57000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785272957",
+        "transaction": "15428|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785272603",
+        "transaction": "15779|7000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785272603",
+        "transaction": "15255|21000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785272474",
+        "transaction": "14896|2000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785272294",
+        "transaction": "11679|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785271991",
+        "transaction": "16330|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785271860",
+        "transaction": "14059|24000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785270701",
+        "transaction": "14249|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785270701",
+        "transaction": "14102|11000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785269831",
+        "transaction": "15889|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785269771",
+        "transaction": "15889|4000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785269540",
+        "transaction": "14249|4000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785269284",
+        "transaction": "14102|11000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785267370",
+        "transaction": "12323|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785267247",
+        "transaction": "13319|10000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785265963",
+        "transaction": "15721|8000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785265956",
+        "transaction": "15721|7000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785263049",
+        "transaction": "12676|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785261312",
+        "transaction": "14893|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785259106",
+        "transaction": "14102|9000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785258700",
+        "transaction": "14085|17000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785258453",
+        "transaction": "15355|3000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785258362",
+        "transaction": "15694|31000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785257834",
+        "transaction": "13319|9000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785257816",
+        "transaction": "13319|8000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785257351",
+        "transaction": "13813|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785257332",
+        "transaction": "15404|5000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785255275",
+        "transaction": "13671|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785255155",
+        "transaction": "14102|8000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785254701",
+        "transaction": "14102|7000|Gride forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785254701",
+        "transaction": "14056|32000|Gride forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785254701",
+        "transaction": "13319|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785254516",
+        "transaction": "7836|14000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785254502",
+        "transaction": "7836|12000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785252241",
+        "transaction": "14861|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785252053",
+        "transaction": "12221|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785251957",
+        "transaction": "15261|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785251895",
+        "transaction": "13146|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785249902",
+        "transaction": "15756|16000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785248012",
+        "transaction": "15779|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785247889",
+        "transaction": "13146|5000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785247884",
+        "transaction": "13146|4000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785247436",
+        "transaction": "16013|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785247338",
+        "transaction": "17664|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785246424",
+        "transaction": "17153|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785245712",
+        "transaction": "15329|25000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785245143",
+        "transaction": "12611|38000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785245110",
+        "transaction": "14842|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785243281",
+        "transaction": "15721|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785243240",
+        "transaction": "15255|10000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785241731",
+        "transaction": "11757|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785241714",
+        "transaction": "13719|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785241683",
+        "transaction": "12616|13000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785241677",
+        "transaction": "12616|11000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785241626",
+        "transaction": "12611|38000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785241434",
+        "transaction": "15694|30000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785241368",
+        "transaction": "16681|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785241323",
+        "transaction": "13844|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785239827",
+        "transaction": "15889|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785239691",
+        "transaction": "13813|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785239675",
+        "transaction": "15404|4000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785239666",
+        "transaction": "15404|3000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785239648",
+        "transaction": "15404|2000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785239373",
+        "transaction": "14896|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785239222",
+        "transaction": "10266|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785238791",
+        "transaction": "15694|24000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785238767",
+        "transaction": "14056|28000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785238657",
+        "transaction": "16192|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785238300",
+        "transaction": "15355|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785238282",
+        "transaction": "15721|4000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785238271",
+        "transaction": "15712|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785238252",
+        "transaction": "15255|6000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785237582",
+        "transaction": "14940|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785237526",
+        "transaction": "15721|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785237492",
+        "transaction": "15255|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785237207",
+        "transaction": "13214|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785237190",
+        "transaction": "15979|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785237137",
+        "transaction": "16617|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785236610",
+        "transaction": "14167|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785235259",
+        "transaction": "14085|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785235252",
+        "transaction": "14085|15000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785235137",
+        "transaction": "14085|14000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785234866",
+        "transaction": "16246|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785234187",
+        "transaction": "12323|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785233634",
+        "transaction": "15839|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785233590",
+        "transaction": "16276|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785233535",
+        "transaction": "15822|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785230037",
+        "transaction": "13697|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785229684",
+        "transaction": "17241|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785225462",
+        "transaction": "16276|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785221107",
+        "transaction": "16282|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785220699",
+        "transaction": "14927|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785220673",
+        "transaction": "15404|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785212382",
+        "transaction": "13697|2000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785207444",
+        "transaction": "14861|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785206996",
+        "transaction": "14163|5000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785206908",
+        "transaction": "14802|55000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785205198",
+        "transaction": "13604|45000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785205180",
+        "transaction": "13130|52000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785205115",
+        "transaction": "13130|50000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785205098",
+        "transaction": "14802|55000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785203971",
+        "transaction": "11244|6000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785201143",
+        "transaction": "7836|10000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785197914",
+        "transaction": "13319|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785197880",
+        "transaction": "13319|4000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785196278",
+        "transaction": "15259|9000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785196278",
+        "transaction": "14059|24000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785191431",
+        "transaction": "13319|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785187234",
+        "transaction": "7836|8000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785185648",
+        "transaction": "11679|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785185560",
+        "transaction": "16330|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785185474",
+        "transaction": "7836|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785185383",
+        "transaction": "12221|4000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785185183",
+        "transaction": "14059|19000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785184964",
+        "transaction": "15694|20000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785184928",
+        "transaction": "15742|20000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785184202",
+        "transaction": "14249|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785184104",
+        "transaction": "14102|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785183980",
+        "transaction": "15259|8000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785183753",
+        "transaction": "15805|8000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785182775",
+        "transaction": "12620|63000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785182374",
+        "transaction": "14777|58000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785182324",
+        "transaction": "14102|4000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785181709",
+        "transaction": "14056|27000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785181575",
+        "transaction": "14797|26000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785181531",
+        "transaction": "13589|88000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785180951",
+        "transaction": "14085|12000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785180930",
+        "transaction": "14085|10000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785178467",
+        "transaction": "14056|25000|Gride forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785177750",
+        "transaction": "17220|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785177374",
+        "transaction": "13714|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785176191",
+        "transaction": "12676|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785175273",
+        "transaction": "14893|4000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785174869",
+        "transaction": "14893|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785174476",
+        "transaction": "13813|3000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785173922",
+        "transaction": "13671|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785173364",
+        "transaction": "13671|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785170869",
+        "transaction": "15834|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785170365",
+        "transaction": "12616|8000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785170348",
+        "transaction": "12616|7000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785170311",
+        "transaction": "12616|6000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785170291",
+        "transaction": "12616|5000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785169632",
+        "transaction": "13214|4000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785169551",
+        "transaction": "13214|3000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785168725",
+        "transaction": "13593|62000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785165849",
+        "transaction": "15779|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785165788",
+        "transaction": "14842|5000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785165771",
+        "transaction": "15864|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785165643",
+        "transaction": "14797|26000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785165643",
+        "transaction": "12221|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785165535",
+        "transaction": "15261|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785165515",
+        "transaction": "11244|6000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785165480",
+        "transaction": "13146|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785165435",
+        "transaction": "14056|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785164752",
+        "transaction": "13116|48000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785163501",
+        "transaction": "15756|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785162246",
+        "transaction": "13130|48000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785162058",
+        "transaction": "15779|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785161130",
+        "transaction": "13813|2000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785161049",
+        "transaction": "17664|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785161026",
+        "transaction": "16013|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785160535",
+        "transaction": "14056|6000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785160007",
+        "transaction": "13813|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785159981",
+        "transaction": "13146|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785159964",
+        "transaction": "17153|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785159924",
+        "transaction": "14797|18000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785159903",
+        "transaction": "7836|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785159897",
+        "transaction": "15779|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785159889",
+        "transaction": "13130|45000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785159265",
+        "transaction": "15329|25000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785158730",
+        "transaction": "14059|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785158730",
+        "transaction": "12611|36000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785158596",
+        "transaction": "14842|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785156140",
+        "transaction": "17339|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785155589",
+        "transaction": "12860|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785155331",
+        "transaction": "11757|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785155297",
+        "transaction": "13719|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785154944",
+        "transaction": "16013|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785154307",
+        "transaction": "12611|33000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785152251",
+        "transaction": "16192|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785151339",
+        "transaction": "15694|17000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785151292",
+        "transaction": "15694|16000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785151229",
+        "transaction": "14249|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785151176",
+        "transaction": "14940|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785150923",
+        "transaction": "12221|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785150809",
+        "transaction": "14056|4000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785150799",
+        "transaction": "13214|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785150789",
+        "transaction": "15979|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785150771",
+        "transaction": "15259|7000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785150752",
+        "transaction": "14167|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785150640",
+        "transaction": "14056|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785150527",
+        "transaction": "14085|9000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785150328",
+        "transaction": "14056|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785148506",
+        "transaction": "16013|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785148457",
+        "transaction": "16246|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785144060",
+        "transaction": "12437|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785143777",
+        "transaction": "15259|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785143631",
+        "transaction": "13697|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785143281",
+        "transaction": "17241|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785142252",
+        "transaction": "14167|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785142252",
+        "transaction": "16846|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785138958",
+        "transaction": "16680|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785138958",
+        "transaction": "15051|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785122092",
+        "transaction": "15284|30000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785121839",
+        "transaction": "15694|12000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785121740",
+        "transaction": "15694|10000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785121374",
+        "transaction": "15805|8000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785120837",
+        "transaction": "15284|30000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785120784",
+        "transaction": "15694|4000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785120784",
+        "transaction": "12616|4000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785120728",
+        "transaction": "15261|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785120580",
+        "transaction": "14163|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785120562",
+        "transaction": "15742|20000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785120526",
+        "transaction": "14163|4000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785120501",
+        "transaction": "14802|53000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785118797",
+        "transaction": "13604|45000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785118545",
+        "transaction": "13604|44000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785117569",
+        "transaction": "11244|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785114029",
+        "transaction": "9431|33000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785109432",
+        "transaction": "13604|41000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785107804",
+        "transaction": "14059|13000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785101472",
+        "transaction": "14059|9000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785101472",
+        "transaction": "13604|36000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785101472",
+        "transaction": "12611|31000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785099474",
+        "transaction": "15756|10000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785099254",
+        "transaction": "12611|27000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785098523",
+        "transaction": "15742|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785098523",
+        "transaction": "14102|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785098330",
+        "transaction": "14085|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785098236",
+        "transaction": "15742|15000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785098236",
+        "transaction": "15259|4000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785097350",
+        "transaction": "15805|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785096884",
+        "transaction": "15762|48000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785096451",
+        "transaction": "15798|7000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785096370",
+        "transaction": "12620|63000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785096322",
+        "transaction": "15762|48000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785096310",
+        "transaction": "12620|61000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785096255",
+        "transaction": "15762|44000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785096238",
+        "transaction": "12620|58000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785096176",
+        "transaction": "12620|55000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785096125",
+        "transaction": "14073|30000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785095958",
+        "transaction": "14777|58000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785095452",
+        "transaction": "14073|30000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785095310",
+        "transaction": "14777|53000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785095295",
+        "transaction": "12620|53000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785095166",
+        "transaction": "14797|17000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785095088",
+        "transaction": "15259|2000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785095048",
+        "transaction": "14059|7000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785095037",
+        "transaction": "14059|6000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785095027",
+        "transaction": "14059|5000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785094956",
+        "transaction": "13589|88000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785094253",
+        "transaction": "14059|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785094216",
+        "transaction": "12611|23000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785093298",
+        "transaction": "14802|51000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785091976",
+        "transaction": "15762|40000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785091584",
+        "transaction": "12620|49000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785091346",
+        "transaction": "17220|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785091278",
+        "transaction": "7836|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785091055",
+        "transaction": "15756|8000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785090867",
+        "transaction": "13714|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785090128",
+        "transaction": "14802|50000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785090058",
+        "transaction": "15742|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785090032",
+        "transaction": "12616|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785089892",
+        "transaction": "14251|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785089833",
+        "transaction": "13837|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785088731",
+        "transaction": "13130|43000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785087913",
+        "transaction": "14797|10000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785087510",
+        "transaction": "14777|49000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785087291",
+        "transaction": "15762|38000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785087246",
+        "transaction": "15284|28000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785087242",
+        "transaction": "15284|26000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785087178",
+        "transaction": "14802|46000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785087162",
+        "transaction": "14073|28000|CBP forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785085634",
+        "transaction": "13130|41000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785085359",
+        "transaction": "16192|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785085124",
+        "transaction": "14073|21000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785084838",
+        "transaction": "13714|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785084651",
+        "transaction": "14059|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785084588",
+        "transaction": "15694|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785084426",
+        "transaction": "15834|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785084212",
+        "transaction": "12620|45000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785084048",
+        "transaction": "15329|23000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785083899",
+        "transaction": "15284|21000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785083834",
+        "transaction": "14073|17000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785083600",
+        "transaction": "15282|26000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785083504",
+        "transaction": "12611|21000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785083462",
+        "transaction": "14892|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785083438",
+        "transaction": "12611|17000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785083388",
+        "transaction": "15284|9000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785082713",
+        "transaction": "14225|8000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785082606",
+        "transaction": "14171|7000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785082323",
+        "transaction": "13593|62000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785082162",
+        "transaction": "13593|61000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785082152",
+        "transaction": "13589|80000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785081605",
+        "transaction": "13593|59000|i'll spend my whole budget on these two guys Creel\nSex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785081332",
+        "transaction": "13593|55000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785081126",
+        "transaction": "13593|49000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785079768",
+        "transaction": "17664|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785079389",
+        "transaction": "15979|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785079369",
+        "transaction": "15864|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785079349",
+        "transaction": "14102|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785078557",
+        "transaction": "13589|73000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785078350",
+        "transaction": "13116|48000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785077981",
+        "transaction": "13589|69000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785077931",
+        "transaction": "13593|45000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785076722",
+        "transaction": "13589|65000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785075411",
+        "transaction": "11244|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785075362",
+        "transaction": "15329|22000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785074319",
+        "transaction": "14085|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785074277",
+        "transaction": "15834|2000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785074277",
+        "transaction": "14797|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785074277",
+        "transaction": "14251|2000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785074277",
+        "transaction": "14163|3000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785074188",
+        "transaction": "15261|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785073219",
+        "transaction": "14892|4000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785072065",
+        "transaction": "14171|7000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785072051",
+        "transaction": "14171|6000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785069955",
+        "transaction": "15259|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785069734",
+        "transaction": "17339|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785069185",
+        "transaction": "12860|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785069014",
+        "transaction": "12611|15000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785066612",
+        "transaction": "13589|60000|Sex Manther forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785065417",
+        "transaction": "12611|10000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785065367",
+        "transaction": "13130|35000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785059133",
+        "transaction": "14163|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785058157",
+        "transaction": "15805|3000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785057658",
+        "transaction": "12437|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785054754",
+        "transaction": "14085|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785054675",
+        "transaction": "16846|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785052007",
+        "transaction": "16680|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785051978",
+        "transaction": "15805|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785051787",
+        "transaction": "15051|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785038499",
+        "transaction": "15051|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785038421",
+        "transaction": "15694|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785036630",
+        "transaction": "12611|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785035899",
+        "transaction": "12611|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1785035691",
+        "transaction": "15284|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785035502",
+        "transaction": "13604|31000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785034292",
+        "transaction": "13130|33000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785034260",
+        "transaction": "14802|40000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785033893",
+        "transaction": "15762|32000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785033835",
+        "transaction": "13130|32000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785033804",
+        "transaction": "14802|32000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785032497",
+        "transaction": "15798|7000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785027870",
+        "transaction": "15756|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785027551",
+        "transaction": "9431|33000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785026040",
+        "transaction": "9431|26000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785025990",
+        "transaction": "13593|43000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785025108",
+        "transaction": "13604|26000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785025067",
+        "transaction": "13116|44000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785024372",
+        "transaction": "12620|42000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785024325",
+        "transaction": "13593|42000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785023613",
+        "transaction": "13589|52000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1785023540",
+        "transaction": "13116|37000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785023262",
+        "transaction": "14777|43000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785023222",
+        "transaction": "14777|42000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785023185",
+        "transaction": "13589|49000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785023078",
+        "transaction": "14777|35000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785023046",
+        "transaction": "14073|11000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785022973",
+        "transaction": "13116|31000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785022937",
+        "transaction": "14802|26000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785022937",
+        "transaction": "12620|30000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785022848",
+        "transaction": "13604|20000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785022815",
+        "transaction": "13604|10000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785021869",
+        "transaction": "15329|18000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785020336",
+        "transaction": "13604|5000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785018797",
+        "transaction": "14797|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785015306",
+        "transaction": "12620|20000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785013771",
+        "transaction": "15329|14000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785013771",
+        "transaction": "13130|25000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785011438",
+        "transaction": "14802|21000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785011213",
+        "transaction": "15756|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785011204",
+        "transaction": "13604|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785010567",
+        "transaction": "15329|12000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785010468",
+        "transaction": "15762|31000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785010286",
+        "transaction": "12620|12000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785010254",
+        "transaction": "14171|5000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785010197",
+        "transaction": "14802|12000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785010030",
+        "transaction": "15798|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785010030",
+        "transaction": "15762|30000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785010030",
+        "transaction": "15329|8000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785010030",
+        "transaction": "14777|30000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785010030",
+        "transaction": "13116|26000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785010030",
+        "transaction": "12620|10000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785009924",
+        "transaction": "15762|20000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1785009924",
+        "transaction": "14802|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785009924",
+        "transaction": "14777|20000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785009924",
+        "transaction": "13589|40000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785009924",
+        "transaction": "13130|20000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785009924",
+        "transaction": "13116|20000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785009700",
+        "transaction": "14073|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785009597",
+        "transaction": "12620|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785009392",
+        "transaction": "14777|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785009360",
+        "transaction": "13593|35000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785009340",
+        "transaction": "13589|35000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785009278",
+        "transaction": "15834|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1785009207",
+        "transaction": "14802|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785008833",
+        "transaction": "14171|4000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785008550",
+        "transaction": "14171|3000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785007313",
+        "transaction": "14892|3000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785006441",
+        "transaction": "12620|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785006029",
+        "transaction": "13130|11000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1785004640",
+        "transaction": "14073|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785004540",
+        "transaction": "15762|17000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785004475",
+        "transaction": "9431|21000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785004437",
+        "transaction": "14073|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785003477",
+        "transaction": "14251|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1785003424",
+        "transaction": "13837|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785002859",
+        "transaction": "9431|15000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785002859",
+        "transaction": "13589|26000|Hawks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0012",
+        "timestamp": "1785002797",
+        "transaction": "12620|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785002498",
+        "transaction": "15329|2000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785002003",
+        "transaction": "14225|8000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785001940",
+        "transaction": "15762|10000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1785001866",
+        "transaction": "14777|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785001854",
+        "transaction": "13116|15000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1785001843",
+        "transaction": "9431|10000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1785001831",
+        "transaction": "13130|10000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1785001818",
+        "transaction": "14892|2000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1785001583",
+        "transaction": "13589|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784998057",
+        "transaction": "13589|12000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784997199",
+        "transaction": "15282|26000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784997053",
+        "transaction": "14892|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784996644",
+        "transaction": "13589|11000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784996398",
+        "transaction": "15282|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784996307",
+        "transaction": "14225|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784996206",
+        "transaction": "13593|12000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784996205",
+        "transaction": "14171|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784995990",
+        "transaction": "14225|2000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1784995867",
+        "transaction": "13593|11000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1784995836",
+        "transaction": "13130|6000|Cleon Ca$h forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784995828",
+        "transaction": "14225|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1784995806",
+        "transaction": "15798|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1784995770",
+        "transaction": "14777|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784995762",
+        "transaction": "15329|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1784995667",
+        "transaction": "13589|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784995513",
+        "transaction": "13116|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1784995498",
+        "transaction": "13593|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784995491",
+        "transaction": "9431|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784995459",
+        "transaction": "15762|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1784995436",
+        "transaction": "13130|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "demoted": "17509,",
+        "franchise": "0003",
+        "promoted": "",
+        "timestamp": "1784807452",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1784775644",
+        "transaction": "|14842,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1784770121",
+        "transaction": "|14085,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1784769293",
+        "transaction": "|15762,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "17657,",
+        "franchise": "0011",
+        "promoted": "16621,",
+        "timestamp": "1784765703",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17507,17584,17476,17486,",
+        "franchise": "0011",
+        "promoted": "",
+        "timestamp": "1784765618",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784751709",
+        "transaction": "|16617,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "17474,17519,17551,",
+        "franchise": "0001",
+        "promoted": "16596,",
+        "timestamp": "1784750023",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17031,",
+        "franchise": "0003",
+        "promoted": "",
+        "timestamp": "1784749187",
+        "type": "TAXI"
+      },
+      {
+        "comments": "",
+        "expires": "1785277115",
+        "franchise": "0001",
+        "franchise1_gave_up": "15287,17031,BB_10000,",
+        "franchise2": "0003",
+        "franchise2_gave_up": "13592,16809,17474,",
+        "timestamp": "1784746367",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "[Commish-processed: 3-way] 3-way 72cea017-d8ca-485b-8089-4122e5dc117a pair-3 (pairwise)",
+        "expires": "1785347877",
+        "franchise": "0009",
+        "franchise1_gave_up": "15751,BB_19000,",
+        "franchise2": "0010",
+        "franchise2_gave_up": ",",
+        "timestamp": "1784743077",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "[Commish-processed: 3-way] 3-way 72cea017-d8ca-485b-8089-4122e5dc117a pair-2 (pairwise)",
+        "expires": "1785347876",
+        "franchise": "0008",
+        "franchise1_gave_up": "FP_0008_2027_1,16174,17502,",
+        "franchise2": "0010",
+        "franchise2_gave_up": "16211,",
+        "timestamp": "1784743077",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "[Commish-processed: 3-way] 3-way 72cea017-d8ca-485b-8089-4122e5dc117a pair-1 (pairwise)",
+        "expires": "1785346026",
+        "franchise": "0008",
+        "franchise1_gave_up": "17071,",
+        "franchise2": "0009",
+        "franchise2_gave_up": ",",
+        "timestamp": "1784743076",
+        "type": "TRADE"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784719239",
+        "transaction": "|15702,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "",
+        "franchise": "0011",
+        "promoted": "16628,",
+        "timestamp": "1784718801",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0011",
+        "timestamp": "1784718781",
+        "transaction": "|16652,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784717601",
+        "transaction": "|12801,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784668888",
+        "transaction": "|16649,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784584049",
+        "transaction": "|16594,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784583382",
+        "transaction": "|11247,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784582888",
+        "transaction": "|16619,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "17571,",
+        "franchise": "0009",
+        "promoted": "",
+        "timestamp": "1784570942",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17563,",
+        "franchise": "0009",
+        "promoted": "",
+        "timestamp": "1784569907",
+        "type": "TAXI"
+      },
+      {
+        "comments": "",
+        "expires": "1785076362",
+        "franchise": "0007",
+        "franchise1_gave_up": "17269,",
+        "franchise2": "0011",
+        "franchise2_gave_up": "FP_0011_2027_5,",
+        "timestamp": "1784472018",
+        "type": "TRADE"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784465112",
+        "transaction": "|13130,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784395782",
+        "transaction": "|14137,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "16626,",
+        "franchise": "0006",
+        "promoted": "",
+        "timestamp": "1784343643",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784343236",
+        "transaction": "|16746,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "comments": "",
+        "expires": "1784913051",
+        "franchise": "0006",
+        "franchise1_gave_up": "17076,FP_0006_2027_4,",
+        "franchise2": "0001",
+        "franchise2_gave_up": "16245,16626,FP_0001_2027_5,",
+        "timestamp": "1784340660",
+        "type": "TRADE"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784322411",
+        "transaction": "|15484,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784305186",
+        "transaction": "12616|12000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784240263",
+        "transaction": "15284|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784240246",
+        "transaction": "15282|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784238723",
+        "transaction": "13132|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784238121",
+        "transaction": "17518|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784218786",
+        "transaction": "12616|12000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "demoted": "17722,",
+        "franchise": "0001",
+        "promoted": "",
+        "timestamp": "1784218580",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784209679",
+        "transaction": "13589|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784205502",
+        "transaction": "13753|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784205482",
+        "transaction": "15394|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784203811",
+        "transaction": "11679|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784203778",
+        "transaction": "15712|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784203370",
+        "transaction": "14777|16000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784200889",
+        "transaction": "11222|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784200842",
+        "transaction": "13604|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784153852",
+        "transaction": "15284|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784153841",
+        "transaction": "15282|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784152308",
+        "transaction": "13132|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784151767",
+        "transaction": "12616|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784151704",
+        "transaction": "17518|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1784133767",
+        "transaction": "12155|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1784133767",
+        "transaction": "11367|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784132992",
+        "transaction": "13593|17000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784128743",
+        "transaction": "16474|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784127821",
+        "transaction": "17639|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784123273",
+        "transaction": "13589|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784119134",
+        "transaction": "15712|2000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784119098",
+        "transaction": "13753|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784119079",
+        "transaction": "15394|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784117381",
+        "transaction": "11679|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784117369",
+        "transaction": "15712|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784116948",
+        "transaction": "14777|16000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784114443",
+        "transaction": "11222|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784114438",
+        "transaction": "13604|3000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784114417",
+        "transaction": "13593|17000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784114408",
+        "transaction": "14777|12000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784109704",
+        "transaction": "13604|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1784079740",
+        "transaction": "12155|3000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784079599",
+        "transaction": "13604|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784077051",
+        "transaction": "13593|11000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784068341",
+        "transaction": "13593|5000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784068027",
+        "transaction": "13593|4000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784067980",
+        "transaction": "13593|3000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1784063097",
+        "transaction": "11222|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784060028",
+        "transaction": "13593|2000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784055218",
+        "transaction": "13589|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1784047358",
+        "transaction": "12155|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1784047344",
+        "transaction": "11367|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1784045832",
+        "transaction": "13593|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1784044970",
+        "transaction": "13589|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784044457",
+        "transaction": "14777|6000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784043728",
+        "transaction": "16474|3000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1784043565",
+        "transaction": "14777|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784042326",
+        "transaction": "16474|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1784041418",
+        "transaction": "17639|2000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784041390",
+        "transaction": "16474|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784041378",
+        "transaction": "12155|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1784040995",
+        "transaction": "17639|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1783770792",
+        "transaction": "|12616,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "comments": "I\u00e2\u0080\u0099ll eat the 5k for the 2nd",
+        "expires": "1784220038",
+        "franchise": "0007",
+        "franchise1_gave_up": "13299,BB_5000,",
+        "franchise2": "0010",
+        "franchise2_gave_up": "FP_0010_2027_2,",
+        "timestamp": "1783770745",
+        "type": "TRADE"
+      },
+      {
+        "demoted": "17506,",
+        "franchise": "0003",
+        "promoted": "",
+        "timestamp": "1780845119",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "",
+        "franchise": "0003",
+        "promoted": "17045,",
+        "timestamp": "1780842706",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17511,",
+        "franchise": "0006",
+        "promoted": "",
+        "timestamp": "1780500675",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1780500675",
+        "transaction": "|17049,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "",
+        "franchise": "0003",
+        "promoted": "16716,",
+        "timestamp": "1780264908",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17045,",
+        "franchise": "0003",
+        "promoted": "",
+        "timestamp": "1780264805",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17652,",
+        "franchise": "0003",
+        "promoted": "",
+        "timestamp": "1780264779",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17474,",
+        "franchise": "0003",
+        "promoted": "",
+        "timestamp": "1780264714",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17514,17588,17557,",
+        "franchise": "0008",
+        "promoted": "",
+        "timestamp": "1780174780",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17547,",
+        "franchise": "0004",
+        "promoted": "16639,",
+        "timestamp": "1780071288",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1780065941",
+        "transaction": "16171|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "demoted": "17463,17478,17607,17634,",
+        "franchise": "0010",
+        "promoted": "",
+        "timestamp": "1780053531",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1780053531",
+        "transaction": "|16595,16631,17125,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "17709,17510,17575,",
+        "franchise": "0001",
+        "promoted": "16651,",
+        "timestamp": "1780021879",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1780021244",
+        "transaction": "16252|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779998144",
+        "transaction": "16212|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779978644",
+        "transaction": "16189|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1779971943",
+        "transaction": "16244|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "demoted": "17503,17528,",
+        "franchise": "0006",
+        "promoted": "",
+        "timestamp": "1779963106",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1779963106",
+        "transaction": "|16635,17077,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779951318",
+        "transaction": "16245|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779936106",
+        "transaction": "16171|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779934961",
+        "transaction": "16245|4000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779934577",
+        "transaction": "16245|3000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779933584",
+        "transaction": "16245|2000|The Long Haulers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1779927658",
+        "transaction": "16166|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "demoted": "17505,",
+        "franchise": "0004",
+        "promoted": "",
+        "timestamp": "1779898668",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0004",
+        "timestamp": "1779898668",
+        "transaction": "|17119,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779891492",
+        "transaction": "16252|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1779890746",
+        "transaction": "16166|4000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779888167",
+        "transaction": "16212|2000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1779884749",
+        "transaction": "16149|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779882649",
+        "transaction": "16193|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779879349",
+        "transaction": "16164|4000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1779875474",
+        "transaction": "16166|3000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "demoted": "",
+        "franchise": "0002",
+        "promoted": "17039,",
+        "timestamp": "1779875410",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17645,",
+        "franchise": "0002",
+        "promoted": "",
+        "timestamp": "1779874771",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17467,17477,17520,",
+        "franchise": "0002",
+        "promoted": "",
+        "timestamp": "1779874426",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779868315",
+        "transaction": "16164|4000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779868287",
+        "transaction": "16212|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779868033",
+        "transaction": "16164|3000|Real Deal Creel forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1779858952",
+        "transaction": "16165|1000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1779855951",
+        "transaction": "16432|2000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779855351",
+        "transaction": "16174|3000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779854507",
+        "transaction": "16169|7000|",
+        "type": "AUCTION_WON"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779848934",
+        "transaction": "16189|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779842129",
+        "transaction": "16169|7000|C-Town Chivalry forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1779841871",
+        "transaction": "16244|4000|",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779821492",
+        "transaction": "16245|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779821273",
+        "transaction": "16193|2000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "demoted": "17482,",
+        "franchise": "0006",
+        "promoted": "",
+        "timestamp": "1779818325",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1779818232",
+        "transaction": "|17114,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "demoted": "17475,17567,17549,",
+        "franchise": "0007",
+        "promoted": "",
+        "timestamp": "1779798258",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1779797920",
+        "transaction": "16166|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "demoted": "17468,17485,17517,",
+        "franchise": "0012",
+        "promoted": "",
+        "timestamp": "1779759268",
+        "type": "TAXI"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1779755085",
+        "transaction": "16149|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779752855",
+        "transaction": "16193|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779749738",
+        "transaction": "16174|3000|L.A. Looks forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779749506",
+        "transaction": "16164|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1779740107",
+        "transaction": "16244|3000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779740107",
+        "transaction": "16169|5000|Blake Bombers forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779732670",
+        "transaction": "16169|4000|Gride forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0005",
+        "timestamp": "1779732220",
+        "transaction": "16244|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1779729217",
+        "transaction": "16165|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1779727028",
+        "transaction": "16432|2000|HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0 forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779726519",
+        "transaction": "16169|3000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779726495",
+        "transaction": "16169|2000|Pure Greatness forced bid increase",
+        "type": "AUCTION_BID"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1779726186",
+        "transaction": "16432|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779725306",
+        "transaction": "16174|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1779724562",
+        "transaction": "16169|1000|",
+        "type": "AUCTION_INIT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1779716658",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "demoted": "17466,",
+        "franchise": "0006",
+        "promoted": "",
+        "timestamp": "1779713289",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17580,17568,",
+        "franchise": "0005",
+        "promoted": "",
+        "timestamp": "1779678122",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17654,17599,17589,",
+        "franchise": "0004",
+        "promoted": "",
+        "timestamp": "1779677992",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "17481,17508,",
+        "franchise": "0005",
+        "promoted": "",
+        "timestamp": "1779673129",
+        "type": "TAXI"
+      },
+      {
+        "by_commish": "1",
+        "comments": "",
+        "expires": "1780276138",
+        "franchise": "0001",
+        "franchise1_gave_up": "DP_2_7,",
+        "franchise2": "0005",
+        "franchise2_gave_up": "DP_3_7,DP_4_0,FP_0005_2027_4,",
+        "timestamp": "1779671397",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "",
+        "expires": "1780275641",
+        "franchise": "0008",
+        "franchise1_gave_up": "DP_2_8,DP_2_11,",
+        "franchise2": "0003",
+        "franchise2_gave_up": "DP_2_5,",
+        "timestamp": "1779670862",
+        "type": "TRADE"
+      },
+      {
+        "comments": "",
+        "expires": "1780274161",
+        "franchise": "0005",
+        "franchise1_gave_up": "DP_3_0,FP_0005_2027_3,",
+        "franchise2": "0004",
+        "franchise2_gave_up": "DP_1_11,",
+        "timestamp": "1779669427",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "",
+        "expires": "1780273544",
+        "franchise": "0004",
+        "franchise1_gave_up": "DP_1_8,DP_3_11,",
+        "franchise2": "0003",
+        "franchise2_gave_up": "FP_0003_2027_2,",
+        "timestamp": "1779668813",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "",
+        "expires": "1780272795",
+        "franchise": "0008",
+        "franchise1_gave_up": "DP_1_8,FP_0008_2027_3,",
+        "franchise2": "0004",
+        "franchise2_gave_up": "DP_1_5,",
+        "timestamp": "1779668012",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "",
+        "expires": "1780271967",
+        "franchise": "0006",
+        "franchise1_gave_up": "DP_1_2,DP_2_5,",
+        "franchise2": "0003",
+        "franchise2_gave_up": "DP_1_4,DP_1_9,",
+        "timestamp": "1779667183",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "comments": "",
+        "expires": "1780268490",
+        "franchise": "0008",
+        "franchise1_gave_up": "DP_0_3,",
+        "franchise2": "0003",
+        "franchise2_gave_up": "15253,DP_0_6,",
+        "timestamp": "1779663725",
+        "type": "TRADE"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1779541598",
+        "transaction": "|16803,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1779459288",
+        "transaction": "|12678,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0009",
+        "timestamp": "1779459271",
+        "transaction": "|15292,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0004",
+        "timestamp": "1779446992",
+        "transaction": "|16153,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0004",
+        "timestamp": "1779446986",
+        "transaction": "|16216,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0002",
+        "timestamp": "1779446982",
+        "transaction": "|16196,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1779446899",
+        "transaction": "|16233,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0012",
+        "timestamp": "1779446129",
+        "transaction": "|16245,16228,16221,16231,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0011",
+        "timestamp": "1779446129",
+        "transaction": "|16252,16193,16189,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0009",
+        "timestamp": "1779446128",
+        "transaction": "|16156,16151,16197,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1779446128",
+        "transaction": "|16432,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1779446127",
+        "transaction": "|16149,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1779446127",
+        "transaction": "|16166,16226,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0004",
+        "timestamp": "1779446127",
+        "transaction": "|16263,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0003",
+        "timestamp": "1779446126",
+        "transaction": "|16165,16174,16171,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1779446126",
+        "transaction": "|16169,16164,16244,16212,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1779417276",
+        "transaction": "15287,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1779417275",
+        "transaction": "|14777,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1779417273",
+        "transaction": "14777,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0009",
+        "timestamp": "1779411801",
+        "transaction": "15762,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0009",
+        "timestamp": "1779411800",
+        "transaction": "|13589,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0009",
+        "timestamp": "1779411797",
+        "transaction": "13589,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0003",
+        "timestamp": "1779409907",
+        "transaction": "15253,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0012",
+        "timestamp": "1779377252",
+        "transaction": "|13116,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1779374393",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1779359029",
+        "transaction": "15001,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1779359029",
+        "transaction": "|15365,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1779359026",
+        "transaction": "15365,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0007",
+        "timestamp": "1779216473",
+        "transaction": "13130,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0007",
+        "timestamp": "1779216467",
+        "transaction": "|13130,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0007",
+        "timestamp": "1779216454",
+        "transaction": "13130,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0007",
+        "timestamp": "1779215642",
+        "transaction": "|13130,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0012",
+        "timestamp": "1779215482",
+        "transaction": "13116,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "demoted": "16803,",
+        "franchise": "0008",
+        "promoted": "",
+        "timestamp": "1779129657",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "",
+        "franchise": "0008",
+        "promoted": "16803,",
+        "timestamp": "1779129619",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "16803,",
+        "franchise": "0008",
+        "promoted": "",
+        "timestamp": "1779129575",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "",
+        "franchise": "0008",
+        "promoted": "16803,",
+        "timestamp": "1779129556",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "16803,",
+        "franchise": "0008",
+        "promoted": "",
+        "timestamp": "1779128854",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "",
+        "franchise": "0008",
+        "promoted": "16803,",
+        "timestamp": "1779113907",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "16803,",
+        "franchise": "0008",
+        "promoted": "",
+        "timestamp": "1779112586",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "",
+        "franchise": "0008",
+        "promoted": "16803,",
+        "timestamp": "1779112576",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "16803,",
+        "franchise": "0008",
+        "promoted": "",
+        "timestamp": "1779112249",
+        "type": "TAXI"
+      },
+      {
+        "by_commish": "1",
+        "demoted": "",
+        "franchise": "0008",
+        "promoted": "16803,",
+        "timestamp": "1779109747",
+        "type": "TAXI"
+      },
+      {
+        "demoted": "",
+        "franchise": "0008",
+        "promoted": "16233,",
+        "timestamp": "1779030180",
+        "type": "TAXI"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0004",
+        "timestamp": "1778979292",
+        "transaction": "13198,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778949469",
+        "transaction": "|15694,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778949452",
+        "transaction": "15694,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778943936",
+        "transaction": "|15694,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778940561",
+        "transaction": "15694,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778778690",
+        "transaction": "|14909,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778776148",
+        "transaction": "14909,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778773455",
+        "transaction": "|14909,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778768174",
+        "transaction": "14909,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778762926",
+        "transaction": "|10775,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1778762924",
+        "transaction": "10775,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "",
+        "expires": "1779151333",
+        "franchise": "0006",
+        "franchise1_gave_up": "DP_2_10,DP_3_3,DP_3_4,DP_3_6,DP_4_6,",
+        "franchise2": "0007",
+        "franchise2_gave_up": "DP_2_3,DP_2_5,",
+        "timestamp": "1778546756",
+        "type": "TRADE"
+      },
+      {
+        "comments": "Pre-trade extension: Extend Johnston, Quentin 1-year ",
+        "expires": "1778707072",
+        "franchise": "0004",
+        "franchise1_gave_up": "16188,",
+        "franchise2": "0006",
+        "franchise2_gave_up": "FP_0006_2027_3,",
+        "timestamp": "1778117113",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776955027",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "",
+        "expires": "1776693201",
+        "franchise": "0005",
+        "franchise1_gave_up": "FP_0005_2027_2,",
+        "franchise2": "0001",
+        "franchise2_gave_up": "14071,",
+        "timestamp": "1776396348",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776258838",
+        "transaction": "|14073,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776257976",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776257974",
+        "transaction": "14073,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255438",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255368",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255368",
+        "transaction": "|14073,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255365",
+        "transaction": "14073,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255051",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255049",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776254620",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776254618",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776217219",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776217217",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776214638",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776214637",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195427",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195425",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195409",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195407",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776194815",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776194813",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776178754",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776178752",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176757",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176755",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176655",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176653",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176611",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176608",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "Pre-trade extension: Extend Walker III, Kenneth 1-year ",
+        "expires": "1776693472",
+        "franchise": "0005",
+        "franchise1_gave_up": "FP_0005_2027_1,",
+        "franchise2": "0008",
+        "franchise2_gave_up": "15711,",
+        "timestamp": "1776092645",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0010",
+        "timestamp": "1775787535",
+        "transaction": "12616,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "Keith, I will use my extension for Hurts at contract time work later on .",
+        "expires": "1776371712",
+        "franchise": "0006",
+        "franchise1_gave_up": "FP_0006_2027_1,FP_0006_2027_2,",
+        "franchise2": "0005",
+        "franchise2_gave_up": "14783,BB_20000,",
+        "timestamp": "1775772921",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1775525764",
+        "transaction": "|14168,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "",
+        "expires": "1775228054",
+        "franchise": "0007",
+        "franchise1_gave_up": "DP_0_9,",
+        "franchise2": "0010",
+        "franchise2_gave_up": "FP_0010_2027_1,",
+        "timestamp": "1774623376",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773693331",
+        "transaction": "|14056,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773541020",
+        "transaction": "14056,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773540802",
+        "transaction": "|14056,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773438087",
+        "transaction": "14168,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773437934",
+        "transaction": "15237,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773356483",
+        "transaction": "14056,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773356463",
+        "transaction": "|15779,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0007",
+        "timestamp": "1773315865",
+        "transaction": "13130,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773235260",
+        "transaction": "|14171,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773232167",
+        "transaction": "15779,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773232135",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773158462",
+        "transaction": "14171,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773149141",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773105932",
+        "transaction": "|15237,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773105893",
+        "transaction": "15237,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773101791",
+        "transaction": "|15694,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773098885",
+        "transaction": "15694,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773098857",
+        "transaction": "|14909,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773096467",
+        "transaction": "14909,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773095718",
+        "transaction": "|16670,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773095632",
+        "transaction": "16670,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "activated": "13743,14800,15351,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0012",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "16222,16615,16652,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0011",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "13284,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0010",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "12678,15923,16214,16641,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0009",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "13113,15787,16594,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0008",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "12801,16194,16204,16597,17074,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0007",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "16149,16175,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0006",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "16152,16583,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0005",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "11247,14147,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0004",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "16171,17045,17046,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0003",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "15753,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0002",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "12610,16244,13806,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0001",
+        "timestamp": "1772934752",
+        "type": "IR"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1772928825",
+        "transaction": "14860,|",
+        "type": "LOAD_ROSTERS"
+      }
+    ]
+  },
+  "version": "1.0"
+}
