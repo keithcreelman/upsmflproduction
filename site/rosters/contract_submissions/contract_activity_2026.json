@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-04 22:00:41",
+    "generated_at": "2026-09-05 09:22:32",
     "source": "contract-activity-log",
-    "count": 121,
+    "count": 122,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "fe6b520d4b80de66026d5b7b",
+      "submission_id": "fe6b520d4b80de66026d5b7b",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0006",
+      "franchise_name": "",
+      "player_id": "16187",
+      "player_name": "Downs, Josh",
+      "position": "WR",
+      "salary": 12000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1",
+      "contract_info": "CL 2|TCV 34K|AAV 12K, 22K|Y1-12K, Y2-22K|Ext: GRide|GTD: 25.5K",
+      "tcv": 34000,
+      "aav": 0,
+      "guaranteed": 25500,
+      "submitted_at_utc": "2026-09-05T09:22:15.826Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545725753402855526",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "f2c5ba8c7b84562339f4c4dc",
       "submission_id": "f2c5ba8c7b84562339f4c4dc",
