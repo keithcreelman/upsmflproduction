@@ -8630,28 +8630,27 @@
     const aav = priorAavValues.length ? safeInt(priorAavValues[0], 0)
                                       : Math.round(tcv / Math.max(1, years));
     const gtd = guaranteeForContract(tcv, years);        // §D1 sub-$5K rule (restructure)
-    // §C5 / T3.4: the -FL / -BL suffix on a RESTRUCTURE follows which way the money
-    // MOVED — new current-year (Y1) salary vs the PRE-restructure current-year
-    // salary: LOWERED → -BL (pushed back), RAISED → -FL (pulled forward). 🔒 Keith
-    // ruling 2026-07-23 — do NOT use "Y1 vs AAV" (it breaks on escalated dual-AAV
-    // deals: Hurts 67→47 is -BL even though Y1-47 > AAV-42). Strip any existing
-    // suffix first; equal = flat = no suffix. The suffix also drives the 5-loaded
-    // roster cap (isLoadedRow keys off it).
-    // BASIS = the CURRENT year's salary, i.e. Y-token
-    // [contractYearIndexForPlayer(player)] — NOT [1]. Y-tokens are absolute
-    // across a contract's life, so [1] is the current year ONLY on an untouched
-    // deal. Reading [1] mid-contract compares against a year already earned and
-    // inverts the suffix: Herbert (CL 3 | Y1-61, Y2-51, Y3-41 | 2 left) has a
-    // current-year salary of $51K, so re-slotting the remaining $92K to 55/37
-    // moved money UP = -FL — but against Y1-61 it reads 55 < 61 and writes -BL.
-    // That mis-types the contract permanently and feeds the 5-loaded cap.
-    // Every fixture that verified this rule (Hurts, London, Cook, McLaurin) is a
-    // contract whose current year IS year 1, which is why the bug survived.
-    const priorCurrentSalary = safeInt(currentContractYearValue(p), 0) ||
-                               roundToK(safeInt(p.salary, 0));
+    // §C5 / T3.4: the -FL / -BL suffix on a RESTRUCTURE compares Y1 to a FRESH
+    // even split of the money being re-slotted — round(TCV / years) — NOT the
+    // preserved AAV token and NOT just Y1-vs-Y2. 🔒 Keith ruling 2026-09-05
+    // (supersedes the 2026-07-23 "vs pre-restructure current-year salary" rule).
+    // Why not the preserved AAV token: it can be a stale multi-generation
+    // anchor. Hurts' real restructure (id 14, 2026-07-23) carries a dual AAV
+    // token "42K, 52K" left over from an earlier extension, but the TCV/years
+    // being re-slotted THIS time is 119K/2 = 59.5K — a different number from
+    // either AAV component. Comparing new Y1(47K) to the token's 42K says
+    // FL (47 > 42) — wrong, the real committed result is -BL. Comparing to the
+    // fresh even-split 59.5K says 47 < 59.5 → BL — correct.
+    // Why not just Y1-vs-Y2: fails on 3+ year non-monotonic splits (e.g. TCV
+    // 30K/3yrs, even-split 10K, proposal 6K/11K/13K — Y1<Y2 agrees it's BL here,
+    // but a dip-then-rise split like 6K/1K/13K would read Y1>Y2 → FL even though
+    // it's genuinely backloaded against the 10K even-split).
+    // Strip any existing suffix first; equal = flat = no suffix. The suffix also
+    // drives the 5-loaded roster cap (isLoadedRow keys off it).
+    const evenSplit = Math.round(tcv / Math.max(1, years));
     const baseType = String(p.type || "Veteran").replace(/-(FL|BL)$/i, "");
-    const loadSuffix = (priorCurrentSalary > 0 && y1 > priorCurrentSalary) ? "-FL"
-                     : ((priorCurrentSalary > 0 && y1 < priorCurrentSalary) ? "-BL" : "");
+    const loadSuffix = (evenSplit > 0 && y1 > evenSplit) ? "-FL"
+                     : ((evenSplit > 0 && y1 < evenSplit) ? "-BL" : "");
     const newStatus = baseType + loadSuffix;
     // §C2.356 / §C5: hard-block a restructure that would create a NEW loaded
     // contract once the team is at the 5-loaded roster cap. Re-shaping an
