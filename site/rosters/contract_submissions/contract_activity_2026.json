@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-05 17:33:16",
+    "generated_at": "2026-09-05 17:39:13",
     "source": "contract-activity-log",
-    "count": 133,
+    "count": 134,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "4225600138bf8a281b409e0e",
+      "submission_id": "4225600138bf8a281b409e0e",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "16723",
+      "player_name": "Barner, AJ",
+      "position": "TE",
+      "salary": 1000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1",
+      "contract_info": "CL 2|TCV 12K|AAV 1K, 11K|Y1-1K, Y2-11K|Ext: Bomb|GTD: 9K",
+      "tcv": 12000,
+      "aav": 0,
+      "guaranteed": 9000,
+      "submitted_at_utc": "2026-09-05T17:38:55.953Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545850746715512984",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "45543bbeec6c5387d9fb05dc",
       "submission_id": "45543bbeec6c5387d9fb05dc",
