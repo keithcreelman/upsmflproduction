@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-05 09:22:32",
+    "generated_at": "2026-09-05 12:35:12",
     "source": "contract-activity-log",
-    "count": 122,
+    "count": 123,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "835c430c7f1993fa41911c8e",
+      "submission_id": "835c430c7f1993fa41911c8e",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16594",
+      "player_name": "Benson, Trey",
+      "position": "RB",
+      "salary": 1000,
+      "contract_year": 2,
+      "contract_status": "Vet-WW",
+      "contract_info": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K",
+      "tcv": 2000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-05T12:34:52.652Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545774233802768427",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "fe6b520d4b80de66026d5b7b",
       "submission_id": "fe6b520d4b80de66026d5b7b",
