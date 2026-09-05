@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-05 17:32:20",
+    "generated_at": "2026-09-05 17:33:16",
     "source": "contract-activity-log",
-    "count": 132,
+    "count": 133,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "45543bbeec6c5387d9fb05dc",
+      "submission_id": "45543bbeec6c5387d9fb05dc",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "16013",
+      "player_name": "Landman, Nate",
+      "position": "LB",
+      "salary": 2000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA-BL",
+      "contract_info": "CL 2|TCV 8K|AAV 4K|Y1-2K, Y2-6K|GTD: 6K",
+      "tcv": 8000,
+      "aav": 4000,
+      "guaranteed": 6000,
+      "submitted_at_utc": "2026-09-05T17:33:00.330Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1545849252213825588",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "057dfdeea9a9f387121f0e09",
       "submission_id": "057dfdeea9a9f387121f0e09",
