@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-06 22:28:07",
+    "generated_at": "2026-09-06 22:28:47",
     "source": "contract-activity-log",
-    "count": 145,
+    "count": 146,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "29adda4c9f2caf1be34877fe",
+      "submission_id": "29adda4c9f2caf1be34877fe",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0009",
+      "franchise_name": "C-Town Chivalry",
+      "player_id": "13737",
+      "player_name": "Bates, Jessie",
+      "position": "DB",
+      "salary": 2000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 2|TCV 4K|AAV 2K|Y1-2K, Y2-2K|GTD: 1K",
+      "tcv": 4000,
+      "aav": 2000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-06T22:28:06.731Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546285989683535966",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "b4c511249dbe014c5674ef57",
       "submission_id": "b4c511249dbe014c5674ef57",
