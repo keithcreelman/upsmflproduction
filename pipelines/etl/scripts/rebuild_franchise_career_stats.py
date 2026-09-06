@@ -5,7 +5,8 @@ rebuild_franchise_career_stats.py — Regenerate pipelines/etl/data/franchise_ca
 The roast context builder loads franchise_career_stats.json for owner W-L,
 championships, playoff appearances, season-by-season finish trend, and h2h
 between owners. This script rebuilds that file from D1's src_final_standings
-+ src_weekly_franchise_summary + discord_owners tables.
++ src_standings (the W-L record source) + src_weekly_franchise_summary
+(transition-season heuristic only) + discord_owners tables.
 
 Run periodically (manually, or via a future launchd timer) to keep career
 stats fresh as new seasons complete.
@@ -305,6 +306,8 @@ def load_final_standings() -> list[dict]:
 
 
 def load_weekly_summary() -> list[dict]:
+    """Per-week rows. Used ONLY for the multi-owner transition heuristic now —
+    NOT for W-L. See load_season_standings for why."""
     return d1_query(
         f"SELECT season, week, franchise_id, owner_name, "
         f"       h2h_wins, h2h_losses, h2h_ties, h2h_games, "
@@ -313,8 +316,41 @@ def load_weekly_summary() -> list[dict]:
     )
 
 
+def load_season_standings() -> list[dict]:
+    """Per-(season, franchise) W-L totals — THE record source.
+
+    WHY THIS EXISTS (Keith 2026-09-02): career records were rebuilt by summing
+    src_weekly_franchise_summary, which carries NO regular-season head-to-head
+    rows for 2010-11 or 2013-19 — only playoff weeks survive there (verified:
+    those seasons total 28 h2h games league-wide, i.e. the playoff bracket and
+    nothing else). Summing it produced a career "record" that silently omitted
+    nine regular seasons.
+
+    The damage was not academic. The roast bot published those figures for its
+    entire life, and an owner who had been telling us for years that the
+    all-time head-to-head records were broken was right the whole time —
+    Ryan Bousquet's record read 165-110 when it is actually 265-197.
+
+    src_standings carries complete per-season totals for all 16 seasons
+    (192 rows = 12 franchises x 16 seasons) with the same column semantics:
+    allplay_w/l include playoff weeks, matching the old summed behaviour.
+
+    NOTE: opponent-vs-opponent records are still NOT trustworthy anywhere in
+    D1 — src_schedule has the same nine-season hole and no other table pairs
+    matchups. Do not derive an owner-vs-owner record until that is backfilled
+    from MFL.
+    """
+    return d1_query(
+        f"SELECT season, franchise_id, owner_name, "
+        f"       h2h_w, h2h_l, h2h_t, "
+        f"       allplay_w, allplay_l, pf "
+        f"FROM src_standings WHERE season >= {UPS_FOUNDING_SEASON};"
+    )
+
+
 def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
-                mfl_ownership: dict, overrides: dict = None) -> dict:
+                season_standings: list[dict], mfl_ownership: dict,
+                overrides: dict = None) -> dict:
     """Build the career stats dict keyed by current franchise_id.
 
     Owner-tenure attribution rule (Keith 2026-05-22/05-23):
@@ -351,18 +387,30 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
     # current owner backward), but multi-distinct-name still flags transitions.
     season_owners_seen = defaultdict(lambda: defaultdict(set))
 
+    # RECORDS COME FROM src_standings, NOT from summing weekly rows. The weekly
+    # table is missing every regular-season h2h row for 2010-11 and 2013-19, so
+    # summing it silently dropped nine seasons off every career record. See
+    # load_season_standings() for the full account.
+    for row in season_standings:
+        fid = str(row["franchise_id"]).zfill(4)
+        season = int(row["season"])
+        s = season_totals[fid][season]
+        s["h2h_w"] = int(row.get("h2h_w") or 0)
+        s["h2h_l"] = int(row.get("h2h_l") or 0)
+        s["h2h_t"] = int(row.get("h2h_t") or 0)
+        s["h2h_g"] = s["h2h_w"] + s["h2h_l"] + s["h2h_t"]
+        s["ap_w"] = int(row.get("allplay_w") or 0)
+        s["ap_l"] = int(row.get("allplay_l") or 0)
+        s["pts_for"] = float(row.get("pf") or 0)
+
+    # Weekly rows are still read, but ONLY to spot a franchise that shows more
+    # than one owner_name inside a season (the transition-season heuristic).
+    # D1's weekly owner_name is unreliable for attribution — see the comment on
+    # season_owners_seen above — but a multi-name season still flags a handover.
     for w in weekly:
         fid = str(w["franchise_id"]).zfill(4)
         season = int(w["season"])
-        s = season_totals[fid][season]
-        s["h2h_w"] += int(w.get("h2h_wins") or 0)
-        s["h2h_l"] += int(w.get("h2h_losses") or 0)
-        s["h2h_t"] += int(w.get("h2h_ties") or 0)
-        s["h2h_g"] += int(w.get("h2h_games") or 0)
-        s["ap_w"] += int(w.get("allplay_wins") or 0)
-        s["ap_l"] += int(w.get("allplay_losses") or 0)
-        s["pts_for"] += float(w.get("h2h_team_score") or 0)
-        s["weeks"] += 1
+        season_totals[fid][season]["weeks"] += 1
         owner_nm = (w.get("owner_name") or "").strip()
         if owner_nm:
             season_owners_seen[fid][season].add(owner_nm)
@@ -544,7 +592,20 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
             "h2h": {},  # filled below
         }
 
-    # Build h2h between franchises (current owner ↔ current owner, lifetime)
+    # Build h2h between franchises (current owner <-> current owner, lifetime).
+    #
+    # KNOWN INCOMPLETE — do not present this as an all-time record. It is built
+    # from the weekly opponent columns, and those rows do not exist for the
+    # 2010-11 or 2013-19 regular seasons (see load_season_standings). Season
+    # TOTALS above are now correct because they come from src_standings, but
+    # src_standings has no opponent breakdown, and no other D1 table pairs
+    # matchups — so per-opponent records still cover roughly seven seasons of
+    # regular play plus stray playoff games.
+    #
+    # Fixing it means backfilling MFL's schedule export for the missing years
+    # into src_schedule. Until then, callers (the roast bot especially) must
+    # not quote these as lifetime head-to-head. The `coverage` flag below says
+    # so in-band so a consumer cannot miss it.
     h2h_pair = defaultdict(lambda: {"w": 0, "l": 0, "games": 0})
     for w in weekly:
         fid = str(w["franchise_id"]).zfill(4)
@@ -565,6 +626,7 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
                 h2h_pair[(fid, opp_fid)]["l"] += 1
     for (fid, opp_fid), record in h2h_pair.items():
         if fid in out:
+            record["coverage"] = "partial_missing_2010_2011_2013_2019_regular_season"
             out[fid]["h2h"][opp_fid] = record
 
     return out
@@ -581,6 +643,7 @@ def main():
     standings = load_final_standings()
     print(f"  final standings rows: {len(standings)}")
     weekly = load_weekly_summary()
+    season_standings = load_season_standings()
     print(f"  weekly summary rows: {len(weekly)}")
     overrides = load_tenure_overrides()
     print(f"  tenure overrides: {len(overrides)} franchise(s)")
@@ -590,7 +653,7 @@ def main():
           f"{sum(len(v) for v in mfl_ownership.values())} (season, fid) cells")
 
     print("Building career stats...")
-    stats = build_stats(owners, standings, weekly, mfl_ownership, overrides=overrides)
+    stats = build_stats(owners, standings, weekly, season_standings, mfl_ownership, overrides=overrides)
 
     # Quick sanity sample — Keith's cross-franchise career (0007/2010 → 0008+),
     # Brian Cross's 2025-start override on 0006, Hammer's 2024 chip drought.
