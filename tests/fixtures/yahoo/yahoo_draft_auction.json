@@ -1,0 +1,184 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/461.l.576919/draftresults?format=json",
+    "",
+    "REDACTION: all identifiers invented. Player names are real NFL players (not",
+    "personal data of league members); the numeric player ids attached to them are",
+    "PLAUSIBLE BUT UNVERIFIED and must not be treated as a Yahoo id mapping.",
+    "No token, email, real GUID or real league key appears in this directory.",
+    "",
+    "WHY THIS IS COMMITTED — THIS IS THE AUCTION-PRICE FIXTURE. The entire file",
+    "exists for the three picks at indices 4, 5 and 6, which are the trio that",
+    "makes NULL-vs-0 testable:",
+    "",
+    "    pick 5  cost \"0\"      → a genuinely FREE roster spot (a $0 keeper).",
+    "                            Must parse to auction_cost = 0.0, NOT NULL.",
+    "    pick 6  <no cost key> → Yahoo did not state a price. Must parse to",
+    "                            auction_cost = NULL, NOT 0.0.",
+    "    pick 7  cost \"1\"      → a $1 dart throw. Proves 0 and 1 are both real",
+    "                            prices and neither is a sentinel.",
+    "",
+    "If those three ever collapse into each other, every dollar-per-point,",
+    "value-over-price and draft-efficiency number computed downstream is wrong,",
+    "and nothing raises — the rows still exist and still look plausible. That",
+    "silence is why the fixture is here. parse_draft_results() reads cost with",
+    "to_float(), which returns None for absent/'' and 0.0 only for a literal zero,",
+    "and NEVER defaults.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. draft_results is a COLLECTION: keys \"0\",\"1\",... plus a sibling \"count\".",
+    "     Iterating it as a list yields the strings and no picks; including",
+    "     \"count\" as an element yields an int where a dict was expected.",
+    "  2. The numeric keys are NOT in lexical order here (\"10\" precedes \"2\" in a",
+    "     lexical sort). iter_collection() sorts them NUMERICALLY; if it did not,",
+    "     pick order — which IS the meaning in a draft — would be scrambled.",
+    "  3. cost arrives as a STRING for most picks and as a bare INT for pick 1.",
+    "     Both are real; both must coerce.",
+    "  4. draft_result carries NO player_id and NO editorial_player_key — only the",
+    "     season-scoped player_key ('461.p.32671'). player_uid must be",
+    "     reconstructed as 'nfl.p.32671' using the season-independent game CODE,",
+    "     never the season's game id, or the same player becomes a new person",
+    "     every year.",
+    "  5. There is NO is_keeper field anywhere. Yahoo does not expose one — see",
+    "     yahoo_draft_keeper.json.",
+    "",
+    "NOT TRUNCATED in structure, but only 10 of a real 12-team auction's ~180",
+    "picks are included. Reason: every pick beyond the price trio exercises the",
+    "identical code path, and 180 near-identical entries would hide the three that",
+    "matter."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.576919/draftresults",
+    "league": [
+      {
+        "league_key": "461.l.576919",
+        "league_id": "576919",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/576919",
+        "draft_status": "postdraft",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2025"
+      },
+      {
+        "draft_results": {
+          "0": {
+            "draft_result": {
+              "pick": 1,
+              "round": 1,
+              "cost": 62,
+              "team_key": "461.l.576919.t.4",
+              "player_key": "461.p.32671"
+            }
+          },
+          "1": {
+            "draft_result": {
+              "pick": 2,
+              "round": 1,
+              "cost": "55",
+              "team_key": "461.l.576919.t.9",
+              "player_key": "461.p.33413"
+            }
+          },
+          "2": {
+            "draft_result": {
+              "pick": 3,
+              "round": 1,
+              "cost": "51",
+              "team_key": "461.l.576919.t.1",
+              "player_key": "461.p.31883"
+            }
+          },
+          "3": {
+            "draft_result": {
+              "pick": 4,
+              "round": 1,
+              "cost": "48",
+              "team_key": "461.l.576919.t.7",
+              "player_key": "461.p.31056"
+            }
+          },
+          "4": {
+            "draft_result": {
+              "pick": 5,
+              "round": 1,
+              "cost": "0",
+              "team_key": "461.l.576919.t.2",
+              "player_key": "461.p.40024"
+            }
+          },
+          "5": {
+            "draft_result": {
+              "pick": 6,
+              "round": 1,
+              "team_key": "461.l.576919.t.11",
+              "player_key": "461.p.40016"
+            }
+          },
+          "6": {
+            "draft_result": {
+              "pick": 7,
+              "round": 1,
+              "cost": "1",
+              "team_key": "461.l.576919.t.6",
+              "player_key": "461.p.34063"
+            }
+          },
+          "7": {
+            "draft_result": {
+              "pick": 8,
+              "round": 1,
+              "cost": "40",
+              "team_key": "461.l.576919.t.3",
+              "player_key": "461.p.30977"
+            }
+          },
+          "8": {
+            "draft_result": {
+              "pick": 9,
+              "round": 1,
+              "cost": "3",
+              "team_key": "461.l.576919.t.12",
+              "player_key": "461.p.34878"
+            }
+          },
+          "10": {
+            "draft_result": {
+              "pick": 11,
+              "round": 2,
+              "cost": "2",
+              "team_key": "461.l.576919.t.8",
+              "player_key": "461.p.100014"
+            }
+          },
+          "9": {
+            "draft_result": {
+              "pick": 10,
+              "round": 1,
+              "cost": "27",
+              "team_key": "461.l.576919.t.5",
+              "player_key": "461.p.33967"
+            }
+          },
+          "count": 11
+        }
+      }
+    ],
+    "time": "96.41ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

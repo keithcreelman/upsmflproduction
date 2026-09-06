@@ -1,0 +1,543 @@
+<title>Raining Bullets Draft Board</title>
+<style>
+:root{
+  --ground:#F5F4F1; --panel:#FFFFFF; --ink:#191E25; --ink-2:#4A5560; --ink-3:#77828E;
+  --rule:#DFDDD7; --rule-2:#EAE8E3; --brass:#B8862B; --brass-soft:#F0E4C6;
+  --qb:#6B5B95; --rb:#2E7D5B; --wr:#2A6FA8; --te:#A34E7B; --k:#6E7681; --dst:#7A5C3E;
+  --good:#2E7D5B; --warn:#B8862B; --crit:#A8412F;
+  --shadow:0 1px 2px rgba(25,30,37,.06),0 8px 24px rgba(25,30,37,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font:400 15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1300px;margin:0 auto;padding:0 20px 64px}
+
+/* -- command bar ------------------------------------------- */
+.bar{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:1px solid var(--rule);padding:14px 0 12px}
+.bar-in{max-width:1300px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
+h1{
+  margin:0; font-size:clamp(19px,2.4vw,25px); font-weight:800; letter-spacing:-.02em;
+  text-wrap:balance;
+}
+.sub{color:var(--ink-3);font-size:13px;letter-spacing:.02em}
+.spacer{flex:1 1 auto}
+.ctl{display:flex;gap:6px;align-items:center}
+button{
+  font:inherit;font-size:12.5px;font-weight:600;letter-spacing:.02em;
+  background:var(--panel);color:var(--ink-2);border:1px solid var(--rule);
+  border-radius:6px;padding:5px 10px;cursor:pointer;
+}
+button:hover{border-color:var(--ink-3);color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+/* -- pick rail --------------------------------------------- */
+.rail{display:flex;gap:5px;flex-wrap:wrap;margin:18px 0 6px}
+.pk{
+  font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11.5px;padding:4px 7px;border-radius:5px;border:1px solid var(--rule);
+  color:var(--ink-3);background:var(--panel);white-space:nowrap;
+}
+.pk.next{border-color:var(--brass);color:var(--brass);background:var(--brass-soft);font-weight:700}
+.pk.done{opacity:.4;text-decoration:line-through}
+.rail-note{font-size:12px;color:var(--ink-3);margin:2px 0 22px}
+
+/* -- layout ------------------------------------------------ */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 252px;gap:18px;align-items:start}
+@media (max-width:960px){.cols{grid-template-columns:minmax(0,1fr)}}
+
+/* -- board ------------------------------------------------- */
+.board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.board-hd{display:flex;gap:10px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.eyebrow{font-size:10.5px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
+.scroll{overflow-x:auto;max-height:70vh;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+thead th{
+  position:sticky;top:0;background:var(--panel);z-index:2;
+  text-align:left;font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);padding:8px 8px;border-bottom:1px solid var(--rule);white-space:nowrap;
+}
+tbody td{padding:7px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--rule-2)}
+tbody tr.gone td{opacity:.32;text-decoration:line-through}
+tbody tr.mine{background:var(--brass-soft)}
+.num{text-align:right;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.rk{color:var(--ink-3);font-size:12px}
+.nm{font-weight:600}
+.chip{
+  display:inline-block;min-width:34px;text-align:center;font-size:10.5px;font-weight:750;
+  letter-spacing:.05em;padding:2px 6px;border-radius:4px;color:#fff;
+}
+.QB{background:var(--qb)} .RB{background:var(--rb)} .WR{background:var(--wr)}
+.TE{background:var(--te)} .K{background:var(--k)} .DST{background:var(--dst)}
+.flag{font-size:11px;color:var(--brass);font-weight:650}
+.rk-pill{
+  display:inline-block;font-size:9.5px;font-weight:750;letter-spacing:.07em;
+  padding:1px 4px;border-radius:3px;border:1px solid var(--ink-3);color:var(--ink-3);
+  margin-left:6px;vertical-align:1px;
+}
+tr.rookie .nm{font-style:italic}
+.vor{font-weight:700}
+.dim{color:var(--ink-3)}
+
+/* -- analyst overlay --------------------------------------- */
+td.an{white-space:nowrap}
+.jj{
+  display:inline-block;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11px;font-weight:700;padding:1px 4px;border-radius:4px;
+  border:1px solid var(--rule);color:var(--ink-2);background:var(--rule-2);
+}
+.jj.gap{border-color:var(--brass);color:var(--brass);background:transparent}
+.jj.none{border-style:dashed;color:var(--ink-3);background:transparent;font-weight:500}
+.stn{
+  display:inline-block;font-size:10px;font-weight:750;letter-spacing:.03em;
+  padding:1px 4px;border-radius:4px;margin-left:3px;border:1px solid transparent;
+}
+.stn.like{color:var(--good);border-color:var(--good)}
+.stn.fade{color:var(--crit);border-color:var(--crit)}
+.stn.neutral{color:var(--ink-3);border-color:var(--rule)}
+.stn.hedge{border-style:dashed}
+.stn.gd{border-color:transparent;background:var(--rule-2);margin-left:3px}
+.stn.more{color:var(--ink-3);border-color:var(--rule);font-weight:600}
+.cav{margin-top:6px;font-size:11.5px;line-height:1.5;color:var(--ink-3);font-style:italic}
+.cav b{color:var(--ink-3);font-style:normal;font-weight:700}
+.dv{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:750;color:var(--brass);margin-left:3px}
+.clashes{display:flex;flex-direction:column;gap:7px}
+.cl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;font-size:12.5px}
+.cl b{font-weight:640;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl .g{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--brass);font-weight:700}
+.cnote{margin:11px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-3)}
+.posn{display:flex;flex-direction:column;gap:11px}
+.posn .q{padding-left:11px;border-left:2px solid var(--rule);font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.clh{font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--brass);margin:6px 0 1px}
+.clh:first-child{margin-top:0}
+.legend{margin:14px 0 0;font-size:11.5px;line-height:1.6;color:var(--ink-3)}
+.tk{
+  font:inherit;font-size:10.5px;font-weight:750;line-height:1;margin-left:5px;
+  padding:2px 5px;border-radius:4px;border:1px solid var(--brass);
+  background:transparent;color:var(--brass);cursor:pointer;vertical-align:1px;
+}
+tr.det td{white-space:normal;background:var(--rule-2);padding:11px 14px 13px}
+tr.det{cursor:default}
+.det-in{display:flex;flex-direction:column;gap:9px;max-width:78ch}
+.q{font-size:12.5px;line-height:1.5;color:var(--ink-2);padding-left:11px;border-left:2px solid var(--rule)}
+.q.like{border-left-color:var(--good)} .q.fade{border-left-color:var(--crit)}
+.q b{color:var(--ink);font-weight:700}
+.q a{color:var(--ink-3);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+.q a:hover{color:var(--brass);border-bottom-color:var(--brass)}
+.q .unv{color:var(--ink-3);font-style:italic}
+
+/* -- side panels ------------------------------------------- */
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{margin:0 0 10px;font-size:11px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
+.scar{display:flex;flex-direction:column;gap:9px}
+.scar-row{display:grid;grid-template-columns:38px 1fr 46px;gap:9px;align-items:center;font-size:13px}
+.meter{height:6px;border-radius:3px;background:var(--rule-2);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:3px}
+.rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.rules li{font-size:13px;line-height:1.45;padding-left:13px;border-left:2px solid var(--brass);color:var(--ink-2)}
+.rules b{color:var(--ink);font-weight:680}
+.foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-3);line-height:1.6}
+.foot b{color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="bar"><div class="bar-in">
+  <h1>Raining Bullets Draft Board</h1>
+  <span class="sub mono">TUE 8 SEP &middot; 7:30 PM ET &middot; SNAKE &middot; 18 RD &middot; SLOT NOT DRAWN</span>
+  <span class="spacer"></span>
+  <span class="ctl">
+    <span class="eyebrow">Passing TD</span>
+    <button id="r4" aria-pressed="true">4</button>
+    <button id="r6" aria-pressed="false">6</button>
+  </span>
+  <span class="ctl" id="posf"></span>
+  <span class="ctl" id="slotf"></span>
+  <button id="clash" aria-pressed="false" hidden>Clashes only</button>
+  <button id="reset">Reset drafted</button>
+</div></div>
+
+<div class="wrap">
+  <div class="rail" id="rail"></div>
+  <p class="rail-note">Click any player to mark them gone. Your next pick is highlighted &mdash; set your slot above once the order is drawn.</p>
+
+  <div class="cols">
+    <div class="board">
+      <div class="board-hd">
+        <span class="eyebrow">Best available</span>
+        <span class="spacer"></span>
+        <span class="eyebrow" id="count"></span>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr>
+          <th>#</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>
+          <th class="num">Pts</th><th class="num">VOR</th>
+          <th id="anh" hidden>Analyst</th><th class="num">ADP</th><th>Note</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Startable left</h2>
+        <div class="scar" id="scar"></div>
+      </div>
+      <div class="card" id="ancard" hidden>
+        <h2>Positional disagreements</h2>
+        <div class="clashes" id="clashes"></div>
+        <p class="cnote">
+          Places apart <em>within the position</em> &mdash; &#9650; JJ has him
+          higher, &#9660; lower. Overall rank is deliberately not compared: his
+          list encodes his own scoring and his stated QB devaluation. The gap is
+          the reason to look, not the answer.
+        </p>
+      </div>
+      <div class="card" id="poscard" hidden>
+        <h2>Takes about a round, not a player</h2>
+        <div class="posn" id="posn"></div>
+      </div>
+      <div class="card">
+        <h2>Your guardrails</h2>
+        <ul class="rules">
+          <li><b>Two WRs by the end of round 3.</b> You took 4 in the first three rounds across five seasons; the league's best drafter took 9, at +60 a pick. It is a floor on the count, <em>not</em> a reason to pass on the best player alive &mdash; at 1.01 you take Gibbs.</li>
+          <li><b>No QB before round 7.</b> Your early QBs run &minus;76 a pick. QB1 beats QB12 by 132; RB1 beats RB28 by 209.</li>
+          <li><b>TE in rounds 5&ndash;6.</b> Worth +34 to top-4 teams, and you're &minus;165 there.</li>
+          <li><b>Rushing QB late.</b> You pick them better than anyone in the league &mdash; you just pay full price. Take one round 7&ndash;12.</li>
+          <li><b>Handcuff RBs, don't stockpile them.</b> Backs inherit workload twice as often as receivers, but late RB darts convert to startable 16% vs WR's 33%.</li>
+          <li><b>Don't chase WR depth after round 8.</b> Every WR past ADP 106 has negative VOR.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    <b>How the points are built.</b> ESPN's 2026 stat-level projections, scored under this league's own rulebook read from D1 &mdash; out-of-position TDs at double, TE receptions at 1.5, passing yards at 0.04. Each projection is spread across 17 games using that player's real game-to-game shape, because the per-game milestones (+3 at 100 rushing yards) depend on the shape of a season, not its total. Touchdown-distance bonuses come from MFL's per-TD lengths. The engine reproduces CBS's own published points to a median 0.10%.<br><br>
+    <b>Rookies and other unproven players are IN.</b> 29 of the 215 carry <span class="rk-pill">NO TRACK RECORD</span> &mdash; ESPN projects them, but they have no NFL games of their own, so their season is spread using a positional template instead of their own game-to-game shape. Their totals are sound; their <em>milestone bonuses</em> are the league average for the position rather than a read on how lumpy they actually are. Treat the VOR as having a wider error bar, not as wrong. Jeremiyah Love is the highest at #14 overall.<br><br>
+    <b>What it genuinely can't see.</b> K and DST are unranked &mdash; take one of each in rounds 17&ndash;18. Picks 202 and 207 fall past the ADP universe entirely.
+  </p>
+  <p class="foot" id="anfoot" hidden></p>
+</div>
+
+<script>
+const DATA = __PAYLOAD__;
+const POS = ["QB","RB","WR","TE"];
+const PICKS = DATA.picks || {};
+let mySlot = 10;
+const MY = () => PICKS[String(mySlot)] || [];
+const TEAMS = 12;
+// The analyst overlay is optional: the committed board ships without it, so
+// every reference below has to survive AN being null rather than assume it.
+const AN = DATA.an || null;
+// Measured in POSITIONAL places, not overall picks. Eight spots at a position
+// is roughly a tier, and a tier is the unit that changes when you draft someone.
+const CLASH = 8;
+//: Stance chips shown inline before the cell starts crowding out ADP.
+const CHIPS = 2;
+let rule = "p4", filter = "ALL", hideNew = false, clashOnly = false;
+let gone = new Set(JSON.parse(localStorage.getItem("grffl_gone") || "[]"));
+let open = new Set();
+
+const el = id => document.getElementById(id);
+const save = () => localStorage.setItem("grffl_gone", JSON.stringify([...gone]));
+
+// position filter buttons
+if (Object.keys(PICKS).length) {
+  el("slotf").innerHTML = `<span class="eyebrow">Slot</span>`
+    + `<select id="slotsel" style="font:inherit;font-size:12.5px;padding:4px 6px;`
+    + `border-radius:6px;border:1px solid var(--rule);background:var(--panel);color:var(--ink-2)">`
+    + Object.keys(PICKS).map(Number).sort((a,b)=>a-b).map(s =>
+        `<option value="${s}"${s === mySlot ? " selected" : ""}>${s}</option>`).join("")
+    + `</select>`;
+  document.addEventListener("change", e => {
+    if (e.target.id === "slotsel") { mySlot = Number(e.target.value); render(); }
+  });
+}
+
+el("posf").innerHTML = ["ALL", ...POS].map(p =>
+  `<button data-p="${p}" aria-pressed="${p === "ALL"}">${p}</button>`).join("")
+  + `<button id="hidenew" aria-pressed="false">Hide unproven</button>`;
+
+if (AN) { el("anh").hidden = false; el("clash").hidden = false; }
+
+
+function board() { return DATA[rule]; }
+function repl() { return rule === "p4" ? DATA.repl4 : DATA.repl6; }
+
+// Overall board rank, recomputed per rulebook \u2014 the same player sits in a
+// different place at PaTD 6, so the divergence has to move with the toggle.
+let RANK = {};
+const ESC = t => String(t == null ? "" : t)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const STANCE = { target: "like", avoid: "fade", dart: "neutral", neutral: "neutral",
+                 like: "like", fade: "fade" };
+const WHO = { "JJ Zachariason": "JJ", "Scott Barrett": "Barrett", "Evan Silva": "Silva" };
+const shortName = a => WHO[a] || (a || "?").split(" ").pop();
+
+// Positional rank on THIS board, recomputed per rulebook.
+let PRANK = {};
+function ranks() {
+  RANK = {}; PRANK = {};
+  const seen = {};
+  board().forEach((r, i) => {
+    RANK[r[0]] = i + 1;
+    seen[r[1]] = (seen[r[1]] || 0) + 1;
+    PRANK[r[0]] = seen[r[1]];
+  });
+}
+
+// !! POSITIONAL ONLY. The overall-rank delta that used to live here compared
+// two different questions: his overall list encodes his own scoring and his
+// stated QB devaluation, so "he has him 64th, this board has him 52nd" is not
+// a disagreement about the player. Within a position both are ranking the
+// same pool, and the scoring adjustment is already inside VOR.
+function delta(nm) {
+  const a = AN && AN[nm];
+  if (!a || a.jp == null) return null;
+  return PRANK[nm] - a.jp;              // >0 : JJ ranks him higher at his position
+}
+
+function anCell(nm) {
+  if (!AN) return "";
+  const a = AN[nm];
+  // !! absent != disliked. A player JJ never wrote about gets a dashed marker,
+  // not a silent blank that reads as "no opinion worth showing".
+  if (!a) return `<td class="an"><span class="jj none">JJ &ndash;</span></td>`;
+  let h = "";
+  if (a.jp != null) {
+    const d = delta(nm);
+    const cls = Math.abs(d) >= CLASH ? "gap" : "";
+    h += `<span class="jj ${cls}" title="JJ has him ${a.jpos}${a.jp}`
+       + `${a.jt != null ? `, tier ${a.jt}` : ""}${a.jv != null ? `, $${a.jv}` : ""}`
+       + ` \u00b7 this board has him ${a.jpos}${PRANK[nm]}">JJ ${a.jpos}${a.jp}</span>`;
+    if (Math.abs(d) >= CLASH) {
+      h += `<span class="dv">${d > 0 ? "\u25b2" : "\u25bc"}${Math.abs(d)}</span>`;
+    }
+  } else {
+    h += `<span class="jj none">JJ &ndash;</span>`;
+  }
+  if (a.v && a.v !== "neutral") {
+    // Sits right beside the JJ pill, so it reads as part of that group rather
+    // than needing to repeat his name.
+    h += `<span class="stn gd ${STANCE[a.v] || "neutral"}" title="JJ's written guide">`
+       + `${a.v}</span>`;
+  }
+  // Cap the chips: some players carry five verified takes, and a cell that wide
+  // shoves ADP off the right edge on a phone. The rest are one tap away.
+  const pods = a.p || [];
+  for (const t of pods.slice(0, CHIPS)) {
+    const who = shortName(t.a);
+    h += `<span class="stn ${STANCE[t.s] || "neutral"}${t.q ? " hedge" : ""}" `
+       + `title="${t.q ? "verified on the page, but the speaker may be a guest rather than "
+                        + ESC(t.a) : "verified on the source page"}">`
+       + `${ESC(who)}${t.q ? "?" : ""} ${t.s === "like" ? "\u25b2" : t.s === "fade" ? "\u25bc" : "\u2022"}</span>`;
+  }
+  if (pods.length > CHIPS) h += `<span class="stn more">+${pods.length - CHIPS}</span>`;
+  if (a.t || (a.p || []).length) h += `<button class="tk" data-tk="${ESC(nm)}">${open.has(nm) ? "\u2212" : "+"}</button>`;
+  return `<td class="an">${h}</td>`;
+}
+
+function detRow(nm, cols) {
+  const a = AN && AN[nm];
+  if (!a) return "";
+  let body = "";
+  if (a.t) {
+    const d = delta(nm);
+    const gap = (d == null || d === 0) ? "" :
+      ` <span class="unv">&mdash; he has him ${a.jpos}${a.jp}, ${Math.abs(d)} `
+      + `place${Math.abs(d) === 1 ? "" : "s"} ${d > 0 ? "higher" : "lower"} than this board`
+      + `${a.jt != null ? `, his tier ${a.jt}` : ""}${a.jv != null ? ` at $${a.jv}` : ""}.</span>`;
+    body += `<div class="q ${STANCE[a.v] || "neutral"}"><b>JJ Zachariason</b> &middot; `
+          + `Late-Round Draft Guide 2026 &mdash; ${ESC(a.t)}${gap}</div>`;
+  }
+  for (const t of (a.p || [])) {
+    const yr = t.y && t.y !== "2026" ? ` <span class="unv">[${ESC(t.y)} take]</span>` : "";
+    const who = t.q ? `${ESC(t.a)}'s show` : ESC(t.a);
+    body += `<div class="q ${STANCE[t.s] || "neutral"}"><b>${who}</b>${yr} &mdash; ${ESC(t.t)}`
+          + (t.u ? ` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>` : "")
+          + (t.c ? `<div class="cav"><b>Who said it:</b> ${ESC(t.c)}</div>` : "")
+          + `</div>`;
+  }
+  return `<tr class="det"><td colspan="${cols}"><div class="det-in">${body}</div></td></tr>`;
+}
+
+function render() {
+  ranks();
+  const cols = AN ? 10 : 9;
+  const rows = board().filter(r =>
+    (filter === "ALL" || r[1] === filter) && !(hideNew && r[8] === 1)
+    && !(clashOnly && Math.abs(delta(r[0]) ?? 0) < CLASH));
+  el("rows").innerHTML = rows.map((r, i) => {
+    const [nm, pos, tm, bye, pts, vor, adp, flag] = r;
+    const g = gone.has(nm);
+    const note = flag === 1 ? "rush QB" : flag === 2 ? "rec RB" : "";
+    const rook = r[8] === 1;
+    return `<tr class="${g ? "gone" : ""} ${rook ? "rookie" : ""}" data-n="${nm.replace(/"/g, "&quot;")}">
+      <td class="rk mono">${i + 1}</td>
+      <td class="nm">${nm}${rook ? '<span class="rk-pill">NO TRACK RECORD</span>' : ""}</td>
+      <td><span class="chip ${pos}">${pos}</span></td>
+      <td class="dim mono">${tm}</td>
+      <td class="num dim">${bye || "\u2013"}</td>
+      <td class="num">${pts}</td>
+      <td class="num vor">${vor > 0 ? "+" + vor : vor}</td>
+      ${anCell(nm)}
+      <td class="num dim">${adp ? adp.toFixed(1) : "\u2013"}</td>
+      <td class="flag">${note}</td></tr>`
+      + (open.has(nm) ? detRow(nm, cols) : "");
+  }).join("");
+  const left = rows.filter(r => !gone.has(r[0])).length;
+  const nr = rows.filter(r => r[8] === 1).length;
+  el("count").textContent =
+    `${left} available of ${rows.length}` + (nr ? ` \u00b7 ${nr} unproven` : "")
+    + (clashOnly ? ` \u00b7 \u2265${CLASH} picks apart from JJ` : "");
+  scarcity();
+  clashes();
+  rail();
+}
+
+function clashes() {
+  if (!AN) return;
+  el("ancard").hidden = false;
+  // Only players still on the board \u2014 a disagreement about someone already
+  // drafted is trivia, and this card is meant to be read between picks.
+  const all = board()
+    .filter(r => !gone.has(r[0]) && AN[r[0]] && AN[r[0]].jp != null)
+    .map(r => ({ nm: r[0], pos: r[1], d: delta(r[0]) }))
+    .filter(x => Math.abs(x.d) >= CLASH);
+  // Both directions are actionable, and one of them usually dominates the raw
+  // top-N, so each gets its own short list rather than competing for slots.
+  const grp = (sign, label) => {
+    const rows = all.filter(x => Math.sign(x.d) === sign)
+                    .sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 5);
+    if (!rows.length) return "";
+    return `<div class="clh">${label}</div>` + rows.map(x =>
+      `<div class="cl"><b><span class="chip ${x.pos}">${x.pos}</span> ${x.nm}</b>`
+      + `<span class="g">${x.d > 0 ? "\u25b2" : "\u25bc"}${Math.abs(x.d)}</span></div>`).join("");
+  };
+  const html = grp(1, "\u25b2 JJ ranks them higher") + grp(-1, "\u25bc JJ ranks them lower");
+  el("clashes").innerHTML = html
+    || `<p class="cnote" style="margin:0">No unresolved gaps of ${CLASH}+ picks left on the board.</p>`;
+}
+
+function scarcity() {
+  const R = repl();
+  el("scar").innerHTML = POS.map(p => {
+    // "startable" = projected above this position's replacement level
+    const all = DATA[rule].filter(r => r[1] === p && r[4] > R[p]);
+    const left = all.filter(r => !gone.has(r[0])).length;
+    const pct = all.length ? Math.round(100 * left / all.length) : 0;
+    const col = pct > 60 ? "var(--good)" : pct > 30 ? "var(--warn)" : "var(--crit)";
+    return `<div class="scar-row">
+      <span class="chip ${p}">${p}</span>
+      <span class="meter"><i style="width:${pct}%;background:${col}"></i></span>
+      <span class="mono dim" style="text-align:right">${left}/${all.length}</span></div>`;
+  }).join("");
+}
+
+function rail() {
+  const taken = gone.size;
+  el("rail").innerHTML = MY().map(p => {
+    const rd = Math.floor((p - 1) / TEAMS) + 1, inr = ((p - 1) % TEAMS) + 1;
+    const done = taken >= p;
+    const next = !done && MY().filter(x => taken < x)[0] === p;
+    return `<span class="pk ${done ? "done" : ""} ${next ? "next" : ""}">${rd}.${String(inr).padStart(2, "0")}
+      <span class="dim">#${p}</span></span>`;
+  }).join("");
+}
+
+document.addEventListener("click", e => {
+  // The expand button lives inside a row whose click marks a player drafted,
+  // so it has to be claimed BEFORE the row handler ever sees the event.
+  const tk = e.target.closest("button.tk");
+  if (tk) {
+    const n = tk.dataset.tk;
+    open.has(n) ? open.delete(n) : open.add(n);
+    render(); return;
+  }
+  if (e.target.closest("tr.det")) return;      // reading a take is not a draft pick
+  const tr = e.target.closest("tbody tr");
+  if (tr) { const n = tr.dataset.n; gone.has(n) ? gone.delete(n) : gone.add(n); save(); render(); return; }
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "reset") { gone.clear(); save(); render(); return; }
+  if (b.id === "clash") {
+    clashOnly = !clashOnly; b.setAttribute("aria-pressed", clashOnly); render(); return;
+  }
+  if (b.id === "hidenew") {
+    hideNew = !hideNew; b.setAttribute("aria-pressed", hideNew); render(); return;
+  }
+  if (b.id === "r4" || b.id === "r6") {
+    rule = b.id === "r4" ? "p4" : "p6";
+    el("r4").setAttribute("aria-pressed", rule === "p4");
+    el("r6").setAttribute("aria-pressed", rule === "p6");
+    render(); return;
+  }
+  if (b.dataset.p) {
+    filter = b.dataset.p;
+    [...el("posf").children].forEach(x => x.setAttribute("aria-pressed", x.dataset.p === filter));
+    render();
+  }
+});
+// Verified takes that are about a position rather than a person. They fail a
+// player join by construction, and dropping them would lose the takes most
+// relevant to how you spend a whole round.
+if (DATA.an_pos && DATA.an_pos.length) {
+  el("poscard").hidden = false;
+  el("posn").innerHTML = DATA.an_pos.map(t =>
+    `<div class="q ${STANCE[t.s] || "neutral"}"><b>${ESC(t.a)}</b>`
+    + `${t.p ? ` &middot; ${ESC(t.p)}` : ""} &mdash; ${ESC(t.t)}`
+    + (t.u ? ` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>` : "")
+    + `</div>`).join("");
+}
+
+// -- provenance for the analyst column ----------------------
+// Says plainly how many takes were re-fetched and confirmed, and how many are
+// merely unchecked. "Unverified" is NOT "false" \u2014 but it is not evidence either,
+// and the page should never let the two look the same.
+if (AN) {
+  const names = Object.keys(AN);
+  const pods = names.reduce((a, n) => a + (AN[n].p || []).length, 0);
+  const total = board().length;
+  const covered = board().filter(r => AN[r[0]] && AN[r[0]].jp != null).length;
+  el("anfoot").hidden = false;
+  el("anfoot").innerHTML =
+    `<b>The analyst column.</b> <span class="jj">JJ WR5</span> is JJ Zachariason's `
+    + `rank <em>at that position</em> from the Late-Round Draft Guide 2026. His overall `
+    + `rank is deliberately not shown: an overall list encodes the analyst's own scoring `
+    + `and positional weighting \u2014 he says on the record that he devalues quarterbacks `
+    + `against ADP \u2014 so "he has him 64th and this board has him 52nd" compares two `
+    + `different questions. Within a position both are ranking the same pool, and this `
+    + `league's scoring is already inside VOR. ${covered} of the ${total} players here carry `
+    + `one. The arrow appears when the two are ${CLASH}+ places apart at the position; a `
+    + `dashed <span class="jj none">JJ &ndash;</span> means he never wrote about that player, `
+    + `which is not the same as a fade \u2014 ${total - covered} are in that position. Tap `
+    + `<b>+</b> to read what he actually said.<br><br>`
+    + `<b>Every podcast take here was re-fetched and confirmed.</b> ${pods} take`
+    + `${pods === 1 ? "" : "s"} from Evan Silva, Scott Barrett and JJ survived a second pass `
+    + `in which a fresh reader was handed only the URL and asked whether the page's own text `
+    + `supports the claim, defaulting to <em>no</em>. Takes that failed that check were dropped `
+    + `rather than softened &mdash; one widely-repeated summary attributed a specific list to an `
+    + `analyst that his own episode contradicts. Anything he said that is not on this page is `
+    + `<em>unchecked</em>, not disproved.`;
+}
+
+render();
+</script>

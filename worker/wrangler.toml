@@ -180,6 +180,34 @@ AUCTION_FAA_PENALTIES_ENABLED = "0"
 # never this file.
 AUCTION_NIGHTLY_NUDGE_ENABLED = "0"
 
+# Yahoo Fantasy ingestion (2026-08-11, worker/src/yahoo_oauth.js + migrations
+# 0127-0132). SHIPS DARK — nothing here has ever run against a live Yahoo app.
+#
+# ON arms the four WRITE paths of the OAuth flow:
+#   GET  /admin/yahoo/auth/start     mint CSRF state → 302 to Yahoo's consent screen
+#   GET  /admin/yahoo/auth/callback  exchange the code → AES-256-GCM encrypt →
+#                                    upsert fantasy_oauth_tokens
+#   POST /admin/yahoo/token          mint a 1-hour ACCESS token for the CLI/CI
+#                                    (the refresh token never leaves the worker)
+#   POST /admin/yahoo/revoke         mark the local row revoked
+# OFF = all four answer 503 with a named error. GET /admin/yahoo/status stays
+# live either way — read-only diagnostics that only work when the feature is
+# armed are useless during exactly the launch they exist for.
+#
+# WHO FLIPS IT: Keith, after the four YAHOO_* secrets are set and
+# GET /admin/yahoo/status?APIKEY=… reports encryption_key_usable:true.
+# ⚠️ This "0" is only a DEFAULT. A D1 override (ups_settings key 'feature_flags')
+# WINS at runtime, same as every other switch in this block. YAHOO_SYNC_ENABLED
+# is NOT yet listed in FEATURE_FLAGS (worker/src/feature_flags.js), so it does
+# not appear in the FO Kill Switches panel and setFeatureFlags will not accept
+# it — until it is added there, the override can only be set by writing
+# ups_settings directly. Flipping this file is the supported path today.
+#
+# This switch does NOT touch MFL. Nothing in the fantasy_* family reads or
+# writes ups_* / src_* / mfl_* / nfl_* rows (0127 header) — it is a second,
+# unrelated league on a second platform that happens to share a database.
+YAHOO_SYNC_ENABLED = "0"
+
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
 #   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL
