@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-06 22:18:55",
+    "generated_at": "2026-09-06 22:23:18",
     "source": "contract-activity-log",
-    "count": 140,
+    "count": 141,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "9f42f4e35d091d6d29df3a0a",
+      "submission_id": "9f42f4e35d091d6d29df3a0a",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0001",
+      "franchise_name": "L.A. Looks",
+      "player_id": "16189",
+      "player_name": "Mims, Marvin",
+      "position": "WR",
+      "salary": 1000,
+      "contract_year": 2,
+      "contract_status": "Vet-ERA",
+      "contract_info": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K",
+      "tcv": 2000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-06T22:22:59.977Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546284628074172509",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "262c42106111f298ad66c441",
       "submission_id": "262c42106111f298ad66c441",
