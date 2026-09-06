@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-06 22:24:05",
+    "generated_at": "2026-09-06 22:26:15",
     "source": "contract-activity-log",
-    "count": 142,
+    "count": 143,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "b53283494a84982b25d0f56d",
+      "submission_id": "b53283494a84982b25d0f56d",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0003",
+      "franchise_name": "Gride",
+      "player_id": "15694",
+      "player_name": "Willis, Malik",
+      "position": "QB",
+      "salary": 39000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 2|TCV 78K|AAV 39K|Y1-39K, Y2-39K|GTD: 58.5K",
+      "tcv": 78000,
+      "aav": 39000,
+      "guaranteed": 58500,
+      "submitted_at_utc": "2026-09-06T22:25:56.633Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546285361565794386",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "b4994d77d933034403a5e0a6",
       "submission_id": "b4994d77d933034403a5e0a6",
