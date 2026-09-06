@@ -1,0 +1,513 @@
+<title>UPS Owners as NFL Franchises</title>
+
+<style>
+  :root {
+    --ground: #0C1310;
+    --surface: #141C18;
+    --surface-2: #1B241F;
+    --line: #2A352E;
+    --ink: #E8EDE9;
+    --ink-dim: #A3AFA8;
+    --ink-mute: #75837B;
+    --gold: #D6A24A;
+    --gold-dim: #8A6A31;
+    --brick: #C4574A;
+    --cool: #6E9C8A;
+
+    --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+    --body: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --maxw: 62rem;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #F2F1EC;
+      --surface: #FFFFFF;
+      --surface-2: #F7F6F1;
+      --line: #DCDAD1;
+      --ink: #16201A;
+      --ink-dim: #4A5750;
+      --ink-mute: #6E7A73;
+      --gold: #8A6212;
+      --gold-dim: #C6A66A;
+      --brick: #9E3A2E;
+      --cool: #3D6B58;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
+    --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #75837B;
+    --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #C4574A; --cool: #6E9C8A;
+  }
+  :root[data-theme="light"] {
+    --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
+    --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #6E7A73;
+    --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
+  }
+
+  * { box-sizing: border-box; }
+
+  .page {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    line-height: 1.6;
+    padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 5vw, 2rem) 5rem;
+    min-height: 100vh;
+  }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+
+  /* ---------- hero ---------- */
+  .hero { display: flex; flex-direction: column; gap: 0.9rem; }
+  .eyebrow {
+    font-family: var(--display);
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--gold);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(2rem, 7vw, 3.4rem);
+    line-height: 0.98;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    margin: 0;
+  }
+  .dek {
+    font-size: clamp(1rem, 2.4vw, 1.15rem);
+    color: var(--ink-dim);
+    max-width: 46ch;
+    margin: 0;
+  }
+
+  .method {
+    border-left: 3px solid var(--gold-dim);
+    background: var(--surface);
+    padding: 1rem 1.15rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+    font-size: 0.92rem;
+    color: var(--ink-dim);
+  }
+  .method b { color: var(--ink); font-weight: 700; }
+  .method .mh {
+    font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+  }
+
+  /* ---------- table ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 44rem; }
+  th, td { padding: 0.62rem 0.8rem; text-align: left; border-bottom: 1px solid var(--line); }
+  th {
+    font-family: var(--display); font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute); background: var(--surface-2);
+    position: sticky; top: 0;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem; }
+  td.owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
+  td.comp { font-family: var(--display); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.02em; text-transform: uppercase; color: var(--cool); }
+  td.rings { font-family: var(--mono); color: var(--gold); letter-spacing: 0.1em; text-align: center; }
+  .zero { color: var(--ink-mute); }
+
+  /* ---------- section headers ---------- */
+  .sechead {
+    font-family: var(--display);
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--gold);
+    padding-bottom: 0.5rem; border-bottom: 1px solid var(--line);
+    margin: 0 0 1.25rem;
+  }
+
+  /* ---------- cards ---------- */
+  .cards { display: flex; flex-direction: column; gap: 1rem; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 1.15rem clamp(1rem, 3vw, 1.5rem) 1.3rem;
+    display: flex; flex-direction: column; gap: 0.8rem;
+  }
+  .chead { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+  .rank {
+    font-family: var(--mono); font-size: 0.95rem; font-weight: 700;
+    color: var(--ink-mute); font-variant-numeric: tabular-nums;
+  }
+  .cname {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(1.15rem, 3.4vw, 1.5rem);
+    letter-spacing: -0.015em; text-transform: uppercase; margin: 0;
+  }
+  .badge {
+    font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ground); background: var(--cool);
+    padding: 0.22rem 0.55rem; white-space: nowrap;
+  }
+
+  .strip { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.55rem 0; border-block: 1px solid var(--line); }
+  .stat { display: flex; flex-direction: column; gap: 0.1rem; }
+  .slabel {
+    font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+    letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+  }
+  .sval { font-family: var(--mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .sval.gold { color: var(--gold); }
+  .sval.bad { color: var(--brick); }
+
+  .apbar { flex: 1 1 9rem; min-width: 8rem; display: flex; flex-direction: column; gap: 0.28rem; justify-content: center; }
+  .track { height: 5px; background: var(--surface-2); border: 1px solid var(--line); position: relative; }
+  .fill { position: absolute; inset: 0 auto 0 0; background: var(--cool); }
+
+  ul { margin: 0; padding-left: 1.05rem; display: flex; flex-direction: column; gap: 0.42rem; }
+  li { font-size: 0.95rem; }
+  li b { color: var(--ink); }
+  .flag { color: var(--brick); font-weight: 700; }
+
+  blockquote {
+    margin: 0; padding: 0.55rem 0 0.55rem 0.9rem;
+    border-left: 2px solid var(--gold-dim);
+    color: var(--ink-dim); font-style: italic; font-size: 0.93rem;
+  }
+  blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.85rem; }
+
+  /* ---------- superlatives ---------- */
+  .supers { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
+  .super { background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--gold); padding: 1rem 1.1rem; }
+  .super h3 {
+    font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.13em; text-transform: uppercase; color: var(--gold);
+    margin: 0 0 0.45rem;
+  }
+  .super p { margin: 0; font-size: 0.92rem; color: var(--ink-dim); }
+  .super p b { color: var(--ink); }
+
+  footer { color: var(--ink-mute); font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+
+  @media (max-width: 34rem) {
+    .strip { gap: 0.85rem; }
+    .apbar { flex-basis: 100%; }
+  }
+</style>
+
+<div class="page">
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">UPS Dynasty · 2010–2025 · 16 completed seasons</div>
+    <h1>Owners as NFL Franchises</h1>
+    <p class="dek">Sixteen years of receipts. Every owner graded on hardware, team quality, how bad their bad years got, and how they actually behave — then matched to the NFL franchise they really are.</p>
+  </header>
+
+  <div class="method">
+    <div class="mh">How this was graded</div>
+    <div><b>By owner, never by franchise ID.</b> Guys have swapped teams and teams have changed hands. The 2010 title belongs to Tom Roussin at fid 0008 — the ID Keith holds today. fid 0003 has two titles from two different men. fid 0006 has two from Steve Bousquet. Nobody inherits a stranger's trophies.</div>
+    <div><b>All-Play %</b> is the quality yardstick — your score against every team every week, so schedule luck is stripped out. <b>Toilet Bowl:</b> finishing 7th means you won it (mildly redeeming, still missed the playoffs); finishing 12th means you stopped competing.</div>
+    <div><b>Departed owners are excluded</b> — but their seasons are firewalled out of current owners' records. Only completed seasons count; 2026 is still in progress.</div>
+  </div>
+
+  <section>
+    <h2 class="sechead">Quick glance</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Owner</th><th>NFL Comp</th>
+            <th class="num">Szns</th><th class="num">Titles</th><th class="num">Finals</th>
+            <th class="num">All-Play</th><th class="num">AP Rank</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="owner">Shawn Blake</td><td class="comp">Broncos</td><td class="num">15</td><td class="rings">●●●</td><td class="num">5</td><td class="num">.5331</td><td class="num">6</td></tr>
+          <tr><td class="owner">Josh Martel</td><td class="comp">Eagles</td><td class="num">14</td><td class="rings">●●</td><td class="num">4</td><td class="num">.5724</td><td class="num">3</td></tr>
+          <tr><td class="owner">Ryan Bousquet</td><td class="comp">Ravens</td><td class="num">16</td><td class="rings">●●</td><td class="num">4</td><td class="num">.5486</td><td class="num">5</td></tr>
+          <tr><td class="owner">Derrick Whitman</td><td class="comp">Colts</td><td class="num">9</td><td class="rings">●</td><td class="num">2</td><td class="num">.5944</td><td class="num">2</td></tr>
+          <tr><td class="owner">Bear Dunn</td><td class="comp">Saints</td><td class="num">15</td><td class="rings">●</td><td class="num">1</td><td class="num">.5672</td><td class="num">4</td></tr>
+          <tr><td class="owner">Eric Martel</td><td class="comp">Chiefs</td><td class="num">3</td><td class="rings">●</td><td class="num">1</td><td class="num">.6292</td><td class="num">1</td></tr>
+          <tr><td class="owner">Brian Cutting</td><td class="comp">Rams</td><td class="num">16</td><td class="rings">●</td><td class="num">2</td><td class="num">.5148</td><td class="num">8</td></tr>
+          <tr><td class="owner">Matt Gerardi</td><td class="comp">Buccaneers</td><td class="num">9</td><td class="rings">●</td><td class="num">1</td><td class="num">.4191</td><td class="num">9</td></tr>
+          <tr><td class="owner">Keith Creelman</td><td class="comp">Falcons</td><td class="num">16</td><td class="rings zero">—</td><td class="num">2</td><td class="num">.5307</td><td class="num">7</td></tr>
+          <tr><td class="owner">Eric Mannila</td><td class="comp">Lions</td><td class="num">16</td><td class="rings zero">—</td><td class="num">0</td><td class="num">.3958</td><td class="num">10</td></tr>
+          <tr><td class="owner">Brian Cross</td><td class="comp">Texans</td><td class="num">1</td><td class="rings zero">—</td><td class="num">0</td><td class="num">.3904</td><td class="num">11</td></tr>
+          <tr><td class="owner">Chris Klingenberg</td><td class="comp">Browns</td><td class="num">15</td><td class="rings zero">—</td><td class="num">1</td><td class="num">.3688</td><td class="num">12</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--ink-mute); font-size:0.85rem; margin:0.7rem 0 0;">Title-math check held league-wide: no owner without a ring was given an NFL franchise that has one. Four deliberate exceptions are flagged in their sections.</p>
+  </section>
+
+  <section>
+    <h2 class="sechead">The twelve</h2>
+    <div class="cards">
+
+      <article class="card">
+        <div class="chead"><span class="rank">01</span><h2 class="cname">Shawn Blake</h2><span class="badge">Denver Broncos</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">3</span></div>
+          <div class="stat"><span class="slabel">Finals</span><span class="sval">5</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">15</span></div>
+          <div class="stat"><span class="slabel">Last place</span><span class="sval">0</span></div>
+          <div class="apbar"><span class="slabel">All-Play .5331 · 6th</span><div class="track"><div class="fill" style="width:58.3%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>3 titles and 5 finals — both league records</b> — off the 6th-best team quality. Nobody converts less into more.</li>
+          <li>Wins the ones he shouldn't: three finals runs came on average-or-worse rosters, including <b>2012 at a .4266 All-Play</b>. His best regular season before 2023 got bounced at 4th.</li>
+          <li><b>Zero last-place finishes in 15 years.</b> Never missed a season, never complains, reports his own bugs.</li>
+          <li>Buys stars retail — 16.3 trades a year, earliest average first-round slot in the league because he buys everyone else's picks, then converts them below league median.</li>
+          <li><b>Why Denver:</b> exact title count, exact shape. Early window, real wilderness in the middle, late comeback ring off a variance run.</li>
+        </ul>
+        <blockquote>"Any action will be met with equal aggression ha"</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">02</span><h2 class="cname">Josh Martel</h2><span class="badge">Philadelphia Eagles</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">2</span></div>
+          <div class="stat"><span class="slabel">Finals</span><span class="sval">4</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">14</span></div>
+          <div class="stat"><span class="slabel">Net picks</span><span class="sval">+34</span></div>
+          <div class="apbar"><span class="slabel">All-Play .5724 · 3rd</span><div class="track"><div class="fill" style="width:68.1%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>Back-to-back rings (2019–20)</b> — the only current owner to do it — plus two runner-ups.</li>
+          <li>Earned, not lucky: 3rd in career All-Play with a luck delta of −.004. He got exactly what he deserved.</li>
+          <li><b>2018 is the best single season any current owner has ever had: 155–21 all-play (.8807), 25–1 head-to-head — and he lost the final.</b> Winning the next two is the only reason it isn't the league's defining tragedy.</li>
+          <li><b>+34 net picks and +16 net firsts, #1 in league history by a landslide.</b> Then one all-in strike — the 2023 Mahomes package — that produced a 6th and an 8th.</li>
+          <li><b>Why Philadelphia:</b> 2–3 in Super Bowls against his 2–2 in finals, Roseman's compulsive pick-hoarding, and the loudest fan base in football.</li>
+        </ul>
+        <blockquote>"his ways have produced a 2nd place banner tho" <span>— from a man who owns two of them</span></blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">03</span><h2 class="cname">Ryan Bousquet</h2><span class="badge">Baltimore Ravens</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">2</span></div>
+          <div class="stat"><span class="slabel">Playoffs</span><span class="sval">12 / 16</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">16</span></div>
+          <div class="stat"><span class="slabel">Career pts</span><span class="sval">40,774</span></div>
+          <div class="apbar"><span class="slabel">All-Play .5486 · 5th</span><div class="track"><div class="fill" style="width:62.2%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>16-for-16.</b> Original owner, never missed a year, most career points ever, best playoff attendance of any veteran at 75%.</li>
+          <li><b>And he cannot finish.</b> Eight of those twelve berths died at 4th–6th, including <b>five seasons ending at exactly 6th</b>. His median season is literally sixth place.</li>
+          <li><b>The luckiest long-tenured owner in the league (+.0250).</b> He gets in more often than he earns it — and when he's bad, he's awful.</li>
+          <li>Best line in the file: <b>in 2013 he was the single worst team in the league, won the Toilet Bowl, took 1.01, and won the whole thing in 2014.</b></li>
+          <li><b>Why Baltimore:</b> two rings twelve years apart off unrelated cores, no dead era, in the tournament almost every year, identity built on going home early. <span class="flag">Tension:</span> Baltimore is luck-negative; he's the luckiest veteran here.</li>
+        </ul>
+        <blockquote>"I simply saw a low price in an auction and couldn't fucking help myself. I need help, alright."</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">04</span><h2 class="cname">Derrick Whitman</h2><span class="badge">Indianapolis Colts</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">1</span></div>
+          <div class="stat"><span class="slabel">#1 seeds</span><span class="sval">4</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">9</span></div>
+          <div class="stat"><span class="slabel">Luck delta</span><span class="sval bad">−.0251</span></div>
+          <div class="apbar"><span class="slabel">All-Play .5944 · 2nd</span><div class="track"><div class="fill" style="width:73.6%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>Best luck-neutral quality of anyone with real tenure.</b> 77.8% playoff rate, median finish 3rd. One ring to show for it.</li>
+          <li><b>Four #1 seeds, one conversion.</b> Worst luck delta of any owner with nine-plus seasons — he is genuinely better than his record.</li>
+          <li><b>No middle class:</b> 1, 2, 3, 3, 3, 4, 6, 12, 12. The only current owner whose every non-playoff season is a dead-last finish.</li>
+          <li>Self-inflicted twice: <b>zero rookie selections in 2014, 2015, 2016 and 2017</b>, then cratered and vanished for five seasons.</li>
+          <li><b>Why Indianapolis:</b> he wrote it himself. Perennial top seed, one Lombardi, top-heavy roster that falls off a cliff the moment the center goes.</li>
+        </ul>
+        <blockquote>"I'm always the 1 seed that gets whacked I wanna be the 6th seed that eats"</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">05</span><h2 class="cname">Bear Dunn</h2><span class="badge">New Orleans Saints</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">1</span></div>
+          <div class="stat"><span class="slabel">Playoffs</span><span class="sval">10</span></div>
+          <div class="stat"><span class="slabel">Finals</span><span class="sval">1</span></div>
+          <div class="stat"><span class="slabel">3rd-place</span><span class="sval">5</span></div>
+          <div class="apbar"><span class="slabel">All-Play .5672 · 4th</span><div class="track"><div class="fill" style="width:66.8%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>The definitive semifinal casualty: 10 playoff berths, exactly ONE finals trip.</b> A 10% conversion rate — worst of anyone with more than two berths.</li>
+          <li><b>Five third-place finishes</b>, most in league history by two. Since his 2016 ring: 3, 3, 3, 5, 10, 3, 9, 3, 4.</li>
+          <li><b>#1 head-to-head win rate in the entire league.</b> The regular season is his kingdom; the bracket is where he dies.</li>
+          <li><b>#1 in trade value per deal</b> — fleeced Blake on Le'Veon Bell, the best single trade in the dataset — then converts picks at a bottom-four rate. Acquires capital better than anyone and turns it into nothing.</li>
+          <li><b>Why New Orleans:</b> one ring, one finals trip ever, never lost the big one because he never got back to it.</li>
+        </ul>
+        <blockquote>"I'm at softball. I can't deal with fantasy. I have a life."</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">06</span><h2 class="cname">Eric Martel</h2><span class="badge">Kansas City Chiefs</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">1</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">3</span></div>
+          <div class="stat"><span class="slabel">Playoff rate</span><span class="sval gold">100%</span></div>
+          <div class="stat"><span class="slabel">Luck delta</span><span class="sval bad">−.0616</span></div>
+          <div class="apbar"><span class="slabel">All-Play .6292 · 1st</span><div class="track"><div class="fill" style="width:82.3%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>Three seasons: 4th, 1st, 3rd.</b> Never finished outside the top four, never seen the Toilet Bowl, only 100% playoff rate in the league.</li>
+          <li><b>.6292 All-Play — the highest of any owner in the 16-year history of this league.</b> Leads or ties every rate category there is.</li>
+          <li><b>And he's the unluckiest man on record (−.0616).</b> The 2024 ring came from the 4 seed on a 19–18 record. His rosters beat his results every year.</li>
+          <li><b>18.7 trades a season — highest rate of any multi-season owner ever</b>, plus the most expensive nominations in the league as a deliberate cap drain. Villain by enthusiastic personal design.</li>
+          <li><span class="flag">Exception flagged:</span> Kansas City has 4 rings to his 1. Comped on <b>rate, not count</b> — and the caveat is n=3.</li>
+        </ul>
+        <blockquote>"Trivia Time: Who has the best AP win % in the history of the league? Hint.... he's a fuckin asshole"</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">07</span><h2 class="cname">Brian Cutting</h2><span class="badge">Los Angeles Rams</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">1</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">16</span></div>
+          <div class="stat"><span class="slabel">Median finish</span><span class="sval">6.0</span></div>
+          <div class="stat"><span class="slabel">Net 1sts</span><span class="sval bad">−13</span></div>
+          <div class="apbar"><span class="slabel">All-Play .5148 · 8th</span><div class="track"><div class="fill" style="width:53.7%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>16 straight seasons, an original owner — and for the first TWELVE his best result was a 3rd.</b> Zero finals through 2021. Then a runner-up in 2022 and the ring in 2025.</li>
+          <li><b>The worst title rate of any UPS owner who has actually won one.</b> Median finish 6.0, mean 6.06 — in a 12-team league he is, to three decimals, the exact middle. Sixteen years of fine.</li>
+          <li><b>Zero last-place finishes in 16 seasons.</b> He has never quit on a year.</li>
+          <li><b>The 2025 ring was real:</b> a .7166 All-Play as the wire-to-wire #1 seed. Comfortably his best year, and a genuinely elite season by any standard.</li>
+          <li><b>Why the Rams:</b> 2nd-biggest first-round dumper in league history, lowest first-round draft rate at 0.36/yr, drafted nobody at all in 2013, 2014 and 2017, and does half his trading in-season. "F— them picks" with a Massachusetts accent — plus the exact loss-then-win sequence.</li>
+        </ul>
+        <blockquote>"I need some kind of victory since I can't win a championship" <span>— said before he won one</span></blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">08</span><h2 class="cname">Matt Gerardi</h2><span class="badge">Tampa Bay Buccaneers</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval gold">1</span></div>
+          <div class="stat"><span class="slabel">Playoffs</span><span class="sval bad">2 / 9</span></div>
+          <div class="stat"><span class="slabel">Toilet bowls</span><span class="sval bad">7</span></div>
+          <div class="stat"><span class="slabel">Median finish</span><span class="sval">8th</span></div>
+          <div class="apbar"><span class="slabel">All-Play .4191 · 9th</span><div class="track"><div class="fill" style="width:29.8%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>One title, zero runner-ups. 1-for-1 in finals and 2-for-9 in making the playoffs</b> — worst playoff rate of any titled owner in the league.</li>
+          <li>Underneath the ring: a .4191 career All-Play, median 8th, <b>seven toilet bowls in nine seasons.</b></li>
+          <li><b>2022 is the biggest outlier season anyone has:</b> 12th place to champion from the 6 seed, beating the 3, then the 1, then the 2 — as the league's loudest anti-superflex voice. The only time in nine seasons he cleared .55.</li>
+          <li><b>The post-title freefall isn't luck:</b> .4225 → .2995 → .262, with head-to-head within four-thousandths of All-Play. He has earned every single loss.</li>
+          <li><span class="flag">Exception flagged:</span> Tampa has 2 rings. Kept because his 2022 run is nearly a literal transcription of Tampa's 2020.</li>
+        </ul>
+        <blockquote>"This may be the one and only time I will get to gloat in this league… Champ Out!"</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">09</span><h2 class="cname">Keith Creelman</h2><span class="badge">Atlanta Falcons</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval bad">0</span></div>
+          <div class="stat"><span class="slabel">Finals</span><span class="sval">2 (0–2)</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">16</span></div>
+          <div class="stat"><span class="slabel">Toilet titles</span><span class="sval bad">0 / 7</span></div>
+          <div class="apbar"><span class="slabel">All-Play .5307 · 7th</span><div class="track"><div class="fill" style="width:57.7%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>16 seasons, present since the league's first snap, zero titles.</b> Two finals, two losses. Best finish in sixteen years: 2nd.</li>
+          <li><b>7th of 12 in All-Play — straight-up mid</b> — and he can't blame the schedule: a −.0134 luck delta means his record slightly <em>undershoots</em> a roster that was already mediocre.</li>
+          <li><b>Seven toilet bowls, and he never won one of those either.</b> He is not even good at being bad. Back-to-back 10ths in 2024 and 2025 — a decline, not a plateau.</li>
+          <li><b>Leads the league in every input and converts none of it:</b> highest auction spend of any veteran, the all-time single-lot record (<b>Derrick Henry, $94,000</b>), most nominations, most waiver claims, most blind money, 234 trades — and <b>the worst rookie-draft conversion in the league.</b> Also owns the most lopsided trade in the dataset, handed to Bousquet, who then won two titles.</li>
+          <li><b>Why Atlanta:</b> exactly two big-game trips, exactly two losses, zero rings. Pays a premium for shiny offense and ignores the unglamorous half — league-low spending on both IDP and superflex quarterbacks.</li>
+        </ul>
+        <blockquote>"I have 0 titles anything else posted is incorrect."</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">10</span><h2 class="cname">Eric Mannila</h2><span class="badge">Detroit Lions</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval bad">0</span></div>
+          <div class="stat"><span class="slabel">Finals</span><span class="sval bad">0</span></div>
+          <div class="stat"><span class="slabel">Playoffs</span><span class="sval bad">1 / 16</span></div>
+          <div class="stat"><span class="slabel">Toilet titles</span><span class="sval">4</span></div>
+          <div class="apbar"><span class="slabel">All-Play .3958 · 10th</span><div class="track"><div class="fill" style="width:23.9%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>Sixteen seasons. Zero titles, zero runner-ups, zero finals.</b> The only multi-season owner in league history who has never once played for anything.</li>
+          <li><b>One playoff berth in sixteen years.</b> Best finish ever is 6th. Fifteen toilet bowls, four Toilet championships — double the next-best — and the worst bottom-three rate in the league.</li>
+          <li><b>No alibi:</b> his luck delta is <b>+.021</b>. He <em>outran</em> his All-Play and still missed the playoffs fifteen times.</li>
+          <li><b>The paradox — he is the best drafter in the league.</b> 54.7% of his picks hit a top-24 season, a 9.4% bust rate (best in UPS), 2nd-highest auction spend, cleanest cap sheet. Whatever is broken, it is not talent acquisition.</li>
+          <li><b>Why Detroit:</b> decades of real talent on rosters that won nothing, never reaching the big game, never mattering.</li>
+        </ul>
+        <blockquote>"He's been working on his rebuild for 16 years." <span>— Bousquet, on Mannila</span></blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">11</span><h2 class="cname">Brian Cross</h2><span class="badge">Houston Texans</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval bad">0</span></div>
+          <div class="stat"><span class="slabel">Seasons</span><span class="sval">1</span></div>
+          <div class="stat"><span class="slabel">2025 finish</span><span class="sval">9th</span></div>
+          <div class="stat"><span class="slabel">Blind money</span><span class="sval">$199K</span></div>
+          <div class="apbar"><span class="slabel">All-Play .3904 · 11th</span><div class="track"><div class="fill" style="width:22.6%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>One credited season.</b> Every rate stat here is n=1 and should be read that way. He took the franchise over before 2024 and was active, but the league does not credit him with a roster he didn't build.</li>
+          <li><b>11th of 12 in All-Play — and lucky on top of it</b>, beating his All-Play by nearly seven points of win rate. The schedule flattered a bottom-two roster.</li>
+          <li><b>Transacts constantly, commits to nothing:</b> 24 trades in his first credited year against a league norm of about 13, and <b>the most aggressive single-season waiver spend in the entire 16-year dataset</b> — while his biggest auction buy in two years is $13,000.</li>
+          <li><b>Why Houston:</b> the NFL's newest franchise, no Super Bowl, and a front office that churns the bottom of the roster harder than anyone. He is also, verifiably, the happiest person in the archive.</li>
+        </ul>
+        <blockquote>"I may go 0-33 but loving the league and all the support . The Commish is the BEST !"</blockquote>
+      </article>
+
+      <article class="card">
+        <div class="chead"><span class="rank">12</span><h2 class="cname">Chris Klingenberg</h2><span class="badge">Cleveland Browns</span></div>
+        <div class="strip">
+          <div class="stat"><span class="slabel">Titles</span><span class="sval bad">0</span></div>
+          <div class="stat"><span class="slabel">Playoffs</span><span class="sval bad">3 / 15</span></div>
+          <div class="stat"><span class="slabel">Last place</span><span class="sval bad">4</span></div>
+          <div class="stat"><span class="slabel">Toilet bowls</span><span class="sval bad">12</span></div>
+          <div class="apbar"><span class="slabel">All-Play .3688 · 12th</span><div class="track"><div class="fill" style="width:17.2%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>15 seasons, zero titles, one runner-up. Dead last in career All-Play, and it isn't close.</b></li>
+          <li><b>Three playoff berths in fifteen seasons. Twelve toilet bowls. Four last-place finishes</b> — most in league history. 2018 was a .165 All-Play, the worst single season by any current owner.</li>
+          <li><b>The Toilet Bowl was officially renamed the "Hawks Bowl" in his honor.</b> Two Toilet titles is the entire trophy case.</li>
+          <li><b>The decisions are fine; there just aren't any.</b> 3rd-best trade value per deal and 2nd-best bust rate — on 4.27 trades a season against a league norm of 13, the fewest nominations of anyone, and almost nothing spent at quarterback in a superflex league.</li>
+          <li><b>Why Cleveland:</b> Bear Dunn assigned it before anyone ran a query — <em>"Chris is the Browns, clearly, right?"</em> <span class="flag">Tension:</span> Cleveland's dysfunction is hyperactivity; his is absenteeism.</li>
+        </ul>
+        <blockquote>"Someday I will win this motherfucking league and I hope all you pricks will be ready for what will come to all of you for the shit I have endured over the years!"</blockquote>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sechead">League superlatives</h2>
+    <div class="supers">
+      <div class="super">
+        <h3>Most cursed</h3>
+        <p><b>Chris Klingenberg.</b> Four last-place finishes, twelve toilet bowls in fifteen years, the worst All-Play on record, and a consolation bracket named after him. He also has the 3rd-best trade value per deal in the league. He's not bad at fantasy football — he's barely playing it.</p>
+      </div>
+      <div class="super">
+        <h3>Biggest quality/hardware gap — both directions</h3>
+        <p><b>Blake and Whitman.</b> Blake has the most titles in league history off the 6th-best team quality. Whitman has the 2nd-best quality, four #1 seeds, and one ring. One converts nothing into everything; the other converts everything into nothing. Same league, fourteen years.</p>
+      </div>
+      <div class="super">
+        <h3>Best process, no results</h3>
+        <p><b>Eric Mannila.</b> Best rookie-draft conversion in the league, 2nd-highest auction spend, cleanest cap sheet — and <b>one playoff berth in sixteen seasons.</b> Nobody has ever acquired talent this well and done this little with it.</p>
+      </div>
+      <div class="super">
+        <h3>The unpaid debt</h3>
+        <p><b>Josh Martel's 2018.</b> A 155–21 all-play record — <b>.8807, the best single season by any current owner in sixteen years</b> — and he lost the final. Winning the next two rings is the only reason this isn't the league's defining tragedy.</p>
+      </div>
+      <div class="super">
+        <h3>Most improved</h3>
+        <p><b>Brian Cutting.</b> Twelve years with a ceiling of 3rd place, then a runner-up and a wire-to-wire title as the #1 seed. His auction win rate climbed from 40.7% to 65.8% across eras, the largest improvement by anyone — after spending most of that time openly narrating his own tank.</p>
+      </div>
+      <div class="super">
+        <h3>Most expensive nothing</h3>
+        <p><b>Keith Creelman.</b> The highest auction spend of any veteran, the $94,000 Derrick Henry, 234 trades, the most nominations and waiver claims in the league — and a trophy case with two second-place banners in it. Sixteen seasons. Zero titles. He built the website everyone uses to look this up.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Built from 16 completed seasons of MFL data (2010–2025), the league Discord and Slack archives, and the old forum. Every record is attributed to the owner who actually held the roster that season — never to whoever holds the franchise ID today. 2026 is in progress and excluded.
+  </footer>
+
+</div>
+</div>

@@ -1,0 +1,4592 @@
+{
+  "schema": 1,
+  "packId": "2025-wk13-recap",
+  "title": "2025 Week 13",
+  "generatedAtUtc": "2026-08-02T12:34:08Z",
+  "season": 2025,
+  "week": 13,
+  "sources": [
+    {
+      "name": "Monte Carlo (playoff odds)",
+      "asof": "2025 after wk13",
+      "rows": 12,
+      "note": "each remaining week simulated from every franchise's own scoring mean and spread, then seeded by canon F.1: four division winners plus the best all-play percentages. Fixed seed, so the same week always produces the same number"
+    },
+    {
+      "name": "nfl_player_weekly",
+      "asof": "2025 wk13",
+      "rows": 1,
+      "note": "real box scores, so performances are described not invented"
+    },
+    {
+      "name": "src_adddrop",
+      "asof": "2025 wk13",
+      "rows": 22,
+      "note": "waiver/FA adds made this week, joined to what the player then scored"
+    },
+    {
+      "name": "src_franchise_weekly_score",
+      "asof": "2025 wk13",
+      "rows": 12,
+      "note": "team_opt_pts is MFL's own optimal-lineup figure -- never reconstructed locally, which overstated one 2025 week by 9.1 points"
+    },
+    {
+      "name": "src_franchise_weekly_score (weekly self-join)",
+      "asof": "2025 wk13",
+      "rows": 12,
+      "note": "this week's record against the whole field"
+    },
+    {
+      "name": "src_franchises",
+      "asof": "2025 season",
+      "rows": 12,
+      "note": "authoritative (season, franchise_id) -> owner map"
+    },
+    {
+      "name": "src_schedule",
+      "asof": "2025 wk13",
+      "rows": 36,
+      "note": "double/triple-header weeks store one row per (franchise, opponent)"
+    },
+    {
+      "name": "src_schedule (record derivation)",
+      "asof": "2025 through wk13",
+      "rows": 12,
+      "note": "overall and DIVISIONAL W-L through a given week; src_standings carries div_w/div_l but is a season-final snapshot with no week column. Verified to reproduce the official 2025 figures exactly"
+    },
+    {
+      "name": "src_trades",
+      "asof": "2025 wk13",
+      "rows": 2,
+      "note": "trades completed inside this week"
+    },
+    {
+      "name": "src_weekly",
+      "asof": "2025 wk13",
+      "rows": 214,
+      "note": "per-player weekly scores; starters only"
+    },
+    {
+      "name": "src_weekly (bench comparison)",
+      "asof": "2025 wk13",
+      "rows": 6,
+      "note": "benched player who outscored a starter at the same position group, classified process vs variance on each player's average BEFORE this week"
+    },
+    {
+      "name": "ups_discord_messages",
+      "asof": "2025 wk13",
+      "rows": 60,
+      "note": "league chat, archived from Discord; quotes render verbatim"
+    }
+  ],
+  "coverage": {},
+  "warnings": [
+    "Projections are not carried for this week. MFL serves them live and never stores them, so they exist only from the point capture began (migration 0114) -- the tale of the tape omits the row rather than inventing it.",
+    "Playoff odds are a simulation. Scoring is assumed stable and independent, which ignores injuries, byes, trades and anyone who has stopped setting a lineup. Treat them as a forecast, not a result.",
+    "Double/triple-header week -- an owner plays two or three opponents at once, so the same name appears on more than one game page."
+  ],
+  "entities": {
+    "owners": [
+      {
+        "key": "owner:bear-dunn",
+        "display": "Bear Dunn"
+      },
+      {
+        "key": "owner:brian-cross",
+        "display": "Brian Cross"
+      },
+      {
+        "key": "owner:brian-cutting",
+        "display": "Brian Cutting"
+      },
+      {
+        "key": "owner:chris-klingenberg",
+        "display": "Chris Klingenberg"
+      },
+      {
+        "key": "owner:derrick-whitman",
+        "display": "Derrick Whitman"
+      },
+      {
+        "key": "owner:eric-mannila",
+        "display": "Eric Mannila"
+      },
+      {
+        "key": "owner:eric-martel",
+        "display": "Eric Martel"
+      },
+      {
+        "key": "owner:josh-martel",
+        "display": "Josh Martel"
+      },
+      {
+        "key": "owner:keith-creelman",
+        "display": "Keith Creelman"
+      },
+      {
+        "key": "owner:matt-gerardi",
+        "display": "Matt Gerardi"
+      },
+      {
+        "key": "owner:ryan-bousquet",
+        "display": "Ryan Bousquet"
+      },
+      {
+        "key": "owner:shawn-blake",
+        "display": "Shawn Blake"
+      }
+    ],
+    "franchises": [
+      {
+        "season": 2025,
+        "franchiseId": "0001",
+        "ownerKey": "owner:ryan-bousquet",
+        "name": "L.A. Looks",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0002",
+        "ownerKey": "owner:derrick-whitman",
+        "name": "CBP",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0003",
+        "ownerKey": "owner:matt-gerardi",
+        "name": "Gride",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0004",
+        "ownerKey": "owner:brian-cutting",
+        "name": "Pure Greatness",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0005",
+        "ownerKey": "owner:eric-martel",
+        "name": "HammerTime 🔨 ⏰",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0006",
+        "ownerKey": "owner:brian-cross",
+        "name": "The Long Haulers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0007",
+        "ownerKey": "owner:josh-martel",
+        "name": "Sex Manther",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0008",
+        "ownerKey": "owner:keith-creelman",
+        "name": "Real Deal Creel",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0009",
+        "ownerKey": "owner:bear-dunn",
+        "name": "C-Town Chivalry",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0010",
+        "ownerKey": "owner:shawn-blake",
+        "name": "Blake Bombers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0011",
+        "ownerKey": "owner:eric-mannila",
+        "name": "Cleon Ca$h",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0012",
+        "ownerKey": "owner:chris-klingenberg",
+        "name": "Hawks",
+        "attributionSource": "src_franchises"
+      }
+    ],
+    "divisions": [
+      "DOG POUND 4 LIFE",
+      "ICE UP SON!",
+      "LEGION OF BOOM",
+      "MAKE IT RAIN"
+    ]
+  },
+  "facts": [
+    {
+      "id": "f.burn.benched",
+      "label": "Player left on the bench",
+      "value": "Jameson Williams",
+      "unit": "text",
+      "fmt": "Jameson Williams",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.burn.benched_score",
+      "label": "What the benched player scored",
+      "value": 30.1,
+      "unit": "points",
+      "fmt": "30.1",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.burn.covers_margin",
+      "label": "Josh Martel -- would that one swap have won him a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "that single change wins him the game",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.burn.owner",
+      "label": "Biggest bench swing",
+      "value": "Josh Martel",
+      "unit": "text",
+      "fmt": "Josh Martel",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.burn.started",
+      "label": "Who was started instead",
+      "value": "Rome Odunze",
+      "unit": "text",
+      "fmt": "Rome Odunze",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.burn.started_score",
+      "label": "What the starter scored",
+      "value": 3.0,
+      "unit": "points",
+      "fmt": "3.0",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.burn.verdict",
+      "label": "Was that a bad DECISION or a bad result?",
+      "value": "process",
+      "unit": "text",
+      "fmt": "the wrong man started -- Jameson Williams had been the better player all year",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.div.dog-pound-4-life.leader",
+      "label": "DOG POUND 4 LIFE -- leader",
+      "value": "Bear Dunn",
+      "unit": "text",
+      "fmt": "Bear Dunn (26-9)",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.div.ice-up-son.leader",
+      "label": "ICE UP SON! -- leader",
+      "value": "Eric Martel",
+      "unit": "text",
+      "fmt": "Eric Martel (23-12)",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.div.legion-of-boom.leader",
+      "label": "LEGION OF BOOM -- leader",
+      "value": "Brian Cutting",
+      "unit": "text",
+      "fmt": "Brian Cutting (22-13)",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.div.make-it-rain.leader",
+      "label": "MAKE IT RAIN -- leader",
+      "value": "Shawn Blake",
+      "unit": "text",
+      "fmt": "Shawn Blake (14-21)",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.01.margin",
+      "label": "Eric Martel over Bear Dunn -- margin, 11th largest of 18 this week",
+      "value": 29.0,
+      "unit": "points",
+      "fmt": "29.0",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.01.margin_rank",
+      "label": "Eric Martel over Bear Dunn -- where that margin ranks among this week's 18 games",
+      "value": 11,
+      "unit": "rank",
+      "fmt": "11th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.02.margin",
+      "label": "Brian Cutting over Keith Creelman -- margin, 18th largest of 18 this week",
+      "value": 1.8000000000000114,
+      "unit": "points",
+      "fmt": "1.8",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.02.margin_rank",
+      "label": "Brian Cutting over Keith Creelman -- where that margin ranks among this week's 18 games",
+      "value": 18,
+      "unit": "rank",
+      "fmt": "18th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.03.margin",
+      "label": "Eric Martel over Ryan Bousquet -- margin, 16th largest of 18 this week",
+      "value": 9.900000000000006,
+      "unit": "points",
+      "fmt": "9.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.03.margin_rank",
+      "label": "Eric Martel over Ryan Bousquet -- where that margin ranks among this week's 18 games",
+      "value": 16,
+      "unit": "rank",
+      "fmt": "16th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.04.margin",
+      "label": "Shawn Blake over Brian Cutting -- margin, 15th largest of 18 this week",
+      "value": 11.199999999999989,
+      "unit": "points",
+      "fmt": "11.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.04.margin_rank",
+      "label": "Shawn Blake over Brian Cutting -- where that margin ranks among this week's 18 games",
+      "value": 15,
+      "unit": "rank",
+      "fmt": "15th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.05.margin",
+      "label": "Chris Klingenberg over Brian Cutting -- margin, 3rd largest of 18 this week",
+      "value": 72.6,
+      "unit": "points",
+      "fmt": "72.6",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.05.margin_rank",
+      "label": "Chris Klingenberg over Brian Cutting -- where that margin ranks among this week's 18 games",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3rd largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.06.margin",
+      "label": "Eric Mannila over Eric Martel -- margin, 12th largest of 18 this week",
+      "value": 24.0,
+      "unit": "points",
+      "fmt": "24.0",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.06.margin_rank",
+      "label": "Eric Mannila over Eric Martel -- where that margin ranks among this week's 18 games",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "12th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.07.margin",
+      "label": "Bear Dunn over Derrick Whitman -- margin, 9th largest of 18 this week",
+      "value": 31.599999999999994,
+      "unit": "points",
+      "fmt": "31.6",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.07.margin_rank",
+      "label": "Bear Dunn over Derrick Whitman -- where that margin ranks among this week's 18 games",
+      "value": 9,
+      "unit": "rank",
+      "fmt": "9th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.08.margin",
+      "label": "Josh Martel over Keith Creelman -- margin, 4th largest of 18 this week",
+      "value": 69.79999999999998,
+      "unit": "points",
+      "fmt": "69.8",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.08.margin_rank",
+      "label": "Josh Martel over Keith Creelman -- where that margin ranks among this week's 18 games",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.09.margin",
+      "label": "Ryan Bousquet over Derrick Whitman -- margin, 7th largest of 18 this week",
+      "value": 50.69999999999999,
+      "unit": "points",
+      "fmt": "50.7",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.09.margin_rank",
+      "label": "Ryan Bousquet over Derrick Whitman -- where that margin ranks among this week's 18 games",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "7th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.10.margin",
+      "label": "Brian Cross over Bear Dunn -- margin, 5th largest of 18 this week",
+      "value": 65.19999999999999,
+      "unit": "points",
+      "fmt": "65.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.10.margin_rank",
+      "label": "Brian Cross over Bear Dunn -- where that margin ranks among this week's 18 games",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.11.margin",
+      "label": "Josh Martel over Shawn Blake -- margin, 6th largest of 18 this week",
+      "value": 56.79999999999998,
+      "unit": "points",
+      "fmt": "56.8",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.11.margin_rank",
+      "label": "Josh Martel over Shawn Blake -- where that margin ranks among this week's 18 games",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.12.margin",
+      "label": "Eric Mannila over Derrick Whitman -- margin, 2nd largest of 18 this week",
+      "value": 84.6,
+      "unit": "points",
+      "fmt": "84.6",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.12.margin_rank",
+      "label": "Eric Mannila over Derrick Whitman -- where that margin ranks among this week's 18 games",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2nd largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.13.margin",
+      "label": "Chris Klingenberg over Josh Martel -- margin, 17th largest of 18 this week",
+      "value": 4.600000000000023,
+      "unit": "points",
+      "fmt": "4.6",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.13.margin_rank",
+      "label": "Chris Klingenberg over Josh Martel -- where that margin ranks among this week's 18 games",
+      "value": 17,
+      "unit": "rank",
+      "fmt": "17th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.14.margin",
+      "label": "Brian Cross over Ryan Bousquet -- margin, 8th largest of 18 this week",
+      "value": 46.099999999999994,
+      "unit": "points",
+      "fmt": "46.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.14.margin_rank",
+      "label": "Brian Cross over Ryan Bousquet -- where that margin ranks among this week's 18 games",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.15.margin",
+      "label": "Brian Cross over Eric Mannila -- margin, 14th largest of 18 this week",
+      "value": 12.199999999999989,
+      "unit": "points",
+      "fmt": "12.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.15.margin_rank",
+      "label": "Brian Cross over Eric Mannila -- where that margin ranks among this week's 18 games",
+      "value": 14,
+      "unit": "rank",
+      "fmt": "14th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.16.margin",
+      "label": "Keith Creelman over Matt Gerardi -- margin, 13th largest of 18 this week",
+      "value": 16.900000000000006,
+      "unit": "points",
+      "fmt": "16.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.16.margin_rank",
+      "label": "Keith Creelman over Matt Gerardi -- where that margin ranks among this week's 18 games",
+      "value": 13,
+      "unit": "rank",
+      "fmt": "13th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.17.margin",
+      "label": "Shawn Blake over Matt Gerardi -- margin, 10th largest of 18 this week",
+      "value": 29.900000000000006,
+      "unit": "points",
+      "fmt": "29.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.17.margin_rank",
+      "label": "Shawn Blake over Matt Gerardi -- where that margin ranks among this week's 18 games",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "10th largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.18.margin",
+      "label": "Chris Klingenberg over Matt Gerardi -- margin, the largest of 18 this week",
+      "value": 91.30000000000001,
+      "unit": "points",
+      "fmt": "91.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.game.18.margin_rank",
+      "label": "Chris Klingenberg over Matt Gerardi -- where that margin ranks among this week's 18 games",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "the largest of 18",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.mo.cold",
+      "label": "Derrick Whitman -- coldest three-week run",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5-28",
+      "source": "rolling all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.mo.hot",
+      "label": "Josh Martel -- hottest three-week run",
+      "value": 28,
+      "unit": "count",
+      "fmt": "28-5",
+      "source": "rolling all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.odds.0001.make",
+      "label": "Ryan Bousquet -- odds of making the playoffs",
+      "value": 94.475,
+      "unit": "percent",
+      "fmt": "94%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0002.make",
+      "label": "Derrick Whitman -- odds of making the playoffs",
+      "value": 0.0,
+      "unit": "percent",
+      "fmt": "0%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0003.make",
+      "label": "Matt Gerardi -- odds of making the playoffs",
+      "value": 0.0,
+      "unit": "percent",
+      "fmt": "0%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0004.make",
+      "label": "Brian Cutting -- odds of making the playoffs",
+      "value": 100.0,
+      "unit": "percent",
+      "fmt": "100%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0005.make",
+      "label": "Eric Martel -- odds of making the playoffs",
+      "value": 100.0,
+      "unit": "percent",
+      "fmt": "100%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0006.make",
+      "label": "Brian Cross -- odds of making the playoffs",
+      "value": 0.0,
+      "unit": "percent",
+      "fmt": "0%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0007.make",
+      "label": "Josh Martel -- odds of making the playoffs",
+      "value": 99.825,
+      "unit": "percent",
+      "fmt": "100%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0008.make",
+      "label": "Keith Creelman -- odds of making the playoffs",
+      "value": 62.35,
+      "unit": "percent",
+      "fmt": "62%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0009.make",
+      "label": "Bear Dunn -- odds of making the playoffs",
+      "value": 100.0,
+      "unit": "percent",
+      "fmt": "100%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0010.make",
+      "label": "Shawn Blake -- odds of making the playoffs",
+      "value": 37.65,
+      "unit": "percent",
+      "fmt": "38%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0011.make",
+      "label": "Eric Mannila -- odds of making the playoffs",
+      "value": 5.7,
+      "unit": "percent",
+      "fmt": "6%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.0012.make",
+      "label": "Chris Klingenberg -- odds of making the playoffs",
+      "value": 0.0,
+      "unit": "percent",
+      "fmt": "0%",
+      "source": "Monte Carlo",
+      "asof": "after wk13"
+    },
+    {
+      "id": "f.odds.biggest_faller",
+      "label": "Keith Creelman -- playoff odds lost this week",
+      "value": 12.800000000000004,
+      "unit": "percent",
+      "fmt": "13 points",
+      "source": "Monte Carlo",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.odds.biggest_riser",
+      "label": "Shawn Blake -- playoff odds gained this week",
+      "value": 12.674999999999997,
+      "unit": "percent",
+      "fmt": "13 points",
+      "source": "Monte Carlo",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.a-j-brown.score",
+      "label": "A.J. Brown (Brian Cross) -- week score",
+      "value": 38.6,
+      "unit": "points",
+      "fmt": "38.6",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.bijan-robinson.score",
+      "label": "Bijan Robinson (Eric Mannila) -- week score",
+      "value": 32.3,
+      "unit": "points",
+      "fmt": "32.3",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.bryce-young.score",
+      "label": "Bryce Young (Matt Gerardi) -- week score",
+      "value": 29.1,
+      "unit": "points",
+      "fmt": "29.1",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.dak-prescott.score",
+      "label": "Dak Prescott (Chris Klingenberg) -- week score",
+      "value": 28.6,
+      "unit": "points",
+      "fmt": "28.6",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.ernest-jones.score",
+      "label": "Ernest Jones (Eric Mannila) -- week score",
+      "value": 27.5,
+      "unit": "points",
+      "fmt": "27.5",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.jordan-love.score",
+      "label": "Jordan Love (Derrick Whitman) -- week score",
+      "value": 37.2,
+      "unit": "points",
+      "fmt": "37.2",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.marcus-mariota.score",
+      "label": "Marcus Mariota (Keith Creelman) -- week score",
+      "value": 29.9,
+      "unit": "points",
+      "fmt": "29.9",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.patrick-mahomes.score",
+      "label": "Patrick Mahomes (Chris Klingenberg) -- week score",
+      "value": 38.6,
+      "unit": "points",
+      "fmt": "38.6",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.rashee-rice.score",
+      "label": "Rashee Rice (Josh Martel) -- week score",
+      "value": 30.4,
+      "unit": "points",
+      "fmt": "30.4",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.player.zach-ertz.score",
+      "label": "Zach Ertz (Chris Klingenberg) -- week score",
+      "value": 28.8,
+      "unit": "points",
+      "fmt": "28.8",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.star.line",
+      "label": "Top performer's box line",
+      "value": "10 catches on 12 targets for 132 and 2 TD",
+      "unit": "text",
+      "fmt": "10 catches on 12 targets for 132 and 2 TD",
+      "source": "nfl_player_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.star.name",
+      "label": "Top performer",
+      "value": "A.J. Brown",
+      "unit": "text",
+      "fmt": "A.J. Brown",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.star.owner",
+      "label": "Top performer's manager",
+      "value": "Brian Cross",
+      "unit": "text",
+      "fmt": "Brian Cross",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.star.prior_avg",
+      "label": "Top performer's average before this week",
+      "value": 13.75,
+      "unit": "points",
+      "fmt": "13.8",
+      "source": "src_weekly",
+      "asof": "before wk13"
+    },
+    {
+      "id": "f.star.prior_best",
+      "label": "Top performer's previous season high",
+      "value": 30.9,
+      "unit": "points",
+      "fmt": "30.9",
+      "source": "src_weekly",
+      "asof": "before wk13"
+    },
+    {
+      "id": "f.star.score",
+      "label": "Top performer score",
+      "value": 38.6,
+      "unit": "points",
+      "fmt": "38.6",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.best_available",
+      "label": "Ryan Bousquet -- best lineup available",
+      "value": 249.4,
+      "unit": "points",
+      "fmt": "249.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.best_player",
+      "label": "Ryan Bousquet -- best starter",
+      "value": "Bo Nix",
+      "unit": "text",
+      "fmt": "Bo Nix (22.4)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.ceiling_rank",
+      "label": "Ryan Bousquet -- where his best available lineup ranks among this week's 18 losers",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.could_have_won",
+      "label": "Ryan Bousquet -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.div_record",
+      "label": "Ryan Bousquet -- division record",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3-5",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0001.left_on_bench",
+      "label": "Ryan Bousquet -- points left on the bench",
+      "value": 53.400000000000006,
+      "unit": "points",
+      "fmt": "53.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.record",
+      "label": "Ryan Bousquet -- record",
+      "value": 23,
+      "unit": "count",
+      "fmt": "23-12",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0001.score",
+      "label": "Ryan Bousquet -- score",
+      "value": 196.0,
+      "unit": "points",
+      "fmt": "196.0",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.season_pf_rank",
+      "label": "Ryan Bousquet -- where his season points-for ranks in the league",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0001.vs_avg",
+      "label": "Ryan Bousquet -- this week against his own season average",
+      "value": -21.28333333333333,
+      "unit": "points",
+      "fmt": "-21.3",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.week_allplay",
+      "label": "Ryan Bousquet -- record against the field this week",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5-6",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0001.week_rank_own",
+      "label": "Ryan Bousquet -- where this week ranks among his own weeks this season",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "his 10th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.best_available",
+      "label": "Derrick Whitman -- best lineup available",
+      "value": 164.4,
+      "unit": "points",
+      "fmt": "164.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.best_player",
+      "label": "Derrick Whitman -- best starter",
+      "value": "Jordan Love",
+      "unit": "text",
+      "fmt": "Jordan Love (37.2)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.ceiling_rank",
+      "label": "Derrick Whitman -- where his best available lineup ranks among this week's 18 losers",
+      "value": 18,
+      "unit": "rank",
+      "fmt": "18th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.could_have_won",
+      "label": "Derrick Whitman -- could his best lineup have won a game he lost?",
+      "value": "no",
+      "unit": "text",
+      "fmt": "could not have won with a perfect card",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.div_record",
+      "label": "Derrick Whitman -- division record",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4-4",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0002.left_on_bench",
+      "label": "Derrick Whitman -- points left on the bench",
+      "value": 19.099999999999994,
+      "unit": "points",
+      "fmt": "19.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.record",
+      "label": "Derrick Whitman -- record",
+      "value": 14,
+      "unit": "count",
+      "fmt": "14-21",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0002.score",
+      "label": "Derrick Whitman -- score",
+      "value": 145.3,
+      "unit": "points",
+      "fmt": "145.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.season_pf_rank",
+      "label": "Derrick Whitman -- where his season points-for ranks in the league",
+      "value": 9,
+      "unit": "rank",
+      "fmt": "9th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0002.vs_avg",
+      "label": "Derrick Whitman -- this week against his own season average",
+      "value": -65.24999999999997,
+      "unit": "points",
+      "fmt": "-65.2",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.week_allplay",
+      "label": "Derrick Whitman -- record against the field this week",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0-11",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0002.week_rank_own",
+      "label": "Derrick Whitman -- where this week ranks among his own weeks this season",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "his 12th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.best_available",
+      "label": "Matt Gerardi -- best lineup available",
+      "value": 204.4,
+      "unit": "points",
+      "fmt": "204.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.best_player",
+      "label": "Matt Gerardi -- best starter",
+      "value": "Bryce Young",
+      "unit": "text",
+      "fmt": "Bryce Young (29.1)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.ceiling_rank",
+      "label": "Matt Gerardi -- where his best available lineup ranks among this week's 18 losers",
+      "value": 13,
+      "unit": "rank",
+      "fmt": "13th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.could_have_won",
+      "label": "Matt Gerardi -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.div_record",
+      "label": "Matt Gerardi -- division record",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0-8",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0003.left_on_bench",
+      "label": "Matt Gerardi -- points left on the bench",
+      "value": 32.20000000000002,
+      "unit": "points",
+      "fmt": "32.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.record",
+      "label": "Matt Gerardi -- record",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9-26",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0003.score",
+      "label": "Matt Gerardi -- score",
+      "value": 172.2,
+      "unit": "points",
+      "fmt": "172.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.season_pf_rank",
+      "label": "Matt Gerardi -- where his season points-for ranks in the league",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "the fewest points in the league",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0003.vs_avg",
+      "label": "Matt Gerardi -- this week against his own season average",
+      "value": -18.075000000000017,
+      "unit": "points",
+      "fmt": "-18.1",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.week_allplay",
+      "label": "Matt Gerardi -- record against the field this week",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1-10",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0003.week_rank_own",
+      "label": "Matt Gerardi -- where this week ranks among his own weeks this season",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "his 10th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.best_available",
+      "label": "Brian Cutting -- best lineup available",
+      "value": 218.5,
+      "unit": "points",
+      "fmt": "218.5",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.best_player",
+      "label": "Brian Cutting -- best starter",
+      "value": "Drake Maye",
+      "unit": "text",
+      "fmt": "Drake Maye (27.3)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.ceiling_rank",
+      "label": "Brian Cutting -- where his best available lineup ranks among this week's 18 losers",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.could_have_won",
+      "label": "Brian Cutting -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.div_record",
+      "label": "Brian Cutting -- division record",
+      "value": 8,
+      "unit": "count",
+      "fmt": "8-0",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0004.left_on_bench",
+      "label": "Brian Cutting -- points left on the bench",
+      "value": 27.599999999999994,
+      "unit": "points",
+      "fmt": "27.6",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.record",
+      "label": "Brian Cutting -- record",
+      "value": 22,
+      "unit": "count",
+      "fmt": "22-13",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0004.score",
+      "label": "Brian Cutting -- score",
+      "value": 190.9,
+      "unit": "points",
+      "fmt": "190.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.season_pf_rank",
+      "label": "Brian Cutting -- where his season points-for ranks in the league",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "the most points in the league",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0004.vs_avg",
+      "label": "Brian Cutting -- this week against his own season average",
+      "value": -45.51666666666665,
+      "unit": "points",
+      "fmt": "-45.5",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.week_allplay",
+      "label": "Brian Cutting -- record against the field this week",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4-7",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0004.week_rank_own",
+      "label": "Brian Cutting -- where this week ranks among his own weeks this season",
+      "value": 13,
+      "unit": "rank",
+      "fmt": "his worst week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.best_available",
+      "label": "Eric Martel -- best lineup available",
+      "value": 223.6,
+      "unit": "points",
+      "fmt": "223.6",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.best_player",
+      "label": "Eric Martel -- best starter",
+      "value": "Trey McBride",
+      "unit": "text",
+      "fmt": "Trey McBride (26.8)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.ceiling_rank",
+      "label": "Eric Martel -- where his best available lineup ranks among this week's 18 losers",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.could_have_won",
+      "label": "Eric Martel -- could his best lineup have won a game he lost?",
+      "value": "no",
+      "unit": "text",
+      "fmt": "could not have won with a perfect card",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.div_record",
+      "label": "Eric Martel -- division record",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6-2",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0005.left_on_bench",
+      "label": "Eric Martel -- points left on the bench",
+      "value": 17.69999999999999,
+      "unit": "points",
+      "fmt": "17.7",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.record",
+      "label": "Eric Martel -- record",
+      "value": 23,
+      "unit": "count",
+      "fmt": "23-12",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0005.score",
+      "label": "Eric Martel -- score",
+      "value": 205.9,
+      "unit": "points",
+      "fmt": "205.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.season_pf_rank",
+      "label": "Eric Martel -- where his season points-for ranks in the league",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3rd in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0005.vs_avg",
+      "label": "Eric Martel -- this week against his own season average",
+      "value": -23.075000000000017,
+      "unit": "points",
+      "fmt": "-23.1",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.week_allplay",
+      "label": "Eric Martel -- record against the field this week",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7-4",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0005.week_rank_own",
+      "label": "Eric Martel -- where this week ranks among his own weeks this season",
+      "value": 9,
+      "unit": "rank",
+      "fmt": "his 9th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0006.best_player",
+      "label": "Brian Cross -- best starter",
+      "value": "A.J. Brown",
+      "unit": "text",
+      "fmt": "A.J. Brown (38.6)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0006.div_record",
+      "label": "Brian Cross -- division record",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2-6",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0006.left_on_bench",
+      "label": "Brian Cross -- points left on the bench",
+      "value": 41.900000000000006,
+      "unit": "points",
+      "fmt": "41.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0006.record",
+      "label": "Brian Cross -- record",
+      "value": 15,
+      "unit": "count",
+      "fmt": "15-20",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0006.score",
+      "label": "Brian Cross -- score",
+      "value": 242.1,
+      "unit": "points",
+      "fmt": "242.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0006.season_pf_rank",
+      "label": "Brian Cross -- where his season points-for ranks in the league",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "10th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0006.vs_avg",
+      "label": "Brian Cross -- this week against his own season average",
+      "value": 43.10833333333332,
+      "unit": "points",
+      "fmt": "+43.1",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0006.week_allplay",
+      "label": "Brian Cross -- record against the field this week",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9-2",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0006.week_rank_own",
+      "label": "Brian Cross -- where this week ranks among his own weeks this season",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "his best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.best_available",
+      "label": "Josh Martel -- best lineup available",
+      "value": 302.9,
+      "unit": "points",
+      "fmt": "302.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.best_player",
+      "label": "Josh Martel -- best starter",
+      "value": "Rashee Rice",
+      "unit": "text",
+      "fmt": "Rashee Rice (30.4)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.ceiling_rank",
+      "label": "Josh Martel -- where his best available lineup ranks among this week's 18 losers",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "the highest of any loser this week",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.could_have_won",
+      "label": "Josh Martel -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.div_record",
+      "label": "Josh Martel -- division record",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4-4",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0007.left_on_bench",
+      "label": "Josh Martel -- points left on the bench",
+      "value": 44.0,
+      "unit": "points",
+      "fmt": "44.0",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.record",
+      "label": "Josh Martel -- record",
+      "value": 20,
+      "unit": "count",
+      "fmt": "20-15",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0007.score",
+      "label": "Josh Martel -- score",
+      "value": 258.9,
+      "unit": "points",
+      "fmt": "258.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.season_pf_rank",
+      "label": "Josh Martel -- where his season points-for ranks in the league",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2nd in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0007.vs_avg",
+      "label": "Josh Martel -- this week against his own season average",
+      "value": 34.116666666666646,
+      "unit": "points",
+      "fmt": "+34.1",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.week_allplay",
+      "label": "Josh Martel -- record against the field this week",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10-1",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0007.week_rank_own",
+      "label": "Josh Martel -- where this week ranks among his own weeks this season",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "his 2nd-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.best_available",
+      "label": "Keith Creelman -- best lineup available",
+      "value": 216.2,
+      "unit": "points",
+      "fmt": "216.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.best_player",
+      "label": "Keith Creelman -- best starter",
+      "value": "Marcus Mariota",
+      "unit": "text",
+      "fmt": "Marcus Mariota (29.9)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.ceiling_rank",
+      "label": "Keith Creelman -- where his best available lineup ranks among this week's 18 losers",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "10th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.could_have_won",
+      "label": "Keith Creelman -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.div_record",
+      "label": "Keith Creelman -- division record",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5-3",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0008.left_on_bench",
+      "label": "Keith Creelman -- points left on the bench",
+      "value": 27.099999999999994,
+      "unit": "points",
+      "fmt": "27.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.record",
+      "label": "Keith Creelman -- record",
+      "value": 14,
+      "unit": "count",
+      "fmt": "14-21",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0008.score",
+      "label": "Keith Creelman -- score",
+      "value": 189.1,
+      "unit": "points",
+      "fmt": "189.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.season_pf_rank",
+      "label": "Keith Creelman -- where his season points-for ranks in the league",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0008.vs_avg",
+      "label": "Keith Creelman -- this week against his own season average",
+      "value": -24.941666666666663,
+      "unit": "points",
+      "fmt": "-24.9",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.week_allplay",
+      "label": "Keith Creelman -- record against the field this week",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3-8",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0008.week_rank_own",
+      "label": "Keith Creelman -- where this week ranks among his own weeks this season",
+      "value": 11,
+      "unit": "rank",
+      "fmt": "his 11th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.best_available",
+      "label": "Bear Dunn -- best lineup available",
+      "value": 183.2,
+      "unit": "points",
+      "fmt": "183.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.best_player",
+      "label": "Bear Dunn -- best starter",
+      "value": "Brock Bowers",
+      "unit": "text",
+      "fmt": "Brock Bowers (25.1)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.ceiling_rank",
+      "label": "Bear Dunn -- where his best available lineup ranks among this week's 18 losers",
+      "value": 15,
+      "unit": "rank",
+      "fmt": "15th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.could_have_won",
+      "label": "Bear Dunn -- could his best lineup have won a game he lost?",
+      "value": "no",
+      "unit": "text",
+      "fmt": "could not have won with a perfect card",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.div_record",
+      "label": "Bear Dunn -- division record",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7-1",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0009.left_on_bench",
+      "label": "Bear Dunn -- points left on the bench",
+      "value": 6.299999999999983,
+      "unit": "points",
+      "fmt": "6.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.record",
+      "label": "Bear Dunn -- record",
+      "value": 26,
+      "unit": "count",
+      "fmt": "26-9",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0009.score",
+      "label": "Bear Dunn -- score",
+      "value": 176.9,
+      "unit": "points",
+      "fmt": "176.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.season_pf_rank",
+      "label": "Bear Dunn -- where his season points-for ranks in the league",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0009.vs_avg",
+      "label": "Bear Dunn -- this week against his own season average",
+      "value": -53.14999999999998,
+      "unit": "points",
+      "fmt": "-53.1",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.week_allplay",
+      "label": "Bear Dunn -- record against the field this week",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2-9",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0009.week_rank_own",
+      "label": "Bear Dunn -- where this week ranks among his own weeks this season",
+      "value": 13,
+      "unit": "rank",
+      "fmt": "his worst week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.best_available",
+      "label": "Shawn Blake -- best lineup available",
+      "value": 249.2,
+      "unit": "points",
+      "fmt": "249.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.best_player",
+      "label": "Shawn Blake -- best starter",
+      "value": "Jacoby Brissett",
+      "unit": "text",
+      "fmt": "Jacoby Brissett (27.0)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.ceiling_rank",
+      "label": "Shawn Blake -- where his best available lineup ranks among this week's 18 losers",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5th highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.could_have_won",
+      "label": "Shawn Blake -- could his best lineup have won a game he lost?",
+      "value": "no",
+      "unit": "text",
+      "fmt": "could not have won with a perfect card",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.div_record",
+      "label": "Shawn Blake -- division record",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6-2",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0010.left_on_bench",
+      "label": "Shawn Blake -- points left on the bench",
+      "value": 47.099999999999994,
+      "unit": "points",
+      "fmt": "47.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.record",
+      "label": "Shawn Blake -- record",
+      "value": 14,
+      "unit": "count",
+      "fmt": "14-21",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0010.score",
+      "label": "Shawn Blake -- score",
+      "value": 202.1,
+      "unit": "points",
+      "fmt": "202.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.season_pf_rank",
+      "label": "Shawn Blake -- where his season points-for ranks in the league",
+      "value": 11,
+      "unit": "rank",
+      "fmt": "11th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0010.vs_avg",
+      "label": "Shawn Blake -- this week against his own season average",
+      "value": 1.4916666666666458,
+      "unit": "points",
+      "fmt": "+1.5",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.week_allplay",
+      "label": "Shawn Blake -- record against the field this week",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6-5",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0010.week_rank_own",
+      "label": "Shawn Blake -- where this week ranks among his own weeks this season",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "his 5th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.best_available",
+      "label": "Eric Mannila -- best lineup available",
+      "value": 261.1,
+      "unit": "points",
+      "fmt": "261.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.best_player",
+      "label": "Eric Mannila -- best starter",
+      "value": "Bijan Robinson",
+      "unit": "text",
+      "fmt": "Bijan Robinson (32.3)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.ceiling_rank",
+      "label": "Eric Mannila -- where his best available lineup ranks among this week's 18 losers",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2nd highest of the 18 losers",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.could_have_won",
+      "label": "Eric Mannila -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.div_record",
+      "label": "Eric Mannila -- division record",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2-6",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0011.left_on_bench",
+      "label": "Eric Mannila -- points left on the bench",
+      "value": 31.200000000000017,
+      "unit": "points",
+      "fmt": "31.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.record",
+      "label": "Eric Mannila -- record",
+      "value": 18,
+      "unit": "count",
+      "fmt": "18-17",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0011.score",
+      "label": "Eric Mannila -- score",
+      "value": 229.9,
+      "unit": "points",
+      "fmt": "229.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.season_pf_rank",
+      "label": "Eric Mannila -- where his season points-for ranks in the league",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "7th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0011.vs_avg",
+      "label": "Eric Mannila -- this week against his own season average",
+      "value": 24.875,
+      "unit": "points",
+      "fmt": "+24.9",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.week_allplay",
+      "label": "Eric Mannila -- record against the field this week",
+      "value": 8,
+      "unit": "count",
+      "fmt": "8-3",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0011.week_rank_own",
+      "label": "Eric Mannila -- where this week ranks among his own weeks this season",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "his 3rd-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0012.best_player",
+      "label": "Chris Klingenberg -- best starter",
+      "value": "Patrick Mahomes",
+      "unit": "text",
+      "fmt": "Patrick Mahomes (38.6)",
+      "source": "src_weekly",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0012.div_record",
+      "label": "Chris Klingenberg -- division record",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1-7",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0012.left_on_bench",
+      "label": "Chris Klingenberg -- points left on the bench",
+      "value": 28.69999999999999,
+      "unit": "points",
+      "fmt": "28.7",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0012.record",
+      "label": "Chris Klingenberg -- record",
+      "value": 12,
+      "unit": "count",
+      "fmt": "12-23",
+      "source": "src_schedule",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0012.score",
+      "label": "Chris Klingenberg -- score",
+      "value": 263.5,
+      "unit": "points",
+      "fmt": "263.5",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0012.season_pf_rank",
+      "label": "Chris Klingenberg -- where his season points-for ranks in the league",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk13"
+    },
+    {
+      "id": "f.team.0012.vs_avg",
+      "label": "Chris Klingenberg -- this week against his own season average",
+      "value": 61.974999999999994,
+      "unit": "points",
+      "fmt": "+62.0",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0012.week_allplay",
+      "label": "Chris Klingenberg -- record against the field this week",
+      "value": 11,
+      "unit": "count",
+      "fmt": "11-0",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.team.0012.week_rank_own",
+      "label": "Chris Klingenberg -- where this week ranks among his own weeks this season",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "his best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.week.outgunned",
+      "label": "Losers who could not have won either way",
+      "value": 4,
+      "unit": "count",
+      "fmt": "four",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.week.perfect",
+      "label": "Beat the entire field",
+      "value": "Chris Klingenberg",
+      "unit": "text",
+      "fmt": "Chris Klingenberg",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.week.self_inflicted",
+      "label": "Losers who had a winning lineup on the bench",
+      "value": 6,
+      "unit": "count",
+      "fmt": "six",
+      "source": "derived",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.week.winless",
+      "label": "Lost to the entire field",
+      "value": "Derrick Whitman",
+      "unit": "text",
+      "fmt": "Derrick Whitman",
+      "source": "weekly all-play",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.wire.adds",
+      "label": "Players added this week",
+      "value": 22,
+      "unit": "count",
+      "fmt": "22",
+      "source": "src_adddrop",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.wire.best_add",
+      "label": "Best pickup of the week, added by Eric Mannila",
+      "value": "Bam Knight",
+      "unit": "text",
+      "fmt": "Bam Knight (17.9)",
+      "source": "src_adddrop",
+      "asof": "wk13"
+    },
+    {
+      "id": "f.wire.trades",
+      "label": "Trades completed this week",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "src_trades",
+      "asof": "wk13"
+    }
+  ],
+  "tables": [
+    {
+      "id": "t.burns",
+      "title": "Bench swings, and whether they were mistakes",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "benched",
+          "label": "Benched",
+          "type": "text"
+        },
+        {
+          "key": "bscore",
+          "label": "Scored",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "started",
+          "label": "Started instead",
+          "type": "text"
+        },
+        {
+          "key": "sscore",
+          "label": "Scored",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "verdict",
+          "label": "Verdict",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Ryan Bousquet",
+          "Adonai Mitchell",
+          28.0,
+          "Amon-Ra St. Brown",
+          0.0,
+          "right call, bad day"
+        ],
+        [
+          "Josh Martel",
+          "Jameson Williams",
+          30.1,
+          "Rome Odunze",
+          3.0,
+          "wrong call"
+        ],
+        [
+          "Brian Cross",
+          "Dontayvion Wicks",
+          29.0,
+          "Parker Washington",
+          4.5,
+          "right call, bad day"
+        ],
+        [
+          "Derrick Whitman",
+          "Tyler Shough",
+          21.4,
+          "Aaron Rodgers",
+          -1.4,
+          "right call, bad day"
+        ],
+        [
+          "Shawn Blake",
+          "Terry McLaurin",
+          23.8,
+          "Jaylen Waddle",
+          7.6,
+          "unclear"
+        ],
+        [
+          "Matt Gerardi",
+          "Kyle Monangai",
+          21.2,
+          "Travis Etienne",
+          5.3,
+          "right call, bad day"
+        ]
+      ],
+      "note": "\"Right call, bad day\" means the man who started had the better season average going in. That is not a mistake."
+    },
+    {
+      "id": "t.performers",
+      "title": "Top performances",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "pos",
+          "label": "Pos",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Started by",
+          "type": "text"
+        },
+        {
+          "key": "score",
+          "label": "Points",
+          "type": "points",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "A.J. Brown",
+          "WR",
+          "Brian Cross",
+          38.6
+        ],
+        [
+          "Patrick Mahomes",
+          "QB",
+          "Chris Klingenberg",
+          38.6
+        ],
+        [
+          "Jordan Love",
+          "QB",
+          "Derrick Whitman",
+          37.2
+        ],
+        [
+          "Bijan Robinson",
+          "RB",
+          "Eric Mannila",
+          32.3
+        ],
+        [
+          "Rashee Rice",
+          "WR",
+          "Josh Martel",
+          30.4
+        ],
+        [
+          "Marcus Mariota",
+          "QB",
+          "Keith Creelman",
+          29.9
+        ],
+        [
+          "Bryce Young",
+          "QB",
+          "Matt Gerardi",
+          29.1
+        ],
+        [
+          "Zach Ertz",
+          "TE",
+          "Chris Klingenberg",
+          28.8
+        ],
+        [
+          "Dak Prescott",
+          "QB",
+          "Chris Klingenberg",
+          28.6
+        ],
+        [
+          "Ernest Jones",
+          "LB",
+          "Eric Mannila",
+          27.5
+        ]
+      ],
+      "note": null
+    },
+    {
+      "id": "t.pickups",
+      "title": "Waiver wire: what the adds produced",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Added by",
+          "type": "text"
+        },
+        {
+          "key": "how",
+          "label": "How",
+          "type": "text"
+        },
+        {
+          "key": "pts",
+          "label": "Points",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "started",
+          "label": "Started?",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Bam Knight",
+          "Eric Mannila",
+          "BBID",
+          17.9,
+          "no"
+        ],
+        [
+          "Andres Borregales",
+          "Matt Gerardi",
+          "BBID",
+          13.3,
+          "yes"
+        ],
+        [
+          "Austin McNamara",
+          "Shawn Blake",
+          "BBID",
+          13.0,
+          "yes"
+        ]
+      ],
+      "note": null
+    },
+    {
+      "id": "t.standings",
+      "title": "Where everyone stands",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "div",
+          "label": "Division",
+          "type": "text"
+        },
+        {
+          "key": "rec",
+          "label": "Record",
+          "type": "text"
+        },
+        {
+          "key": "drec",
+          "label": "Div",
+          "type": "text"
+        },
+        {
+          "key": "wk",
+          "label": "This week AP",
+          "type": "text"
+        },
+        {
+          "key": "ap",
+          "label": "All-play",
+          "type": "text"
+        },
+        {
+          "key": "pf",
+          "label": "Points for",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "odds",
+          "label": "Playoff odds",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Brian Cutting",
+          "LEGION OF BOOM",
+          "22-13",
+          "8-0",
+          "4-7",
+          "103-40",
+          3027.9,
+          "100%"
+        ],
+        [
+          "Eric Martel",
+          "ICE UP SON!",
+          "23-12",
+          "6-2",
+          "7-4",
+          "87-56",
+          2953.6,
+          "100%"
+        ],
+        [
+          "Bear Dunn",
+          "DOG POUND 4 LIFE",
+          "26-9",
+          "7-1",
+          "2-9",
+          "87-56",
+          2937.5,
+          "100%"
+        ],
+        [
+          "Josh Martel",
+          "LEGION OF BOOM",
+          "20-15",
+          "4-4",
+          "10-1",
+          "84-59",
+          2956.3,
+          "100% (+4)"
+        ],
+        [
+          "Ryan Bousquet",
+          "DOG POUND 4 LIFE",
+          "23-12",
+          "3-5",
+          "5-6",
+          "81-62",
+          2803.4,
+          "94% (-1)"
+        ],
+        [
+          "Eric Mannila",
+          "DOG POUND 4 LIFE",
+          "18-17",
+          "2-6",
+          "8-3",
+          "74-69",
+          2690.2,
+          "6% (-2)"
+        ],
+        [
+          "Keith Creelman",
+          "MAKE IT RAIN",
+          "14-21",
+          "5-3",
+          "3-8",
+          "68-75",
+          2757.6,
+          "62% (-13)"
+        ],
+        [
+          "Chris Klingenberg",
+          "MAKE IT RAIN",
+          "12-23",
+          "1-7",
+          "11-0",
+          "62-81",
+          2681.8,
+          "0%"
+        ],
+        [
+          "Derrick Whitman",
+          "ICE UP SON!",
+          "14-21",
+          "4-4",
+          "0-11",
+          "59-84",
+          2671.9,
+          "0%"
+        ],
+        [
+          "Shawn Blake",
+          "MAKE IT RAIN",
+          "14-21",
+          "6-2",
+          "6-5",
+          "58-85",
+          2609.4,
+          "38% (+13)"
+        ],
+        [
+          "Brian Cross",
+          "ICE UP SON!",
+          "15-20",
+          "2-6",
+          "9-2",
+          "57-86",
+          2630.0,
+          "0%"
+        ],
+        [
+          "Matt Gerardi",
+          "LEGION OF BOOM",
+          "9-26",
+          "0-8",
+          "1-10",
+          "38-105",
+          2455.5,
+          "0%"
+        ]
+      ],
+      "note": "Seeding is by all-play percentage, with the four division winners in automatically -- so the Record column is not the seeding order."
+    }
+  ],
+  "charts": [],
+  "quotes": [
+    {
+      "id": "q1",
+      "text": "Fuck Blake! Hope his team completely shits the bed this week then it will be a glorious holiday 😄",
+      "author": "Chris Klingenberg",
+      "when": "Thu Nov 27",
+      "ownerKey": "owner:chris-klingenberg",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q2",
+      "text": "That would be worst nightmare. Deals he made were to be in toilet bowl and have shot at 1st pick ha",
+      "author": "Shawn Blake",
+      "when": "Thu Nov 27",
+      "ownerKey": "owner:shawn-blake",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q3",
+      "text": "Except to Blake for taking 2 guys from me on WW today via tiebreaker.",
+      "author": "Keith Creelman",
+      "when": "Thu Nov 27",
+      "ownerKey": "owner:keith-creelman",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q4",
+      "text": "The whole team is dejected after watching Free McKee outplay Jaylen every week in practice",
+      "author": "Josh Martel",
+      "when": "Fri Nov 28",
+      "ownerKey": "owner:josh-martel",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q5",
+      "text": "I mean if a deal makes sense I trade with anyone. I can’t believe lower half teams would turn down reasonable deals just out of spite. But I guess that’s why they’d be bottom half teams?",
+      "author": "Bear Dunn",
+      "when": "Thu Nov 27",
+      "ownerKey": "owner:bear-dunn",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q6",
+      "text": "Ryan Bousquet Amon Ra down... but how down is he?",
+      "author": "Eric Martel",
+      "when": "Thu Nov 27",
+      "ownerKey": "owner:eric-martel",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q7",
+      "text": "Bear was fleeced. knew",
+      "author": "Shawn Blake",
+      "when": "Fri Nov 28",
+      "ownerKey": "owner:shawn-blake",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q8",
+      "text": "As Blake would say hahaha",
+      "author": "Ryan Bousquet",
+      "when": "Thu Nov 27",
+      "ownerKey": "owner:ryan-bousquet",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    }
+  ],
+  "playcards": [
+    {
+      "id": "pc.a-j-brown",
+      "player": "A.J. Brown",
+      "position": "WR",
+      "nflMatchup": "PHI vs CHI",
+      "score": 38.6,
+      "boxLine": "10 catches on 12 targets for 132 and 2 TD",
+      "owner": "Brian Cross",
+      "note": "Season high -- previous best 30.9",
+      "watchUrl": "https://www.youtube.com/results?search_query=A.J.+Brown+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.bijan-robinson",
+      "player": "Bijan Robinson",
+      "position": "RB",
+      "nflMatchup": "ATL vs NYJ",
+      "score": 32.3,
+      "boxLine": "23 carries for 142 and 1 TD; 5 catches on 7 targets for 51",
+      "owner": "Eric Mannila",
+      "note": null,
+      "watchUrl": "https://www.youtube.com/results?search_query=Bijan+Robinson+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.bryce-young",
+      "player": "Bryce Young",
+      "position": "QB",
+      "nflMatchup": "CAR vs LA",
+      "score": 29.1,
+      "boxLine": "15-of-20 for 206, 3 TD; 5 carries for 23",
+      "owner": "Matt Gerardi",
+      "note": null,
+      "watchUrl": "https://www.youtube.com/results?search_query=Bryce+Young+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.drake-maye",
+      "player": "Drake Maye",
+      "position": "QB",
+      "nflMatchup": "NE vs NYG",
+      "score": 27.3,
+      "boxLine": "24-of-31 for 282, 2 TD; 6 carries for 12",
+      "owner": "Brian Cutting",
+      "note": null,
+      "watchUrl": "https://www.youtube.com/results?search_query=Drake+Maye+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.jordan-love",
+      "player": "Jordan Love",
+      "position": "QB",
+      "nflMatchup": "GB vs DET",
+      "score": 37.2,
+      "boxLine": "18-of-30 for 234, 4 TD; 5 carries for 4",
+      "owner": "Derrick Whitman",
+      "note": null,
+      "watchUrl": "https://www.youtube.com/results?search_query=Jordan+Love+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.marcus-mariota",
+      "player": "Marcus Mariota",
+      "position": "QB",
+      "nflMatchup": "WAS vs DEN",
+      "score": 29.9,
+      "boxLine": "28-of-50 for 294, 2 TD, 1 INT; 10 carries for 55",
+      "owner": "Keith Creelman",
+      "note": "Season high -- previous best 23.3",
+      "watchUrl": "https://www.youtube.com/results?search_query=Marcus+Mariota+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.patrick-mahomes",
+      "player": "Patrick Mahomes",
+      "position": "QB",
+      "nflMatchup": "KC vs DAL",
+      "score": 38.6,
+      "boxLine": "23-of-34 for 261, 4 TD; 3 carries for 30",
+      "owner": "Chris Klingenberg",
+      "note": null,
+      "watchUrl": "https://www.youtube.com/results?search_query=Patrick+Mahomes+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.rashee-rice",
+      "player": "Rashee Rice",
+      "position": "WR",
+      "nflMatchup": "KC vs DAL",
+      "score": 30.4,
+      "boxLine": "1 carries for 2; 8 catches on 12 targets for 92 and 2 TD",
+      "owner": "Josh Martel",
+      "note": "Season high -- previous best 27.3",
+      "watchUrl": "https://www.youtube.com/results?search_query=Rashee+Rice+week+13+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.trey-mcbride",
+      "player": "Trey McBride",
+      "position": "TE",
+      "nflMatchup": "ARI vs TB",
+      "score": 26.8,
+      "boxLine": "8 catches on 9 targets for 82 and 1 TD",
+      "owner": "Eric Martel",
+      "note": null,
+      "watchUrl": "https://www.youtube.com/results?search_query=Trey+McBride+week+13+2025+highlights",
+      "video": null
+    }
+  ],
+  "games": [
+    {
+      "id": "g.1",
+      "winner": "Eric Martel",
+      "loser": "Bear Dunn",
+      "winnerScore": 205.9,
+      "loserScore": 176.9,
+      "margin": 29.0,
+      "winnerBest": "Trey McBride (26.8)",
+      "loserBest": "Brock Bowers (25.1)",
+      "loserBenchMiss": null,
+      "loserCeiling": "183.2",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "205.9",
+          "b": "176.9",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "-23.1",
+          "b": "-53.1",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "21-11",
+          "b": "25-7",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "6-2",
+          "b": "7-1",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "80-52",
+          "b": "85-47",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2747.7",
+          "b": "2760.6",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "223.6",
+          "b": "183.2",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "17.7",
+          "b": "6.3",
+          "better": "b"
+        }
+      ],
+      "billing": 165,
+      "headline": "Game of the week",
+      "tag": "ICE UP SON! v DOG POUND 4 LIFE",
+      "cardId": "pc.trey-mcbride",
+      "quoteIds": [
+        "q5",
+        "q6"
+      ],
+      "factIds": [
+        "f.game.01.margin",
+        "f.game.01.margin_rank",
+        "f.team.0005.best_available",
+        "f.team.0005.best_player",
+        "f.team.0005.left_on_bench",
+        "f.team.0005.score",
+        "f.team.0005.vs_avg",
+        "f.team.0005.week_allplay",
+        "f.team.0009.best_available",
+        "f.team.0009.best_player",
+        "f.team.0009.ceiling_rank",
+        "f.team.0009.left_on_bench",
+        "f.team.0009.score",
+        "f.team.0009.vs_avg",
+        "f.team.0009.week_allplay"
+      ]
+    },
+    {
+      "id": "g.10",
+      "winner": "Brian Cross",
+      "loser": "Bear Dunn",
+      "winnerScore": 242.1,
+      "loserScore": 176.9,
+      "margin": 65.19999999999999,
+      "winnerBest": "A.J. Brown (38.6)",
+      "loserBest": "Brock Bowers (25.1)",
+      "loserBenchMiss": null,
+      "loserCeiling": "183.2",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "242.1",
+          "b": "176.9",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+43.1",
+          "b": "-53.1",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "12-20",
+          "b": "25-7",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "2-6",
+          "b": "7-1",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "48-84",
+          "b": "85-47",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2387.9",
+          "b": "2760.6",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "284.0",
+          "b": "183.2",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "41.9",
+          "b": "6.3",
+          "better": "b"
+        }
+      ],
+      "billing": 133,
+      "headline": null,
+      "tag": "ICE UP SON! v DOG POUND 4 LIFE",
+      "cardId": "pc.a-j-brown",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.10.margin",
+        "f.game.10.margin_rank",
+        "f.team.0006.best_player",
+        "f.team.0006.left_on_bench",
+        "f.team.0006.score",
+        "f.team.0006.vs_avg",
+        "f.team.0006.week_allplay",
+        "f.team.0009.best_available",
+        "f.team.0009.best_player",
+        "f.team.0009.ceiling_rank",
+        "f.team.0009.left_on_bench",
+        "f.team.0009.score",
+        "f.team.0009.vs_avg",
+        "f.team.0009.week_allplay"
+      ]
+    },
+    {
+      "id": "g.11",
+      "winner": "Josh Martel",
+      "loser": "Shawn Blake",
+      "winnerScore": 258.9,
+      "loserScore": 202.1,
+      "margin": 56.79999999999998,
+      "winnerBest": "Rashee Rice (30.4)",
+      "loserBest": "Jacoby Brissett (27.0)",
+      "loserBenchMiss": "Terry McLaurin (23.8) while Jaylen Waddle started for 7.6",
+      "loserCeiling": "249.2",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "258.9",
+          "b": "202.1",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+34.1",
+          "b": "+1.5",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "18-14",
+          "b": "12-20",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "4-4",
+          "b": "6-2",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "74-58",
+          "b": "52-80",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2697.4",
+          "b": "2407.3",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "302.9",
+          "b": "249.2",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "44.0",
+          "b": "47.1",
+          "better": "a"
+        }
+      ],
+      "billing": 126,
+      "headline": null,
+      "tag": "LEGION OF BOOM v MAKE IT RAIN",
+      "cardId": "pc.rashee-rice",
+      "quoteIds": [
+        "q7"
+      ],
+      "factIds": [
+        "f.game.11.margin",
+        "f.game.11.margin_rank",
+        "f.team.0007.best_available",
+        "f.team.0007.best_player",
+        "f.team.0007.left_on_bench",
+        "f.team.0007.score",
+        "f.team.0007.vs_avg",
+        "f.team.0007.week_allplay",
+        "f.team.0010.best_available",
+        "f.team.0010.best_player",
+        "f.team.0010.ceiling_rank",
+        "f.team.0010.left_on_bench",
+        "f.team.0010.score",
+        "f.team.0010.vs_avg",
+        "f.team.0010.week_allplay"
+      ]
+    },
+    {
+      "id": "g.12",
+      "winner": "Eric Mannila",
+      "loser": "Derrick Whitman",
+      "winnerScore": 229.9,
+      "loserScore": 145.3,
+      "margin": 84.6,
+      "winnerBest": "Bijan Robinson (32.3)",
+      "loserBest": "Jordan Love (37.2)",
+      "loserBenchMiss": "Tyler Shough (21.4) while Aaron Rodgers started for -1.4",
+      "loserCeiling": "164.4",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "229.9",
+          "b": "145.3",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+24.9",
+          "b": "-65.2",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "16-16",
+          "b": "14-18",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "2-6",
+          "b": "4-4",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "66-66",
+          "b": "59-73",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2460.3",
+          "b": "2526.6",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "261.1",
+          "b": "164.4",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "31.2",
+          "b": "19.1",
+          "better": "b"
+        }
+      ],
+      "billing": 125,
+      "headline": null,
+      "tag": "DOG POUND 4 LIFE v ICE UP SON!",
+      "cardId": "pc.jordan-love",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.12.margin",
+        "f.game.12.margin_rank",
+        "f.team.0002.best_available",
+        "f.team.0002.best_player",
+        "f.team.0002.ceiling_rank",
+        "f.team.0002.left_on_bench",
+        "f.team.0002.score",
+        "f.team.0002.vs_avg",
+        "f.team.0002.week_allplay",
+        "f.team.0011.best_available",
+        "f.team.0011.best_player",
+        "f.team.0011.left_on_bench",
+        "f.team.0011.score",
+        "f.team.0011.vs_avg",
+        "f.team.0011.week_allplay"
+      ]
+    },
+    {
+      "id": "g.13",
+      "winner": "Chris Klingenberg",
+      "loser": "Josh Martel",
+      "winnerScore": 263.5,
+      "loserScore": 258.9,
+      "margin": 4.600000000000023,
+      "winnerBest": "Patrick Mahomes (38.6)",
+      "loserBest": "Rashee Rice (30.4)",
+      "loserBenchMiss": "Jameson Williams (30.1) while Rome Odunze started for 3.0",
+      "loserCeiling": "302.9",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "263.5",
+          "b": "258.9",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+62.0",
+          "b": "+34.1",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "9-23",
+          "b": "18-14",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "1-7",
+          "b": "4-4",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "51-81",
+          "b": "74-58",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2418.3",
+          "b": "2697.4",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "292.2",
+          "b": "302.9",
+          "better": "b"
+        },
+        {
+          "label": "Left on bench",
+          "a": "28.7",
+          "b": "44.0",
+          "better": "a"
+        }
+      ],
+      "billing": 125,
+      "headline": null,
+      "tag": "MAKE IT RAIN v LEGION OF BOOM",
+      "cardId": "pc.patrick-mahomes",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.13.margin",
+        "f.game.13.margin_rank",
+        "f.team.0007.best_available",
+        "f.team.0007.best_player",
+        "f.team.0007.ceiling_rank",
+        "f.team.0007.left_on_bench",
+        "f.team.0007.score",
+        "f.team.0007.vs_avg",
+        "f.team.0007.week_allplay",
+        "f.team.0012.best_player",
+        "f.team.0012.left_on_bench",
+        "f.team.0012.score",
+        "f.team.0012.vs_avg",
+        "f.team.0012.week_allplay"
+      ]
+    },
+    {
+      "id": "g.14",
+      "winner": "Brian Cross",
+      "loser": "Ryan Bousquet",
+      "winnerScore": 242.1,
+      "loserScore": 196.0,
+      "margin": 46.099999999999994,
+      "winnerBest": "A.J. Brown (38.6)",
+      "loserBest": "Bo Nix (22.4)",
+      "loserBenchMiss": "Adonai Mitchell (28.0) while Amon-Ra St. Brown started for 0.0",
+      "loserCeiling": "249.4",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "242.1",
+          "b": "196.0",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+43.1",
+          "b": "-21.3",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "12-20",
+          "b": "22-10",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "2-6",
+          "b": "3-5",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "48-84",
+          "b": "76-56",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2387.9",
+          "b": "2607.4",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "284.0",
+          "b": "249.4",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "41.9",
+          "b": "53.4",
+          "better": "a"
+        }
+      ],
+      "billing": 124,
+      "headline": null,
+      "tag": "ICE UP SON! v DOG POUND 4 LIFE",
+      "cardId": "pc.a-j-brown",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.14.margin",
+        "f.game.14.margin_rank",
+        "f.team.0001.best_available",
+        "f.team.0001.best_player",
+        "f.team.0001.ceiling_rank",
+        "f.team.0001.left_on_bench",
+        "f.team.0001.score",
+        "f.team.0001.vs_avg",
+        "f.team.0001.week_allplay",
+        "f.team.0006.best_player",
+        "f.team.0006.left_on_bench",
+        "f.team.0006.score",
+        "f.team.0006.vs_avg",
+        "f.team.0006.week_allplay"
+      ]
+    },
+    {
+      "id": "g.15",
+      "winner": "Brian Cross",
+      "loser": "Eric Mannila",
+      "winnerScore": 242.1,
+      "loserScore": 229.9,
+      "margin": 12.199999999999989,
+      "winnerBest": "A.J. Brown (38.6)",
+      "loserBest": "Bijan Robinson (32.3)",
+      "loserBenchMiss": null,
+      "loserCeiling": "261.1",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "242.1",
+          "b": "229.9",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+43.1",
+          "b": "+24.9",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "12-20",
+          "b": "16-16",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "2-6",
+          "b": "2-6",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "48-84",
+          "b": "66-66",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2387.9",
+          "b": "2460.3",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "284.0",
+          "b": "261.1",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "41.9",
+          "b": "31.2",
+          "better": "b"
+        }
+      ],
+      "billing": 114,
+      "headline": null,
+      "tag": "ICE UP SON! v DOG POUND 4 LIFE",
+      "cardId": "pc.a-j-brown",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.15.margin",
+        "f.game.15.margin_rank",
+        "f.team.0006.best_player",
+        "f.team.0006.left_on_bench",
+        "f.team.0006.score",
+        "f.team.0006.vs_avg",
+        "f.team.0006.week_allplay",
+        "f.team.0011.best_available",
+        "f.team.0011.best_player",
+        "f.team.0011.ceiling_rank",
+        "f.team.0011.left_on_bench",
+        "f.team.0011.score",
+        "f.team.0011.vs_avg",
+        "f.team.0011.week_allplay"
+      ]
+    },
+    {
+      "id": "g.16",
+      "winner": "Keith Creelman",
+      "loser": "Matt Gerardi",
+      "winnerScore": 189.1,
+      "loserScore": 172.2,
+      "margin": 16.900000000000006,
+      "winnerBest": "Marcus Mariota (29.9)",
+      "loserBest": "Bryce Young (29.1)",
+      "loserBenchMiss": "Kyle Monangai (21.2) while Travis Etienne started for 5.3",
+      "loserCeiling": "204.4",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "189.1",
+          "b": "172.2",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "-24.9",
+          "b": "-18.1",
+          "better": "b"
+        },
+        {
+          "label": "Record coming in",
+          "a": "13-19",
+          "b": "9-23",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "5-3",
+          "b": "0-8",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "65-67",
+          "b": "37-95",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2568.5",
+          "b": "2283.3",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "216.2",
+          "b": "204.4",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "27.1",
+          "b": "32.2",
+          "better": "a"
+        }
+      ],
+      "billing": 102,
+      "headline": null,
+      "tag": "MAKE IT RAIN v LEGION OF BOOM",
+      "cardId": "pc.marcus-mariota",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.16.margin",
+        "f.game.16.margin_rank",
+        "f.team.0003.best_available",
+        "f.team.0003.best_player",
+        "f.team.0003.ceiling_rank",
+        "f.team.0003.left_on_bench",
+        "f.team.0003.score",
+        "f.team.0003.vs_avg",
+        "f.team.0003.week_allplay",
+        "f.team.0008.best_available",
+        "f.team.0008.best_player",
+        "f.team.0008.left_on_bench",
+        "f.team.0008.score",
+        "f.team.0008.vs_avg",
+        "f.team.0008.week_allplay"
+      ]
+    },
+    {
+      "id": "g.17",
+      "winner": "Shawn Blake",
+      "loser": "Matt Gerardi",
+      "winnerScore": 202.1,
+      "loserScore": 172.2,
+      "margin": 29.900000000000006,
+      "winnerBest": "Jacoby Brissett (27.0)",
+      "loserBest": "Bryce Young (29.1)",
+      "loserBenchMiss": "Kyle Monangai (21.2) while Travis Etienne started for 5.3",
+      "loserCeiling": "204.4",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "202.1",
+          "b": "172.2",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+1.5",
+          "b": "-18.1",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "12-20",
+          "b": "9-23",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "6-2",
+          "b": "0-8",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "52-80",
+          "b": "37-95",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2407.3",
+          "b": "2283.3",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "249.2",
+          "b": "204.4",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "47.1",
+          "b": "32.2",
+          "better": "b"
+        }
+      ],
+      "billing": 89,
+      "headline": null,
+      "tag": "MAKE IT RAIN v LEGION OF BOOM",
+      "cardId": "pc.bryce-young",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.17.margin",
+        "f.game.17.margin_rank",
+        "f.team.0003.best_available",
+        "f.team.0003.best_player",
+        "f.team.0003.ceiling_rank",
+        "f.team.0003.left_on_bench",
+        "f.team.0003.score",
+        "f.team.0003.vs_avg",
+        "f.team.0003.week_allplay",
+        "f.team.0010.best_available",
+        "f.team.0010.best_player",
+        "f.team.0010.left_on_bench",
+        "f.team.0010.score",
+        "f.team.0010.vs_avg",
+        "f.team.0010.week_allplay"
+      ]
+    },
+    {
+      "id": "g.18",
+      "winner": "Chris Klingenberg",
+      "loser": "Matt Gerardi",
+      "winnerScore": 263.5,
+      "loserScore": 172.2,
+      "margin": 91.30000000000001,
+      "winnerBest": "Patrick Mahomes (38.6)",
+      "loserBest": "Bryce Young (29.1)",
+      "loserBenchMiss": "Kyle Monangai (21.2) while Travis Etienne started for 5.3",
+      "loserCeiling": "204.4",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "263.5",
+          "b": "172.2",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+62.0",
+          "b": "-18.1",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "9-23",
+          "b": "9-23",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "1-7",
+          "b": "0-8",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "51-81",
+          "b": "37-95",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2418.3",
+          "b": "2283.3",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "292.2",
+          "b": "204.4",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "28.7",
+          "b": "32.2",
+          "better": "a"
+        }
+      ],
+      "billing": 88,
+      "headline": null,
+      "tag": "MAKE IT RAIN v LEGION OF BOOM",
+      "cardId": "pc.patrick-mahomes",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.18.margin",
+        "f.game.18.margin_rank",
+        "f.team.0003.best_available",
+        "f.team.0003.best_player",
+        "f.team.0003.ceiling_rank",
+        "f.team.0003.left_on_bench",
+        "f.team.0003.score",
+        "f.team.0003.vs_avg",
+        "f.team.0003.week_allplay",
+        "f.team.0012.best_player",
+        "f.team.0012.left_on_bench",
+        "f.team.0012.score",
+        "f.team.0012.vs_avg",
+        "f.team.0012.week_allplay"
+      ]
+    },
+    {
+      "id": "g.2",
+      "winner": "Brian Cutting",
+      "loser": "Keith Creelman",
+      "winnerScore": 190.9,
+      "loserScore": 189.1,
+      "margin": 1.8000000000000114,
+      "winnerBest": "Drake Maye (27.3)",
+      "loserBest": "Marcus Mariota (29.9)",
+      "loserBenchMiss": null,
+      "loserCeiling": "216.2",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "190.9",
+          "b": "189.1",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "-45.5",
+          "b": "-24.9",
+          "better": "b"
+        },
+        {
+          "label": "Record coming in",
+          "a": "21-11",
+          "b": "13-19",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "8-0",
+          "b": "5-3",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "99-33",
+          "b": "65-67",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2837.0",
+          "b": "2568.5",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "218.5",
+          "b": "216.2",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "27.6",
+          "b": "27.1",
+          "better": "b"
+        }
+      ],
+      "billing": 164,
+      "headline": null,
+      "tag": "LEGION OF BOOM v MAKE IT RAIN",
+      "cardId": "pc.marcus-mariota",
+      "quoteIds": [
+        "q3"
+      ],
+      "factIds": [
+        "f.game.02.margin",
+        "f.game.02.margin_rank",
+        "f.team.0004.best_available",
+        "f.team.0004.best_player",
+        "f.team.0004.left_on_bench",
+        "f.team.0004.score",
+        "f.team.0004.vs_avg",
+        "f.team.0004.week_allplay",
+        "f.team.0008.best_available",
+        "f.team.0008.best_player",
+        "f.team.0008.ceiling_rank",
+        "f.team.0008.left_on_bench",
+        "f.team.0008.score",
+        "f.team.0008.vs_avg",
+        "f.team.0008.week_allplay"
+      ]
+    },
+    {
+      "id": "g.3",
+      "winner": "Eric Martel",
+      "loser": "Ryan Bousquet",
+      "winnerScore": 205.9,
+      "loserScore": 196.0,
+      "margin": 9.900000000000006,
+      "winnerBest": "Trey McBride (26.8)",
+      "loserBest": "Bo Nix (22.4)",
+      "loserBenchMiss": "Adonai Mitchell (28.0) while Amon-Ra St. Brown started for 0.0",
+      "loserCeiling": "249.4",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "205.9",
+          "b": "196.0",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "-23.1",
+          "b": "-21.3",
+          "better": "b"
+        },
+        {
+          "label": "Record coming in",
+          "a": "21-11",
+          "b": "22-10",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "6-2",
+          "b": "3-5",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "80-52",
+          "b": "76-56",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2747.7",
+          "b": "2607.4",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "223.6",
+          "b": "249.4",
+          "better": "b"
+        },
+        {
+          "label": "Left on bench",
+          "a": "17.7",
+          "b": "53.4",
+          "better": "a"
+        }
+      ],
+      "billing": 156,
+      "headline": null,
+      "tag": "ICE UP SON! v DOG POUND 4 LIFE",
+      "cardId": "pc.trey-mcbride",
+      "quoteIds": [
+        "q8"
+      ],
+      "factIds": [
+        "f.game.03.margin",
+        "f.game.03.margin_rank",
+        "f.team.0001.best_available",
+        "f.team.0001.best_player",
+        "f.team.0001.ceiling_rank",
+        "f.team.0001.left_on_bench",
+        "f.team.0001.score",
+        "f.team.0001.vs_avg",
+        "f.team.0001.week_allplay",
+        "f.team.0005.best_available",
+        "f.team.0005.best_player",
+        "f.team.0005.left_on_bench",
+        "f.team.0005.score",
+        "f.team.0005.vs_avg",
+        "f.team.0005.week_allplay"
+      ]
+    },
+    {
+      "id": "g.4",
+      "winner": "Shawn Blake",
+      "loser": "Brian Cutting",
+      "winnerScore": 202.1,
+      "loserScore": 190.9,
+      "margin": 11.199999999999989,
+      "winnerBest": "Jacoby Brissett (27.0)",
+      "loserBest": "Drake Maye (27.3)",
+      "loserBenchMiss": null,
+      "loserCeiling": "218.5",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "202.1",
+          "b": "190.9",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+1.5",
+          "b": "-45.5",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "12-20",
+          "b": "21-11",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "6-2",
+          "b": "8-0",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "52-80",
+          "b": "99-33",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2407.3",
+          "b": "2837.0",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "249.2",
+          "b": "218.5",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "47.1",
+          "b": "27.6",
+          "better": "b"
+        }
+      ],
+      "billing": 151,
+      "headline": null,
+      "tag": "MAKE IT RAIN v LEGION OF BOOM",
+      "cardId": "pc.drake-maye",
+      "quoteIds": [
+        "q1",
+        "q2"
+      ],
+      "factIds": [
+        "f.game.04.margin",
+        "f.game.04.margin_rank",
+        "f.team.0004.best_available",
+        "f.team.0004.best_player",
+        "f.team.0004.ceiling_rank",
+        "f.team.0004.left_on_bench",
+        "f.team.0004.score",
+        "f.team.0004.vs_avg",
+        "f.team.0004.week_allplay",
+        "f.team.0010.best_available",
+        "f.team.0010.best_player",
+        "f.team.0010.left_on_bench",
+        "f.team.0010.score",
+        "f.team.0010.vs_avg",
+        "f.team.0010.week_allplay"
+      ]
+    },
+    {
+      "id": "g.5",
+      "winner": "Chris Klingenberg",
+      "loser": "Brian Cutting",
+      "winnerScore": 263.5,
+      "loserScore": 190.9,
+      "margin": 72.6,
+      "winnerBest": "Patrick Mahomes (38.6)",
+      "loserBest": "Drake Maye (27.3)",
+      "loserBenchMiss": null,
+      "loserCeiling": "218.5",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "263.5",
+          "b": "190.9",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+62.0",
+          "b": "-45.5",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "9-23",
+          "b": "21-11",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "1-7",
+          "b": "8-0",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "51-81",
+          "b": "99-33",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2418.3",
+          "b": "2837.0",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "292.2",
+          "b": "218.5",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "28.7",
+          "b": "27.6",
+          "better": "b"
+        }
+      ],
+      "billing": 150,
+      "headline": null,
+      "tag": "MAKE IT RAIN v LEGION OF BOOM",
+      "cardId": "pc.patrick-mahomes",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.05.margin",
+        "f.game.05.margin_rank",
+        "f.team.0004.best_available",
+        "f.team.0004.best_player",
+        "f.team.0004.ceiling_rank",
+        "f.team.0004.left_on_bench",
+        "f.team.0004.score",
+        "f.team.0004.vs_avg",
+        "f.team.0004.week_allplay",
+        "f.team.0012.best_player",
+        "f.team.0012.left_on_bench",
+        "f.team.0012.score",
+        "f.team.0012.vs_avg",
+        "f.team.0012.week_allplay"
+      ]
+    },
+    {
+      "id": "g.6",
+      "winner": "Eric Mannila",
+      "loser": "Eric Martel",
+      "winnerScore": 229.9,
+      "loserScore": 205.9,
+      "margin": 24.0,
+      "winnerBest": "Bijan Robinson (32.3)",
+      "loserBest": "Trey McBride (26.8)",
+      "loserBenchMiss": null,
+      "loserCeiling": "223.6",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "229.9",
+          "b": "205.9",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+24.9",
+          "b": "-23.1",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "16-16",
+          "b": "21-11",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "2-6",
+          "b": "6-2",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "66-66",
+          "b": "80-52",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2460.3",
+          "b": "2747.7",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "261.1",
+          "b": "223.6",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "31.2",
+          "b": "17.7",
+          "better": "b"
+        }
+      ],
+      "billing": 146,
+      "headline": null,
+      "tag": "DOG POUND 4 LIFE v ICE UP SON!",
+      "cardId": "pc.bijan-robinson",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.06.margin",
+        "f.game.06.margin_rank",
+        "f.team.0005.best_available",
+        "f.team.0005.best_player",
+        "f.team.0005.ceiling_rank",
+        "f.team.0005.left_on_bench",
+        "f.team.0005.score",
+        "f.team.0005.vs_avg",
+        "f.team.0005.week_allplay",
+        "f.team.0011.best_available",
+        "f.team.0011.best_player",
+        "f.team.0011.left_on_bench",
+        "f.team.0011.score",
+        "f.team.0011.vs_avg",
+        "f.team.0011.week_allplay"
+      ]
+    },
+    {
+      "id": "g.7",
+      "winner": "Bear Dunn",
+      "loser": "Derrick Whitman",
+      "winnerScore": 176.9,
+      "loserScore": 145.3,
+      "margin": 31.599999999999994,
+      "winnerBest": "Brock Bowers (25.1)",
+      "loserBest": "Jordan Love (37.2)",
+      "loserBenchMiss": "Tyler Shough (21.4) while Aaron Rodgers started for -1.4",
+      "loserCeiling": "164.4",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "176.9",
+          "b": "145.3",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "-53.1",
+          "b": "-65.2",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "25-7",
+          "b": "14-18",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "7-1",
+          "b": "4-4",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "85-47",
+          "b": "59-73",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2760.6",
+          "b": "2526.6",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "183.2",
+          "b": "164.4",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "6.3",
+          "b": "19.1",
+          "better": "a"
+        }
+      ],
+      "billing": 144,
+      "headline": null,
+      "tag": "DOG POUND 4 LIFE v ICE UP SON!",
+      "cardId": "pc.jordan-love",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.07.margin",
+        "f.game.07.margin_rank",
+        "f.team.0002.best_available",
+        "f.team.0002.best_player",
+        "f.team.0002.ceiling_rank",
+        "f.team.0002.left_on_bench",
+        "f.team.0002.score",
+        "f.team.0002.vs_avg",
+        "f.team.0002.week_allplay",
+        "f.team.0009.best_available",
+        "f.team.0009.best_player",
+        "f.team.0009.left_on_bench",
+        "f.team.0009.score",
+        "f.team.0009.vs_avg",
+        "f.team.0009.week_allplay"
+      ]
+    },
+    {
+      "id": "g.8",
+      "winner": "Josh Martel",
+      "loser": "Keith Creelman",
+      "winnerScore": 258.9,
+      "loserScore": 189.1,
+      "margin": 69.79999999999998,
+      "winnerBest": "Rashee Rice (30.4)",
+      "loserBest": "Marcus Mariota (29.9)",
+      "loserBenchMiss": null,
+      "loserCeiling": "216.2",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "258.9",
+          "b": "189.1",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+34.1",
+          "b": "-24.9",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "18-14",
+          "b": "13-19",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "4-4",
+          "b": "5-3",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "74-58",
+          "b": "65-67",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2697.4",
+          "b": "2568.5",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "302.9",
+          "b": "216.2",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "44.0",
+          "b": "27.1",
+          "better": "b"
+        }
+      ],
+      "billing": 139,
+      "headline": null,
+      "tag": "LEGION OF BOOM v MAKE IT RAIN",
+      "cardId": "pc.rashee-rice",
+      "quoteIds": [
+        "q4"
+      ],
+      "factIds": [
+        "f.game.08.margin",
+        "f.game.08.margin_rank",
+        "f.team.0007.best_available",
+        "f.team.0007.best_player",
+        "f.team.0007.left_on_bench",
+        "f.team.0007.score",
+        "f.team.0007.vs_avg",
+        "f.team.0007.week_allplay",
+        "f.team.0008.best_available",
+        "f.team.0008.best_player",
+        "f.team.0008.ceiling_rank",
+        "f.team.0008.left_on_bench",
+        "f.team.0008.score",
+        "f.team.0008.vs_avg",
+        "f.team.0008.week_allplay"
+      ]
+    },
+    {
+      "id": "g.9",
+      "winner": "Ryan Bousquet",
+      "loser": "Derrick Whitman",
+      "winnerScore": 196.0,
+      "loserScore": 145.3,
+      "margin": 50.69999999999999,
+      "winnerBest": "Bo Nix (22.4)",
+      "loserBest": "Jordan Love (37.2)",
+      "loserBenchMiss": "Tyler Shough (21.4) while Aaron Rodgers started for -1.4",
+      "loserCeiling": "164.4",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "196.0",
+          "b": "145.3",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "-21.3",
+          "b": "-65.2",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "22-10",
+          "b": "14-18",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "3-5",
+          "b": "4-4",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "76-56",
+          "b": "59-73",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2607.4",
+          "b": "2526.6",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "249.4",
+          "b": "164.4",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "53.4",
+          "b": "19.1",
+          "better": "b"
+        }
+      ],
+      "billing": 135,
+      "headline": null,
+      "tag": "DOG POUND 4 LIFE v ICE UP SON!",
+      "cardId": "pc.jordan-love",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.09.margin",
+        "f.game.09.margin_rank",
+        "f.team.0001.best_available",
+        "f.team.0001.best_player",
+        "f.team.0001.left_on_bench",
+        "f.team.0001.score",
+        "f.team.0001.vs_avg",
+        "f.team.0001.week_allplay",
+        "f.team.0002.best_available",
+        "f.team.0002.best_player",
+        "f.team.0002.ceiling_rank",
+        "f.team.0002.left_on_bench",
+        "f.team.0002.score",
+        "f.team.0002.vs_avg",
+        "f.team.0002.week_allplay"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "s1",
+      "title": "The Lead",
+      "brief": "Open on the state of the league this week, through the people in it. Who tore it up and who fell apart -- named, with what they actually did. Fold in the week's business: any waiver pickup that paid off, any trade that mattered, and anyone whose playoff odds moved hard. This is the section that has to make someone want to read the next one. Three or four paragraphs, no lists.",
+      "factIds": [
+        "f.odds.biggest_faller",
+        "f.odds.biggest_riser",
+        "f.player.a-j-brown.score",
+        "f.player.bijan-robinson.score",
+        "f.player.bryce-young.score",
+        "f.player.dak-prescott.score",
+        "f.player.ernest-jones.score",
+        "f.player.jordan-love.score",
+        "f.player.marcus-mariota.score",
+        "f.player.patrick-mahomes.score",
+        "f.player.rashee-rice.score",
+        "f.player.zach-ertz.score",
+        "f.star.line",
+        "f.star.name",
+        "f.star.owner",
+        "f.star.prior_avg",
+        "f.star.prior_best",
+        "f.star.score",
+        "f.team.0001.week_rank_own",
+        "f.team.0002.week_rank_own",
+        "f.team.0003.week_rank_own",
+        "f.team.0004.week_rank_own",
+        "f.team.0005.week_rank_own",
+        "f.team.0006.week_rank_own",
+        "f.team.0007.week_rank_own",
+        "f.team.0008.week_rank_own",
+        "f.team.0009.week_rank_own",
+        "f.team.0010.week_rank_own",
+        "f.team.0011.week_rank_own",
+        "f.team.0012.week_rank_own",
+        "f.week.outgunned",
+        "f.week.perfect",
+        "f.week.self_inflicted",
+        "f.week.winless",
+        "f.wire.adds",
+        "f.wire.best_add",
+        "f.wire.trades"
+      ],
+      "tableIds": [
+        "t.performers",
+        "t.pickups"
+      ],
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s2",
+      "title": "The Games",
+      "brief": "Place EVERY game and write a note for EVERY ONE of them in gameNotes -- two or three sentences per matchup, about THAT matchup. One league-wide paragraph in front of eighteen game pages is a lead, not analysis. Each page already shows its own tale of the tape, its own big performance and its own chat, so do not recite the numbers; say what the game meant, who it hurt, and whether the loser had any business winning it. The deck is ordered so the biggest matchup leads. Open the section with a short scene-setter about how the slate broke, then let the deck carry it.",
+      "factIds": [
+        "f.burn.benched",
+        "f.burn.benched_score",
+        "f.burn.covers_margin",
+        "f.burn.owner",
+        "f.burn.started",
+        "f.burn.started_score",
+        "f.burn.verdict",
+        "f.team.0001.best_available",
+        "f.team.0001.could_have_won",
+        "f.team.0002.best_available",
+        "f.team.0002.could_have_won",
+        "f.team.0003.best_available",
+        "f.team.0003.could_have_won",
+        "f.team.0004.best_available",
+        "f.team.0004.could_have_won",
+        "f.team.0005.best_available",
+        "f.team.0005.could_have_won",
+        "f.team.0007.best_available",
+        "f.team.0007.could_have_won",
+        "f.team.0008.best_available",
+        "f.team.0008.could_have_won",
+        "f.team.0009.best_available",
+        "f.team.0009.could_have_won",
+        "f.team.0010.best_available",
+        "f.team.0010.could_have_won",
+        "f.team.0011.best_available",
+        "f.team.0011.could_have_won"
+      ],
+      "tableIds": [
+        "t.burns"
+      ],
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": [
+        "g.1",
+        "g.10",
+        "g.11",
+        "g.12",
+        "g.13",
+        "g.14",
+        "g.15",
+        "g.16",
+        "g.17",
+        "g.18",
+        "g.2",
+        "g.3",
+        "g.4",
+        "g.5",
+        "g.6",
+        "g.7",
+        "g.8",
+        "g.9"
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "The Landscape",
+      "brief": "The race, told through the two things that decide it: the DIVISIONS, which hand out four automatic bids, and ALL-PLAY, which settles every seed after that. Name each division's leader and who is close enough to take it. Then the playoff odds -- who is safe, who is cooked, and whose Sunday moved the number furthest in either direction. Talk about what is still reachable, not just what happened.",
+      "factIds": [
+        "f.div.dog-pound-4-life.leader",
+        "f.div.ice-up-son.leader",
+        "f.div.legion-of-boom.leader",
+        "f.div.make-it-rain.leader",
+        "f.mo.cold",
+        "f.mo.hot",
+        "f.odds.0001.make",
+        "f.odds.0002.make",
+        "f.odds.0003.make",
+        "f.odds.0004.make",
+        "f.odds.0005.make",
+        "f.odds.0006.make",
+        "f.odds.0007.make",
+        "f.odds.0008.make",
+        "f.odds.0009.make",
+        "f.odds.0010.make",
+        "f.odds.0011.make",
+        "f.odds.0012.make",
+        "f.odds.biggest_faller",
+        "f.odds.biggest_riser",
+        "f.team.0001.div_record",
+        "f.team.0001.record",
+        "f.team.0001.season_pf_rank",
+        "f.team.0002.div_record",
+        "f.team.0002.record",
+        "f.team.0002.season_pf_rank",
+        "f.team.0003.div_record",
+        "f.team.0003.record",
+        "f.team.0003.season_pf_rank",
+        "f.team.0004.div_record",
+        "f.team.0004.record",
+        "f.team.0004.season_pf_rank",
+        "f.team.0005.div_record",
+        "f.team.0005.record",
+        "f.team.0005.season_pf_rank",
+        "f.team.0006.div_record",
+        "f.team.0006.record",
+        "f.team.0006.season_pf_rank",
+        "f.team.0007.div_record",
+        "f.team.0007.record",
+        "f.team.0007.season_pf_rank",
+        "f.team.0008.div_record",
+        "f.team.0008.record",
+        "f.team.0008.season_pf_rank",
+        "f.team.0009.div_record",
+        "f.team.0009.record",
+        "f.team.0009.season_pf_rank",
+        "f.team.0010.div_record",
+        "f.team.0010.record",
+        "f.team.0010.season_pf_rank",
+        "f.team.0011.div_record",
+        "f.team.0011.record",
+        "f.team.0011.season_pf_rank",
+        "f.team.0012.div_record",
+        "f.team.0012.record",
+        "f.team.0012.season_pf_rank"
+      ],
+      "tableIds": [
+        "t.standings"
+      ],
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
+    }
+  ]
+}

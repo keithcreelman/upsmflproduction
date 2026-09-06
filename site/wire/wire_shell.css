@@ -1,0 +1,139 @@
+/* UPS Wire — shell chrome ONLY.
+ *
+ * Masthead, index cards, family rails, pager, archive table, error card.
+ * Consumes wire_tokens.css; contains ZERO hex literals of its own.
+ *
+ * This file is NEVER inlined into an article -- that is the whole reason the
+ * CSS is split three ways. tokens + article travel inside every article (and
+ * therefore inside every Claude Artifact), so they have to stay small. This
+ * one only ever loads once, for the index, so it can grow freely.
+ */
+
+/* ---------- masthead ---------- */
+.wire-mast { display: flex; flex-direction: column; gap: 0.75rem; }
+.wire-wordmark {
+  font-family: var(--display); font-weight: 800;
+  font-size: clamp(2.2rem, 8vw, 4rem);
+  line-height: 0.9; letter-spacing: -0.03em; text-transform: uppercase;
+  margin: 0; color: var(--ink);
+}
+.wire-wordmark span { color: var(--gold); }
+.wire-tagline { color: var(--ink-dim); font-size: 0.98rem; margin: 0; max-width: 52ch; }
+
+.wire-nav { display: flex; flex-wrap: wrap; gap: 0.4rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }
+.wire-navbtn {
+  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-dim); background: var(--surface);
+  border: 1px solid var(--line); padding: 0.4rem 0.7rem;
+  cursor: pointer; line-height: 1;
+}
+.wire-navbtn:hover { color: var(--ink); border-color: var(--gold-dim); }
+.wire-navbtn[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
+
+/* ---------- index cards ---------- */
+/* Cards are <button>, never <a href="#...">. Rule 1: inside a srcdoc document
+   with a <base>, a fragment link navigates the frame to jsDelivr and the page
+   turns into a wall of source text. */
+.wire-icard {
+  display: block; width: 100%; text-align: left;
+  background: var(--surface); border: 1px solid var(--line);
+  border-top: 2px solid var(--line);
+  padding: 1.1rem clamp(1rem, 3vw, 1.4rem) 1.2rem;
+  cursor: pointer; font: inherit; color: inherit;
+}
+.wire-icard:hover { border-top-color: var(--gold); }
+.wire-icard-kicker {
+  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold);
+  display: block; margin-bottom: 0.45rem;
+}
+.wire-icard-title {
+  font-family: var(--display); font-weight: 800;
+  font-size: clamp(1.05rem, 2.6vw, 1.35rem);
+  letter-spacing: -0.015em; text-transform: uppercase;
+  margin: 0 0 0.4rem; color: var(--ink); text-wrap: balance;
+}
+.wire-icard-dek { color: var(--ink-dim); font-size: 0.92rem; margin: 0 0 0.7rem; }
+.wire-icard-meta {
+  display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+  padding-top: 0.6rem; border-top: 1px solid var(--line);
+}
+.wire-icard-chapters { color: var(--ink-mute); font-size: 0.85rem; margin: 0.55rem 0 0; font-style: italic; }
+.wire-draft { color: var(--brick); }
+
+/* Lead card: the almanac cover story. */
+.wire-lead { border-top: 2px solid var(--gold); }
+.wire-lead .wire-icard-title { font-size: clamp(1.5rem, 5vw, 2.4rem); }
+.wire-lead .wire-icard-dek { font-size: 1.02rem; max-width: 54ch; }
+.wire-lead-hero {
+  font-family: var(--mono); font-size: 1.6rem; color: var(--gold);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.wire-lead-hero small {
+  display: block; font-family: var(--display); font-size: 0.55rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute);
+  margin-top: 0.2rem;
+}
+
+.wire-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: 1rem; }
+
+/* ---------- family rails ---------- */
+.wire-railhead { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: 0 0 1rem; }
+.wire-railhead h2 {
+  font-family: var(--display); font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); margin: 0;
+}
+.wire-railhead p { margin: 0.2rem 0 0; font-size: 0.86rem; color: var(--ink-mute); }
+.wire-seeall {
+  font-family: var(--display); font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); background: none; border: none; cursor: pointer;
+  padding: 0; white-space: nowrap;
+}
+.wire-seeall:hover { text-decoration: underline; }
+
+/* ---------- pager ---------- */
+.wire-pager { display: flex; align-items: center; justify-content: center; gap: 0.7rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.wire-pagebtn {
+  font-family: var(--display); font-size: 0.64rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-dim); background: var(--surface);
+  border: 1px solid var(--line); padding: 0.4rem 0.75rem; cursor: pointer; line-height: 1;
+}
+.wire-pagebtn:hover:not([disabled]) { color: var(--ink); border-color: var(--gold-dim); }
+.wire-pagebtn[disabled] { opacity: 0.35; cursor: default; }
+.wire-pagecount { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+
+/* ---------- archive ---------- */
+.wire-filter {
+  width: 100%; max-width: 26rem;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink); font: inherit; font-size: 0.92rem;
+  padding: 0.5rem 0.7rem; margin-bottom: 1rem;
+}
+.wire-filter:focus { outline: none; border-color: var(--gold-dim); }
+.wire-arow { cursor: pointer; }
+.wire-arow:hover td { background: var(--surface-2); }
+
+/* ---------- empty + error ---------- */
+.wire-empty, .wire-error {
+  border: 1px solid var(--line); background: var(--surface);
+  padding: 1.5rem; color: var(--ink-dim); font-size: 0.93rem;
+}
+.wire-error { border-left: 3px solid var(--brick); }
+.wire-error h2 {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--brick); margin: 0 0 0.5rem;
+}
+.wire-error code { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-mute); word-break: break-all; }
+.wire-retry {
+  margin-top: 0.9rem;
+  font-family: var(--display); font-size: 0.64rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); background: none; border: 1px solid var(--gold-dim);
+  padding: 0.4rem 0.75rem; cursor: pointer;
+}
+.wire-retry:hover { color: var(--ground); background: var(--gold); }

@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPECIMEN: Week 1 Recap — UPS Wire</title>
+<!--wire-meta
+  Everything index.json needs that the markup cannot express.
+  Lives in the article so metadata travels with the file to all three surfaces.
+  Rebuild the index with: python pipelines/etl/wire/wire.py index
+  familyId: weekly
+  season: 2026
+  week: 1
+  status: live
+  publishedAt: 2026-07-28T00:00:00Z
+  tags: specimen, recap
+  heroValue: 1.2
+  heroLabel: closest margin
+-->
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-12980da3">
+/* GENERATED - do not edit here.
+   Source: site/wire/wire_tokens.css + site/wire/wire_article.css
+   data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
+   recomputes it and fails any article whose stamp has gone stale.
+   Regenerate: python pipelines/etl/wire/wire.py restyle */
+/* UPS Wire — design tokens. SINGLE SOURCE OF TRUTH for the almanac look.
+ *
+ * Ported from docs/design/ups_nfl_comps_reference.html (lines 4-49) — the
+ * piece Keith signed off on. Deliberately NOT the standard hub palette
+ * (#0b0f18 / #5b8dff) that auction/gameday/commish use.
+ *
+ * This file + wire_article.css are INLINED into every article at build time
+ * so an article stays self-contained (it renders inside MFL, at its own Pages
+ * URL, and as a Claude Artifact with no network access). Keep this file small
+ * and stable — every byte here is paid for once per article.
+ *
+ * RULES (see site/wire/README.md):
+ *   - No vh/svh/dvh units. Inside an auto-sized iframe 100vh equals the height
+ *     we just set, so the frame grows on every beacon tick, forever. vw is fine.
+ *   - No webfonts. System stack only.
+ *
+ * Both the prefers-color-scheme media query AND the [data-theme] overrides are
+ * load-bearing: standalone honors the OS, but embedded in MFL we force dark via
+ * data-theme (a cream article inside a dark MFL page looks broken).
+ */
+
+:root {
+  --ground: #0C1310;
+  --surface: #141C18;
+  --surface-2: #1B241F;
+  --line: #2A352E;
+  --ink: #E8EDE9;
+  --ink-dim: #A3AFA8;
+  --ink-mute: #75837B;
+  --gold: #D6A24A;
+  --gold-dim: #8A6A31;
+  --brick: #C4574A;
+  --cool: #6E9C8A;
+
+  --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+  --body: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --maxw: 62rem;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #F2F1EC;
+    --surface: #FFFFFF;
+    --surface-2: #F7F6F1;
+    --line: #DCDAD1;
+    --ink: #16201A;
+    --ink-dim: #4A5750;
+    --ink-mute: #6E7A73;
+    --gold: #8A6212;
+    --gold-dim: #C6A66A;
+    --brick: #9E3A2E;
+    --cool: #3D6B58;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
+  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #75837B;
+  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #C4574A; --cool: #6E9C8A;
+}
+
+:root[data-theme="light"] {
+  --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
+  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #6E7A73;
+  --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
+}
+
+/* The reference put min-height:100vh on .page. Dropped deliberately (see the
+   vh rule above); this fills the viewport standalone without the feedback loop. */
+html { background: var(--ground); }
+
+* { box-sizing: border-box; }
+
+/* UPS Wire — article components.
+ *
+ * Ported from docs/design/ups_nfl_comps_reference.html (lines 51-195), class
+ * names prefixed .wire- so nothing collides with MFL's own stylesheet or with
+ * another hub. Everything is scoped under .wire-page: this file is loaded by
+ * the shell too, and bare `table`/`ul`/`footer` selectors would leak into it.
+ *
+ * INLINED into every article at build time alongside wire_tokens.css. Same
+ * rules apply: no vh/svh/dvh units (vw is fine), no webfonts.
+ *
+ * The .wire-sec / .wire-paged / .wire-rail / .wire-topbar blocks at the bottom
+ * are new — they are the "flip through, don't jam it all on a page" machinery
+ * and the embedded-only Back bar. Everything above them is the reference.
+ */
+
+/* ---------- page frame ---------- */
+.wire-page {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  line-height: 1.6;
+  padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 5vw, 2rem) 5rem;
+}
+.wire-wrap { max-width: var(--maxw); margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+
+/* ---------- hero ---------- */
+.wire-hero { display: flex; flex-direction: column; gap: 0.9rem; }
+.wire-eyebrow {
+  font-family: var(--display);
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--gold);
+}
+.wire-page h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2rem, 7vw, 3.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  margin: 0;
+}
+.wire-dek {
+  font-size: clamp(1rem, 2.4vw, 1.15rem);
+  color: var(--ink-dim);
+  max-width: 46ch;
+  margin: 0;
+}
+
+/* ---------- method / "how this was built" panel ---------- */
+.wire-method {
+  border-left: 3px solid var(--gold-dim);
+  background: var(--surface);
+  padding: 1rem 1.15rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+  font-size: 0.92rem;
+  color: var(--ink-dim);
+}
+.wire-method b { color: var(--ink); font-weight: 700; }
+.wire-method .wire-mh {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+
+/* Collapsed by default. The caveat list grows with every data source added --
+   at nine notes it filled the first screen and buried the headline. Nothing is
+   hidden or paraphrased away; it is one click, and it prints expanded. */
+.wire-method summary.wire-mh { cursor: pointer; list-style: none; }
+.wire-method summary.wire-mh::-webkit-details-marker { display: none; }
+.wire-method summary.wire-mh::before {
+  content: "\25B8"; display: inline-block; margin-right: 0.45rem;
+  transition: transform 0.12s ease;
+}
+.wire-method details[open] > summary.wire-mh::before { transform: rotate(90deg); }
+.wire-method summary.wire-mh:hover { color: var(--ink); }
+.wire-method-count { color: var(--ink-mute); font-weight: 400; letter-spacing: 0.08em; }
+.wire-method-body {
+  display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.7rem;
+}
+
+@media print {
+  /* Force the disclosure open on paper -- a caveat nobody can click to is a
+     caveat nobody reads. */
+  .wire-method details > *:not(summary) { display: block !important; }
+  .wire-method-body { display: flex !important; }
+}
+
+/* ---------- tables ---------- */
+.wire-tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+.wire-page table { border-collapse: collapse; width: 100%; min-width: 44rem; }
+.wire-page th, .wire-page td { padding: 0.62rem 0.8rem; text-align: left; border-bottom: 1px solid var(--line); }
+.wire-page th {
+  font-family: var(--display); font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-mute); background: var(--surface-2);
+  position: sticky; top: 0;
+}
+.wire-page tbody tr:last-child td { border-bottom: none; }
+.wire-page td.wire-num, .wire-page th.wire-num {
+  font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
+}
+.wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
+.wire-page td.wire-comp {
+  font-family: var(--display); font-weight: 700; font-size: 0.8rem;
+  letter-spacing: 0.02em; text-transform: uppercase; color: var(--cool);
+}
+.wire-page td.wire-rings { font-family: var(--mono); color: var(--gold); letter-spacing: 0.1em; text-align: center; }
+.wire-zero { color: var(--ink-mute); }
+
+/* ---------- section headers ---------- */
+.wire-sechead {
+  font-family: var(--display);
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--gold);
+  padding-bottom: 0.5rem; border-bottom: 1px solid var(--line);
+  margin: 0 0 1.25rem;
+}
+
+/* ---------- cards ---------- */
+.wire-cards { display: flex; flex-direction: column; gap: 1rem; }
+.wire-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 1.15rem clamp(1rem, 3vw, 1.5rem) 1.3rem;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.wire-chead { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.wire-rank {
+  font-family: var(--mono); font-size: 0.95rem; font-weight: 700;
+  color: var(--ink-mute); font-variant-numeric: tabular-nums;
+}
+.wire-cname {
+  font-family: var(--display); font-weight: 800;
+  font-size: clamp(1.15rem, 3.4vw, 1.5rem);
+  letter-spacing: -0.015em; text-transform: uppercase; margin: 0;
+}
+.wire-badge {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ground); background: var(--cool);
+  padding: 0.22rem 0.55rem; white-space: nowrap;
+}
+
+/* ---------- stat strip ---------- */
+.wire-strip { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.55rem 0; border-block: 1px solid var(--line); }
+.wire-stat { display: flex; flex-direction: column; gap: 0.1rem; }
+.wire-slabel {
+  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-sval { font-family: var(--mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.wire-sval.wire-gold { color: var(--gold); }
+.wire-sval.wire-bad { color: var(--brick); }
+
+/* ---------- meter bar (pure CSS, no SVG) ---------- */
+.wire-apbar { flex: 1 1 9rem; min-width: 8rem; display: flex; flex-direction: column; gap: 0.28rem; justify-content: center; }
+.wire-track { height: 5px; background: var(--surface-2); border: 1px solid var(--line); position: relative; }
+.wire-fill { position: absolute; inset: 0 auto 0 0; background: var(--cool); }
+
+/* ---------- prose ---------- */
+.wire-page ul { margin: 0; padding-left: 1.05rem; display: flex; flex-direction: column; gap: 0.42rem; }
+.wire-page li { font-size: 0.95rem; }
+.wire-page li b { color: var(--ink); }
+.wire-page p { margin: 0; }
+.wire-flag { color: var(--brick); font-weight: 700; }
+
+.wire-page blockquote {
+  margin: 0; padding: 0.55rem 0 0.55rem 0.9rem;
+  border-left: 2px solid var(--gold-dim);
+  color: var(--ink-dim); font-style: italic; font-size: 0.93rem;
+}
+.wire-page blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.85rem; }
+
+/* ---------- superlatives ---------- */
+.wire-supers { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
+.wire-super { background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--gold); padding: 1rem 1.1rem; }
+.wire-super h3 {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--gold);
+  margin: 0 0 0.45rem;
+}
+.wire-super p { margin: 0; font-size: 0.92rem; color: var(--ink-dim); }
+.wire-super p b { color: var(--ink); }
+
+.wire-page footer { color: var(--ink-mute); font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+
+/* ---------- NEW: figures (inline SVG charts land here in P4) ---------- */
+.wire-fig { margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.wire-fig svg { width: 100%; height: auto; display: block; }
+.wire-fig figcaption { font-size: 0.85rem; color: var(--ink-mute); }
+.wire-fig details { font-size: 0.85rem; color: var(--ink-dim); }
+.wire-fig summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* ---------- NEW: section paging ("flip through") ---------- */
+/* Default state is every section visible — that IS the graceful degradation.
+   The runtime adds .wire-paged to <html> only once it has booted, so printing,
+   a JS-less Artifact sandbox, or a broken script all read as one long scroll. */
+.wire-sec { display: block; }
+.wire-paged .wire-sec { display: none; }
+.wire-paged .wire-sec.wire-on { display: block; }
+
+/* .wire-js gates the rail, .wire-paged gates section visibility. Two classes,
+   not one, so "Read all" can drop paging without hiding the control that turns
+   it back on. */
+.wire-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--line); }
+.wire-js .wire-rail { display: flex; }
+.wire-rail-pill,
+.wire-rail-nav,
+.wire-rail-all {
+  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-dim); background: var(--surface);
+  border: 1px solid var(--line); padding: 0.34rem 0.6rem;
+  cursor: pointer; line-height: 1;
+}
+.wire-rail-pill:hover, .wire-rail-nav:hover, .wire-rail-all:hover { color: var(--ink); border-color: var(--gold-dim); }
+.wire-rail-pill[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
+.wire-rail-nav[disabled] { opacity: 0.35; cursor: default; }
+.wire-rail-nav[disabled]:hover { color: var(--ink-dim); border-color: var(--line); }
+.wire-rail-all { margin-left: auto; color: var(--gold); }
+.wire-rail-count { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+
+/* ---------- NEW: Back bar. Hidden unless the runtime says we are embedded. ---------- */
+.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+.wire-embedded .wire-topbar { display: flex; }
+.wire-back {
+  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); background: none; border: 1px solid var(--gold-dim);
+  padding: 0.34rem 0.7rem; cursor: pointer; line-height: 1;
+}
+.wire-back:hover { color: var(--ground); background: var(--gold); }
+.wire-topbar-title { font-family: var(--display); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
+
+@media (max-width: 34rem) {
+  .wire-strip { gap: 0.85rem; }
+  .wire-apbar { flex-basis: 100%; }
+  .wire-rail-all { margin-left: 0; }
+}
+
+/* ---------- NEW: play card ---------- */
+/* A callout for a big performance. Deliberately NOT an embedded clip -- see
+   wire_pack.Pack.playcard: nothing maps a (player, week) to a verified video,
+   and a wrong clip asserts a falsehood more convincingly than a wrong sentence.
+   Self-contained markup so the article still works with no network at all. */
+.wire-play {
+  border: 1px solid var(--line); border-left: 3px solid var(--gold);
+  background: var(--surface); padding: 0.9rem 1.1rem;
+  display: flex; flex-direction: column; gap: 0.3rem;
+}
+.wire-play-head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.wire-play-name {
+  font-family: var(--display); font-weight: 800; font-size: 1.05rem;
+  letter-spacing: -0.01em; text-transform: uppercase; color: var(--ink);
+}
+.wire-play-meta {
+  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-play-score {
+  font-family: var(--mono); font-size: 2rem; line-height: 1;
+  color: var(--gold); font-variant-numeric: tabular-nums;
+}
+.wire-play-owner {
+  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-play-line { font-size: 0.92rem; color: var(--ink-dim); }
+.wire-play-note {
+  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--cool);
+}
+.wire-play-watch {
+  align-self: flex-start; margin-top: 0.35rem;
+  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); text-decoration: none;
+  border-bottom: 1px solid var(--gold-dim); padding-bottom: 0.1rem;
+}
+.wire-play-watch:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ---------- NEW: per-game drilldown ---------- */
+/* The games section reads as a summary at a glance, with any single game
+   openable for the breakdown. Closed by default so covering every result does
+   not produce a wall. */
+.wire-games { display: flex; flex-direction: column; gap: 0.4rem; }
+.wire-game { border: 1px solid var(--line); background: var(--surface); }
+.wire-game[open] { border-left: 3px solid var(--gold); }
+.wire-game-sum {
+  cursor: pointer; list-style: none; padding: 0.7rem 0.9rem;
+  display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap;
+}
+.wire-game-sum::-webkit-details-marker { display: none; }
+.wire-game-sum::before {
+  content: "\25B8"; color: var(--gold); transition: transform 0.12s ease;
+}
+.wire-game[open] > .wire-game-sum::before { transform: rotate(90deg); }
+.wire-game-teams {
+  font-family: var(--display); font-weight: 700; font-size: 0.82rem;
+  letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink);
+}
+.wire-game-teams em { color: var(--ink-mute); font-style: normal; font-weight: 400; }
+.wire-game-score {
+  font-family: var(--mono); font-size: 0.85rem; color: var(--gold);
+  font-variant-numeric: tabular-nums; margin-left: auto;
+}
+.wire-game-tag {
+  font-family: var(--display); font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ground); background: var(--cool); padding: 0.15rem 0.4rem;
+}
+.wire-game-body {
+  padding: 0 0.9rem 0.8rem; display: flex; flex-direction: column; gap: 0.3rem;
+  border-top: 1px solid var(--line); padding-top: 0.7rem;
+}
+.wire-game-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.88rem; }
+.wire-game-row span:first-child {
+  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+  white-space: nowrap; padding-top: 0.15rem;
+}
+.wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
+.wire-game-note { font-size: 0.85rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
+
+@media print { .wire-game-body { display: flex !important; } }
+
+/* ---------- NEW: game deck (flip through full game pages) ---------- */
+.wire-gamedeck { display: flex; flex-direction: column; gap: 1rem; }
+.wire-gamedeck-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.35rem;
+  padding-bottom: 0.8rem; border-bottom: 1px solid var(--line); }
+.wire-deck-on .wire-gamedeck-rail { display: flex; }
+.wire-gamepill {
+  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-mute); background: var(--surface);
+  border: 1px solid var(--line); padding: 0.3rem 0.5rem; cursor: pointer; line-height: 1;
+}
+.wire-gamepill:hover { color: var(--ink); border-color: var(--gold-dim); }
+.wire-gamepill[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
+
+.wire-gamepage { display: block; }
+.wire-deck-on .wire-gamepage { display: none; }
+.wire-deck-on .wire-gamepage.wire-on { display: block; }
+
+.wire-gamepage-head { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+.wire-gamepage-kicker {
+  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold);
+}
+.wire-gamepage-score { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.wire-gp-team {
+  font-family: var(--display); font-weight: 800; font-size: clamp(1rem, 2.6vw, 1.35rem);
+  text-transform: uppercase; letter-spacing: -0.01em; color: var(--ink);
+}
+.wire-gp-num {
+  font-family: var(--mono); font-size: clamp(1.1rem, 3vw, 1.6rem);
+  color: var(--gold); font-variant-numeric: tabular-nums;
+}
+.wire-gp-dash { color: var(--ink-mute); }
+.wire-gp-lose { color: var(--ink-mute); }
+
+/* tale of the tape */
+.wire-tott { border: 1px solid var(--line); background: var(--surface); margin-bottom: 1rem; }
+.wire-tott-head, .wire-tott-row {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  gap: 0.6rem; padding: 0.45rem 0.8rem;
+}
+.wire-tott-head {
+  background: var(--surface-2); border-bottom: 1px solid var(--line);
+  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-tott-head span:first-child { text-align: left; }
+.wire-tott-head span:last-child { text-align: right; }
+.wire-tott-row { border-bottom: 1px solid var(--line); }
+.wire-tott-row:last-child { border-bottom: none; }
+.wire-tott-v {
+  font-family: var(--mono); font-size: 0.9rem; color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.wire-tott-row .wire-tott-v:first-child { text-align: left; }
+.wire-tott-row .wire-tott-v:last-child { text-align: right; }
+.wire-tott-win { color: var(--gold); font-weight: 700; }
+.wire-tott-l {
+  font-family: var(--display); font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+  white-space: nowrap;
+}
+.wire-gamepage-body { display: flex; flex-direction: column; gap: 0.3rem; }
+
+/* Kicker + division tag on one line above the score. The division tag matters:
+   a reader cannot tell a division rival from a stranger by the owners' names,
+   and four automatic playoff bids are decided inside those groups. */
+.wire-gamepage-tags { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.wire-game-tag-div { background: var(--gold); color: var(--ground); }
+
+/* The writer's own paragraph about THIS matchup -- set larger than body copy
+   because on a game page it is the article, not a caption. */
+.wire-game-blurb {
+  font-size: 1.02rem; line-height: 1.62; color: var(--ink-dim);
+  border-left: 2px solid var(--gold-dim); padding-left: 0.9rem; margin-bottom: 1.1rem;
+}
+.wire-game-blurb p { margin: 0 0 0.6rem; }
+.wire-game-blurb p:last-child { margin-bottom: 0; }
+
+/* A card inside a game page sits tighter than one breaking up body copy. */
+.wire-gamepage .wire-play { margin: 1rem 0; }
+.wire-gamepage blockquote { margin-top: 1rem; }
+
+@media print { .wire-deck-on .wire-gamepage { display: block !important; } }
+</style>
+</head>
+<body>
+
+<div class="wire-page">
+<div class="wire-wrap">
+
+  <div class="wire-topbar">
+    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <span class="wire-topbar-title">UPS Wire</span>
+  </div>
+
+  <header class="wire-hero">
+    <div class="wire-eyebrow">Specimen &middot; The Week &middot; Layout proof</div>
+    <h1>Specimen: Week 1 Recap</h1>
+    <p class="wire-dek">A layout proof for the weekly family. Six sections, a scoreboard table, and a figure placeholder where the generated SVG charts land in a later phase.</p>
+  </header>
+
+  <div class="wire-method">
+    <details>
+      <summary class="wire-mh">This is a specimen <span class="wire-method-count">&mdash; 1 note</span></summary>
+      <div class="wire-method-body">
+        <div><b>Not real content.</b> Invented scores, invented teams. Its job is to prove the weekly shape has more sections than the review and still pages cleanly.</div>
+      </div>
+    </details>
+  </div>
+
+  <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
+
+  <section class="wire-sec" id="s1" data-title="Scoreboard">
+    <h2 class="wire-sechead">Scoreboard</h2>
+    <div class="wire-tablewrap">
+      <table>
+        <thead>
+          <tr><th>Matchup</th><th class="wire-num">Score</th><th class="wire-num">Opt</th><th class="wire-num">Eff</th><th class="wire-num">All-Play</th><th>Margin</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="wire-owner">Alpha over Bravo</td><td class="wire-num">142.6&ndash;118.4</td><td class="wire-num">151.2</td><td class="wire-num">94.3%</td><td class="wire-num">10-1</td><td class="wire-comp">Comfortable</td></tr>
+          <tr><td class="wire-owner">Charlie over Delta</td><td class="wire-num">121.0&ndash;119.8</td><td class="wire-num">138.7</td><td class="wire-num">87.2%</td><td class="wire-num">6-5</td><td class="wire-comp">Coin flip</td></tr>
+          <tr><td class="wire-owner">Echo over Foxtrot</td><td class="wire-num">160.3&ndash;92.1</td><td class="wire-num">164.0</td><td class="wire-num">97.7%</td><td class="wire-num">11-0</td><td class="wire-comp">Beatdown</td></tr>
+          <tr><td class="wire-owner">Golf over Hotel</td><td class="wire-num">104.5&ndash;101.9</td><td class="wire-num">129.4</td><td class="wire-num">80.8%</td><td class="wire-num">3-8</td><td class="wire-comp">Ugly</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wire-sec" id="s2" data-title="Game of the Week">
+    <h2 class="wire-sechead">Game of the Week</h2>
+    <div class="wire-strip">
+      <div class="wire-stat"><span class="wire-slabel">Margin</span><span class="wire-sval wire-gold">1.2</span></div>
+      <div class="wire-stat"><span class="wire-slabel">Lead changes</span><span class="wire-sval">4</span></div>
+      <div class="wire-stat"><span class="wire-slabel">Decided by</span><span class="wire-sval">Monday</span></div>
+      <div class="wire-apbar"><span class="wire-slabel">Win probability swing &middot; 62 pts</span><div class="wire-track"><div class="wire-fill" style="width:62%"></div></div></div>
+    </div>
+    <p>Specimen copy. The real recap puts the narrative here and keeps it short.</p>
+    <figure class="wire-fig">
+      <div style="border:1px dashed var(--line); padding:2rem; text-align:center; color:var(--ink-mute); font-family:var(--display); font-size:0.68rem; letter-spacing:0.14em; text-transform:uppercase;">Chart slot &mdash; inline SVG lands here in a later phase</div>
+      <figcaption>Figures are wrapped so a caption and a numbers fallback ride along with every chart.</figcaption>
+      <details><summary>Numbers</summary><p>The data behind any chart with more than six points is always readable as text, so the picture is never the only copy.</p></details>
+    </figure>
+  </section>
+
+  <section class="wire-sec" id="s3" data-title="Blowup of the Week">
+    <h2 class="wire-sechead">Blowup of the Week</h2>
+    <ul>
+      <li><b>Specimen bullet.</b> Somebody left forty points on the bench.</li>
+      <li>Second bullet with a <span class="wire-flag">flagged</span> item.</li>
+      <li><b>Third bullet.</b> Short, punchy, no hedging.</li>
+    </ul>
+    <blockquote>Specimen quote from the group chat.<span>&mdash; an owner, immediately regretting it</span></blockquote>
+  </section>
+
+  <section class="wire-sec" id="s4" data-title="Power Shift">
+    <h2 class="wire-sechead">Power Shift</h2>
+    <div class="wire-supers">
+      <div class="wire-super"><h3>Riser</h3><p><b>Team Echo</b> &mdash; specimen note.</p></div>
+      <div class="wire-super"><h3>Faller</h3><p><b>Team Foxtrot</b> &mdash; specimen note.</p></div>
+      <div class="wire-super"><h3>Holding</h3><p><b>Team Alpha</b> &mdash; specimen note.</p></div>
+    </div>
+  </section>
+
+  <section class="wire-sec" id="s5" data-title="Looking Ahead">
+    <h2 class="wire-sechead">Looking Ahead</h2>
+    <p>Specimen copy. A recap looks backward — Waiver Watch (who to bid on, forward-looking advice) was cut for the same reason: it belongs in a preview, not a recap. This section stays because a brief note on next week's slate is a normal recap closer, not advice content.</p>
+  </section>
+
+  <footer>
+    UPS Wire &middot; SPECIMEN, not real content &middot; league 74598
+  </footer>
+
+</div>
+</div>
+
+<script data-wire-runtime>
+/* UPS Wire -- article runtime. CANONICAL SOURCE.
+ *
+ * This file is INLINED verbatim into every article by the builder. It is
+ * byte-identical across every article and contains ZERO article prose -- that
+ * is deliberate and load-bearing:
+ *
+ *   scripts/check_inline_js.mjs syntax-checks every inline <script> under
+ *   site/**\/*.html. It exists because one unescaped apostrophe in a tooltip
+ *   string shipped Commish Settings broken for hours. A hub full of league
+ *   prose is exactly the thing that breaks it. So: prose lives in markup and
+ *   in index.json, never in a JS string. Section titles are read from
+ *   data-title attributes and written with textContent, never concatenated
+ *   into HTML.
+ *
+ * Non-ASCII is written as \u escapes (same convention as header_custom_v2.html)
+ * because jsDelivr serves .html as text/plain and the charset round-trip
+ * through fetch() -> srcdoc is not worth trusting. See docs: MFL mojibake.
+ *
+ * Responsibilities (four, and only these):
+ *   1. Flag embedded vs standalone, and apply the theme the loader chose.
+ *   2. Wire the Back bar (embedded: postMessage; standalone: navigate).
+ *   3. Build the chapter rail and page between sections.
+ *   4. Report section changes upward so the MFL hash tracks what you're reading.
+ *
+ * The height beacon is NOT here -- the loader injects one beacon that serves
+ * both the shell and articles, so there is a single implementation.
+ *
+ * Graceful degradation is the default state, not a fallback: without JS every
+ * section is display:block and the article reads as one continuous scroll.
+ * That covers printing, a locked-down Artifact sandbox, and a failed fetch.
+ */
+(function () {
+  "use strict";
+
+  var docEl = document.documentElement;
+
+  var embedded = false;
+  try { embedded = window.parent !== window; } catch (e) { embedded = true; }
+
+  function post(msg) {
+    if (!embedded) return;
+    try { window.parent.postMessage(msg, "*"); } catch (e) {}
+  }
+
+  // 1. Theme -- FALLBACK ONLY. When embedded, the loader already stamped
+  //    data-theme into the injected head, because it has to cover the index
+  //    shell too and the shell does not run this file. This line matters only
+  //    if some other host sets UPS_WIRE_THEME without stamping the attribute.
+  //    Standalone, UPS_WIRE_THEME is absent and prefers-color-scheme wins.
+  var theme = String(window.UPS_WIRE_THEME || "");
+  if (theme === "dark" || theme === "light") docEl.setAttribute("data-theme", theme);
+  if (embedded) docEl.classList.add("wire-embedded");
+
+  // 2. Back bar. Only visible when embedded (CSS: .wire-embedded .wire-topbar).
+  var back = document.querySelector("[data-wire-back]");
+  if (back) {
+    back.addEventListener("click", function () {
+      if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+      // Standalone: UPS_WIRE_PAGES_BASE is the one place the Pages path shape
+      // is written down. The relative fallback covers an Artifact or any host
+      // that never set it.
+      window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+    });
+  }
+
+  // 3. Paging.
+  var secs = [].slice.call(document.querySelectorAll(".wire-sec"));
+  var rail = document.querySelector("[data-wire-rail]");
+  if (secs.length < 2 || !rail) return;
+
+  function mk(tag, cls, text) {
+    var el = document.createElement(tag);
+    el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  var pills = [];
+  var idx = 0;
+
+  var prevBtn = mk("button", "wire-rail-nav", "\u2039 Prev");
+  var nextBtn = mk("button", "wire-rail-nav", "Next \u203A");
+  var count = mk("span", "wire-rail-count", "");
+  var allBtn = mk("button", "wire-rail-all", "Read all");
+
+  rail.appendChild(prevBtn);
+  secs.forEach(function (sec, i) {
+    // textContent, not innerHTML -- a section title is prose and may contain
+    // anything. Falls back to a number so a missing data-title is visible
+    // rather than silently blank.
+    var label = sec.getAttribute("data-title") || ("Section " + (i + 1));
+    var pill = mk("button", "wire-rail-pill", (i + 1) + ". " + label);
+    pill.setAttribute("type", "button");
+    pill.addEventListener("click", function () { show(i, true); });
+    pills.push(pill);
+    rail.appendChild(pill);
+  });
+  rail.appendChild(nextBtn);
+  rail.appendChild(count);
+  rail.appendChild(allBtn);
+
+  [prevBtn, nextBtn, allBtn].forEach(function (b) { b.setAttribute("type", "button"); });
+
+  prevBtn.addEventListener("click", function () { show(idx - 1, true); });
+  nextBtn.addEventListener("click", function () { show(idx + 1, true); });
+
+  allBtn.addEventListener("click", function () {
+    var nowPaged = docEl.classList.toggle("wire-paged");
+    allBtn.textContent = nowPaged ? "Read all" : "Page it";
+    if (!nowPaged) return;
+    show(idx, false);
+  });
+
+  function show(i, userInitiated) {
+    if (i < 0 || i >= secs.length) return;
+    idx = i;
+    secs.forEach(function (sec, n) { sec.classList.toggle("wire-on", n === i); });
+    pills.forEach(function (p, n) {
+      if (n === i) p.setAttribute("aria-current", "true");
+      else p.removeAttribute("aria-current");
+    });
+    count.textContent = (i + 1) + " / " + secs.length;
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === secs.length - 1;
+
+    if (!userInitiated) return;
+
+    var id = secs[i].id || "";
+    // 4. Report upward so the MFL address bar tracks the section. The loader
+    //    composes the full route because it is the thing that knows which
+    //    article is loaded -- the article does not need to know its own id.
+    if (embedded) { post({ type: "wire-section", sectionId: id }); }
+    else if (id) {
+      try { history.replaceState(null, "", "#" + id); } catch (e) {}
+    }
+    // Paging is a page turn; land at the top of the new section.
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+
+  // ---- game deck: flip through one full game page at a time ----
+  // The games section carries a page per matchup, ordered so the biggest
+  // billing leads. Showing them all at once is a wall; this pages them the same
+  // way the section rail pages the article.
+  function initGameDeck() {
+    var deck = document.querySelector("[data-wire-gamedeck]");
+    if (!deck) return;
+    var pages = [].slice.call(deck.querySelectorAll(".wire-gamepage"));
+    var rail = deck.querySelector("[data-wire-gamerail]");
+    if (pages.length < 2 || !rail) return;
+
+    var gi = 0, pills = [];
+    var prev = mk("button", "wire-rail-nav", "\u2039");
+    var next = mk("button", "wire-rail-nav", "\u203A");
+    var count = mk("span", "wire-rail-count", "");
+    [prev, next].forEach(function (b) { b.setAttribute("type", "button"); });
+
+    rail.appendChild(prev);
+    pages.forEach(function (pg, i) {
+      var p = mk("button", "wire-gamepill", pg.getAttribute("data-title") || ("Game " + (i + 1)));
+      p.setAttribute("type", "button");
+      p.addEventListener("click", function () { showGame(i); });
+      pills.push(p);
+      rail.appendChild(p);
+    });
+    rail.appendChild(next);
+    rail.appendChild(count);
+
+    prev.addEventListener("click", function () { showGame(gi - 1); });
+    next.addEventListener("click", function () { showGame(gi + 1); });
+
+    function showGame(i) {
+      if (i < 0 || i >= pages.length) return;
+      gi = i;
+      pages.forEach(function (pg, n) { pg.classList.toggle("wire-on", n === i); });
+      pills.forEach(function (p, n) {
+        if (n === i) p.setAttribute("aria-current", "true");
+        else p.removeAttribute("aria-current");
+      });
+      count.textContent = (i + 1) + " / " + pages.length;
+      prev.disabled = i === 0;
+      next.disabled = i === pages.length - 1;
+    }
+    deck.classList.add("wire-deck-on");
+    showGame(0);
+  }
+
+  // ---- video: upgrade a verified link into a real player, where one runs ----
+  // STANDALONE ONLY, and that is the whole design. An article renders in three
+  // places. In a Claude Artifact the CSP blocks every external host. In the MFL
+  // hub the article is sandboxed WITHOUT allow-same-origin -- the thing that
+  // stops model-written HTML running with MFL-origin privileges -- and a
+  // YouTube player cannot function inside that. Both of those keep the named
+  // link, which works. Only the standalone page, which is a real origin with no
+  // such constraint, gets the iframe. Nothing is weakened to make video happen.
+  function initVideos() {
+    if (embedded) return;
+    var slots = [].slice.call(document.querySelectorAll("[data-wire-video]"));
+    for (var i = 0; i < slots.length; i++) {
+      var slot = slots[i];
+      var id = slot.getAttribute("data-wire-video") || "";
+      if (!/^[A-Za-z0-9_-]{6,20}$/.test(id)) continue;   // never interpolate junk
+      var frame = document.createElement("iframe");
+      frame.className = "wire-video-frame";
+      frame.setAttribute("src", "https://www.youtube-nocookie.com/embed/" + id);
+      frame.setAttribute("title", "Highlights");
+      frame.setAttribute("loading", "lazy");
+      frame.setAttribute("allowfullscreen", "");
+      frame.setAttribute(
+        "allow", "accelerometer; encrypted-media; gyroscope; picture-in-picture");
+      frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      slot.insertBefore(frame, slot.firstChild);
+      slot.classList.add("wire-video-live");
+    }
+  }
+
+  docEl.classList.add("wire-js");
+  docEl.classList.add("wire-paged");
+  initGameDeck();
+  initVideos();
+
+  // Initial section: the loader's choice when embedded, the URL hash when
+  // standalone, first section otherwise. One resolution path, no special cases.
+  var wanted = embedded
+    ? String(window.UPS_WIRE_SECTION || "")
+    : String(window.location.hash || "").replace(/^#/, "");
+
+  // STANDALONE DEEP LINK: take the fragment OFF the URL before the browser can
+  // act on it, then resolve the section ourselves.
+  //
+  // Why not just scroll back to the top: the browser native-scrolls to the
+  // fragment while every section is still visible -- i.e. deep into a very long
+  // document. Paging then collapses that document and the reader is parked in
+  // dead space, looking at a blank page. Chasing it with scrollTo does not work;
+  // the scroll is re-applied asynchronously after load and after layout settles,
+  // so we lost that race repeatedly (landing at 1104px, then 10039px).
+  //
+  // Removing the fragment removes the race entirely: no fragment, no native
+  // scroll. The hash is restored on load via replaceState -- which, unlike
+  // assigning location.hash, never scrolls -- so the address bar still holds a
+  // copyable deep link.
+  var restoreHash = "";
+  if (!embedded && wanted) {
+    restoreHash = "#" + wanted;
+    try {
+      if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    } catch (e) { restoreHash = ""; }
+  }
+
+  var start = 0;
+  for (var n = 0; n < secs.length; n++) { if (secs[n].id && secs[n].id === wanted) { start = n; break; } }
+  show(start, false);
+
+  if (restoreHash) {
+    window.addEventListener("load", function () {
+      try {
+        window.scrollTo(0, 0);
+        history.replaceState(null, "", window.location.pathname + window.location.search + restoreHash);
+      } catch (e) {}
+    });
+  }
+})();
+</script>
+</body>
+</html>

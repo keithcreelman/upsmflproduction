@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 19052,
+    "outputTokens": 20188,
+    "packId": "2025-wk16-recap",
+    "packGeneratedAtUtc": "2026-08-02T12:04:52Z"
+  },
+  "prose": {
+    "kicker": "The bracket thins out",
+    "title": "The Losers Who Started Ghosts",
+    "dek": "Every man who lost a game he could have won had a starter who never took the field, and the title is down to two housemates.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Puka Nacua caught everything thrown near him for Shawn Blake -- {{f.star.line}} -- in a game that leads nowhere at all. He had averaged {{f.star.prior_avg}} coming into the round and had never cleared {{f.star.prior_best}} in a week all season. Blake won anyway. He is not playing for the title and Nacua's afternoon did not change that, which is the cruellest sentence in this entire recap.",
+          "Only one owner beat every team in the league this week: {{f.week.perfect}}. Jared Goff supplied {{f.player.jared-goff.score}} of it and Christian McCaffrey another {{f.player.christian-mccaffrey.score}}, and the two of them together turned a playoff game into a demolition. Martel is one of two men left alive for the title.",
+          "The other is Brian Cutting, who did it with the whole receiving corps rather than one act. Chris Olave went for {{f.player.chris-olave.score}}, Ashton Jeanty added {{f.player.ashton-jeanty.score}}, and Drake Maye chipped in {{f.player.drake-maye.score}} on top. Bear Dunn had offered his encouragement before any of it happened.",
+          "Down the other end, the only owner to lose to every single team in the field was {{f.week.winless}}, which is a hard thing to do in a week where the scoring was this generous. The wire produced {{f.wire.adds}} adds and the best of them, {{f.wire.best_add}}, spent the round on Eric Martel's bench while Martel lost his season. Some of the losers were simply beaten. The rest of them handed it over."
+        ],
+        "bullets": [],
+        "place": [
+          "t.performers",
+          "t.pickups"
+        ],
+        "quotes": [
+          "q6"
+        ],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.performers": "The quarterbacks ran the top of it again, and mostly for owners who won.",
+          "t.pickups": "Eric Martel found the week's best free agent and watched him from the bench."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "",
+        "paragraphs": [
+          "Ryan Bousquet started a defensive tackle who never took a snap -- {{f.dnp.0001}}. Keith Creelman did the same with a defensive end, {{f.dnp.0008}}. Brian Cross doubled up: his lineup held {{f.dnp.0006}}, and neither of them played a down.",
+          "Those are exactly the {{f.week.self_inflicted}} losers who had a winning lineup available and did not put it on the field. The other {{f.week.outgunned}} -- Eric Martel, Bear Dunn, Derrick Whitman -- could have played a flawless card and still gone home. It holds all six ways.",
+          "Bousquet's bench was the loudest of it. He had {{f.burn.benched}} sitting there, and Stafford outscored the quarterback he actually started by more than the game was decided by; the verdict is that {{f.burn.verdict}}. Creelman's swing and Eric Martel's were the other kind entirely -- the man with the better season average started and had a bad day, which is variance and not a decision anybody should be mocked for."
+        ],
+        "bullets": [],
+        "place": [
+          "t.burns"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [
+          "g.1",
+          "g.2",
+          "g.3",
+          "g.4",
+          "g.5",
+          "g.6"
+        ],
+        "gameNotes": {
+          "g.1": "Eric Martel arrived with the better record and left with a card he could not have improved -- his best available lineup, {{f.team.0005.best_available}}, loses this game too. Cutting has been the stronger team inside their shared bracket all year and he made it look procedural, winning by {{f.game.01.margin}}. Martel's season is over on merit rather than on error, which is the version nobody enjoys.",
+          "g.2": "Bear Dunn beat most of the league this week -- {{f.team.0009.week_allplay}} against the field -- and ran into the one team that beat all of it. His perfect lineup, {{f.team.0009.best_available}}, is not in the neighbourhood of what Josh Martel put up, and the margin was {{f.game.02.margin_rank}}. The division he has controlled all season buys him precisely nothing from here.",
+          "g.3": "Ryan Bousquet is the one man knocked out of the title race this round who could have prevented it himself: {{f.team.0001.best_available}} was on his roster and it beats what Blake scored. His best starter, {{f.team.0001.best_player}}, was superb and irrelevant, because {{f.team.0001.left_on_bench}} never got into the game. Blake, who cannot win the title either, played the better lineup of two teams that both had one available.",
+          "g.4": "Brian Cross got the best individual performance on the field and lost by {{f.game.04.margin}}, which is the smallest margin of the round. Two of his starters never played, and his best available card, {{f.team.0006.best_available}}, clears what Mannila actually scored. Mannila needed nothing more than a normal week -- he finished within a whisker of his own average, {{f.team.0011.vs_avg}} -- and it was enough to pull him clear of the cellar fight.",
+          "g.5": "Klingenberg and Creelman came in with identical all-play records and produced the ugliest game of the round, which at least felt fair. Creelman finished {{f.team.0008.vs_avg}} against his own average with a defensive end in his lineup who never played, and his best card, {{f.team.0008.best_available}}, wins this. The Kenneth Walker benching looks damning and isn't -- the man who started had the better season behind him -- so save the abuse for the starter who wasn't there.",
+          "g.6": "Derrick Whitman scored {{f.team.0002.score}} and lost to the entire league on the way through, and his flawless lineup, {{f.team.0002.best_available}}, still does not win this. That is not a management failure, it is a roster that has run out of football players. Gerardi won by {{f.game.06.margin}} and remains in cellar danger regardless, which tells you how deep the hole was before he climbed."
+        },
+        "captions": {
+          "t.burns": "Read the verdict column before you laugh at anybody."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "paragraphs": [
+          "Brian Cutting and Josh Martel are the last two men who can still win this thing, and they share a division. Cutting is its leader of record, {{f.div.legion-of-boom.leader}}, on a division mark Martel has not matched; Martel has the heavier scoring behind him. Neither of them has the best won-lost record in the league and neither of them cares.",
+          "Bear Dunn owns DOG POUND 4 LIFE at {{f.div.dog-pound-4-life.leader}} and owns nothing else that matters now. Eric Martel took ICE UP SON! at {{f.div.ice-up-son.leader}} and was knocked out by a team that finished behind him in the win column. Bousquet and Blake are in the same room with the same problem: still in the championship bracket, no longer able to win it. None of it maps to record.",
+          "Shawn Blake leads MAKE IT RAIN at {{f.div.make-it-rain.leader}}, a record that should not lead a fantasy division and does, because the four winners get in and the rest of the field is sorted by how often you beat everybody. That is how a man can be {{f.team.0012.week_allplay}} against the field this week, as Klingenberg was, and still be the one who advanced.",
+          "The cellar fight is where the real menace is. Creelman, Cross, Gerardi and Whitman are all {{f.team.0002.bracket}}, and Whitman has now given the field a week it can build a whole offseason of jokes on. Klingenberg and Mannila are {{f.team.0011.bracket}}, having done nothing especially impressive except win when it counted, which is the entire skill. Next round settles a champion and, more expensively, a last place."
+        ],
+        "bullets": [],
+        "place": [
+          "t.standings"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.standings": "The record column and the seeding argument are not the same argument, and this week proved it twice."
+        }
+      }
+    ]
+  }
+}

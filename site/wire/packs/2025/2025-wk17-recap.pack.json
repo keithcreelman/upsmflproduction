@@ -1,0 +1,2974 @@
+{
+  "schema": 1,
+  "packId": "2025-wk17-recap",
+  "title": "2025 UPS Bracket Finals",
+  "generatedAtUtc": "2026-08-02T12:38:29Z",
+  "season": 2025,
+  "week": 17,
+  "sources": [
+    {
+      "name": "nfl_player_weekly",
+      "asof": "2025 wk17",
+      "rows": 1,
+      "note": "real box scores, so performances are described not invented"
+    },
+    {
+      "name": "nfl_player_weekly (activity check)",
+      "asof": "2025 wk17",
+      "rows": 5,
+      "note": "starters with no snap of any kind -- distinguishes an inactive player from a healthy one who scored nothing"
+    },
+    {
+      "name": "src_adddrop",
+      "asof": "2025 wk17",
+      "rows": 34,
+      "note": "waiver/FA adds made this week, joined to what the player then scored"
+    },
+    {
+      "name": "src_final_standings",
+      "asof": "2025 final",
+      "rows": 12,
+      "note": "official regular-season finish"
+    },
+    {
+      "name": "src_franchise_weekly_score",
+      "asof": "2025 wk17",
+      "rows": 12,
+      "note": "team_opt_pts is MFL's own optimal-lineup figure -- never reconstructed locally, which overstated one 2025 week by 9.1 points"
+    },
+    {
+      "name": "src_franchise_weekly_score (weekly self-join)",
+      "asof": "2025 wk17",
+      "rows": 12,
+      "note": "this week's record against the whole field"
+    },
+    {
+      "name": "src_franchises",
+      "asof": "2025 season",
+      "rows": 12,
+      "note": "authoritative (season, franchise_id) -> owner map"
+    },
+    {
+      "name": "src_schedule",
+      "asof": "2025 wk17",
+      "rows": 8,
+      "note": "double/triple-header weeks store one row per (franchise, opponent)"
+    },
+    {
+      "name": "src_schedule (record derivation)",
+      "asof": "2025 through wk17",
+      "rows": 12,
+      "note": "overall and DIVISIONAL W-L through a given week; src_standings carries div_w/div_l but is a season-final snapshot with no week column. Verified to reproduce the official 2025 figures exactly"
+    },
+    {
+      "name": "src_weekly",
+      "asof": "2025 wk17",
+      "rows": 216,
+      "note": "per-player weekly scores; starters only"
+    },
+    {
+      "name": "src_weekly (bench comparison)",
+      "asof": "2025 wk17",
+      "rows": 4,
+      "note": "benched player who outscored a starter at the same position group, classified process vs variance on each player's average BEFORE this week"
+    },
+    {
+      "name": "ups_discord_messages",
+      "asof": "2025 wk17",
+      "rows": 60,
+      "note": "league chat, archived from Discord; quotes render verbatim"
+    }
+  ],
+  "coverage": {},
+  "warnings": [
+    "src_schedule and src_franchise_weekly_score disagree on the score for 0004, 0009, 0012 this week. Every figure here comes from src_franchise_weekly_score, which is the table all-play and optimal-lineup are computed from and which reproduces the official standings exactly.",
+    "Bracket status is derived from playoff win/loss (no losses = still alive for that pool's top spot), not read from an official bracket table. Correct for single elimination with byes and hand-checked against every 2025 result, but it does not assert a seed number.",
+    "Projections are not carried for this week. MFL serves them live and never stores them, so they exist only from the point capture began (migration 0114) -- the tale of the tape omits the row rather than inventing it."
+  ],
+  "entities": {
+    "owners": [
+      {
+        "key": "owner:bear-dunn",
+        "display": "Bear Dunn"
+      },
+      {
+        "key": "owner:brian-cross",
+        "display": "Brian Cross"
+      },
+      {
+        "key": "owner:brian-cutting",
+        "display": "Brian Cutting"
+      },
+      {
+        "key": "owner:chris-klingenberg",
+        "display": "Chris Klingenberg"
+      },
+      {
+        "key": "owner:derrick-whitman",
+        "display": "Derrick Whitman"
+      },
+      {
+        "key": "owner:eric-mannila",
+        "display": "Eric Mannila"
+      },
+      {
+        "key": "owner:eric-martel",
+        "display": "Eric Martel"
+      },
+      {
+        "key": "owner:josh-martel",
+        "display": "Josh Martel"
+      },
+      {
+        "key": "owner:keith-creelman",
+        "display": "Keith Creelman"
+      },
+      {
+        "key": "owner:matt-gerardi",
+        "display": "Matt Gerardi"
+      },
+      {
+        "key": "owner:ryan-bousquet",
+        "display": "Ryan Bousquet"
+      },
+      {
+        "key": "owner:shawn-blake",
+        "display": "Shawn Blake"
+      }
+    ],
+    "franchises": [
+      {
+        "season": 2025,
+        "franchiseId": "0001",
+        "ownerKey": "owner:ryan-bousquet",
+        "name": "L.A. Looks",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0002",
+        "ownerKey": "owner:derrick-whitman",
+        "name": "CBP",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0003",
+        "ownerKey": "owner:matt-gerardi",
+        "name": "Gride",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0004",
+        "ownerKey": "owner:brian-cutting",
+        "name": "Pure Greatness",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0005",
+        "ownerKey": "owner:eric-martel",
+        "name": "HammerTime 🔨 ⏰",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0006",
+        "ownerKey": "owner:brian-cross",
+        "name": "The Long Haulers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0007",
+        "ownerKey": "owner:josh-martel",
+        "name": "Sex Manther",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0008",
+        "ownerKey": "owner:keith-creelman",
+        "name": "Real Deal Creel",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0009",
+        "ownerKey": "owner:bear-dunn",
+        "name": "C-Town Chivalry",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0010",
+        "ownerKey": "owner:shawn-blake",
+        "name": "Blake Bombers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0011",
+        "ownerKey": "owner:eric-mannila",
+        "name": "Cleon Ca$h",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2025,
+        "franchiseId": "0012",
+        "ownerKey": "owner:chris-klingenberg",
+        "name": "Hawks",
+        "attributionSource": "src_franchises"
+      }
+    ],
+    "divisions": [
+      "DOG POUND 4 LIFE",
+      "ICE UP SON!",
+      "LEGION OF BOOM",
+      "MAKE IT RAIN"
+    ]
+  },
+  "facts": [
+    {
+      "id": "f.burn.benched",
+      "label": "Player left on the bench",
+      "value": "Luther Burden",
+      "unit": "text",
+      "fmt": "Luther Burden",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.burn.benched_score",
+      "label": "What the benched player scored",
+      "value": 31.0,
+      "unit": "points",
+      "fmt": "31.0",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.burn.owner",
+      "label": "Biggest bench swing",
+      "value": "Eric Martel",
+      "unit": "text",
+      "fmt": "Eric Martel",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.burn.started",
+      "label": "Who was started instead",
+      "value": "Ladd McConkey",
+      "unit": "text",
+      "fmt": "Ladd McConkey",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.burn.started_score",
+      "label": "What the starter scored",
+      "value": 5.0,
+      "unit": "points",
+      "fmt": "5.0",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.burn.verdict",
+      "label": "Was that a bad DECISION or a bad result?",
+      "value": "process",
+      "unit": "text",
+      "fmt": "the wrong man started -- Luther Burden had been the better player all year",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.div.dog-pound-4-life.leader",
+      "label": "DOG POUND 4 LIFE -- leader",
+      "value": "Bear Dunn",
+      "unit": "text",
+      "fmt": "Bear Dunn (28-9)",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.div.ice-up-son.leader",
+      "label": "ICE UP SON! -- leader",
+      "value": "Eric Martel",
+      "unit": "text",
+      "fmt": "Eric Martel (24-13)",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.div.legion-of-boom.leader",
+      "label": "LEGION OF BOOM -- leader",
+      "value": "Brian Cutting",
+      "unit": "text",
+      "fmt": "Brian Cutting (22-15)",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.div.make-it-rain.leader",
+      "label": "MAKE IT RAIN -- leader",
+      "value": "Shawn Blake",
+      "unit": "text",
+      "fmt": "Shawn Blake (16-21)",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.dnp.0001",
+      "label": "Ryan Bousquet -- started someone who never took a snap",
+      "value": 2,
+      "unit": "count",
+      "fmt": "DeForest Buckner (DT), T.J. Watt (DE)",
+      "source": "nfl_player_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.dnp.0003",
+      "label": "Matt Gerardi -- started someone who never took a snap",
+      "value": 2,
+      "unit": "count",
+      "fmt": "Chris Rodriguez (RB), Joseph Ossai (DE)",
+      "source": "nfl_player_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.dnp.0012",
+      "label": "Chris Klingenberg -- started someone who never took a snap",
+      "value": 1,
+      "unit": "count",
+      "fmt": "Dalton Kincaid (TE)",
+      "source": "nfl_player_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.01.margin",
+      "label": "Brian Cutting over Josh Martel -- margin, 3rd largest of 4 this week",
+      "value": 41.099999999999994,
+      "unit": "points",
+      "fmt": "41.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.01.margin_rank",
+      "label": "Brian Cutting over Josh Martel -- where that margin ranks among this week's 4 games",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3rd largest of 4",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.02.margin",
+      "label": "Eric Martel over Bear Dunn -- margin, 4th largest of 4 this week",
+      "value": 10.400000000000006,
+      "unit": "points",
+      "fmt": "10.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.02.margin_rank",
+      "label": "Eric Martel over Bear Dunn -- where that margin ranks among this week's 4 games",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4th largest of 4",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.03.margin",
+      "label": "Eric Mannila over Chris Klingenberg -- margin, the largest of 4 this week",
+      "value": 136.09999999999997,
+      "unit": "points",
+      "fmt": "136.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.03.margin_rank",
+      "label": "Eric Mannila over Chris Klingenberg -- where that margin ranks among this week's 4 games",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "the largest of 4",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.04.margin",
+      "label": "Brian Cross over Keith Creelman -- margin, 2nd largest of 4 this week",
+      "value": 44.5,
+      "unit": "points",
+      "fmt": "44.5",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.game.04.margin_rank",
+      "label": "Brian Cross over Keith Creelman -- where that margin ranks among this week's 4 games",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2nd largest of 4",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.bijan-robinson.score",
+      "label": "Bijan Robinson (Eric Mannila) -- week score",
+      "value": 43.3,
+      "unit": "points",
+      "fmt": "43.3",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.brock-purdy.score",
+      "label": "Brock Purdy (Shawn Blake) -- week score",
+      "value": 43.2,
+      "unit": "points",
+      "fmt": "43.2",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.caleb-williams.score",
+      "label": "Caleb Williams (Josh Martel) -- week score",
+      "value": 31.6,
+      "unit": "points",
+      "fmt": "31.6",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.chase-brown.score",
+      "label": "Chase Brown (Ryan Bousquet) -- week score",
+      "value": 30.7,
+      "unit": "points",
+      "fmt": "30.7",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.chris-olave.score",
+      "label": "Chris Olave (Brian Cutting) -- week score",
+      "value": 28.9,
+      "unit": "points",
+      "fmt": "28.9",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.christian-mccaffrey.score",
+      "label": "Christian McCaffrey (Josh Martel) -- week score",
+      "value": 30.3,
+      "unit": "points",
+      "fmt": "30.3",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.derrick-henry.score",
+      "label": "Derrick Henry (Brian Cross) -- week score",
+      "value": 51.4,
+      "unit": "points",
+      "fmt": "51.4",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.drake-maye.score",
+      "label": "Drake Maye (Brian Cutting) -- week score",
+      "value": 45.7,
+      "unit": "points",
+      "fmt": "45.7",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.malik-willis.score",
+      "label": "Malik Willis (Keith Creelman) -- week score",
+      "value": 35.6,
+      "unit": "points",
+      "fmt": "35.6",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.player.trey-mcbride.score",
+      "label": "Trey McBride (Eric Martel) -- week score",
+      "value": 29.4,
+      "unit": "points",
+      "fmt": "29.4",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.star.line",
+      "label": "Top performer's box line",
+      "value": "36 carries for 216 and 4 TD",
+      "unit": "text",
+      "fmt": "36 carries for 216 and 4 TD",
+      "source": "nfl_player_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.star.name",
+      "label": "Top performer",
+      "value": "Derrick Henry",
+      "unit": "text",
+      "fmt": "Derrick Henry",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.star.owner",
+      "label": "Top performer's manager",
+      "value": "Brian Cross",
+      "unit": "text",
+      "fmt": "Brian Cross",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.star.prior_avg",
+      "label": "Top performer's average before this week",
+      "value": 15.94,
+      "unit": "points",
+      "fmt": "15.9",
+      "source": "src_weekly",
+      "asof": "before wk17"
+    },
+    {
+      "id": "f.star.prior_best",
+      "label": "Top performer's previous season high",
+      "value": 32.2,
+      "unit": "points",
+      "fmt": "32.2",
+      "source": "src_weekly",
+      "asof": "before wk17"
+    },
+    {
+      "id": "f.star.score",
+      "label": "Top performer score",
+      "value": 51.4,
+      "unit": "points",
+      "fmt": "51.4",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0001.best_player",
+      "label": "Ryan Bousquet -- best starter",
+      "value": "Chase Brown",
+      "unit": "text",
+      "fmt": "Chase Brown (30.7)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0001.bracket",
+      "label": "Ryan Bousquet -- bracket status",
+      "value": "out of the title race",
+      "unit": "text",
+      "fmt": "out of the title race",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0001.div_record",
+      "label": "Ryan Bousquet -- division record",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4-6",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0001.final_place",
+      "label": "Ryan Bousquet -- final place",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0001.left_on_bench",
+      "label": "Ryan Bousquet -- points left on the bench",
+      "value": 53.49999999999997,
+      "unit": "points",
+      "fmt": "53.5",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0001.record",
+      "label": "Ryan Bousquet -- record",
+      "value": 24,
+      "unit": "count",
+      "fmt": "24-13",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0001.score",
+      "label": "Ryan Bousquet -- score",
+      "value": 227.9,
+      "unit": "points",
+      "fmt": "227.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0001.season_pf_rank",
+      "label": "Ryan Bousquet -- where his season points-for ranks in the league",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0001.week_allplay",
+      "label": "Ryan Bousquet -- record against the field this week",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9-2",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0001.week_rank_own",
+      "label": "Ryan Bousquet -- where this week ranks among his own weeks this season",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "his 7th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0002.best_player",
+      "label": "Derrick Whitman -- best starter",
+      "value": "T.J. Edwards",
+      "unit": "text",
+      "fmt": "T.J. Edwards (19.0)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0002.bracket",
+      "label": "Derrick Whitman -- bracket status",
+      "value": "sliding toward the cellar",
+      "unit": "text",
+      "fmt": "sliding toward the cellar",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0002.div_record",
+      "label": "Derrick Whitman -- division record",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4-6",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0002.final_place",
+      "label": "Derrick Whitman -- final place",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "12th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0002.left_on_bench",
+      "label": "Derrick Whitman -- points left on the bench",
+      "value": 17.0,
+      "unit": "points",
+      "fmt": "17.0",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0002.record",
+      "label": "Derrick Whitman -- record",
+      "value": 14,
+      "unit": "count",
+      "fmt": "14-23",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0002.score",
+      "label": "Derrick Whitman -- score",
+      "value": 158.3,
+      "unit": "points",
+      "fmt": "158.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0002.season_pf_rank",
+      "label": "Derrick Whitman -- where his season points-for ranks in the league",
+      "value": 11,
+      "unit": "rank",
+      "fmt": "11th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0002.week_allplay",
+      "label": "Derrick Whitman -- record against the field this week",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1-9",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0002.week_rank_own",
+      "label": "Derrick Whitman -- where this week ranks among his own weeks this season",
+      "value": 13,
+      "unit": "rank",
+      "fmt": "his 13th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0003.best_player",
+      "label": "Matt Gerardi -- best starter",
+      "value": "Chase Young",
+      "unit": "text",
+      "fmt": "Chase Young (24.0)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0003.bracket",
+      "label": "Matt Gerardi -- bracket status",
+      "value": "sliding toward the cellar",
+      "unit": "text",
+      "fmt": "sliding toward the cellar",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0003.div_record",
+      "label": "Matt Gerardi -- division record",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1-9",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0003.final_place",
+      "label": "Matt Gerardi -- final place",
+      "value": 11,
+      "unit": "rank",
+      "fmt": "11th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0003.left_on_bench",
+      "label": "Matt Gerardi -- points left on the bench",
+      "value": 24.099999999999994,
+      "unit": "points",
+      "fmt": "24.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0003.record",
+      "label": "Matt Gerardi -- record",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10-27",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0003.score",
+      "label": "Matt Gerardi -- score",
+      "value": 145.1,
+      "unit": "points",
+      "fmt": "145.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0003.season_pf_rank",
+      "label": "Matt Gerardi -- where his season points-for ranks in the league",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "the fewest points in the league",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0003.week_allplay",
+      "label": "Matt Gerardi -- record against the field this week",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0-11",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0003.week_rank_own",
+      "label": "Matt Gerardi -- where this week ranks among his own weeks this season",
+      "value": 17,
+      "unit": "rank",
+      "fmt": "his worst week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0004.best_player",
+      "label": "Brian Cutting -- best starter",
+      "value": "Drake Maye",
+      "unit": "text",
+      "fmt": "Drake Maye (45.7)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0004.bracket",
+      "label": "Brian Cutting -- bracket status",
+      "value": "alive for the title",
+      "unit": "text",
+      "fmt": "alive for the title",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0004.div_record",
+      "label": "Brian Cutting -- division record",
+      "value": 8,
+      "unit": "count",
+      "fmt": "8-2",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0004.final_place",
+      "label": "Brian Cutting -- final place",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "1st",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0004.left_on_bench",
+      "label": "Brian Cutting -- points left on the bench",
+      "value": 28.30000000000001,
+      "unit": "points",
+      "fmt": "28.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0004.record",
+      "label": "Brian Cutting -- record",
+      "value": 22,
+      "unit": "count",
+      "fmt": "22-15",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0004.score",
+      "label": "Brian Cutting -- score",
+      "value": 233.2,
+      "unit": "points",
+      "fmt": "233.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0004.season_pf_rank",
+      "label": "Brian Cutting -- where his season points-for ranks in the league",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2nd in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0004.vs_avg",
+      "label": "Brian Cutting -- this week against his own season average",
+      "value": 4.799999999999983,
+      "unit": "points",
+      "fmt": "+4.8",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0004.week_allplay",
+      "label": "Brian Cutting -- record against the field this week",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10-1",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0004.week_rank_own",
+      "label": "Brian Cutting -- where this week ranks among his own weeks this season",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "his 5th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0005.best_player",
+      "label": "Eric Martel -- best starter",
+      "value": "Trey McBride",
+      "unit": "text",
+      "fmt": "Trey McBride (29.4)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0005.bracket",
+      "label": "Eric Martel -- bracket status",
+      "value": "out of the title race",
+      "unit": "text",
+      "fmt": "out of the title race",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0005.div_record",
+      "label": "Eric Martel -- division record",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7-3",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0005.final_place",
+      "label": "Eric Martel -- final place",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3rd",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0005.left_on_bench",
+      "label": "Eric Martel -- points left on the bench",
+      "value": 43.29999999999998,
+      "unit": "points",
+      "fmt": "43.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0005.record",
+      "label": "Eric Martel -- record",
+      "value": 24,
+      "unit": "count",
+      "fmt": "24-13",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0005.score",
+      "label": "Eric Martel -- score",
+      "value": 206.8,
+      "unit": "points",
+      "fmt": "206.8",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0005.season_pf_rank",
+      "label": "Eric Martel -- where his season points-for ranks in the league",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0005.vs_avg",
+      "label": "Eric Martel -- this week against his own season average",
+      "value": -15.857142857142861,
+      "unit": "points",
+      "fmt": "-15.9",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0005.week_allplay",
+      "label": "Eric Martel -- record against the field this week",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6-5",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0005.week_rank_own",
+      "label": "Eric Martel -- where this week ranks among his own weeks this season",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "his 10th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0006.best_player",
+      "label": "Brian Cross -- best starter",
+      "value": "Derrick Henry",
+      "unit": "text",
+      "fmt": "Derrick Henry (51.4)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0006.bracket",
+      "label": "Brian Cross -- bracket status",
+      "value": "sliding toward the cellar",
+      "unit": "text",
+      "fmt": "sliding toward the cellar",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0006.div_record",
+      "label": "Brian Cross -- division record",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4-6",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0006.final_place",
+      "label": "Brian Cross -- final place",
+      "value": 9,
+      "unit": "rank",
+      "fmt": "9th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0006.left_on_bench",
+      "label": "Brian Cross -- points left on the bench",
+      "value": 16.0,
+      "unit": "points",
+      "fmt": "16.0",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0006.record",
+      "label": "Brian Cross -- record",
+      "value": 17,
+      "unit": "count",
+      "fmt": "17-20",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0006.score",
+      "label": "Brian Cross -- score",
+      "value": 209.3,
+      "unit": "points",
+      "fmt": "209.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0006.season_pf_rank",
+      "label": "Brian Cross -- where his season points-for ranks in the league",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "10th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0006.vs_avg",
+      "label": "Brian Cross -- this week against his own season average",
+      "value": 9.628571428571433,
+      "unit": "points",
+      "fmt": "+9.6",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0006.week_allplay",
+      "label": "Brian Cross -- record against the field this week",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7-4",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0006.week_rank_own",
+      "label": "Brian Cross -- where this week ranks among his own weeks this season",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "his 5th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.best_available",
+      "label": "Josh Martel -- best lineup available",
+      "value": 229.1,
+      "unit": "points",
+      "fmt": "229.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.best_player",
+      "label": "Josh Martel -- best starter",
+      "value": "Caleb Williams",
+      "unit": "text",
+      "fmt": "Caleb Williams (31.6)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.bracket",
+      "label": "Josh Martel -- bracket status",
+      "value": "out of the title race",
+      "unit": "text",
+      "fmt": "out of the title race",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.ceiling_rank",
+      "label": "Josh Martel -- where his best available lineup ranks among this week's 4 losers",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "the highest of any loser this week",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.could_have_won",
+      "label": "Josh Martel -- could his best lineup have won a game he lost?",
+      "value": "no",
+      "unit": "text",
+      "fmt": "could not have won with a perfect card",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.div_record",
+      "label": "Josh Martel -- division record",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6-4",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0007.final_place",
+      "label": "Josh Martel -- final place",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2nd",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0007.left_on_bench",
+      "label": "Josh Martel -- points left on the bench",
+      "value": 37.0,
+      "unit": "points",
+      "fmt": "37.0",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.record",
+      "label": "Josh Martel -- record",
+      "value": 22,
+      "unit": "count",
+      "fmt": "22-15",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0007.score",
+      "label": "Josh Martel -- score",
+      "value": 192.1,
+      "unit": "points",
+      "fmt": "192.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.season_pf_rank",
+      "label": "Josh Martel -- where his season points-for ranks in the league",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "the most points in the league",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0007.vs_avg",
+      "label": "Josh Martel -- this week against his own season average",
+      "value": -35.17142857142858,
+      "unit": "points",
+      "fmt": "-35.2",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.week_allplay",
+      "label": "Josh Martel -- record against the field this week",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4-7",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0007.week_rank_own",
+      "label": "Josh Martel -- where this week ranks among his own weeks this season",
+      "value": 16,
+      "unit": "rank",
+      "fmt": "his 16th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.best_available",
+      "label": "Keith Creelman -- best lineup available",
+      "value": 178.3,
+      "unit": "points",
+      "fmt": "178.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.best_player",
+      "label": "Keith Creelman -- best starter",
+      "value": "Malik Willis",
+      "unit": "text",
+      "fmt": "Malik Willis (35.6)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.bracket",
+      "label": "Keith Creelman -- bracket status",
+      "value": "sliding toward the cellar",
+      "unit": "text",
+      "fmt": "sliding toward the cellar",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.ceiling_rank",
+      "label": "Keith Creelman -- where his best available lineup ranks among this week's 4 losers",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4th highest of the 4 losers",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.could_have_won",
+      "label": "Keith Creelman -- could his best lineup have won a game he lost?",
+      "value": "no",
+      "unit": "text",
+      "fmt": "could not have won with a perfect card",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.div_record",
+      "label": "Keith Creelman -- division record",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5-5",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0008.final_place",
+      "label": "Keith Creelman -- final place",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "10th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0008.left_on_bench",
+      "label": "Keith Creelman -- points left on the bench",
+      "value": 13.5,
+      "unit": "points",
+      "fmt": "13.5",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.record",
+      "label": "Keith Creelman -- record",
+      "value": 14,
+      "unit": "count",
+      "fmt": "14-23",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0008.score",
+      "label": "Keith Creelman -- score",
+      "value": 164.8,
+      "unit": "points",
+      "fmt": "164.8",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.season_pf_rank",
+      "label": "Keith Creelman -- where his season points-for ranks in the league",
+      "value": 9,
+      "unit": "rank",
+      "fmt": "9th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0008.vs_avg",
+      "label": "Keith Creelman -- this week against his own season average",
+      "value": -43.19999999999999,
+      "unit": "points",
+      "fmt": "-43.2",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.week_allplay",
+      "label": "Keith Creelman -- record against the field this week",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3-8",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0008.week_rank_own",
+      "label": "Keith Creelman -- where this week ranks among his own weeks this season",
+      "value": 14,
+      "unit": "rank",
+      "fmt": "his 14th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.best_available",
+      "label": "Bear Dunn -- best lineup available",
+      "value": 223.9,
+      "unit": "points",
+      "fmt": "223.9",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.best_player",
+      "label": "Bear Dunn -- best starter",
+      "value": "Breece Hall",
+      "unit": "text",
+      "fmt": "Breece Hall (23.5)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.bracket",
+      "label": "Bear Dunn -- bracket status",
+      "value": "out of the title race",
+      "unit": "text",
+      "fmt": "out of the title race",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.ceiling_rank",
+      "label": "Bear Dunn -- where his best available lineup ranks among this week's 4 losers",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2nd highest of the 4 losers",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.could_have_won",
+      "label": "Bear Dunn -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.div_record",
+      "label": "Bear Dunn -- division record",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9-1",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0009.final_place",
+      "label": "Bear Dunn -- final place",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0009.left_on_bench",
+      "label": "Bear Dunn -- points left on the bench",
+      "value": 27.5,
+      "unit": "points",
+      "fmt": "27.5",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.record",
+      "label": "Bear Dunn -- record",
+      "value": 28,
+      "unit": "count",
+      "fmt": "28-9",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0009.score",
+      "label": "Bear Dunn -- score",
+      "value": 196.4,
+      "unit": "points",
+      "fmt": "196.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.season_pf_rank",
+      "label": "Bear Dunn -- where his season points-for ranks in the league",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3rd in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0009.vs_avg",
+      "label": "Bear Dunn -- this week against his own season average",
+      "value": -33.5,
+      "unit": "points",
+      "fmt": "-33.5",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.week_allplay",
+      "label": "Bear Dunn -- record against the field this week",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5-6",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0009.week_rank_own",
+      "label": "Bear Dunn -- where this week ranks among his own weeks this season",
+      "value": 15,
+      "unit": "rank",
+      "fmt": "his 15th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0010.best_player",
+      "label": "Shawn Blake -- best starter",
+      "value": "Brock Purdy",
+      "unit": "text",
+      "fmt": "Brock Purdy (43.2)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0010.bracket",
+      "label": "Shawn Blake -- bracket status",
+      "value": "out of the title race",
+      "unit": "text",
+      "fmt": "out of the title race",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0010.div_record",
+      "label": "Shawn Blake -- division record",
+      "value": 8,
+      "unit": "count",
+      "fmt": "8-2",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0010.final_place",
+      "label": "Shawn Blake -- final place",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0010.left_on_bench",
+      "label": "Shawn Blake -- points left on the bench",
+      "value": 49.19999999999999,
+      "unit": "points",
+      "fmt": "49.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0010.record",
+      "label": "Shawn Blake -- record",
+      "value": 16,
+      "unit": "count",
+      "fmt": "16-21",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0010.score",
+      "label": "Shawn Blake -- score",
+      "value": 217.2,
+      "unit": "points",
+      "fmt": "217.2",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0010.season_pf_rank",
+      "label": "Shawn Blake -- where his season points-for ranks in the league",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "7th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0010.week_allplay",
+      "label": "Shawn Blake -- record against the field this week",
+      "value": 8,
+      "unit": "count",
+      "fmt": "8-3",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0010.week_rank_own",
+      "label": "Shawn Blake -- where this week ranks among his own weeks this season",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "his 7th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0011.best_player",
+      "label": "Eric Mannila -- best starter",
+      "value": "Bijan Robinson",
+      "unit": "text",
+      "fmt": "Bijan Robinson (43.3)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0011.bracket",
+      "label": "Eric Mannila -- bracket status",
+      "value": "safe from the cellar",
+      "unit": "text",
+      "fmt": "safe from the cellar",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0011.div_record",
+      "label": "Eric Mannila -- division record",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2-8",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0011.final_place",
+      "label": "Eric Mannila -- final place",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "7th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0011.left_on_bench",
+      "label": "Eric Mannila -- points left on the bench",
+      "value": 19.700000000000045,
+      "unit": "points",
+      "fmt": "19.7",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0011.record",
+      "label": "Eric Mannila -- record",
+      "value": 18,
+      "unit": "count",
+      "fmt": "18-19",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0011.score",
+      "label": "Eric Mannila -- score",
+      "value": 294.4,
+      "unit": "points",
+      "fmt": "294.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0011.season_pf_rank",
+      "label": "Eric Mannila -- where his season points-for ranks in the league",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0011.vs_avg",
+      "label": "Eric Mannila -- this week against his own season average",
+      "value": 88.29285714285712,
+      "unit": "points",
+      "fmt": "+88.3",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0011.week_allplay",
+      "label": "Eric Mannila -- record against the field this week",
+      "value": 11,
+      "unit": "count",
+      "fmt": "11-0",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0011.week_rank_own",
+      "label": "Eric Mannila -- where this week ranks among his own weeks this season",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "his best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.best_available",
+      "label": "Chris Klingenberg -- best lineup available",
+      "value": 202.7,
+      "unit": "points",
+      "fmt": "202.7",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.best_player",
+      "label": "Chris Klingenberg -- best starter",
+      "value": "Dak Prescott",
+      "unit": "text",
+      "fmt": "Dak Prescott (28.1)",
+      "source": "src_weekly",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.bracket",
+      "label": "Chris Klingenberg -- bracket status",
+      "value": "sliding toward the cellar",
+      "unit": "text",
+      "fmt": "sliding toward the cellar",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.ceiling_rank",
+      "label": "Chris Klingenberg -- where his best available lineup ranks among this week's 4 losers",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3rd highest of the 4 losers",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.could_have_won",
+      "label": "Chris Klingenberg -- could his best lineup have won a game he lost?",
+      "value": "no",
+      "unit": "text",
+      "fmt": "could not have won with a perfect card",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.div_record",
+      "label": "Chris Klingenberg -- division record",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2-8",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0012.final_place",
+      "label": "Chris Klingenberg -- final place",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8th",
+      "source": "src_final_standings",
+      "asof": "2025 final"
+    },
+    {
+      "id": "f.team.0012.left_on_bench",
+      "label": "Chris Klingenberg -- points left on the bench",
+      "value": 44.39999999999998,
+      "unit": "points",
+      "fmt": "44.4",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.record",
+      "label": "Chris Klingenberg -- record",
+      "value": 13,
+      "unit": "count",
+      "fmt": "13-24",
+      "source": "src_schedule",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0012.score",
+      "label": "Chris Klingenberg -- score",
+      "value": 158.3,
+      "unit": "points",
+      "fmt": "158.3",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.season_pf_rank",
+      "label": "Chris Klingenberg -- where his season points-for ranks in the league",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8th in the league for points",
+      "source": "src_franchise_weekly_score",
+      "asof": "through wk17"
+    },
+    {
+      "id": "f.team.0012.vs_avg",
+      "label": "Chris Klingenberg -- this week against his own season average",
+      "value": -49.07857142857142,
+      "unit": "points",
+      "fmt": "-49.1",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.week_allplay",
+      "label": "Chris Klingenberg -- record against the field this week",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1-9",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.team.0012.week_rank_own",
+      "label": "Chris Klingenberg -- where this week ranks among his own weeks this season",
+      "value": 16,
+      "unit": "rank",
+      "fmt": "his 16th-best week of the season",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.week.outgunned",
+      "label": "Losers who could not have won either way",
+      "value": 3,
+      "unit": "count",
+      "fmt": "three",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.week.perfect",
+      "label": "Beat the entire field",
+      "value": "Eric Mannila",
+      "unit": "text",
+      "fmt": "Eric Mannila",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.week.self_inflicted",
+      "label": "Losers who had a winning lineup on the bench",
+      "value": 1,
+      "unit": "count",
+      "fmt": "one",
+      "source": "derived",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.week.winless",
+      "label": "Lost to the entire field",
+      "value": "Matt Gerardi",
+      "unit": "text",
+      "fmt": "Matt Gerardi",
+      "source": "weekly all-play",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.wire.adds",
+      "label": "Players added this week",
+      "value": 34,
+      "unit": "count",
+      "fmt": "34",
+      "source": "src_adddrop",
+      "asof": "wk17"
+    },
+    {
+      "id": "f.wire.best_add",
+      "label": "Best pickup of the week, added by Keith Creelman",
+      "value": "Malik Willis",
+      "unit": "text",
+      "fmt": "Malik Willis (35.6)",
+      "source": "src_adddrop",
+      "asof": "wk17"
+    }
+  ],
+  "tables": [
+    {
+      "id": "t.burns",
+      "title": "Bench swings, and whether they were mistakes",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "benched",
+          "label": "Benched",
+          "type": "text"
+        },
+        {
+          "key": "bscore",
+          "label": "Scored",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "started",
+          "label": "Started instead",
+          "type": "text"
+        },
+        {
+          "key": "sscore",
+          "label": "Scored",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "verdict",
+          "label": "Verdict",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Shawn Blake",
+          "Chris Godwin",
+          26.8,
+          "Jaylen Waddle",
+          0.7,
+          "right call, bad day"
+        ],
+        [
+          "Eric Martel",
+          "Luther Burden",
+          31.0,
+          "Ladd McConkey",
+          5.0,
+          "wrong call"
+        ],
+        [
+          "Ryan Bousquet",
+          "Stefon Diggs",
+          25.1,
+          "Alec Pierce",
+          0.0,
+          "right call, bad day"
+        ],
+        [
+          "Josh Martel",
+          "Jacory Croskey-Merritt",
+          25.1,
+          "Kenneth Gainwell",
+          7.4,
+          "right call, bad day"
+        ]
+      ],
+      "note": "\"Right call, bad day\" means the man who started had the better season average going in. That is not a mistake."
+    },
+    {
+      "id": "t.final",
+      "title": "Final standings",
+      "columns": [
+        {
+          "key": "place",
+          "label": "Place",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "1st",
+          "Brian Cutting"
+        ],
+        [
+          "2nd",
+          "Josh Martel"
+        ],
+        [
+          "3rd",
+          "Eric Martel"
+        ],
+        [
+          "4th",
+          "Bear Dunn"
+        ],
+        [
+          "5th",
+          "Shawn Blake"
+        ],
+        [
+          "6th",
+          "Ryan Bousquet"
+        ],
+        [
+          "7th",
+          "Eric Mannila"
+        ],
+        [
+          "8th",
+          "Chris Klingenberg"
+        ],
+        [
+          "9th",
+          "Brian Cross"
+        ],
+        [
+          "10th",
+          "Keith Creelman"
+        ],
+        [
+          "11th",
+          "Matt Gerardi"
+        ],
+        [
+          "12th",
+          "Derrick Whitman"
+        ]
+      ],
+      "note": null
+    },
+    {
+      "id": "t.performers",
+      "title": "Top performances",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "pos",
+          "label": "Pos",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Started by",
+          "type": "text"
+        },
+        {
+          "key": "score",
+          "label": "Points",
+          "type": "points",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "Derrick Henry",
+          "RB",
+          "Brian Cross",
+          51.4
+        ],
+        [
+          "Drake Maye",
+          "QB",
+          "Brian Cutting",
+          45.7
+        ],
+        [
+          "Bijan Robinson",
+          "RB",
+          "Eric Mannila",
+          43.3
+        ],
+        [
+          "Brock Purdy",
+          "QB",
+          "Shawn Blake",
+          43.2
+        ],
+        [
+          "Malik Willis",
+          "QB",
+          "Keith Creelman",
+          35.6
+        ],
+        [
+          "Caleb Williams",
+          "QB",
+          "Josh Martel",
+          31.6
+        ],
+        [
+          "Chase Brown",
+          "RB",
+          "Ryan Bousquet",
+          30.7
+        ],
+        [
+          "Christian McCaffrey",
+          "RB",
+          "Josh Martel",
+          30.3
+        ],
+        [
+          "Trey McBride",
+          "TE",
+          "Eric Martel",
+          29.4
+        ],
+        [
+          "Chris Olave",
+          "WR",
+          "Brian Cutting",
+          28.9
+        ]
+      ],
+      "note": null
+    },
+    {
+      "id": "t.pickups",
+      "title": "Waiver wire: what the adds produced",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Added by",
+          "type": "text"
+        },
+        {
+          "key": "how",
+          "label": "How",
+          "type": "text"
+        },
+        {
+          "key": "pts",
+          "label": "Points",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "started",
+          "label": "Started?",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Malik Willis",
+          "Keith Creelman",
+          "BBID",
+          35.6,
+          "yes"
+        ],
+        [
+          "Greg Dulcich",
+          "Bear Dunn",
+          "BBID",
+          19.2,
+          "no"
+        ],
+        [
+          "Tyler Huntley",
+          "Bear Dunn",
+          "BBID",
+          18.5,
+          "yes"
+        ],
+        [
+          "Julian Love",
+          "Josh Martel",
+          "BBID",
+          12.8,
+          "yes"
+        ],
+        [
+          "Efton Chism",
+          "Josh Martel",
+          "BBID",
+          12.4,
+          "no"
+        ]
+      ],
+      "note": null
+    },
+    {
+      "id": "t.standings",
+      "title": "Where everyone stands",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "div",
+          "label": "Division",
+          "type": "text"
+        },
+        {
+          "key": "rec",
+          "label": "Record",
+          "type": "text"
+        },
+        {
+          "key": "drec",
+          "label": "Div",
+          "type": "text"
+        },
+        {
+          "key": "wk",
+          "label": "This week AP",
+          "type": "text"
+        },
+        {
+          "key": "ap",
+          "label": "All-play",
+          "type": "text"
+        },
+        {
+          "key": "pf",
+          "label": "Points for",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "bracket",
+          "label": "Bracket",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Brian Cutting",
+          "LEGION OF BOOM",
+          "22-15",
+          "8-2",
+          "10-1",
+          "27-6",
+          713.5999999999999,
+          "Championship (alive)"
+        ],
+        [
+          "Josh Martel",
+          "LEGION OF BOOM",
+          "22-15",
+          "6-4",
+          "4-7",
+          "25-8",
+          764.4,
+          "Championship"
+        ],
+        [
+          "Shawn Blake",
+          "MAKE IT RAIN",
+          "16-21",
+          "8-2",
+          "8-3",
+          "23-10",
+          711.8,
+          "Championship"
+        ],
+        [
+          "Ryan Bousquet",
+          "DOG POUND 4 LIFE",
+          "24-13",
+          "4-6",
+          "9-2",
+          "23-10",
+          687.3,
+          "Championship"
+        ],
+        [
+          "Eric Martel",
+          "ICE UP SON!",
+          "24-13",
+          "7-3",
+          "6-5",
+          "21-12",
+          693.8,
+          "Championship"
+        ],
+        [
+          "Bear Dunn",
+          "DOG POUND 4 LIFE",
+          "28-9",
+          "9-1",
+          "5-6",
+          "21-12",
+          660.1,
+          "Championship"
+        ],
+        [
+          "Eric Mannila",
+          "DOG POUND 4 LIFE",
+          "18-19",
+          "2-8",
+          "11-0",
+          "19-14",
+          684.0999999999999,
+          "Consolation (alive)"
+        ],
+        [
+          "Brian Cross",
+          "ICE UP SON!",
+          "17-20",
+          "4-6",
+          "7-4",
+          "13-20",
+          609.9000000000001,
+          "Consolation"
+        ],
+        [
+          "Chris Klingenberg",
+          "MAKE IT RAIN",
+          "13-24",
+          "2-8",
+          "1-9",
+          "10-22",
+          568.8,
+          "Consolation"
+        ],
+        [
+          "Keith Creelman",
+          "MAKE IT RAIN",
+          "14-23",
+          "5-5",
+          "3-8",
+          "8-25",
+          530.1,
+          "Consolation"
+        ],
+        [
+          "Matt Gerardi",
+          "LEGION OF BOOM",
+          "10-27",
+          "1-9",
+          "0-11",
+          "6-27",
+          523.2,
+          "Consolation"
+        ],
+        [
+          "Derrick Whitman",
+          "ICE UP SON!",
+          "14-23",
+          "4-6",
+          "1-9",
+          "1-31",
+          482.0,
+          "Consolation"
+        ]
+      ],
+      "note": "Seeding is by all-play percentage, with the four division winners in automatically -- so the Record column is not the seeding order."
+    }
+  ],
+  "charts": [],
+  "quotes": [
+    {
+      "id": "q1",
+      "text": "Both Martels pooching MYM",
+      "author": "Josh Martel",
+      "when": "Thu Dec 25",
+      "ownerKey": "owner:josh-martel",
+      "context": "#contract-activity",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q2",
+      "text": "On a more serious note, our championships are in big trouble if teams that are out of it are going to start pulling all their players with 2 weeks to go in the regular season",
+      "author": "Ryan Bousquet",
+      "when": "Fri Dec 26",
+      "ownerKey": "owner:ryan-bousquet",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q3",
+      "text": "Did I not watch VanGinkle get a strip sack? Wondering how accurate his score is . Don’t want alias involved tho! Time to get out of 1st gear",
+      "author": "Josh Martel",
+      "when": "Fri Dec 26",
+      "ownerKey": "owner:josh-martel",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q4",
+      "text": "Ask your boy Gerardi for tips. He’d know exactly how to crush this opponent in the finals.",
+      "author": "Ryan Bousquet",
+      "when": "Fri Dec 26",
+      "ownerKey": "owner:ryan-bousquet",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q5",
+      "text": "If JT goes for 30 and my team gets high score then I officially quit fantasy football.",
+      "author": "Ryan Bousquet",
+      "when": "Thu Dec 25",
+      "ownerKey": "owner:ryan-bousquet",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q6",
+      "text": "So now i get a cap hit to drop him? Wack AF",
+      "author": "Eric Martel",
+      "when": "Thu Dec 25",
+      "ownerKey": "owner:eric-martel",
+      "context": "#contract-activity",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q7",
+      "text": "I don’t think I ever won our toilet bowl, but that doesn’t seem possible in 16 years",
+      "author": "Ryan Bousquet",
+      "when": "Sat Dec 27",
+      "ownerKey": "owner:ryan-bousquet",
+      "context": "#the-coffee-shop",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q8",
+      "text": "Keith had sent a note when he dropped him and explained .",
+      "author": "Brian Cross",
+      "when": "Thu Dec 25",
+      "ownerKey": "owner:brian-cross",
+      "context": "#contract-activity",
+      "source": "discord",
+      "permalink": null
+    }
+  ],
+  "playcards": [
+    {
+      "id": "pc.bijan-robinson",
+      "player": "Bijan Robinson",
+      "position": "RB",
+      "nflMatchup": "ATL vs LA",
+      "score": 43.3,
+      "boxLine": "22 carries for 195 and 1 TD; 5 catches on 8 targets for 34 and 1 TD",
+      "owner": "Eric Mannila",
+      "note": "Season high -- previous best 39.0",
+      "watchUrl": "https://www.youtube.com/results?search_query=Bijan+Robinson+week+17+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.derrick-henry",
+      "player": "Derrick Henry",
+      "position": "RB",
+      "nflMatchup": "BAL vs GB",
+      "score": 51.4,
+      "boxLine": "36 carries for 216 and 4 TD",
+      "owner": "Brian Cross",
+      "note": "Season high -- previous best 32.2",
+      "watchUrl": "https://www.youtube.com/results?search_query=Derrick+Henry+week+17+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.drake-maye",
+      "player": "Drake Maye",
+      "position": "QB",
+      "nflMatchup": "NE vs NYJ",
+      "score": 45.7,
+      "boxLine": "19-of-21 for 256, 5 TD; 3 carries for 22",
+      "owner": "Brian Cutting",
+      "note": "Season high -- previous best 37.1",
+      "watchUrl": "https://www.youtube.com/results?search_query=Drake+Maye+week+17+2025+highlights",
+      "video": null
+    },
+    {
+      "id": "pc.trey-mcbride",
+      "player": "Trey McBride",
+      "position": "TE",
+      "nflMatchup": "ARI vs CIN",
+      "score": 29.4,
+      "boxLine": "10 catches on 13 targets for 76 and 1 TD",
+      "owner": "Eric Martel",
+      "note": null,
+      "watchUrl": "https://www.youtube.com/results?search_query=Trey+McBride+week+17+2025+highlights",
+      "video": null
+    }
+  ],
+  "games": [
+    {
+      "id": "g.1",
+      "winner": "Brian Cutting",
+      "loser": "Josh Martel",
+      "winnerScore": 233.2,
+      "loserScore": 192.1,
+      "margin": 41.099999999999994,
+      "winnerBest": "Drake Maye (45.7)",
+      "loserBest": "Caleb Williams (31.6)",
+      "loserBenchMiss": "Jacory Croskey-Merritt (25.1) while Kenneth Gainwell started for 7.4",
+      "loserCeiling": "229.1",
+      "divisional": true,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "233.2",
+          "b": "192.1",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+4.8",
+          "b": "-35.2",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "22-15",
+          "b": "22-15",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "8-2",
+          "b": "6-4",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "107-47",
+          "b": "92-62",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "3197.6",
+          "b": "3181.8",
+          "better": "a"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "261.5",
+          "b": "229.1",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "28.3",
+          "b": "37.0",
+          "better": "a"
+        }
+      ],
+      "billing": 199,
+      "headline": "Game of the week",
+      "tag": "LEGION OF BOOM -- division game",
+      "cardId": "pc.drake-maye",
+      "quoteIds": [
+        "q1",
+        "q3"
+      ],
+      "factIds": [
+        "f.game.01.margin",
+        "f.game.01.margin_rank",
+        "f.team.0004.best_player",
+        "f.team.0004.left_on_bench",
+        "f.team.0004.score",
+        "f.team.0004.vs_avg",
+        "f.team.0004.week_allplay",
+        "f.team.0007.best_available",
+        "f.team.0007.best_player",
+        "f.team.0007.ceiling_rank",
+        "f.team.0007.left_on_bench",
+        "f.team.0007.score",
+        "f.team.0007.vs_avg",
+        "f.team.0007.week_allplay"
+      ]
+    },
+    {
+      "id": "g.2",
+      "winner": "Eric Martel",
+      "loser": "Bear Dunn",
+      "winnerScore": 206.8,
+      "loserScore": 196.4,
+      "margin": 10.400000000000006,
+      "winnerBest": "Trey McBride (29.4)",
+      "loserBest": "Breece Hall (23.5)",
+      "loserBenchMiss": null,
+      "loserCeiling": "223.9",
+      "divisional": false,
+      "note": "A perfect lineup wins this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "206.8",
+          "b": "196.4",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "-15.9",
+          "b": "-33.5",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "24-13",
+          "b": "28-9",
+          "better": "b"
+        },
+        {
+          "label": "Division record",
+          "a": "7-3",
+          "b": "9-1",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "89-65",
+          "b": "98-56",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "3117.2",
+          "b": "3218.6",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "250.1",
+          "b": "223.9",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "43.3",
+          "b": "27.5",
+          "better": "b"
+        }
+      ],
+      "billing": 187,
+      "headline": null,
+      "tag": "ICE UP SON! v DOG POUND 4 LIFE",
+      "cardId": "pc.trey-mcbride",
+      "quoteIds": [
+        "q6"
+      ],
+      "factIds": [
+        "f.game.02.margin",
+        "f.game.02.margin_rank",
+        "f.team.0005.best_player",
+        "f.team.0005.left_on_bench",
+        "f.team.0005.score",
+        "f.team.0005.vs_avg",
+        "f.team.0005.week_allplay",
+        "f.team.0009.best_available",
+        "f.team.0009.best_player",
+        "f.team.0009.ceiling_rank",
+        "f.team.0009.left_on_bench",
+        "f.team.0009.score",
+        "f.team.0009.vs_avg",
+        "f.team.0009.week_allplay"
+      ]
+    },
+    {
+      "id": "g.3",
+      "winner": "Eric Mannila",
+      "loser": "Chris Klingenberg",
+      "winnerScore": 294.4,
+      "loserScore": 158.3,
+      "margin": 136.09999999999997,
+      "winnerBest": "Bijan Robinson (43.3)",
+      "loserBest": "Dak Prescott (28.1)",
+      "loserBenchMiss": null,
+      "loserCeiling": "202.7",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "294.4",
+          "b": "158.3",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+88.3",
+          "b": "-49.1",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "18-19",
+          "b": "13-24",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "2-8",
+          "b": "2-8",
+          "better": "a"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "80-74",
+          "b": "69-85",
+          "better": "a"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2885.5",
+          "b": "2903.3",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "314.1",
+          "b": "202.7",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "19.7",
+          "b": "44.4",
+          "better": "a"
+        }
+      ],
+      "billing": 149,
+      "headline": null,
+      "tag": "DOG POUND 4 LIFE v MAKE IT RAIN",
+      "cardId": "pc.bijan-robinson",
+      "quoteIds": [],
+      "factIds": [
+        "f.game.03.margin",
+        "f.game.03.margin_rank",
+        "f.team.0011.best_player",
+        "f.team.0011.left_on_bench",
+        "f.team.0011.score",
+        "f.team.0011.vs_avg",
+        "f.team.0011.week_allplay",
+        "f.team.0012.best_available",
+        "f.team.0012.best_player",
+        "f.team.0012.ceiling_rank",
+        "f.team.0012.left_on_bench",
+        "f.team.0012.score",
+        "f.team.0012.vs_avg",
+        "f.team.0012.week_allplay"
+      ]
+    },
+    {
+      "id": "g.4",
+      "winner": "Brian Cross",
+      "loser": "Keith Creelman",
+      "winnerScore": 209.3,
+      "loserScore": 164.8,
+      "margin": 44.5,
+      "winnerBest": "Derrick Henry (51.4)",
+      "loserBest": "Malik Willis (35.6)",
+      "loserBenchMiss": null,
+      "loserCeiling": "178.3",
+      "divisional": false,
+      "note": "Even a perfect lineup loses this game.",
+      "tale": [
+        {
+          "label": "Final",
+          "a": "209.3",
+          "b": "164.8",
+          "better": "a"
+        },
+        {
+          "label": "vs their season average",
+          "a": "+9.6",
+          "b": "-43.2",
+          "better": "a"
+        },
+        {
+          "label": "Record coming in",
+          "a": "17-20",
+          "b": "14-23",
+          "better": "a"
+        },
+        {
+          "label": "Division record",
+          "a": "4-6",
+          "b": "5-5",
+          "better": "b"
+        },
+        {
+          "label": "All-play coming in",
+          "a": "60-94",
+          "b": "69-85",
+          "better": "b"
+        },
+        {
+          "label": "Points for, YTD",
+          "a": "2795.4",
+          "b": "2912.0",
+          "better": "b"
+        },
+        {
+          "label": "Best lineup available",
+          "a": "225.3",
+          "b": "178.3",
+          "better": "a"
+        },
+        {
+          "label": "Left on bench",
+          "a": "16.0",
+          "b": "13.5",
+          "better": "b"
+        }
+      ],
+      "billing": 129,
+      "headline": null,
+      "tag": "ICE UP SON! v MAKE IT RAIN",
+      "cardId": "pc.derrick-henry",
+      "quoteIds": [
+        "q8"
+      ],
+      "factIds": [
+        "f.game.04.margin",
+        "f.game.04.margin_rank",
+        "f.team.0006.best_player",
+        "f.team.0006.left_on_bench",
+        "f.team.0006.score",
+        "f.team.0006.vs_avg",
+        "f.team.0006.week_allplay",
+        "f.team.0008.best_available",
+        "f.team.0008.best_player",
+        "f.team.0008.ceiling_rank",
+        "f.team.0008.left_on_bench",
+        "f.team.0008.score",
+        "f.team.0008.vs_avg",
+        "f.team.0008.week_allplay"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "s1",
+      "title": "The Lead",
+      "brief": "Open on the state of the league this week, through the people in it. Who tore it up and who fell apart -- named, with what they actually did. Fold in the week's business: any waiver pickup that paid off, any trade that mattered, and anyone whose playoff odds moved hard. This is the section that has to make someone want to read the next one. Three or four paragraphs, no lists.",
+      "factIds": [
+        "f.dnp.0001",
+        "f.dnp.0003",
+        "f.dnp.0012",
+        "f.player.bijan-robinson.score",
+        "f.player.brock-purdy.score",
+        "f.player.caleb-williams.score",
+        "f.player.chase-brown.score",
+        "f.player.chris-olave.score",
+        "f.player.christian-mccaffrey.score",
+        "f.player.derrick-henry.score",
+        "f.player.drake-maye.score",
+        "f.player.malik-willis.score",
+        "f.player.trey-mcbride.score",
+        "f.star.line",
+        "f.star.name",
+        "f.star.owner",
+        "f.star.prior_avg",
+        "f.star.prior_best",
+        "f.star.score",
+        "f.team.0001.week_rank_own",
+        "f.team.0002.week_rank_own",
+        "f.team.0003.week_rank_own",
+        "f.team.0004.week_rank_own",
+        "f.team.0005.week_rank_own",
+        "f.team.0006.week_rank_own",
+        "f.team.0007.week_rank_own",
+        "f.team.0008.week_rank_own",
+        "f.team.0009.week_rank_own",
+        "f.team.0010.week_rank_own",
+        "f.team.0011.week_rank_own",
+        "f.team.0012.week_rank_own",
+        "f.week.outgunned",
+        "f.week.perfect",
+        "f.week.self_inflicted",
+        "f.week.winless",
+        "f.wire.adds",
+        "f.wire.best_add"
+      ],
+      "tableIds": [
+        "t.performers",
+        "t.pickups"
+      ],
+      "chartIds": [],
+      "quoteIds": [
+        "q2",
+        "q4"
+      ],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s2",
+      "title": "The Games",
+      "brief": "Place EVERY game and write a note for EVERY ONE of them in gameNotes -- two or three sentences per matchup, about THAT matchup. One league-wide paragraph in front of eighteen game pages is a lead, not analysis. Each page already shows its own tale of the tape, its own big performance and its own chat, so do not recite the numbers; say what the game meant, who it hurt, and whether the loser had any business winning it. The deck is ordered so the biggest matchup leads. Open the section with a short scene-setter about how the slate broke, then let the deck carry it.",
+      "factIds": [
+        "f.burn.benched",
+        "f.burn.benched_score",
+        "f.burn.owner",
+        "f.burn.started",
+        "f.burn.started_score",
+        "f.burn.verdict",
+        "f.dnp.0001",
+        "f.dnp.0003",
+        "f.dnp.0012",
+        "f.team.0007.best_available",
+        "f.team.0007.could_have_won",
+        "f.team.0008.best_available",
+        "f.team.0008.could_have_won",
+        "f.team.0009.best_available",
+        "f.team.0009.could_have_won",
+        "f.team.0012.best_available",
+        "f.team.0012.could_have_won"
+      ],
+      "tableIds": [
+        "t.burns"
+      ],
+      "chartIds": [],
+      "quoteIds": [
+        "q5",
+        "q7"
+      ],
+      "cardIds": [],
+      "gameIds": [
+        "g.1",
+        "g.2",
+        "g.3",
+        "g.4"
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "The Landscape",
+      "brief": "The season is over. Exact final place for every owner, the champion, the last-place finisher, and a verdict on the year.",
+      "factIds": [
+        "f.div.dog-pound-4-life.leader",
+        "f.div.ice-up-son.leader",
+        "f.div.legion-of-boom.leader",
+        "f.div.make-it-rain.leader",
+        "f.team.0001.final_place",
+        "f.team.0001.season_pf_rank",
+        "f.team.0002.final_place",
+        "f.team.0002.season_pf_rank",
+        "f.team.0003.final_place",
+        "f.team.0003.season_pf_rank",
+        "f.team.0004.final_place",
+        "f.team.0004.season_pf_rank",
+        "f.team.0005.final_place",
+        "f.team.0005.season_pf_rank",
+        "f.team.0006.final_place",
+        "f.team.0006.season_pf_rank",
+        "f.team.0007.final_place",
+        "f.team.0007.season_pf_rank",
+        "f.team.0008.final_place",
+        "f.team.0008.season_pf_rank",
+        "f.team.0009.final_place",
+        "f.team.0009.season_pf_rank",
+        "f.team.0010.final_place",
+        "f.team.0010.season_pf_rank",
+        "f.team.0011.final_place",
+        "f.team.0011.season_pf_rank",
+        "f.team.0012.final_place",
+        "f.team.0012.season_pf_rank"
+      ],
+      "tableIds": [
+        "t.final",
+        "t.standings"
+      ],
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
+    }
+  ]
+}

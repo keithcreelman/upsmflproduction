@@ -1,0 +1,84 @@
+name: Check UPS Wire
+
+# UPS Wire articles are self-contained HTML: the palette and the section runtime
+# are INLINED into every article so one file can render inside MFL, at its own
+# GitHub Pages URL, and pasted into a Claude Artifact (which has no network).
+#
+# Inlining is what makes that work and is also what rots. Change the gold in
+# wire_tokens.css and every already-published article silently keeps the old one.
+# `verify` recomputes the style sentinel, the runtime, the content hashes and the
+# section list, so a missed regeneration is a red PR instead of a visual
+# regression nobody notices for a month.
+#
+# It also enforces the five hard rules in site/wire/README.md, each of which is a
+# real failure that has bitten this repo or would break a surface silently:
+#   1. href="#..."  -- resolves against <base> in a srcdoc frame and navigates
+#                      the iframe to jsDelivr, which serves .html as text/plain
+#   2. vh units     -- in an auto-sized iframe 100vh is the height we just set,
+#                      so the frame grows on every beacon tick, forever
+#   3. JSON islands -- check_inline_js.mjs runs node --check on EVERY inline
+#                      block regardless of type; a top-level JSON object throws
+#   4. webfonts     -- a CDN <link> breaks the Artifact surface
+#   5. stray <script> -- desyncs check_inline_js.mjs, which knows nothing about
+#                      HTML comments, and makes it swallow the next real block
+#
+# Fix for every failure is one of:
+#   python pipelines/etl/wire/wire.py restyle
+#   python pipelines/etl/wire/wire.py index
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "site/wire/**"
+      - "pipelines/etl/wire/**"
+      - ".github/workflows/check-wire.yml"
+  push:
+    branches: [main]
+    paths:
+      - "site/wire/**"
+      - "pipelines/etl/wire/**"
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify UPS Wire invariants
+        run: python pipelines/etl/wire/wire.py verify
+
+      # Packs are re-validated OFFLINE. `build` needs D1 credentials and the
+      # live worker, and is deliberately a human-run step -- a report's numbers
+      # should be fetched deliberately and reviewed, not refreshed by CI behind
+      # someone's back.
+      - name: Re-validate committed data packs
+        run: |
+          set -e
+          shopt -s nullglob
+          found=0
+          for f in site/wire/packs/*/*.pack.json; do
+            id="$(basename "$f" .pack.json)"
+            python pipelines/etl/wire/wire.py check-pack --pack "$id"
+            found=$((found + 1))
+          done
+          [ "$found" -eq 0 ] && echo "no packs committed yet" || true
+
+      # Belt and braces: `verify` already fails on a stale sentinel or hash, but
+      # running the generators and checking for a diff also catches a generator
+      # that has drifted from its own checker.
+      - name: Generators must be idempotent
+        run: |
+          set -e
+          python pipelines/etl/wire/wire.py restyle
+          python pipelines/etl/wire/wire.py index
+          if ! git diff --quiet -- site/wire/; then
+            echo ""
+            echo "::error::site/wire/ is not regenerated. Run restyle + index and commit the result."
+            git diff --stat -- site/wire/
+            exit 1
+          fi
+          echo "generators are idempotent; nothing to regenerate"

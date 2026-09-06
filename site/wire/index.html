@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UPS Wire</title>
+
+<!-- UPS Wire - the index (front page, sections, archive).
+     Individual articles are separate self-contained files under articles/;
+     the loader swaps this document for one of them when you open a story.
+
+     ZERO INLINE SCRIPT, deliberately. scripts/check_inline_js.mjs runs
+     node --check over every inline block under site/ because a single
+     unescaped apostrophe in a prose string once shipped Commish Settings
+     broken for hours. All logic is in wire_shell.js; all prose is in
+     index.json, fetched and written with textContent.
+
+     The stylesheet and script hrefs are RELATIVE. Embedded, the loader
+     splices a <base href> pointing at the jsDelivr asset directory, and
+     these resolve against it. Standalone on Pages they resolve against
+     this file's own directory. Never hardcode either path shape. -->
+
+<link rel="stylesheet" href="wire_tokens.css">
+<link rel="stylesheet" href="wire_article.css">
+<link rel="stylesheet" href="wire_shell.css">
+</head>
+<body>
+
+<div class="wire-page">
+<div class="wire-wrap">
+  <div id="wireMast"></div>
+  <div id="wireBody">
+    <noscript>
+      <div class="wire-empty">
+        UPS Wire needs JavaScript to list the stories. Individual articles do
+        not - every article reads as one continuous page without it.
+      </div>
+    </noscript>
+  </div>
+</div>
+</div>
+
+<script src="wire_shell.js"></script>
+</body>
+</html>

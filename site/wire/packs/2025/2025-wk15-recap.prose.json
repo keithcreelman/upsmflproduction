@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 17659,
+    "outputTokens": 13430,
+    "packId": "2025-wk15-recap",
+    "packGeneratedAtUtc": "2026-08-02T12:05:00Z"
+  },
+  "prose": {
+    "kicker": "Round one, and only the cellar-bound had an excuse",
+    "title": "The Beaten and the Self-Beaten",
+    "dek": "Eric Martel outscored the entire league, Trevor Lawrence had the game of his season in a match that decided nothing, and the four losers sorted themselves into unlucky and unforgivable.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Brian Cross got {{f.star.score}} out of Trevor Lawrence in a game whose only stake was not finishing last. Lawrence had averaged {{f.star.prior_avg}} for him all season and had never once cleared {{f.star.prior_best}} in a week, and then he turned in {{f.star.line}}. It bought Cross a consolation win. The biggest performance of the round belonged to a man who cannot win the thing.",
+          "Eric Martel, meanwhile, spent his afternoon beating everybody. He went {{f.team.0005.week_allplay}} against the field, the only owner who did. Trey McBride caught twelve of thirteen targets and scored twice for {{f.player.trey-mcbride.score}}, C.J. Stroud added {{f.player.c-j-stroud.score}}, and the whole thing finished {{f.team.0005.vs_avg}} above Martel's own season average — a career week arriving in the precise round where it was worth the most.",
+          "Derrick Whitman went the other direction as far as it is possible to go, losing to all eleven opponents at {{f.team.0002.week_allplay}} and finishing {{f.team.0002.vs_avg}} under his own average in an elimination game. Keith Creelman had posted his season wrap-up days earlier and flagged the pick he enjoyed most, which has aged into something close to prophecy. Four lineups around the league included a man who never took the field. Two of those owners won anyway.",
+          "The waiver wire moved {{f.wire.adds}} players and produced almost nothing worth discussing, with one exception: {{f.wire.best_add}}, bid on by Josh Martel and — crucially — actually started, in a week Martel put up {{f.team.0007.score}} behind Jared Goff's {{f.player.jared-goff.score}}. Brian Cutting grabbed a free agent who matched that output and left him on the bench, which is easier to forgive given Cutting had no game to lose."
+        ],
+        "bullets": [],
+        "place": [
+          "t.performers",
+          "t.pickups"
+        ],
+        "quotes": [
+          "q5",
+          "q4"
+        ],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.performers": "Lawrence's afternoon did more for Cross's dignity than his season.",
+          "t.pickups": "The league's entire waiver haul came down to a kicker somebody remembered to start."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "",
+        "paragraphs": [
+          "Ryan Bousquet started Joe Burrow in a playoff game and got {{f.burn.started_score}} for it. Bo Nix sat on his bench and scored {{f.burn.benched_score}}. This was not variance dressed as a blunder: {{f.burn.verdict}}. Amon-Ra St. Brown gave Bousquet {{f.player.amon-ra-st-brown.score}} and it was spent on nothing.",
+          "The four losers split cleanly, and it holds every way you check it. Bousquet and Shawn Blake, the {{f.week.self_inflicted}} who had winning lineups sitting on their benches, are the {{f.week.self_inflicted}} now out of the title race. Whitman and Matt Gerardi, the {{f.week.outgunned}} who could have played flawless cards and still lost, are the two sliding toward the floor. The men with a say in their own fate did not exercise it; the men without one never had a chance.",
+          "Creelman had no matchup at all this round and made his allegiance clear enough, while Cross spent his week wondering whether the rest of the league could even see his transactions."
+        ],
+        "bullets": [],
+        "place": [
+          "t.burns"
+        ],
+        "quotes": [
+          "q6",
+          "q7"
+        ],
+        "cards": [],
+        "games": [
+          "g.1",
+          "g.2",
+          "g.3",
+          "g.4"
+        ],
+        "gameNotes": {
+          "g.1": "Two teams walked in with identical records and only one walked out with anything, by {{f.game.01.margin}} — {{f.game.01.margin_rank}}. Bousquet's best available lineup was {{f.team.0001.ceiling_rank}} and would have taken this game; he {{f.team.0001.could_have_won}}. Martel was the one team nobody in the league outscored, so the blame only travels so far, but it travels far enough.",
+          "g.2": "Blake won his division and lasted exactly one round. He beat his own season average and lost anyway, because Josh Martel beat his by considerably more — and Blake {{f.team.0010.could_have_won}}, with {{f.team.0010.best_available}} sitting there. The Kyle Pitts benching was defensible on the season numbers and blew up regardless; starting {{f.dnp.0010}}, who never took a snap, was not defensible on anything.",
+          "g.3": "The round's only division game decided which ICE UP SON! team spends the rest of the year fighting the floor, and Cross settled it with the biggest individual score in the league this week. Whitman {{f.team.0002.could_have_won}} — his ceiling was under Cross's actual total, which is the honest reading of a {{f.team.0002.vs_avg}} week. Cross started {{f.dnp.0006}}, who never played, and won by {{f.game.03.margin}} regardless.",
+          "g.4": "Travis Etienne caught three touchdowns on four targets and it bought Gerardi nothing; Klingenberg's best starter did not come close to that line and Klingenberg still won by {{f.game.04.margin}}. Gerardi {{f.team.0003.could_have_won}}, so the empty slot where {{f.dnp.0003}} should have kicked was a symptom rather than a cause. Klingenberg had his own ghost in the lineup, {{f.dnp.0012}}, and it cost him nothing at all."
+        },
+        "captions": {
+          "t.burns": "The Pitts row is bad luck. The Nix row is a man not looking."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "paragraphs": [
+          "Bear Dunn sat the round out and scored {{f.team.0009.score}} doing it, which is the fantasy football equivalent of revving the engine in the driveway. DOG POUND 4 LIFE belongs to {{f.div.dog-pound-4-life.leader}} and he is {{f.team.0009.bracket}} without having had to prove anything this week. Cutting is through on the same terms. Eric Mannila also had a bye, and still managed to bench Bijan Robinson for a man who finished in the red.",
+          "Four remain: Eric Martel, who is {{f.team.0005.bracket}} off the best week anyone had; Josh Martel, {{f.team.0007.bracket}} on the strength of {{f.team.0007.week_allplay}} against the field; plus Dunn and Cutting, rested. LEGION OF BOOM is led by {{f.div.legion-of-boom.leader}} and contains both the best-positioned man in the bracket's lower half and the worst team in the league, which is a division doing a lot of work in both directions.",
+          "MAKE IT RAIN went to {{f.div.make-it-rain.leader}}, a division title won at a losing record, and Blake is now {{f.team.0010.bracket}}. Bousquet's exit stings differently: he came in level with {{f.div.ice-up-son.leader}} on record, better than him on all-play, and is {{f.team.0001.bracket}} anyway. A division crown and a losing record get you a seat; nothing gets you a second round if the lineup is wrong.",
+          "Down at the bottom, Whitman is {{f.team.0002.bracket}} and Gerardi is {{f.team.0003.bracket}}, and neither had a card in hand that would have changed it. Klingenberg, Cross, Creelman and Mannila are all clear of the trapdoor. That fight is now between two men who could not score, which is the fairest thing about the whole week."
+        ],
+        "bullets": [],
+        "place": [
+          "t.standings"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.standings": "The record column is not the seeding order. The all-play column is."
+        }
+      }
+    ]
+  }
+}

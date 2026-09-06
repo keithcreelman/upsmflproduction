@@ -1,0 +1,111 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 8067,
+    "outputTokens": 8226,
+    "packId": "2026-preseason-review",
+    "packGeneratedAtUtc": "2026-08-01T14:29:20Z"
+  },
+  "prose": {
+    "kicker": "The long look, off-season edition",
+    "title": "Everybody Spent, Nobody Finished",
+    "dek": "A full accounting of the off-season — the money, the paperwork, the auction that is still running — team by team, with verdicts nobody asked for.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "Start with the ledger, because in this league the ledger is the personality test. League-wide, the twelve have committed {{f.cap.total_committed}} against the cap, and the median team is sitting on {{f.cap.median_room}} of room. That is the middle of the pack. The middle of the pack is not where anyone in this league claims to live.",
+        "paragraphs": [
+          "The spread is the story. The roomiest team in the league has {{f.cap.most_room}} to play with; the tightest has {{f.cap.tightest_room}} and a lot of nervous refreshing to do. One of those franchises can absorb an injury, a bad tag, and a change of heart. The other cannot absorb a sneeze. The table below names them, and no, we are not going to pretend it is a coincidence that the teams with the least air are the ones who did the most shouting in the auction thread.",
+          "A word about the two money columns before somebody emails us again. The opening figure comes from the earliest daily roster snapshot available, taken in late April — which is already weeks after the first contract activity of the off-season, so treat 'starting point' as 'the first day we have a photograph,' not as opening day. That column is active-roster salary only. It does not include salary adjustments. The live compliance numbers do. Subtract one from the other and you will produce a number that is confidently, elegantly wrong, and you will then post it as a grievance.",
+          "The snapshots are also read from a local checkout that lags behind the live repository by a handful of days, so the opening column may be a touch stale. The live compliance side is current as of the pull on the first of August. Everything in this section is directional, not forensic. Direction is enough to see who is out of money."
+        ],
+        "bullets": [],
+        "place": [
+          "t.cap_sheet",
+          "c.cap_room"
+        ],
+        "captions": {
+          "t.cap_sheet": "Opening salary is active-roster only and excludes adjustments; the two money columns are not subtractable.",
+          "c.cap_room": "Room remaining, most to least — the top of this chart is optionality, the bottom is a hostage situation."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "The auction is not over. Say it again, louder, for the group chat: the auction is not over. {{f.auction.lots_open}} lots are still live, the last of them locking in early August, and every figure in this section is a mid-flight snapshot taken at the compliance pull on the first of August. If you screenshot this and call it final, that is on you.",
+        "paragraphs": [
+          "What we have so far: {{f.auction.lots_won}} lots won, {{f.auction.total_spend}} of cap moved across them, {{f.auction.total_bids}} bids placed to get there. The median winning bid was {{f.auction.median_price}}, which tells you the shape of this thing better than the top line does. The market cleared cheap in the middle and violently at the top, where the biggest single price paid was {{f.auction.top_price}}. Somebody looked at that number, decided it was reasonable, and clicked. We have named him in the table.",
+          "The competitive picture is thinner than the bid count suggests. Only {{f.auction.contested_lots}} lots drew more than one bidder. Meanwhile {{f.auction.min_price_lots}} lots closed at the opening bid — a dollar in, nobody else at the table, congratulations on your depth piece. This is a league that spends an entire off-season insisting the market is efficient and then lets a third of it walk out the door unopposed.",
+          "One accounting note, because it matters if you are trying to reconcile anything. The lot ledger shows {{f.auction.lots_won}} lots marked won, but only {{f.auction.finalized_contracts}} finalized auction contracts exist behind them. Those two numbers will not agree, and they will not agree for a while. Prices in this piece come from the lot ledger, which is the closer thing to truth; contract counts come from the finalization ledger. Do not average them. Separately, no finalizations trace back to the expired-rookie pool at all, despite that pool having members, so if you won something there, the paperwork does not know about it yet.",
+          "Keith Creelman was the loudest wallet in the room and is at the top of the spend chart. Eric Mannila sat at the other end and barely opened his coat. Between them, ten owners who all believe they got value, which is arithmetically impossible and emotionally inevitable."
+        ],
+        "bullets": [
+          "Median bid: {{f.auction.median_price}}. Most of this auction was groceries, not gold.",
+          "Floor buys: {{f.auction.min_price_lots}} lots at the opening bid. Free money, ignored.",
+          "Contested lots: {{f.auction.contested_lots}}. The bidding war was rarer than the trash talk.",
+          "Still open: {{f.auction.lots_open}}. Verdicts below are written in pencil."
+        ],
+        "place": [
+          "t.top_buys",
+          "t.auction_by_team",
+          "c.auction_spend"
+        ],
+        "captions": {
+          "t.top_buys": "The fifteen priciest wins so far — note how few of them needed a second bidder to get there.",
+          "t.auction_by_team": "Spend by owner as of the pull; the average column is where the discipline shows or does not.",
+          "c.auction_spend": "Creelman at the top, Mannila at the bottom, and a lot of self-justification in between."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "Twelve cards. Where each owner was in April, what they actually filed, and where they have landed as of the pull. Move counts here are distinct contract outcomes, not raw Front Office submissions, so nobody gets credit for filing the same extension four times until it looked prettier.",
+        "paragraphs": [],
+        "bullets": [
+          "Ryan Bousquet (L.A. Looks) — won {{f.team.0001.lots_won}} lots for {{f.team.0001.auction_spend}} and logged {{f.team.0001.moves}} contract outcomes, and now carries {{f.team.0001.active}} on the active roster with {{f.team.0001.cap_room}} left. Verdict: an off-season conducted entirely by shopping list. Nothing here is a mistake and nothing here is a plan.",
+          "Derrick Whitman (CBP) — {{f.team.0002.moves}} contract outcomes and {{f.team.0002.lots_won}} auction lots at a cost of {{f.team.0002.auction_spend}}, finishing with {{f.team.0002.cap_room}} in room. Verdict: he did the paperwork before he did the shopping, which in this league qualifies as avant-garde.",
+          "Matt Gerardi (Gride) — {{f.team.0003.lots_won}} lots, {{f.team.0003.auction_spend}} spent, {{f.team.0003.moves}} outcomes filed, {{f.team.0003.active}} active bodies. Verdict: the roster looks like it was assembled by someone who loves the Front Office interface more than he loves football. Room stands at {{f.team.0003.cap_room}} and it is not doing him any favours.",
+          "Brian Cutting (Pure Greatness) — {{f.team.0004.auction_spend}} across {{f.team.0004.lots_won}} lots, {{f.team.0004.moves}} contract outcomes, {{f.team.0004.cap_room}} of daylight remaining. Verdict: the name of the team continues to be the boldest claim in the franchise.",
+          "Eric Martel (HammerTime) — {{f.team.0005.lots_won}} lots for {{f.team.0005.auction_spend}}, {{f.team.0005.moves}} outcomes, {{f.team.0005.active}} on the active roster. Verdict: a hammer is a wonderful tool and a terrible strategy. He has {{f.team.0005.cap_room}} left to find a screwdriver.",
+          "Brian Cross (The Long Haulers) — {{f.team.0006.moves}} contract outcomes and {{f.team.0006.lots_won}} auction wins totalling {{f.team.0006.auction_spend}}, landing at {{f.team.0006.cap_room}}. Verdict: true to the team name, he has committed to a very long trip with no stated destination.",
+          "Josh Martel (Sex Manther) — {{f.team.0007.lots_won}} lots, {{f.team.0007.auction_spend}} out the door, {{f.team.0007.moves}} outcomes on file, {{f.team.0007.active}} active. Verdict: the boldest roster in the league right up until the first bye week. Room of {{f.team.0007.cap_room}} says he knows it.",
+          "Keith Creelman (Real Deal Creel) — the loudest wallet in the auction, {{f.team.0008.auction_spend}} across {{f.team.0008.lots_won}} lots, plus {{f.team.0008.moves}} contract outcomes. Verdict: he bought the room. Whether he bought a team is a separate question, and with {{f.team.0008.cap_room}} in reserve he has stopped being able to ask it.",
+          "Bear Dunn (C-Town Chivalry) — {{f.team.0009.lots_won}} lots for {{f.team.0009.auction_spend}}, {{f.team.0009.moves}} contract outcomes, {{f.team.0009.active}} bodies active. Verdict: chivalrous to a fault, which in an auction means letting other people have things. Room: {{f.team.0009.cap_room}}.",
+          "Shawn Blake (Blake Bombers) — {{f.team.0010.moves}} outcomes filed, {{f.team.0010.lots_won}} lots won at {{f.team.0010.auction_spend}}, {{f.team.0010.cap_room}} left. Verdict: bombs away, receipts pending. This is a roster that will either win a title or a lawsuit.",
+          "Eric Mannila (Cleon Ca$h) — the quietest wallet in the league at {{f.team.0011.auction_spend}} across {{f.team.0011.lots_won}} lots, with {{f.team.0011.moves}} contract outcomes and {{f.team.0011.active}} active. Verdict: the dollar sign in the team name is now the only cash on the premises. He does still hold {{f.team.0011.cap_room}}, which is either patience or a nap.",
+          "Chris Klingenberg (Hawks) — {{f.team.0012.lots_won}} lots, {{f.team.0012.auction_spend}} spent, {{f.team.0012.moves}} contract outcomes, and {{f.team.0012.cap_room}} in room. Verdict: methodical, unromantic, mildly annoying to play against. The most likely team in this league to go somewhere without ever being fun."
+        ],
+        "place": [
+          "t.moves_by_team"
+        ],
+        "captions": {
+          "t.moves_by_team": "Outcomes, not submissions — extensions, multi-year deals, MYM, restructures, tags, FA deals, front- and back-loading, picks and cuts."
+        }
+      },
+      {
+        "id": "s4",
+        "lead": "Zoom out and the off-season has a texture. The contract log holds {{f.moves.submissions}} submissions, which collapse to {{f.moves.total}} distinct outcomes once you strip out the owners who resubmit the same deal until the interface stops arguing with them. Raw row counts flatter the fidgety. We are counting outcomes.",
+        "paragraphs": [
+          "The tools, in order of how much they were actually used: {{f.moves.extension}} extensions, {{f.moves.multi_year_contract}} multi-year contracts, {{f.moves.fa_contract}} free-agent contracts, {{f.moves.mym}} MYM filings, {{f.moves.restructure}} restructures and {{f.moves.tag}} tags. Read that list twice. This league loves talking about tags the way people love talking about home renovation, and then hardly anyone picks up a hammer.",
+          "Cash-flow games were rarer still: {{f.moves.front_loaded}} contracts front-loaded, {{f.moves.back_loaded}} back-loaded. Front-loading is a bet on now. Back-loading is a bet that future-you is a better general manager than present-you, a bet the historical record of this league does not support and which the current tables cannot even be used to check.",
+          "Elsewhere: {{f.draft.picks}} rookie picks made, {{f.trades.count}} trades completed, {{f.drops.count}} players cut with the cap penalties that come attached. The trade count is the tell. Twelve owners spent an entire off-season insisting they were open for business and then mostly bought strangers at auction instead of dealing with each other, which is either good process or simple grudge maintenance. Sixteen years of covering this room suggests it is the second one."
+        ],
+        "bullets": [],
+        "place": [],
+        "captions": {}
+      },
+      {
+        "id": "s5",
+        "lead": "Now the part where the beat writer admits what the notebook does not contain.",
+        "paragraphs": [
+          "The auction is live. {{f.auction.lots_open}} lots remain open and the last locks in early August, so every price, spend total and team ranking above is a snapshot taken at the compliance pull, not a result. Somebody in the bottom half of the spend chart can still ruin these verdicts, and probably will, and will not be gracious about it.",
+          "The two auction ledgers disagree. {{f.auction.lots_won}} lots are marked won while only {{f.auction.finalized_contracts}} finalized contracts exist behind them. Spend figures and contract counts therefore will not reconcile; prices in this piece come from the lot ledger and we are telling you so up front. Related: the expired-rookie pool has members but produced no finalizations at all, so that whole corner of the market is invisible to the paperwork.",
+          "The starting line is not the starting line. First contract activity appears in early spring, but the earliest daily roster snapshot we hold is from late April, so 'where they started' means 'where they were in late April.' That snapshot is active-roster salary only and excludes salary adjustments, unlike the live compliance figures which include them. The two are not comparable and must never be subtracted. The snapshot files also come from a checkout that trails the live repository, so they may lag by a few days; the contract log was read from the live branch directly.",
+          "Names are partly reconstructed. A meaningful slice of the contract outcomes arrived with blank franchise and player fields. The ids were intact, so ownership was resolved from the authoritative franchise map for this season rather than rendered as holes — which is why every judgement here is attached to an owner and not a team id. Franchises change hands in this league; blame should not.",
+          "And the history cliff: nearly every historical table — standings, trades, add-drops, contracts — stops at the last completed season. Everything about this off-season comes from the live tables, the worker API and the daily snapshots. That means no long-run tendency claims from us. If you want to be told that a given owner always overpays at quarterback, you will have to keep telling yourself, because the data in this pack cannot back it and the current season has not been played."
+        ],
+        "bullets": [],
+        "place": [],
+        "captions": {}
+      }
+    ]
+  }
+}
