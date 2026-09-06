@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-06 22:17:31",
+    "generated_at": "2026-09-06 22:18:55",
     "source": "contract-activity-log",
-    "count": 139,
+    "count": 140,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "262c42106111f298ad66c441",
+      "submission_id": "262c42106111f298ad66c441",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "player_id": "15261",
+      "player_name": "Hubbard, Chuba",
+      "position": "RB",
+      "salary": 5000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 2|TCV 10K|AAV 5K|Y1-5K, Y2-5K|GTD: 7.5K",
+      "tcv": 10000,
+      "aav": 5000,
+      "guaranteed": 7500,
+      "submitted_at_utc": "2026-09-06T22:18:39.195Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546283526255546469",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "6fa1ac361ef95425c08c29f8",
       "submission_id": "6fa1ac361ef95425c08c29f8",
