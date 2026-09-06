@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-06 22:23:18",
+    "generated_at": "2026-09-06 22:24:05",
     "source": "contract-activity-log",
-    "count": 141,
+    "count": 142,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "b4994d77d933034403a5e0a6",
+      "submission_id": "b4994d77d933034403a5e0a6",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0001",
+      "franchise_name": "L.A. Looks",
+      "player_id": "15365",
+      "player_name": "Moehrig, Trevon",
+      "position": "S",
+      "salary": 2000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 2|TCV 4K|AAV 2K|Y1-2K, Y2-2K|GTD: 1K",
+      "tcv": 4000,
+      "aav": 2000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-06T22:23:49.747Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546284828729548923",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "9f42f4e35d091d6d29df3a0a",
       "submission_id": "9f42f4e35d091d6d29df3a0a",
