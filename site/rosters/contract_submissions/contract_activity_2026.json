@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-06 22:27:38",
+    "generated_at": "2026-09-06 22:28:07",
     "source": "contract-activity-log",
-    "count": 144,
+    "count": 145,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "b4c511249dbe014c5674ef57",
+      "submission_id": "b4c511249dbe014c5674ef57",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0001",
+      "franchise_name": "L.A. Looks",
+      "player_id": "13592",
+      "player_name": "Darnold, Sam",
+      "position": "QB",
+      "salary": 30000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1-FL",
+      "contract_info": "CL 2| TCV 46K| AAV 18K, 28K| Y1-30K, Y2-16K| GTD: 34.5K| Ext: GRID| Restructured 2026",
+      "tcv": 46000,
+      "aav": 0,
+      "guaranteed": 34500,
+      "submitted_at_utc": "2026-09-06T22:27:50.374Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546285838961348679",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "d3ca1f64c71e5481d7df9e32",
       "submission_id": "d3ca1f64c71e5481d7df9e32",
