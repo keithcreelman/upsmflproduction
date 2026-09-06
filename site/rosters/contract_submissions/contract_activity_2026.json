@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-06 22:15:47",
+    "generated_at": "2026-09-06 22:17:31",
     "source": "contract-activity-log",
-    "count": 138,
+    "count": 139,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "6fa1ac361ef95425c08c29f8",
+      "submission_id": "6fa1ac361ef95425c08c29f8",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0001",
+      "franchise_name": "L.A. Looks",
+      "player_id": "15768",
+      "player_name": "Pierce, Alec",
+      "position": "WR",
+      "salary": 2000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1",
+      "contract_info": "CL 2|TCV 14K|AAV 2K, 12K|Y1-2K, Y2-12K|Ext: L.A.|GTD: 10.5K",
+      "tcv": 14000,
+      "aav": 0,
+      "guaranteed": 10500,
+      "submitted_at_utc": "2026-09-06T22:17:13.664Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546283168288739452",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "bace5918cc5ecaec0d02c4a5",
       "submission_id": "bace5918cc5ecaec0d02c4a5",
