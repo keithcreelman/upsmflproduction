@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-07 00:21:03",
+    "generated_at": "2026-09-07 00:22:07",
     "source": "contract-activity-log",
-    "count": 151,
+    "count": 152,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "311454b2a6ac75350a717bd3",
+      "submission_id": "311454b2a6ac75350a717bd3",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16850",
+      "player_name": "Saylors, Jacob",
+      "position": "RB",
+      "salary": 1000,
+      "contract_year": 3,
+      "contract_status": "Vet-WW",
+      "contract_info": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
+      "tcv": 3000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-07T00:21:49.489Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1546314526012608623",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "e8e9219739adf008e126f2a2",
       "submission_id": "e8e9219739adf008e126f2a2",
