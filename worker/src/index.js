@@ -27427,6 +27427,29 @@ const mflToSleeper = {};
         return String(err);
       };
 
+      // MFL answers import errors with an XML <error> body EVEN WHEN JSON=1 is
+      // requested, so JSON.parse throws and mflErrorFromJsonPayload never sees
+      // them. Reading only the JSON form made an explicit, quotable refusal
+      // invisible — exactly what happened on 2026-09-07: a drop returned HTTP 200
+      // carrying
+      //   <error>Can not impersonate another fracnhise when LOCKOUT is on.</error>
+      // and the caller reported "Player dropped in MFL." while the player sat
+      // untouched on the roster. _wvPostOwnerImport already read the XML form;
+      // the two postMflImportForm* helpers did not, so this centralises it
+      // instead of leaving a third copy to drift.
+      //
+      // This matches a structured <error> ELEMENT, never the bare substring
+      // "error" — that distinction is the whole point. The 2026-08-15 IR incident
+      // came from "error" appearing incidentally inside an MFL HTML page, and
+      // that case must still fall through to roster verification rather than
+      // fast-failing a write that actually landed.
+      const mflImportErrorFromBody = (text, parsedJson) => {
+        const jsonErr = parsedJson ? mflErrorFromJsonPayload(parsedJson) : "";
+        if (jsonErr) return jsonErr;
+        const m = safeStr(text).match(/<error[^>]*>([\s\S]*?)<\/error>/i);
+        return m ? safeStr(m[1]).trim() : "";
+      };
+
       const isLikelyMflImportSuccess = (res, text) =>
         !!res?.ok && !looksLikeMflImportError(text);
 
@@ -27626,11 +27649,18 @@ const mflToSleeper = {};
         } catch (_) {
           parsedJson = null;
         }
-        const payloadErr = parsedJson ? mflErrorFromJsonPayload(parsedJson) : "";
+        const payloadErr = mflImportErrorFromBody(text, parsedJson);
         const requestOk = isLikelyMflImportSuccess(res, text) && !payloadErr;
         return {
           ok: requestOk,
           requestOk,
+          // Did MFL EXPLICITLY refuse, in its own words? Only an error payload
+          // proves that; a bare requestOk:false does not, because
+          // isLikelyMflImportSuccess is a substring heuristic and a transport
+          // failure can happen AFTER MFL applied the write. Callers gate their
+          // fast-fail on this so an ambiguous response still reaches roster
+          // verification instead of being reported as a refusal.
+          definite_reject: !!payloadErr,
           status: res.status,
           text,
           upstreamPreview: String(text || "").slice(0, 1200),
@@ -27735,11 +27765,18 @@ const mflToSleeper = {};
         } catch (_) {
           parsedJson = null;
         }
-        const payloadErr = parsedJson ? mflErrorFromJsonPayload(parsedJson) : "";
+        const payloadErr = mflImportErrorFromBody(text, parsedJson);
         const requestOk = isLikelyMflImportSuccess(res, text) && !payloadErr;
         return {
           ok: requestOk,
           requestOk,
+          // Did MFL EXPLICITLY refuse, in its own words? Only an error payload
+          // proves that; a bare requestOk:false does not, because
+          // isLikelyMflImportSuccess is a substring heuristic and a transport
+          // failure can happen AFTER MFL applied the write. Callers gate their
+          // fast-fail on this so an ambiguous response still reaches roster
+          // verification instead of being reported as a refusal.
+          definite_reject: !!payloadErr,
           status: res.status,
           text,
           upstreamPreview: String(text || "").slice(0, 1200),
@@ -53961,20 +53998,23 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // its own verification could run. Now only `definite_reject` -- MFL
         // returning a real error payload in its own words -- fails fast. Anything
         // else falls through and lets the roster decide.
-        if (!importRes.requestOk && importRes.definite_reject) {
-          return jsonOut(502, {
-            ok: false,
-            error: importRes.error || "MFL roster action failed",
-            action,
-            player_id: playerId,
-            franchise_id: franchiseId,
-            used_franchise_id: usedFranchiseId,
-            upstream_status: importRes.status,
-            upstream_preview: importRes.upstreamPreview,
-            target_import_url: importRes.targetImportUrl,
-            form_fields: importRes.formFields,
-          });
-        }
+        // NOTE (2026-09-07): this fast-fail used to live HERE, and returning on
+        // `definite_reject` before the roster read is NOT safe on this route.
+        // `importRes` can be a STALE attempt #1: when impersonation is refused
+        // under LOCKOUT the retry above drops FRANCHISE_ID and re-posts, but the
+        // retry is only ADOPTED when `retryRes.requestOk` — and a write that MFL
+        // actually applied can still come back not-requestOk here (that is the
+        // 2026-08-15 IR incident: reported "MFL import failed (HTTP 200)", player
+        // WAS on IR). So a landed retry gets discarded, importRes keeps attempt
+        // #1's <error> body, and bailing on it would report a failure for a write
+        // that succeeded — re-creating the 08-15 false-FAILURE, whose obvious next
+        // action is to re-cut a player who is already gone.
+        //
+        // MFL's "no" is therefore trusted only where the roster does not
+        // contradict it, which is the shape /api/waivers/fcfs already uses (it
+        // gates the same definite_reject check on `!verifyKnown || wvNothingLanded`).
+        // The roster read is the fact; the response body is a heuristic.
+        const mflExplicitlyRefused = !importRes.requestOk && !!importRes.definite_reject;
         // Remembered so the response can say whether the roster overruled the
         // heuristic, rather than silently papering over it.
         const importHeuristicSaidFail = !importRes.requestOk;
@@ -54021,14 +54061,31 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             // TAXI_SQUAD contains "TAXI", so the taxi predicates were fine and
             // are left alone.
             const onIr = status.includes("INJURED");
-            const expectedOk = action === "activate_ir"
+            // drop_player is checked FIRST and explicitly. Being located at all
+            // means the player is still on someone's roster, which for a drop is
+            // definitionally a failure — but the fallback arm below is
+            // `!status.includes("TAXI")`, written for promote_taxi, and a player
+            // whose drop was REJECTED sits on ROSTER and satisfies it. So a
+            // failed drop scored as a success while the response literally
+            // carried status:"ROSTER".
+            //
+            // That is what happened on 2026-09-07: MFL refused two deadline cuts
+            // with "Can not impersonate another fracnhise when LOCKOUT is on" and
+            // the route answered ok:true, "Player dropped in MFL." Telling a
+            // commish a cut landed when it did not is the dangerous direction —
+            // the roster silently stays out of compliance and nobody re-checks.
+            const expectedOk = action === "drop_player"
+              ? false
+              : action === "activate_ir"
               ? !onIr
               : action === "deactivate_ir"
               ? onIr
               : (action === "demote_taxi" ? status.includes("TAXI") : !status.includes("TAXI"));
             verification = {
               ok: expectedOk,
-              reason: expectedOk ? "" : "player_status_did_not_change",
+              reason: expectedOk
+                ? ""
+                : (action === "drop_player" ? "player_still_on_roster" : "player_status_did_not_change"),
               player_id: playerId,
               franchise_id: located.franchise_id,
               status,
@@ -54163,6 +54220,34 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // you demote a player twice or re-cut someone. Report it as unconfirmed
         // and explicitly tell the caller not to resend — the same distinction
         // /api/waivers/fcfs draws between "MFL rejected" and "read unreadable".
+        // ...unless MFL refused in its own words. Then we DO hold evidence: an
+        // explicit refusal means nothing landed, so naming it is both honest and
+        // retry-safe, and it beats telling the caller to go read MFL by hand.
+        if (!verification.ok
+            && verification.reason === "post_import_rosters_export_failed"
+            && mflExplicitlyRefused) {
+          return jsonOut(502, {
+            ok: false,
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            used_franchise_id: usedFranchiseId,
+            verified: false,
+            verify_known: false,
+            retry_safe: true,
+            error: importRes.error || "MFL refused the roster action",
+            error_code: "MFL_WRITE_REJECTED",
+            import_heuristic_said_fail: importHeuristicSaidFail,
+            verification,
+            response: {
+              upstream_status: importRes.status,
+              upstream_preview: importRes.upstreamPreview,
+              target_import_url: importRes.targetImportUrl,
+              form_fields: importRes.formFields,
+            },
+          });
+        }
+
         if (!verification.ok && verification.reason === "post_import_rosters_export_failed") {
           return jsonOut(200, {
             ok: true,
@@ -54204,11 +54289,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             player_id: playerId,
             franchise_id: franchiseId,
             used_franchise_id: usedFranchiseId,
-            error:
-              `MFL did not apply the ${action} action — ` +
-              (verification.reason || "verification failed") + "." +
-              offSeasonHint,
-            error_code: "MFL_WRITE_NOT_VERIFIED",
+            // When MFL said why, lead with MFL's own sentence — it is the one
+            // line that tells the commish how to fix it (e.g. "Can not
+            // impersonate another fracnhise when LOCKOUT is on."). The roster
+            // check is what PROVES nothing landed; the quote explains it.
+            error: mflExplicitlyRefused
+              ? `MFL refused the ${action} action: ${importRes.error}`
+              : `MFL did not apply the ${action} action — ` +
+                (verification.reason || "verification failed") + "." +
+                offSeasonHint,
+            error_code: mflExplicitlyRefused ? "MFL_WRITE_REJECTED" : "MFL_WRITE_NOT_VERIFIED",
             verification,
             // Echo back the worker's MFL request + response so the
             // commish can inspect what MFL actually saw. The upstream
