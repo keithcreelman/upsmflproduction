@@ -85,6 +85,6 @@
 | Owner blocked nominating (409) | `nomination_quota_reached` = used 2 today (correct thru 8/2) · `nominations_closed` = after 8/3 (correct) · on 8/3 they should NEVER see the quota error (unlimited — if they do, that's a bug, ping me). |
 | MFL rejected a bid (`auction_post_failed`) | Message includes MFL's own reason (usually increment/funds). Native O=43 link is the fallback path — it always works. |
 | Wrong fine booked | Fines void UI (commish settings) — void with reason; ladder ignores voided rows. |
-| Nuclear | Kill Switches: `AUCTION_FAA_ENABLED=0` hides boards + blocks in-app actions (MFL native auction keeps running — pause that on MFL if truly needed). |
+| Nuclear | Kill Switches: `AUCTION_FAA_ENABLED=0` hides boards + blocks in-app actions (MFL native auction keeps running — pause that on MFL if truly needed). **Note:** with BOTH `AUCTION_FAA_ENABLED` and `AUCTION_ERA_ENABLED` off, the */5 poller also stops writing bids to D1 — deliberate, so a dead offseason doesn't burn the daily read cap. Nothing is lost (MFL's log is append-only and re-read in full on the next live tick); to keep ingesting with the UI killed, run `POST /admin/auction/poll-now?force=1`. |
 
 **Known soft edges (accepted):** countdowns use the viewer's clock (MFL enforces truth) · in-app actions without an `MFL_USER_ID` would fall back to YOUR cookie (site pages always inject it; don't share bare API URLs with owners) · finalize posts nothing to Discord (announce manually if you want fanfare).

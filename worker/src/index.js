@@ -738,11 +738,39 @@ async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishA
 // auction TYPE (hardcoded to 36hr for everything until 2026-07-14):
 //   ERA lot (player in that season's ups_era_pool) → 36hr, league_context §A3
 //   FAA lot (everything else)                      → 24hr, league_context §A2
-async function processAuctionPoll(env) {
+async function processAuctionPoll(env, opts = {}) {
   const db = env.UPS_MFL_DB;
   if (!db) {
     console.log("[auction-poll] UPS_MFL_DB binding missing — skipping");
     return { skipped: "no_db" };
+  }
+  // Don't poll an auction that isn't running. Between auctions this function
+  // fetched MFL's transaction log and walked D1 every 5 minutes forever to
+  // rediscover that nothing had changed — the dominant standing D1 read cost on
+  // a database that blew 240% of its daily row-read cap on 2026-09-07 with the
+  // FAA a month closed.
+  //
+  // The check lives HERE, not at the cron dispatch site, because there are TWO
+  // live entry points: the Cloudflare */5 cron and POST /admin/auction/poll-now,
+  // the latter driven every 300s by the launchd agent com.keith.mfl.auction-poll
+  // (scripts/auction_poll_tick.sh — the deliberate off-platform backup from
+  // docs/faa_2026_runbook.md, added after CF crons died mid-auction). A gate at
+  // the cron only would have left that second poller running the identical full
+  // poll 288x/day and saved essentially nothing.
+  //
+  // getFeatureFlag fails CLOSED, so a D1 fault skips the poll. That is the safe
+  // direction: the poll self-heals on a later tick because MFL's transaction log
+  // is append-only and re-read in full, whereas hammering a failing D1 is what
+  // pinned the quota in the first place. opts.force bypasses this for the
+  // runbook's documented break-glass path.
+  if (!opts.force) {
+    const auctionLive =
+      (await getFeatureFlag(env, "AUCTION_FAA_ENABLED")) ||
+      (await getFeatureFlag(env, "AUCTION_ERA_ENABLED"));
+    if (!auctionLive) {
+      console.log("[auction-poll] skipped — neither AUCTION_FAA_ENABLED nor AUCTION_ERA_ENABLED is on (use ?force=1 to override)");
+      return { skipped: "auction_flags_off" };
+    }
   }
   const leagueId = String(env.LEAGUE_ID || "74598");
   const season = Number(env.YEAR || new Date().getUTCFullYear());
@@ -6018,31 +6046,18 @@ export default {
     // original one-job-per-cron isolation rule).
     if (isAuctionPoll) {
       try {
-        // Don't poll an auction that isn't running. This tick fires 288x/day
-        // forever, and between auctions every one of those runs was fetching
-        // MFL's transaction log and walking D1 to rediscover that nothing had
-        // changed — the dominant standing D1 read cost on a database that blew
-        // 240% of its daily row-read cap on 2026-09-07 with the FAA a month
-        // closed. getFeatureFlag fails CLOSED (an unreadable override map reads
-        // as OFF), so a D1 fault skips the poll, which is the safe direction:
-        // the poll is self-healing and catches up on the next tick, whereas
-        // hammering D1 while it is already failing is what pinned the quota.
-        //
-        // Scoped deliberately to processAuctionPoll ONLY. The drop tracker below
-        // shares this cron but runs year-round and records cap penalties — it
-        // must NOT be gated on an auction flag.
-        const auctionLive =
-          (await getFeatureFlag(env, "AUCTION_FAA_ENABLED")) ||
-          (await getFeatureFlag(env, "AUCTION_ERA_ENABLED"));
-        if (!auctionLive) {
-          console.log("[scheduled */5] auction poll skipped — neither AUCTION_FAA_ENABLED nor AUCTION_ERA_ENABLED is on");
-        } else {
-          ctx.waitUntil(processAuctionPoll(env).then((r) => {
-            if (r?.new_bids || r?.new_wins || r?.purged_lots || r?.purged_bids) {
-              console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} purged_lots=${r.purged_lots || 0} purged_bids=${r.purged_bids || 0} active_lots=${r.active_lots}`);
-            }
-          }).catch((e) => console.error(`[scheduled */5] auction poll failed: ${e && e.message}`)));
-        }
+        // The auction-flag gate lives INSIDE processAuctionPoll, not here — see
+        // the comment at its definition. There are two entry points (this cron
+        // and POST /admin/auction/poll-now, which a launchd agent drives every
+        // 300s), so gating at one dispatch site would have left the other one
+        // running the full poll. The drop tracker below deliberately stays
+        // ungated: it shares this cron but runs year-round and records cap
+        // penalties.
+        ctx.waitUntil(processAuctionPoll(env).then((r) => {
+          if (r?.new_bids || r?.new_wins || r?.purged_lots || r?.purged_bids) {
+            console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} purged_lots=${r.purged_lots || 0} purged_bids=${r.purged_bids || 0} active_lots=${r.active_lots}`);
+          }
+        }).catch((e) => console.error(`[scheduled */5] auction poll failed: ${e && e.message}`)));
       } catch (e) {
         console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
       }
@@ -8784,7 +8799,12 @@ export default {
         const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
         if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
         if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
-        const r = await processAuctionPoll(env);
+        // The poll no-ops when neither auction flag is on. `?force=1` is the
+        // break-glass override this route exists to be (faa_2026_runbook.md) —
+        // it is how you poll with the UI kill switch pulled, or run a one-off
+        // catch-up in the offseason.
+        const forcePoll = /^(1|true|yes)$/i.test(String(url.searchParams.get("force") || ""));
+        const r = await processAuctionPoll(env, { force: forcePoll });
         return jsonOut(200, { ok: true, ...r });
       }
 
