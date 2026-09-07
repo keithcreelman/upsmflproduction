@@ -738,11 +738,39 @@ async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishA
 // auction TYPE (hardcoded to 36hr for everything until 2026-07-14):
 //   ERA lot (player in that season's ups_era_pool) → 36hr, league_context §A3
 //   FAA lot (everything else)                      → 24hr, league_context §A2
-async function processAuctionPoll(env) {
+async function processAuctionPoll(env, opts = {}) {
   const db = env.UPS_MFL_DB;
   if (!db) {
     console.log("[auction-poll] UPS_MFL_DB binding missing — skipping");
     return { skipped: "no_db" };
+  }
+  // Don't poll an auction that isn't running. Between auctions this function
+  // fetched MFL's transaction log and walked D1 every 5 minutes forever to
+  // rediscover that nothing had changed — the dominant standing D1 read cost on
+  // a database that blew 240% of its daily row-read cap on 2026-09-07 with the
+  // FAA a month closed.
+  //
+  // The check lives HERE, not at the cron dispatch site, because there are TWO
+  // live entry points: the Cloudflare */5 cron and POST /admin/auction/poll-now,
+  // the latter driven every 300s by the launchd agent com.keith.mfl.auction-poll
+  // (scripts/auction_poll_tick.sh — the deliberate off-platform backup from
+  // docs/faa_2026_runbook.md, added after CF crons died mid-auction). A gate at
+  // the cron only would have left that second poller running the identical full
+  // poll 288x/day and saved essentially nothing.
+  //
+  // getFeatureFlag fails CLOSED, so a D1 fault skips the poll. That is the safe
+  // direction: the poll self-heals on a later tick because MFL's transaction log
+  // is append-only and re-read in full, whereas hammering a failing D1 is what
+  // pinned the quota in the first place. opts.force bypasses this for the
+  // runbook's documented break-glass path.
+  if (!opts.force) {
+    const auctionLive =
+      (await getFeatureFlag(env, "AUCTION_FAA_ENABLED")) ||
+      (await getFeatureFlag(env, "AUCTION_ERA_ENABLED"));
+    if (!auctionLive) {
+      console.log("[auction-poll] skipped — neither AUCTION_FAA_ENABLED nor AUCTION_ERA_ENABLED is on (use ?force=1 to override)");
+      return { skipped: "auction_flags_off" };
+    }
   }
   const leagueId = String(env.LEAGUE_ID || "74598");
   const season = Number(env.YEAR || new Date().getUTCFullYear());
@@ -835,7 +863,14 @@ async function processAuctionPoll(env) {
       ).bind(key).first();
       last = Number(row?.last_ts || 0);
     } catch (e) {
-      console.log(`[auction-poll] sweep check failed for ${key} (running anyway):`, String(e?.message || e));
+      // FAIL CLOSED. An unreadable clock is not a due clock: `last` stays 0,
+      // which makes `due` true below, so the old "running anyway" path ran the
+      // full sweep on EVERY tick for as long as D1 was unhappy. When the reason
+      // D1 is unhappy is the daily row-read limit, that is a feedback loop — the
+      // sweep is the thing spending the budget, and losing the throttle makes it
+      // spend faster (2026-09-07: 12.0M rows/day against a 5M cap).
+      console.log(`[auction-poll] sweep check failed for ${key} — SKIPPING this tick:`, String(e?.message || e));
+      return false;
     }
     const age = Math.floor(Date.now() / 1000) - last;
     const due = !last || age >= intervalSec;
@@ -1295,12 +1330,7 @@ async function processAuctionPoll(env) {
   // silently killing the poll (Keith 2026-07-26). Now throttled to once per
   // 20 minutes; a quiet tick with no fresh bids and no sweep due does zero
   // per-lot work.
-  {
-    const openLots = await db.prepare(
-      `SELECT DISTINCT lot_id FROM ups_auction_bids
-        WHERE season = ? AND league_id = ?`
-    ).bind(season, leagueId).all();
-    let lotIds = (openLots.results || []).map((r) => String(r.lot_id));
+  lotSweep: {
     // Touched lots ALWAYS recompute below regardless of this flag — only the
     // full self-heal pass over every other lot is what defers.
     let runFullSweep = await sweepReady("auction_poll_lot_sweep", 1200, newBids > 0);
@@ -1327,9 +1357,30 @@ async function processAuctionPoll(env) {
         console.log("[auction-poll] open-lot check failed (sweeping anyway):", String(e?.message || e));
       }
     }
-    if (!runFullSweep) {
-      lotIds = lotIds.filter((id) => touchedLotIds.has(id));
+    // Read AFTER deciding, not before. The 2026-08-29 open-lot gate above stopped
+    // the sweep's WRITES on a dead auction, but both of this block's READS still
+    // ran unconditionally first — the DISTINCT scan here and the all-bids scan
+    // below — so every one of the 288 daily ticks paid for the whole season's bid
+    // history to then discover it had nothing to do (~4.3M rows/week, the largest
+    // single read line item on 2026-09-07's 12.0M-row day). The DISTINCT scan
+    // exists only to enumerate lots we don't already know about, which is exactly
+    // and only what a full sweep wants; a non-sweep tick already has its
+    // work-list in touchedLotIds.
+    let lotIds;
+    if (runFullSweep) {
+      const openLots = await db.prepare(
+        `SELECT DISTINCT lot_id FROM ups_auction_bids
+          WHERE season = ? AND league_id = ?`
+      ).bind(season, leagueId).all();
+      lotIds = (openLots.results || []).map((r) => String(r.lot_id));
+    } else {
+      lotIds = [...touchedLotIds].map((id) => String(id));
     }
+    // Nothing touched and no sweep due — the common case once an auction is over.
+    // Skip the ERA lookup and the bid read entirely. Labeled break, NOT return:
+    // the poll still has the FAA-finalize catch-up, the O=43 reconcile, the
+    // deleted-transaction purge and the Discord orphan repair to do after this.
+    if (!lotIds.length) break lotSweep;
     // Lock window depends on the auction TYPE of the lot: ERA lots run 36h
     // (league_context §A3), regular FA-auction lots 24h (§A2). This used to be
     // hardcoded 36h for everything, which pushed every FAA lot's lock 12 hours
@@ -1358,10 +1409,36 @@ async function processAuctionPoll(env) {
     // db.batch() in chunks of 50 instead of one sequential await per lot.
     // All the per-lot math (stats/first/last/lead-change) is UNCHANGED —
     // only where the source rows come from and how the writes are sent.
-    const allBidRowsRs = await db.prepare(
-      `SELECT lot_id, fid, bid_k, bid_at_unix, note, player_id FROM ups_auction_bids
-        WHERE season = ? AND league_id = ? ORDER BY lot_id, bid_at_unix ASC, bid_id ASC`
-    ).bind(season, leagueId).all();
+    // Scoped to the lots actually being recomputed. A full sweep still wants
+    // every lot, but a touched-lots tick wanted 1-2 and was reading the entire
+    // season's bid history to get them (~1,140 rows a tick).
+    //
+    // The bound is 90, NOT 100: bind() also carries season and league_id, so a
+    // 100-lot list sends 102 parameters against D1's 100-per-statement cap — and
+    // this file has already been bitten by that overflow returning ZERO ROWS
+    // SILENTLY rather than throwing (see loadEraPlayerIds' CHUNK = 90, which
+    // explicitly leaves room for the extra binds, and the 2025-W17 callup bug).
+    // A silent empty here would be indistinguishable from "no bids" and would
+    // quietly leave every lot's price and lock timer stale. Above 90 the
+    // unfiltered read is the correct fallback anyway.
+    const scopeToLots = !runFullSweep && lotIds.length > 0 && lotIds.length <= 90;
+    const allBidRowsRs = scopeToLots
+      ? await db.prepare(
+          `SELECT lot_id, fid, bid_k, bid_at_unix, note, player_id FROM ups_auction_bids
+            WHERE season = ? AND league_id = ? AND lot_id IN (${lotIds.map(() => "?").join(",")})
+            ORDER BY lot_id, bid_at_unix ASC, bid_id ASC`
+        ).bind(season, leagueId, ...lotIds).all()
+      : await db.prepare(
+          `SELECT lot_id, fid, bid_k, bid_at_unix, note, player_id FROM ups_auction_bids
+            WHERE season = ? AND league_id = ? ORDER BY lot_id, bid_at_unix ASC, bid_id ASC`
+        ).bind(season, leagueId).all();
+    // A non-empty work-list that reads back zero bid rows is not a normal state —
+    // every lot in lotIds got there by having bid activity. Say so out loud rather
+    // than letting it look like a quiet tick, which is exactly how a bound-param
+    // overflow would hide.
+    if (lotIds.length && !(allBidRowsRs.results || []).length) {
+      console.log(`[auction-poll] WARNING: ${lotIds.length} lot(s) queued but the bid read returned 0 rows (scoped=${scopeToLots}) — treating as no work, lot state left stale this tick`);
+    }
     const rowsByLot = new Map();
     for (const r of (allBidRowsRs.results || [])) {
       const key = String(r.lot_id);
@@ -1713,7 +1790,16 @@ async function processAuctionPoll(env) {
   // was already being computed for the heartbeat and simply never applied to
   // the one operation in this function that destroys data.
   let purgedLots = 0, purgedBids = 0;
-  if (purgeInputComplete && liveTxnPids.size > 0) {
+  // THROTTLED (2026-09-07). This pass is pure self-heal for a rare commish
+  // deletion, but it ran on all 288 daily ticks and its two DISTINCT scans over
+  // ups_auction_lots/ups_auction_bids cost ~200k rows/day — real money against a
+  // 5M/day cap, spent almost entirely on auctions that ended weeks ago. Same
+  // "expensive, self-heal, not time-critical" profile as the sweeps already gated.
+  // This only ever makes the purge run LESS often; the purgeInputComplete guard
+  // still governs whether it may delete at all, and deferring a rare correction
+  // costs nothing but latency.
+  if (purgeInputComplete && liveTxnPids.size > 0 &&
+      (await sweepReady("auction_poll_deleted_txn_purge", 1800, newBids > 0 || newWins > 0))) {
     try {
       const { results: lotPids } = await db.prepare(
         `SELECT DISTINCT player_id FROM ups_auction_lots WHERE season = ? AND league_id = ?`
@@ -5960,6 +6046,13 @@ export default {
     // original one-job-per-cron isolation rule).
     if (isAuctionPoll) {
       try {
+        // The auction-flag gate lives INSIDE processAuctionPoll, not here — see
+        // the comment at its definition. There are two entry points (this cron
+        // and POST /admin/auction/poll-now, which a launchd agent drives every
+        // 300s), so gating at one dispatch site would have left the other one
+        // running the full poll. The drop tracker below deliberately stays
+        // ungated: it shares this cron but runs year-round and records cap
+        // penalties.
         ctx.waitUntil(processAuctionPoll(env).then((r) => {
           if (r?.new_bids || r?.new_wins || r?.purged_lots || r?.purged_bids) {
             console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} purged_lots=${r.purged_lots || 0} purged_bids=${r.purged_bids || 0} active_lots=${r.active_lots}`);
@@ -8706,7 +8799,12 @@ export default {
         const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
         if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
         if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
-        const r = await processAuctionPoll(env);
+        // The poll no-ops when neither auction flag is on. `?force=1` is the
+        // break-glass override this route exists to be (faa_2026_runbook.md) —
+        // it is how you poll with the UI kill switch pulled, or run a one-off
+        // catch-up in the offseason.
+        const forcePoll = /^(1|true|yes)$/i.test(String(url.searchParams.get("force") || ""));
+        const r = await processAuctionPoll(env, { force: forcePoll });
         return jsonOut(200, { ok: true, ...r });
       }
 
@@ -15681,7 +15779,35 @@ export default {
             // RotoWire projection feeds (defenders are absent from FantasyCalc,
             // so its inline sleeperId cannot cover them). Rows now qualify on
             // EITHER id being present, so IDP-only players are not filtered out.
-            ? env.UPS_MFL_DB.prepare("SELECT mfl_id, fantasypros_id, sleeper_id, name, position, team FROM ff_player_ids WHERE (fantasypros_id IS NOT NULL AND fantasypros_id != '') OR (sleeper_id IS NOT NULL AND sleeper_id != '')").all().then((r) => (r && r.results) || []).catch((e) => { crosswalkErr = String((e && e.message) || e) || "d1_error"; return []; })
+            // CACHED at the edge for 6h. ff_player_ids is a ~12.5k-row identity
+            // crosswalk that changes a few times a week at most, but this route
+            // re-scanned ALL of it on every request — 12,472 rows x 84 calls =
+            // ~1.05M rows/day, a fifth of D1's entire daily read budget, to rebuild
+            // a mapping that had not changed. A cache miss or cache error falls
+            // straight through to the same query, and the .catch below still
+            // records crosswalkErr, so the worst case is the previous behaviour.
+            // Only NON-EMPTY results are cached: caching [] would pin the board to
+            // a degraded state — the exact failure the crosswalkErr plumbing above
+            // exists to surface — for six hours after one bad read.
+            ? (async () => {
+                const CK = new Request("https://ups.internal/cache/adp-board/ff_player_ids.v2");
+                try {
+                  const hit = await caches.default.match(CK);
+                  if (hit) {
+                    const cached = await hit.json();
+                    if (Array.isArray(cached) && cached.length) return cached;
+                  }
+                } catch (_) { /* fall through to D1 */ }
+                const rows = await env.UPS_MFL_DB.prepare("SELECT mfl_id, fantasypros_id, sleeper_id, name, position, team FROM ff_player_ids WHERE (fantasypros_id IS NOT NULL AND fantasypros_id != '') OR (sleeper_id IS NOT NULL AND sleeper_id != '')").all().then((r) => (r && r.results) || []).catch((e) => { crosswalkErr = String((e && e.message) || e) || "d1_error"; return []; });
+                if (rows.length) {
+                  try {
+                    ctx.waitUntil(caches.default.put(CK, new Response(JSON.stringify(rows), {
+                      headers: { "content-type": "application/json", "cache-control": "max-age=21600" },
+                    })));
+                  } catch (_) { /* best effort */ }
+                }
+                return rows;
+              })()
             : Promise.resolve([]);
           const adpYear = new Date().getUTCFullYear();
           // POSITIONAL — this list must track the promise array below exactly.
