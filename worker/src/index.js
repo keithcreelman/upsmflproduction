@@ -10144,6 +10144,11 @@ export default {
         const CAP_CEILING_K = 300;
         const ACTIVE_MIN = 27;
         const ACTIVE_MAX_POST_DEADLINE = 30;
+        // §B3 — 50% of an IR player's salary is refunded while he sits there.
+        // The other 50% comes BACK onto the cap the moment he is activated, which
+        // is why cap_room_k alone is a trap for a franchise carrying expensive
+        // players on IR (Keith 2026-09-08).
+        const IR_RELIEF_RATE = 0.5;
 
         try {
           const [leagueRes, rostersRes, adjRes] = await Promise.all([
@@ -10202,6 +10207,7 @@ export default {
             let activeCount = 0;
             let taxiCount = 0;
             let irCount = 0;
+            let irGrossDollars = 0;   // full IR salary, before relief
 
             for (const p of players) {
               const status = String(p?.status || "").toUpperCase();
@@ -10214,10 +10220,19 @@ export default {
                 taxiCount += 1;
                 // Taxi is OFF cap per §6.E — skip from cap_spent
               } else if (isIR) {
+                // Both halves of this branch were wrong and were live-traced against
+                // canon on 2026-09-08 (the verification AUDIT_FOLLOWUP_TRACKERS Q5
+                // asked for the next time a UPS player IR'd — it failed).
+                //   1. §B3: "Cap relief: 50% of salary refunded while on IR."
+                //      The old code charged the FULL salary, understating room for
+                //      every franchise with an IR player — HammerTime by $12.5K.
+                //   2. league_context_v1.md L391: "IR players do NOT count against
+                //      active roster max — and do NOT count toward the 27 minimum
+                //      either." The old code did activeCount += 1, which falsely
+                //      flagged 6 of 12 franchises as over_30.
                 irCount += 1;
-                // §B3 IR 50% relief — TODO v2: half-rate. For v1, full rate (conservative).
-                capSpentDollars += salaryDollars;
-                activeCount += 1;  // IR still counts toward "rostered active" per MFL convention
+                irGrossDollars += salaryDollars;
+                capSpentDollars += salaryDollars * IR_RELIEF_RATE;
               } else {
                 activeCount += 1;
                 capSpentDollars += salaryDollars;
@@ -10229,7 +10244,23 @@ export default {
             const capSpentK = Math.round(capSpentDollars / 1000);
             const capRoomK = capTotalK - capSpentK;
 
+            // Activating an IR player hands back the half §B3 refunded, so today's
+            // cap_room_k overstates what is actually SPENDABLE for any franchise
+            // carrying IR salary. A team that spends its room now and then gets a
+            // player healthy cannot activate him — MFL refuses an add that breaches
+            // the cap, and the only cure is trading salary away.
+            const irReinstateDollars = irGrossDollars * (1 - IR_RELIEF_RATE);
+            const irReinstateK = Math.round(irReinstateDollars / 1000);
+            const capRoomAfterIrK = capRoomK - irReinstateK;
+
             const warnings = [];
+            if (irReinstateK > 0 && capRoomAfterIrK < 0) {
+              warnings.push({
+                severity: "warning",
+                code: "ir_reinstate_shortfall",
+                message: `Cap room $${capRoomK}K but activating all IR costs $${irReinstateK}K — short $${-capRoomAfterIrK}K. Spending this room strands ${irCount === 1 ? "that player" : "those players"} on IR.`,
+              });
+            }
             // §6.A1 ceiling — $300K during auction window
             if (capSpentK > CAP_CEILING_K) {
               warnings.push({
@@ -10273,6 +10304,12 @@ export default {
               cap_ceiling_k: CAP_CEILING_K,
               cap_floor_status: capSpentK < CAP_FLOOR_K ? "below" : "at_or_above",
               cap_ceiling_status: capSpentK > CAP_CEILING_K ? "over" : "at_or_below",
+              // What is spendable today, and what is spendable if every IR player
+              // comes back. Plan against the second one when IR salary is large.
+              cap_room_after_ir_k: capRoomAfterIrK,
+              ir_reinstate_cost_k: irReinstateK,
+              ir_salary_gross_k: Math.round(irGrossDollars / 1000),
+              ir_relief_rate: IR_RELIEF_RATE,
               active_count: activeCount,
               taxi_count: taxiCount,
               ir_count: irCount,
@@ -10302,7 +10339,7 @@ export default {
             franchise_count: perFranchise.length,
             total_warnings: perFranchise.reduce((sum, f) => sum + f.warning_count, 0),
             franchises: perFranchise,
-            notes: "V1: loaded-contract (FL/BL) + 3-year (cy=3) checks deferred — need detailed contractInfo parsing. IR uses full-rate (§B3 50% relief deferred to V2).",
+            notes: "V1: loaded-contract (FL/BL) + 3-year (cy=3) checks deferred — need detailed contractInfo parsing. IR applies §B3 50% relief and is excluded from active_count (both fixed 2026-09-08); cap_room_after_ir_k is room once every IR player is activated.",
           });
         } catch (e) {
           console.error("[auction/compliance] failed:", e);
