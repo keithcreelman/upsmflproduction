@@ -411,8 +411,52 @@
       state.lastLoaded = new Date();
       parseLeague();
       resolveViewerFranchise();
-      return state;
+      // Second pass on purpose: /api/lineup needs the week, and the week comes
+      // from the schedule we just fetched. It resolves the franchise from the
+      // viewer's own MFL_USER_ID cookie, so it needs nothing from
+      // resolveViewerFranchise() beyond being logged in.
+      return fetchSubmittedLineup().then(function () { return state; });
     });
+  }
+
+  // ---------- The submitted lineup (READ-ONLY, from MFL) ----------
+
+  // This panel shows the lineup the owner ACTUALLY SUBMITTED and nothing else.
+  //
+  // It used to render `autoFillSlots(...)` — a legal lineup this app built from
+  // the depth chart — under the heading "Roster shape vs the 18-slot lineup".
+  // It looked exactly like a lineup card, named real players in real slots, and
+  // was not the owner's lineup. On 2026-09-08 The Long Haulers submitted a
+  // correct Week 1 lineup at 06:24, opened this panel, saw George Holani in a
+  // flex where he had started Tre Tucker, and asked the commissioner whether
+  // his lineup was broken. It wasn't; the panel was.
+  //
+  // So: no optimizer output here, ever. Three states, never collapsed —
+  //   known:true                  render HIS starters
+  //   state:"no_record"           MFL read fine and holds no lineup -> PROMPT
+  //   known:false / "unknown"     the READ failed -> say so, prompt anyway
+  // An unreadable lineup is never an empty one, and it is never an excuse to
+  // paint a suggestion that reads as fact.
+  function fetchSubmittedLineup() {
+    var wk = currentWeek();
+    var url = workerUrl("/api/lineup?W=" + encodeURIComponent(wk || ""));
+    return fetchJson(withMflUserParam(url))
+      .then(function (j) { state.lineupRead = j || null; })
+      .catch(function (e) {
+        // Network/CORS failure is UNKNOWN, not "no lineup".
+        state.lineupRead = { ok: false, known: false, state: "unknown",
+                             error: "couldn't reach the lineup service" };
+      });
+  }
+
+  // MFL stores WHICH players start, not which slot each one occupies, so the
+  // slot arrangement below is ours. The players are exactly his; the placement
+  // is a legal arrangement of them, and the footer says so.
+  function slotsForSubmitted(starters, rows) {
+    var want = {};
+    (starters || []).forEach(function (p) { want[String(p)] = true; });
+    var subset = rows.filter(function (r) { return want[String(r.id)]; });
+    return { draft: autoFillSlots(subset, null), rows: subset, count: subset.length };
   }
 
   function parseLeague() {
@@ -1402,27 +1446,12 @@
     return bits.join(" · ");
   }
 
-  function slotOptionsHtml(slot, ls) {
-    var used = {};
-    LINEUP_SLOTS.forEach(function (s) {
-      var pid = ls.draft[s.id];
-      if (pid && s.id !== slot.id) used[pid] = true;
-    });
-    var cur = ls.draft[slot.id] || "";
-    var cands = ls.rows.filter(function (r) {
-      if (!lineupEligibleRow(r)) return false;
-      if (!slotAccepts(slot, r.group)) return false;
-      return !used[r.id] || r.id === cur;
-    }).sort(function (a, b) { return b.salary - a.salary; });
-    var html = '<option value="">— empty —</option>';
-    cands.forEach(function (r) {
-      var lbl = r.short + (r.team ? " · " + r.team : "") + (r.injStatus ? " (" + r.injStatus + ")" : "");
-      html += '<option value="' + escapeHtml(r.id) + '"' + (r.id === cur ? ' selected' : '') + '>' + escapeHtml(lbl) + '</option>';
-    });
-    return html;
-  }
-
-  function bankHtml(side, ls, phase) {
+  // Read-only. Renders ONLY players the owner actually submitted — `ls.rows`
+  // is the submitted subset, never the whole roster — so an empty chip means
+  // MFL genuinely has nobody starting there, not "we didn't pick one".
+  // There is no bench count here on purpose: this panel is his lineup, not a
+  // depth read, and mixing the two is what made it look like a suggestion.
+  function bankHtml(side, ls) {
     var slots = LINEUP_SLOTS.filter(function (s) { return s.side === side; });
     var target = side === "O" ? OFFENSE_STARTERS : DEFENSE_STARTERS;
     var filled = 0;
@@ -1432,21 +1461,12 @@
       if (row) filled += 1;
       var cls = "tops-slot"
         + (row ? "" : " is-empty")
-        + (row && row.injStatus ? " has-inj" : "")
-        + (phase === "in" ? "" : " is-proj");
+        + (row && row.injStatus ? " has-inj" : "");
       var key = '<div class="tops-slot-k">' + escapeHtml(s.label)
         + (s.note ? ' <span class="tops-slot-fx">' + escapeHtml(s.note) + '</span>' : '')
         + '</div>';
-      var body;
-      if (phase === "in") {
-        body = '<select class="tops-slot-sel" data-slot="' + escapeHtml(s.id) + '" aria-label="' + escapeHtml(s.label) + ' starter">'
-          + slotOptionsHtml(s, ls) + '</select>';
-      } else {
-        body = '<div class="tops-slot-n">' + escapeHtml(row ? row.short : "No " + s.label) + '</div>';
-      }
-      var meta = row
-        ? slotMetaFor(row)
-        : (phase === "in" ? "nobody eligible on the bench" : "roster gap");
+      var body = '<div class="tops-slot-n">' + escapeHtml(row ? row.short : "empty") + '</div>';
+      var meta = row ? slotMetaFor(row) : "nobody starting here";
       return '<div class="' + cls + '" data-slot-chip="' + escapeHtml(s.id) + '">'
         + key + body
         + '<div class="tops-slot-m">' + escapeHtml(meta) + '</div>'
@@ -1454,44 +1474,64 @@
         + '</div>';
     }).join("");
 
-    // Bench depth: eligible players for this side who aren't in a slot.
-    var inUse = {};
-    LINEUP_SLOTS.forEach(function (s) { if (ls.draft[s.id]) inUse[ls.draft[s.id]] = true; });
-    var sideGroups = {};
-    slots.forEach(function (s) { s.accepts.forEach(function (g) { sideGroups[g] = true; }); });
-    var bench = ls.rows.filter(function (r) {
-      return lineupEligibleRow(r) && sideGroups[r.group] && !inUse[r.id];
-    }).length;
-
     return '<div class="tops-bank">'
       + '<div class="tops-bank-h">' + (side === "O" ? "Offense" : "Defense")
-      +   ' <em>' + filled + ' of ' + target + (bench ? ' · ' + bench + ' deep on the bench' : '') + '</em>'
+      +   ' <em>' + filled + ' of ' + target + '</em>'
       + '</div>'
       + '<div class="tops-slots">' + chips + '</div>'
       + '</div>';
   }
 
+  function fmtSubmittedAt(unix) {
+    if (!unix) return "";
+    var d = new Date(Number(unix) * 1000);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+  }
+
   function lineupZoneHtml() {
-    var phase = seasonPhase();
-    var ls = lineupState();
-    var v = ls.validation;
+    var wk = currentWeek();
+    var read = state.lineupRead || null;
+    var gameDay = mflModuleUrl("MESSAGE19&hub=gameday");
 
-    var pillCls = v.ok ? "tops-pill is-ok" : (v.problems ? "tops-pill is-bad" : "tops-pill is-warn");
-    var pillTxt = phase === "in"
-      ? (v.complete ? TOTAL_STARTERS + " / " + TOTAL_STARTERS + " set" : v.filled + " / " + TOTAL_STARTERS + " · not legal")
-      : (v.complete ? TOTAL_STARTERS + " / " + TOTAL_STARTERS + " fillable" : v.filled + " / " + TOTAL_STARTERS + " fillable");
+    // Exactly three outcomes. `known` is the only thing that licenses drawing
+    // players; everything else prompts.
+    var haveLineup = !!(read && read.known && (read.starters || []).length);
+    var noRecord   = !!(read && !read.known && read.state === "no_record");
 
-    var title, sub, headCta;
-    if (phase === "in") {
-      var wk = currentWeek();
-      title = "Starting Lineup";
-      sub = (wk ? "Week " + wk + " · " : "") + "seeded from your depth chart — review, then save to MFL";
-      headCta = '<a class="tops-cta tops-cta--ghost" href="' + escapeHtml(mflModuleUrl("MESSAGE19&hub=gameday")) + '" target="_top">Game Day</a>';
+    var rows = buildLineupRows();
+    var sub_ = haveLineup ? slotsForSubmitted(read.starters, rows) : null;
+    var byPid = {};
+    (sub_ ? sub_.rows : []).forEach(function (r) { byPid[r.id] = r; });
+    var ls = { rows: (sub_ ? sub_.rows : []), byPid: byPid, draft: (sub_ ? sub_.draft : {}) };
+
+    var count = haveLineup ? (read.starters || []).length : 0;
+    var pillCls = haveLineup
+      ? (count === TOTAL_STARTERS ? "tops-pill is-ok" : "tops-pill is-warn")
+      : (noRecord ? "tops-pill is-bad" : "tops-pill is-warn");
+    var pillTxt = haveLineup
+      ? count + " / " + TOTAL_STARTERS + " submitted"
+      : (noRecord ? "no lineup submitted" : "data read issue");
+
+    var title = "Your Submitted Lineup";
+    var sub;
+    if (haveLineup) {
+      var stamp = fmtSubmittedAt(read.submitted_at_unix);
+      sub = (wk ? "Week " + wk + " · " : "")
+          + (read.source === "ledger"
+              ? "MFL couldn't be read just now — showing what this app sent"
+              : "live from MFL")
+          + (stamp ? " · submitted " + stamp : "");
+    } else if (noRecord) {
+      sub = (wk ? "Week " + wk + " · " : "") + "MFL is not holding a lineup for you";
     } else {
-      title = "Roster shape vs the 18-slot lineup";
-      sub = "projected Week 1 · lineups open at kickoff";
-      headCta = '<a class="tops-cta tops-cta--ghost" href="' + escapeHtml(mflModuleUrl("MESSAGE7")) + '" target="_top">Front Office</a>';
+      sub = (wk ? "Week " + wk + " · " : "") + "possible data read issue";
     }
+    var headCta = '<a class="tops-cta tops-cta--ghost" href="' + escapeHtml(gameDay) + '" target="_top">Game Day</a>';
+    // MFL's own lineup-setting page (O=06) — the ground truth this panel could
+    // not confirm. Offered ONLY on a read failure: when we have an answer
+    // (known:true or a genuine no_record) there is nothing to double-check.
+    var mflLineupPageUrl = mflPageUrl("/options?O=06");
 
     var msgHtml = "";
     if (state.lineupMessage) {
@@ -1499,27 +1539,92 @@
       msgHtml = '<div class="tops-lineup-msg ' + kind + '">' + escapeHtml(state.lineupMessage.text) + '</div>';
     }
 
-    // D — no lineup submit affordance in the offseason. MFL will not accept a
-    // lineup before the season opens, and offering the button implies it will.
-    var foot;
-    if (phase === "in") {
+    var body, foot;
+    if (haveLineup) {
+      // §G3 heads-up, client-side and best-effort: the real ladder is judged
+      // server-side against 24-hour-anchored history (worker/src/
+      // lineup_compliance.js) — this reads only TODAY's TYPE=injuries
+      // snapshot, so it can miss a status that clears before kickoff, or one
+      // that appears after. It exists to catch a starter who is ALREADY a
+      // problem before that judgment happens, not to replace it.
+      var willNotPlay = [], doubtfulOnly = [];
+      (sub_ ? sub_.rows : []).forEach(function (r) {
+        var s = safeStr(r.injStatus).toUpperCase();
+        if (!s) return;
+        if (/^(OUT|IR|SUSPENDED|RETIRED|HOLDOUT)/.test(s)) willNotPlay.push(r);
+        else if (/^DOUBTFUL/.test(s)) doubtfulOnly.push(r);
+      });
+      var warnHtml = "";
+      if (willNotPlay.length || doubtfulOnly.length) {
+        warnHtml = '<div class="tops-lineup-warn">'
+          + '<div class="tops-lineup-warn-t">⚠ ' +
+              (willNotPlay.length
+                ? plural(willNotPlay.length, "starter") + ' likely will not play'
+                : plural(doubtfulOnly.length, "starter") + ' listed Doubtful')
+          + '</div>'
+          + '<div class="tops-lineup-warn-b">'
+          +   willNotPlay.map(function (r) {
+                return '<b>' + escapeHtml(r.short) + '</b> — ' + escapeHtml(r.injStatus) + ', will score 0 if this holds.';
+              }).join(' ')
+          +   (willNotPlay.length && doubtfulOnly.length ? ' ' : '')
+          +   doubtfulOnly.map(function (r) {
+                return '<b>' + escapeHtml(r.short) + '</b> — Doubtful. If he sits, that\'s a §G3 violation unless you had nobody eligible to sub in.';
+              }).join(' ')
+          + '</div>'
+          + '</div>';
+      }
+      body = warnHtml + bankHtml("O", ls) + bankHtml("D", ls);
+      var shortBy = TOTAL_STARTERS - count;
+      // A starter MFL has that we could not put in a chip — stale roster data,
+      // or a player our eligibility filter rejects — would otherwise just
+      // disappear from the grid and quietly understate his lineup. Say it.
+      var unplaced = count - (sub_ ? sub_.count : 0);
       foot = '<div class="tops-lineup-foot">'
-        + '<span class="tops-note">MFL accepts a partial lineup — but <b>' +
-            (v.complete ? "every slot is filled" : plural(TOTAL_STARTERS - v.filled, "empty slot") + " score 0") +
-          '</b>. Taxi, IR and expired-contract players can\'t start.</span>'
-        + '<button type="button" class="tops-cta tops-cta--ghost" id="topsLineupAuto">Auto-fill best available</button>'
-        + '<button type="button" class="tops-cta" id="topsLineupSave"' + (state.lineupSubmitting ? ' disabled' : '') + '>'
-        +   (state.lineupSubmitting ? "Saving…" : "Save lineup to MFL")
-        + '</button>'
+        + '<span class="tops-note">'
+        +   (shortBy > 0
+              ? 'MFL is holding only <b>' + count + ' of ' + TOTAL_STARTERS + '</b> starters — ' +
+                plural(shortBy, "empty slot") + ' will score 0. '
+              : 'All ' + TOTAL_STARTERS + ' slots are filled. ')
+        +   (unplaced > 0
+              ? '<b>' + plural(unplaced, "starter") + ' could not be shown</b> below — MFL has ' +
+                (unplaced === 1 ? 'him' : 'them') + ' starting, so your lineup is fine; this panel is behind. '
+              : '')
+        +   'These are the players MFL has starting for you; the slot each one sits in is our arrangement of them.'
+        + '</span>'
+        + '<a class="tops-cta" href="' + escapeHtml(gameDay) + '" target="_top">Change it in Game Day</a>'
         + '</div>';
     } else {
-      foot = '<div class="tops-lineup-foot">'
-        + '<span class="tops-note">' + (v.complete
-            ? 'Your roster can field a legal 18 today.'
-            : 'You can\'t field a legal 18 today — <b>' + escapeHtml(v.emptySlots.map(function (s) { return s.label; }).join(", ")) + '</b> ' +
-              (v.emptySlots.length === 1 ? 'has' : 'have') + ' nobody eligible.')
-        + ' Lineups can\'t be submitted until the season opens.</span>'
+      // The prompt. Deliberately identical for "no_record" and "unknown" in
+      // ACTION (go set one) but not in WORDING — telling an owner he has no
+      // lineup when we simply failed to read it is how you get a panicked
+      // resubmit, and telling him one exists when we don't know is worse.
+      body = '<div class="tops-lineup-empty">'
+        + '<div class="tops-lineup-empty-t">'
+        +   (noRecord ? 'No lineup submitted for ' + (wk ? 'Week ' + wk : 'this week')
+                      : 'Possible Data Read Issue')
+        + '</div>'
+        + '<div class="tops-lineup-empty-b">'
+        +   (noRecord
+              ? 'Every slot scores 0 until you set one.'
+              : escapeHtml(safeStr(read && read.error) || 'MFL did not answer.') +
+                ' You likely already have a lineup in — this panel just could not confirm it. ' +
+                'Check it directly on MFL rather than trusting this page.')
+        + '</div>'
+        + (noRecord
+            ? '<a class="tops-cta" href="' + escapeHtml(gameDay) + '" target="_top">Set your lineup</a>'
+            : '<a class="tops-cta" href="' + escapeHtml(mflLineupPageUrl) + '" target="_top">' +
+              'Click here — view your true starting lineup on MFL</a>')
         + '</div>';
+      foot = "";
+      // A lineup this app sent that MFL is no longer holding is a real
+      // discrepancy, not noise — surface it rather than dropping it.
+      if (noRecord && read && read.stale_ledger_submitted_at_unix) {
+        foot = '<div class="tops-lineup-foot">'
+          + '<span class="tops-note">This app submitted a lineup on <b>'
+          +   escapeHtml(fmtSubmittedAt(read.stale_ledger_submitted_at_unix))
+          +   '</b>, but MFL is no longer holding it. Set it again.</span>'
+          + '</div>';
+      }
     }
 
     return '<section class="tops-card" id="topsZone3" aria-label="' + escapeHtml(title) + '">'
@@ -1531,8 +1636,7 @@
       +   headCta
       + '</div>'
       + msgHtml
-      + bankHtml("O", ls, phase)
-      + bankHtml("D", ls, phase)
+      + body
       + foot
       + '</section>';
   }
@@ -1547,34 +1651,11 @@
     wireLineupZone();
   }
 
-  function wireLineupZone() {
-    var zone = document.getElementById("topsZone3");
-    if (!zone) return;
-    zone.querySelectorAll(".tops-slot-sel").forEach(function (sel) {
-      sel.addEventListener("change", function () {
-        var slotId = sel.getAttribute("data-slot");
-        var pid = sel.value;
-        if (!state.lineupDraft) state.lineupDraft = {};
-        if (pid) state.lineupDraft[slotId] = pid;
-        else delete state.lineupDraft[slotId];
-        state.lineupMessage = null;
-        renderLineupZone();
-        renderAttentionZone();
-      });
-    });
-    var auto = document.getElementById("topsLineupAuto");
-    if (auto) auto.addEventListener("click", function () {
-      state.lineupDraft = autoFillSlots(buildLineupRows(), null);
-      state.lineupMessage = null;
-      renderLineupZone();
-      renderAttentionZone();
-    });
-    var save = document.getElementById("topsLineupSave");
-    if (save) save.addEventListener("click", function () {
-      if (save.hasAttribute("disabled")) return;
-      submitLineupDraft();
-    });
-  }
+  // Nothing to wire: the panel is a read-only view of the submitted lineup and
+  // every action on it is a plain link to Game Day, which owns editing and
+  // submitting. Kept as a named no-op so renderLineupZone() reads the same as
+  // the other zones and a future control has an obvious home.
+  function wireLineupZone() {}
 
   // ---------- Zone 4: League Pulse + Calendar ----------
 
@@ -1996,14 +2077,10 @@
     zone.querySelectorAll("[data-attn-action]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         if (btn.getAttribute("data-attn-action") !== "focusLineup") return;
-        var ls = lineupState();
-        var firstEmpty = null;
-        for (var i = 0; i < LINEUP_SLOTS.length; i++) {
-          if (!ls.draft[LINEUP_SLOTS[i].id]) { firstEmpty = LINEUP_SLOTS[i].id; break; }
-        }
-        var target = firstEmpty
-          ? document.querySelector('.tops-slot-sel[data-slot="' + firstEmpty + '"]')
-          : document.getElementById("topsZone3");
+        // The lineup panel is read-only now, so there is no per-slot control to
+        // focus — scroll to the panel itself and let its CTA carry the owner to
+        // Game Day. (Targeting `.tops-slot-sel` here would silently no-op.)
+        var target = document.getElementById("topsZone3");
         if (!target) return;
         // The hub renders in a height-synced, cross-origin iframe, so a
         // programmatic scroll of the PARENT document isn't available to us.
@@ -2088,41 +2165,6 @@
   // position server-side; the named slots are a client-side aid. Only the
   // client state shape changed (flat Set → { slotId: pid }), so we walk
   // LINEUP_SLOTS in order and dedupe — same approach as gameday.html.
-  function submitLineupDraft() {
-    if (state.lineupSubmitting) return;
-    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
-    if (!fid) return;
-    var draft = state.lineupDraft || {};
-    var seen = {}, starters = [];
-    LINEUP_SLOTS.forEach(function (s) {
-      var pid = draft[s.id];
-      if (pid && !seen[pid]) { seen[pid] = 1; starters.push(pid); }
-    });
-    state.lineupSubmitting = true;
-    state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
-    renderLineupZone();
-    fetch(withMflUserParam(workerBase() + "/api/submit-lineup"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ franchiseId: fid, starters: starters }),
-    })
-      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
-      .then(function (resp) {
-        if (resp.body && resp.body.ok) {
-          state.lineupMessage = { kind: "ok", text: "Lineup saved to MFL ✓" };
-        } else {
-          state.lineupMessage = { kind: "err", text: String(extractMflError(resp, "MFL rejected lineup")) };
-        }
-      })
-      .catch(function (e) {
-        state.lineupMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
-      })
-      .then(function () {
-        state.lineupSubmitting = false;
-        renderLineupZone();
-      });
-  }
-
   // Load this franchise's persisted per-player trade-bait notes from D1.
   // Idempotent: only fires once per page load, and only when the On The
   // Block panel is actually opened.
