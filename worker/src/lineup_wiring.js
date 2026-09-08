@@ -36,6 +36,29 @@ const _s = (v) => String(v == null ? "" : v).trim();
 const _fid = (v) => { const d = _s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0") : ""; };
 const _arr = (x) => (Array.isArray(x) ? x : x ? [x] : []);
 
+// Neither job stamped ups_bot_heartbeat before 2026-09-08, unlike auction_poll
+// / trade_roast / cron_cf — found while verifying this plumbing was live for
+// Keith ahead of Week 1. A silent failure here would not surface in Commish
+// Settings' cron-health view.
+//
+// Stamped on EVERY reachable return, deliberately INCLUDING the "nothing was
+// due this tick" skips (no_window_due / week_not_final are the common case,
+// most of an hour) — that is what makes a stale row mean something. Called
+// only from inside a caught branch (never from a spot that could throw first),
+// so an actual crash leaves last_ts stale and staleness stays diagnostic. A
+// heartbeat write failing is diagnostics-only and must never fail the job it
+// is reporting on.
+async function _stampLineupHeartbeat(db, bot, status) {
+  if (!db) return;
+  try {
+    await db.prepare(
+      `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+       VALUES (?, ?, ?, '')
+       ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = excluded.status`
+    ).bind(bot, Math.floor(Date.now() / 1000), String(status).slice(0, 64)).run();
+  } catch (_) { /* diagnostics only — never worth failing the job over */ }
+}
+
 const MFL_API = "https://api.myfantasyleague.com";
 const MFL_WWW = "https://www48.myfantasyleague.com";
 const UA = { "User-Agent": "upsmflproduction-worker" };
@@ -221,10 +244,10 @@ export async function runLineupDmSweep(env, { season, leagueId, week, nowUnix, d
   const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
 
   const sched = await weekSchedule(season, week);
-  if (!sched) return { ok: true, skipped: "schedule_unreadable" };
+  if (!sched) { await _stampLineupHeartbeat(db, "lineup_dm_sweep", "skipped:schedule_unreadable"); return { ok: true, skipped: "schedule_unreadable" }; }
   // Which game window(s) are ~1.5h out right now?
   const due = sched.kickoffs.filter((k) => (k - now) > DM_WINDOW_MIN_SEC && (k - now) <= DM_WINDOW_MAX_SEC);
-  if (!due.length) return { ok: true, skipped: "no_window_due" };
+  if (!due.length) { await _stampLineupHeartbeat(db, "lineup_dm_sweep", "ok:no_window_due"); return { ok: true, skipped: "no_window_due" }; }
 
   const [players, rosters, byes] = await Promise.all([
     playerIndex(season, leagueId),
@@ -233,7 +256,7 @@ export async function runLineupDmSweep(env, { season, leagueId, week, nowUnix, d
   ]);
   // Fail closed: without rosters or the player index there is nothing
   // trustworthy to say, and a wrong "you're clean" DM is worse than silence.
-  if (!players || !rosters) return { ok: true, skipped: "inputs_unreadable" };
+  if (!players || !rosters) { await _stampLineupHeartbeat(db, "lineup_dm_sweep", "skipped:inputs_unreadable"); return { ok: true, skipped: "inputs_unreadable" }; }
 
   const history = await injuryHistoryForWeek(env, { season, week });
   const observedFrom = await injuryObservedFrom(env, { season, week });
@@ -282,6 +305,7 @@ export async function runLineupDmSweep(env, { season, leagueId, week, nowUnix, d
     }
     sent.push({ fid, verdict: ev.result.verdict });
   }
+  await _stampLineupHeartbeat(db, "lineup_dm_sweep", `ok:sent=${sent.length}`);
   return { ok: true, week, window_key: windowKey, window_label: windowLabel, sent: sent.length, detail: sent };
 }
 
@@ -292,18 +316,18 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
   const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
 
   const sched = await weekSchedule(season, week);
-  if (!sched) return { ok: true, skipped: "schedule_unreadable" };
+  if (!sched) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:schedule_unreadable"); return { ok: true, skipped: "schedule_unreadable" }; }
   const last = sched.kickoffs[sched.kickoffs.length - 1] || 0;
   // Wait for the last game to finish AND for injury status to settle. Booking
   // early would judge a player whose game has not kicked off yet.
-  if (!last || now < last + WEEK_SETTLE_SEC) return { ok: true, skipped: "week_not_final" };
+  if (!last || now < last + WEEK_SETTLE_SEC) { await _stampLineupHeartbeat(db, "lineup_booking", "ok:week_not_final"); return { ok: true, skipped: "week_not_final" }; }
 
   const [players, rosters, byes] = await Promise.all([
     playerIndex(season, leagueId),
     leagueRosters(season, leagueId, env.MFL_COOKIE),
     byeTeams(season, week),
   ]);
-  if (!players || !rosters) return { ok: true, skipped: "inputs_unreadable" };
+  if (!players || !rosters) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:inputs_unreadable"); return { ok: true, skipped: "inputs_unreadable" }; }
 
   const history = await injuryHistoryForWeek(env, { season, week });
   const observedFrom = await injuryObservedFrom(env, { season, week });
@@ -326,6 +350,7 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
     booked.push({ fid, offense_no: b.offense_no, rung: b.rung && b.rung.label,
                   reasons: ev.result.violations.map((v) => v.reason) });
   }
+  await _stampLineupHeartbeat(db, "lineup_booking", `ok:booked=${booked.length}`);
   return { ok: true, week, booked: booked.length, clean: clean.length, skipped: skipped.length,
            detail: { booked, skipped } };
 }
