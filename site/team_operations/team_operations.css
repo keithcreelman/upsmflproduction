@@ -438,36 +438,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Per-slot dropdown, styled to read as the player name rather than a form
-   control — the chip is the affordance, the caret is the hint. */
-.tops-slot-sel {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;
-  margin-top: 1px;
-  padding: 0 14px 0 0;
-  background: transparent;
-  border: 0;
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--t-body);
-  font-weight: 700;
-  cursor: pointer;
-  text-overflow: ellipsis;
-  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%),
-                    linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
-  background-position: right 4px top 8px, right 0 top 8px;
-  background-size: 4px 4px, 4px 4px;
-  background-repeat: no-repeat;
-}
-.tops-slot-sel option { background: var(--panel-3); color: var(--ink); }
 .tops-slot.is-empty {
   border: 1px dashed rgba(248, 113, 113, 0.45);
   background: rgba(248, 113, 113, 0.05);
 }
-.tops-slot.is-empty .tops-slot-n,
-.tops-slot.is-empty .tops-slot-sel { color: var(--bad); font-weight: 800; }
-.tops-slot.is-proj { opacity: 0.82; }
+.tops-slot.is-empty .tops-slot-n { color: var(--bad); font-weight: 800; }
 .tops-slot-inj {
   position: absolute;
   top: 6px;
@@ -480,7 +455,30 @@
   padding: 0 4px;
   line-height: 14px;
 }
-.tops-slot.has-inj .tops-slot-sel { padding-right: 32px; }
+
+/* No submitted lineup — or we could not read one. Deliberately NOT a grid of
+   empty slot chips: an 18-slot skeleton reads as "here is your lineup" and the
+   whole point of this state is that there isn't one. */
+.tops-lineup-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s4) var(--s3);
+  border: 1px dashed rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.05);
+  border-radius: var(--r-sm);
+}
+.tops-lineup-empty-t {
+  font-size: var(--t-body);
+  font-weight: 800;
+  color: var(--bad);
+}
+.tops-lineup-empty-b {
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  max-width: 62ch;
+}
 
 .tops-lineup-foot {
   display: flex;
