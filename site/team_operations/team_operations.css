@@ -456,6 +456,31 @@
   line-height: 14px;
 }
 
+/* A submitted starter carries an Out/IR/Suspended/Retired/Holdout or Doubtful
+   designation as of TODAY's injury snapshot. Client-side and best-effort — the
+   real §G3 ladder judges this 24 hours before kickoff on server-side history
+   (worker/src/lineup_compliance.js). This is a heads-up to act on now, not a
+   verdict. Sits above the slot grid so it's the first thing seen. */
+.tops-lineup-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--s3);
+  padding: var(--s3);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.08);
+  border-radius: var(--r-sm);
+}
+.tops-lineup-warn-t {
+  font-size: var(--t-body);
+  font-weight: 800;
+  color: var(--warn);
+}
+.tops-lineup-warn-b {
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+}
+
 /* No submitted lineup — or we could not read one. Deliberately NOT a grid of
    empty slot chips: an 18-slot skeleton reads as "here is your lineup" and the
    whole point of this state is that there isn't one. */

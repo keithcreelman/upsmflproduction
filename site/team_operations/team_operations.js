@@ -1511,7 +1511,7 @@
       : (noRecord ? "tops-pill is-bad" : "tops-pill is-warn");
     var pillTxt = haveLineup
       ? count + " / " + TOTAL_STARTERS + " submitted"
-      : (noRecord ? "no lineup submitted" : "lineup unknown");
+      : (noRecord ? "no lineup submitted" : "data read issue");
 
     var title = "Your Submitted Lineup";
     var sub;
@@ -1525,9 +1525,13 @@
     } else if (noRecord) {
       sub = (wk ? "Week " + wk + " · " : "") + "MFL is not holding a lineup for you";
     } else {
-      sub = (wk ? "Week " + wk + " · " : "") + "we could not read your lineup";
+      sub = (wk ? "Week " + wk + " · " : "") + "possible data read issue";
     }
     var headCta = '<a class="tops-cta tops-cta--ghost" href="' + escapeHtml(gameDay) + '" target="_top">Game Day</a>';
+    // MFL's own lineup-setting page (O=06) — the ground truth this panel could
+    // not confirm. Offered ONLY on a read failure: when we have an answer
+    // (known:true or a genuine no_record) there is nothing to double-check.
+    var mflLineupPageUrl = mflPageUrl("/options?O=06");
 
     var msgHtml = "";
     if (state.lineupMessage) {
@@ -1537,7 +1541,39 @@
 
     var body, foot;
     if (haveLineup) {
-      body = bankHtml("O", ls) + bankHtml("D", ls);
+      // §G3 heads-up, client-side and best-effort: the real ladder is judged
+      // server-side against 24-hour-anchored history (worker/src/
+      // lineup_compliance.js) — this reads only TODAY's TYPE=injuries
+      // snapshot, so it can miss a status that clears before kickoff, or one
+      // that appears after. It exists to catch a starter who is ALREADY a
+      // problem before that judgment happens, not to replace it.
+      var willNotPlay = [], doubtfulOnly = [];
+      (sub_ ? sub_.rows : []).forEach(function (r) {
+        var s = safeStr(r.injStatus).toUpperCase();
+        if (!s) return;
+        if (/^(OUT|IR|SUSPENDED|RETIRED|HOLDOUT)/.test(s)) willNotPlay.push(r);
+        else if (/^DOUBTFUL/.test(s)) doubtfulOnly.push(r);
+      });
+      var warnHtml = "";
+      if (willNotPlay.length || doubtfulOnly.length) {
+        warnHtml = '<div class="tops-lineup-warn">'
+          + '<div class="tops-lineup-warn-t">⚠ ' +
+              (willNotPlay.length
+                ? plural(willNotPlay.length, "starter") + ' likely will not play'
+                : plural(doubtfulOnly.length, "starter") + ' listed Doubtful')
+          + '</div>'
+          + '<div class="tops-lineup-warn-b">'
+          +   willNotPlay.map(function (r) {
+                return '<b>' + escapeHtml(r.short) + '</b> — ' + escapeHtml(r.injStatus) + ', will score 0 if this holds.';
+              }).join(' ')
+          +   (willNotPlay.length && doubtfulOnly.length ? ' ' : '')
+          +   doubtfulOnly.map(function (r) {
+                return '<b>' + escapeHtml(r.short) + '</b> — Doubtful. If he sits, that\'s a §G3 violation unless you had nobody eligible to sub in.';
+              }).join(' ')
+          + '</div>'
+          + '</div>';
+      }
+      body = warnHtml + bankHtml("O", ls) + bankHtml("D", ls);
       var shortBy = TOTAL_STARTERS - count;
       // A starter MFL has that we could not put in a chip — stale roster data,
       // or a player our eligibility filter rejects — would otherwise just
@@ -1565,17 +1601,19 @@
       body = '<div class="tops-lineup-empty">'
         + '<div class="tops-lineup-empty-t">'
         +   (noRecord ? 'No lineup submitted for ' + (wk ? 'Week ' + wk : 'this week')
-                      : 'We could not read your lineup')
+                      : 'Possible Data Read Issue')
         + '</div>'
         + '<div class="tops-lineup-empty-b">'
         +   (noRecord
               ? 'Every slot scores 0 until you set one.'
               : escapeHtml(safeStr(read && read.error) || 'MFL did not answer.') +
-                ' You may already have a lineup in — this panel just cannot confirm it.')
+                ' You likely already have a lineup in — this panel just could not confirm it. ' +
+                'Check it directly on MFL rather than trusting this page.')
         + '</div>'
-        + '<a class="tops-cta" href="' + escapeHtml(gameDay) + '" target="_top">'
-        +   (noRecord ? 'Set your lineup' : 'Open Game Day')
-        + '</a>'
+        + (noRecord
+            ? '<a class="tops-cta" href="' + escapeHtml(gameDay) + '" target="_top">Set your lineup</a>'
+            : '<a class="tops-cta" href="' + escapeHtml(mflLineupPageUrl) + '" target="_top">' +
+              'Click here — view your true starting lineup on MFL</a>')
         + '</div>';
       foot = "";
       // A lineup this app sent that MFL is no longer holding is a real
