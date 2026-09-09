@@ -1778,7 +1778,17 @@
         return "Player #" + tok;
       }
       if ((m = tok.match(/^DP_(\d+)_(\d+)$/))) {
-        return state.ctx.year + " R" + m[1] + ".P" + m[2];
+        // MFL ZERO-INDEXES BOTH FIELDS: DP_0_0 is pick 1.01, DP_0_3 is 1.04.
+        // This printed the raw values, so a token for the 4th pick of round 1
+        // rendered as "R0.P3" — a round that does not exist. The worker gets
+        // this right in six separate places (index.js ~20819, ~21505, ~22688,
+        // ~28648, ~28824, ~32065) and so does site/trades/trade_workbench.js;
+        // this was the one client that didn't. Found 2026-09-09 when the same
+        // off-by-one in the Wire's pack builder turned Keith's real draft-night
+        // trade (gave 1.04, got Etienne + 1.07) into "an unresolvable round-0
+        // pick token".
+        return state.ctx.year + " R" + (Number(m[1]) + 1) + ".P" +
+               String(Number(m[2]) + 1).padStart(2, "0");
       }
       if ((m = tok.match(/^FP_(\d{4})_(\d+)_(\d+)$/))) {
         var fr = state.franchises.find(function (f) { return f.id === pad4(m[1]); });
