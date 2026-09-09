@@ -52,7 +52,9 @@ def _money(v):
 
 
 def _fresh_adp_board():
-    """Live redraft-ADP pull (bypasses the stale committed July snapshot).
+    """Live redraft-ADP pull, VALUE AND RANK BOTH FROM THE REDRAFT BOARD.
+
+    (bypasses the stale committed July snapshot)
 
     Uses the endpoint's own `redraft.rsfConsensus` field, NOT a hand-rolled
     mean(fc.rsf, ktc.rsf). First version of this function did the naive mean,
@@ -72,6 +74,7 @@ def _fresh_adp_board():
     """
     base = D.WORKER_BASE + "/api/adp-board"
     rsf, name, pos_rank, confidence = {}, {}, {}, {}
+    board_rows = {}
     for pos in ("QB", "RB", "WR", "TE"):
         url = base + "?" + urllib.parse.urlencode({"pos": pos})
         req = urllib.request.Request(url, headers={"User-Agent": "ups-wire-pack-builder"})
@@ -87,7 +90,24 @@ def _fresh_adp_board():
                 rsf[pid] = v
                 confidence[pid] = redraft.get("rsfConfidence")
             name[pid] = x.get("name")
-            pos_rank[pid] = x.get("posRank")
+            if v is not None:
+                # No consensus value means the board has no redraft opinion on
+                # him, so he cannot hold a redraft rank either. Leaving him out
+                # keeps "unranked" distinct from "ranked last".
+                board_rows.setdefault(pos, []).append((pid, v))
+
+    # RANK ON THE SAME NUMBER THE VALUE USES. The board's top-level `posRank`
+    # is the DYNASTY rank -- it sits beside `value`, `rank`, `ovr` and `tier`,
+    # all dynasty fields, while everything redraft lives under `redraft`. Using
+    # it to tier a redraft value silently mixed the two boards, and dynasty
+    # punishes age hard: Dak Prescott is posRank 14 (age 33) but REDRAFT QB8,
+    # Matthew Stafford posRank 24 but redraft QB11. Every tier, and the entire
+    # studs/solid/holes count, was computed off the wrong board until Keith
+    # caught the Prescott label. Rank here, from rsfConsensus, over the full
+    # board for the position.
+    for pos, rows in board_rows.items():
+        for i, (pid, _v) in enumerate(sorted(rows, key=lambda r: -r[1]), 1):
+            pos_rank[pid] = i
     return rsf, name, pos_rank, confidence
 
 

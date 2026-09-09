@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0008",
   "title": "2026 Team Review: Real Deal Creel",
-  "generatedAtUtc": "2026-09-09T15:22:46Z",
+  "generatedAtUtc": "2026-09-09T16:26:03Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -26,7 +26,7 @@
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T15:22:37Z",
+      "asof": "2026-09-09T16:25:55Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -285,18 +285,18 @@
     {
       "id": "f.team.0008.holes_current",
       "label": "Starting-lineup holes, now (of 9 ADP-priced slots)",
-      "value": 2,
+      "value": 3,
       "unit": "count",
-      "fmt": "2",
+      "fmt": "3",
       "source": "lineup_engine+adp-board",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0008.holes_opening",
       "label": "Starting-lineup holes, opening (of 9 ADP-priced slots)",
-      "value": 5,
+      "value": 7,
       "unit": "count",
-      "fmt": "5",
+      "fmt": "7",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
@@ -393,9 +393,9 @@
     {
       "id": "f.team.0008.studs_current",
       "label": "Starting-lineup studs, now (top-12 at position)",
-      "value": 2,
+      "value": 4,
       "unit": "count",
-      "fmt": "2",
+      "fmt": "4",
       "source": "lineup_engine+adp-board",
       "asof": "2026-09-06"
     },
@@ -713,7 +713,7 @@
         [
           "Marvin Harrison Jr",
           "WR",
-          "Low-end WR2",
+          "Low-end WR3",
           14000
         ],
         [
@@ -731,7 +731,7 @@
         [
           "KC Concepcion",
           "WR",
-          "High-end WR3",
+          "Replacement-level WR",
           9000
         ],
         [
@@ -767,7 +767,7 @@
         [
           "Tyquan Thornton",
           "WR",
-          "Replacement-level WR",
+          "unranked by the redraft board",
           1000
         ]
       ],
@@ -832,8 +832,8 @@
           62000,
           9268,
           1,
-          3,
-          5
+          1,
+          7
         ],
         [
           "Entering the auction",
@@ -842,9 +842,9 @@
           "no",
           95000,
           19237,
+          2,
           1,
-          4,
-          4
+          6
         ],
         [
           "Now",
@@ -853,9 +853,9 @@
           "yes",
           297000,
           33481,
+          4,
           2,
-          5,
-          2
+          3
         ]
       ],
       "note": "'Could field a lineup?' is the gate on every other number in that row: where it says no, the roster had fewer than 18 active players and there was NO lineup -- the value and stud/hole figures come from the optimizer filling slots with whoever was on hand, and must never be described as the owner's lineup or his choices."
@@ -1333,19 +1333,19 @@
           "QB",
           "Dak Prescott",
           "QB",
-          "High-end QB2"
+          "High-end QB1"
         ],
         [
           "RB",
           "Saquon Barkley",
           "RB",
-          "Low-end RB1"
+          "High-end RB1"
         ],
         [
           "RB",
           "Travis Etienne",
           "RB",
-          "Low-end RB2"
+          "High-end RB2"
         ],
         [
           "WR",
@@ -1357,19 +1357,19 @@
           "WR",
           "Christian Watson",
           "WR",
-          "Low-end WR3"
+          "High-end WR3"
         ],
         [
           "TE",
           "Dallas Goedert",
           "TE",
-          "Replacement-level TE"
+          "Low-end TE1"
         ],
         [
           "Flex",
           "TreVeyon Henderson",
           "RB",
-          "Low-end RB2"
+          "High-end RB3"
         ],
         [
           "Flex",
@@ -1381,7 +1381,7 @@
           "SuperFlex",
           "Kyler Murray",
           "QB",
-          "Low-end QB2"
+          "High-end QB2"
         ],
         [
           "K",
@@ -1470,7 +1470,7 @@
           "1.07",
           "KC Concepcion",
           "57% usable historically at this slot",
-          "High-end WR3"
+          "Replacement-level WR"
         ],
         [
           "1.09",
@@ -1482,7 +1482,7 @@
           "2.06",
           "De'Zhaun Stribling",
           "21% usable historically at this slot",
-          "Low-end WR3"
+          "Replacement-level WR"
         ],
         [
           "3.06",
@@ -1529,55 +1529,55 @@
           "QB1",
           "Deshaun Watson, Replacement-level QB",
           "Deshaun Watson, Replacement-level QB",
-          "Dak Prescott, High-end QB2"
+          "Dak Prescott, High-end QB1"
         ],
         [
           "RB1",
-          "TreVeyon Henderson, Low-end RB2",
-          "Travis Etienne, Low-end RB2",
-          "Saquon Barkley, Low-end RB1"
+          "TreVeyon Henderson, High-end RB3",
+          "Travis Etienne, High-end RB2",
+          "Saquon Barkley, High-end RB1"
         ],
         [
           "RB2",
-          "Emanuel Wilson, Replacement-level RB",
-          "TreVeyon Henderson, Low-end RB2",
-          "Travis Etienne, Low-end RB2"
+          "Emanuel Wilson (unranked)",
+          "TreVeyon Henderson, High-end RB3",
+          "Travis Etienne, High-end RB2"
         ],
         [
           "WR1",
-          "Tetairoa McMillan, Low-end WR1",
+          "Tetairoa McMillan, High-end WR2",
           "Puka Nacua, Elite WR1",
           "Puka Nacua, Elite WR1"
         ],
         [
           "WR2",
-          "Christian Watson, Low-end WR3",
-          "Christian Watson, Low-end WR3",
-          "Christian Watson, Low-end WR3"
+          "Christian Watson, High-end WR3",
+          "Christian Watson, High-end WR3",
+          "Christian Watson, High-end WR3"
         ],
         [
           "TE1",
-          "Dallas Goedert, Replacement-level TE",
-          "Dallas Goedert, Replacement-level TE",
-          "Dallas Goedert, Replacement-level TE"
+          "Dallas Goedert, Low-end TE1",
+          "Dallas Goedert, Low-end TE1",
+          "Dallas Goedert, Low-end TE1"
         ],
         [
           "OF1",
-          "Marvin Harrison Jr, Low-end WR2",
-          "Marvin Harrison Jr, Low-end WR2",
-          "TreVeyon Henderson, Low-end RB2"
+          "Marvin Harrison Jr, Low-end WR3",
+          "Marvin Harrison Jr, Low-end WR3",
+          "TreVeyon Henderson, High-end RB3"
         ],
         [
           "OF2",
-          "Trey Benson, Replacement-level RB",
-          "KC Concepcion, High-end WR3",
+          "Trey Benson (unranked)",
+          "KC Concepcion, Replacement-level WR",
           "Parker Washington, High-end WR3"
         ],
         [
           "SF1",
-          "Keon Coleman, Replacement-level WR",
+          "Keon Coleman (unranked)",
           "Kayshon Boutte, Replacement-level WR",
-          "Kyler Murray, Low-end QB2"
+          "Kyler Murray, High-end QB2"
         ]
       ],
       "note": "Parenthesised number is the player's LEAGUE-WIDE rank at his position on the live redraft board: <=12 is a stud, <=24 solid, beyond that (or unranked, or empty) a hole. Use these NAMES when describing how the lineup changed -- a stud count moving 1 -> 2 can conceal the largest single upgrade of the offseason."

@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0006",
   "title": "2026 Team Review: The Long Haulers",
-  "generatedAtUtc": "2026-09-09T15:23:49Z",
+  "generatedAtUtc": "2026-09-09T16:28:14Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -26,7 +26,7 @@
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T15:23:42Z",
+      "asof": "2026-09-09T16:28:07Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -390,18 +390,18 @@
     {
       "id": "f.team.0006.studs_current",
       "label": "Starting-lineup studs, now (top-12 at position)",
-      "value": 3,
+      "value": 5,
       "unit": "count",
-      "fmt": "3",
+      "fmt": "5",
       "source": "lineup_engine+adp-board",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0006.studs_opening",
       "label": "Starting-lineup studs, opening (top-12 at position)",
-      "value": 3,
+      "value": 5,
       "unit": "count",
-      "fmt": "3",
+      "fmt": "5",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
@@ -653,7 +653,7 @@
         [
           "Fernando Mendoza",
           "QB",
-          "High-end QB2",
+          "Replacement-level QB",
           13000
         ],
         [
@@ -695,7 +695,7 @@
         [
           "Cade Otton",
           "TE",
-          "Replacement-level TE",
+          "unranked by the redraft board",
           5000
         ],
         [
@@ -765,8 +765,8 @@
           "yes",
           270000,
           27092,
-          3,
-          2,
+          5,
+          0,
           4
         ],
         [
@@ -776,8 +776,8 @@
           "yes",
           292000,
           28033,
-          3,
-          2,
+          5,
+          0,
           4
         ],
         [
@@ -787,8 +787,8 @@
           "yes",
           290000,
           29046,
-          3,
-          2,
+          5,
+          0,
           4
         ]
       ],
@@ -1315,7 +1315,7 @@
           "RB",
           "Derrick Henry",
           "RB",
-          "High-end RB2"
+          "High-end RB1"
         ],
         [
           "RB",
@@ -1327,13 +1327,13 @@
           "WR",
           "A.J. Brown",
           "WR",
-          "High-end WR2"
+          "High-end WR1"
         ],
         [
           "WR",
           "Quentin Johnston",
           "WR",
-          "Replacement-level WR"
+          "High-end WR4"
         ],
         [
           "TE",
@@ -1446,7 +1446,7 @@
           "1.03",
           "Fernando Mendoza",
           "57% usable historically at this slot",
-          "High-end QB2"
+          "Replacement-level QB"
         ],
         [
           "2.05",
@@ -1521,9 +1521,9 @@
         ],
         [
           "RB1",
-          "Derrick Henry, High-end RB2",
-          "Derrick Henry, High-end RB2",
-          "Derrick Henry, High-end RB2"
+          "Derrick Henry, High-end RB1",
+          "Derrick Henry, High-end RB1",
+          "Derrick Henry, High-end RB1"
         ],
         [
           "RB2",
@@ -1533,15 +1533,15 @@
         ],
         [
           "WR1",
-          "A.J. Brown, High-end WR2",
-          "A.J. Brown, High-end WR2",
-          "A.J. Brown, High-end WR2"
+          "A.J. Brown, High-end WR1",
+          "A.J. Brown, High-end WR1",
+          "A.J. Brown, High-end WR1"
         ],
         [
           "WR2",
           "Josh Downs, Replacement-level WR",
-          "Quentin Johnston, Replacement-level WR",
-          "Quentin Johnston, Replacement-level WR"
+          "Quentin Johnston, High-end WR4",
+          "Quentin Johnston, High-end WR4"
         ],
         [
           "TE1",

@@ -350,6 +350,17 @@ The "New status" column is a separate fact (it can read Ext2 on a contract
 whose Type is Restructure, because status records the contract's history, not
 this move).
 
+NAME PEOPLE THE WAY THE LEAGUE DOES. Use the TEAM NAME or the owner's full
+name or first name -- "Real Deal Creel", "Keith Creelman", "Keith". A bare
+surname on repeat ("Creelman did this, Creelman did that") reads like a court
+transcript, not a league anyone plays in. Vary between team and person the way
+a broadcast would, and use the same convention for every other franchise you
+mention.
+
+DO NOT NARRATE WHO DOES NOT GET CREDIT. If a move was made by a previous owner,
+just attribute it to the owner who made it and move on. Sentences of the form
+"it is not X's work" argue with a claim nobody made.
+
 SPEAK IN TIERS, NOT IN SCALE NUMBERS. "Worth 6,733" and "proj +1.7" are
 internal units and mean nothing to a reader. The tables give you the tier --
 "Elite WR1", "High-end RB2", "Replacement-level TE" -- and that IS the verdict,
