@@ -30,6 +30,14 @@ import tiering
 PACK_ID_RE = re.compile(r"^2026-team-(\d{4})$")
 SEASON = 2026
 PREAUCTION_DATE = "2026-07-23"  # faa_roster_lock_at, from ups_settings.auction_calendar
+# The offseason ENDS when the auction does. The last FAA lot was won 2026-08-04
+# 15:40 UTC, so this is the first snapshot that contains its result. Reading the
+# arc's final stage off "today" instead measured a roster that had since been
+# churned by in-season waiver work -- and understated the finish badly: 35
+# active here (the roster maximum at the time) versus 30 now. Keith: "you would
+# need to look at my roster at the conclusion of the auction not 9/6."
+POSTAUCTION_DATE = "2026-08-05"
+ROSTER_MAX_AT_AUCTION = 35        # csetup; drops to 30 at the September deadline
 # The UPS minimum salary is $1,000 (canon §A1: R6 rookie slot, the $1K flat WW
 # salary, and the 2025 switch to a flat $1K opening auction bid all sit here).
 # Stated once so nothing downstream can call a $2,000 deal "minimum" -- that
@@ -555,8 +563,35 @@ def build(pack_id):
     # Lineup panel showing optimizer output as a submitted lineup.
     STARTING_SLOTS = len(LE.LINEUP_SLOTS)
 
-    def _roster_shape(date):
-        rows = _roster_rows(date, fid, positions)
+    ROSTER_MAX = 35          # csetup, not TYPE=league -- see canon §B1
+
+    def _roster_shape(date, live=False):
+        # "Now" has to mean now. The committed snapshot lags by days, and on this
+        # build it was three days stale -- reporting 32 active when the real
+        # number was 30, because two in-year flyers had been dropped since.
+        # Keith caught the total the same way ("it really went to 35"). For the
+        # current stage, read MFL directly and fall back to the snapshot only if
+        # that fails; a stale number here is worse than a slow build.
+        rows = None
+        if live:
+            try:
+                d = D.worker_get("/api/mfl-export", TYPE="rosters", JSON=1)
+                for fr in (d.get("rosters") or {}).get("franchise") or []:
+                    if str(fr.get("id", "")).zfill(4) != fid:
+                        continue
+                    players = fr.get("player") or []
+                    if isinstance(players, dict):
+                        players = [players]
+                    rows = [{"pid": str(p.get("id")),
+                             "pos": positions.get(str(p.get("id")), ""),
+                             "salary": _money(p.get("salary")),
+                             "is_taxi": str(p.get("status", "")).upper() == "TAXI_SQUAD",
+                             "is_ir": str(p.get("status", "")).upper() == "INJURED_RESERVE",
+                             "is_expired": False} for p in players]
+            except Exception:
+                rows = None                      # fall through to the snapshot
+        if rows is None:
+            rows = _roster_rows(date, fid, positions)
         active = [r for r in rows if not r["is_taxi"] and not r["is_ir"]]
         return {"total": len(rows), "active": len(active),
                 "taxi": sum(1 for r in rows if r["is_taxi"]),
@@ -565,10 +600,22 @@ def build(pack_id):
 
     shape_open, shape_pre, shape_now = (_roster_shape(opening_date),
                                         _roster_shape(PREAUCTION_DATE),
-                                        _roster_shape(current_date))
+                                        _roster_shape(POSTAUCTION_DATE))
+    F("f.team.%s.roster_total_postauction" % fid,
+      "Players on the roster when the auction closed, including taxi and IR",
+      shape_now["total"], "count", "src rosters", POSTAUCTION_DATE)
+    F("f.league.roster_max_at_auction", "Roster maximum while the auction was open",
+      ROSTER_MAX_AT_AUCTION, "count", "csetup", str(SEASON))
+    shape_today = _roster_shape(current_date, live=True)
+    F("f.team.%s.active_today" % fid, "Active players on the roster today",
+      shape_today["active"], "count", "MFL rosters (live)", current_date)
+    F("f.team.%s.taxi_now" % fid, "Taxi-squad players today", shape_today["taxi"],
+      "count", "MFL rosters (live)", current_date)
+    F("f.team.%s.ir_now" % fid, "Players on injured reserve today", shape_today["ir"],
+      "count", "MFL rosters (live)", current_date)
     for tag, date, sh in (("opening", opening_date, shape_open),
                           ("preauction", PREAUCTION_DATE, shape_pre),
-                          ("current", current_date, shape_now)):
+                          ("current", POSTAUCTION_DATE, shape_now)):
         F("f.team.%s.active_roster_%s" % (fid, tag),
           "Active players on the roster (%s)" % tag, sh["active"], "count", "src rosters", date)
         F("f.team.%s.can_field_lineup_%s" % (fid, tag),
@@ -602,7 +649,7 @@ def build(pack_id):
                               ["Entering the auction", PREAUCTION_DATE, shape_pre["active"],
                                "yes" if shape_pre["can_field"] else "no", cap_pre, lineup_val(lu_pre),
                                tiers_pre["stud"], tiers_pre["solid"], tiers_pre["hole"]],
-                              ["Now", current_date, shape_now["active"],
+                              ["When the auction closed", POSTAUCTION_DATE, shape_now["active"],
                                "yes" if shape_now["can_field"] else "no", cap_current_spent, lineup_val(lu),
                                tiers_now["stud"], tiers_now["solid"], tiers_now["hole"]],
                           ],
@@ -625,7 +672,7 @@ def build(pack_id):
                            % ("" if shape_open["can_field"] else " (NO LINEUP -- best available only)"), "type": "text"},
                           {"key": "pre", "label": "Entering the auction%s"
                            % ("" if shape_pre["can_field"] else " (NO LINEUP -- best available only)"), "type": "text"},
-                          {"key": "now", "label": "Now", "type": "text"}],
+                          {"key": "now", "label": "When the auction closed", "type": "text"}],
                          [[a[0], _slot_cell(a), _slot_cell(b), _slot_cell(c)]
                           for a, b, c in zip(slots_open, slots_pre, slots_now)],
                          note="Parenthesised number is the player's LEAGUE-WIDE rank at his "
@@ -661,6 +708,28 @@ def build(pack_id):
         pack.warn("ERA and FAA lot windows OVERLAP on the calendar -- the "
                   "is_era_eligible split may no longer identify the auction cycle. "
                   "Auction figures below are suspect until this is checked.")
+
+    # THE TWO POOLS ARE NOT THE SAME CALIBER AND MUST NOT BE GRADED ALIKE
+    # (Keith: "the ERA doesn't have the same caliber of talent"). The ERA sells
+    # players whose ROOKIE DEALS EXPIRED -- by construction, men who did not
+    # earn a second contract -- and it is tiny. Judging an ERA buy by whether it
+    # starts, next to a free-agent market whose top player went for more than
+    # ten times the ERA's most expensive, is a category error.
+    _all_era = [l for l in lots if not l.get("is_test") and _cycle(l) == "ERA"]
+    _all_faa = [l for l in lots if not l.get("is_test") and _cycle(l) == "FAA"]
+    _px = lambda ls: max([(l.get("current_high_bid_k") or 0) * 1000 for l in ls] or [0])
+    F("f.league.era_pool_size", "Players sold in the Expired Rookie Auction, league-wide",
+      len(_all_era), "count", "auction/lots", current_date)
+    F("f.league.era_top_price", "Most expensive player in the Expired Rookie Auction, league-wide",
+      _px(_all_era), "usd", "auction/lots", current_date)
+    F("f.league.faa_top_price", "Most expensive player in the Free Agent Auction, league-wide",
+      _px(_all_faa), "usd", "auction/lots", current_date)
+    pack.warn("The Expired Rookie Auction and the Free Agent Auction sell different CALIBERS of "
+              "player, not just different players. The ERA pool is expired rookie contracts -- men "
+              "who did not earn a second deal -- and league-wide its most expensive player went for "
+              "$%s against the FAA's $%s. Never grade an ERA buy against an FAA buy, and never treat "
+              "'no ERA purchase is starting' as a finding; that is what the pool is."
+              % ("{:,}".format(_px(_all_era)), "{:,}".format(_px(_all_faa))))
 
     era_lots = [l for l in my_lots if _cycle(l) == "ERA"]
     faa_lots = [l for l in my_lots if _cycle(l) == "FAA"]
@@ -1063,6 +1132,50 @@ def build(pack_id):
                                "straight talent swap. Non-ADP positions (IDP/K/P) show current "
                                "salary, not a redraft value ADP does not produce for them.")
 
+    # WHAT A TRADE TOOK OFF THE CAP IS HALF OF WHY IT HAPPENED. The Kenneth
+    # Walker deal read as "a running back for a pick" and was buried in a
+    # subordinate clause; it also removed the single biggest annual contract
+    # this team has moved (Keith: "it freed up 32K for me and got me a 1st
+    # rounder"). Roster snapshots begin after that trade, so the salary is
+    # recovered from the player's own contractInfo AAV, which MFL still serves
+    # wherever he sits today.
+    _shed = []
+    try:
+        _live = D.worker_get("/api/mfl-export", TYPE="rosters", JSON=1)
+        _by_pid = {}
+        for _fr in (_live.get("rosters") or {}).get("franchise") or []:
+            _pl = _fr.get("player") or []
+            if isinstance(_pl, dict):
+                _pl = [_pl]
+            for _p in _pl:
+                _by_pid[str(_p.get("id"))] = _p
+        for _t in my_events:
+            for _tok in (_t.get("gave") or []):
+                if not str(_tok).isdigit():
+                    continue
+                _ci = str(_by_pid.get(str(_tok), {}).get("contractInfo") or "")
+                _m = re.search(r"AAV\s+(\d+(?:\.\d+)?)K", _ci)
+                if _m:
+                    _shed.append((int(float(_m.group(1)) * 1000), str(_tok)))
+    except (KeyError, ValueError, TypeError, OSError) as _e:
+        # Deliberately NOT a bare Exception: this block referenced an undefined
+        # `my_trades` for a full build cycle and the broad catch swallowed the
+        # NameError, so the fact simply never appeared and nothing said why.
+        _shed = []
+    if _shed:
+        _amt, _pid = max(_shed)
+        F("f.team.%s.biggest_contract_traded_away" % fid,
+          "Largest annual contract value this team traded away", _amt,
+          "usd", "MFL contractInfo (live)", current_date)
+
+    pack.warn("THREE-WAY TRADES: ups_3way_trades only records deals routed through the league's "
+              "in-app trade tool, which did not exist before 2026 -- it is NOT an all-time ledger. "
+              "Multi-team deals did happen in earlier years (Keith 2026-09-09: historical ones "
+              "exist, involving owners since departed). Say three-way trades are RARE, and that "
+              "this is the only one completed through the league's trade tool; never say it is the "
+              "only one on record, and do not characterise the historical ones -- this pack has no "
+              "data on them.")
+
     _bb = 0
     for _row in trade_rows:
         for _cell in _row:
@@ -1279,6 +1392,41 @@ def build(pack_id):
     else:
         t_idp = None
 
+    # ---- division ----
+    # "6th of 12" is an abstraction nobody plays against. You play your division,
+    # twice each (Keith: "finish by including how i look within the division").
+    try:
+        _lg = (D.worker_get("/api/mfl-export", TYPE="league", JSON=1).get("league") or {})
+        _dnames = {str(x.get("id")): x.get("name")
+                   for x in ((_lg.get("divisions") or {}).get("division") or [])}
+        _mem = {}
+        for _f in ((_lg.get("franchises") or {}).get("franchise") or []):
+            _mem.setdefault(str(_f.get("division")), []).append(str(_f.get("id")).zfill(4))
+        _mydiv = next((k for k, v in _mem.items() if fid in v), None)
+    except Exception:
+        _mydiv, _dnames, _mem = None, {}, {}
+    t_div = None
+    if _mydiv is not None:
+        _comp = {f: composite[f] for f in _mem[_mydiv] if f in composite}
+        _ord = sorted(_comp, key=lambda f: -_comp[f])
+        _league_order = sorted(composite, key=lambda x: -composite[x])
+        F("f.team.%s.division_name" % fid, "Division", _dnames.get(_mydiv, _mydiv),
+          "text", "MFL league export", current_date)
+        F("f.team.%s.division_rank" % fid, "Rank inside the division",
+          _ord.index(fid) + 1, "count", "lineup_engine", current_date)
+        F("f.team.%s.division_size" % fid, "Teams in the division", len(_mem[_mydiv]),
+          "count", "MFL league export", current_date)
+        t_div = pack.table("t.%s.division" % fid, "The division",
+                           [{"key": "team", "label": "Team", "type": "text"},
+                            {"key": "comp", "label": "League rank overall", "type": "count"},
+                            {"key": "idp", "label": "IDP points per started defender", "type": "text"}],
+                           [[owners.get(f, {}).get("team_name", f),
+                             _league_order.index(f) + 1 if f in composite else 0,
+                             "%.2f" % ppw[f] if f in ppw else "--"] for f in _ord],
+                           note="Divisional opponents are played twice a season, so this is the "
+                                "comparison that decides a playoff seed -- more than the league-wide "
+                                "rank does.")
+
     # ---- rookie picks ----
     tiers = json.load(open(os.path.join(D.REPO, "site", "rookies", "rookie_draft_tiers.json")))
     picks = D.d1("SELECT draftpick_round, draftpick_overall, draftpick_roundorder, player_id, "
@@ -1365,7 +1513,11 @@ def build(pack_id):
                          "f.team.%s.active_roster_current" % fid,
                          "f.team.%s.can_field_lineup_opening" % fid,
                          "f.team.%s.can_field_lineup_preauction" % fid,
-                         "f.team.%s.can_field_lineup_current" % fid],
+                         "f.team.%s.can_field_lineup_current" % fid,
+                         "f.team.%s.roster_total_postauction" % fid,
+                         "f.league.roster_max_at_auction",
+                         "f.team.%s.active_today" % fid,
+                         "f.team.%s.taxi_now" % fid, "f.team.%s.ir_now" % fid],
                 table_ids=[t_bridge, t_slots])
     pack.section("s3", "The Auctions", "THERE ARE TWO AUCTIONS AND THEY ARE SEPARATE EVENTS: the "
                 "Expired Rookie Auction (ERA) in May, for players whose rookie deals ran out, and "
@@ -1374,7 +1526,9 @@ def build(pack_id):
                 "them into one 'auction'. The Auction column in the table says which is which. "
                 "Use the top-buy-percent fact for any 'most of his spend' style claim -- never "
                 "estimate one, and note that it is a share of the FAA, not of both.",
-                fact_ids=["f.team.%s.era_spend" % fid, "f.team.%s.era_lots_won" % fid,
+                fact_ids=["f.league.era_pool_size", "f.league.era_top_price",
+                         "f.league.faa_top_price",
+                         "f.team.%s.era_spend" % fid, "f.team.%s.era_lots_won" % fid,
                          "f.team.%s.faa_spend" % fid, "f.team.%s.faa_lots_won" % fid,
                          "f.team.%s.auction_spend" % fid]
                 + (["f.team.%s.top_buy_price" % fid, "f.team.%s.top_buy_pct_of_spend" % fid] if top else []),
@@ -1402,18 +1556,25 @@ def build(pack_id):
                 fact_ids=["f.team.%s.contracts_count" % fid, "f.team.%s.trades_count" % fid,
                          "f.team.%s.cuts_count" % fid, "f.team.%s.cuts_penalty_%d" % (fid, SEASON)]
                 + [k for k in ("f.team.%s.restructure_room_freed" % fid,
-                               "f.team.%s.trade_blind_bid_cash" % fid) if k in pack._facts]
+                               "f.team.%s.trade_blind_bid_cash" % fid,
+                               "f.team.%s.biggest_contract_traded_away" % fid) if k in pack._facts]
                 + [
                          "f.team.%s.cuts_penalty_%d_deferred" % (fid, SEASON + 1),
                          "f.team.%s.roster_removals_total" % fid, "f.team.%s.waiver_swaps" % fid,
                          "f.team.%s.inyear_flyers" % fid,
                          "f.team.%s.rookie_picks_count" % fid],
                 table_ids=[t_contracts, t_trades, t_cuts, t_rookies])
-    pack.section("s5", "The Verdict", "Close with a direct verdict: is this the strongest team in "
+    pack.section("s5", "The Verdict", "Finish inside the DIVISION -- divisional opponents are "
+                "played twice, so that is the comparison deciding a playoff seed and it is who this "
+                "owner actually plays; use the division table and say plainly where he sits in it. "
+                "Then a direct verdict: is this the strongest team in "
                 "the league right now, and separately, was this a good offseason? They can disagree. "
                 "Name the single biggest advantage and the single biggest weakness, each with players.",
-                fact_ids=["f.team.%s.composite_rank" % fid, "f.team.%s.qb_rank" % fid,
-                         "f.team.%s.rb_rank" % fid, "f.team.%s.wr_rank" % fid, "f.team.%s.te_rank" % fid])
+                fact_ids=[k for k in ("f.team.%s.division_rank" % fid, "f.team.%s.division_size" % fid)
+                          if k in pack._facts]
+                + ["f.team.%s.composite_rank" % fid, "f.team.%s.qb_rank" % fid,
+                   "f.team.%s.rb_rank" % fid, "f.team.%s.wr_rank" % fid, "f.team.%s.te_rank" % fid],
+                table_ids=[t_div] if t_div else [])
 
     return pack
 

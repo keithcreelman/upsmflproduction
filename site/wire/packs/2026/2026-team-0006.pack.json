@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0006",
   "title": "2026 Team Review: The Long Haulers",
-  "generatedAtUtc": "2026-09-09T16:53:24Z",
+  "generatedAtUtc": "2026-09-09T17:10:20Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -26,7 +26,7 @@
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T16:53:13Z",
+      "asof": "2026-09-09T17:10:07Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -51,7 +51,9 @@
     "Position weights for the composite score are DERIVED, not asserted: the 6 single-position starting slots (1 QB, 2 RB, 2 WR, 1 TE) count exactly; the 3 shared slots (2 Flex, 1 SuperFlex) are split by what all 12 teams' own optimal lineups actually did with them this year. Weights: QB=1.92, RB=2.67, TE=1.17, WR=3.25",
     "Opening/pre-auction cap figures are ACTIVE-ROSTER SALARY ONLY (no salaryAdjustments); the live 'cap committed now' figure DOES include adjustments. The two are not subtractable -- they measure different things.",
     "Studs/solid/holes classify each of the 9 ADP-priced starting slots (QB, 2xRB, 2xWR, TE, 2x Flex, SuperFlex) by the occupying player's LEAGUE-WIDE position rank: stud = top 12 at his position, solid = top 24, hole = outside the top 24 or the slot has no rank at all. This is a needs read, not a value total -- two teams can carry the identical summed lineup value with completely different hole counts (a few elite starters and real gaps, versus adequate-everywhere), and that difference is the point.",
-    "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a body signed and discarded inside the same offseason was never part of the team (that is a TIMING test, not a salary one -- do not describe those as minimum-salary) -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure."
+    "The Expired Rookie Auction and the Free Agent Auction sell different CALIBERS of player, not just different players. The ERA pool is expired rookie contracts -- men who did not earn a second deal -- and league-wide its most expensive player went for $7,000 against the FAA's $88,000. Never grade an ERA buy against an FAA buy, and never treat 'no ERA purchase is starting' as a finding; that is what the pool is.",
+    "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a body signed and discarded inside the same offseason was never part of the team (that is a TIMING test, not a salary one -- do not describe those as minimum-salary) -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure.",
+    "THREE-WAY TRADES: ups_3way_trades only records deals routed through the league's in-app trade tool, which did not exist before 2026 -- it is NOT an all-time ledger. Multi-team deals did happen in earlier years (Keith 2026-09-09: historical ones exist, involving owners since departed). Say three-way trades are RARE, and that this is the only one completed through the league's trade tool; never say it is the only one on record, and do not characterise the historical ones -- this pack has no data on them."
   ],
   "entities": {
     "owners": [
@@ -73,6 +75,42 @@
   },
   "facts": [
     {
+      "id": "f.league.era_pool_size",
+      "label": "Players sold in the Expired Rookie Auction, league-wide",
+      "value": 14,
+      "unit": "count",
+      "fmt": "14",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.league.era_top_price",
+      "label": "Most expensive player in the Expired Rookie Auction, league-wide",
+      "value": 7000,
+      "unit": "usd",
+      "fmt": "$7,000",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.league.faa_top_price",
+      "label": "Most expensive player in the Free Agent Auction, league-wide",
+      "value": 88000,
+      "unit": "usd",
+      "fmt": "$88,000",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.league.roster_max_at_auction",
+      "label": "Roster maximum while the auction was open",
+      "value": 35,
+      "unit": "count",
+      "fmt": "35",
+      "source": "csetup",
+      "asof": "2026"
+    },
+    {
       "id": "f.league.teams",
       "label": "Teams in the league",
       "value": 12,
@@ -93,11 +131,11 @@
     {
       "id": "f.team.0006.active_roster_current",
       "label": "Active players on the roster (current)",
-      "value": 30,
+      "value": 35,
       "unit": "count",
-      "fmt": "30",
+      "fmt": "35",
       "source": "src rosters",
-      "asof": "2026-09-06"
+      "asof": "2026-08-05"
     },
     {
       "id": "f.team.0006.active_roster_opening",
@@ -118,6 +156,15 @@
       "asof": "2026-07-23"
     },
     {
+      "id": "f.team.0006.active_today",
+      "label": "Active players on the roster today",
+      "value": 30,
+      "unit": "count",
+      "fmt": "30",
+      "source": "MFL rosters (live)",
+      "asof": "2026-09-06"
+    },
+    {
       "id": "f.team.0006.auction_spend",
       "label": "Both auctions combined",
       "value": 39000,
@@ -127,13 +174,22 @@
       "asof": "2026-09-06"
     },
     {
+      "id": "f.team.0006.biggest_contract_traded_away",
+      "label": "Largest annual contract value this team traded away",
+      "value": 8000,
+      "unit": "usd",
+      "fmt": "$8,000",
+      "source": "MFL contractInfo (live)",
+      "asof": "2026-09-06"
+    },
+    {
       "id": "f.team.0006.can_field_lineup_current",
       "label": "Could field a legal 18-man lineup (current)",
       "value": "yes",
       "unit": "text",
       "fmt": "yes",
       "source": "src rosters",
-      "asof": "2026-09-06"
+      "asof": "2026-08-05"
     },
     {
       "id": "f.team.0006.can_field_lineup_opening",
@@ -201,9 +257,9 @@
     {
       "id": "f.team.0006.composite_value",
       "label": "Composite score",
-      "value": 47174,
+      "value": 47120,
       "unit": "count",
-      "fmt": "47,174",
+      "fmt": "47,120",
       "source": "lineup_engine",
       "asof": "2026-09-06"
     },
@@ -241,6 +297,33 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "ups_drop_events",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.division_name",
+      "label": "Division",
+      "value": "ICE UP SON!",
+      "unit": "text",
+      "fmt": "ICE UP SON!",
+      "source": "MFL league export",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.division_rank",
+      "label": "Rank inside the division",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "lineup_engine",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.division_size",
+      "label": "Teams in the division",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "MFL league export",
       "asof": "2026-09-06"
     },
     {
@@ -379,29 +462,38 @@
       "asof": "2026-09-06"
     },
     {
+      "id": "f.team.0006.ir_now",
+      "label": "Players on injured reserve today",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "MFL rosters (live)",
+      "asof": "2026-09-06"
+    },
+    {
       "id": "f.team.0006.lineup_value_current",
       "label": "Legal-lineup offense value, now",
-      "value": 29074,
+      "value": 29046,
       "unit": "count",
-      "fmt": "29,074",
+      "fmt": "29,046",
       "source": "lineup_engine+adp-board",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0006.lineup_value_opening",
       "label": "Legal-lineup offense value, opening (today's market)",
-      "value": 27120,
+      "value": 27092,
       "unit": "count",
-      "fmt": "27,120",
+      "fmt": "27,092",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0006.lineup_value_preauction",
       "label": "Legal-lineup offense value, entering the auction (today's market)",
-      "value": 28061,
+      "value": 28033,
       "unit": "count",
-      "fmt": "28,061",
+      "fmt": "28,033",
       "source": "lineup_engine+adp-board",
       "asof": "2026-07-23"
     },
@@ -417,9 +509,9 @@
     {
       "id": "f.team.0006.qb_value",
       "label": "QB starters redraft value",
-      "value": 11802,
+      "value": 11774,
       "unit": "count",
-      "fmt": "11,802",
+      "fmt": "11,774",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
@@ -460,6 +552,15 @@
       "asof": "2026-09-06"
     },
     {
+      "id": "f.team.0006.roster_total_postauction",
+      "label": "Players on the roster when the auction closed, including taxi and IR",
+      "value": 45,
+      "unit": "count",
+      "fmt": "45",
+      "source": "src rosters",
+      "asof": "2026-08-05"
+    },
+    {
       "id": "f.team.0006.studs_current",
       "label": "Starting-lineup studs, now (top-12 at position)",
       "value": 5,
@@ -476,6 +577,15 @@
       "fmt": "5",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
+    },
+    {
+      "id": "f.team.0006.taxi_now",
+      "label": "Taxi-squad players today",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "MFL rosters (live)",
+      "asof": "2026-09-06"
     },
     {
       "id": "f.team.0006.te_rank",
@@ -845,7 +955,7 @@
           20,
           "yes",
           270000,
-          27120,
+          27092,
           5,
           0,
           4
@@ -856,18 +966,18 @@
           22,
           "yes",
           292000,
-          28061,
+          28033,
           5,
           0,
           4
         ],
         [
-          "Now",
-          "2026-09-06",
-          30,
+          "When the auction closed",
+          "2026-08-05",
+          35,
           "yes",
           290000,
-          29074,
+          29046,
           5,
           0,
           4
@@ -1361,6 +1471,45 @@
       "note": "'cut' = a contract carried into the league year and released. 'waiver swap' = the make-room drop leg of a BBID claim. 'in-year flyer' = signed and discarded inside the same offseason (a timing classification, NOT a salary one -- read the salary column, these are not all minimum-salary deals). 'Charged to' is the cap year the penalty actually hits: a drop on or after the FA Auction open is charged to the FOLLOWING season (canon §D1) and is ledger-only until rollover, so rows marked deferred must never be added into this season's cap total."
     },
     {
+      "id": "t.0006.division",
+      "title": "The division",
+      "columns": [
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "comp",
+          "label": "League rank overall",
+          "type": "count"
+        },
+        {
+          "key": "idp",
+          "label": "IDP points per started defender",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Pure Greatness",
+          2,
+          "9.07"
+        ],
+        [
+          "HammerTime 🔨 ⏰",
+          7,
+          "8.55"
+        ],
+        [
+          "The Long Haulers",
+          8,
+          "8.08"
+        ]
+      ],
+      "note": "Divisional opponents are played twice a season, so this is the comparison that decides a playoff seed -- more than the league-wide rank does."
+    },
+    {
       "id": "t.0006.idp_activity",
       "title": "Defensive acquisitions since 2010, and what they returned",
       "columns": [
@@ -1673,7 +1822,7 @@
         },
         {
           "key": "now",
-          "label": "Now",
+          "label": "When the auction closed",
           "type": "text"
         }
       ],
@@ -1770,7 +1919,7 @@
           "2026-04-09",
           "HammerTime 🔨 ⏰",
           "2027 round-1 pick (The Long Haulers's natural pick); 2027 round-2 pick (The Long Haulers's natural pick)",
-          "Jalen Hurts (QB, redraft value 6,554); $20,000 of blind-bid consideration",
+          "Jalen Hurts (QB, redraft value 6,541); $20,000 of blind-bid consideration",
           "—"
         ],
         [
@@ -1857,10 +2006,12 @@
       "title": "The Bridge",
       "brief": "Tell the offseason arc in three stages -- entering the offseason, entering the auction, now -- using the two bridge tables. Keep 'strongest team' (carried on existing contracts) and 'best offseason' (created this year) explicitly separate. NOTHING HERE IS INHERITED: this owner kept the same franchise, contracts expired, and he rebuilt -- an empty April roster is the normal state of that cycle, not a crisis and not news. Use the slot-by-slot table to name who actually filled each priced slot at each stage; a stud count that moves 1 -> 2 can hide the single biggest upgrade of the offseason, so report the NAME CHANGE in the slot, not just the count. The studs/solid/holes columns are a NEEDS read, separate from the value total: say explicitly whether this is a lineup of a few elite starters with real gaps, or one that is merely adequate everywhere -- two teams can carry the same summed value and look completely different on this axis, and that difference is the story, not the total.",
       "factIds": [
+        "f.league.roster_max_at_auction",
         "f.team.0006.active_now",
         "f.team.0006.active_roster_current",
         "f.team.0006.active_roster_opening",
         "f.team.0006.active_roster_preauction",
+        "f.team.0006.active_today",
         "f.team.0006.can_field_lineup_current",
         "f.team.0006.can_field_lineup_opening",
         "f.team.0006.can_field_lineup_preauction",
@@ -1870,11 +2021,14 @@
         "f.team.0006.cap_preauction",
         "f.team.0006.holes_current",
         "f.team.0006.holes_opening",
+        "f.team.0006.ir_now",
         "f.team.0006.lineup_value_current",
         "f.team.0006.lineup_value_opening",
         "f.team.0006.lineup_value_preauction",
+        "f.team.0006.roster_total_postauction",
         "f.team.0006.studs_current",
-        "f.team.0006.studs_opening"
+        "f.team.0006.studs_opening",
+        "f.team.0006.taxi_now"
       ],
       "tableIds": [
         "t.0006.bridge",
@@ -1890,6 +2044,9 @@
       "title": "The Auctions",
       "brief": "THERE ARE TWO AUCTIONS AND THEY ARE SEPARATE EVENTS: the Expired Rookie Auction (ERA) in May, for players whose rookie deals ran out, and the Free Agent Auction (FAA) in late July, the open market. Report them separately -- separate spend, separate buys, separate verdict -- and never merge them into one 'auction'. The Auction column in the table says which is which. Use the top-buy-percent fact for any 'most of his spend' style claim -- never estimate one, and note that it is a share of the FAA, not of both.",
       "factIds": [
+        "f.league.era_pool_size",
+        "f.league.era_top_price",
+        "f.league.faa_top_price",
         "f.team.0006.auction_spend",
         "f.team.0006.era_lots_won",
         "f.team.0006.era_spend",
@@ -1911,6 +2068,7 @@
       "title": "Contracts, Trades, Cuts and the Rookie Class",
       "brief": "Use each table's own words: the contracts table's Type column already says Restructure or Extension, and those are different operations -- never merge them into a phrase like 'restructured into extension years'. Call a deal minimum-salary ONLY where the 'At league minimum?' column says yes; if you name a group of players as minimum-salary signings, check every single name against that column first. Do not name a subset of a table's rows in a way that skips a row contradicting the point. In the cuts table, the 'Charged to' column is the cap year the penalty actually lands in -- deferred rows are NOT part of this season's cap. Cover the contracts table first -- extensions, restructures, tags, MYM and FA deals are as much a part of the offseason as trades or auction buys. Classify each trade as talent-driven, cap-driven, mixed or unclear from the actual assets on both sides -- never from guessing motive, and never claim a traded draft pick 'became' a specific player unless the table names one; where it does not, describe the pick by round and slot only, because it was moved again before the draft and this dataset cannot follow it further. For every cut, say whether it removed a starter, depth, or a non-contributor. For every rookie pick, compare the actual player to the historical baseline at that exact slot -- that baseline is a PRE-outcome expectation, not a grade on a rookie with zero games played.",
       "factIds": [
+        "f.team.0006.biggest_contract_traded_away",
         "f.team.0006.contracts_count",
         "f.team.0006.cuts_count",
         "f.team.0006.cuts_penalty_2026",
@@ -1936,15 +2094,19 @@
     {
       "id": "s5",
       "title": "The Verdict",
-      "brief": "Close with a direct verdict: is this the strongest team in the league right now, and separately, was this a good offseason? They can disagree. Name the single biggest advantage and the single biggest weakness, each with players.",
+      "brief": "Finish inside the DIVISION -- divisional opponents are played twice, so that is the comparison deciding a playoff seed and it is who this owner actually plays; use the division table and say plainly where he sits in it. Then a direct verdict: is this the strongest team in the league right now, and separately, was this a good offseason? They can disagree. Name the single biggest advantage and the single biggest weakness, each with players.",
       "factIds": [
         "f.team.0006.composite_rank",
+        "f.team.0006.division_rank",
+        "f.team.0006.division_size",
         "f.team.0006.qb_rank",
         "f.team.0006.rb_rank",
         "f.team.0006.te_rank",
         "f.team.0006.wr_rank"
       ],
-      "tableIds": [],
+      "tableIds": [
+        "t.0006.division"
+      ],
       "chartIds": [],
       "quoteIds": [],
       "cardIds": [],
