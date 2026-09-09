@@ -69,10 +69,17 @@ def tier_label(pos, rank):
 
     band = (rank - 1) // BAND + 1
     within = rank - BAND * (band - 1)          # 1..12
+    # FOUR grades inside a band, not three. The first cut called ranks 4-8
+    # "High-end", which made the QB8 and the RB8 "High-end QB1 / RB1" -- and
+    # Keith rejected exactly that: nobody calls the eighth-best starter at his
+    # position high-end. In common use "high-end" is the shoulder of the elite
+    # tier and the middle of a band is just "Mid". Quartering the band matches
+    # how the label is actually spoken and stops rank 8 from flattering itself.
     if band == 1:
-        grade = "Elite" if within <= 3 else ("High-end" if within <= 8 else "Low-end")
+        grade = ("Elite" if within <= 3 else "High-end" if within <= 6
+                 else "Mid" if within <= 9 else "Low-end")
     else:
-        grade = "High-end" if within <= 6 else "Low-end"
+        grade = ("High-end" if within <= 4 else "Mid" if within <= 8 else "Low-end")
     return "%s %s%d" % (grade, pos, band)
 
 

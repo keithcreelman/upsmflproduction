@@ -1063,6 +1063,16 @@ def build(pack_id):
                                "straight talent swap. Non-ADP positions (IDP/K/P) show current "
                                "salary, not a redraft value ADP does not produce for them.")
 
+    _bb = 0
+    for _row in trade_rows:
+        for _cell in _row:
+            for _m in re.finditer(r"\$([\d,]+) of blind-bid", str(_cell)):
+                _bb = max(_bb, int(_m.group(1).replace(",", "")))
+    if _bb:
+        F("f.team.%s.trade_blind_bid_cash" % fid,
+          "Largest blind-bid sum moved inside one of this team's trades", _bb,
+          "usd", "mfl transactions", current_date)
+
     # ---- contracts handed out (extensions/restructures/tags/MYM/FA) ----
     activity_rows, activity_provenance = D.contract_activity(SEASON)
     from preseason_review import distinct_outcomes as _distinct_outcomes
@@ -1126,6 +1136,11 @@ def build(pack_id):
             r.get("tcv") or 0,
             str(r.get("submitted_at_utc") or "")[:10],
         ])
+    _rt_max = max((r["freed"] for r in round_trip.values()), default=0)
+    if _rt_max > 0:
+        F("f.team.%s.restructure_room_freed" % fid,
+          "Cap room freed by a restructure that was later reverted", _rt_max,
+          "usd", "contract_activity_2026", current_date)
     for pid, rt in round_trip.items():
         if rt["freed"] <= 0:
             continue
@@ -1163,6 +1178,106 @@ def build(pack_id):
                                   "UPS minimum salary is $%s, so a $2,000 deal is NOT a minimum deal and "
                                   "must never be called one. Provenance: %s"
                                   % ("{:,}".format(LEAGUE_MIN_SALARY), activity_provenance))
+
+    # What he DECLINED to spend on defense, which is the other half of the
+    # churn story (Keith: "because i dont typically spend on it in the auction").
+    _IDP_POS = ("DE", "DT", "LB", "CB", "S")
+    idp_spend, all_spend = {}, {}
+    for l in lots:
+        f = str(l.get("winner_fid", "")).zfill(4)
+        price = (l.get("current_high_bid_k") or 0) * 1000
+        all_spend[f] = all_spend.get(f, 0) + price
+        if str(l.get("position")) in _IDP_POS:
+            idp_spend[f] = idp_spend.get(f, 0) + price
+    if fid in all_spend and all_spend[fid]:
+        share = 100.0 * idp_spend.get(fid, 0) / all_spend[fid]
+        F("f.team.%s.idp_auction_spend" % fid, "Spent on defenders across both auctions",
+          idp_spend.get(fid, 0), "usd", "auction/lots", current_date)
+        F("f.team.%s.idp_auction_share" % fid, "Share of auction money spent on defenders",
+          share, "percent", "auction/lots", current_date)
+        shares = sorted((100.0 * idp_spend.get(f, 0) / all_spend[f])
+                        for f in all_spend if f in owners and all_spend[f])
+        F("f.team.%s.idp_auction_share_rank" % fid,
+          "League rank for share of auction money spent on defenders (1 = smallest share)",
+          shares.index(share) + 1, "count", "auction/lots", current_date)
+
+    # ---- IDP: how hard does this owner actually work the position? ----
+    # A September snapshot of a defense is nearly meaningless on its own for an
+    # owner who churns IDP all season, and the first draft of this article read
+    # three replacement-level starters as neglect. Keith, correctly: "you talk
+    # about my defense but fail to discuss i'm the most active league member on
+    # IDP historically." He is, by a distance -- and the interesting part is
+    # that it buys him a mid-table defense, not a good one. Both halves belong
+    # in the article; one without the other is propaganda in either direction.
+    idp_adds = D.d1(
+        "SELECT a.season season, a.franchise_id fid, COUNT(*) adds "
+        "  FROM src_adddrop a JOIN src_players p "
+        "    ON p.player_id = a.player_id AND p.season = a.season "
+        " WHERE a.move_type='ADD' AND p.position IN ('DE','DT','LB','CB','S') "
+        " GROUP BY a.season, a.franchise_id")
+    tot_adds, seasons_seen, by_season = {}, {}, {}
+    for r in idp_adds:
+        f = str(r["fid"]).zfill(4)
+        tot_adds[f] = tot_adds.get(f, 0) + int(r["adds"])
+        seasons_seen.setdefault(f, set()).add(int(r["season"]))
+        by_season.setdefault(int(r["season"]), {})[f] = int(r["adds"])
+    live = [f for f in tot_adds if f in owners]
+    ranked = sorted(live, key=lambda f: -tot_adds[f])
+    if fid in tot_adds:
+        my_rank = ranked.index(fid) + 1
+        runner = tot_adds[ranked[1]] if ranked[0] == fid and len(ranked) > 1 else tot_adds[ranked[0]]
+        streak = 0
+        for yr in sorted(by_season, reverse=True):
+            row = {f: n for f, n in by_season[yr].items() if f in owners}
+            if row and max(row, key=row.get) == fid:
+                streak += 1
+            else:
+                break
+        F("f.team.%s.idp_adds_alltime" % fid, "Defensive players acquired since 2010",
+          tot_adds[fid], "count", "src_adddrop + src_players", current_date)
+        F("f.team.%s.idp_adds_rank" % fid, "League rank for defensive acquisitions since 2010",
+          my_rank, "count", "src_adddrop + src_players", current_date)
+        F("f.team.%s.idp_adds_next_best" % fid,
+          "Defensive acquisitions by the next team on that list", runner,
+          "count", "src_adddrop + src_players", current_date)
+        F("f.team.%s.idp_adds_lead_streak" % fid,
+          "Consecutive seasons leading the league in defensive acquisitions", streak,
+          "count", "src_adddrop + src_players", current_date)
+
+    # And what all that work actually returns, on the scoreboard.
+    idp_pts = D.d1(
+        "SELECT roster_franchise_id fid, ROUND(SUM(score),1) pts, COUNT(*) n "
+        "  FROM src_weekly WHERE is_reg=1 AND status='starter' "
+        "   AND pos_group IN ('DL','DB','LB','DT+DE','CB+S') "
+        "   AND season BETWEEN %d AND %d "
+        "   AND roster_franchise_id IS NOT NULL AND roster_franchise_id NOT IN ('','FA') "
+        " GROUP BY fid" % (SEASON - 3, SEASON - 1))
+    ppw = {}
+    for r in idp_pts:
+        f = str(r["fid"]).zfill(4)
+        if f in owners and r["n"]:
+            ppw[f] = r["pts"] / r["n"]
+    if fid in ppw:
+        order = sorted(ppw, key=lambda f: -ppw[f])
+        F("f.team.%s.idp_ppw_rank" % fid,
+          "League rank for points per started defender, %d-%d" % (SEASON - 3, SEASON - 1),
+          order.index(fid) + 1, "count", "src_weekly", current_date)
+        t_idp = pack.table("t.%s.idp_activity" % fid,
+                           "Defensive acquisitions since 2010, and what they returned",
+                           [{"key": "team", "label": "Team", "type": "text"},
+                            {"key": "adds", "label": "Defenders acquired", "type": "count"},
+                            {"key": "ppw", "label": "Points per started defender (%d-%d)"
+                             % (SEASON - 3, SEASON - 1), "type": "text"}],
+                           [[owners.get(f, {}).get("team_name", f), tot_adds.get(f, 0),
+                             "%.2f" % ppw[f] if f in ppw else "--"] for f in ranked],
+                           note="Acquisitions are every ADD of a player listed DE/DT/LB/CB/S, all "
+                                "methods, 2010 to last completed season. Points per started "
+                                "defender is regular-season only and counts only weeks the "
+                                "defender was actually STARTED, so it measures the defense an "
+                                "owner fielded rather than the one he rostered. Working the wire "
+                                "hardest and scoring most are plainly not the same thing here.")
+    else:
+        t_idp = None
 
     # ---- rookie picks ----
     tiers = json.load(open(os.path.join(D.REPO, "site", "rookies", "rookie_draft_tiers.json")))
@@ -1218,8 +1333,15 @@ def build(pack_id):
                          "f.team.%s.qb_value" % fid, "f.team.%s.rb_value" % fid,
                          "f.team.%s.wr_value" % fid, "f.team.%s.te_value" % fid,
                          "f.team.%s.composite_rank" % fid, "f.team.%s.composite_value" % fid,
-                         "f.league.teams"],
-                table_ids=[t_lineup, t_bench])
+                         "f.league.teams"]
+                + [k for k in ("f.team.%s.idp_auction_spend" % fid,
+                               "f.team.%s.idp_auction_share" % fid,
+                               "f.team.%s.idp_auction_share_rank" % fid,
+                               "f.team.%s.idp_adds_alltime" % fid, "f.team.%s.idp_adds_rank" % fid,
+                               "f.team.%s.idp_adds_next_best" % fid,
+                               "f.team.%s.idp_adds_lead_streak" % fid,
+                               "f.team.%s.idp_ppw_rank" % fid) if k in pack._facts],
+                table_ids=[t_lineup, t_bench] + ([t_idp] if t_idp else []))
     pack.section("s2", "The Bridge", "Tell the offseason arc in three stages -- entering the "
                 "offseason, entering the auction, now -- using the two bridge tables. Keep "
                 "'strongest team' (carried on existing contracts) and 'best offseason' (created "
@@ -1278,7 +1400,10 @@ def build(pack_id):
                 "baseline at that exact slot -- that baseline is a PRE-outcome expectation, not a "
                 "grade on a rookie with zero games played.",
                 fact_ids=["f.team.%s.contracts_count" % fid, "f.team.%s.trades_count" % fid,
-                         "f.team.%s.cuts_count" % fid, "f.team.%s.cuts_penalty_%d" % (fid, SEASON),
+                         "f.team.%s.cuts_count" % fid, "f.team.%s.cuts_penalty_%d" % (fid, SEASON)]
+                + [k for k in ("f.team.%s.restructure_room_freed" % fid,
+                               "f.team.%s.trade_blind_bid_cash" % fid) if k in pack._facts]
+                + [
                          "f.team.%s.cuts_penalty_%d_deferred" % (fid, SEASON + 1),
                          "f.team.%s.roster_removals_total" % fid, "f.team.%s.waiver_swaps" % fid,
                          "f.team.%s.inyear_flyers" % fid,

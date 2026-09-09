@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0008",
   "title": "2026 Team Review: Real Deal Creel",
-  "generatedAtUtc": "2026-09-09T16:26:03Z",
+  "generatedAtUtc": "2026-09-09T16:51:25Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -26,7 +26,7 @@
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T16:25:55Z",
+      "asof": "2026-09-09T16:51:15Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -204,9 +204,9 @@
     {
       "id": "f.team.0008.composite_value",
       "label": "Composite score",
-      "value": 53538,
+      "value": 53453,
       "unit": "count",
-      "fmt": "53,538",
+      "fmt": "53,453",
       "source": "lineup_engine",
       "asof": "2026-09-06"
     },
@@ -301,6 +301,78 @@
       "asof": "2026-04-21"
     },
     {
+      "id": "f.team.0008.idp_adds_alltime",
+      "label": "Defensive players acquired since 2010",
+      "value": 428,
+      "unit": "count",
+      "fmt": "428",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.idp_adds_lead_streak",
+      "label": "Consecutive seasons leading the league in defensive acquisitions",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.idp_adds_next_best",
+      "label": "Defensive acquisitions by the next team on that list",
+      "value": 257,
+      "unit": "count",
+      "fmt": "257",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.idp_adds_rank",
+      "label": "League rank for defensive acquisitions since 2010",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.idp_auction_share",
+      "label": "Share of auction money spent on defenders",
+      "value": 7.070707070707071,
+      "unit": "percent",
+      "fmt": "7.1%",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.idp_auction_share_rank",
+      "label": "League rank for share of auction money spent on defenders (1 = smallest share)",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.idp_auction_spend",
+      "label": "Spent on defenders across both auctions",
+      "value": 14000,
+      "unit": "usd",
+      "fmt": "$14,000",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.idp_ppw_rank",
+      "label": "League rank for points per started defender, 2023-2025",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "src_weekly",
+      "asof": "2026-09-06"
+    },
+    {
       "id": "f.team.0008.inyear_flyers",
       "label": "Players signed and discarded inside the same offseason",
       "value": 3,
@@ -312,27 +384,27 @@
     {
       "id": "f.team.0008.lineup_value_current",
       "label": "Legal-lineup offense value, now",
-      "value": 33481,
+      "value": 33429,
       "unit": "count",
-      "fmt": "33,481",
+      "fmt": "33,429",
       "source": "lineup_engine+adp-board",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0008.lineup_value_opening",
       "label": "Legal-lineup offense value, opening (today's market)",
-      "value": 9268,
+      "value": 9210,
       "unit": "count",
-      "fmt": "9,268",
+      "fmt": "9,210",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0008.lineup_value_preauction",
       "label": "Legal-lineup offense value, entering the auction (today's market)",
-      "value": 19237,
+      "value": 19177,
       "unit": "count",
-      "fmt": "19,237",
+      "fmt": "19,177",
       "source": "lineup_engine+adp-board",
       "asof": "2026-07-23"
     },
@@ -370,6 +442,15 @@
       "unit": "count",
       "fmt": "10,861",
       "source": "adp-board",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0008.restructure_room_freed",
+      "label": "Cap room freed by a restructure that was later reverted",
+      "value": 13000,
+      "unit": "usd",
+      "fmt": "$13,000",
+      "source": "contract_activity_2026",
       "asof": "2026-09-06"
     },
     {
@@ -445,6 +526,15 @@
       "asof": "2026-09-06"
     },
     {
+      "id": "f.team.0008.trade_blind_bid_cash",
+      "label": "Largest blind-bid sum moved inside one of this team's trades",
+      "value": 19000,
+      "unit": "usd",
+      "fmt": "$19,000",
+      "source": "mfl transactions",
+      "asof": "2026-09-06"
+    },
+    {
       "id": "f.team.0008.trades_count",
       "label": "Trades made",
       "value": 6,
@@ -474,9 +564,9 @@
     {
       "id": "f.team.0008.wr_value",
       "label": "WR starters redraft value",
-      "value": 12549,
+      "value": 12497,
       "unit": "count",
-      "fmt": "12,549",
+      "fmt": "12,497",
       "source": "adp-board",
       "asof": "2026-09-06"
     }
@@ -713,7 +803,7 @@
         [
           "Marvin Harrison Jr",
           "WR",
-          "Low-end WR3",
+          "Mid WR3",
           14000
         ],
         [
@@ -830,7 +920,7 @@
           14,
           "no",
           62000,
-          9268,
+          9210,
           1,
           1,
           7
@@ -841,7 +931,7 @@
           16,
           "no",
           95000,
-          19237,
+          19177,
           2,
           1,
           6
@@ -852,7 +942,7 @@
           32,
           "yes",
           297000,
-          33481,
+          33429,
           4,
           2,
           3
@@ -1304,6 +1394,90 @@
       "note": "'cut' = a contract carried into the league year and released. 'waiver swap' = the make-room drop leg of a BBID claim. 'in-year flyer' = signed and discarded inside the same offseason (a timing classification, NOT a salary one -- read the salary column, these are not all minimum-salary deals). 'Charged to' is the cap year the penalty actually hits: a drop on or after the FA Auction open is charged to the FOLLOWING season (canon §D1) and is ledger-only until rollover, so rows marked deferred must never be added into this season's cap total."
     },
     {
+      "id": "t.0008.idp_activity",
+      "title": "Defensive acquisitions since 2010, and what they returned",
+      "columns": [
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "adds",
+          "label": "Defenders acquired",
+          "type": "count"
+        },
+        {
+          "key": "ppw",
+          "label": "Points per started defender (2023-2025)",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Real Deal Creel",
+          428,
+          "8.62"
+        ],
+        [
+          "L.A. Looks",
+          257,
+          "9.34"
+        ],
+        [
+          "Pure Greatness",
+          244,
+          "9.07"
+        ],
+        [
+          "The Long Haulers",
+          234,
+          "8.08"
+        ],
+        [
+          "Blake Bombers",
+          220,
+          "8.05"
+        ],
+        [
+          "Sex Manther",
+          206,
+          "8.95"
+        ],
+        [
+          "C-Town Chivalry",
+          198,
+          "8.03"
+        ],
+        [
+          "Gride",
+          186,
+          "7.61"
+        ],
+        [
+          "HammerTime 🔨 ⏰",
+          182,
+          "8.55"
+        ],
+        [
+          "CBP",
+          166,
+          "7.90"
+        ],
+        [
+          "Hawks",
+          118,
+          "7.09"
+        ],
+        [
+          "Cleon Ca$h",
+          101,
+          "8.24"
+        ]
+      ],
+      "note": "Acquisitions are every ADD of a player listed DE/DT/LB/CB/S, all methods, 2010 to last completed season. Points per started defender is regular-season only and counts only weeks the defender was actually STARTED, so it measures the defense an owner fielded rather than the one he rostered. Working the wire hardest and scoring most are plainly not the same thing here."
+    },
+    {
       "id": "t.0008.lineup",
       "title": "Legal starting lineup",
       "columns": [
@@ -1333,19 +1507,19 @@
           "QB",
           "Dak Prescott",
           "QB",
-          "High-end QB1"
+          "Mid QB1"
         ],
         [
           "RB",
           "Saquon Barkley",
           "RB",
-          "High-end RB1"
+          "Mid RB1"
         ],
         [
           "RB",
           "Travis Etienne",
           "RB",
-          "High-end RB2"
+          "Mid RB2"
         ],
         [
           "WR",
@@ -1375,13 +1549,13 @@
           "Flex",
           "Parker Washington",
           "WR",
-          "High-end WR3"
+          "Mid WR3"
         ],
         [
           "SuperFlex",
           "Kyler Murray",
           "QB",
-          "High-end QB2"
+          "Mid QB2"
         ],
         [
           "K",
@@ -1411,7 +1585,7 @@
           "LB",
           "Nick Bolton",
           "LB",
-          "Low-end LB2"
+          "Mid LB2"
         ],
         [
           "LB",
@@ -1423,7 +1597,7 @@
           "DB",
           "Chamarri Conner",
           "S",
-          "Low-end DB2"
+          "Mid DB2"
         ],
         [
           "DB",
@@ -1529,23 +1703,23 @@
           "QB1",
           "Deshaun Watson, Replacement-level QB",
           "Deshaun Watson, Replacement-level QB",
-          "Dak Prescott, High-end QB1"
+          "Dak Prescott, Mid QB1"
         ],
         [
           "RB1",
           "TreVeyon Henderson, High-end RB3",
-          "Travis Etienne, High-end RB2",
-          "Saquon Barkley, High-end RB1"
+          "Travis Etienne, Mid RB2",
+          "Saquon Barkley, Mid RB1"
         ],
         [
           "RB2",
           "Emanuel Wilson (unranked)",
           "TreVeyon Henderson, High-end RB3",
-          "Travis Etienne, High-end RB2"
+          "Travis Etienne, Mid RB2"
         ],
         [
           "WR1",
-          "Tetairoa McMillan, High-end WR2",
+          "Tetairoa McMillan, Mid WR2",
           "Puka Nacua, Elite WR1",
           "Puka Nacua, Elite WR1"
         ],
@@ -1563,21 +1737,21 @@
         ],
         [
           "OF1",
-          "Marvin Harrison Jr, Low-end WR3",
-          "Marvin Harrison Jr, Low-end WR3",
+          "Marvin Harrison Jr, Mid WR3",
+          "Marvin Harrison Jr, Mid WR3",
           "TreVeyon Henderson, High-end RB3"
         ],
         [
           "OF2",
           "Trey Benson (unranked)",
           "KC Concepcion, Replacement-level WR",
-          "Parker Washington, High-end WR3"
+          "Parker Washington, Mid WR3"
         ],
         [
           "SF1",
           "Keon Coleman (unranked)",
           "Kayshon Boutte, Replacement-level WR",
-          "Kyler Murray, High-end QB2"
+          "Kyler Murray, Mid QB2"
         ]
       ],
       "note": "Parenthesised number is the player's LEAGUE-WIDE rank at his position on the live redraft board: <=12 is a stud, <=24 solid, beyond that (or unranked, or empty) a hole. Use these NAMES when describing how the lineup changed -- a stud count moving 1 -> 2 can conceal the largest single upgrade of the offseason."
@@ -1644,9 +1818,9 @@
         [
           "2026-07-22",
           "C-Town Chivalry + Blake Bombers (3-way)",
-          "Tetairoa McMillan (WR, redraft value 3,168); 2027 round-1 pick (Real Deal Creel's natural pick); Chris Rodriguez (RB, redraft value 346); Omar Cooper (WR, redraft value 26)",
-          "Puka Nacua (WR, redraft value 9,104)",
-          "C-Town Chivalry sent Drake London (WR, redraft value 5,132); $19,000 of blind-bid consideration to Blake Bombers"
+          "Tetairoa McMillan (WR, redraft value 3,155); 2027 round-1 pick (Real Deal Creel's natural pick); Chris Rodriguez (RB, redraft value 346); Omar Cooper (WR, redraft value 27)",
+          "Puka Nacua (WR, redraft value 9,103)",
+          "C-Town Chivalry sent Drake London (WR, redraft value 5,146); $19,000 of blind-bid consideration to Blake Bombers"
         ],
         [
           "2026-08-07",
@@ -1672,6 +1846,14 @@
         "f.league.teams",
         "f.team.0008.composite_rank",
         "f.team.0008.composite_value",
+        "f.team.0008.idp_adds_alltime",
+        "f.team.0008.idp_adds_lead_streak",
+        "f.team.0008.idp_adds_next_best",
+        "f.team.0008.idp_adds_rank",
+        "f.team.0008.idp_auction_share",
+        "f.team.0008.idp_auction_share_rank",
+        "f.team.0008.idp_auction_spend",
+        "f.team.0008.idp_ppw_rank",
         "f.team.0008.qb_rank",
         "f.team.0008.qb_value",
         "f.team.0008.rb_rank",
@@ -1683,6 +1865,7 @@
       ],
       "tableIds": [
         "t.0008.bench",
+        "t.0008.idp_activity",
         "t.0008.lineup"
       ],
       "chartIds": [],
@@ -1754,8 +1937,10 @@
         "f.team.0008.cuts_penalty_2026",
         "f.team.0008.cuts_penalty_2027_deferred",
         "f.team.0008.inyear_flyers",
+        "f.team.0008.restructure_room_freed",
         "f.team.0008.rookie_picks_count",
         "f.team.0008.roster_removals_total",
+        "f.team.0008.trade_blind_bid_cash",
         "f.team.0008.trades_count",
         "f.team.0008.waiver_swaps"
       ],

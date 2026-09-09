@@ -350,6 +350,22 @@ The "New status" column is a separate fact (it can read Ext2 on a contract
 whose Type is Restructure, because status records the contract's history, not
 this move).
 
+WORDS THAT ARE BANNED IN THIS FAMILY: "lots" for auction purchases (say
+players, buys, or wins -- "lots" is the auction software's word, not a fan's).
+Use AMERICAN spelling throughout: maneuver, not manoeuvre.
+
+A CONTRACT'S STRUCTURE IS PART OF THE VERDICT. Front-loaded (FL) means most of
+the total value is paid in year one, so the back years are cheap; back-loaded
+(BL) is the reverse. Judging a deal by its current-year salary alone will call
+a deliberately front-loaded contract an overpay when the owner was buying
+future room. Read the status suffix and the TCV together before calling any
+deal bad.
+
+DO NOT NARRATE A ROSTER'S NORMAL LIFECYCLE. Expiring rookie contracts running
+out is not news and does not go in the article. What IS worth saying is a
+DECISION: that the owner extended someone, or declined to extend someone he
+could have kept. Absence of a decision is not a story.
+
 NAME PEOPLE THE WAY THE LEAGUE DOES. Use the TEAM NAME or the owner's full
 name or first name -- "Real Deal Creel", "Keith Creelman", "Keith". A bare
 surname on repeat ("Creelman did this, Creelman did that") reads like a court
@@ -402,6 +418,13 @@ article was built rather than what happened in the league.
 Do not force a joke into every paragraph, and do not end a section on an
 unexplained accusatory one-liner -- if you make a hard claim, the sentence
 right before or after it has to carry the evidence.
+
+A SEASON-LONG PATTERN OUTRANKS A SNAPSHOT. Before calling a position group
+neglected, check whether the pack carries acquisition history for it. An owner
+who leads the league in pickups at a position has a STRATEGY there, and a
+Week One lineup is his opening inventory, not his finished work. Say what the
+plan is, then judge the plan on what it returns -- that is a real verdict.
+Calling it neglect when the record shows the opposite is just a wrong story.
 
 BE HARD ON BAD MOVES. The owner asked for this directly. Where the facts show
 a bad buy, a wasted pick, a position he paid up for and still ranks badly at,

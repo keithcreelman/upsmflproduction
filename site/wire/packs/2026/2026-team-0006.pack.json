@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0006",
   "title": "2026 Team Review: The Long Haulers",
-  "generatedAtUtc": "2026-09-09T16:28:14Z",
+  "generatedAtUtc": "2026-09-09T16:53:24Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -26,7 +26,7 @@
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T16:28:07Z",
+      "asof": "2026-09-09T16:53:13Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -201,9 +201,9 @@
     {
       "id": "f.team.0006.composite_value",
       "label": "Composite score",
-      "value": 47120,
+      "value": 47174,
       "unit": "count",
-      "fmt": "47,120",
+      "fmt": "47,174",
       "source": "lineup_engine",
       "asof": "2026-09-06"
     },
@@ -298,6 +298,78 @@
       "asof": "2026-04-21"
     },
     {
+      "id": "f.team.0006.idp_adds_alltime",
+      "label": "Defensive players acquired since 2010",
+      "value": 234,
+      "unit": "count",
+      "fmt": "234",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.idp_adds_lead_streak",
+      "label": "Consecutive seasons leading the league in defensive acquisitions",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.idp_adds_next_best",
+      "label": "Defensive acquisitions by the next team on that list",
+      "value": 428,
+      "unit": "count",
+      "fmt": "428",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.idp_adds_rank",
+      "label": "League rank for defensive acquisitions since 2010",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "src_adddrop + src_players",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.idp_auction_share",
+      "label": "Share of auction money spent on defenders",
+      "value": 71.7948717948718,
+      "unit": "percent",
+      "fmt": "71.8%",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.idp_auction_share_rank",
+      "label": "League rank for share of auction money spent on defenders (1 = smallest share)",
+      "value": 12,
+      "unit": "count",
+      "fmt": "12",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.idp_auction_spend",
+      "label": "Spent on defenders across both auctions",
+      "value": 28000,
+      "unit": "usd",
+      "fmt": "$28,000",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.idp_ppw_rank",
+      "label": "League rank for points per started defender, 2023-2025",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7",
+      "source": "src_weekly",
+      "asof": "2026-09-06"
+    },
+    {
       "id": "f.team.0006.inyear_flyers",
       "label": "Players signed and discarded inside the same offseason",
       "value": 8,
@@ -309,27 +381,27 @@
     {
       "id": "f.team.0006.lineup_value_current",
       "label": "Legal-lineup offense value, now",
-      "value": 29046,
+      "value": 29074,
       "unit": "count",
-      "fmt": "29,046",
+      "fmt": "29,074",
       "source": "lineup_engine+adp-board",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0006.lineup_value_opening",
       "label": "Legal-lineup offense value, opening (today's market)",
-      "value": 27092,
+      "value": 27120,
       "unit": "count",
-      "fmt": "27,092",
+      "fmt": "27,120",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0006.lineup_value_preauction",
       "label": "Legal-lineup offense value, entering the auction (today's market)",
-      "value": 28033,
+      "value": 28061,
       "unit": "count",
-      "fmt": "28,033",
+      "fmt": "28,061",
       "source": "lineup_engine+adp-board",
       "asof": "2026-07-23"
     },
@@ -345,9 +417,9 @@
     {
       "id": "f.team.0006.qb_value",
       "label": "QB starters redraft value",
-      "value": 11774,
+      "value": 11802,
       "unit": "count",
-      "fmt": "11,774",
+      "fmt": "11,802",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
@@ -439,6 +511,15 @@
       "unit": "usd",
       "fmt": "$8,000",
       "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.trade_blind_bid_cash",
+      "label": "Largest blind-bid sum moved inside one of this team's trades",
+      "value": 20000,
+      "unit": "usd",
+      "fmt": "$20,000",
+      "source": "mfl transactions",
       "asof": "2026-09-06"
     },
     {
@@ -689,7 +770,7 @@
         [
           "Kyle Hamilton",
           "S",
-          "Low-end DB2",
+          "Mid DB2",
           3000
         ],
         [
@@ -764,7 +845,7 @@
           20,
           "yes",
           270000,
-          27092,
+          27120,
           5,
           0,
           4
@@ -775,7 +856,7 @@
           22,
           "yes",
           292000,
-          28033,
+          28061,
           5,
           0,
           4
@@ -786,7 +867,7 @@
           30,
           "yes",
           290000,
-          29046,
+          29074,
           5,
           0,
           4
@@ -1280,6 +1361,90 @@
       "note": "'cut' = a contract carried into the league year and released. 'waiver swap' = the make-room drop leg of a BBID claim. 'in-year flyer' = signed and discarded inside the same offseason (a timing classification, NOT a salary one -- read the salary column, these are not all minimum-salary deals). 'Charged to' is the cap year the penalty actually hits: a drop on or after the FA Auction open is charged to the FOLLOWING season (canon §D1) and is ledger-only until rollover, so rows marked deferred must never be added into this season's cap total."
     },
     {
+      "id": "t.0006.idp_activity",
+      "title": "Defensive acquisitions since 2010, and what they returned",
+      "columns": [
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "adds",
+          "label": "Defenders acquired",
+          "type": "count"
+        },
+        {
+          "key": "ppw",
+          "label": "Points per started defender (2023-2025)",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Real Deal Creel",
+          428,
+          "8.62"
+        ],
+        [
+          "L.A. Looks",
+          257,
+          "9.34"
+        ],
+        [
+          "Pure Greatness",
+          244,
+          "9.07"
+        ],
+        [
+          "The Long Haulers",
+          234,
+          "8.08"
+        ],
+        [
+          "Blake Bombers",
+          220,
+          "8.05"
+        ],
+        [
+          "Sex Manther",
+          206,
+          "8.95"
+        ],
+        [
+          "C-Town Chivalry",
+          198,
+          "8.03"
+        ],
+        [
+          "Gride",
+          186,
+          "7.61"
+        ],
+        [
+          "HammerTime 🔨 ⏰",
+          182,
+          "8.55"
+        ],
+        [
+          "CBP",
+          166,
+          "7.90"
+        ],
+        [
+          "Hawks",
+          118,
+          "7.09"
+        ],
+        [
+          "Cleon Ca$h",
+          101,
+          "8.24"
+        ]
+      ],
+      "note": "Acquisitions are every ADD of a player listed DE/DT/LB/CB/S, all methods, 2010 to last completed season. Points per started defender is regular-season only and counts only weeks the defender was actually STARTED, so it measures the defense an owner fielded rather than the one he rostered. Working the wire hardest and scoring most are plainly not the same thing here."
+    },
+    {
       "id": "t.0006.lineup",
       "title": "Legal starting lineup",
       "columns": [
@@ -1315,7 +1480,7 @@
           "RB",
           "Derrick Henry",
           "RB",
-          "High-end RB1"
+          "Mid RB1"
         ],
         [
           "RB",
@@ -1327,7 +1492,7 @@
           "WR",
           "A.J. Brown",
           "WR",
-          "High-end WR1"
+          "Mid WR1"
         ],
         [
           "WR",
@@ -1399,19 +1564,19 @@
           "DB",
           "Jordan Battle",
           "S",
-          "High-end DB1"
+          "Mid DB1"
         ],
         [
           "DB",
           "Cooper DeJean",
           "CB",
-          "High-end DB2"
+          "Mid DB2"
         ],
         [
           "Flex",
           "Tremaine Edmunds",
           "LB",
-          "High-end LB2"
+          "Mid LB2"
         ]
       ],
       "note": "Offense (QB/RB/WR/TE) filled by current redraft ADP. DL/LB/DB filled by points-above-replacement from real production under UPS scoring, where the player has a prior season. A defender with no prior-season production is unvalued (not zero) and only salary-filled if the slot would otherwise go empty. K/P have neither source and are salary-filled. Fixed slots before flex."
@@ -1521,9 +1686,9 @@
         ],
         [
           "RB1",
-          "Derrick Henry, High-end RB1",
-          "Derrick Henry, High-end RB1",
-          "Derrick Henry, High-end RB1"
+          "Derrick Henry, Mid RB1",
+          "Derrick Henry, Mid RB1",
+          "Derrick Henry, Mid RB1"
         ],
         [
           "RB2",
@@ -1533,9 +1698,9 @@
         ],
         [
           "WR1",
-          "A.J. Brown, High-end WR1",
-          "A.J. Brown, High-end WR1",
-          "A.J. Brown, High-end WR1"
+          "A.J. Brown, Mid WR1",
+          "A.J. Brown, Mid WR1",
+          "A.J. Brown, Mid WR1"
         ],
         [
           "WR2",
@@ -1605,7 +1770,7 @@
           "2026-04-09",
           "HammerTime 🔨 ⏰",
           "2027 round-1 pick (The Long Haulers's natural pick); 2027 round-2 pick (The Long Haulers's natural pick)",
-          "Jalen Hurts (QB, redraft value 6,541); $20,000 of blind-bid consideration",
+          "Jalen Hurts (QB, redraft value 6,554); $20,000 of blind-bid consideration",
           "—"
         ],
         [
@@ -1660,6 +1825,14 @@
         "f.league.teams",
         "f.team.0006.composite_rank",
         "f.team.0006.composite_value",
+        "f.team.0006.idp_adds_alltime",
+        "f.team.0006.idp_adds_lead_streak",
+        "f.team.0006.idp_adds_next_best",
+        "f.team.0006.idp_adds_rank",
+        "f.team.0006.idp_auction_share",
+        "f.team.0006.idp_auction_share_rank",
+        "f.team.0006.idp_auction_spend",
+        "f.team.0006.idp_ppw_rank",
         "f.team.0006.qb_rank",
         "f.team.0006.qb_value",
         "f.team.0006.rb_rank",
@@ -1671,6 +1844,7 @@
       ],
       "tableIds": [
         "t.0006.bench",
+        "t.0006.idp_activity",
         "t.0006.lineup"
       ],
       "chartIds": [],
@@ -1744,6 +1918,7 @@
         "f.team.0006.inyear_flyers",
         "f.team.0006.rookie_picks_count",
         "f.team.0006.roster_removals_total",
+        "f.team.0006.trade_blind_bid_cash",
         "f.team.0006.trades_count",
         "f.team.0006.waiver_swaps"
       ],
