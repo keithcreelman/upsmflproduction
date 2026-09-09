@@ -440,13 +440,55 @@
   function fetchSubmittedLineup() {
     var wk = currentWeek();
     var url = workerUrl("/api/lineup?W=" + encodeURIComponent(wk || ""));
-    return fetchJson(withMflUserParam(url))
+    var lineupP = fetchJson(withMflUserParam(url))
       .then(function (j) { state.lineupRead = j || null; })
       .catch(function (e) {
         // Network/CORS failure is UNKNOWN, not "no lineup".
         state.lineupRead = { ok: false, known: false, state: "unknown",
                              error: "couldn't reach the lineup service" };
       });
+
+    // Matchup context for the slot chips: opponent + kickoff, from MFL's own
+    // TYPE=nflSchedule (global, keyless — the same shape GameDay's server-side
+    // /api/lineup-matchups builds, read directly here since this panel needs
+    // nothing else that endpoint returns). A team missing from this week's
+    // schedule is on a BYE — but only say so when the fetch itself succeeded;
+    // a failed fetch must read as "unknown", never as "everyone's on bye".
+    var schedP = fetchJson(mflExportUrl("nflSchedule", { W: wk }))
+      .then(function (j) {
+        var map = {};
+        var ms = j && j.nflSchedule && j.nflSchedule.matchup;
+        (Array.isArray(ms) ? ms : (ms ? [ms] : [])).forEach(function (m) {
+          var teams = Array.isArray(m.team) ? m.team : (m.team ? [m.team] : []);
+          if (teams.length < 2) return;
+          var ko = Number(m.kickoff) || 0;
+          var mk = function (t, o) {
+            return { opp: safeStr(o.id).toUpperCase(), isHome: String(t.isHome) === "1", kickoff: ko };
+          };
+          map[safeStr(teams[0].id).toUpperCase()] = mk(teams[0], teams[1]);
+          map[safeStr(teams[1].id).toUpperCase()] = mk(teams[1], teams[0]);
+        });
+        state.nflMatchupByTeam = map;
+      })
+      .catch(function () { state.nflMatchupByTeam = null; });
+
+    // MFL's own current-week projection (keyless TYPE=projectedScores) — the
+    // same source GameDay already trusts (site/gameday/gameday.html:333).
+    // Not opponent-adjusted, not ours: whatever MFL itself projects.
+    var projP = fetchJson(mflExportUrl("projectedScores"))
+      .then(function (j) {
+        var map = {};
+        var ps = j && j.projectedScores && j.projectedScores.playerScore;
+        (Array.isArray(ps) ? ps : (ps ? [ps] : [])).forEach(function (p) {
+          if (!p || !p.id) return;
+          var n = parseFloat(p.score);
+          if (!isNaN(n)) map[String(p.id)] = n;
+        });
+        state.projByPid = map;
+      })
+      .catch(function () { state.projByPid = null; });
+
+    return Promise.all([lineupP, schedP, projP]);
   }
 
   // MFL stores WHICH players start, not which slot each one occupies, so the
@@ -1445,16 +1487,33 @@
 
   // ---------- Zone 3: lineup / roster shape ----------
 
-  // The chip's second line. NFL team already rides along in the select label
-  // (it's the disambiguator between same-surname players), so the meta line
-  // carries the contract instead of repeating it.
+  function fmtKickoff(unix) {
+    if (!unix) return "";
+    var d = new Date(Number(unix) * 1000);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" });
+  }
+
+  // The chip's second line for THIS WEEK's game, not the contract — Keith:
+  // "Show the opponent, projected points, time of day for the player not the
+  // salary." Every piece is independently optional and never fabricated:
+  // state.nflMatchupByTeam / state.projByPid are null (not {}) when their
+  // fetch failed, so a genuine "nothing to show" and "we couldn't read it"
+  // never collapse into the same blank line by accident — both currently
+  // render as "" (nothing), which is a display choice, not a correctness one.
   function slotMetaFor(row) {
     if (!row) return "";
     var bits = [];
-    if (row.salary > 0) bits.push(fmtUsd(row.salary));
-    if (row.contractYear === 0) bits.push("expired");
-    else if (row.contractYear != null && row.contractYear > 0) bits.push("cy " + row.contractYear);
-    if (!bits.length && row.contract) bits.push(row.contract);
+    var m = state.nflMatchupByTeam && state.nflMatchupByTeam[safeStr(row.team).toUpperCase()];
+    if (m) {
+      bits.push((m.isHome ? "vs " : "@ ") + m.opp);
+      var ko = fmtKickoff(m.kickoff);
+      if (ko) bits.push(ko);
+    } else if (state.nflMatchupByTeam && row.team) {
+      bits.push("BYE");
+    }
+    var proj = state.projByPid && state.projByPid[row.id];
+    if (proj != null) bits.push(proj.toFixed(1) + " proj");
     return bits.join(" · ");
   }
 
@@ -1622,17 +1681,15 @@
       // disappear from the grid and quietly understate his lineup. Say it.
       var unplaced = count - (sub_ ? sub_.count : 0);
       foot = '<div class="tops-lineup-foot">'
-        + '<span class="tops-note">'
-        +   (shortBy > 0
-              ? 'MFL is holding only <b>' + count + ' of ' + TOTAL_STARTERS + '</b> starters — ' +
-                plural(shortBy, "empty slot") + ' will score 0. '
-              : 'All ' + TOTAL_STARTERS + ' slots are filled. ')
-        +   (unplaced > 0
-              ? '<b>' + plural(unplaced, "starter") + ' could not be shown</b> below — MFL has ' +
-                (unplaced === 1 ? 'him' : 'them') + ' starting, so your lineup is fine; this panel is behind. '
-              : '')
-        +   'These are the players MFL has starting for you; the slot each one sits in is our arrangement of them.'
+        + '<span class="tops-lineup-count' + (shortBy > 0 ? ' is-bad' : '') + '">'
+        +   count + ' / ' + TOTAL_STARTERS + ' Slots Filled'
         + '</span>'
+        +   (unplaced > 0
+              ? '<span class="tops-note">' +
+                  '<b>' + plural(unplaced, "starter") + ' could not be shown</b> below — MFL has ' +
+                  (unplaced === 1 ? 'him' : 'them') + ' starting, so your lineup is fine; this panel is behind.' +
+                '</span>'
+              : '')
         + '<a class="tops-cta" href="' + escapeHtml(gameDay) + '" target="_top">Change it in Game Day</a>'
         + '</div>';
     } else {
