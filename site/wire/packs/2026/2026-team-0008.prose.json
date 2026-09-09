@@ -1,25 +1,25 @@
 {
   "meta": {
     "engine": "claude-opus-5",
-    "inputTokens": 16067,
-    "outputTokens": 14968,
+    "inputTokens": 18465,
+    "outputTokens": 23805,
     "packId": "2026-team-0008",
-    "packGeneratedAtUtc": "2026-09-09T14:55:27Z"
+    "packGeneratedAtUtc": "2026-09-09T15:15:41Z"
   },
   "prose": {
-    "kicker": "One elite receiver, four quarterbacks, and a tight end nobody wants to talk about",
-    "title": "Real Deal Creel Bought a Whole Team and Kept the Old Tight End",
-    "dek": "Keith Creelman rebuilt almost every priced slot he owns, spent nearly everything he had at auction, and still ended up middling — because of where the money went.",
+    "kicker": "One elite receiver, four quarterbacks, and a tight end room nobody fixed",
+    "title": "Real Deal Creel Built a Whole Team and Stopped One Position Short",
+    "dek": "Keith Creelman rebuilt almost the entire priced lineup in a single offseason, then spent real money at the one spot that still grades badly.",
     "sections": [
       {
         "id": "s1",
         "lead": "",
         "paragraphs": [
-          "Keith Creelman built a lineup with one genuinely elite piece in it and then filled the rest in by hand. Puka Nacua and Christian Watson give him a receiver room ranked {{f.team.0008.wr_rank}} in the league, and that ranking is almost entirely Nacua — Watson is a body the market does not rate holding down the other side. The combined figure of {{f.team.0008.wr_value}} is the best thing on this roster and the least balanced.",
-          "The backfield is the sturdier half. Saquon Barkley and Travis Etienne sit {{f.team.0008.rb_rank}} among the running back groups, with TreVeyon Henderson behind them in a flex, which means three backs Creelman is happy to start and no obvious hole between them. The running back value of {{f.team.0008.rb_value}} is spread across bodies rather than propped up by one. Parker Washington takes the other flex.",
-          "Then it gets thin. Dak Prescott and Kyler Murray in the superflex put the quarterback pairing at {{f.team.0008.qb_rank}}, which is a strange place to land for a man who spent the way he spent. Dallas Goedert is the tight end room, all of it, and {{f.team.0008.te_value}} is what that produces — a rank of {{f.team.0008.te_rank}} at the position.",
-          "Overall the composite lands at {{f.team.0008.composite_rank}} of {{f.league.teams}}, on a score of {{f.team.0008.composite_value}}. Nacua and Barkley carry it; Goedert and Christian Watson drag on it. Cam Little kicks, Tommy Townsend punts, and Josh Hines-Allen, Jalyx Hunt and Nick Bolton are all startable on defence without anyone pretending they are the reason this team wins.",
-          "The bench is where the odd money sits. Marvin Harrison Jr is the best thing not starting, worth roughly what Parker Washington is worth in the flex ahead of him, and Stefon Diggs is on there at the league minimum, which is the best-priced thing Creelman did all offseason. Jacoby Brissett and Chig Okonkwo are also on there, at prices that are not the minimum, which is the second half of that sentence and less flattering."
+          "Keith Creelman paid up for Dak Prescott at the Free Agent Auction, put him straight into the starting quarterback slot, and still comes out {{f.team.0008.qb_rank}} at the position. Prescott grades a High-end QB2 and Kyler Murray fills the SuperFlex as a Low-end QB2, which is two solid arms and nothing above them. The overall power rank lands at {{f.team.0008.composite_rank}}.",
+          "Receiver is where he actually beats people, and the group grades {{f.team.0008.wr_rank}}. That is Puka Nacua, an Elite WR1, doing most of the lifting: Christian Watson is a Low-end WR3 and Parker Washington a High-end WR3 in a flex. Marvin Harrison Jr, a Low-end WR2, is the best player on the bench, which is a genuinely useful thing to have sitting there.",
+          "Saquon Barkley anchors the backfield as a Low-end RB1, with Travis Etienne and TreVeyon Henderson both Low-end RB2s, one in the second running slot and one in a flex. Adequate everywhere, elite nowhere. It grades {{f.team.0008.rb_rank}}.",
+          "Dallas Goedert starts at tight end as a Replacement-level TE, and the position grades {{f.team.0008.te_rank}}. Chig Okonkwo is behind him and grades exactly the same, on a current-year salary nowhere near the league minimum. Nothing on this roster fixes it.",
+          "Josh Hines-Allen and Jalyx Hunt fill both defensive line slots as Low-end DL2s, Nick Bolton is a Low-end LB2, and Cam Little and Tommy Townsend occupy the kicker and punter slots on salary alone because those slots have no ranking source at all. The priced offense carries {{f.team.0008.studs_current}} studs — Nacua and Barkley — and {{f.team.0008.holes_current}} holes, one of them Goedert. This is a lineup with two edges and two soft spots, not a flat one."
         ],
         "bullets": [],
         "place": [
@@ -31,20 +31,19 @@
         "games": [],
         "gameNotes": {},
         "captions": {
-          "t.0008.lineup": "Nacua and Barkley are the team; the rest is a competent supporting cast and a tight end.",
-          "t.0008.bench": "The depth is real at receiver and expensive at quarterback."
+          "t.0008.lineup": "Nacua and Barkley are the edges; Goedert is the part nobody solved.",
+          "t.0008.bench": "Harrison Jr is real depth. Two of the priciest bench salaries belong to replacement-level players."
         }
       },
       {
         "id": "s2",
         "lead": "",
         "paragraphs": [
-          "Creelman opened the offseason with Deshaun Watson at quarterback and Emanuel Wilson at running back, which tells you everything about the starting point. Tetairoa McMillan was the only starter the market rated as a top-tier player at his position, TreVeyon Henderson led the backfield, and Trey Benson and Keon Coleman were occupying flex and superflex slots the board barely recognises. The offense graded out at {{f.team.0008.lineup_value_opening}}, with {{f.team.0008.holes_opening}} of the nine priced slots unfilled in any meaningful sense.",
-          "Contracts expire in this league and rosters empty out; a spring lineup that reads like a waiver page is the middle of the cycle, not a fire. Creelman kept his franchise, kept Goedert, Henderson and Christian Watson, and went shopping for the other six slots. The active-roster salary at that point was {{f.team.0008.cap_opening}}.",
-          "By the time the auction opened, the shape of the year had already changed once. McMillan was gone and Puka Nacua was in the WR1 slot — the same stud count, an entirely different player, and the largest single upgrade Creelman made all offseason hidden inside a number that did not move. Travis Etienne had arrived and pushed Henderson to RB2, KC Concepcion had taken a flex and Kayshon Boutte the superflex. The offense read {{f.team.0008.lineup_value_preauction}} against an active salary of {{f.team.0008.cap_preauction}}.",
-          "The auction did the rest, loudly. Dak Prescott replaced Deshaun Watson, Saquon Barkley took RB1 and pushed Etienne and Henderson down a rung each, and Kyler Murray filled the superflex that Boutte had been standing in. Parker Washington now holds the second flex. The lineup value finished at {{f.team.0008.lineup_value_current}}, the studs went to {{f.team.0008.studs_current}}, and the holes came down to {{f.team.0008.holes_current}}.",
-          "Those remaining two are Christian Watson and Parker Washington, and they are the difference between this team and the ones above it. This is not a roster that is adequate everywhere — it is two elite starters, a solid middle, and two slots where the market has no opinion worth having. Committed cap now sits at {{f.team.0008.cap_current_spent}} across {{f.team.0008.active_now}} active players, with {{f.team.0008.cap_current_room}} of room left to fix anything.",
-          "Keep the two questions apart. Very little of what Creelman starts today was carried on an existing contract — Goedert, Christian Watson and Henderson are the survivors, and none of them is why this lineup ranks where it does. Nacua came by trade, Prescott and Barkley and Murray came at auction. Whatever this team is, he made it this year."
+          "Creelman entered the offseason with an active roster of {{f.team.0008.active_roster_opening}}, fewer players than the lineup card has slots. Active salary sat at {{f.team.0008.cap_opening}}. What he was holding was Tetairoa McMillan, TreVeyon Henderson, Christian Watson, Dallas Goedert, Marvin Harrison Jr, Deshaun Watson, Emanuel Wilson, Trey Benson and Keon Coleman, and the priced group among them contained {{f.team.0008.studs_opening}} stud: McMillan, a Low-end WR1.",
+          "By the time the Free Agent Auction opened he had already sent McMillan out in the three-way for Puka Nacua and pulled Etienne in from Gride, and the roster stood at {{f.team.0008.active_roster_preauction}} active players. Active salary had climbed to {{f.team.0008.cap_preauction}}. Deshaun Watson, a Replacement-level QB, was still the best quarterback he owned.",
+          "Now the roster runs to {{f.team.0008.active_roster_current}} active players. He can field a legal lineup for the first time in the cycle: {{f.team.0008.can_field_lineup_current}}. Cap committed reads {{f.team.0008.cap_current_spent}}.",
+          "Holes fell from {{f.team.0008.holes_opening}} to {{f.team.0008.holes_current}}, and the stud count barely moved, which buries the biggest single upgrade of his offseason: the stud slot did not change hands, it changed players, from McMillan to Nacua, a Low-end WR1 becoming an Elite WR1. Prescott replaced Deshaun Watson at quarterback. Barkley replaced nobody, because there was nobody. There is {{f.team.0008.cap_current_room}} of room left, so the building is finished whether he thinks so or not.",
+          "Keep the two questions apart. The strength he carried was Henderson, Christian Watson, Goedert and Harrison Jr — those are the only names in the priced starting group that were on hand in the spring. Prescott, Murray, Barkley, Nacua, Etienne and Parker Washington were all created this year, by trade or by auction, which means the team you are looking at is almost entirely an offseason product rather than a holdover."
         ],
         "bullets": [],
         "place": [
@@ -56,17 +55,18 @@
         "games": [],
         "gameNotes": {},
         "captions": {
-          "t.0008.bridge": "Three stages of the same franchise, rebuilt from the studs out.",
-          "t.0008.slot_bridge": "The stud count barely moved between the first two stages; the WR1 slot changed completely."
+          "t.0008.bridge": "Three stages, and only the last one has a lineup in it at all.",
+          "t.0008.slot_bridge": "The names moving through each priced slot say more than the stud count does."
         }
       },
       {
         "id": "s3",
         "lead": "",
         "paragraphs": [
-          "Creelman bought four quarterbacks. Dak Prescott went for {{f.team.0008.top_buy_price}}, which is the single largest bill of his auction by a distance and accounts for {{f.team.0008.top_buy_pct_of_spend}} of everything he spent. Kyler Murray followed at real money and starts in the superflex, so that pair is defensible. Jacoby Brissett and Mac Jones are the ones that need explaining, because both are on this roster and neither is in the lineup.",
-          "Across {{f.team.0008.auction_lots_won}} winning lots he laid out {{f.team.0008.auction_spend}}, and Saquon Barkley was the other genuinely big ticket — a stud in the RB1 slot from a standing start, which is exactly what the money is for. Beneath that, the shopping is sensible and cheap: Nick Bolton and Josh Hines-Allen are both startable defenders bought at prices that will not hurt anyone, and Tommy Townsend punts. Will McDonald was bought at auction and then dropped as the make-room leg of a waiver claim before the season, which is the kind of round trip that makes a bid look ornamental.",
-          "The buy that grates is Chig Okonkwo. Creelman paid at auction for a tight end, then handed him a multi-year deal at a salary well above the league minimum, and Dallas Goedert still starts. Okonkwo is bench value on a bench contract, and the tight end rank did not move an inch for it."
+          "Creelman won {{f.team.0008.era_lots_won}} lots at the Expired Rookie Auction in May. The bill for the lot of them came to {{f.team.0008.era_spend}}. Chris Rodriguez, Kayshon Boutte, Michael Mayer, Will McDonald and Kendre Miller went home with him, and the board scattered fast: Rodriguez was later included in the three-way for Nacua, McDonald and Kendre Miller both became make-room drops on waiver claims, and Boutte and Mayer are the two who ended up with multi-year deals. Cheap tickets, mostly disposable, a couple that stuck.",
+          "The Free Agent Auction in late July is where the actual team came from. He won {{f.team.0008.faa_lots_won}} lots there. Spend was {{f.team.0008.faa_spend}}, and Prescott was the top buy at {{f.team.0008.top_buy_price}} — {{f.team.0008.top_buy_pct_of_spend}} of his free-agent money, all of it on a High-end QB2. Barkley came off the same board as a Low-end RB1 and Murray as a Low-end QB2, and those two purchases are the difference between a roster and a lineup.",
+          "The quarterback shopping did not stop when it should have. Jacoby Brissett grades a Replacement-level QB, cost a long way above the league minimum, and is on the bench next to Deshaun Watson, who grades the same and is at the minimum. Mac Jones came off the same board. Four quarterbacks bought at one auction, and the two who start are a High-end QB2 and a Low-end QB2.",
+          "Across the two events the commitment ran to {{f.team.0008.auction_spend}}. One of them built a contender's spine. The other one bought Boutte and Mayer and a lot of paperwork."
         ],
         "bullets": [],
         "place": [
@@ -77,19 +77,20 @@
         "games": [],
         "gameNotes": {},
         "captions": {
-          "t.0008.auction": "One enormous quarterback, one enormous running back, and a very long tail."
+          "t.0008.auction": "Two separate auctions, months and an order of magnitude apart."
         }
       },
       {
         "id": "s4",
         "lead": "",
         "paragraphs": [
-          "Creelman cut Trey Benson off a contract that carried a penalty and then re-signed him at the league minimum weeks later, which is either patient or lucky and works out the same on the ledger. He made {{f.team.0008.contracts_count}} contract moves in all, every one of them a Multi-Year Contract except Puka Nacua's, which was a Restructure — the existing money re-based over the years already on the deal, not new seasons bolted on the back. Cam Little, Brian Robinson, Charlie Kolar, Jack Strand, Jacob Saylors, Stefon Diggs and Benson all landed at the league minimum. Parker Washington and Chig Okonkwo did not, and neither did Kayshon Boutte or Michael Mayer, all four of whom sit above it.",
-          "Diggs at the minimum is the best-priced thing in the whole set — bench value at the floor of the salary scale. Washington's deal is the one with a starting slot attached to it, and the market rates that slot a hole.",
-          "The trades number {{f.team.0008.trades_count}} and split cleanly. Kenneth Walker went to HammerTime for their natural first-rounder in next year's draft — talent out, future asset in, no cap logic to it. The Gride deal was the efficient one: a first-round pick out, and Travis Etienne plus the pick that became KC Concepcion back, straightforwardly talent-driven and straightforwardly good. Two more with Pure Greatness and Gride were pure pick shuffling, moving up in the second and third at the cost of a future third and a pair of later selections.",
-          "The three-way with C-Town Chivalry and Blake Bombers is the one that defines the roster. Creelman sent out Tetairoa McMillan, his own natural first-rounder next year, Chris Rodriguez and Omar Cooper, and got Puka Nacua — four assets condensed into one, which is a talent-driven trade in the plainest sense. It was not a two-man swap: C-Town also sent Drake London and blind-bid money to Blake Bombers, which is the part that makes the price look like a price. Having acquired HammerTime's first-rounder in the spring, he then spent his own on Nacua, so he still has one. The last deal, George Karlaftis and a future fifth to the Hawks for a future fourth, moved a startable defender for a small upgrade in draft slot and barely registers.",
-          "Removals came to {{f.team.0008.roster_removals_total}} bodies, of which only {{f.team.0008.cuts_count}} were contracts carried into the league year and released. Noah Fant was depth behind Goedert. Blake Watson was a non-contributor and cost nothing to remove. Benson and Keon Coleman were technically holding priced slots, which flatters them — both were rated outside anything the board cares about, and replacing them was the whole point. The penalties charged against this season total {{f.team.0008.cuts_penalty_2026}}; another {{f.team.0008.cuts_penalty_2027_deferred}} lands next year and has no bearing on the cap he is working with now. Add {{f.team.0008.waiver_swaps}} drops that were just the make-room leg of a claim and {{f.team.0008.inyear_flyers}} bodies signed and discarded inside the same offseason, and the churn is mostly noise.",
-          "The rookie class runs to {{f.team.0008.rookie_picks_count}} picks. KC Concepcion came from a slot that has historically produced a usable player more often than not, and he is the only one of the group with real redraft value attached. Omar Cooper Jr. came from a slot that is close to a coin flip and was shipped out in the Nacua deal before he played a down for Creelman. De'Zhaun Stribling was the move-up in the second, from a slot that hits far less often, and he currently prices out near Concepcion. Sonny Styles and Zion Young are off the board entirely — for a third-rounder that is roughly what the slot promises, and for a sixth there is nothing to measure against at all. None of them have played a game; this is what the slots have historically been worth, not a grade."
+          "Creelman restructured Puka Nacua, re-basing the remaining value of an existing deal rather than bolting years onto the back of it, and it is the only Restructure among {{f.team.0008.contracts_count}} contract moves. Everything else was a Multi-Year Contract. Cam Little, Trey Benson, Brian Robinson, Charlie Kolar, Jack Strand, Jacob Saylors and Stefon Diggs all signed at the league minimum; Parker Washington, Chig Okonkwo, Boutte and Mayer did not, and Washington and Okonkwo in particular carry current-year money well clear of it.",
+          "The Okonkwo sequence is the worst thing in the file. He bought a tight end at the Free Agent Auction, then handed that tight end a multi-year deal at real current-year money, and Okonkwo grades a Replacement-level TE sitting behind a Replacement-level TE. He spent at the position he is weakest at and the position did not move.",
+          "He made {{f.team.0008.trades_count}} trades and the good ones are obvious. Kenneth Walker went to HammerTime for HammerTime's natural first-rounder next season — talent out, future capital in. The Gride deal that sent out the pick which became Jadarian Price and brought back Travis Etienne plus the pick which became KC Concepcion is straight talent-driven, and he won it. The three-way with C-Town Chivalry and Blake Bombers cost him McMillan, his own natural first for next season, Chris Rodriguez and Omar Cooper for Nacua: pure talent consolidation, and note that Drake London and blind-bid consideration moved between the other two franchises, not through him.",
+          "Two of the six were pick-shuffles up his own board: he spent a future third to move up in the second round and take De'Zhaun Stribling, and spent two third-rounders to move up and take Sonny Styles. The Hawks deal is the odd one — he gave up George Karlaftis, a startable defensive lineman, plus a future fifth, to move up to a future fourth. Defensive line is the one place a wire genuinely restocks, so paying with a starter there is defensible; paying with a starter there for one round of draft position is thin. Across all of it he did not lose a first-rounder, he swapped which one he owns.",
+          "Contracts carried into the league year and then released came to {{f.team.0008.cuts_count}}. Noah Fant was tight end depth, Keon Coleman is a Replacement-level WR and was not contributing, Blake Watson was on the taxi and his salary never touched the cap, and Trey Benson was running-back depth — cut at a mid-range salary, penalty paid, then re-signed off the wire at the league minimum, which is a competent bit of price resetting. None of the five removed a starter. The penalty charged against this season is {{f.team.0008.cuts_penalty_2026}}, with {{f.team.0008.cuts_penalty_2027_deferred}} landing next season instead.",
+          "The rest of the churn is churn: {{f.team.0008.waiver_swaps}} of the drops were the make-room leg of a claim, {{f.team.0008.inyear_flyers}} bodies were signed and discarded inside the same offseason, and removals of all kinds totalled {{f.team.0008.roster_removals_total}}. He was busy. Busy is not the same as right, but nothing in that column cost him anything.",
+          "The rookie class ran to {{f.team.0008.rookie_picks_count}} picks. Concepcion, taken in the first round, comes from a slot where history says the pick is usable more often than not, and he currently grades a High-end WR3 on the bench. Omar Cooper Jr. came later in the same round from a slot with a roughly even historical band, grades a Replacement-level WR, and was included in the Nacua deal. Stribling — the second-rounder he traded up for — comes from a slot where history says usable rarely, and grades a Low-end WR3, which for a player with no games played is ahead of the band. Styles and Zion Young are defenders: no valuation source has an opinion on either yet, which is a gap in the measuring, not a mark against the picks."
         ],
         "bullets": [],
         "place": [
@@ -103,19 +104,19 @@
         "games": [],
         "gameNotes": {},
         "captions": {
-          "t.0008.contracts": "One Restructure, the rest multi-year deals, and a lot of business done at the floor.",
-          "t.0008.trades": "Four assets in, one Puka Nacua out the other side.",
-          "t.0008.cuts": "Most of this is waiver churn; only a handful were contracts that carried into the year.",
-          "t.0008.rookies": "Pre-outcome expectation by draft slot, not a verdict on any of them."
+          "t.0008.contracts": "One re-based deal, a stack of minimum signings, and two tight-end-adjacent prices that stand out.",
+          "t.0008.trades": "Six deals: two big talent moves, two board climbs, one pick nudge that cost a starter.",
+          "t.0008.cuts": "Depth and non-contributors only, and the deferred penalty is not this year's problem.",
+          "t.0008.rookies": "Pre-outcome expectation at each slot, next to what the market thinks of the player today."
         }
       },
       {
         "id": "s5",
         "lead": "",
         "paragraphs": [
-          "Creelman replaced every priced slot he owns except Christian Watson and Dallas Goedert, and finished {{f.team.0008.composite_rank}} overall. So: no, this is not the strongest team in the league, and nothing about the middle of this roster argues otherwise. But the offseason was a good one, and those two facts sit comfortably together — he started from an April lineup with Emanuel Wilson in it and he is now a plausible playoff team.",
-          "The biggest advantage is Puka Nacua, and it is not close. He is the reason the receiver group grades {{f.team.0008.wr_rank}}, he cost four assets and a future first, and he is the one player on this roster who wins a week on his own. Saquon Barkley behind him makes the running back room {{f.team.0008.rb_rank}}, which is the only other place this team is comfortably above the middle.",
-          "The weakness is Dallas Goedert, alone at tight end, and the position rank of {{f.team.0008.te_rank}} that comes with him. Behind that sits the quarterback problem: Prescott and Murray at {{f.team.0008.qb_rank}} in a superflex league, after Creelman bought four quarterbacks and paid a fortune for one of them. He spent the most money in his auction on the position where he still ranks worst outside tight end. That is the bill for the year in one line."
+          "Creelman does not have the strongest team in the league, and the composite says so at {{f.team.0008.composite_rank}}. He did have one of the more productive offseasons anyone ran, which is a separate question and a friendlier answer. Almost every priced starter he will use arrived this year.",
+          "The single biggest advantage is Nacua, an Elite WR1, with Parker Washington in a flex and Harrison Jr in reserve, and the receiver group grading {{f.team.0008.wr_rank}}. The single biggest weakness is tight end: Goedert starting and Okonkwo behind him, both Replacement-level TEs, one of them on money that should have bought something, and the position grading {{f.team.0008.te_rank}}. He bought four quarterbacks at one auction and the position still grades {{f.team.0008.qb_rank}}.",
+          "Barkley, Etienne and Henderson give him a backfield grading {{f.team.0008.rb_rank}}, which is the quietly fine part of this. The verdict is a good offseason attached to a middling team, and the reason is that he solved five holes down to two and then kept shopping at quarterback instead of at tight end. Nacua wins him games. Goedert is still there."
         ],
         "bullets": [],
         "place": [],

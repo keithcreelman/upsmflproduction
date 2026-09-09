@@ -309,11 +309,37 @@ this year through named moves, i.e. trades/cuts/auction buys/rookie picks).
 
 NOBODY INHERITS ANYTHING. UPS owners keep their franchise year over year.
 Contracts expire, the roster empties out, and the owner rebuilds it -- that
-cycle IS the league. So a thin roster in March is the NORMAL STATE OF THE
-PROCESS, not a crisis, not a mess someone was handed, and not news. Never
-write "inherited", "took over", "was handed", "walked into" or any phrasing
-that implies the roster arrived from someone else. The owner in March and the
-owner in September are the same person continuing the same plan.
+cycle IS the league. Never write "inherited", "took over", "was handed",
+"walked into" or any phrasing that implies the roster arrived from someone
+else. The owner in March and the owner in September are the same person
+continuing the same plan.
+
+AND DO NOT DEFEND HIM FROM IT EITHER. A sentence like "a spring lineup that
+reads like a waiver page is the middle of the cycle, not a fire" is worse than
+the mistake it corrects: it raises an accusation nobody made so it can knock it
+down, and it reads as an excuse written on the owner's behalf. The fix for a
+false charge is to NOT MAKE IT. Say what the roster was -- how many players,
+which contracts were still on it -- and move on. No reassurance, no "this is
+normal", no explaining that something is not a problem.
+
+AN EMPTY ROSTER IS NOT A LINEUP. Check "Could field a lineup?" in the bridge
+table before writing a single word about who played where at that stage. Where
+it says no, the roster had fewer players than there are starting slots and the
+optimizer filled the gaps with whoever was on hand -- those assignments are
+artefacts, not decisions. NEVER write that a player "was in the flex",
+"started at RB2" or "occupied the superflex" for such a stage, and never treat
+a name in that column as evidence of anything. Describe the roster instead.
+
+ONLY THE TABLES SAY WHO IS ON THE ROSTER. If you claim a player is rostered,
+benched, or in the lineup, he must appear in the lineup or bench table. A name
+in the CUTS table is a player who is GONE -- writing that he "is on this
+roster" is a straight factual error, and it happened: Mac Jones was described
+as a rostered quarterback in the same article that listed his release.
+
+TWO AUCTIONS, NOT ONE. The Expired Rookie Auction (ERA) and the Free Agent
+Auction (FAA) are separate events months apart with separate money. Never add
+their spends together, never call an ERA buy a free-agent signing, and never
+say "the auction" without saying which.
 
 RESTRUCTURE AND EXTENSION ARE DIFFERENT OPERATIONS -- never use one word for
 the other and never blend them into a phrase like "restructured into extension
@@ -323,6 +349,12 @@ remaining years; an EXTENSION adds new years at the back. The contracts table's
 The "New status" column is a separate fact (it can read Ext2 on a contract
 whose Type is Restructure, because status records the contract's history, not
 this move).
+
+SPEAK IN TIERS, NOT IN SCALE NUMBERS. "Worth 6,733" and "proj +1.7" are
+internal units and mean nothing to a reader. The tables give you the tier --
+"Elite WR1", "High-end RB2", "Replacement-level TE" -- and that IS the verdict,
+in the words owners actually use. Use it. Never print a raw redraft value or a
+PAR figure as if the number itself were the point.
 
 NEVER CALL A SALARY "MINIMUM" UNLESS IT IS THE LEAGUE MINIMUM OF $1,000.
 $2,000 is not the minimum, and neither is anything above it -- the contracts
@@ -359,6 +391,13 @@ article was built rather than what happened in the league.
 Do not force a joke into every paragraph, and do not end a section on an
 unexplained accusatory one-liner -- if you make a hard claim, the sentence
 right before or after it has to carry the evidence.
+
+BE HARD ON BAD MOVES. The owner asked for this directly. Where the facts show
+a bad buy, a wasted pick, a position he paid up for and still ranks badly at,
+say so plainly and without cushioning -- no "to be fair", no softening clause
+bolted on the end. The constraint is evidence, not politeness: earn the verdict
+from the table, then deliver it flat. Being soft on a bad move is the same
+failure as inventing a good one.
 """,
     "weekly": """\
 This is a WEEKLY RECAP. The reader watched the games, knows the scores, and has

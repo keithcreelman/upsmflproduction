@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0006",
   "title": "2026 Team Review: The Long Haulers",
-  "generatedAtUtc": "2026-09-09T15:01:03Z",
+  "generatedAtUtc": "2026-09-09T15:23:49Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -26,7 +26,7 @@
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T15:00:48Z",
+      "asof": "2026-09-09T15:23:42Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -91,22 +91,67 @@
       "asof": "2026-09-06"
     },
     {
-      "id": "f.team.0006.auction_lots_won",
-      "label": "Auction lots won",
-      "value": 15,
+      "id": "f.team.0006.active_roster_current",
+      "label": "Active players on the roster (current)",
+      "value": 30,
       "unit": "count",
-      "fmt": "15",
-      "source": "auction/lots",
+      "fmt": "30",
+      "source": "src rosters",
       "asof": "2026-09-06"
     },
     {
+      "id": "f.team.0006.active_roster_opening",
+      "label": "Active players on the roster (opening)",
+      "value": 20,
+      "unit": "count",
+      "fmt": "20",
+      "source": "src rosters",
+      "asof": "2026-04-21"
+    },
+    {
+      "id": "f.team.0006.active_roster_preauction",
+      "label": "Active players on the roster (preauction)",
+      "value": 22,
+      "unit": "count",
+      "fmt": "22",
+      "source": "src rosters",
+      "asof": "2026-07-23"
+    },
+    {
       "id": "f.team.0006.auction_spend",
-      "label": "Auction spend",
+      "label": "Both auctions combined",
       "value": 39000,
       "unit": "usd",
       "fmt": "$39,000",
       "source": "auction/lots",
       "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.can_field_lineup_current",
+      "label": "Could field a legal 18-man lineup (current)",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "yes",
+      "source": "src rosters",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.can_field_lineup_opening",
+      "label": "Could field a legal 18-man lineup (opening)",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "yes",
+      "source": "src rosters",
+      "asof": "2026-04-21"
+    },
+    {
+      "id": "f.team.0006.can_field_lineup_preauction",
+      "label": "Could field a legal 18-man lineup (preauction)",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "yes",
+      "source": "src rosters",
+      "asof": "2026-07-23"
     },
     {
       "id": "f.team.0006.cap_current_room",
@@ -196,6 +241,42 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "ups_drop_events",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.era_lots_won",
+      "label": "Expired Rookie Auction lots won",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.era_spend",
+      "label": "Expired Rookie Auction spend",
+      "value": 2000,
+      "unit": "usd",
+      "fmt": "$2,000",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.faa_lots_won",
+      "label": "Free Agent Auction lots won",
+      "value": 13,
+      "unit": "count",
+      "fmt": "13",
+      "source": "auction/lots",
+      "asof": "2026-09-06"
+    },
+    {
+      "id": "f.team.0006.faa_spend",
+      "label": "Free Agent Auction spend",
+      "value": 37000,
+      "unit": "usd",
+      "fmt": "$37,000",
+      "source": "auction/lots",
       "asof": "2026-09-06"
     },
     {
@@ -344,16 +425,16 @@
     },
     {
       "id": "f.team.0006.top_buy_pct_of_spend",
-      "label": "Top buy as % of total auction spend",
-      "value": 20.512820512820515,
+      "label": "Top buy as % of Free Agent Auction spend",
+      "value": 21.62162162162162,
       "unit": "percent",
-      "fmt": "20.5%",
+      "fmt": "21.6%",
       "source": "auction/lots",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0006.top_buy_price",
-      "label": "Top auction buy, price",
+      "label": "Top Free Agent Auction buy, price",
       "value": 8000,
       "unit": "usd",
       "fmt": "$8,000",
@@ -403,6 +484,11 @@
       "title": "Auction wins",
       "columns": [
         {
+          "key": "auction",
+          "label": "Auction",
+          "type": "text"
+        },
+        {
           "key": "player",
           "label": "Player",
           "type": "text"
@@ -425,97 +511,112 @@
       ],
       "rows": [
         [
-          "Maxx Crosby",
-          "DE",
-          8000,
-          4
-        ],
-        [
-          "Brian Burns",
-          "DE",
-          7000,
-          6
-        ],
-        [
-          "George Holani",
-          "RB",
-          5000,
-          3
-        ],
-        [
-          "Jordyn Brooks",
-          "LB",
-          4000,
-          4
-        ],
-        [
-          "Kyle Hamilton",
-          "S",
-          3000,
-          3
-        ],
-        [
-          "Tremaine Edmunds",
-          "LB",
-          2000,
-          2
-        ],
-        [
-          "Cooper DeJean",
-          "CB",
-          2000,
-          2
-        ],
-        [
+          "ERA",
           "Tyjae Spears",
           "RB",
           1000,
           1
         ],
         [
+          "ERA",
           "Will Levis",
           "QB",
           1000,
           1
         ],
         [
+          "FAA",
+          "Maxx Crosby",
+          "DE",
+          8000,
+          4
+        ],
+        [
+          "FAA",
+          "Brian Burns",
+          "DE",
+          7000,
+          6
+        ],
+        [
+          "FAA",
+          "George Holani",
+          "RB",
+          5000,
+          3
+        ],
+        [
+          "FAA",
+          "Jordyn Brooks",
+          "LB",
+          4000,
+          4
+        ],
+        [
+          "FAA",
+          "Kyle Hamilton",
+          "S",
+          3000,
+          3
+        ],
+        [
+          "FAA",
+          "Tremaine Edmunds",
+          "LB",
+          2000,
+          2
+        ],
+        [
+          "FAA",
+          "Cooper DeJean",
+          "CB",
+          2000,
+          2
+        ],
+        [
+          "FAA",
           "Jason Myers",
           "PK",
           1000,
           1
         ],
         [
+          "FAA",
           "Jeremy Crawshaw",
           "PN",
           1000,
           1
         ],
         [
+          "FAA",
           "Kobie Turner",
           "DT",
           1000,
           1
         ],
         [
+          "FAA",
           "Devin Bush",
           "LB",
           1000,
           1
         ],
         [
+          "FAA",
           "Jalen Nailor",
           "WR",
           1000,
           1
         ],
         [
+          "FAA",
           "Nick Mullens",
           "QB",
           1000,
           1
         ]
       ],
-      "note": null
+      "note": "TWO SEPARATE AUCTIONS. ERA = Expired Rookie Auction (players whose rookie contracts ran out); FAA = Free Agent Auction, the open market months later. Never add them into a single 'auction spend' and never describe an ERA buy as a free-agent signing or vice versa."
     },
     {
       "id": "t.0006.bench",
@@ -546,61 +647,61 @@
         [
           "Josh Downs",
           "WR",
-          "757 redraft",
+          "Replacement-level WR",
           12000
         ],
         [
           "Fernando Mendoza",
           "QB",
-          "499 redraft",
+          "High-end QB2",
           13000
         ],
         [
           "Malik Davis",
           "RB",
-          "475 redraft",
+          "Replacement-level RB",
           1000
         ],
         [
           "Tre Tucker",
           "WR",
-          "201 redraft",
+          "Replacement-level WR",
           1000
         ],
         [
           "Woody Marks",
           "RB",
-          "184 redraft",
+          "Replacement-level RB",
           2000
         ],
         [
           "Tyjae Spears",
           "RB",
-          "136 redraft",
+          "Replacement-level RB",
           1000
         ],
         [
           "Dontayvion Wicks",
           "WR",
-          "39 redraft",
+          "Replacement-level WR",
           1000
         ],
         [
           "Kyle Hamilton",
           "S",
-          "startable DB — proj +4.3, was +11.6 last season (+0.97/gm)",
+          "Low-end DB2",
           3000
         ],
         [
           "Cade Otton",
           "TE",
-          "off ADP board",
+          "Replacement-level TE",
           5000
         ],
         [
           "Devon Witherspoon",
           "CB",
-          "replacement DB — proj +0.0, was -25.9 last season (-3.24/gm)",
+          "Replacement-level DB",
           3000
         ]
       ],
@@ -618,6 +719,16 @@
         {
           "key": "date",
           "label": "Date",
+          "type": "text"
+        },
+        {
+          "key": "roster",
+          "label": "Active roster (min 27, starts 18)",
+          "type": "count"
+        },
+        {
+          "key": "fieldable",
+          "label": "Could field a lineup?",
           "type": "text"
         },
         {
@@ -650,6 +761,8 @@
         [
           "Entering the offseason",
           "2026-04-21",
+          20,
+          "yes",
           270000,
           27092,
           3,
@@ -659,6 +772,8 @@
         [
           "Entering the auction",
           "2026-07-23",
+          22,
+          "yes",
           292000,
           28033,
           3,
@@ -668,6 +783,8 @@
         [
           "Now",
           "2026-09-06",
+          30,
+          "yes",
           290000,
           29046,
           3,
@@ -675,7 +792,7 @@
           4
         ]
       ],
-      "note": null
+      "note": "'Could field a lineup?' is the gate on every other number in that row: where it says no, the roster had fewer than 18 active players and there was NO lineup -- the value and stud/hole figures come from the optimizer filling slots with whoever was on hand, and must never be described as the owner's lineup or his choices."
     },
     {
       "id": "t.0006.contracts",
@@ -907,8 +1024,13 @@
         },
         {
           "key": "relief",
-          "label": "Net relief",
+          "label": "Net cap relief",
           "type": "usd"
+        },
+        {
+          "key": "basis",
+          "label": "Why",
+          "type": "text"
         }
       ],
       "rows": [
@@ -920,7 +1042,8 @@
           0,
           0,
           "--",
-          0
+          0,
+          "taxi -- salary was never on the cap"
         ],
         [
           "Luke McCaffrey",
@@ -930,7 +1053,8 @@
           0,
           0,
           "--",
-          0
+          0,
+          ""
         ],
         [
           "Xavier Restrepo",
@@ -940,7 +1064,8 @@
           0,
           0,
           "--",
-          0
+          0,
+          ""
         ],
         [
           "Brashard Smith",
@@ -950,7 +1075,8 @@
           2000,
           0,
           "--",
-          2000
+          0,
+          "taxi -- salary was never on the cap"
         ],
         [
           "Jonathon Cooper",
@@ -960,7 +1086,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Rasheen Ali",
@@ -970,7 +1097,8 @@
           2000,
           0,
           "--",
-          2000
+          2000,
+          ""
         ],
         [
           "Theo Johnson",
@@ -980,7 +1108,8 @@
           5000,
           1250,
           "2026",
-          3750
+          3750,
+          ""
         ],
         [
           "Konata Mumpfield",
@@ -990,7 +1119,8 @@
           1000,
           1000,
           "2027 (deferred)",
-          0
+          0,
+          ""
         ],
         [
           "KeAndre Lambert-Smith",
@@ -1000,7 +1130,8 @@
           1000,
           1000,
           "2027 (deferred)",
-          0
+          0,
+          ""
         ],
         [
           "Camryn Bynum",
@@ -1010,7 +1141,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Zach Ertz",
@@ -1020,7 +1152,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Tanner McKee",
@@ -1030,7 +1163,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Jalen Nailor",
@@ -1040,7 +1174,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Darren Waller",
@@ -1050,7 +1185,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Quinn Ewers",
@@ -1060,7 +1196,8 @@
           2000,
           0,
           "--",
-          2000
+          2000,
+          ""
         ],
         [
           "Azeez Al-Shaair",
@@ -1070,7 +1207,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Kobie Turner",
@@ -1080,7 +1218,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Nick Mullens",
@@ -1090,7 +1229,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Will Levis",
@@ -1100,7 +1240,8 @@
           1000,
           1000,
           "2027 (deferred)",
-          0
+          0,
+          ""
         ],
         [
           "Matthew Hibner",
@@ -1110,7 +1251,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Tanner McKee",
@@ -1120,7 +1262,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ],
         [
           "Milton Williams",
@@ -1130,7 +1273,8 @@
           1000,
           0,
           "--",
-          1000
+          1000,
+          ""
         ]
       ],
       "note": "'cut' = a contract carried into the league year and released. 'waiver swap' = the make-room drop leg of a BBID claim. 'in-year flyer' = signed and discarded inside the same offseason (a timing classification, NOT a salary one -- read the salary column, these are not all minimum-salary deals). 'Charged to' is the cap year the penalty actually hits: a drop on or after the FA Auction open is charged to the FOLLOWING season (canon §D1) and is ledger-only until rollover, so rows marked deferred must never be added into this season's cap total."
@@ -1165,109 +1309,109 @@
           "QB",
           "Jalen Hurts",
           "QB",
-          "6,541 redraft"
+          "High-end QB1"
         ],
         [
           "RB",
           "Derrick Henry",
           "RB",
-          "5,985 redraft"
+          "High-end RB2"
         ],
         [
           "RB",
           "Najee Harris",
           "RB",
-          "1,095 redraft"
+          "Replacement-level RB"
         ],
         [
           "WR",
           "A.J. Brown",
           "WR",
-          "5,267 redraft"
+          "High-end WR2"
         ],
         [
           "WR",
           "Quentin Johnston",
           "WR",
-          "1,125 redraft"
+          "Replacement-level WR"
         ],
         [
           "TE",
           "Tyler Warren",
           "TE",
-          "2,044 redraft"
+          "High-end TE1"
         ],
         [
           "Flex",
           "Jordan Mason",
           "RB",
-          "880 redraft"
+          "Replacement-level RB"
         ],
         [
           "Flex",
           "George Holani",
           "RB",
-          "876 redraft"
+          "Replacement-level RB"
         ],
         [
           "SuperFlex",
           "Trevor Lawrence",
           "QB",
-          "5,233 redraft"
+          "Low-end QB1"
         ],
         [
           "K",
           "Jason Myers",
           "PK",
-          "—"
+          "no ranking source (salary-filled)"
         ],
         [
           "P",
           "Jeremy Crawshaw",
           "PN",
-          "—"
+          "no ranking source (salary-filled)"
         ],
         [
           "DL",
           "Maxx Crosby",
           "DE",
-          "elite DL — proj +25.7, was +72.5 last season (+5.58/gm)"
+          "Elite DL1"
         ],
         [
           "DL",
           "Brian Burns",
           "DE",
-          "elite DL — proj +20.9, was +66.0 last season (+5.08/gm)"
+          "Elite DL1"
         ],
         [
           "LB",
           "Jordyn Brooks",
           "LB",
-          "elite LB — proj +20.5, was +43.5 last season (+3.35/gm)"
+          "Elite LB1"
         ],
         [
           "LB",
           "Devin Bush",
           "LB",
-          "top-12 LB — proj +8.3, was +20.0 last season (+1.54/gm)"
+          "Low-end LB1"
         ],
         [
           "DB",
           "Jordan Battle",
           "S",
-          "top-12 DB — proj +10.6, was +25.2 last season (+1.94/gm)"
+          "High-end DB1"
         ],
         [
           "DB",
           "Cooper DeJean",
           "CB",
-          "startable DB — proj +5.2, was +13.9 last season (+1.07/gm)"
+          "High-end DB2"
         ],
         [
           "Flex",
           "Tremaine Edmunds",
           "LB",
-          "startable LB — proj +5.1, was +11.5 last season (+1.15/gm)"
+          "High-end LB2"
         ]
       ],
       "note": "Offense (QB/RB/WR/TE) filled by current redraft ADP. DL/LB/DB filled by points-above-replacement from real production under UPS scoring, where the player has a prior season. A defender with no prior-season production is unvalued (not zero) and only salary-filled if the slot would otherwise go empty. K/P have neither source and are salary-filled. Fixed slots before flex."
@@ -1302,46 +1446,46 @@
           "1.03",
           "Fernando Mendoza",
           "57% usable historically at this slot",
-          "499"
+          "High-end QB2"
         ],
         [
           "2.05",
           "Malachi Fields",
           "7% usable historically at this slot",
-          "40"
+          "Replacement-level WR"
         ],
         [
           "2.10",
           "Germie Bernard",
           "21% usable historically at this slot",
-          "110"
+          "Replacement-level WR"
         ],
         [
           "3.03",
           "Mike Washington Jr.",
           "15% usable historically at this slot",
-          "463"
+          "Replacement-level RB"
         ],
         [
           "3.04",
           "Carson Beck",
           "0% usable historically at this slot",
-          "304"
+          "Replacement-level QB"
         ],
         [
           "5.08",
           "Kevin Coleman",
           "no band data",
-          "off the redraft board yet"
+          "not yet on the redraft board"
         ],
         [
           "6.06",
           "Keldric Faulk",
           "no band data",
-          "off the redraft board yet"
+          "IDP -- not priced by ADP, and no NFL season yet to measure"
         ]
       ],
-      "note": "Baseline = 2015-2025 smash/hit/contrib/bust outcome rates at that exact draft slot. 2026 rookies have zero seasons of outcome data, so this is the PRE-outcome expectation, not a grade on the player yet."
+      "note": "Baseline = 2015-2025 smash/hit/contrib/bust outcome rates at that exact draft slot. 2026 rookies have zero seasons of outcome data, so this is the PRE-outcome expectation, not a grade on the player yet. The historical band is measured on OFFENSE outcomes; for a defensive pick neither the redraft board (which does not price IDP) nor the IDP model (which needs a completed NFL season) can value the player at all, and an empty value column there means NO SOURCE HAS AN OPINION -- never report it as a low or bad valuation."
     },
     {
       "id": "t.0006.slot_bridge",
@@ -1371,57 +1515,57 @@
       "rows": [
         [
           "QB1",
-          "Jalen Hurts (8)",
-          "Jalen Hurts (8)",
-          "Jalen Hurts (8)"
+          "Jalen Hurts, High-end QB1",
+          "Jalen Hurts, High-end QB1",
+          "Jalen Hurts, High-end QB1"
         ],
         [
           "RB1",
-          "Derrick Henry (17)",
-          "Derrick Henry (17)",
-          "Derrick Henry (17)"
+          "Derrick Henry, High-end RB2",
+          "Derrick Henry, High-end RB2",
+          "Derrick Henry, High-end RB2"
         ],
         [
           "RB2",
-          "Jordan Mason (37)",
-          "Jordan Mason (37)",
-          "Najee Harris (62)"
+          "Jordan Mason, Replacement-level RB",
+          "Jordan Mason, Replacement-level RB",
+          "Najee Harris, Replacement-level RB"
         ],
         [
           "WR1",
-          "A.J. Brown (14)",
-          "A.J. Brown (14)",
-          "A.J. Brown (14)"
+          "A.J. Brown, High-end WR2",
+          "A.J. Brown, High-end WR2",
+          "A.J. Brown, High-end WR2"
         ],
         [
           "WR2",
-          "Josh Downs (47)",
-          "Quentin Johnston (41)",
-          "Quentin Johnston (41)"
+          "Josh Downs, Replacement-level WR",
+          "Quentin Johnston, Replacement-level WR",
+          "Quentin Johnston, Replacement-level WR"
         ],
         [
           "TE1",
-          "Tyler Warren (4)",
-          "Tyler Warren (4)",
-          "Tyler Warren (4)"
+          "Tyler Warren, High-end TE1",
+          "Tyler Warren, High-end TE1",
+          "Tyler Warren, High-end TE1"
         ],
         [
           "OF1",
-          "Tre Tucker (67)",
-          "Josh Downs (47)",
-          "Jordan Mason (37)"
+          "Tre Tucker, Replacement-level WR",
+          "Josh Downs, Replacement-level WR",
+          "Jordan Mason, Replacement-level RB"
         ],
         [
           "OF2",
-          "Woody Marks (44)",
-          "Tre Tucker (67)",
-          "George Holani (68)"
+          "Woody Marks, Replacement-level RB",
+          "Tre Tucker, Replacement-level WR",
+          "George Holani, Replacement-level RB"
         ],
         [
           "SF1",
-          "Trevor Lawrence (11)",
-          "Trevor Lawrence (11)",
-          "Trevor Lawrence (11)"
+          "Trevor Lawrence, Low-end QB1",
+          "Trevor Lawrence, Low-end QB1",
+          "Trevor Lawrence, Low-end QB1"
         ]
       ],
       "note": "Parenthesised number is the player's LEAGUE-WIDE rank at his position on the live redraft board: <=12 is a stud, <=24 solid, beyond that (or unranked, or empty) a hole. Use these NAMES when describing how the lineup changed -- a stud count moving 1 -> 2 can conceal the largest single upgrade of the offseason."
@@ -1540,6 +1684,12 @@
       "brief": "Tell the offseason arc in three stages -- entering the offseason, entering the auction, now -- using the two bridge tables. Keep 'strongest team' (carried on existing contracts) and 'best offseason' (created this year) explicitly separate. NOTHING HERE IS INHERITED: this owner kept the same franchise, contracts expired, and he rebuilt -- an empty April roster is the normal state of that cycle, not a crisis and not news. Use the slot-by-slot table to name who actually filled each priced slot at each stage; a stud count that moves 1 -> 2 can hide the single biggest upgrade of the offseason, so report the NAME CHANGE in the slot, not just the count. The studs/solid/holes columns are a NEEDS read, separate from the value total: say explicitly whether this is a lineup of a few elite starters with real gaps, or one that is merely adequate everywhere -- two teams can carry the same summed value and look completely different on this axis, and that difference is the story, not the total.",
       "factIds": [
         "f.team.0006.active_now",
+        "f.team.0006.active_roster_current",
+        "f.team.0006.active_roster_opening",
+        "f.team.0006.active_roster_preauction",
+        "f.team.0006.can_field_lineup_current",
+        "f.team.0006.can_field_lineup_opening",
+        "f.team.0006.can_field_lineup_preauction",
         "f.team.0006.cap_current_room",
         "f.team.0006.cap_current_spent",
         "f.team.0006.cap_opening",
@@ -1563,11 +1713,14 @@
     },
     {
       "id": "s3",
-      "title": "The Auction",
-      "brief": "What this owner bought and for how much. Use the top-buy-percent fact for any 'most of his spend' style claim -- never estimate one.",
+      "title": "The Auctions",
+      "brief": "THERE ARE TWO AUCTIONS AND THEY ARE SEPARATE EVENTS: the Expired Rookie Auction (ERA) in May, for players whose rookie deals ran out, and the Free Agent Auction (FAA) in late July, the open market. Report them separately -- separate spend, separate buys, separate verdict -- and never merge them into one 'auction'. The Auction column in the table says which is which. Use the top-buy-percent fact for any 'most of his spend' style claim -- never estimate one, and note that it is a share of the FAA, not of both.",
       "factIds": [
-        "f.team.0006.auction_lots_won",
         "f.team.0006.auction_spend",
+        "f.team.0006.era_lots_won",
+        "f.team.0006.era_spend",
+        "f.team.0006.faa_lots_won",
+        "f.team.0006.faa_spend",
         "f.team.0006.top_buy_pct_of_spend",
         "f.team.0006.top_buy_price"
       ],
