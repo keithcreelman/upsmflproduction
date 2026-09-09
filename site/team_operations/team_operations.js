@@ -636,10 +636,20 @@
     return _playerByIdCache[String(id)] || null;
   }
 
-  function getMyRoster() {
+  // `fid` defaults to the client-resolved viewer identity, but a caller that
+  // already has an AUTHORITATIVE fid from elsewhere (e.g. GET /api/lineup
+  // resolves it server-side from the MFL_USER_ID cookie) should pass it
+  // explicitly rather than trust state.viewerFranchiseId agrees. It doesn't
+  // always: 2026-09-08, Brian Cross's Submitted Lineup panel rendered all 18
+  // slots empty because state.viewerFranchiseId had resolved to a stale
+  // value while /api/lineup correctly resolved him — cross-referencing the
+  // two produced a genuine zero-overlap id set. The code was right that they
+  // didn't match; it had just matched the wrong two things.
+  function getMyRoster(fid) {
+    var wantFid = fid || state.viewerFranchiseId;
     if (!state.rosters || !state.rosters.rosters) return [];
     var fr = asArray(state.rosters.rosters.franchise);
-    var mine = fr.find(function (f) { return pad4(f.id) === state.viewerFranchiseId; });
+    var mine = fr.find(function (f) { return pad4(f.id) === wantFid; });
     if (!mine) return [];
     return asArray(mine.player).map(function (p) {
       return {
@@ -674,13 +684,13 @@
     return out;
   }
 
-  function getMySalaries() {
+  function getMySalaries(fid) {
     // MFL's salaries export with unit=LEAGUE returns every player league-wide
     // with no franchise attribution (sample player has id+salary+contractInfo
     // only). The roster export, however, includes salary + contract fields
     // per franchise's player. Source cap math from roster; back-fill any
     // missing fields from the salaries export keyed by player id.
-    var roster = getMyRoster();
+    var roster = getMyRoster(fid);
     if (!roster.length) return [];
 
     var salaryById = {};
@@ -953,11 +963,13 @@
     };
   }
 
-  // Roster rows in the shape the slot model expects.
-  function buildLineupRows() {
+  // Roster rows in the shape the slot model expects, for `fid` (defaults to
+  // the viewer). See getMyRoster()'s note on why a caller with its own
+  // authoritative fid should pass it rather than assume it matches.
+  function buildLineupRows(fid) {
     var salaryMap = {};
-    getMySalaries().forEach(function (s) { salaryMap[s.id] = s; });
-    return getMyRoster().map(function (r) {
+    getMySalaries(fid).forEach(function (s) { salaryMap[s.id] = s; });
+    return getMyRoster(fid).map(function (r) {
       var p = playerById(r.id) || {};
       var sal = salaryMap[r.id] || r;
       var cy = parseInt(sal.contractYear, 10);
@@ -1499,7 +1511,21 @@
     var haveLineup = !!(read && read.known && (read.starters || []).length);
     var noRecord   = !!(read && !read.known && read.state === "no_record");
 
-    var rows = buildLineupRows();
+    // read.franchise_id is AUTHORITATIVE — GET /api/lineup resolves it
+    // server-side from the MFL_USER_ID cookie, independently of
+    // state.viewerFranchiseId (a client-side heuristic chain: URL param,
+    // TYPE=myfranchise, MFL_LAST_LOGIN_FRANCHISE_ID cookie, a localStorage
+    // cache that can persist across sessions, or a plain fallback). Building
+    // this panel's roster from the WRONG one is exactly what happened to
+    // Brian Cross on 2026-09-08: MFL correctly answered his own 18 starters,
+    // but this panel filtered them against someone/something else's roster
+    // and every slot came up empty. Prefer the server's answer whenever it
+    // has one; fall back to the viewer id only when read carries none.
+    var lineupFid = (read && read.franchise_id) || state.viewerFranchiseId;
+    var identityMismatch = !!(read && read.franchise_id && state.viewerFranchiseId &&
+                               read.franchise_id !== state.viewerFranchiseId);
+
+    var rows = buildLineupRows(lineupFid);
     var sub_ = haveLineup ? slotsForSubmitted(read.starters, rows) : null;
     var byPid = {};
     (sub_ ? sub_.rows : []).forEach(function (r) { byPid[r.id] = r; });
@@ -1539,6 +1565,22 @@
       msgHtml = '<div class="tops-lineup-msg ' + kind + '">' + escapeHtml(state.lineupMessage.text) + '</div>';
     }
 
+    // A page-wide identity problem, not just a lineup one: state.viewerFranchiseId
+    // feeds cap room, roster caps and the attention queue too, so if it disagrees
+    // with the one thing on this page independently re-resolved server-side, all
+    // of that may ALSO be showing the wrong team. Surfaced ahead of everything
+    // else, unconditionally, regardless of haveLineup/noRecord.
+    var mismatchHtml = "";
+    if (identityMismatch) {
+      var mismatchTeam = (state.franchises || []).find(function (f) { return f.id === read.franchise_id; });
+      mismatchHtml = '<div class="tops-lineup-warn" style="border-color: rgba(248,113,113,0.5); background: rgba(248,113,113,0.08);">'
+        + '<div class="tops-lineup-warn-t" style="color: var(--bad);">⚠ This page may be showing the wrong team</div>'
+        + '<div class="tops-lineup-warn-b">MFL says this lineup belongs to <b>' +
+            escapeHtml((mismatchTeam && mismatchTeam.name) || ("Team " + read.franchise_id)) +
+            '</b>, but this page identified you differently elsewhere. Reload the page. If it happens again, tell the commissioner — other numbers on this page (cap room, roster caps) may also be wrong right now.</div>'
+        + '</div>';
+    }
+
     var body, foot;
     if (haveLineup) {
       // §G3 heads-up, client-side and best-effort: the real ladder is judged
@@ -1573,7 +1615,7 @@
           + '</div>'
           + '</div>';
       }
-      body = warnHtml + bankHtml("O", ls) + bankHtml("D", ls);
+      body = mismatchHtml + warnHtml + bankHtml("O", ls) + bankHtml("D", ls);
       var shortBy = TOTAL_STARTERS - count;
       // A starter MFL has that we could not put in a chip — stale roster data,
       // or a player our eligibility filter rejects — would otherwise just
@@ -1598,7 +1640,8 @@
       // ACTION (go set one) but not in WORDING — telling an owner he has no
       // lineup when we simply failed to read it is how you get a panicked
       // resubmit, and telling him one exists when we don't know is worse.
-      body = '<div class="tops-lineup-empty">'
+      body = mismatchHtml
+        + '<div class="tops-lineup-empty">'
         + '<div class="tops-lineup-empty-t">'
         +   (noRecord ? 'No lineup submitted for ' + (wk ? 'Week ' + wk : 'this week')
                       : 'Possible Data Read Issue')
