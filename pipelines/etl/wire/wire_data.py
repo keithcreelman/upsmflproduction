@@ -321,7 +321,57 @@ def contract_activity(season="2026"):
     for r in rows:
         if r.get("franchise_id") is not None:
             r["franchise_id"] = str(r["franchise_id"]).zfill(4)
+    rows = _drop_test_contract_rows(rows, season)
     return rows, provenance
+
+
+def _drop_test_contract_rows(rows, season):
+    """Remove Front Office development test events.
+
+    Keith ran his own franchise (0008) as the test bed while building the Front
+    Office and then declared it, in a file committed to main
+    (contract_log_test_%s.json, 2026-06-05): every contract event for that
+    franchise submitted strictly BEFORE the `before` timestamp is test data.
+    The Front Office itself honours this and hides those rows behind a "Show
+    test" toggle -- this reader never did, so the 2026 team review credited
+    Keith with 26 contract moves when 12 were real. Counting a developer's
+    fixtures as league activity is not a rounding error; it rewrites who the
+    league's most active manager was.
+
+    `before` is a cutoff, NOT a blanket exclusion: real events after it still
+    count, which is why this filters per row on the timestamp instead of
+    dropping the franchise wholesale.
+    """
+    import datetime
+    rel = "site/rosters/contract_submissions/contract_log_test_%s.json" % season
+    try:
+        cfg, _prov = tracked_data_file(rel)
+    except Exception:
+        return rows                      # no declaration file -> nothing flagged
+    cutoffs = {}
+    for entry in (cfg or {}).get("test_franchises") or []:
+        fid = str(entry.get("franchise_id") or "").zfill(4)
+        before = str(entry.get("before") or "").strip()
+        if fid and before:
+            cutoffs[fid] = before
+    if not cutoffs:
+        return rows
+
+    def _is_test(r):
+        fid = str(r.get("franchise_id") or "").zfill(4)
+        before = cutoffs.get(fid)
+        if not before:
+            return False
+        ts = str(r.get("submitted_at_utc") or r.get("submitted_at") or "").strip()
+        if not ts:
+            # No timestamp is NOT a free pass: the declaration says every event
+            # "thus far" is test, so an undated row on a declared franchise is
+            # far likelier to be fixture data than a real move. Fail toward
+            # excluding it, and the count is understated rather than inflated.
+            return True
+        return ts < before
+
+    return [r for r in rows if not _is_test(r)]
 
 
 # ------------------------------------------------------------ attribution

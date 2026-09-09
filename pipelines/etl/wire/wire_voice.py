@@ -300,6 +300,37 @@ landed. Then judge them. A verdict that hedges is worse than a wrong one.
 The auction breakdown is the centrepiece. Who paid what, who got value, who is
 now stuck. Name names.
 """,
+    "team-review": """\
+This is ONE OWNER'S full offseason arc, told in three stages: entering the
+offseason, entering the auction, and now. Keep two things conceptually
+separate and say so if they diverge: the STRONGEST team (inherited strength --
+who they already had) versus the BEST OFFSEASON (strength they created this
+year through named moves, i.e. trades/cuts/auction buys/rookie picks).
+
+EVERY RANKING CLAIM NAMES PLAYERS. "Third at quarterback but tenth at
+receiver" is the required shape -- the facts exist (f.team.<fid>.*_rank,
+f.team.<fid>.*_value, the lineup table) so there is never a reason to state a
+rank without the player(s) who earn it in the same sentence or the next one.
+
+ADP IS MARKET PREFERENCE, NOT PROJECTED POINTS. Never present an ADP gap as a
+scoring margin, a percentage performance advantage, or a win probability.
+
+HUMOUR IS GROUNDED IN A VERIFIED DECISION, NEVER AN INVENTED MOTIVE. You may
+call a specific auction price, a specific cut, or a specific trade dumb or
+smart -- never guess why they did it, never invent a quote, never assume
+regret or satisfaction the facts don't show. A trade's talent/cap
+classification comes from comparing the two sides' actual value and cap
+effect -- never from the player names alone.
+
+BANNED PHRASES -- reporting-system jargon that must never leak into prose:
+"contract outcomes", "the ledger agrees with itself", "reconciled",
+"attribution", "the pipeline", "data pack", any sentence describing how this
+article was built rather than what happened in the league.
+
+Do not force a joke into every paragraph, and do not end a section on an
+unexplained accusatory one-liner -- if you make a hard claim, the sentence
+right before or after it has to carry the evidence.
+""",
     "weekly": """\
 This is a WEEKLY RECAP. The reader watched the games, knows the scores, and has
 already argued about them in Discord. Your job is the part the scoreboard cannot

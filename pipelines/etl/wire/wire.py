@@ -446,6 +446,8 @@ PACK_BUILDERS = {"2026-preseason-review": "preseason_review"}
 # failing loudly on a typo rather than silently routing somewhere unintended.
 for _wk in (13, 14, 15, 16, 17):
     PACK_BUILDERS["2025-wk%02d-recap" % _wk] = "weekly_recap"
+for _fid in ("0006", "0008"):  # TEST SCOPE (Keith 2026-09-06): 2 teams only
+    PACK_BUILDERS["2026-team-%s" % _fid] = "team_review_2026"
 
 
 def _load_builder(pack_id):
@@ -533,6 +535,9 @@ PACK_FAMILY = {"2026-preseason-review": "season-review"}
 PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review"}
 for _wk in (13, 14, 15, 16, 17):
     PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
+for _fid in ("0006", "0008"):
+    PACK_FAMILY["2026-team-%s" % _fid] = "team-review"
+    PACK_ARTICLE["2026-team-%s" % _fid] = "2026-team-%s" % _fid
 
 
 def _load_pack(pack_id):

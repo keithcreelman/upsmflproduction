@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 10419,
+    "outputTokens": 15770,
+    "packId": "2026-team-0006",
+    "packGeneratedAtUtc": "2026-09-06T15:36:10Z"
+  },
+  "prose": {
+    "kicker": "Busy hands, unmoved offense",
+    "title": "2026 Team Review: The Long Haulers",
+    "dek": "Brian Cross traded, cut and bought all summer, and his starting offense is worth exactly what it was worth in April.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Brian Cross wrote A.J. Brown and Josh Downs into his two receiver slots and then ran out of receivers. The pair rank {{f.team.0006.wr_rank}} at the position. Brown is a genuine every-week centrepiece; Downs is a complementary piece being asked to be a co-star, and in a league of {{f.league.teams}} teams that is the difference between a contender and a team that has to win everywhere else.",
+          "The tight ends are the odd, happy inversion. Tyler Warren fills the fixed slot and Cade Otton occupies one of the flexes, and together they rank {{f.team.0006.te_rank}}. Here is the strange part: the combined tight end value is {{f.team.0006.te_value}}, which is actually less raw value than the receivers hold at {{f.team.0006.wr_value}}. Same roster, less value, nine spots better. That is what happens when everyone else in the league solved tight end and nobody solved it for him at receiver.",
+          "Jalen Hurts and Trevor Lawrence run the superflex spine and land at {{f.team.0006.qb_rank}}, which is the definition of fine — nobody loses a superflex league starting those two, and nobody wins one on them alone. The backfield is Derrick Henry, Jordan Mason and Roschon Johnson stuffed into the second flex, good for {{f.team.0006.rb_rank}} and a combined {{f.team.0006.rb_value}}. Henry is doing most of that work.",
+          "So the strength is concentrated, not balanced: Hurts, Henry, Brown and Warren are four real starters, and the back half of the lineup card is depth doing a starter's job. The composite comes out at {{f.team.0006.composite_value}}, and that places him {{f.team.0006.composite_rank}} overall. No slot is a disaster except one, and the one is the position the scoring weights care about most."
+        ],
+        "bullets": [],
+        "place": [
+          "t.0006.lineup",
+          "t.0006.bench"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.0006.lineup": "Four real starters, a tight end in the flex, and a receiver room asked to do too much.",
+          "t.0006.bench": "Cheap depth almost everywhere, one expensive rookie quarterback, and nothing here that fixes the lineup above."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "",
+        "paragraphs": [
+          "Cross came into the offseason with an active-roster salary of {{f.team.0006.cap_opening}} and a starting offense worth {{f.team.0006.lineup_value_opening}}. That was the inherited team: Hurts, Henry, Brown, Warren, and a receiver problem already sitting there in plain sight.",
+          "By the time the auction opened, the salary line had climbed to {{f.team.0006.cap_preauction}}. The offense was worth {{f.team.0006.lineup_value_preauction}}. Three months of trading picks, cutting bodies and drafting rookies, and the nine offensive slots came out the other side untouched in value.",
+          "Now the committed cap reads {{f.team.0006.cap_current_spent}}, with {{f.team.0006.cap_current_room}} of room and {{f.team.0006.active_now}} players on the active roster. The offense is worth {{f.team.0006.lineup_value_current}}. Same figure, third checkpoint running.",
+          "Keep the two questions apart, because they answer differently here. The strength Cross owns was already his in April — he did not acquire Brown or Henry or Warren this year, he arrived holding them. What he created this summer is real work: a full defensive front, a kicking game, a deep rookie class, a cleaner roster. None of it reached the offensive lineup card. A team can have a productive offseason and an unchanged team, and this is what that looks like."
+        ],
+        "bullets": [],
+        "place": [
+          "t.0006.bridge"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.0006.bridge": "The salary line wandered across three checkpoints; the offense line never blinked once."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "paragraphs": [
+          "Cross won {{f.team.0006.auction_lots_won}} lots, which is more than most owners bother with. The bill came to {{f.team.0006.auction_spend}}. Maxx Crosby was the headline at {{f.team.0006.top_buy_price}}, and that one defensive end swallowed {{f.team.0006.top_buy_pct_of_spend}} of everything he spent.",
+          "Brian Burns took the most contested bidding on the board and Crosby was not far behind, and after those two the auction turned into a grocery run: Jordyn Brooks, Kyle Hamilton, Tremaine Edmunds, Cooper DeJean, Kobie Turner, Devin Bush, most of them uncontested at the floor. Jason Myers and Jeremy Crawshaw came in the same sitting. Crosby, Burns and Brooks all fill real slots on his lineup card, so this was not vanity spending — he needed a defense and he built an entire one in an afternoon for less than some owners paid for a single receiver.",
+          "The offensive shopping was thinner. George Holani was the notable non-defensive buy, with Tyjae Spears and Will Levis added at the bottom of the market and Jalen Nailor bought and then not kept — he is on the cut list, which is a short and unglamorous life cycle for an auction win. Spears is the one that could matter, sitting behind Henry on a cheap deal. For a manager whose receiver room ranks last, the auction was an opportunity to attack that and he attacked linebacker instead."
+        ],
+        "bullets": [],
+        "place": [
+          "t.0006.auction"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.0006.auction": "A complete defensive lineup and a kicking game, assembled in one sitting, mostly at the floor."
+        }
+      },
+      {
+        "id": "s4",
+        "lead": "",
+        "paragraphs": [
+          "Cross made {{f.team.0006.trades_count}} trades and not one of them changed who starts on his offense. The first sent Quentin Johnston to Pure Greatness for a future third — a player out, a pick back, nothing incoming this season, and given the contract attached it reads as cap work more than talent work. The Sex Manther deal was pure volume: two picks out, five back, converting a high second into Germie Bernard plus Mike Washington Jr., Carson Beck, Sonny Styles and Elijah Sarratt. That is a talent-driven bet on quantity, and it costs nothing against the cap.",
+          "The Gride trade is the interesting one. He moved two first-rounders for the higher first that became Carnell Tate, and pulled back the exact second-round pick he had shipped out in the previous deal — the one he then used on Malachi Fields. Consolidation up the board, talent-driven, no cap involved. The L.A. Looks deal was mixed: Jordan Battle, Adonai Mitchell and a future fifth out; Isaiah Bond and a future fourth back. Talent for talent with the pick capital nudged upward. The Gunnar Helm move was housekeeping — depth out, a late future pick in.",
+          "Then he cut {{f.team.0006.cuts_count}} players, which is most of a roster, and the total damage was {{f.team.0006.cuts_penalty_total}} in penalties. Theo Johnson produced the largest single piece of relief, and cutting a tight end when Warren and Otton are already installed is depth trimming rather than surgery. Zach Ertz, Darren Waller and Tanner McKee were the same category. Shemar Stewart, Luke McCaffrey and Xavier Restrepo came off at no cost at all — non-contributors, free to erase. The two that sting are Konata Mumpfield and KeAndre Lambert-Smith, where the penalty matched the salary exactly and the net relief was nothing: he paid a fee to make a roster spot. Across all of it, not a single starter was cut.",
+          "The rookie class runs {{f.team.0006.rookie_picks_count}} picks deep. Fernando Mendoza came at the top of it, from a slot whose history produces a usable player more often than not, and he is currently the most valuable player Cross owns who is not in the lineup — at a salary that matters. Germie Bernard and Mike Washington Jr. came from slots where history says most picks miss, and Fields came from a slot where the history is genuinely bleak, which is a strange place to spend a pick you traded twice to obtain. Carson Beck came from a slot that has never produced a usable player, and the market currently prices him at nothing; he has played no games for this team, so that is an expectation and not yet a verdict. Kevin Coleman and Keldric Faulk are late fliers with no comparable history to lean on. None of the seven appear in the legal starting lineup."
+        ],
+        "bullets": [],
+        "place": [
+          "t.0006.trades",
+          "t.0006.cuts",
+          "t.0006.rookies"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.0006.trades": "Picks in, picks out, and a second-rounder that made a round trip before it was used.",
+          "t.0006.cuts": "Two of these cost him a penalty and returned nothing but an open roster spot.",
+          "t.0006.rookies": "Slot history before any of them played a snap — expectation, not evaluation."
+        }
+      },
+      {
+        "id": "s5",
+        "lead": "",
+        "paragraphs": [
+          "Cross ended the offseason with Tyler Warren and Cade Otton at tight end and A.J. Brown standing by himself at receiver, and that sentence is the whole review. This is not the strongest team in the league and it is not close — the composite says {{f.team.0006.composite_rank}}, and the roster earns it honestly. Hurts and Lawrence at {{f.team.0006.qb_rank}} are solid. Henry, Mason and Roschon Johnson at {{f.team.0006.rb_rank}} are solid. Solid twice does not outrun last once.",
+          "The biggest advantage is Warren and Otton, {{f.team.0006.te_rank}} at the position, with Otton flexed in as a second starter — Cross gets premium production out of a slot most of this league treats as an obligation. The biggest weakness is Brown and Downs, {{f.team.0006.wr_rank}} at the position, in a format that weights receiver more heavily than anything else on the card. Fixing that was the assignment all summer.",
+          "Was it a good offseason, separately? Partly. He built a functional defense cheaply, cleared out {{f.team.0006.cuts_count}} dead names for almost no penalty, moved up the board for Carnell Tate and came out of the rookie draft holding Mendoza. That is competent asset work by any measure. But the offense he starts is worth what it was worth at the first checkpoint, the auction went to linebackers and defensive ends, and the one clear hole on the roster is the one hole he did not touch. Plenty of motion. Same team."
+        ],
+        "bullets": [],
+        "place": [],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {}
+      }
+    ]
+  }
+}
