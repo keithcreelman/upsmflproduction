@@ -61,6 +61,16 @@
   .gd-chip.proj { color: var(--accent); border-color: rgba(91,141,255,0.4); }
   .gd-slot:first-child { border-top: 0; }
   .gd-slot.filled { border-left: 3px solid var(--accent); padding-left: 11px; }
+  /* Big and bold on purpose (Keith): this is the one signal that should
+     outweigh everything else on the card when it's real. Solid fill, not an
+     outline chip like .gd-badge/.gd-chip elsewhere — those are informational,
+     this is a warning. tier-out (Out/IR-*/Suspended/Retired/Holdout/Doubtful)
+     is red; tier-q (Questionable) is amber and uses dark text since amber on
+     dark text reads poorly reversed. */
+  .gd-slot-inj-row { padding: 0 14px 8px 14px; margin-top: -2px; }
+  .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; }
+  .gd-inj-badge.tier-out { color: #fff; background: var(--danger); }
+  .gd-inj-badge.tier-q { color: #1a1206; background: var(--warn); }
   .gd-slot-mu { font-size: 11px; color: var(--muted); padding: 1px 14px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.3; cursor: pointer; display: flex; align-items: center; gap: 5px; }
   .gd-slot-mu:hover { color: var(--fg); }
   .gd-mu-exp { color: var(--muted); font-size: 10px; margin-left: auto; }
@@ -330,11 +340,26 @@
       fetchJson(mflExportUrl("rosters")),
       fetchJson(mflExportUrl("salaries")),
       fetchJson(mflExportUrl("players", { DETAILS: "1" })),
-      fetchJson(mflExportUrl("projectedScores"))   // current-week projections (keyless)
+      fetchJson(mflExportUrl("projectedScores")),   // current-week projections (keyless)
+      // NFL injury status, EAGERLY, on the Submit Lineup tab itself — before
+      // this it only existed behind the Live scoreboard tab (loadScoreboard(),
+      // STATE.sb.injuries), so a player already ruled OUT was invisible right
+      // where an owner is choosing whether to start him. mflExportUrl() always
+      // appends &L=/&YEAR=, which would normally 200 with an EMPTY body for
+      // this export (verified live: L= attached -> nothing, api.* without L=
+      // -> 441 rows) — safe here only because this always routes through the
+      // worker's /api/mfl-export proxy (onMflHost() is false for this
+      // github.io-hosted iframe), and that proxy already special-cases
+      // "injuries" as league-agnostic and strips L= before forwarding
+      // (worker/src/index.js, "This is why FO's roster rows never showed an
+      // IR/PUP/suspended chip"). Reuses parseInjuries(), the exact parser
+      // loadScoreboard() already trusts for the live tab.
+      fetchJson(mflExportUrl("injuries"))
     ]).then(function (r) {
       STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
       STATE.proj = parseProj(r[4]);
       STATE.projWeek = parseInt((r[4] && r[4].projectedScores && r[4].projectedScores.week) || 0, 10) || 0;
+      STATE.injuries = parseInjuries(r[5]);
       parseLeague(); resolveViewer();
     });
   }
@@ -443,6 +468,25 @@
   var TOTAL = 18, OFF = 11, DEF = 7;
   function slotAccepts(slot, g) { return slot.accepts.indexOf(g) !== -1; }
   function eligibleRow(r) { if (!r) return false; if (r.isTaxi || r.isIr || r.isExpired) return false; return posGroup(r.pos) !== "OTH"; }
+  // A player MFL's injuries export has NO entry for is not in this map at
+  // all (the export lists only players WITH a designation) — so any
+  // non-empty injStatus is itself the signal, never a healthy/blank case
+  // to filter out. Two tiers: OUT-class (won't help you — Out, every IR
+  // flavor per mfl_injuries_export_no_L_and_retired_flag_lag.md's real
+  // vocabulary IR-PUP/IR-NFI/IR-R, Suspended, Retired, Holdout, Doubtful)
+  // vs Questionable (uncertain, still probably plays). Keith: "Players need
+  // to show OUT, Questionable etc. Big and Bold."
+  function injBadgeInfo(status) {
+    var st = String(status || "").toUpperCase();
+    if (!st) return null;
+    if (/^(OUT|IR|SUSPENDED|RETIRED|HOLDOUT|DOUBTFUL)/.test(st)) return { label: st, tier: "out" };
+    if (/^QUESTIONABLE/.test(st)) return { label: st, tier: "q" };
+    return null;   // e.g. "Probable" — not a real risk signal, no badge
+  }
+  function injBadgeHtml(row) {
+    var b = row ? injBadgeInfo(row.injStatus) : null;
+    return b ? '<div class="gd-slot-inj-row"><span class="gd-inj-badge tier-' + b.tier + '">' + esc(b.label) + '</span></div>' : '';
+  }
 
   function buildRows() {
     return getMyRoster().map(function (r) {
@@ -450,7 +494,8 @@
       var cy = parseInt(r.contractYear, 10);
       var row = { id: r.id, name: nameFromMfl(p.name) || ("Player " + r.id), pos: s(p.position).toUpperCase(),
         team: s(p.team), salary: r.salary, group: posGroup(p.position),
-        isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0 };
+        isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0,
+        injStatus: (STATE.injuries && STATE.injuries[String(r.id)]) || "" };
       row.eligible = eligibleRow(row);
       return row;
     });
@@ -559,7 +604,9 @@
       '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
       '<select class="gd-slot-sel' + (current ? "" : " empty") + '" data-slot="' + esc(slot.id) + '">' + opts + '</select>' +
       '<div class="gd-slot-proj' + (cur != null ? "" : " none") + '" title="Projected points">' + esc(fmtProj(cur)) + '</div>' +
-    '</div>' + (current ? slotMatchupHtml(current) : "");
+    '</div>' +
+    (current ? injBadgeHtml(rows.filter(function (r) { return r.id === current; })[0]) : "") +
+    (current ? slotMatchupHtml(current) : "");
   }
   // ── Submit Lineup matchup intel (Phase 1) — opponent · home/away · kickoff ·
   // spread + the opponent-adjusted defense-vs-position rank, from the worker
@@ -840,8 +887,13 @@
 
     // Bench (toggle) — every other active-roster player, laid out by position +
     // projection, with the same matchup intel so you can compare everyone.
+    // Taxi and IR players are deliberately excluded (Keith: "IR & Taxi
+    // shouldn't show") — they can never be started, so a "bench" meant to
+    // help you pick a sub is not the place to list them. Contract-expired
+    // and off-roster-map players still appear; only isTaxi/isIr is checked
+    // here, not the fuller eligibleRow() (which also drops those two).
     var GORDER = { QB: 0, RB: 1, WR: 2, TE: 3, PK: 4, PN: 5, DL: 6, LB: 7, DB: 8, OTH: 9 };
-    var benchRows = rows.filter(function (r) { return !used[r.id]; }).sort(function (a, b) {
+    var benchRows = rows.filter(function (r) { return !used[r.id] && !r.isTaxi && !r.isIr; }).sort(function (a, b) {
       var ga = GORDER[a.group] == null ? 9 : GORDER[a.group], gb = GORDER[b.group] == null ? 9 : GORDER[b.group];
       if (ga !== gb) return ga - gb;
       var pa = projFor(a.id), pb = projFor(b.id); pa = pa == null ? -1 : pa; pb = pb == null ? -1 : pb;
@@ -850,8 +902,10 @@
     var showBench = !!STATE.showBench;
     var benchHtml = '<div class="gd-bench-head"><button type="button" class="gd-bench-toggle" id="gd-bench-toggle">' + (showBench ? "▾" : "▸") + ' Bench &amp; matchups (' + benchRows.length + ')</button></div>' +
       (showBench ? '<div class="gd-bench">' + (benchRows.length ? benchRows.map(function (r) {
+        var badge = injBadgeInfo(r.injStatus);
         return '<div class="gd-bench-row"><div class="gd-bench-id"><span class="nm">' + esc(r.name) + '</span>' +
-          '<span class="meta">' + esc(r.pos || "—") + ' · ' + esc(r.team || "—") + '</span></div>' +
+          '<span class="meta">' + esc(r.pos || "—") + ' · ' + esc(r.team || "—") + '</span>' +
+          (badge ? ' <span class="gd-inj-badge tier-' + badge.tier + '">' + esc(badge.label) + '</span>' : '') + '</div>' +
           '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
       }).join("") : '<div class="gd-bench-empty">No bench players.</div>') + '</div>' : '');
 
