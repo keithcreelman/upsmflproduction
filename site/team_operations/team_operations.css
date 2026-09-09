@@ -514,6 +514,17 @@
   border-top: 1px solid var(--hair);
   flex-wrap: wrap;
 }
+/* The headline slot count — large and bold always; red is reserved for the
+   one case that actually needs attention (a short lineup, scoring 0 in that
+   slot). A complete lineup stays plain ink, not green — this isn't a
+   celebration, it's a status. */
+.tops-lineup-count {
+  font-size: var(--t-num);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.tops-lineup-count.is-bad { color: var(--bad); }
 .tops-lineup-msg {
   font-size: var(--t-sm);
   font-weight: 600;
