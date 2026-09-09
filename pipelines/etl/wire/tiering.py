@@ -64,8 +64,27 @@ def tier_label(pos, rank):
     if rank < 1:
         return None
     repl = REPLACEMENT_RANK.get(pos)
-    if repl is not None and rank > repl:
+    if repl is None:
+        # An unknown position has no replacement bar, so every band below would
+        # be pure invention -- "High-end XX9" for rank 100. Refuse instead.
+        return None
+    if rank > repl:
         return "Replacement-level %s" % pos
+    # THE LAST LEGAL BAND IS NOT A FULL BAND. Where the replacement rank is not
+    # a multiple of 12 the top of the final band gets the flattering grade for
+    # free: TE13 is the single worst startable tight end and came out
+    # "High-end TE2"; same at DL25-26 and LB25-27. Grade the last, partial band
+    # against how much of it is actually startable.
+    band = (rank - 1) // BAND + 1
+    if rank > BAND * (band - 1) and repl < BAND * band:
+        span = repl - BAND * (band - 1)          # how many ranks are startable here
+        within = rank - BAND * (band - 1)
+        if span <= 2:
+            grade = "Low-end"
+        else:
+            frac = (within - 1) / float(span - 1)
+            grade = "High-end" if frac < 0.34 else ("Mid" if frac < 0.67 else "Low-end")
+        return "%s %s%d" % (grade, pos, band)
 
     band = (rank - 1) // BAND + 1
     within = rank - BAND * (band - 1)          # 1..12

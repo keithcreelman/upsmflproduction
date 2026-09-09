@@ -39,10 +39,25 @@ YEAR_RE = re.compile(r'\b(201\d|202\d|203[0-5])\b')
 PICK_RE = re.compile(r'\b[1-6]\.(?:0[1-9]|1[0-2])\b')
 # Lineup SLOT LABELS are names, not measurements -- same carve-out as the
 # DOG POUND 4 LIFE division below. "Nacua was in the WR1 slot" is the shape the
-# team-review pack explicitly asks for (name who fills each priced slot), and
-# scanning it as a fabricated quantity blocked exactly the sentence the slot
-# table was added to make possible.
-SLOT_RE = re.compile(r'\b(?:QB|RB|WR|TE|OF|SF|FLEX|DL|LB|DB|PK|PN|K|P)[1-3]\b')
+# team-review pack asks for, and scanning it as a fabricated quantity blocked
+# exactly the sentence the slot table was added to enable.
+#
+# SCOPED DELIBERATELY NARROW. A slot label and a positional-RANK claim are the
+# same string, so anything this scrubs is a claim the audit can no longer check:
+# "Nacua finished as the WR1 last season" would pass unverified. So:
+#   * only the nine slots the pack actually emits (t.*.slot_bridge) are listed --
+#     K, P, PK, PN, FLEX and DL/LB/DB+digit were opened for nothing, since the
+#     lineup table's Slot column prints those WITHOUT digits;
+#   * only where the string is UNAMBIGUOUSLY a slot: directly after "at"/"in"/
+#     "into", or directly before "slot"/"spot"/"job". An article does NOT
+#     qualify -- "finished as the WR1" is a rank claim wearing a slot's clothes,
+#     and it stays audited. Write "in the WR1 slot" when a slot is meant;
+#   * TIER strings ("Elite WR1", "Mid RB2") come from the pack and are
+#     substituted as facts, so they never reach this scan as model-typed text.
+_SLOT = r'(?:QB1|RB1|RB2|WR1|WR2|TE1|OF1|OF2|SF1)'
+SLOT_RE = re.compile(
+    r'(?:(?<=\bat )|(?<=\bin )|(?<=\binto ))' + _SLOT + r'\b'
+    r'|' + _SLOT + r'(?=\s+(?:slot|spot|job)s?\b)')
 DIGIT_RUN_RE = re.compile(r'\d+')
 
 
@@ -201,6 +216,31 @@ def audit_game_note(text, where, game):
             "flags it is_divisional=0.\n    Say what the matchup actually was; the page "
             "already prints both divisions."
             % (where, hit.group(0), game.get("winner"), game.get("loser")))
+
+
+# A tier label ("Elite WR1", "Mid RB2") carries a digit, so the digit audit
+# rejects it -- correctly, because a FABRICATED tier is exactly the kind of
+# unverified verdict this gate exists to stop, and the team-review voice brief
+# now pushes the writer toward tier language.
+#
+# So verify instead of exempting: a tier string is scrubbed ONLY when that exact
+# string appears in one of THIS pack's own table cells. Invent "Elite WR1" for a
+# player the pack never graded that way and the audit still fails.
+_TIER_RE = re.compile(r'^(?:Elite|High-end|Mid|Low-end)\s+[A-Z]{2}\d$')
+
+
+def tier_strings(pack):
+    out = set()
+    for t in pack.get("tables") or []:
+        for row in t.get("rows") or []:
+            for cell in row:
+                if not isinstance(cell, str):
+                    continue
+                for part in cell.split(","):
+                    part = part.strip()
+                    if _TIER_RE.match(part):
+                        out.add(part)
+    return sorted(out, key=len, reverse=True)
 
 
 def audit_and_substitute(text, where, facts, proper=()):
@@ -459,7 +499,7 @@ def render_sections(pack, prose):
     proper = ([o.get("display") for o in ents.get("owners") or []]
               + [f.get("name") for f in ents.get("franchises") or []]
               + list(ents.get("divisions") or []))
-    proper = [p for p in proper if p]
+    proper = [p for p in proper if p] + tier_strings(pack)
 
     outline = [s["id"] for s in pack["sections"]]
     written = dict((s["id"], s) for s in prose.get("sections", []))
@@ -594,7 +634,7 @@ def render_article(pack, prose, meta):
     ents = pack.get("entities") or {}
     proper = [x for x in ([o.get("display") for o in ents.get("owners") or []]
                           + [f.get("name") for f in ents.get("franchises") or []]
-                          + list(ents.get("divisions") or [])) if x]
+                          + list(ents.get("divisions") or [])) if x] + tier_strings(pack)
     facts = dict((f["id"], f) for f in pack["facts"])
     kicker = audit_and_substitute(kicker, "the kicker", facts, proper) if kicker else ""
     title_html = audit_and_substitute(title, "the title", facts, proper) if title else ""
