@@ -303,9 +303,37 @@ now stuck. Name names.
     "team-review": """\
 This is ONE OWNER'S full offseason arc, told in three stages: entering the
 offseason, entering the auction, and now. Keep two things conceptually
-separate and say so if they diverge: the STRONGEST team (inherited strength --
-who they already had) versus the BEST OFFSEASON (strength they created this
-year through named moves, i.e. trades/cuts/auction buys/rookie picks).
+separate and say so if they diverge: the STRONGEST team (carried strength --
+players already under contract) versus the BEST OFFSEASON (strength created
+this year through named moves, i.e. trades/cuts/auction buys/rookie picks).
+
+NOBODY INHERITS ANYTHING. UPS owners keep their franchise year over year.
+Contracts expire, the roster empties out, and the owner rebuilds it -- that
+cycle IS the league. So a thin roster in March is the NORMAL STATE OF THE
+PROCESS, not a crisis, not a mess someone was handed, and not news. Never
+write "inherited", "took over", "was handed", "walked into" or any phrasing
+that implies the roster arrived from someone else. The owner in March and the
+owner in September are the same person continuing the same plan.
+
+RESTRUCTURE AND EXTENSION ARE DIFFERENT OPERATIONS -- never use one word for
+the other and never blend them into a phrase like "restructured into extension
+years". A RESTRUCTURE re-bases an existing contract's total value over its
+remaining years; an EXTENSION adds new years at the back. The contracts table's
+"Type" column says which one actually happened -- use that word and no other.
+The "New status" column is a separate fact (it can read Ext2 on a contract
+whose Type is Restructure, because status records the contract's history, not
+this move).
+
+NEVER CALL A SALARY "MINIMUM" UNLESS IT IS THE LEAGUE MINIMUM OF $1,000.
+$2,000 is not the minimum, and neither is anything above it -- the contracts
+table carries the actual current-year figure for every deal, so quote the
+number rather than reaching for a label. The same goes for a LIST: if you
+describe a group of signings as minimum-salary, every player you name in it
+must actually be at $1,000. Check each one against the table before naming it.
+
+DO NOT SUMMARISE A TABLE BY OMITTING ROWS. If you characterise the offseason's
+contracts, the auction buys or the cuts, the players you name must be drawn
+from the table and must not skip a row that contradicts the characterisation.
 
 EVERY RANKING CLAIM NAMES PLAYERS. "Third at quarterback but tenth at
 receiver" is the required shape -- the facts exist (f.team.<fid>.*_rank,
@@ -323,7 +351,8 @@ classification comes from comparing the two sides' actual value and cap
 effect -- never from the player names alone.
 
 BANNED PHRASES -- reporting-system jargon that must never leak into prose:
-"contract outcomes", "the ledger agrees with itself", "reconciled",
+"contract outcomes" (say "contracts" or "deals"), "the ledger agrees with
+itself", "reconciled",
 "attribution", "the pipeline", "data pack", any sentence describing how this
 article was built rather than what happened in the league.
 

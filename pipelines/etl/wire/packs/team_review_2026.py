@@ -29,6 +29,11 @@ import idp_value as IV
 PACK_ID_RE = re.compile(r"^2026-team-(\d{4})$")
 SEASON = 2026
 PREAUCTION_DATE = "2026-07-23"  # faa_roster_lock_at, from ups_settings.auction_calendar
+# The UPS minimum salary is $1,000 (canon §A1: R6 rookie slot, the $1K flat WW
+# salary, and the 2025 switch to a flat $1K opening auction bid all sit here).
+# Stated once so nothing downstream can call a $2,000 deal "minimum" -- that
+# error reached print in the first 0008 review, on Kayshon Boutte.
+LEAGUE_MIN_SALARY = 1000
 
 
 def _money(v):
@@ -113,6 +118,38 @@ def _tier_counts(lu_, pos_rank):
         else:
             out["hole"] += 1
     return out
+
+
+def _tier_slots(lu_, pos_rank, name_of):
+    """Per-slot occupant + rank + tier, in _ADP_SLOTS order.
+
+    The counts alone were lossy in the way that matters most: replacing a
+    top-24 receiver with a top-3 one moves the summed value enormously and the
+    stud count by at most one, so the single upgrade an owner actually made can
+    read as noise. Keith caught this on his own 2026 review -- the McMillan ->
+    Nacua swap was invisible in "1 stud, then 1 stud". Emitting WHO occupies
+    each slot at each stage makes the swap legible and lets the prose obey the
+    "every ranking claim names players" rule instead of quoting bare integers.
+    """
+    out = []
+    for slot_id in _ADP_SLOTS:
+        pid = lu_["slots"].get(slot_id) if lu_ else None
+        rank = pos_rank.get(pid) if pid else None
+        if not pid:
+            out.append((slot_id, None, "(empty)", None, "hole"))
+            continue
+        tier = "hole" if rank is None else ("stud" if rank <= 12 else
+                                            "solid" if rank <= 24 else "hole")
+        out.append((slot_id, pid, name_of(pid), rank, tier))
+    return out
+
+
+def _slot_cell(entry):
+    """"Puka Nacua (WR3)" -- or the bare name when the board has no rank."""
+    _slot, _pid, nm, rank, _tier = entry
+    if nm == "(empty)":
+        return "(empty)"
+    return nm if rank is None else "%s (%s)" % (nm, rank)
 
 
 def _roster_rows(date, fid, positions):
@@ -452,6 +489,25 @@ def build(pack_id):
                                tiers_now["stud"], tiers_now["solid"], tiers_now["hole"]],
                           ])
 
+    # Same three stages, but slot by slot and BY NAME -- see _tier_slots for why
+    # the counts on their own were not enough.
+    _nm = lambda pid: adp_name.get(pid) or mfl_name.get(pid, "Unknown player %s" % pid)
+    slots_open, slots_pre, slots_now = (_tier_slots(lu_open, pos_rank, _nm),
+                                        _tier_slots(lu_pre, pos_rank, _nm),
+                                        _tier_slots(lu, pos_rank, _nm))
+    t_slots = pack.table("t.%s.slot_bridge" % fid, "Who filled each priced slot, stage by stage",
+                         [{"key": "slot", "label": "Slot", "type": "text"},
+                          {"key": "open", "label": "Entering the offseason", "type": "text"},
+                          {"key": "pre", "label": "Entering the auction", "type": "text"},
+                          {"key": "now", "label": "Now", "type": "text"}],
+                         [[a[0], _slot_cell(a), _slot_cell(b), _slot_cell(c)]
+                          for a, b, c in zip(slots_open, slots_pre, slots_now)],
+                         note="Parenthesised number is the player's LEAGUE-WIDE rank at his "
+                              "position on the live redraft board: <=12 is a stud, <=24 solid, "
+                              "beyond that (or unranked, or empty) a hole. Use these NAMES when "
+                              "describing how the lineup changed -- a stud count moving 1 -> 2 can "
+                              "conceal the largest single upgrade of the offseason.")
+
     # ---- auction ----
     lots = D.worker_get("/api/auction/lots", status="won").get("lots", [])
     my_lots = [l for l in lots if str(l.get("winner_fid", "")).zfill(4) == fid and not l.get("is_test")]
@@ -484,8 +540,11 @@ def build(pack_id):
     # A drop is not automatically a CUT. Three things were being counted as one:
     #   1. the make-room leg of a BBID waiver claim (you bid $1K and drop a body
     #      to fit him) -- that is a roster swap, not a release;
-    #   2. a minimum-salary flyer signed and discarded inside the same offseason,
-    #      which never cost anything and was never part of the team you carried;
+    #   2. an in-year flyer signed and discarded inside the same offseason,
+    #      which was never part of the team you carried. NOTE this is a TIMING
+    #      test (not on the opening roster), never a salary one -- 0008's Mac
+    #      Jones flyer was $4,000. Calling the bucket "minimum-salary" was a
+    #      claim the code does not check and in that case was simply false.
     #   3. an actual cut of a contract carried into the league year.
     # Only (3) is what an owner means by "I cut him", and conflating them turned
     # 6 real cuts into a headline of 20.
@@ -524,8 +583,15 @@ def build(pack_id):
         pid = str(d.get("player_id"))
         sal = d.get("pre_drop_salary") or 0
         pen = d.get("penalty_amount") or 0
+        # Which cap year the penalty lands in is a per-row fact and has to be
+        # readable AS a row. The totals were already split (cuts_penalty_2026 vs
+        # _deferred), but the table showed a bare "Penalty" column, so a reader
+        # -- human or model -- could only add them up into one number, which is
+        # exactly the §D1 error the split was meant to prevent.
+        applies = int(d.get("applies_to_season") or SEASON)
+        charged = "--" if not pen else ("%d (deferred)" % applies if applies > SEASON else str(applies))
         cut_rows.append([adp_name.get(pid) or mfl_name.get(pid, "Unknown player %s" % pid), positions.get(pid, "?"),
-                         str(d.get("dropped_at_iso"))[:10], _kind(d), sal, pen, sal - pen])
+                         str(d.get("dropped_at_iso"))[:10], _kind(d), sal, pen, charged, sal - pen])
 
     real_cuts = [d for d in drops if _kind(d) == "cut"]
     pen_2026 = sum((d.get("penalty_amount") or 0) for d in drops
@@ -539,7 +605,7 @@ def build(pack_id):
       "count", "ups_drop_events", current_date)
     F("f.team.%s.waiver_swaps" % fid, "Drops that were the make-room leg of a waiver claim",
       sum(1 for d in drops if _kind(d) == "waiver swap"), "count", "mfl transactions", current_date)
-    F("f.team.%s.inyear_flyers" % fid, "Minimum-salary flyers signed and discarded in-year",
+    F("f.team.%s.inyear_flyers" % fid, "Players signed and discarded inside the same offseason",
       sum(1 for d in drops if _kind(d) == "in-year flyer"), "count", "ups_drop_events", current_date)
     F("f.team.%s.cuts_penalty_%d" % (fid, SEASON), "Cap penalty charged to this season", pen_2026,
       "usd", "ups_drop_events", current_date)
@@ -548,8 +614,9 @@ def build(pack_id):
       "usd", "ups_drop_events", current_date)
     pack.warn("Cut figures separate three things the old count merged. 'Contracts cut' means a "
               "contract carried INTO the league year and then released. A drop that was the "
-              "make-room leg of a BBID waiver claim is a roster swap, and a minimum-salary body "
-              "signed and discarded inside the same offseason was never part of the team -- both "
+              "make-room leg of a BBID waiver claim is a roster swap, and a body signed and "
+              "discarded inside the same offseason was never part of the team (that is a TIMING "
+              "test, not a salary one -- do not describe those as minimum-salary) -- both "
               "are reported separately and must not be described as cuts. Penalties are likewise "
               "split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING "
               "season and is ledger-only until rollover (canon §D1), so it must never be added to "
@@ -561,11 +628,18 @@ def build(pack_id):
                          {"key": "kind", "label": "Kind", "type": "text"},
                          {"key": "sal", "label": "Salary removed", "type": "usd"},
                          {"key": "pen", "label": "Penalty", "type": "usd"},
+                         {"key": "charged", "label": "Charged to", "type": "text"},
                          {"key": "relief", "label": "Net relief", "type": "usd"}],
                         cut_rows,
                         note="'cut' = a contract carried into the league year and released. "
                              "'waiver swap' = the make-room drop leg of a BBID claim. "
-                             "'in-year flyer' = signed and discarded inside the same offseason.")
+                             "'in-year flyer' = signed and discarded inside the same offseason "
+                             "(a timing classification, NOT a salary one -- read the salary column, "
+                             "these are not all minimum-salary deals). 'Charged to' is the cap year "
+                             "the penalty actually hits: a drop on or after the FA Auction open is "
+                             "charged to the FOLLOWING season (canon §D1) and is ledger-only until "
+                             "rollover, so rows marked deferred must never be added into this "
+                             "season's cap total.")
 
     # ---- trades ----
     # ups_transactions' added_players/dropped_players column NAMES are
@@ -822,7 +896,9 @@ def build(pack_id):
         nm = adp_name.get(pid) or mfl_name.get(pid) or D.display_name(r.get("player_name"))
         contract_rows.append([
             nm, r.get("position") or positions.get(pid, "?"), r.get("activity_type"),
-            r.get("contract_status") or "", r.get("salary") or 0, r.get("tcv") or 0,
+            r.get("contract_status") or "", r.get("salary") or 0,
+            "yes" if (r.get("salary") or 0) == LEAGUE_MIN_SALARY else "no",
+            r.get("tcv") or 0,
             str(r.get("submitted_at_utc") or "")[:10],
         ])
     F("f.team.%s.contracts_count" % fid, "Contract moves (extensions/restructures/tags/MYM/FA)",
@@ -833,12 +909,16 @@ def build(pack_id):
                               {"key": "type", "label": "Type", "type": "text"},
                               {"key": "status", "label": "New status", "type": "text"},
                               {"key": "salary", "label": "Current-year salary", "type": "usd"},
+                              {"key": "atmin", "label": "At league minimum?", "type": "text"},
                               {"key": "tcv", "label": "TCV", "type": "usd"},
                               {"key": "date", "label": "Date", "type": "text"}],
                              contract_rows,
-                             note="Distinct outcomes, not raw Front Office submissions -- a deal revised "
+                             note="Distinct deals, not raw Front Office submissions -- a deal revised "
                                   "several times in one sitting counts once, as the shape that stuck. "
-                                  "Provenance: %s" % activity_provenance)
+                                  "'At league minimum?' answers the only question that word means: the "
+                                  "UPS minimum salary is $%s, so a $2,000 deal is NOT a minimum deal and "
+                                  "must never be called one. Provenance: %s"
+                                  % ("{:,}".format(LEAGUE_MIN_SALARY), activity_provenance))
 
     # ---- rookie picks ----
     tiers = json.load(open(os.path.join(D.REPO, "site", "rookies", "rookie_draft_tiers.json")))
@@ -878,8 +958,14 @@ def build(pack_id):
                          "f.league.teams"],
                 table_ids=[t_lineup, t_bench])
     pack.section("s2", "The Bridge", "Tell the offseason arc in three stages -- entering the "
-                "offseason, entering the auction, now -- using the bridge table. Keep 'strongest "
-                "team' (inherited) and 'best offseason' (created this year) explicitly separate. "
+                "offseason, entering the auction, now -- using the two bridge tables. Keep "
+                "'strongest team' (carried on existing contracts) and 'best offseason' (created "
+                "this year) explicitly separate. NOTHING HERE IS INHERITED: this owner kept the "
+                "same franchise, contracts expired, and he rebuilt -- an empty April roster is the "
+                "normal state of that cycle, not a crisis and not news. Use the slot-by-slot table "
+                "to name who actually filled each priced slot at each stage; a stud count that "
+                "moves 1 -> 2 can hide the single biggest upgrade of the offseason, so report the "
+                "NAME CHANGE in the slot, not just the count. "
                 "The studs/solid/holes columns are a NEEDS read, separate from the value total: say "
                 "explicitly whether this is a lineup of a few elite starters with real gaps, or one "
                 "that is merely adequate everywhere -- two teams can carry the same summed value and "
@@ -890,13 +976,22 @@ def build(pack_id):
                          "f.team.%s.lineup_value_preauction" % fid, "f.team.%s.lineup_value_current" % fid,
                          "f.team.%s.holes_opening" % fid, "f.team.%s.studs_opening" % fid,
                          "f.team.%s.holes_current" % fid, "f.team.%s.studs_current" % fid],
-                table_ids=[t_bridge])
+                table_ids=[t_bridge, t_slots])
     pack.section("s3", "The Auction", "What this owner bought and for how much. Use the "
                 "top-buy-percent fact for any 'most of his spend' style claim -- never estimate one.",
                 fact_ids=["f.team.%s.auction_spend" % fid, "f.team.%s.auction_lots_won" % fid]
                 + (["f.team.%s.top_buy_price" % fid, "f.team.%s.top_buy_pct_of_spend" % fid] if top else []),
                 table_ids=[t_auction])
-    pack.section("s4", "Contracts, Trades, Cuts and the Rookie Class", "Cover the contracts table "
+    pack.section("s4", "Contracts, Trades, Cuts and the Rookie Class", "Use each table's own "
+                "words: the contracts table's Type column already says Restructure or Extension, "
+                "and those are different operations -- never merge them into a phrase like "
+                "'restructured into extension years'. Call a deal minimum-salary ONLY where the "
+                "'At league minimum?' column says yes; if you name a group of players as "
+                "minimum-salary signings, check every single name against that column first. Do "
+                "not name a subset of a table's rows in a way that skips a row contradicting the "
+                "point. In the cuts table, the 'Charged to' column is the cap year the penalty "
+                "actually lands in -- deferred rows are NOT part of this season's cap. "
+                "Cover the contracts table "
                 "first -- extensions, restructures, tags, MYM and FA deals are as much a part of the "
                 "offseason as trades or auction buys. Classify each trade as talent-driven, "
                 "cap-driven, mixed or unclear from the actual assets on both sides -- never from "
@@ -909,6 +1004,9 @@ def build(pack_id):
                 "grade on a rookie with zero games played.",
                 fact_ids=["f.team.%s.contracts_count" % fid, "f.team.%s.trades_count" % fid,
                          "f.team.%s.cuts_count" % fid, "f.team.%s.cuts_penalty_%d" % (fid, SEASON),
+                         "f.team.%s.cuts_penalty_%d_deferred" % (fid, SEASON + 1),
+                         "f.team.%s.roster_removals_total" % fid, "f.team.%s.waiver_swaps" % fid,
+                         "f.team.%s.inyear_flyers" % fid,
                          "f.team.%s.rookie_picks_count" % fid],
                 table_ids=[t_contracts, t_trades, t_cuts, t_rookies])
     pack.section("s5", "The Verdict", "Close with a direct verdict: is this the strongest team in "

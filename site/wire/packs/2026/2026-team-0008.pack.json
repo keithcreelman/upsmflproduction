@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0008",
   "title": "2026 Team Review: Real Deal Creel",
-  "generatedAtUtc": "2026-09-09T12:09:48Z",
+  "generatedAtUtc": "2026-09-09T14:55:27Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -26,7 +26,7 @@
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T12:09:43Z",
+      "asof": "2026-09-09T14:55:19Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -51,7 +51,7 @@
     "Position weights for the composite score are DERIVED, not asserted: the 6 single-position starting slots (1 QB, 2 RB, 2 WR, 1 TE) count exactly; the 3 shared slots (2 Flex, 1 SuperFlex) are split by what all 12 teams' own optimal lineups actually did with them this year. Weights: QB=1.92, RB=2.67, TE=1.17, WR=3.25",
     "Opening/pre-auction cap figures are ACTIVE-ROSTER SALARY ONLY (no salaryAdjustments); the live 'cap committed now' figure DOES include adjustments. The two are not subtractable -- they measure different things.",
     "Studs/solid/holes classify each of the 9 ADP-priced starting slots (QB, 2xRB, 2xWR, TE, 2x Flex, SuperFlex) by the occupying player's LEAGUE-WIDE position rank: stud = top 12 at his position, solid = top 24, hole = outside the top 24 or the slot has no rank at all. This is a needs read, not a value total -- two teams can carry the identical summed lineup value with completely different hole counts (a few elite starters and real gaps, versus adequate-everywhere), and that difference is the point.",
-    "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a minimum-salary body signed and discarded inside the same offseason was never part of the team -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure."
+    "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a body signed and discarded inside the same offseason was never part of the team (that is a TIMING test, not a salary one -- do not describe those as minimum-salary) -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure."
   ],
   "entities": {
     "owners": [
@@ -156,9 +156,9 @@
     {
       "id": "f.team.0008.composite_value",
       "label": "Composite score",
-      "value": 53338,
+      "value": 53538,
       "unit": "count",
-      "fmt": "53,338",
+      "fmt": "53,538",
       "source": "lineup_engine",
       "asof": "2026-09-06"
     },
@@ -218,7 +218,7 @@
     },
     {
       "id": "f.team.0008.inyear_flyers",
-      "label": "Minimum-salary flyers signed and discarded in-year",
+      "label": "Players signed and discarded inside the same offseason",
       "value": 3,
       "unit": "count",
       "fmt": "3",
@@ -228,27 +228,27 @@
     {
       "id": "f.team.0008.lineup_value_current",
       "label": "Legal-lineup offense value, now",
-      "value": 33356,
+      "value": 33481,
       "unit": "count",
-      "fmt": "33,356",
+      "fmt": "33,481",
       "source": "lineup_engine+adp-board",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0008.lineup_value_opening",
       "label": "Legal-lineup offense value, opening (today's market)",
-      "value": 9229,
+      "value": 9268,
       "unit": "count",
-      "fmt": "9,229",
+      "fmt": "9,268",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0008.lineup_value_preauction",
       "label": "Legal-lineup offense value, entering the auction (today's market)",
-      "value": 19184,
+      "value": 19237,
       "unit": "count",
-      "fmt": "19,184",
+      "fmt": "19,237",
       "source": "lineup_engine+adp-board",
       "asof": "2026-07-23"
     },
@@ -264,9 +264,9 @@
     {
       "id": "f.team.0008.qb_value",
       "label": "QB starters redraft value",
-      "value": 9181,
+      "value": 9220,
       "unit": "count",
-      "fmt": "9,181",
+      "fmt": "9,220",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
@@ -282,9 +282,9 @@
     {
       "id": "f.team.0008.rb_value",
       "label": "RB starters redraft value",
-      "value": 10816,
+      "value": 10861,
       "unit": "count",
-      "fmt": "10,816",
+      "fmt": "10,861",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
@@ -336,9 +336,9 @@
     {
       "id": "f.team.0008.te_value",
       "label": "TE starters redraft value",
-      "value": 848,
+      "value": 851,
       "unit": "count",
-      "fmt": "848",
+      "fmt": "851",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
@@ -390,9 +390,9 @@
     {
       "id": "f.team.0008.wr_value",
       "label": "WR starters redraft value",
-      "value": 12511,
+      "value": 12549,
       "unit": "count",
-      "fmt": "12,511",
+      "fmt": "12,549",
       "source": "adp-board",
       "asof": "2026-09-06"
     }
@@ -600,25 +600,25 @@
         [
           "Marvin Harrison Jr",
           "WR",
-          "1,530 redraft",
+          "1,537 redraft",
           14000
         ],
         [
           "Stefon Diggs",
           "WR",
-          "913 redraft",
+          "924 redraft",
           1000
         ],
         [
           "Jacoby Brissett",
           "QB",
-          "831 redraft",
+          "839 redraft",
           13000
         ],
         [
           "KC Concepcion",
           "WR",
-          "627 redraft",
+          "631 redraft",
           9000
         ],
         [
@@ -636,18 +636,18 @@
         [
           "Kayshon Boutte",
           "WR",
-          "89 redraft",
+          "88 redraft",
           2000
-        ],
-        [
-          "Keenan Allen",
-          "WR",
-          "89 redraft",
-          1000
         ],
         [
           "Brian Robinson",
           "RB",
+          "88 redraft",
+          1000
+        ],
+        [
+          "Keenan Allen",
+          "WR",
           "88 redraft",
           1000
         ],
@@ -705,7 +705,7 @@
           "Entering the offseason",
           "2026-04-21",
           62000,
-          9229,
+          9268,
           1,
           3,
           5
@@ -714,7 +714,7 @@
           "Entering the auction",
           "2026-07-23",
           95000,
-          19184,
+          19237,
           1,
           4,
           4
@@ -723,7 +723,7 @@
           "Now",
           "2026-09-06",
           297000,
-          33356,
+          33481,
           2,
           5,
           2
@@ -761,6 +761,11 @@
           "type": "usd"
         },
         {
+          "key": "atmin",
+          "label": "At league minimum?",
+          "type": "text"
+        },
+        {
           "key": "tcv",
           "label": "TCV",
           "type": "usd"
@@ -778,6 +783,7 @@
           "Multi-Year Contract",
           "Vet-FAA",
           1000,
+          "yes",
           3000,
           "2026-07-27"
         ],
@@ -787,6 +793,7 @@
           "Multi-Year Contract",
           "Vet-WW",
           1000,
+          "yes",
           2000,
           "2026-09-05"
         ],
@@ -796,6 +803,7 @@
           "Multi-Year Contract",
           "Vet-FAA-FL",
           12000,
+          "no",
           15000,
           "2026-09-05"
         ],
@@ -805,6 +813,7 @@
           "Multi-Year Contract",
           "Vet-FAA-FL",
           11000,
+          "no",
           14000,
           "2026-09-05"
         ],
@@ -814,6 +823,7 @@
           "Multi-Year Contract",
           "Vet-ERA",
           2000,
+          "no",
           4000,
           "2026-09-05"
         ],
@@ -823,6 +833,7 @@
           "Multi-Year Contract",
           "Vet-FAA",
           1000,
+          "yes",
           2000,
           "2026-09-05"
         ],
@@ -832,6 +843,7 @@
           "Multi-Year Contract",
           "Vet-ERA",
           2000,
+          "no",
           4000,
           "2026-09-05"
         ],
@@ -841,6 +853,7 @@
           "Multi-Year Contract",
           "Vet-WW",
           1000,
+          "yes",
           2000,
           "2026-09-05"
         ],
@@ -850,6 +863,7 @@
           "Restructure",
           "Vet-Ext2",
           22000,
+          "no",
           44000,
           "2026-09-05"
         ],
@@ -859,6 +873,7 @@
           "Multi-Year Contract",
           "Rookie-WW",
           1000,
+          "yes",
           3000,
           "2026-09-07"
         ],
@@ -868,6 +883,7 @@
           "Multi-Year Contract",
           "Vet-WW",
           1000,
+          "yes",
           3000,
           "2026-09-07"
         ],
@@ -877,11 +893,12 @@
           "Multi-Year Contract",
           "Vet-FAA",
           1000,
+          "yes",
           2000,
           "2026-09-07"
         ]
       ],
-      "note": "Distinct outcomes, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. Provenance: origin/main (local checkout is behind)"
+      "note": "Distinct deals, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. 'At league minimum?' answers the only question that word means: the UPS minimum salary is $1,000, so a $2,000 deal is NOT a minimum deal and must never be called one. Provenance: origin/main (local checkout is behind)"
     },
     {
       "id": "t.0008.cuts",
@@ -918,6 +935,11 @@
           "type": "usd"
         },
         {
+          "key": "charged",
+          "label": "Charged to",
+          "type": "text"
+        },
+        {
           "key": "relief",
           "label": "Net relief",
           "type": "usd"
@@ -931,6 +953,7 @@
           "cut",
           2000,
           0,
+          "--",
           2000
         ],
         [
@@ -940,6 +963,7 @@
           "cut",
           4000,
           1000,
+          "2026",
           3000
         ],
         [
@@ -949,6 +973,7 @@
           "cut",
           6000,
           1500,
+          "2026",
           4500
         ],
         [
@@ -958,6 +983,7 @@
           "cut",
           5000,
           1250,
+          "2026",
           3750
         ],
         [
@@ -967,6 +993,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -976,6 +1003,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -985,6 +1013,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -994,6 +1023,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1003,6 +1033,7 @@
           "waiver swap",
           1000,
           1000,
+          "2027 (deferred)",
           0
         ],
         [
@@ -1012,6 +1043,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1021,6 +1053,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1030,6 +1063,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1039,6 +1073,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1048,6 +1083,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1057,6 +1093,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1066,6 +1103,7 @@
           "waiver swap",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1075,6 +1113,7 @@
           "in-year flyer",
           4000,
           0,
+          "--",
           4000
         ],
         [
@@ -1084,6 +1123,7 @@
           "in-year flyer",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1093,6 +1133,7 @@
           "in-year flyer",
           1000,
           0,
+          "--",
           1000
         ],
         [
@@ -1102,10 +1143,11 @@
           "cut",
           1000,
           1000,
+          "2027 (deferred)",
           0
         ]
       ],
-      "note": "'cut' = a contract carried into the league year and released. 'waiver swap' = the make-room drop leg of a BBID claim. 'in-year flyer' = signed and discarded inside the same offseason."
+      "note": "'cut' = a contract carried into the league year and released. 'waiver swap' = the make-room drop leg of a BBID claim. 'in-year flyer' = signed and discarded inside the same offseason (a timing classification, NOT a salary one -- read the salary column, these are not all minimum-salary deals). 'Charged to' is the cap year the penalty actually hits: a drop on or after the FA Auction open is charged to the FOLLOWING season (canon §D1) and is ledger-only until rollover, so rows marked deferred must never be added into this season's cap total."
     },
     {
       "id": "t.0008.lineup",
@@ -1137,55 +1179,55 @@
           "QB",
           "Dak Prescott",
           "QB",
-          "5,881 redraft"
+          "5,916 redraft"
         ],
         [
           "RB",
           "Saquon Barkley",
           "RB",
-          "5,835 redraft"
+          "5,868 redraft"
         ],
         [
           "RB",
           "Travis Etienne",
           "RB",
-          "3,312 redraft"
+          "3,314 redraft"
         ],
         [
           "WR",
           "Puka Nacua",
           "WR",
-          "9,087 redraft"
+          "9,104 redraft"
         ],
         [
           "WR",
           "Christian Watson",
           "WR",
-          "1,838 redraft"
+          "1,849 redraft"
         ],
         [
           "TE",
           "Dallas Goedert",
           "TE",
-          "848 redraft"
+          "851 redraft"
         ],
         [
           "Flex",
           "TreVeyon Henderson",
           "RB",
-          "1,669 redraft"
+          "1,679 redraft"
         ],
         [
           "Flex",
           "Parker Washington",
           "WR",
-          "1,586 redraft"
+          "1,596 redraft"
         ],
         [
           "SuperFlex",
           "Kyler Murray",
           "QB",
-          "3,300 redraft"
+          "3,304 redraft"
         ],
         [
           "K",
@@ -1274,7 +1316,7 @@
           "1.07",
           "KC Concepcion",
           "57% usable historically at this slot",
-          "627"
+          "631"
         ],
         [
           "1.09",
@@ -1286,7 +1328,7 @@
           "2.06",
           "De'Zhaun Stribling",
           "21% usable historically at this slot",
-          "614"
+          "615"
         ],
         [
           "3.06",
@@ -1302,6 +1344,89 @@
         ]
       ],
       "note": "Baseline = 2015-2025 smash/hit/contrib/bust outcome rates at that exact draft slot. 2026 rookies have zero seasons of outcome data, so this is the PRE-outcome expectation, not a grade on the player yet."
+    },
+    {
+      "id": "t.0008.slot_bridge",
+      "title": "Who filled each priced slot, stage by stage",
+      "columns": [
+        {
+          "key": "slot",
+          "label": "Slot",
+          "type": "text"
+        },
+        {
+          "key": "open",
+          "label": "Entering the offseason",
+          "type": "text"
+        },
+        {
+          "key": "pre",
+          "label": "Entering the auction",
+          "type": "text"
+        },
+        {
+          "key": "now",
+          "label": "Now",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "QB1",
+          "Deshaun Watson (34)",
+          "Deshaun Watson (34)",
+          "Dak Prescott (14)"
+        ],
+        [
+          "RB1",
+          "TreVeyon Henderson (20)",
+          "Travis Etienne (21)",
+          "Saquon Barkley (12)"
+        ],
+        [
+          "RB2",
+          "Emanuel Wilson (91)",
+          "TreVeyon Henderson (20)",
+          "Travis Etienne (21)"
+        ],
+        [
+          "WR1",
+          "Tetairoa McMillan (12)",
+          "Puka Nacua (3)",
+          "Puka Nacua (3)"
+        ],
+        [
+          "WR2",
+          "Christian Watson (33)",
+          "Christian Watson (33)",
+          "Christian Watson (33)"
+        ],
+        [
+          "TE1",
+          "Dallas Goedert (20)",
+          "Dallas Goedert (20)",
+          "Dallas Goedert (20)"
+        ],
+        [
+          "OF1",
+          "Marvin Harrison Jr (24)",
+          "Marvin Harrison Jr (24)",
+          "TreVeyon Henderson (20)"
+        ],
+        [
+          "OF2",
+          "Trey Benson (82)",
+          "KC Concepcion (30)",
+          "Parker Washington (29)"
+        ],
+        [
+          "SF1",
+          "Keon Coleman (84)",
+          "Kayshon Boutte (76)",
+          "Kyler Murray (22)"
+        ]
+      ],
+      "note": "Parenthesised number is the player's LEAGUE-WIDE rank at his position on the live redraft board: <=12 is a stud, <=24 solid, beyond that (or unranked, or empty) a hole. Use these NAMES when describing how the lineup changed -- a stud count moving 1 -> 2 can conceal the largest single upgrade of the offseason."
     },
     {
       "id": "t.0008.trades",
@@ -1337,7 +1462,7 @@
         [
           "2026-04-13",
           "HammerTime 🔨 ⏰",
-          "Kenneth Walker (RB, redraft value 4,961)",
+          "Kenneth Walker (RB, redraft value 5,005)",
           "2027 round-1 pick (HammerTime 🔨 ⏰'s natural pick)",
           "—"
         ],
@@ -1345,7 +1470,7 @@
           "2026-05-24",
           "Gride",
           "2026 pick 1.04 (became Jadarian Price, Gride)",
-          "Travis Etienne (RB, redraft value 3,312); 2026 pick 1.07 (became KC Concepcion, Real Deal Creel)",
+          "Travis Etienne (RB, redraft value 3,314); 2026 pick 1.07 (became KC Concepcion, Real Deal Creel)",
           "—"
         ],
         [
@@ -1365,9 +1490,9 @@
         [
           "2026-07-22",
           "C-Town Chivalry + Blake Bombers (3-way)",
-          "Tetairoa McMillan (WR, redraft value 3,160); 2027 round-1 pick (Real Deal Creel's natural pick); Chris Rodriguez (RB, redraft value 345); Omar Cooper (WR, redraft value 26)",
-          "Puka Nacua (WR, redraft value 9,087)",
-          "C-Town Chivalry sent Drake London (WR, redraft value 5,087); $19,000 of blind-bid consideration to Blake Bombers"
+          "Tetairoa McMillan (WR, redraft value 3,168); 2027 round-1 pick (Real Deal Creel's natural pick); Chris Rodriguez (RB, redraft value 346); Omar Cooper (WR, redraft value 26)",
+          "Puka Nacua (WR, redraft value 9,104)",
+          "C-Town Chivalry sent Drake London (WR, redraft value 5,132); $19,000 of blind-bid consideration to Blake Bombers"
         ],
         [
           "2026-08-07",
@@ -1414,7 +1539,7 @@
     {
       "id": "s2",
       "title": "The Bridge",
-      "brief": "Tell the offseason arc in three stages -- entering the offseason, entering the auction, now -- using the bridge table. Keep 'strongest team' (inherited) and 'best offseason' (created this year) explicitly separate. The studs/solid/holes columns are a NEEDS read, separate from the value total: say explicitly whether this is a lineup of a few elite starters with real gaps, or one that is merely adequate everywhere -- two teams can carry the same summed value and look completely different on this axis, and that difference is the story, not the total.",
+      "brief": "Tell the offseason arc in three stages -- entering the offseason, entering the auction, now -- using the two bridge tables. Keep 'strongest team' (carried on existing contracts) and 'best offseason' (created this year) explicitly separate. NOTHING HERE IS INHERITED: this owner kept the same franchise, contracts expired, and he rebuilt -- an empty April roster is the normal state of that cycle, not a crisis and not news. Use the slot-by-slot table to name who actually filled each priced slot at each stage; a stud count that moves 1 -> 2 can hide the single biggest upgrade of the offseason, so report the NAME CHANGE in the slot, not just the count. The studs/solid/holes columns are a NEEDS read, separate from the value total: say explicitly whether this is a lineup of a few elite starters with real gaps, or one that is merely adequate everywhere -- two teams can carry the same summed value and look completely different on this axis, and that difference is the story, not the total.",
       "factIds": [
         "f.team.0008.active_now",
         "f.team.0008.cap_current_room",
@@ -1430,7 +1555,8 @@
         "f.team.0008.studs_opening"
       ],
       "tableIds": [
-        "t.0008.bridge"
+        "t.0008.bridge",
+        "t.0008.slot_bridge"
       ],
       "chartIds": [],
       "quoteIds": [],
@@ -1458,13 +1584,17 @@
     {
       "id": "s4",
       "title": "Contracts, Trades, Cuts and the Rookie Class",
-      "brief": "Cover the contracts table first -- extensions, restructures, tags, MYM and FA deals are as much a part of the offseason as trades or auction buys. Classify each trade as talent-driven, cap-driven, mixed or unclear from the actual assets on both sides -- never from guessing motive, and never claim a traded draft pick 'became' a specific player unless the table names one; where it does not, describe the pick by round and slot only, because it was moved again before the draft and this dataset cannot follow it further. For every cut, say whether it removed a starter, depth, or a non-contributor. For every rookie pick, compare the actual player to the historical baseline at that exact slot -- that baseline is a PRE-outcome expectation, not a grade on a rookie with zero games played.",
+      "brief": "Use each table's own words: the contracts table's Type column already says Restructure or Extension, and those are different operations -- never merge them into a phrase like 'restructured into extension years'. Call a deal minimum-salary ONLY where the 'At league minimum?' column says yes; if you name a group of players as minimum-salary signings, check every single name against that column first. Do not name a subset of a table's rows in a way that skips a row contradicting the point. In the cuts table, the 'Charged to' column is the cap year the penalty actually lands in -- deferred rows are NOT part of this season's cap. Cover the contracts table first -- extensions, restructures, tags, MYM and FA deals are as much a part of the offseason as trades or auction buys. Classify each trade as talent-driven, cap-driven, mixed or unclear from the actual assets on both sides -- never from guessing motive, and never claim a traded draft pick 'became' a specific player unless the table names one; where it does not, describe the pick by round and slot only, because it was moved again before the draft and this dataset cannot follow it further. For every cut, say whether it removed a starter, depth, or a non-contributor. For every rookie pick, compare the actual player to the historical baseline at that exact slot -- that baseline is a PRE-outcome expectation, not a grade on a rookie with zero games played.",
       "factIds": [
         "f.team.0008.contracts_count",
         "f.team.0008.cuts_count",
         "f.team.0008.cuts_penalty_2026",
+        "f.team.0008.cuts_penalty_2027_deferred",
+        "f.team.0008.inyear_flyers",
         "f.team.0008.rookie_picks_count",
-        "f.team.0008.trades_count"
+        "f.team.0008.roster_removals_total",
+        "f.team.0008.trades_count",
+        "f.team.0008.waiver_swaps"
       ],
       "tableIds": [
         "t.0008.contracts",

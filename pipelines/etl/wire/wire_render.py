@@ -37,6 +37,12 @@ YEAR_RE = re.compile(r'\b(201\d|202\d|203[0-5])\b')
 # exactly where margins, per-week averages and all-play rates live. "won by
 # 3.75" and "all-play sits at 8.25" both published as pick references.
 PICK_RE = re.compile(r'\b[1-6]\.(?:0[1-9]|1[0-2])\b')
+# Lineup SLOT LABELS are names, not measurements -- same carve-out as the
+# DOG POUND 4 LIFE division below. "Nacua was in the WR1 slot" is the shape the
+# team-review pack explicitly asks for (name who fills each priced slot), and
+# scanning it as a fabricated quantity blocked exactly the sentence the slot
+# table was added to make possible.
+SLOT_RE = re.compile(r'\b(?:QB|RB|WR|TE|OF|SF|FLEX|DL|LB|DB|PK|PN|K|P)[1-3]\b')
 DIGIT_RUN_RE = re.compile(r'\d+')
 
 
@@ -113,6 +119,9 @@ def audit_prose(html_fragment, where, proper=()):
     has a division called DOG POUND 4 LIFE, and naming it correctly failed the
     audit as a fabricated quantity. A name is not a measurement. Longest first,
     so a name that contains another name is removed whole.
+
+    Lineup slot labels (WR1, RB2, SF1) are scrubbed for the same reason -- see
+    SLOT_RE.
     """
     text = re.sub(r'<span class="wire-num"[\s\S]*?</span>', ' ', html_fragment)
     text = re.sub(r'<[^>]+>', ' ', text)
@@ -121,6 +130,7 @@ def audit_prose(html_fragment, where, proper=()):
         text = re.sub(re.escape(name), ' ', text, flags=re.I)
     text = YEAR_RE.sub(' ', text)
     text = PICK_RE.sub(' ', text)
+    text = SLOT_RE.sub(' ', text)
     hits = DIGIT_RUN_RE.findall(text)
     if hits:
         snippet = re.sub(r'\s+', ' ', text).strip()
