@@ -4589,3 +4589,26 @@ a.ups-m-bid-btn {
   font-weight: 700;
   text-decoration: none;
 }
+
+/* Division-leader tag in the mobile Divisions standings view. The flat league
+   table only ever showed a crown, which told an owner he had won something but
+   never which division or who he was racing. */
+.ups-m-div-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #2b1d33;
+  background: rgba(206, 147, 216, 0.85);
+  vertical-align: middle;
+}
+
+/* Records like "0-0" and the short numeric headers must never wrap -- at 375px
+   the divisions table was breaking "W-L" and "0-0" across two lines. */
+.ups-m-standings-table th,
+.ups-m-standings-table td { white-space: nowrap; }
+.ups-m-standings-table td.team,
+.ups-m-standings-table th.team { white-space: normal; }
