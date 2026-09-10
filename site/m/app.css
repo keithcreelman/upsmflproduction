@@ -3932,6 +3932,11 @@ button.ups-m-busy::before,
 .ups-m-sb-ap-row:last-child { border-bottom: 0; }
 .ups-m-sb-ap-row.head { font-size: 9.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--fg-muted); }
 .ups-m-sb-ap-row.mine { background: rgba(91,141,255,0.10); }
+.ups-m-sb-ap-row.tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ups-m-sb-ap-row.tap:active { background: rgba(255,255,255,0.03); }
+.ups-m-sb-ap-row.open { background: rgba(91,141,255,0.08); }
+.ups-m-sb-apcaret { display: inline-block; width: 11px; color: var(--fg-muted); font-size: 10px; }
+.ups-m-sb-ap-ros { border-bottom: 1px solid var(--line); }
 .ups-m-sb-ap-row .rk { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .ups-m-sb-ap-row .nm { font-weight: 700; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ups-m-sb-ap-row .lv, .ups-m-sb-ap-row .pj, .ups-m-sb-ap-row .bt { text-align: right; font-variant-numeric: tabular-nums; }
