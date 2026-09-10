@@ -19,7 +19,8 @@
  * Responsibilities (four, and only these):
  *   1. Flag embedded vs standalone, and apply the theme the loader chose.
  *   2. Wire the Back bar (embedded: postMessage; standalone: navigate).
- *   3. Build the chapter rail and page between sections.
+ *   3. Build the chapter rail and the end-of-section pager, and page between
+ *      sections.
  *   4. Report section changes upward so the MFL hash tracks what you're reading.
  *
  * The height beacon is NOT here -- the loader injects one beacon that serves
@@ -78,25 +79,33 @@
   var pills = [];
   var idx = 0;
 
-  var prevBtn = mk("button", "wire-rail-nav", "\u2039 Prev");
-  var nextBtn = mk("button", "wire-rail-nav", "Next \u203A");
-  var count = mk("span", "wire-rail-count", "");
+  function titleOf(i) {
+    // Read from data-title and only ever written with textContent -- a section
+    // title is prose and may contain anything. Falls back to a number so a
+    // missing data-title is visible rather than silently blank.
+    return secs[i].getAttribute("data-title") || ("Section " + (i + 1));
+  }
+
+  // The rail is ONE ROW: numbered pills, with the full title in title and
+  // aria-label. Five wrapped titles made a five-row rail on a phone, and the
+  // section heading right below it already names the page you are on.
+  var prevBtn = mk("button", "wire-rail-nav", "\u2039");
+  var nextBtn = mk("button", "wire-rail-nav", "\u203A");
   var allBtn = mk("button", "wire-rail-all", "Read all");
+  prevBtn.setAttribute("aria-label", "Previous section");
+  nextBtn.setAttribute("aria-label", "Next section");
 
   rail.appendChild(prevBtn);
   secs.forEach(function (sec, i) {
-    // textContent, not innerHTML -- a section title is prose and may contain
-    // anything. Falls back to a number so a missing data-title is visible
-    // rather than silently blank.
-    var label = sec.getAttribute("data-title") || ("Section " + (i + 1));
-    var pill = mk("button", "wire-rail-pill", (i + 1) + ". " + label);
+    var pill = mk("button", "wire-rail-pill", String(i + 1));
     pill.setAttribute("type", "button");
+    pill.setAttribute("title", titleOf(i));
+    pill.setAttribute("aria-label", (i + 1) + ". " + titleOf(i));
     pill.addEventListener("click", function () { show(i, true); });
     pills.push(pill);
     rail.appendChild(pill);
   });
   rail.appendChild(nextBtn);
-  rail.appendChild(count);
   rail.appendChild(allBtn);
 
   [prevBtn, nextBtn, allBtn].forEach(function (b) { b.setAttribute("type", "button"); });
@@ -111,6 +120,39 @@
     show(idx, false);
   });
 
+  // 3b. End-of-section pager: previous / next by name, at the BOTTOM of every
+  //     section, so finishing a long section on a phone does not mean
+  //     scrolling back up to the rail. Hidden by CSS unless paged. The last
+  //     section offers the way out instead of a dead end.
+  function leave() {
+    if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+    window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+  }
+  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  function navBtn(cls, small, big, onClick) {
+    var b = mk("button", cls, null);
+    b.setAttribute("type", "button");
+    b.appendChild(mk("small", "", small));
+    b.appendChild(mk("span", "", big));
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  secs.forEach(function (sec, i) {
+    var nav = mk("nav", "wire-secnav", null);
+    nav.setAttribute("aria-label", "Section navigation");
+    if (i > 0) {
+      nav.appendChild(navBtn("wire-secnav-back", "\u2039 Previous", titleOf(i - 1),
+        function () { show(i - 1, true); }));
+    }
+    if (i < secs.length - 1) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Next \u203A", titleOf(i + 1),
+        function () { show(i + 1, true); }));
+    } else if (canLeave) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Finished", "Back to all stories", leave));
+    }
+    sec.appendChild(nav);
+  });
+
   function show(i, userInitiated) {
     if (i < 0 || i >= secs.length) return;
     idx = i;
@@ -119,22 +161,32 @@
       if (n === i) p.setAttribute("aria-current", "true");
       else p.removeAttribute("aria-current");
     });
-    count.textContent = (i + 1) + " / " + secs.length;
     prevBtn.disabled = i === 0;
     nextBtn.disabled = i === secs.length - 1;
 
     if (!userInitiated) return;
 
     var id = secs[i].id || "";
+    // Where the rail sits in this document. A page turn lands there -- not at
+    // the very top, which would put the headline back between the reader and
+    // the section they asked for.
+    var railTop = 0;
+    try { railTop = rail.getBoundingClientRect().top + (window.pageYOffset || 0); } catch (e) {}
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    if (embedded) { post({ type: "wire-section", sectionId: id }); }
-    else if (id) {
+    //    Embedded, the loader also does the scrolling: the frame is sized to
+    //    its content, so a scrollTo in here does nothing.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
+    if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
-    // Paging is a page turn; land at the top of the new section.
-    try { window.scrollTo(0, 0); } catch (e) {}
+    // Only ever scroll UP to the rail: a reader who clicked a pill is already
+    // looking at it.
+    try {
+      var y = Math.max(0, railTop - 8);
+      if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);
+    } catch (e) {}
   }
 
 

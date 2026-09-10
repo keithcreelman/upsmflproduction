@@ -10,18 +10,20 @@
   familyId: team-review
   season: 2026
   week: 
-  status: live
+  status: draft
   publishedAt: 2026-09-10T15:06:27Z
   tags: 
-  heroValue: 
-  heroLabel: 
+  heroValue: 7th
+  heroLabel: of 12
+  order: 7
+  featured: 
 -->
 <!--wire-provenance
   pack: 2026-team-0008
   packGeneratedAtUtc: 2026-09-10T15:06:27Z
   engine: claude-opus-5 (session agent)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-12980da3">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-b1301219">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -55,10 +57,12 @@
   --line: #2A352E;
   --ink: #E8EDE9;
   --ink-dim: #A3AFA8;
-  --ink-mute: #75837B;
+  /* ink-mute and brick were raised 2026-09-10: small labels in these colours
+     measured 4.40:1 and 3.98:1 on --surface, under the 4.5:1 AA floor. */
+  --ink-mute: #86938B;
   --gold: #D6A24A;
   --gold-dim: #8A6A31;
-  --brick: #C4574A;
+  --brick: #D66A5C;
   --cool: #6E9C8A;
 
   --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
@@ -66,6 +70,9 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   --maxw: 62rem;
+  /* Article reading column: about 75 characters of 18px Georgia per line
+     (measured; 42rem at 17px was 88). */
+  --measure: 38rem;
 }
 
 @media (prefers-color-scheme: light) {
@@ -76,7 +83,7 @@
     --line: #DCDAD1;
     --ink: #16201A;
     --ink-dim: #4A5750;
-    --ink-mute: #6E7A73;
+    --ink-mute: #5E6A63;
     --gold: #8A6212;
     --gold-dim: #C6A66A;
     --brick: #9E3A2E;
@@ -86,13 +93,13 @@
 
 :root[data-theme="dark"] {
   --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
-  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #75837B;
-  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #C4574A; --cool: #6E9C8A;
+  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #86938B;
+  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #D66A5C; --cool: #6E9C8A;
 }
 
 :root[data-theme="light"] {
   --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
-  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #6E7A73;
+  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #5E6A63;
   --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
 }
 
@@ -112,9 +119,14 @@ html { background: var(--ground); }
  * INLINED into every article at build time alongside wire_tokens.css. Same
  * rules apply: no vh/svh/dvh units (vw is fine), no webfonts.
  *
- * The .wire-sec / .wire-paged / .wire-rail / .wire-topbar blocks at the bottom
- * are new — they are the "flip through, don't jam it all on a page" machinery
- * and the embedded-only Back bar. Everything above them is the reference.
+ * READING TYPE (2026-09-10). The first published team reviews set 16px body
+ * copy across a 62rem column -- about 125 characters a line -- with ZERO space
+ * between paragraphs, so every article read as one grey slab. Articles now sit
+ * in a --measure column, paragraphs are spaced by the section's flex gap, the
+ * first paragraph after a section heading is set as a lede, and section
+ * headings are real headings rather than 11px labels.
+ *
+ * Labels never go below 0.72rem.
  */
 
 /* ---------- page frame ---------- */
@@ -122,36 +134,64 @@ html { background: var(--ground); }
   background: var(--ground);
   color: var(--ink);
   font-family: var(--body);
-  line-height: 1.6;
+  font-size: 1.125rem;
+  line-height: 1.62;
   padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 5vw, 2rem) 5rem;
 }
 .wire-wrap { max-width: var(--maxw); margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+.wire-wrap.wire-article { max-width: var(--measure); gap: 2rem; }
+.wire-page button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 /* ---------- hero ---------- */
-.wire-hero { display: flex; flex-direction: column; gap: 0.9rem; }
+.wire-hero { display: flex; flex-direction: column; gap: 0.85rem; }
 .wire-eyebrow {
   font-family: var(--display);
-  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--gold);
 }
-.wire-page h1 {
+/* Scoped to the hero: a bare `.wire-page h1` also beat the shell's wordmark. */
+.wire-hero h1 {
   font-family: var(--display);
   font-weight: 800;
-  font-size: clamp(2rem, 7vw, 3.4rem);
-  line-height: 0.98;
+  font-size: clamp(1.85rem, 5.6vw, 2.9rem);
+  line-height: 1.07;
   letter-spacing: -0.02em;
-  text-transform: uppercase;
   text-wrap: balance;
   margin: 0;
 }
 .wire-dek {
-  font-size: clamp(1rem, 2.4vw, 1.15rem);
+  font-size: clamp(1.08rem, 2.4vw, 1.22rem);
+  line-height: 1.5;
   color: var(--ink-dim);
-  max-width: 46ch;
+  max-width: 60ch;
   margin: 0;
 }
 
+/* ---------- key numbers under the dek ---------- */
+.wire-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
+  gap: 0.9rem 1.1rem; padding: 0.9rem 0; margin-top: 0.35rem;
+  border-block: 1px solid var(--line);
+}
+/* space-between: a label that wraps to two lines must not knock its value out
+   of line with the values beside it. */
+.wire-kpi { display: flex; flex-direction: column; justify-content: space-between; gap: 0.2rem; min-width: 0; }
+.wire-kpi-l {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+  line-height: 1.25;
+}
+.wire-kpi-v {
+  font-family: var(--mono); font-size: 1.2rem; line-height: 1.1;
+  color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+@media (max-width: 34rem) { .wire-kpi-v { font-size: 1.05rem; } }
+.wire-kpi-v small { font-size: 0.72rem; color: var(--ink-mute); margin-left: 0.2rem; }
+.wire-kpi-lead .wire-kpi-v { color: var(--gold); }
+
 /* ---------- method / "how this was built" panel ---------- */
+/* Sits at the END of the article, above the footer: it is reference material,
+   and at the top it pushed the first sentence below a phone's first screen. */
 .wire-method {
   border-left: 3px solid var(--gold-dim);
   background: var(--surface);
@@ -162,13 +202,9 @@ html { background: var(--ground); }
 }
 .wire-method b { color: var(--ink); font-weight: 700; }
 .wire-method .wire-mh {
-  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.74rem; font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
 }
-
-/* Collapsed by default. The caveat list grows with every data source added --
-   at nine notes it filled the first screen and buried the headline. Nothing is
-   hidden or paraphrased away; it is one click, and it prints expanded. */
 .wire-method summary.wire-mh { cursor: pointer; list-style: none; }
 .wire-method summary.wire-mh::-webkit-details-marker { display: none; }
 .wire-method summary.wire-mh::before {
@@ -190,18 +226,22 @@ html { background: var(--ground); }
 }
 
 /* ---------- tables ---------- */
+/* No min-width: the old 44rem floor made every table about twice the width of
+   a phone. Wide tables carry .wire-stack instead and fold into label/value
+   rows on a narrow screen (see the media query below). */
 .wire-tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
-.wire-page table { border-collapse: collapse; width: 100%; min-width: 44rem; }
-.wire-page th, .wire-page td { padding: 0.62rem 0.8rem; text-align: left; border-bottom: 1px solid var(--line); }
+.wire-page table { border-collapse: collapse; width: 100%; }
+.wire-page th, .wire-page td { padding: 0.55rem 0.75rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.wire-page td { font-size: 0.93rem; line-height: 1.45; }
 .wire-page th {
-  font-family: var(--display); font-size: 0.65rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ink-mute); background: var(--surface-2);
-  position: sticky; top: 0;
 }
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
+  white-space: nowrap;
 }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
@@ -211,13 +251,32 @@ html { background: var(--ground); }
 .wire-page td.wire-rings { font-family: var(--mono); color: var(--gold); letter-spacing: 0.1em; text-align: center; }
 .wire-zero { color: var(--ink-mute); }
 
+@media (max-width: 34rem) {
+  .wire-page th, .wire-page td { padding: 0.5rem 0.55rem; }
+  .wire-stack table, .wire-stack tbody, .wire-stack tr, .wire-stack td { display: block; width: 100%; }
+  .wire-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .wire-stack tr { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); }
+  .wire-stack tbody tr:last-child { border-bottom: none; }
+  .wire-page .wire-stack td, .wire-page .wire-stack td.wire-num {
+    display: grid; grid-template-columns: minmax(5.5rem, 34%) 1fr; gap: 0.7rem;
+    padding: 0.16rem 0; border: none; text-align: left; white-space: normal;
+  }
+  .wire-stack td::before {
+    content: attr(data-label);
+    font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
+    padding-top: 0.12rem;
+  }
+}
+
 /* ---------- section headers ---------- */
 .wire-sechead {
   font-family: var(--display);
-  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
-  text-transform: uppercase; color: var(--gold);
-  padding-bottom: 0.5rem; border-bottom: 1px solid var(--line);
-  margin: 0 0 1.25rem;
+  font-size: clamp(1.35rem, 3.8vw, 1.65rem); font-weight: 800;
+  line-height: 1.15; letter-spacing: -0.012em;
+  color: var(--ink); text-wrap: balance;
+  padding-bottom: 0.55rem; border-bottom: 2px solid var(--gold-dim);
+  margin: 0 0 0.35rem;
 }
 
 /* ---------- cards ---------- */
@@ -239,7 +298,7 @@ html { background: var(--ground); }
   letter-spacing: -0.015em; text-transform: uppercase; margin: 0;
 }
 .wire-badge {
-  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ground); background: var(--cool);
   padding: 0.22rem 0.55rem; white-space: nowrap;
@@ -249,8 +308,8 @@ html { background: var(--ground); }
 .wire-strip { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.55rem 0; border-block: 1px solid var(--line); }
 .wire-stat { display: flex; flex-direction: column; gap: 0.1rem; }
 .wire-slabel {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
 }
 .wire-sval { font-family: var(--mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
 .wire-sval.wire-gold { color: var(--gold); }
@@ -263,60 +322,74 @@ html { background: var(--ground); }
 
 /* ---------- prose ---------- */
 .wire-page ul { margin: 0; padding-left: 1.05rem; display: flex; flex-direction: column; gap: 0.42rem; }
-.wire-page li { font-size: 0.95rem; }
+.wire-page li { font-size: 0.98rem; }
 .wire-page li b { color: var(--ink); }
 .wire-page p { margin: 0; }
 .wire-flag { color: var(--brick); font-weight: 700; }
 
+/* The opening paragraph of every section, and an explicit lead, read larger:
+   it is where the eye lands after a page turn. */
+.wire-sechead + p, .wire-page p.wire-lede { font-size: 1.2rem; line-height: 1.55; }
+
 .wire-page blockquote {
   margin: 0; padding: 0.55rem 0 0.55rem 0.9rem;
   border-left: 2px solid var(--gold-dim);
-  color: var(--ink-dim); font-style: italic; font-size: 0.93rem;
+  color: var(--ink-dim); font-style: italic; font-size: 0.98rem;
 }
-.wire-page blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.85rem; }
+.wire-page blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.88rem; }
 
 /* ---------- superlatives ---------- */
 .wire-supers { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
 .wire-super { background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--gold); padding: 1rem 1.1rem; }
 .wire-super h3 {
-  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.13em; text-transform: uppercase; color: var(--gold);
   margin: 0 0 0.45rem;
 }
-.wire-super p { margin: 0; font-size: 0.92rem; color: var(--ink-dim); }
+.wire-super p { margin: 0; font-size: 0.95rem; color: var(--ink-dim); }
 .wire-super p b { color: var(--ink); }
 
-.wire-page footer { color: var(--ink-mute); font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.wire-page footer { color: var(--ink-mute); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 1rem; }
 
-/* ---------- NEW: figures (inline SVG charts land here in P4) ---------- */
-.wire-fig { margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+/* ---------- figures (tables and inline SVG charts) ---------- */
+.wire-fig { margin: 0.4rem 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.wire-fig-title {
+  font-family: var(--display); font-size: 0.98rem; font-weight: 700;
+  letter-spacing: -0.005em; color: var(--ink); margin: 0;
+}
 .wire-fig svg { width: 100%; height: auto; display: block; }
-.wire-fig figcaption { font-size: 0.85rem; color: var(--ink-mute); }
-.wire-fig details { font-size: 0.85rem; color: var(--ink-dim); }
-.wire-fig summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.wire-fig figcaption { font-size: 0.86rem; line-height: 1.5; color: var(--ink-mute); }
+.wire-fig details { font-size: 0.86rem; color: var(--ink-dim); }
+.wire-fig summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; }
 
-/* ---------- NEW: section paging ("flip through") ---------- */
+/* ---------- section paging ("flip through") ---------- */
 /* Default state is every section visible — that IS the graceful degradation.
    The runtime adds .wire-paged to <html> only once it has booted, so printing,
-   a JS-less Artifact sandbox, or a broken script all read as one long scroll. */
-.wire-sec { display: block; }
+   a JS-less Artifact sandbox, or a broken script all read as one long scroll.
+   Sections are flex columns so the GAP spaces the paragraphs. */
+.wire-sec { display: flex; flex-direction: column; gap: 1.15rem; }
 .wire-paged .wire-sec { display: none; }
-.wire-paged .wire-sec.wire-on { display: block; }
+.wire-paged .wire-sec.wire-on { display: flex; }
 
 /* .wire-js gates the rail, .wire-paged gates section visibility. Two classes,
    not one, so "Read all" can drop paging without hiding the control that turns
-   it back on. */
-.wire-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--line); }
+   it back on. ONE ROW, always: pills are numbers (full titles ride in the
+   title/aria-label) because five wrapped titles were five rows on a phone. */
+.wire-rail {
+  display: none; flex-wrap: nowrap; align-items: center; gap: 0.35rem;
+  overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
+}
 .wire-js .wire-rail { display: flex; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
-  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
-  letter-spacing: 0.1em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--surface);
-  border: 1px solid var(--line); padding: 0.34rem 0.6rem;
-  cursor: pointer; line-height: 1;
+  border: 1px solid var(--line); padding: 0.45rem 0.6rem;
+  cursor: pointer; line-height: 1; flex: 0 0 auto;
 }
+.wire-rail-pill { min-width: 2.1rem; font-family: var(--mono); letter-spacing: 0; }
 .wire-rail-pill:hover, .wire-rail-nav:hover, .wire-rail-all:hover { color: var(--ink); border-color: var(--gold-dim); }
 .wire-rail-pill[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
 .wire-rail-nav[disabled] { opacity: 0.35; cursor: default; }
@@ -324,25 +397,52 @@ html { background: var(--ground); }
 .wire-rail-all { margin-left: auto; color: var(--gold); }
 .wire-rail-count { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 
-/* ---------- NEW: Back bar. Hidden unless the runtime says we are embedded. ---------- */
-.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+/* End-of-section pager. A reader who finishes a long section on a phone should
+   not have to scroll back up to the rail to turn the page. */
+.wire-secnav { display: none; }
+.wire-paged .wire-secnav {
+  display: flex; gap: 0.6rem; margin-top: 0.8rem; padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+.wire-secnav button {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem;
+  text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); padding: 0.75rem 0.9rem;
+}
+.wire-secnav button:hover { border-color: var(--gold-dim); }
+.wire-secnav .wire-secnav-fwd { align-items: flex-end; text-align: right; border-color: var(--gold-dim); }
+.wire-secnav small {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold);
+}
+.wire-secnav span { font-family: var(--display); font-weight: 700; font-size: 1rem; line-height: 1.25; }
+
+/* ---------- Back bar. Hidden unless the runtime says we are embedded. ---------- */
+.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
 .wire-embedded .wire-topbar { display: flex; }
 .wire-back {
-  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--gold); background: none; border: 1px solid var(--gold-dim);
-  padding: 0.34rem 0.7rem; cursor: pointer; line-height: 1;
+  padding: 0.4rem 0.7rem; cursor: pointer; line-height: 1;
 }
 .wire-back:hover { color: var(--ground); background: var(--gold); }
-.wire-topbar-title { font-family: var(--display); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
+.wire-topbar-title { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
 
 @media (max-width: 34rem) {
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
-  .wire-rail-all { margin-left: 0; }
+  /* The arrows duplicate the numbered pills and the end-of-section pager; on
+     a phone they pushed "Read all" off the edge of the rail. */
+  .wire-rail > .wire-rail-nav { display: none; }
+  .wire-secnav span { font-size: 0.94rem; }
 }
 
-/* ---------- NEW: play card ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .wire-page *, .wire-page *::before { transition: none !important; }
+}
+
+/* ---------- play card ---------- */
 /* A callout for a big performance. Deliberately NOT an embedded clip -- see
    wire_pack.Pack.playcard: nothing maps a (player, week) to a verified video,
    and a wrong clip asserts a falsehood more convincingly than a wrong sentence.
@@ -357,33 +457,29 @@ html { background: var(--ground); }
   font-family: var(--display); font-weight: 800; font-size: 1.05rem;
   letter-spacing: -0.01em; text-transform: uppercase; color: var(--ink);
 }
-.wire-play-meta {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+.wire-play-meta, .wire-play-owner {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
 }
 .wire-play-score {
   font-family: var(--mono); font-size: 2rem; line-height: 1;
   color: var(--gold); font-variant-numeric: tabular-nums;
 }
-.wire-play-owner {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
-}
-.wire-play-line { font-size: 0.92rem; color: var(--ink-dim); }
+.wire-play-line { font-size: 0.95rem; color: var(--ink-dim); }
 .wire-play-note {
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--cool);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--cool);
 }
 .wire-play-watch {
   align-self: flex-start; margin-top: 0.35rem;
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--gold); text-decoration: none;
   border-bottom: 1px solid var(--gold-dim); padding-bottom: 0.1rem;
 }
 .wire-play-watch:hover { color: var(--ink); border-bottom-color: var(--ink); }
 
-/* ---------- NEW: per-game drilldown ---------- */
+/* ---------- per-game drilldown ---------- */
 /* The games section reads as a summary at a glance, with any single game
    openable for the breakdown. Closed by default so covering every result does
    not produce a wall. */
@@ -400,7 +496,7 @@ html { background: var(--ground); }
 }
 .wire-game[open] > .wire-game-sum::before { transform: rotate(90deg); }
 .wire-game-teams {
-  font-family: var(--display); font-weight: 700; font-size: 0.82rem;
+  font-family: var(--display); font-weight: 700; font-size: 0.85rem;
   letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink);
 }
 .wire-game-teams em { color: var(--ink-mute); font-style: normal; font-weight: 400; }
@@ -409,35 +505,35 @@ html { background: var(--ground); }
   font-variant-numeric: tabular-nums; margin-left: auto;
 }
 .wire-game-tag {
-  font-family: var(--display); font-size: 0.55rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ground); background: var(--cool); padding: 0.15rem 0.4rem;
 }
 .wire-game-body {
   padding: 0 0.9rem 0.8rem; display: flex; flex-direction: column; gap: 0.3rem;
   border-top: 1px solid var(--line); padding-top: 0.7rem;
 }
-.wire-game-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.88rem; }
+.wire-game-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9rem; }
 .wire-game-row span:first-child {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
   white-space: nowrap; padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
-.wire-game-note { font-size: 0.85rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
+.wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
 
 @media print { .wire-game-body { display: flex !important; } }
 
-/* ---------- NEW: game deck (flip through full game pages) ---------- */
+/* ---------- game deck (flip through full game pages) ---------- */
 .wire-gamedeck { display: flex; flex-direction: column; gap: 1rem; }
 .wire-gamedeck-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.35rem;
   padding-bottom: 0.8rem; border-bottom: 1px solid var(--line); }
 .wire-deck-on .wire-gamedeck-rail { display: flex; }
 .wire-gamepill {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--ink-mute); background: var(--surface);
-  border: 1px solid var(--line); padding: 0.3rem 0.5rem; cursor: pointer; line-height: 1;
+  border: 1px solid var(--line); padding: 0.32rem 0.5rem; cursor: pointer; line-height: 1;
 }
 .wire-gamepill:hover { color: var(--ink); border-color: var(--gold-dim); }
 .wire-gamepill[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
@@ -448,8 +544,8 @@ html { background: var(--ground); }
 
 .wire-gamepage-head { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
 .wire-gamepage-kicker {
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
 }
 .wire-gamepage-score { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
 .wire-gp-team {
@@ -471,8 +567,8 @@ html { background: var(--ground); }
 }
 .wire-tott-head {
   background: var(--surface-2); border-bottom: 1px solid var(--line);
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
 }
 .wire-tott-head span:first-child { text-align: left; }
 .wire-tott-head span:last-child { text-align: right; }
@@ -486,8 +582,8 @@ html { background: var(--ground); }
 .wire-tott-row .wire-tott-v:last-child { text-align: right; }
 .wire-tott-win { color: var(--gold); font-weight: 700; }
 .wire-tott-l {
-  font-family: var(--display); font-size: 0.55rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
   white-space: nowrap;
 }
 .wire-gamepage-body { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -501,7 +597,7 @@ html { background: var(--ground); }
 /* The writer's own paragraph about THIS matchup -- set larger than body copy
    because on a game page it is the article, not a caption. */
 .wire-game-blurb {
-  font-size: 1.02rem; line-height: 1.62; color: var(--ink-dim);
+  font-size: 1.05rem; line-height: 1.62; color: var(--ink-dim);
   border-left: 2px solid var(--gold-dim); padding-left: 0.9rem; margin-bottom: 1.1rem;
 }
 .wire-game-blurb p { margin: 0 0 0.6rem; }
@@ -517,7 +613,7 @@ html { background: var(--ground); }
 <body>
 
 <div class="wire-page">
-<div class="wire-wrap">
+<div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
     <button class="wire-back" data-wire-back type="button">All stories</button>
@@ -525,10 +621,84 @@ html { background: var(--ground); }
   </div>
 
   <header class="wire-hero">
-    <div class="wire-eyebrow">The hardest-working defense in the league, assembled entirely out of other people's leftovers</div>
+    <div class="wire-eyebrow">Real Deal Creel · Keith Creelman</div>
     <h1>Real Deal Creel Bought a Superstar and Shoplifted the Rest</h1>
-    <p class="wire-dek">Keith Creelman spent <span class="wire-num" data-fact="f.team.0008.faa_spend">$189,000</span> at the Free Agent Auction and <span class="wire-num" data-fact="f.team.0008.idp_auction_share">7.1%</span> of his money on defense. Real Deal Creel came out <span class="wire-num" data-fact="f.team.0008.composite_rank">7</span> of <span class="wire-num" data-fact="f.league.teams">12</span>. Both of those are on purpose.</p>
+    <p class="wire-dek">Keith Creelman spent <span class="wire-num" data-fact="f.team.0008.faa_spend">$189,000</span> at the Free Agent Auction and <span class="wire-num" data-fact="f.team.0008.idp_auction_share">7.1%</span> of his money on defense. Real Deal Creel came out <span class="wire-num" data-fact="f.team.0008.composite_rank">7th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>. Both of those are on purpose.</p>
+    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">7th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Top-twelve starters</span><span class="wire-kpi-v">4</span></div><div class="wire-kpi"><span class="wire-kpi-l">Lineup holes</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$198,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$3,000</span></div></div>
   </header>
+
+  <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
+
+  <section class="wire-sec" id="s1" data-title="The Lineup">
+    <h2 class="wire-sechead">The Lineup</h2>
+    <p>Puka Nacua is an Elite WR1 and he is the whole receiving corps. The room ranks <span class="wire-num" data-fact="f.team.0008.wr_rank">4th</span> in the league on his back, with Christian Watson at Mid WR3 next to him doing a passable impression of a starter. That is this roster in one line: one player nobody can match, and a supporting cast bought at a discount.</p>
+    <figure class="wire-fig">
+<div class="wire-fig-title">The starting lineup</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Grade</th></tr></thead><tbody><tr><td data-label="Slot">QB</td><td data-label="Player">Dak Prescott</td><td data-label="Grade">Mid QB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Saquon Barkley</td><td data-label="Grade">Mid RB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Travis Etienne</td><td data-label="Grade">Mid RB2</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Puka Nacua</td><td data-label="Grade">Elite WR1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Christian Watson</td><td data-label="Grade">Mid WR3</td></tr><tr><td data-label="Slot">TE</td><td data-label="Player">Dallas Goedert</td><td data-label="Grade">Low-end TE1</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">TreVeyon Henderson</td><td data-label="Grade">Low-end RB3</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Marvin Harrison Jr</td><td data-label="Grade">Mid WR3</td></tr><tr><td data-label="Slot">SuperFlex</td><td data-label="Player">Kyler Murray</td><td data-label="Grade">Mid QB2</td></tr><tr><td data-label="Slot">K</td><td data-label="Player">Cam Little</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">P</td><td data-label="Player">Tommy Townsend</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Josh Hines-Allen</td><td data-label="Grade">Low-end DL2</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Gregory Rousseau</td><td data-label="Grade">Replacement-level DL</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Nick Bolton</td><td data-label="Grade">Mid LB2</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Bobby Okereke</td><td data-label="Grade">Mid LB3</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Cole Bishop</td><td data-label="Grade">Low-end DB2</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Dane Belton</td><td data-label="Grade">Mid DB3</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Jonas Sanker</td><td data-label="Grade">Replacement-level DB</td></tr></tbody></table></div>
+</figure>
+    <p>Quarterback came out fine, if not the fireworks the price implied. Dak Prescott grades Mid QB1 and Kyler Murray Mid QB2 — a real superflex pair with no passengers, ranking <span class="wire-num" data-fact="f.team.0008.qb_rank">8th</span>. Keith paid <span class="wire-num" data-fact="f.team.0008.top_buy_price">$63,000</span> for Prescott, which is a lot of money for roughly the eighth-best quarterback in a format where everyone needs two of them.</p>
+    <p>The backfield is the quiet success. Saquon Barkley at Mid RB1, Travis Etienne at Mid RB2, TreVeyon Henderson at Low-end RB3, ranking <span class="wire-num" data-fact="f.team.0008.rb_rank">7th</span> — three startable bodies, in a format where most teams are guessing at the flex by Halloween. Dallas Goedert grades Low-end TE1, the last chair in the room rather than a hole, and the position ranks <span class="wire-num" data-fact="f.team.0008.te_rank">9th</span>.</p>
+    <p>Then the defense, and this is where the obvious article is the wrong one. Three of seven defensive slots start players the production model calls replacement-level — Frankie Luvu, Chuck Clark, Gregory Rousseau — with Nick Bolton, Chamarri Conner, Josh Hines-Allen and Jalyx Hunt in the tier behind them. Read that cold and you would say he forgot about defense.</p>
+    <p>He did not forget. Real Deal Creel has acquired <span class="wire-num" data-fact="f.team.0008.idp_adds_alltime">428</span> defenders since the league started keeping the log, ranking <span class="wire-num" data-fact="f.team.0008.idp_adds_rank">1st</span>, and the next team on that list has <span class="wire-num" data-fact="f.team.0008.idp_adds_next_best">257</span>. He has led the league in defensive pickups <span class="wire-num" data-fact="f.team.0008.idp_adds_lead_streak">5</span> straight seasons. He also spent <span class="wire-num" data-fact="f.team.0008.idp_auction_spend">$14,000</span> on defenders this year — <span class="wire-num" data-fact="f.team.0008.idp_auction_share">7.1%</span> of the largest auction budget in the league. That is not neglect, it is a policy: never pay retail for a linebacker, mine them off the wire instead, all season, forever.</p>
+    <p>The policy mostly works. Points per started defender over the last three seasons puts him <span class="wire-num" data-fact="f.team.0008.idp_ppw_rank">4th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, which is above the median for almost no money and a genuinely good trade. It is also not first, and the teams ahead of him got there by occasionally just buying a good defender. A Week One defense of three replacement-level starters is not a finished product — it is opening inventory for a man who restocks every week until December.</p>
+  </section>
+
+  <section class="wire-sec" id="s2" data-title="The Bridge">
+    <h2 class="wire-sechead">The Bridge</h2>
+    <p>In April he had <span class="wire-num" data-fact="f.team.0008.active_roster_opening">14</span> active players: Goedert, Christian Watson, Henderson, Tetairoa McMillan, Marvin Harrison Jr, Trey Benson, Keon Coleman and Deshaun Watson, against <span class="wire-num" data-fact="f.team.0008.cap_opening">$62,000</span> of salary. A to-do list, not a team.</p>
+    <figure class="wire-fig wire-stack">
+<div class="wire-fig-title">Who filled each priced slot</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>April (short of a lineup)</th><th>Before the auction (short of a lineup)</th><th>After it</th></tr></thead><tbody><tr><td data-label="Slot">QB1</td><td data-label="April (short of a lineup)">Deshaun Watson, Replacement-level QB</td><td data-label="Before the auction (short of a lineup)">Deshaun Watson, Replacement-level QB</td><td data-label="After it">Dak Prescott, Mid QB1</td></tr><tr><td data-label="Slot">RB1</td><td data-label="April (short of a lineup)">TreVeyon Henderson, Low-end RB3</td><td data-label="Before the auction (short of a lineup)">Travis Etienne, Mid RB2</td><td data-label="After it">Saquon Barkley, Mid RB1</td></tr><tr><td data-label="Slot">RB2</td><td data-label="April (short of a lineup)">Emanuel Wilson (unranked)</td><td data-label="Before the auction (short of a lineup)">TreVeyon Henderson, Low-end RB3</td><td data-label="After it">Travis Etienne, Mid RB2</td></tr><tr><td data-label="Slot">WR1</td><td data-label="April (short of a lineup)">Tetairoa McMillan, Mid WR2</td><td data-label="Before the auction (short of a lineup)">Puka Nacua, Elite WR1</td><td data-label="After it">Puka Nacua, Elite WR1</td></tr><tr><td data-label="Slot">WR2</td><td data-label="April (short of a lineup)">Christian Watson, Mid WR3</td><td data-label="Before the auction (short of a lineup)">Christian Watson, Mid WR3</td><td data-label="After it">Christian Watson, Mid WR3</td></tr><tr><td data-label="Slot">TE1</td><td data-label="April (short of a lineup)">Dallas Goedert, Low-end TE1</td><td data-label="Before the auction (short of a lineup)">Dallas Goedert, Low-end TE1</td><td data-label="After it">Dallas Goedert, Low-end TE1</td></tr><tr><td data-label="Slot">OF1</td><td data-label="April (short of a lineup)">Marvin Harrison Jr, Mid WR3</td><td data-label="Before the auction (short of a lineup)">Marvin Harrison Jr, Mid WR3</td><td data-label="After it">TreVeyon Henderson, Low-end RB3</td></tr><tr><td data-label="Slot">OF2</td><td data-label="April (short of a lineup)">Trey Benson (unranked)</td><td data-label="Before the auction (short of a lineup)">KC Concepcion, Replacement-level WR</td><td data-label="After it">Marvin Harrison Jr, Mid WR3</td></tr><tr><td data-label="Slot">SF1</td><td data-label="April (short of a lineup)">Keon Coleman (unranked)</td><td data-label="Before the auction (short of a lineup)">Michael Mayer, Replacement-level TE</td><td data-label="After it">Kyler Murray, Mid QB2</td></tr></tbody></table></div>
+</figure>
+    <p>The first real move came before any of that, in April, and it was the biggest single piece of business of his offseason even though it looks like a footnote. He sent Kenneth Walker to HammerTime for their first-round pick. Walker was carrying <span class="wire-num" data-fact="f.team.0008.biggest_contract_traded_away">$32,000</span> a year — the largest annual contract Real Deal Creel has moved — so the deal cleared that off the books and banked a first-rounder in the same stroke. Everything he did in July was paid for by that.</p>
+    <p>Draft night is where it got loud. He made three trades while the draft was running and used every pick he acquired within the hour. He sent the 1.04 to Gride, who took Jadarian Price with it, and got back Travis Etienne plus the 1.07 — which became KC Concepcion. He moved up in the second for De'Zhaun Stribling and up again in the third for Sonny Styles. Three trades, three picks, all spent the same night.</p>
+    <p>By the time the Free Agent Auction opened he was at <span class="wire-num" data-fact="f.team.0008.active_roster_preauction">16</span> active players and the year had already turned once: McMillan out, Nacua in, Mid WR2 replaced by Elite WR1. It is one of the biggest single upgrades anyone made all offseason.</p>
+    <p>Then the auction, and he did not stop until there was nowhere left to put anyone. The roster closed at <span class="wire-num" data-fact="f.team.0008.active_roster_current">35</span> active men against a maximum of <span class="wire-num" data-fact="f.league.roster_max_at_auction">35</span> — completely full. Committed cap went from <span class="wire-num" data-fact="f.team.0008.cap_preauction">$95,000</span> to <span class="wire-num" data-fact="f.team.0008.cap_current_spent">$297,000</span>, leaving <span class="wire-num" data-fact="f.team.0008.cap_current_room">$3,000</span>, which is enough for one minimum body and a firm handshake. Studs went from <span class="wire-num" data-fact="f.team.0008.studs_opening">1</span> to <span class="wire-num" data-fact="f.team.0008.studs_postauction">4</span>, holes from <span class="wire-num" data-fact="f.team.0008.holes_opening">7</span> to <span class="wire-num" data-fact="f.team.0008.holes_postauction">3</span>. Almost nothing he starts today was carried in on an old contract.</p>
+  </section>
+
+  <section class="wire-sec" id="s3" data-title="The Auctions">
+    <h2 class="wire-sechead">The Auctions</h2>
+    <p>Two auctions, two months apart, and they are not the same event dressed differently. The Expired Rookie Auction sells players whose rookie deals ran out — men who did not earn a second contract — and the whole league-wide pool was <span class="wire-num" data-fact="f.league.era_pool_size">14</span> players. The most expensive one went for <span class="wire-num" data-fact="f.league.era_top_price">$7,000</span>, against <span class="wire-num" data-fact="f.league.faa_top_price">$88,000</span> for the priciest man in the Free Agent Auction. You do not build a team in May; you top up a bench.</p>
+    <figure class="wire-fig">
+<div class="wire-fig-title">Biggest buys</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Where</th><th>Price</th></tr></thead><tbody><tr><td data-label="Player">Dak Prescott</td><td data-label="Pos">QB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$63,000</td></tr><tr><td data-label="Player">Saquon Barkley</td><td data-label="Pos">RB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$45,000</td></tr><tr><td data-label="Player">Kyler Murray</td><td data-label="Pos">QB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$32,000</td></tr><tr><td data-label="Player">Jacoby Brissett</td><td data-label="Pos">QB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$13,000</td></tr><tr><td data-label="Player">Chigoziem Okonkwo</td><td data-label="Pos">TE</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$7,000</td></tr></tbody></table></div>
+</figure>
+    <p>Keith's May came to <span class="wire-num" data-fact="f.team.0008.era_spend">$9,000</span> for <span class="wire-num" data-fact="f.team.0008.era_lots_won">5</span> players: Chris Rodriguez, Kayshon Boutte, Michael Mayer, Will McDonald, Kendre Miller. Rodriguez turned into a component of the Nacua trade, which is a decent return for what he paid. The rest are bench or gone, which is roughly what that pool produces for everybody.</p>
+    <p>The Free Agent Auction in late July is where the team came from: <span class="wire-num" data-fact="f.team.0008.faa_lots_won">19</span> players for <span class="wire-num" data-fact="f.team.0008.faa_spend">$189,000</span>. Prescott alone took <span class="wire-num" data-fact="f.team.0008.top_buy_price">$63,000</span> — <span class="wire-num" data-fact="f.team.0008.top_buy_pct_of_spend">33.3%</span> of the whole budget, and the most contested item he won all summer.</p>
+    <p>He bought four quarterbacks there. Prescott and Murray start and both grade honestly. Jacoby Brissett, the cheapest of the quarterbacks he kept, grades Replacement-level QB and has not moved off the bench. Mac Jones was released in September. Buying a third and a fourth quarterback after the position was already solved is what happens when the auction is still open and you are bored.</p>
+    <p>The bottom of the market is where he is genuinely sharp. Cam Little, Tommy Townsend, Nick Bolton, Josh Hines-Allen and Chamarri Conner all came cheap, which is the right way to fill slots ADP refuses to price. Parker Washington is the one bargain with a starting job attached. Same instinct as the defense policy: find the thing nobody is bidding on, take it, move on.</p>
+  </section>
+
+  <section class="wire-sec" id="s4" data-title="Contracts, Trades, Cuts and the Rookie Class">
+    <h2 class="wire-sechead">Contracts, Trades, Cuts and the Rookie Class</h2>
+    <p>Keith made <span class="wire-num" data-fact="f.team.0008.contracts_count">12</span> contract moves. Cam Little, Trey Benson, Brian Robinson, Charlie Kolar, Jack Strand, Jacob Saylors and Stefon Diggs all signed at the league minimum, and Diggs at that price is the best-value deal in the set by a distance.</p>
+    <p>Chig Okonkwo is the one to argue about. He grades Replacement-level TE, he sits behind Goedert, and he signed above the minimum — but the deal is front-loaded, so most of its value is paid this season and the back years cost almost nothing. That is a defensible structure for a bet that has not landed yet: expensive now precisely so it stops being expensive later. Still a replacement-level tight end on a multi-year deal, though.</p>
+    <p>The Puka Nacua paperwork is easy to misread. Shawn Blake extended Nacua in May, before the trade. What Real Deal Creel did was cut Nacua's salary mid-auction — freeing <span class="wire-num" data-fact="f.team.0008.restructure_room_freed">$13,000</span> of bidding room at exactly the moment it was worth having — then put it straight back afterwards, ending on the salary and total value it started with. A maneuver, not a contract.</p>
+    <figure class="wire-fig wire-stack">
+<div class="wire-fig-title">Trades</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Date</th><th>Partner</th><th>Gave up</th><th>Received</th></tr></thead><tbody><tr><td data-label="Date">2026-04-13</td><td data-label="Partner">HammerTime 🔨 ⏰</td><td data-label="Gave up">Kenneth Walker (RB, redraft value 4,934)</td><td data-label="Received">2027 round-1 pick (HammerTime 🔨 ⏰'s natural pick)</td></tr><tr><td data-label="Date">2026-05-24</td><td data-label="Partner">Gride</td><td data-label="Gave up">2026 pick 1.04 (became Jadarian Price, Gride)</td><td data-label="Received">Travis Etienne (RB, redraft value 3,152); 2026 pick 1.07 (became KC Concepcion, Real Deal Creel)</td></tr><tr><td data-label="Date">2026-05-25</td><td data-label="Partner">Pure Greatness</td><td data-label="Gave up">2026 pick 2.09 (became Emmett Johnson, Gride); 2027 round-3 pick (Real Deal Creel's natural pick)</td><td data-label="Received">2026 pick 2.06 (became De'Zhaun Stribling, Real Deal Creel)</td></tr><tr><td data-label="Date">2026-05-25</td><td data-label="Partner">Gride</td><td data-label="Gave up">2026 pick 3.09 (became Adam Randall, Gride); 2026 pick 3.12 (became Chris Brazzell II, Gride)</td><td data-label="Received">2026 pick 3.06 (became Sonny Styles, Real Deal Creel)</td></tr><tr><td data-label="Date">2026-07-22</td><td data-label="Partner">C-Town Chivalry + Blake Bombers (3-way)</td><td data-label="Gave up">Tetairoa McMillan (WR, redraft value 3,048); 2027 round-1 pick (Real Deal Creel's natural pick); Chris Rodriguez (RB, redraft value 300); Omar Cooper (WR, redraft value unpriced -- off the redraft board)</td><td data-label="Received">Puka Nacua (WR, redraft value 9,139)</td></tr><tr><td data-label="Date">2026-08-07</td><td data-label="Partner">Hawks</td><td data-label="Gave up">George Karlaftis (DE, startable DL, +1.4 PAR); 2027 round-5 pick (Real Deal Creel's natural pick)</td><td data-label="Received">2027 round-4 pick (Hawks's natural pick)</td></tr></tbody></table></div>
+</figure>
+    <p>There were <span class="wire-num" data-fact="f.team.0008.trades_count">6</span> trades and the three-way is the one people will talk about, because three-way trades essentially do not happen here. It is the only one ever completed through the league's own trade tool, and Keith built it. He sent McMillan, his own first-rounder for next year, Chris Rodriguez and Omar Cooper, and got Nacua. It was not a two-team swap in a costume: C-Town Chivalry separately sent Drake London and <span class="wire-num" data-fact="f.team.0008.trade_blind_bid_elsewhere">$19,000</span> of blind-bid cash to Blake Bombers to make it balance. Three rosters, cash, and a pick, to move one receiver. He is also not short a first-rounder next year despite spending his own, because the Walker trade in April had already put HammerTime's in the drawer.</p>
+    <p>The last trade sent George Karlaftis, a startable defender, to the Hawks for a small upgrade in draft slot — which, given how the defense looks in September, reads worse now than it did in August.</p>
+    <p>The rookie class runs to <span class="wire-num" data-fact="f.team.0008.rookie_picks_count">5</span> picks. KC Concepcion came from the best slot of the group and the redraft market has not caught up to him yet. Omar Cooper Jr. was traded before playing a down. De'Zhaun Stribling grades Replacement-level WR so far. Sonny Styles and Zion Young are defenders, and neither the redraft board nor the production model can value them — the board does not price the position and the model needs an NFL season that has not happened. Missing information, not a bad grade.</p>
+  </section>
+
+  <section class="wire-sec" id="s5" data-title="The Verdict">
+    <h2 class="wire-sechead">The Verdict</h2>
+    <p>Start where it actually counts. Real Deal Creel sits <span class="wire-num" data-fact="f.team.0008.division_rank">2nd</span> of <span class="wire-num" data-fact="f.team.0008.division_size">3</span> in Maddie Mondays, behind Sex Manther and ahead of L.A. Looks, and he plays both of them twice. That division is a bad joke on him specifically: L.A. Looks and Sex Manther both rank ahead of him in points per started defender — first and third in the league — and Keith, the man who has made more defensive pickups than anyone in league history, is last of the three in his own division. He works harder at that position than either rival and finishes behind both.</p>
+    <figure class="wire-fig">
+<div class="wire-fig-title">The division</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Team</th><th>League rank</th></tr></thead><tbody><tr><td data-label="Team">Sex Manther</td><td class="wire-num" data-label="League rank">5</td></tr><tr><td data-label="Team">Real Deal Creel</td><td class="wire-num" data-label="League rank">7</td></tr><tr><td data-label="Team">L.A. Looks</td><td class="wire-num" data-label="League rank">10</td></tr></tbody></table></div>
+</figure>
+    <p>League-wide he is <span class="wire-num" data-fact="f.team.0008.composite_rank">7th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, and the offense is not the problem. Nacua is Elite WR1, Prescott Mid QB1, Barkley Mid RB1, and the backfield runs three deep. That is a playoff offense assembled in a single offseason from a roster that in April was mostly a list of names, and the Walker trade paid for most of it.</p>
+    <p>The weakness is the defense, and the verdict depends on whether you believe the plan. Cheap and <span class="wire-num" data-fact="f.team.0008.idp_ppw_rank">4th</span> of <span class="wire-num" data-fact="f.league.teams">12</span> is a good trade. It has also never been first, and he sold a startable defender in August and then opened the season starting three men the wire would replace for free. He will have replaced them by Week Four; he always does. Buy the star, mine the rest. It is a real strategy, and it is one good linebacker short of a division.</p>
+    <p>One last thing, and it is one night. <span class="wire-num" data-fact="f.league.wk_teams_final">2</span> NFL teams had played when this was written and exactly one Real Deal Creel player was among them: TreVeyon Henderson, on the bench, who did not record a scoring stat. <span class="wire-num" data-fact="f.team.0008.wk_points_final">0.0</span> points banked, because nothing he started has kicked off yet. Every argument above is still entirely untested — which, for a roster built on a defensive policy rather than a defensive purchase, is the only honest place to end.</p>
+    <figure class="wire-fig wire-stack">
+<div class="wire-fig-title">Week one, so far</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Started?</th><th>Points</th><th>What he did</th></tr></thead><tbody><tr><td data-label="Player">TreVeyon Henderson</td><td data-label="Pos">RB</td><td data-label="Started?">Bench</td><td data-label="Points">0.0</td><td data-label="What he did"></td></tr></tbody></table></div>
+<figcaption>Only games that had finished when this was written.</figcaption>
+</figure>
+  </section>
 
   <div class="wire-method">
     <details>
@@ -558,56 +728,8 @@ html { background: var(--ground); }
     </details>
   </div>
 
-  <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
-
-  <section class="wire-sec" id="s1" data-title="The Lineup">
-    <h2 class="wire-sechead">The Lineup</h2>
-    <p>Puka Nacua is an Elite WR1 and he is the whole receiving corps. The room ranks <span class="wire-num" data-fact="f.team.0008.wr_rank">4</span> in the league on his back, with Christian Watson at Mid WR3 next to him doing a passable impression of a starter. That is this roster in one line: one player nobody can match, and a supporting cast bought at a discount.</p>
-    <p>Quarterback came out fine, if not the fireworks the price implied. Dak Prescott grades Mid QB1 and Kyler Murray Mid QB2 — a real superflex pair with no passengers, ranking <span class="wire-num" data-fact="f.team.0008.qb_rank">8</span>. Keith paid <span class="wire-num" data-fact="f.team.0008.top_buy_price">$63,000</span> for Prescott, which is a lot of money for roughly the eighth-best quarterback in a format where everyone needs two of them.</p>
-    <p>The backfield is the quiet success. Saquon Barkley at Mid RB1, Travis Etienne at Mid RB2, TreVeyon Henderson at Low-end RB3, ranking <span class="wire-num" data-fact="f.team.0008.rb_rank">7</span> — three startable bodies, in a format where most teams are guessing at the flex by Halloween. Dallas Goedert grades Low-end TE1, the last chair in the room rather than a hole, and the position ranks <span class="wire-num" data-fact="f.team.0008.te_rank">9</span>.</p>
-    <p>Then the defense, and this is where the obvious article is the wrong one. Three of seven defensive slots start players the production model calls replacement-level — Frankie Luvu, Chuck Clark, Gregory Rousseau — with Nick Bolton, Chamarri Conner, Josh Hines-Allen and Jalyx Hunt in the tier behind them. Read that cold and you would say he forgot about defense.</p>
-    <p>He did not forget. Real Deal Creel has acquired <span class="wire-num" data-fact="f.team.0008.idp_adds_alltime">428</span> defenders since the league started keeping the log, ranking <span class="wire-num" data-fact="f.team.0008.idp_adds_rank">1</span>, and the next team on that list has <span class="wire-num" data-fact="f.team.0008.idp_adds_next_best">257</span>. He has led the league in defensive pickups <span class="wire-num" data-fact="f.team.0008.idp_adds_lead_streak">5</span> straight seasons. He also spent <span class="wire-num" data-fact="f.team.0008.idp_auction_spend">$14,000</span> on defenders this year — <span class="wire-num" data-fact="f.team.0008.idp_auction_share">7.1%</span> of the largest auction budget in the league. That is not neglect, it is a policy: never pay retail for a linebacker, mine them off the wire instead, all season, forever.</p>
-    <p>The policy mostly works. Points per started defender over the last three seasons puts him <span class="wire-num" data-fact="f.team.0008.idp_ppw_rank">4</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, which is above the median for almost no money and a genuinely good trade. It is also not first, and the teams ahead of him got there by occasionally just buying a good defender. A Week One defense of three replacement-level starters is not a finished product — it is opening inventory for a man who restocks every week until December.</p>
-  </section>
-
-  <section class="wire-sec" id="s2" data-title="The Bridge">
-    <h2 class="wire-sechead">The Bridge</h2>
-    <p>In April he had <span class="wire-num" data-fact="f.team.0008.active_roster_opening">14</span> active players: Goedert, Christian Watson, Henderson, Tetairoa McMillan, Marvin Harrison Jr, Trey Benson, Keon Coleman and Deshaun Watson, against <span class="wire-num" data-fact="f.team.0008.cap_opening">$62,000</span> of salary. A to-do list, not a team.</p>
-    <p>The first real move came before any of that, in April, and it was the biggest single piece of business of his offseason even though it looks like a footnote. He sent Kenneth Walker to HammerTime for their first-round pick. Walker was carrying <span class="wire-num" data-fact="f.team.0008.biggest_contract_traded_away">$32,000</span> a year — the largest annual contract Real Deal Creel has moved — so the deal cleared that off the books and banked a first-rounder in the same stroke. Everything he did in July was paid for by that.</p>
-    <p>Draft night is where it got loud. He made three trades while the draft was running and used every pick he acquired within the hour. He sent the 1.04 to Gride, who took Jadarian Price with it, and got back Travis Etienne plus the 1.07 — which became KC Concepcion. He moved up in the second for De'Zhaun Stribling and up again in the third for Sonny Styles. Three trades, three picks, all spent the same night.</p>
-    <p>By the time the Free Agent Auction opened he was at <span class="wire-num" data-fact="f.team.0008.active_roster_preauction">16</span> active players and the year had already turned once: McMillan out, Nacua in, Mid WR2 replaced by Elite WR1. It is one of the biggest single upgrades anyone made all offseason.</p>
-    <p>Then the auction, and he did not stop until there was nowhere left to put anyone. The roster closed at <span class="wire-num" data-fact="f.team.0008.active_roster_current">35</span> active men against a maximum of <span class="wire-num" data-fact="f.league.roster_max_at_auction">35</span> — completely full. Committed cap went from <span class="wire-num" data-fact="f.team.0008.cap_preauction">$95,000</span> to <span class="wire-num" data-fact="f.team.0008.cap_current_spent">$297,000</span>, leaving <span class="wire-num" data-fact="f.team.0008.cap_current_room">$3,000</span>, which is enough for one minimum body and a firm handshake. Studs went from <span class="wire-num" data-fact="f.team.0008.studs_opening">1</span> to <span class="wire-num" data-fact="f.team.0008.studs_postauction">4</span>, holes from <span class="wire-num" data-fact="f.team.0008.holes_opening">7</span> to <span class="wire-num" data-fact="f.team.0008.holes_postauction">3</span>. Almost nothing he starts today was carried in on an old contract.</p>
-  </section>
-
-  <section class="wire-sec" id="s3" data-title="The Auctions">
-    <h2 class="wire-sechead">The Auctions</h2>
-    <p>Two auctions, two months apart, and they are not the same event dressed differently. The Expired Rookie Auction sells players whose rookie deals ran out — men who did not earn a second contract — and the whole league-wide pool was <span class="wire-num" data-fact="f.league.era_pool_size">14</span> players. The most expensive one went for <span class="wire-num" data-fact="f.league.era_top_price">$7,000</span>, against <span class="wire-num" data-fact="f.league.faa_top_price">$88,000</span> for the priciest man in the Free Agent Auction. You do not build a team in May; you top up a bench.</p>
-    <p>Keith's May came to <span class="wire-num" data-fact="f.team.0008.era_spend">$9,000</span> for <span class="wire-num" data-fact="f.team.0008.era_lots_won">5</span> players: Chris Rodriguez, Kayshon Boutte, Michael Mayer, Will McDonald, Kendre Miller. Rodriguez turned into a component of the Nacua trade, which is a decent return for what he paid. The rest are bench or gone, which is roughly what that pool produces for everybody.</p>
-    <p>The Free Agent Auction in late July is where the team came from: <span class="wire-num" data-fact="f.team.0008.faa_lots_won">19</span> players for <span class="wire-num" data-fact="f.team.0008.faa_spend">$189,000</span>. Prescott alone took <span class="wire-num" data-fact="f.team.0008.top_buy_price">$63,000</span> — <span class="wire-num" data-fact="f.team.0008.top_buy_pct_of_spend">33.3%</span> of the whole budget, and the most contested item he won all summer.</p>
-    <p>He bought four quarterbacks there. Prescott and Murray start and both grade honestly. Jacoby Brissett, the cheapest of the quarterbacks he kept, grades Replacement-level QB and has not moved off the bench. Mac Jones was released in September. Buying a third and a fourth quarterback after the position was already solved is what happens when the auction is still open and you are bored.</p>
-    <p>The bottom of the market is where he is genuinely sharp. Cam Little, Tommy Townsend, Nick Bolton, Josh Hines-Allen and Chamarri Conner all came cheap, which is the right way to fill slots ADP refuses to price. Parker Washington is the one bargain with a starting job attached. Same instinct as the defense policy: find the thing nobody is bidding on, take it, move on.</p>
-  </section>
-
-  <section class="wire-sec" id="s4" data-title="Contracts, Trades, Cuts and the Rookie Class">
-    <h2 class="wire-sechead">Contracts, Trades, Cuts and the Rookie Class</h2>
-    <p>Keith made <span class="wire-num" data-fact="f.team.0008.contracts_count">12</span> contract moves. Cam Little, Trey Benson, Brian Robinson, Charlie Kolar, Jack Strand, Jacob Saylors and Stefon Diggs all signed at the league minimum, and Diggs at that price is the best-value deal in the set by a distance.</p>
-    <p>Chig Okonkwo is the one to argue about. He grades Replacement-level TE, he sits behind Goedert, and he signed above the minimum — but the deal is front-loaded, so most of its value is paid this season and the back years cost almost nothing. That is a defensible structure for a bet that has not landed yet: expensive now precisely so it stops being expensive later. Still a replacement-level tight end on a multi-year deal, though.</p>
-    <p>The Puka Nacua paperwork is easy to misread. Shawn Blake extended Nacua in May, before the trade. What Real Deal Creel did was cut Nacua's salary mid-auction — freeing <span class="wire-num" data-fact="f.team.0008.restructure_room_freed">$13,000</span> of bidding room at exactly the moment it was worth having — then put it straight back afterwards, ending on the salary and total value it started with. A maneuver, not a contract.</p>
-    <p>There were <span class="wire-num" data-fact="f.team.0008.trades_count">6</span> trades and the three-way is the one people will talk about, because three-way trades essentially do not happen here. It is the only one ever completed through the league's own trade tool, and Keith built it. He sent McMillan, his own first-rounder for next year, Chris Rodriguez and Omar Cooper, and got Nacua. It was not a two-team swap in a costume: C-Town Chivalry separately sent Drake London and <span class="wire-num" data-fact="f.team.0008.trade_blind_bid_elsewhere">$19,000</span> of blind-bid cash to Blake Bombers to make it balance. Three rosters, cash, and a pick, to move one receiver. He is also not short a first-rounder next year despite spending his own, because the Walker trade in April had already put HammerTime's in the drawer.</p>
-    <p>The last trade sent George Karlaftis, a startable defender, to the Hawks for a small upgrade in draft slot — which, given how the defense looks in September, reads worse now than it did in August.</p>
-    <p>The rookie class runs to <span class="wire-num" data-fact="f.team.0008.rookie_picks_count">5</span> picks. KC Concepcion came from the best slot of the group and the redraft market has not caught up to him yet. Omar Cooper Jr. was traded before playing a down. De'Zhaun Stribling grades Replacement-level WR so far. Sonny Styles and Zion Young are defenders, and neither the redraft board nor the production model can value them — the board does not price the position and the model needs an NFL season that has not happened. Missing information, not a bad grade.</p>
-  </section>
-
-  <section class="wire-sec" id="s5" data-title="The Verdict">
-    <h2 class="wire-sechead">The Verdict</h2>
-    <p>Start where it actually counts. Real Deal Creel sits <span class="wire-num" data-fact="f.team.0008.division_rank">2</span> of <span class="wire-num" data-fact="f.team.0008.division_size">3</span> in Maddie Mondays, behind Sex Manther and ahead of L.A. Looks, and he plays both of them twice. That division is a bad joke on him specifically: L.A. Looks and Sex Manther both rank ahead of him in points per started defender — first and third in the league — and Keith, the man who has made more defensive pickups than anyone in league history, is last of the three in his own division. He works harder at that position than either rival and finishes behind both.</p>
-    <p>League-wide he is <span class="wire-num" data-fact="f.team.0008.composite_rank">7</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, and the offense is not the problem. Nacua is Elite WR1, Prescott Mid QB1, Barkley Mid RB1, and the backfield runs three deep. That is a playoff offense assembled in a single offseason from a roster that in April was mostly a list of names, and the Walker trade paid for most of it.</p>
-    <p>The weakness is the defense, and the verdict depends on whether you believe the plan. Cheap and <span class="wire-num" data-fact="f.team.0008.idp_ppw_rank">4</span> of <span class="wire-num" data-fact="f.league.teams">12</span> is a good trade. It has also never been first, and he sold a startable defender in August and then opened the season starting three men the wire would replace for free. He will have replaced them by Week Four; he always does. Buy the star, mine the rest. It is a real strategy, and it is one good linebacker short of a division.</p>
-    <p>One last thing, and it is one night. <span class="wire-num" data-fact="f.league.wk_teams_final">2</span> NFL teams had played when this was written and exactly one Real Deal Creel player was among them: TreVeyon Henderson, on the bench, who did not record a scoring stat. <span class="wire-num" data-fact="f.team.0008.wk_points_final">0.0</span> points banked, because nothing he started has kicked off yet. Every argument above is still entirely untested — which, for a roster built on a defensive policy rather than a defensive purchase, is the only honest place to end.</p>
-  </section>
-
   <footer>
-    UPS Wire &middot; built from 2026-team-0008 &middot; league 74598
+    UPS Wire &middot; Team Reviews &middot; September 10, 2026
   </footer>
 
 </div>
@@ -635,7 +757,8 @@ html { background: var(--ground); }
  * Responsibilities (four, and only these):
  *   1. Flag embedded vs standalone, and apply the theme the loader chose.
  *   2. Wire the Back bar (embedded: postMessage; standalone: navigate).
- *   3. Build the chapter rail and page between sections.
+ *   3. Build the chapter rail and the end-of-section pager, and page between
+ *      sections.
  *   4. Report section changes upward so the MFL hash tracks what you're reading.
  *
  * The height beacon is NOT here -- the loader injects one beacon that serves
@@ -694,25 +817,33 @@ html { background: var(--ground); }
   var pills = [];
   var idx = 0;
 
-  var prevBtn = mk("button", "wire-rail-nav", "\u2039 Prev");
-  var nextBtn = mk("button", "wire-rail-nav", "Next \u203A");
-  var count = mk("span", "wire-rail-count", "");
+  function titleOf(i) {
+    // Read from data-title and only ever written with textContent -- a section
+    // title is prose and may contain anything. Falls back to a number so a
+    // missing data-title is visible rather than silently blank.
+    return secs[i].getAttribute("data-title") || ("Section " + (i + 1));
+  }
+
+  // The rail is ONE ROW: numbered pills, with the full title in title and
+  // aria-label. Five wrapped titles made a five-row rail on a phone, and the
+  // section heading right below it already names the page you are on.
+  var prevBtn = mk("button", "wire-rail-nav", "\u2039");
+  var nextBtn = mk("button", "wire-rail-nav", "\u203A");
   var allBtn = mk("button", "wire-rail-all", "Read all");
+  prevBtn.setAttribute("aria-label", "Previous section");
+  nextBtn.setAttribute("aria-label", "Next section");
 
   rail.appendChild(prevBtn);
   secs.forEach(function (sec, i) {
-    // textContent, not innerHTML -- a section title is prose and may contain
-    // anything. Falls back to a number so a missing data-title is visible
-    // rather than silently blank.
-    var label = sec.getAttribute("data-title") || ("Section " + (i + 1));
-    var pill = mk("button", "wire-rail-pill", (i + 1) + ". " + label);
+    var pill = mk("button", "wire-rail-pill", String(i + 1));
     pill.setAttribute("type", "button");
+    pill.setAttribute("title", titleOf(i));
+    pill.setAttribute("aria-label", (i + 1) + ". " + titleOf(i));
     pill.addEventListener("click", function () { show(i, true); });
     pills.push(pill);
     rail.appendChild(pill);
   });
   rail.appendChild(nextBtn);
-  rail.appendChild(count);
   rail.appendChild(allBtn);
 
   [prevBtn, nextBtn, allBtn].forEach(function (b) { b.setAttribute("type", "button"); });
@@ -727,6 +858,39 @@ html { background: var(--ground); }
     show(idx, false);
   });
 
+  // 3b. End-of-section pager: previous / next by name, at the BOTTOM of every
+  //     section, so finishing a long section on a phone does not mean
+  //     scrolling back up to the rail. Hidden by CSS unless paged. The last
+  //     section offers the way out instead of a dead end.
+  function leave() {
+    if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+    window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+  }
+  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  function navBtn(cls, small, big, onClick) {
+    var b = mk("button", cls, null);
+    b.setAttribute("type", "button");
+    b.appendChild(mk("small", "", small));
+    b.appendChild(mk("span", "", big));
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  secs.forEach(function (sec, i) {
+    var nav = mk("nav", "wire-secnav", null);
+    nav.setAttribute("aria-label", "Section navigation");
+    if (i > 0) {
+      nav.appendChild(navBtn("wire-secnav-back", "\u2039 Previous", titleOf(i - 1),
+        function () { show(i - 1, true); }));
+    }
+    if (i < secs.length - 1) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Next \u203A", titleOf(i + 1),
+        function () { show(i + 1, true); }));
+    } else if (canLeave) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Finished", "Back to all stories", leave));
+    }
+    sec.appendChild(nav);
+  });
+
   function show(i, userInitiated) {
     if (i < 0 || i >= secs.length) return;
     idx = i;
@@ -735,22 +899,32 @@ html { background: var(--ground); }
       if (n === i) p.setAttribute("aria-current", "true");
       else p.removeAttribute("aria-current");
     });
-    count.textContent = (i + 1) + " / " + secs.length;
     prevBtn.disabled = i === 0;
     nextBtn.disabled = i === secs.length - 1;
 
     if (!userInitiated) return;
 
     var id = secs[i].id || "";
+    // Where the rail sits in this document. A page turn lands there -- not at
+    // the very top, which would put the headline back between the reader and
+    // the section they asked for.
+    var railTop = 0;
+    try { railTop = rail.getBoundingClientRect().top + (window.pageYOffset || 0); } catch (e) {}
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    if (embedded) { post({ type: "wire-section", sectionId: id }); }
-    else if (id) {
+    //    Embedded, the loader also does the scrolling: the frame is sized to
+    //    its content, so a scrollTo in here does nothing.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
+    if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
-    // Paging is a page turn; land at the top of the new section.
-    try { window.scrollTo(0, 0); } catch (e) {}
+    // Only ever scroll UP to the rail: a reader who clicked a pill is already
+    // looking at it.
+    try {
+      var y = Math.max(0, railTop - 8);
+      if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);
+    } catch (e) {}
   }
 
 

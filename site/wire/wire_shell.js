@@ -125,6 +125,23 @@
   function families() {
     return (data.families || []).slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); });
   }
+  // A family's own reading order. `order` comes from the article's wire-meta
+  // (for team reviews, the league rank); anything without one falls back to
+  // newest first. Publish time alone put the Hawks on top of the front page
+  // only because their review happened to be generated last.
+  function byOrder(list) {
+    return list.slice().sort(function (x, y) {
+      var a = x.order == null ? Infinity : x.order;
+      var b = y.order == null ? Infinity : y.order;
+      if (a !== b) return a - b;
+      return String(y.publishedAt).localeCompare(String(x.publishedAt));
+    });
+  }
+  function familiesWithStories(all) {
+    return families().filter(function (f) {
+      return all.some(function (a) { return a.familyId === f.id; });
+    });
+  }
   function familyById(id) {
     var f = families().filter(function (x) { return x.id === id; });
     return f.length ? f[0] : null;
@@ -146,14 +163,17 @@
       card.appendChild(hero);
     }
 
+    // Only what differs between cards. "TEAM REVIEWS / 2026 / 13 MIN /
+    // 5 SECTIONS" was identical on all twelve and told the reader nothing.
     var meta = el("div", "wire-icard-meta");
-    var fam = familyById(a.familyId);
-    if (fam) meta.appendChild(el("span", null, fam.title));
-    if (a.season) meta.appendChild(el("span", null, a.week ? a.season + " wk " + a.week : String(a.season)));
-    if (a.readMinutes) meta.appendChild(el("span", null, a.readMinutes + " min"));
-    if (a.sections && a.sections.length) meta.appendChild(el("span", null, a.sections.length + " sections"));
+    if (opts.lead) {
+      var fam = familyById(a.familyId);
+      if (fam) meta.appendChild(el("span", null, fam.title));
+    }
+    if (a.week) meta.appendChild(el("span", null, "Week " + a.week));
+    if (a.readMinutes) meta.appendChild(el("span", null, a.readMinutes + " min read"));
     if (a.status === "draft") meta.appendChild(el("span", "wire-draft", "Draft"));
-    card.appendChild(meta);
+    if (meta.firstChild) card.appendChild(meta);
 
     if (opts.lead && a.sections && a.sections.length) {
       card.appendChild(el("p", "wire-icard-chapters", a.sections.map(function (s) { return s.title; }).join("  \u00B7  ")));
@@ -161,6 +181,38 @@
 
     card.addEventListener("click", function () { openArticle(a); });
     return card;
+  }
+
+  // A ranked family (team reviews) reads as a table of contents: rank, team,
+  // headline, one line of dek. Twelve full cards were ~4,500px of near-identical
+  // boxes on a phone, and nothing on them said which team a card was about.
+  function rankedList(list) {
+    var box = el("div", "wire-ranked");
+    list.forEach(function (a) {
+      var row = btn("wire-rrow", null);
+      row.setAttribute("aria-label", a.title || "Untitled");
+      row.appendChild(el("span", "wire-rrow-rank", a.order != null ? String(a.order) : "\u2022"));
+      var main = el("span", "wire-rrow-main");
+      if (a.kicker) main.appendChild(el("span", "wire-rrow-kicker", a.kicker));
+      main.appendChild(el("span", "wire-rrow-title", a.title || "Untitled"));
+      if (a.dek) main.appendChild(el("span", "wire-rrow-dek", a.dek));
+      if (a.status === "draft") main.appendChild(el("span", "wire-rrow-kicker wire-draft", "Draft"));
+      row.appendChild(main);
+      row.addEventListener("click", function () { openArticle(a); });
+      box.appendChild(row);
+    });
+    return box;
+  }
+
+  function familyHead(f, extra) {
+    var head = el("div", "wire-railhead");
+    var left = el("div");
+    left.appendChild(el("h2", null, f.title));
+    if (f.blurb) left.appendChild(el("p", null, f.blurb));
+    if (f.layout === "ranked" && f.rankNote) left.appendChild(el("p", "wire-railnote", f.rankNote));
+    head.appendChild(left);
+    if (extra) head.appendChild(extra);
+    return head;
   }
 
   function renderMast() {
@@ -178,7 +230,13 @@
     home.addEventListener("click", function () { go({ kind: "home" }); });
     nav.appendChild(home);
 
-    families().forEach(function (f) {
+    // Only sections with something in them. Four of six tabs led to "Nothing
+    // here yet." The section you are standing on stays, even if it is empty.
+    var withStories = data ? familiesWithStories(visibleArticles()) : [];
+    families().filter(function (f) {
+      return withStories.indexOf(f) >= 0 ||
+        (route.kind === "family" && route.familyId === f.id);
+    }).forEach(function (f) {
       var b = btn("wire-navbtn", f.title);
       if (route.kind === "family" && route.familyId === f.id) b.setAttribute("aria-current", "true");
       b.addEventListener("click", function () { go({ kind: "family", familyId: f.id, season: null, page: 1 }); });
@@ -198,17 +256,15 @@
     var all = visibleArticles();
     if (!all.length) { els.body.appendChild(emptyCard("Nothing published yet.")); return; }
 
-    els.body.appendChild(articleCard(all[0], { lead: true }));
-
-    var rest = all.slice(1, 5);
-    if (rest.length) {
-      var grid = el("div", "wire-grid");
-      rest.forEach(function (a) { grid.appendChild(articleCard(a)); });
-      els.body.appendChild(grid);
-    }
+    // The cover story is a deliberate choice (`featured: yes` in wire-meta),
+    // falling back to the newest. It is then left OUT of every rail below --
+    // the old front page showed five stories on eight cards.
+    var featured = all.filter(function (a) { return a.featured; });
+    var lead = featured.length ? featured[0] : all[0];
+    els.body.appendChild(articleCard(lead, { lead: true }));
 
     families().forEach(function (f) {
-      var mine = all.filter(function (a) { return a.familyId === f.id; });
+      var mine = all.filter(function (a) { return a.familyId === f.id && a !== lead; });
       if (!mine.length) return;
       els.body.appendChild(familyRail(f, mine));
     });
@@ -216,17 +272,18 @@
 
   function familyRail(f, mine) {
     var sec = el("section");
-    var head = el("div", "wire-railhead");
-    var left = el("div");
-    left.appendChild(el("h2", null, f.title));
-    if (f.blurb) left.appendChild(el("p", null, f.blurb));
-    head.appendChild(left);
-    if (mine.length > 3) {
-      var see = btn("wire-seeall", "See all " + mine.length + " \u203A");
-      see.addEventListener("click", function () { go({ kind: "family", familyId: f.id, season: null, page: 1 }); });
-      head.appendChild(see);
+    mine = byOrder(mine);
+    if (f.layout === "ranked") {
+      sec.appendChild(familyHead(f));
+      sec.appendChild(rankedList(mine));
+      return sec;
     }
-    sec.appendChild(head);
+    var see = null;
+    if (mine.length > 3) {
+      see = btn("wire-seeall", "See all " + mine.length + " \u203A");
+      see.addEventListener("click", function () { go({ kind: "family", familyId: f.id, season: null, page: 1 }); });
+    }
+    sec.appendChild(familyHead(f, see));
     var grid = el("div", "wire-grid");
     mine.slice(0, 3).forEach(function (a) { grid.appendChild(articleCard(a)); });
     sec.appendChild(grid);
@@ -242,12 +299,7 @@
     mine.forEach(function (a) { if (a.season && seasons.indexOf(a.season) < 0) seasons.push(a.season); });
     seasons.sort(function (x, y) { return y - x; });
 
-    var head = el("div", "wire-railhead");
-    var left = el("div");
-    left.appendChild(el("h2", null, f.title));
-    if (f.blurb) left.appendChild(el("p", null, f.blurb));
-    head.appendChild(left);
-    els.body.appendChild(head);
+    els.body.appendChild(familyHead(f));
 
     if (seasons.length > 1) {
       var chips = el("nav", "wire-nav");
@@ -266,6 +318,9 @@
 
     if (route.season) mine = mine.filter(function (a) { return a.season === route.season; });
     if (!mine.length) { els.body.appendChild(emptyCard("Nothing here yet.")); return; }
+    mine = byOrder(mine);
+
+    if (f.layout === "ranked") { els.body.appendChild(rankedList(mine)); return; }
 
     var pages = Math.max(1, Math.ceil(mine.length / PAGE_SIZE));
     var page = Math.min(Math.max(1, route.page || 1), pages);

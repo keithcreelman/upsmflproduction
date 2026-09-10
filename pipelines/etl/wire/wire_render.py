@@ -21,10 +21,14 @@ and why there is no auto-publish path.
 """
 
 import re
+from datetime import datetime
 
 import wire_svg
 
-TOKEN_RE = re.compile(r'\{\{\s*([a-zA-Z0-9._-]+)\s*\}\}')
+# {{fact_id}} or {{fact_id|ord}}. The one filter turns a whole-number rank into
+# an ordinal ("7th"), so prose can say "ranks 7th of 12" instead of the data
+# dump "ranks 7 of 12". It changes the FORM of a pack value, never the value.
+TOKEN_RE = re.compile(r'\{\{\s*([a-zA-Z0-9._-]+)\s*(?:\|\s*(ord)\s*)?\}\}')
 # Years read naturally in prose. NARROW ON PURPOSE: the old band was 1950-2049,
 # a hundred blind values, and this league's cap figures land inside it -- the
 # preseason pack's median auction price is $2,000, so "paid 2000 for him"
@@ -70,18 +74,40 @@ def esc(s):
             .replace(">", "&gt;"))
 
 
+def esc_attr(s):
+    return esc(s).replace('"', "&quot;")
+
+
+def ordinal(value):
+    """7 -> '7th', 12 -> '12th', 22 -> '22nd'. Whole numbers only -- a rank
+    that is not one is a bug upstream, not something to round."""
+    n = float(value)
+    if n != int(n) or n < 0:
+        raise ValueError("not a whole number: %r" % (value,))
+    n = int(n)
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return "%d%s" % (n, suffix)
+
+
 def substitute(text, facts, where):
     """{{f.some.id}} -> a marked span carrying the value. Fail-closed."""
     missing = []
 
     def repl(m):
-        fid = m.group(1)
+        fid, filt = m.group(1), m.group(2)
         f = facts.get(fid)
         if not f:
             missing.append(fid)
             return m.group(0)
+        shown = f["fmt"]
+        if filt == "ord":
+            try:
+                shown = ordinal(f["value"])
+            except (TypeError, ValueError):
+                raise RenderError("%s applies |ord to %s, whose value %r is not a whole "
+                                  "number" % (where, fid, f.get("value")))
         return ('<span class="wire-num" data-fact="%s">%s</span>'
-                % (esc(fid), esc(f["fmt"])))
+                % (esc(fid), esc(shown)))
 
     out = TOKEN_RE.sub(repl, text)
     if missing:
@@ -261,12 +287,65 @@ def audit_and_substitute(text, where, facts, proper=()):
     return frag
 
 
-def render_table(table, caption_html=None):
+def table_view(table, view, where, facts, proper):
+    """Apply a section's VIEW of a pack table: which columns, relabelled how,
+    sorted by what, and how many rows. Presentation only -- every cell still
+    comes from the pack, and every label the writer supplies goes through the
+    same audit as prose.
+
+    WHY. The team-review packs carry tables written for the WRITER: nine
+    columns, headers like "Legal-lineup offense value (today's market)", notes
+    that begin "Never add them...". None of them was ever placed, so the twelve
+    published reviews had no tables at all. A view is how a section shows the
+    three columns a reader needs without editing the pack.
+
+    Returns (columns, rows, title_html, show_note, stack).
+    """
     cols = table["columns"]
+    keys = [c["key"] for c in cols]
+    want = view.get("cols") or keys
+    bad = [k for k in want if k not in keys]
+    if bad:
+        raise RenderError("%s view of %s names unknown column(s): %s"
+                          % (where, table["id"], ", ".join(bad)))
+    rows = list(table["rows"])
+    sk = view.get("sortDesc")
+    if sk:
+        if sk not in keys:
+            raise RenderError("%s view of %s sorts by unknown column %s" % (where, table["id"], sk))
+        i = keys.index(sk)
+        rows.sort(key=lambda r: float(r[i] or 0), reverse=True)
+    if view.get("rows"):
+        rows = rows[:int(view["rows"])]
+    labels = view.get("labels") or {}
+    for k, lab in labels.items():
+        if k not in want:
+            raise RenderError("%s view of %s relabels a column it does not show: %s"
+                              % (where, table["id"], k))
+        if TOKEN_RE.search(lab):
+            raise RenderError("%s view of %s: a column label cannot carry a fact token" % (where, table["id"]))
+        audit_and_substitute(lab, "%s label %s" % (where, k), facts, proper)
+    idx = [keys.index(k) for k in want]
+    out_cols = [dict(cols[i], label=labels.get(cols[i]["key"], cols[i]["label"])) for i in idx]
+    out_rows = [[r[i] for i in idx] for r in rows]
+    title = view.get("title")
+    title_html = (audit_and_substitute(title, "%s title of %s" % (where, table["id"]), facts, proper)
+                  if title else esc(table.get("title") or ""))
+    stack = bool(view.get("stack", len(out_cols) >= 5))
+    return out_cols, out_rows, title_html, bool(view.get("note")), stack
+
+
+def render_table(table, caption_html=None, view=None):
+    """`view` is the (columns, rows, title_html, show_note, stack) tuple from
+    table_view, or None for the whole table exactly as the pack built it."""
+    if view:
+        cols, rows, title_html, show_note, stack = view
+    else:
+        cols, rows, title_html, show_note, stack = table["columns"], table["rows"], "", True, False
     head = "".join('<th%s>%s</th>' % (' class="wire-num"' if c.get("align") == "right" else "",
                                       esc(c["label"])) for c in cols)
     body = []
-    for row in table["rows"]:
+    for row in rows:
         cells = []
         for c, v in zip(cols, row):
             kind = c.get("type")
@@ -284,22 +363,62 @@ def render_table(table, caption_html=None):
                 txt, cls = "%.1f%%" % v, "wire-num"
             else:
                 txt, cls = str(v), ""
-            cells.append('<td%s>%s</td>' % ((' class="%s"' % cls) if cls else "", esc(txt)))
+            # data-label feeds the stacked phone layout (td::before), which
+            # needs each cell to carry its own column name.
+            cells.append('<td%s data-label="%s">%s</td>'
+                         % ((' class="%s"' % cls) if cls else "", esc_attr(c["label"]), esc(txt)))
         body.append("<tr>%s</tr>" % "".join(cells))
 
-    parts = ['<figure class="wire-fig">',
-             '<div class="wire-tablewrap"><table><thead><tr>%s</tr></thead><tbody>%s</tbody>'
-             '</table></div>' % (head, "".join(body))]
+    parts = ['<figure class="wire-fig%s">' % (" wire-stack" if stack else "")]
+    if title_html:
+        parts.append('<div class="wire-fig-title">%s</div>' % title_html)
+    parts.append('<div class="wire-tablewrap"><table><thead><tr>%s</tr></thead><tbody>%s</tbody>'
+                 '</table></div>' % (head, "".join(body)))
     if caption_html:
         # Already escaped and substituted by audit_and_substitute. Escaping it
         # again printed the substitution span as literal tag text, so a caption
         # using the one sanctioned way to state a number rendered as
         # `&lt;span class="wire-num"...&gt;35&lt;/span&gt;` to the reader.
         parts.append("<figcaption>%s</figcaption>" % caption_html)
-    if table.get("note"):
+    # A pack note is written for the WRITER ("Never add them into a single
+    # 'auction spend'..."). A view hides it unless asked; the caveats a reader
+    # needs are all in the "How this was built" panel, verbatim.
+    if table.get("note") and show_note:
         parts.append("<figcaption>%s</figcaption>" % esc(table["note"]))
     parts.append("</figure>")
     return "\n".join(parts)
+
+
+def render_kpis(items, facts, proper):
+    """The key-number strip under the dek. Values come from the pack; the
+    labels and suffixes are writer text and pass the full audit."""
+    if not items:
+        return ""
+    out = []
+    for n, it in enumerate(items):
+        fid = it.get("fact")
+        where = "the key numbers (%s)" % fid
+        f = facts.get(fid)
+        if not f:
+            raise RenderError("%s: unknown fact id" % where)
+        try:
+            val = ordinal(f["value"]) if it.get("ord") else f["fmt"]
+        except (TypeError, ValueError):
+            raise RenderError("%s: ord on a value that is not a whole number" % where)
+        suffix = ""
+        if it.get("of"):
+            of = facts.get(it["of"])
+            if not of:
+                raise RenderError("%s: unknown 'of' fact id %s" % (where, it["of"]))
+            suffix = "of %s" % esc(of["fmt"])
+        elif it.get("suffix"):
+            suffix = audit_and_substitute(it["suffix"], where, facts, proper)
+        label = audit_and_substitute(it.get("label") or "", where, facts, proper)
+        out.append('<div class="wire-kpi%s"><span class="wire-kpi-l">%s</span>'
+                   '<span class="wire-kpi-v">%s%s</span></div>'
+                   % (" wire-kpi-lead" if n == 0 else "", label, esc(val),
+                      (" <small>%s</small>" % suffix) if suffix else ""))
+    return '<div class="wire-kpis">%s</div>' % "".join(out)
 
 
 def render_quote(q):
@@ -516,10 +635,52 @@ def render_sections(pack, prose):
 
         body = []
         if s.get("lead"):
-            body.append("<p>%s</p>" % audit_and_substitute(s["lead"], where, facts, proper))
+            body.append('<p class="wire-lede">%s</p>'
+                        % audit_and_substitute(s["lead"], where, facts, proper))
 
-        for para in s.get("paragraphs") or []:
-            body.append("<p>%s</p>" % audit_and_substitute(para, where, facts, proper))
+        # Placed figures. `placeAt` puts one directly after a given paragraph
+        # (0-based) so a table sits beside the prose about it instead of after
+        # the whole section; anything without a position goes at the end, as
+        # before. A view or position for an id the section does not place is a
+        # typo, and fails the build rather than silently doing nothing.
+        placed = s.get("place") or []
+        views = s.get("views") or {}
+        place_at = s.get("placeAt") or {}
+        stray = sorted((set(views) | set(place_at)) - set(placed))
+        if stray:
+            raise RenderError("%s has a view or placeAt for id(s) it does not place: %s"
+                              % (where, ", ".join(stray)))
+        paras = [audit_and_substitute(p, where, facts, proper) for p in s.get("paragraphs") or []]
+        captions = s.get("captions") or {}
+        after, tail = {}, []
+        for pid in placed:
+            cap = captions.get(pid)
+            cap_frag = (audit_and_substitute(cap, "%s caption %s" % (where, pid),
+                                             facts, proper) if cap else None)
+            if pid in tables:
+                v = table_view(tables[pid], views[pid], where, facts, proper) if pid in views else None
+                fig = render_table(tables[pid], cap_frag, v)
+            elif pid in charts:
+                if pid in views:
+                    raise RenderError("%s gives chart %s a table view" % (where, pid))
+                # cap_frag, NOT cap. Passing the raw string here shipped literal
+                # {{f.some.id}} braces to the reader -- and the digits inside the
+                # fact id had never been seen by the audit that approved it.
+                fig = wire_svg.render_chart(charts[pid], cap_frag)
+            else:
+                raise RenderError("%s places unknown id %s" % (where, pid))
+            if pid in place_at:
+                k = int(place_at[pid])
+                if not 0 <= k < len(paras):
+                    raise RenderError("%s places %s after paragraph %d, but it has %d"
+                                      % (where, pid, k, len(paras)))
+                after.setdefault(k, []).append(fig)
+            else:
+                tail.append(fig)
+
+        for i, para in enumerate(paras):
+            body.append("<p>%s</p>" % para)
+            body.extend(after.get(i, []))
 
         bullets = s.get("bullets") or []
         if bullets:
@@ -572,20 +733,7 @@ def render_sections(pack, prose):
                 raise RenderError("%s places unknown quote id %s" % (where, qid))
             body.append(render_quote(quotes[qid]))
 
-        captions = s.get("captions") or {}
-        for pid in s.get("place") or []:
-            cap = captions.get(pid)
-            cap_frag = (audit_and_substitute(cap, "%s caption %s" % (where, pid),
-                                             facts, proper) if cap else None)
-            if pid in tables:
-                body.append(render_table(tables[pid], cap_frag))
-            elif pid in charts:
-                # cap_frag, NOT cap. Passing the raw string here shipped literal
-                # {{f.some.id}} braces to the reader -- and the digits inside the
-                # fact id had never been seen by the audit that approved it.
-                body.append(wire_svg.render_chart(charts[pid], cap_frag))
-            else:
-                raise RenderError("%s places unknown id %s" % (where, pid))
+        body.extend(tail)
 
         out.append(
             '<section class="wire-sec" id="%s" data-title="%s">\n'
@@ -639,10 +787,21 @@ def render_article(pack, prose, meta):
     kicker = audit_and_substitute(kicker, "the kicker", facts, proper) if kicker else ""
     title_html = audit_and_substitute(title, "the title", facts, proper) if title else ""
     dek = audit_and_substitute(dek, "the dek", facts, proper) if dek else ""
+    kpis = render_kpis(prose.get("strip") or [], facts, proper)
 
     meta_lines = "\n".join("  %s: %s" % (k, meta.get(k, "")) for k in
                            ("familyId", "season", "week", "status", "publishedAt",
-                            "tags", "heroValue", "heroLabel"))
+                            "tags", "heroValue", "heroLabel", "order", "featured"))
+
+    # A byline a reader can use, not "built from 2026-team-0008 · league 74598".
+    # The pack id and its timestamp are still in the wire-provenance comment.
+    stamp = str(meta.get("publishedAt") or "")
+    try:
+        when = datetime.strptime(stamp[:10], "%Y-%m-%d")
+        when = "%s %d, %d" % (when.strftime("%B"), when.day, when.year)
+    except ValueError:
+        when = ""
+    footer = " &middot; ".join(esc(x) for x in ("UPS Wire", meta.get("familyTitle") or "", when) if x)
 
     return """<!doctype html>
 <html lang="en">
@@ -666,7 +825,7 @@ def render_article(pack, prose, meta):
 <body>
 
 <div class="wire-page">
-<div class="wire-wrap">
+<div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
     <button class="wire-back" data-wire-back type="button">All stories</button>
@@ -677,16 +836,17 @@ def render_article(pack, prose, meta):
     <div class="wire-eyebrow">%(kicker)s</div>
     <h1>%(title)s</h1>
     <p class="wire-dek">%(dek)s</p>
+    %(kpis)s
   </header>
-
-  %(method)s
 
   <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
 
   %(sections)s
 
+  %(method)s
+
   <footer>
-    UPS Wire &middot; built from %(pack_id)s &middot; league 74598
+    %(footer)s
   </footer>
 
 </div>
@@ -706,6 +866,8 @@ def render_article(pack, prose, meta):
         "title": title_html,
         "kicker": kicker,
         "dek": dek,
+        "kpis": kpis,
+        "footer": footer,
         "meta_lines": meta_lines,
         "pack_id": esc(pack["packId"]),
         "pack_stamp": esc(pack["generatedAtUtc"]),

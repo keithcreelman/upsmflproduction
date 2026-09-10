@@ -5,66 +5,216 @@
   "packGeneratedAtUtc": "2026-09-09T17:08:34Z"
  },
  "prose": {
-  "kicker": "The hardest-working defense in the league, assembled entirely out of other people's leftovers",
+  "kicker": "Real Deal Creel · Keith Creelman",
   "title": "Real Deal Creel Bought a Superstar and Shoplifted the Rest",
-  "dek": "Keith Creelman spent {{f.team.0008.faa_spend}} at the Free Agent Auction and {{f.team.0008.idp_auction_share}} of his money on defense. Real Deal Creel came out {{f.team.0008.composite_rank}} of {{f.league.teams}}. Both of those are on purpose.",
+  "dek": "Keith Creelman spent {{f.team.0008.faa_spend}} at the Free Agent Auction and {{f.team.0008.idp_auction_share}} of his money on defense. Real Deal Creel came out {{f.team.0008.composite_rank|ord}} of {{f.league.teams}}. Both of those are on purpose.",
   "sections": [
    {
     "id": "s1",
     "lead": "",
     "paragraphs": [
-     "Puka Nacua is an Elite WR1 and he is the whole receiving corps. The room ranks {{f.team.0008.wr_rank}} in the league on his back, with Christian Watson at Mid WR3 next to him doing a passable impression of a starter. That is this roster in one line: one player nobody can match, and a supporting cast bought at a discount.",
-     "Quarterback came out fine, if not the fireworks the price implied. Dak Prescott grades Mid QB1 and Kyler Murray Mid QB2 \u2014 a real superflex pair with no passengers, ranking {{f.team.0008.qb_rank}}. Keith paid {{f.team.0008.top_buy_price}} for Prescott, which is a lot of money for roughly the eighth-best quarterback in a format where everyone needs two of them.",
-     "The backfield is the quiet success. Saquon Barkley at Mid RB1, Travis Etienne at Mid RB2, TreVeyon Henderson at Low-end RB3, ranking {{f.team.0008.rb_rank}} \u2014 three startable bodies, in a format where most teams are guessing at the flex by Halloween. Dallas Goedert grades Low-end TE1, the last chair in the room rather than a hole, and the position ranks {{f.team.0008.te_rank}}.",
-     "Then the defense, and this is where the obvious article is the wrong one. Three of seven defensive slots start players the production model calls replacement-level \u2014 Frankie Luvu, Chuck Clark, Gregory Rousseau \u2014 with Nick Bolton, Chamarri Conner, Josh Hines-Allen and Jalyx Hunt in the tier behind them. Read that cold and you would say he forgot about defense.",
-     "He did not forget. Real Deal Creel has acquired {{f.team.0008.idp_adds_alltime}} defenders since the league started keeping the log, ranking {{f.team.0008.idp_adds_rank}}, and the next team on that list has {{f.team.0008.idp_adds_next_best}}. He has led the league in defensive pickups {{f.team.0008.idp_adds_lead_streak}} straight seasons. He also spent {{f.team.0008.idp_auction_spend}} on defenders this year \u2014 {{f.team.0008.idp_auction_share}} of the largest auction budget in the league. That is not neglect, it is a policy: never pay retail for a linebacker, mine them off the wire instead, all season, forever.",
-     "The policy mostly works. Points per started defender over the last three seasons puts him {{f.team.0008.idp_ppw_rank}} of {{f.league.teams}}, which is above the median for almost no money and a genuinely good trade. It is also not first, and the teams ahead of him got there by occasionally just buying a good defender. A Week One defense of three replacement-level starters is not a finished product \u2014 it is opening inventory for a man who restocks every week until December."
-    ]
+     "Puka Nacua is an Elite WR1 and he is the whole receiving corps. The room ranks {{f.team.0008.wr_rank|ord}} in the league on his back, with Christian Watson at Mid WR3 next to him doing a passable impression of a starter. That is this roster in one line: one player nobody can match, and a supporting cast bought at a discount.",
+     "Quarterback came out fine, if not the fireworks the price implied. Dak Prescott grades Mid QB1 and Kyler Murray Mid QB2 — a real superflex pair with no passengers, ranking {{f.team.0008.qb_rank|ord}}. Keith paid {{f.team.0008.top_buy_price}} for Prescott, which is a lot of money for roughly the eighth-best quarterback in a format where everyone needs two of them.",
+     "The backfield is the quiet success. Saquon Barkley at Mid RB1, Travis Etienne at Mid RB2, TreVeyon Henderson at Low-end RB3, ranking {{f.team.0008.rb_rank|ord}} — three startable bodies, in a format where most teams are guessing at the flex by Halloween. Dallas Goedert grades Low-end TE1, the last chair in the room rather than a hole, and the position ranks {{f.team.0008.te_rank|ord}}.",
+     "Then the defense, and this is where the obvious article is the wrong one. Three of seven defensive slots start players the production model calls replacement-level — Frankie Luvu, Chuck Clark, Gregory Rousseau — with Nick Bolton, Chamarri Conner, Josh Hines-Allen and Jalyx Hunt in the tier behind them. Read that cold and you would say he forgot about defense.",
+     "He did not forget. Real Deal Creel has acquired {{f.team.0008.idp_adds_alltime}} defenders since the league started keeping the log, ranking {{f.team.0008.idp_adds_rank|ord}}, and the next team on that list has {{f.team.0008.idp_adds_next_best}}. He has led the league in defensive pickups {{f.team.0008.idp_adds_lead_streak}} straight seasons. He also spent {{f.team.0008.idp_auction_spend}} on defenders this year — {{f.team.0008.idp_auction_share}} of the largest auction budget in the league. That is not neglect, it is a policy: never pay retail for a linebacker, mine them off the wire instead, all season, forever.",
+     "The policy mostly works. Points per started defender over the last three seasons puts him {{f.team.0008.idp_ppw_rank|ord}} of {{f.league.teams}}, which is above the median for almost no money and a genuinely good trade. It is also not first, and the teams ahead of him got there by occasionally just buying a good defender. A Week One defense of three replacement-level starters is not a finished product — it is opening inventory for a man who restocks every week until December."
+    ],
+    "place": [
+     "t.0008.lineup"
+    ],
+    "placeAt": {
+     "t.0008.lineup": 0
+    },
+    "views": {
+     "t.0008.lineup": {
+      "cols": [
+       "slot",
+       "player",
+       "val"
+      ],
+      "labels": {
+       "val": "Grade"
+      },
+      "title": "The starting lineup"
+     }
+    }
    },
    {
     "id": "s2",
     "lead": "",
     "paragraphs": [
      "In April he had {{f.team.0008.active_roster_opening}} active players: Goedert, Christian Watson, Henderson, Tetairoa McMillan, Marvin Harrison Jr, Trey Benson, Keon Coleman and Deshaun Watson, against {{f.team.0008.cap_opening}} of salary. A to-do list, not a team.",
-     "The first real move came before any of that, in April, and it was the biggest single piece of business of his offseason even though it looks like a footnote. He sent Kenneth Walker to HammerTime for their first-round pick. Walker was carrying {{f.team.0008.biggest_contract_traded_away}} a year \u2014 the largest annual contract Real Deal Creel has moved \u2014 so the deal cleared that off the books and banked a first-rounder in the same stroke. Everything he did in July was paid for by that.",
-     "Draft night is where it got loud. He made three trades while the draft was running and used every pick he acquired within the hour. He sent the 1.04 to Gride, who took Jadarian Price with it, and got back Travis Etienne plus the 1.07 \u2014 which became KC Concepcion. He moved up in the second for De'Zhaun Stribling and up again in the third for Sonny Styles. Three trades, three picks, all spent the same night.",
+     "The first real move came before any of that, in April, and it was the biggest single piece of business of his offseason even though it looks like a footnote. He sent Kenneth Walker to HammerTime for their first-round pick. Walker was carrying {{f.team.0008.biggest_contract_traded_away}} a year — the largest annual contract Real Deal Creel has moved — so the deal cleared that off the books and banked a first-rounder in the same stroke. Everything he did in July was paid for by that.",
+     "Draft night is where it got loud. He made three trades while the draft was running and used every pick he acquired within the hour. He sent the 1.04 to Gride, who took Jadarian Price with it, and got back Travis Etienne plus the 1.07 — which became KC Concepcion. He moved up in the second for De'Zhaun Stribling and up again in the third for Sonny Styles. Three trades, three picks, all spent the same night.",
      "By the time the Free Agent Auction opened he was at {{f.team.0008.active_roster_preauction}} active players and the year had already turned once: McMillan out, Nacua in, Mid WR2 replaced by Elite WR1. It is one of the biggest single upgrades anyone made all offseason.",
-     "Then the auction, and he did not stop until there was nowhere left to put anyone. The roster closed at {{f.team.0008.active_roster_current}} active men against a maximum of {{f.league.roster_max_at_auction}} \u2014 completely full. Committed cap went from {{f.team.0008.cap_preauction}} to {{f.team.0008.cap_current_spent}}, leaving {{f.team.0008.cap_current_room}}, which is enough for one minimum body and a firm handshake. Studs went from {{f.team.0008.studs_opening}} to {{f.team.0008.studs_postauction}}, holes from {{f.team.0008.holes_opening}} to {{f.team.0008.holes_postauction}}. Almost nothing he starts today was carried in on an old contract."
-    ]
+     "Then the auction, and he did not stop until there was nowhere left to put anyone. The roster closed at {{f.team.0008.active_roster_current}} active men against a maximum of {{f.league.roster_max_at_auction}} — completely full. Committed cap went from {{f.team.0008.cap_preauction}} to {{f.team.0008.cap_current_spent}}, leaving {{f.team.0008.cap_current_room}}, which is enough for one minimum body and a firm handshake. Studs went from {{f.team.0008.studs_opening}} to {{f.team.0008.studs_postauction}}, holes from {{f.team.0008.holes_opening}} to {{f.team.0008.holes_postauction}}. Almost nothing he starts today was carried in on an old contract."
+    ],
+    "place": [
+     "t.0008.slot_bridge"
+    ],
+    "placeAt": {
+     "t.0008.slot_bridge": 0
+    },
+    "views": {
+     "t.0008.slot_bridge": {
+      "cols": [
+       "slot",
+       "open",
+       "pre",
+       "now"
+      ],
+      "stack": true,
+      "title": "Who filled each priced slot",
+      "labels": {
+       "open": "April (short of a lineup)",
+       "pre": "Before the auction (short of a lineup)",
+       "now": "After it"
+      }
+     }
+    }
    },
    {
     "id": "s3",
     "lead": "",
     "paragraphs": [
-     "Two auctions, two months apart, and they are not the same event dressed differently. The Expired Rookie Auction sells players whose rookie deals ran out \u2014 men who did not earn a second contract \u2014 and the whole league-wide pool was {{f.league.era_pool_size}} players. The most expensive one went for {{f.league.era_top_price}}, against {{f.league.faa_top_price}} for the priciest man in the Free Agent Auction. You do not build a team in May; you top up a bench.",
+     "Two auctions, two months apart, and they are not the same event dressed differently. The Expired Rookie Auction sells players whose rookie deals ran out — men who did not earn a second contract — and the whole league-wide pool was {{f.league.era_pool_size}} players. The most expensive one went for {{f.league.era_top_price}}, against {{f.league.faa_top_price}} for the priciest man in the Free Agent Auction. You do not build a team in May; you top up a bench.",
      "Keith's May came to {{f.team.0008.era_spend}} for {{f.team.0008.era_lots_won}} players: Chris Rodriguez, Kayshon Boutte, Michael Mayer, Will McDonald, Kendre Miller. Rodriguez turned into a component of the Nacua trade, which is a decent return for what he paid. The rest are bench or gone, which is roughly what that pool produces for everybody.",
-     "The Free Agent Auction in late July is where the team came from: {{f.team.0008.faa_lots_won}} players for {{f.team.0008.faa_spend}}. Prescott alone took {{f.team.0008.top_buy_price}} \u2014 {{f.team.0008.top_buy_pct_of_spend}} of the whole budget, and the most contested item he won all summer.",
+     "The Free Agent Auction in late July is where the team came from: {{f.team.0008.faa_lots_won}} players for {{f.team.0008.faa_spend}}. Prescott alone took {{f.team.0008.top_buy_price}} — {{f.team.0008.top_buy_pct_of_spend}} of the whole budget, and the most contested item he won all summer.",
      "He bought four quarterbacks there. Prescott and Murray start and both grade honestly. Jacoby Brissett, the cheapest of the quarterbacks he kept, grades Replacement-level QB and has not moved off the bench. Mac Jones was released in September. Buying a third and a fourth quarterback after the position was already solved is what happens when the auction is still open and you are bored.",
      "The bottom of the market is where he is genuinely sharp. Cam Little, Tommy Townsend, Nick Bolton, Josh Hines-Allen and Chamarri Conner all came cheap, which is the right way to fill slots ADP refuses to price. Parker Washington is the one bargain with a starting job attached. Same instinct as the defense policy: find the thing nobody is bidding on, take it, move on."
-    ]
+    ],
+    "place": [
+     "t.0008.auction"
+    ],
+    "placeAt": {
+     "t.0008.auction": 0
+    },
+    "views": {
+     "t.0008.auction": {
+      "cols": [
+       "player",
+       "pos",
+       "auction",
+       "price"
+      ],
+      "sortDesc": "price",
+      "rows": 5,
+      "title": "Biggest buys",
+      "labels": {
+       "auction": "Where"
+      }
+     }
+    }
    },
    {
     "id": "s4",
     "lead": "",
     "paragraphs": [
      "Keith made {{f.team.0008.contracts_count}} contract moves. Cam Little, Trey Benson, Brian Robinson, Charlie Kolar, Jack Strand, Jacob Saylors and Stefon Diggs all signed at the league minimum, and Diggs at that price is the best-value deal in the set by a distance.",
-     "Chig Okonkwo is the one to argue about. He grades Replacement-level TE, he sits behind Goedert, and he signed above the minimum \u2014 but the deal is front-loaded, so most of its value is paid this season and the back years cost almost nothing. That is a defensible structure for a bet that has not landed yet: expensive now precisely so it stops being expensive later. Still a replacement-level tight end on a multi-year deal, though.",
-     "The Puka Nacua paperwork is easy to misread. Shawn Blake extended Nacua in May, before the trade. What Real Deal Creel did was cut Nacua's salary mid-auction \u2014 freeing {{f.team.0008.restructure_room_freed}} of bidding room at exactly the moment it was worth having \u2014 then put it straight back afterwards, ending on the salary and total value it started with. A maneuver, not a contract.",
+     "Chig Okonkwo is the one to argue about. He grades Replacement-level TE, he sits behind Goedert, and he signed above the minimum — but the deal is front-loaded, so most of its value is paid this season and the back years cost almost nothing. That is a defensible structure for a bet that has not landed yet: expensive now precisely so it stops being expensive later. Still a replacement-level tight end on a multi-year deal, though.",
+     "The Puka Nacua paperwork is easy to misread. Shawn Blake extended Nacua in May, before the trade. What Real Deal Creel did was cut Nacua's salary mid-auction — freeing {{f.team.0008.restructure_room_freed}} of bidding room at exactly the moment it was worth having — then put it straight back afterwards, ending on the salary and total value it started with. A maneuver, not a contract.",
      "There were {{f.team.0008.trades_count}} trades and the three-way is the one people will talk about, because three-way trades essentially do not happen here. It is the only one ever completed through the league's own trade tool, and Keith built it. He sent McMillan, his own first-rounder for next year, Chris Rodriguez and Omar Cooper, and got Nacua. It was not a two-team swap in a costume: C-Town Chivalry separately sent Drake London and {{f.team.0008.trade_blind_bid_elsewhere}} of blind-bid cash to Blake Bombers to make it balance. Three rosters, cash, and a pick, to move one receiver. He is also not short a first-rounder next year despite spending his own, because the Walker trade in April had already put HammerTime's in the drawer.",
-     "The last trade sent George Karlaftis, a startable defender, to the Hawks for a small upgrade in draft slot \u2014 which, given how the defense looks in September, reads worse now than it did in August.",
-     "The rookie class runs to {{f.team.0008.rookie_picks_count}} picks. KC Concepcion came from the best slot of the group and the redraft market has not caught up to him yet. Omar Cooper Jr. was traded before playing a down. De'Zhaun Stribling grades Replacement-level WR so far. Sonny Styles and Zion Young are defenders, and neither the redraft board nor the production model can value them \u2014 the board does not price the position and the model needs an NFL season that has not happened. Missing information, not a bad grade."
-    ]
+     "The last trade sent George Karlaftis, a startable defender, to the Hawks for a small upgrade in draft slot — which, given how the defense looks in September, reads worse now than it did in August.",
+     "The rookie class runs to {{f.team.0008.rookie_picks_count}} picks. KC Concepcion came from the best slot of the group and the redraft market has not caught up to him yet. Omar Cooper Jr. was traded before playing a down. De'Zhaun Stribling grades Replacement-level WR so far. Sonny Styles and Zion Young are defenders, and neither the redraft board nor the production model can value them — the board does not price the position and the model needs an NFL season that has not happened. Missing information, not a bad grade."
+    ],
+    "place": [
+     "t.0008.trades"
+    ],
+    "placeAt": {
+     "t.0008.trades": 2
+    },
+    "views": {
+     "t.0008.trades": {
+      "cols": [
+       "date",
+       "partner",
+       "gave",
+       "got"
+      ],
+      "stack": true,
+      "title": "Trades"
+     }
+    }
    },
    {
     "id": "s5",
     "lead": "",
     "paragraphs": [
-     "Start where it actually counts. Real Deal Creel sits {{f.team.0008.division_rank}} of {{f.team.0008.division_size}} in Maddie Mondays, behind Sex Manther and ahead of L.A. Looks, and he plays both of them twice. That division is a bad joke on him specifically: L.A. Looks and Sex Manther both rank ahead of him in points per started defender \u2014 first and third in the league \u2014 and Keith, the man who has made more defensive pickups than anyone in league history, is last of the three in his own division. He works harder at that position than either rival and finishes behind both.",
-     "League-wide he is {{f.team.0008.composite_rank}} of {{f.league.teams}}, and the offense is not the problem. Nacua is Elite WR1, Prescott Mid QB1, Barkley Mid RB1, and the backfield runs three deep. That is a playoff offense assembled in a single offseason from a roster that in April was mostly a list of names, and the Walker trade paid for most of it.",
-     "The weakness is the defense, and the verdict depends on whether you believe the plan. Cheap and {{f.team.0008.idp_ppw_rank}} of {{f.league.teams}} is a good trade. It has also never been first, and he sold a startable defender in August and then opened the season starting three men the wire would replace for free. He will have replaced them by Week Four; he always does. Buy the star, mine the rest. It is a real strategy, and it is one good linebacker short of a division.",
-     "One last thing, and it is one night. {{f.league.wk_teams_final}} NFL teams had played when this was written and exactly one Real Deal Creel player was among them: TreVeyon Henderson, on the bench, who did not record a scoring stat. {{f.team.0008.wk_points_final}} points banked, because nothing he started has kicked off yet. Every argument above is still entirely untested \u2014 which, for a roster built on a defensive policy rather than a defensive purchase, is the only honest place to end."
-    ]
+     "Start where it actually counts. Real Deal Creel sits {{f.team.0008.division_rank|ord}} of {{f.team.0008.division_size}} in Maddie Mondays, behind Sex Manther and ahead of L.A. Looks, and he plays both of them twice. That division is a bad joke on him specifically: L.A. Looks and Sex Manther both rank ahead of him in points per started defender — first and third in the league — and Keith, the man who has made more defensive pickups than anyone in league history, is last of the three in his own division. He works harder at that position than either rival and finishes behind both.",
+     "League-wide he is {{f.team.0008.composite_rank|ord}} of {{f.league.teams}}, and the offense is not the problem. Nacua is Elite WR1, Prescott Mid QB1, Barkley Mid RB1, and the backfield runs three deep. That is a playoff offense assembled in a single offseason from a roster that in April was mostly a list of names, and the Walker trade paid for most of it.",
+     "The weakness is the defense, and the verdict depends on whether you believe the plan. Cheap and {{f.team.0008.idp_ppw_rank|ord}} of {{f.league.teams}} is a good trade. It has also never been first, and he sold a startable defender in August and then opened the season starting three men the wire would replace for free. He will have replaced them by Week Four; he always does. Buy the star, mine the rest. It is a real strategy, and it is one good linebacker short of a division.",
+     "One last thing, and it is one night. {{f.league.wk_teams_final}} NFL teams had played when this was written and exactly one Real Deal Creel player was among them: TreVeyon Henderson, on the bench, who did not record a scoring stat. {{f.team.0008.wk_points_final}} points banked, because nothing he started has kicked off yet. Every argument above is still entirely untested — which, for a roster built on a defensive policy rather than a defensive purchase, is the only honest place to end."
+    ],
+    "place": [
+     "t.0008.division",
+     "t.0008.week1"
+    ],
+    "placeAt": {
+     "t.0008.division": 0,
+     "t.0008.week1": 3
+    },
+    "views": {
+     "t.0008.division": {
+      "cols": [
+       "team",
+       "comp"
+      ],
+      "labels": {
+       "comp": "League rank"
+      },
+      "title": "The division"
+     },
+     "t.0008.week1": {
+      "cols": [
+       "player",
+       "pos",
+       "slot",
+       "pts",
+       "line"
+      ],
+      "stack": true,
+      "title": "Week one, so far",
+      "labels": {
+       "pts": "Points",
+       "line": "What he did"
+      }
+     }
+    },
+    "captions": {
+     "t.0008.week1": "Only games that had finished when this was written."
+    }
    }
-  ]
+  ],
+  "strip": [
+   {
+    "fact": "f.team.0008.composite_rank",
+    "ord": true,
+    "of": "f.league.teams",
+    "label": "Overall"
+   },
+   {
+    "fact": "f.team.0008.studs_today",
+    "label": "Top-twelve starters"
+   },
+   {
+    "fact": "f.team.0008.holes_today",
+    "label": "Lineup holes",
+    "suffix": "of nine"
+   },
+   {
+    "fact": "f.team.0008.auction_spend",
+    "label": "Spent at auction"
+   },
+   {
+    "fact": "f.team.0008.cap_current_room",
+    "label": "Cap room"
+   }
+  ],
+  "card": {
+   "rankFact": "f.team.0008.composite_rank",
+   "ofFact": "f.league.teams",
+   "featured": false
+  }
  }
 }

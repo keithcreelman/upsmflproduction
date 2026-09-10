@@ -30,7 +30,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026-07-28.1";
+  var BUILD = "2026-09-10.1";
   if (window.__ups_wire_loader === BUILD) return;
   window.__ups_wire_loader = BUILD;
 
@@ -358,6 +358,18 @@
       if (state.kind !== "article" || !state.articleId) return;
       state.sectionId = safeStr(d.sectionId);
       writeHash("/a/" + state.articleId + (state.sectionId ? "/" + state.sectionId : ""));
+      // A page turn lands at the article's section rail. The article cannot do
+      // this itself: the frame is sized to its content, so its own scrollTo is
+      // a no-op and the thing that scrolls is this MFL page. Only ever scrolls
+      // UP -- a reader who clicked a rail pill is already looking at the rail.
+      // `top` is the rail's offset inside the article; older articles omit it
+      // and land at the top of the frame instead.
+      try {
+        var off = Number(d.top);
+        var target = frame.getBoundingClientRect().top + (window.pageYOffset || 0) +
+          (isFinite(off) && off > 0 ? off : 0) - 12;
+        if (target < (window.pageYOffset || 0)) window.scrollTo(0, Math.max(0, target));
+      } catch (e) {}
       return;
     }
     if (d.type === "wire-retry") {
