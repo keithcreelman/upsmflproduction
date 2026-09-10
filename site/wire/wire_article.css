@@ -130,8 +130,9 @@
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
-  white-space: nowrap;
 }
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
   font-family: var(--display); font-weight: 700; font-size: 0.8rem;
@@ -269,6 +270,8 @@
   overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
 }
 .wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
@@ -322,8 +325,10 @@
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
   /* The arrows duplicate the numbered pills and the end-of-section pager; on
-     a phone they pushed "Read all" off the edge of the rail. */
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
   .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
   .wire-secnav span { font-size: 0.94rem; }
 }
 
@@ -406,7 +411,7 @@
 .wire-game-row span:first-child {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
-  white-space: nowrap; padding-top: 0.15rem;
+  padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
 .wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }

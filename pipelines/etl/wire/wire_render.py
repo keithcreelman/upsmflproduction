@@ -113,6 +113,13 @@ def substitute(text, facts, where):
     if missing:
         raise RenderError("%s references unknown fact id(s): %s"
                           % (where, ", ".join(sorted(set(missing)))))
+    # Anything brace-shaped that survived is a token TOKEN_RE could not read --
+    # a mistyped filter ({{f.x|ordinal}}) or a stray brace. Fail closed: the
+    # digit audit only catches it when the id happens to contain a digit, and
+    # {{f.league.teams|ORD}} would otherwise publish as literal braces.
+    left = re.search(r'\{\{[^}]*\}\}|\{\{|\}\}', out)
+    if left:
+        raise RenderError("%s has a malformed token: %s" % (where, left.group(0)[:80]))
     return out
 
 
@@ -862,7 +869,10 @@ def render_article(pack, prose, meta):
         # From the RAW title, escaped once. Building it from title_html escaped
         # an already-escaped string, so "Cross & Dunn" reached the browser tab
         # and the hub card as "Cross &amp;amp; Dunn".
-        "doc_title": esc(title),
+        # Tags stripped from the AUDITED headline, so a {{token}} in a title
+        # reaches the tab (and the index card, which reads <title>) as its
+        # value. title_html is escaped exactly once, which is what <title> needs.
+        "doc_title": re.sub(r'<[^>]+>', '', title_html) if title_html else esc(title),
         "title": title_html,
         "kicker": kicker,
         "dek": dek,

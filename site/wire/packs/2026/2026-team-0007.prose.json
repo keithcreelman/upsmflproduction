@@ -16,7 +16,7 @@
      "Receiver ranks {{f.team.0007.wr_rank|ord}} and is deep rather than top-heavy: Rashee Rice at Low-end WR1, Jaylen Waddle at Low-end WR2, Jameson Williams at Low-end WR2 in a flex and Rome Odunze at High-end WR3 in the other. Harold Fannin is a Mid TE1 and tight end ranks {{f.team.0007.te_rank|ord}}.",
      "The backfield is the hole and it is a real one, ranked {{f.team.0007.rb_rank|ord}}. De'Von Achane grades Mid RB1 and behind him is Jacory Croskey-Merritt, a Replacement-level RB, starting. Kenneth Gainwell, the third-most expensive player he bought all summer, is a Replacement-level RB on the bench.",
      "The defense is where the bill for all this comes due. Talanoa Hufanga is an Elite DB1 and a genuine bargain, Tuli Tuipulotu a Mid DL1 and Carson Schwesinger a Mid LB1. After that it falls apart: Andrew Van Ginkel grades Replacement-level DL, Demetrius Knight Replacement-level LB, and two starting slots are filled by Jaishawn Barham and Dillon Thieneman, rookies the production model cannot rate at all because neither has played an NFL season. That is not a grade on them — no source has an opinion — but it is two of seven defensive slots occupied by unknowns.",
-     "Historically this is out of character. {{f.team.0007.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0007.idp_adds_rank}} and points per started defender ranks {{f.team.0007.idp_ppw_rank}}, third in the league. He knows how to field a defense. This year he chose not to pay for one, putting {{f.team.0007.idp_auction_share}} of his auction money into defenders, a share that ranks {{f.team.0007.idp_auction_share_rank}} of {{f.league.teams}} from the bottom.",
+     "Historically this is out of character. {{f.team.0007.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0007.idp_adds_rank|ord}} and points per started defender ranks {{f.team.0007.idp_ppw_rank}}, third in the league. He knows how to field a defense. This year he chose not to pay for one, putting {{f.team.0007.idp_auction_share}} of his auction money into defenders, a share that ranks {{f.team.0007.idp_auction_share_rank}} of {{f.league.teams}} from the bottom.",
      "Composite {{f.team.0007.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0007.studs_today}} studs, {{f.team.0007.holes_today}} holes."
     ],
     "place": [
@@ -35,7 +35,7 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "The starting lineup"
+      "title": "Strongest legal lineup"
      }
     }
    },
@@ -181,7 +181,7 @@
      }
     },
     "captions": {
-     "t.0007.week1": "Only games that had finished when this was written."
+     "t.0007.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
     }
    }
   ],
@@ -194,11 +194,12 @@
    },
    {
     "fact": "f.team.0007.studs_today",
-    "label": "Top-twelve starters"
+    "label": "Offensive studs",
+    "suffix": "of nine"
    },
    {
     "fact": "f.team.0007.holes_today",
-    "label": "Lineup holes",
+    "label": "Offensive holes",
     "suffix": "of nine"
    },
    {

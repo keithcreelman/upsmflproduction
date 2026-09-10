@@ -34,7 +34,7 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "The starting lineup"
+      "title": "Strongest legal lineup"
      }
     }
    },
@@ -78,7 +78,7 @@
      "He did not buy a single player at the Expired Rookie Auction — {{f.team.0002.era_lots_won}} lots, {{f.team.0002.era_spend}} spent, out of a pool of {{f.league.era_pool_size}} players league-wide. That is a defensible pass rather than an oversight: the ERA sells men whose rookie deals ran out without earning a second one, and its most expensive player anywhere went for {{f.league.era_top_price}}.",
      "The Free Agent Auction was the opposite of a pass. {{f.team.0002.faa_lots_won}} lots, {{f.team.0002.faa_spend}}, and a clear obsession. Jonathan Taylor at {{f.team.0002.top_buy_price}} — {{f.team.0002.top_buy_pct_of_spend}} of his auction money and a bargain against the {{f.league.faa_top_price}} somebody else paid for a top price elsewhere. Then Tony Pollard, then D'Andre Swift, then Aaron Jones, then Isiah Pacheco. Five running backs.",
      "Taylor and Swift start. Pollard is the second-most expensive player he bought all summer and he grades Replacement-level RB in the flex. Aaron Jones and Pacheco sit on the bench, both replacement-level, one of them at a price that would have bought a starting quarterback. Kyle Pitts at tight end was the smartest buy of his auction and the running back pile-up is what he spent instead of solving the position ranked {{f.team.0002.qb_rank|ord}}.",
-     "The defensive shopping was quick and cheap: Edgerrin Cooper and Foyesade Oluokun with a run of minimum-priced bodies behind them, {{f.team.0002.idp_auction_spend}} in total, {{f.team.0002.idp_auction_share}} of his money, ranking {{f.team.0002.idp_auction_share_rank|ord}} of {{f.league.teams}} on that share."
+     "The defensive shopping was quick and cheap: Edgerrin Cooper and Foyesade Oluokun with a run of minimum-priced bodies behind them, {{f.team.0002.idp_auction_spend}} in total, {{f.team.0002.idp_auction_share}} of his money."
     ],
     "place": [
      "t.0002.auction"
@@ -178,7 +178,7 @@
      }
     },
     "captions": {
-     "t.0002.week1": "Only games that had finished when this was written."
+     "t.0002.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
     }
    }
   ],
@@ -191,11 +191,12 @@
    },
    {
     "fact": "f.team.0002.studs_today",
-    "label": "Top-twelve starters"
+    "label": "Offensive studs",
+    "suffix": "of nine"
    },
    {
     "fact": "f.team.0002.holes_today",
-    "label": "Lineup holes",
+    "label": "Offensive holes",
     "suffix": "of nine"
    },
    {

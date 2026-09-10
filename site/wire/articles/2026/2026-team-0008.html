@@ -23,7 +23,7 @@
   packGeneratedAtUtc: 2026-09-10T15:06:27Z
   engine: claude-opus-5 (session agent)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-b1301219">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-13811bb2">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -241,8 +241,9 @@ html { background: var(--ground); }
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
-  white-space: nowrap;
 }
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
   font-family: var(--display); font-weight: 700; font-size: 0.8rem;
@@ -380,6 +381,8 @@ html { background: var(--ground); }
   overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
 }
 .wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
@@ -433,8 +436,10 @@ html { background: var(--ground); }
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
   /* The arrows duplicate the numbered pills and the end-of-section pager; on
-     a phone they pushed "Read all" off the edge of the rail. */
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
   .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
   .wire-secnav span { font-size: 0.94rem; }
 }
 
@@ -517,7 +522,7 @@ html { background: var(--ground); }
 .wire-game-row span:first-child {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
-  white-space: nowrap; padding-top: 0.15rem;
+  padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
 .wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
@@ -624,7 +629,7 @@ html { background: var(--ground); }
     <div class="wire-eyebrow">Real Deal Creel · Keith Creelman</div>
     <h1>Real Deal Creel Bought a Superstar and Shoplifted the Rest</h1>
     <p class="wire-dek">Keith Creelman spent <span class="wire-num" data-fact="f.team.0008.faa_spend">$189,000</span> at the Free Agent Auction and <span class="wire-num" data-fact="f.team.0008.idp_auction_share">7.1%</span> of his money on defense. Real Deal Creel came out <span class="wire-num" data-fact="f.team.0008.composite_rank">7th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>. Both of those are on purpose.</p>
-    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">7th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Top-twelve starters</span><span class="wire-kpi-v">4</span></div><div class="wire-kpi"><span class="wire-kpi-l">Lineup holes</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$198,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$3,000</span></div></div>
+    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">7th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive studs</span><span class="wire-kpi-v">4 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive holes</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$198,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$3,000</span></div></div>
   </header>
 
   <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
@@ -633,7 +638,7 @@ html { background: var(--ground); }
     <h2 class="wire-sechead">The Lineup</h2>
     <p>Puka Nacua is an Elite WR1 and he is the whole receiving corps. The room ranks <span class="wire-num" data-fact="f.team.0008.wr_rank">4th</span> in the league on his back, with Christian Watson at Mid WR3 next to him doing a passable impression of a starter. That is this roster in one line: one player nobody can match, and a supporting cast bought at a discount.</p>
     <figure class="wire-fig">
-<div class="wire-fig-title">The starting lineup</div>
+<div class="wire-fig-title">Strongest legal lineup</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Grade</th></tr></thead><tbody><tr><td data-label="Slot">QB</td><td data-label="Player">Dak Prescott</td><td data-label="Grade">Mid QB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Saquon Barkley</td><td data-label="Grade">Mid RB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Travis Etienne</td><td data-label="Grade">Mid RB2</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Puka Nacua</td><td data-label="Grade">Elite WR1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Christian Watson</td><td data-label="Grade">Mid WR3</td></tr><tr><td data-label="Slot">TE</td><td data-label="Player">Dallas Goedert</td><td data-label="Grade">Low-end TE1</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">TreVeyon Henderson</td><td data-label="Grade">Low-end RB3</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Marvin Harrison Jr</td><td data-label="Grade">Mid WR3</td></tr><tr><td data-label="Slot">SuperFlex</td><td data-label="Player">Kyler Murray</td><td data-label="Grade">Mid QB2</td></tr><tr><td data-label="Slot">K</td><td data-label="Player">Cam Little</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">P</td><td data-label="Player">Tommy Townsend</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Josh Hines-Allen</td><td data-label="Grade">Low-end DL2</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Gregory Rousseau</td><td data-label="Grade">Replacement-level DL</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Nick Bolton</td><td data-label="Grade">Mid LB2</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Bobby Okereke</td><td data-label="Grade">Mid LB3</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Cole Bishop</td><td data-label="Grade">Low-end DB2</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Dane Belton</td><td data-label="Grade">Mid DB3</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Jonas Sanker</td><td data-label="Grade">Replacement-level DB</td></tr></tbody></table></div>
 </figure>
     <p>Quarterback came out fine, if not the fireworks the price implied. Dak Prescott grades Mid QB1 and Kyler Murray Mid QB2 — a real superflex pair with no passengers, ranking <span class="wire-num" data-fact="f.team.0008.qb_rank">8th</span>. Keith paid <span class="wire-num" data-fact="f.team.0008.top_buy_price">$63,000</span> for Prescott, which is a lot of money for roughly the eighth-best quarterback in a format where everyone needs two of them.</p>
@@ -696,7 +701,7 @@ html { background: var(--ground); }
     <figure class="wire-fig wire-stack">
 <div class="wire-fig-title">Week one, so far</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Started?</th><th>Points</th><th>What he did</th></tr></thead><tbody><tr><td data-label="Player">TreVeyon Henderson</td><td data-label="Pos">RB</td><td data-label="Started?">Bench</td><td data-label="Points">0.0</td><td data-label="What he did"></td></tr></tbody></table></div>
-<figcaption>Only games that had finished when this was written.</figcaption>
+<figcaption>Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play.</figcaption>
 </figure>
   </section>
 
@@ -866,7 +871,11 @@ html { background: var(--ground); }
     if (embedded) { post({ type: "wire-route", route: "/" }); return; }
     window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
   }
-  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
   function navBtn(cls, small, big, onClick) {
     var b = mk("button", cls, null);
     b.setAttribute("type", "button");
@@ -913,14 +922,16 @@ html { background: var(--ground); }
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    //    Embedded, the loader also does the scrolling: the frame is sized to
-    //    its content, so a scrollTo in here does nothing.
-    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
-    if (id) {
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
+    else if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
     // Only ever scroll UP to the rail: a reader who clicked a pill is already
-    // looking at it.
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
     try {
       var y = Math.max(0, railTop - 8);
       if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);

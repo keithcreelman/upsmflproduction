@@ -123,7 +123,8 @@
       .sort(function (x, y) { return String(y.publishedAt).localeCompare(String(x.publishedAt)); });
   }
   function families() {
-    return (data.families || []).slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); });
+    // data is null on the index-load error path, which still draws the mast.
+    return ((data && data.families) || []).slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); });
   }
   // A family's own reading order. `order` comes from the article's wire-meta
   // (for team reviews, the league rank); anything without one falls back to
@@ -131,6 +132,10 @@
   // only because their review happened to be generated last.
   function byOrder(list) {
     return list.slice().sort(function (x, y) {
+      // Newest season first, THEN the order inside it -- otherwise next year's
+      // team reviews interleave with this year's as 1, 1, 2, 2...
+      var sx = x.season || 0, sy = y.season || 0;
+      if (sx !== sy) return sy - sx;
       var a = x.order == null ? Infinity : x.order;
       var b = y.order == null ? Infinity : y.order;
       if (a !== b) return a - b;
@@ -190,7 +195,9 @@
     var box = el("div", "wire-ranked");
     list.forEach(function (a) {
       var row = btn("wire-rrow", null);
-      row.setAttribute("aria-label", a.title || "Untitled");
+      row.setAttribute("aria-label", (a.order != null ? "Number " + a.order + ". " : "") +
+        (a.kicker ? a.kicker + ". " : "") + (a.title || "Untitled") +
+        (a.status === "draft" ? " (draft)" : ""));
       row.appendChild(el("span", "wire-rrow-rank", a.order != null ? String(a.order) : "\u2022"));
       var main = el("span", "wire-rrow-main");
       if (a.kicker) main.appendChild(el("span", "wire-rrow-kicker", a.kicker));
@@ -264,13 +271,16 @@
     els.body.appendChild(articleCard(lead, { lead: true }));
 
     families().forEach(function (f) {
+      var total = all.filter(function (a) { return a.familyId === f.id; }).length;
       var mine = all.filter(function (a) { return a.familyId === f.id && a !== lead; });
       if (!mine.length) return;
-      els.body.appendChild(familyRail(f, mine));
+      els.body.appendChild(familyRail(f, mine, total));
     });
   }
 
-  function familyRail(f, mine) {
+  // `total` counts the family INCLUDING the lead story, which is left out of
+  // `mine` so it is not shown twice -- "See all" still means all of them.
+  function familyRail(f, mine, total) {
     var sec = el("section");
     mine = byOrder(mine);
     if (f.layout === "ranked") {
@@ -279,8 +289,8 @@
       return sec;
     }
     var see = null;
-    if (mine.length > 3) {
-      see = btn("wire-seeall", "See all " + mine.length + " \u203A");
+    if (total > 3) {
+      see = btn("wire-seeall", "See all " + total + " \u203A");
       see.addEventListener("click", function () { go({ kind: "family", familyId: f.id, season: null, page: 1 }); });
     }
     sec.appendChild(familyHead(f, see));

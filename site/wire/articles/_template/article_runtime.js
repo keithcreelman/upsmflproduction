@@ -128,7 +128,11 @@
     if (embedded) { post({ type: "wire-route", route: "/" }); return; }
     window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
   }
-  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
   function navBtn(cls, small, big, onClick) {
     var b = mk("button", cls, null);
     b.setAttribute("type", "button");
@@ -175,14 +179,16 @@
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    //    Embedded, the loader also does the scrolling: the frame is sized to
-    //    its content, so a scrollTo in here does nothing.
-    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
-    if (id) {
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
+    else if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
     // Only ever scroll UP to the rail: a reader who clicked a pill is already
-    // looking at it.
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
     try {
       var y = Math.max(0, railTop - 8);
       if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);

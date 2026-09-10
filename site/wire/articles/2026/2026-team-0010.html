@@ -23,7 +23,7 @@
   packGeneratedAtUtc: 2026-09-10T15:07:19Z
   engine: claude-opus-5 (session agent)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-b1301219">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-13811bb2">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -241,8 +241,9 @@ html { background: var(--ground); }
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
-  white-space: nowrap;
 }
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
   font-family: var(--display); font-weight: 700; font-size: 0.8rem;
@@ -380,6 +381,8 @@ html { background: var(--ground); }
   overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
 }
 .wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
@@ -433,8 +436,10 @@ html { background: var(--ground); }
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
   /* The arrows duplicate the numbered pills and the end-of-section pager; on
-     a phone they pushed "Read all" off the edge of the rail. */
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
   .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
   .wire-secnav span { font-size: 0.94rem; }
 }
 
@@ -517,7 +522,7 @@ html { background: var(--ground); }
 .wire-game-row span:first-child {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
-  white-space: nowrap; padding-top: 0.15rem;
+  padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
 .wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
@@ -624,7 +629,7 @@ html { background: var(--ground); }
     <div class="wire-eyebrow">Blake Bombers · Shawn Blake</div>
     <h1>Blake Bombers Paid a Record Price for Josh Allen and Got the Rest of the Roster for Free</h1>
     <p class="wire-dek">Shawn Blake spent <span class="wire-num" data-fact="f.team.0010.top_buy_price">$88,000</span> on one quarterback — the most expensive lot anybody won all summer and <span class="wire-num" data-fact="f.team.0010.top_buy_pct_of_spend">68.2%</span> of his own auction budget. He ranks <span class="wire-num" data-fact="f.team.0010.composite_rank">3rd</span> of <span class="wire-num" data-fact="f.league.teams">12</span> and his best defender is on a minimum contract.</p>
-    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">3rd <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Top-twelve starters</span><span class="wire-kpi-v">3</span></div><div class="wire-kpi"><span class="wire-kpi-l">Lineup holes</span><span class="wire-kpi-v">1 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$131,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$8,000</span></div></div>
+    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">3rd <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive studs</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive holes</span><span class="wire-kpi-v">1 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$131,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$8,000</span></div></div>
   </header>
 
   <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
@@ -633,7 +638,7 @@ html { background: var(--ground); }
     <h2 class="wire-sechead">The Lineup</h2>
     <p>Josh Allen grades Elite QB1 and Brock Purdy High-end QB2 behind him. Quarterback ranks <span class="wire-num" data-fact="f.team.0010.qb_rank">1</span> — first in the league — which is what the biggest cheque of the summer is supposed to buy and, unusually, did.</p>
     <figure class="wire-fig">
-<div class="wire-fig-title">The starting lineup</div>
+<div class="wire-fig-title">Strongest legal lineup</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Grade</th></tr></thead><tbody><tr><td data-label="Slot">QB</td><td data-label="Player">Josh Allen</td><td data-label="Grade">Elite QB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Omarion Hampton</td><td data-label="Grade">High-end RB2</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Justice Hill</td><td data-label="Grade">Mid RB2</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Drake London</td><td data-label="Grade">Mid WR1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">DeVonta Smith</td><td data-label="Grade">High-end WR2</td></tr><tr><td data-label="Slot">TE</td><td data-label="Player">George Kittle</td><td data-label="Grade">Mid TE1</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Quinshon Judkins</td><td data-label="Grade">Low-end RB2</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Terry McLaurin</td><td data-label="Grade">High-end WR3</td></tr><tr><td data-label="Slot">SuperFlex</td><td data-label="Player">Brock Purdy</td><td data-label="Grade">High-end QB2</td></tr><tr><td data-label="Slot">K</td><td data-label="Player">Spencer Shrader</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">P</td><td data-label="Player">Ryan Rehkow</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Will Anderson</td><td data-label="Grade">High-end DL1</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Byron Young</td><td data-label="Grade">High-end DL1</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Nate Landman</td><td data-label="Grade">High-end LB1</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Devin Lloyd</td><td data-label="Grade">Low-end LB2</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Nick Cross</td><td data-label="Grade">Mid DB1</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Xavier Watts</td><td data-label="Grade">Replacement-level DB</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Kaleb Elarms-Orr</td><td data-label="Grade">no prior-season production</td></tr></tbody></table></div>
 </figure>
     <p>Everything else on offense is good without being frightening. Drake London is a Mid WR1, DeVonta Smith a High-end WR2, Terry McLaurin a High-end WR3 in the flex, and the room still only ranks <span class="wire-num" data-fact="f.team.0010.wr_rank">8th</span>. The backfield ranks <span class="wire-num" data-fact="f.team.0010.rb_rank">8th</span> on Omarion Hampton at High-end RB2, Justice Hill at Mid RB2 and Quinshon Judkins at Low-end RB2 in the other flex. George Kittle is a Mid TE1 and tight end ranks <span class="wire-num" data-fact="f.team.0010.te_rank">8th</span>.</p>
@@ -695,7 +700,7 @@ html { background: var(--ground); }
     <figure class="wire-fig wire-stack">
 <div class="wire-fig-title">Week one, so far</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Started?</th><th>Points</th><th>What he did</th></tr></thead><tbody><tr><td data-label="Player">AJ Barner</td><td data-label="Pos">TE</td><td data-label="Started?">Bench</td><td data-label="Points">4.5</td><td data-label="What he did">13 Receiving Yards, 1 First Downs, 2 Receptions</td></tr><tr><td data-label="Player">Rashid Shaheed</td><td data-label="Pos">WR</td><td data-label="Started?">Bench</td><td data-label="Points">3.9</td><td data-label="What he did">1 Receptions, 4 Receiving Yards, 9 Punt Return Yards, 80 Kickoff Return Yards</td></tr></tbody></table></div>
-<figcaption>Only games that had finished when this was written.</figcaption>
+<figcaption>Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play.</figcaption>
 </figure>
   </section>
 
@@ -861,7 +866,11 @@ html { background: var(--ground); }
     if (embedded) { post({ type: "wire-route", route: "/" }); return; }
     window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
   }
-  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
   function navBtn(cls, small, big, onClick) {
     var b = mk("button", cls, null);
     b.setAttribute("type", "button");
@@ -908,14 +917,16 @@ html { background: var(--ground); }
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    //    Embedded, the loader also does the scrolling: the frame is sized to
-    //    its content, so a scrollTo in here does nothing.
-    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
-    if (id) {
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
+    else if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
     // Only ever scroll UP to the rail: a reader who clicked a pill is already
-    // looking at it.
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
     try {
       var y = Math.max(0, railTop - 8);
       if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);

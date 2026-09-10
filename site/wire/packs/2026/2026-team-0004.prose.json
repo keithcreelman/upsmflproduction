@@ -6,7 +6,7 @@
  "prose": {
   "kicker": "Pure Greatness · Brian Cutting",
   "title": "Pure Greatness Spent the Offseason Doing Almost Nothing, Which Was the Correct Answer",
-  "dek": "Brian Cutting had no holes in his priced lineup in April, none entering the auction and none when it closed. He ranks {{f.team.0004.composite_rank|ord}} of {{f.league.teams}}, and the most expensive player he bought all summer is on his bench.",
+  "dek": "Brian Cutting never had a hole in a priced slot: not in April, not entering the auction, not when it closed. He ranks {{f.team.0004.composite_rank|ord}} of {{f.league.teams}}, and the most expensive player he bought all summer is on his bench.",
   "sections": [
    {
     "id": "s1",
@@ -34,7 +34,7 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "The starting lineup"
+      "title": "Strongest legal lineup"
      }
     }
    },
@@ -79,7 +79,7 @@
      "At the Free Agent Auction he bought as many players as anybody — {{f.team.0004.faa_lots_won}} lots, tied for the most in the league — for {{f.team.0004.faa_spend}}, which is a fraction of what the top spenders laid out. That is the trick: volume at the bottom of the market rather than a headline signing.",
      "The bargains are absurd. Tyreek Hill cost less than some teams pay a punter. Mark Andrews, Derwin James and Nik Bonitto all came in single-digit thousands. Most of those lots went uncontested at a single bid.",
      "His largest purchase was Aaron Rodgers at {{f.team.0004.top_buy_price}}, {{f.team.0004.top_buy_pct_of_spend}} of his auction money, and Rodgers grades Replacement-level QB and sits on the bench. That is the one buy that did not work, and the reason it barely matters is that it cost less than a sixth of what the league's most expensive lot went for at {{f.league.faa_top_price}}. Being wrong cheaply is a skill.",
-     "Defensively he put {{f.team.0004.idp_auction_spend}} in, which is {{f.team.0004.idp_auction_share}} of his money and ranks {{f.team.0004.idp_auction_share_rank|ord}} of {{f.league.teams}} by share — a real commitment, in proportion, on a small budget. It is consistent with his record: {{f.team.0004.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0004.idp_adds_rank}}, and points per started defender ranks {{f.team.0004.idp_ppw_rank}}, second in the league."
+     "Defensively he put {{f.team.0004.idp_auction_spend}} in, which is {{f.team.0004.idp_auction_share}} of his money — a real commitment, in proportion, on a small budget. It is consistent with his record: {{f.team.0004.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0004.idp_adds_rank|ord}}, and points per started defender ranks {{f.team.0004.idp_ppw_rank}}, second in the league."
     ],
     "place": [
      "t.0004.auction"
@@ -180,7 +180,7 @@
      }
     },
     "captions": {
-     "t.0004.week1": "Only games that had finished when this was written."
+     "t.0004.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
     }
    }
   ],
@@ -193,11 +193,12 @@
    },
    {
     "fact": "f.team.0004.studs_today",
-    "label": "Top-twelve starters"
+    "label": "Offensive studs",
+    "suffix": "of nine"
    },
    {
     "fact": "f.team.0004.holes_today",
-    "label": "Lineup holes",
+    "label": "Offensive holes",
     "suffix": "of nine"
    },
    {

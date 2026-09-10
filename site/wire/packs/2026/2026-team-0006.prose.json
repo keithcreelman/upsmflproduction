@@ -14,7 +14,7 @@
     "paragraphs": [
      "The defensive front is the best thing in this article. Maxx Crosby grades Elite DL1. Brian Burns also grades Elite DL1. Jordyn Brooks is an Elite LB1. Tremaine Edmunds fills the flex at Mid LB2, Jordan Battle is a Mid DB1 and Cooper DeJean a Mid DB2. Only Devin Bush at Low-end LB1 is anything short of very good, and Low-end LB1 is still a starter.",
      "Two Elite DL1s on one roster should not be affordable. The auction table shows what they cost and the answer is barely anything.",
-     "The offense is genuinely strong at the top too. Jalen Hurts grades High-end QB1 with Trevor Lawrence at Low-end QB1 in the superflex, which not every team in this format can say — two quarterbacks who are both actually good — and the room ranks {{f.team.0006.qb_rank}}. The backfield ranks {{f.team.0006.rb_rank}}, third in the league, on Najee Harris at High-end RB1 and Derrick Henry at Mid RB1, with George Holani, now a Replacement-level RB, in a flex. Tyler Warren is a High-end TE1 and tight end ranks {{f.team.0006.te_rank|ord}}.",
+     "The offense is genuinely strong at the top too. Jalen Hurts grades High-end QB1 with Trevor Lawrence at Low-end QB1 in the superflex, which not every team in this format can say — two quarterbacks who are both actually good — and the room ranks {{f.team.0006.qb_rank|ord}}. The backfield ranks {{f.team.0006.rb_rank}}, third in the league, on Najee Harris at High-end RB1 and Derrick Henry at Mid RB1, with George Holani, now a Replacement-level RB, in a flex. Tyler Warren is a High-end TE1 and tight end ranks {{f.team.0006.te_rank|ord}}.",
      "Then the receivers, ranked {{f.team.0006.wr_rank}}, second from bottom, and the only real flaw here. A.J. Brown grades Mid WR1 and Quentin Johnston Low-end WR4, and after those two the offensive flexes hold Jordan Mason and George Holani, both Replacement-level RB. Brown is the most expensive player on this roster by a distance — several times what Maxx Crosby cost — and he is carrying a room that ranks near last.",
      "Composite {{f.team.0006.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0006.studs_today}} studs, {{f.team.0006.holes_today}} holes. This is a top-heavy roster in the good sense: six genuine difference-makers spread across quarterback, running back, tight end and the whole defensive front, with the gaps at the second receiver spot and in both offensive flexes."
     ],
@@ -34,7 +34,7 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "The starting lineup"
+      "title": "Strongest legal lineup"
      }
     }
    },
@@ -76,7 +76,7 @@
     "lead": "",
     "paragraphs": [
      "At the Expired Rookie Auction he took {{f.team.0006.era_lots_won}} lots for {{f.team.0006.era_spend}}, both at the league minimum: Tyjae Spears and Will Levis. That pool sells players whose rookie contracts ran out without earning a second one, and the most expensive man in it anywhere went for {{f.league.era_top_price}}. Spending the minimum twice is exactly the right way to treat it.",
-     "The Free Agent Auction is where he did something nobody else did. {{f.team.0006.faa_lots_won}} lots for {{f.team.0006.faa_spend}} — one of the smallest budgets in the league — and {{f.team.0006.idp_auction_spend}} of it, which is {{f.team.0006.idp_auction_share}}, went on defenders. That is the largest defensive share of any owner, ranking {{f.team.0006.idp_auction_share_rank|ord}} of {{f.league.teams}}, and it is not close.",
+     "The Free Agent Auction is where he did something nobody else did. {{f.team.0006.faa_lots_won}} lots for {{f.team.0006.faa_spend}} — one of the smallest budgets in the league — and {{f.team.0006.idp_auction_spend}} of it, which is {{f.team.0006.idp_auction_share}}, went on defenders. That is the largest defensive share of any owner, and it is not close.",
      "His top buy of the entire summer was Maxx Crosby at {{f.team.0006.top_buy_price}}, {{f.team.0006.top_buy_pct_of_spend}} of his auction spend, against a league-high lot elsewhere of {{f.league.faa_top_price}}. For that money he got an Elite DL1. Then Brian Burns, another Elite DL1, for less. Then Jordyn Brooks, an Elite LB1, for less again. Kyle Hamilton, Cooper DeJean and Tremaine Edmunds followed at prices that would embarrass a waiver claim.",
      "The strategy has a real weakness worth naming: none of it addressed a receiver room ranked {{f.team.0006.wr_rank|ord}}. Jalen Nailor at the minimum was the only receiver he bought, and he was gone within the month. But defenders were being sold at a discount this summer and he was the one owner who noticed, which is a better description of it than luck. Historically he is in this territory too: {{f.team.0006.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0006.idp_adds_rank|ord}}, though points per started defender ranks only {{f.team.0006.idp_ppw_rank|ord}} — this year's unit is a step up on his own record."
     ],
@@ -178,7 +178,7 @@
      }
     },
     "captions": {
-     "t.0006.week1": "Only games that had finished when this was written."
+     "t.0006.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
     }
    }
   ],
@@ -191,11 +191,12 @@
    },
    {
     "fact": "f.team.0006.studs_today",
-    "label": "Top-twelve starters"
+    "label": "Offensive studs",
+    "suffix": "of nine"
    },
    {
     "fact": "f.team.0006.holes_today",
-    "label": "Lineup holes",
+    "label": "Offensive holes",
     "suffix": "of nine"
    },
    {

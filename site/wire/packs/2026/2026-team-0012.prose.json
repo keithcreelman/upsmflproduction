@@ -15,7 +15,7 @@
      "Quarterback is the one room that works, ranking {{f.team.0012.qb_rank|ord}}. Matthew Stafford grades Low-end QB1 and Jared Goff High-end QB2 in the superflex. That is a functional superflex pair and it cost him most of his summer.",
      "Everything else on offense is short. Receiver ranks {{f.team.0012.wr_rank}}, last in the league: Mike Evans is a Mid WR3, rookie Carnell Tate a Low-end WR3, Michael Wilson a High-end WR4 in the flex. The backfield ranks {{f.team.0012.rb_rank|ord}} on Kyren Williams at High-end RB2 and Rhamondre Stevenson at Mid RB3, with J.K. Dobbins, a Replacement-level RB, in the other flex. Travis Kelce is a Low-end TE1 and tight end ranks {{f.team.0012.te_rank|ord}}.",
      "The defense has one real player and a lot of empty chairs. Marcus Jones grades Elite DB1 and is carried at the league minimum, which is the best thing on this roster by some margin. George Karlaftis is a Low-end DL2. After that: Chop Robinson and Abdul Carter both Replacement-level DL, Fred Warner a Replacement-level LB, and two starting slots filled by CJ Allen and Mansoor Delane, rookies no source can rate because neither has played an NFL season.",
-     "That is not this year's accident. {{f.team.0012.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0012.idp_adds_rank}}, points per started defender ranks {{f.team.0012.idp_ppw_rank}} — last in the league — and he put {{f.team.0012.idp_auction_share}} of his auction money into defenders, the smallest share of any owner. Three other teams built elite defensive fronts out of minimum-salary players this summer. He spent {{f.team.0012.idp_auction_spend}} and got what that buys.",
+     "That is not this year's accident. {{f.team.0012.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0012.idp_adds_rank|ord}}, points per started defender ranks {{f.team.0012.idp_ppw_rank}} — last in the league — and he put {{f.team.0012.idp_auction_share}} of his auction money into defenders, the smallest share of any owner. Three other teams built elite defensive fronts out of minimum-salary players this summer. He spent {{f.team.0012.idp_auction_spend}} and got what that buys.",
      "Composite {{f.team.0012.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0012.studs_today}} studs, {{f.team.0012.holes_today}} holes — the most in the league."
     ],
     "place": [
@@ -34,7 +34,7 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "The starting lineup"
+      "title": "Strongest legal lineup"
      }
     }
    },
@@ -178,7 +178,7 @@
      }
     },
     "captions": {
-     "t.0012.week1": "Only games that had finished when this was written."
+     "t.0012.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
     }
    }
   ],
@@ -191,11 +191,12 @@
    },
    {
     "fact": "f.team.0012.studs_today",
-    "label": "Top-twelve starters"
+    "label": "Offensive studs",
+    "suffix": "of nine"
    },
    {
     "fact": "f.team.0012.holes_today",
-    "label": "Lineup holes",
+    "label": "Offensive holes",
     "suffix": "of nine"
    },
    {

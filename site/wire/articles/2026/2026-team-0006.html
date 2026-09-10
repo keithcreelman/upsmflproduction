@@ -23,7 +23,7 @@
   packGeneratedAtUtc: 2026-09-10T15:05:29Z
   engine: claude-opus-5 (session agent)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-b1301219">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-13811bb2">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -241,8 +241,9 @@ html { background: var(--ground); }
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
-  white-space: nowrap;
 }
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
   font-family: var(--display); font-weight: 700; font-size: 0.8rem;
@@ -380,6 +381,8 @@ html { background: var(--ground); }
   overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
 }
 .wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
@@ -433,8 +436,10 @@ html { background: var(--ground); }
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
   /* The arrows duplicate the numbered pills and the end-of-section pager; on
-     a phone they pushed "Read all" off the edge of the rail. */
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
   .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
   .wire-secnav span { font-size: 0.94rem; }
 }
 
@@ -517,7 +522,7 @@ html { background: var(--ground); }
 .wire-game-row span:first-child {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
-  white-space: nowrap; padding-top: 0.15rem;
+  padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
 .wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
@@ -624,7 +629,7 @@ html { background: var(--ground); }
     <div class="wire-eyebrow">The Long Haulers · Brian Cross</div>
     <h1>The Long Haulers Got Paid to Take a Franchise Quarterback and Built a Defense Out of Loose Change</h1>
     <p class="wire-dek">Brian Cross put <span class="wire-num" data-fact="f.team.0006.idp_auction_share">71.8%</span> of his auction money into defenders — the largest share in the league — and his most expensive buy all summer was <span class="wire-num" data-fact="f.team.0006.top_buy_price">$8,000</span>. He ranks <span class="wire-num" data-fact="f.team.0006.composite_rank">6th</span> of <span class="wire-num" data-fact="f.league.teams">12</span> and has <span class="wire-num" data-fact="f.team.0006.studs_today">6</span> studs, which is as many as anyone.</p>
-    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">6th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Top-twelve starters</span><span class="wire-kpi-v">6</span></div><div class="wire-kpi"><span class="wire-kpi-l">Lineup holes</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$39,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$10,000</span></div></div>
+    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">6th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive studs</span><span class="wire-kpi-v">6 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive holes</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$39,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$10,000</span></div></div>
   </header>
 
   <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
@@ -633,11 +638,11 @@ html { background: var(--ground); }
     <h2 class="wire-sechead">The Lineup</h2>
     <p>The defensive front is the best thing in this article. Maxx Crosby grades Elite DL1. Brian Burns also grades Elite DL1. Jordyn Brooks is an Elite LB1. Tremaine Edmunds fills the flex at Mid LB2, Jordan Battle is a Mid DB1 and Cooper DeJean a Mid DB2. Only Devin Bush at Low-end LB1 is anything short of very good, and Low-end LB1 is still a starter.</p>
     <figure class="wire-fig">
-<div class="wire-fig-title">The starting lineup</div>
+<div class="wire-fig-title">Strongest legal lineup</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Grade</th></tr></thead><tbody><tr><td data-label="Slot">QB</td><td data-label="Player">Jalen Hurts</td><td data-label="Grade">High-end QB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Najee Harris</td><td data-label="Grade">High-end RB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Derrick Henry</td><td data-label="Grade">Mid RB1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">A.J. Brown</td><td data-label="Grade">Mid WR1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Quentin Johnston</td><td data-label="Grade">Low-end WR4</td></tr><tr><td data-label="Slot">TE</td><td data-label="Player">Tyler Warren</td><td data-label="Grade">High-end TE1</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Jordan Mason</td><td data-label="Grade">Replacement-level RB</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Josh Downs</td><td data-label="Grade">Replacement-level WR</td></tr><tr><td data-label="Slot">SuperFlex</td><td data-label="Player">Trevor Lawrence</td><td data-label="Grade">Low-end QB1</td></tr><tr><td data-label="Slot">K</td><td data-label="Player">Jason Myers</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">P</td><td data-label="Player">Jeremy Crawshaw</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Maxx Crosby</td><td data-label="Grade">Elite DL1</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Brian Burns</td><td data-label="Grade">Elite DL1</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Jordyn Brooks</td><td data-label="Grade">Elite LB1</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Devin Bush</td><td data-label="Grade">Low-end LB1</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Jordan Battle</td><td data-label="Grade">Mid DB1</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Cooper DeJean</td><td data-label="Grade">Mid DB2</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Tremaine Edmunds</td><td data-label="Grade">Mid LB2</td></tr></tbody></table></div>
 </figure>
     <p>Two Elite DL1s on one roster should not be affordable. The auction table shows what they cost and the answer is barely anything.</p>
-    <p>The offense is genuinely strong at the top too. Jalen Hurts grades High-end QB1 with Trevor Lawrence at Low-end QB1 in the superflex, which not every team in this format can say — two quarterbacks who are both actually good — and the room ranks <span class="wire-num" data-fact="f.team.0006.qb_rank">4</span>. The backfield ranks <span class="wire-num" data-fact="f.team.0006.rb_rank">3</span>, third in the league, on Najee Harris at High-end RB1 and Derrick Henry at Mid RB1, with George Holani, now a Replacement-level RB, in a flex. Tyler Warren is a High-end TE1 and tight end ranks <span class="wire-num" data-fact="f.team.0006.te_rank">4th</span>.</p>
+    <p>The offense is genuinely strong at the top too. Jalen Hurts grades High-end QB1 with Trevor Lawrence at Low-end QB1 in the superflex, which not every team in this format can say — two quarterbacks who are both actually good — and the room ranks <span class="wire-num" data-fact="f.team.0006.qb_rank">4th</span>. The backfield ranks <span class="wire-num" data-fact="f.team.0006.rb_rank">3</span>, third in the league, on Najee Harris at High-end RB1 and Derrick Henry at Mid RB1, with George Holani, now a Replacement-level RB, in a flex. Tyler Warren is a High-end TE1 and tight end ranks <span class="wire-num" data-fact="f.team.0006.te_rank">4th</span>.</p>
     <p>Then the receivers, ranked <span class="wire-num" data-fact="f.team.0006.wr_rank">11</span>, second from bottom, and the only real flaw here. A.J. Brown grades Mid WR1 and Quentin Johnston Low-end WR4, and after those two the offensive flexes hold Jordan Mason and George Holani, both Replacement-level RB. Brown is the most expensive player on this roster by a distance — several times what Maxx Crosby cost — and he is carrying a room that ranks near last.</p>
     <p>Composite <span class="wire-num" data-fact="f.team.0006.composite_rank">6th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, <span class="wire-num" data-fact="f.team.0006.studs_today">6</span> studs, <span class="wire-num" data-fact="f.team.0006.holes_today">3</span> holes. This is a top-heavy roster in the good sense: six genuine difference-makers spread across quarterback, running back, tight end and the whole defensive front, with the gaps at the second receiver spot and in both offensive flexes.</p>
   </section>
@@ -657,7 +662,7 @@ html { background: var(--ground); }
   <section class="wire-sec" id="s3" data-title="The Auctions">
     <h2 class="wire-sechead">The Auctions</h2>
     <p>At the Expired Rookie Auction he took <span class="wire-num" data-fact="f.team.0006.era_lots_won">2</span> lots for <span class="wire-num" data-fact="f.team.0006.era_spend">$2,000</span>, both at the league minimum: Tyjae Spears and Will Levis. That pool sells players whose rookie contracts ran out without earning a second one, and the most expensive man in it anywhere went for <span class="wire-num" data-fact="f.league.era_top_price">$7,000</span>. Spending the minimum twice is exactly the right way to treat it.</p>
-    <p>The Free Agent Auction is where he did something nobody else did. <span class="wire-num" data-fact="f.team.0006.faa_lots_won">13</span> lots for <span class="wire-num" data-fact="f.team.0006.faa_spend">$37,000</span> — one of the smallest budgets in the league — and <span class="wire-num" data-fact="f.team.0006.idp_auction_spend">$28,000</span> of it, which is <span class="wire-num" data-fact="f.team.0006.idp_auction_share">71.8%</span>, went on defenders. That is the largest defensive share of any owner, ranking <span class="wire-num" data-fact="f.team.0006.idp_auction_share_rank">12th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, and it is not close.</p>
+    <p>The Free Agent Auction is where he did something nobody else did. <span class="wire-num" data-fact="f.team.0006.faa_lots_won">13</span> lots for <span class="wire-num" data-fact="f.team.0006.faa_spend">$37,000</span> — one of the smallest budgets in the league — and <span class="wire-num" data-fact="f.team.0006.idp_auction_spend">$28,000</span> of it, which is <span class="wire-num" data-fact="f.team.0006.idp_auction_share">71.8%</span>, went on defenders. That is the largest defensive share of any owner, and it is not close.</p>
     <figure class="wire-fig">
 <div class="wire-fig-title">Biggest buys</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Where</th><th>Price</th></tr></thead><tbody><tr><td data-label="Player">Maxx Crosby</td><td data-label="Pos">DE</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$8,000</td></tr><tr><td data-label="Player">Brian Burns</td><td data-label="Pos">DE</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$7,000</td></tr><tr><td data-label="Player">George Holani</td><td data-label="Pos">RB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$5,000</td></tr><tr><td data-label="Player">Jordyn Brooks</td><td data-label="Pos">LB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$4,000</td></tr><tr><td data-label="Player">Kyle Hamilton</td><td data-label="Pos">S</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$3,000</td></tr></tbody></table></div>
@@ -693,7 +698,7 @@ html { background: var(--ground); }
     <figure class="wire-fig wire-stack">
 <div class="wire-fig-title">Week one, so far</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Started?</th><th>Points</th><th>What he did</th></tr></thead><tbody><tr><td data-label="Player">Jason Myers</td><td data-label="Pos">PK</td><td data-label="Started?">Started</td><td data-label="Points">6.6</td><td data-label="What he did">1 Extra Points, 30 yd Field Goal, 26 yd Field Goal</td></tr><tr><td data-label="Player">A.J. Brown</td><td data-label="Pos">WR</td><td data-label="Started?">Started</td><td data-label="Points">6.0</td><td data-label="What he did">3 Receptions, 26 Receiving Yards, 2 First Downs</td></tr><tr><td data-label="Player">Devon Witherspoon</td><td data-label="Pos">CB</td><td data-label="Started?">Started</td><td data-label="Points">4.5</td><td data-label="What he did">5 Assists, 1 QB Hits</td></tr><tr><td data-label="Player">George Holani</td><td data-label="Pos">RB</td><td data-label="Started?">Bench</td><td data-label="Points">2.9</td><td data-label="What he did">29 Rushing Yards</td></tr></tbody></table></div>
-<figcaption>Only games that had finished when this was written.</figcaption>
+<figcaption>Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play.</figcaption>
 </figure>
   </section>
 
@@ -861,7 +866,11 @@ html { background: var(--ground); }
     if (embedded) { post({ type: "wire-route", route: "/" }); return; }
     window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
   }
-  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
   function navBtn(cls, small, big, onClick) {
     var b = mk("button", cls, null);
     b.setAttribute("type", "button");
@@ -908,14 +917,16 @@ html { background: var(--ground); }
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    //    Embedded, the loader also does the scrolling: the frame is sized to
-    //    its content, so a scrollTo in here does nothing.
-    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
-    if (id) {
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
+    else if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
     // Only ever scroll UP to the rail: a reader who clicked a pill is already
-    // looking at it.
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
     try {
       var y = Math.max(0, railTop - 8);
       if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);

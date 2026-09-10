@@ -40,14 +40,23 @@ RANK = re.compile(r'\{\{\s*(f\.team\.\d{4}\.[a-z_]*_rank)\s*\}\}')
 # A rank already restated in words right after the token ("ranks 1, first in
 # the league", "12, dead last", "3 of 12 from the bottom") stays a cardinal.
 RESTATED = re.compile(r'\b(first|second|third|fourth|fifth|sixth|last|bottom)\b', re.I)
+# Ranks where 1 is the SMALLEST, not the best. As an ordinal they read
+# backwards: "the largest defensive share of any owner, ranking 12th of 12"
+# published in a draft of this pass. Never ordinalised; prose should say
+# "largest"/"smallest" in words instead of quoting the rank at all.
+NO_ORD = ("idp_auction_share_rank",)
 
 
 def ordify(s):
     out, pos = [], 0
-    for m in RANK.finditer(s):
-        tail = TOK.sub("N", s[m.end():m.end() + 160])
+    ranks = list(RANK.finditer(s))
+    for n, m in enumerate(ranks):
+        # Look only as far as the NEXT rank token: "ranks 11, points per started
+        # defender ranks 12 -- last" restates the second rank, not the first.
+        stop = ranks[n + 1].start() if n + 1 < len(ranks) else m.end() + 160
+        tail = TOK.sub("N", s[m.end():min(stop, m.end() + 160)])
         tail = re.split(r'(?<=[a-z0-9])\.\s', tail)[0][:80]
-        keep = bool(RESTATED.search(tail))
+        keep = bool(RESTATED.search(tail)) or m.group(1).endswith(NO_ORD)
         out.append(s[pos:m.start()])
         out.append(m.group(0) if keep else "{{%s|ord}}" % m.group(1))
         pos = m.end()
@@ -88,18 +97,25 @@ def apply_layout(prose, pack):
         if s.get("lead"):
             s["lead"] = ordify(s["lead"])
 
+    # Studs and holes are both counted over the NINE priced offensive slots
+    # (QB/RB/WR/TE and the flexes), not the eighteen-man lineup -- the labels
+    # have to say so, or "top-twelve starters: 2" reads as two of eighteen.
     prose["strip"] = [
         {"fact": F("composite_rank"), "ord": True, "of": "f.league.teams", "label": "Overall"},
-        {"fact": F("studs_today"), "label": "Top-twelve starters"},
-        {"fact": F("holes_today"), "label": "Lineup holes", "suffix": "of nine"},
+        {"fact": F("studs_today"), "label": "Offensive studs", "suffix": "of nine"},
+        {"fact": F("holes_today"), "label": "Offensive holes", "suffix": "of nine"},
         {"fact": F("auction_spend"), "label": "Spent at auction"},
         {"fact": F("cap_current_room"), "label": "Cap room"},
     ]
     prose["card"] = {"rankFact": F("composite_rank"), "ofFact": "f.league.teams",
                      "featured": int(float(facts[F("composite_rank")]["value"])) == 1}
 
+    # The pack's lineup is the strongest LEGAL lineup the roster can field, by
+    # value -- not the lineup the owner actually started (the Week 1 table has
+    # that, and they differ). Titled "The starting lineup" it contradicted the
+    # Week 1 table's own Started?/Bench column in four reviews.
     secs["s1"].update(place=[tid("lineup")], placeAt={tid("lineup"): 0}, views={tid("lineup"): {
-        "cols": ["slot", "player", "val"], "labels": {"val": "Grade"}, "title": "The starting lineup"}})
+        "cols": ["slot", "player", "val"], "labels": {"val": "Grade"}, "title": "Strongest legal lineup"}})
 
     # Where a stage had fewer players than starting slots, the pack's own column
     # label says NO LINEUP; the reader-facing label keeps that caveat.
@@ -136,7 +152,10 @@ def apply_layout(prose, pack):
         views5[tid("week1")] = {"cols": ["player", "pos", "slot", "pts", "line"], "stack": True,
                                 "title": "Week one, so far", "labels": {"pts": "Points", "line": "What he did"}}
         at5[tid("week1")] = wk
-        caps5[tid("week1")] = "Only games that had finished when this was written."
+        # The reader half of the pack note, which a view hides: what a blank
+        # "What he did" cell means.
+        caps5[tid("week1")] = ("Only games that had finished when this was written. A blank line "
+                               "means he recorded no scoring stat or did not play.")
     secs["s5"].update(place=place5, placeAt=at5, views=views5, captions=caps5)
     return prose
 

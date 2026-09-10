@@ -23,7 +23,7 @@
   packGeneratedAtUtc: 2026-09-10T15:02:49Z
   engine: claude-opus-5 (session agent)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-b1301219">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-13811bb2">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -241,8 +241,9 @@ html { background: var(--ground); }
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
-  white-space: nowrap;
 }
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
   font-family: var(--display); font-weight: 700; font-size: 0.8rem;
@@ -380,6 +381,8 @@ html { background: var(--ground); }
   overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
 }
 .wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
@@ -433,8 +436,10 @@ html { background: var(--ground); }
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
   /* The arrows duplicate the numbered pills and the end-of-section pager; on
-     a phone they pushed "Read all" off the edge of the rail. */
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
   .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
   .wire-secnav span { font-size: 0.94rem; }
 }
 
@@ -517,7 +522,7 @@ html { background: var(--ground); }
 .wire-game-row span:first-child {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
-  white-space: nowrap; padding-top: 0.15rem;
+  padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
 .wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
@@ -624,7 +629,7 @@ html { background: var(--ground); }
     <div class="wire-eyebrow">L.A. Looks · Ryan Bousquet</div>
     <h1>L.A. Looks Fielded the Best Defense in the League and Sold the Offense to Pay for It</h1>
     <p class="wire-dek">Ryan Bousquet ranks <span class="wire-num" data-fact="f.team.0001.idp_ppw_rank">1st</span> of <span class="wire-num" data-fact="f.league.teams">12</span> in points per started defender and <span class="wire-num" data-fact="f.team.0001.composite_rank">10th</span> of <span class="wire-num" data-fact="f.league.teams">12</span> overall. In between those two numbers is a July trade that sent his best receiver out the door one day before the roster locked.</p>
-    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">10th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Top-twelve starters</span><span class="wire-kpi-v">2</span></div><div class="wire-kpi"><span class="wire-kpi-l">Lineup holes</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$139,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$5,000</span></div></div>
+    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">10th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive studs</span><span class="wire-kpi-v">2 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive holes</span><span class="wire-kpi-v">3 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$139,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$5,000</span></div></div>
   </header>
 
   <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
@@ -633,7 +638,7 @@ html { background: var(--ground); }
     <h2 class="wire-sechead">The Lineup</h2>
     <p>Start with the good news, because it is genuinely good and almost nobody in this league gets credit for it. Danielle Hunter grades Mid DL1 and Jeffery Simmons High-end DL2. Zack Baun is a Mid LB1 with Jamien Sherwood at High-end LB2 beside him. Kamren Curl is a High-end DB1 and Trevon Moehrig a High-end DB2. That is six defensive starters and not one of them is a passenger.</p>
     <figure class="wire-fig">
-<div class="wire-fig-title">The starting lineup</div>
+<div class="wire-fig-title">Strongest legal lineup</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Grade</th></tr></thead><tbody><tr><td data-label="Slot">QB</td><td data-label="Player">Bo Nix</td><td data-label="Grade">High-end QB2</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Chase Brown</td><td data-label="Grade">Low-end RB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Jaylen Warren</td><td data-label="Grade">Replacement-level RB</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">George Pickens</td><td data-label="Grade">Low-end WR1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Alec Pierce</td><td data-label="Grade">Low-end WR3</td></tr><tr><td data-label="Slot">TE</td><td data-label="Player">Jake Ferguson</td><td data-label="Grade">Replacement-level TE</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Courtland Sutton</td><td data-label="Grade">Low-end WR3</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Isaiah Likely</td><td data-label="Grade">Replacement-level TE</td></tr><tr><td data-label="Slot">SuperFlex</td><td data-label="Player">Sam Darnold</td><td data-label="Grade">Low-end QB2</td></tr><tr><td data-label="Slot">K</td><td data-label="Player">Brandon Aubrey</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">P</td><td data-label="Player">Bradley Pinion</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Danielle Hunter</td><td data-label="Grade">Mid DL1</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Jeffery Simmons</td><td data-label="Grade">High-end DL2</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Zack Baun</td><td data-label="Grade">Mid LB1</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Jamien Sherwood</td><td data-label="Grade">High-end LB2</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Kamren Curl</td><td data-label="Grade">High-end DB1</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Trevon Moehrig</td><td data-label="Grade">High-end DB2</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Aaron Donald</td><td data-label="Grade">no prior-season production</td></tr></tbody></table></div>
 </figure>
     <p>It is not an accident either. Over the life of the league Bousquet has acquired <span class="wire-num" data-fact="f.team.0001.idp_adds_alltime">257</span> defenders, ranking <span class="wire-num" data-fact="f.team.0001.idp_adds_rank">2nd</span>, and more to the point he has converted them: <span class="wire-num" data-fact="f.team.0001.idp_ppw_rank">1</span> of <span class="wire-num" data-fact="f.league.teams">12</span> in points per started defender, which is first, outright, ahead of every owner who works the wire harder than he does. Working it hardest and scoring most are different skills and he has the second one.</p>
@@ -663,7 +668,7 @@ html { background: var(--ground); }
 <div class="wire-fig-title">Biggest buys</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Where</th><th>Price</th></tr></thead><tbody><tr><td data-label="Player">George Pickens</td><td data-label="Pos">WR</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$48,000</td></tr><tr><td data-label="Player">Daniel Jones</td><td data-label="Pos">QB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$24,000</td></tr><tr><td data-label="Player">Jaylen Warren</td><td data-label="Pos">RB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$20,000</td></tr><tr><td data-label="Player">Zach Charbonnet</td><td data-label="Pos">RB</td><td data-label="Where">ERA</td><td class="wire-num" data-label="Price">$7,000</td></tr><tr><td data-label="Player">Isaiah Likely</td><td data-label="Pos">TE</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$7,000</td></tr></tbody></table></div>
 </figure>
-    <p>Hold that Pickens number for the trade section, because it does not read the same once you know what he sold to afford it. The rest of the sheet is sensible enough: Daniel Jones as quarterback insurance, Jaylen Warren for the backfield, Isaiah Likely at tight end, and then a run of defenders — Jeffery Simmons, Danielle Hunter, Zack Baun, Jamien Sherwood, Trevon Moehrig — that between them give him a defense that grades well almost everywhere, for <span class="wire-num" data-fact="f.team.0001.idp_auction_spend">$22,000</span>, or <span class="wire-num" data-fact="f.team.0001.idp_auction_share">15.8%</span> of his auction money. He ranks <span class="wire-num" data-fact="f.team.0001.idp_auction_share_rank">8th</span> of <span class="wire-num" data-fact="f.league.teams">12</span> on that share, which is to say he did it without overpaying for it.</p>
+    <p>Hold that Pickens number for the trade section, because it does not read the same once you know what he sold to afford it. The rest of the sheet is sensible enough: Daniel Jones as quarterback insurance, Jaylen Warren for the backfield, Isaiah Likely at tight end, and then a run of defenders — Jeffery Simmons, Danielle Hunter, Zack Baun, Jamien Sherwood, Trevon Moehrig — that between them give him a defense that grades well almost everywhere, for <span class="wire-num" data-fact="f.team.0001.idp_auction_spend">$22,000</span>, or <span class="wire-num" data-fact="f.team.0001.idp_auction_share">15.8%</span> of his auction money, without overpaying for any of it.</p>
   </section>
 
   <section class="wire-sec" id="s4" data-title="Contracts, Trades, Cuts and the Rookie Class">
@@ -694,7 +699,7 @@ html { background: var(--ground); }
     <figure class="wire-fig wire-stack">
 <div class="wire-fig-title">Week one, so far</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Started?</th><th>Points</th><th>What he did</th></tr></thead><tbody><tr><td data-label="Player">Sam Darnold</td><td data-label="Pos">QB</td><td data-label="Started?">Started</td><td data-label="Points">0.2</td><td data-label="What he did">5 Sack Yards Lost, 13 Passing Yards, 1 First Downs</td></tr><tr><td data-label="Player">Nick Emmanwori</td><td data-label="Pos">S</td><td data-label="Started?">Bench</td><td data-label="Points">0.0</td><td data-label="What he did"></td></tr></tbody></table></div>
-<figcaption>Only games that had finished when this was written.</figcaption>
+<figcaption>Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play.</figcaption>
 </figure>
   </section>
 
@@ -862,7 +867,11 @@ html { background: var(--ground); }
     if (embedded) { post({ type: "wire-route", route: "/" }); return; }
     window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
   }
-  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
   function navBtn(cls, small, big, onClick) {
     var b = mk("button", cls, null);
     b.setAttribute("type", "button");
@@ -909,14 +918,16 @@ html { background: var(--ground); }
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    //    Embedded, the loader also does the scrolling: the frame is sized to
-    //    its content, so a scrollTo in here does nothing.
-    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
-    if (id) {
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
+    else if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
     // Only ever scroll UP to the rail: a reader who clicked a pill is already
-    // looking at it.
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
     try {
       var y = Math.max(0, railTop - 8);
       if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);

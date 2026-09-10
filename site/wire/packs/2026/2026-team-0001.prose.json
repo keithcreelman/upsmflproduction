@@ -34,7 +34,7 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "The starting lineup"
+      "title": "Strongest legal lineup"
      }
     }
    },
@@ -78,7 +78,7 @@
      "Two separate auctions, months apart, and he treated them very differently.",
      "At the Expired Rookie Auction in May he won {{f.team.0001.era_lots_won}} lots for {{f.team.0001.era_spend}} out of a pool of {{f.league.era_pool_size}} players league-wide. Zach Charbonnet went to him at {{f.league.era_top_price}}, which was the most expensive player anyone bought in that auction. That is worth keeping in proportion: the ERA sells men whose rookie deals ran out without earning a second one, and its top price would not have cracked the middle of the free-agent board. Tank Bigsby, Jordan Battle and Marvin Mims came with him.",
      "The Free Agent Auction is the real market and he spent like it, {{f.team.0001.faa_spend}} across {{f.team.0001.faa_lots_won}} lots. {{f.team.0001.top_buy_price}} of that went on George Pickens alone, {{f.team.0001.top_buy_pct_of_spend}} of everything he spent there, against a league-high price of {{f.league.faa_top_price}} paid elsewhere.",
-     "Hold that Pickens number for the trade section, because it does not read the same once you know what he sold to afford it. The rest of the sheet is sensible enough: Daniel Jones as quarterback insurance, Jaylen Warren for the backfield, Isaiah Likely at tight end, and then a run of defenders — Jeffery Simmons, Danielle Hunter, Zack Baun, Jamien Sherwood, Trevon Moehrig — that between them give him a defense that grades well almost everywhere, for {{f.team.0001.idp_auction_spend}}, or {{f.team.0001.idp_auction_share}} of his auction money. He ranks {{f.team.0001.idp_auction_share_rank|ord}} of {{f.league.teams}} on that share, which is to say he did it without overpaying for it."
+     "Hold that Pickens number for the trade section, because it does not read the same once you know what he sold to afford it. The rest of the sheet is sensible enough: Daniel Jones as quarterback insurance, Jaylen Warren for the backfield, Isaiah Likely at tight end, and then a run of defenders — Jeffery Simmons, Danielle Hunter, Zack Baun, Jamien Sherwood, Trevon Moehrig — that between them give him a defense that grades well almost everywhere, for {{f.team.0001.idp_auction_spend}}, or {{f.team.0001.idp_auction_share}} of his auction money, without overpaying for any of it."
     ],
     "place": [
      "t.0001.auction"
@@ -179,7 +179,7 @@
      }
     },
     "captions": {
-     "t.0001.week1": "Only games that had finished when this was written."
+     "t.0001.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
     }
    }
   ],
@@ -192,11 +192,12 @@
    },
    {
     "fact": "f.team.0001.studs_today",
-    "label": "Top-twelve starters"
+    "label": "Offensive studs",
+    "suffix": "of nine"
    },
    {
     "fact": "f.team.0001.holes_today",
-    "label": "Lineup holes",
+    "label": "Offensive holes",
     "suffix": "of nine"
    },
    {

@@ -23,7 +23,7 @@
   packGeneratedAtUtc: 2026-09-10T15:06:02Z
   engine: claude-opus-5 (session agent)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-b1301219">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-13811bb2">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -241,8 +241,9 @@ html { background: var(--ground); }
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
-  white-space: nowrap;
 }
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
   font-family: var(--display); font-weight: 700; font-size: 0.8rem;
@@ -380,6 +381,8 @@ html { background: var(--ground); }
   overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
 }
 .wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
@@ -433,8 +436,10 @@ html { background: var(--ground); }
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
   /* The arrows duplicate the numbered pills and the end-of-section pager; on
-     a phone they pushed "Read all" off the edge of the rail. */
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
   .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
   .wire-secnav span { font-size: 0.94rem; }
 }
 
@@ -517,7 +522,7 @@ html { background: var(--ground); }
 .wire-game-row span:first-child {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
-  white-space: nowrap; padding-top: 0.15rem;
+  padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
 .wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
@@ -624,7 +629,7 @@ html { background: var(--ground); }
     <div class="wire-eyebrow">Sex Manther · Josh Martel</div>
     <h1>Sex Manther Tore Down a Contender in Three Days and Rebuilt a Better One</h1>
     <p class="wire-dek">Josh Martel went into the auction carrying <span class="wire-num" data-fact="f.team.0007.cap_preauction">$103,000</span> of salary, down from <span class="wire-num" data-fact="f.team.0007.cap_opening">$277,000</span> in April. He released two of the most expensive players in the league in the same week and used the money on one of the two best quarterback rooms in the league.</p>
-    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">5th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Top-twelve starters</span><span class="wire-kpi-v">5</span></div><div class="wire-kpi"><span class="wire-kpi-l">Lineup holes</span><span class="wire-kpi-v">2 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$154,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$6,000</span></div></div>
+    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">5th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive studs</span><span class="wire-kpi-v">5 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive holes</span><span class="wire-kpi-v">2 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$154,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$6,000</span></div></div>
   </header>
 
   <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
@@ -633,13 +638,13 @@ html { background: var(--ground); }
     <h2 class="wire-sechead">The Lineup</h2>
     <p>Lamar Jackson grades Elite QB1 and Caleb Williams High-end QB1. In a format that forces two starting quarterbacks, that is the pairing everybody else is trying to build, and the room ranks <span class="wire-num" data-fact="f.team.0007.qb_rank">2nd</span> in the league.</p>
     <figure class="wire-fig">
-<div class="wire-fig-title">The starting lineup</div>
+<div class="wire-fig-title">Strongest legal lineup</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Grade</th></tr></thead><tbody><tr><td data-label="Slot">QB</td><td data-label="Player">Lamar Jackson</td><td data-label="Grade">Elite QB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">De'Von Achane</td><td data-label="Grade">Mid RB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Jonathon Brooks</td><td data-label="Grade">Replacement-level RB</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Rashee Rice</td><td data-label="Grade">Low-end WR1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Jaylen Waddle</td><td data-label="Grade">Low-end WR2</td></tr><tr><td data-label="Slot">TE</td><td data-label="Player">Harold Fannin</td><td data-label="Grade">Mid TE1</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Jameson Williams</td><td data-label="Grade">Low-end WR2</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Rome Odunze</td><td data-label="Grade">High-end WR3</td></tr><tr><td data-label="Slot">SuperFlex</td><td data-label="Player">Caleb Williams</td><td data-label="Grade">High-end QB1</td></tr><tr><td data-label="Slot">K</td><td data-label="Player">Eddy Pineiro</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">P</td><td data-label="Player">Ryan Eckley</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Tuli Tuipulotu</td><td data-label="Grade">Mid DL1</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Andrew Van Ginkel</td><td data-label="Grade">Replacement-level DL</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Carson Schwesinger</td><td data-label="Grade">Mid LB1</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Jaishawn Barham</td><td data-label="Grade">no prior-season production</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Talanoa Hufanga</td><td data-label="Grade">Elite DB1</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Dillon Thieneman</td><td data-label="Grade">no prior-season production</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Demetrius Knight</td><td data-label="Grade">Replacement-level LB</td></tr></tbody></table></div>
 </figure>
     <p>Receiver ranks <span class="wire-num" data-fact="f.team.0007.wr_rank">5th</span> and is deep rather than top-heavy: Rashee Rice at Low-end WR1, Jaylen Waddle at Low-end WR2, Jameson Williams at Low-end WR2 in a flex and Rome Odunze at High-end WR3 in the other. Harold Fannin is a Mid TE1 and tight end ranks <span class="wire-num" data-fact="f.team.0007.te_rank">6th</span>.</p>
     <p>The backfield is the hole and it is a real one, ranked <span class="wire-num" data-fact="f.team.0007.rb_rank">9th</span>. De'Von Achane grades Mid RB1 and behind him is Jacory Croskey-Merritt, a Replacement-level RB, starting. Kenneth Gainwell, the third-most expensive player he bought all summer, is a Replacement-level RB on the bench.</p>
     <p>The defense is where the bill for all this comes due. Talanoa Hufanga is an Elite DB1 and a genuine bargain, Tuli Tuipulotu a Mid DL1 and Carson Schwesinger a Mid LB1. After that it falls apart: Andrew Van Ginkel grades Replacement-level DL, Demetrius Knight Replacement-level LB, and two starting slots are filled by Jaishawn Barham and Dillon Thieneman, rookies the production model cannot rate at all because neither has played an NFL season. That is not a grade on them — no source has an opinion — but it is two of seven defensive slots occupied by unknowns.</p>
-    <p>Historically this is out of character. <span class="wire-num" data-fact="f.team.0007.idp_adds_alltime">206</span> defensive acquisitions ranks <span class="wire-num" data-fact="f.team.0007.idp_adds_rank">6</span> and points per started defender ranks <span class="wire-num" data-fact="f.team.0007.idp_ppw_rank">3</span>, third in the league. He knows how to field a defense. This year he chose not to pay for one, putting <span class="wire-num" data-fact="f.team.0007.idp_auction_share">5.2%</span> of his auction money into defenders, a share that ranks <span class="wire-num" data-fact="f.team.0007.idp_auction_share_rank">2</span> of <span class="wire-num" data-fact="f.league.teams">12</span> from the bottom.</p>
+    <p>Historically this is out of character. <span class="wire-num" data-fact="f.team.0007.idp_adds_alltime">206</span> defensive acquisitions ranks <span class="wire-num" data-fact="f.team.0007.idp_adds_rank">6th</span> and points per started defender ranks <span class="wire-num" data-fact="f.team.0007.idp_ppw_rank">3</span>, third in the league. He knows how to field a defense. This year he chose not to pay for one, putting <span class="wire-num" data-fact="f.team.0007.idp_auction_share">5.2%</span> of his auction money into defenders, a share that ranks <span class="wire-num" data-fact="f.team.0007.idp_auction_share_rank">2</span> of <span class="wire-num" data-fact="f.league.teams">12</span> from the bottom.</p>
     <p>Composite <span class="wire-num" data-fact="f.team.0007.composite_rank">5th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, <span class="wire-num" data-fact="f.team.0007.studs_today">5</span> studs, <span class="wire-num" data-fact="f.team.0007.holes_today">2</span> holes.</p>
   </section>
 
@@ -696,7 +701,7 @@ html { background: var(--ground); }
     <figure class="wire-fig wire-stack">
 <div class="wire-fig-title">Week one, so far</div>
 <div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Started?</th><th>Points</th><th>What he did</th></tr></thead><tbody><tr><td data-label="Player">Julian Love</td><td data-label="Pos">S</td><td data-label="Started?">Started</td><td data-label="Points">15.3</td><td data-label="What he did">4 Tackles, 2 Assists, 2 Tackles for a Loss, 1 Passes Defended, 1 Interceptions</td></tr><tr><td data-label="Player">Kyle Williams</td><td data-label="Pos">WR</td><td data-label="Started?">Bench</td><td data-label="Points">1.5</td><td data-label="What he did">58 Kickoff Return Yards</td></tr></tbody></table></div>
-<figcaption>Only games that had finished when this was written.</figcaption>
+<figcaption>Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play.</figcaption>
 </figure>
   </section>
 
@@ -863,7 +868,11 @@ html { background: var(--ground); }
     if (embedded) { post({ type: "wire-route", route: "/" }); return; }
     window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
   }
-  var canLeave = embedded || /^https?:$/.test(String(window.location.protocol || ""));
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
   function navBtn(cls, small, big, onClick) {
     var b = mk("button", cls, null);
     b.setAttribute("type", "button");
@@ -910,14 +919,16 @@ html { background: var(--ground); }
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    //    Embedded, the loader also does the scrolling: the frame is sized to
-    //    its content, so a scrollTo in here does nothing.
-    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); return; }
-    if (id) {
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
+    else if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
     // Only ever scroll UP to the rail: a reader who clicked a pill is already
-    // looking at it.
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
     try {
       var y = Math.max(0, railTop - 8);
       if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);

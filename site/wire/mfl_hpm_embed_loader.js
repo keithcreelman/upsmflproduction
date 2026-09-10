@@ -185,13 +185,16 @@
       JSON.stringify(ctx.theme) + ');}catch(e){}';
 
     // One beacon serves both the shell and articles. Gated on an 8px delta so
-    // the 800ms fallback tick is free when nothing is moving. Measured across
-    // three properties because documentElement.scrollHeight alone gets sticky
-    // when content shrinks (article -> back to a short index).
+    // the 800ms fallback tick is free when nothing is moving.
+    // Measures where the BODY ends, not documentElement.scrollHeight: inside a
+    // frame that is already 3,000px tall, scrollHeight can never report less
+    // than 3,000, so paging from a long section to a short one left the frame
+    // stuck tall with a screen of blank space under the section pager.
     var beacon =
       '(function(){var last=0;function post(){try{' +
-      'var b=document.body,h=Math.max(document.documentElement.scrollHeight,' +
-      'b?b.scrollHeight:0,b?b.offsetHeight:0);' +
+      'var b=document.body;if(!b)return;' +
+      'var h=Math.ceil(b.getBoundingClientRect().bottom+(window.pageYOffset||0)+' +
+      '(parseFloat(getComputedStyle(b).marginBottom)||0));' +
       'if(Math.abs(h-last)<=8)return;last=h;' +
       'parent.postMessage({type:"wire-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +

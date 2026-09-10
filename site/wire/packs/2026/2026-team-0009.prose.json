@@ -34,7 +34,7 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "The starting lineup"
+      "title": "Strongest legal lineup"
      }
     }
    },
@@ -79,7 +79,7 @@
      "At the Free Agent Auction he took {{f.team.0009.faa_lots_won}} lots for {{f.team.0009.faa_spend}}, and the shape of it is stark. Christian McCaffrey cost {{f.team.0009.top_buy_price}}, {{f.team.0009.top_buy_pct_of_spend}} of the total, and drew more bids than any other lot in the auction. Joe Burrow cost nearly as much again. Those two players took the overwhelming majority of his budget.",
      "McCaffrey is worth pausing on. Sex Manther had tagged him in May and released him in July, at which point he became the most contested player of the summer and landed here for a price barely above what that tag had been. One owner paid to keep him, changed his mind, and handed the league's best roster its first-choice running back.",
      "Everything else was minimum-priced volume: DK Metcalf aside, the remaining lots are a wall of single-bid, minimum-salary purchases. Cooper Kupp cost the minimum. So did Chase Young, Cameron Heyward and Alex Highsmith, and that is the defense.",
-     "Defensively he committed {{f.team.0009.idp_auction_spend}}, or {{f.team.0009.idp_auction_share}} of his money, ranking {{f.team.0009.idp_auction_share_rank|ord}} of {{f.league.teams}} by share. Against what he spent on two offensive players, that is the whole strategy in one line: buy the two best available skill players and fill seven defensive slots out of the bargain bin."
+     "Defensively he committed {{f.team.0009.idp_auction_spend}}, or {{f.team.0009.idp_auction_share}} of his money. Against what he spent on two offensive players, that is the whole strategy in one line: buy the two best available skill players and fill seven defensive slots out of the bargain bin."
     ],
     "place": [
      "t.0009.auction"
@@ -180,7 +180,7 @@
      }
     },
     "captions": {
-     "t.0009.week1": "Only games that had finished when this was written."
+     "t.0009.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
     }
    }
   ],
@@ -193,11 +193,12 @@
    },
    {
     "fact": "f.team.0009.studs_today",
-    "label": "Top-twelve starters"
+    "label": "Offensive studs",
+    "suffix": "of nine"
    },
    {
     "fact": "f.team.0009.holes_today",
-    "label": "Lineup holes",
+    "label": "Offensive holes",
     "suffix": "of nine"
    },
    {
