@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.10.1",
-  "label": "Internal: the live-scoring maths now comes from one shared module instead of two hand-copies that had drifted apart. No visible change intended."
+  "build": "2026.09.10.2",
+  "label": "Scores: each team's starters are grouped by position now (QB, RB, WR, TE, K, P, DL, LB, DB) with a points subtotal per group. Tap Points to get the old single list back."
 }

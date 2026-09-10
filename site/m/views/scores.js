@@ -210,19 +210,9 @@
     if (!ss.some(function (x) { return x.done || x.playing; })) return "pre";
     return ss.every(function (x) { return x.done; }) ? "final" : "live";
   }
-  function posGroup(pos) {
-    var p = s(pos).toUpperCase();
-    if (p === "QB") return "QB";
-    if (p === "RB" || p === "FB" || p === "HB") return "RB";
-    if (p === "WR") return "WR";
-    if (p === "TE") return "TE";
-    if (p === "PK" || p === "K") return "PK";
-    if (p === "PN" || p === "P") return "PN";
-    if (p === "DT" || p === "DE" || p === "NT" || p === "DL") return "DL";
-    if (p === "LB" || p === "OLB" || p === "ILB" || p === "MLB") return "LB";
-    if (p === "CB" || p === "S" || p === "FS" || p === "SS" || p === "DB") return "DB";
-    return "OTH";
-  }
+  // Same table as UPSLive.posGroup; the scoreboard already depends on that
+  // module, so one copy instead of two that could drift.
+  function posGroup(pos) { return LS.posGroup(pos); }
   // Positional-group rank by ACTUAL points that week (from playerScores). Cached.
   function sbPosRank(pid) {
     if (!M.state.sb) return null;
@@ -394,9 +384,23 @@
   }
 
   // ---- roster list (expanded under a team row) ----
+  // Roster order: "pos" = grouped by position in lineup order (default);
+  // "pts" = one list by projected finish, the original order. Per device.
+  var SB_ORDER_KEY = "ups_m_sb_order_v1";
+  function sbOrder() {
+    if (!M.state.sbOrder) {
+      var v = ""; try { v = localStorage.getItem(SB_ORDER_KEY) || ""; } catch (_) {}
+      M.state.sbOrder = (v === "pts") ? "pts" : "pos";
+    }
+    return M.state.sbOrder;
+  }
+  function setSbOrder(v) {
+    M.state.sbOrder = (v === "pts") ? "pts" : "pos";
+    try { localStorage.setItem(SB_ORDER_KEY, M.state.sbOrder); } catch (_) {}
+  }
   function rosterList(team) {
     if (!team.starters.length) return '<div class="ups-m-sb-ros-empty">No starters scored.</div>';
-    return team.starters.map(function (p) {
+    function rowHtml(p) {
       var st = p.done ? '<span class="st done">Final</span>'
         : p.playing ? '<span class="st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
         : '<span class="st yet">Yet</span>';
@@ -413,7 +417,18 @@
       '</div>';
       if (open) row += breakdownBlock(p);
       return row;
-    }).join("");
+    }
+    var order = sbOrder();
+    var toggle = '<div class="ups-m-sb-order"><span>Order</span><span class="ups-m-sb-toggle">' +
+      '<button type="button" data-sborder="pos"' + (order === "pos" ? ' class="on"' : '') + '>Position</button>' +
+      '<button type="button" data-sborder="pts"' + (order === "pts" ? ' class="on"' : '') + '>Points</button></span></div>';
+    var body = order === "pos"
+      ? LS.groupStarters(team.starters).map(function (g) {
+          return '<div class="ups-m-sb-grp"><span>' + esc(g.label) + '<small>' + g.rows.length + '</small></span>' +
+            '<span>' + fmtPts(g.live) + '</span></div>' + g.rows.map(rowHtml).join("");
+        }).join("")
+      : team.starters.map(rowHtml).join("");
+    return toggle + body;
   }
 
   // ---- year/week controls ----
@@ -565,6 +580,12 @@
           renderRoute();
         };
       })(pls[j]));
+    }
+    var od = mount.querySelectorAll("[data-sborder]");
+    for (var o = 0; o < od.length; o++) {
+      od[o].addEventListener("click", (function (el) {
+        return function (e) { e.stopPropagation(); setSbOrder(el.getAttribute("data-sborder")); renderRoute(); };
+      })(od[o]));
     }
     var tg = mount.querySelectorAll("[data-sbview]");
     for (var k = 0; k < tg.length; k++) {
