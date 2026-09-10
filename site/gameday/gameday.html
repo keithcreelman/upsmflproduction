@@ -1759,7 +1759,15 @@
       var game = pl.game || pl.score;
       var head = game ? '<span class="gd-bd-game">' + esc(game) + '</span>' : '';
       if (!lines.length) {
-        inner = head + '<div class="gd-bd-empty">No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.</div>' +
+        // No stats yet is the NORMAL state before kickoff, and the projection is
+        // the only thing worth showing then -- without it this panel said
+        // nothing at all for every player yet to play.
+        var opEmpty = (p && p.origProj) || 0;
+        var emptyMsg = (p && p.yet)
+          ? 'Has not played yet.'
+          : 'No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.';
+        inner = head + '<div class="gd-bd-empty">' + emptyMsg + '</div>' +
+          (opEmpty > 0 ? '<div class="gd-bd-exp">projected ' + fmtPts(opEmpty) + '</div>' : '') +
           '<div class="gd-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
       } else {
         var rows = transformLines(lines).map(function (l) {
@@ -1769,11 +1777,33 @@
         }).join("");
         var subtotal = d.subtotal != null ? d.subtotal : lines.reduce(function (a, l) { return a + (Number(l.points) || 0); }, 0);
         // Above / below expectation vs the player's ORIGINAL projection for this week.
+        // WHILE THE GAME IS ON, POINTS-SO-FAR IS NOT A VERDICT. Comparing a
+        // running subtotal against a FULL-GAME projection reads every player as
+        // "below expectation" until the fourth quarter -- a defender on 4.1
+        // early in the second was shown as -6.5 against a 10.6 projection, when
+        // 10.6 was never what he was supposed to have by then. Mid-game, show
+        // the UPDATED projection instead: what he has, plus what the remaining
+        // clock is still worth. The expectation verdict only makes sense once
+        // there is no clock left.
         var op = (p && p.origProj) || 0, expLine = "";
-        if (op > 0) {
-          var diff = subtotal - op, above = diff >= 0;
-          expLine = '<div class="gd-bd-exp ' + (above ? 'p' : 'n') + '">vs proj ' + fmtPts(op) + ' · ' +
-            (above ? '+' : '') + fmtPts(diff) + ' ' + (above ? 'above' : 'below') + ' expectation</div>';
+        // Remaining value comes from the row's own numbers (projFinal already
+        // pro-rates the original projection by gameSecondsRemaining and zeroes
+        // players ruled out), rebased onto THIS breakdown's subtotal so the two
+        // figures cannot disagree.
+        var rem = Math.max(0, ((p && p.projFinal) || 0) - ((p && p.live) || 0));
+        if (p && p.done) {
+          if (op > 0) {
+            var diff = subtotal - op, above = diff >= 0;
+            expLine = '<div class="gd-bd-exp ' + (above ? 'p' : 'n') + '">vs proj ' + fmtPts(op) + ' · ' +
+              (above ? '+' : '') + fmtPts(diff) + ' ' + (above ? 'above' : 'below') + ' expectation</div>';
+          }
+        } else if (p && p.playing) {
+          var nowProj = subtotal + rem, moved = nowProj - op, up = moved >= 0;
+          expLine = '<div class="gd-bd-exp ' + (up ? 'p' : 'n') + '">projected ' + fmtPts(nowProj) +
+            ' · ' + (op > 0 ? 'started at ' + fmtPts(op) + ' · ' : '') +
+            (up ? '+' : '') + fmtPts(moved) + ' with ' + Math.ceil(((p && p.gsr) || 0) / 60) + "' left</div>";
+        } else if (op > 0) {
+          expLine = '<div class="gd-bd-exp">projected ' + fmtPts(op) + ' · has not played yet</div>';
         }
         inner = head + '<div class="gd-bd-lines">' + rows + '</div>' +
           '<div class="gd-bd-sub"><span>Subtotal</span><span>' + fmtPts(subtotal) + '</span></div>' +
