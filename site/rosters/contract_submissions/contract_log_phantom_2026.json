@@ -15,7 +15,9 @@
     "reaches MFL. All 8 'FA Contract' rows in the 2026 log lack any",
     "corroborating MFL roster movement, and the four below are positively",
     "contradicted. Fixing the writer is the real repair; this file stops the",
-    "bad rows reaching print in the meantime."
+    "bad rows reaching print in the meantime.",
+    "",
+    "2026-09-10: a FIFTH phantom, the Hawks' Mahomes tag, reached print as a live headline. Its roster load and reversal were two days apart, so a same-day signature could never have caught it -- another reason this list is declared, not inferred."
   ],
   "season": "2026",
   "rows": [
@@ -50,6 +52,14 @@
       "submitted_on": "2026-05-14",
       "claimed": "FA Contract, $3,000",
       "evidence": "Zero MFL transactions of any type, ever, for this player id in 2026 -- no load, no free-agent move, no auction. He is unrostered league-wide today. The Front Office wrote the row and MFL never saw it."
+    },
+    {
+      "franchise_id": "0012",
+      "player_id": "13116",
+      "player_name": "Patrick Mahomes",
+      "submitted_on": "2026-05-19",
+      "claimed": "Tag, $60,000 (two submissions, 18:31 and 18:49 UTC)",
+      "evidence": "Keith 2026-09-10: 'hawks never tagged mahomes...that was test data.' MFL agrees: no daily roster snapshot ever shows Mahomes with TAG status. He appears on 0012 only on 2026-05-20 and 05-21, on an EXPIRED $68,000 BL contract (contractYear 0), and is gone by 05-22. He was won at auction by 0003 in July."
     }
   ]
 }
