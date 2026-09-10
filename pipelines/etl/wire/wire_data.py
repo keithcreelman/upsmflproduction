@@ -322,6 +322,9 @@ def contract_activity(season="2026"):
         if r.get("franchise_id") is not None:
             r["franchise_id"] = str(r["franchise_id"]).zfill(4)
     rows = _drop_test_contract_rows(rows, season)
+    rows, dropped = _drop_uncorroborated_contract_rows(rows, season)
+    if dropped:
+        provenance = "%s; %d uncorroborated row(s) dropped" % (provenance, len(dropped))
     return rows, provenance
 
 
@@ -372,6 +375,74 @@ def _drop_test_contract_rows(rows, season):
         return ts < before
 
     return [r for r in rows if not _is_test(r)]
+
+
+def mfl_transactions(_cache={}):
+    """Every MFL transaction for the season, as a list. Memoised."""
+    if "rows" in _cache:
+        return _cache["rows"]
+    try:
+        js = worker_get("/api/mfl-export", TYPE="transactions", JSON="1")
+        node = js.get("transactions") or js.get("data", {}).get("transactions") or {}
+        rows = node.get("transaction") or []
+        if isinstance(rows, dict):
+            rows = [rows]
+    except Exception:                                    # noqa: BLE001
+        rows = None                 # unreadable is NOT empty -- see caller
+    _cache["rows"] = rows
+    return rows
+
+
+def _drop_uncorroborated_contract_rows(rows, season):
+    """Drop contract rows that cannot be rendered, are duplicates, or that
+    MFL's own record contradicts. Returns (kept, dropped).
+
+    Three defects, all present in the 2026 log:
+
+      * a blank player_name -- unrenderable, and unverifiable against anything.
+      * byte-identical duplicates of one submission. Justin Jefferson's MYM
+        appeared three times and Christian McCaffrey's tag four times; each
+        would have read as several separate deals.
+      * rows MFL contradicts, declared one at a time in
+        contract_log_phantom_<season>.json with the evidence for each.
+
+    The phantom list is DECLARED, not inferred. The first version of this check
+    inferred it -- any same-day LOAD_ROSTERS add plus remove -- and that rule
+    also flagged McCaffrey's real $62,000 franchise tag, because tagging a
+    player already on your roster removes and re-adds him to restamp the
+    contract. Silently dropping real contracts to catch fake ones is the worse
+    failure, so the inference was replaced by a verified list.
+    """
+    declared = set()
+    try:
+        cfg, _prov = tracked_data_file(
+            "site/rosters/contract_submissions/contract_log_phantom_%s.json" % season)
+        for e in (cfg or {}).get("rows") or []:
+            declared.add((str(e.get("franchise_id") or "").zfill(4),
+                          str(e.get("player_id") or "").strip(),
+                          str(e.get("submitted_on") or "").strip()))
+    except Exception:                                    # noqa: BLE001
+        declared = set()             # no declaration file -> drop nothing on that basis
+
+    kept, dropped, seen = [], [], set()
+    for r in rows:
+        pid = str(r.get("player_id") or "").strip()
+        fid = str(r.get("franchise_id") or "").zfill(4)
+        day = str(r.get("submitted_at_utc") or "")[:10]
+        if not (r.get("player_name") or "").strip():
+            dropped.append((r, "no player name"))
+            continue
+        if (fid, pid, day) in declared:
+            dropped.append((r, "contradicted by MFL (declared)"))
+            continue
+        key = (fid, pid, r.get("activity_type"), r.get("salary"),
+               r.get("contract_status"), day)
+        if key in seen:
+            dropped.append((r, "duplicate submission"))
+            continue
+        seen.add(key)
+        kept.append(r)
+    return kept, dropped
 
 
 # ------------------------------------------------------------ attribution

@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0011",
   "title": "2026 Team Review: Cleon Ca$h",
-  "generatedAtUtc": "2026-09-10T10:56:00Z",
+  "generatedAtUtc": "2026-09-10T11:05:13Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -20,13 +20,13 @@
     },
     {
       "name": "MFL rosters export, live (all 12 franchises, for league-relative ranks)",
-      "asof": "2026-09-10T10:55:52Z",
+      "asof": "2026-09-10T11:05:03Z",
       "rows": 216,
       "note": null
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-10T10:55:52Z",
+      "asof": "2026-09-10T11:05:03Z",
       "rows": 219,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
@@ -54,7 +54,6 @@
     "The Expired Rookie Auction and the Free Agent Auction sell different CALIBERS of player, not just different players. The ERA pool is expired rookie contracts -- men who did not earn a second deal -- and league-wide its most expensive player went for $7,000 against the FAA's $88,000. Never grade an ERA buy against an FAA buy, and never treat 'no ERA purchase is starting' as a finding; that is what the pool is.",
     "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a body signed and discarded inside the same offseason was never part of the team (that is a TIMING test, not a salary one -- do not describe those as minimum-salary) -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure.",
     "THREE-WAY TRADES: ups_3way_trades only records deals routed through the league's in-app trade tool, which did not exist before 2026 -- it is NOT an all-time ledger. Multi-team deals did happen in earlier years (Keith 2026-09-09: historical ones exist, involving owners since departed). Say three-way trades are RARE, and that this is the only one completed through the league's trade tool; never say it is the only one on record, and do not characterise the historical ones -- this pack has no data on them.",
-    "Nico Collins's restructure (2026-07-25) was done by CBP BEFORE this owner acquired him -- it is not this owner's contract work and must not be credited to him.",
     "The Week 1 table is an OPENING DATA POINT, not a result. Only 2 of 32 NFL teams had played when this was built. Never write a verdict, a trend or a told-you-so off it, and never call a player injured from a low score alone -- MFL's injuries export is the only source for a designation, and it carried none for these players."
   ],
   "entities": {
@@ -83,7 +82,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.league.era_top_price",
@@ -92,7 +91,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -101,7 +100,7 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.league.roster_max_at_auction",
@@ -128,7 +127,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL liveScoring",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.active_now",
@@ -137,7 +136,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "auction/compliance",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.active_roster_current",
@@ -173,7 +172,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.auction_spend",
@@ -182,7 +181,7 @@
       "unit": "usd",
       "fmt": "$34,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.can_field_lineup_current",
@@ -218,7 +217,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "auction/compliance",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.cap_current_spent",
@@ -227,7 +226,7 @@
       "unit": "usd",
       "fmt": "$287,000",
       "source": "auction/compliance",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.cap_opening",
@@ -254,7 +253,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.composite_value",
@@ -263,16 +262,16 @@
       "unit": "count",
       "fmt": "57,485",
       "source": "lineup_engine",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.contracts_count",
       "label": "Contract moves (extensions/restructures/tags/MYM/FA)",
-      "value": 7,
+      "value": 6,
       "unit": "count",
-      "fmt": "7",
+      "fmt": "6",
       "source": "contract_activity_2026",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.cuts_count",
@@ -281,7 +280,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.cuts_penalty_2026",
@@ -290,7 +289,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.cuts_penalty_2027_deferred",
@@ -299,7 +298,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.division_name",
@@ -308,7 +307,7 @@
       "unit": "text",
       "fmt": "DOG POUND 4 LIFE",
       "source": "MFL league export",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.division_rank",
@@ -317,7 +316,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "lineup_engine",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.division_size",
@@ -326,7 +325,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL league export",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.era_lots_won",
@@ -335,7 +334,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.era_spend",
@@ -344,7 +343,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.faa_lots_won",
@@ -353,7 +352,7 @@
       "unit": "count",
       "fmt": "13",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.faa_spend",
@@ -362,7 +361,7 @@
       "unit": "usd",
       "fmt": "$34,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.holes_opening",
@@ -389,7 +388,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_adds_alltime",
@@ -398,7 +397,7 @@
       "unit": "count",
       "fmt": "101",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_adds_lead_streak",
@@ -407,7 +406,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_adds_league_leader",
@@ -416,7 +415,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_adds_rank",
@@ -425,7 +424,7 @@
       "unit": "count",
       "fmt": "12",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_auction_share",
@@ -434,7 +433,7 @@
       "unit": "percent",
       "fmt": "17.6%",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_auction_share_rank",
@@ -443,7 +442,7 @@
       "unit": "count",
       "fmt": "9",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_auction_spend",
@@ -452,7 +451,7 @@
       "unit": "usd",
       "fmt": "$6,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.idp_ppw_rank",
@@ -461,7 +460,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "src_weekly",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.inyear_flyers",
@@ -470,7 +469,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.ir_now",
@@ -479,7 +478,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.lineup_value_current",
@@ -488,7 +487,7 @@
       "unit": "count",
       "fmt": "37,252",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.lineup_value_opening",
@@ -524,7 +523,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.qb_value",
@@ -542,7 +541,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.rb_value",
@@ -569,7 +568,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.roster_total_postauction",
@@ -605,7 +604,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.taxi_now",
@@ -614,7 +613,7 @@
       "unit": "count",
       "fmt": "10",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.te_rank",
@@ -623,7 +622,7 @@
       "unit": "rank",
       "fmt": "1",
       "source": "lineup_engine",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.te_value",
@@ -641,7 +640,7 @@
       "unit": "percent",
       "fmt": "44.1%",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.top_buy_price",
@@ -650,7 +649,7 @@
       "unit": "usd",
       "fmt": "$15,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.trades_count",
@@ -668,7 +667,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "mfl transactions",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.wk_live",
@@ -677,7 +676,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL liveScoring",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.wk_players_final",
@@ -686,7 +685,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL liveScoring + rosters",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.wk_points_final",
@@ -695,7 +694,7 @@
       "unit": "points",
       "fmt": "0.0",
       "source": "MFL playerScores",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.wr_rank",
@@ -704,7 +703,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-10T10:55:52Z"
+      "asof": "2026-09-10T11:05:03Z"
     },
     {
       "id": "f.team.0011.wr_value",
@@ -1105,16 +1104,6 @@
           "2026-07-24"
         ],
         [
-          "Nico Collins",
-          "WR",
-          "FA Contract",
-          "Vet-Ext2",
-          30000,
-          "no",
-          94000,
-          "2026-07-28"
-        ],
-        [
           "Romeo Doubs",
           "WR",
           "Multi-Year Contract",
@@ -1135,7 +1124,7 @@
           "2026-07-31"
         ]
       ],
-      "note": "Distinct deals, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. 'At league minimum?' answers the only question that word means: the UPS minimum salary is $1,000, so a $2,000 deal is NOT a minimum deal and must never be called one. Provenance: origin/main (local checkout is behind)"
+      "note": "Distinct deals, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. 'At league minimum?' answers the only question that word means: the UPS minimum salary is $1,000, so a $2,000 deal is NOT a minimum deal and must never be called one. Provenance: origin/main (local checkout is behind); 14 uncorroborated row(s) dropped"
     },
     {
       "id": "t.0011.cuts",

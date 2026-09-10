@@ -1,0 +1,55 @@
+{
+  "_comment": [
+    "Contract-activity rows that MFL's own record CONTRADICTS. Each one was",
+    "verified individually against export?TYPE=transactions and the live",
+    "rosters export before being listed here -- this is a declaration of",
+    "verified findings, NOT a heuristic. An earlier heuristic version of this",
+    "check (same-day LOAD_ROSTERS add+remove) also flagged Christian",
+    "McCaffrey's real $62,000 franchise tag, because tagging a player you",
+    "already roster legitimately removes and re-adds him to restamp the",
+    "contract. Dropping real contracts to catch fake ones is the worse error,",
+    "so the rule was replaced with this list.",
+    "",
+    "ROOT CAUSE, still open: the Front Office's FA-Contract flow writes a",
+    "contract_activity row with test_flag = 0 even when the submission never",
+    "reaches MFL. All 8 'FA Contract' rows in the 2026 log lack any",
+    "corroborating MFL roster movement, and the four below are positively",
+    "contradicted. Fixing the writer is the real repair; this file stops the",
+    "bad rows reaching print in the meantime."
+  ],
+  "season": "2026",
+  "rows": [
+    {
+      "franchise_id": "0001",
+      "player_id": "14777",
+      "player_name": "Joe Burrow",
+      "submitted_on": "2026-05-22",
+      "claimed": "FA Contract, $46,000",
+      "evidence": "LOAD_ROSTERS added and removed him from 0001 the same day. He was auctioned twice after that -- won by 0010 at $16,000 on 2026-07-16, then by 0009 at $58,000 on 2026-07-27 -- and sits on 0009 today at $28,000 Vet-FAA-BL. L.A. Looks never rostered him."
+    },
+    {
+      "franchise_id": "0009",
+      "player_id": "13589",
+      "player_name": "Josh Allen",
+      "submitted_on": "2026-05-22",
+      "claimed": "FA Contract, $46,000",
+      "evidence": "LOAD_ROSTERS added and removed him from 0009 the same day, minutes either side of the identical $46,000 Burrow row. He is on 0010 today at $88,000 Vet-FAA, the highest price in the Free Agent Auction."
+    },
+    {
+      "franchise_id": "0001",
+      "player_id": "15365",
+      "player_name": "Trevon Moehrig",
+      "submitted_on": "2026-05-21",
+      "claimed": "FA Contract, Veteran, $3,000",
+      "evidence": "LOAD_ROSTERS added and removed him from 0001 the same day. He IS on 0001 now, but at $2,000 Vet-FAA, won at auction on 2026-07-31 -- a different contract entirely. Leaving this row in prints one player's contract twice at two different prices."
+    },
+    {
+      "franchise_id": "0006",
+      "player_id": "13700",
+      "player_name": "Harold Landry",
+      "submitted_on": "2026-05-14",
+      "claimed": "FA Contract, $3,000",
+      "evidence": "Zero MFL transactions of any type, ever, for this player id in 2026 -- no load, no free-agent move, no auction. He is unrostered league-wide today. The Front Office wrote the row and MFL never saw it."
+    }
+  ]
+}
