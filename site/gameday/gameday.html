@@ -414,8 +414,15 @@
         }
       }
     }
+    // "0000" is MFL's league/commissioner id, not a team, and it reaches here
+    // from window.FRANCHISE_ID on a commish page. Anything that is not an
+    // actual franchise in this league is NOT an identity -- record none, so the
+    // roster views say so plainly and the scoreboard's picker takes over
+    // instead of rendering a card for a team that does not exist.
+    var known = STATE.franchises.find(function (f) { return f.id === fid; }) || null;
+    if (fid && !known) fid = "";
     STATE.viewerFranchiseId = fid;
-    STATE.viewerFranchise = STATE.franchises.find(function (f) { return f.id === fid; }) || null;
+    STATE.viewerFranchise = known;
     if (fid) { try { window.localStorage && window.localStorage.setItem("rdh_my_fid", fid); } catch (e) {} }
   }
   function playerById(id) {
@@ -1332,11 +1339,18 @@
   // and there was no way to watch the scores at all. A picker fixes that for
   // the commish and lets anyone follow another team's card.
   function sbViewFid() {
-    var f = pad4(STATE.sbViewFid || "");
-    if (f && sbFranchises().some(function (x) { return pad4(x.id) === f; })) return f;
-    if (STATE.viewerFranchiseId) return STATE.viewerFranchiseId;
     var all = sbFranchises();
-    return all.length ? pad4(all[0].id) : "";
+    var real = function (v) {
+      var f = pad4(v || "");
+      return (f && all.some(function (x) { return pad4(x.id) === f; })) ? f : "";
+    };
+    // EVERY candidate is validated against the real franchise list. MFL uses
+    // "0000" for the commissioner/league rather than a team, and pad4("0000")
+    // is truthy, so an unvalidated viewerFranchiseId sailed through as a
+    // franchise that does not exist -- sbCompute found no rows, hasData came
+    // back false, and the commissioner got an empty card with no way to pick.
+    return real(STATE.sbViewFid) || real(STATE.viewerFranchiseId) ||
+           (all.length ? pad4(all[0].id) : "");
   }
   function sbWeek() {
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
