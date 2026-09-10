@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.09.4",
-  "label": "A player ruled Out, on IR, suspended, holding out or retired now projects zero for the rest of the week instead of carrying a share of his projection."
+  "build": "2026.09.09.5",
+  "label": "Internal: the live-scoring maths now comes from one shared module instead of two hand-copies that had drifted apart. No visible change intended."
 }
