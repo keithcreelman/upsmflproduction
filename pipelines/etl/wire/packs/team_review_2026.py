@@ -1773,8 +1773,10 @@ def build(pack_id):
         t_idp = None
 
     # ---- division ----
-    # "6th of 12" is an abstraction nobody plays against. You play your division,
-    # twice each (Keith: "finish by including how i look within the division").
+    # "6th of 12" is an abstraction nobody plays against. You play your division
+    # -- FIVE times each in 2026's 37-game, multi-game-week schedule (MFL
+    # export?TYPE=schedule), not twice as this once said and every review printed
+    # (Keith: "finish by including how i look within the division").
     try:
         _lg = (D.worker_get("/api/mfl-export", TYPE="league", JSON=1).get("league") or {})
         _dnames = {str(x.get("id")): x.get("name")
@@ -1807,9 +1809,10 @@ def build(pack_id):
                            [[owners.get(f, {}).get("team_name", f),
                              _league_order.index(f) + 1 if f in composite else 0,
                              "%.2f" % ppw[f] if f in ppw else "--"] for f in _ord],
-                           note="Divisional opponents are played twice a season, so this is the "
-                                "comparison that decides a playoff seed -- more than the league-wide "
-                                "rank does.")
+                           note="Each division rival is played FIVE times in the 37-game 2026 "
+                                "schedule (ten of every owner's games), so this is the comparison "
+                                "that decides a playoff seed -- more than the league-wide rank does. "
+                                "Never write that division rivals meet twice.")
 
     # ---- rookie picks ----
     tiers = json.load(open(os.path.join(D.REPO, "site", "rookies", "rookie_draft_tiers.json")))
@@ -2022,9 +2025,10 @@ def build(pack_id):
                          "f.team.%s.inyear_flyers" % fid,
                          "f.team.%s.rookie_picks_count" % fid],
                 table_ids=[t_contracts, t_trades, t_cuts, t_rookies])
-    pack.section("s5", "The Verdict", "Finish inside the DIVISION -- divisional opponents are "
-                "played twice, so that is the comparison deciding a playoff seed and it is who this "
-                "owner actually plays; use the division table and say plainly where he sits in it. "
+    pack.section("s5", "The Verdict", "Finish inside the DIVISION -- each division rival is "
+                "played FIVE times (ten of his 37 games), so that is the comparison deciding a playoff "
+                "seed and it is who this owner actually plays; use the division table and say plainly "
+                "where he sits in it. "
                 "Then a direct verdict: is this the strongest team in "
                 "the league right now, and separately, was this a good offseason? They can disagree. "
                 "Name the single biggest advantage and the single biggest weakness, each with players. "
