@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-07T15:15:14.543533+00:00",
+    "generated_at_utc": "2026-09-10T13:48:56.654937+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1174,7 +1174,7 @@
           "salary": 11000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -1937,6 +1937,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16166",
+          "display": "Sean Tucker",
+          "player_id": "16166",
+          "position": "RB",
+          "nfl_team": "TBB",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4003,6 +4015,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_14218",
+          "display": "Bobby Okereke",
+          "player_id": "14218",
+          "position": "LB",
+          "nfl_team": "CAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15716",
           "display": "Brian Robinson",
           "player_id": "15716",
@@ -4022,18 +4046,6 @@
           "nfl_team": "JAC",
           "salary": 1000,
           "contract_year": 3,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16295",
-          "display": "Chamarri Conner",
-          "player_id": "16295",
-          "position": "S",
-          "nfl_team": "KCC",
-          "salary": 1000,
-          "contract_year": 1,
           "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -4063,11 +4075,11 @@
           "taxi": false
         },
         {
-          "asset_id": "P_13322",
-          "display": "Chuck Clark",
-          "player_id": "13322",
+          "asset_id": "P_16700",
+          "display": "Cole Bishop",
+          "player_id": "16700",
           "position": "S",
-          "nfl_team": "DET",
+          "nfl_team": "BUF",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -4075,11 +4087,11 @@
           "taxi": false
         },
         {
-          "asset_id": "P_13952",
-          "display": "Frankie Luvu",
-          "player_id": "13952",
-          "position": "LB",
-          "nfl_team": "WAS",
+          "asset_id": "P_15875",
+          "display": "Dane Belton",
+          "player_id": "15875",
+          "position": "S",
+          "nfl_team": "NYJ",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -4123,18 +4135,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16712",
-          "display": "Jalyx Hunt",
-          "player_id": "16712",
-          "position": "DE",
-          "nfl_team": "PHI",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17115",
           "display": "James Pearce",
           "player_id": "17115",
@@ -4144,6 +4144,18 @@
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
           "roster_status": "INJURED_RESERVE",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17167",
+          "display": "Jonas Sanker",
+          "player_id": "17167",
+          "position": "S",
+          "nfl_team": "NOS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
