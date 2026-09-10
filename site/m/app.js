@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.09.09.2";
+  var BUILD = "2026.09.09.3";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -2709,8 +2709,16 @@
       });
       return;
     }
-    // Franchise gate: every view (except "more") requires viewerFranchiseId.
-    if (!state.viewerFranchiseId && top !== "more") {
+    // Franchise gate: the roster/contract views genuinely need to know WHOSE
+    // team they are acting on. LIVE SCORING DOES NOT -- it is a league-wide
+    // scoreboard, it carries its own team picker, and it falls back to a real
+    // franchise when there is no identity. Gating it meant the commissioner
+    // (whose /api/me can hand back no playing franchise at all) was shown a
+    // franchise picker, or worse the plain "Sign in" card, instead of the
+    // scores -- while every number needed to draw that board had already
+    // loaded.
+    var UNGATED = { more: 1, scores: 1 };
+    if (!state.viewerFranchiseId && !UNGATED[top]) {
       renderFranchisePicker(main);
       updateHeader();
       return;
