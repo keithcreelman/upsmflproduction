@@ -293,6 +293,32 @@
     });
   }
 
+  /* ---- kickoff times --------------------------------------------------- */
+
+  // MFL export?TYPE=nflSchedule -> { TEAM: kickoffUnix }. Team codes are MFL's
+  // own (NEP, SFO, LAR) -- the same codes the players export uses -- so a
+  // starter's p.nfl looks straight up. An unreadable schedule returns {} and
+  // callers keep "Yet": this is display-only and never gates anything.
+  function parseKickoffs(json) {
+    var out = {};
+    try {
+      asArray(json && json.nflSchedule && json.nflSchedule.matchup).forEach(function (m) {
+        var k = parseInt(m && m.kickoff, 10);
+        if (!(k > 0)) return;
+        asArray(m.team).forEach(function (t) { if (t && t.id) out[String(t.id).toUpperCase()] = k; });
+      });
+    } catch (e) {}
+    return out;
+  }
+  // "Sun 1:00 PM" in the VIEWER's own time zone; "" when unknown so the caller
+  // keeps its old label rather than printing something wrong.
+  function kickoffLabel(unix) {
+    if (!(unix > 0)) return "";
+    try {
+      return new Date(unix * 1000).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+    } catch (e) { return ""; }
+  }
+
   /* ---- identity -------------------------------------------------------- */
 
   // MFL hands a commissioner "0000" — the league id, not a team — and
@@ -316,6 +342,7 @@
     normCdf: normCdf, winProb: winProb,
     matchupState: matchupState, outcome: outcome, h2hRecord: h2hRecord,
     projectionNote: projectionNote, resolveViewFid: resolveViewFid,
-    posGroup: posGroup, groupStarters: groupStarters, POS_ORDER: POS_ORDER
+    posGroup: posGroup, groupStarters: groupStarters, POS_ORDER: POS_ORDER,
+    parseKickoffs: parseKickoffs, kickoffLabel: kickoffLabel
   };
 })(typeof window !== "undefined" ? window : this);

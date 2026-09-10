@@ -84,7 +84,9 @@
       fetchJson(sbExportUrl("schedule")),
       fetchJson(sbExportUrl("league")),
       fetchJson(sbExportUrl("projectedScores", wk)),
-      fetchJson(sbExportUrl("playerScores", wk))   // every player's actual points → positional rank
+      fetchJson(sbExportUrl("playerScores", wk)),   // every player's actual points → positional rank
+      // Kickoff times ("Sun 1:00 PM" instead of "Yet"). LAST: read by position below.
+      fetchJson(sbExportUrl("nflSchedule", wk))
     ]).then(function (r) {
       var live = r[0], weekly = r[1];
       // SOURCE SELECTION -- the same two facts that broke the desktop board.
@@ -106,7 +108,8 @@
       try { asArray(r[4].projectedScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) proj[String(p.id)] = n; } }); } catch (e) {}
       var scores = {};
       try { asArray(r[5].playerScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) scores[String(p.id)] = n; } }); } catch (e) {}
-      M.state.sb = { loaded: true, source: source, live: live, weekly: weekly, schedule: r[2],
+      var kick = LS.parseKickoffs(r[6]);
+      M.state.sb = { loaded: true, kick: kick, source: source, live: live, weekly: weekly, schedule: r[2],
         franchises: franchises.length ? franchises : (M.state.franchises || []), proj: proj, scores: scores };
       try { M.state.sbAt = Date.now(); } catch (e) {}
       // proj/playerScores fetched with the SELECTED week; "" (Current) on a PAST
@@ -403,7 +406,7 @@
     function rowHtml(p) {
       var st = p.done ? '<span class="st done">Final</span>'
         : p.playing ? '<span class="st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
-        : '<span class="st yet">Yet</span>';
+        : '<span class="st yet">' + esc(LS.kickoffLabel(M.state.sb && M.state.sb.kick && M.state.sb.kick[String(p.nfl || "").toUpperCase()]) || "Yet") + '</span>';
       var inj = injuryShort(p.status) ? ' <span class="ups-m-sb-inj">' + esc(injuryShort(p.status)) + '</span>' : "";
       var open = M.state.sbPlayerExp === p.pid;
       var rk = sbPosRank(p.pid);
@@ -454,7 +457,7 @@
       '<select class="ups-m-sb-sel" id="ups-m-sb-week">' + wOpts + '</select>' +
       (tOpts ? '<select class="ups-m-sb-sel" id="ups-m-sb-team">' + tOpts + '</select>' : '') + '</div>';
   }
-  function resetSb() { M.state.sb = null; M.state.sbExpand = null; M.state.sbPlayerExp = null; renderRoute(); }
+  function resetSb() { M.state.sb = null; M.state.sbExpand = null; M.state.sbApExpand = null; M.state.sbPlayerExp = null; renderRoute(); }
 
   // ---- team row (Me or opponent) ----
   function teamRow(team, isMe, me, opps) {
@@ -526,10 +529,13 @@
       var beat = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) < metricOf(x); }).length;
       var tied = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) === metricOf(x); }).length;
       var mine = x.fid === sbViewFid();
-      return '<div class="ups-m-sb-ap-row' + (mine ? " mine" : "") + '">' +
-        '<span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(x.name) + '</span>' +
+      var apOpen = M.state.sbApExpand === x.fid;
+      return '<div class="ups-m-sb-ap-row tap' + (mine ? " mine" : "") + (apOpen ? " open" : "") + '" data-apexp="' + esc(x.fid) + '">' +
+        '<span class="rk">' + (i + 1) + '</span><span class="nm"><span class="ups-m-sb-apcaret">' + (apOpen ? "▾" : "▸") + '</span>' + esc(x.name) + '</span>' +
         '<span class="lv">' + fmtPts(x.live) + '</span><span class="pj">' + fmtPts(x.projFinal) + '</span>' +
-        '<span class="bt">' + beat + '–' + (all.length - 1 - beat - tied) + (tied ? "–" + tied : "") + '</span></div>';
+        '<span class="bt">' + beat + '–' + (all.length - 1 - beat - tied) + (tied ? "–" + tied : "") + '</span></div>' +
+        // Same starters list the head-to-head rows open, under the tapped team.
+        (apOpen ? '<div class="ups-m-sb-ros ups-m-sb-ap-ros">' + rosterList(x) + '</div>' : '');
     }).join("");
     var allplay = '<div class="ups-m-sb-sec">All-Play board' +
       '<span class="ups-m-sb-toggle"><button type="button" data-sbview="proj"' + (sbView === "proj" ? ' class="on"' : '') + '>Proj</button>' +
@@ -551,7 +557,7 @@
     var tEl = mount.querySelector("#ups-m-sb-team");
     // Switching team is a re-render only -- the payload already holds all twelve.
     if (tEl) tEl.addEventListener("change", function () {
-      M.state.sbViewFid = tEl.value; M.state.sbExpand = null; M.state.sbPlayerExp = null; M.renderRoute();
+      M.state.sbViewFid = tEl.value; M.state.sbExpand = null; M.state.sbApExpand = null; M.state.sbPlayerExp = null; M.renderRoute();
     });
     var wEl = mount.querySelector("#ups-m-sb-week");
     if (wEl) wEl.addEventListener("change", function () { M.state.sbWeek = wEl.value; resetSb(); });
@@ -586,6 +592,18 @@
       od[o].addEventListener("click", (function (el) {
         return function (e) { e.stopPropagation(); setSbOrder(el.getAttribute("data-sborder")); renderRoute(); };
       })(od[o]));
+    }
+    // All-Play: tap a team to open its starters, like the head-to-head rows.
+    var ap = mount.querySelectorAll("[data-apexp]");
+    for (var a = 0; a < ap.length; a++) {
+      ap[a].addEventListener("click", (function (el) {
+        return function () {
+          var id = el.getAttribute("data-apexp");
+          M.state.sbApExpand = (M.state.sbApExpand === id) ? null : id;
+          M.state.sbPlayerExp = null;
+          renderRoute();
+        };
+      })(ap[a]));
     }
     var tg = mount.querySelectorAll("[data-sbview]");
     for (var k = 0; k < tg.length; k++) {

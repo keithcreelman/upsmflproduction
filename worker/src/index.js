@@ -17132,6 +17132,9 @@ export default {
           "players", "transactions", "freeAgents",
           "pendingTrades", "tradeBait", "futureDraftPicks", "schedule",
           "nflByeWeeks", "injuries", "calendar", "draftResults",
+          // NFL kickoff times per game, so Game Day / mobile Scores can show a
+          // not-yet-started starter as "Sun 1:00 PM" instead of "Yet".
+          "nflSchedule",
           "playerProfile", "playerScores",
           // Lineup projected points (keyless) + matchup points-allowed
           // (back-burner: defense vs position). Both public, read-only.
@@ -17212,7 +17215,10 @@ export default {
         // every other export in the allowlist IS league-scoped and MUST keep
         // sending L=. `calendar`, for instance, looks similar but is genuinely
         // league-scoped ("Missing League ID" without L=).
-        const leagueAgnosticTypes = new Set(["injuries", "nflByeWeeks"]);
+        // nflSchedule verified both ways 2026-09-10: www48 WITH L= answers "This
+        // API request must go to api.myfantasyleague.com"; api. with no L
+        // returns all 16 week-1 games with kickoff times.
+        const leagueAgnosticTypes = new Set(["injuries", "nflByeWeeks", "nflSchedule"]);
         const isLeagueAgnostic = leagueAgnosticTypes.has(type);
         // Pre-2017 UPS seasons live under DISTINCT league_ids on older shards
         // and are ARCHIVED → their weeklyResults/league export require the

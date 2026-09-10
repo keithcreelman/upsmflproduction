@@ -223,6 +223,11 @@
   .gd-sb-toggle button.on { color: var(--accent); border-color: var(--accent); }
   .gd-sb-ros th, .gd-sb-ap th { font-size: 10px; }
   .gd-sb-ap tr.me td { background: rgba(91,141,255,0.10); }
+  .gd-sb-ap tr.gd-sb-aprow { cursor: pointer; }
+  .gd-sb-ap tr.gd-sb-aprow:hover td { background: rgba(91,141,255,0.07); }
+  .gd-sb-ap tr.gd-sb-aprow.open td { background: rgba(91,141,255,0.11); }
+  .gd-sb-apcaret { display: inline-block; width: 13px; color: var(--muted); font-size: 10px; }
+  .gd-sb-ap tr.gd-sb-apros > td { padding: 0 0 10px; background: transparent; }
   .gd-sb-ap .rk, .gd-sb-ros .rk { color: var(--muted); font-variant-numeric: tabular-nums; width: 28px; }
   .gd-sb-st { font-size: 11px; font-weight: 700; }
   .gd-sb-st.done { color: var(--muted); }
@@ -1267,7 +1272,10 @@
       fetchJson(sbExportUrl("injuries")),
       fetchJson(sbExportUrl("league")),
       fetchJson(sbExportUrl("projectedScores", wk)),  // ORIGINAL projection for the SELECTED week (keyless, goes back historically)
-      fetchJson(sbExportUrl("playerScores", wk))      // every player's actual points that week → positional rank
+      fetchJson(sbExportUrl("playerScores", wk)),      // every player's actual points that week → positional rank
+      // Kickoff times, so a starter who has not played shows "Sun 1:00 PM"
+      // instead of "Yet". Kept LAST: the handler below reads results by position.
+      fetchJson(sbExportUrl("nflSchedule", wk))
     ]).then(function (r) {
       var live = r[0], weekly = r[1];
       // SOURCE SELECTION. This tested only liveScoring.franchise[] -- but MFL
@@ -1298,7 +1306,8 @@
       try { asArray(r[5].projectedScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) proj[String(p.id)] = n; } }); } catch (e) {}
       var scores = {};
       try { asArray(r[6].playerScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) scores[String(p.id)] = n; } }); } catch (e) {}
-      STATE.sb = { loaded: true, source: source, live: live, weekly: weekly, schedule: r[2], injuries: parseInjuries(r[3]),
+      var kick = LS.parseKickoffs(r[7]);
+      STATE.sb = { loaded: true, kick: kick, source: source, live: live, weekly: weekly, schedule: r[2], injuries: parseInjuries(r[3]),
         franchises: franchises.length ? franchises : STATE.franchises, proj: proj, scores: scores };
       try { STATE.sbAt = new Date(); } catch (e) {}
       // proj/playerScores were fetched with the SELECTED week; when that's ""
@@ -1503,13 +1512,13 @@
   }
   function bindWeekControls(el) {
     var yEl = el.querySelector("#gd-sb-year");
-    if (yEl) yEl.addEventListener("change", function () { STATE.sbYear = yEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
+    if (yEl) yEl.addEventListener("change", function () { STATE.sbYear = yEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbApExpand = null; STATE.sbPlayerExp = null; render(); });
     var wEl = el.querySelector("#gd-sb-week");
-    if (wEl) wEl.addEventListener("change", function () { STATE.sbWeek = wEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
+    if (wEl) wEl.addEventListener("change", function () { STATE.sbWeek = wEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbApExpand = null; STATE.sbPlayerExp = null; render(); });
     var tEl = el.querySelector("#gd-sb-team");
     // Switching team re-renders only -- the scoreboard payload already holds
     // every franchise, so there is nothing to re-fetch.
-    if (tEl) tEl.addEventListener("change", function () { STATE.sbViewFid = tEl.value; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
+    if (tEl) tEl.addEventListener("change", function () { STATE.sbViewFid = tEl.value; STATE.sbExpand = null; STATE.sbApExpand = null; STATE.sbPlayerExp = null; render(); });
   }
 
   function renderLive(el) {
@@ -1605,10 +1614,14 @@
       var beat = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) < metricOf(x); }).length;
       var tied = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) === metricOf(x); }).length;
       var mine = x.fid === sbViewFid();
-      return '<tr' + (mine ? ' class="me"' : '') + '><td class="rk">' + (i + 1) + '</td><td>' + esc(x.name) + '</td>' +
+      var apOpen = STATE.sbApExpand === x.fid;
+      return '<tr class="gd-sb-aprow' + (mine ? ' me' : '') + (apOpen ? ' open' : '') + '" data-apexp="' + esc(x.fid) + '"><td class="rk">' + (i + 1) + '</td>' +
+        '<td><span class="gd-sb-apcaret">' + (apOpen ? '▾' : '▸') + '</span>' + esc(x.name) + '</td>' +
         '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(x.live) + '</td>' +
         '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(x.projFinal) + '</td>' +
-        '<td class="gd-taxi-pos">' + beat + '–' + (all.length - 1 - beat - tied) + (tied ? '–' + tied : '') + '</td></tr>';
+        '<td class="gd-taxi-pos">' + beat + '–' + (all.length - 1 - beat - tied) + (tied ? '–' + tied : '') + '</td></tr>' +
+        // Same starters table the head-to-head rows open, under the tapped team.
+        (apOpen ? '<tr class="gd-sb-apros"><td colspan="5"><div class="gd-sb-oppros">' + rosterTable(x) + '</div></td></tr>' : '');
     }).join("");
     var allplay = '<div class="gd-sb-sec-head">All-Play board ' +
       '<span class="gd-sb-toggle"><button type="button" data-sbview="proj"' + (sbView === "proj" ? ' class="on"' : '') + '>Proj final</button>' +
@@ -1620,6 +1633,10 @@
 
     el.querySelectorAll("[data-oppexp]").forEach(function (r) {
       r.addEventListener("click", function () { var id = r.getAttribute("data-oppexp"); STATE.sbExpand = (STATE.sbExpand === id) ? null : id; render(); });
+    });
+    // All-Play: tap a team to open its starters, like the head-to-head rows.
+    el.querySelectorAll("tr[data-apexp]").forEach(function (r) {
+      r.addEventListener("click", function () { var id = r.getAttribute("data-apexp"); STATE.sbApExpand = (STATE.sbApExpand === id) ? null : id; render(); });
     });
     el.querySelectorAll("[data-sbview]").forEach(function (b) {
       b.addEventListener("click", function () { STATE.sbView = b.getAttribute("data-sbview"); render(); });
@@ -1807,7 +1824,7 @@
     function rowHtml(p) {
         var st = p.done ? '<span class="gd-sb-st done">Final</span>'
           : p.playing ? '<span class="gd-sb-st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
-          : '<span class="gd-sb-st yet">Yet</span>';
+          : '<span class="gd-sb-st yet">' + esc(LS.kickoffLabel(STATE.sb && STATE.sb.kick && STATE.sb.kick[String(p.nfl || "").toUpperCase()]) || "Yet") + '</span>';
         var inj = injuryShort(p.status) ? ' <span class="gd-sb-inj">' + esc(injuryShort(p.status)) + '</span>' : "";
         var nameCell = '<a class="gd-plink" href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener"' +
           ' data-bd-pid="' + esc(p.pid) + '" data-bd-name="' + esc(p.name) + '"' +

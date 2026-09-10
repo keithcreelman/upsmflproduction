@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.10.2",
-  "label": "Scores: each team's starters are grouped by position now (QB, RB, WR, TE, K, P, DL, LB, DB) with a points subtotal per group. Tap Points to get the old single list back."
+  "build": "2026.09.10.3",
+  "label": "Scores: starters who haven't played show their kickoff (e.g. Sun 1:00 PM) instead of 'Yet', and tapping a team on the All-Play board opens its starters and points."
 }
