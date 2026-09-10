@@ -40763,7 +40763,30 @@ const mflToSleeper = {};
             if (!prsRes || !prsRes.ok) {
               return { fail: "playerRosterStatus read failed: " + (safeStr(prsRes && prsRes.error) || `HTTP ${safeInt(prsRes && prsRes.status, 0)}`) };
             }
-            return { parsed: _lineupParseRosterStatuses(prsRes.data, fid) };
+            let parsed = _lineupParseRosterStatuses(prsRes.data, fid);
+
+            // ASKING FOR THE WRONG WEEK LOOKS EXACTLY LIKE AN UNREADABLE ANSWER.
+            // For a week with no lineup set, MFL still returns a row per player
+            // but OMITS the roster_franchise block entirely, so the parse matches
+            // nothing and reports "no playerStatus entry for franchise NNNN" --
+            // indistinguishable from a failed read. Measured on L=74598 F=0008:
+            //     W=1 -> 35 matched (18 S / 12 NS / 2 IR / 3 TS)
+            //     W=2 -> 35 entries, 0 matched
+            // Game Day sends projectedScores.week, and once Week 1 kicked off MFL
+            // rolled projections to Week 2 -- so the page asked about a week the
+            // owner has not set yet and concluded it could not read him at all.
+            //
+            // Omitting W makes MFL answer for the week it considers current, which
+            // is the lineup an owner means by "my current lineup". Retry that way
+            // and report which week actually answered, so the caller can say so.
+            if (week && (!parsed.ok && parsed.matched === 0)) {
+              const curRes = await get("playerRosterStatus", { P: pids.join(","), F: fid });
+              if (curRes && curRes.ok) {
+                const curParsed = _lineupParseRosterStatuses(curRes.data, fid);
+                if (curParsed.ok) return { parsed: curParsed, weekUsed: "current", askedWeek: week };
+              }
+            }
+            return { parsed: parsed, weekUsed: week || "current" };
           };
 
           try {
@@ -40782,7 +40805,9 @@ const mflToSleeper = {};
             lineupDiag.viewer = mine.fail
               ? { step: "failed", detail: String(mine.fail).slice(0, 120) }
               : { step: "parsed", ok: !!(parsed && parsed.ok), matched: (parsed && parsed.matched) || 0,
-                  counts: (parsed && parsed.counts) || {} };
+                  counts: (parsed && parsed.counts) || {},
+                  weekUsed: mine.weekUsed, askedWeek: mine.askedWeek };
+            if (mine.askedWeek) lineupDiag.weekFallback = { asked: mine.askedWeek, answered: "current" };
 
             // WHY THE ANONYMOUS RETRY, AND WHY IT CAN ONLY EVER UPGRADE US.
             // When the cookie belongs to the COMMISSIONER, MFL answers from that
