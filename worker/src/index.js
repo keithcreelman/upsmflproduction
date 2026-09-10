@@ -40733,6 +40733,10 @@ const mflToSleeper = {};
           // back to the worker's own cookie when there is no viewer identity.
           let mflAnswer = { known: false, state: "unknown", starters: null, reason: "not attempted" };
           let mflCounts = null;
+          // Diagnostics only: which read answered, and what each one saw. No
+          // credentials, no cookie values -- statuses and counts for the
+          // caller's OWN franchise, which is what the endpoint already returns.
+          const lineupDiag = {};
 
           // ONE SEQUENCE, RUNNABLE AS EITHER IDENTITY.
           // roster -> player ids -> playerRosterStatus -> parse. Every step can
@@ -40768,6 +40772,17 @@ const mflToSleeper = {};
             // "no lineup submitted".
             const mine = await _readLineup(true);
             let parsed = mine.parsed || null;
+            // WHICH PATH ANSWERED. Three rounds of fixing this endpoint were
+            // spent inferring where it broke from one user-facing sentence that
+            // is IDENTICAL whether the retry ran and failed or never ran at all.
+            // The reason string cannot carry that, so report it separately.
+            lineupDiag.fid = fid;
+            lineupDiag.week = String(week || "");
+            lineupDiag.viewerIdentity = browserCookieHeader ? "query_param" : "service_cookie";
+            lineupDiag.viewer = mine.fail
+              ? { step: "failed", detail: String(mine.fail).slice(0, 120) }
+              : { step: "parsed", ok: !!(parsed && parsed.ok), matched: (parsed && parsed.matched) || 0,
+                  counts: (parsed && parsed.counts) || {} };
 
             // WHY THE ANONYMOUS RETRY, AND WHY IT CAN ONLY EVER UPGRADE US.
             // When the cookie belongs to the COMMISSIONER, MFL answers from that
@@ -40784,8 +40799,20 @@ const mflToSleeper = {};
             // ambiguity this endpoint exists to respect.
             if (mine.fail || !parsed || !parsed.ok || parsed.matched === 0) {
               const anon = await _readLineup(false);
-              if (anon.parsed && anon.parsed.ok && anon.parsed.starters.length) parsed = anon.parsed;
+              lineupDiag.anon = anon.fail
+                ? { step: "failed", detail: String(anon.fail).slice(0, 120) }
+                : { step: "parsed", ok: !!(anon.parsed && anon.parsed.ok),
+                    matched: (anon.parsed && anon.parsed.matched) || 0,
+                    starters: (anon.parsed && anon.parsed.starters && anon.parsed.starters.length) || 0,
+                    counts: (anon.parsed && anon.parsed.counts) || {} };
+              if (anon.parsed && anon.parsed.ok && anon.parsed.starters.length) {
+                parsed = anon.parsed;
+                lineupDiag.accepted = "anon";
+              }
+            } else {
+              lineupDiag.anon = { step: "not_needed" };
             }
+            if (!lineupDiag.accepted) lineupDiag.accepted = parsed && parsed.ok ? "viewer" : "none";
 
             if (!parsed || !parsed.ok) {
               mflAnswer = parsed
@@ -40828,6 +40855,7 @@ const mflToSleeper = {};
               submitted_at_unix: sameSet ? Number((ledgerRow && ledgerRow.submitted_at_unix) || 0) : null,
               starters: mflAnswer.starters,
               status_counts: mflCounts,
+              diag: lineupDiag,
             });
           }
 
@@ -40880,6 +40908,7 @@ const mflToSleeper = {};
             franchise_id: fid, week: week || "", starters: null,
             error: mflAnswer.reason || "could not read your lineup",
             ledger_error: ledgerErr || undefined,
+            diag: lineupDiag,
           });
         } catch (e) {
           return jsonOut(200, { ok: false, known: false, state: "unknown", starters: null, error: "lineup_read_failed: " + ((e && e.message) || String(e)) });
