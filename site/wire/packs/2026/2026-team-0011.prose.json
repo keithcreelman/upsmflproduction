@@ -1,0 +1,66 @@
+{
+ "meta": {
+  "engine": "claude-opus-5 (session agent)",
+  "packId": "2026-team-0011"
+ },
+ "prose": {
+  "kicker": "Lowest auction spend in the league, one trade all year, fourth in the table",
+  "title": "Cleon Ca$h Let the Draft Do His Offseason and It Worked",
+  "dek": "Eric Mannila spent {{f.team.0011.auction_spend}} at auction \u2014 less than anybody \u2014 made {{f.team.0011.trades_count}} trade, and ranks {{f.team.0011.composite_rank}} of {{f.league.teams}}. The pick at 1.01 did more for this roster than his entire summer of shopping.",
+  "sections": [
+   {
+    "id": "s1",
+    "lead": "",
+    "paragraphs": [
+     "Tight end ranks {{f.team.0011.te_rank}}, first in the league, and it is a genuine structural edge rather than a quirk. Colston Loveland grades Elite TE1 and Tucker Kraft, a Mid TE1, occupies one of the offensive flexes. Nobody else in this competition is starting two tight ends because nobody else has two worth starting.",
+     "The backfield ranks {{f.team.0011.rb_rank}} on Bijan Robinson at Elite RB1 and Jeremiyah Love at High-end RB2. Receiver ranks {{f.team.0011.wr_rank}} with CeeDee Lamb at High-end WR1 and Malik Nabers at High-end WR2. Justin Herbert is a Mid QB1 with Jaxson Dart, a High-end QB2, in the superflex, ranking {{f.team.0011.qb_rank}}.",
+     "That is five genuinely good players across four positions and a lineup with only {{f.team.0011.holes_today}} hole in it \u2014 the second-best hole count in the league. The hole is Romeo Doubs, a Replacement-level WR, in the last offensive flex, and he was the most expensive thing bought all summer.",
+     "The defense is where this roster stops being interesting. Travon Walker, Carl Granderson and Jonathan Greenard all grade Replacement-level DL \u2014 three defensive line slots, three replacement-level bodies. Malaki Starks is a Replacement-level DB and one linebacker slot holds Arvell Reese, a rookie no source can rate because he has not played an NFL season. Only Roquan Smith at Mid LB2 and Antoine Winfield at Low-end DB2 register at all.",
+     "This is a long-standing choice rather than an oversight. {{f.team.0011.idp_adds_alltime}} defensive acquisitions since the league started keeping the log ranks {{f.team.0011.idp_adds_rank}} \u2014 last, of {{f.league.teams}}, by a distance. He has never worked that wire and he is not starting now. In his defence, points per started defender still ranks {{f.team.0011.idp_ppw_rank}}, which suggests he gets more out of less than the raw activity implies.",
+     "Composite {{f.team.0011.composite_rank}} of {{f.league.teams}}, {{f.team.0011.studs_today}} studs, {{f.team.0011.holes_today}} hole."
+    ]
+   },
+   {
+    "id": "s2",
+    "lead": "",
+    "paragraphs": [
+     "April found him already in decent shape: {{f.team.0011.active_roster_opening}} active, able to field a legal lineup, {{f.team.0011.studs_opening}} studs and {{f.team.0011.holes_opening}} holes, worth {{f.team.0011.lineup_value_opening}} with {{f.team.0011.cap_opening}} committed. One of those holes was literal \u2014 the second running back slot had nobody rostered in it at all.",
+     "That slot is where his offseason actually happened, and it happened at the draft rather than the auction. Jeremiyah Love arrived at 1.01, the strongest historical slot in the entire class, and walked straight into the lineup as a High-end RB2. By the auction lock, value had climbed to {{f.team.0011.lineup_value_preauction}} and holes were down to {{f.team.0011.holes_today}} \u2014 before a single auction bid was placed.",
+     "Then the auction itself, and this is the number that defines his year. Lineup value went from {{f.team.0011.lineup_value_preauction}} to {{f.team.0011.lineup_value_postauction}}. That is a change of four points. Studs did not move from {{f.team.0011.studs_opening}}, holes did not move from {{f.team.0011.holes_today}}, and the only priced slot to change occupant swapped one Replacement-level WR for another.",
+     "He filled the roster out to {{f.team.0011.active_roster_current}} active players and the starting lineup came out the other side statistically identical. For a team ranked {{f.team.0011.composite_rank}} that is either admirable restraint or a missed window, and which one depends entirely on whether you think the defense described above will hold up."
+    ]
+   },
+   {
+    "id": "s3",
+    "lead": "",
+    "paragraphs": [
+     "Nothing at the Expired Rookie Auction: {{f.team.0011.era_lots_won}} lots, {{f.team.0011.era_spend}}, from a pool of {{f.league.era_pool_size}} players whose rookie deals ran out without earning a second one.",
+     "At the Free Agent Auction he won {{f.team.0011.faa_lots_won}} lots for {{f.team.0011.faa_spend}}, the smallest outlay of any owner in the league. Romeo Doubs took {{f.team.0011.top_buy_price}} of it \u2014 {{f.team.0011.top_buy_pct_of_spend}} of his budget, against a league-high lot elsewhere of {{f.league.faa_top_price}} \u2014 and Doubs grades Replacement-level WR and is the single weak link in his starting lineup. Twelve bids went in on him. That is the most contested lot he entered and it is the one purchase he should want back.",
+     "Kirk Cousins and Tyler Allgeier were modest additions who both grade replacement-level on the bench. Everything else came in at the league minimum: Keon Coleman, Antoine Winfield, Tyler Nubin, Teddye Buchanan, Carl Granderson, Jonathan Greenard, T.J. Edwards.",
+     "The defensive spend was {{f.team.0011.idp_auction_spend}}, {{f.team.0011.idp_auction_share}} of his money, ranking {{f.team.0011.idp_auction_share_rank}} of {{f.league.teams}} by share. Three of those minimum-salary defenders are now starting and all three grade replacement-level. Buying cheap defenders worked beautifully for three other owners this summer; here it produced exactly what it cost."
+    ]
+   },
+   {
+    "id": "s4",
+    "lead": "",
+    "paragraphs": [
+     "{{f.team.0011.contracts_count}} contract moves, {{f.team.0011.trades_count}} trade, {{f.team.0011.roster_removals_total}} removals, {{f.team.0011.cuts_penalty_2026}} of penalty charged and nothing deferred. This is the quietest sheet in the league.",
+     "The contract work is genuinely good. Bijan Robinson was extended in May and then restructured in July, two separate operations that between them cut his current-year charge to a fraction of the extension figure while leaving the total value untouched. Justin Herbert was restructured in June and front-loaded. Tucker Kraft was extended. Those three deals are why an owner carrying an Elite RB1, a Mid QB1, a High-end WR1 and an Elite TE1 still had room to operate.",
+     "The single trade of his year was a 2027 fifth-round pick to Sex Manther for Efton Chism, a receiver the redraft board does not price. It is not a story.",
+     "The removals are three players and no consequences: one contract cut and {{f.team.0011.inyear_flyers}} in-year flyers, none of them charged against the cap.",
+     "The draft is where he won. {{f.team.0011.rookie_picks_count}} picks, and the first of them is the best single selection anybody made this year \u2014 Jeremiyah Love at 1.01, from the strongest historical band in the class, already starting as a High-end RB2. Zachariah Branch at 4.10 came from a slot where history says almost nothing usable emerges and already grades Mid WR1, which makes him the steal of the draft. Arvell Reese at 3.07 is starting at linebacker with no NFL season behind him \u2014 no source can price him, which is not a criticism of the player so much as a description of what is behind him."
+    ]
+   },
+   {
+    "id": "s5",
+    "lead": "",
+    "paragraphs": [
+     "He is {{f.team.0011.division_rank}} of {{f.team.0011.division_size}}, behind C-Town Chivalry and ahead of the Hawks, and he plays both twice. C-Town is the best team in the league, which means his divisional draw is two games against the top-ranked roster and two against the bottom-ranked one. The Hawks games are the cushion; the C-Town games are the season.",
+     "Strongest team in the league? Fourth, and closer to the top than the gap suggests. Best offseason? No \u2014 and it is worth saying plainly that he did not have one. He spent the least of anybody, made one trade for a player nobody rates, and moved his starting lineup by four points of value across the entire auction. What he did have was the first pick in the draft and the sense to extend and restructure his best contracts properly.",
+     "The biggest advantage is the two tight ends and Bijan Robinson: first in the league at a position everybody else is compromising at, plus an Elite RB1. The biggest weakness is a defensive front of three replacement-level linemen and a rookie linebacker, on a roster that has never invested there and ranks {{f.team.0011.idp_adds_rank}} all-time for trying.",
+     "{{f.league.wk_teams_final}} NFL teams had played when this was written and none of his starters was among them \u2014 {{f.team.0011.wk_points_final}} points banked so far. Both of his finished players were bench receivers in New England and neither recorded a scoring stat, which tells you something about that passing offense and nothing at all about his team."
+    ]
+   }
+  ]
+ }
+}
