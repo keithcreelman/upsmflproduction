@@ -4,7 +4,7 @@
   "packId": "2026-team-0012"
  },
  "prose": {
-  "kicker": "Last in the league, and the only owner whose opening night actually went to plan",
+  "kicker": "Last in the league, and one of the few owners whose opening night went to plan",
   "title": "The Hawks Tagged Patrick Mahomes in May and Opened the Season Without Him",
   "dek": "Chris Klingenberg began April with {{f.team.0012.studs_opening}} top-twelve players and no quarterback at all. He nearly doubled his lineup value at the auction and still ranks {{f.team.0012.composite_rank}} of {{f.league.teams}} with {{f.team.0012.holes_today}} holes.",
   "sections": [
@@ -23,9 +23,9 @@
     "id": "s2",
     "lead": "",
     "paragraphs": [
-     "April was as bare as anybody's. {{f.team.0012.active_roster_opening}} active players, {{f.team.0012.cap_opening}} committed, {{f.team.0012.holes_opening}} of the priced slots empty of anybody the board ranks, and {{f.team.0012.studs_opening}} top-twelve players anywhere on the roster. Legal-lineup value of {{f.team.0012.lineup_value_opening}} was the lowest in the league. The quarterback slot had nobody rostered in it at all.",
+     "April was bleak. {{f.team.0012.active_roster_opening}} active players, {{f.team.0012.cap_opening}} committed, {{f.team.0012.holes_opening}} of the priced slots empty of anybody the board ranks, and {{f.team.0012.studs_opening}} top-twelve players anywhere on the roster. Legal-lineup value of {{f.team.0012.lineup_value_opening}} was the second-lowest in the league. The quarterback slot had nobody rostered in it at all.",
      "Three months later, at the auction lock, almost nothing had changed: {{f.team.0012.active_roster_preauction}} active, value nudged to {{f.team.0012.lineup_value_preauction}}, holes still at {{f.team.0012.holes_opening}}, studs still at {{f.team.0012.studs_opening}}. Carnell Tate had replaced Michael Wilson at the second receiver slot and Wilson had moved into a flex. The quarterback slot was still empty.",
-     "Then the auction, which was the whole offseason compressed into a fortnight. Value went from {{f.team.0012.lineup_value_preauction}} to {{f.team.0012.lineup_value_postauction}} \u2014 very nearly double, the largest proportional improvement anybody managed. Matthew Stafford filled a quarterback slot that had been vacant since April and Jared Goff took the superflex off a wide receiver. Travis Kelce replaced Dalton Kincaid at tight end. Rhamondre Stevenson took the second back slot.",
+     "Then the auction, which was the whole offseason compressed into a fortnight. Value went from {{f.team.0012.lineup_value_preauction}} to {{f.team.0012.lineup_value_postauction}} \u2014 very nearly double, the second-largest proportional jump in the league, behind only CBP. Matthew Stafford filled a quarterback slot that had been vacant since April and Jared Goff took the superflex off a wide receiver. Travis Kelce replaced Dalton Kincaid at tight end. Rhamondre Stevenson took the second back slot.",
      "Four priced slots improved and studs went from {{f.team.0012.studs_opening}} to {{f.team.0012.studs_postauction}}. That is genuine progress and he should get credit for it. It also left {{f.team.0012.holes_today}} holes, which is still more than anyone else in the league, because he started so far behind that a good auction only got him to bad."
     ]
    },
@@ -57,7 +57,7 @@
     "lead": "",
     "paragraphs": [
      "He is {{f.team.0012.division_rank}} of {{f.team.0012.division_size}}, behind C-Town Chivalry and Cleon Ca$h, and he plays both twice. C-Town is the best team in the league and Cleon Ca$h is fourth. Four of his games a year are against the two strongest opponents available to him, which is the worst divisional draw of anybody.",
-     "Strongest team in the league? No \u2014 {{f.team.0012.composite_rank}} of {{f.league.teams}}, last, with the most holes and the worst receiver room. Best offseason? Also no, but he is not the worst either, and the distinction matters: he took the lowest lineup value in the league and very nearly doubled it, filled a quarterback slot that had been empty since spring, and did it while still holding {{f.team.0012.cap_current_room}} of room \u2014 more than any other owner in the league. He is last, and he is last with money and a first-round rookie already starting.",
+     "Strongest team in the league? No \u2014 {{f.team.0012.composite_rank}} of {{f.league.teams}}, last, with the most holes and the worst receiver room. Best offseason? Also no, but he is not the worst either, and the distinction matters: he took the lowest pre-auction lineup value in the league and very nearly doubled it, filled a quarterback slot that had been empty since spring, and did it while still holding {{f.team.0012.cap_current_room}} of room \u2014 more than any other owner in the league. He is last, and he is last with money and a first-round rookie already starting.",
      "The biggest advantage is Marcus Jones, an Elite DB1 at the league minimum, with Kyren Williams and the Stafford-Goff pair behind him. The biggest weakness is receiver, ranked {{f.team.0012.wr_rank}}, closely followed by a defense that ranks {{f.team.0012.idp_ppw_rank}} historically and got {{f.team.0012.idp_auction_spend}} of investment this summer.",
      "And then the strangest line in the league table. {{f.league.wk_teams_final}} NFL teams had played when this was written, and the last-ranked roster has the second-best haul of anybody: {{f.team.0012.wk_points_final}} points from three finished starters. Rhamondre Stevenson led it, with a minimum-salary kicker and a minimum-salary cornerback behind him. Nothing about one night predicts a season. But the cheap end of his roster is the part that has shown up so far, and on a team this short of money that is the best possible news."
     ]

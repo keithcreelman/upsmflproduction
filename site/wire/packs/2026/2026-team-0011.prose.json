@@ -12,11 +12,11 @@
     "id": "s1",
     "lead": "",
     "paragraphs": [
-     "Tight end ranks {{f.team.0011.te_rank}}, first in the league, and it is a genuine structural edge rather than a quirk. Colston Loveland grades Elite TE1 and Tucker Kraft, a Mid TE1, occupies one of the offensive flexes. Nobody else in this competition is starting two tight ends because nobody else has two worth starting.",
+     "Tight end ranks {{f.team.0011.te_rank}}, first in the league, and it is a genuine structural edge rather than a quirk. Colston Loveland grades Elite TE1 and Tucker Kraft, a High-end TE1, occupies one of the offensive flexes. Nobody else in this competition starts two tight ends who both grade as starters.",
      "The backfield ranks {{f.team.0011.rb_rank}} on Bijan Robinson at Elite RB1 and Jeremiyah Love at High-end RB2. Receiver ranks {{f.team.0011.wr_rank}} with CeeDee Lamb at High-end WR1 and Malik Nabers at High-end WR2. Justin Herbert is a Mid QB1 with Jaxson Dart, a High-end QB2, in the superflex, ranking {{f.team.0011.qb_rank}}.",
-     "That is five genuinely good players across four positions and a lineup with only {{f.team.0011.holes_today}} hole in it \u2014 the second-best hole count in the league. The hole is Romeo Doubs, a Replacement-level WR, in the last offensive flex, and he was the most expensive thing bought all summer.",
+     "That is five genuinely good players across four positions and a lineup with only {{f.team.0011.holes_today}} hole in it \u2014 tied for the second-best hole count in the league. The hole is Romeo Doubs, a Replacement-level WR, in the last offensive flex, and he was the most expensive thing bought all summer.",
      "The defense is where this roster stops being interesting. Travon Walker, Carl Granderson and Jonathan Greenard all grade Replacement-level DL \u2014 three defensive line slots, three replacement-level bodies. Malaki Starks is a Replacement-level DB and one linebacker slot holds Arvell Reese, a rookie no source can rate because he has not played an NFL season. Only Roquan Smith at Mid LB2 and Antoine Winfield at Low-end DB2 register at all.",
-     "This is a long-standing choice rather than an oversight. {{f.team.0011.idp_adds_alltime}} defensive acquisitions since the league started keeping the log ranks {{f.team.0011.idp_adds_rank}} \u2014 last, of {{f.league.teams}}, by a distance. He has never worked that wire and he is not starting now. In his defence, points per started defender still ranks {{f.team.0011.idp_ppw_rank}}, which suggests he gets more out of less than the raw activity implies.",
+     "This is a long-standing choice rather than an oversight. {{f.team.0011.idp_adds_alltime}} defensive acquisitions since the league started keeping the log ranks {{f.team.0011.idp_adds_rank}} \u2014 last, of {{f.league.teams}}. He has never worked that wire and he is not starting now. In his defence, points per started defender still ranks {{f.team.0011.idp_ppw_rank}}, which suggests he gets more out of less than the raw activity implies.",
      "Composite {{f.team.0011.composite_rank}} of {{f.league.teams}}, {{f.team.0011.studs_today}} studs, {{f.team.0011.holes_today}} hole."
     ]
    },
@@ -44,7 +44,7 @@
     "id": "s4",
     "lead": "",
     "paragraphs": [
-     "{{f.team.0011.contracts_count}} contract moves, {{f.team.0011.trades_count}} trade, {{f.team.0011.roster_removals_total}} removals, {{f.team.0011.cuts_penalty_2026}} of penalty charged and nothing deferred. This is the quietest sheet in the league.",
+     "{{f.team.0011.contracts_count}} contract moves, {{f.team.0011.trades_count}} trade, {{f.team.0011.roster_removals_total}} removals, {{f.team.0011.cuts_penalty_2026}} of penalty charged and nothing deferred. This is one of the quietest sheets in the league.",
      "The contract work is genuinely good. Bijan Robinson was extended in May and then restructured in July, two separate operations that between them cut his current-year charge to a fraction of the extension figure while leaving the total value untouched. Justin Herbert was restructured in June and front-loaded. Tucker Kraft was extended. Those three deals are why an owner carrying an Elite RB1, a Mid QB1, a High-end WR1 and an Elite TE1 still had room to operate.",
      "The single trade of his year was a 2027 fifth-round pick to Sex Manther for Efton Chism, a receiver the redraft board does not price. It is not a story.",
      "The removals are three players and no consequences: one contract cut and {{f.team.0011.inyear_flyers}} in-year flyers, none of them charged against the cap.",

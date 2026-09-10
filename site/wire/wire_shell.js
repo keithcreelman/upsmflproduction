@@ -108,7 +108,15 @@
   // ---------- data selectors ----------
   function visibleArticles() {
     var preview = false;
-    try { preview = /(?:^|[?&])preview=1(?:&|$)/.test(String(window.UPS_WIRE_QUERY || "")); } catch (e) {}
+    // Embedded, the MFL loader hands the top-level query in as UPS_WIRE_QUERY
+    // (mfl_hpm_embed_loader.js builds it as "window.UPS_WIRE_" + name, which is
+    // why a search for the full name misses it). Standalone, nothing sets it --
+    // the page's own query string is right there -- so ?preview=1 did nothing
+    // on the Pages URL until 2026-09-10.
+    try {
+      var q = embedded ? window.UPS_WIRE_QUERY : window.location.search;
+      preview = /(?:^|[?&])preview=1(?:&|$)/.test(String(q || ""));
+    } catch (e) {}
     return (data.articles || [])
       .filter(function (a) { return a.status === "live" || (preview && a.status === "draft"); })
       .slice()
