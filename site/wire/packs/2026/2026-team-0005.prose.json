@@ -1,0 +1,68 @@
+{
+ "meta": {
+  "engine": "claude-opus-5 (session agent)",
+  "packId": "2026-team-0005"
+ },
+ "prose": {
+  "kicker": "Elite at receiver, elite at tight end, elite on defence, and starting a wide receiver at quarterback",
+  "title": "HammerTime Sold Jalen Hurts in April and Has Been Playing a Man Short Ever Since",
+  "dek": "Eric Martel traded a starting quarterback for picks, spent the picks on running backs, and now ranks {{f.team.0005.qb_rank}} of {{f.league.teams}} at the position. Everything else on this roster is very good, which is what makes it hurt.",
+  "sections": [
+   {
+    "id": "s1",
+    "lead": "",
+    "paragraphs": [
+     "Ja'Marr Chase is an Elite WR1 and Trey McBride an Elite TE1 \u2014 two of the best players at their positions in the league, on the same roster. Receiver ranks {{f.team.0005.wr_rank}} and tight end {{f.team.0005.te_rank}}. Ladd McConkey is a Mid WR2 and Luther Burden a High-end WR3 in the flex.",
+     "The backfield ranks {{f.team.0005.rb_rank}} and is genuinely deep: Kenneth Walker at Low-end RB1, Javonte Williams at High-end RB2, David Montgomery filling a flex at Low-end RB2. Three startable backs, which in this format is a luxury.",
+     "The defense may be the best unit on any sheet in the league. T.J. Watt grades High-end DL1 with Aidan Hutchinson at Low-end DL1 beside him. Jack Campbell is an Elite LB1, Cedric Gray a High-end LB1, and Ernest Jones a Low-end LB1 filling the flex \u2014 three linebackers who would all start somewhere else. Jeremy Chinn is a High-end DB1. Only Jalen Pitre at Replacement-level DB lets it down.",
+     "And then quarterback, which ranks {{f.team.0005.qb_rank}}, dead last, and is not a near miss. C.J. Stroud grades Low-end QB2. Behind him sit Geno Smith and Michael Penix, both Replacement-level QB, and the lineup engine looks at all of them and puts Jordan Addison \u2014 a wide receiver, grading Replacement-level WR \u2014 in the superflex instead. In a format that makes you start two quarterbacks, he is effectively starting one.",
+     "Composite {{f.team.0005.composite_rank}} of {{f.league.teams}} with {{f.team.0005.studs_today}} studs and {{f.team.0005.holes_today}} holes. Take the superflex out of the equation and this is a top-three roster. You cannot take it out of the equation."
+    ]
+   },
+   {
+    "id": "s2",
+    "lead": "",
+    "paragraphs": [
+     "He is one of the very few owners who could field a legal lineup in April \u2014 {{f.team.0005.active_roster_opening}} active players, {{f.team.0005.cap_opening}} committed, {{f.team.0005.studs_opening}} studs and {{f.team.0005.holes_opening}} holes. He did not spend this offseason rebuilding from nothing. He spent it rearranging something that already worked.",
+     "By the auction lock he was at {{f.team.0005.active_roster_preauction}} active \u2014 fewer than he started with \u2014 and legal-lineup value had not moved a single point, from {{f.team.0005.lineup_value_opening}} to {{f.team.0005.lineup_value_preauction}}. Every priced slot held the same player in July that it had held in April. Not one changed.",
+     "The auction added bodies and moved exactly one priced slot: Josh Jacobs displaced Jordan Addison in the superflex, which lifted value to {{f.team.0005.lineup_value_postauction}} and was, briefly, the fix. Holes stayed at {{f.team.0005.holes_postauction}} and studs at {{f.team.0005.studs_postauction}} throughout \u2014 opening, auction, today. Nothing he did all year changed either number.",
+     "Jacobs is now on injured reserve, and so the superflex has reverted to Jordan Addison. The one improvement of the entire offseason has undone itself."
+    ]
+   },
+   {
+    "id": "s3",
+    "lead": "",
+    "paragraphs": [
+     "Nothing at the Expired Rookie Auction \u2014 {{f.team.0005.era_lots_won}} lots, {{f.team.0005.era_spend}} \u2014 from a pool of {{f.league.era_pool_size}} players whose rookie deals ran out without earning a second one.",
+     "At the Free Agent Auction he won {{f.team.0005.faa_lots_won}} lots for {{f.team.0005.faa_spend}}, and where that money went is the most striking thing about his summer. {{f.team.0005.idp_auction_spend}} of it went on defenders \u2014 {{f.team.0005.idp_auction_share}} of everything he spent, the largest defensive share of any owner in the league.",
+     "It bought extraordinarily well. Aidan Hutchinson, Micah Parsons and T.J. Watt came in at prices that read like typographical errors next to their grades, and Ernest Jones has already started and produced. If you want to know how a team ranked {{f.team.0005.composite_rank}} has the defense described above, that is how.",
+     "His largest buy was Josh Jacobs at {{f.team.0005.top_buy_price}}, {{f.team.0005.top_buy_pct_of_spend}} of his auction money, against a league-high lot elsewhere of {{f.league.faa_top_price}}. Jacobs is on IR and Parsons is on IR. His most expensive purchase and his best bargain are both unavailable, which is luck rather than judgement \u2014 but it is also the second time this article has had to explain why the superflex is empty.",
+     "What he did not buy, at any price, in either auction, was a quarterback."
+    ]
+   },
+   {
+    "id": "s4",
+    "lead": "",
+    "paragraphs": [
+     "{{f.team.0005.contracts_count}} contract moves, {{f.team.0005.trades_count}} trades, {{f.team.0005.roster_removals_total}} removals. The trades are the story of his year and they are all clustered in April.",
+     "On the ninth of April he sent Jalen Hurts and {{f.team.0005.trade_blind_bid_cash}} of blind-bid money to The Long Haulers for their 2027 first and second-round picks. Hurts is the most valuable player he has traded away and he paid cash to move him. Four days later he sent his own 2027 first to Real Deal Creel for Kenneth Walker. Four days after that he sent his own 2027 second to L.A. Looks for David Montgomery.",
+     "Read those three in order. He converted a starting quarterback into two future firsts-and-seconds, then immediately converted his own first and second into two running backs, at a position where he already had Javonte Williams under a tag. He did not sell the future to buy the present \u2014 he sold a quarterback to buy running backs, with a round trip through the draft in between, and left the superflex slot to fend for itself.",
+     "The other two trades are pick shuffling with Pure Greatness and L.A. Looks that moved him up into 2.12 and 3.08 at the cost of a 2027 third and fourth. His class is {{f.team.0005.rookie_picks_count}} picks, none earlier than 2.12, none of them yet on the redraft board.",
+     "C.J. Stroud was extended in March, Javonte Williams was tagged, and the four auction wins were converted to multi-year deals. None of them is at the league minimum.",
+     "The removals are where a real mistake sits. Jonnu Smith was cut in late August and the penalty exceeded the salary removed, so the net effect on the cap was negative \u2014 cutting him cost money rather than freeing it, and {{f.team.0005.cuts_penalty_2027_deferred}} of it is deferred to next season rather than paid now. Troy Franklin's cut carries a further {{f.team.0005.cuts_penalty_unstamped}} with no charge year stamped on it at all. Nothing has hit this season \u2014 {{f.team.0005.cuts_penalty_2026}} \u2014 but the bill exists.",
+     "Beyond that it is churn: a waiver swap and {{f.team.0005.inyear_flyers}} bodies signed and discarded inside the same offseason."
+    ]
+   },
+   {
+    "id": "s5",
+    "lead": "",
+    "paragraphs": [
+     "He is {{f.team.0005.division_rank}} of {{f.team.0005.division_size}} in his division, behind Pure Greatness and The Long Haulers, and he plays both of them twice. Pure Greatness is the second-best team in the league. That is four games a year against opponents ranked above him, in the division he needs to win.",
+     "Strongest team in the league? No \u2014 {{f.team.0005.composite_rank}} of {{f.league.teams}}. Best offseason? No, and this is the cleanest example in the league of a good roster made worse by activity. Holes and studs were identical in April and are identical now. Legal-lineup value moved by almost nothing across the entire year. He spent {{f.team.0005.auction_spend}} and traded five times to arrive back where he started, minus a quarterback.",
+     "The biggest advantage is genuine and large: Chase, McBride, Watt, Hutchinson, Campbell and Gray are an elite spine at four different positions. The biggest weakness is one slot, and it is self-inflicted \u2014 a superflex filled by a replacement-level wide receiver because the quarterback who should be in it was traded in April for picks that are now running backs.",
+     "{{f.league.wk_teams_final}} NFL teams had played when this was written, and his lone finished starter was Ernest Jones, one of those bargain defenders, who banked {{f.team.0005.wk_points_final}} points on tackles alone. The cheap part of the plan is working. The expensive part is on injured reserve."
+    ]
+   }
+  ]
+ }
+}

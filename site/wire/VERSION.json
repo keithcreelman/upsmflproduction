@@ -1,0 +1,65 @@
+{
+  "version": "0.4.0",
+  "released": "2026-08-01",
+  "label": "V0.4.0 - Phase 3: first real report. Two-stage generation (deterministic pack -> model prose -> deterministic render), a numeric contract that makes fabricated numbers impossible, inline SVG charts, and the 2026 Pre-Season Review as a draft.",
+  "description": "UPS Wire is the league's published-content hub: season reviews, weekly recaps and previews, one-off features, and the trade-bot archive. Each article is a self-contained HTML file that renders in three places from one source -- embedded in MFL, at its own public GitHub Pages URL, and pasted into a Claude Artifact.",
+  "architecture": {
+    "frame_model": "One sandboxed iframe. The loader owns the route and swaps the frame between index.html and an article. Sandbox is 'allow-scripts allow-popups allow-popups-to-escape-sandbox' with no allow-same-origin, so model-generated article HTML never runs with MFL-origin privileges.",
+    "routing": "Top-level URL hash when embedded (#/a/<id>/<sectionId>) because the hash never reaches MFL's server; real file paths when standalone. ?wire=<route> is accepted as secondary input but never written.",
+    "storage": "Committed HTML + index.json in site/, served by GitHub Pages. Not D1: articles are documents, not hot data, and a PR is the review gate before AI-written prose reaches the league.",
+    "styling": "wire_tokens.css + wire_article.css are inlined into every article at build time and stamped with data-wire-style-sha. wire_shell.css is index-only and never inlined.",
+    "worker_and_d1": "Untouched. No cron, no route, no CPU on the 10ms free plan.",
+    "toolchain": "python pipelines/etl/wire/wire.py {restyle,index,verify}. Article files are the source of truth; index.json is derived. Invoked by path, not -m: this repo has no Python packages. CI runs verify plus an idempotency check on every PR touching site/wire/.",
+    "data_layer": "pipelines/etl/wire/{wire_data,wire_pack}.py + packs/<name>.py. `build` emits a data pack: every number a report may use, with provenance, no model involved. Facts are the ONLY place a number may come from -- Phase 3 prose references {{fact_id}} tokens and may not type digits. Repo-tracked data is read from origin/main because it is auto-committed there. CI re-validates committed packs offline; `build` stays a deliberate human step.",
+    "generation": "wire_voice.py forks content_engine.ROAST_SYSTEM. The model may not type digits: every quantity is a {{fact_id}} token, substituted fail-closed by wire_render, then a post-render audit rejects any digit the model typed itself. Tables and charts are generated from the pack -- the model places them and writes captions, never rows. `render` is key-free and deterministic, so a palette or template change never needs the model re-run."
+  },
+  "style_sha": "428b5605",
+  "changes": [
+    {
+      "version": "0.4.0",
+      "date": "2026-08-01",
+      "notes": [
+        "wire_voice.py, wire_write.py (stdlib urllib, no SDK), wire_render.py, wire_svg.py (hbar).",
+        "Numeric contract proven by injection: unknown token fails closed, a typed digit is rejected, years and pick notation pass, a missing section is refused.",
+        "Generated article cites 96 facts across 85 distinct ids, zero invented.",
+        "FIX: the contract log records SUBMISSIONS, not contracts. Counting rows called the commissioner 33 moves when he made 17 -- he revises in the Front Office more than anyone. Collapsed to distinct outcomes (102 -> 75) and the difference is now a stated warning.",
+        "FIX: standalone deep links (#s2) rendered a blank page. The browser native-scrolls to the fragment while all sections are visible, then paging collapses the document and leaves the reader below the content. Chasing it with scrollTo lost the race twice; the fragment is now stripped before the browser acts and restored via replaceState after load.",
+        "2026-preseason-review.html generated as status=draft, hidden from the index until promoted."
+      ]
+    },
+    {
+      "version": "0.3.0",
+      "date": "2026-08-01",
+      "notes": [
+        "wire_data.py: read-only D1 (SELECT-only, enforced), worker GET with the mandatory &L, daily-snapshot reader, contract-activity reader, owner_map via src_franchises.",
+        "wire_pack.py: pack schema + validator. Facts carry pre-formatted `fmt` so the model never formats currency either.",
+        "packs/preseason_review.py: opening position from the earliest snapshot, moves from the contract log + auction + draft + trades + cuts, landing spot from /api/auction/compliance.",
+        "check_attribution() proves src_franchises agrees with /api/standings on all four mid-season-takeover seasons, and BLOCKS the build if not. Verified passing.",
+        "FIX: the builder read repo data files from the local checkout, which was 43 commits behind origin/main -- it would have reported 89 contract moves when the league had made 102. Auto-committed data files are now read from origin/main.",
+        "Determinism proven by record/replay: identical inputs give byte-identical output. Live builds differ because the auction is still running, which is itself why the report must be timestamped."
+      ]
+    },
+    {
+      "version": "0.2.0",
+      "date": "2026-08-01",
+      "notes": [
+        "pipelines/etl/wire/wire.py: restyle re-inlines CSS + runtime and stamps the sentinel; index rebuilds index.json from the articles; verify enforces 14 invariants.",
+        "Per-article metadata moved out of hand-edited index.json into a wire-meta comment inside each article, so it travels with the file to all three surfaces.",
+        ".github/workflows/check-wire.yml runs verify and asserts the generators are idempotent.",
+        "FIX: article_skeleton.html.tmpl had a literal '<script' in its explanatory comment, so every article copied from it inherited a phantom block that desyncs check_inline_js.mjs. Caught by the new rule-5 check on its first real use.",
+        "NOTE: the first rule-5 implementation counted open tags minus nested mentions. That arithmetic is invariant to a leading phantom and could never fire; replaced with a direct comparison against what the linter's own regex extracts."
+      ]
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-07-28",
+      "notes": [
+        "site/wire/ created from the site/gameday/ loader pattern, with the router added on top.",
+        "Almanac palette ported from docs/design/ups_nfl_comps_reference.html (the piece Keith signed off on) rather than the standard hub palette.",
+        "Three specimen articles prove the season-review, weekly and trade-desk families end to end.",
+        "Registered in header_custom_v2.html: HUBS entry, TABS entry, and the active-tab highlight chain.",
+        "purge-jsdelivr.yml deliberately untouched -- no MESSAGE19 hub is in that list, since they resolve at a commit SHA and are self-busting."
+      ]
+    }
+  ]
+}

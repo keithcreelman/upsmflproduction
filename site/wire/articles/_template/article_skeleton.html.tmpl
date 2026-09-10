@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARTICLE TITLE — UPS Wire</title>
+<!--wire-meta
+  Everything index.json needs that the markup cannot express.
+  Lives in the article so metadata travels with the file to all three surfaces.
+  Rebuild the index with: python pipelines/etl/wire/wire.py index
+  familyId: season-review
+  season: 2026
+  week: 
+  status: draft
+  publishedAt: 
+  tags: 
+  heroValue: 
+  heroLabel: 
+-->
+
+<!-- TEMPLATE. This is the canonical shape of a UPS Wire article. It is the
+     file to hand a Claude Artifact session as "match this structure".
+
+     It is NOT itself renderable: the two placeholder comments below are
+     substituted at build time. Everything else here ships as-is.
+
+     WHY A FULL DOCUMENT, not a fragment: an article has to render in three
+     places from one file -- inside MFL (fetched, spliced, srcdoc'd by
+     site/wire/mfl_hpm_embed_loader.js), at its own public GitHub Pages URL,
+     and pasted into a Claude Artifact. Only a complete self-contained
+     document does all three. That is also why the CSS is inlined rather than
+     <link>ed: an Artifact has no network access.
+
+     THE FOUR HARD RULES (site/wire/README.md):
+       1. No href="#..." anywhere. Inside a srcdoc document with a <base>, a
+          fragment link resolves against the base and navigates the frame to
+          jsDelivr, which serves it as text/plain -- the article turns into a
+          wall of source code. Use <button> + data attributes.
+       2. No vh/svh/dvh units. In an auto-sized iframe 100vh equals the height
+          we just set, so the frame grows every beacon tick. vw is fine.
+       3. No &lt;script type="application/json">. check_inline_js.mjs runs
+          node --check on EVERY inline script regardless of type, and a
+          top-level JSON object is a SyntaxError.
+       4. No webfonts. System stack only -- a CDN <link> breaks in Artifacts.
+-->
+
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-PLACEHOLDER">
+<!--WIRE_STYLE-->
+</style>
+</head>
+<body>
+
+<div class="wire-page">
+<div class="wire-wrap">
+
+  <!-- Back bar. display:none until the runtime detects it is embedded, so it
+       is invisible standalone and in an Artifact. -->
+  <div class="wire-topbar">
+    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <span class="wire-topbar-title">UPS Wire</span>
+  </div>
+
+  <header class="wire-hero">
+    <div class="wire-eyebrow">KICKER LINE</div>
+    <h1>Article Title</h1>
+    <p class="wire-dek">One sentence that says what this is. Matches the dek in index.json.</p>
+  </header>
+
+  <!-- "How this was built" panel. In P2+ the builder fills this from the data
+       pack's sources[] and warnings[] -- non-empty warnings are fine, silently
+       missing ones are not. -->
+  <div class="wire-method">
+    <div class="wire-mh">How this was built</div>
+    <div><b>Sources.</b> Which tables, as of when.</div>
+    <div><b>Caveats.</b> Anything partial, stale, or mid-flight.</div>
+  </div>
+
+  <!-- The runtime fills this. Empty in source; hidden entirely without JS. -->
+  <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
+
+  <!-- Sections. id is the deep-link target and must match index.json
+       sections[]. data-title is the chapter-rail label. -->
+  <section class="wire-sec" id="s1" data-title="First Section">
+    <h2 class="wire-sechead">First Section</h2>
+    <p>Body copy.</p>
+  </section>
+
+  <section class="wire-sec" id="s2" data-title="Second Section">
+    <h2 class="wire-sechead">Second Section</h2>
+    <p>Body copy.</p>
+  </section>
+
+  <!-- Outside the sections, so it stays visible on every page turn. -->
+  <footer>
+    UPS Wire &middot; generated GENERATED_AT &middot; league 74598
+  </footer>
+
+</div>
+</div>
+
+<script data-wire-runtime>
+<!--WIRE_RUNTIME-->
+</script>
+</body>
+</html>

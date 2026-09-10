@@ -3407,6 +3407,15 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       "gameday": {
         mountId: "gameDayMount",
         loaderPath: "/site/gameday/mfl_hpm_embed_loader.js"
+      },
+      // UPS Wire - published league content (season reviews, weekly recaps
+      // and previews, features, the trade-bot archive). Unlike the other
+      // hubs, its loader is also a router: the route lives in the top-level
+      // URL hash and the loader swaps the frame between the index and an
+      // article. See site/wire/README.md.
+      "wire": {
+        mountId: "wireMount",
+        loaderPath: "/site/wire/mfl_hpm_embed_loader.js"
       }
       // Future:
       //   "front-office-v2": { mountId: "..." , loaderPath: "/site/rosters/v2/mfl_hpm_embed_loader.js" },
@@ -3553,8 +3562,9 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     else if (/^MESSAGE6\b/.test(ctx.module)) activeId = "trade-room";
     else if (/^MESSAGE4\b/.test(ctx.module)) activeId = "standings";
     else if (/^MESSAGE12\b/.test(ctx.module)) activeId = "rookie-hub";
-    // Generic hub container — currently only auction-hub. When more hubs
-    // route through MESSAGE19, switch on the `hub` query param value.
+    // Generic hub container — several hubs route through MESSAGE19, so switch
+    // on the `hub` query param value. Every entry added to the HUBS registry
+    // above needs a line here too, or its tab renders but never highlights.
     // (MESSAGE20 is reserved for the footer.)
     else if (/^MESSAGE19\b/.test(ctx.module)) {
       try {
@@ -3562,6 +3572,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         if (qhub === "auction-hub") activeId = "auction-hub";
         else if (qhub === "commish-settings") activeId = "commish-settings";
         else if (qhub === "gameday") activeId = "gameday";
+        else if (qhub === "wire") activeId = "wire";
       } catch (e) {}
     }
     // Any other MODULE → no active highlight, but we still render the
@@ -3617,6 +3628,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       // overview (Keith 2026-06-20). Custom hub page (Submit Lineup / Taxi
       // Squad / Live Scoring) via the MESSAGE19 hub container.
       { id: "gameday",      label: "Game Day",       module: "MESSAGE19&hub=gameday" },
+      // UPS Wire - the league paper. Slot 3 because it is a read destination
+      // meant to be seen, not a tool you go looking for. Moving it later in
+      // this array is a one-line change if it crowds Front Office.
+      { id: "wire",         label: "The Wire",       module: "MESSAGE19&hub=wire" },
       { id: "front-office", label: "Front Office",   module: "MESSAGE7"  },
       { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
       { id: "rookie-hub",   label: "Rookie Draft Hub", module: "MESSAGE12" },

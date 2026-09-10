@@ -1,0 +1,100 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 18141,
+    "outputTokens": 15985,
+    "packId": "2025-wk17-recap",
+    "packGeneratedAtUtc": "2026-08-02T12:05:04Z"
+  },
+  "prose": {
+    "kicker": "The best week of anyone's season landed in the wrong bracket.",
+    "title": "Outgunned, Not Outmanaged",
+    "dek": "Eric Mannila beat every roster in the league on a weekend it could no longer buy him anything, and Brian Cutting quietly took the whole thing.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Brian Cross started Derrick Henry and Henry handed back {{f.star.line}}. That was the biggest score of the week, out of a back whose best game before it was {{f.star.prior_best}} and whose average sat at {{f.star.prior_avg}}. It bought Cross a consolation win. That is the entire return.",
+          "Eric Mannila picked the same week to detonate. He scored {{f.team.0011.score}}, went {{f.team.0011.week_allplay}} against every other roster in the league, and did it in a bracket where the prize is not being last. Bijan Robinson supplied {{f.player.bijan-robinson.score}} of it and Mannila still leaves the year as a man who was never in the title race.",
+          "The half of the field that was actually playing for something was quieter about it. Brian Cutting got {{f.player.drake-maye.score}} out of Drake Maye, added {{f.player.chris-olave.score}} from Chris Olave, and that was the season. Josh Martel came back with {{f.player.caleb-williams.score}} from Caleb Williams and Christian McCaffrey behind him and was never in front. Eric Martel won his game with Trey McBride's {{f.player.trey-mcbride.score}} and a lineup below his own standard.",
+          "Shawn Blake, who was not playing a game, got {{f.player.brock-purdy.score}} from Brock Purdy. Ryan Bousquet, also idle, put {{f.team.0001.score}} on the board and went {{f.team.0001.week_allplay}} against the field for nothing at all. Matt Gerardi's idle week was a different flavour: {{f.team.0003.week_allplay}} against everybody, which takes a certain commitment.",
+          "The wire moved anyway — {{f.wire.adds}} of them changed hands, and the best of the lot was {{f.wire.best_add}}, bid for and started by a man who was beaten by a wide margin regardless. Derrick Whitman's roster mustered {{f.team.0002.score}} while not playing, which is its own kind of statement."
+        ],
+        "bullets": [],
+        "place": [
+          "t.performers",
+          "t.pickups"
+        ],
+        "quotes": [
+          "q2",
+          "q4"
+        ],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.performers": "The biggest day on the board belonged to the consolation bracket.",
+          "t.pickups": "Free-agent money, well spent, in games that were already gone."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "Bear Dunn left a winning lineup on his bench. He is the only man in the round who can say that, and that is the whole week.",
+        "paragraphs": [
+          "Of the four men who lost, {{f.week.outgunned}} of them could have played a flawless card and still gone home. Exactly {{f.week.self_inflicted}} beat himself. And of every bench swing in the round — the ones that look ugly in a screenshot and get quoted back at you for a year — {{f.week.no_process_burns}} was actually the wrong call. The men who started busted, and the men on the bench went off, and in every case the starter was the better player going in.",
+          "The loudest of them belonged to {{f.burn.owner}}, who benched {{f.burn.benched}} for {{f.burn.benched_score}} and started {{f.burn.started}} for {{f.burn.started_score}}. The verdict on it is {{f.burn.verdict}}, and Blake was not playing a game anyway. There is only one genuinely indefensible lineup decision in the round, and it did not change a result either.",
+          "Bousquet set himself a resignation condition before any of this and then failed to clear the bar in the safest possible direction."
+        ],
+        "bullets": [],
+        "place": [
+          "t.burns"
+        ],
+        "quotes": [
+          "q5",
+          "q7"
+        ],
+        "cards": [],
+        "games": [
+          "g.1",
+          "g.2",
+          "g.3",
+          "g.4"
+        ],
+        "gameNotes": {
+          "g.1": "The only division game on the board decided the season, between two teams with identical records and a division split that never was. Josh Martel's best available card was {{f.team.0007.best_available}} — {{f.team.0007.ceiling_rank}} — and he still {{f.team.0007.could_have_won}}. He was thirty-odd points below his own standard and Cutting was above his; that is the entire gap, and it is not a lineup problem.",
+          "g.2": "Bear Dunn arrived as {{f.div.dog-pound-4-life.leader}} and left as the one man all week who lost a game he had the pieces to win. His bench was worth {{f.team.0009.best_available}} and Eric Martel did not clear that, which makes this the only result in the round that turns on management rather than scoring. Eric Martel won it while playing below his own average and stranding a pile of points himself — nobody covered themselves in anything here.",
+          "g.3": "Chris Klingenberg started {{f.dnp.0012}}, who never took a snap, which is not variance and not luck. It also cost him nothing, because Mannila put up the largest margin of the round and Klingenberg's perfect lineup {{f.team.0012.could_have_won}} — his ceiling was {{f.team.0012.best_available}} against a number nobody in the league touched. A bad process and an irrelevant one at the same time.",
+          "g.4": "Derrick Henry's afternoon was the biggest of the week and it was spent beating the team with the lowest ceiling in the round. Keith Creelman's own best pickup, Malik Willis, led his side and he {{f.team.0008.could_have_won}}: his perfect card came to {{f.team.0008.best_available}}, {{f.team.0008.ceiling_rank}}. Cross gains a place in the consolation order and a story about a running back."
+        },
+        "captions": {
+          "t.burns": "Four screenshots that will get passed around, and not a mistake among them."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "paragraphs": [
+          "Brian Cutting finished the year as {{f.div.legion-of-boom.leader}} and then finished it {{f.team.0004.final_place}}, which is the tidiest thing anyone did all season. He took the division by a clear margin, took his division rival in the last game that mattered, and never had a week where the whole thing wobbled. Josh Martel is {{f.team.0007.final_place}}, out of the same division, with more points scored across the year than the man who beat him. That is a hard second place to sit with.",
+          "Shawn Blake won MAKE IT RAIN with a losing record — {{f.div.make-it-rain.leader}} — and finished {{f.team.0010.final_place}}. Ryan Bousquet won more games than Blake did by a distance and finished {{f.team.0001.final_place}}. Anyone still arguing that won-lost record is the standings has now been shown the receipt.",
+          "Bear Dunn ran up the gaudiest record in DOG POUND 4 LIFE, {{f.div.dog-pound-4-life.leader}}, and landed {{f.team.0009.final_place}} — a season of beating his own division and one bracket game where his bench outscored his lineup. Eric Martel won ICE UP SON! and came out {{f.team.0005.final_place}}, one place better than Dunn on the back of the ten points he found this week. Eric Mannila, who beat all eleven other rosters on the final weekend, is {{f.team.0011.final_place}}.",
+          "At the other end, Matt Gerardi ends {{f.team.0003.final_place}} after a year in which his own division took him apart, and Derrick Whitman is {{f.team.0002.final_place}} with an all-play record that reads like a typo. Whitman scored the fewest points in the league across the season and lost to essentially everybody, essentially always. The toilet bowl question raised in the chat has an answer now, and it is not Bousquet.",
+          "The verdict on the year: the champion was the most consistent team in the field rather than the highest-scoring one, the highest-scoring weekend of the finals belonged to a man who could not use it, and the only lineup that lost a game its owner had won was set by the man with the best record in it. Nobody got robbed. A few people got outscored."
+        ],
+        "bullets": [],
+        "place": [
+          "t.final",
+          "t.standings"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.final": "Where the season actually landed, top to bottom.",
+          "t.standings": "The Record column and the seeding order were never the same argument."
+        }
+      }
+    ]
+  }
+}

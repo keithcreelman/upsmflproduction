@@ -1,0 +1,74 @@
+/* UPS Wire — design tokens. SINGLE SOURCE OF TRUTH for the almanac look.
+ *
+ * Ported from docs/design/ups_nfl_comps_reference.html (lines 4-49) — the
+ * piece Keith signed off on. Deliberately NOT the standard hub palette
+ * (#0b0f18 / #5b8dff) that auction/gameday/commish use.
+ *
+ * This file + wire_article.css are INLINED into every article at build time
+ * so an article stays self-contained (it renders inside MFL, at its own Pages
+ * URL, and as a Claude Artifact with no network access). Keep this file small
+ * and stable — every byte here is paid for once per article.
+ *
+ * RULES (see site/wire/README.md):
+ *   - No vh/svh/dvh units. Inside an auto-sized iframe 100vh equals the height
+ *     we just set, so the frame grows on every beacon tick, forever. vw is fine.
+ *   - No webfonts. System stack only.
+ *
+ * Both the prefers-color-scheme media query AND the [data-theme] overrides are
+ * load-bearing: standalone honors the OS, but embedded in MFL we force dark via
+ * data-theme (a cream article inside a dark MFL page looks broken).
+ */
+
+:root {
+  --ground: #0C1310;
+  --surface: #141C18;
+  --surface-2: #1B241F;
+  --line: #2A352E;
+  --ink: #E8EDE9;
+  --ink-dim: #A3AFA8;
+  --ink-mute: #75837B;
+  --gold: #D6A24A;
+  --gold-dim: #8A6A31;
+  --brick: #C4574A;
+  --cool: #6E9C8A;
+
+  --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+  --body: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --maxw: 62rem;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #F2F1EC;
+    --surface: #FFFFFF;
+    --surface-2: #F7F6F1;
+    --line: #DCDAD1;
+    --ink: #16201A;
+    --ink-dim: #4A5750;
+    --ink-mute: #6E7A73;
+    --gold: #8A6212;
+    --gold-dim: #C6A66A;
+    --brick: #9E3A2E;
+    --cool: #3D6B58;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
+  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #75837B;
+  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #C4574A; --cool: #6E9C8A;
+}
+
+:root[data-theme="light"] {
+  --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
+  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #6E7A73;
+  --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
+}
+
+/* The reference put min-height:100vh on .page. Dropped deliberately (see the
+   vh rule above); this fills the viewport standalone without the feedback loop. */
+html { background: var(--ground); }
+
+* { box-sizing: border-box; }

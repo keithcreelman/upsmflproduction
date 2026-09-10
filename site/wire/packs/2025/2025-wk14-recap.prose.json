@@ -1,0 +1,105 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 22460,
+    "outputTokens": 14089,
+    "packId": "2025-wk14-recap",
+    "packGeneratedAtUtc": "2026-08-02T12:04:58Z"
+  },
+  "prose": {
+    "kicker": "Nobody set a bad lineup. Plenty of people lost anyway.",
+    "title": "Bear Dunn Beat Everybody",
+    "dek": "Josh Allen produced the day of the week, the only careless lineups belonged to men it did not cost, and not one loser can blame his bench.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Bear Dunn started Josh Allen and Allen handed him the top line anyone produced -- {{f.star.line}}. That came to {{f.star.score}} from a quarterback already averaging {{f.star.prior_avg}} before kickoff, which is how a good week becomes a clean sweep. Dunn went {{f.team.0009.week_allplay}} against the field.",
+          "He did not need the rest, and got it anyway. Tony Pollard chipped in {{f.player.tony-pollard.score}} and Jaxon Smith-Njigba {{f.player.jaxon-smith-njigba.score}}, and Dunn left almost nothing behind him -- {{f.team.0009.left_on_bench}} on the bench, total. The best thing anyone pulled off the wire out of {{f.wire.adds}} adds was also his, and it was in his starting lineup the same week he bought it: {{f.wire.best_add}}.",
+          "Derrick Whitman went the other direction as far as the format allows. He lost to every opponent on the board, finishing {{f.team.0002.vs_avg}} against his own season average on a night Jordan Love was busy throwing scores for him. Keith Creelman was barely better off, {{f.team.0008.week_allplay}} on the day, and he can't even point at his own bench: he left {{f.team.0008.left_on_bench}} there. Brian Cutting had Jahmyr Gibbs go for {{f.player.jahmyr-gibbs.score}} with three touchdowns in it and lost twice.",
+          "The only genuinely careless lineups in the league belonged to Brian Cross, who started {{f.dnp.0006}} and won both of his games regardless, and Eric Mannila, who started {{f.dnp.0011}} and lost both by more than any inactive could explain. Nobody else made a mistake. That is not the same as nobody paying: {{f.week.self_inflicted}} of this week's losers had a winning lineup somewhere in their roster, and {{f.week.outgunned}} more could have played a flawless card and still gone home."
+        ],
+        "bullets": [],
+        "place": [
+          "t.performers",
+          "t.pickups"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.performers": "Half the top ten took snaps under centre, which is superflex doing what superflex does.",
+          "t.pickups": "Dunn bought the only add that both scored and started."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "Brian Cutting lost twice on the same slate, both times to men from his own division, and neither loss was his fault in any way a manager can fix.",
+        "paragraphs": [
+          "By the only test that means anything -- did the better player, on his season to date, take the field? -- the number of wrong bench calls in this league came to {{f.week.no_process_burns}}. Ryan Bousquet is the headline case and the least deserving of grief: {{f.burn.benched}} put up {{f.burn.benched_score}} in a suit while {{f.burn.started}} managed {{f.burn.started_score}}, and {{f.burn.verdict}}. Cutting sat Zay Flowers for Justin Jefferson. Chris Klingenberg sat Dawson Knox for Zach Ertz. Every one of those is the call you make again next week.",
+          "So the punishment landed nowhere near the crime. The men who forgot to check their rosters were Cross, who swept, and Mannila, who was beaten by so much in both games that a full lineup would not have mattered. The men who actually lost winnable games did so by starting the right people on the wrong day."
+        ],
+        "bullets": [],
+        "place": [
+          "t.burns"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [
+          "g.1",
+          "g.2",
+          "g.3",
+          "g.4",
+          "g.5",
+          "g.6",
+          "g.7",
+          "g.8",
+          "g.9",
+          "g.10",
+          "g.11",
+          "g.12"
+        ],
+        "gameNotes": {
+          "g.1": "Cutting arrived unbeaten inside LEGION OF BOOM and left having lost to the man sitting closest to him in it. Josh Martel did it without a special day -- {{f.team.0007.vs_avg}} against his own average -- and Cutting's entire roster, set perfectly, tops out at {{f.team.0004.best_available}} and loses this anyway. The division stopped being a formality here.",
+          "g.2": "Bousquet had the best ceiling of anyone who lost this week, {{f.team.0001.ceiling_rank}}, and it bought him a defeat. He beat every roster in the league except the one he was actually drawn against, {{f.team.0001.week_allplay}} on the day, and Matthew Stafford threw three scores for nothing. Bousquet's overall record still looks like a contender's; his results inside this division do not.",
+          "g.3": "Mannila's afternoon against Dunn was {{f.game.03.margin_rank}}, and there is no version of it he wins -- his best available lineup was {{f.team.0011.best_available}} against a total north of that by plenty. J.J. McCarthy gave him a real quarterback week and it registered as a rounding error. This is the one loss where starting a man who never took a snap genuinely did not matter.",
+          "g.4": "Two losses in one day, both inside DOG POUND 4 LIFE, and Mannila now owns a division record that has quietly ended his automatic-bid case. Bousquet needed only his baseline to handle it. For a team hovering either side of even, dropping the games against the division rivals you are chasing is the expensive way to do it.",
+          "g.5": "Eric Martel won a game in which both teams finished more than sixty adrift of their own averages, which is less a contest than an alibi. Whitman had the pieces to take it -- he {{f.team.0002.could_have_won}} -- and instead posted the worst day anyone had. Martel will take it; the ICE UP SON! lead is what he is protecting.",
+          "g.6": "Cross won by {{f.game.06.margin}} with men in his lineup who never took a snap, which is the sort of thing you laugh about only if the scoreboard cooperates. Eric Martel's optimal card, {{f.team.0005.best_available}}, wins this comfortably, and Josh Jacobs leading a roster at eighteen-odd tells you how the day went for him. A division leader losing to the team below him by less than a field goal's worth of scoring is a warning, not a disaster.",
+          "g.7": "Matt Gerardi came in winless within LEGION OF BOOM and beat the team leading it, playing about his normal game while Cutting collapsed by {{f.team.0004.vs_avg}}. This is the loss Cutting can genuinely be annoyed about: he {{f.team.0004.could_have_won}}, and Justin Jefferson picking this week to score three-point-three is the reason he did not. Gerardi's season remains what it is, but he took something real off somebody.",
+          "g.8": "Klingenberg got {{f.team.0012.best_player}} out of Michael Wilson on sixteen targets and put Creelman away with room to spare. Creelman had nothing to give back -- his best available lineup ranks {{f.team.0008.ceiling_rank}}, and he left almost nothing unused getting there. Losing this badly while managing your roster correctly is the definition of a talent problem.",
+          "g.9": "Puka Nacua's seven catches for a hundred and sixty-odd with two scores meant Blake never had to sweat a division game he badly needed. Creelman's second defeat of the day was by an even wider margin, {{f.game.09.margin_rank}}, against the same total. MAKE IT RAIN now belongs to Blake on the strength of results inside it, whatever his overall record says.",
+          "g.10": "Gerardi finished {{f.team.0003.vs_avg}} above his own average and still lost, which is the whole of his season in one line. Josh Martel got {{f.team.0007.best_player}} from Harold Fannin on eleven targets and cruised. Martel's second win of the slate is the one that keeps him level with the division leader he had just beaten.",
+          "g.11": "Klingenberg produced the highest individual score in this game and lost it by {{f.game.11.margin}}, which happens when the other roster is the deeper one. He {{f.team.0012.could_have_won}} -- his ceiling was {{f.team.0012.best_available}} -- but the Ertz start was defensible and the swing was luck, not judgement. Blake sweeping the division on the same slate is how a team with a losing record ends up holding a bid.",
+          "g.12": "Cross left {{f.team.0006.left_on_bench}} unused, started men who never played, and won anyway, because Whitman scored {{f.team.0002.score}}. Whitman's optimal lineup takes this game and he never assembled it. For Cross, two wins in a day when nothing worked is the kind of luck a team at his record has not been getting."
+        },
+        "captions": {
+          "t.burns": "Five swings, no crimes: in every case the man with the better season average was the man who started."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "paragraphs": [
+          "Bear Dunn tightened the only division lead nobody is arguing about, {{f.div.dog-pound-4-life.leader}}, with Bousquet and Mannila both losing to him on the same slate and Bousquet stuck at {{f.team.0001.div_record}} inside it. Eric Martel keeps ICE UP SON! at {{f.div.ice-up-son.leader}} despite going {{f.team.0005.week_allplay}} against the field, which is the mercy of playing Whitman and being caught by nobody who can hurt him -- Cross is {{f.team.0006.record}}, Whitman {{f.team.0002.record}}. Those two bids are effectively spoken for.",
+          "LEGION OF BOOM is the live one. Brian Cutting holds it, {{f.div.legion-of-boom.leader}}, and Josh Martel now sits on the identical overall record with the division record the tiebreak -- Cutting {{f.team.0004.div_record}}, Martel {{f.team.0007.div_record}}. Martel took the head-to-head this week and is riding the best three-week stretch in the league at {{f.mo.hot}}. Cutting was unbeaten in the division at breakfast and is not now.",
+          "Then there is MAKE IT RAIN, where {{f.div.make-it-rain.leader}} means an automatic bid is currently the property of a team under water, while Eric Mannila at {{f.team.0011.record}} leads nothing at all. Blake earned it inside the division, {{f.team.0010.div_record}}, and that is the number that counts. Keith Creelman is somehow still theoretically in it at {{f.team.0008.div_record}} despite losing to ten of eleven opponents on the day, which reflects on the division rather than on the commissioner.",
+          "Everything after the four bids runs on all-play, and that is where the records lie to you. Cutting has taken more all-play beatings from nobody -- he is still ahead of Dunn on that column after losing twice, which is the strongest argument that his week was variance. Bousquet's {{f.team.0001.record}} and Klingenberg's {{f.team.0012.record}} describe two very different seasons than their weekly all-play marks do. And at the bottom, Whitman is {{f.mo.cold}} over three weeks and Gerardi is {{f.team.0003.record}} with a division mark of {{f.team.0003.div_record}}; one of them has a bad month and the other has a bad year."
+        ],
+        "bullets": [],
+        "place": [
+          "t.standings"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.standings": "Four division winners are in automatically; everyone else is sorted by the all-play column, not the one they keep quoting."
+        }
+      }
+    ]
+  }
+}

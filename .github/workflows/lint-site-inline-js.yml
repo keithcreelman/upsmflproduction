@@ -18,12 +18,14 @@ on:
     branches: [main]
     paths:
       - "site/**/*.html"
+      - "site/**/*.js"
       - "scripts/check_inline_js.mjs"
       - ".github/workflows/lint-site-inline-js.yml"
   push:
     branches: [main]
     paths:
       - "site/**/*.html"
+      - "site/**/*.js"
 
 jobs:
   inline-js:
@@ -35,3 +37,18 @@ jobs:
           node-version: "22"
       - name: Syntax-check every inline <script> in site/
         run: node scripts/check_inline_js.mjs
+
+      # The check above only sees INLINE script. Standalone site/**/*.js was
+      # checked by nothing: the repo's only eslint.config.mjs covers worker/.
+      # That gap matters more now, because the right fix for a prose-heavy page
+      # is to move its logic OUT of inline <script> (see site/wire/), which
+      # without this step would mean moving it out of all coverage.
+      - name: Syntax-check standalone JS in site/
+        run: |
+          set -e
+          count=0
+          for f in $(git ls-files 'site/**/*.js' 'site/*.js'); do
+            node --check "$f"
+            count=$((count + 1))
+          done
+          echo "standalone-js: $count file(s) checked, 0 broken"

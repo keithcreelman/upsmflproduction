@@ -1,0 +1,157 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 17456,
+    "outputTokens": 30235,
+    "packId": "2026-preseason-review",
+    "packGeneratedAtUtc": "2026-09-06T13:57:12Z"
+  },
+  "prose": {
+    "kicker": "Nobody left the auction quietly",
+    "title": "Everybody Paid. Somebody Overpaid.",
+    "dek": "Eric Mannila spent less than anyone and came out with one of the best offenses in the league; Keith Creelman spent more than anyone and did not.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "Derrick Whitman and Keith Creelman ended the off-season with nothing left to spend.",
+        "paragraphs": [
+          "Both sit at {{f.cap.tightest_room}} of room, and they got there by opposite routes — Whitman by putting his money in a few large places, Creelman by touching very nearly every contract he owns. Chris Klingenberg is at the far end, holding more than anybody at {{f.cap.most_room}} and carrying one of the lightest commitments in the league. Ryan Bousquet is the only other owner with money that could still change a roster.",
+          "The typical team is sitting on {{f.cap.median_room}} of slack. That is enough to add a body in a crisis and nowhere near enough to fix a position, which is roughly where this league always lives. Commitment across the twelve now stands at {{f.cap.total_committed}}, an enormous pile of promises for a summer with no football in it.",
+          "Josh Martel and Brian Cross opened the off-season already heavy on active-roster salary and never got light. Creelman and Bousquet opened it carrying almost nothing and went in opposite directions from there. Creelman has none left. Bousquet still has money, and the biggest active roster in the league to spend it on."
+        ],
+        "bullets": [],
+        "place": [
+          "t.cap_sheet",
+          "c.cap_room"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.cap_sheet": "Opening salary and current commitment count different things — read them side by side, not one minus the other.",
+          "c.cap_room": "Klingenberg and Bousquet are the only two who can still buy anything that matters."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "",
+        "paragraphs": [
+          "Shawn Blake paid more for Josh Allen than anyone paid for anybody all off-season, {{f.auction.top_price}}. Quarterbacks took most of the rest of the top of the board, because this is a superflex league and everybody here has learned that lesson at least once, usually the hard way. Keith Creelman's Dak Prescott cost exactly what Bear Dunn paid for Christian McCaffrey, and Josh Martel's Lamar Jackson landed just under both.",
+          "More than half of everything that sold went at the opening bid, {{f.auction.min_price_lots}} lots of it. The median winning bid was {{f.auction.median_price}}. Underneath the handful of bloodbaths at the top, this was a shopping trip, and the till rang up {{f.auction.total_spend}}.",
+          "Owners took home {{f.auction.lots_won}} lots between them. Only {{f.auction.contested_lots}} of those drew more than one bidder, which means most of this auction was people quietly collecting what nobody else wanted. The whole thing took {{f.auction.total_bids}} bids to resolve.",
+          "Ryan Bousquet paid Patrick Mahomes money for George Pickens with exactly one rival bidding against him. Matt Gerardi bought the actual Mahomes for that same price, then turned around and paid more for Malik Willis than Chris Klingenberg paid for Jared Goff. Klingenberg, for his part, bought two starting quarterbacks and still walked out of the auction with money in his hand.",
+          "The bidding is done, with {{f.auction.lots_open}} lots left open. The accounting is not: finalized contracts outnumber the lots marked sold, {{f.auction.finalized_contracts}} of them, and the expired-rookie auction has not turned up in the finalization books at all. Prices in here come off the lot ledger, because that is the ledger that agrees with itself."
+        ],
+        "bullets": [],
+        "place": [
+          "t.auction_by_team",
+          "t.top_buys",
+          "c.auction_spend"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.auction_by_team": "Lots won and money spent are barely related — compare Cutting's column with Creelman's.",
+          "t.top_buys": "Quarterbacks, quarterbacks, and Christian McCaffrey.",
+          "c.auction_spend": "Spending is not strategy, but it is a confession."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "Brian Cutting and Eric Mannila spent the least real money of anyone with ambitions and came out of the summer holding two of the offenses this market likes best.",
+        "paragraphs": [
+          "Brian Cutting won {{f.team.0004.lots_won}} lots and not one of them was a headline; his most expensive purchase would not have made the fifteen priciest prices of the off-season. The league's only MYM belongs to him. He finished with the most valuable win-now offense in the league at {{f.team.0004.redraft_value}} and {{f.team.0004.cap_room}} still in his pocket. Verdict: he won the off-season and almost nobody noticed him doing it.",
+          "Eric Mannila spent less at auction than any owner in the league, {{f.team.0011.auction_spend}}, and cut barely anyone. What he has is an offense the market rates near the top for this season, {{f.team.0011.redraft_value}}, assembled almost entirely at the floor. Verdict: the best dollar-for-dollar summer of the twelve, and it was not close to being expensive.",
+          "Bear Dunn took Christian McCaffrey and Joe Burrow, two of the priciest lots on the board, and then more or less stopped shopping. He barely touched the rookie draft and carries an offense of only {{f.team.0009.offense}} players. It works anyway: the market rates that small group at {{f.team.0009.redraft_value}}, with {{f.team.0009.cap_room}} behind it. Verdict: top-heavy on purpose, and the purpose is this season.",
+          "Eric Martel bought Josh Jacobs and then went quiet, {{f.team.0005.auction_spend}} spent all summer. He is the only owner in the league carrying {{f.team.0005.special_teams}} special-teamers, which is a great deal of emotion about kicking. His offense still grades above the middle of the league at {{f.team.0005.redraft_value}}. Verdict: the quietest good off-season on the board.",
+          "Keith Creelman outspent the entire league at auction, {{f.team.0008.auction_spend}}, and bought Dak Prescott, Saquon Barkley and Kyler Murray with it. He extended, tagged, restructured and released in volume, ending with {{f.team.0008.moves}} contract outcomes. All of that motion left him at {{f.team.0008.cap_room}} of room with a roster the market likes barely more than Whitman's, and Whitman spent less getting there. Verdict: the most work anyone did, for the least separation.",
+          "Derrick Whitman spent {{f.team.0002.auction_spend}} at auction, most of it on Jonathan Taylor, and stopped dead at the ceiling. He cut one player all off-season, which stands out in a summer this violent. His offense lands exactly on the league median, {{f.team.0002.redraft_value}}, which is a strange destination for a man who spent everything he had. Verdict: fully committed, in both senses, to being average.",
+          "Shawn Blake made the biggest bid of the auction on Josh Allen and then went shopping on defense, where he now keeps {{f.team.0010.defense}} players. Behind Allen the offense is thin enough that the market puts him below the middle of the league, {{f.team.0010.redraft_value}}. He needed {{f.team.0010.moves}} contract outcomes to hold the structure upright. Verdict: one enormous quarterback and a lot of tackling.",
+          "Ryan Bousquet won {{f.team.0001.lots_won}} lots and paid Mahomes money for George Pickens with a single rival bidding. Then he closed the office: {{f.team.0001.moves}} contract outcomes, one cut, nothing else. He has the biggest active roster in the league at {{f.team.0001.active}} and an offense the market rates below the middle. Verdict: he collected players. He did not build a team.",
+          "Josh Martel paid up for Lamar Jackson and has {{f.team.0007.cap_room}} left to fix whatever goes wrong. His active roster of {{f.team.0007.active}} is among the fullest in the league, and the market still only rates the offense at {{f.team.0007.redraft_value}}, under the median. Verdict: expensive at the top, ordinary underneath, and out of money to argue with.",
+          "Chris Klingenberg bought Jared Goff and Matthew Stafford and then stopped bidding, {{f.team.0012.lots_won}} lots in all. He has more room left than anybody and the fewest offensive players to spend it on, {{f.team.0012.offense}}. The market rates that group near the bottom of the league for this season, {{f.team.0012.redraft_value}}. Verdict: a quarterback room and a savings account.",
+          "Matt Gerardi outbid a crowd for Malik Willis and paid more for him than Klingenberg paid for Goff, which is the single funniest line item of the summer. He got Mahomes for what Bousquet paid for a receiver, so the ledger is not all bad. But he spent {{f.team.0003.auction_spend}} in total and came away with an offense the market rates near the bottom for this season, {{f.team.0003.redraft_value}}. Verdict: he paid starter money twice at one position and let the rest ride on rookies.",
+          "Brian Cross cut players all off-season and signed multi-year deals in bulk, {{f.team.0006.moves}} contract outcomes in all. He spent almost nothing at auction, {{f.team.0006.auction_spend}}. The result is the least valuable win-now offense in the league, {{f.value.lowest_redraft}}, on a roster he has taken apart to the studs. Verdict: if this is a rebuild it is on schedule; if it is not, it is a wreck."
+        ],
+        "bullets": [],
+        "place": [],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {}
+      },
+      {
+        "id": "s4",
+        "lead": "Keith Creelman filed more contract outcomes than any owner in the league and released a long list of players doing it.",
+        "paragraphs": [
+          "Owners filed {{f.moves.submissions}} contract submissions this off-season. Those collapse into {{f.moves.total}} distinct outcomes, because a deal revised in the Front Office leaves a paper trail and exactly one contract at the end of it. Anyone bragging about their raw activity count is bragging about typing.",
+          "Owners back-loaded {{f.moves.back_loaded}} contracts. They front-loaded {{f.moves.front_loaded}}, the smaller number and the braver one, and Creelman did more of each than most. Promising money later is always easier than handing it over now.",
+          "The rookie draft produced {{f.draft.picks}} picks. Cuts ran to {{f.drops.count}}, more bodies out than the draft put in, and Brian Cross released more men than anyone. Whitman, Gerardi and Bousquet each cut a single player and went back to sleep.",
+          "Trades landed at {{f.trades.count}}, which for a league this old is a genuinely healthy pulse. Nobody sat the summer out entirely. Some of them just did their business in one afternoon and called it a plan."
+        ],
+        "bullets": [
+          "Multi-year deals were the instrument of choice, {{f.moves.multi_year_contract}} of them across the league.",
+          "Extensions were the second choice, {{f.moves.extension}} in all.",
+          "Restructures — next year's problem in a nice suit — came in at {{f.moves.restructure}}.",
+          "Tags were used sparingly, {{f.moves.tag}} of them.",
+          "Free-agent contracts landed at {{f.moves.fa_contract}}.",
+          "Brian Cutting accounts for the entire MYM output of the league, {{f.moves.mym}}."
+        ],
+        "place": [
+          "t.moves_by_team"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.moves_by_team": "The Cuts column is the personality test; the Extension column is the confidence one."
+        }
+      },
+      {
+        "id": "s5",
+        "lead": "",
+        "paragraphs": [
+          "Shawn Blake's Josh Allen price is the one figure in here that nothing disputes. Elsewhere the ledgers argue with each other. More contracts have been finalized than there are lots marked sold, so prices above come off the lot ledger and move counts off the contract log, and the two will not reconcile no matter how long you stare at them.",
+          "The expired-rookie auction does not appear in the finalization books at all, which means a slice of the summer's business is simply not recorded yet. That gap is not a rounding error.",
+          "The first contract activity of the off-season happened before the earliest full picture of these rosters exists, so 'where they started' means where they stood at that first picture rather than at the true open. The opening salary column counts active-roster salary only and leaves adjustments out, so it does not subtract cleanly from the live commitment; they are two separate photographs of two different things.",
+          "The league's own history tables stop before this season. Nothing here is compared to last year."
+        ],
+        "bullets": [],
+        "place": [],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {}
+      },
+      {
+        "id": "s6",
+        "lead": "Brian Cutting rosters the offense this market rated highest for the season ahead, {{f.value.highest_redraft}}.",
+        "paragraphs": [
+          "The measure asks one question: what did the market think each rostered quarterback, back, receiver and tight end was worth for this season alone? Salary is ignored completely, so a minimum-price rookie and a huge veteran deal of equal standing count the same. This is a win-now number. An aging producer scores enormously on it and a young stash scores nothing, and that is the point of it rather than a flaw in it.",
+          "Brian Cross sits at the bottom, {{f.value.lowest_redraft}}, and he is nowhere near the middle. The median is {{f.value.median_redraft}}, which happens to be Derrick Whitman's exact figure — he spent to the ceiling and bought the middle of the league.",
+          "The composition splits say nearly as much as the value column. Shawn Blake carries {{f.team.0010.defense}} defensive players. Keith Creelman went the other way entirely, hoarding {{f.team.0008.offense}} offensive bodies and leaving himself the thinnest defense of the twelve.",
+          "Chris Klingenberg employs {{f.team.0012.special_teams}} special-teamer, where Eric Martel keeps {{f.team.0005.special_teams}}. Neither choice moves the value column an inch. Nor do the {{f.roster.idp_count}} defensive players rostered across this league, because the board does not price them, and calling them worthless would be a lie dressed as a measurement."
+        ],
+        "bullets": [],
+        "place": [
+          "t.roster_composition",
+          "c.redraft_value"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.roster_composition": "Salary plays no part in the right-hand column, and neither does anybody's defense.",
+          "c.redraft_value": "Win-now value, offense only: Cutting at the top, Cross at the bottom, and a long flat middle where most of this league lives."
+        }
+      }
+    ]
+  }
+}

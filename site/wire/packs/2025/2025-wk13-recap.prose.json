@@ -1,0 +1,119 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 29350,
+    "outputTokens": 16445,
+    "packId": "2025-wk13-recap",
+    "packGeneratedAtUtc": "2026-08-02T12:34:08Z"
+  },
+  "prose": {
+    "kicker": "A perfect week, spent on nothing",
+    "title": "Klingenberg Beat Everybody, and the Only Race That Moved Was the Ugly One",
+    "dek": "The biggest score in the league belonged to an eliminated team, and the entire week resolved into a straight swap between Keith Creelman and Shawn Blake for a division bid neither of them has earned.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Chris Klingenberg had the best week of his season and it bought him absolutely nothing. Patrick Mahomes handed him {{f.player.patrick-mahomes.score}}, Zach Ertz added {{f.player.zach-ertz.score}} behind him, Dak Prescott piled on from a third slot, and when everything was totalled Klingenberg had outscored every other roster in the league. His playoff odds sit at {{f.odds.0012.make}}. He is the most dangerous dead man the format has produced this year.",
+          "Brian Cross got the single best line of the week out of A.J. Brown: {{f.star.line}}. Brown came into this averaging {{f.star.prior_avg}}, which is the whole point — this was not a star doing star things, it was a fine player having the day of his season on the one card that needed it. It was {{f.team.0006.week_rank_own}}, and Cross won all three of his games with it.",
+          "Derrick Whitman got {{f.player.jordan-love.score}} from Jordan Love and lost to the entire field anyway. Nobody else in the league went winless against everyone; {{f.week.winless}} managed it alone, on a card that could not have beaten a single opponent even played perfectly. Matt Gerardi at least had Bryce Young for {{f.player.bryce-young.score}}, and he still took the largest beating on the board.",
+          "The wire moved {{f.wire.adds}} bodies this week and {{f.wire.trades}} trades cleared, none of which changed a result. The best thing anyone bought was Eric Mannila's {{f.wire.best_add}}, and Mannila left him on the bench, which is either discipline or forgetfulness and he is welcome to pick.",
+          "Here is what all of it added up to. Two playoff numbers moved more than a shrug: Keith Creelman shed {{f.odds.biggest_faller}} and Shawn Blake picked up {{f.odds.biggest_riser}}. Everybody else is either locked in, locked out, or moved by a point in one direction. The whole slate — the perfect week, the largest margin of the week, a man losing to eleven opponents at once — came out the other side as one swap between two teams with losing records."
+        ],
+        "bullets": [],
+        "place": [
+          "t.performers",
+          "t.pickups"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.performers": "Half the leaderboard throwing the ball, which is what this league looks like when it is working.",
+          "t.pickups": "Three adds produced anything at all, and the best of them watched from the bench."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "",
+        "paragraphs": [
+          "Josh Martel started Rome Odunze and benched Jameson Williams, and it is the one lineup call this week that anyone should be sore about. Williams went for {{f.burn.benched_score}}. Odunze managed {{f.burn.started_score}}. The verdict is not kind: {{f.burn.verdict}}, and {{f.burn.covers_margin}} against Klingenberg.",
+          "The rest of the bench damage was honest bad luck. Ryan Bousquet started the better player and got nothing from him; Derrick Whitman did the same; Brian Cross and Matt Gerardi both played the man the season told them to play. Six losers had a winning lineup available and did not set it — {{f.week.self_inflicted}} of them, most by accident rather than judgement — while {{f.week.outgunned}} were simply outgunned and could not have won with a flawless card. Only one man in the league actually chose wrong."
+        ],
+        "bullets": [],
+        "place": [
+          "t.burns"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [
+          "g.1",
+          "g.2",
+          "g.3",
+          "g.4",
+          "g.5",
+          "g.6",
+          "g.7",
+          "g.8",
+          "g.9",
+          "g.10",
+          "g.11",
+          "g.12",
+          "g.13",
+          "g.14",
+          "g.15",
+          "g.16",
+          "g.17",
+          "g.18"
+        ],
+        "gameNotes": {
+          "g.1": "Bear Dunn had his worst week of the season and had nothing to blame it on — he left {{f.team.0009.left_on_bench}} behind, which is to say he played the roster he had and it did not work. Eric Martel was under his own average too and still took it by {{f.game.01.margin}}. Dunn's record is not the worry; a card with no floor in it is.",
+          "g.2": "Keith Creelman got {{f.player.marcus-mariota.score}} out of Marcus Mariota, more than any starter Brian Cutting fielded, and still lost. Cutting won it by {{f.game.02.margin}} while having the worst week of his season, which is what happens when you have the most points in the league banked already. Creelman's slide started here and never stopped.",
+          "g.3": "Ryan Bousquet lost by {{f.game.03.margin}} with {{f.team.0001.could_have_won}} — but read the bench before you swing, because Amon-Ra St. Brown was the correct start and simply gave him nothing. Eric Martel won this well below his own average. Two good teams, one bad hour each, and the seeding barely noticed.",
+          "g.4": "Shawn Blake beat the highest-scoring team in the league by {{f.game.04.margin}}, and this is the result that made his week. He did it scoring {{f.team.0010.vs_avg}} against his own average, which tells you what Cutting's card looked like rather than what Blake's did. Cutting's division record survived intact; his invincibility did not.",
+          "g.5": "Chris Klingenberg buried Brian Cutting by {{f.game.05.margin}}, {{f.game.05.margin_rank}}, and it is worth nothing to him but pride. Cutting posted his worst week of the season and drew the one roster in the league that was on fire. His odds remain {{f.odds.0004.make}}, which is the entire consolation and also the entire point.",
+          "g.6": "Eric Mannila won by {{f.game.06.margin}} behind Bijan Robinson and moved his own playoff number the wrong way regardless. He is {{f.team.0011.div_record}} in DOG POUND 4 LIFE and stuck behind two teams already through, so wins like this are decoration. Eric Martel losing it cost him nothing at all.",
+          "g.7": "Bear Dunn played his worst card of the season and still won by {{f.game.07.margin}}, which is a fair summary of the gap between these two rosters. Derrick Whitman had Jordan Love throwing four touchdowns and {{f.team.0002.could_have_won}} — his ceiling was {{f.team.0002.ceiling_rank}}. Aaron Rodgers going backwards in a starting slot was the right call on season form and a miserable one in practice.",
+          "g.8": "Josh Martel took this by {{f.game.08.margin}}, and the cruelty of a multi-header is that Creelman's one lineup had to face it three separate times. The same card that squeaked past Gerardi got run over here. He is sixth in the league for points and it has produced a losing record.",
+          "g.9": "Ryan Bousquet won by {{f.game.09.margin}} on a day he was under his season average, which tells you what he was playing against. Whitman's best available lineup was {{f.team.0002.best_available}} and it would not have won this either. There is no lineup fix for a roster this far below the field.",
+          "g.10": "Brian Cross beat Bear Dunn by {{f.game.10.margin}} on the back of the biggest performance of the week, and it is the sort of scalp that means everything and does nothing. Dunn went {{f.team.0009.week_allplay}} against the field on the day and his position is unchanged. Cross has {{f.odds.0006.make}} and just beat the team with the best record in the league.",
+          "g.11": "Josh Martel won this by {{f.game.11.margin}} and Shawn Blake {{f.team.0010.could_have_won}} — his ceiling was {{f.team.0010.ceiling_rank}} and it was still short. Blake benching Terry McLaurin for Jaylen Waddle is a coin-flip call that nobody should hang him for. He won his other two, which is all that mattered by the end of it.",
+          "g.12": "Eric Mannila put {{f.game.12.margin}} on Derrick Whitman, {{f.game.12.margin_rank}}, and it is the clearest picture of where Whitman's roster now sits. Bijan Robinson alone nearly covered the gap between the two best starters. Whitman's odds are {{f.odds.0002.make}} and this is the week that finished the argument.",
+          "g.13": "Chris Klingenberg won the best game of the week by {{f.game.13.margin}} against the only man who nearly matched him. Josh Martel's best available lineup was {{f.team.0007.ceiling_rank}} — he had the highest ceiling of anyone who lost, and he left Jameson Williams on the bench to reach it. That single swap is the difference between a perfect week and a scar.",
+          "g.14": "Brian Cross made it look easy by {{f.game.14.margin}}, which is not a phrase anyone has used about him often this season. Bousquet had {{f.team.0001.best_available}} sitting there and would have won this with it, though the specific benching was the right start on the wrong day. His odds slipped by a point and he remains fine.",
+          "g.15": "Brian Cross closed out the sweep by {{f.game.15.margin}} over the man who had the second-best ceiling of any loser this week. Eric Mannila scored {{f.team.0011.vs_avg}} above his own average and lost it anyway. This is the game that kept his odds pinned at {{f.odds.0011.make}} instead of making him interesting.",
+          "g.16": "Keith Creelman got his only win of the week by {{f.game.16.margin}}, over the one team in the league he could not have lost to and stayed employable. Matt Gerardi is {{f.team.0003.div_record}} inside LEGION OF BOOM and has the fewest points in the league. Creelman is still at {{f.odds.0008.make}} entirely because this game existed.",
+          "g.17": "Shawn Blake beat Matt Gerardi by {{f.game.17.margin}} in the least surprising result of the slate, and it is a third of why his playoff odds jumped. Gerardi's best available lineup was {{f.team.0003.best_available}} and he would have needed all of it. Starting Travis Etienne over Kyle Monangai was defensible on the season averages and disastrous in the event.",
+          "g.18": "Chris Klingenberg hung {{f.game.18.margin}} on Matt Gerardi, {{f.game.18.margin_rank}}. Gerardi went {{f.team.0003.week_allplay}} against the field and this was the worst of it. Two teams with nothing left, one of them briefly the best in the league."
+        },
+        "captions": {
+          "t.burns": "One wrong call in the whole league, and it decided the closest game on the board."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "paragraphs": [
+          "Bear Dunn went two-and-nine against the field, lost his division game to nobody because he did not play one, and still runs DOG POUND 4 LIFE at {{f.div.dog-pound-4-life.leader}}. Ryan Bousquet is behind him with a worse division record and no realistic route past it. In ICE UP SON!, {{f.div.ice-up-son.leader}} holds the bid, and the man closest to him on division record is Derrick Whitman, who is riding a {{f.mo.cold}} three-week run and cannot get in by any door.",
+          "Brian Cutting sits on top of LEGION OF BOOM at {{f.div.legion-of-boom.leader}}, unbeaten in the division and coming off the worst week of his season, which is the luxury of a lead built in September's arithmetic rather than this one. Josh Martel is the second-best team in that division and the hottest team in the league at {{f.mo.hot}}. Matt Gerardi is {{f.team.0003.div_record}} in it and has been out for a while.",
+          "MAKE IT RAIN is the only race anyone should be watching, and it is not pretty. Shawn Blake leads it at {{f.div.make-it-rain.leader}}, on the strength of a division record his overall record does not deserve; Keith Creelman is right behind at {{f.team.0008.div_record}} with more points scored and worse timing. Chris Klingenberg, who beat every team in the league this week, is {{f.team.0012.div_record}} in that division and eliminated. Three teams, one automatic bid, and the winner will be somebody's first-round bye snack.",
+          "Everything else is settled or nearly so. Cutting, Eric Martel, Dunn and Josh Martel all read {{f.odds.0007.make}}, with Josh Martel the only one of them who gained ground this week. Bousquet is at {{f.odds.0001.make}} and lost a point he will not miss. Mannila is at {{f.odds.0011.make}} after going eight-and-three against the field, which is the harshest sentence the simulation handed down all week.",
+          "So the whole slate came down to a swap. Creelman gave back {{f.odds.biggest_faller}} and Blake collected {{f.odds.biggest_riser}}, and if you had watched nothing but those three MAKE IT RAIN cards you would know everything that changed. Klingenberg's perfect week, Cross's best week of the season, Whitman losing to eleven opponents at once — none of it altered a single seed. The bottom of this league is where the last drama lives."
+        ],
+        "bullets": [],
+        "place": [
+          "t.standings"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.standings": "Read the all-play column, not the record column — that is the one handing out the seeds after the four division winners."
+        }
+      }
+    ]
+  }
+}
