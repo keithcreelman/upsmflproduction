@@ -359,12 +359,33 @@
       // (worker/src/index.js, "This is why FO's roster rows never showed an
       // IR/PUP/suspended chip"). Reuses parseInjuries(), the exact parser
       // loadScoreboard() already trusts for the live tab.
-      fetchJson(mflExportUrl("injuries"))
+      fetchJson(mflExportUrl("injuries")),
+      // liveScoring, for its WEEK ONLY. projectedScores.week is NOT the week
+      // being played: MFL rolls the projection week forward the moment the
+      // first game of a week kicks off, so on 2026-09-10 -- with Week 1 wide
+      // open and only the Wednesday NEP/SEA game finished -- projectedScores
+      // said 2 while liveScoring said 1. Every lineup surface keyed off the
+      // former, so Submit Lineup read Week 2's (empty) lineup, labelled itself
+      // Week 2, pulled Week 2 matchup ratings and posted week=2. The worker
+      // already overrides the submitted week from liveScoring (PR #1051); this
+      // is the other half, so the screen agrees with what actually gets
+      // written. Fetched here rather than in loadScoreboard() because the
+      // lineup panel renders off loadData() and must not race the scoreboard.
+      // Kept LAST on purpose: the .then() below reads results BY POSITION
+      // (r[6]). The first cut of this sat between projectedScores and
+      // injuries, which would have shifted injuries off r[5] -- blanking
+      // every injury badge -- and handed parseInjuries the liveScoring blob.
+      fetchJson(mflExportUrl("liveScoring"))
     ]).then(function (r) {
       STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
       STATE.proj = parseProj(r[4]);
       STATE.projWeek = parseInt((r[4] && r[4].projectedScores && r[4].projectedScores.week) || 0, 10) || 0;
       STATE.injuries = parseInjuries(r[5]);
+      STATE.liveWeek = parseInt((r[6] && r[6].liveScoring && r[6].liveScoring.week) || 0, 10) || 0;
+      // The week an owner is SETTING A LINEUP for. Live week wins; the
+      // projection week is only the fallback for when liveScoring cannot be
+      // read (and in the offseason both are absent, which stays 0).
+      STATE.lineupWeek = STATE.liveWeek || STATE.projWeek;
       parseLeague(); resolveViewer();
     });
   }
@@ -636,7 +657,7 @@
   }
   // Per-window cache so the detail can show recent-vs-season without re-fetching.
   function loadMatchups() {
-    var myr = qp.get("mYEAR") || sbYear(), mwk = qp.get("mW") || STATE.projWeek || "";
+    var myr = qp.get("mYEAR") || sbYear(), mwk = qp.get("mW") || STATE.lineupWeek || "";
     if (!STATE.muCache) STATE.muCache = {};
     if (!mwk) { if (!STATE.muCache["0"]) STATE.muCache["0"] = { empty: true }; return; }   // offseason
     [muWindow(), 0].forEach(function (key) {
@@ -769,7 +790,7 @@
     if (STATE.lineupRead) return;             // once per page load
     STATE.lineupRead = "loading";
     var url = workerUrl("/api/lineup");
-    var wk = String(STATE.projWeek || "").replace(/\D/g, "");
+    var wk = String(STATE.lineupWeek || "").replace(/\D/g, "");
     var qs = [];
     if (wk) qs.push("W=" + encodeURIComponent(wk));
     var uid = readCookieRaw("MFL_USER_ID");
@@ -1046,7 +1067,7 @@
     var url = workerUrl("/api/submit-lineup");
     var uid = readCookieRaw("MFL_USER_ID");
     if (uid) url += "?MFL_USER_ID=" + encodeURIComponent(uid);
-    var wk = String(STATE.projWeek || "").replace(/\D/g, "");
+    var wk = String(STATE.lineupWeek || "").replace(/\D/g, "");
     var outcome = null;   // shown as a modal AFTER the rerender below
     // week MUST go in the body. The worker stamps the ups_lineup_submissions
     // row with body.week (its only default when the field is absent is ""),
@@ -1068,7 +1089,13 @@
           outcome = {
             kind: "ok",
             title: "Lineup submitted",
-            body: "MFL has your starters" + (wk ? " for Week " + wk : "") + ".",
+            // The week the WORKER wrote, not the one we asked for. It resolves
+            // the live week itself and overrides a stale client week, so
+            // echoing `wk` here could claim Week 2 for a lineup filed to Week 1.
+            body: "MFL has your starters" + (function () {
+              var used = resp.body && (resp.body.week_used || resp.body.week);
+              return used ? " for Week " + String(used) : "";
+            })() + ".",
             detail: starters.length + " starter" + (starters.length === 1 ? "" : "s") + " saved."
           };
         } else {

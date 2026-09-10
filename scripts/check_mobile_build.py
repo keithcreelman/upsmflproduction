@@ -75,7 +75,18 @@ def main(since_days: int) -> int:
             continue
         seen.add(path)
         base = os.path.basename(path)
-        ref = re.search(re.escape(base) + r"\?v=([0-9.]+)", idx)
+        # Match the file's OWN reference, not any filename that merely ENDS the
+        # same way. This was a bare basename substring search, so for
+        # site/m/views/lineup.js it found "lineup.js?v=" inside the EARLIER
+        # front_office_lineup.js?v=... tag and judged the wrong stamp. That
+        # misfires both ways: a false failure (PR #1052, 2026-09-10) and -- the
+        # dangerous one -- a false PASS whenever the other file's stamp happens
+        # to be fresh, hiding precisely the never-ships drift this check exists
+        # for. index.html references site/m files by their path relative to
+        # site/m ("./views/lineup.js"); the lookbehind stops "lineup.js" from
+        # matching inside "front_office_lineup.js".
+        rel = os.path.relpath(os.path.join(ROOT, path), M).replace(os.sep, "/")
+        ref = re.search(r"(?<![\w.-])" + re.escape(rel) + r"\?v=([0-9.]+)", idx)
         if not ref:
             continue
         last = subprocess.run(
@@ -85,7 +96,7 @@ def main(since_days: int) -> int:
         stamp_day = "-".join(stamp.split(".")[:3])
         if last and stamp_day and last > stamp_day:
             problems.append(
-                f"{base} changed {last} but index.html still loads it at ?v={stamp} "
+                f"{rel} changed {last} but index.html still loads it at ?v={stamp} "
                 f"({stamp_day}) — the service worker serves the OLD file")
 
     if problems:

@@ -58,9 +58,26 @@
     return map;
   }
   function posRankFor(pid) { return posRankMap()[String(pid)] || null; }
+  // Resolve the week an owner is SETTING A LINEUP for, from liveScoring. Runs
+  // alongside loadProjections(); whichever lands first, liveScoring wins,
+  // because loadProjections only fills lineupWeek when it is still unset and
+  // this always overwrites. projSettled() still gates the lineup read, and
+  // both fetches start in the same tick, so the read cannot outrun them.
+  function loadLiveWeek() {
+    if (M.state.lineupLiveWeekLoading) return;
+    M.state.lineupLiveWeekLoading = true;
+    fetch(API.mflExportUrl("liveScoring"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var w = parseInt((j && j.liveScoring && j.liveScoring.week) || 0, 10) || 0;
+        if (w) { M.state.lineupWeek = w; renderRoute(); }
+      })
+      .catch(function () { /* projectedScores.week remains the fallback */ });
+  }
   function loadProjections() {
     if (M.state.lineupProj) return;   // already loaded or in-flight
     M.state.lineupProj = { loaded: false, map: {} };
+    loadLiveWeek();
     fetch(API.mflExportUrl("projectedScores"), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
@@ -69,7 +86,18 @@
           if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; }
         });
         M.state.lineupProj = { loaded: true, map: map };
-        M.state.lineupWeek = parseInt((j && j.projectedScores && j.projectedScores.week) || 0, 10) || 0;
+        // projectedScores.week is NOT the week being played. MFL rolls it
+        // forward the moment the first game of a week kicks off, so on
+        // 2026-09-10 -- Week 1 wide open, only the Wednesday NEP/SEA game
+        // finished -- this said 2 while liveScoring said 1. Keying the lineup
+        // off it read Week 2's (empty) lineup and posted week=2 for a Week 1
+        // that was still fully editable. The projection MAP above is still
+        // rightly projectedScores; only the WEEK moves to liveScoring, and the
+        // projection week stays as the fallback for when liveScoring is
+        // unreadable. The worker overrides the submitted week the same way
+        // (PR #1051) -- this keeps the screen agreeing with the write.
+        M.state.lineupProjWeek = parseInt((j && j.projectedScores && j.projectedScores.week) || 0, 10) || 0;
+        if (!M.state.lineupWeek) M.state.lineupWeek = M.state.lineupProjWeek;
         M.state.lineupProjRank = null;  // rebuild ranks against fresh projections
         // Upgrade an un-edited salary seed to the Optimal (projection) lineup.
         if (M.state.lineupSeed === "salary") { M.state.lineupSlots = null; M.state.lineupSeed = null; }
@@ -532,8 +560,13 @@
     // computed `wk` in submitLineup() and then never put it in the POST body,
     // so its rows were stranded at week="" too — a live dump of the whole
     // ledger held one row, week length 0. Game Day now sends it; both surfaces
-    // do, and both resolve "current week" from the same MFL projectedScores
-    // source, so they stay in agreement. (The ledger is now only the FALLBACK
+    // do, and both resolve "current week" from the same source -- which as of
+    // 2026-09-10 is liveScoring.week, NOT projectedScores.week, because MFL
+    // rolls the projection week forward at the first kickoff of a week and
+    // both surfaces were posting week=2 into a Week 1 that was still open.
+    // The worker overrides the week from liveScoring too (PR #1051), so the
+    // body value below is now a corroborating hint rather than the authority.
+    // (The ledger is now only the FALLBACK
     // for GET /api/lineup anyway — MFL's playerRosterStatus export is the
     // primary source — but a mis-stamped row is still a row nobody can read.)
     var luWeek = String(M.state.lineupWeek || "").replace(/\D/g, "");
@@ -547,7 +580,10 @@
       return r.json().then(function (j) { return { status: r.status, body: j }; });
     }).then(function (resp) {
       if (resp.body && resp.body.ok) {
-        M.state.lineupMessage = { kind: "ok", text: "Lineup saved to MFL ✓" };
+        // Name the week the WORKER wrote, not the one this screen asked for.
+        var usedWk = resp.body && (resp.body.week_used || resp.body.week);
+        M.state.lineupMessage = { kind: "ok",
+          text: "Lineup saved to MFL ✓" + (usedWk ? " (Week " + String(usedWk) + ")" : "") };
       } else {
         var err = (resp.body && resp.body.error)
                  || (resp.body && resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t)

@@ -14809,31 +14809,69 @@ export default {
           // projectedScores.week=2). Fall back to the client's value only if MFL
           // cannot be asked -- an unknown week is not a reason to guess a wrong one.
           const weekRequested = safeStr(body.week || "");
+          // PLAIN fetch, deliberately. mflExportJson and its siblings are
+          // `const`s declared thousands of lines further down this same
+          // handler (see the NOTE above this route), so calling one from here
+          // hits the temporal dead zone and throws ReferenceError on EVERY
+          // request. PR #1051 did exactly that inside a bare `catch (_)` that
+          // turned the throw into "week unknown": the override never ran once,
+          // the worker fell back to the client's stale week=2, and Keith's
+          // Week 1 submit on 2026-09-10 landed on Week 2 with Week 1 untouched.
+          // The no-undef deploy gate cannot see a TDZ -- the name IS defined,
+          // just later -- which is why it shipped.
+          // liveScoring is readable keyless on the league's home server
+          // (verified 2026-09-10: week=1, 12 matchups); www48 avoids api.'s 302.
           let weekCurrent = "";
+          let weekResolveError = "";
           try {
-            const lsRes = await mflExportJson(year, leagueId, "liveScoring", {}, { useCookie: false });
-            weekCurrent = safeStr(lsRes?.data?.liveScoring?.week || "");
-          } catch (_) { weekCurrent = ""; }
+            const lsR = await fetch(
+              `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=liveScoring&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 30 } }
+            );
+            if (!lsR.ok) throw new Error("liveScoring HTTP " + lsR.status);
+            const lsJ = await lsR.json();
+            weekCurrent = safeStr(lsJ?.liveScoring?.week || "");
+            if (!weekCurrent) weekResolveError = "liveScoring returned no week";
+          } catch (e) {
+            // NOT silent. Falling back to the client's week is deliberate -- an
+            // unreadable MFL is no reason to refuse a submit -- but the owner
+            // and the logs must both be able to SEE that the fallback happened.
+            // A swallowed error here is precisely how this broke.
+            weekResolveError = String(e?.message || e);
+          }
+          if (weekResolveError) {
+            console.warn("[submit-lineup] live week unresolved, falling back to client week:", weekResolveError);
+          }
           const week = weekCurrent || weekRequested;
+          // Carried on EVERY response from this route, rejections included, so
+          // "which week would this have written?" is answerable without a
+          // successful write -- and so an override or fallback is never silent.
+          const weekDiag = {
+            week_requested: weekRequested || null,
+            week_used: week || null,
+            week_source: weekCurrent ? "mfl_live_scoring" : (weekRequested ? "client" : "mfl_default"),
+            ...(weekResolveError ? { week_resolve_error: weekResolveError } : {}),
+          };
           const starters = Array.isArray(body.starters)
             ? body.starters.map((s) => String(s).trim()).filter(Boolean)
             : [];
-          if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required" });
-          if (!starters.length) return jsonOut(400, { ok: false, error: "starters[] required" });
+          if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required", ...weekDiag });
+          if (!starters.length) return jsonOut(400, { ok: false, error: "starters[] required", ...weekDiag });
           // Caller-franchise identity check via MFL_USER_ID cookie.
           const cookieHeader = request.headers.get("Cookie") || "";
           const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
           const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
           if (!mflUserId) {
-            return jsonOut(401, { ok: false, error: "MFL_USER_ID cookie required (sign in to MFL first)" });
+            return jsonOut(401, { ok: false, error: "MFL_USER_ID cookie required (sign in to MFL first)", ...weekDiag });
           }
           const det = await _rdhDetectFranchise(mflUserId);
-          if (det && det.error) return jsonOut(401, { ok: false, error: det.error });
+          if (det && det.error) return jsonOut(401, { ok: false, error: det.error, ...weekDiag });
           if (!det || _rdhPadFid(det.franchise_id) !== fidReq) {
             return jsonOut(403, {
               ok: false,
               error: "Cookie belongs to franchise " + (det && det.franchise_id || "?") +
                 ", cannot submit lineup for " + fidReq,
+              ...weekDiag,
             });
           }
           // MFL import?TYPE=lineup — owner cookie auth. Target league's home
@@ -14867,7 +14905,7 @@ export default {
             mflStatus = r.status;
             mflResp = await r.text();
           } catch (e) {
-            return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+            return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}`, ...weekDiag });
           }
           // MFL returns 200 even for some validation errors — sniff the body.
           // 3xx is treated as failure here because we set redirect:"manual"
@@ -14883,6 +14921,7 @@ export default {
               error: String(errMsg || "MFL rejected lineup"),
               mfl_status: mflStatus,
               mfl_response: parsed || mflResp,
+              ...weekDiag,
             });
           }
           // Record what we just sent, as a FALLBACK for the editor and as the
@@ -14922,9 +14961,7 @@ export default {
             ok: true,
             franchise_id: fidReq,
             week: week || null,
-            week_requested: weekRequested || null,
-            week_used: week || null,
-            week_source: weekCurrent ? "mfl_live_scoring" : (weekRequested ? "client" : "mfl_default"),
+            ...weekDiag,
             starters,
             mfl_status: mflStatus,
             mfl_response: parsed || mflResp,
