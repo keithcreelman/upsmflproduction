@@ -40733,84 +40733,83 @@ const mflToSleeper = {};
           // back to the worker's own cookie when there is no viewer identity.
           let mflAnswer = { known: false, state: "unknown", starters: null, reason: "not attempted" };
           let mflCounts = null;
-          try {
-            const rosRes = await mflExportJsonAsViewer(
-              year, leagueId, "rosters", { FRANCHISE: fid }, { useCookie: true }
-            );
+
+          // ONE SEQUENCE, RUNNABLE AS EITHER IDENTITY.
+          // roster -> player ids -> playerRosterStatus -> parse. Every step can
+          // fail, and the first version of this retry only covered the LAST one
+          // (a parse that matched nothing), so a viewer whose ROSTER or STATUS
+          // read failed outright never got a second attempt at all.
+          const _readLineup = async (withCookie) => {
+            const get = (type, params) => (withCookie
+              ? mflExportJsonAsViewer(year, leagueId, type, params, { useCookie: true })
+              : mflExportJson(year, leagueId, type, params, { useCookie: false }));
+            const rosRes = await get("rosters", { FRANCHISE: fid });
+            if (!rosRes || !rosRes.ok) {
+              return { fail: "roster read failed: " + (safeStr(rosRes && rosRes.error) || `HTTP ${safeInt(rosRes && rosRes.status, 0)}`) };
+            }
             let frs = rosRes?.data?.rosters?.franchise || [];
             if (!Array.isArray(frs)) frs = frs ? [frs] : [];
             const rosterRow = frs.find((f) => _rdhPadFid(f && f.id) === fid) || null;
             let players = (rosterRow && rosterRow.player) || [];
             if (!Array.isArray(players)) players = players ? [players] : [];
             const pids = players.map((p) => safeStr(p && p.id)).filter(Boolean);
-            if (!rosRes || !rosRes.ok) {
-              mflAnswer = { known: false, state: "unknown", starters: null, reason: "roster read failed: " + (safeStr(rosRes && rosRes.error) || `HTTP ${safeInt(rosRes && rosRes.status, 0)}`) };
-            } else if (!pids.length) {
-              // A roster we cannot read is not an empty roster.
-              mflAnswer = { known: false, state: "unknown", starters: null, reason: "no roster players resolved for " + fid };
+            // A roster we cannot read is not an empty roster.
+            if (!pids.length) return { fail: "no roster players resolved for " + fid };
+            const prsRes = await get("playerRosterStatus", { P: pids.join(","), F: fid, W: week || null });
+            if (!prsRes || !prsRes.ok) {
+              return { fail: "playerRosterStatus read failed: " + (safeStr(prsRes && prsRes.error) || `HTTP ${safeInt(prsRes && prsRes.status, 0)}`) };
+            }
+            return { parsed: _lineupParseRosterStatuses(prsRes.data, fid) };
+          };
+
+          try {
+            // Viewer first: an owner always has visibility into their own
+            // lineup, and only that identity lets an all-R answer be read as
+            // "no lineup submitted".
+            const mine = await _readLineup(true);
+            let parsed = mine.parsed || null;
+
+            // WHY THE ANONYMOUS RETRY, AND WHY IT CAN ONLY EVER UPGRADE US.
+            // When the cookie belongs to the COMMISSIONER, MFL answers from that
+            // identity and the rows carry a franchise_id that is not the one we
+            // asked about -- Game Day reported "no playerStatus entry for
+            // franchise 0008" while those 18 starters sat in MFL the whole time.
+            // A specified F= plus an explicit P= list is answerable with NO
+            // identity (verified cookie-less on L=74598 F=0008: 35 players,
+            // 18 S / 12 NS / 2 IR / 3 TS).
+            //
+            // Accepted ONLY when it yields actual starters. It must never be
+            // allowed to produce "no lineup": without an identity MFL returns R
+            // for no-visibility exactly as it does for no-lineup, which is the
+            // ambiguity this endpoint exists to respect.
+            if (mine.fail || !parsed || !parsed.ok || parsed.matched === 0) {
+              const anon = await _readLineup(false);
+              if (anon.parsed && anon.parsed.ok && anon.parsed.starters.length) parsed = anon.parsed;
+            }
+
+            if (!parsed || !parsed.ok) {
+              mflAnswer = parsed
+                ? _lineupAnswerFromStatuses(parsed)
+                : { known: false, state: "unknown", starters: null, reason: mine.fail || "playerRosterStatus unreadable" };
+              if (parsed) mflCounts = parsed.counts;
             } else {
-              const prsRes = await mflExportJsonAsViewer(
-                year, leagueId, "playerRosterStatus",
-                { P: pids.join(","), F: fid, W: week || null },
-                { useCookie: true }
-              );
-              if (!prsRes || !prsRes.ok) {
-                mflAnswer = { known: false, state: "unknown", starters: null, reason: "playerRosterStatus read failed: " + (safeStr(prsRes && prsRes.error) || `HTTP ${safeInt(prsRes && prsRes.status, 0)}`) };
-              } else {
-                let parsed = _lineupParseRosterStatuses(prsRes.data, fid);
-                // THE COOKIE CAN SCOPE THE ANSWER TO THE WRONG FRANCHISE.
-                // playerRosterStatus is read as the viewer so an owner has
-                // visibility into their own lineup. But when the cookie belongs
-                // to the COMMISSIONER, MFL answers from that identity and the
-                // rows come back carrying a franchise_id that is not the one we
-                // asked about -- so the parse matched nothing and Game Day told
-                // Keith "no playerStatus entry for franchise 0008" while his 18
-                // starters were sitting in MFL the whole time.
-                //
-                // A specified F= plus an explicit P= list is answerable without
-                // any identity at all (verified against L=74598 F=0008: 35
-                // players, 18 S / 12 NS / 2 IR / 3 TS, cookie-less). So when the
-                // viewer read matches NOTHING, ask again with no cookie rather
-                // than reporting a lineup we can plainly see.
-                if (!parsed.ok && parsed.matched === 0) {
-                  const anonRes = await mflExportJson(
-                    year, leagueId, "playerRosterStatus",
-                    { P: pids.join(","), F: fid, W: week || null },
-                    { useCookie: false }
-                  );
-                  if (anonRes && anonRes.ok) {
-                    const anonParsed = _lineupParseRosterStatuses(anonRes.data, fid);
-                    if (anonParsed.ok) parsed = anonParsed;
-                  }
-                }
-                mflCounts = parsed.counts;
-                mflAnswer = _lineupAnswerFromStatuses(parsed);
-                // "R" IS AMBIGUOUS, and only one reading is safe.
-                //
-                // MFL's docs (MFL_IMPORT_EXPORT_DETAILED.md ~262) say R means
-                // "no lineup submitted OR the caller has no visibility into
-                // the lineup" — indistinguishable in the payload. We can only
-                // call all-R "no lineup" when we read it AS THE OWNER.
-                //
-                // The gate above accepts an identity from the request Cookie
-                // header, but mflExportJsonAsViewer keys off browserCookieHeader,
-                // which is built ONLY from the ?MFL_USER_ID= query param. So a
-                // caller authenticating by cookie alone would be exported with
-                // the worker's own commish cookie — a different viewer — and an
-                // all-R answer would then prove nothing about their lineup.
-                // Today's clients (gameday.html, site/m/views/lineup.js) both
-                // send the query param, so this never fires; it is closed here
-                // so a future same-origin caller cannot silently turn "we
-                // couldn't see it" into "you have no lineup" and be offered
-                // Optimal over a real start.
-                if (mflAnswer.state === "no_record" && !browserCookieHeader) {
-                  mflAnswer = {
-                    known: false, state: "unknown", starters: null,
-                    reason: "read with the service identity, not yours — an all-R answer cannot distinguish "
-                          + "'no lineup' from 'not visible to this caller'",
-                  };
-                }
-              }
+              mflCounts = parsed.counts;
+              mflAnswer = _lineupAnswerFromStatuses(parsed);
+            }
+
+            // "R" IS AMBIGUOUS, and only one reading is safe. MFL's docs say R
+            // means "no lineup submitted OR the caller has no visibility" --
+            // indistinguishable in the payload -- so all-R only proves "no
+            // lineup" when read AS THE OWNER. mflExportJsonAsViewer keys off
+            // browserCookieHeader, built ONLY from the ?MFL_USER_ID= query
+            // param; without it we read with the service identity and an all-R
+            // answer proves nothing about this owner's lineup.
+            if (mflAnswer.state === "no_record" && !browserCookieHeader) {
+              mflAnswer = {
+                known: false, state: "unknown", starters: null,
+                reason: "read with the service identity, not yours — an all-R answer cannot distinguish "
+                      + "'no lineup' from 'not visible to this caller'",
+              };
             }
           } catch (e) {
             mflAnswer = { known: false, state: "unknown", starters: null, reason: "mfl_read_failed: " + ((e && e.message) || String(e)) };
