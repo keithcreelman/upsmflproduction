@@ -143,7 +143,11 @@ def parse_meta(html):
 
 def first(rx, html, default=""):
     m = rx.search(html)
-    return unescape_basic(re.sub(r'\s+', ' ', m.group(1)).strip()) if m else default
+    # Tags are stripped: the shell writes these fields with textContent, so any
+    # markup left here is printed LITERALLY on the Wire front page. Generated
+    # deks carry <span class="wire-num"> around every pack number, and the
+    # first published team reviews showed owners the raw span markup.
+    return unescape_basic(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', m.group(1))).strip()) if m else default
 
 
 # ---------------------------------------------------------------- restyle
