@@ -4,65 +4,216 @@
   "packId": "2026-team-0009"
  },
  "prose": {
-  "kicker": "Best roster in the league, and a defense assembled entirely from the clearance rack",
+  "kicker": "C-Town Chivalry · Bear Dunn",
   "title": "C-Town Chivalry Sold Its Mistakes to the League and Bought a Champion With the Proceeds",
-  "dek": "Bear Dunn ranks {{f.team.0009.composite_rank}} of {{f.league.teams}} with {{f.team.0009.holes_today}} holes and {{f.team.0009.studs_today}} studs. He got there by releasing two expensive players in July and watching other owners pay almost the same money for them weeks later.",
+  "dek": "Bear Dunn has the best roster in the league: no holes and {{f.team.0009.studs_today}} studs. He got there by releasing two expensive players in July and watching other owners pay almost the same money for them weeks later.",
   "sections": [
    {
     "id": "s1",
     "lead": "",
     "paragraphs": [
      "The backfield ranks {{f.team.0009.rb_rank}}, first in the league, and it is not an argument. Christian McCaffrey grades High-end RB1. James Cook also grades High-end RB1. Breece Hall, a Mid RB2, fills a flex. Three starting-calibre backs in a league where most owners are hunting for one.",
-     "Jaxon Smith-Njigba is an Elite WR1 and he is carried at the league minimum. That is the best contract in this competition and it is not close \u2014 an elite player at a price other teams pay for a punter. Tee Higgins is a Mid WR2 and Tetairoa McMillan another in the flex, and the room ranks {{f.team.0009.wr_rank}}.",
-     "Brock Bowers grades Elite TE1 and tight end ranks {{f.team.0009.te_rank}}. Joe Burrow is a High-end QB1 with Jayden Daniels at Mid QB1 in the superflex, ranking {{f.team.0009.qb_rank}}. Every one of the priced offensive slots holds a player the board ranks \u2014 {{f.team.0009.holes_today}} holes, the joint-best figure in the league.",
+     "Jaxon Smith-Njigba is an Elite WR1 and he is carried at the league minimum. That is the best contract in this competition and it is not close — an elite player at a price other teams pay for a punter. Tee Higgins is a Mid WR2 and Tetairoa McMillan another in the flex, and the room ranks {{f.team.0009.wr_rank|ord}}.",
+     "Brock Bowers grades Elite TE1 and tight end ranks {{f.team.0009.te_rank|ord}}. Joe Burrow is a High-end QB1 with Jayden Daniels at Mid QB1 in the superflex, ranking {{f.team.0009.qb_rank|ord}}. Every one of the priced offensive slots holds a player the board ranks — {{f.team.0009.holes_today}} holes, the joint-best figure in the league.",
      "And then the defense, which is a different sport entirely. Alex Highsmith, Cameron Heyward and Chase Young all grade Replacement-level DL. Zaire Franklin and Blake Cashman are both Replacement-level LB. Five of seven defensive starters are men the production model says can be replaced off the waiver wire for nothing. Only Budda Baker at Mid DB2 and Xavier McKinney at Low-end DB2 rate at all.",
-     "Read the auction table and the reason is obvious: he bought that entire unit at the league minimum or a whisker above it. It is consistent with his history, where {{f.team.0009.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0009.idp_adds_rank}} and points per started defender ranks {{f.team.0009.idp_ppw_rank}}. He is the best team in the league and one of the worst at the half of the roster nobody enjoys buying."
-    ]
+     "Read the auction table and the reason is obvious: he bought that entire unit at the league minimum or a whisker above it. It is consistent with his history, where {{f.team.0009.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0009.idp_adds_rank|ord}} and points per started defender ranks {{f.team.0009.idp_ppw_rank|ord}}. He is the best team in the league and one of the worst at the half of the roster nobody enjoys buying."
+    ],
+    "place": [
+     "t.0009.lineup"
+    ],
+    "placeAt": {
+     "t.0009.lineup": 0
+    },
+    "views": {
+     "t.0009.lineup": {
+      "cols": [
+       "slot",
+       "player",
+       "val"
+      ],
+      "labels": {
+       "val": "Grade"
+      },
+      "title": "Strongest legal lineup"
+     }
+    }
    },
    {
     "id": "s2",
     "lead": "",
     "paragraphs": [
      "In April he had {{f.team.0009.active_roster_opening}} active players, which is too few for a legal lineup, but {{f.team.0009.studs_opening}} of the priced slots already held a top-twelve player and only {{f.team.0009.holes_opening}} did not. He was carrying {{f.team.0009.cap_opening}} and {{f.team.0009.lineup_value_opening}} of lineup value. The quality was already there.",
-     "Between April and the auction lock he went backwards on purpose, down to {{f.team.0009.active_roster_preauction}} active and {{f.team.0009.cap_preauction}} committed \u2014 a drop of real size \u2014 while value slipped to {{f.team.0009.lineup_value_preauction}}. Drake London left the second receiver slot and Tee Higgins moved up into it. Tua Tagovailoa, a Replacement-level QB, ended up in the superflex. For a fortnight this was the roster of a team in trouble.",
+     "Between April and the auction lock he went backwards on purpose, down to {{f.team.0009.active_roster_preauction}} active and {{f.team.0009.cap_preauction}} committed — a drop of real size — while value slipped to {{f.team.0009.lineup_value_preauction}}. Drake London left the second receiver slot and Tee Higgins moved up into it. Tua Tagovailoa, a Replacement-level QB, ended up in the superflex. For a fortnight this was the roster of a team in trouble.",
      "The auction ended that in a single afternoon. {{f.team.0009.active_roster_current}} active, {{f.team.0009.lineup_value_postauction}} of lineup value, {{f.team.0009.holes_postauction}} holes. Christian McCaffrey took the first back slot and pushed James Cook to the second, which pushed Breece Hall into a flex, which pushed Tetairoa McMillan into the other one. Joe Burrow took quarterback and moved Jayden Daniels into the superflex.",
      "One auction moved six of the priced slots and turned a roster that could not field a lineup into the highest lineup value in the league. Only CBP and Real Deal Creel added about as much lineup value at the auction, and neither finished anywhere near this total."
-    ]
+    ],
+    "place": [
+     "t.0009.slot_bridge"
+    ],
+    "placeAt": {
+     "t.0009.slot_bridge": 0
+    },
+    "views": {
+     "t.0009.slot_bridge": {
+      "cols": [
+       "slot",
+       "open",
+       "pre",
+       "now"
+      ],
+      "stack": true,
+      "title": "Who filled each priced slot",
+      "labels": {
+       "open": "April (short of a lineup)",
+       "pre": "Before the auction (short of a lineup)",
+       "now": "After it"
+      }
+     }
+    }
    },
    {
     "id": "s3",
     "lead": "",
     "paragraphs": [
-     "One lot at the Expired Rookie Auction \u2014 Brian Branch for {{f.team.0009.era_spend}}, out of a pool of {{f.league.era_pool_size}} players whose rookie deals ran out without earning a second one.",
+     "One lot at the Expired Rookie Auction — Brian Branch for {{f.team.0009.era_spend}}, out of a pool of {{f.league.era_pool_size}} players whose rookie deals ran out without earning a second one.",
      "At the Free Agent Auction he took {{f.team.0009.faa_lots_won}} lots for {{f.team.0009.faa_spend}}, and the shape of it is stark. Christian McCaffrey cost {{f.team.0009.top_buy_price}}, {{f.team.0009.top_buy_pct_of_spend}} of the total, and drew more bids than any other lot in the auction. Joe Burrow cost nearly as much again. Those two players took the overwhelming majority of his budget.",
      "McCaffrey is worth pausing on. Sex Manther had tagged him in May and released him in July, at which point he became the most contested player of the summer and landed here for a price barely above what that tag had been. One owner paid to keep him, changed his mind, and handed the league's best roster its first-choice running back.",
      "Everything else was minimum-priced volume: DK Metcalf aside, the remaining lots are a wall of single-bid, minimum-salary purchases. Cooper Kupp cost the minimum. So did Chase Young, Cameron Heyward and Alex Highsmith, and that is the defense.",
-     "Defensively he committed {{f.team.0009.idp_auction_spend}}, or {{f.team.0009.idp_auction_share}} of his money, ranking {{f.team.0009.idp_auction_share_rank}} of {{f.league.teams}} by share. Against what he spent on two offensive players, that is the whole strategy in one line: buy the two best available skill players and fill seven defensive slots out of the bargain bin."
-    ]
+     "Defensively he committed {{f.team.0009.idp_auction_spend}}, or {{f.team.0009.idp_auction_share}} of his money. Against what he spent on two offensive players, that is the whole strategy in one line: buy the two best available skill players and fill seven defensive slots out of the bargain bin."
+    ],
+    "place": [
+     "t.0009.auction"
+    ],
+    "placeAt": {
+     "t.0009.auction": 1
+    },
+    "views": {
+     "t.0009.auction": {
+      "cols": [
+       "player",
+       "pos",
+       "auction",
+       "price"
+      ],
+      "sortDesc": "price",
+      "rows": 5,
+      "title": "Biggest buys",
+      "labels": {
+       "auction": "Where"
+      }
+     }
+    }
    },
    {
     "id": "s4",
     "lead": "",
     "paragraphs": [
      "{{f.team.0009.contracts_count}} contract moves, {{f.team.0009.trades_count}} trade, {{f.team.0009.roster_removals_total}} removals. The removals are where the cleverness lives.",
-     "On the day the auction roster locked he released George Pickens, one of the largest salaries on his books, and took no penalty at all \u2014 the entire amount came straight back to him. Tony Pollard went the same day at a smaller salary, this one carrying a penalty. Within a fortnight L.A. Looks had bought Pickens at auction for close to what C-Town had been paying him, and CBP had bought Pollard for slightly more than C-Town had been paying him.",
+     "On the day the auction roster locked he released George Pickens, one of the largest salaries on his books, and took no penalty at all — the entire amount came straight back to him. Tony Pollard went the same day at a smaller salary, this one carrying a penalty. Within a fortnight L.A. Looks had bought Pickens at auction for close to what C-Town had been paying him, and CBP had bought Pollard for slightly more than C-Town had been paying him.",
      "He converted two players he had decided against into cap room, and two rival owners spent real auction budget acquiring them. That money became McCaffrey and Burrow. It is one of the most efficient sequences anybody ran this summer and it is worth being explicit that it is not luck: releasing before an auction rather than after it is what created the market.",
      "The bill is not zero. {{f.team.0009.cuts_penalty_unstamped}} of penalty from those releases has no charge year stamped on it yet, so it sits in the ledger unassigned. Nothing has hit this season at {{f.team.0009.cuts_penalty_2026}}, but that figure is real and it will land somewhere.",
      "Sam LaPorta was extended in May and now sits on the bench as a Mid TE1 behind an Elite TE1, which is a lot of salary for a backup. James Cook was extended and restructured the same day, two operations that cut his current-year charge sharply. Burrow was signed to a long back-loaded deal. The rest are minimum-salary conversions of the defensive purchases.",
-     "The one trade is the three-way that shaped the top of the league. He sent Drake London and {{f.team.0009.trade_blind_bid_cash}} of blind-bid money out and received Tetairoa McMillan. On the board he gave up materially more than he got back and paid cash on top of it \u2014 this is the leg of that deal that reads worst, and the other two franchises came away with the better of it. Three-way trades are rare in this league, and this is the only one ever completed through its own trade tool.",
+     "The one trade is the three-way that shaped the top of the league. He sent Drake London and {{f.team.0009.trade_blind_bid_cash}} of blind-bid money out and received Tetairoa McMillan. On the board he gave up materially more than he got back and paid cash on top of it — this is the leg of that deal that reads worst, and the other two franchises came away with the better of it. Three-way trades are rare in this league, and this is the only one ever completed through its own trade tool.",
      "The rookie class barely exists: {{f.team.0009.rookie_picks_count}} picks, both defenders, both late, neither priceable by any source yet. He was not drafting this year."
-    ]
+    ],
+    "place": [
+     "t.0009.trades"
+    ],
+    "placeAt": {
+     "t.0009.trades": 5
+    },
+    "views": {
+     "t.0009.trades": {
+      "cols": [
+       "date",
+       "partner",
+       "gave",
+       "got"
+      ],
+      "stack": true,
+      "title": "Trades"
+     }
+    }
    },
    {
     "id": "s5",
     "lead": "",
     "paragraphs": [
-     "He is {{f.team.0009.division_rank}} of {{f.team.0009.division_size}} in his division, ahead of Cleon Ca$h and the Hawks, and he plays both twice. Cleon Ca$h is a genuine threat and the Hawks are last in the league \u2014 two games a year against the softest opponent available is a real structural advantage on top of everything else.",
-     "Is this the strongest team in the league? Yes. {{f.team.0009.composite_rank}} of {{f.league.teams}}, {{f.team.0009.holes_today}} holes, {{f.team.0009.studs_today}} studs, the highest lineup value anybody has, and first at running back. Was it a good offseason? Also yes, and the two answers are connected rather than coincidental \u2014 he spent {{f.team.0009.auction_spend}} and financed most of it by selling into a market he created himself.",
-     "The biggest advantage is the offense top to bottom, with an Elite WR1 on a minimum contract as the keystone. The biggest weakness is a defense in which five of seven starters grade replacement-level \u2014 a genuine vulnerability in a league where three other owners have built elite defensive fronts for very little money, and one he has {{f.team.0009.cap_current_room}} of room to address.",
-     "{{f.league.wk_teams_final}} NFL teams had played when this was written, and Jaxon Smith-Njigba \u2014 the minimum-salary Elite WR1 \u2014 caught a long touchdown among eight receptions and banked {{f.team.0009.wk_points_final}} points. That was the highest score by any player in the league that night, on a minimum contract."
-    ]
+     "He is {{f.team.0009.division_rank|ord}} of {{f.team.0009.division_size}} in his division, ahead of Cleon Ca$h and the Hawks, and he plays both twice. Cleon Ca$h is a genuine threat and the Hawks are last in the league — two games a year against the softest opponent available is a real structural advantage on top of everything else.",
+     "Is this the strongest team in the league? Yes. {{f.team.0009.composite_rank}} of {{f.league.teams}}, {{f.team.0009.holes_today}} holes, {{f.team.0009.studs_today}} studs, the highest lineup value anybody has, and first at running back. Was it a good offseason? Also yes, and the two answers are connected rather than coincidental — he spent {{f.team.0009.auction_spend}} and financed most of it by selling into a market he created himself.",
+     "The biggest advantage is the offense top to bottom, with an Elite WR1 on a minimum contract as the keystone. The biggest weakness is a defense in which five of seven starters grade replacement-level — a genuine vulnerability in a league where three other owners have built elite defensive fronts for very little money, and one he has {{f.team.0009.cap_current_room}} of room to address.",
+     "{{f.league.wk_teams_final}} NFL teams had played when this was written, and Jaxon Smith-Njigba — the minimum-salary Elite WR1 — caught a long touchdown among eight receptions and banked {{f.team.0009.wk_points_final}} points. That was the highest score by any player in the league that night, on a minimum contract."
+    ],
+    "place": [
+     "t.0009.division",
+     "t.0009.week1"
+    ],
+    "placeAt": {
+     "t.0009.division": 0,
+     "t.0009.week1": 3
+    },
+    "views": {
+     "t.0009.division": {
+      "cols": [
+       "team",
+       "comp"
+      ],
+      "labels": {
+       "comp": "League rank"
+      },
+      "title": "The division"
+     },
+     "t.0009.week1": {
+      "cols": [
+       "player",
+       "pos",
+       "slot",
+       "pts",
+       "line"
+      ],
+      "stack": true,
+      "title": "Week one, so far",
+      "labels": {
+       "pts": "Points",
+       "line": "What he did"
+      }
+     }
+    },
+    "captions": {
+     "t.0009.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
+    }
    }
-  ]
+  ],
+  "strip": [
+   {
+    "fact": "f.team.0009.composite_rank",
+    "ord": true,
+    "of": "f.league.teams",
+    "label": "Overall"
+   },
+   {
+    "fact": "f.team.0009.studs_today",
+    "label": "Offensive studs",
+    "suffix": "of nine"
+   },
+   {
+    "fact": "f.team.0009.holes_today",
+    "label": "Offensive holes",
+    "suffix": "of nine"
+   },
+   {
+    "fact": "f.team.0009.auction_spend",
+    "label": "Spent at auction"
+   },
+   {
+    "fact": "f.team.0009.cap_current_room",
+    "label": "Cap room"
+   }
+  ],
+  "card": {
+   "rankFact": "f.team.0009.composite_rank",
+   "ofFact": "f.league.teams",
+   "featured": true
+  }
  }
 }

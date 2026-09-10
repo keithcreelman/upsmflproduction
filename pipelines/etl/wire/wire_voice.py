@@ -195,6 +195,12 @@ At most ONE token per sentence. At most three per paragraph.
 NEVER START A SENTENCE WITH A TOKEN. Some render as words ('six', 'two') and
 come out lowercase mid-paragraph, which reads as a typo. Put a subject first.
 
+RANKS READ AS ORDINALS. Write {{f.some_rank|ord}} to render a rank as "7th":
+"ranks {{f.team.0008.composite_rank|ord}} of {{f.league.teams}}", never the data
+dump "ranks 7 of 12". If the sentence already says the rank in words ("first in
+the league", "dead last"), use the plain token or drop it -- "1st, first in the
+league" says the same thing twice.
+
 === RHYTHM ===
 
 No three consecutive sentences within a few words of the same length. Every
@@ -301,6 +307,10 @@ The auction breakdown is the centrepiece. Who paid what, who got value, who is
 now stuck. Name names.
 """,
     "team-review": """\
+THE KICKER IS A LABEL, NOT A SENTENCE: "<team name> · <owner's full name>",
+e.g. "Real Deal Creel · Keith Creelman". The index lists twelve of these side by
+side and the label is how a reader finds his own team. Put the hook in the dek.
+
 This is ONE OWNER'S full offseason arc, told in three stages: entering the
 offseason, entering the auction, and now. Keep two things conceptually
 separate and say so if they diverge: the STRONGEST team (carried strength --

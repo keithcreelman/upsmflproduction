@@ -4,9 +4,9 @@
   "packId": "2026-team-0006"
  },
  "prose": {
-  "kicker": "An elite defense bought for pocket change, and one very expensive receiver",
+  "kicker": "The Long Haulers · Brian Cross",
   "title": "The Long Haulers Got Paid to Take a Franchise Quarterback and Built a Defense Out of Loose Change",
-  "dek": "Brian Cross put {{f.team.0006.idp_auction_share}} of his auction money into defenders \u2014 the largest share in the league \u2014 and his most expensive buy all summer was {{f.team.0006.top_buy_price}}. He ranks {{f.team.0006.composite_rank}} of {{f.league.teams}} and has {{f.team.0006.studs_today}} studs, which is as many as anyone.",
+  "dek": "Brian Cross put {{f.team.0006.idp_auction_share}} of his auction money into defenders — the largest share in the league — and his most expensive buy all summer was {{f.team.0006.top_buy_price}}. He ranks {{f.team.0006.composite_rank|ord}} of {{f.league.teams}} and has {{f.team.0006.studs_today}} studs, which is as many as anyone.",
   "sections": [
    {
     "id": "s1",
@@ -14,10 +14,29 @@
     "paragraphs": [
      "The defensive front is the best thing in this article. Maxx Crosby grades Elite DL1. Brian Burns also grades Elite DL1. Jordyn Brooks is an Elite LB1. Tremaine Edmunds fills the flex at Mid LB2, Jordan Battle is a Mid DB1 and Cooper DeJean a Mid DB2. Only Devin Bush at Low-end LB1 is anything short of very good, and Low-end LB1 is still a starter.",
      "Two Elite DL1s on one roster should not be affordable. The auction table shows what they cost and the answer is barely anything.",
-     "The offense is genuinely strong at the top too. Jalen Hurts grades High-end QB1 with Trevor Lawrence at Low-end QB1 in the superflex, which not every team in this format can say \u2014 two quarterbacks who are both actually good \u2014 and the room ranks {{f.team.0006.qb_rank}}. The backfield ranks {{f.team.0006.rb_rank}}, third in the league, on Najee Harris at High-end RB1 and Derrick Henry at Mid RB1, with George Holani, now a Replacement-level RB, in a flex. Tyler Warren is a High-end TE1 and tight end ranks {{f.team.0006.te_rank}}.",
-     "Then the receivers, ranked {{f.team.0006.wr_rank}}, second from bottom, and the only real flaw here. A.J. Brown grades Mid WR1 and Quentin Johnston Low-end WR4, and after those two the offensive flexes hold Jordan Mason and George Holani, both Replacement-level RB. Brown is the most expensive player on this roster by a distance \u2014 several times what Maxx Crosby cost \u2014 and he is carrying a room that ranks near last.",
-     "Composite {{f.team.0006.composite_rank}} of {{f.league.teams}}, {{f.team.0006.studs_today}} studs, {{f.team.0006.holes_today}} holes. This is a top-heavy roster in the good sense: six genuine difference-makers spread across quarterback, running back, tight end and the whole defensive front, with the gaps at the second receiver spot and in both offensive flexes."
-    ]
+     "The offense is genuinely strong at the top too. Jalen Hurts grades High-end QB1 with Trevor Lawrence at Low-end QB1 in the superflex, which not every team in this format can say — two quarterbacks who are both actually good — and the room ranks {{f.team.0006.qb_rank|ord}}. The backfield ranks {{f.team.0006.rb_rank}}, third in the league, on Najee Harris at High-end RB1 and Derrick Henry at Mid RB1, with George Holani, now a Replacement-level RB, in a flex. Tyler Warren is a High-end TE1 and tight end ranks {{f.team.0006.te_rank|ord}}.",
+     "Then the receivers, ranked {{f.team.0006.wr_rank}}, second from bottom, and the only real flaw here. A.J. Brown grades Mid WR1 and Quentin Johnston Low-end WR4, and after those two the offensive flexes hold Jordan Mason and George Holani, both Replacement-level RB. Brown is the most expensive player on this roster by a distance — several times what Maxx Crosby cost — and he is carrying a room that ranks near last.",
+     "Composite {{f.team.0006.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0006.studs_today}} studs, {{f.team.0006.holes_today}} holes. This is a top-heavy roster in the good sense: six genuine difference-makers spread across quarterback, running back, tight end and the whole defensive front, with the gaps at the second receiver spot and in both offensive flexes."
+    ],
+    "place": [
+     "t.0006.lineup"
+    ],
+    "placeAt": {
+     "t.0006.lineup": 0
+    },
+    "views": {
+     "t.0006.lineup": {
+      "cols": [
+       "slot",
+       "player",
+       "val"
+      ],
+      "labels": {
+       "val": "Grade"
+      },
+      "title": "Strongest legal lineup"
+     }
+    }
    },
    {
     "id": "s2",
@@ -25,19 +44,64 @@
     "paragraphs": [
      "He is one of the minority who could field a legal lineup in April, at {{f.team.0006.active_roster_opening}} active with {{f.team.0006.cap_opening}} committed and {{f.team.0006.studs_opening}} studs already in place. He did not begin the offseason rebuilding. He began it with a good team and a plan.",
      "By the auction lock he was at {{f.team.0006.active_roster_preauction}} active and had made one priced-slot change: Quentin Johnston replaced Josh Downs at the second receiver spot, a Low-end WR4 for a Replacement-level WR. Value moved from {{f.team.0006.lineup_value_opening}} to {{f.team.0006.lineup_value_preauction}}. Holes stayed at {{f.team.0006.holes_opening}}.",
-     "The auction filled him to {{f.team.0006.active_roster_current}} active players \u2014 the roster maximum of {{f.league.roster_max_at_auction}} at the time, with taxi and reserve on top of that \u2014 and lifted value to {{f.team.0006.lineup_value_postauction}}, with holes down to {{f.team.0006.holes_postauction}}. George Holani took a back slot off Jordan Mason. That is the entire offensive change of his auction, because the auction was not about offense.",
+     "The auction filled him to {{f.team.0006.active_roster_current}} active players — the roster maximum of {{f.league.roster_max_at_auction}} at the time, with taxi and reserve on top of that — and lifted value to {{f.team.0006.lineup_value_postauction}}, with holes down to {{f.team.0006.holes_postauction}}. George Holani took a back slot off Jordan Mason. That is the entire offensive change of his auction, because the auction was not about offense.",
      "Since then in-season work has taken him further, to {{f.team.0006.lineup_value_current}} and {{f.team.0006.holes_today}} holes with studs up to {{f.team.0006.studs_today}}. He is the only owner whose lineup is measurably better now than it was when the auction closed, and that is churn paying off rather than churn for its own sake."
-    ]
+    ],
+    "place": [
+     "t.0006.slot_bridge"
+    ],
+    "placeAt": {
+     "t.0006.slot_bridge": 0
+    },
+    "views": {
+     "t.0006.slot_bridge": {
+      "cols": [
+       "slot",
+       "open",
+       "pre",
+       "now"
+      ],
+      "stack": true,
+      "title": "Who filled each priced slot",
+      "labels": {
+       "open": "April",
+       "pre": "Before the auction",
+       "now": "After it"
+      }
+     }
+    }
    },
    {
     "id": "s3",
     "lead": "",
     "paragraphs": [
      "At the Expired Rookie Auction he took {{f.team.0006.era_lots_won}} lots for {{f.team.0006.era_spend}}, both at the league minimum: Tyjae Spears and Will Levis. That pool sells players whose rookie contracts ran out without earning a second one, and the most expensive man in it anywhere went for {{f.league.era_top_price}}. Spending the minimum twice is exactly the right way to treat it.",
-     "The Free Agent Auction is where he did something nobody else did. {{f.team.0006.faa_lots_won}} lots for {{f.team.0006.faa_spend}} \u2014 one of the smallest budgets in the league \u2014 and {{f.team.0006.idp_auction_spend}} of it, which is {{f.team.0006.idp_auction_share}}, went on defenders. That is the largest defensive share of any owner, ranking {{f.team.0006.idp_auction_share_rank}} of {{f.league.teams}}, and it is not close.",
+     "The Free Agent Auction is where he did something nobody else did. {{f.team.0006.faa_lots_won}} lots for {{f.team.0006.faa_spend}} — one of the smallest budgets in the league — and {{f.team.0006.idp_auction_spend}} of it, which is {{f.team.0006.idp_auction_share}}, went on defenders. That is the largest defensive share of any owner, and it is not close.",
      "His top buy of the entire summer was Maxx Crosby at {{f.team.0006.top_buy_price}}, {{f.team.0006.top_buy_pct_of_spend}} of his auction spend, against a league-high lot elsewhere of {{f.league.faa_top_price}}. For that money he got an Elite DL1. Then Brian Burns, another Elite DL1, for less. Then Jordyn Brooks, an Elite LB1, for less again. Kyle Hamilton, Cooper DeJean and Tremaine Edmunds followed at prices that would embarrass a waiver claim.",
-     "The strategy has a real weakness worth naming: none of it addressed a receiver room ranked {{f.team.0006.wr_rank}}. Jalen Nailor at the minimum was the only receiver he bought, and he was gone within the month. But defenders were being sold at a discount this summer and he was the one owner who noticed, which is a better description of it than luck. Historically he is in this territory too: {{f.team.0006.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0006.idp_adds_rank}}, though points per started defender ranks only {{f.team.0006.idp_ppw_rank}} \u2014 this year's unit is a step up on his own record."
-    ]
+     "The strategy has a real weakness worth naming: none of it addressed a receiver room ranked {{f.team.0006.wr_rank|ord}}. Jalen Nailor at the minimum was the only receiver he bought, and he was gone within the month. But defenders were being sold at a discount this summer and he was the one owner who noticed, which is a better description of it than luck. Historically he is in this territory too: {{f.team.0006.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0006.idp_adds_rank|ord}}, though points per started defender ranks only {{f.team.0006.idp_ppw_rank|ord}} — this year's unit is a step up on his own record."
+    ],
+    "place": [
+     "t.0006.auction"
+    ],
+    "placeAt": {
+     "t.0006.auction": 1
+    },
+    "views": {
+     "t.0006.auction": {
+      "cols": [
+       "player",
+       "pos",
+       "auction",
+       "price"
+      ],
+      "sortDesc": "price",
+      "rows": 5,
+      "title": "Biggest buys",
+      "labels": {
+       "auction": "Where"
+      }
+     }
+    }
    },
    {
     "id": "s4",
@@ -45,22 +109,109 @@
     "paragraphs": [
      "{{f.team.0006.contracts_count}} contract moves, {{f.team.0006.trades_count}} trades and {{f.team.0006.roster_removals_total}} roster removals. Only Real Deal Creel cleared more players off a roster this summer.",
      "The trade of his year, and arguably of anybody's year, came on the ninth of April. He sent his own 2027 first and second to HammerTime and received Jalen Hurts and {{f.team.0006.trade_blind_bid_cash}} of blind-bid money. He acquired a High-end QB1 and was paid cash to do it. Two future picks is a real price and future firsts are not free, but a quarterback of that grade with money attached is the kind of deal most owners never get offered.",
-     "He then extended Hurts and restructured him in the same sitting \u2014 two separate operations on one contract, not one described twice \u2014 which back-loaded the deal and cut the current-year charge.",
-     "The pick work is aggressive. In May he sent five picks to Sex Manther for two, moving up rather than out, and Sex Manther turned that haul into five players. He swapped with Gride to land 2.05 and 2.10. He gave a 2027 third to Pure Greatness for Quentin Johnston, who is now his second receiver. In July he sent Isaiah Bond and a 2027 fourth to L.A. Looks for Jordan Battle, a top-twelve defensive back who now starts for him \u2014 a small deal that quietly worked.",
+     "He then extended Hurts and restructured him in the same sitting — two separate operations on one contract, not one described twice — which back-loaded the deal and cut the current-year charge.",
+     "The pick work is aggressive. In May he sent five picks to Sex Manther for two, moving up rather than out, and Sex Manther turned that haul into five players. He swapped with Gride to land 2.05 and 2.10. He gave a 2027 third to Pure Greatness for Quentin Johnston, who is now his second receiver. In July he sent Isaiah Bond and a 2027 fourth to L.A. Looks for Jordan Battle, a top-twelve defensive back who now starts for him — a small deal that quietly worked.",
      "The removals are relentless: {{f.team.0006.cuts_count}} contracts cut and {{f.team.0006.inyear_flyers}} bodies signed and discarded inside the same offseason. Most cost nothing, several were taxi players whose salary was never on the cap at all. Three carry penalties deferred to next season, totalling {{f.team.0006.cuts_penalty_2027_deferred}}, and Theo Johnson's cut leaves {{f.team.0006.cuts_penalty_unstamped}} with no charge year stamped on it. Nothing has hit this season at {{f.team.0006.cuts_penalty_2026}}, but it is a lot of small bills to be carrying forward.",
      "The rookie class is the one genuine disappointment. Fernando Mendoza at 1.03 sits in one of the strongest historical bands of the whole draft, and he grades Replacement-level QB on the bench behind two quarterbacks who are both better than him. Carson Beck at 3.04 came from a slot history says produces nothing. Of {{f.team.0006.rookie_picks_count}} picks, not one is currently a starter."
-    ]
+    ],
+    "place": [
+     "t.0006.trades"
+    ],
+    "placeAt": {
+     "t.0006.trades": 1
+    },
+    "views": {
+     "t.0006.trades": {
+      "cols": [
+       "date",
+       "partner",
+       "gave",
+       "got"
+      ],
+      "stack": true,
+      "title": "Trades"
+     }
+    }
    },
    {
     "id": "s5",
     "lead": "",
     "paragraphs": [
-     "He is {{f.team.0006.division_rank}} of {{f.team.0006.division_size}}, behind Pure Greatness and ahead of HammerTime, and he plays both twice. HammerTime is the team he bought Hurts from \u2014 those two games are the trade being re-litigated four times a season, and right now he is winning that argument.",
-     "Strongest team in the league? No, {{f.team.0006.composite_rank}} of {{f.league.teams}} \u2014 but he has as many studs as the top-ranked team does. Best offseason? He has a strong claim to it. He acquired a High-end QB1 with cash attached, built two Elite DL1s and an Elite LB1 out of {{f.team.0006.idp_auction_spend}}, and is the only owner whose lineup has improved since the auction closed rather than drifted.",
-     "The biggest advantage is that defensive front, which cost less than most owners paid for their single most expensive player of the summer. The biggest weakness is receiver, ranked {{f.team.0006.wr_rank}}, where the entire room is A.J. Brown and hope.",
-     "Which brings us to the caveat, and it is one game \u2014 {{f.league.wk_teams_final}} NFL teams had played when this was written. His four finished players banked {{f.team.0006.wk_points_final}} points. A.J. Brown, the most expensive contract on this roster, was outscored by Jason Myers, a kicker bought at the league minimum. Brown was not injured and nobody has designated him anything; he caught three passes because his quarterback in New England threw three interceptions, and that quarterback belongs to Pure Greatness, not to him. That is the structural risk in paying top-of-the-market money for a receiver: you are buying somebody else's passing offense."
-    ]
+     "He is {{f.team.0006.division_rank|ord}} of {{f.team.0006.division_size}}, behind Pure Greatness and ahead of HammerTime, and he plays both twice. HammerTime is the team he bought Hurts from — those two games are the trade being re-litigated four times a season, and right now he is winning that argument.",
+     "Strongest team in the league? No, {{f.team.0006.composite_rank|ord}} of {{f.league.teams}} — but he has as many studs as the top-ranked team does. Best offseason? He has a strong claim to it. He acquired a High-end QB1 with cash attached, built two Elite DL1s and an Elite LB1 out of {{f.team.0006.idp_auction_spend}}, and is the only owner whose lineup has improved since the auction closed rather than drifted.",
+     "The biggest advantage is that defensive front, which cost less than most owners paid for their single most expensive player of the summer. The biggest weakness is receiver, ranked {{f.team.0006.wr_rank|ord}}, where the entire room is A.J. Brown and hope.",
+     "Which brings us to the caveat, and it is one game — {{f.league.wk_teams_final}} NFL teams had played when this was written. His four finished players banked {{f.team.0006.wk_points_final}} points. A.J. Brown, the most expensive contract on this roster, was outscored by Jason Myers, a kicker bought at the league minimum. Brown was not injured and nobody has designated him anything; he caught three passes because his quarterback in New England threw three interceptions, and that quarterback belongs to Pure Greatness, not to him. That is the structural risk in paying top-of-the-market money for a receiver: you are buying somebody else's passing offense."
+    ],
+    "place": [
+     "t.0006.division",
+     "t.0006.week1"
+    ],
+    "placeAt": {
+     "t.0006.division": 0,
+     "t.0006.week1": 3
+    },
+    "views": {
+     "t.0006.division": {
+      "cols": [
+       "team",
+       "comp"
+      ],
+      "labels": {
+       "comp": "League rank"
+      },
+      "title": "The division"
+     },
+     "t.0006.week1": {
+      "cols": [
+       "player",
+       "pos",
+       "slot",
+       "pts",
+       "line"
+      ],
+      "stack": true,
+      "title": "Week one, so far",
+      "labels": {
+       "pts": "Points",
+       "line": "What he did"
+      }
+     }
+    },
+    "captions": {
+     "t.0006.week1": "Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play."
+    }
    }
-  ]
+  ],
+  "strip": [
+   {
+    "fact": "f.team.0006.composite_rank",
+    "ord": true,
+    "of": "f.league.teams",
+    "label": "Overall"
+   },
+   {
+    "fact": "f.team.0006.studs_today",
+    "label": "Offensive studs",
+    "suffix": "of nine"
+   },
+   {
+    "fact": "f.team.0006.holes_today",
+    "label": "Offensive holes",
+    "suffix": "of nine"
+   },
+   {
+    "fact": "f.team.0006.auction_spend",
+    "label": "Spent at auction"
+   },
+   {
+    "fact": "f.team.0006.cap_current_room",
+    "label": "Cap room"
+   }
+  ],
+  "card": {
+   "rankFact": "f.team.0006.composite_rank",
+   "ofFact": "f.league.teams",
+   "featured": false
+  }
  }
 }

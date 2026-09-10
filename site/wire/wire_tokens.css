@@ -26,10 +26,12 @@
   --line: #2A352E;
   --ink: #E8EDE9;
   --ink-dim: #A3AFA8;
-  --ink-mute: #75837B;
+  /* ink-mute and brick were raised 2026-09-10: small labels in these colours
+     measured 4.40:1 and 3.98:1 on --surface, under the 4.5:1 AA floor. */
+  --ink-mute: #86938B;
   --gold: #D6A24A;
   --gold-dim: #8A6A31;
-  --brick: #C4574A;
+  --brick: #D66A5C;
   --cool: #6E9C8A;
 
   --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
@@ -37,6 +39,9 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   --maxw: 62rem;
+  /* Article reading column: about 75 characters of 18px Georgia per line
+     (measured; 42rem at 17px was 88). */
+  --measure: 38rem;
 }
 
 @media (prefers-color-scheme: light) {
@@ -47,7 +52,7 @@
     --line: #DCDAD1;
     --ink: #16201A;
     --ink-dim: #4A5750;
-    --ink-mute: #6E7A73;
+    --ink-mute: #5E6A63;
     --gold: #8A6212;
     --gold-dim: #C6A66A;
     --brick: #9E3A2E;
@@ -57,13 +62,13 @@
 
 :root[data-theme="dark"] {
   --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
-  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #75837B;
-  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #C4574A; --cool: #6E9C8A;
+  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #86938B;
+  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #D66A5C; --cool: #6E9C8A;
 }
 
 :root[data-theme="light"] {
   --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
-  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #6E7A73;
+  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #5E6A63;
   --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
 }
 

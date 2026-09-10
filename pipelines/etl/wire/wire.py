@@ -60,6 +60,7 @@ META_RE = re.compile(r'<!--\s*wire-meta\s*([\s\S]*?)-->')
 TITLE_RE = re.compile(r'<title>([\s\S]*?)</title>', re.I)
 KICKER_RE = re.compile(r'<div class="wire-eyebrow">([\s\S]*?)</div>')
 DEK_RE = re.compile(r'<p class="wire-dek">([\s\S]*?)</p>')
+METHOD_RE = re.compile(r'<div class="wire-method">[\s\S]*?</details>\s*</div>')
 
 STYLE_BANNER = (
     "/* GENERATED - do not edit here.\n"
@@ -193,7 +194,9 @@ def build_entry(path, html):
 
     raw = io.open(path, "rb").read()
     sections = [{"id": sid, "title": unescape_basic(t)} for sid, t in SECTION_RE.findall(html)]
-    words = len(text_of(html).split())
+    # The collapsed "How this was built" panel is not reading time. Counting it
+    # showed 16 minutes on a review a reader gets through in about nine.
+    words = len(text_of(METHOD_RE.sub(" ", html)).split())
 
     title = first(TITLE_RE, html)
     # Strip the " - UPS Wire" suffix the <title> carries for the standalone tab.
@@ -218,6 +221,10 @@ def build_entry(path, html):
         "tags": [t.strip() for t in (meta.get("tags") or "").split(",") if t.strip()],
         "hero": ({"kind": "stat", "value": meta["heroValue"], "label": meta.get("heroLabel") or ""}
                  if meta.get("heroValue") else None),
+        # Reading order inside a family (team reviews: the league rank), and
+        # the one story the front page leads with. Both optional.
+        "order": int(meta["order"]) if meta.get("order") else None,
+        "featured": (meta.get("featured") or "").strip().lower() in ("yes", "true", "1"),
         "provenance": None,
     }
     return entry
@@ -599,8 +606,12 @@ def cmd_render(args):
     prose, pmeta = blob["prose"], blob.get("meta", {})
 
     article_id = PACK_ARTICLE.get(args.pack, args.pack)
+    family_id = PACK_FAMILY.get(args.pack, "dispatch")
+    families = (json.load(io.open(INDEX, encoding="utf-8")).get("families") or []
+                if os.path.exists(INDEX) else [])
     meta = {
-        "familyId": PACK_FAMILY.get(args.pack, "dispatch"),
+        "familyId": family_id,
+        "familyTitle": next((f.get("title") for f in families if f.get("id") == family_id), ""),
         "season": pack["season"],
         "week": pack.get("week") or "",
         # Always born as a draft. Promotion to live is a separate, deliberate
@@ -610,8 +621,30 @@ def cmd_render(args):
         "tags": "",
         "heroValue": "",
         "heroLabel": "",
+        "order": "",
+        "featured": "",
         "engine": pmeta.get("engine", "unknown"),
     }
+
+    # The index card: a rank badge ("7th", "of 12"), the family reading order,
+    # and whether this is the front page's lead. Taken from pack facts named in
+    # the prose's `card` block, so the badge can never disagree with the pack.
+    card = prose.get("card") or {}
+    if card.get("rankFact"):
+        facts = dict((f["id"], f) for f in pack["facts"])
+        rank, of = facts.get(card["rankFact"]), facts.get(card.get("ofFact") or "")
+        if not rank:
+            fail("card.rankFact %r is not a fact in the pack" % card["rankFact"])
+        if card.get("ofFact") and not of:
+            fail("card.ofFact %r is not a fact in the pack" % card["ofFact"])
+        try:
+            meta["heroValue"] = wire_render.ordinal(rank["value"])
+        except (TypeError, ValueError):
+            fail("card.rankFact %r is not a whole number" % card["rankFact"])
+        meta["heroLabel"] = ("of %s" % of["fmt"]) if of else ""
+        meta["order"] = int(float(rank["value"]))
+    if card.get("featured"):
+        meta["featured"] = "yes"
 
     try:
         html = wire_render.render_article(pack, prose, meta)

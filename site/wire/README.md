@@ -146,8 +146,32 @@ file to all three surfaces:
 -->
 ```
 
+Two optional keys shape the index: `order` (reading order inside a family --
+team reviews use the league rank) and `featured: yes` (the front page's lead
+story; otherwise the newest leads). `render` fills both, and `heroValue` /
+`heroLabel`, from the prose's `card` block.
+
 The one exception is `families[]`, which is curated by hand in `index.json` and
-preserved across regeneration.
+preserved across regeneration. A family with `"layout": "ranked"` (team
+reviews) lists as a compact ranked table of contents instead of cards.
+
+### Layout keys in a prose file
+
+Besides the writer's text, a `*.prose.json` carries placement. None of it can
+introduce a number -- values come from the pack, and every label passes the
+same audit as body copy:
+
+| Key | Where | What it does |
+|---|---|---|
+| `strip` | top level | Key numbers under the dek: `{fact, label, ord?, of?, suffix?}` |
+| `card` | top level | Index badge + order from `rankFact`/`ofFact`; `featured` |
+| `place` | section | Table/chart ids to show |
+| `placeAt` | section | `{id: n}` -- put that figure right after paragraph `n` (0-based) |
+| `views` | section | `{id: {cols, labels, title, sortDesc, rows, stack, note}}` -- a reader's view of a pack table |
+| `{{id\|ord}}` | any text | Renders a whole-number fact as an ordinal ("7th") |
+
+Team reviews get all of this from `pipelines/etl/wire/team_review_layout.py`,
+run after `write` and before `render`.
 
 ### Adding an article
 

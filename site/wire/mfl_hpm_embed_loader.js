@@ -30,7 +30,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026-07-28.1";
+  var BUILD = "2026-09-10.1";
   if (window.__ups_wire_loader === BUILD) return;
   window.__ups_wire_loader = BUILD;
 
@@ -185,13 +185,16 @@
       JSON.stringify(ctx.theme) + ');}catch(e){}';
 
     // One beacon serves both the shell and articles. Gated on an 8px delta so
-    // the 800ms fallback tick is free when nothing is moving. Measured across
-    // three properties because documentElement.scrollHeight alone gets sticky
-    // when content shrinks (article -> back to a short index).
+    // the 800ms fallback tick is free when nothing is moving.
+    // Measures where the BODY ends, not documentElement.scrollHeight: inside a
+    // frame that is already 3,000px tall, scrollHeight can never report less
+    // than 3,000, so paging from a long section to a short one left the frame
+    // stuck tall with a screen of blank space under the section pager.
     var beacon =
       '(function(){var last=0;function post(){try{' +
-      'var b=document.body,h=Math.max(document.documentElement.scrollHeight,' +
-      'b?b.scrollHeight:0,b?b.offsetHeight:0);' +
+      'var b=document.body;if(!b)return;' +
+      'var h=Math.ceil(b.getBoundingClientRect().bottom+(window.pageYOffset||0)+' +
+      '(parseFloat(getComputedStyle(b).marginBottom)||0));' +
       'if(Math.abs(h-last)<=8)return;last=h;' +
       'parent.postMessage({type:"wire-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +
@@ -358,6 +361,18 @@
       if (state.kind !== "article" || !state.articleId) return;
       state.sectionId = safeStr(d.sectionId);
       writeHash("/a/" + state.articleId + (state.sectionId ? "/" + state.sectionId : ""));
+      // A page turn lands at the article's section rail. The article cannot do
+      // this itself: the frame is sized to its content, so its own scrollTo is
+      // a no-op and the thing that scrolls is this MFL page. Only ever scrolls
+      // UP -- a reader who clicked a rail pill is already looking at the rail.
+      // `top` is the rail's offset inside the article; older articles omit it
+      // and land at the top of the frame instead.
+      try {
+        var off = Number(d.top);
+        var target = frame.getBoundingClientRect().top + (window.pageYOffset || 0) +
+          (isFinite(off) && off > 0 ? off : 0) - 12;
+        if (target < (window.pageYOffset || 0)) window.scrollTo(0, Math.max(0, target));
+      } catch (e) {}
       return;
     }
     if (d.type === "wire-retry") {

@@ -13,15 +13,17 @@
   status: live
   publishedAt: 2026-09-10T15:07:45Z
   tags: 
-  heroValue: 
-  heroLabel: 
+  heroValue: 4th
+  heroLabel: of 12
+  order: 4
+  featured: 
 -->
 <!--wire-provenance
   pack: 2026-team-0011
   packGeneratedAtUtc: 2026-09-10T15:07:45Z
   engine: claude-opus-5 (session agent)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-12980da3">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-13811bb2">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -55,10 +57,12 @@
   --line: #2A352E;
   --ink: #E8EDE9;
   --ink-dim: #A3AFA8;
-  --ink-mute: #75837B;
+  /* ink-mute and brick were raised 2026-09-10: small labels in these colours
+     measured 4.40:1 and 3.98:1 on --surface, under the 4.5:1 AA floor. */
+  --ink-mute: #86938B;
   --gold: #D6A24A;
   --gold-dim: #8A6A31;
-  --brick: #C4574A;
+  --brick: #D66A5C;
   --cool: #6E9C8A;
 
   --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
@@ -66,6 +70,9 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   --maxw: 62rem;
+  /* Article reading column: about 75 characters of 18px Georgia per line
+     (measured; 42rem at 17px was 88). */
+  --measure: 38rem;
 }
 
 @media (prefers-color-scheme: light) {
@@ -76,7 +83,7 @@
     --line: #DCDAD1;
     --ink: #16201A;
     --ink-dim: #4A5750;
-    --ink-mute: #6E7A73;
+    --ink-mute: #5E6A63;
     --gold: #8A6212;
     --gold-dim: #C6A66A;
     --brick: #9E3A2E;
@@ -86,13 +93,13 @@
 
 :root[data-theme="dark"] {
   --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
-  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #75837B;
-  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #C4574A; --cool: #6E9C8A;
+  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #86938B;
+  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #D66A5C; --cool: #6E9C8A;
 }
 
 :root[data-theme="light"] {
   --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
-  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #6E7A73;
+  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #5E6A63;
   --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
 }
 
@@ -112,9 +119,14 @@ html { background: var(--ground); }
  * INLINED into every article at build time alongside wire_tokens.css. Same
  * rules apply: no vh/svh/dvh units (vw is fine), no webfonts.
  *
- * The .wire-sec / .wire-paged / .wire-rail / .wire-topbar blocks at the bottom
- * are new — they are the "flip through, don't jam it all on a page" machinery
- * and the embedded-only Back bar. Everything above them is the reference.
+ * READING TYPE (2026-09-10). The first published team reviews set 16px body
+ * copy across a 62rem column -- about 125 characters a line -- with ZERO space
+ * between paragraphs, so every article read as one grey slab. Articles now sit
+ * in a --measure column, paragraphs are spaced by the section's flex gap, the
+ * first paragraph after a section heading is set as a lede, and section
+ * headings are real headings rather than 11px labels.
+ *
+ * Labels never go below 0.72rem.
  */
 
 /* ---------- page frame ---------- */
@@ -122,36 +134,64 @@ html { background: var(--ground); }
   background: var(--ground);
   color: var(--ink);
   font-family: var(--body);
-  line-height: 1.6;
+  font-size: 1.125rem;
+  line-height: 1.62;
   padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 5vw, 2rem) 5rem;
 }
 .wire-wrap { max-width: var(--maxw); margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+.wire-wrap.wire-article { max-width: var(--measure); gap: 2rem; }
+.wire-page button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 /* ---------- hero ---------- */
-.wire-hero { display: flex; flex-direction: column; gap: 0.9rem; }
+.wire-hero { display: flex; flex-direction: column; gap: 0.85rem; }
 .wire-eyebrow {
   font-family: var(--display);
-  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--gold);
 }
-.wire-page h1 {
+/* Scoped to the hero: a bare `.wire-page h1` also beat the shell's wordmark. */
+.wire-hero h1 {
   font-family: var(--display);
   font-weight: 800;
-  font-size: clamp(2rem, 7vw, 3.4rem);
-  line-height: 0.98;
+  font-size: clamp(1.85rem, 5.6vw, 2.9rem);
+  line-height: 1.07;
   letter-spacing: -0.02em;
-  text-transform: uppercase;
   text-wrap: balance;
   margin: 0;
 }
 .wire-dek {
-  font-size: clamp(1rem, 2.4vw, 1.15rem);
+  font-size: clamp(1.08rem, 2.4vw, 1.22rem);
+  line-height: 1.5;
   color: var(--ink-dim);
-  max-width: 46ch;
+  max-width: 60ch;
   margin: 0;
 }
 
+/* ---------- key numbers under the dek ---------- */
+.wire-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
+  gap: 0.9rem 1.1rem; padding: 0.9rem 0; margin-top: 0.35rem;
+  border-block: 1px solid var(--line);
+}
+/* space-between: a label that wraps to two lines must not knock its value out
+   of line with the values beside it. */
+.wire-kpi { display: flex; flex-direction: column; justify-content: space-between; gap: 0.2rem; min-width: 0; }
+.wire-kpi-l {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+  line-height: 1.25;
+}
+.wire-kpi-v {
+  font-family: var(--mono); font-size: 1.2rem; line-height: 1.1;
+  color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+@media (max-width: 34rem) { .wire-kpi-v { font-size: 1.05rem; } }
+.wire-kpi-v small { font-size: 0.72rem; color: var(--ink-mute); margin-left: 0.2rem; }
+.wire-kpi-lead .wire-kpi-v { color: var(--gold); }
+
 /* ---------- method / "how this was built" panel ---------- */
+/* Sits at the END of the article, above the footer: it is reference material,
+   and at the top it pushed the first sentence below a phone's first screen. */
 .wire-method {
   border-left: 3px solid var(--gold-dim);
   background: var(--surface);
@@ -162,13 +202,9 @@ html { background: var(--ground); }
 }
 .wire-method b { color: var(--ink); font-weight: 700; }
 .wire-method .wire-mh {
-  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.74rem; font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
 }
-
-/* Collapsed by default. The caveat list grows with every data source added --
-   at nine notes it filled the first screen and buried the headline. Nothing is
-   hidden or paraphrased away; it is one click, and it prints expanded. */
 .wire-method summary.wire-mh { cursor: pointer; list-style: none; }
 .wire-method summary.wire-mh::-webkit-details-marker { display: none; }
 .wire-method summary.wire-mh::before {
@@ -190,19 +226,24 @@ html { background: var(--ground); }
 }
 
 /* ---------- tables ---------- */
+/* No min-width: the old 44rem floor made every table about twice the width of
+   a phone. Wide tables carry .wire-stack instead and fold into label/value
+   rows on a narrow screen (see the media query below). */
 .wire-tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
-.wire-page table { border-collapse: collapse; width: 100%; min-width: 44rem; }
-.wire-page th, .wire-page td { padding: 0.62rem 0.8rem; text-align: left; border-bottom: 1px solid var(--line); }
+.wire-page table { border-collapse: collapse; width: 100%; }
+.wire-page th, .wire-page td { padding: 0.55rem 0.75rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.wire-page td { font-size: 0.93rem; line-height: 1.45; }
 .wire-page th {
-  font-family: var(--display); font-size: 0.65rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ink-mute); background: var(--surface-2);
-  position: sticky; top: 0;
 }
 .wire-page tbody tr:last-child td { border-bottom: none; }
 .wire-page td.wire-num, .wire-page th.wire-num {
   font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
 }
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
 .wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
 .wire-page td.wire-comp {
   font-family: var(--display); font-weight: 700; font-size: 0.8rem;
@@ -211,13 +252,32 @@ html { background: var(--ground); }
 .wire-page td.wire-rings { font-family: var(--mono); color: var(--gold); letter-spacing: 0.1em; text-align: center; }
 .wire-zero { color: var(--ink-mute); }
 
+@media (max-width: 34rem) {
+  .wire-page th, .wire-page td { padding: 0.5rem 0.55rem; }
+  .wire-stack table, .wire-stack tbody, .wire-stack tr, .wire-stack td { display: block; width: 100%; }
+  .wire-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .wire-stack tr { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); }
+  .wire-stack tbody tr:last-child { border-bottom: none; }
+  .wire-page .wire-stack td, .wire-page .wire-stack td.wire-num {
+    display: grid; grid-template-columns: minmax(5.5rem, 34%) 1fr; gap: 0.7rem;
+    padding: 0.16rem 0; border: none; text-align: left; white-space: normal;
+  }
+  .wire-stack td::before {
+    content: attr(data-label);
+    font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
+    padding-top: 0.12rem;
+  }
+}
+
 /* ---------- section headers ---------- */
 .wire-sechead {
   font-family: var(--display);
-  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
-  text-transform: uppercase; color: var(--gold);
-  padding-bottom: 0.5rem; border-bottom: 1px solid var(--line);
-  margin: 0 0 1.25rem;
+  font-size: clamp(1.35rem, 3.8vw, 1.65rem); font-weight: 800;
+  line-height: 1.15; letter-spacing: -0.012em;
+  color: var(--ink); text-wrap: balance;
+  padding-bottom: 0.55rem; border-bottom: 2px solid var(--gold-dim);
+  margin: 0 0 0.35rem;
 }
 
 /* ---------- cards ---------- */
@@ -239,7 +299,7 @@ html { background: var(--ground); }
   letter-spacing: -0.015em; text-transform: uppercase; margin: 0;
 }
 .wire-badge {
-  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ground); background: var(--cool);
   padding: 0.22rem 0.55rem; white-space: nowrap;
@@ -249,8 +309,8 @@ html { background: var(--ground); }
 .wire-strip { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.55rem 0; border-block: 1px solid var(--line); }
 .wire-stat { display: flex; flex-direction: column; gap: 0.1rem; }
 .wire-slabel {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
 }
 .wire-sval { font-family: var(--mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
 .wire-sval.wire-gold { color: var(--gold); }
@@ -263,60 +323,76 @@ html { background: var(--ground); }
 
 /* ---------- prose ---------- */
 .wire-page ul { margin: 0; padding-left: 1.05rem; display: flex; flex-direction: column; gap: 0.42rem; }
-.wire-page li { font-size: 0.95rem; }
+.wire-page li { font-size: 0.98rem; }
 .wire-page li b { color: var(--ink); }
 .wire-page p { margin: 0; }
 .wire-flag { color: var(--brick); font-weight: 700; }
 
+/* The opening paragraph of every section, and an explicit lead, read larger:
+   it is where the eye lands after a page turn. */
+.wire-sechead + p, .wire-page p.wire-lede { font-size: 1.2rem; line-height: 1.55; }
+
 .wire-page blockquote {
   margin: 0; padding: 0.55rem 0 0.55rem 0.9rem;
   border-left: 2px solid var(--gold-dim);
-  color: var(--ink-dim); font-style: italic; font-size: 0.93rem;
+  color: var(--ink-dim); font-style: italic; font-size: 0.98rem;
 }
-.wire-page blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.85rem; }
+.wire-page blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.88rem; }
 
 /* ---------- superlatives ---------- */
 .wire-supers { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
 .wire-super { background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--gold); padding: 1rem 1.1rem; }
 .wire-super h3 {
-  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.13em; text-transform: uppercase; color: var(--gold);
   margin: 0 0 0.45rem;
 }
-.wire-super p { margin: 0; font-size: 0.92rem; color: var(--ink-dim); }
+.wire-super p { margin: 0; font-size: 0.95rem; color: var(--ink-dim); }
 .wire-super p b { color: var(--ink); }
 
-.wire-page footer { color: var(--ink-mute); font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.wire-page footer { color: var(--ink-mute); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 1rem; }
 
-/* ---------- NEW: figures (inline SVG charts land here in P4) ---------- */
-.wire-fig { margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+/* ---------- figures (tables and inline SVG charts) ---------- */
+.wire-fig { margin: 0.4rem 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.wire-fig-title {
+  font-family: var(--display); font-size: 0.98rem; font-weight: 700;
+  letter-spacing: -0.005em; color: var(--ink); margin: 0;
+}
 .wire-fig svg { width: 100%; height: auto; display: block; }
-.wire-fig figcaption { font-size: 0.85rem; color: var(--ink-mute); }
-.wire-fig details { font-size: 0.85rem; color: var(--ink-dim); }
-.wire-fig summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.wire-fig figcaption { font-size: 0.86rem; line-height: 1.5; color: var(--ink-mute); }
+.wire-fig details { font-size: 0.86rem; color: var(--ink-dim); }
+.wire-fig summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; }
 
-/* ---------- NEW: section paging ("flip through") ---------- */
+/* ---------- section paging ("flip through") ---------- */
 /* Default state is every section visible — that IS the graceful degradation.
    The runtime adds .wire-paged to <html> only once it has booted, so printing,
-   a JS-less Artifact sandbox, or a broken script all read as one long scroll. */
-.wire-sec { display: block; }
+   a JS-less Artifact sandbox, or a broken script all read as one long scroll.
+   Sections are flex columns so the GAP spaces the paragraphs. */
+.wire-sec { display: flex; flex-direction: column; gap: 1.15rem; }
 .wire-paged .wire-sec { display: none; }
-.wire-paged .wire-sec.wire-on { display: block; }
+.wire-paged .wire-sec.wire-on { display: flex; }
 
 /* .wire-js gates the rail, .wire-paged gates section visibility. Two classes,
    not one, so "Read all" can drop paging without hiding the control that turns
-   it back on. */
-.wire-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--line); }
+   it back on. ONE ROW, always: pills are numbers (full titles ride in the
+   title/aria-label) because five wrapped titles were five rows on a phone. */
+.wire-rail {
+  display: none; flex-wrap: nowrap; align-items: center; gap: 0.35rem;
+  overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
+}
 .wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
 .wire-rail-pill,
 .wire-rail-nav,
 .wire-rail-all {
-  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
-  letter-spacing: 0.1em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--surface);
-  border: 1px solid var(--line); padding: 0.34rem 0.6rem;
-  cursor: pointer; line-height: 1;
+  border: 1px solid var(--line); padding: 0.45rem 0.6rem;
+  cursor: pointer; line-height: 1; flex: 0 0 auto;
 }
+.wire-rail-pill { min-width: 2.1rem; font-family: var(--mono); letter-spacing: 0; }
 .wire-rail-pill:hover, .wire-rail-nav:hover, .wire-rail-all:hover { color: var(--ink); border-color: var(--gold-dim); }
 .wire-rail-pill[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
 .wire-rail-nav[disabled] { opacity: 0.35; cursor: default; }
@@ -324,25 +400,54 @@ html { background: var(--ground); }
 .wire-rail-all { margin-left: auto; color: var(--gold); }
 .wire-rail-count { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 
-/* ---------- NEW: Back bar. Hidden unless the runtime says we are embedded. ---------- */
-.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+/* End-of-section pager. A reader who finishes a long section on a phone should
+   not have to scroll back up to the rail to turn the page. */
+.wire-secnav { display: none; }
+.wire-paged .wire-secnav {
+  display: flex; gap: 0.6rem; margin-top: 0.8rem; padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+.wire-secnav button {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem;
+  text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); padding: 0.75rem 0.9rem;
+}
+.wire-secnav button:hover { border-color: var(--gold-dim); }
+.wire-secnav .wire-secnav-fwd { align-items: flex-end; text-align: right; border-color: var(--gold-dim); }
+.wire-secnav small {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold);
+}
+.wire-secnav span { font-family: var(--display); font-weight: 700; font-size: 1rem; line-height: 1.25; }
+
+/* ---------- Back bar. Hidden unless the runtime says we are embedded. ---------- */
+.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
 .wire-embedded .wire-topbar { display: flex; }
 .wire-back {
-  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--gold); background: none; border: 1px solid var(--gold-dim);
-  padding: 0.34rem 0.7rem; cursor: pointer; line-height: 1;
+  padding: 0.4rem 0.7rem; cursor: pointer; line-height: 1;
 }
 .wire-back:hover { color: var(--ground); background: var(--gold); }
-.wire-topbar-title { font-family: var(--display); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
+.wire-topbar-title { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
 
 @media (max-width: 34rem) {
   .wire-strip { gap: 0.85rem; }
   .wire-apbar { flex-basis: 100%; }
-  .wire-rail-all { margin-left: 0; }
+  /* The arrows duplicate the numbered pills and the end-of-section pager; on
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
+  .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
+  .wire-secnav span { font-size: 0.94rem; }
 }
 
-/* ---------- NEW: play card ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .wire-page *, .wire-page *::before { transition: none !important; }
+}
+
+/* ---------- play card ---------- */
 /* A callout for a big performance. Deliberately NOT an embedded clip -- see
    wire_pack.Pack.playcard: nothing maps a (player, week) to a verified video,
    and a wrong clip asserts a falsehood more convincingly than a wrong sentence.
@@ -357,33 +462,29 @@ html { background: var(--ground); }
   font-family: var(--display); font-weight: 800; font-size: 1.05rem;
   letter-spacing: -0.01em; text-transform: uppercase; color: var(--ink);
 }
-.wire-play-meta {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+.wire-play-meta, .wire-play-owner {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
 }
 .wire-play-score {
   font-family: var(--mono); font-size: 2rem; line-height: 1;
   color: var(--gold); font-variant-numeric: tabular-nums;
 }
-.wire-play-owner {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
-}
-.wire-play-line { font-size: 0.92rem; color: var(--ink-dim); }
+.wire-play-line { font-size: 0.95rem; color: var(--ink-dim); }
 .wire-play-note {
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--cool);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--cool);
 }
 .wire-play-watch {
   align-self: flex-start; margin-top: 0.35rem;
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--gold); text-decoration: none;
   border-bottom: 1px solid var(--gold-dim); padding-bottom: 0.1rem;
 }
 .wire-play-watch:hover { color: var(--ink); border-bottom-color: var(--ink); }
 
-/* ---------- NEW: per-game drilldown ---------- */
+/* ---------- per-game drilldown ---------- */
 /* The games section reads as a summary at a glance, with any single game
    openable for the breakdown. Closed by default so covering every result does
    not produce a wall. */
@@ -400,7 +501,7 @@ html { background: var(--ground); }
 }
 .wire-game[open] > .wire-game-sum::before { transform: rotate(90deg); }
 .wire-game-teams {
-  font-family: var(--display); font-weight: 700; font-size: 0.82rem;
+  font-family: var(--display); font-weight: 700; font-size: 0.85rem;
   letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink);
 }
 .wire-game-teams em { color: var(--ink-mute); font-style: normal; font-weight: 400; }
@@ -409,35 +510,35 @@ html { background: var(--ground); }
   font-variant-numeric: tabular-nums; margin-left: auto;
 }
 .wire-game-tag {
-  font-family: var(--display); font-size: 0.55rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ground); background: var(--cool); padding: 0.15rem 0.4rem;
 }
 .wire-game-body {
   padding: 0 0.9rem 0.8rem; display: flex; flex-direction: column; gap: 0.3rem;
   border-top: 1px solid var(--line); padding-top: 0.7rem;
 }
-.wire-game-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.88rem; }
+.wire-game-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9rem; }
 .wire-game-row span:first-child {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
-  white-space: nowrap; padding-top: 0.15rem;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+  padding-top: 0.15rem;
 }
 .wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
-.wire-game-note { font-size: 0.85rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
+.wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
 
 @media print { .wire-game-body { display: flex !important; } }
 
-/* ---------- NEW: game deck (flip through full game pages) ---------- */
+/* ---------- game deck (flip through full game pages) ---------- */
 .wire-gamedeck { display: flex; flex-direction: column; gap: 1rem; }
 .wire-gamedeck-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.35rem;
   padding-bottom: 0.8rem; border-bottom: 1px solid var(--line); }
 .wire-deck-on .wire-gamedeck-rail { display: flex; }
 .wire-gamepill {
-  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--ink-mute); background: var(--surface);
-  border: 1px solid var(--line); padding: 0.3rem 0.5rem; cursor: pointer; line-height: 1;
+  border: 1px solid var(--line); padding: 0.32rem 0.5rem; cursor: pointer; line-height: 1;
 }
 .wire-gamepill:hover { color: var(--ink); border-color: var(--gold-dim); }
 .wire-gamepill[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
@@ -448,8 +549,8 @@ html { background: var(--ground); }
 
 .wire-gamepage-head { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
 .wire-gamepage-kicker {
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
 }
 .wire-gamepage-score { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
 .wire-gp-team {
@@ -471,8 +572,8 @@ html { background: var(--ground); }
 }
 .wire-tott-head {
   background: var(--surface-2); border-bottom: 1px solid var(--line);
-  font-family: var(--display); font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
 }
 .wire-tott-head span:first-child { text-align: left; }
 .wire-tott-head span:last-child { text-align: right; }
@@ -486,8 +587,8 @@ html { background: var(--ground); }
 .wire-tott-row .wire-tott-v:last-child { text-align: right; }
 .wire-tott-win { color: var(--gold); font-weight: 700; }
 .wire-tott-l {
-  font-family: var(--display); font-size: 0.55rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
   white-space: nowrap;
 }
 .wire-gamepage-body { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -501,7 +602,7 @@ html { background: var(--ground); }
 /* The writer's own paragraph about THIS matchup -- set larger than body copy
    because on a game page it is the article, not a caption. */
 .wire-game-blurb {
-  font-size: 1.02rem; line-height: 1.62; color: var(--ink-dim);
+  font-size: 1.05rem; line-height: 1.62; color: var(--ink-dim);
   border-left: 2px solid var(--gold-dim); padding-left: 0.9rem; margin-bottom: 1.1rem;
 }
 .wire-game-blurb p { margin: 0 0 0.6rem; }
@@ -517,7 +618,7 @@ html { background: var(--ground); }
 <body>
 
 <div class="wire-page">
-<div class="wire-wrap">
+<div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
     <button class="wire-back" data-wire-back type="button">All stories</button>
@@ -525,10 +626,81 @@ html { background: var(--ground); }
   </div>
 
   <header class="wire-hero">
-    <div class="wire-eyebrow">Lowest auction spend in the league, one trade all year, fourth in the table</div>
+    <div class="wire-eyebrow">Cleon Ca$h · Eric Mannila</div>
     <h1>Cleon Ca$h Let the Draft Do His Offseason and It Worked</h1>
-    <p class="wire-dek">Eric Mannila spent <span class="wire-num" data-fact="f.team.0011.auction_spend">$34,000</span> at auction — less than anybody — made <span class="wire-num" data-fact="f.team.0011.trades_count">1</span> trade, and ranks <span class="wire-num" data-fact="f.team.0011.composite_rank">4</span> of <span class="wire-num" data-fact="f.league.teams">12</span>. The pick at 1.01 did more for this roster than his entire summer of shopping.</p>
+    <p class="wire-dek">Eric Mannila spent <span class="wire-num" data-fact="f.team.0011.auction_spend">$34,000</span> at auction — less than anybody — made <span class="wire-num" data-fact="f.team.0011.trades_count">1</span> trade, and ranks <span class="wire-num" data-fact="f.team.0011.composite_rank">4th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>. The pick at 1.01 did more for this roster than his entire summer of shopping.</p>
+    <div class="wire-kpis"><div class="wire-kpi wire-kpi-lead"><span class="wire-kpi-l">Overall</span><span class="wire-kpi-v">4th <small>of 12</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive studs</span><span class="wire-kpi-v">5 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Offensive holes</span><span class="wire-kpi-v">1 <small>of nine</small></span></div><div class="wire-kpi"><span class="wire-kpi-l">Spent at auction</span><span class="wire-kpi-v">$34,000</span></div><div class="wire-kpi"><span class="wire-kpi-l">Cap room</span><span class="wire-kpi-v">$13,000</span></div></div>
   </header>
+
+  <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
+
+  <section class="wire-sec" id="s1" data-title="The Lineup">
+    <h2 class="wire-sechead">The Lineup</h2>
+    <p>Tight end ranks <span class="wire-num" data-fact="f.team.0011.te_rank">1</span>, first in the league, and it is a genuine structural edge rather than a quirk. Colston Loveland grades Elite TE1 and Tucker Kraft, a High-end TE1, occupies one of the offensive flexes. Nobody else in this competition starts two tight ends who both grade as starters.</p>
+    <figure class="wire-fig">
+<div class="wire-fig-title">Strongest legal lineup</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Grade</th></tr></thead><tbody><tr><td data-label="Slot">QB</td><td data-label="Player">Justin Herbert</td><td data-label="Grade">Mid QB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Bijan Robinson</td><td data-label="Grade">Elite RB1</td></tr><tr><td data-label="Slot">RB</td><td data-label="Player">Jeremiyah Love</td><td data-label="Grade">High-end RB2</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">CeeDee Lamb</td><td data-label="Grade">High-end WR1</td></tr><tr><td data-label="Slot">WR</td><td data-label="Player">Malik Nabers</td><td data-label="Grade">High-end WR2</td></tr><tr><td data-label="Slot">TE</td><td data-label="Player">Colston Loveland</td><td data-label="Grade">Elite TE1</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Tucker Kraft</td><td data-label="Grade">High-end TE1</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Romeo Doubs</td><td data-label="Grade">Replacement-level WR</td></tr><tr><td data-label="Slot">SuperFlex</td><td data-label="Player">Jaxson Dart</td><td data-label="Grade">High-end QB2</td></tr><tr><td data-label="Slot">K</td><td data-label="Player">Cameron Dicker</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">P</td><td data-label="Player">A.J. Cole</td><td data-label="Grade">no ranking source (salary-filled)</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Travon Walker</td><td data-label="Grade">Replacement-level DL</td></tr><tr><td data-label="Slot">DL</td><td data-label="Player">Carl Granderson</td><td data-label="Grade">Replacement-level DL</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Roquan Smith</td><td data-label="Grade">Mid LB2</td></tr><tr><td data-label="Slot">LB</td><td data-label="Player">Arvell Reese</td><td data-label="Grade">no prior-season production</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Antoine Winfield</td><td data-label="Grade">Low-end DB2</td></tr><tr><td data-label="Slot">DB</td><td data-label="Player">Malaki Starks</td><td data-label="Grade">Replacement-level DB</td></tr><tr><td data-label="Slot">Flex</td><td data-label="Player">Jonathan Greenard</td><td data-label="Grade">Replacement-level DL</td></tr></tbody></table></div>
+</figure>
+    <p>The backfield ranks <span class="wire-num" data-fact="f.team.0011.rb_rank">4th</span> on Bijan Robinson at Elite RB1 and Jeremiyah Love at High-end RB2. Receiver ranks <span class="wire-num" data-fact="f.team.0011.wr_rank">6th</span> with CeeDee Lamb at High-end WR1 and Malik Nabers at High-end WR2. Justin Herbert is a Mid QB1 with Jaxson Dart, a High-end QB2, in the superflex, ranking <span class="wire-num" data-fact="f.team.0011.qb_rank">6th</span>.</p>
+    <p>That is five genuinely good players across four positions and a lineup with only <span class="wire-num" data-fact="f.team.0011.holes_today">1</span> hole in it — tied for the second-best hole count in the league. The hole is Romeo Doubs, a Replacement-level WR, in the last offensive flex, and he was the most expensive thing bought all summer.</p>
+    <p>The defense is where this roster stops being interesting. Travon Walker, Carl Granderson and Jonathan Greenard all grade Replacement-level DL — three defensive line slots, three replacement-level bodies. Malaki Starks is a Replacement-level DB and one linebacker slot holds Arvell Reese, a rookie no source can rate because he has not played an NFL season. Only Roquan Smith at Mid LB2 and Antoine Winfield at Low-end DB2 register at all.</p>
+    <p>This is a long-standing choice rather than an oversight. <span class="wire-num" data-fact="f.team.0011.idp_adds_alltime">101</span> defensive acquisitions since the league started keeping the log ranks <span class="wire-num" data-fact="f.team.0011.idp_adds_rank">12</span> — last, of <span class="wire-num" data-fact="f.league.teams">12</span>. He has never worked that wire and he is not starting now. In his defence, points per started defender still ranks <span class="wire-num" data-fact="f.team.0011.idp_ppw_rank">6th</span>, which suggests he gets more out of less than the raw activity implies.</p>
+    <p>Composite <span class="wire-num" data-fact="f.team.0011.composite_rank">4th</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, <span class="wire-num" data-fact="f.team.0011.studs_today">5</span> studs, <span class="wire-num" data-fact="f.team.0011.holes_today">1</span> hole.</p>
+  </section>
+
+  <section class="wire-sec" id="s2" data-title="The Bridge">
+    <h2 class="wire-sechead">The Bridge</h2>
+    <p>April found him already in decent shape: <span class="wire-num" data-fact="f.team.0011.active_roster_opening">18</span> active, able to field a legal lineup, <span class="wire-num" data-fact="f.team.0011.studs_opening">5</span> studs and <span class="wire-num" data-fact="f.team.0011.holes_opening">2</span> holes, worth <span class="wire-num" data-fact="f.team.0011.lineup_value_opening">33,654</span> with <span class="wire-num" data-fact="f.team.0011.cap_opening">$231,000</span> committed. One of those holes was literal — the second running back slot had nobody rostered in it at all.</p>
+    <figure class="wire-fig wire-stack">
+<div class="wire-fig-title">Who filled each priced slot</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Slot</th><th>April</th><th>Before the auction</th><th>After it</th></tr></thead><tbody><tr><td data-label="Slot">QB1</td><td data-label="April">Justin Herbert, Mid QB1</td><td data-label="Before the auction">Justin Herbert, Mid QB1</td><td data-label="After it">Justin Herbert, Mid QB1</td></tr><tr><td data-label="Slot">RB1</td><td data-label="April">Bijan Robinson, Elite RB1</td><td data-label="Before the auction">Bijan Robinson, Elite RB1</td><td data-label="After it">Bijan Robinson, Elite RB1</td></tr><tr><td data-label="Slot">RB2</td><td data-label="April">(nobody rostered)</td><td data-label="Before the auction">Jeremiyah Love, High-end RB2</td><td data-label="After it">Jeremiyah Love, High-end RB2</td></tr><tr><td data-label="Slot">WR1</td><td data-label="April">CeeDee Lamb, High-end WR1</td><td data-label="Before the auction">CeeDee Lamb, High-end WR1</td><td data-label="After it">CeeDee Lamb, High-end WR1</td></tr><tr><td data-label="Slot">WR2</td><td data-label="April">Malik Nabers, High-end WR2</td><td data-label="Before the auction">Malik Nabers, High-end WR2</td><td data-label="After it">Malik Nabers, High-end WR2</td></tr><tr><td data-label="Slot">TE1</td><td data-label="April">Colston Loveland, Elite TE1</td><td data-label="Before the auction">Colston Loveland, Elite TE1</td><td data-label="After it">Colston Loveland, Elite TE1</td></tr><tr><td data-label="Slot">OF1</td><td data-label="April">Tucker Kraft, High-end TE1</td><td data-label="Before the auction">Tucker Kraft, High-end TE1</td><td data-label="After it">Tucker Kraft, High-end TE1</td></tr><tr><td data-label="Slot">OF2</td><td data-label="April">Wan'Dale Robinson, Replacement-level WR</td><td data-label="Before the auction">Wan'Dale Robinson, Replacement-level WR</td><td data-label="After it">Romeo Doubs, Replacement-level WR</td></tr><tr><td data-label="Slot">SF1</td><td data-label="April">Jaxson Dart, High-end QB2</td><td data-label="Before the auction">Jaxson Dart, High-end QB2</td><td data-label="After it">Jaxson Dart, High-end QB2</td></tr></tbody></table></div>
+</figure>
+    <p>That slot is where his offseason actually happened, and it happened at the draft rather than the auction. Jeremiyah Love arrived at 1.01, the strongest historical slot in the entire class, and walked straight into the lineup as a High-end RB2. By the auction lock, value had climbed to <span class="wire-num" data-fact="f.team.0011.lineup_value_preauction">37,336</span> and holes were down to <span class="wire-num" data-fact="f.team.0011.holes_today">1</span> — before a single auction bid was placed.</p>
+    <p>Then the auction itself, and this is the number that defines his year. Lineup value went from <span class="wire-num" data-fact="f.team.0011.lineup_value_preauction">37,336</span> to <span class="wire-num" data-fact="f.team.0011.lineup_value_postauction">37,340</span>. That is a change of four points. Studs did not move from <span class="wire-num" data-fact="f.team.0011.studs_opening">5</span>, holes did not move from <span class="wire-num" data-fact="f.team.0011.holes_today">1</span>, and the only priced slot to change occupant swapped one Replacement-level WR for another.</p>
+    <p>He filled the roster out to <span class="wire-num" data-fact="f.team.0011.active_roster_current">32</span> active players and the starting lineup came out the other side statistically identical. For a team ranked <span class="wire-num" data-fact="f.team.0011.composite_rank">4th</span> that is either admirable restraint or a missed window, and which one depends entirely on whether you think the defense described above will hold up.</p>
+  </section>
+
+  <section class="wire-sec" id="s3" data-title="The Auctions">
+    <h2 class="wire-sechead">The Auctions</h2>
+    <p>Nothing at the Expired Rookie Auction: <span class="wire-num" data-fact="f.team.0011.era_lots_won">0</span> lots, <span class="wire-num" data-fact="f.team.0011.era_spend">$0</span>, from a pool of <span class="wire-num" data-fact="f.league.era_pool_size">14</span> players whose rookie deals ran out without earning a second one.</p>
+    <p>At the Free Agent Auction he won <span class="wire-num" data-fact="f.team.0011.faa_lots_won">13</span> lots for <span class="wire-num" data-fact="f.team.0011.faa_spend">$34,000</span>, the smallest outlay of any owner in the league. Romeo Doubs took <span class="wire-num" data-fact="f.team.0011.top_buy_price">$15,000</span> of it — <span class="wire-num" data-fact="f.team.0011.top_buy_pct_of_spend">44.1%</span> of his budget, against a league-high lot elsewhere of <span class="wire-num" data-fact="f.league.faa_top_price">$88,000</span> — and Doubs grades Replacement-level WR and is the single weak link in his starting lineup. Twelve bids went in on him. That is the most contested lot he entered and it is the one purchase he should want back.</p>
+    <figure class="wire-fig">
+<div class="wire-fig-title">Biggest buys</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Where</th><th>Price</th></tr></thead><tbody><tr><td data-label="Player">Romeo Doubs</td><td data-label="Pos">WR</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$15,000</td></tr><tr><td data-label="Player">Kirk Cousins</td><td data-label="Pos">QB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$5,000</td></tr><tr><td data-label="Player">Tyler Allgeier</td><td data-label="Pos">RB</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$3,000</td></tr><tr><td data-label="Player">Cameron Dicker</td><td data-label="Pos">PK</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$2,000</td></tr><tr><td data-label="Player">Keon Coleman</td><td data-label="Pos">WR</td><td data-label="Where">FAA</td><td class="wire-num" data-label="Price">$1,000</td></tr></tbody></table></div>
+</figure>
+    <p>Kirk Cousins and Tyler Allgeier were modest additions who both grade replacement-level on the bench. Everything else came in at the league minimum: Keon Coleman, Antoine Winfield, Tyler Nubin, Teddye Buchanan, Carl Granderson, Jonathan Greenard, T.J. Edwards.</p>
+    <p>The defensive spend was <span class="wire-num" data-fact="f.team.0011.idp_auction_spend">$6,000</span>, <span class="wire-num" data-fact="f.team.0011.idp_auction_share">17.6%</span> of his money. Three of those minimum-salary defenders are now starting and all three grade replacement-level. Buying cheap defenders worked beautifully for three other owners this summer; here it produced exactly what it cost.</p>
+  </section>
+
+  <section class="wire-sec" id="s4" data-title="Contracts, Trades, Cuts and the Rookie Class">
+    <h2 class="wire-sechead">Contracts, Trades, Cuts and the Rookie Class</h2>
+    <p><span class="wire-num" data-fact="f.team.0011.contracts_count">6</span> contract moves, <span class="wire-num" data-fact="f.team.0011.trades_count">1</span> trade, <span class="wire-num" data-fact="f.team.0011.roster_removals_total">3</span> removals, <span class="wire-num" data-fact="f.team.0011.cuts_penalty_2026">$0</span> of penalty charged and nothing deferred. This is one of the quietest sheets in the league.</p>
+    <p>The contract work is genuinely good. Bijan Robinson was extended in May and then restructured in July, two separate operations that between them cut his current-year charge to a fraction of the extension figure while leaving the total value untouched. Justin Herbert was restructured in June and front-loaded. Tucker Kraft was extended. Those three deals are why an owner carrying an Elite RB1, a Mid QB1, a High-end WR1 and an Elite TE1 still had room to operate.</p>
+    <p>The single trade of his year was a 2027 fifth-round pick to Sex Manther for Efton Chism, a receiver the redraft board does not price. It is not a story.</p>
+    <figure class="wire-fig wire-stack">
+<div class="wire-fig-title">Trades</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Date</th><th>Partner</th><th>Gave up</th><th>Received</th></tr></thead><tbody><tr><td data-label="Date">2026-07-19</td><td data-label="Partner">Sex Manther</td><td data-label="Gave up">2027 round-5 pick (Cleon Ca$h's natural pick)</td><td data-label="Received">Efton Chism (WR, redraft value unpriced -- off the redraft board)</td></tr></tbody></table></div>
+</figure>
+    <p>The removals are three players and no consequences: one contract cut and <span class="wire-num" data-fact="f.team.0011.inyear_flyers">2</span> in-year flyers, none of them charged against the cap.</p>
+    <p>The draft is where he won. <span class="wire-num" data-fact="f.team.0011.rookie_picks_count">7</span> picks, and the first of them is the best single selection anybody made this year — Jeremiyah Love at 1.01, from the strongest historical band in the class, already starting as a High-end RB2. Zachariah Branch at 4.10 came from a slot where history says almost nothing usable emerges and already grades Mid WR1, which makes him the steal of the draft. Arvell Reese at 3.07 is starting at linebacker with no NFL season behind him — no source can price him, which is not a criticism of the player so much as a description of what is behind him.</p>
+  </section>
+
+  <section class="wire-sec" id="s5" data-title="The Verdict">
+    <h2 class="wire-sechead">The Verdict</h2>
+    <p>He is <span class="wire-num" data-fact="f.team.0011.division_rank">2nd</span> of <span class="wire-num" data-fact="f.team.0011.division_size">3</span>, behind C-Town Chivalry and ahead of the Hawks, and he plays both twice. C-Town is the best team in the league, which means his divisional draw is two games against the top-ranked roster and two against the bottom-ranked one. The Hawks games are the cushion; the C-Town games are the season.</p>
+    <figure class="wire-fig">
+<div class="wire-fig-title">The division</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Team</th><th>League rank</th></tr></thead><tbody><tr><td data-label="Team">C-Town Chivalry</td><td class="wire-num" data-label="League rank">1</td></tr><tr><td data-label="Team">Cleon Ca$h</td><td class="wire-num" data-label="League rank">4</td></tr><tr><td data-label="Team">Hawks</td><td class="wire-num" data-label="League rank">12</td></tr></tbody></table></div>
+</figure>
+    <p>Strongest team in the league? Fourth, and closer to the top than the gap suggests. Best offseason? No — and it is worth saying plainly that he did not have one. He spent the least of anybody, made one trade for a player nobody rates, and moved his starting lineup by four points of value across the entire auction. What he did have was the first pick in the draft and the sense to extend and restructure his best contracts properly.</p>
+    <p>The biggest advantage is the two tight ends and Bijan Robinson: first in the league at a position everybody else is compromising at, plus an Elite RB1. The biggest weakness is a defensive front of three replacement-level linemen and a rookie linebacker, on a roster that has never invested there and ranks <span class="wire-num" data-fact="f.team.0011.idp_adds_rank">12th</span> all-time for trying.</p>
+    <p><span class="wire-num" data-fact="f.league.wk_teams_final">2</span> NFL teams had played when this was written and none of his starters was among them — <span class="wire-num" data-fact="f.team.0011.wk_points_final">0.0</span> points banked so far. Both of his finished players were bench receivers in New England and neither recorded a scoring stat, which tells you something about that passing offense and nothing at all about his team.</p>
+    <figure class="wire-fig wire-stack">
+<div class="wire-fig-title">Week one, so far</div>
+<div class="wire-tablewrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Started?</th><th>Points</th><th>What he did</th></tr></thead><tbody><tr><td data-label="Player">Efton Chism</td><td data-label="Pos">WR</td><td data-label="Started?">Bench</td><td data-label="Points">0.0</td><td data-label="What he did"></td></tr><tr><td data-label="Player">Romeo Doubs</td><td data-label="Pos">WR</td><td data-label="Started?">Bench</td><td data-label="Points">0.0</td><td data-label="What he did"></td></tr></tbody></table></div>
+<figcaption>Only games that had finished when this was written. A blank line means he recorded no scoring stat or did not play.</figcaption>
+</figure>
+  </section>
 
   <div class="wire-method">
     <details>
@@ -554,53 +726,8 @@ html { background: var(--ground); }
     </details>
   </div>
 
-  <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
-
-  <section class="wire-sec" id="s1" data-title="The Lineup">
-    <h2 class="wire-sechead">The Lineup</h2>
-    <p>Tight end ranks <span class="wire-num" data-fact="f.team.0011.te_rank">1</span>, first in the league, and it is a genuine structural edge rather than a quirk. Colston Loveland grades Elite TE1 and Tucker Kraft, a High-end TE1, occupies one of the offensive flexes. Nobody else in this competition starts two tight ends who both grade as starters.</p>
-    <p>The backfield ranks <span class="wire-num" data-fact="f.team.0011.rb_rank">4</span> on Bijan Robinson at Elite RB1 and Jeremiyah Love at High-end RB2. Receiver ranks <span class="wire-num" data-fact="f.team.0011.wr_rank">6</span> with CeeDee Lamb at High-end WR1 and Malik Nabers at High-end WR2. Justin Herbert is a Mid QB1 with Jaxson Dart, a High-end QB2, in the superflex, ranking <span class="wire-num" data-fact="f.team.0011.qb_rank">6</span>.</p>
-    <p>That is five genuinely good players across four positions and a lineup with only <span class="wire-num" data-fact="f.team.0011.holes_today">1</span> hole in it — tied for the second-best hole count in the league. The hole is Romeo Doubs, a Replacement-level WR, in the last offensive flex, and he was the most expensive thing bought all summer.</p>
-    <p>The defense is where this roster stops being interesting. Travon Walker, Carl Granderson and Jonathan Greenard all grade Replacement-level DL — three defensive line slots, three replacement-level bodies. Malaki Starks is a Replacement-level DB and one linebacker slot holds Arvell Reese, a rookie no source can rate because he has not played an NFL season. Only Roquan Smith at Mid LB2 and Antoine Winfield at Low-end DB2 register at all.</p>
-    <p>This is a long-standing choice rather than an oversight. <span class="wire-num" data-fact="f.team.0011.idp_adds_alltime">101</span> defensive acquisitions since the league started keeping the log ranks <span class="wire-num" data-fact="f.team.0011.idp_adds_rank">12</span> — last, of <span class="wire-num" data-fact="f.league.teams">12</span>. He has never worked that wire and he is not starting now. In his defence, points per started defender still ranks <span class="wire-num" data-fact="f.team.0011.idp_ppw_rank">6</span>, which suggests he gets more out of less than the raw activity implies.</p>
-    <p>Composite <span class="wire-num" data-fact="f.team.0011.composite_rank">4</span> of <span class="wire-num" data-fact="f.league.teams">12</span>, <span class="wire-num" data-fact="f.team.0011.studs_today">5</span> studs, <span class="wire-num" data-fact="f.team.0011.holes_today">1</span> hole.</p>
-  </section>
-
-  <section class="wire-sec" id="s2" data-title="The Bridge">
-    <h2 class="wire-sechead">The Bridge</h2>
-    <p>April found him already in decent shape: <span class="wire-num" data-fact="f.team.0011.active_roster_opening">18</span> active, able to field a legal lineup, <span class="wire-num" data-fact="f.team.0011.studs_opening">5</span> studs and <span class="wire-num" data-fact="f.team.0011.holes_opening">2</span> holes, worth <span class="wire-num" data-fact="f.team.0011.lineup_value_opening">33,654</span> with <span class="wire-num" data-fact="f.team.0011.cap_opening">$231,000</span> committed. One of those holes was literal — the second running back slot had nobody rostered in it at all.</p>
-    <p>That slot is where his offseason actually happened, and it happened at the draft rather than the auction. Jeremiyah Love arrived at 1.01, the strongest historical slot in the entire class, and walked straight into the lineup as a High-end RB2. By the auction lock, value had climbed to <span class="wire-num" data-fact="f.team.0011.lineup_value_preauction">37,336</span> and holes were down to <span class="wire-num" data-fact="f.team.0011.holes_today">1</span> — before a single auction bid was placed.</p>
-    <p>Then the auction itself, and this is the number that defines his year. Lineup value went from <span class="wire-num" data-fact="f.team.0011.lineup_value_preauction">37,336</span> to <span class="wire-num" data-fact="f.team.0011.lineup_value_postauction">37,340</span>. That is a change of four points. Studs did not move from <span class="wire-num" data-fact="f.team.0011.studs_opening">5</span>, holes did not move from <span class="wire-num" data-fact="f.team.0011.holes_today">1</span>, and the only priced slot to change occupant swapped one Replacement-level WR for another.</p>
-    <p>He filled the roster out to <span class="wire-num" data-fact="f.team.0011.active_roster_current">32</span> active players and the starting lineup came out the other side statistically identical. For a team ranked <span class="wire-num" data-fact="f.team.0011.composite_rank">4</span> that is either admirable restraint or a missed window, and which one depends entirely on whether you think the defense described above will hold up.</p>
-  </section>
-
-  <section class="wire-sec" id="s3" data-title="The Auctions">
-    <h2 class="wire-sechead">The Auctions</h2>
-    <p>Nothing at the Expired Rookie Auction: <span class="wire-num" data-fact="f.team.0011.era_lots_won">0</span> lots, <span class="wire-num" data-fact="f.team.0011.era_spend">$0</span>, from a pool of <span class="wire-num" data-fact="f.league.era_pool_size">14</span> players whose rookie deals ran out without earning a second one.</p>
-    <p>At the Free Agent Auction he won <span class="wire-num" data-fact="f.team.0011.faa_lots_won">13</span> lots for <span class="wire-num" data-fact="f.team.0011.faa_spend">$34,000</span>, the smallest outlay of any owner in the league. Romeo Doubs took <span class="wire-num" data-fact="f.team.0011.top_buy_price">$15,000</span> of it — <span class="wire-num" data-fact="f.team.0011.top_buy_pct_of_spend">44.1%</span> of his budget, against a league-high lot elsewhere of <span class="wire-num" data-fact="f.league.faa_top_price">$88,000</span> — and Doubs grades Replacement-level WR and is the single weak link in his starting lineup. Twelve bids went in on him. That is the most contested lot he entered and it is the one purchase he should want back.</p>
-    <p>Kirk Cousins and Tyler Allgeier were modest additions who both grade replacement-level on the bench. Everything else came in at the league minimum: Keon Coleman, Antoine Winfield, Tyler Nubin, Teddye Buchanan, Carl Granderson, Jonathan Greenard, T.J. Edwards.</p>
-    <p>The defensive spend was <span class="wire-num" data-fact="f.team.0011.idp_auction_spend">$6,000</span>, <span class="wire-num" data-fact="f.team.0011.idp_auction_share">17.6%</span> of his money, ranking <span class="wire-num" data-fact="f.team.0011.idp_auction_share_rank">9</span> of <span class="wire-num" data-fact="f.league.teams">12</span> by share. Three of those minimum-salary defenders are now starting and all three grade replacement-level. Buying cheap defenders worked beautifully for three other owners this summer; here it produced exactly what it cost.</p>
-  </section>
-
-  <section class="wire-sec" id="s4" data-title="Contracts, Trades, Cuts and the Rookie Class">
-    <h2 class="wire-sechead">Contracts, Trades, Cuts and the Rookie Class</h2>
-    <p><span class="wire-num" data-fact="f.team.0011.contracts_count">6</span> contract moves, <span class="wire-num" data-fact="f.team.0011.trades_count">1</span> trade, <span class="wire-num" data-fact="f.team.0011.roster_removals_total">3</span> removals, <span class="wire-num" data-fact="f.team.0011.cuts_penalty_2026">$0</span> of penalty charged and nothing deferred. This is one of the quietest sheets in the league.</p>
-    <p>The contract work is genuinely good. Bijan Robinson was extended in May and then restructured in July, two separate operations that between them cut his current-year charge to a fraction of the extension figure while leaving the total value untouched. Justin Herbert was restructured in June and front-loaded. Tucker Kraft was extended. Those three deals are why an owner carrying an Elite RB1, a Mid QB1, a High-end WR1 and an Elite TE1 still had room to operate.</p>
-    <p>The single trade of his year was a 2027 fifth-round pick to Sex Manther for Efton Chism, a receiver the redraft board does not price. It is not a story.</p>
-    <p>The removals are three players and no consequences: one contract cut and <span class="wire-num" data-fact="f.team.0011.inyear_flyers">2</span> in-year flyers, none of them charged against the cap.</p>
-    <p>The draft is where he won. <span class="wire-num" data-fact="f.team.0011.rookie_picks_count">7</span> picks, and the first of them is the best single selection anybody made this year — Jeremiyah Love at 1.01, from the strongest historical band in the class, already starting as a High-end RB2. Zachariah Branch at 4.10 came from a slot where history says almost nothing usable emerges and already grades Mid WR1, which makes him the steal of the draft. Arvell Reese at 3.07 is starting at linebacker with no NFL season behind him — no source can price him, which is not a criticism of the player so much as a description of what is behind him.</p>
-  </section>
-
-  <section class="wire-sec" id="s5" data-title="The Verdict">
-    <h2 class="wire-sechead">The Verdict</h2>
-    <p>He is <span class="wire-num" data-fact="f.team.0011.division_rank">2</span> of <span class="wire-num" data-fact="f.team.0011.division_size">3</span>, behind C-Town Chivalry and ahead of the Hawks, and he plays both twice. C-Town is the best team in the league, which means his divisional draw is two games against the top-ranked roster and two against the bottom-ranked one. The Hawks games are the cushion; the C-Town games are the season.</p>
-    <p>Strongest team in the league? Fourth, and closer to the top than the gap suggests. Best offseason? No — and it is worth saying plainly that he did not have one. He spent the least of anybody, made one trade for a player nobody rates, and moved his starting lineup by four points of value across the entire auction. What he did have was the first pick in the draft and the sense to extend and restructure his best contracts properly.</p>
-    <p>The biggest advantage is the two tight ends and Bijan Robinson: first in the league at a position everybody else is compromising at, plus an Elite RB1. The biggest weakness is a defensive front of three replacement-level linemen and a rookie linebacker, on a roster that has never invested there and ranks <span class="wire-num" data-fact="f.team.0011.idp_adds_rank">12</span> all-time for trying.</p>
-    <p><span class="wire-num" data-fact="f.league.wk_teams_final">2</span> NFL teams had played when this was written and none of his starters was among them — <span class="wire-num" data-fact="f.team.0011.wk_points_final">0.0</span> points banked so far. Both of his finished players were bench receivers in New England and neither recorded a scoring stat, which tells you something about that passing offense and nothing at all about his team.</p>
-  </section>
-
   <footer>
-    UPS Wire &middot; built from 2026-team-0011 &middot; league 74598
+    UPS Wire &middot; Team Reviews &middot; September 10, 2026
   </footer>
 
 </div>
@@ -628,7 +755,8 @@ html { background: var(--ground); }
  * Responsibilities (four, and only these):
  *   1. Flag embedded vs standalone, and apply the theme the loader chose.
  *   2. Wire the Back bar (embedded: postMessage; standalone: navigate).
- *   3. Build the chapter rail and page between sections.
+ *   3. Build the chapter rail and the end-of-section pager, and page between
+ *      sections.
  *   4. Report section changes upward so the MFL hash tracks what you're reading.
  *
  * The height beacon is NOT here -- the loader injects one beacon that serves
@@ -687,25 +815,33 @@ html { background: var(--ground); }
   var pills = [];
   var idx = 0;
 
-  var prevBtn = mk("button", "wire-rail-nav", "\u2039 Prev");
-  var nextBtn = mk("button", "wire-rail-nav", "Next \u203A");
-  var count = mk("span", "wire-rail-count", "");
+  function titleOf(i) {
+    // Read from data-title and only ever written with textContent -- a section
+    // title is prose and may contain anything. Falls back to a number so a
+    // missing data-title is visible rather than silently blank.
+    return secs[i].getAttribute("data-title") || ("Section " + (i + 1));
+  }
+
+  // The rail is ONE ROW: numbered pills, with the full title in title and
+  // aria-label. Five wrapped titles made a five-row rail on a phone, and the
+  // section heading right below it already names the page you are on.
+  var prevBtn = mk("button", "wire-rail-nav", "\u2039");
+  var nextBtn = mk("button", "wire-rail-nav", "\u203A");
   var allBtn = mk("button", "wire-rail-all", "Read all");
+  prevBtn.setAttribute("aria-label", "Previous section");
+  nextBtn.setAttribute("aria-label", "Next section");
 
   rail.appendChild(prevBtn);
   secs.forEach(function (sec, i) {
-    // textContent, not innerHTML -- a section title is prose and may contain
-    // anything. Falls back to a number so a missing data-title is visible
-    // rather than silently blank.
-    var label = sec.getAttribute("data-title") || ("Section " + (i + 1));
-    var pill = mk("button", "wire-rail-pill", (i + 1) + ". " + label);
+    var pill = mk("button", "wire-rail-pill", String(i + 1));
     pill.setAttribute("type", "button");
+    pill.setAttribute("title", titleOf(i));
+    pill.setAttribute("aria-label", (i + 1) + ". " + titleOf(i));
     pill.addEventListener("click", function () { show(i, true); });
     pills.push(pill);
     rail.appendChild(pill);
   });
   rail.appendChild(nextBtn);
-  rail.appendChild(count);
   rail.appendChild(allBtn);
 
   [prevBtn, nextBtn, allBtn].forEach(function (b) { b.setAttribute("type", "button"); });
@@ -720,6 +856,43 @@ html { background: var(--ground); }
     show(idx, false);
   });
 
+  // 3b. End-of-section pager: previous / next by name, at the BOTTOM of every
+  //     section, so finishing a long section on a phone does not mean
+  //     scrolling back up to the rail. Hidden by CSS unless paged. The last
+  //     section offers the way out instead of a dead end.
+  function leave() {
+    if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+    window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+  }
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
+  function navBtn(cls, small, big, onClick) {
+    var b = mk("button", cls, null);
+    b.setAttribute("type", "button");
+    b.appendChild(mk("small", "", small));
+    b.appendChild(mk("span", "", big));
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  secs.forEach(function (sec, i) {
+    var nav = mk("nav", "wire-secnav", null);
+    nav.setAttribute("aria-label", "Section navigation");
+    if (i > 0) {
+      nav.appendChild(navBtn("wire-secnav-back", "\u2039 Previous", titleOf(i - 1),
+        function () { show(i - 1, true); }));
+    }
+    if (i < secs.length - 1) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Next \u203A", titleOf(i + 1),
+        function () { show(i + 1, true); }));
+    } else if (canLeave) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Finished", "Back to all stories", leave));
+    }
+    sec.appendChild(nav);
+  });
+
   function show(i, userInitiated) {
     if (i < 0 || i >= secs.length) return;
     idx = i;
@@ -728,22 +901,34 @@ html { background: var(--ground); }
       if (n === i) p.setAttribute("aria-current", "true");
       else p.removeAttribute("aria-current");
     });
-    count.textContent = (i + 1) + " / " + secs.length;
     prevBtn.disabled = i === 0;
     nextBtn.disabled = i === secs.length - 1;
 
     if (!userInitiated) return;
 
     var id = secs[i].id || "";
+    // Where the rail sits in this document. A page turn lands there -- not at
+    // the very top, which would put the headline back between the reader and
+    // the section they asked for.
+    var railTop = 0;
+    try { railTop = rail.getBoundingClientRect().top + (window.pageYOffset || 0); } catch (e) {}
     // 4. Report upward so the MFL address bar tracks the section. The loader
     //    composes the full route because it is the thing that knows which
     //    article is loaded -- the article does not need to know its own id.
-    if (embedded) { post({ type: "wire-section", sectionId: id }); }
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
     else if (id) {
       try { history.replaceState(null, "", "#" + id); } catch (e) {}
     }
-    // Paging is a page turn; land at the top of the new section.
-    try { window.scrollTo(0, 0); } catch (e) {}
+    // Only ever scroll UP to the rail: a reader who clicked a pill is already
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
+    try {
+      var y = Math.max(0, railTop - 8);
+      if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);
+    } catch (e) {}
   }
 
 
