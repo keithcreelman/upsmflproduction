@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0008",
   "title": "2026 Team Review: Real Deal Creel",
-  "generatedAtUtc": "2026-09-09T17:52:58Z",
+  "generatedAtUtc": "2026-09-10T10:55:26Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -20,14 +20,14 @@
     },
     {
       "name": "MFL rosters export, live (all 12 franchises, for league-relative ranks)",
-      "asof": "2026-09-09T17:52:48Z",
+      "asof": "2026-09-10T10:55:18Z",
       "rows": 216,
       "note": null
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-09T17:52:48Z",
-      "rows": 221,
+      "asof": "2026-09-10T10:55:18Z",
+      "rows": 219,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     }
   ],
@@ -40,7 +40,7 @@
     "currentSeasonPartial": true
   },
   "warnings": [
-    "38 rostered-relevant offense values above come from a single source (FantasyCalc or KTC alone, not a genuine multi-source agreement) -- these carry more uncertainty than a value both sources agree on, per the endpoint's own rsfConfidence flag.",
+    "40 rostered-relevant offense values above come from a single source (FantasyCalc or KTC alone, not a genuine multi-source agreement) -- these carry more uncertainty than a value both sources agree on, per the endpoint's own rsfConfidence flag.",
     "Player value throughout is CURRENT redraft-superflex ADP (today's market), applied to every snapshot -- including the opening and pre-auction rosters. This measures which players a team held or acquired, not what the market thought of them at the time. Never read as a claim about historical ADP.",
     "IDP value is points-above-replacement computed from REAL production under UPS's own scoring rules -- not ADP (which does not price defenders) and not auction price (which is what the league paid, not what a player is worth). A defender's rank comes from the last completed season; the points-per-rank curve is averaged across seasons. PAR is floored at zero: a below-replacement defender is a roster slot refillable from the waiver wire for nothing, so his marginal value is nil rather than negative. 52% of top-24 IDP producers arrived off the wire, versus 6% on offense.",
     "IDP value supports TIER claims -- 'a top-12 DL', 'startable', 'replacement-level' -- and NOT fine ordering inside a tier. Year-over-year rank correlation within the top 24 is about 0.32 at DL, 0.30 at DB and effectively zero at LB, and a within-season split-half agrees. Never write 'the 4th-best linebacker'.",
@@ -57,7 +57,8 @@
     "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a body signed and discarded inside the same offseason was never part of the team (that is a TIMING test, not a salary one -- do not describe those as minimum-salary) -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure.",
     "THREE-WAY TRADES: ups_3way_trades only records deals routed through the league's in-app trade tool, which did not exist before 2026 -- it is NOT an all-time ledger. Multi-team deals did happen in earlier years (Keith 2026-09-09: historical ones exist, involving owners since departed). Say three-way trades are RARE, and that this is the only one completed through the league's trade tool; never say it is the only one on record, and do not characterise the historical ones -- this pack has no data on them.",
     "Puka Nacua's salary was cut from $22,000 to free room and then put straight back: 2 events between 2026-07-27 and 2026-09-05, ending on exactly the salary and total value it started with. That is a TEMPORARY CAP MANOEUVRE to create bidding room during the auction, NOT a contract change. Do not describe it as restructuring, re-signing or extending the player, do not say the deal was re-based, and do not call it the most significant contract of the offseason. If you mention it at all, say what it did: it bought $13,000 of temporary auction room.",
-    "Puka Nacua's extension (2026-05-15) was done by Blake Bombers BEFORE this owner acquired him -- it is not this owner's contract work and must not be credited to him."
+    "Puka Nacua's extension (2026-05-15) was done by Blake Bombers BEFORE this owner acquired him -- it is not this owner's contract work and must not be credited to him.",
+    "The Week 1 table is an OPENING DATA POINT, not a result. Only 2 of 32 NFL teams had played when this was built. Never write a verdict, a trend or a told-you-so off it, and never call a player injured from a low score alone -- MFL's injuries export is the only source for a designation, and it carried none for these players."
   ],
   "entities": {
     "owners": [
@@ -85,7 +86,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.league.era_top_price",
@@ -94,7 +95,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -103,7 +104,7 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.league.roster_max_at_auction",
@@ -124,13 +125,22 @@
       "asof": "2026"
     },
     {
+      "id": "f.league.wk_teams_final",
+      "label": "NFL teams that have played this week",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "MFL liveScoring",
+      "asof": "2026-09-10T10:55:18Z"
+    },
+    {
       "id": "f.team.0008.active_now",
       "label": "Active roster now",
       "value": 30,
       "unit": "count",
       "fmt": "30",
       "source": "auction/compliance",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.active_roster_current",
@@ -166,7 +176,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.auction_spend",
@@ -175,7 +185,7 @@
       "unit": "usd",
       "fmt": "$198,000",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.biggest_contract_traded_away",
@@ -184,7 +194,7 @@
       "unit": "usd",
       "fmt": "$32,000",
       "source": "MFL contractInfo (live)",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.can_field_lineup_current",
@@ -220,7 +230,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "auction/compliance",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.cap_current_spent",
@@ -229,7 +239,7 @@
       "unit": "usd",
       "fmt": "$297,000",
       "source": "auction/compliance",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.cap_opening",
@@ -252,20 +262,20 @@
     {
       "id": "f.team.0008.composite_rank",
       "label": "Overall power rank",
-      "value": 6,
+      "value": 7,
       "unit": "rank",
-      "fmt": "6",
+      "fmt": "7",
       "source": "lineup_engine",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.composite_value",
       "label": "Composite score",
-      "value": 53468,
+      "value": 51560,
       "unit": "count",
-      "fmt": "53,468",
+      "fmt": "51,560",
       "source": "lineup_engine",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.contracts_count",
@@ -274,7 +284,7 @@
       "unit": "count",
       "fmt": "12",
       "source": "contract_activity_2026",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.cuts_count",
@@ -283,7 +293,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "ups_drop_events",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.cuts_penalty_2026",
@@ -292,7 +302,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.cuts_penalty_2027_deferred",
@@ -301,7 +311,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.cuts_penalty_unstamped",
@@ -310,7 +320,7 @@
       "unit": "usd",
       "fmt": "$3,750",
       "source": "ups_drop_events",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.division_name",
@@ -319,7 +329,7 @@
       "unit": "text",
       "fmt": "Maddie Mondays",
       "source": "MFL league export",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.division_rank",
@@ -328,7 +338,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "lineup_engine",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.division_size",
@@ -337,7 +347,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL league export",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.era_lots_won",
@@ -346,7 +356,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.era_spend",
@@ -355,7 +365,7 @@
       "unit": "usd",
       "fmt": "$9,000",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.faa_lots_won",
@@ -364,7 +374,7 @@
       "unit": "count",
       "fmt": "19",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.faa_spend",
@@ -373,7 +383,7 @@
       "unit": "usd",
       "fmt": "$189,000",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.holes_opening",
@@ -400,7 +410,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_adds_alltime",
@@ -409,7 +419,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_adds_lead_streak",
@@ -418,7 +428,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_adds_league_leader",
@@ -427,7 +437,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_adds_next_best",
@@ -436,7 +446,7 @@
       "unit": "count",
       "fmt": "257",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_adds_rank",
@@ -445,7 +455,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_auction_share",
@@ -454,7 +464,7 @@
       "unit": "percent",
       "fmt": "7.1%",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_auction_share_rank",
@@ -463,7 +473,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_auction_spend",
@@ -472,7 +482,7 @@
       "unit": "usd",
       "fmt": "$14,000",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.idp_ppw_rank",
@@ -481,7 +491,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "src_weekly",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.inyear_flyers",
@@ -490,7 +500,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "ups_drop_events",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.ir_now",
@@ -499,41 +509,41 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.lineup_value_current",
       "label": "Legal-lineup offense value, today",
-      "value": 33481,
+      "value": 32334,
       "unit": "count",
-      "fmt": "33,481",
+      "fmt": "32,334",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.lineup_value_opening",
       "label": "Legal-lineup offense value, opening (today's market)",
-      "value": 9268,
+      "value": 8839,
       "unit": "count",
-      "fmt": "9,268",
+      "fmt": "8,839",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0008.lineup_value_postauction",
       "label": "Legal-lineup offense value when the auction closed (today's market)",
-      "value": 33481,
+      "value": 32334,
       "unit": "count",
-      "fmt": "33,481",
+      "fmt": "32,334",
       "source": "lineup_engine+adp-board",
       "asof": "2026-08-05"
     },
     {
       "id": "f.team.0008.lineup_value_preauction",
       "label": "Legal-lineup offense value, entering the auction (today's market)",
-      "value": 19237,
+      "value": 18764,
       "unit": "count",
-      "fmt": "19,237",
+      "fmt": "18,764",
       "source": "lineup_engine+adp-board",
       "asof": "2026-07-23"
     },
@@ -544,32 +554,32 @@
       "unit": "rank",
       "fmt": "8",
       "source": "lineup_engine",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.qb_value",
       "label": "QB starters redraft value",
-      "value": 9220,
+      "value": 8666,
       "unit": "count",
-      "fmt": "9,220",
+      "fmt": "8,666",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
     {
       "id": "f.team.0008.rb_rank",
       "label": "RB starters rank",
-      "value": 6,
+      "value": 7,
       "unit": "rank",
-      "fmt": "6",
+      "fmt": "7",
       "source": "lineup_engine",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.rb_value",
       "label": "RB starters redraft value",
-      "value": 10861,
+      "value": 10434,
       "unit": "count",
-      "fmt": "10,861",
+      "fmt": "10,434",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
@@ -580,7 +590,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.rookie_picks_count",
@@ -598,7 +608,7 @@
       "unit": "count",
       "fmt": "20",
       "source": "ups_drop_events",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.roster_total_postauction",
@@ -634,7 +644,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.taxi_now",
@@ -643,7 +653,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.te_rank",
@@ -652,14 +662,14 @@
       "unit": "rank",
       "fmt": "9",
       "source": "lineup_engine",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.te_value",
       "label": "TE starters redraft value",
-      "value": 851,
+      "value": 842,
       "unit": "count",
-      "fmt": "851",
+      "fmt": "842",
       "source": "adp-board",
       "asof": "2026-09-06"
     },
@@ -670,7 +680,7 @@
       "unit": "percent",
       "fmt": "33.3%",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.top_buy_price",
@@ -679,7 +689,7 @@
       "unit": "usd",
       "fmt": "$63,000",
       "source": "auction/lots",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.trade_blind_bid_elsewhere",
@@ -688,7 +698,7 @@
       "unit": "usd",
       "fmt": "$19,000",
       "source": "mfl transactions",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.trades_count",
@@ -706,7 +716,34 @@
       "unit": "count",
       "fmt": "12",
       "source": "mfl transactions",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
+    },
+    {
+      "id": "f.team.0008.wk_live",
+      "label": "Live NFL week",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "MFL liveScoring",
+      "asof": "2026-09-10T10:55:18Z"
+    },
+    {
+      "id": "f.team.0008.wk_players_final",
+      "label": "Rostered players whose Week 1 game is final",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "MFL liveScoring + rosters",
+      "asof": "2026-09-10T10:55:18Z"
+    },
+    {
+      "id": "f.team.0008.wk_points_final",
+      "label": "Points already banked from finished Week 1 games",
+      "value": 0,
+      "unit": "points",
+      "fmt": "0.0",
+      "source": "MFL playerScores",
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.wr_rank",
@@ -715,14 +752,14 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-09T17:52:48Z"
+      "asof": "2026-09-10T10:55:18Z"
     },
     {
       "id": "f.team.0008.wr_value",
       "label": "WR starters redraft value",
-      "value": 12549,
+      "value": 12392,
       "unit": "count",
-      "fmt": "12,549",
+      "fmt": "12,392",
       "source": "adp-board",
       "asof": "2026-09-06"
     }
@@ -987,16 +1024,16 @@
           11000
         ],
         [
-          "Kayshon Boutte",
-          "WR",
-          "Replacement-level WR",
-          2000
-        ],
-        [
           "Brian Robinson",
           "RB",
           "Replacement-level RB",
           1000
+        ],
+        [
+          "Kayshon Boutte",
+          "WR",
+          "Replacement-level WR",
+          2000
         ],
         [
           "Tyquan Thornton",
@@ -1076,7 +1113,7 @@
           14,
           "no",
           62000,
-          9268,
+          8839,
           1,
           1,
           7
@@ -1087,7 +1124,7 @@
           16,
           "no",
           95000,
-          19237,
+          18764,
           2,
           1,
           6
@@ -1098,7 +1135,7 @@
           35,
           "yes",
           271000,
-          33481,
+          32334,
           4,
           2,
           3
@@ -1577,12 +1614,12 @@
         ],
         [
           "Real Deal Creel",
-          6,
+          7,
           "8.62"
         ],
         [
           "L.A. Looks",
-          11,
+          10,
           "9.34"
         ]
       ],
@@ -1726,7 +1763,7 @@
           "WR",
           "Christian Watson",
           "WR",
-          "High-end WR3"
+          "Mid WR3"
         ],
         [
           "TE",
@@ -1738,7 +1775,7 @@
           "Flex",
           "TreVeyon Henderson",
           "RB",
-          "High-end RB3"
+          "Low-end RB3"
         ],
         [
           "Flex",
@@ -1845,7 +1882,7 @@
           "1.09",
           "Omar Cooper Jr.",
           "50% usable historically at this slot",
-          "Replacement-level WR"
+          "not yet on the redraft board"
         ],
         [
           "2.06",
@@ -1902,14 +1939,14 @@
         ],
         [
           "RB1",
-          "TreVeyon Henderson, High-end RB3",
+          "TreVeyon Henderson, Low-end RB3",
           "Travis Etienne, Mid RB2",
           "Saquon Barkley, Mid RB1"
         ],
         [
           "RB2",
           "Emanuel Wilson (unranked)",
-          "TreVeyon Henderson, High-end RB3",
+          "TreVeyon Henderson, Low-end RB3",
           "Travis Etienne, Mid RB2"
         ],
         [
@@ -1920,9 +1957,9 @@
         ],
         [
           "WR2",
-          "Christian Watson, High-end WR3",
-          "Christian Watson, High-end WR3",
-          "Christian Watson, High-end WR3"
+          "Christian Watson, Mid WR3",
+          "Christian Watson, Mid WR3",
+          "Christian Watson, Mid WR3"
         ],
         [
           "TE1",
@@ -1934,7 +1971,7 @@
           "OF1",
           "Marvin Harrison Jr, Mid WR3",
           "Marvin Harrison Jr, Mid WR3",
-          "TreVeyon Henderson, High-end RB3"
+          "TreVeyon Henderson, Low-end RB3"
         ],
         [
           "OF2",
@@ -1985,7 +2022,7 @@
         [
           "2026-04-13",
           "HammerTime 🔨 ⏰",
-          "Kenneth Walker (RB, redraft value 5,005)",
+          "Kenneth Walker (RB, redraft value 4,834)",
           "2027 round-1 pick (HammerTime 🔨 ⏰'s natural pick)",
           "—"
         ],
@@ -1993,7 +2030,7 @@
           "2026-05-24",
           "Gride",
           "2026 pick 1.04 (became Jadarian Price, Gride)",
-          "Travis Etienne (RB, redraft value 3,314); 2026 pick 1.07 (became KC Concepcion, Real Deal Creel)",
+          "Travis Etienne (RB, redraft value 3,171); 2026 pick 1.07 (became KC Concepcion, Real Deal Creel)",
           "—"
         ],
         [
@@ -2013,9 +2050,9 @@
         [
           "2026-07-22",
           "C-Town Chivalry + Blake Bombers (3-way)",
-          "Tetairoa McMillan (WR, redraft value 3,168); 2027 round-1 pick (Real Deal Creel's natural pick); Chris Rodriguez (RB, redraft value 346); Omar Cooper (WR, redraft value 26)",
-          "Puka Nacua (WR, redraft value 9,104)",
-          "C-Town Chivalry sent Drake London (WR, redraft value 5,132); $19,000 of blind-bid consideration to Blake Bombers"
+          "Tetairoa McMillan (WR, redraft value 2,981); 2027 round-1 pick (Real Deal Creel's natural pick); Chris Rodriguez (RB, redraft value 292); Omar Cooper (WR, redraft value unpriced -- off the redraft board)",
+          "Puka Nacua (WR, redraft value 9,074)",
+          "C-Town Chivalry sent Drake London (WR, redraft value 4,822); $19,000 of blind-bid consideration to Blake Bombers"
         ],
         [
           "2026-08-07",
@@ -2026,6 +2063,59 @@
         ]
       ],
       "note": "Direction verified against each trade's raw MFL payload, not the MFL's own field names. Traded picks resolve to the player actually taken at that slot: DP_<r>_<s> is ZERO-INDEXED on both fields, so DP_0_3 is pick 1.04. An earlier pass read it one-indexed, which is what produced the Carnell Tate misattribution and the two apparent chain contradictions that stopped picks being resolved at all. 'Elsewhere in the deal' carries legs of a multi-way trade between two OTHER franchises -- this team neither gave nor got those, but leaving them out made a three-way with cash in it read as a straight talent swap. Non-ADP positions (IDP/K/P) show current salary, not a redraft value ADP does not produce for them."
+    },
+    {
+      "id": "t.0008.week1",
+      "title": "Week 1, so far",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "pos",
+          "label": "Pos",
+          "type": "text"
+        },
+        {
+          "key": "nfl",
+          "label": "NFL",
+          "type": "text"
+        },
+        {
+          "key": "slot",
+          "label": "Started?",
+          "type": "text"
+        },
+        {
+          "key": "salary",
+          "label": "Salary",
+          "type": "usd"
+        },
+        {
+          "key": "pts",
+          "label": "Points",
+          "type": "text"
+        },
+        {
+          "key": "line",
+          "label": "What he did",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "TreVeyon Henderson",
+          "RB",
+          "NEP",
+          "Bench",
+          12000,
+          "0.0",
+          ""
+        ]
+      ],
+      "note": "ONLY players whose Week 1 game has finished -- 2 of the 32 NFL teams carrying a rostered starter had played at build time. This is a handful of snaps, not a season, and it grades nothing. An empty 'What he did' cell means the player took the field and recorded no scoring stat, or did not play at all; it is not a zero-yard line."
     }
   ],
   "charts": [],
@@ -2164,18 +2254,23 @@
     {
       "id": "s5",
       "title": "The Verdict",
-      "brief": "Finish inside the DIVISION -- divisional opponents are played twice, so that is the comparison deciding a playoff seed and it is who this owner actually plays; use the division table and say plainly where he sits in it. Then a direct verdict: is this the strongest team in the league right now, and separately, was this a good offseason? They can disagree. Name the single biggest advantage and the single biggest weakness, each with players.",
+      "brief": "Finish inside the DIVISION -- divisional opponents are played twice, so that is the comparison deciding a playoff seed and it is who this owner actually plays; use the division table and say plainly where he sits in it. Then a direct verdict: is this the strongest team in the league right now, and separately, was this a good offseason? They can disagree. Name the single biggest advantage and the single biggest weakness, each with players. If a Week table is present, close on it in NO MORE THAN a short paragraph: it is the first live evidence on an offseason bet, and only a handful of games are final, so write it as an opening data point and never as a verdict or a trend. Salary next to a score is the point -- an expensive starter who did nothing and a minimum-salary one who did plenty are the same sentence. Do NOT call any player injured: nothing here carries an injury designation, and a low score is not a diagnosis. Where a quarterback's line explains his receiver's line, say so -- that is a real dependency and it belongs to whoever is paying the receiver.",
       "factIds": [
+        "f.league.wk_teams_final",
         "f.team.0008.composite_rank",
         "f.team.0008.division_rank",
         "f.team.0008.division_size",
         "f.team.0008.qb_rank",
         "f.team.0008.rb_rank",
         "f.team.0008.te_rank",
+        "f.team.0008.wk_live",
+        "f.team.0008.wk_players_final",
+        "f.team.0008.wk_points_final",
         "f.team.0008.wr_rank"
       ],
       "tableIds": [
-        "t.0008.division"
+        "t.0008.division",
+        "t.0008.week1"
       ],
       "chartIds": [],
       "quoteIds": [],

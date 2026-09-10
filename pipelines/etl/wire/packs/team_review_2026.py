@@ -369,6 +369,128 @@ def _player_universe():
     return pos, name
 
 
+
+# ---------------------------------------------------------------- week one
+
+def _as_list(v):
+    """MFL collapses a one-element collection to a bare object.
+
+    Iterating that dict yields its KEYS -- strings -- so every downstream
+    `.get()` raises AttributeError, and it only happens for the teams with
+    exactly one match. Franchises 0002 and 0008 (one finished player each) were
+    the only two of twelve that crashed.
+    """
+    if v is None:
+        return []
+    return v if isinstance(v, list) else [v]
+
+
+def _live_clock(_cache={}):
+    """(week, {nfl_team: game_seconds_remaining}) for MFL's CURRENT scoring week.
+
+    liveScoring carries a per-player `gameSecondsRemaining`, but it lists
+    STARTERS only, so the clock is collapsed onto the NFL TEAM and then applied
+    to every rostered player -- a benched Patriot is in the same game as a
+    started one. 3600 means not kicked off; 0 means final.
+
+    Read from liveScoring, NOT projectedScores: MFL rolls the projection week
+    forward the moment the first game starts, so projectedScores.week was 2
+    while week 1 was still being played (measured 2026-09-10). Using it here
+    would have reported an empty week against a week's worth of real results.
+    """
+    if _cache:
+        return _cache["week"], _cache["clock"]
+    ls = D.worker_get("/api/mfl-export", TYPE="liveScoring", JSON="1")
+    node = ls.get("liveScoring") or ls.get("data", {}).get("liveScoring") or {}
+    week = str(node.get("week") or "")
+    positions, _ = _player_universe()
+    nfl = _nfl_team_map()
+    clock = {}
+    for m in _as_list(node.get("matchup")):
+        for f in _as_list(m.get("franchise")):
+            for p in _as_list((f.get("players") or {}).get("player")):
+                secs = p.get("gameSecondsRemaining")
+                team = nfl.get(str(p.get("id")))
+                if not team or secs is None:
+                    continue
+                # A team appears once per rostered starter; every one of them
+                # reports the same game, so last-write-wins is safe.
+                clock[team] = int(secs)
+    _cache["week"], _cache["clock"] = week, clock
+    return week, clock
+
+
+def _nfl_team_map(_cache={}):
+    """player_id -> NFL team abbreviation, from the MFL players export."""
+    if _cache:
+        return _cache["m"]
+    js = D.worker_get("/api/mfl-export", TYPE="players", JSON="1", DETAILS="1")
+    rows = _as_list((js.get("players") or js.get("data", {}).get("players") or {}).get("player"))
+    _cache["m"] = {str(p.get("id")): (p.get("team") or "") for p in rows}
+    return _cache["m"]
+
+
+def _week_scores(week, pids, _cache={}):
+    """player_id -> fantasy points for `week`, for the given players."""
+    key = (week, tuple(sorted(pids)))
+    if key in _cache:
+        return _cache[key]
+    js = D.worker_get("/api/mfl-export", TYPE="playerScores", JSON="1",
+                      W=str(week), PLAYERS=",".join(sorted(pids)))
+    node = js.get("playerScores") or js.get("data", {}).get("playerScores") or {}
+    out = {}
+    for r in _as_list(node.get("playerScore")):
+        try:
+            out[str(r.get("id"))] = float(r.get("score") or 0.0)
+        except (TypeError, ValueError):
+            continue
+    _cache[key] = out
+    return out
+
+
+def _stat_line(pid, week):
+    """A human stat line for one completed game, from MFL's `detailed?` report.
+
+    Returns "" when the report has nothing -- a player who did not take a snap
+    has no line, and an empty cell must never be dressed up as a zero-yard one.
+    """
+    try:
+        js = D.worker_get("/api/mfl-detailed", YEAR=str(SEASON), P=str(pid), W=str(week))
+    except Exception:                                    # noqa: BLE001
+        return ""
+    if not js.get("found"):
+        return ""
+    parts = []
+    for ln in _as_list(js.get("lines")):
+        stat = str(ln.get("stat") or "")
+        # "0 Fumbles Lost", "0 Interceptions" -- absence of a bad thing is not
+        # a stat line, and printing it makes every line read the same. First
+        # downs ARE kept: they score 0.2 each in this league, and dropping them
+        # left a line that visibly failed to sum to its own points column.
+        if stat.startswith("0 "):
+            continue
+        parts.append(stat)
+    return ", ".join(parts)
+
+
+def _started_pids(fid, week):
+    """The player ids this franchise actually STARTED in `week`, per liveScoring.
+
+    Returns None -- not an empty set -- when liveScoring does not carry the
+    franchise, so a missing read can never be mistaken for a team that started
+    nobody (canon: an unreadable input is never an empty one).
+    """
+    ls = D.worker_get("/api/mfl-export", TYPE="liveScoring", JSON="1")
+    node = ls.get("liveScoring") or ls.get("data", {}).get("liveScoring") or {}
+    for m in _as_list(node.get("matchup")):
+        for f in _as_list(m.get("franchise")):
+            if str(f.get("id")) != fid:
+                continue
+            return {str(p.get("id")) for p in _as_list((f.get("players") or {}).get("player"))
+                    if str(p.get("status") or "") == "starter"}
+    return None
+
+
 def build(pack_id):
     m = PACK_ID_RE.match(pack_id)
     if not m:
@@ -1708,6 +1830,77 @@ def build(pack_id):
                                 "an empty value column there means NO SOURCE HAS AN OPINION -- never "
                                 "report it as a low or bad valuation.")
 
+    # ---- week one, so far -----------------------------------------------
+    # Keith 2026-09-10: "add a little context as well for injuries to AJ Brown,
+    # Sam Darnold & the fact that Drake Maye sucks." This is an OFFSEASON
+    # review, so the live week gets a small closing table and nothing more --
+    # only players whose game is actually FINAL, so a Thursday build cannot
+    # report a Sunday starter as having scored nothing.
+    t_wk1 = None
+    _lw, _clock = _live_clock()
+    _live_rows = _live_roster_rows(fid, positions)
+    if _lw and _clock and _live_rows:
+        _nfl = _nfl_team_map()
+        _started = _started_pids(fid, _lw)
+        _final = [r for r in _live_rows
+                  if _clock.get(_nfl.get(r["pid"], ""), 3600) == 0
+                  and not r["is_taxi"] and not r["is_ir"]]
+        # _clock is keyed by NFL TEAM, so this counts TEAMS whose game has
+        # ended -- calling it "games" reported one finished game as two.
+        _teams_final = sum(1 for v in _clock.values() if v == 0)
+        _teams_seen = len(_clock)
+        if _final:
+            _scores = _week_scores(_lw, [r["pid"] for r in _final])
+            _wk1_rows = []
+            for r in sorted(_final, key=lambda x: -_scores.get(x["pid"], 0.0)):
+                pid = r["pid"]
+                # `_started` is None when liveScoring did not carry this
+                # franchise at all -- that is unknown, not benched.
+                if _started is None:
+                    slot = "--"
+                elif pid in _started:
+                    slot = "Started"
+                else:
+                    slot = "Bench"
+                _wk1_rows.append([mfl_name.get(pid, pid), r["pos"], _nfl.get(pid, ""),
+                                  slot, int(r["salary"]),
+                                  "%.1f" % _scores.get(pid, 0.0),
+                                  _stat_line(pid, _lw)])
+            t_wk1 = pack.table(
+                "t.%s.week%s" % (fid, _lw), "Week %s, so far" % _lw,
+                [{"key": "player", "label": "Player", "type": "text"},
+                 {"key": "pos", "label": "Pos", "type": "text"},
+                 {"key": "nfl", "label": "NFL", "type": "text"},
+                 {"key": "slot", "label": "Started?", "type": "text"},
+                 {"key": "salary", "label": "Salary", "type": "usd"},
+                 {"key": "pts", "label": "Points", "type": "text"},
+                 {"key": "line", "label": "What he did", "type": "text"}],
+                _wk1_rows,
+                note="ONLY players whose Week %s game has finished -- %d of the %d NFL "
+                     "teams carrying a rostered starter had played at build time. "
+                     "This is a handful of snaps, not a season, and it grades nothing. "
+                     "An empty 'What he did' cell means the player took the field and "
+                     "recorded no scoring stat, or did not play at all; it is not a "
+                     "zero-yard line." % (_lw, _teams_final, _teams_seen))
+            _pts_final = sum(_scores.get(r["pid"], 0.0) for r in _final
+                             if _started and r["pid"] in _started)
+            F("f.team.%s.wk_live" % fid, "Live NFL week", int(_lw), "count",
+              "MFL liveScoring", NOW_UTC)
+            F("f.team.%s.wk_players_final" % fid,
+              "Rostered players whose Week %s game is final" % _lw, len(_final),
+              "count", "MFL liveScoring + rosters", NOW_UTC)
+            F("f.team.%s.wk_points_final" % fid,
+              "Points already banked from finished Week %s games" % _lw,
+              round(_pts_final, 1), "points", "MFL playerScores", NOW_UTC)
+            F("f.league.wk_teams_final", "NFL teams that have played this week", _teams_final,
+              "count", "MFL liveScoring", NOW_UTC)
+            pack.warn("The Week %s table is an OPENING DATA POINT, not a result. Only %d of %d "
+                      "NFL teams had played when this was built. Never write a verdict, a "
+                      "trend or a told-you-so off it, and never call a player injured "
+                      "from a low score alone -- MFL's injuries export is the only "
+                      "source for a designation, and it carried none for these players."
+                      % (_lw, _teams_final, _teams_seen))
+
     pack.coverage = {"seasonsComplete": [2010, 2025], "currentSeason": SEASON, "currentSeasonPartial": True}
 
     pack.section("s1", "The Lineup", "How this team's legal starting lineup stacks up against the "
@@ -1809,12 +2002,23 @@ def build(pack_id):
                 "owner actually plays; use the division table and say plainly where he sits in it. "
                 "Then a direct verdict: is this the strongest team in "
                 "the league right now, and separately, was this a good offseason? They can disagree. "
-                "Name the single biggest advantage and the single biggest weakness, each with players.",
+                "Name the single biggest advantage and the single biggest weakness, each with players. "
+                "If a Week table is present, close on it in NO MORE THAN a short paragraph: it is the "
+                "first live evidence on an offseason bet, and only a handful of games are final, so "
+                "write it as an opening data point and never as a verdict or a trend. Salary next to "
+                "a score is the point -- an expensive starter who did nothing and a minimum-salary "
+                "one who did plenty are the same sentence. Do NOT call any player injured: nothing "
+                "here carries an injury designation, and a low score is not a diagnosis. Where a "
+                "quarterback's line explains his receiver's line, say so -- that is a real "
+                "dependency and it belongs to whoever is paying the receiver.",
                 fact_ids=[k for k in ("f.team.%s.division_rank" % fid, "f.team.%s.division_size" % fid)
                           if k in pack._facts]
+                + [k for k in ("f.team.%s.wk_live" % fid, "f.team.%s.wk_players_final" % fid,
+                               "f.team.%s.wk_points_final" % fid, "f.league.wk_teams_final")
+                   if k in pack._facts]
                 + ["f.team.%s.composite_rank" % fid, "f.team.%s.qb_rank" % fid,
                    "f.team.%s.rb_rank" % fid, "f.team.%s.wr_rank" % fid, "f.team.%s.te_rank" % fid],
-                table_ids=[t_div] if t_div else [])
+                table_ids=([t_div] if t_div else []) + ([t_wk1] if t_wk1 else []))
 
     return pack
 

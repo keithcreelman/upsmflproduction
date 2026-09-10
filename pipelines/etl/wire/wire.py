@@ -446,7 +446,11 @@ PACK_BUILDERS = {"2026-preseason-review": "preseason_review"}
 # failing loudly on a typo rather than silently routing somewhere unintended.
 for _wk in (13, 14, 15, 16, 17):
     PACK_BUILDERS["2025-wk%02d-recap" % _wk] = "weekly_recap"
-for _fid in ("0006", "0008"):  # TEST SCOPE (Keith 2026-09-06): 2 teams only
+# All 12 franchises (Keith 2026-09-10: "next let's get those articles written").
+# The 2026-09-06 test scope was 0006 and 0008 only -- one heavy auction spender
+# against one light one -- to prove the builder before paying for eleven more.
+for _fid in ("0001", "0002", "0003", "0004", "0005", "0006",
+             "0007", "0008", "0009", "0010", "0011", "0012"):
     PACK_BUILDERS["2026-team-%s" % _fid] = "team_review_2026"
 
 
@@ -535,7 +539,8 @@ PACK_FAMILY = {"2026-preseason-review": "season-review"}
 PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review"}
 for _wk in (13, 14, 15, 16, 17):
     PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
-for _fid in ("0006", "0008"):
+for _fid in ("0001", "0002", "0003", "0004", "0005", "0006",
+             "0007", "0008", "0009", "0010", "0011", "0012"):
     PACK_FAMILY["2026-team-%s" % _fid] = "team-review"
     PACK_ARTICLE["2026-team-%s" % _fid] = "2026-team-%s" % _fid
 
