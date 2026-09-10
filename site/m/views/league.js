@@ -417,6 +417,12 @@
   // switching years doesn't refetch.
   state.standingsByYear = state.standingsByYear || {};
   state.standingsYear = state.standingsYear || null;
+  // "league" (flat, ordered by final finish) or "divisions" (grouped).
+  // Mobile only ever had the flat table, so an owner could see a crown on a
+  // row but never which division it belonged to, or who he was actually
+  // racing. Divisional opponents are played twice and decide a seed, so this
+  // is the view that matters most during the season.
+  state.standingsMode = state.standingsMode || "league";
   state.championsByYear = state.championsByYear || null; // pid → year-of-title map; loaded lazily
   state.finalFinishByYear = state.finalFinishByYear || null; // { [year]: { [fid]: final_finish } }
 
@@ -570,16 +576,35 @@
       loadStandingsForYear(year);
       mount.innerHTML = subTabs("standings") +
         renderYearPicker(year) +
+        renderStandingsModeToggle(state.standingsMode) +
         '<div class="ups-m-loading">Loading standings…</div>';
       bindYearPicker(mount);
+      bindStandingsModeToggle(mount);
       return;
     }
     var rows = (state.standingsByYear[y].rows || []).slice();
     if (!rows.length) {
       mount.innerHTML = subTabs("standings") +
         renderYearPicker(year) +
+        renderStandingsModeToggle(state.standingsMode) +
         '<div class="ups-m-stub"><div>No standings data for ' + U.escapeHtml(y) + '.</div></div>';
       bindYearPicker(mount);
+      bindStandingsModeToggle(mount);
+      return;
+    }
+
+    // DIVISIONS MODE — grouped by MFL division, sorted by that season's own
+    // standings_sort chain. Shares the year picker and the same response, so
+    // switching modes costs no extra fetch.
+    if (state.standingsMode === "divisions") {
+      mount.innerHTML = subTabs("standings") +
+        renderYearPicker(year) +
+        renderStandingsModeToggle("divisions") +
+        renderDivisionBlocks(rows, state.standingsByYear[y], year) +
+        '<div class="ups-m-standings-legend">👑 division leader · DIV = record inside the division<br>' +
+        'Divisional opponents are played twice each — this is the race that sets a playoff seed.</div>';
+      bindYearPicker(mount);
+      bindStandingsModeToggle(mount);
       return;
     }
 
@@ -650,6 +675,7 @@
 
     var html = subTabs("standings") +
       renderYearPicker(year) +
+      renderStandingsModeToggle("league") +
       '<div class="ups-m-card">' +
         '<div class="ups-m-card-title">' + U.escapeHtml(y) + (hasFinishData ? ' · Final Standings' : ' · Standings') + '</div>' +
         '<table class="ups-m-standings-table">' +
@@ -660,6 +686,94 @@
       '</div>';
     mount.innerHTML = html;
     bindYearPicker(mount);
+    bindStandingsModeToggle(mount);
+  }
+
+  // MFL's own tiebreaker chain, per season, from the standings response.
+  // Same tokens the desktop Divisions view uses; H2H is pairwise and cannot be
+  // resolved from a single row, so it is skipped rather than guessed at.
+  var DIV_SORT_FIELD = {
+    PCT: "h2h_pct", DIVPCT: "div_pct", PTS: "pf", ALL_PLAY_PCT: "allplay_pct", PWR: "pwr"
+  };
+
+  function sortWithinDivision(teams, sortStr) {
+    var tokens = String(sortStr || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR")
+      .split(",").map(function (t) { return t.trim().toUpperCase(); }).filter(Boolean);
+    return teams.sort(function (a, b) {
+      for (var i = 0; i < tokens.length; i++) {
+        var f = DIV_SORT_FIELD[tokens[i]];
+        if (!f) continue;
+        var av = Number(a[f] || 0), bv = Number(b[f] || 0);
+        if (av !== bv) return bv - av;
+      }
+      return 0;
+    });
+  }
+
+  function renderDivisionBlocks(rows, resp, year) {
+    var withDiv = rows.filter(function (r) { return r.division != null && r.division !== ""; });
+    if (!withDiv.length) {
+      return '<div class="ups-m-stub"><div>Division alignment not available for ' +
+             U.escapeHtml(String(year)) + '.</div></div>';
+    }
+    var byDiv = {};
+    withDiv.forEach(function (r) {
+      var k = String(r.division);
+      if (!byDiv[k]) byDiv[k] = {
+        // division_name comes from MFL's league export via the worker; fall
+        // back to the bare code rather than inventing a label.
+        name: r.division_name || ("Division " + k),
+        teams: []
+      };
+      byDiv[k].teams.push(r);
+    });
+    var seasonComplete = !!resp.season_complete;
+    var leaderTag = seasonComplete ? "WINNER" : "LEADER";
+    return Object.keys(byDiv).sort().map(function (k) {
+      var d = byDiv[k];
+      sortWithinDivision(d.teams, resp.standings_sort);
+      var trs = d.teams.map(function (r, i) {
+        var name = U.safeStr(r.franchise_name) || ("F" + r.franchise_id);
+        var leader = isDivWinner(r) || i === 0;
+        var champ = isChampion(r, year);
+        var cls = (champ ? "champion" : "") + (isDivWinner(r) ? " div-winner" : "");
+        var badge = isDivWinner(r)
+          ? ' <span class="ups-m-div-tag">' + leaderTag + '</span>'
+          : "";
+        return '<tr class="' + cls + '">' +
+          '<td class="rank">' + (i + 1) + '</td>' +
+          '<td class="team">' + (champ ? '<span class="div-crown">🏆</span> ' : "") +
+            U.escapeHtml(name) + badge + '</td>' +
+          '<td>' + (r.h2h_w || 0) + '-' + (r.h2h_l || 0) + (r.h2h_t ? "-" + r.h2h_t : "") + '</td>' +
+          '<td>' + (r.div_w != null ? (r.div_w || 0) + '-' + (r.div_l || 0) : '—') + '</td>' +
+          '<td>' + fmtPts(r.pf) + '</td>' +
+        '</tr>';
+      }).join("");
+      return '<div class="ups-m-card">' +
+        '<div class="ups-m-card-title">' + U.escapeHtml(d.name) + '</div>' +
+        '<table class="ups-m-standings-table">' +
+          '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>DIV</th><th>PF</th></tr></thead>' +
+          '<tbody>' + trs + '</tbody>' +
+        '</table>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderStandingsModeToggle(mode) {
+    function b(key, label) {
+      return '<a class="ups-m-subtab' + (key === mode ? ' active' : '') +
+             '" href="#" data-sw-mode="' + key + '">' + label + '</a>';
+    }
+    return '<div class="ups-m-action-chips">' + b("league", "League") + b("divisions", "Divisions") + '</div>';
+  }
+  function bindStandingsModeToggle(mount) {
+    Array.prototype.forEach.call(mount.querySelectorAll("[data-sw-mode]"), function (el) {
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        state.standingsMode = el.getAttribute("data-sw-mode");
+        renderRoute();
+      });
+    });
   }
 
   function renderYearPicker(currentYear) {
