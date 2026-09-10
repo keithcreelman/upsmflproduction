@@ -1,0 +1,2262 @@
+{
+ "body": {
+  "schedule": {
+   "periods": [
+    {
+     "end": "9/14/26",
+     "id": "1",
+     "label": "Week 1",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "9/9/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "9/21/26",
+     "id": "2",
+     "label": "Week 2",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "9/15/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "9/28/26",
+     "id": "3",
+     "label": "Week 3",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "9/22/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "10/5/26",
+     "id": "4",
+     "label": "Week 4",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "9/29/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "10/12/26",
+     "id": "5",
+     "label": "Week 5",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "10/6/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "10/19/26",
+     "id": "6",
+     "label": "Week 6",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "10/13/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "10/26/26",
+     "id": "7",
+     "label": "Week 7",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "10/20/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "11/2/26",
+     "id": "8",
+     "label": "Week 8",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "10/27/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "11/9/26",
+     "id": "9",
+     "label": "Week 9",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "11/3/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "11/16/26",
+     "id": "10",
+     "label": "Week 10",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "11/10/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "11/23/26",
+     "id": "11",
+     "label": "Week 11",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "11/17/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "11/30/26",
+     "id": "12",
+     "label": "Week 12",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "11/24/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "12/7/26",
+     "id": "13",
+     "label": "Week 13",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "12/1/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "12/14/26",
+     "id": "14",
+     "label": "Week 14",
+     "matchups": [
+      {
+       "away_team": {
+        "abbr": "T11",
+        "division": "East",
+        "id": "11",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team11",
+        "name": "Team 11",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T04",
+        "division": "East",
+        "id": "4",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team04",
+        "name": "Team 04",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "1"
+      },
+      {
+       "away_team": {
+        "abbr": "T07",
+        "division": "West",
+        "id": "7",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team07",
+        "name": "Team 07",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T08",
+        "division": "West",
+        "id": "8",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team08",
+        "name": "Team 08",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "2"
+      },
+      {
+       "away_team": {
+        "abbr": "T06",
+        "division": "Central",
+        "id": "6",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team06",
+        "name": "Team 06",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T15",
+        "division": "Central",
+        "id": "15",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team15",
+        "name": "Team 15",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "3"
+      },
+      {
+       "away_team": {
+        "abbr": "T02",
+        "division": "West",
+        "id": "2",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team02",
+        "name": "Team 02",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T16",
+        "division": "West",
+        "id": "16",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team16",
+        "name": "Team 16",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "4"
+      },
+      {
+       "away_team": {
+        "abbr": "T10",
+        "division": "East",
+        "id": "10",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team10",
+        "name": "Team 10",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "home_team": {
+        "abbr": "T03",
+        "division": "East",
+        "id": "3",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team03",
+        "name": "Team 03",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "id": "5"
+      },
+      {
+       "away_team": {
+        "abbr": "T01",
+        "division": "Central",
+        "id": "1",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team01",
+        "name": "Team 01",
+        "record": "0-0-0",
+        "short_name": "Team 0"
+       },
+       "home_team": {
+        "abbr": "T13",
+        "division": "Central",
+        "id": "13",
+        "is_vacant": 0,
+        "logo": "https://example.invalid/logo.png",
+        "long_abbr": "Team13",
+        "name": "Team 13",
+        "record": "0-0-0",
+        "short_name": "Team 1"
+       },
+       "id": "6"
+      }
+     ],
+     "start": "12/8/26",
+     "type": "Regular Season"
+    },
+    {
+     "end": "12/21/26",
+     "id": "15",
+     "label": "Week 15",
+     "matchups": [],
+     "start": "12/15/26",
+     "type": "Playoffs"
+    },
+    {
+     "end": "12/28/26",
+     "id": "16",
+     "label": "Week 16",
+     "matchups": [],
+     "start": "12/22/26",
+     "type": "Playoffs"
+    },
+    {
+     "end": "1/4/27",
+     "id": "17",
+     "label": "Week 17",
+     "matchups": [],
+     "start": "12/29/26",
+     "type": "Playoffs"
+    }
+   ]
+  }
+ },
+ "statusCode": 200,
+ "statusMessage": "OK",
+ "uri": "/league/schedules",
+ "uriAlias": "/league/schedules"
+}

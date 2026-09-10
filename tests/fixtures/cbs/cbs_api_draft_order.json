@@ -1,0 +1,3036 @@
+{
+ "body": {
+  "draft_order": {
+   "picks": [
+    {
+     "number": 1,
+     "round": 1,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 2,
+     "round": 1,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 3,
+     "round": 1,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 4,
+     "round": 1,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 5,
+     "round": 1,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 6,
+     "round": 1,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 7,
+     "round": 1,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 8,
+     "round": 1,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 9,
+     "round": 1,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 10,
+     "round": 1,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 11,
+     "round": 1,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 12,
+     "round": 1,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 13,
+     "round": 2,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 14,
+     "round": 2,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 15,
+     "round": 2,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 16,
+     "round": 2,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 17,
+     "round": 2,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 18,
+     "round": 2,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 19,
+     "round": 2,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 20,
+     "round": 2,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 21,
+     "round": 2,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 22,
+     "round": 2,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 23,
+     "round": 2,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 24,
+     "round": 2,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 25,
+     "round": 3,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 26,
+     "round": 3,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 27,
+     "round": 3,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 28,
+     "round": 3,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 29,
+     "round": 3,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 30,
+     "round": 3,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 31,
+     "round": 3,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 32,
+     "round": 3,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 33,
+     "round": 3,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 34,
+     "round": 3,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 35,
+     "round": 3,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 36,
+     "round": 3,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 37,
+     "round": 4,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 38,
+     "round": 4,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 39,
+     "round": 4,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 40,
+     "round": 4,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 41,
+     "round": 4,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 42,
+     "round": 4,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 43,
+     "round": 4,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 44,
+     "round": 4,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 45,
+     "round": 4,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 46,
+     "round": 4,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 47,
+     "round": 4,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 48,
+     "round": 4,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 49,
+     "round": 5,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 50,
+     "round": 5,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 51,
+     "round": 5,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 52,
+     "round": 5,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 53,
+     "round": 5,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 54,
+     "round": 5,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 55,
+     "round": 5,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 56,
+     "round": 5,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 57,
+     "round": 5,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 58,
+     "round": 5,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 59,
+     "round": 5,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 60,
+     "round": 5,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 61,
+     "round": 6,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 62,
+     "round": 6,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 63,
+     "round": 6,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 64,
+     "round": 6,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 65,
+     "round": 6,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 66,
+     "round": 6,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 67,
+     "round": 6,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 68,
+     "round": 6,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 69,
+     "round": 6,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 70,
+     "round": 6,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 71,
+     "round": 6,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 72,
+     "round": 6,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 73,
+     "round": 7,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 74,
+     "round": 7,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 75,
+     "round": 7,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 76,
+     "round": 7,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 77,
+     "round": 7,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 78,
+     "round": 7,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 79,
+     "round": 7,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 80,
+     "round": 7,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 81,
+     "round": 7,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 82,
+     "round": 7,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 83,
+     "round": 7,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 84,
+     "round": 7,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 85,
+     "round": 8,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 86,
+     "round": 8,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 87,
+     "round": 8,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 88,
+     "round": 8,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 89,
+     "round": 8,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 90,
+     "round": 8,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 91,
+     "round": 8,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 92,
+     "round": 8,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 93,
+     "round": 8,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 94,
+     "round": 8,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 95,
+     "round": 8,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 96,
+     "round": 8,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 97,
+     "round": 9,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 98,
+     "round": 9,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 99,
+     "round": 9,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 100,
+     "round": 9,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 101,
+     "round": 9,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 102,
+     "round": 9,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 103,
+     "round": 9,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 104,
+     "round": 9,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 105,
+     "round": 9,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 106,
+     "round": 9,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 107,
+     "round": 9,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 108,
+     "round": 9,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 109,
+     "round": 10,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 110,
+     "round": 10,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 111,
+     "round": 10,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 112,
+     "round": 10,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 113,
+     "round": 10,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 114,
+     "round": 10,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 115,
+     "round": 10,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 116,
+     "round": 10,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 117,
+     "round": 10,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 118,
+     "round": 10,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 119,
+     "round": 10,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 120,
+     "round": 10,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 121,
+     "round": 11,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 122,
+     "round": 11,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 123,
+     "round": 11,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 124,
+     "round": 11,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 125,
+     "round": 11,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 126,
+     "round": 11,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 127,
+     "round": 11,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 128,
+     "round": 11,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 129,
+     "round": 11,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 130,
+     "round": 11,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 131,
+     "round": 11,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 132,
+     "round": 11,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 133,
+     "round": 12,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 134,
+     "round": 12,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 135,
+     "round": 12,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 136,
+     "round": 12,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 137,
+     "round": 12,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 138,
+     "round": 12,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 139,
+     "round": 12,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 140,
+     "round": 12,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 141,
+     "round": 12,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 142,
+     "round": 12,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 143,
+     "round": 12,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 144,
+     "round": 12,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 145,
+     "round": 13,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 146,
+     "round": 13,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 147,
+     "round": 13,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 148,
+     "round": 13,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 149,
+     "round": 13,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 150,
+     "round": 13,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 151,
+     "round": 13,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 152,
+     "round": 13,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 153,
+     "round": 13,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 154,
+     "round": 13,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 155,
+     "round": 13,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 156,
+     "round": 13,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 157,
+     "round": 14,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 158,
+     "round": 14,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 159,
+     "round": 14,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 160,
+     "round": 14,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 161,
+     "round": 14,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 162,
+     "round": 14,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 163,
+     "round": 14,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 164,
+     "round": 14,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 165,
+     "round": 14,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 166,
+     "round": 14,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 167,
+     "round": 14,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 168,
+     "round": 14,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 169,
+     "round": 15,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 170,
+     "round": 15,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 171,
+     "round": 15,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 172,
+     "round": 15,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 173,
+     "round": 15,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 174,
+     "round": 15,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 175,
+     "round": 15,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 176,
+     "round": 15,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 177,
+     "round": 15,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 178,
+     "round": 15,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 179,
+     "round": 15,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 180,
+     "round": 15,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 181,
+     "round": 16,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 182,
+     "round": 16,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 183,
+     "round": 16,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 184,
+     "round": 16,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 185,
+     "round": 16,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 186,
+     "round": 16,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 187,
+     "round": 16,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 188,
+     "round": 16,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 189,
+     "round": 16,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 190,
+     "round": 16,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 191,
+     "round": 16,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 192,
+     "round": 16,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 193,
+     "round": 17,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 194,
+     "round": 17,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 195,
+     "round": 17,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 196,
+     "round": 17,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 197,
+     "round": 17,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 198,
+     "round": 17,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 199,
+     "round": 17,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 200,
+     "round": 17,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 201,
+     "round": 17,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 202,
+     "round": 17,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 203,
+     "round": 17,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 204,
+     "round": 17,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 205,
+     "round": 18,
+     "team": {
+      "abbr": "T16",
+      "division": "West",
+      "id": "16",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team16",
+      "name": "Team 16",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 206,
+     "round": 18,
+     "team": {
+      "abbr": "T07",
+      "division": "West",
+      "id": "7",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team07",
+      "name": "Team 07",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 207,
+     "round": 18,
+     "team": {
+      "abbr": "T10",
+      "division": "East",
+      "id": "10",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team10",
+      "name": "Team 10",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 208,
+     "round": 18,
+     "team": {
+      "abbr": "T15",
+      "division": "Central",
+      "id": "15",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team15",
+      "name": "Team 15",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 209,
+     "round": 18,
+     "team": {
+      "abbr": "T04",
+      "division": "East",
+      "id": "4",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team04",
+      "name": "Team 04",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 210,
+     "round": 18,
+     "team": {
+      "abbr": "T08",
+      "division": "West",
+      "id": "8",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team08",
+      "name": "Team 08",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 211,
+     "round": 18,
+     "team": {
+      "abbr": "T06",
+      "division": "Central",
+      "id": "6",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team06",
+      "name": "Team 06",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 212,
+     "round": 18,
+     "team": {
+      "abbr": "T01",
+      "division": "Central",
+      "id": "1",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team01",
+      "name": "Team 01",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 213,
+     "round": 18,
+     "team": {
+      "abbr": "T03",
+      "division": "East",
+      "id": "3",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team03",
+      "name": "Team 03",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 214,
+     "round": 18,
+     "team": {
+      "abbr": "T02",
+      "division": "West",
+      "id": "2",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team02",
+      "name": "Team 02",
+      "short_name": "Team 0"
+     }
+    },
+    {
+     "number": 215,
+     "round": 18,
+     "team": {
+      "abbr": "T13",
+      "division": "Central",
+      "id": "13",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team13",
+      "name": "Team 13",
+      "short_name": "Team 1"
+     }
+    },
+    {
+     "number": 216,
+     "round": 18,
+     "team": {
+      "abbr": "T11",
+      "division": "East",
+      "id": "11",
+      "is_vacant": 0,
+      "logo": "https://example.invalid/logo.png",
+      "long_abbr": "Team11",
+      "name": "Team 11",
+      "short_name": "Team 1"
+     }
+    }
+   ]
+  }
+ },
+ "statusCode": 200,
+ "statusMessage": "OK",
+ "uri": "/league/draft/order",
+ "uriAlias": "/league/draft/order"
+}

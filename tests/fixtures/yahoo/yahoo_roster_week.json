@@ -1,0 +1,1429 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/449.l.529351/teams/roster;week=5?format=json",
+    "        (the batched form — ALL teams' rosters for one week in ONE request;",
+    "        per-team fetching would be 12x the requests for identical data",
+    "        against a per-client_id rate limit)",
+    "",
+    "REDACTION: all identifiers invented — team keys, team names and manager",
+    "GUIDs (FAKEGUID...) are fake. Player names are real NFL players with",
+    "PLAUSIBLE BUT UNVERIFIED numeric ids. No token, email or real GUID appears",
+    "anywhere in this directory.",
+    "",
+    "WHY THIS IS COMMITTED — TWO CLAIMS, BOTH NEGATIVE, BOTH EASY TO DISBELIEVE:",
+    "",
+    "  1. A ROSTER RESPONSE CARRIES NO POINTS. Search this file: there is no",
+    "     player_points and no player_stats anywhere in it. Every player ends at",
+    "     selected_position. Weekly points require the CHAINED form, which is a",
+    "     separate request — see yahoo_roster_week_with_stats.json. Anyone who",
+    "     assumes the roster call is enough silently gets NULL points for an",
+    "     entire backfill.",
+    "",
+    "  2. YAHOO HAS NO is_started FIELD. There is no starter flag here either.",
+    "     Starter status is DERIVED: 'this player's selected_position is not a",
+    "     bench-like slot IN THIS LEAGUE'. The slot vocabulary comes from the",
+    "     league's own roster_positions (yahoo_league_settings_snake.json declares",
+    "     BN and IR for this exact league), which is why parse_rosters() takes",
+    "     starting/bench/injury slot sets as arguments and leaves is_starter NULL",
+    "     when they are not supplied. An unknown lineup requirement must produce",
+    "     an unknown starter flag, never a wrong one — and 'BN' is not a safe",
+    "     global constant: leagues define IR, IR+, IR-R and NA too.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. ⚠️ THE NUMERIC SUB-RESOURCE WRAPPER. 'roster' is an OBJECT whose scalar",
+    "     children (coverage_type, week, is_editable) sit at the top level while",
+    "     its players COLLECTION is nested one level down under the key \"0\":",
+    "         \"roster\": {\"coverage_type\":\"week\", \"week\":\"5\", \"is_editable\":0,",
+    "                    \"0\": {\"players\": {\"0\": {...}, \"count\": 9}}}",
+    "     This is the shape published wrappers index into — yfpy's data key list",
+    "     for a team roster is literally [\"team\",\"roster\",\"0\",\"players\"]. It is",
+    "     reproduced here because it is the hazard most likely to break the",
+    "     pipeline: flatten_resource() merges the members of an ARRAY resource but",
+    "     does not descend into the numeric-key members of an OBJECT one, so",
+    "     get(roster, \"players\") returns MISSING and the parse yields ZERO rows",
+    "     WITHOUT RAISING. See the note at the bottom of this comment.",
+    "  2. 'team' is an ARRAY whose element 0 is itself an ARRAY of single-key",
+    "     dicts (one per metadata field) and whose element 1 is the roster",
+    "     sub-resource. Positional indexing dies here.",
+    "  3. selected_position is an ARRAY of single-key dicts:",
+    "     [{coverage_type},{week},{position},{is_flex}] — is_flex is present only",
+    "     on the W/R/T slot.",
+    "  4. The two bench-like slots differ: 'BN' and 'IR'. Both must classify as",
+    "     is_starting_slot=0, and IR must additionally set is_injury_slot=1.",
+    "  5. eligible_positions is a numeric-key COLLECTION for multi-eligible",
+    "     players and a BARE OBJECT for the single-eligibility kicker — the",
+    "     single-element collapse, in the wild, in the middle of a roster.",
+    "  6. is_editable is 0 (a past week) as a bare INT while week is the STRING",
+    "     \"5\" in the same object.",
+    "  7. One player carries an injury status ('Q') and one carries 'IR' with a",
+    "     status_full and injury_note. Status is absent, not empty, on healthy",
+    "     players.",
+    "",
+    "TRUNCATED: 2 teams of the league's 12, and 9 of each team's 16 roster slots",
+    "(the league runs QB/RB/RB/WR/WR/TE/W-R-T/K/DEF + 6 BN + 1 IR). Reason: the",
+    "remaining teams and bench spots are byte-identical code paths; what is kept",
+    "is one of every DISTINCT slot kind — a starter, a flex, a bench and an IR —",
+    "which is the whole of what the derivation depends on.",
+    "",
+    "⚠️ KNOWN DISAGREEMENT WITH THE SHIPPED PARSER, 2026-08-11. Against parse.py",
+    "at PARSER_VERSION 1.0.0 this file parses to 0 roster snapshots and 0 players,",
+    "SILENTLY — no exception — because flatten_resource() merges the members of an",
+    "ARRAY resource but does not descend into the numeric-key members of an OBJECT",
+    "one, so get(roster, \"players\") is MISSING. That was reported to the parser",
+    "author rather than papered over: removing the \"0\" wrapper would make the",
+    "fixture green and leave the pipeline wrong against the real API.",
+    "",
+    "EXPECTED ONCE THE PARSER HANDLES THE WRAPPER (measured by hoisting roster",
+    "[\"0\"] in a harness, with parse.py untouched):",
+    "    fantasy_roster_snapshots  18      fantasy_players  18",
+    "    is_starter=1  14   is_bench=1  2   is_injury_slot=1  2",
+    "    the two W/R/T rows carry is_flex_slot=1",
+    "Those are the numbers to assert. If a live capture ever proves Yahoo does",
+    "NOT wrap here, delete the \"0\": { } level in both teams and this note with it."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/449.l.529351/teams/roster",
+    "league": [
+      {
+        "league_key": "449.l.529351",
+        "league_id": "529351",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/529351",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2024"
+      },
+      {
+        "teams": {
+          "0": {
+            "team": [
+              [
+                {
+                  "team_key": "449.l.529351.t.4"
+                },
+                {
+                  "team_id": "4"
+                },
+                {
+                  "name": "Third Down Thunder"
+                },
+                {
+                  "url": "https://football.fantasysports.yahoo.com/f1/529351/4"
+                },
+                {
+                  "waiver_priority": 7
+                },
+                {
+                  "number_of_moves": "19"
+                },
+                {
+                  "number_of_trades": 2
+                },
+                {
+                  "managers": [
+                    {
+                      "manager": {
+                        "manager_id": "4",
+                        "nickname": "owner_delta",
+                        "guid": "FAKEGUID00000000000004"
+                      }
+                    }
+                  ]
+                }
+              ],
+              {
+                "roster": {
+                  "coverage_type": "week",
+                  "week": "5",
+                  "is_editable": 0,
+                  "0": {
+                    "players": {
+                      "0": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.30977"
+                            },
+                            {
+                              "player_id": "30977"
+                            },
+                            {
+                              "name": {
+                                "full": "Josh Allen",
+                                "first": "Josh",
+                                "last": "Allen",
+                                "ascii_first": "Josh",
+                                "ascii_last": "Allen"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.30977"
+                            },
+                            {
+                              "editorial_team_abbr": "Buf"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "12"
+                              }
+                            },
+                            {
+                              "uniform_number": "17"
+                            },
+                            {
+                              "display_position": "QB"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "QB"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "QB"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "QB"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "1": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.33413"
+                            },
+                            {
+                              "player_id": "33413"
+                            },
+                            {
+                              "name": {
+                                "full": "Bijan Robinson",
+                                "first": "Bijan",
+                                "last": "Robinson",
+                                "ascii_first": "Bijan",
+                                "ascii_last": "Robinson"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.33413"
+                            },
+                            {
+                              "editorial_team_abbr": "Atl"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "12"
+                              }
+                            },
+                            {
+                              "uniform_number": "7"
+                            },
+                            {
+                              "display_position": "RB"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "RB"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "RB"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "RB"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "2": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.31883"
+                            },
+                            {
+                              "player_id": "31883"
+                            },
+                            {
+                              "name": {
+                                "full": "CeeDee Lamb",
+                                "first": "CeeDee",
+                                "last": "Lamb",
+                                "ascii_first": "CeeDee",
+                                "ascii_last": "Lamb"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.31883"
+                            },
+                            {
+                              "editorial_team_abbr": "Dal"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "7"
+                              }
+                            },
+                            {
+                              "uniform_number": "88"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "WR"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "WR"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "3": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.34038"
+                            },
+                            {
+                              "player_id": "34038"
+                            },
+                            {
+                              "name": {
+                                "full": "Trey McBride",
+                                "first": "Trey",
+                                "last": "McBride",
+                                "ascii_first": "Trey",
+                                "ascii_last": "McBride"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.34038"
+                            },
+                            {
+                              "editorial_team_abbr": "Ari"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "11"
+                              }
+                            },
+                            {
+                              "uniform_number": "85"
+                            },
+                            {
+                              "display_position": "TE"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "TE"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "TE"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "TE"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "4": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.33189"
+                            },
+                            {
+                              "player_id": "33189"
+                            },
+                            {
+                              "name": {
+                                "full": "Jauan Jennings",
+                                "first": "Jauan",
+                                "last": "Jennings",
+                                "ascii_first": "Jauan",
+                                "ascii_last": "Jennings"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.33189"
+                            },
+                            {
+                              "editorial_team_abbr": "SF"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "9"
+                              }
+                            },
+                            {
+                              "uniform_number": "15"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "WR"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "W/R/T"
+                              },
+                              {
+                                "is_flex": 1
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "5": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.34878"
+                            },
+                            {
+                              "player_id": "34878"
+                            },
+                            {
+                              "name": {
+                                "full": "Brandon Aubrey",
+                                "first": "Brandon",
+                                "last": "Aubrey",
+                                "ascii_first": "Brandon",
+                                "ascii_last": "Aubrey"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.34878"
+                            },
+                            {
+                              "editorial_team_abbr": "Dal"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "7"
+                              }
+                            },
+                            {
+                              "uniform_number": "17"
+                            },
+                            {
+                              "display_position": "K"
+                            },
+                            {
+                              "position_type": "K"
+                            },
+                            {
+                              "primary_position": "K"
+                            },
+                            {
+                              "eligible_positions": {
+                                "position": "K"
+                              }
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "K"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "6": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.100014"
+                            },
+                            {
+                              "player_id": "100014"
+                            },
+                            {
+                              "name": {
+                                "full": "Baltimore",
+                                "first": "Baltimore",
+                                "last": "",
+                                "ascii_first": "Baltimore",
+                                "ascii_last": ""
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.100014"
+                            },
+                            {
+                              "editorial_team_abbr": "Bal"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "14"
+                              }
+                            },
+                            {
+                              "display_position": "DEF"
+                            },
+                            {
+                              "position_type": "DT"
+                            },
+                            {
+                              "primary_position": "DEF"
+                            },
+                            {
+                              "eligible_positions": {
+                                "position": "DEF"
+                              }
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "DEF"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "7": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.40024"
+                            },
+                            {
+                              "player_id": "40024"
+                            },
+                            {
+                              "name": {
+                                "full": "Malik Nabers",
+                                "first": "Malik",
+                                "last": "Nabers",
+                                "ascii_first": "Malik",
+                                "ascii_last": "Nabers"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.40024"
+                            },
+                            {
+                              "editorial_team_abbr": "NYG"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "11"
+                              }
+                            },
+                            {
+                              "uniform_number": "1"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "WR"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            },
+                            {
+                              "status": "Q"
+                            },
+                            {
+                              "status_full": "Questionable"
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "BN"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "8": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.26671"
+                            },
+                            {
+                              "player_id": "26671"
+                            },
+                            {
+                              "name": {
+                                "full": "Christian McCaffrey",
+                                "first": "Christian",
+                                "last": "McCaffrey",
+                                "ascii_first": "Christian",
+                                "ascii_last": "McCaffrey"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.26671"
+                            },
+                            {
+                              "editorial_team_abbr": "SF"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "9"
+                              }
+                            },
+                            {
+                              "uniform_number": "23"
+                            },
+                            {
+                              "display_position": "RB"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "RB"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "RB"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                },
+                                {
+                                  "position": "IR"
+                                }
+                              ]
+                            },
+                            {
+                              "status": "IR"
+                            },
+                            {
+                              "status_full": "Injured Reserve"
+                            },
+                            {
+                              "injury_note": "Achilles"
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "IR"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "count": 9
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "1": {
+            "team": [
+              [
+                {
+                  "team_key": "449.l.529351.t.11"
+                },
+                {
+                  "team_id": "11"
+                },
+                {
+                  "name": "Two Minute Warning"
+                },
+                {
+                  "url": "https://football.fantasysports.yahoo.com/f1/529351/11"
+                },
+                {
+                  "waiver_priority": 2
+                },
+                {
+                  "number_of_moves": "31"
+                },
+                {
+                  "number_of_trades": 1
+                },
+                {
+                  "managers": [
+                    {
+                      "manager": {
+                        "manager_id": "11",
+                        "nickname": "--hidden--",
+                        "guid": "FAKEGUID00000000000011"
+                      }
+                    }
+                  ]
+                }
+              ],
+              {
+                "roster": {
+                  "coverage_type": "week",
+                  "week": "5",
+                  "is_editable": 0,
+                  "0": {
+                    "players": {
+                      "0": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.40036"
+                            },
+                            {
+                              "player_id": "40036"
+                            },
+                            {
+                              "name": {
+                                "full": "Jayden Daniels",
+                                "first": "Jayden",
+                                "last": "Daniels",
+                                "ascii_first": "Jayden",
+                                "ascii_last": "Daniels"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.40036"
+                            },
+                            {
+                              "editorial_team_abbr": "Was"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "14"
+                              }
+                            },
+                            {
+                              "uniform_number": "5"
+                            },
+                            {
+                              "display_position": "QB"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "QB"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "QB"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "QB"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "1": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.31056"
+                            },
+                            {
+                              "player_id": "31056"
+                            },
+                            {
+                              "name": {
+                                "full": "Saquon Barkley",
+                                "first": "Saquon",
+                                "last": "Barkley",
+                                "ascii_first": "Saquon",
+                                "ascii_last": "Barkley"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.31056"
+                            },
+                            {
+                              "editorial_team_abbr": "Phi"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "5"
+                              }
+                            },
+                            {
+                              "uniform_number": "26"
+                            },
+                            {
+                              "display_position": "RB"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "RB"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "RB"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "RB"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "2": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.32671"
+                            },
+                            {
+                              "player_id": "32671"
+                            },
+                            {
+                              "name": {
+                                "full": "Ja’Marr Chase",
+                                "first": "Ja’Marr",
+                                "last": "Chase",
+                                "ascii_first": "Ja'Marr",
+                                "ascii_last": "Chase"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.32671"
+                            },
+                            {
+                              "editorial_team_abbr": "Cin"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "12"
+                              }
+                            },
+                            {
+                              "uniform_number": "1"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "WR"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "WR"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "3": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.40016"
+                            },
+                            {
+                              "player_id": "40016"
+                            },
+                            {
+                              "name": {
+                                "full": "Brock Bowers",
+                                "first": "Brock",
+                                "last": "Bowers",
+                                "ascii_first": "Brock",
+                                "ascii_last": "Bowers"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.40016"
+                            },
+                            {
+                              "editorial_team_abbr": "LV"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "10"
+                              }
+                            },
+                            {
+                              "uniform_number": "89"
+                            },
+                            {
+                              "display_position": "TE"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "TE"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "TE"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "TE"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "4": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.33991"
+                            },
+                            {
+                              "player_id": "33991"
+                            },
+                            {
+                              "name": {
+                                "full": "Jaxon Smith-Njigba",
+                                "first": "Jaxon",
+                                "last": "Smith-Njigba",
+                                "ascii_first": "Jaxon",
+                                "ascii_last": "Smith-Njigba"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.33991"
+                            },
+                            {
+                              "editorial_team_abbr": "Sea"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "10"
+                              }
+                            },
+                            {
+                              "uniform_number": "11"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "WR"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "W/R/T"
+                              },
+                              {
+                                "is_flex": 1
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "5": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.27823"
+                            },
+                            {
+                              "player_id": "27823"
+                            },
+                            {
+                              "name": {
+                                "full": "Chris Boswell",
+                                "first": "Chris",
+                                "last": "Boswell",
+                                "ascii_first": "Chris",
+                                "ascii_last": "Boswell"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.27823"
+                            },
+                            {
+                              "editorial_team_abbr": "Pit"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "9"
+                              }
+                            },
+                            {
+                              "uniform_number": "9"
+                            },
+                            {
+                              "display_position": "K"
+                            },
+                            {
+                              "position_type": "K"
+                            },
+                            {
+                              "primary_position": "K"
+                            },
+                            {
+                              "eligible_positions": {
+                                "position": "K"
+                              }
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "K"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "6": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.100007"
+                            },
+                            {
+                              "player_id": "100007"
+                            },
+                            {
+                              "name": {
+                                "full": "Denver",
+                                "first": "Denver",
+                                "last": "",
+                                "ascii_first": "Denver",
+                                "ascii_last": ""
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.100007"
+                            },
+                            {
+                              "editorial_team_abbr": "Den"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "14"
+                              }
+                            },
+                            {
+                              "display_position": "DEF"
+                            },
+                            {
+                              "position_type": "DT"
+                            },
+                            {
+                              "primary_position": "DEF"
+                            },
+                            {
+                              "eligible_positions": {
+                                "position": "DEF"
+                              }
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "DEF"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "7": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.32700"
+                            },
+                            {
+                              "player_id": "32700"
+                            },
+                            {
+                              "name": {
+                                "full": "Jerry Jeudy",
+                                "first": "Jerry",
+                                "last": "Jeudy",
+                                "ascii_first": "Jerry",
+                                "ascii_last": "Jeudy"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.32700"
+                            },
+                            {
+                              "editorial_team_abbr": "Cle"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "10"
+                              }
+                            },
+                            {
+                              "uniform_number": "3"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "WR"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "BN"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "8": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.34034"
+                            },
+                            {
+                              "player_id": "34034"
+                            },
+                            {
+                              "name": {
+                                "full": "Rashee Rice",
+                                "first": "Rashee",
+                                "last": "Rice",
+                                "ascii_first": "Rashee",
+                                "ascii_last": "Rice"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.34034"
+                            },
+                            {
+                              "editorial_team_abbr": "KC"
+                            },
+                            {
+                              "bye_weeks": {
+                                "week": "6"
+                              }
+                            },
+                            {
+                              "uniform_number": "4"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "primary_position": "WR"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                },
+                                {
+                                  "position": "IR"
+                                }
+                              ]
+                            },
+                            {
+                              "status": "IR"
+                            },
+                            {
+                              "status_full": "Injured Reserve"
+                            },
+                            {
+                              "injury_note": "Knee"
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "IR"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "count": 9
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "count": 2
+        }
+      }
+    ],
+    "time": "212.77ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

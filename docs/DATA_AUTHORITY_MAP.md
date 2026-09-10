@@ -62,6 +62,7 @@ Concretely:
 | Advanced stats (EPA, snaps, routes, redzone, YOE) | nflverse / PFR | `nfl_player_*` tables |
 | ADP | external ranking feed | auction value model inputs |
 | Player news | RSS (Yahoo/PFT/PFR/CBS/Reddit) | news warmer cache |
+| Keith's Yahoo fantasy league (drafts, transactions, weekly rosters, matchups, standings) | Yahoo Fantasy Sports API (read-only, OAuth `fspt-r`) — **gated, not yet approved** | `fantasy_*` tables (35, migrations 0127-0132) + `raw_yahoo_api_responses`. **Yahoo wins on every field it exposes; a value we reconstruct is flagged `is_inferred`/`*_derived` and never overwrites a provider column.** ⚠️ A different league on a different platform — it must never read or write `ups_*`/`src_*`/`mfl_*`/`nfl_*` (sole crossing point: the read-only identity crosswalk in 0132). See `docs/yahoo_fantasy_ingestion.md`. |
 
 ---
 

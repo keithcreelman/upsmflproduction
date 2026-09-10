@@ -1,0 +1,198 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/461.l.576919/transactions?format=json",
+    "        (two waiver-claim transactions extracted from that collection)",
+    "",
+    "REDACTION: all identifiers invented. Player names are real NFL players with",
+    "PLAUSIBLE BUT UNVERIFIED numeric ids.",
+    "",
+    "WHY THIS IS COMMITTED — THE FAAB PAIR. Transaction 156 carries",
+    "faab_bid \"17\". Transaction 157 carries faab_bid \"0\" — a real, winning zero",
+    "bid, which is how an uncontested claim is settled in a FAAB league. Neither",
+    "may be confused with the ABSENT faab_bid in yahoo_transaction_add_drop.json,",
+    "which means Yahoo did not state a bid at all. Three states, one column:",
+    "",
+    "    faab_bid \"17\"  → 17",
+    "    faab_bid \"0\"   → 0     (a genuine zero — NOT 'no bid')",
+    "    <no faab_bid>  → NULL  (not exposed — NOT a zero bid)",
+    "",
+    "Collapse the last two and every FAAB-spend analysis is silently wrong: teams",
+    "that never bid look identical to teams that won everything for free, and the",
+    "rows still validate. ⚠️ NOTE FOR THE READER: Yahoo documents faab_bid only as",
+    "a WRITE input on the transaction POST. Whether it is returned on a GET of a",
+    "processed claim is UNVERIFIED — no live call has been made. If a real capture",
+    "shows it absent, that is a genuine provider limitation to record in the",
+    "completeness report, and this fixture must be corrected rather than trusted.",
+    "",
+    "SECOND CLAIM THIS FILE MAKES: a waiver add has source_type 'waivers' and NO",
+    "source_team_key. The player came from the waiver pool, not from a team, so",
+    "the concept does not apply and the key is absent rather than empty. That",
+    "absence is the only thing separating a waiver claim from a free-agent pickup",
+    "once the rows are in the database — 'freeagents' vs 'waivers' plus the",
+    "missing key IS the distinction. Do not fill it with ''.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. transactions is a numeric-key COLLECTION with a sibling 'count'.",
+    "  2. transaction_data is a BARE DICT (add/drop family, not the trade family).",
+    "  3. Player metadata is a LIST NESTED INSIDE the player resource array, one",
+    "     single-key dict per field.",
+    "  4. Transaction 157 also carries waiver_priority \"4\" as a bare INT while",
+    "     faab_bid is a STRING in the same object — Yahoo's types are inconsistent",
+    "     within a single node, which is why every field is coerced explicitly.",
+    "  5. Losing waiver claims DO NOT APPEAR HERE AND CANNOT. Yahoo exposes only",
+    "     successful transactions; the competing bids are gone the moment waivers",
+    "     process. That is a permanent provider gap, recorded as not_exposed in",
+    "     the completeness report — never as 'no one else bid'.",
+    "",
+    "NOT TRUNCATED: two complete transactions, isolated from the surrounding",
+    "collection so a failure is unambiguous."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.576919/transactions",
+    "league": [
+      {
+        "league_key": "461.l.576919",
+        "league_id": "576919",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/576919",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2025"
+      },
+      {
+        "transactions": {
+          "0": {
+            "transaction": [
+              {
+                "transaction_key": "461.l.576919.tr.156",
+                "transaction_id": "156",
+                "type": "add",
+                "status": "successful",
+                "timestamp": "1729551600",
+                "faab_bid": "17"
+              },
+              {
+                "players": {
+                  "0": {
+                    "player": [
+                      [
+                        {
+                          "player_key": "461.p.40071"
+                        },
+                        {
+                          "player_id": "40071"
+                        },
+                        {
+                          "name": {
+                            "full": "Jalen McMillan",
+                            "first": "Jalen",
+                            "last": "McMillan",
+                            "ascii_first": "Jalen",
+                            "ascii_last": "McMillan"
+                          }
+                        },
+                        {
+                          "editorial_team_abbr": "TB"
+                        },
+                        {
+                          "display_position": "WR"
+                        },
+                        {
+                          "position_type": "O"
+                        }
+                      ],
+                      {
+                        "transaction_data": {
+                          "type": "add",
+                          "source_type": "waivers",
+                          "destination_type": "team",
+                          "destination_team_key": "461.l.576919.t.9",
+                          "destination_team_name": "Sunday Scaries"
+                        }
+                      }
+                    ]
+                  },
+                  "count": 1
+                }
+              }
+            ]
+          },
+          "1": {
+            "transaction": [
+              {
+                "transaction_key": "461.l.576919.tr.157",
+                "transaction_id": "157",
+                "type": "add",
+                "status": "successful",
+                "timestamp": "1729551601",
+                "faab_bid": "0",
+                "waiver_priority": 4
+              },
+              {
+                "players": {
+                  "0": {
+                    "player": [
+                      [
+                        {
+                          "player_key": "461.p.33862"
+                        },
+                        {
+                          "player_id": "33862"
+                        },
+                        {
+                          "name": {
+                            "full": "Cade Otton",
+                            "first": "Cade",
+                            "last": "Otton",
+                            "ascii_first": "Cade",
+                            "ascii_last": "Otton"
+                          }
+                        },
+                        {
+                          "editorial_team_abbr": "TB"
+                        },
+                        {
+                          "display_position": "TE"
+                        },
+                        {
+                          "position_type": "O"
+                        }
+                      ],
+                      {
+                        "transaction_data": {
+                          "type": "add",
+                          "source_type": "waivers",
+                          "destination_type": "team",
+                          "destination_team_key": "461.l.576919.t.2",
+                          "destination_team_name": "River City Rollers"
+                        }
+                      }
+                    ]
+                  },
+                  "count": 1
+                }
+              }
+            ]
+          },
+          "count": 2
+        }
+      }
+    ],
+    "time": "70.44ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

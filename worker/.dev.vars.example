@@ -29,3 +29,24 @@ MFL_APIKEY=PASTE_YOUR_LEAGUE_APIKEY_HERE
 # Drives the "Go LIVE" button visibility + LIVE-mode revert permission.
 # Default if unset: just 0001.
 COMMISH_FRANCHISE_IDS=0008
+
+# ── Yahoo Fantasy OAuth (worker/src/yahoo_oauth.js) ────────────────────
+# Only needed to exercise /admin/yahoo/* locally. Leave commented and those
+# five routes REFUSE with a named error — they never fall back to a default.
+# Register the app at https://developer.yahoo.com/apps/create/ with
+# API Permissions → Fantasy Sports → Read (write access is unavailable from
+# Yahoo in 2026 regardless of the scope you request).
+#
+# YAHOO_REDIRECT_URI must be BYTE-IDENTICAL to the Redirect URI registered on
+# the Yahoo app — Yahoo compares it byte for byte and answers a mismatch with a
+# bare 401 that looks like a credential problem. For `wrangler dev` that is
+# usually http://localhost:8787/admin/yahoo/auth/callback.
+#
+# YAHOO_TOKEN_ENCRYPTION_KEY is base64 of exactly 32 bytes (AES-256-GCM):
+#   openssl rand -base64 32
+# Missing / short / unparseable = the module refuses and the refresh token is
+# never written. There is NO plaintext fallback, by design.
+# YAHOO_CLIENT_ID=PASTE_YOUR_YAHOO_CLIENT_ID_HERE
+# YAHOO_CLIENT_SECRET=PASTE_YOUR_YAHOO_CLIENT_SECRET_HERE
+# YAHOO_REDIRECT_URI=http://localhost:8787/admin/yahoo/auth/callback
+# YAHOO_TOKEN_ENCRYPTION_KEY=PASTE_OPENSSL_RAND_BASE64_32_OUTPUT_HERE

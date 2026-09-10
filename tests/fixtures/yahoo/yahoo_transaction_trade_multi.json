@@ -1,0 +1,247 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/461.l.576919/transactions?format=json",
+    "        (one 3-player, 2-team trade extracted from that collection)",
+    "",
+    "REDACTION: all identifiers invented — team keys, team names, transaction ids",
+    "and the trade note are fake. Player names are real NFL players with PLAUSIBLE",
+    "BUT UNVERIFIED numeric ids. No token, email, real GUID or real league key",
+    "appears anywhere in this directory.",
+    "",
+    "⚠️ THIS IS THE MOST IMPORTANT FIXTURE IN THE SET. It is the LIST-OF-ONE-DICT",
+    "half of the transaction_data shape trap:",
+    "",
+    "    add/drop:  \"transaction_data\": { ... }      ← a bare object",
+    "    TRADE:     \"transaction_data\": [ { ... } ]  ← a list containing ONE object",
+    "",
+    "Yahoo uses the list form for trades because a traded asset can in principle",
+    "carry several movement records. Nothing announces the difference. Code that",
+    "assumes the bare-dict form reads a trade leg as a list, finds no 'type' key,",
+    "and produces a transaction with ZERO assets — or skips it entirely. The",
+    "result is a transaction log with every waiver move present and every trade",
+    "missing, which looks exactly like a league that does not trade. No exception",
+    "is raised at any point. parse_transactions() sends both shapes through",
+    "as_list(); this file is the only thing that proves the list branch works.",
+    "",
+    "WHAT THE TRADE IS: 3 player legs across 2 teams. t.4 sends TWO players to",
+    "t.11 and receives ONE back. Correct parsing yields exactly 3 rows in",
+    "fantasy_transaction_assets, all sharing transaction_key",
+    "'461.l.576919.tr.163', with leg_index 0,1,2 and asset_count 3 on the parent.",
+    "A parser that mishandles the list shape yields 0 — the failure is total, not",
+    "partial, which is why the count is the assertion worth writing.",
+    "",
+    "OTHER SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. Every leg has BOTH a source_team_key and a destination_team_key. In a",
+    "     trade neither side is a pool, so unlike a waiver claim nothing is",
+    "     absent — the mirror image of yahoo_transaction_faab_waiver.json.",
+    "  2. The transaction carries trader_team_key / trader_team_name /",
+    "     tradee_team_key / tradee_team_name. These are REAL Yahoo fields that",
+    "     parse_transactions() does not consume, so they must show up in the row's",
+    "     unmapped_fields list rather than vanishing. That is the mechanism by",
+    "     which a provider field we have not modelled becomes visible instead of",
+    "     silently dropped — assert on it.",
+    "  3. Player metadata is a LIST NESTED INSIDE the player resource array, one",
+    "     single-key dict per field.",
+    "  4. \"Ja'Marr Chase\" carries a typographic apostrophe in the display name and",
+    "     a plain one in the ascii fields — normalize_name() must reduce both to",
+    "     'jamarr chase'. Name normalization is FALLBACK MATCHING ONLY and never",
+    "     sufficient on its own; it is here to be exercised, not trusted.",
+    "  5. status is 'successful'. REJECTED and VETOED trades are NOT RETRIEVABLE",
+    "     from Yahoo at all — they cannot appear in any fixture because they do",
+    "     not exist in the API. That is a permanent gap, recorded as not_exposed.",
+    "",
+    "NOT EXERCISED HERE: draft-pick legs (transaction['picks']). Yahoo supports",
+    "trading picks and parse_transactions() emits asset_kind='draft_pick' rows for",
+    "them, but this league does not trade picks and inventing that structure",
+    "without a reference capture would be guessing at a shape rather than",
+    "recording one.",
+    "",
+    "NOT TRUNCATED: one complete transaction, isolated from the surrounding",
+    "collection so a failure here is unambiguous."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.576919/transactions",
+    "league": [
+      {
+        "league_key": "461.l.576919",
+        "league_id": "576919",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/576919",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2025"
+      },
+      {
+        "transactions": {
+          "0": {
+            "transaction": [
+              {
+                "transaction_key": "461.l.576919.tr.163",
+                "transaction_id": "163",
+                "type": "trade",
+                "status": "successful",
+                "timestamp": "1730160000",
+                "trader_team_key": "461.l.576919.t.4",
+                "trader_team_name": "Third Down Thunder",
+                "tradee_team_key": "461.l.576919.t.11",
+                "tradee_team_name": "Two Minute Warning",
+                "trade_note": "Depth for a WR1. Good luck the rest of the way."
+              },
+              {
+                "players": {
+                  "0": {
+                    "player": [
+                      [
+                        {
+                          "player_key": "461.p.31883"
+                        },
+                        {
+                          "player_id": "31883"
+                        },
+                        {
+                          "name": {
+                            "full": "CeeDee Lamb",
+                            "first": "CeeDee",
+                            "last": "Lamb",
+                            "ascii_first": "CeeDee",
+                            "ascii_last": "Lamb"
+                          }
+                        },
+                        {
+                          "editorial_team_abbr": "Dal"
+                        },
+                        {
+                          "display_position": "WR"
+                        },
+                        {
+                          "position_type": "O"
+                        }
+                      ],
+                      {
+                        "transaction_data": [
+                          {
+                            "type": "trade",
+                            "source_type": "team",
+                            "source_team_key": "461.l.576919.t.4",
+                            "source_team_name": "Third Down Thunder",
+                            "destination_type": "team",
+                            "destination_team_key": "461.l.576919.t.11",
+                            "destination_team_name": "Two Minute Warning"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "1": {
+                    "player": [
+                      [
+                        {
+                          "player_key": "461.p.34038"
+                        },
+                        {
+                          "player_id": "34038"
+                        },
+                        {
+                          "name": {
+                            "full": "Trey McBride",
+                            "first": "Trey",
+                            "last": "McBride",
+                            "ascii_first": "Trey",
+                            "ascii_last": "McBride"
+                          }
+                        },
+                        {
+                          "editorial_team_abbr": "Ari"
+                        },
+                        {
+                          "display_position": "TE"
+                        },
+                        {
+                          "position_type": "O"
+                        }
+                      ],
+                      {
+                        "transaction_data": [
+                          {
+                            "type": "trade",
+                            "source_type": "team",
+                            "source_team_key": "461.l.576919.t.4",
+                            "source_team_name": "Third Down Thunder",
+                            "destination_type": "team",
+                            "destination_team_key": "461.l.576919.t.11",
+                            "destination_team_name": "Two Minute Warning"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "2": {
+                    "player": [
+                      [
+                        {
+                          "player_key": "461.p.32671"
+                        },
+                        {
+                          "player_id": "32671"
+                        },
+                        {
+                          "name": {
+                            "full": "Ja’Marr Chase",
+                            "first": "Ja’Marr",
+                            "last": "Chase",
+                            "ascii_first": "Ja'Marr",
+                            "ascii_last": "Chase"
+                          }
+                        },
+                        {
+                          "editorial_team_abbr": "Cin"
+                        },
+                        {
+                          "display_position": "WR"
+                        },
+                        {
+                          "position_type": "O"
+                        }
+                      ],
+                      {
+                        "transaction_data": [
+                          {
+                            "type": "trade",
+                            "source_type": "team",
+                            "source_team_key": "461.l.576919.t.11",
+                            "source_team_name": "Two Minute Warning",
+                            "destination_type": "team",
+                            "destination_team_key": "461.l.576919.t.4",
+                            "destination_team_name": "Third Down Thunder"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "count": 3
+                }
+              }
+            ]
+          },
+          "count": 1
+        }
+      }
+    ],
+    "time": "71.09ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}
