@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.09.3",
-  "label": "Fixed: Live Scoring is a league-wide board and no longer requires a franchise, so it opens for the commissioner (and before any team is picked) instead of showing a sign-in prompt."
+  "build": "2026.09.09.4",
+  "label": "A player ruled Out, on IR, suspended, holding out or retired now projects zero for the rest of the week instead of carrying a share of his projection."
 }
