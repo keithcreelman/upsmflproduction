@@ -40757,7 +40757,32 @@ const mflToSleeper = {};
               if (!prsRes || !prsRes.ok) {
                 mflAnswer = { known: false, state: "unknown", starters: null, reason: "playerRosterStatus read failed: " + (safeStr(prsRes && prsRes.error) || `HTTP ${safeInt(prsRes && prsRes.status, 0)}`) };
               } else {
-                const parsed = _lineupParseRosterStatuses(prsRes.data, fid);
+                let parsed = _lineupParseRosterStatuses(prsRes.data, fid);
+                // THE COOKIE CAN SCOPE THE ANSWER TO THE WRONG FRANCHISE.
+                // playerRosterStatus is read as the viewer so an owner has
+                // visibility into their own lineup. But when the cookie belongs
+                // to the COMMISSIONER, MFL answers from that identity and the
+                // rows come back carrying a franchise_id that is not the one we
+                // asked about -- so the parse matched nothing and Game Day told
+                // Keith "no playerStatus entry for franchise 0008" while his 18
+                // starters were sitting in MFL the whole time.
+                //
+                // A specified F= plus an explicit P= list is answerable without
+                // any identity at all (verified against L=74598 F=0008: 35
+                // players, 18 S / 12 NS / 2 IR / 3 TS, cookie-less). So when the
+                // viewer read matches NOTHING, ask again with no cookie rather
+                // than reporting a lineup we can plainly see.
+                if (!parsed.ok && parsed.matched === 0) {
+                  const anonRes = await mflExportJson(
+                    year, leagueId, "playerRosterStatus",
+                    { P: pids.join(","), F: fid, W: week || null },
+                    { useCookie: false }
+                  );
+                  if (anonRes && anonRes.ok) {
+                    const anonParsed = _lineupParseRosterStatuses(anonRes.data, fid);
+                    if (anonParsed.ok) parsed = anonParsed;
+                  }
+                }
                 mflCounts = parsed.counts;
                 mflAnswer = _lineupAnswerFromStatuses(parsed);
                 // "R" IS AMBIGUOUS, and only one reading is safe.
