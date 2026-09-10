@@ -232,6 +232,10 @@
   @media (max-width: 720px) { .gd-sb-match-row { grid-template-columns: 1fr 1fr; row-gap: 8px; } .gd-sb-wp { grid-column: 1 / -1; } .gd-sb-exp { display: none; } }
   /* Player scoring breakdown — inline expand under a starter row (MFL Detailed Results) */
   a.gd-plink { cursor: pointer; }
+  /* The whole starter row opens the scoring breakdown. */
+  .gd-sb-ros tr.gd-sb-prow { cursor: pointer; }
+  .gd-sb-ros tr.gd-sb-prow:hover td { background: rgba(91,141,255,0.07); }
+  .gd-sb-ros tr.gd-sb-prow.open td { background: rgba(91,141,255,0.11); }
   .gd-bd-tr > td { padding: 0 !important; }
   .gd-bd { background: rgba(91,141,255,0.06); border-left: 2px solid var(--accent); padding: 10px 12px 11px; }
   .gd-bd-game { display: block; font-size: 11px; color: var(--muted); margin-bottom: 7px; }
@@ -1322,6 +1326,18 @@
   function sbLive() { return (STATE.sb && STATE.sb.live && STATE.sb.live.liveScoring) || null; }
   function sbWeekly() { return (STATE.sb && STATE.sb.weekly && STATE.sb.weekly.weeklyResults) || null; }
   function sbFranchises() { return (STATE.sb && STATE.sb.franchises) || STATE.franchises; }
+  // WHOSE card the scoreboard shows. Defaults to the signed-in owner, but the
+  // commissioner's MFL account does not map to a franchise (resolveViewer scans
+  // owner names and finds nothing), so the whole view collapsed to "no roster"
+  // and there was no way to watch the scores at all. A picker fixes that for
+  // the commish and lets anyone follow another team's card.
+  function sbViewFid() {
+    var f = pad4(STATE.sbViewFid || "");
+    if (f && sbFranchises().some(function (x) { return pad4(x.id) === f; })) return f;
+    if (STATE.viewerFranchiseId) return STATE.viewerFranchiseId;
+    var all = sbFranchises();
+    return all.length ? pad4(all[0].id) : "";
+  }
   function sbWeek() {
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
     var ls = sbLive(); return ls ? String(ls.week || "") : (sbWeekSel() || "");
@@ -1339,6 +1355,14 @@
     if (sbSource() === "weekly") {
       var wr = sbWeekly(); var found = null;
       if (wr) asArray(wr.matchup).forEach(function (m) { asArray(m.franchise).forEach(function (f) { if (pad4(f.id) === fid && !found) found = f; }); });
+      // A team with NO head-to-head game that week still plays: UPS runs a
+      // toilet bowl and a league-wide weekly high-score prize, so all twelve
+      // field a lineup in weeks 15-17 even though the schedule pairs only
+      // eight. MFL puts those unpaired teams in a TOP-LEVEL franchise[]
+      // alongside matchup[] -- 2025 W17 is franchise[]=4 + matchup[]=4, twelve
+      // teams in total. Reading only matchup[] made them vanish, so the
+      // All-Play board scored this owner against 7 opponents instead of 11.
+      if (!found && wr) found = asArray(wr.franchise).find(function (f) { return pad4(f.id) === fid; }) || null;
       return found;
     }
     var ls = sbLive(); if (!ls) return null;
@@ -1462,7 +1486,7 @@
       var wr = sbWeekly();
       if (wr) asArray(wr.matchup).forEach(function (m) {
         var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId && opps.indexOf(id) < 0) opps.push(id); });
+        if (fr.indexOf(sbViewFid()) >= 0) fr.forEach(function (id) { if (id !== sbViewFid() && opps.indexOf(id) < 0) opps.push(id); });
       });
       return opps;
     }
@@ -1472,7 +1496,7 @@
       var wrow = weeks.find(function (w) { return String(w.week) === wk; }) || null;
       if (wrow) asArray(wrow.matchup).forEach(function (m) {
         var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId) opps.push(id); });
+        if (fr.indexOf(sbViewFid()) >= 0) fr.forEach(function (id) { if (id !== sbViewFid()) opps.push(id); });
       });
     }
     // Fallback to liveScoring's own matchup pairing when the schedule export
@@ -1481,7 +1505,7 @@
       var ls = sbLive();
       if (ls) asArray(ls.matchup).forEach(function (m) {
         var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId && opps.indexOf(id) < 0) opps.push(id); });
+        if (fr.indexOf(sbViewFid()) >= 0) fr.forEach(function (id) { if (id !== sbViewFid() && opps.indexOf(id) < 0) opps.push(id); });
       });
     }
     return opps;
@@ -1511,13 +1535,22 @@
     var selWk = sbWeekSel();
     var wOpts = '<option value=""' + (!selWk ? " selected" : "") + '>Current week</option>';
     for (var w = 1; w <= 18; w++) wOpts += '<option value="' + w + '"' + (String(w) === String(selWk) ? " selected" : "") + '>Week ' + w + '</option>';
-    return '<div class="gd-sb-filter"><select id="gd-sb-year">' + yOpts + '</select><select id="gd-sb-week">' + wOpts + '</select></div>';
+    var cur = sbViewFid();
+    var tOpts = sbFranchises().map(function (f) {
+      return '<option value="' + esc(pad4(f.id)) + '"' + (pad4(f.id) === cur ? " selected" : "") + '>' + esc(f.name) + '</option>';
+    }).join("");
+    return '<div class="gd-sb-filter"><select id="gd-sb-year">' + yOpts + '</select><select id="gd-sb-week">' + wOpts + '</select>' +
+           (tOpts ? '<select id="gd-sb-team" title="Whose scoreboard to show">' + tOpts + '</select>' : '') + '</div>';
   }
   function bindWeekControls(el) {
     var yEl = el.querySelector("#gd-sb-year");
     if (yEl) yEl.addEventListener("change", function () { STATE.sbYear = yEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
     var wEl = el.querySelector("#gd-sb-week");
     if (wEl) wEl.addEventListener("change", function () { STATE.sbWeek = wEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
+    var tEl = el.querySelector("#gd-sb-team");
+    // Switching team re-renders only -- the scoreboard payload already holds
+    // every franchise, so there is nothing to re-fetch.
+    if (tEl) tEl.addEventListener("change", function () { STATE.sbViewFid = tEl.value; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
   }
 
   function renderLive(el) {
@@ -1534,7 +1567,7 @@
       bindWeekControls(el);
       return;
     }
-    var me = sbCompute(STATE.viewerFranchiseId);
+    var me = sbCompute(sbViewFid());
     var opps = sbOpponents().map(function (id) { return sbCompute(id); });
     var wk = sbWeek();
     var sbView = STATE.sbView || "proj";
@@ -1560,7 +1593,11 @@
     var meProjLbl = (meState === "live") ? ('proj ' + fmtPts(me.projFinal)) : ('orig proj ' + fmtPts(me.origProj));
     var meRow = '<div class="gd-sb-match">' +
       '<div class="gd-sb-match-row gd-sb-mine" data-oppexp="me">' +
-        '<div class="gd-sb-opp"><span class="vs">My</span> ' + esc(me.name) + h2hChip + '</div>' +
+        // "My" only when it really is the signed-in owner -- the picker lets a
+        // commissioner (whose MFL account maps to no franchise) watch anyone.
+        '<div class="gd-sb-opp"><span class="vs">' +
+          (sbViewFid() === STATE.viewerFranchiseId ? "My" : "Viewing") + '</span> ' +
+          esc(me.name) + h2hChip + '</div>' +
         '<div class="gd-sb-nums"><span class="s">' + fmtPts(me.live) + '</span><span class="p">' + meProjLbl + '</span></div>' +
         '<div class="gd-sb-wp"></div>' +
         '<div class="gd-sb-exp">' + (meOpen ? '▾' : '▸') + '</div>' +
@@ -1608,7 +1645,7 @@
     var apRows = all.map(function (x, i) {
       var beat = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) < metricOf(x); }).length;
       var tied = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) === metricOf(x); }).length;
-      var mine = x.fid === STATE.viewerFranchiseId;
+      var mine = x.fid === sbViewFid();
       return '<tr' + (mine ? ' class="me"' : '') + '><td class="rk">' + (i + 1) + '</td><td>' + esc(x.name) + '</td>' +
         '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(x.live) + '</td>' +
         '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(x.projFinal) + '</td>' +
@@ -1628,12 +1665,17 @@
     el.querySelectorAll("[data-sbview]").forEach(function (b) {
       b.addEventListener("click", function () { STATE.sbView = b.getAttribute("data-sbview"); render(); });
     });
-    el.querySelectorAll("a.gd-plink[data-bd-pid]").forEach(function (a) {
-      a.addEventListener("click", function (e) {
-        // Modified clicks (cmd/ctrl/shift/middle) fall through to the MFL page.
-        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    el.querySelectorAll("tr.gd-sb-prow[data-bd-row]").forEach(function (tr) {
+      tr.addEventListener("click", function (e) {
+        // A modified click ON THE NAME still opens the MFL profile in a new tab,
+        // so cmd/ctrl/shift/middle keep working exactly as before.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+          if (e.target && e.target.closest && e.target.closest("a.gd-plink")) return;
+        }
+        // Let a real text selection through rather than collapsing the panel.
+        try { if (String(window.getSelection()) .length > 0) return; } catch (_) {}
         e.preventDefault();
-        var pid = a.getAttribute("data-bd-pid");
+        var pid = tr.getAttribute("data-bd-row");
         if (STATE.sbPlayerExp === pid) { STATE.sbPlayerExp = null; render(); return; }
         STATE.sbPlayerExp = pid;
         loadBreakdown(pid);
@@ -1726,7 +1768,15 @@
       var game = pl.game || pl.score;
       var head = game ? '<span class="gd-bd-game">' + esc(game) + '</span>' : '';
       if (!lines.length) {
-        inner = head + '<div class="gd-bd-empty">No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.</div>' +
+        // No stats yet is the NORMAL state before kickoff, and the projection is
+        // the only thing worth showing then -- without it this panel said
+        // nothing at all for every player yet to play.
+        var opEmpty = (p && p.origProj) || 0;
+        var emptyMsg = (p && p.yet)
+          ? 'Has not played yet.'
+          : 'No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.';
+        inner = head + '<div class="gd-bd-empty">' + emptyMsg + '</div>' +
+          (opEmpty > 0 ? '<div class="gd-bd-exp">projected ' + fmtPts(opEmpty) + '</div>' : '') +
           '<div class="gd-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
       } else {
         var rows = transformLines(lines).map(function (l) {
@@ -1736,11 +1786,33 @@
         }).join("");
         var subtotal = d.subtotal != null ? d.subtotal : lines.reduce(function (a, l) { return a + (Number(l.points) || 0); }, 0);
         // Above / below expectation vs the player's ORIGINAL projection for this week.
+        // WHILE THE GAME IS ON, POINTS-SO-FAR IS NOT A VERDICT. Comparing a
+        // running subtotal against a FULL-GAME projection reads every player as
+        // "below expectation" until the fourth quarter -- a defender on 4.1
+        // early in the second was shown as -6.5 against a 10.6 projection, when
+        // 10.6 was never what he was supposed to have by then. Mid-game, show
+        // the UPDATED projection instead: what he has, plus what the remaining
+        // clock is still worth. The expectation verdict only makes sense once
+        // there is no clock left.
         var op = (p && p.origProj) || 0, expLine = "";
-        if (op > 0) {
-          var diff = subtotal - op, above = diff >= 0;
-          expLine = '<div class="gd-bd-exp ' + (above ? 'p' : 'n') + '">vs proj ' + fmtPts(op) + ' · ' +
-            (above ? '+' : '') + fmtPts(diff) + ' ' + (above ? 'above' : 'below') + ' expectation</div>';
+        // Remaining value comes from the row's own numbers (projFinal already
+        // pro-rates the original projection by gameSecondsRemaining and zeroes
+        // players ruled out), rebased onto THIS breakdown's subtotal so the two
+        // figures cannot disagree.
+        var rem = Math.max(0, ((p && p.projFinal) || 0) - ((p && p.live) || 0));
+        if (p && p.done) {
+          if (op > 0) {
+            var diff = subtotal - op, above = diff >= 0;
+            expLine = '<div class="gd-bd-exp ' + (above ? 'p' : 'n') + '">vs proj ' + fmtPts(op) + ' · ' +
+              (above ? '+' : '') + fmtPts(diff) + ' ' + (above ? 'above' : 'below') + ' expectation</div>';
+          }
+        } else if (p && p.playing) {
+          var nowProj = subtotal + rem, moved = nowProj - op, up = moved >= 0;
+          expLine = '<div class="gd-bd-exp ' + (up ? 'p' : 'n') + '">projected ' + fmtPts(nowProj) +
+            ' · ' + (op > 0 ? 'started at ' + fmtPts(op) + ' · ' : '') +
+            (up ? '+' : '') + fmtPts(moved) + ' with ' + Math.ceil(((p && p.gsr) || 0) / 60) + "' left</div>";
+        } else if (op > 0) {
+          expLine = '<div class="gd-bd-exp">projected ' + fmtPts(op) + ' · has not played yet</div>';
         }
         inner = head + '<div class="gd-bd-lines">' + rows + '</div>' +
           '<div class="gd-bd-sub"><span>Subtotal</span><span>' + fmtPts(subtotal) + '</span></div>' +
@@ -1766,7 +1838,10 @@
         var rkBadge = rk ? ' <span class="gd-sb-prank" title="Position rank by points this week">' + esc(rk.group) + '#' + rk.rank + '</span>' : '';
         // Proj cell shows the ORIGINAL projection once the player is final.
         var projVal = p.done ? p.origProj : p.projFinal;
-        var row = '<tr><td>' + nameCell + rkBadge + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
+        // The entire row toggles the breakdown -- the name link was a small
+        // target, and there is nothing else on the row to click.
+        var row = '<tr class="gd-sb-prow' + (STATE.sbPlayerExp === p.pid ? ' open' : '') +
+          '" data-bd-row="' + esc(p.pid) + '"><td>' + nameCell + rkBadge + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
           '<td class="gd-taxi-pos">' + esc(p.nfl || "—") + '</td><td>' + st + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(p.live) + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(projVal) + '</td></tr>';
