@@ -38,50 +38,6 @@
   }
 
   // standard normal CDF (Abramowitz-Stegun 26.2.17)
-  function normCdf(z) {
-    var t = 1 / (1 + 0.2316419 * Math.abs(z));
-    var d = 0.3989422804 * Math.exp(-z * z / 2);
-    var p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-    return z > 0 ? 1 - p : p;
-  }
-  function injuryFactor(status) {
-    var st = s(status).toUpperCase();
-    if (!st) return 1;
-    // Zero means "expect nothing more from him this week", and it must cover
-    // every shape MFL actually serves. Observed live on 2026-09-09 across 389
-    // rows: Out, Questionable, Doubtful, Holdout, Suspended, RETIRED, IR,
-    // IR-PUP, IR-NFI, IR-R.
-    //
-    // RETIRED was only ever zeroed BY ACCIDENT -- "reTIRed" happens to contain
-    // "IR" -- so it is spelled out here rather than left to a coincidence.
-    // Holdout is caught by the OUT substring, which is also why this must be a
-    // substring test and not an equality one: the desktop copy compared
-    // === "OUT" and therefore scored a holdout at full projection.
-    if (st.indexOf("OUT") >= 0 ||        // Out, Holdout, "Out - Injury"
-        st.indexOf("IR") >= 0 ||         // IR, IR-PUP, IR-NFI, IR-R
-        st.indexOf("PUP") >= 0 ||
-        st.indexOf("NFI") >= 0 ||
-        st.indexOf("SUSP") >= 0 ||
-        st.indexOf("RETIRED") >= 0 ||
-        st === "NA") return 0;
-    // DOUBTFUL contains no "OUT", so ordering here is not load-bearing --
-    // but keep these after the zero cases regardless.
-    if (st.indexOf("DOUB") >= 0) return 0.40;
-    if (st.indexOf("QUES") >= 0) return 0.75;
-    return 1;
-  }
-  function injuryShort(status) {
-    var st = s(status).toUpperCase();
-    if (!st) return "";
-    if (st.indexOf("OUT") >= 0) return "OUT";
-    if (st.indexOf("IR") >= 0) return "IR";
-    if (st.indexOf("DOUB") >= 0) return "D";
-    if (st.indexOf("QUES") >= 0) return "Q";
-    if (st.indexOf("PUP") >= 0) return "PUP";
-    if (st.indexOf("SUSP") >= 0) return "SUS";
-    return st.slice(0, 3);
-  }
-
   // ---- year/week filter + data load ----
   function sbYear() { return M.state.sbYear || ctx().year; }
   function sbWeekSel() { return M.state.sbWeek || ""; }
@@ -176,29 +132,45 @@
   // Teams live in ONE of two shapes depending on the week: a top-level
   // franchise[] or inside matchup[].franchise[]. sbFranchiseRaw reads both;
   // the source test has to as well.
-  function sbLiveFranchiseCount(live) {
-    var ls = live && live.liveScoring;
-    if (!ls) return 0;
-    var n = asArray(ls.franchise).filter(function (f) { return f && f.id; }).length;
-    if (n) return n;
-    asArray(ls.matchup).forEach(function (m) {
-      n += asArray(m.franchise).filter(function (f) { return f && f.id; }).length;
-    });
-    return n;
-  }
   // WHOSE card to show. Every candidate is validated against the real franchise
   // list: MFL hands a commissioner "0000" (the league id, not a team) and
   // pad4("0000") is truthy, so an unvalidated id sailed through as a franchise
   // that does not exist and the card came back empty with no way to pick.
-  function sbViewFid() {
-    var all = sbFranchises();
-    var real = function (v) {
-      var f = pad4(v || "");
-      return (f && all.some(function (x) { return pad4(x.id) === f; })) ? f : "";
-    };
-    return real(M.state.sbViewFid) || real(M.state.viewerFranchiseId) ||
-           (all.length ? pad4(all[0].id) : "");
+  // ---- shared live-scoring core (site/shared/live_scoring.js) ----
+  // These used to be hand-copied here AND in gameday.html, and had already
+  // drifted apart -- injuryFactor differed between the two, and four separate
+  // bugs each had to be found twice. The arithmetic and classification now live
+  // in ONE place; only the markup below is mobile's own.
+  var LS = window.UPSLive;
+  function injuryFactor(st) { return LS.injuryFactor(st); }
+  function injuryShort(st) { return LS.injuryShort(st); }
+  function normCdf(z) { return LS.normCdf(z); }
+  function winProb(a, b) { return LS.winProb(a, b, SIGMA_BASE); }
+  function sbLiveFranchiseCount(live) { return LS.countLiveFranchises(live); }
+  function matchupState(me, o) { return LS.matchupState(sbSource(), me, o); }
+  function h2hRecord(me, opps) { return LS.h2hRecord(sbSource(), me, opps); }
+  function sbFranchiseRaw(fid) {
+    var sb = M.state.sb || {};
+    return LS.franchiseRaw(sbSource(), sb.live, sb.weekly, fid);
   }
+  function sbStarterRows(raw) { return LS.starterRows(raw); }
+  function sbViewFid() {
+    return LS.resolveViewFid([M.state.sbViewFid, M.state.viewerFranchiseId], sbFranchises());
+  }
+  function sbCompute(fid) {
+    var meta = sbFranchises().filter(function (f) { return f.id === pad4(fid); })[0] || { name: pad4(fid) };
+    var sb = M.state.sb || {};
+    return LS.computeTeam(pad4(fid), meta.name, {
+      source: sbSource(), live: sb.live, weekly: sb.weekly,
+      injuryOf: injStatusFor,
+      projOf: projFor,
+      metaOf: function (pid) {
+        var pm = playerById(pid) || {};
+        return { name: nameFromMfl(pm.name) || pid, pos: s(pm.position).toUpperCase(), nfl: s(pm.team) };
+      }
+    });
+  }
+
   function sbLive() { return (M.state.sb && M.state.sb.live && M.state.sb.live.liveScoring) || null; }
   function sbWeekly() { return (M.state.sb && M.state.sb.weekly && M.state.sb.weekly.weeklyResults) || null; }
   function sbFranchises() { return (M.state.sb && M.state.sb.franchises) || M.state.franchises || []; }
@@ -212,67 +184,8 @@
     if (sbSource() !== "live") return false;
     var ls = sbLive(); return ls ? asArray(ls.franchise).some(function (f) { return parseInt(f.playersCurrentlyPlaying, 10) > 0; }) : false;
   }
-  function sbFranchiseRaw(fid) {
-    fid = pad4(fid);
-    if (sbSource() === "weekly") {
-      var wr = sbWeekly(), found = null;
-      if (wr) asArray(wr.matchup).forEach(function (m) { asArray(m.franchise).forEach(function (f) { if (pad4(f.id) === fid && !found) found = f; }); });
-      // All twelve teams field a lineup in weeks 15-17 (toilet bowl + the
-      // league-wide weekly high-score prize) though the schedule pairs only
-      // eight; MFL puts the unpaired teams in a TOP-LEVEL franchise[]. Reading
-      // matchup[] alone dropped them from the All-Play board entirely.
-      if (!found && wr) found = asArray(wr.franchise).filter(function (f) { return pad4(f.id) === fid; })[0] || null;
-      return found;
-    }
-    var ls = sbLive(); if (!ls) return null;
-    var direct = asArray(ls.franchise).filter(function (f) { return pad4(f.id) === fid; })[0];
-    if (direct) return direct;
-    var f2 = null;
-    asArray(ls.matchup).forEach(function (m) { asArray(m.franchise).forEach(function (f) { if (pad4(f.id) === fid) f2 = f; }); });
-    return f2;
-  }
-  function sbStarterRows(raw) { return asArray((raw && raw.players && raw.players.player) || (raw && raw.player) || []); }
   // Per-franchise computed line. Live → projection blend; weekly → final.
-  function sbCompute(fid) {
-    fid = pad4(fid);
-    var meta = sbFranchises().filter(function (f) { return f.id === fid; })[0] || { id: fid, name: fid };
-    var raw = sbFranchiseRaw(fid);
-    if (!raw) return { fid: fid, name: meta.name, live: 0, projFinal: 0, origProj: 0, secRem: 0, slots: 0, starters: [], hasData: false };
-    var live = sbSource() === "live";
-    var teamScore = Number(raw.score || 0), remaining = 0, secRem = 0, origTot = 0, starters = [];
-    sbStarterRows(raw).forEach(function (p) {
-      if (String(p.status) !== "starter") return;
-      var pid = String(p.id), pts = Number(p.score || 0);
-      var gsr = live ? (parseInt(p.gameSecondsRemaining, 10) || 0) : 0;
-      var status = live ? injStatusFor(pid) : "";
-      var origProj = projFor(pid);   // ORIGINAL projection for the selected week (any week)
-      var factor = injuryFactor(status);
-      var rem = (!live || factor === 0) ? 0 : origProj * factor * (gsr / 3600);
-      remaining += rem; secRem += gsr; origTot += origProj;
-      var pm = playerById(pid);
-      starters.push({ pid: pid, name: nameFromMfl(pm.name) || pid, pos: s(pm.position).toUpperCase(), nfl: s(pm.team),
-        live: pts, gsr: gsr, status: status, origProj: origProj, projFinal: pts + rem,
-        playing: live && gsr > 0 && gsr < 3600, done: !live || gsr <= 0, yet: live && gsr >= 3600 });
-    });
-    starters.sort(function (a, b) { return b.projFinal - a.projFinal; });
-    return { fid: fid, name: meta.name, live: teamScore, projFinal: teamScore + remaining, origProj: origTot, secRem: secRem, slots: starters.length, starters: starters, hasData: true };
-  }
-  function winProb(a, b) {
-    var diff = a.projFinal - b.projFinal;
-    var slots = (a.slots + b.slots) || 1;
-    var frac = Math.max(0, Math.min(1, (a.secRem + b.secRem) / (slots * 3600)));
-    var sigma = SIGMA_BASE * Math.sqrt(frac);
-    if (sigma < 0.5) return diff > 0 ? 1 : (diff < 0 ? 0 : 0.5);
-    return normCdf(diff / sigma);
-  }
   // Game state: "pre" (none started) | "live" | "final". Weekly is always final.
-  function matchupState(me, o) {
-    if (sbSource() === "weekly") return "final";
-    var ss = (me.starters || []).concat(o.starters || []);
-    if (!ss.length) return "pre";
-    if (!ss.some(function (x) { return x.done || x.playing; })) return "pre";
-    return ss.every(function (x) { return x.done; }) ? "final" : "live";
-  }
   // Outcome pill from ACTUAL scores: final → Won/Lost/Tied; live → Winning/
   // Losing/Tied; pre-game → none.
   function outcomePill(me, o) {
@@ -285,16 +198,6 @@
   }
   // This-week head-to-head record (the UPS double/triple-header result) — W-L[-T]
   // across the viewer's opponents, by actual score. Pre-game matchups skipped.
-  function h2hRecord(me, opps) {
-    var w = 0, l = 0, t = 0;
-    opps.forEach(function (o) {
-      if (matchupState(me, o) === "pre") return;
-      if (Math.abs(me.live - o.live) < 0.001) t++;
-      else if (me.live > o.live) w++;
-      else l++;
-    });
-    return { w: w, l: l, t: t, str: w + "-" + l + (t ? "-" + t : "") };
-  }
   function teamFinal(team) {
     if (sbSource() === "weekly") return true;
     return !!(team.starters && team.starters.length && team.starters.every(function (x) { return x.done; }));
