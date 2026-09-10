@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.09.5",
+  "build": "2026.09.10.1",
   "label": "Internal: the live-scoring maths now comes from one shared module instead of two hand-copies that had drifted apart. No visible change intended."
 }
