@@ -14794,7 +14794,27 @@ export default {
           let body = {};
           try { body = await request.json(); } catch (_) {}
           const fidReq = _rdhPadFid(safeStr(body.franchiseId || body.franchise_id || ""));
-          const week = safeStr(body.week || "");  // empty → MFL default (current scoring week)
+          // THE CLIENT'S WEEK CANNOT BE TRUSTED, AND SUBMITTING TO THE WRONG ONE
+          // IS THE WORST FAILURE THIS ENDPOINT HAS.
+          // Game Day sends STATE.projWeek, i.e. projectedScores.week. The moment
+          // Week 1 kicked off MFL rolled projections to Week 2, so the page began
+          // sending W=2 while Week 1 was STILL OPEN and being played -- a submit
+          // would have written a lineup for a week that is not the one whose
+          // games are running, and left the live week untouched. Neither surface
+          // offers a week picker, so "the week this owner means" is always MFL's
+          // CURRENT SCORING WEEK; the client is merely guessing at it.
+          //
+          // Resolve it from liveScoring, which reports the week actually being
+          // played (verified 2026-09-09: liveScoring.week=1 while
+          // projectedScores.week=2). Fall back to the client's value only if MFL
+          // cannot be asked -- an unknown week is not a reason to guess a wrong one.
+          const weekRequested = safeStr(body.week || "");
+          let weekCurrent = "";
+          try {
+            const lsRes = await mflExportJson(year, leagueId, "liveScoring", {}, { useCookie: false });
+            weekCurrent = safeStr(lsRes?.data?.liveScoring?.week || "");
+          } catch (_) { weekCurrent = ""; }
+          const week = weekCurrent || weekRequested;
           const starters = Array.isArray(body.starters)
             ? body.starters.map((s) => String(s).trim()).filter(Boolean)
             : [];
@@ -14902,6 +14922,9 @@ export default {
             ok: true,
             franchise_id: fidReq,
             week: week || null,
+            week_requested: weekRequested || null,
+            week_used: week || null,
+            week_source: weekCurrent ? "mfl_live_scoring" : (weekRequested ? "client" : "mfl_default"),
             starters,
             mfl_status: mflStatus,
             mfl_response: parsed || mflResp,
