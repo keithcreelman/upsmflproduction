@@ -40,9 +40,38 @@
 
   var L = getLeagueId(), YEAR = getYear(), FID = getFranchiseId();
   var HOST = safeStr(window.location && window.location.host) || "www48.myfantasyleague.com";
+  // RELEASE SHA — AND WHY IT IS RE-RESOLVED HERE.
+  // The header seeds window.UPS_RELEASE_SHA SYNCHRONOUSLY from sessionStorage
+  // and only then fetches the current main SHA, so anything opened early in a
+  // session loads from whatever commit that session first cached. jsDelivr
+  // serves @<sha> immutably, so the stale pin sticks for the whole session:
+  // merged fixes were live on Pages and on jsDelivr @main, and the embedded
+  // Game Day still ran code from the previous day. Re-resolve it here, cheaply
+  // (~one no-store request against GitHub's .sha media type), and fall back to
+  // whatever we already had if that fails or is slow.
   var SHA = safeStr(window.UPS_RELEASE_SHA) || "main";
-  var ASSET_BASE = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + encodeURIComponent(SHA) + "/site/gameday/";
-  var HTML_URL = ASSET_BASE + "gameday.html?v=" + encodeURIComponent(SHA);
+  function baseFor(sha) {
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + encodeURIComponent(sha) + "/site/gameday/";
+  }
+  function resolveSha() {
+    return new Promise(function (done) {
+      var settled = false;
+      var finish = function (v) { if (!settled) { settled = true; done(v || SHA); } };
+      // Never let SHA resolution delay the embed for long.
+      setTimeout(function () { finish(SHA); }, 1500);
+      try {
+        fetch("https://api.github.com/repos/keithcreelman/upsmflproduction/commits/main", {
+          headers: { Accept: "application/vnd.github.sha" }, cache: "no-store"
+        }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
+          t = safeStr(t).trim();
+          if (/^[0-9a-f]{7,40}$/i.test(t)) {
+            try { window.UPS_RELEASE_SHA = t; sessionStorage.setItem("ups_release_sha_v1", t); } catch (e) {}
+            finish(t);
+          } else { finish(SHA); }
+        }).catch(function () { finish(SHA); });
+      } catch (e) { finish(SHA); }
+    });
+  }
 
   var mount = document.getElementById("gameDayMount") || (function () {
     var d = document.createElement("div"); d.id = "gameDayMount"; document.body.appendChild(d); return d;
@@ -69,7 +98,10 @@
       '<\/script>';
   }
 
-  fetch(HTML_URL, { cache: "no-store" })
+  resolveSha().then(function (sha) {
+  var ASSET_BASE = baseFor(sha);
+  var HTML_URL = ASSET_BASE + "gameday.html?v=" + encodeURIComponent(sha);
+  return fetch(HTML_URL, { cache: "no-store" })
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
     .then(function (html) {
       var head = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, host: HOST, franchiseId: FID });
@@ -79,6 +111,7 @@
     .catch(function (err) {
       mount.innerHTML = '<div style="padding:24px;color:#f88;font-family:sans-serif">Game Day failed to load: ' + escAttr(err.message) + '</div>';
     });
+  });
 
   window.addEventListener("message", function (ev) {
     if (ev && ev.data && ev.data.type === "gameday-height") {
