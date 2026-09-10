@@ -5,7 +5,7 @@
  },
  "prose": {
   "kicker": "Last in the league, and one of the few owners whose opening night went to plan",
-  "title": "The Hawks Tagged Patrick Mahomes in May and Opened the Season Without Him",
+  "title": "The Hawks Went Into the Auction Without a Quarterback and Came Out With Two",
   "dek": "Chris Klingenberg began April with {{f.team.0012.studs_opening}} top-twelve players and no quarterback at all. He nearly doubled his lineup value at the auction and still ranks {{f.team.0012.composite_rank}} of {{f.league.teams}} with {{f.team.0012.holes_today}} holes.",
   "sections": [
    {
@@ -13,7 +13,7 @@
     "lead": "",
     "paragraphs": [
      "Quarterback is the one room that works, ranking {{f.team.0012.qb_rank}}. Matthew Stafford grades Low-end QB1 and Jared Goff High-end QB2 in the superflex. That is a functional superflex pair and it cost him most of his summer.",
-     "Everything else on offense is short. Receiver ranks {{f.team.0012.wr_rank}}, last in the league: Mike Evans is a Mid WR3, rookie Carnell Tate a Low-end WR3, Michael Wilson a High-end WR4 in the flex. The backfield ranks {{f.team.0012.rb_rank}} on Kyren Williams at High-end RB2 and Rhamondre Stevenson at Low-end RB3, with J.K. Dobbins, a Replacement-level RB, in the other flex. Travis Kelce is a Low-end TE1 and tight end ranks {{f.team.0012.te_rank}}.",
+     "Everything else on offense is short. Receiver ranks {{f.team.0012.wr_rank}}, last in the league: Mike Evans is a Mid WR3, rookie Carnell Tate a Low-end WR3, Michael Wilson a High-end WR4 in the flex. The backfield ranks {{f.team.0012.rb_rank}} on Kyren Williams at High-end RB2 and Rhamondre Stevenson at Mid RB3, with J.K. Dobbins, a Replacement-level RB, in the other flex. Travis Kelce is a Low-end TE1 and tight end ranks {{f.team.0012.te_rank}}.",
      "The defense has one real player and a lot of empty chairs. Marcus Jones grades Elite DB1 and is carried at the league minimum, which is the best thing on this roster by some margin. George Karlaftis is a Low-end DL2. After that: Chop Robinson and Abdul Carter both Replacement-level DL, Fred Warner a Replacement-level LB, and two starting slots filled by CJ Allen and Mansoor Delane, rookies no source can rate because neither has played an NFL season.",
      "That is not this year's accident. {{f.team.0012.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0012.idp_adds_rank}}, points per started defender ranks {{f.team.0012.idp_ppw_rank}} \u2014 last in the league \u2014 and he put {{f.team.0012.idp_auction_share}} of his auction money into defenders, the smallest share of any owner at {{f.team.0012.idp_auction_share_rank}} of {{f.league.teams}}. Three other teams built elite defensive fronts out of minimum-salary players this summer. He spent {{f.team.0012.idp_auction_spend}} and got what that buys.",
      "Composite {{f.team.0012.composite_rank}} of {{f.league.teams}}, {{f.team.0012.studs_today}} studs, {{f.team.0012.holes_today}} holes \u2014 the most in the league."
@@ -45,8 +45,7 @@
     "lead": "",
     "paragraphs": [
      "{{f.team.0012.contracts_count}} contract moves, {{f.team.0012.trades_count}} trade, {{f.team.0012.roster_removals_total}} removals, {{f.team.0012.cuts_penalty_2026}} charged this season and {{f.team.0012.cuts_penalty_2027_deferred}} deferred to next.",
-     "The first row on the contract sheet is the strangest thing in this article. In May he applied a franchise tag to Patrick Mahomes at a salary that would have been among the largest in the league. Mahomes is not on his roster. He left it two days later, and in late July Gride bought him at auction. The tag is in the ledger, the player is somewhere else, and the quarterback slot the tag was presumably meant to fill sat empty until Matthew Stafford arrived in August at roughly half the price.",
-     "Everything else is auction conversion: Goff, Stafford, Stevenson, Rachaad White, DeMarvion Overshown and Borregales all moved onto multi-year deals, and only Borregales is at the league minimum.",
+     "The contract sheet is all auction conversion: Goff, Stafford, Stevenson, Rachaad White, DeMarvion Overshown and Borregales all moved onto multi-year deals, and only Borregales is at the league minimum.",
      "The single trade is small and good: a 2027 fourth to Real Deal Creel for George Karlaftis and a 2027 fifth. Karlaftis starts on the defensive line and is the second-best defender he owns.",
      "Marquise Brown was the only real cut, carrying a penalty deferred to next season. The rest is {{f.team.0012.inyear_flyers}} in-year flyers, two of them the same player.",
      "The rookie class is his best asset and the reason not to write him off. {{f.team.0012.rookie_picks_count}} picks, led by Carnell Tate at 1.02 \u2014 one of the strongest historical slots in the class \u2014 who is already starting as a Low-end WR3. Makai Lemon at 1.06 and Kaelon Black at 2.02 came from decent bands and grade replacement-level so far. Two defenders at 4.02 and 6.12 are unrated by any source, which is not a verdict on them."
