@@ -1254,8 +1254,28 @@
       fetchJson(sbExportUrl("playerScores", wk))      // every player's actual points that week → positional rank
     ]).then(function (r) {
       var live = r[0], weekly = r[1];
-      var liveFr = (live && live.liveScoring && asArray(live.liveScoring.franchise).filter(function (f) { return f && f.id; })) || [];
-      var source = liveFr.length ? "live" : ((weekly && weekly.weeklyResults && weekly.weeklyResults.matchup) ? "weekly" : "live");
+      // SOURCE SELECTION. This tested only liveScoring.franchise[] -- but MFL
+      // returns a normal week's teams inside matchup[].franchise[] and omits the
+      // top-level array entirely, so the count was always 0, the scoreboard fell
+      // through to weeklyResults, and weeklyResults for an unplayed week is a
+      // full set of matchups with every score at 0.0. The result was a live
+      // scoreboard reading 0.0 for all twelve teams while liveScoring had real
+      // points for seven of them, badged "Final" in the middle of Week 1
+      // (the Final badge is just source === "weekly").
+      var liveFr = sbLiveFranchiseCount(live);
+      var weeklyHasMatchup = !!(weekly && weekly.weeklyResults &&
+                                asArray(weekly.weeklyResults.matchup).length);
+      // Prefer weeklyResults ONLY when it actually holds a played week: it
+      // carries the W/L result, the clean multi-header pairings and the "Final"
+      // badge. For a week IN PROGRESS it returns a full set of matchups with
+      // every score still 0.0, which is indistinguishable from a real result by
+      // shape alone -- so test for a scored week, not merely a present one.
+      // (Comparing the selected week to liveScoring.week does not work: the
+      // worker injects an APIKEY, so liveScoring serves any week on request.)
+      var weeklyScored = weeklyHasMatchup && asArray(weekly.weeklyResults.matchup).some(function (m) {
+        return asArray(m.franchise).some(function (f) { return Math.abs(parseFloat(f && f.score) || 0) > 0.001; });
+      });
+      var source = weeklyScored ? "weekly" : (liveFr ? "live" : (weeklyHasMatchup ? "weekly" : "live"));
       var franchises = [];
       try { franchises = asArray(r[4].league.franchises.franchise).map(function (f) { return { id: pad4(f.id), name: s(f.name) }; }); } catch (e) {}
       var proj = {};
@@ -1286,6 +1306,19 @@
     });
   }
   function sbSource() { return (STATE.sb && STATE.sb.source) || "live"; }
+  // Teams appear in ONE of two shapes depending on the week: a top-level
+  // franchise[] (playoff//some weeks) or inside matchup[].franchise[] (normal
+  // weeks). sbFranchiseRaw already reads both; the source test did not.
+  function sbLiveFranchiseCount(live) {
+    var ls = live && live.liveScoring;
+    if (!ls) return 0;
+    var n = asArray(ls.franchise).filter(function (f) { return f && f.id; }).length;
+    if (n) return n;
+    asArray(ls.matchup).forEach(function (m) {
+      n += asArray(m.franchise).filter(function (f) { return f && f.id; }).length;
+    });
+    return n;
+  }
   function sbLive() { return (STATE.sb && STATE.sb.live && STATE.sb.live.liveScoring) || null; }
   function sbWeekly() { return (STATE.sb && STATE.sb.weekly && STATE.sb.weekly.weeklyResults) || null; }
   function sbFranchises() { return (STATE.sb && STATE.sb.franchises) || STATE.franchises; }
