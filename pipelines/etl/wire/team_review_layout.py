@@ -117,21 +117,33 @@ def apply_layout(prose, pack):
     secs["s1"].update(place=[tid("lineup")], placeAt={tid("lineup"): 0}, views={tid("lineup"): {
         "cols": ["slot", "player", "val"], "labels": {"val": "Grade"}, "title": "Strongest legal lineup"}})
 
-    # Where a stage had fewer players than starting slots, the pack's own column
-    # label says NO LINEUP; the reader-facing label keeps that caveat.
-    sb = dict((c["key"], c["label"]) for c in tables["slot_bridge"]["columns"])
-    short = lambda key, word: word + (" (short of a lineup)" if "NO LINEUP" in sb[key].upper() else "")
+    # No "(short of a lineup)" on the April columns. Keith: every roster is short
+    # in April -- contracts expire and the auction refills them -- so saying so
+    # is noise, and he had already said it once.
     secs["s2"].update(place=[tid("slot_bridge")], placeAt={tid("slot_bridge"): 0}, views={tid("slot_bridge"): {
         "cols": ["slot", "open", "pre", "now"], "stack": True, "title": "Who filled each priced slot",
-        "labels": {"open": short("open", "April"), "pre": short("pre", "Before the auction"),
-                   "now": short("now", "After it")}}})
+        "labels": {"open": "April", "pre": "Before the auction", "now": "After it"}}})
 
     p3 = secs["s3"]["paragraphs"]
-    secs["s3"].update(
-        place=[tid("auction")],
-        placeAt={tid("auction"): _first(p3, lambda x: "Free Agent Auction" in x or "faa_" in x)},
-        views={tid("auction"): {"cols": ["player", "pos", "auction", "price"], "sortDesc": "price", "rows": 5,
-                                "title": "Biggest buys", "labels": {"auction": "Where"}}})
+    place3 = [tid("auction")]
+    at3 = {tid("auction"): _first(p3, lambda x: "Free Agent Auction" in x or "faa_" in x)}
+    views3 = {tid("auction"): {"cols": ["player", "pos", "auction", "price"], "sortDesc": "price", "rows": 5,
+                               "title": "Biggest buys", "labels": {"auction": "Where"}}}
+    caps3 = {}
+    # The league comparison from team_review_league.py, beside the paragraph that
+    # uses it ("value per dollar" -- Keith asked for every owner's, not one).
+    if "faa_value" in tables:
+        place3.append(tid("faa_value"))
+        k = _first(p3, lambda x: "faa_off_" in x, default=-1)
+        if k >= 0:
+            at3[tid("faa_value")] = k
+        views3[tid("faa_value")] = {"cols": ["team", "spend", "spend_share", "gain_share", "rate"], "stack": True,
+                                    "title": "What the money bought, league-wide"}
+        caps3[tid("faa_value")] = ("Offense only: what each owner spent on quarterbacks, backs, receivers "
+                                   "and tight ends at the Free Agent Auction, and how much better his starting "
+                                   "offense got between the auction lock and the close. Above one times is "
+                                   "more value per dollar than the league as a whole.")
+    secs["s3"].update(place=place3, placeAt=at3, views=views3, captions=caps3)
 
     if tables["trades"]["rows"]:
         p4 = secs["s4"]["paragraphs"]

@@ -311,6 +311,32 @@ THE KICKER IS A LABEL, NOT A SENTENCE: "<team name> · <owner's full name>",
 e.g. "Real Deal Creel · Keith Creelman". The index lists twelve of these side by
 side and the label is how a reader finds his own team. Put the hook in the dek.
 
+NEVER QUOTE A RAW LINEUP-VALUE NUMBER. The lineup_value_* facts ("38,878 of
+lineup value") are an internal unit and mean nothing to a reader -- Keith said
+so twice. Use them only to reason. Say what changed in words the league uses
+(holes filled, studs added, "nearly doubled"), and for money, use the league
+comparison: the f.team.*.faa_off_* facts say what share of the league's
+offensive auction money this owner spent, what share of the league's lineup
+improvement he got, and where that ranks. An owner who had no holes had little
+to improve; say that rather than scoring him as wasteful.
+
+DEFENSE IS A FOOTNOTE, NOT A HEADLINE. Keith, 2026-09-10: "Are you overrating
+defense? They don't have SIGNIFICANT value." The league's own analysis agrees:
+no cheap defensive auction buy has ever become a 15-point-a-week starter, about
+half of top-24 defenders come off the waiver wire (six percent on offense), and
+the best and worst defensive histories differ by about two points per started
+defender per week, most of it fixable for free. So: never lead a title or dek
+with defense; a verdict's "biggest advantage/weakness" is offensive unless the
+defense genuinely decides it; and a thin defense is the cheapest problem in the
+league to fix -- say that, never call it a "genuine vulnerability". One short
+line on the defense per review is plenty. (The overall rank is offense-only.)
+
+DO NOT MENTION WHETHER A ROSTER COULD FIELD A LEGAL LINEUP in April or at the
+auction lock. Every roster is short in the offseason -- contracts expire and the
+auction refills it -- so "too few for a legal lineup" is noise. Use the bridge
+table's "Could field a lineup?" column only to know which slot assignments to
+ignore.
+
 This is ONE OWNER'S full offseason arc, told in three stages: entering the
 offseason, entering the auction, and now. Keep two things conceptually
 separate and say so if they diverge: the STRONGEST team (carried strength --

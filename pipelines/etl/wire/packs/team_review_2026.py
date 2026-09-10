@@ -79,7 +79,26 @@ def _fresh_adp_board():
     average) -- confirmed against all four cases above, every one came out
     right. `rsfConfidence` ("single-source" / "agree" / "elevated") is
     carried through as a real caveat on the value, not silently dropped.
+
+    ONE BOARD FOR A WHOLE SEASON'S BUILD. The board is live and moves during
+    the day -- the Hawks pack rebuilt at 16:13 read 220 players where the other
+    eleven, built 15:02-15:07, read 221 -- so twelve packs built one after
+    another are not valued on the same market, and team_review_league.py
+    compares them with each other. Set WIRE_ADP_BOARD_CACHE to a file path: the
+    first build fetches the board and saves it there, and every later build
+    reads the same bytes back. The pack's source entry records when THAT board
+    was fetched, not when each build ran.
     """
+    global _BOARD_FETCHED_AT
+    import datetime as _dt
+    import io as _io
+    import os as _os
+    cache = _os.environ.get("WIRE_ADP_BOARD_CACHE")
+    if cache and _os.path.exists(cache):
+        c = json.load(_io.open(cache, encoding="utf-8"))
+        _BOARD_FETCHED_AT = c["fetchedAt"]
+        return c["rsf"], c["name"], c["pos_rank"], c["confidence"]
+    _BOARD_FETCHED_AT = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     base = D.WORKER_BASE + "/api/adp-board"
     rsf, name, pos_rank, confidence = {}, {}, {}, {}
     board_rows = {}
@@ -116,7 +135,14 @@ def _fresh_adp_board():
     for pos, rows in board_rows.items():
         for i, (pid, _v) in enumerate(sorted(rows, key=lambda r: -r[1]), 1):
             pos_rank[pid] = i
+    if cache:
+        _io.open(cache, "w", encoding="utf-8").write(json.dumps(
+            {"fetchedAt": _BOARD_FETCHED_AT, "rsf": rsf, "name": name,
+             "pos_rank": pos_rank, "confidence": confidence}))
     return rsf, name, pos_rank, confidence
+
+
+_BOARD_FETCHED_AT = None
 
 
 # The 9 legal-lineup slots whose eligible positions ADP actually prices.
@@ -517,8 +543,7 @@ def build(pack_id):
               "carry more uncertainty than a value both sources agree on, per the endpoint's "
               "own rsfConfidence flag." % single_source_n)
     pack.source("worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-               __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
-               .strftime("%Y-%m-%dT%H:%M:%SZ"),
+               _BOARD_FETCHED_AT,
                rows=len(rsf), note="current, NOT the 2026-07-21 committed snapshot")
 
     dates = D.snapshot_dates()
