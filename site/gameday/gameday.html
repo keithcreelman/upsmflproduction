@@ -236,6 +236,10 @@
   .gd-sb-ros tr.gd-sb-prow { cursor: pointer; }
   .gd-sb-ros tr.gd-sb-prow:hover td { background: rgba(91,141,255,0.07); }
   .gd-sb-ros tr.gd-sb-prow.open td { background: rgba(91,141,255,0.11); }
+  .gd-sb-order { display: flex; align-items: center; justify-content: flex-end; font-size: 11px; font-weight: 700; color: var(--muted); padding: 8px 2px 6px; }
+  .gd-sb-ros tr.gd-sb-grp td { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-top: 10px; padding-bottom: 4px; border-top: 1px solid var(--line); background: rgba(255,255,255,0.025); }
+  .gd-sb-ros tr.gd-sb-grp td .n { font-weight: 600; letter-spacing: 0; opacity: 0.65; margin-left: 6px; }
+  .gd-sb-ros tr.gd-sb-grp td.gd-taxi-sal { font-variant-numeric: tabular-nums; }
   .gd-bd-tr > td { padding: 0 !important; }
   .gd-bd { background: rgba(91,141,255,0.06); border-left: 2px solid var(--accent); padding: 10px 12px 11px; }
   .gd-bd-game { display: block; font-size: 11px; color: var(--muted); margin-bottom: 7px; }
@@ -1620,6 +1624,11 @@
     el.querySelectorAll("[data-sbview]").forEach(function (b) {
       b.addEventListener("click", function () { STATE.sbView = b.getAttribute("data-sbview"); render(); });
     });
+    // stopPropagation: the table can sit inside the collapsible matchup header,
+    // and a tap on the order toggle must not also collapse the matchup.
+    el.querySelectorAll("[data-sborder]").forEach(function (b) {
+      b.addEventListener("click", function (e) { e.stopPropagation(); setSbOrder(b.getAttribute("data-sborder")); render(); });
+    });
     el.querySelectorAll("tr.gd-sb-prow[data-bd-row]").forEach(function (tr) {
       tr.addEventListener("click", function (e) {
         // A modified click ON THE NAME still opens the MFL profile in a new tab,
@@ -1777,10 +1786,25 @@
     }
     return '<tr class="gd-bd-tr"><td colspan="6"><div class="gd-bd">' + inner + '</div></td></tr>';
   }
+  // Roster order inside an expanded matchup: "pos" groups starters by position
+  // in lineup order (the default); "pts" is one list by projected finish, the
+  // original order. Remembered per browser; an unreadable store just means the
+  // default.
+  var SB_ORDER_KEY = "ups_gd_sb_order_v1";
+  function sbOrder() {
+    if (!STATE.sbOrder) {
+      var v = ""; try { v = localStorage.getItem(SB_ORDER_KEY) || ""; } catch (_) {}
+      STATE.sbOrder = (v === "pts") ? "pts" : "pos";
+    }
+    return STATE.sbOrder;
+  }
+  function setSbOrder(v) {
+    STATE.sbOrder = (v === "pts") ? "pts" : "pos";
+    try { localStorage.setItem(SB_ORDER_KEY, STATE.sbOrder); } catch (_) {}
+  }
   function rosterTable(team) {
     if (!team.starters.length) return '<div class="gd-stub" style="padding:14px">No starters scored yet.</div>';
-    return '<table class="gd-taxi-table gd-sb-ros"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>State</th><th style="text-align:right">Live</th><th style="text-align:right">Proj</th></tr></thead><tbody>' +
-      team.starters.map(function (p) {
+    function rowHtml(p) {
         var st = p.done ? '<span class="gd-sb-st done">Final</span>'
           : p.playing ? '<span class="gd-sb-st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
           : '<span class="gd-sb-st yet">Yet</span>';
@@ -1802,7 +1826,18 @@
           '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(projVal) + '</td></tr>';
         if (STATE.sbPlayerExp === p.pid) row += breakdownRow(p);
         return row;
-      }).join("") + '</tbody></table>';
+    }
+    var order = sbOrder();
+    var toggle = '<div class="gd-sb-order">Order<span class="gd-sb-toggle">' +
+      '<button type="button" data-sborder="pos"' + (order === "pos" ? ' class="on"' : '') + '>Position</button>' +
+      '<button type="button" data-sborder="pts"' + (order === "pts" ? ' class="on"' : '') + '>Points</button></span></div>';
+    var body = order === "pos"
+      ? LS.groupStarters(team.starters).map(function (g) {
+          return '<tr class="gd-sb-grp"><td colspan="4">' + esc(g.label) + '<span class="n">' + g.rows.length + '</span></td>' +
+            '<td class="gd-taxi-sal">' + fmtPts(g.live) + '</td><td></td></tr>' + g.rows.map(rowHtml).join("");
+        }).join("")
+      : team.starters.map(rowHtml).join("");
+    return toggle + '<table class="gd-taxi-table gd-sb-ros"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>State</th><th style="text-align:right">Live</th><th style="text-align:right">Proj</th></tr></thead><tbody>' + body + '</tbody></table>';
   }
 
   // ---------- boot ----------

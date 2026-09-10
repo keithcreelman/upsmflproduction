@@ -255,6 +255,44 @@
     return { kind: "pre", good: true, text: "projected " + f(op) + " · has not played yet" };
   }
 
+  /* ---- position grouping --------------------------------------------- */
+
+  // One mapping for both scoreboards. Desktop Game Day keeps its OWN copy of
+  // this for Submit Lineup, deliberately: that panel must keep working even if
+  // this file fails to load, whereas the scoreboard already depends on it.
+  function posGroup(pos) {
+    var p = String(pos == null ? "" : pos).trim().toUpperCase();
+    if (p === "QB") return "QB";
+    if (p === "RB" || p === "FB" || p === "HB") return "RB";
+    if (p === "WR") return "WR";
+    if (p === "TE") return "TE";
+    if (p === "PK" || p === "K") return "PK";
+    if (p === "PN" || p === "P") return "PN";
+    if (p === "DT" || p === "DE" || p === "NT" || p === "DL") return "DL";
+    if (p === "LB" || p === "OLB" || p === "ILB" || p === "MLB") return "LB";
+    if (p === "CB" || p === "S" || p === "FS" || p === "SS" || p === "DB") return "DB";
+    return "OTH";
+  }
+  // Lineup-card order, so a grouped table reads top to bottom like a lineup.
+  var POS_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB", "OTH"];
+  var POS_LABEL = { PK: "K", PN: "P", OTH: "Other" };
+  // starters -> [{ group, label, rows, live }] in lineup order. Rows keep the
+  // order they arrive in -- computeTeam sorts by projected finish -- so inside
+  // each group the best-projected player still comes first. `live` is the
+  // group's points so far.
+  function groupStarters(starters) {
+    var by = {};
+    (starters || []).forEach(function (p) {
+      var g = posGroup(p && p.pos);
+      (by[g] = by[g] || []).push(p);
+    });
+    return POS_ORDER.filter(function (g) { return by[g]; }).map(function (g) {
+      var live = 0;
+      by[g].forEach(function (p) { live += num(p && p.live); });
+      return { group: g, label: POS_LABEL[g] || g, rows: by[g], live: live };
+    });
+  }
+
   /* ---- identity -------------------------------------------------------- */
 
   // MFL hands a commissioner "0000" — the league id, not a team — and
@@ -277,6 +315,7 @@
     computeTeam: computeTeam,
     normCdf: normCdf, winProb: winProb,
     matchupState: matchupState, outcome: outcome, h2hRecord: h2hRecord,
-    projectionNote: projectionNote, resolveViewFid: resolveViewFid
+    projectionNote: projectionNote, resolveViewFid: resolveViewFid,
+    posGroup: posGroup, groupStarters: groupStarters, POS_ORDER: POS_ORDER
   };
 })(typeof window !== "undefined" ? window : this);
