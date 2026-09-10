@@ -113,8 +113,19 @@
       fetchJson(sbExportUrl("playerScores", wk))   // every player's actual points → positional rank
     ]).then(function (r) {
       var live = r[0], weekly = r[1];
-      var liveFr = (live && live.liveScoring && asArray(live.liveScoring.franchise).filter(function (f) { return f && f.id; })) || [];
-      var source = liveFr.length ? "live" : ((weekly && weekly.weeklyResults && weekly.weeklyResults.matchup) ? "weekly" : "live");
+      // SOURCE SELECTION -- the same two facts that broke the desktop board.
+      // MFL returns a normal week's teams inside matchup[].franchise[] and omits
+      // the top-level franchise[] entirely, so counting only franchise[] was
+      // always 0 and this fell through to weeklyResults; and weeklyResults for a
+      // week IN PROGRESS is a full set of matchups with every score at 0.0. The
+      // scoreboard therefore read 0.0 for all twelve teams while liveScoring had
+      // real points.
+      var liveFr = sbLiveFranchiseCount(live);
+      var weeklyHasMatchup = !!(weekly && weekly.weeklyResults && asArray(weekly.weeklyResults.matchup).length);
+      var weeklyScored = weeklyHasMatchup && asArray(weekly.weeklyResults.matchup).some(function (m) {
+        return asArray(m.franchise).some(function (f) { return Math.abs(parseFloat(f && f.score) || 0) > 0.001; });
+      });
+      var source = weeklyScored ? "weekly" : (liveFr ? "live" : (weeklyHasMatchup ? "weekly" : "live"));
       var franchises = [];
       try { franchises = asArray(r[3].league.franchises.franchise).map(function (f) { return { id: pad4(f.id), name: s(f.name) }; }); } catch (e) {}
       var proj = {};
@@ -144,6 +155,32 @@
     });
   }
   function sbSource() { return (M.state.sb && M.state.sb.source) || "live"; }
+  // Teams live in ONE of two shapes depending on the week: a top-level
+  // franchise[] or inside matchup[].franchise[]. sbFranchiseRaw reads both;
+  // the source test has to as well.
+  function sbLiveFranchiseCount(live) {
+    var ls = live && live.liveScoring;
+    if (!ls) return 0;
+    var n = asArray(ls.franchise).filter(function (f) { return f && f.id; }).length;
+    if (n) return n;
+    asArray(ls.matchup).forEach(function (m) {
+      n += asArray(m.franchise).filter(function (f) { return f && f.id; }).length;
+    });
+    return n;
+  }
+  // WHOSE card to show. Every candidate is validated against the real franchise
+  // list: MFL hands a commissioner "0000" (the league id, not a team) and
+  // pad4("0000") is truthy, so an unvalidated id sailed through as a franchise
+  // that does not exist and the card came back empty with no way to pick.
+  function sbViewFid() {
+    var all = sbFranchises();
+    var real = function (v) {
+      var f = pad4(v || "");
+      return (f && all.some(function (x) { return pad4(x.id) === f; })) ? f : "";
+    };
+    return real(M.state.sbViewFid) || real(M.state.viewerFranchiseId) ||
+           (all.length ? pad4(all[0].id) : "");
+  }
   function sbLive() { return (M.state.sb && M.state.sb.live && M.state.sb.live.liveScoring) || null; }
   function sbWeekly() { return (M.state.sb && M.state.sb.weekly && M.state.sb.weekly.weeklyResults) || null; }
   function sbFranchises() { return (M.state.sb && M.state.sb.franchises) || M.state.franchises || []; }
@@ -162,6 +199,11 @@
     if (sbSource() === "weekly") {
       var wr = sbWeekly(), found = null;
       if (wr) asArray(wr.matchup).forEach(function (m) { asArray(m.franchise).forEach(function (f) { if (pad4(f.id) === fid && !found) found = f; }); });
+      // All twelve teams field a lineup in weeks 15-17 (toilet bowl + the
+      // league-wide weekly high-score prize) though the schedule pairs only
+      // eight; MFL puts the unpaired teams in a TOP-LEVEL franchise[]. Reading
+      // matchup[] alone dropped them from the All-Play board entirely.
+      if (!found && wr) found = asArray(wr.franchise).filter(function (f) { return pad4(f.id) === fid; })[0] || null;
       return found;
     }
     var ls = sbLive(); if (!ls) return null;
@@ -280,7 +322,7 @@
     return M.state.sb._posRank[String(pid)] || null;
   }
   function sbOpponents() {
-    var opps = [], meId = M.state.viewerFranchiseId;
+    var opps = [], meId = sbViewFid();
     if (sbSource() === "weekly") {
       var wr = sbWeekly();
       if (wr) asArray(wr.matchup).forEach(function (m) {
@@ -385,7 +427,13 @@
       var lines = d.lines || [], pl = d.player || {}, game = pl.game || pl.score;
       var head = game ? '<div class="ups-m-sb-bd-game">' + esc(game) + '</div>' : '';
       if (!lines.length) {
-        inner = head + '<div class="ups-m-sb-bd-msg">No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.</div>' +
+        // Before kickoff "no scoring stats" is both obvious and useless -- the
+        // projection is the only thing worth showing then.
+        var opEmpty = (p && p.origProj) || 0;
+        var emptyMsg = (p && p.yet) ? 'Has not played yet.'
+          : 'No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.';
+        inner = head + '<div class="ups-m-sb-bd-msg">' + emptyMsg + '</div>' +
+          (opEmpty > 0 ? '<div class="ups-m-sb-bd-exp">projected ' + fmtPts(opEmpty) + '</div>' : '') +
           '<div class="ups-m-sb-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
       } else {
         var rows = transformLines(lines).map(function (l) {
@@ -397,9 +445,23 @@
         // Above / below expectation vs the player's ORIGINAL projection for this week.
         var op = (p && p.origProj) || 0, expLine = "";
         if (op > 0) {
-          var diff = subtotal - op, above = diff >= 0;
-          expLine = '<div class="ups-m-sb-bd-exp ' + (above ? "p" : "n") + '">vs proj ' + fmtPts(op) + ' · ' +
-            (above ? "+" : "") + fmtPts(diff) + ' ' + (above ? "above" : "below") + ' expectation</div>';
+          // Mid-game, points-so-far against a FULL-GAME projection reads as a
+          // miss for every player until the fourth quarter. While the clock is
+          // running show the UPDATED projection instead; the expectation
+          // verdict only means something once there is no clock left.
+          var rem2 = Math.max(0, ((p && p.projFinal) || 0) - ((p && p.live) || 0));
+          if (p && p.done) {
+            var diff = subtotal - op, above = diff >= 0;
+            expLine = '<div class="ups-m-sb-bd-exp ' + (above ? "p" : "n") + '">vs proj ' + fmtPts(op) + ' · ' +
+              (above ? "+" : "") + fmtPts(diff) + ' ' + (above ? "above" : "below") + ' expectation</div>';
+          } else if (p && p.playing) {
+            var nowProj = subtotal + rem2, moved = nowProj - op, up = moved >= 0;
+            expLine = '<div class="ups-m-sb-bd-exp ' + (up ? "p" : "n") + '">projected ' + fmtPts(nowProj) +
+              ' · started at ' + fmtPts(op) + ' · ' + (up ? "+" : "") + fmtPts(moved) +
+              " with " + Math.ceil(((p && p.gsr) || 0) / 60) + "' left</div>";
+          } else {
+            expLine = '<div class="ups-m-sb-bd-exp">projected ' + fmtPts(op) + ' · has not played yet</div>';
+          }
         }
         inner = head + '<div class="ups-m-sb-bd-lines">' + rows + '</div>' +
           '<div class="ups-m-sb-bd-sub"><span>Subtotal</span><span>' + fmtPts(subtotal) + '</span></div>' +
@@ -448,7 +510,13 @@
     }).join("") + '</select>';
     var wOpts = '<option value="">Current</option>';
     for (var w = 1; w <= 18; w++) wOpts += '<option value="' + w + '"' + (String(w) === String(sbWeekSel()) ? " selected" : "") + '>Week ' + w + '</option>';
-    return '<div class="ups-m-sb-controls">' + ySel + '<select class="ups-m-sb-sel" id="ups-m-sb-week">' + wOpts + '</select></div>';
+    var curT = sbViewFid();
+    var tOpts = sbFranchises().map(function (f) {
+      return '<option value="' + esc(pad4(f.id)) + '"' + (pad4(f.id) === curT ? " selected" : "") + '>' + esc(f.name) + '</option>';
+    }).join("");
+    return '<div class="ups-m-sb-controls">' + ySel +
+      '<select class="ups-m-sb-sel" id="ups-m-sb-week">' + wOpts + '</select>' +
+      (tOpts ? '<select class="ups-m-sb-sel" id="ups-m-sb-team">' + tOpts + '</select>' : '') + '</div>';
   }
   function resetSb() { M.state.sb = null; M.state.sbExpand = null; M.state.sbPlayerExp = null; renderRoute(); }
 
@@ -464,7 +532,8 @@
       // Live games → live-blend; pre-game or final → ORIGINAL proj (ties to lineup).
       var meProjLbl = (teamState(me) === "live") ? ('proj ' + fmtPts(team.projFinal)) : ('orig proj ' + fmtPts(team.origProj));
       main = caret +
-        '<span class="ups-m-sb-team"><span class="lbl">My</span> ' + esc(team.name) + h2hChip + '</span>' +
+        '<span class="ups-m-sb-team"><span class="lbl">' +
+          (sbViewFid() === M.state.viewerFranchiseId ? "My" : "Viewing") + '</span> ' + esc(team.name) + h2hChip + '</span>' +
         '<span class="ups-m-sb-num">' + fmtPts(team.live) + '<small>' + meProjLbl + '</small></span>';
     } else {
       var live = matchupState(me, team) === "live", pill = outcomePill(me, team), projLine;
@@ -500,7 +569,7 @@
       bindControls(mount);
       return;
     }
-    var me = sbCompute(M.state.viewerFranchiseId);
+    var me = sbCompute(sbViewFid());
     var opps = sbOpponents().map(function (id) { return sbCompute(id); });
     var wk = sbWeek();
     var statusTag = anyGameLive() ? '<span class="ups-m-sb-livedot">● LIVE</span>'
@@ -520,7 +589,7 @@
     var apRows = all.map(function (x, i) {
       var beat = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) < metricOf(x); }).length;
       var tied = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) === metricOf(x); }).length;
-      var mine = x.fid === M.state.viewerFranchiseId;
+      var mine = x.fid === sbViewFid();
       return '<div class="ups-m-sb-ap-row' + (mine ? " mine" : "") + '">' +
         '<span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(x.name) + '</span>' +
         '<span class="lv">' + fmtPts(x.live) + '</span><span class="pj">' + fmtPts(x.projFinal) + '</span>' +
@@ -543,6 +612,11 @@
   function bindControls(mount) {
     var yEl = mount.querySelector("#ups-m-sb-year");
     if (yEl) yEl.addEventListener("change", function () { M.state.sbYear = yEl.value; resetSb(); });
+    var tEl = mount.querySelector("#ups-m-sb-team");
+    // Switching team is a re-render only -- the payload already holds all twelve.
+    if (tEl) tEl.addEventListener("change", function () {
+      M.state.sbViewFid = tEl.value; M.state.sbExpand = null; M.state.sbPlayerExp = null; M.renderRoute();
+    });
     var wEl = mount.querySelector("#ups-m-sb-week");
     if (wEl) wEl.addEventListener("change", function () { M.state.sbWeek = wEl.value; resetSb(); });
   }

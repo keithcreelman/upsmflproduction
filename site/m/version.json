@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.09.1",
-  "label": "New: division standings on the Standings tab — see your division, your divisional record and who is leading it, not just the league table."
+  "build": "2026.09.09.2",
+  "label": "Fixed: live scoring showed 0.0 for every team. Scores, projections and the All-Play board now update through the games, any team's card can be picked, and a player mid-game shows his updated projection instead of a miss he has not had time to earn."
 }
