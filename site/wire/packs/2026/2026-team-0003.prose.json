@@ -4,9 +4,9 @@
   "packId": "2026-team-0003"
  },
  "prose": {
-  "kicker": "He won the biggest trade of the offseason and then bought a quarterback he did not need",
+  "kicker": "He won the St. Brown trade outright and then bought a quarterback he did not need",
   "title": "Gride Landed Amon-Ra St. Brown, Cash, and Eleventh Place",
-  "dek": "Matt Gerardi took the best player in the summer's biggest trade and got paid {{f.team.0003.trade_blind_bid_cash}} to do it. He still ranks {{f.team.0003.composite_rank}} of {{f.league.teams}}, because he spent almost everything else on the one position he had already solved.",
+  "dek": "Matt Gerardi took the best player in one of the summer's biggest trades and got paid {{f.team.0003.trade_blind_bid_cash}} to do it. He still ranks {{f.team.0003.composite_rank}} of {{f.league.teams}}, because he spent almost everything else on the one position he had already solved.",
   "sections": [
    {
     "id": "s1",
@@ -16,7 +16,7 @@
      "Quarterback ranks {{f.team.0003.qb_rank}} with Patrick Mahomes at Low-end QB1 and Malik Willis at Low-end QB2. Hold that thought. It becomes the story.",
      "The backfield ranks {{f.team.0003.rb_rank}}, which is last, on Cam Skattebo at Mid RB2 and rookie Jadarian Price at Mid RB3, with Kimani Vidal filling a flex as a Replacement-level RB. Tight end also ranks {{f.team.0003.te_rank}}, also last, on Hunter Henry at Replacement-level TE. Two positions, both bottom of the league, and Deebo Samuel in the other flex as a Replacement-level WR.",
      "The defense is close to unmanned. Alex Wright and Myles Murphy are both Replacement-level DL, Malachi Moore is a Replacement-level DB, Grover Stewart fills the last flex as another Replacement-level DL, and one starting linebacker slot holds Anthony Hill Jr., a rookie the production model cannot rate because he has never played an NFL season. Payton Wilson at High-end LB2 and Kamari Lassiter at Low-end DB1 are the only two defenders here who are actually good.",
-     "That is not an accident of one summer either. {{f.team.0003.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0003.idp_adds_rank}}, points per started defender ranks {{f.team.0003.idp_ppw_rank}}, and he put {{f.team.0003.idp_auction_share}} of his auction money into the entire defensive side of the ball \u2014 the {{f.team.0003.idp_auction_share_rank}} smallest share in the league. Composite {{f.team.0003.composite_rank}} of {{f.league.teams}}, {{f.team.0003.studs_today}} studs, {{f.team.0003.holes_today}} holes."
+     "That is not an accident of one summer either. {{f.team.0003.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0003.idp_adds_rank}}, points per started defender ranks {{f.team.0003.idp_ppw_rank}}, and he put {{f.team.0003.idp_auction_share}} of his auction money into the entire defensive side of the ball \u2014 a share that ranks {{f.team.0003.idp_auction_share_rank}} of {{f.league.teams}} from the bottom. Composite {{f.team.0003.composite_rank}} of {{f.league.teams}}, {{f.team.0003.studs_today}} studs, {{f.team.0003.holes_today}} holes."
     ]
    },
    {
@@ -56,7 +56,7 @@
     "lead": "",
     "paragraphs": [
      "He is {{f.team.0003.division_rank}} of {{f.team.0003.division_size}} in his division, behind Blake Bombers and CBP, and he plays both of them twice. Those are the games that decide his seed and he is the underdog in all four of them.",
-     "Strongest team in the league? No \u2014 {{f.team.0003.composite_rank}} of {{f.league.teams}}. Best offseason? Genuinely closer than the rank suggests, and this is the honest tension in his summer: he made the single best individual move anybody made, acquiring a High-end WR1 and cash for three players who do not add up to him, and he built {{f.team.0003.rookie_picks_count}} rookie picks out of a pile of swaps. Then he spent {{f.team.0003.faa_spend}} at auction and used almost half of it on a position the trade market had already handed him.",
+     "Strongest team in the league? No \u2014 {{f.team.0003.composite_rank}} of {{f.league.teams}}. Best offseason? Genuinely closer than the rank suggests, and this is the honest tension in his summer: he made one of the best individual moves of the summer, acquiring a High-end WR1 and cash for three players who do not add up to him, and he built {{f.team.0003.rookie_picks_count}} rookie picks out of a pile of swaps. Then he spent {{f.team.0003.faa_spend}} at auction and used almost half of it on a position the trade market had already handed him.",
      "The biggest advantage is Amon-Ra St. Brown, full stop, with DJ Moore behind him. The biggest weakness is everything that is not a quarterback or a receiver: last in the league at running back, last at tight end, and a defensive unit where four starters grade replacement-level and a fifth has never played.",
      "For the little it is worth this early \u2014 {{f.league.wk_teams_final}} NFL teams had played when this was written \u2014 his two finished starters banked {{f.team.0003.wk_points_final}} points between them. Jadarian Price, the rookie he traded up for, was the better of the two. Hunter Henry, bought at the league minimum, was barely behind him. Neither of those men is a quarterback."
     ]
