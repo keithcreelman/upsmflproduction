@@ -1322,6 +1322,18 @@
   function sbLive() { return (STATE.sb && STATE.sb.live && STATE.sb.live.liveScoring) || null; }
   function sbWeekly() { return (STATE.sb && STATE.sb.weekly && STATE.sb.weekly.weeklyResults) || null; }
   function sbFranchises() { return (STATE.sb && STATE.sb.franchises) || STATE.franchises; }
+  // WHOSE card the scoreboard shows. Defaults to the signed-in owner, but the
+  // commissioner's MFL account does not map to a franchise (resolveViewer scans
+  // owner names and finds nothing), so the whole view collapsed to "no roster"
+  // and there was no way to watch the scores at all. A picker fixes that for
+  // the commish and lets anyone follow another team's card.
+  function sbViewFid() {
+    var f = pad4(STATE.sbViewFid || "");
+    if (f && sbFranchises().some(function (x) { return pad4(x.id) === f; })) return f;
+    if (STATE.viewerFranchiseId) return STATE.viewerFranchiseId;
+    var all = sbFranchises();
+    return all.length ? pad4(all[0].id) : "";
+  }
   function sbWeek() {
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
     var ls = sbLive(); return ls ? String(ls.week || "") : (sbWeekSel() || "");
@@ -1339,6 +1351,14 @@
     if (sbSource() === "weekly") {
       var wr = sbWeekly(); var found = null;
       if (wr) asArray(wr.matchup).forEach(function (m) { asArray(m.franchise).forEach(function (f) { if (pad4(f.id) === fid && !found) found = f; }); });
+      // A team with NO head-to-head game that week still plays: UPS runs a
+      // toilet bowl and a league-wide weekly high-score prize, so all twelve
+      // field a lineup in weeks 15-17 even though the schedule pairs only
+      // eight. MFL puts those unpaired teams in a TOP-LEVEL franchise[]
+      // alongside matchup[] -- 2025 W17 is franchise[]=4 + matchup[]=4, twelve
+      // teams in total. Reading only matchup[] made them vanish, so the
+      // All-Play board scored this owner against 7 opponents instead of 11.
+      if (!found && wr) found = asArray(wr.franchise).find(function (f) { return pad4(f.id) === fid; }) || null;
       return found;
     }
     var ls = sbLive(); if (!ls) return null;
@@ -1462,7 +1482,7 @@
       var wr = sbWeekly();
       if (wr) asArray(wr.matchup).forEach(function (m) {
         var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId && opps.indexOf(id) < 0) opps.push(id); });
+        if (fr.indexOf(sbViewFid()) >= 0) fr.forEach(function (id) { if (id !== sbViewFid() && opps.indexOf(id) < 0) opps.push(id); });
       });
       return opps;
     }
@@ -1472,7 +1492,7 @@
       var wrow = weeks.find(function (w) { return String(w.week) === wk; }) || null;
       if (wrow) asArray(wrow.matchup).forEach(function (m) {
         var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId) opps.push(id); });
+        if (fr.indexOf(sbViewFid()) >= 0) fr.forEach(function (id) { if (id !== sbViewFid()) opps.push(id); });
       });
     }
     // Fallback to liveScoring's own matchup pairing when the schedule export
@@ -1481,7 +1501,7 @@
       var ls = sbLive();
       if (ls) asArray(ls.matchup).forEach(function (m) {
         var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId && opps.indexOf(id) < 0) opps.push(id); });
+        if (fr.indexOf(sbViewFid()) >= 0) fr.forEach(function (id) { if (id !== sbViewFid() && opps.indexOf(id) < 0) opps.push(id); });
       });
     }
     return opps;
@@ -1511,13 +1531,22 @@
     var selWk = sbWeekSel();
     var wOpts = '<option value=""' + (!selWk ? " selected" : "") + '>Current week</option>';
     for (var w = 1; w <= 18; w++) wOpts += '<option value="' + w + '"' + (String(w) === String(selWk) ? " selected" : "") + '>Week ' + w + '</option>';
-    return '<div class="gd-sb-filter"><select id="gd-sb-year">' + yOpts + '</select><select id="gd-sb-week">' + wOpts + '</select></div>';
+    var cur = sbViewFid();
+    var tOpts = sbFranchises().map(function (f) {
+      return '<option value="' + esc(pad4(f.id)) + '"' + (pad4(f.id) === cur ? " selected" : "") + '>' + esc(f.name) + '</option>';
+    }).join("");
+    return '<div class="gd-sb-filter"><select id="gd-sb-year">' + yOpts + '</select><select id="gd-sb-week">' + wOpts + '</select>' +
+           (tOpts ? '<select id="gd-sb-team" title="Whose scoreboard to show">' + tOpts + '</select>' : '') + '</div>';
   }
   function bindWeekControls(el) {
     var yEl = el.querySelector("#gd-sb-year");
     if (yEl) yEl.addEventListener("change", function () { STATE.sbYear = yEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
     var wEl = el.querySelector("#gd-sb-week");
     if (wEl) wEl.addEventListener("change", function () { STATE.sbWeek = wEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
+    var tEl = el.querySelector("#gd-sb-team");
+    // Switching team re-renders only -- the scoreboard payload already holds
+    // every franchise, so there is nothing to re-fetch.
+    if (tEl) tEl.addEventListener("change", function () { STATE.sbViewFid = tEl.value; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
   }
 
   function renderLive(el) {
@@ -1534,7 +1563,7 @@
       bindWeekControls(el);
       return;
     }
-    var me = sbCompute(STATE.viewerFranchiseId);
+    var me = sbCompute(sbViewFid());
     var opps = sbOpponents().map(function (id) { return sbCompute(id); });
     var wk = sbWeek();
     var sbView = STATE.sbView || "proj";
@@ -1560,7 +1589,11 @@
     var meProjLbl = (meState === "live") ? ('proj ' + fmtPts(me.projFinal)) : ('orig proj ' + fmtPts(me.origProj));
     var meRow = '<div class="gd-sb-match">' +
       '<div class="gd-sb-match-row gd-sb-mine" data-oppexp="me">' +
-        '<div class="gd-sb-opp"><span class="vs">My</span> ' + esc(me.name) + h2hChip + '</div>' +
+        // "My" only when it really is the signed-in owner -- the picker lets a
+        // commissioner (whose MFL account maps to no franchise) watch anyone.
+        '<div class="gd-sb-opp"><span class="vs">' +
+          (sbViewFid() === STATE.viewerFranchiseId ? "My" : "Viewing") + '</span> ' +
+          esc(me.name) + h2hChip + '</div>' +
         '<div class="gd-sb-nums"><span class="s">' + fmtPts(me.live) + '</span><span class="p">' + meProjLbl + '</span></div>' +
         '<div class="gd-sb-wp"></div>' +
         '<div class="gd-sb-exp">' + (meOpen ? '▾' : '▸') + '</div>' +
@@ -1608,7 +1641,7 @@
     var apRows = all.map(function (x, i) {
       var beat = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) < metricOf(x); }).length;
       var tied = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) === metricOf(x); }).length;
-      var mine = x.fid === STATE.viewerFranchiseId;
+      var mine = x.fid === sbViewFid();
       return '<tr' + (mine ? ' class="me"' : '') + '><td class="rk">' + (i + 1) + '</td><td>' + esc(x.name) + '</td>' +
         '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(x.live) + '</td>' +
         '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(x.projFinal) + '</td>' +
