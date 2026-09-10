@@ -232,6 +232,10 @@
   @media (max-width: 720px) { .gd-sb-match-row { grid-template-columns: 1fr 1fr; row-gap: 8px; } .gd-sb-wp { grid-column: 1 / -1; } .gd-sb-exp { display: none; } }
   /* Player scoring breakdown — inline expand under a starter row (MFL Detailed Results) */
   a.gd-plink { cursor: pointer; }
+  /* The whole starter row opens the scoring breakdown. */
+  .gd-sb-ros tr.gd-sb-prow { cursor: pointer; }
+  .gd-sb-ros tr.gd-sb-prow:hover td { background: rgba(91,141,255,0.07); }
+  .gd-sb-ros tr.gd-sb-prow.open td { background: rgba(91,141,255,0.11); }
   .gd-bd-tr > td { padding: 0 !important; }
   .gd-bd { background: rgba(91,141,255,0.06); border-left: 2px solid var(--accent); padding: 10px 12px 11px; }
   .gd-bd-game { display: block; font-size: 11px; color: var(--muted); margin-bottom: 7px; }
@@ -1661,12 +1665,17 @@
     el.querySelectorAll("[data-sbview]").forEach(function (b) {
       b.addEventListener("click", function () { STATE.sbView = b.getAttribute("data-sbview"); render(); });
     });
-    el.querySelectorAll("a.gd-plink[data-bd-pid]").forEach(function (a) {
-      a.addEventListener("click", function (e) {
-        // Modified clicks (cmd/ctrl/shift/middle) fall through to the MFL page.
-        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    el.querySelectorAll("tr.gd-sb-prow[data-bd-row]").forEach(function (tr) {
+      tr.addEventListener("click", function (e) {
+        // A modified click ON THE NAME still opens the MFL profile in a new tab,
+        // so cmd/ctrl/shift/middle keep working exactly as before.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+          if (e.target && e.target.closest && e.target.closest("a.gd-plink")) return;
+        }
+        // Let a real text selection through rather than collapsing the panel.
+        try { if (String(window.getSelection()) .length > 0) return; } catch (_) {}
         e.preventDefault();
-        var pid = a.getAttribute("data-bd-pid");
+        var pid = tr.getAttribute("data-bd-row");
         if (STATE.sbPlayerExp === pid) { STATE.sbPlayerExp = null; render(); return; }
         STATE.sbPlayerExp = pid;
         loadBreakdown(pid);
@@ -1829,7 +1838,10 @@
         var rkBadge = rk ? ' <span class="gd-sb-prank" title="Position rank by points this week">' + esc(rk.group) + '#' + rk.rank + '</span>' : '';
         // Proj cell shows the ORIGINAL projection once the player is final.
         var projVal = p.done ? p.origProj : p.projFinal;
-        var row = '<tr><td>' + nameCell + rkBadge + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
+        // The entire row toggles the breakdown -- the name link was a small
+        // target, and there is nothing else on the row to click.
+        var row = '<tr class="gd-sb-prow' + (STATE.sbPlayerExp === p.pid ? ' open' : '') +
+          '" data-bd-row="' + esc(p.pid) + '"><td>' + nameCell + rkBadge + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
           '<td class="gd-taxi-pos">' + esc(p.nfl || "—") + '</td><td>' + st + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(p.live) + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(projVal) + '</td></tr>';
