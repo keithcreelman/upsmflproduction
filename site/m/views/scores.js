@@ -47,7 +47,25 @@
   function injuryFactor(status) {
     var st = s(status).toUpperCase();
     if (!st) return 1;
-    if (st.indexOf("OUT") >= 0 || st.indexOf("IR") >= 0 || st.indexOf("PUP") >= 0 || st.indexOf("SUSP") >= 0) return 0;
+    // Zero means "expect nothing more from him this week", and it must cover
+    // every shape MFL actually serves. Observed live on 2026-09-09 across 389
+    // rows: Out, Questionable, Doubtful, Holdout, Suspended, RETIRED, IR,
+    // IR-PUP, IR-NFI, IR-R.
+    //
+    // RETIRED was only ever zeroed BY ACCIDENT -- "reTIRed" happens to contain
+    // "IR" -- so it is spelled out here rather than left to a coincidence.
+    // Holdout is caught by the OUT substring, which is also why this must be a
+    // substring test and not an equality one: the desktop copy compared
+    // === "OUT" and therefore scored a holdout at full projection.
+    if (st.indexOf("OUT") >= 0 ||        // Out, Holdout, "Out - Injury"
+        st.indexOf("IR") >= 0 ||         // IR, IR-PUP, IR-NFI, IR-R
+        st.indexOf("PUP") >= 0 ||
+        st.indexOf("NFI") >= 0 ||
+        st.indexOf("SUSP") >= 0 ||
+        st.indexOf("RETIRED") >= 0 ||
+        st === "NA") return 0;
+    // DOUBTFUL contains no "OUT", so ordering here is not load-bearing --
+    // but keep these after the zero cases regardless.
     if (st.indexOf("DOUB") >= 0) return 0.40;
     if (st.indexOf("QUES") >= 0) return 0.75;
     return 1;
