@@ -346,18 +346,6 @@
       fetchJson(mflExportUrl("salaries")),
       fetchJson(mflExportUrl("players", { DETAILS: "1" })),
       fetchJson(mflExportUrl("projectedScores")),   // current-week projections (keyless)
-      // liveScoring, for its WEEK ONLY. projectedScores.week is NOT the week
-      // being played: MFL rolls the projection week forward the moment the
-      // first game of a week kicks off, so on 2026-09-10 -- with Week 1 wide
-      // open and only the Wednesday NEP/SEA game finished -- projectedScores
-      // said 2 while liveScoring said 1. Every lineup surface keyed off the
-      // former, so Submit Lineup read Week 2's (empty) lineup, labelled itself
-      // Week 2, pulled Week 2 matchup ratings and posted week=2. The worker
-      // already overrides the submitted week from liveScoring (PR #1051); this
-      // is the other half, so the screen agrees with what actually gets
-      // written. Fetched here rather than in loadScoreboard() because the
-      // lineup panel renders off loadData() and must not race the scoreboard.
-      fetchJson(mflExportUrl("liveScoring"))
       // NFL injury status, EAGERLY, on the Submit Lineup tab itself — before
       // this it only existed behind the Live scoreboard tab (loadScoreboard(),
       // STATE.sb.injuries), so a player already ruled OUT was invisible right
@@ -371,7 +359,23 @@
       // (worker/src/index.js, "This is why FO's roster rows never showed an
       // IR/PUP/suspended chip"). Reuses parseInjuries(), the exact parser
       // loadScoreboard() already trusts for the live tab.
-      fetchJson(mflExportUrl("injuries"))
+      fetchJson(mflExportUrl("injuries")),
+      // liveScoring, for its WEEK ONLY. projectedScores.week is NOT the week
+      // being played: MFL rolls the projection week forward the moment the
+      // first game of a week kicks off, so on 2026-09-10 -- with Week 1 wide
+      // open and only the Wednesday NEP/SEA game finished -- projectedScores
+      // said 2 while liveScoring said 1. Every lineup surface keyed off the
+      // former, so Submit Lineup read Week 2's (empty) lineup, labelled itself
+      // Week 2, pulled Week 2 matchup ratings and posted week=2. The worker
+      // already overrides the submitted week from liveScoring (PR #1051); this
+      // is the other half, so the screen agrees with what actually gets
+      // written. Fetched here rather than in loadScoreboard() because the
+      // lineup panel renders off loadData() and must not race the scoreboard.
+      // Kept LAST on purpose: the .then() below reads results BY POSITION
+      // (r[6]). The first cut of this sat between projectedScores and
+      // injuries, which would have shifted injuries off r[5] -- blanking
+      // every injury badge -- and handed parseInjuries the liveScoring blob.
+      fetchJson(mflExportUrl("liveScoring"))
     ]).then(function (r) {
       STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
       STATE.proj = parseProj(r[4]);
