@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.09.2",
-  "label": "Fixed: live scoring showed 0.0 for every team. Scores, projections and the All-Play board now update through the games, any team's card can be picked, and a player mid-game shows his updated projection instead of a miss he has not had time to earn."
+  "build": "2026.09.09.3",
+  "label": "Fixed: Live Scoring is a league-wide board and no longer requires a franchise, so it opens for the commissioner (and before any team is picked) instead of showing a sign-in prompt."
 }
