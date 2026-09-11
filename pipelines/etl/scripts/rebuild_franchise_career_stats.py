@@ -255,6 +255,13 @@ def sync_to_d1(stats: dict) -> None:
             "owner_overall_w": overall.get("w", 0) or 0,
             "owner_overall_l": overall.get("l", 0) or 0,
             "owner_last_championship": o.get("last_championship"),
+            "owner_title_years": json.dumps(o.get("title_years", [])),
+            "owner_runner_ups": o.get("runner_ups", 0) or 0,
+            "owner_runner_up_years": json.dumps(o.get("runner_up_years", [])),
+            "owner_allplay_titles": o.get("allplay_titles", 0) or 0,
+            "owner_allplay_title_years": json.dumps(o.get("allplay_title_years", [])),
+            "owner_division_titles": o.get("division_titles", 0) or 0,
+            "owner_division_title_years": json.dumps(o.get("division_title_years", [])),
             "franchise_seasons_played": e.get("seasons_played", 0) or 0,
             "franchise_championships": e.get("championships", 0) or 0,
             "franchise_last_championship": e.get("last_championship"),
@@ -268,6 +275,9 @@ def sync_to_d1(stats: dict) -> None:
         "owner_playoff_appearances", "owner_best_finish", "owner_worst_finish",
         "owner_allplay_w", "owner_allplay_l", "owner_allplay_pct",
         "owner_overall_w", "owner_overall_l", "owner_last_championship",
+        "owner_title_years", "owner_runner_ups", "owner_runner_up_years",
+        "owner_allplay_titles", "owner_allplay_title_years",
+        "owner_division_titles", "owner_division_title_years",
         "franchise_seasons_played", "franchise_championships",
         "franchise_last_championship", "franchise_championship_drought",
     ]
@@ -332,25 +342,82 @@ def load_season_standings() -> list[dict]:
     Ryan Bousquet's record read 165-110 when it is actually 265-197.
 
     src_standings carries complete per-season totals for all 16 seasons
-    (192 rows = 12 franchises x 16 seasons) with the same column semantics:
-    allplay_w/l include playoff weeks, matching the old summed behaviour.
+    (192 rows = 12 franchises x 16 seasons).
+
+    ALL-PLAY IS THE LEAGUE'S HISTORICAL RECORD, not the full-season count
+    (Keith 2026-09-11: "Early years we excluded the playoffs from all play
+    record keeping"). league_context §D.1: allplay_historical_* is regular
+    season only for 2010-2016 and full season from 2017, which is how the
+    league actually kept the record. This used to read allplay_w/l, which
+    counts playoff weeks in every season -- L.A. Looks' 2016 read 119-54
+    instead of the recorded 104-39. There is no fallback: a season without
+    the historical columns stops the run.
 
     NOTE: opponent-vs-opponent records are still NOT trustworthy anywhere in
     D1 — src_schedule has the same nine-season hole and no other table pairs
     matchups. Do not derive an owner-vs-owner record until that is backfilled
     from MFL.
     """
-    return d1_query(
+    rows = d1_query(
         f"SELECT season, franchise_id, owner_name, "
         f"       h2h_w, h2h_l, h2h_t, "
-        f"       allplay_w, allplay_l, pf "
+        f"       allplay_historical_w AS allplay_w, allplay_historical_l AS allplay_l, pf "
         f"FROM src_standings WHERE season >= {UPS_FOUNDING_SEASON};"
     )
+    missing = [(r["season"], r["franchise_id"]) for r in rows
+               if r.get("allplay_w") is None or r.get("allplay_l") is None]
+    if missing:
+        sys.stderr.write(
+            "src_standings has no HISTORICAL all-play for %d row(s), e.g. %s -- refusing "
+            "to fall back to full-season all-play (league_context D.1)\n" % (len(missing), missing[:3]))
+        sys.exit(1)
+    return rows
+
+
+# Seeding, as the standings page shows it. /api/standings applies MFL's
+# year-specific standingsSort to pick each division's winner (league_context
+# F.2) and then seeds byes, division winners and wild cards.
+WORKER_STANDINGS_URL = (
+    "https://upsmflproduction.keith-creelman.workers.dev/api/standings?YEAR=%d&L=74598")
+PLAYOFF_STATUSES = ("bye", "division_winner", "wild_card")
+# 2010, the redraft year, seeded only two division winners (both first-round
+# byes) where every season since has four -- one per division. Division titles
+# are counted from 2011, the first season of the current format, rather than
+# guessing which two 2010 divisions went unrewarded.
+DIVISION_TITLES_FIRST_SEASON = 2011
+
+
+def load_playoff_statuses(seasons) -> dict:
+    """{season: {fid: playoff_status}} for every completed season.
+
+    Fails closed: a season that does not come back with twelve seeded rows, or
+    (from 2011) with exactly one division winner per division, stops the run
+    instead of quietly crediting nobody.
+    """
+    out = {}
+    for season in sorted(seasons):
+        req = urllib.request.Request(WORKER_STANDINGS_URL % season,
+                                     headers={"User-Agent": "ups-owner-career-stats"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        rows = payload.get("rows") or []
+        status = {str(r.get("franchise_id")).zfill(4): r.get("playoff_status") for r in rows}
+        if len(status) != 12 or any(not v for v in status.values()):
+            sys.stderr.write(f"/api/standings {season}: expected 12 seeded rows, got {len(status)}\n")
+            sys.exit(1)
+        if season >= DIVISION_TITLES_FIRST_SEASON:
+            divs = [r.get("division") for r in rows if r.get("playoff_status") in ("bye", "division_winner")]
+            if len(divs) != 4 or len(set(divs)) != 4:
+                sys.stderr.write(f"/api/standings {season}: expected one division winner per "
+                                 f"division, got divisions {divs}\n")
+                sys.exit(1)
+        out[season] = status
+    return out
 
 
 def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
                 season_standings: list[dict], mfl_ownership: dict,
-                overrides: dict = None) -> dict:
+                overrides: dict = None, statuses: dict = None) -> dict:
     """Build the career stats dict keyed by current franchise_id.
 
     Owner-tenure attribution rule (Keith 2026-05-22/05-23):
@@ -436,6 +503,21 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
     # set of completed seasons (any franchise has a final_finish). Owner
     # career attribution filters to seasons in this set.
 
+    if statuses is None:
+        raise ValueError("build_stats needs playoff statuses (load_playoff_statuses)")
+
+    # All-play champion of each completed season: best HISTORICAL all-play %
+    # (season_totals carries it). An exact tie credits every tied owner --
+    # league_context: prize splitting is recognized only on an actual tie.
+    ap_champs = {}
+    for s in played_seasons:
+        pcts = {f: t[s]["ap_w"] / (t[s]["ap_w"] + t[s]["ap_l"])
+                for f, t in season_totals.items()
+                if s in t and (t[s]["ap_w"] + t[s]["ap_l"])}
+        if pcts:
+            best = max(pcts.values())
+            ap_champs[s] = {f for f, p in pcts.items() if abs(p - best) < 1e-12}
+
     # Build per-franchise career stats
     out = {}
     all_fids = sorted(
@@ -497,7 +579,18 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
         owner_first = min(owner_seasons) if owner_seasons else None
         owner_finishes = [finish_by_fs.get((f, s)) for (f, s) in owner_seasons_pairs if finish_by_fs.get((f, s)) is not None]
         owner_chips = sum(1 for f in owner_finishes if f == 1)
-        owner_playoffs = sum(1 for f in owner_finishes if f and f <= 6)  # top-6 = playoffs assumption
+        # From actual seeding (bye / division winner / wild card), not the old
+        # "final finish <= 6" assumption.
+        owner_playoffs = sum(1 for (f, s) in owner_seasons_pairs
+                             if statuses[s].get(f) in PLAYOFF_STATUSES)
+        owner_runner_up_seasons = sorted(
+            s for (f, s) in owner_seasons_pairs if finish_by_fs.get((f, s)) == 2)
+        owner_div_title_seasons = sorted(
+            s for (f, s) in owner_seasons_pairs
+            if s >= DIVISION_TITLES_FIRST_SEASON
+            and statuses[s].get(f) in ("bye", "division_winner"))
+        owner_ap_title_seasons = sorted(
+            s for (f, s) in owner_seasons_pairs if f in ap_champs.get(s, ()))
         owner_best = min(owner_finishes) if owner_finishes else None
         owner_worst = max(owner_finishes) if owner_finishes else None
         # OWNER's last championship — distinct from franchise.last_championship.
@@ -588,6 +681,13 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
                 "playoff_appearances": owner_playoffs,
                 "best_finish": owner_best,
                 "worst_finish": owner_worst,
+                "title_years": owner_chip_seasons,
+                "runner_ups": len(owner_runner_up_seasons),
+                "runner_up_years": owner_runner_up_seasons,
+                "allplay_titles": len(owner_ap_title_seasons),
+                "allplay_title_years": owner_ap_title_seasons,
+                "division_titles": len(owner_div_title_seasons),
+                "division_title_years": owner_div_title_seasons,
             },
             "h2h": {},  # filled below
         }
@@ -652,8 +752,13 @@ def main():
     print(f"  MFL ownership: {len(mfl_ownership)} season(s), "
           f"{sum(len(v) for v in mfl_ownership.values())} (season, fid) cells")
 
+    played = sorted({int(r["season"]) for r in standings if r.get("final_finish")})
+    print(f"Fetching seeding for {len(played)} completed season(s) from /api/standings...")
+    statuses = load_playoff_statuses(played)
+
     print("Building career stats...")
-    stats = build_stats(owners, standings, weekly, season_standings, mfl_ownership, overrides=overrides)
+    stats = build_stats(owners, standings, weekly, season_standings, mfl_ownership,
+                        overrides=overrides, statuses=statuses)
 
     # Quick sanity sample — Keith's cross-franchise career (0007/2010 → 0008+),
     # Brian Cross's 2025-start override on 0006, Hammer's 2024 chip drought.
@@ -667,7 +772,9 @@ def main():
               f"seasons={o.get('seasons_count',0)} "
               f"franchises={o.get('franchises_owned',[])} "
               f"allplay={o.get('allplay',{}).get('w',0)}-{o.get('allplay',{}).get('l',0)} "
-              f"chips={o.get('championships',0)}")
+              f"chips={o.get('championships',0)} {o.get('title_years', [])} "
+              f"2nd={o.get('runner_ups',0)} AP-titles={o.get('allplay_titles',0)} "
+              f"div={o.get('division_titles',0)} playoffs={o.get('playoff_appearances',0)}")
 
     if args.dry_run:
         print("\nDRY RUN — not writing")

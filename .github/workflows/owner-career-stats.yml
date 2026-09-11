@@ -1,0 +1,45 @@
+name: Owner career stats — rebuild
+
+# Keeps D1's ups_owner_career_stats current (titles, runner-ups, all-play
+# titles, division titles, playoff appearances, all-play record). The Wire's
+# team reviews read it for the Historical Context section, and the trade-roast
+# worker reads it for clap-backs. It had NO schedule before 2026-09-11 -- the
+# builder's own docstring said "run periodically (manually, or via a future
+# launchd timer)" -- so it only moved when someone remembered.
+#
+# Weekly on Tuesday, after Monday Night Football closes the week; plus by hand.
+# The table only changes when a season completes, so most runs rewrite the same
+# twelve rows. That is cheap: a handful of small D1 reads, sixteen worker
+# /api/standings calls, and one twelve-row upsert.
+
+on:
+  schedule:
+    - cron: "0 13 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: owner-career-stats
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Rebuild ups_owner_career_stats
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::CLOUDFLARE_API_TOKEN not set"; exit 1; }
+          python pipelines/etl/scripts/rebuild_franchise_career_stats.py
