@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0011",
   "title": "2026 Team Review: Cleon Ca$h",
-  "generatedAtUtc": "2026-09-10T15:07:45Z",
+  "generatedAtUtc": "2026-09-10T18:09:50Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -20,15 +20,21 @@
     },
     {
       "name": "MFL rosters export, live (all 12 franchises, for league-relative ranks)",
-      "asof": "2026-09-10T15:07:25Z",
+      "asof": "2026-09-10T18:09:39Z",
       "rows": 216,
       "note": null
     },
     {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-10T15:07:25Z",
+      "asof": "2026-09-10T18:06:55Z",
       "rows": 221,
       "note": "current, NOT the 2026-07-21 committed snapshot"
+    },
+    {
+      "name": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z",
+      "rows": 12,
+      "note": "Derived from facts and tables already in the twelve packs; no new data."
     }
   ],
   "coverage": {
@@ -48,13 +54,14 @@
     "The IDP tail is flat but the TOP IS STEEP -- do not describe the position as uniformly flat. Against a DL26 replacement of 88.5 in 2025: DL1 +107.0, DL2 +72.5, DL12 +19.0, DL24 +3.0. DL1 to DL2 alone is 34.5 points, a bigger step than DL12 to DL26 spans across fourteen ranks. An elite defender IS worth a lot; it is the replaceable middle that is flat, which is what the waiver-wire finding (52%% of top-24 IDP came off the wire vs 6%% on offense) actually describes. Separately: IDP PAR and offense redraft value are different scales -- never compare or add them.",
     "Regression is the real effect and it bites HARDEST at the top: sweeping the shrink on last season's top-6 defenders, error rises monotonically from 42.8 at 0.20 to 58.2 at no shrink. Last year's elite defenders are the group that repeats least, which is why a realized +107 projects to roughly +35. That gap is the model working, not a bug.",
     "The shrink constant (0.40) was picked by out-of-sample holdout, but the objective is nearly flat -- 0.25 and 0.73 score within about 2% of it. Treat it as 'roughly this much regression', never as a tuned figure.",
-    "Position weights for the composite score are DERIVED, not asserted: the 6 single-position starting slots (1 QB, 2 RB, 2 WR, 1 TE) count exactly; the 3 shared slots (2 Flex, 1 SuperFlex) are split by what all 12 teams' own optimal lineups actually did with them this year. Weights: QB=1.92, RB=2.75, TE=1.17, WR=3.17",
+    "Position weights for the composite score are DERIVED, not asserted: the 6 single-position starting slots (1 QB, 2 RB, 2 WR, 1 TE) count exactly; the 3 shared slots (2 Flex, 1 SuperFlex) are split by what all 12 teams' own optimal lineups actually did with them this year. Weights: QB=1.92, RB=2.67, TE=1.17, WR=3.25",
     "Opening/pre-auction cap figures are ACTIVE-ROSTER SALARY ONLY (no salaryAdjustments); the live 'cap committed now' figure DOES include adjustments. The two are not subtractable -- they measure different things.",
     "Studs/solid/holes classify each of the 9 ADP-priced starting slots (QB, 2xRB, 2xWR, TE, 2x Flex, SuperFlex) by the occupying player's LEAGUE-WIDE position rank: stud = top 12 at his position, solid = top 24, hole = outside the top 24 or the slot has no rank at all. This is a needs read, not a value total -- two teams can carry the identical summed lineup value with completely different hole counts (a few elite starters and real gaps, versus adequate-everywhere), and that difference is the point.",
     "The Expired Rookie Auction and the Free Agent Auction sell different CALIBERS of player, not just different players. The ERA pool is expired rookie contracts -- men who did not earn a second deal -- and league-wide its most expensive player went for $7,000 against the FAA's $88,000. Never grade an ERA buy against an FAA buy, and never treat 'no ERA purchase is starting' as a finding; that is what the pool is.",
     "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a body signed and discarded inside the same offseason was never part of the team (that is a TIMING test, not a salary one -- do not describe those as minimum-salary) -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure.",
     "THREE-WAY TRADES: ups_3way_trades only records deals routed through the league's in-app trade tool, which did not exist before 2026 -- it is NOT an all-time ledger. Multi-team deals did happen in earlier years (Keith 2026-09-09: historical ones exist, involving owners since departed). Say three-way trades are RARE, and that this is the only one completed through the league's trade tool; never say it is the only one on record, and do not characterise the historical ones -- this pack has no data on them.",
-    "The Week 1 table is an OPENING DATA POINT, not a result. Only 2 of 32 NFL teams had played when this was built. Never write a verdict, a trend or a told-you-so off it, and never call a player injured from a low score alone -- MFL's injuries export is the only source for a designation, and it carried none for these players."
+    "The Week 1 table is an OPENING DATA POINT, not a result. Only 2 of 32 NFL teams had played when this was built. Never write a verdict, a trend or a told-you-so off it, and never call a player injured from a low score alone -- MFL's injuries export is the only source for a designation, and it carried none for these players.",
+    "League value comparison: offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. Both are measured from the auction roster lock (2026-07-23) to the close (2026-08-05). Rate = share of the league's lineup gain divided by share of the league's offensive spend; 1.00x is the league average. It does not credit bench depth, and an owner whose lineup had no holes had little room to improve it."
   ],
   "entities": {
     "owners": [
@@ -82,7 +89,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.league.era_top_price",
@@ -91,7 +98,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -100,7 +107,7 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.league.roster_max_at_auction",
@@ -127,7 +134,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL liveScoring",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.active_now",
@@ -136,7 +143,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "auction/compliance",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.active_roster_current",
@@ -172,7 +179,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.auction_spend",
@@ -181,7 +188,7 @@
       "unit": "usd",
       "fmt": "$34,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.can_field_lineup_current",
@@ -217,7 +224,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "auction/compliance",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.cap_current_spent",
@@ -226,7 +233,7 @@
       "unit": "usd",
       "fmt": "$287,000",
       "source": "auction/compliance",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.cap_opening",
@@ -253,16 +260,16 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.composite_value",
       "label": "Composite score",
-      "value": 57588,
+      "value": 57699,
       "unit": "count",
-      "fmt": "57,588",
+      "fmt": "57,699",
       "source": "lineup_engine",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.contracts_count",
@@ -271,7 +278,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "contract_activity_2026",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.cuts_count",
@@ -280,7 +287,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.cuts_penalty_2026",
@@ -289,7 +296,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.cuts_penalty_2027_deferred",
@@ -298,7 +305,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.division_name",
@@ -307,7 +314,7 @@
       "unit": "text",
       "fmt": "DOG POUND 4 LIFE",
       "source": "MFL league export",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.division_rank",
@@ -316,7 +323,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "lineup_engine",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.division_size",
@@ -325,7 +332,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL league export",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.era_lots_won",
@@ -334,7 +341,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.era_spend",
@@ -343,7 +350,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.faa_lots_won",
@@ -352,7 +359,7 @@
       "unit": "count",
       "fmt": "13",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.faa_spend",
@@ -361,7 +368,7 @@
       "unit": "usd",
       "fmt": "$34,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.holes_opening",
@@ -388,7 +395,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_adds_alltime",
@@ -397,7 +404,7 @@
       "unit": "count",
       "fmt": "101",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_adds_lead_streak",
@@ -406,7 +413,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_adds_league_leader",
@@ -415,7 +422,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_adds_rank",
@@ -424,7 +431,7 @@
       "unit": "count",
       "fmt": "12",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_auction_share",
@@ -433,7 +440,7 @@
       "unit": "percent",
       "fmt": "17.6%",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_auction_share_rank",
@@ -442,7 +449,7 @@
       "unit": "count",
       "fmt": "9",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_auction_spend",
@@ -451,7 +458,7 @@
       "unit": "usd",
       "fmt": "$6,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.idp_ppw_rank",
@@ -460,7 +467,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "src_weekly",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.inyear_flyers",
@@ -469,7 +476,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.ir_now",
@@ -478,59 +485,59 @@
       "unit": "count",
       "fmt": "0",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.lineup_value_current",
       "label": "Legal-lineup offense value, today",
-      "value": 37340,
+      "value": 37462,
       "unit": "count",
-      "fmt": "37,340",
+      "fmt": "37,462",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.lineup_value_opening",
       "label": "Legal-lineup offense value, opening (today's market)",
-      "value": 33654,
+      "value": 33747,
       "unit": "count",
-      "fmt": "33,654",
+      "fmt": "33,747",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0011.lineup_value_postauction",
       "label": "Legal-lineup offense value when the auction closed (today's market)",
-      "value": 37340,
+      "value": 37462,
       "unit": "count",
-      "fmt": "37,340",
+      "fmt": "37,462",
       "source": "lineup_engine+adp-board",
       "asof": "2026-08-05"
     },
     {
       "id": "f.team.0011.lineup_value_preauction",
       "label": "Legal-lineup offense value, entering the auction (today's market)",
-      "value": 37336,
+      "value": 37392,
       "unit": "count",
-      "fmt": "37,336",
+      "fmt": "37,392",
       "source": "lineup_engine+adp-board",
       "asof": "2026-07-23"
     },
     {
       "id": "f.team.0011.qb_rank",
       "label": "QB starters rank",
-      "value": 6,
+      "value": 7,
       "unit": "rank",
-      "fmt": "6",
+      "fmt": "7",
       "source": "lineup_engine",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.qb_value",
       "label": "QB starters redraft value",
-      "value": 9116,
+      "value": 9097,
       "unit": "count",
-      "fmt": "9,116",
+      "fmt": "9,097",
       "source": "adp-board",
       "asof": "2026-09-10"
     },
@@ -541,14 +548,14 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.rb_value",
       "label": "RB starters redraft value",
-      "value": 13351,
+      "value": 13233,
       "unit": "count",
-      "fmt": "13,351",
+      "fmt": "13,233",
       "source": "adp-board",
       "asof": "2026-09-10"
     },
@@ -568,7 +575,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.roster_total_postauction",
@@ -604,7 +611,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.taxi_now",
@@ -613,7 +620,7 @@
       "unit": "count",
       "fmt": "10",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.te_rank",
@@ -622,7 +629,7 @@
       "unit": "rank",
       "fmt": "1",
       "source": "lineup_engine",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.te_value",
@@ -640,7 +647,7 @@
       "unit": "percent",
       "fmt": "44.1%",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.top_buy_price",
@@ -649,7 +656,7 @@
       "unit": "usd",
       "fmt": "$15,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.trades_count",
@@ -667,7 +674,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "mfl transactions",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.wk_live",
@@ -676,7 +683,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL liveScoring",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.wk_players_final",
@@ -685,7 +692,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL liveScoring + rosters",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.wk_points_final",
@@ -694,7 +701,7 @@
       "unit": "points",
       "fmt": "0.0",
       "source": "MFL playerScores",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.wr_rank",
@@ -703,16 +710,79 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-10T15:07:25Z"
+      "asof": "2026-09-10T18:09:39Z"
     },
     {
       "id": "f.team.0011.wr_value",
       "label": "WR starters redraft value",
-      "value": 10574,
+      "value": 10833,
       "unit": "count",
-      "fmt": "10,574",
+      "fmt": "10,833",
       "source": "adp-board",
       "asof": "2026-09-10"
+    },
+    {
+      "id": "f.team.0011.faa_off_spend",
+      "label": "Spent on QB/RB/WR/TE at the Free Agent Auction",
+      "value": 25000,
+      "unit": "usd",
+      "fmt": "$25,000",
+      "source": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z"
+    },
+    {
+      "id": "f.team.0011.faa_off_spend_share",
+      "label": "Share of the league's offensive Free Agent Auction spend",
+      "value": 2.2,
+      "unit": "percent",
+      "fmt": "2.2%",
+      "source": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z"
+    },
+    {
+      "id": "f.team.0011.faa_off_gain_share",
+      "label": "Share of the league's offensive lineup-value gain, auction lock to close",
+      "value": 0.1,
+      "unit": "percent",
+      "fmt": "0.1%",
+      "source": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z"
+    },
+    {
+      "id": "f.team.0011.faa_off_rank",
+      "label": "League rank for offensive lineup value added per offensive auction dollar (1 = most)",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "12",
+      "source": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z"
+    },
+    {
+      "id": "f.team.0011.faa_off_gain_rank",
+      "label": "League rank for total offensive lineup value added, auction lock to close (1 = most)",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "12",
+      "source": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z"
+    },
+    {
+      "id": "f.team.0011.faa_off_rate",
+      "label": "Offensive value added per auction dollar, as a multiple of the league rate (1.00x = average)",
+      "value": 0.04,
+      "unit": "ratio",
+      "fmt": "0.04x",
+      "source": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z"
+    },
+    {
+      "id": "f.team.0011.faa_off_gain_pct",
+      "label": "Offensive lineup value added at the auction, as a share of what he had at the lock",
+      "value": 0.2,
+      "unit": "percent",
+      "fmt": "0.2%",
+      "source": "team_review_league (derived from the twelve team packs)",
+      "asof": "2026-09-10T18:10:05Z"
     }
   ],
   "tables": [
@@ -892,16 +962,16 @@
           1000
         ],
         [
-          "Tyler Allgeier",
-          "RB",
-          "Replacement-level RB",
-          3000
-        ],
-        [
           "Kirk Cousins",
           "QB",
           "Replacement-level QB",
           5000
+        ],
+        [
+          "Tyler Allgeier",
+          "RB",
+          "Replacement-level RB",
+          3000
         ],
         [
           "Jerry Jeudy",
@@ -987,7 +1057,7 @@
           18,
           "yes",
           231000,
-          33654,
+          33747,
           5,
           2,
           2
@@ -998,7 +1068,7 @@
           19,
           "yes",
           274000,
-          37336,
+          37392,
           5,
           3,
           1
@@ -1009,7 +1079,7 @@
           32,
           "yes",
           287000,
-          37340,
+          37462,
           5,
           3,
           1
@@ -1124,7 +1194,7 @@
           "2026-07-31"
         ]
       ],
-      "note": "Distinct deals, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. 'At league minimum?' answers the only question that word means: the UPS minimum salary is $1,000, so a $2,000 deal is NOT a minimum deal and must never be called one. Provenance: working copy (identical to origin/main); 14 uncorroborated row(s) dropped"
+      "note": "Distinct deals, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. 'At league minimum?' answers the only question that word means: the UPS minimum salary is $1,000, so a $2,000 deal is NOT a minimum deal and must never be called one. Provenance: working copy (identical to origin/main); 15 uncorroborated row(s) dropped"
     },
     {
       "id": "t.0011.cuts",
@@ -1729,6 +1799,141 @@
         ]
       ],
       "note": "ONLY players whose Week 1 game has finished -- 2 of the 32 NFL teams carrying a rostered starter had played at build time. This is a handful of snaps, not a season, and it grades nothing. An empty 'What he did' cell means the player took the field and recorded no scoring stat, or did not play at all; it is not a zero-yard line."
+    },
+    {
+      "id": "t.0011.faa_value",
+      "title": "What the Free Agent Auction money bought, league-wide (offense)",
+      "columns": [
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "spend",
+          "label": "Offense spend",
+          "type": "usd"
+        },
+        {
+          "key": "spend_share",
+          "label": "Share of league spend",
+          "type": "percent"
+        },
+        {
+          "key": "gain_share",
+          "label": "Share of league gain",
+          "type": "percent"
+        },
+        {
+          "key": "rate",
+          "label": "Value per dollar",
+          "type": "text"
+        },
+        {
+          "key": "rank",
+          "label": "Rank",
+          "type": "count"
+        }
+      ],
+      "rows": [
+        [
+          "Blake Bombers",
+          117000,
+          10.4,
+          14.9,
+          "1.43x",
+          1
+        ],
+        [
+          "C-Town Chivalry",
+          138000,
+          12.3,
+          15.7,
+          "1.28x",
+          2
+        ],
+        [
+          "Hawks",
+          101000,
+          9.0,
+          10.5,
+          "1.17x",
+          3
+        ],
+        [
+          "CBP",
+          152000,
+          13.5,
+          15.7,
+          "1.16x",
+          4
+        ],
+        [
+          "Sex Manther",
+          138000,
+          12.3,
+          13.4,
+          "1.09x",
+          5
+        ],
+        [
+          "Real Deal Creel",
+          173000,
+          15.4,
+          15.5,
+          "1.01x",
+          6
+        ],
+        [
+          "L.A. Looks",
+          103000,
+          9.2,
+          6.7,
+          "0.73x",
+          7
+        ],
+        [
+          "Gride",
+          94000,
+          8.4,
+          5.6,
+          "0.67x",
+          8
+        ],
+        [
+          "The Long Haulers",
+          7000,
+          0.6,
+          0.4,
+          "0.64x",
+          9
+        ],
+        [
+          "HammerTime 🔨 ⏰",
+          37000,
+          3.3,
+          1.2,
+          "0.36x",
+          10
+        ],
+        [
+          "Pure Greatness",
+          38000,
+          3.4,
+          0.3,
+          "0.08x",
+          11
+        ],
+        [
+          "Cleon Ca$h",
+          25000,
+          2.2,
+          0.1,
+          "0.04x",
+          12
+        ]
+      ],
+      "note": "League value comparison: offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. Both are measured from the auction roster lock (2026-07-23) to the close (2026-08-05). Rate = share of the league's lineup gain divided by share of the league's offensive spend; 1.00x is the league average. It does not credit bench depth, and an owner whose lineup had no holes had little room to improve it."
     }
   ],
   "charts": [],
@@ -1825,10 +2030,18 @@
         "f.team.0011.faa_lots_won",
         "f.team.0011.faa_spend",
         "f.team.0011.top_buy_pct_of_spend",
-        "f.team.0011.top_buy_price"
+        "f.team.0011.top_buy_price",
+        "f.team.0011.faa_off_spend",
+        "f.team.0011.faa_off_spend_share",
+        "f.team.0011.faa_off_gain_share",
+        "f.team.0011.faa_off_rank",
+        "f.team.0011.faa_off_gain_rank",
+        "f.team.0011.faa_off_rate",
+        "f.team.0011.faa_off_gain_pct"
       ],
       "tableIds": [
-        "t.0011.auction"
+        "t.0011.auction",
+        "t.0011.faa_value"
       ],
       "chartIds": [],
       "quoteIds": [],

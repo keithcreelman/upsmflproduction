@@ -137,12 +137,14 @@ def apply_layout(prose, pack):
         k = _first(p3, lambda x: "faa_off_" in x, default=-1)
         if k >= 0:
             at3[tid("faa_value")] = k
-        views3[tid("faa_value")] = {"cols": ["team", "spend", "spend_share", "gain_share", "rate"], "stack": True,
-                                    "title": "What the money bought, league-wide"}
-        caps3[tid("faa_value")] = ("Offense only: what each owner spent on quarterbacks, backs, receivers "
-                                   "and tight ends at the Free Agent Auction, and how much better his starting "
-                                   "offense got between the auction lock and the close. Above one times is "
-                                   "more value per dollar than the league as a whole.")
+        # Rank and dollars only. Keith: "you can say who is better based on calcs
+        # but I don't want to put a value that wouldn't make sense for everyone
+        # else" -- so the shares and the "1.28x" rate stay in the pack, unprinted.
+        views3[tid("faa_value")] = {"cols": ["rank", "team", "spend"], "labels": {"spend": "Spent on offense"},
+                                    "title": "Who got the most for his money"}
+        caps3[tid("faa_value")] = ("Ranked by how much each owner's starting offense improved between the "
+                                   "auction lock and the close, for every dollar he spent on quarterbacks, "
+                                   "backs, receivers and tight ends at the Free Agent Auction.")
     secs["s3"].update(place=place3, placeAt=at3, views=views3, captions=caps3)
 
     if tables["trades"]["rows"]:

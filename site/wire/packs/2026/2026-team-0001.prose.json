@@ -5,18 +5,16 @@
  },
  "prose": {
   "kicker": "L.A. Looks · Ryan Bousquet",
-  "title": "L.A. Looks Fielded the Best Defense in the League and Sold the Offense to Pay for It",
-  "dek": "Ryan Bousquet ranks {{f.team.0001.idp_ppw_rank|ord}} of {{f.league.teams}} in points per started defender and {{f.team.0001.composite_rank|ord}} of {{f.league.teams}} overall. In between those two numbers is a July trade that sent his best receiver out the door one day before the roster locked.",
+  "title": "L.A. Looks Traded Away His Best Receiver, Then Paid Nearly as Much for a Lesser One",
+  "dek": "Ryan Bousquet ranks {{f.team.0001.composite_rank|ord}} of {{f.league.teams}} overall, and his offseason turned on a July trade that sent his best receiver out the door one day before the roster locked. At the auction he spent nearly the same money on a lesser one.",
   "sections": [
    {
     "id": "s1",
     "lead": "",
     "paragraphs": [
-     "Start with the good news, because it is genuinely good and almost nobody in this league gets credit for it. Danielle Hunter grades Mid DL1 and Jeffery Simmons High-end DL2. Zack Baun is a Mid LB1 with Jamien Sherwood at High-end LB2 beside him. Kamren Curl is a High-end DB1 and Trevon Moehrig a High-end DB2. That is six defensive starters and not one of them is a passenger.",
-     "It is not an accident either. Over the life of the league Bousquet has acquired {{f.team.0001.idp_adds_alltime}} defenders, ranking {{f.team.0001.idp_adds_rank|ord}}, and more to the point he has converted them: {{f.team.0001.idp_ppw_rank}} of {{f.league.teams}} in points per started defender, which is first, outright, ahead of every owner who works the wire harder than he does. Working it hardest and scoring most are different skills and he has the second one.",
-     "Now the offense, where the wheels are visibly off. Bo Nix grades High-end QB2 and Sam Darnold Low-end QB2, which is a functional superflex pair and ranks {{f.team.0001.qb_rank|ord}}. Chase Brown is a Low-end RB1 and then it stops: Jaylen Warren is a Replacement-level RB and the position ranks {{f.team.0001.rb_rank|ord}}. George Pickens is a Low-end WR1, Alec Pierce and Courtland Sutton are both Low-end WR3, and the room still comes out {{f.team.0001.wr_rank|ord}}. Jake Ferguson is a Replacement-level TE, Isaiah Likely is another one in the flex, and tight end ranks {{f.team.0001.te_rank|ord}} mostly because everyone else is also miserable there.",
-     "The last flex is filled by Aaron Donald, who the production model cannot value at all because he has no prior season to measure. That is not a starter. That is a slot the optimizer refused to leave blank.",
-     "Add it up and the composite lands {{f.team.0001.composite_rank|ord}} of {{f.league.teams}}: {{f.team.0001.studs_today}} of the priced starting slots hold a top-twelve player and {{f.team.0001.holes_today}} hold nobody the board ranks at all. This is not a team that is merely thin. It is a very good defense with an offense bolted to it."
+     "Start with the offense, where the wheels are visibly off. Bo Nix grades High-end QB2 and Sam Darnold Low-end QB2, which is a functional superflex pair and ranks {{f.team.0001.qb_rank|ord}}. Chase Brown is a Low-end RB1 and Jaylen Warren a Low-end RB3 behind him, and the position ranks {{f.team.0001.rb_rank|ord}}. George Pickens is a Low-end WR1, Alec Pierce and Courtland Sutton are both Low-end WR3, and the room still comes out {{f.team.0001.wr_rank|ord}}. Jake Ferguson is a Replacement-level TE, Isaiah Likely is another one in the flex, and tight end ranks {{f.team.0001.te_rank|ord}}.",
+     "His defenders grade well, but that is the cheapest edge in the league to match: most of the gap between the best and worst defenses can be closed off the waiver wire for free.",
+     "Add it up and he ranks {{f.team.0001.composite_rank|ord}} of {{f.league.teams}} overall: {{f.team.0001.studs_today}} of the priced starting slots hold a top-twelve player and {{f.team.0001.holes_today}} are outright holes."
     ],
     "place": [
      "t.0001.lineup"
@@ -42,10 +40,10 @@
     "id": "s2",
     "lead": "",
     "paragraphs": [
-     "In April this roster had {{f.team.0001.active_roster_opening}} active players and could not legally fill a lineup, so there was no lineup to speak of and no point pretending otherwise. Contracts expire here and rosters empty out; that is the cycle working, not a crisis. What matters is what he did with the room, and he had {{f.team.0001.cap_opening}} committed to start with.",
-     "By the time the roster locked ahead of the auction he was at {{f.team.0001.active_roster_preauction}} active and {{f.team.0001.cap_preauction}} committed, and the priced slots had barely moved. Bo Nix at quarterback, Chase Brown at the top of the backfield, Alec Pierce and Courtland Sutton at receiver, Jake Ferguson at tight end. The same names, in the same order, doing the same amount of not-very-much. Legal-lineup value crept from {{f.team.0001.lineup_value_opening}} to {{f.team.0001.lineup_value_preauction}}.",
-     "The auction is where the roster actually got built: {{f.team.0001.active_roster_current}} active when it closed, {{f.team.0001.lineup_value_postauction}} of lineup value, holes down from {{f.team.0001.holes_opening}} to {{f.team.0001.holes_postauction}}. George Pickens replaced Alec Pierce at the top of the receiver room and Pierce slid down a slot, which is the single biggest change on the sheet. Jaylen Warren took the second back spot from Zach Charbonnet.",
-     "Studs went from {{f.team.0001.studs_opening}} to {{f.team.0001.studs_postauction}} and have stayed at {{f.team.0001.studs_today}} since. One extra top-twelve player for a full offseason of work is a thin return, and it is the honest summary of the whole exercise: he did not get worse, he got wider. There is now a body in every slot. Most of them are the wrong bodies."
+     "In April the roster held {{f.team.0001.active_roster_opening}} active players and {{f.team.0001.cap_opening}} of salary. Chase Brown was the only top-twelve player he had on offense, and {{f.team.0001.holes_opening}} of the nine priced starting slots were holes.",
+     "By the time the roster locked ahead of the auction he was at {{f.team.0001.active_roster_preauction}} active and {{f.team.0001.cap_preauction}} committed, and the core had not moved: Bo Nix at quarterback, Chase Brown and Zach Charbonnet in the backfield, Alec Pierce and Courtland Sutton at receiver, Jake Ferguson at tight end. The changes came in the other three spots: Sam Darnold took the superflex job and Jalen Coker the first flex spot, both of them arriving from Gride the day before the lock, and Braelon Allen took the second flex spot. A little better, and still nothing to look at.",
+     "The auction is where the roster actually got built. He came out of it with {{f.team.0001.active_roster_current}} active players, holes down from {{f.team.0001.holes_opening}} in April to {{f.team.0001.holes_postauction}}, and a starting offense clearly better than the one he had at the lock, though the jump was only middling by the league's standards. George Pickens replaced Alec Pierce at the top of the receiver room and Pierce slid down a slot, which is the single biggest change of the summer. Jaylen Warren took the second back spot from Zach Charbonnet, and Courtland Sutton and Isaiah Likely moved into the flex spots.",
+     "Studs went from {{f.team.0001.studs_opening}} to {{f.team.0001.studs_postauction}} and have stayed at {{f.team.0001.studs_today}} since. One extra top-twelve player for a full offseason of work is a thin return, and it is the honest summary of the whole exercise: he did not get worse, he got wider. Pickens and Warren are real upgrades and Darnold is at least a real quarterback in the superflex spot, but Nix, Brown, Pierce, Sutton and Ferguson were all there in April."
     ],
     "place": [
      "t.0001.slot_bridge"
@@ -64,7 +62,7 @@
       "stack": true,
       "title": "Who filled each priced slot",
       "labels": {
-       "open": "April (short of a lineup)",
+       "open": "April",
        "pre": "Before the auction",
        "now": "After it"
       }
@@ -76,15 +74,18 @@
     "lead": "",
     "paragraphs": [
      "Two separate auctions, months apart, and he treated them very differently.",
-     "At the Expired Rookie Auction in May he won {{f.team.0001.era_lots_won}} lots for {{f.team.0001.era_spend}} out of a pool of {{f.league.era_pool_size}} players league-wide. Zach Charbonnet went to him at {{f.league.era_top_price}}, which was the most expensive player anyone bought in that auction. That is worth keeping in proportion: the ERA sells men whose rookie deals ran out without earning a second one, and its top price would not have cracked the middle of the free-agent board. Tank Bigsby, Jordan Battle and Marvin Mims came with him.",
-     "The Free Agent Auction is the real market and he spent like it, {{f.team.0001.faa_spend}} across {{f.team.0001.faa_lots_won}} lots. {{f.team.0001.top_buy_price}} of that went on George Pickens alone, {{f.team.0001.top_buy_pct_of_spend}} of everything he spent there, against a league-high price of {{f.league.faa_top_price}} paid elsewhere.",
-     "Hold that Pickens number for the trade section, because it does not read the same once you know what he sold to afford it. The rest of the sheet is sensible enough: Daniel Jones as quarterback insurance, Jaylen Warren for the backfield, Isaiah Likely at tight end, and then a run of defenders — Jeffery Simmons, Danielle Hunter, Zack Baun, Jamien Sherwood, Trevon Moehrig — that between them give him a defense that grades well almost everywhere, for {{f.team.0001.idp_auction_spend}}, or {{f.team.0001.idp_auction_share}} of his auction money, without overpaying for any of it."
+     "At the Expired Rookie Auction in May he bought {{f.team.0001.era_lots_won}} of the {{f.league.era_pool_size}} players on offer, for {{f.team.0001.era_spend}}. Zach Charbonnet went to him at {{f.league.era_top_price}}, the highest price anyone paid in that auction. That is worth keeping in proportion: the ERA sells men whose rookie deals ran out without earning a second one, and its top price was less than a tenth of what the most expensive free agent went for that summer. Tank Bigsby, Jordan Battle and Marvin Mims came with him.",
+     "The Free Agent Auction is the real market and he spent like it, {{f.team.0001.faa_spend}} on {{f.team.0001.faa_lots_won}} players. {{f.team.0001.top_buy_price}} of that went on George Pickens alone, {{f.team.0001.top_buy_pct_of_spend}} of everything he spent there, against a league-high price of {{f.league.faa_top_price}} paid elsewhere.",
+     "On offense alone he put {{f.team.0001.faa_off_spend}} into that auction, and for what that money bought he ranks {{f.team.0001.faa_off_rank|ord}} of {{f.league.teams}}, even though he walked in with plenty of holes to fill. Hawks spent slightly less on the same positions and got noticeably more out of it. Both of his division rivals, Sex Manther and Real Deal Creel, also got more for their money.",
+     "Hold on to the Pickens price, because it does not read the same once you know who he traded away the day before the lock. The rest of his buying is sensible enough: Daniel Jones as quarterback insurance, Jaylen Warren for the backfield, Isaiah Likely at tight end, and a run of cheap defenders. All of his defensive buying across both auctions, Jordan Battle and Aaron Donald included, came to {{f.team.0001.idp_auction_spend}}, or {{f.team.0001.idp_auction_share}} of his auction money, and four owners put a bigger share of theirs into defenders."
     ],
     "place": [
-     "t.0001.auction"
+     "t.0001.auction",
+     "t.0001.faa_value"
     ],
     "placeAt": {
-     "t.0001.auction": 2
+     "t.0001.auction": 2,
+     "t.0001.faa_value": 3
     },
     "views": {
      "t.0001.auction": {
@@ -100,20 +101,34 @@
       "labels": {
        "auction": "Where"
       }
+     },
+     "t.0001.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend"
+      ],
+      "labels": {
+       "spend": "Spent on offense"
+      },
+      "title": "Who got the most for his money"
      }
+    },
+    "captions": {
+     "t.0001.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
     }
    },
    {
     "id": "s4",
     "lead": "",
     "paragraphs": [
-     "{{f.team.0001.contracts_count}} contract moves, {{f.team.0001.trades_count}} trades, {{f.team.0001.roster_removals_total}} roster removals and {{f.team.0001.cuts_penalty_2026}} of cap penalty. The paperwork is clean. The judgement is where it goes wrong.",
-     "Chase Brown got a genuine extension and Alec Pierce got another. Charbonnet, Pickens, Mims and Moehrig were converted to multi-year deals off their auction wins, and only Mims is at the league minimum — the others are not, whatever the small numbers next to them suggest. Sam Darnold was restructured, though the extension underneath that restructure was Gride's work, done before Bousquet ever owned him, and does not belong on his ledger.",
-     "Which brings us to the deal. One day before the roster locked for the auction he sent Amon-Ra St. Brown, Shedeur Sanders and {{f.team.0001.trade_blind_bid_cash}} of blind-bid money to Gride, and got back Sam Darnold, Jalen Coker and Emmett Johnson. St. Brown was the largest contract he traded away all offseason, at {{f.team.0001.biggest_contract_traded_away}}, and he is a Gride player now, on a tag, at exactly that price.",
-     "So he cleared {{f.team.0001.biggest_contract_traded_away}} and then walked into the auction and spent {{f.team.0001.top_buy_price}} on George Pickens, who grades Low-end WR1. He round-tripped almost the identical money into a demonstrably worse receiver, and paid Shedeur Sanders and {{f.team.0001.trade_blind_bid_cash}} in cash for the privilege. If the plan was cap relief, the relief lasted one auction. If the plan was Darnold, we will come back to Darnold.",
-     "The other three trades are better. David Montgomery went to HammerTime in April for a 2027 second-rounder, which is a fine price for a back he was not going to start. A pick swap with the same partner turned 3.08 into 4.08, 5.01 and a 2027 fourth, and both of those picks became players he still holds. The July deal with The Long Haulers is the one that stings quietly: Jordan Battle was a top-twelve defensive back and he went out for Isaiah Bond, who the redraft board does not price at all.",
+     "A handful of contract moves, {{f.team.0001.trades_count}} trades, {{f.team.0001.roster_removals_total}} roster removals and {{f.team.0001.cuts_penalty_2026}} of cap penalty. The paperwork is clean. The judgement is where it goes wrong.",
+     "Chase Brown got a genuine extension and Alec Pierce got another. Charbonnet, Pickens, Mims and Moehrig were converted to multi-year deals off their auction wins, and only Mims is at the league minimum. Sam Darnold was restructured, though the extension underneath that restructure was Gride's work, done before Bousquet ever owned him, and does not belong on his ledger.",
+     "Which brings us to the deal. One day before the roster locked for the auction he sent Amon-Ra St. Brown, Shedeur Sanders and {{f.team.0001.trade_blind_bid_cash}} of blind-bid money to Gride, and got back Sam Darnold, Jalen Coker and Emmett Johnson. St. Brown was the largest contract he traded away all offseason, at {{f.team.0001.biggest_contract_traded_away}}, and he is in Gride's lineup now.",
+     "So he moved St. Brown's {{f.team.0001.biggest_contract_traded_away}} off the books, took Darnold's contract back in the same deal, and then walked into the auction and spent {{f.team.0001.top_buy_price}} on George Pickens, who grades Low-end WR1. He round-tripped almost the identical money into a demonstrably worse receiver, and gave up Shedeur Sanders and {{f.team.0001.trade_blind_bid_cash}} of blind-bid money for the privilege. If the plan was cap relief, it was never the full St. Brown salary, and it lasted one auction. If the plan was Darnold, he is a Low-end QB2 in the superflex spot.",
+     "The other three trades are mixed. David Montgomery went to HammerTime in April for a 2027 second-rounder, and he is valued above Jaylen Warren, the Low-end RB3 who now holds the second back spot here, so that was a starter traded for a future pick. A pick swap with the same partner turned 3.08 into 4.08, 5.01 and a 2027 fourth, and both of those picks became players in his rookie class. The July deal with The Long Haulers sent Jordan Battle, a top-twelve defensive back, out for Isaiah Bond, who the redraft board does not price at all, and it is a small loss: a good defender is about the easiest thing in this league to replace.",
      "The removals barely register. One contract cut, a waiver swap, and {{f.team.0001.inyear_flyers}} bodies signed and discarded inside the same offseason. Nothing was charged against the cap.",
-     "The rookie class is a lottery ticket collection: {{f.team.0001.rookie_picks_count}} picks, none earlier than 3.10, where the historical hit rate is already poor and every pick after it is worse. Bryce Lance at 3.10 is the best of them by baseline. David Bailey at 4.08 and Emmanuel McNeil-Warren at 6.01 are defenders, which means neither the redraft board nor the production model has any opinion on them yet — not a bad grade, no grade at all."
+     "The rookie class is a lottery ticket collection: {{f.team.0001.rookie_picks_count}} picks, none earlier than 3.10, where the historical hit rate is already poor and every pick after it is worse. Bryce Lance at 3.10 is the best of them by baseline. David Bailey at 4.08 and Emmanuel McNeil-Warren at 6.01 are defenders with no NFL season behind them yet, so there is nothing to grade them on — not a bad grade, no grade at all."
     ],
     "place": [
      "t.0001.trades"
@@ -138,10 +153,10 @@
     "id": "s5",
     "lead": "",
     "paragraphs": [
-     "He plays in a division of {{f.team.0001.division_size}} and he finishes {{f.team.0001.division_rank|ord}} in it. Sex Manther and Real Deal Creel are both ahead of him league-wide, and he plays each of them twice. That is the part that actually decides a seed, and it is not close.",
+     "He plays in a division of {{f.team.0001.division_size}} and he ranks {{f.team.0001.division_rank|ord}} in it. Sex Manther and Real Deal Creel are both ahead of him league-wide, and he has to get past both of them to win it. On paper, it is not close.",
      "Is this the strongest team in the league? No — {{f.team.0001.composite_rank|ord}} of {{f.league.teams}} says it plainly. Was it a good offseason? Also no, and for a specific reason rather than a general one. He spent {{f.team.0001.auction_spend}} across both auctions and sits on {{f.team.0001.cap_current_room}} of room against {{f.team.0001.cap_current_spent}} committed, and the single most consequential thing he did was hand his best offensive player to Gride and buy a lesser version of him back at nearly the same price.",
-     "The biggest advantage is the defense, and it is not a small one: Hunter, Simmons, Baun, Sherwood, Curl and Moehrig, first in the league at converting defenders into points. The biggest weakness is every skill position on the other side of the ball, where {{f.team.0001.holes_today}} of nine priced slots hold a player the board does not rank, and the receiver room is led by a Low-end WR1 who cost {{f.team.0001.top_buy_price}}.",
-     "One more thing, and it is only one game. {{f.league.wk_teams_final}} NFL teams had played when this was written, and Sam Darnold — the quarterback the St. Brown trade was built around, carried at the price of a starter — banked {{f.team.0001.wk_points_final}} points, on a passing line you can read in full in the table below, before Drew Lock finished the game for Seattle. Nobody has designated him anything and one afternoon proves nothing. It is simply the first live evidence on the bet, and it did not open well."
+     "The biggest advantage is a modest one: Chase Brown and George Pickens, the only two starters on offense who rank among the top twelve at their positions. The biggest weakness is everything around them, where {{f.team.0001.holes_today}} of nine priced slots are holes and {{f.team.0001.cap_current_room}} of cap room will not fix much. The defense grades well, but that is the cheapest edge in this league to match.",
+     "One more thing, and it is only one game. {{f.league.wk_teams_final}} NFL teams had played when this was written, and Sam Darnold, the quarterback who came back in the St. Brown trade, has {{f.team.0001.wk_points_final}} points so far, on thirteen passing yards. Nobody has designated him anything, and one game proves nothing."
     ],
     "place": [
      "t.0001.division",
