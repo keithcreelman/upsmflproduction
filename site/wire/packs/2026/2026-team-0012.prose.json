@@ -1,29 +1,132 @@
 {
  "meta": {
-  "engine": "claude-opus-5 (session agent)",
+  "engine": "claude-opus-5 (session, written by hand)",
   "packId": "2026-team-0012"
  },
  "prose": {
-  "kicker": "Hawks · Chris Klingenberg",
-  "title": "The Hawks Went Into the Auction Without a Starting Quarterback and Came Out With Two",
-  "dek": "Chris Klingenberg began April with no top-twelve starter on offense and no quarterback on his active roster. He nearly doubled his starting offense at the auction and still ranks last in the league, with {{f.team.0012.holes_today}} holes.",
+  "title": "The Hawks Had No Quarterback in April and Two by August",
+  "dek": "Chris Klingenberg sat still through the spring, then spent {{f.team.0012.faa_spend}} at the Free Agent Auction, {{f.team.0012.top_buy_price}} of it on Jared Goff. The preseason simulation has the Hawks {{f.team.0012.power_rank|ord}}, in a division with the league's top-ranked team.",
   "sections": [
    {
     "id": "s1",
-    "lead": "",
     "paragraphs": [
-     "Quarterback is the one room that works, ranking {{f.team.0012.qb_rank|ord}}. Matthew Stafford grades Low-end QB1 and Jared Goff High-end QB2 in the superflex. That is a functional superflex pair and it took most of his auction money.",
-     "Everything else on offense is short. Receiver is the worst room in the league: Mike Evans is a Mid WR3, rookie Carnell Tate a Low-end WR3, Michael Wilson a High-end WR4 in the flex. The backfield ranks {{f.team.0012.rb_rank|ord}} on Kyren Williams at High-end RB2 and Rhamondre Stevenson at Mid RB3, with J.K. Dobbins, a Replacement-level RB, in the other flex. Travis Kelce is a Low-end TE1 and tight end ranks {{f.team.0012.te_rank|ord}}.",
-     "Behind Marcus Jones and George Karlaftis, the rest of the defense is replacement-level or rookies too new to grade. He put {{f.team.0012.idp_auction_share}} of his auction money into defenders, the smallest share of any owner, and over the previous three seasons his defenders scored the fewest points per start in the league.",
-     "Composite {{f.team.0012.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0012.studs_today}} studs, {{f.team.0012.holes_today}} holes — the most in the league."
+     "April was bare. The Hawks carried {{f.team.0012.active_roster_opening}} active players and {{f.team.0012.cap_opening}} in salary, and there was no quarterback on the roster at all, so Jakobi Meyers, a receiver, sat in the superflex. Kyren Williams, a High-end RB2, was the only solid starter, and there was not one top-twelve player at any position. The other {{f.team.0012.holes_opening}} spots were holes: nobody at quarterback, J.K. Dobbins at the second running back spot, Mike Evans and Michael Wilson at receiver, Dalton Kincaid at tight end, and RJ Harvey, Chimere Dike and Meyers in the flexes.",
+     "Then nothing, deliberately or not. No trade, no cut, no extension before the rookie draft. {{f.team.0012.expired_rookies}} rookie deals ran out and none was kept: Drew Sanders, Luke Schoonmaker and Nolan Smith simply left, and Jordan Battle went to L.A. Looks at the Expired Rookie Auction."
     ],
     "place": [
+     "t.0012.slot_bridge",
+     "t.0012.expired"
+    ],
+    "placeAt": {
+     "t.0012.slot_bridge": 0,
+     "t.0012.expired": 1
+    },
+    "views": {
+     "t.0012.slot_bridge": {
+      "cols": [
+       "slot",
+       "open"
+      ],
+      "labels": {
+       "open": "April"
+      },
+      "title": "April: who held each priced slot"
+     },
+     "t.0012.expired": {
+      "cols": [
+       "player",
+       "pos",
+       "outcome"
+      ],
+      "title": "Rookie deals that ran out"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "The draft was the whole pre-auction offseason, and it was a good one to have. The Hawks made {{f.team.0012.rookie_picks_count}} picks, two of them in the first round: Carnell Tate at 1.02, a slot that has produced a usable player half the time, and Makai Lemon at 1.06. Tate went straight into the lineup as a Low-end WR3. Kaelon Black, Ja'Kobi Lane, Drew Allar, CJ Allen and Mansoor Delane followed, and the two defenders, Allen and Delane, are already starting.",
+     "No Expired Rookie Auction buys, no tags, no cuts and no trades until the roster locked. Klingenberg carried {{f.team.0012.active_roster_preauction}} active players and {{f.team.0012.cap_preauction}} into the auction, plenty of room and a lot of it needed."
+    ],
+    "place": [
+     "t.0012.rookies"
+    ],
+    "placeAt": {
+     "t.0012.rookies": 0
+    },
+    "views": {
+     "t.0012.rookies": {
+      "cols": [
+       "pick",
+       "player",
+       "baseline",
+       "val"
+      ],
+      "title": "The rookie class",
+      "labels": {
+       "baseline": "History at this slot",
+       "val": "Grade today"
+      }
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "He spent it on quarterbacks. Jared Goff cost {{f.team.0012.faa_12611_price}} after twelve bids, the most contested of his wins, and Matthew Stafford {{f.team.0012.faa_9431_price}}. That is {{f.team.0012.faa_spend}} in all at the Free Agent Auction, with Rachaad White at {{f.team.0012.faa_15721_price}}, Rhamondre Stevenson at {{f.team.0012.faa_15259_price}} and Travis Kelce at {{f.team.0012.faa_11244_price}} behind them.",
+     "It bought two real starters. Stafford grades as a Low-end QB1 and Kelce as a Low-end TE1; Goff, a High-end QB2 in the superflex, is the Good in the What it bought column. White and Stevenson are depth. Measured against every owner's money, his money ranks {{f.team.0012.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added, and {{f.team.0012.faa_off_gain_rank|ord}} for how much it added in all: the middle of the league on both counts, which for a team that started with no quarterback is a real summer.",
+     "Six of those buys went on multi-year contracts at the auction, and the biggest ones are long: Goff at {{f.team.0012.contract_12611_salary}} this year and {{f.team.0012.contract_12611_tcv}} in all, Stafford at {{f.team.0012.contract_9431_tcv}}, and White at {{f.team.0012.contract_15721_tcv}}. There were no restructures before, during or after it.",
+     "After the auction he traded a 2027 fourth to Real Deal Creel for George Karlaftis and a 2027 fifth, cut Marquise Brown with {{f.team.0012.cut_14105_salary}} of salary and a {{f.team.0012.cut_14105_penalty}} penalty charged to 2027, and claimed Cairo Santos and Sam Martin off waivers to kick and punt.",
+     "The lineup it built has {{f.team.0012.studs_today}} top-twelve starters, Stafford and Kelce, and {{f.team.0012.holes_today}} holes: Stevenson at the second running back spot, Mike Evans and Carnell Tate at receiver, and Michael Wilson and J.K. Dobbins in the flexes. Receiver is where the Hawks rank lowest, {{f.team.0012.wr_rank|ord}} of {{f.league.teams}}. The kicker, Andres Borregales, is an Elite PK1 on MFL's projections."
+    ],
+    "place": [
+     "t.0012.faa",
+     "t.0012.faa_value",
+     "t.0012.moves_s3",
      "t.0012.lineup"
     ],
     "placeAt": {
-     "t.0012.lineup": 0
+     "t.0012.faa": 0,
+     "t.0012.faa_value": 1,
+     "t.0012.moves_s3": 2,
+     "t.0012.lineup": 4
     },
     "views": {
+     "t.0012.faa": {
+      "cols": [
+       "player",
+       "pos",
+       "price",
+       "grade"
+      ],
+      "rows": 8,
+      "title": "Biggest buys"
+     },
+     "t.0012.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend",
+       "bought"
+      ],
+      "labels": {
+       "spend": "Spent on offense",
+       "bought": "What it bought"
+      },
+      "title": "What every owner's auction money bought"
+     },
+     "t.0012.moves_s3": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the auction to week one"
+     },
      "t.0012.lineup": {
       "cols": [
        "slot",
@@ -33,130 +136,38 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "Strongest legal lineup"
-     }
-    }
-   },
-   {
-    "id": "s2",
-    "lead": "",
-    "paragraphs": [
-     "April was bleak: {{f.team.0012.holes_opening}} holes among the priced starting slots and not one top-twelve player in any of them, with {{f.team.0012.cap_opening}} committed. The quarterback slot had nobody rostered in it at all.",
-     "Three months later, at the auction lock, almost nothing had changed: {{f.team.0012.cap_preauction}} committed, holes still at {{f.team.0012.holes_opening}}, studs still at {{f.team.0012.studs_opening}}. Carnell Tate, his top rookie pick at 1.02, had replaced Michael Wilson at the second receiver slot and Wilson had moved into a flex. The quarterback slot was still empty.",
-     "Then the auction, which was the whole offseason compressed into two weeks. His starting offense nearly doubled, the second-biggest jump in the league, behind only CBP; because he started from the weakest base in the league, in total value added he ranked {{f.team.0012.faa_off_gain_rank|ord}}. Matthew Stafford filled a quarterback slot that had been vacant since April and Jared Goff took the superflex off a wide receiver. Travis Kelce replaced Dalton Kincaid at tight end. Rhamondre Stevenson took the second back slot from J.K. Dobbins.",
-     "Four priced slots improved, holes fell from {{f.team.0012.holes_opening}} to {{f.team.0012.holes_postauction}} and studs went from {{f.team.0012.studs_opening}} to {{f.team.0012.studs_postauction}}. That is real progress. It still left more holes than anyone else in the league, because he started so far behind that a good auction only got him to bad."
-    ],
-    "place": [
-     "t.0012.slot_bridge"
-    ],
-    "placeAt": {
-     "t.0012.slot_bridge": 0
-    },
-    "views": {
-     "t.0012.slot_bridge": {
-      "cols": [
-       "slot",
-       "open",
-       "pre",
-       "now"
-      ],
-      "stack": true,
-      "title": "Who filled each priced slot",
-      "labels": {
-       "open": "April",
-       "pre": "Before the auction",
-       "now": "After it"
-      }
-     }
-    }
-   },
-   {
-    "id": "s3",
-    "lead": "",
-    "paragraphs": [
-     "Nothing at the Expired Rookie Auction — {{f.team.0012.era_lots_won}} players, {{f.team.0012.era_spend}}. All {{f.league.era_pool_size}} players sold there, men whose rookie deals ran out without a second one, went to other owners.",
-     "At the Free Agent Auction he won {{f.team.0012.faa_lots_won}} players for {{f.team.0012.faa_spend}}, and two of them were quarterbacks. Jared Goff cost {{f.team.0012.top_buy_price}}, {{f.team.0012.top_buy_pct_of_spend}} of his auction spending, and Matthew Stafford cost nearly as much again. Between them those two took two-thirds of what he spent.",
-     "Measured against the money, it worked. He spent {{f.team.0012.faa_off_spend}} on offense at the Free Agent Auction, and for what that money bought he ranked {{f.team.0012.faa_off_rank|ord}} of {{f.league.teams}}; only Blake Bombers and C-Town Chivalry got more for their money. The fair caveat is that he brought the weakest offense in the league into the auction, with the quarterback slot empty, so almost any sensible buy was an upgrade.",
-     "The quarterback spending answered a real need — he arrived at the auction with nobody on his active roster who could start at quarterback, and superflex punishes that harder than any other gap. In context it is harder to love, because almost none of his money reached a receiver room that ranks {{f.team.0012.wr_rank|ord}}. Odell Beckham at the league minimum was his answer there, and he signed and released Beckham twice.",
-     "The value buys are real and worth naming. Travis Kelce at a small price is a Low-end TE1 and an upgrade on a bench player carrying nearly five times the salary. Rhamondre Stevenson has already started and produced. Andres Borregales, signed at the league minimum, scored on opening night.",
-     "He spent {{f.team.0012.idp_auction_spend}} on defenders across both auctions, the least of any owner."
-    ],
-    "place": [
-     "t.0012.auction",
-     "t.0012.faa_value"
-    ],
-    "placeAt": {
-     "t.0012.auction": 1,
-     "t.0012.faa_value": 2
-    },
-    "views": {
-     "t.0012.auction": {
-      "cols": [
-       "player",
-       "pos",
-       "auction",
-       "price"
-      ],
-      "sortDesc": "price",
-      "rows": 5,
-      "title": "Biggest buys",
-      "labels": {
-       "auction": "Where"
-      }
-     },
-     "t.0012.faa_value": {
-      "cols": [
-       "rank",
-       "team",
-       "spend"
-      ],
-      "labels": {
-       "spend": "Spent on offense"
-      },
-      "title": "Who got the most for his money"
+      "title": "The lineup it built"
      }
     },
     "captions": {
-     "t.0012.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
+     "t.0012.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
     }
    },
    {
     "id": "s4",
-    "lead": "",
     "paragraphs": [
-     "{{f.team.0012.contracts_count}} contract moves, {{f.team.0012.trades_count}} trade, {{f.team.0012.roster_removals_total}} removals, {{f.team.0012.cuts_penalty_2026}} charged this season and {{f.team.0012.cuts_penalty_2027_deferred}} deferred to next.",
-     "The contract sheet is all auction conversion: Goff, Stafford, Stevenson, Rachaad White, DeMarvion Overshown and Borregales all moved onto multi-year deals, and only Borregales is at the league minimum.",
-     "The single trade is small and good: a 2027 fourth to Real Deal Creel for George Karlaftis, now a starter on his defensive line, and a 2027 fifth.",
-     "Marquise Brown was the only real cut, carrying a penalty deferred to next season. The rest is {{f.team.0012.inyear_flyers}} in-year flyers, two of them the same player.",
-     "The rookie class is his best asset and the reason not to write him off. {{f.team.0012.rookie_picks_count}} picks, led by Carnell Tate at 1.02, a slot that has produced a usable player half the time, who is already starting as a Low-end WR3. Makai Lemon at 1.06 and Kaelon Black at 2.02 came from slots that have produced a usable player just under a third of the time, and both grade replacement-level so far; Ja'Kobi Lane at 3.02 and Drew Allar at 3.05 came from slots that almost never have. Two defenders at 4.02 and 6.12 have yet to play an NFL season."
+     "Klingenberg has been here since {{f.team.0012.hist_first_season}}, {{f.team.0012.hist_seasons}} completed seasons, and the record is honest about them: no title, one runner-up finish in {{f.team.0012.hist_runner_up_years}}, {{f.team.0012.hist_playoffs}} playoff trips, and division titles in {{f.team.0012.hist_div_title_years}}. His career all-play record of {{f.team.0012.hist_allplay_pct}} is the lowest in the league."
     ],
     "place": [
-     "t.0012.trades"
+     "t.0012.history"
     ],
     "placeAt": {
-     "t.0012.trades": 2
+     "t.0012.history": 0
     },
     "views": {
-     "t.0012.trades": {
-      "cols": [
-       "date",
-       "partner",
-       "gave",
-       "got"
-      ],
+     "t.0012.history": {
       "stack": true,
-      "title": "Trades"
+      "title": "Owner history"
      }
-    }
+    },
+    "captions": {}
    },
    {
     "id": "s5",
-    "lead": "",
     "paragraphs": [
-     "He is {{f.team.0012.division_rank|ord}} of {{f.team.0012.division_size}}, behind C-Town Chivalry and Cleon Ca$h, and he plays each of them five times. C-Town is the best team in the league and Cleon Ca$h is fourth. Ten of his matchups this season come against those two, which is the worst divisional draw of anybody.",
-     "Strongest team in the league? No — {{f.team.0012.composite_rank}} of {{f.league.teams}}, last, with the most holes and the worst receiver room. Best offseason? Also no, but he is not the worst either, and the distinction matters: he brought the weakest offense in the league into the auction and nearly doubled it, filled a quarterback slot that had been empty since spring, and did it while still holding {{f.team.0012.cap_current_room}} of room — more than any other owner in the league. He is last, and he is last with money and a first-round rookie already starting.",
-     "His biggest advantage is the Stafford-Goff pair, in a quarterback room that ranks {{f.team.0012.qb_rank|ord}}. The biggest weakness is receiver, ranked {{f.team.0012.wr_rank|ord}}, where Mike Evans, a Mid WR3, is the best he has; his thin defense is the cheapest problem in the league to fix.",
-     "And then the strangest early result in the league. When this was written only {{f.league.wk_teams_final}} NFL teams had played, and the last-ranked roster has the second-best haul of anybody: {{f.team.0012.wk_points_final}} points from three finished starters. Rhamondre Stevenson led it, with a minimum-salary kicker and a minimum-salary cornerback behind him. Nothing about one night predicts a season, and his two expensive quarterbacks had not played yet."
+     "DOG POUND 4 LIFE is C-Town Chivalry's division until someone takes it from them. The simulation ranks C-Town {{f.league.power_rank_0009|ord}} in the league with {{f.league.p_title_0009}} title odds, Cleon Ca$h {{f.league.power_rank_0011|ord}}, and the Hawks {{f.team.0012.power_rank|ord}}, with {{f.team.0012.sim_p_playoffs}} playoff odds and a {{f.team.0012.sim_p_division}} chance at the division. Each of them is played five times.",
+     "The next three years, Klingenberg style. 2027: the Hawks win DOG POUND 4 LIFE?!?! Goff and Stafford carry it... no, wait, strike that, C-Town wins it, bro, but the Hawks make the playoffs. 2028: Tate is a lead receiver and Lemon is right behind him, and this is the year, dude, this is definitely the year. 2029: they do not win the title. Actually, they might. That is the projection, and he will have changed his mind about it twice by the time you read this.",
+     "Week one is off to a better start than the spring. With {{f.league.wk_teams_final}} NFL teams done, Mike Evans caught a touchdown, Kyren Williams ran one in, and the Hawks already have {{f.team.0012.wk_points_final}} points in the bank. Stafford threw an interception in a quiet first game."
     ],
     "place": [
      "t.0012.division",
@@ -164,17 +175,11 @@
     ],
     "placeAt": {
      "t.0012.division": 0,
-     "t.0012.week1": 3
+     "t.0012.week1": 2
     },
     "views": {
      "t.0012.division": {
-      "cols": [
-       "team",
-       "comp"
-      ],
-      "labels": {
-       "comp": "League rank"
-      },
+      "stack": true,
       "title": "The division"
      },
      "t.0012.week1": {
@@ -198,22 +203,21 @@
     }
    }
   ],
+  "kicker": "Hawks · Chris Klingenberg",
   "strip": [
    {
-    "fact": "f.team.0012.composite_rank",
+    "fact": "f.team.0012.power_rank",
     "ord": true,
     "of": "f.league.teams",
-    "label": "Overall"
+    "label": "Power rank"
    },
    {
-    "fact": "f.team.0012.studs_today",
-    "label": "Offensive studs",
-    "suffix": "of nine"
+    "fact": "f.team.0012.sim_p_playoffs",
+    "label": "Playoff odds"
    },
    {
-    "fact": "f.team.0012.holes_today",
-    "label": "Offensive holes",
-    "suffix": "of nine"
+    "fact": "f.team.0012.sim_p_title",
+    "label": "Title odds"
    },
    {
     "fact": "f.team.0012.auction_spend",
@@ -225,7 +229,7 @@
    }
   ],
   "card": {
-   "rankFact": "f.team.0012.composite_rank",
+   "rankFact": "f.team.0012.power_rank",
    "ofFact": "f.league.teams",
    "featured": false
   }

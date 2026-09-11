@@ -1,30 +1,154 @@
 {
  "meta": {
-  "engine": "claude-opus-5 (session agent)",
+  "engine": "claude-opus-5 (session, written by hand)",
   "packId": "2026-team-0011"
  },
  "prose": {
-  "kicker": "Cleon Ca$h · Eric Mannila",
-  "title": "Cleon Ca$h Let the Draft Do His Offseason and It Worked",
-  "dek": "Eric Mannila spent {{f.team.0011.auction_spend}} at auction — less than anybody — made {{f.team.0011.trades_count}} trade, and ranks {{f.team.0011.composite_rank|ord}} of {{f.league.teams}}. The pick at 1.01 did more for this roster than his entire summer of shopping.",
+  "title": "Cleon Ca$h Had the First Pick and Barely Needed Anything Else",
+  "dek": "Eric Mannila extended Bijan Robinson and Tucker Kraft, took Jeremiyah Love at 1.01, and spent {{f.team.0011.auction_spend}} at auction, less than any owner. The preseason simulation ranks Cleon Ca$h {{f.team.0011.power_rank|ord}}.",
   "sections": [
    {
     "id": "s1",
-    "lead": "",
     "paragraphs": [
-     "Tight end ranks {{f.team.0011.te_rank|ord}} in the league, and it is a genuine structural edge rather than a quirk. Colston Loveland grades Elite TE1 and Tucker Kraft, a High-end TE1, occupies one of the offensive flexes. Nobody else in this competition starts two tight ends who both grade as starters.",
-     "The backfield ranks {{f.team.0011.rb_rank|ord}} on Bijan Robinson at Elite RB1 and Jeremiyah Love at High-end RB2. Receiver ranks {{f.team.0011.wr_rank|ord}} with CeeDee Lamb at High-end WR1 and Malik Nabers at High-end WR2. Justin Herbert is a Mid QB1 with Jaxson Dart, a High-end QB2, in the superflex, ranking {{f.team.0011.qb_rank|ord}}.",
-     "That is {{f.team.0011.studs_today}} studs across four positions and a lineup with just {{f.team.0011.holes_today}} hole in it — only Pure Greatness and C-Town Chivalry, with none, have fewer. The hole is Romeo Doubs, a Replacement-level WR, in the last offensive flex.",
-     "The defense is thin: Travon Walker, Carl Granderson and Jonathan Greenard all grade Replacement-level DL, and only Roquan Smith at Mid LB2 and Antoine Winfield at Low-end DB2 register at all.",
-     "Composite {{f.team.0011.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0011.studs_today}} studs, {{f.team.0011.holes_today}} hole."
+     "April was already strong. Mannila carried {{f.team.0011.active_roster_opening}} active players and {{f.team.0011.cap_opening}} in salary, with {{f.team.0011.studs_opening}} top-twelve starters: Justin Herbert, Bijan Robinson, an Elite RB1, CeeDee Lamb and Malik Nabers at receiver, Colston Loveland, an Elite TE1, and Tucker Kraft in a flex. Jaxson Dart was solid in the superflex. The {{f.team.0011.holes_opening}} holes were nobody at all at the second running back spot, and Wan'Dale Robinson in the other flex.",
+     "Before the draft he kept what he had. Robinson's rookie deal was extended at {{f.team.0011.contract_16161_salary}} this year and {{f.team.0011.contract_16161_tcv}} in all, and Kraft's at {{f.team.0011.contract_16222_salary}} for one more year. The other three expiring rookies, Kayshon Boutte, Marvin Mims and Will McDonald, went to the Expired Rookie Auction, two of them to Real Deal Creel. No trades, no cuts."
     ],
     "place": [
+     "t.0011.slot_bridge",
+     "t.0011.moves_s1",
+     "t.0011.expired"
+    ],
+    "placeAt": {
+     "t.0011.slot_bridge": 0,
+     "t.0011.moves_s1": 1,
+     "t.0011.expired": 1
+    },
+    "views": {
+     "t.0011.slot_bridge": {
+      "cols": [
+       "slot",
+       "open"
+      ],
+      "labels": {
+       "open": "April"
+      },
+      "title": "April: who held each priced slot"
+     },
+     "t.0011.moves_s1": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "Before the rookie draft"
+     },
+     "t.0011.expired": {
+      "cols": [
+       "player",
+       "pos",
+       "outcome"
+      ],
+      "title": "Rookie deals that ran out"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "The draft filled the empty spot. Mannila held 1.01 and took Jeremiyah Love, the surest pick in the class: that slot has produced a usable player almost every time, and Love walked straight into the lineup as a High-end RB2. {{f.team.0011.rookie_picks_count}} picks in all, with Nicholas Singleton, Arvell Reese, already starting at linebacker, Zachariah Branch, Taylen Green, Jam Miller and Gabe Jacas after him.",
+     "The rest of the pre-auction offseason was quiet. No tags, no Expired Rookie Auction buys, one July trade, a 2027 fifth to Sex Manther for Efton Chism, and one release at no cost, Bralen Trice. He went into the auction with {{f.team.0011.active_roster_preauction}} active players and {{f.team.0011.cap_preauction}} committed."
+    ],
+    "place": [
+     "t.0011.rookies",
+     "t.0011.moves_s2"
+    ],
+    "placeAt": {
+     "t.0011.rookies": 0,
+     "t.0011.moves_s2": 1
+    },
+    "views": {
+     "t.0011.rookies": {
+      "cols": [
+       "pick",
+       "player",
+       "baseline",
+       "val"
+      ],
+      "title": "The rookie class",
+      "labels": {
+       "baseline": "History at this slot",
+       "val": "Grade today"
+      }
+     },
+     "t.0011.moves_s2": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the draft to the auction lock"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "Two restructures went with the auction, and they pointed in opposite directions. In June Herbert's deal was front-loaded to {{f.team.0011.contract_14779_salary}} this year and {{f.team.0011.contract_14779_tcv}} in all, and the day after the lock Robinson's was cut to {{f.team.0011.contract_16161_salary_2}} for 2026, which opened room. Opening room is not the same as using it, and here it was not used: Mannila spent {{f.team.0011.faa_spend}} at the Free Agent Auction, the least of any owner, and still has {{f.team.0011.cap_current_room}} of room.",
+     "Romeo Doubs took {{f.team.0011.faa_15779_price}} of it after twelve bids and signed long, {{f.team.0011.contract_15779_tcv}} in all. He is a replacement-level receiver and the one hole in the lineup. Kirk Cousins cost {{f.team.0011.faa_10700_price}}, Tyler Allgeier {{f.team.0011.faa_15712_price}}, and the kicker Cameron Dicker a little more than the minimum. The What it bought column is all depth, and the league table ranks the money {{f.team.0011.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added and {{f.team.0011.faa_off_gain_rank|ord}} for how much it added in all. For a lineup this complete, that was always going to be the result.",
+     "The lineup it built is the April lineup with the hole filled by the draft: {{f.team.0011.studs_today}} top-twelve starters in Herbert, Robinson, Lamb, Nabers, Loveland and Kraft, Love and Dart solid, and {{f.team.0011.holes_today}} hole, Doubs in the flex. His tight ends rank {{f.team.0011.te_rank|ord}} in the league and his backs {{f.team.0011.rb_rank|ord}}. The defense is thin, and since the simulation plays every starting spot, it counts."
+    ],
+    "place": [
+     "t.0011.faa",
+     "t.0011.faa_value",
+     "t.0011.moves_s3",
      "t.0011.lineup"
     ],
     "placeAt": {
-     "t.0011.lineup": 0
+     "t.0011.faa": 0,
+     "t.0011.faa_value": 1,
+     "t.0011.moves_s3": 0,
+     "t.0011.lineup": 2
     },
     "views": {
+     "t.0011.faa": {
+      "cols": [
+       "player",
+       "pos",
+       "price",
+       "grade"
+      ],
+      "rows": 8,
+      "title": "Biggest buys"
+     },
+     "t.0011.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend",
+       "bought"
+      ],
+      "labels": {
+       "spend": "Spent on offense",
+       "bought": "What it bought"
+      },
+      "title": "What every owner's auction money bought"
+     },
+     "t.0011.moves_s3": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the auction to week one"
+     },
      "t.0011.lineup": {
       "cols": [
        "slot",
@@ -34,129 +158,38 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "Strongest legal lineup"
-     }
-    }
-   },
-   {
-    "id": "s2",
-    "lead": "",
-    "paragraphs": [
-     "April found him already in decent shape: {{f.team.0011.active_roster_opening}} active players, {{f.team.0011.cap_opening}} committed, and {{f.team.0011.studs_opening}} studs against {{f.team.0011.holes_opening}} holes. One of those holes was literal — nobody was rostered for the second running back slot at all. The other was Wan'Dale Robinson, a Replacement-level WR, in the last offensive flex.",
-     "That empty slot is where his offseason actually happened, and it happened at the draft rather than the auction. Jeremiyah Love arrived at 1.01 and walked straight into the lineup as a High-end RB2. By the auction lock he had {{f.team.0011.active_roster_preauction}} active players and {{f.team.0011.cap_preauction}} committed, and Robinson in the flex was the only hole left — before he placed a single bid at the Free Agent Auction.",
-     "Then the Free Agent Auction, and this is the part that defines his year. It barely moved his starting offense from where it stood at the lock. Studs stayed at {{f.team.0011.studs_postauction}}, holes stayed at {{f.team.0011.holes_postauction}}, and the only priced slot to change occupant swapped one Replacement-level WR for another: Romeo Doubs for Robinson in that last flex.",
-     "He filled the roster out to {{f.team.0011.active_roster_current}} active players and the starting lineup came out the other side effectively unchanged. For a team ranked {{f.team.0011.composite_rank|ord}} that is either admirable restraint or a missed window, and the last flex answers it: the one hole in his offense survived the whole summer."
-    ],
-    "place": [
-     "t.0011.slot_bridge"
-    ],
-    "placeAt": {
-     "t.0011.slot_bridge": 0
-    },
-    "views": {
-     "t.0011.slot_bridge": {
-      "cols": [
-       "slot",
-       "open",
-       "pre",
-       "now"
-      ],
-      "stack": true,
-      "title": "Who filled each priced slot",
-      "labels": {
-       "open": "April",
-       "pre": "Before the auction",
-       "now": "After it"
-      }
-     }
-    }
-   },
-   {
-    "id": "s3",
-    "lead": "",
-    "paragraphs": [
-     "Nothing at the Expired Rookie Auction: {{f.team.0011.era_lots_won}} players won and {{f.team.0011.era_spend}} spent, in a sale of {{f.league.era_pool_size}} players whose rookie deals ran out without earning a second one.",
-     "At the Free Agent Auction he won {{f.team.0011.faa_lots_won}} players for {{f.team.0011.faa_spend}}, the smallest outlay of any owner in the league. Romeo Doubs took {{f.team.0011.top_buy_price}} of it — {{f.team.0011.top_buy_pct_of_spend}} of the total, against the league's most expensive buy of {{f.league.faa_top_price}} — and Doubs grades Replacement-level WR and is the only hole in his starting offense. Twelve bids went in on him, the most contested of all his wins, and he is the one buy Eric should want back.",
-     "Measured against what it bought, that money went almost nowhere. He spent {{f.team.0011.faa_off_spend}} on offense at the Free Agent Auction, and for what it bought that ranks {{f.team.0011.faa_off_rank|ord}} of {{f.league.teams}}, dead last. He went in with the second-strongest starting offense in the league, behind only Pure Greatness, so there was less to add than most — which is also why Pure Greatness sits just above him. It is not much of an excuse, though: C-Town Chivalry went in with a slightly weaker offense and still finished second on this measure. His one hole is where most of his offensive money went, and it is still a hole.",
-     "Of the rest, Kirk Cousins and Tyler Allgeier were modest additions who both grade replacement-level on the bench, and the kicker, Cameron Dicker, cost more than the minimum. Everything else came in at the league minimum: Keon Coleman, Michael Trigg, A.J. Cole, Antoine Winfield, Tyler Nubin, Teddye Buchanan, Carl Granderson, Jonathan Greenard and T.J. Edwards — and Trigg and Edwards have already been released.",
-     "The defensive spend was {{f.team.0011.idp_auction_spend}}, {{f.team.0011.idp_auction_share}} of his money, all of it at the minimum, and it bought roughly what it cost: Carl Granderson, Jonathan Greenard and Antoine Winfield now start."
-    ],
-    "place": [
-     "t.0011.auction",
-     "t.0011.faa_value"
-    ],
-    "placeAt": {
-     "t.0011.auction": 1,
-     "t.0011.faa_value": 2
-    },
-    "views": {
-     "t.0011.auction": {
-      "cols": [
-       "player",
-       "pos",
-       "auction",
-       "price"
-      ],
-      "sortDesc": "price",
-      "rows": 5,
-      "title": "Biggest buys",
-      "labels": {
-       "auction": "Where"
-      }
-     },
-     "t.0011.faa_value": {
-      "cols": [
-       "rank",
-       "team",
-       "spend"
-      ],
-      "labels": {
-       "spend": "Spent on offense"
-      },
-      "title": "Who got the most for his money"
+      "title": "The lineup it built"
      }
     },
     "captions": {
-     "t.0011.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
+     "t.0011.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
     }
    },
    {
     "id": "s4",
-    "lead": "",
     "paragraphs": [
-     "{{f.team.0011.contracts_count}} contract moves, {{f.team.0011.trades_count}} trade, {{f.team.0011.roster_removals_total}} removals, {{f.team.0011.cuts_penalty_2026}} of penalty charged and nothing deferred. This is one of the quietest sheets in the league.",
-     "The contract work is genuinely good. Bijan Robinson was extended in May and then restructured in July, and the restructure cut his current-year charge to a fraction of the extension figure while leaving the total value untouched. Justin Herbert was restructured in June and front-loaded. Tucker Kraft was extended. Those three deals covered three of his {{f.team.0011.studs_today}} studs, and the Robinson restructure is the one that plainly cleared room this year.",
-     "The single trade of his year was a 2027 fifth-round pick to Sex Manther for Efton Chism, a receiver the redraft board does not price. It is not a story.",
-     "The removals are {{f.team.0011.roster_removals_total}} players and no consequences: {{f.team.0011.cuts_count}} contract cut and {{f.team.0011.inyear_flyers}} in-year flyers, none of them charged against the cap.",
-     "The draft is where he won: {{f.team.0011.rookie_picks_count}} picks, led by the surest bet in the class — Jeremiyah Love at 1.01, from the strongest historical band in the class, already starting as a High-end RB2. Zachariah Branch at 4.10 came from a slot where history says almost nothing usable emerges, so anything he becomes is a bonus. Arvell Reese at 3.07 is starting at linebacker with no NFL season behind him, so no source can price him yet."
+     "Mannila has been here since {{f.team.0011.hist_first_season}}, all {{f.team.0011.hist_seasons}} completed seasons, and the record is modest: {{f.team.0011.hist_playoffs}} playoff trip, no title, no division crown, and a {{f.team.0011.hist_allplay_pct}} career all-play record. On paper, this is the roster to change that."
     ],
     "place": [
-     "t.0011.trades"
+     "t.0011.history"
     ],
     "placeAt": {
-     "t.0011.trades": 2
+     "t.0011.history": 0
     },
     "views": {
-     "t.0011.trades": {
-      "cols": [
-       "date",
-       "partner",
-       "gave",
-       "got"
-      ],
+     "t.0011.history": {
       "stack": true,
-      "title": "Trades"
+      "title": "Owner history"
      }
-    }
+    },
+    "captions": {}
    },
    {
     "id": "s5",
-    "lead": "",
     "paragraphs": [
-     "He is {{f.team.0011.division_rank|ord}} of {{f.team.0011.division_size}}, behind C-Town Chivalry and ahead of the Hawks, and he plays each of them five times: five games against the top-ranked roster in the league and five against the bottom-ranked one. The Hawks games are the cushion; the C-Town games are the season.",
-     "Strongest team in the league? Fourth — close behind Blake Bombers in third, and well short of C-Town Chivalry at the top. Best offseason? No — and it is worth saying plainly that he did not have one. He spent the least of anybody, made one trade for a receiver the redraft board does not price, and came out of the Free Agent Auction with a starting offense that had barely moved from the one he took into it — the smallest gain in the league. What he did have was the first pick in the draft and the sense to extend and restructure his best contracts properly.",
-     "The biggest advantage is the two tight ends and Bijan Robinson: the best tight end pairing in the league, plus an Elite RB1. The biggest weakness is the last offensive flex, where Romeo Doubs, a Replacement-level WR and the most expensive buy of his summer, is still the one hole in his offense. The defense is thin too, but that is the cheapest problem in the league to fix.",
-     "{{f.league.wk_teams_final}} NFL teams had played when this was written and none of his starters was among them — {{f.team.0011.wk_points_final}} points banked so far. His two finished players were New England receivers he left on the bench, Efton Chism and Romeo Doubs — so Doubs, the flex in his strongest lineup, is not in the one he actually set. Neither recorded a scoring stat, and one game says nothing yet about anyone."
+     "DOG POUND 4 LIFE runs through C-Town, the simulation's {{f.league.power_rank_0009|ord}} team, and Cleon Ca$h is {{f.team.0011.power_rank|ord}}, with {{f.team.0011.sim_p_playoffs}} playoff odds and a {{f.team.0011.sim_p_division}} chance at the division. The Hawks are {{f.league.power_rank_0012|ord}}. He plays both five times.",
+     "The next three years, in Mannila's register, which is to say briefly. 2027: a playoff trip. He says it was probably luck. 2028: Love and Robinson are the best backfield in the league. He points out that C-Town was once, too. 2029: a title. One sentence about it, no follow-up.",
+     "Week one has not started for Cleon Ca$h. With {{f.league.wk_teams_final}} NFL teams done, none of his starters had played, and the two New England receivers who had, Chism and Doubs, were on his bench."
     ],
     "place": [
      "t.0011.division",
@@ -164,17 +197,11 @@
     ],
     "placeAt": {
      "t.0011.division": 0,
-     "t.0011.week1": 3
+     "t.0011.week1": 2
     },
     "views": {
      "t.0011.division": {
-      "cols": [
-       "team",
-       "comp"
-      ],
-      "labels": {
-       "comp": "League rank"
-      },
+      "stack": true,
       "title": "The division"
      },
      "t.0011.week1": {
@@ -198,22 +225,21 @@
     }
    }
   ],
+  "kicker": "Cleon Ca$h · Eric Mannila",
   "strip": [
    {
-    "fact": "f.team.0011.composite_rank",
+    "fact": "f.team.0011.power_rank",
     "ord": true,
     "of": "f.league.teams",
-    "label": "Overall"
+    "label": "Power rank"
    },
    {
-    "fact": "f.team.0011.studs_today",
-    "label": "Offensive studs",
-    "suffix": "of nine"
+    "fact": "f.team.0011.sim_p_playoffs",
+    "label": "Playoff odds"
    },
    {
-    "fact": "f.team.0011.holes_today",
-    "label": "Offensive holes",
-    "suffix": "of nine"
+    "fact": "f.team.0011.sim_p_title",
+    "label": "Title odds"
    },
    {
     "fact": "f.team.0011.auction_spend",
@@ -225,7 +251,7 @@
    }
   ],
   "card": {
-   "rankFact": "f.team.0011.composite_rank",
+   "rankFact": "f.team.0011.power_rank",
    "ofFact": "f.league.teams",
    "featured": false
   }

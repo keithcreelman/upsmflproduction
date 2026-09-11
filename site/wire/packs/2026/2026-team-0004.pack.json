@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0004",
   "title": "2026 Team Review: Pure Greatness",
-  "generatedAtUtc": "2026-09-10T18:08:01Z",
+  "generatedAtUtc": "2026-09-11T11:20:35Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -20,19 +20,25 @@
     },
     {
       "name": "MFL rosters export, live (all 12 franchises, for league-relative ranks)",
-      "asof": "2026-09-10T18:07:50Z",
+      "asof": "2026-09-11T11:20:25Z",
       "rows": 216,
       "note": null
     },
     {
+      "name": "site/wire/data/season_sim_2026.json -- preseason Monte Carlo; K/P from MFL projectedScores weeks 1-17",
+      "asof": "2026-09-11T11:00:10Z",
+      "rows": 12,
+      "note": "20000 runs, regression 0.7 (backtested 2021-2025); power rank = expected regular-season all-play %"
+    },
+    {
       "name": "worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-      "asof": "2026-09-10T18:06:55Z",
-      "rows": 221,
+      "asof": "2026-09-11T11:01:22Z",
+      "rows": 217,
       "note": "current, NOT the 2026-07-21 committed snapshot"
     },
     {
       "name": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z",
+      "asof": "2026-09-11T11:22:02Z",
       "rows": 12,
       "note": "Derived from facts and tables already in the twelve packs; no new data."
     }
@@ -46,7 +52,7 @@
     "currentSeasonPartial": true
   },
   "warnings": [
-    "42 rostered-relevant offense values above come from a single source (FantasyCalc or KTC alone, not a genuine multi-source agreement) -- these carry more uncertainty than a value both sources agree on, per the endpoint's own rsfConfidence flag.",
+    "39 rostered-relevant offense values above come from a single source (FantasyCalc or KTC alone, not a genuine multi-source agreement) -- these carry more uncertainty than a value both sources agree on, per the endpoint's own rsfConfidence flag.",
     "Player value throughout is CURRENT redraft-superflex ADP (today's market), applied to every snapshot -- including the opening and pre-auction rosters. This measures which players a team held or acquired, not what the market thought of them at the time. Never read as a claim about historical ADP.",
     "IDP value is points-above-replacement computed from REAL production under UPS's own scoring rules -- not ADP (which does not price defenders) and not auction price (which is what the league paid, not what a player is worth). A defender's rank comes from the last completed season; the points-per-rank curve is averaged across seasons. PAR is floored at zero: a below-replacement defender is a roster slot refillable from the waiver wire for nothing, so his marginal value is nil rather than negative. 52% of top-24 IDP producers arrived off the wire, versus 6% on offense.",
     "IDP value supports TIER claims -- 'a top-12 DL', 'startable', 'replacement-level' -- and NOT fine ordering inside a tier. Year-over-year rank correlation within the top 24 is about 0.32 at DL, 0.30 at DB and effectively zero at LB, and a within-season split-half agrees. Never write 'the 4th-best linebacker'.",
@@ -54,15 +60,17 @@
     "The IDP tail is flat but the TOP IS STEEP -- do not describe the position as uniformly flat. Against a DL26 replacement of 88.5 in 2025: DL1 +107.0, DL2 +72.5, DL12 +19.0, DL24 +3.0. DL1 to DL2 alone is 34.5 points, a bigger step than DL12 to DL26 spans across fourteen ranks. An elite defender IS worth a lot; it is the replaceable middle that is flat, which is what the waiver-wire finding (52%% of top-24 IDP came off the wire vs 6%% on offense) actually describes. Separately: IDP PAR and offense redraft value are different scales -- never compare or add them.",
     "Regression is the real effect and it bites HARDEST at the top: sweeping the shrink on last season's top-6 defenders, error rises monotonically from 42.8 at 0.20 to 58.2 at no shrink. Last year's elite defenders are the group that repeats least, which is why a realized +107 projects to roughly +35. That gap is the model working, not a bug.",
     "The shrink constant (0.40) was picked by out-of-sample holdout, but the objective is nearly flat -- 0.25 and 0.73 score within about 2% of it. Treat it as 'roughly this much regression', never as a tuned figure.",
-    "Position weights for the composite score are DERIVED, not asserted: the 6 single-position starting slots (1 QB, 2 RB, 2 WR, 1 TE) count exactly; the 3 shared slots (2 Flex, 1 SuperFlex) are split by what all 12 teams' own optimal lineups actually did with them this year. Weights: QB=1.92, RB=2.67, TE=1.17, WR=3.25",
+    "Kickers and punters are graded on MFL's own 2026 projections -- weeks 1-17 summed, ranked league-wide at the position (Keith: 'MFL has kicker forecasts for this season, let's use that as our source of truth') -- with last season's points-per-game rank beside it (8 regular-season games minimum). A kicker or punter is a footnote, like defense: one clause, never a paragraph.",
+    "Position weights for the composite score are DERIVED, not asserted: the 6 single-position starting slots (1 QB, 2 RB, 2 WR, 1 TE) count exactly; the 3 shared slots (2 Flex, 1 SuperFlex) are split by what all 12 teams' own optimal lineups actually did with them this year. Weights: QB=1.92, RB=2.67, TE=1.25, WR=3.17",
     "Opening/pre-auction cap figures are ACTIVE-ROSTER SALARY ONLY (no salaryAdjustments); the live 'cap committed now' figure DOES include adjustments. The two are not subtractable -- they measure different things.",
     "Studs/solid/holes classify each of the 9 ADP-priced starting slots (QB, 2xRB, 2xWR, TE, 2x Flex, SuperFlex) by the occupying player's LEAGUE-WIDE position rank: stud = top 12 at his position, solid = top 24, hole = outside the top 24 or the slot has no rank at all. This is a needs read, not a value total -- two teams can carry the identical summed lineup value with completely different hole counts (a few elite starters and real gaps, versus adequate-everywhere), and that difference is the point.",
     "AT 2026-04-21 THIS ROSTER COULD NOT FIELD A LINEUP: 15 active players against 18 starting slots (taxi and IR do not count toward either). There was no lineup at that stage, so the slot-by-slot table's opening column is the OPTIMIZER'S best available body per slot, NOT a lineup the owner set or intended. Do not write that a player 'was in the flex' or 'started at RB2' in a stage marked no -- say what the roster actually was: how many players, and which contracts were still on it. Contracts expiring on schedule is the league's normal cycle and is not itself a finding.",
     "The Expired Rookie Auction and the Free Agent Auction sell different CALIBERS of player, not just different players. The ERA pool is expired rookie contracts -- men who did not earn a second deal -- and league-wide its most expensive player went for $7,000 against the FAA's $88,000. Never grade an ERA buy against an FAA buy, and never treat 'no ERA purchase is starting' as a finding; that is what the pool is.",
     "Cut figures separate three things the old count merged. 'Contracts cut' means a contract carried INTO the league year and then released. A drop that was the make-room leg of a BBID waiver claim is a roster swap, and a body signed and discarded inside the same offseason was never part of the team (that is a TIMING test, not a salary one -- do not describe those as minimum-salary) -- both are reported separately and must not be described as cuts. Penalties are likewise split by cap year: a drop on or after the FA Auction open is charged to the FOLLOWING season and is ledger-only until rollover (canon §D1), so it must never be added to this season's cap figure.",
     "THREE-WAY TRADES: ups_3way_trades only records deals routed through the league's in-app trade tool, which did not exist before 2026 -- it is NOT an all-time ledger. Multi-team deals did happen in earlier years (Keith 2026-09-09: historical ones exist, involving owners since departed). Say three-way trades are RARE, and that this is the only one completed through the league's trade tool; never say it is the only one on record, and do not characterise the historical ones -- this pack has no data on them.",
-    "The Week 1 table is an OPENING DATA POINT, not a result. Only 2 of 32 NFL teams had played when this was built. Never write a verdict, a trend or a told-you-so off it, and never call a player injured from a low score alone -- MFL's injuries export is the only source for a designation, and it carried none for these players.",
-    "League value comparison: offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. Both are measured from the auction roster lock (2026-07-23) to the close (2026-08-05). Rate = share of the league's lineup gain divided by share of the league's offensive spend; 1.00x is the league average. It does not credit bench depth, and an owner whose lineup had no holes had little room to improve it."
+    "The Week 1 table is an OPENING DATA POINT, not a result. Only 4 of 32 NFL teams had played when this was built. Never write a verdict, a trend or a told-you-so off it, and never call a player injured from a low score alone -- MFL's injuries export is the only source for a designation, and it carried none for these players.",
+    "POWER RANKINGS are the preseason simulation's (site/wire/data/season_sim_2026.json): 20000 seasons simulated from today's rosters and MFL's weekly projections, each team's projected edge kept at 70% (regressed toward the league; backtested on 2021-2025, where it explained about 40% of the spread in final all-play and ranked the field with a correlation of about .57 -- but only .3 to .4 in each of the last three seasons). Say 'projected' and 'odds', never 'will'. It cannot see trades, waiver moves or owners' lineup choices.",
+    "League value comparison: offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. Both are measured from the auction roster lock (2026-07-23) to the close (2026-08-05). Rate = share of the league's lineup gain divided by share of the league's offensive spend, and only the rank is printed. 'What it bought' counts each owner's offensive buys by grade (Elite = top 3 at the position, Very good = 4-12, Good = 13-24, Depth = the rest). It does not credit bench depth, and an owner whose lineup had no holes had little room to improve it."
   ],
   "entities": {
     "owners": [
@@ -80,9 +88,119 @@
         "attributionSource": "src_franchises"
       }
     ],
-    "divisions": []
+    "divisions": [
+      "Outlast PG Time"
+    ]
   },
   "facts": [
+    {
+      "id": "f.league.allplay_career_0001",
+      "label": "Career all-play %: Ryan Bousquet",
+      "value": 54.9,
+      "unit": "percent",
+      "fmt": "54.9%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0002",
+      "label": "Career all-play %: Derrick Whitman",
+      "value": 60.0,
+      "unit": "percent",
+      "fmt": "60.0%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0003",
+      "label": "Career all-play %: Matt Gerardi",
+      "value": 41.4,
+      "unit": "percent",
+      "fmt": "41.4%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0004",
+      "label": "Career all-play %: Brian Cutting",
+      "value": 51.5,
+      "unit": "percent",
+      "fmt": "51.5%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0005",
+      "label": "Career all-play %: Eric Martel",
+      "value": 55.6,
+      "unit": "percent",
+      "fmt": "55.6%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0006",
+      "label": "Career all-play %: Brian Cross",
+      "value": 39.0,
+      "unit": "percent",
+      "fmt": "39.0%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0007",
+      "label": "Career all-play %: Josh Martel",
+      "value": 57.2,
+      "unit": "percent",
+      "fmt": "57.2%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0008",
+      "label": "Career all-play %: Keith Creelman",
+      "value": 53.1,
+      "unit": "percent",
+      "fmt": "53.1%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0009",
+      "label": "Career all-play %: Bear Dunn",
+      "value": 56.7,
+      "unit": "percent",
+      "fmt": "56.7%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0010",
+      "label": "Career all-play %: Shawn Blake",
+      "value": 53.3,
+      "unit": "percent",
+      "fmt": "53.3%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0011",
+      "label": "Career all-play %: Eric Mannila",
+      "value": 39.6,
+      "unit": "percent",
+      "fmt": "39.6%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.allplay_career_0012",
+      "label": "Career all-play %: Chris Klingenberg",
+      "value": 36.9,
+      "unit": "percent",
+      "fmt": "36.9%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
     {
       "id": "f.league.era_pool_size",
       "label": "Players sold in the Expired Rookie Auction, league-wide",
@@ -90,7 +208,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.league.era_top_price",
@@ -99,7 +217,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -108,7 +226,331 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0001",
+      "label": "Simulated playoff odds: L.A. Looks",
+      "value": 33.1,
+      "unit": "percent",
+      "fmt": "33.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0002",
+      "label": "Simulated playoff odds: CBP",
+      "value": 51.8,
+      "unit": "percent",
+      "fmt": "51.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0003",
+      "label": "Simulated playoff odds: Gride",
+      "value": 20.8,
+      "unit": "percent",
+      "fmt": "20.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0004",
+      "label": "Simulated playoff odds: Pure Greatness",
+      "value": 70.1,
+      "unit": "percent",
+      "fmt": "70.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0005",
+      "label": "Simulated playoff odds: HammerTime 🔨 ⏰",
+      "value": 53.3,
+      "unit": "percent",
+      "fmt": "53.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0006",
+      "label": "Simulated playoff odds: The Long Haulers",
+      "value": 40.8,
+      "unit": "percent",
+      "fmt": "40.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0007",
+      "label": "Simulated playoff odds: Sex Manther",
+      "value": 52.6,
+      "unit": "percent",
+      "fmt": "52.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0008",
+      "label": "Simulated playoff odds: Real Deal Creel",
+      "value": 54.8,
+      "unit": "percent",
+      "fmt": "54.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0009",
+      "label": "Simulated playoff odds: C-Town Chivalry",
+      "value": 74.8,
+      "unit": "percent",
+      "fmt": "74.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0010",
+      "label": "Simulated playoff odds: Blake Bombers",
+      "value": 66.4,
+      "unit": "percent",
+      "fmt": "66.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0011",
+      "label": "Simulated playoff odds: Cleon Ca$h",
+      "value": 45.1,
+      "unit": "percent",
+      "fmt": "45.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_playoffs_0012",
+      "label": "Simulated playoff odds: Hawks",
+      "value": 36.4,
+      "unit": "percent",
+      "fmt": "36.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0001",
+      "label": "Simulated title odds: L.A. Looks",
+      "value": 2.6,
+      "unit": "percent",
+      "fmt": "2.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0002",
+      "label": "Simulated title odds: CBP",
+      "value": 7.3,
+      "unit": "percent",
+      "fmt": "7.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0003",
+      "label": "Simulated title odds: Gride",
+      "value": 1.7,
+      "unit": "percent",
+      "fmt": "1.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0004",
+      "label": "Simulated title odds: Pure Greatness",
+      "value": 14.7,
+      "unit": "percent",
+      "fmt": "14.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0005",
+      "label": "Simulated title odds: HammerTime 🔨 ⏰",
+      "value": 9.6,
+      "unit": "percent",
+      "fmt": "9.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0006",
+      "label": "Simulated title odds: The Long Haulers",
+      "value": 5.8,
+      "unit": "percent",
+      "fmt": "5.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0007",
+      "label": "Simulated title odds: Sex Manther",
+      "value": 7.6,
+      "unit": "percent",
+      "fmt": "7.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0008",
+      "label": "Simulated title odds: Real Deal Creel",
+      "value": 10.0,
+      "unit": "percent",
+      "fmt": "10.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0009",
+      "label": "Simulated title odds: C-Town Chivalry",
+      "value": 20.7,
+      "unit": "percent",
+      "fmt": "20.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0010",
+      "label": "Simulated title odds: Blake Bombers",
+      "value": 10.1,
+      "unit": "percent",
+      "fmt": "10.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0011",
+      "label": "Simulated title odds: Cleon Ca$h",
+      "value": 5.8,
+      "unit": "percent",
+      "fmt": "5.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.p_title_0012",
+      "label": "Simulated title odds: Hawks",
+      "value": 4.2,
+      "unit": "percent",
+      "fmt": "4.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0001",
+      "label": "Preseason power rank: L.A. Looks",
+      "value": 11,
+      "unit": "rank",
+      "fmt": "11",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0002",
+      "label": "Preseason power rank: CBP",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "7",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0003",
+      "label": "Preseason power rank: Gride",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "12",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0004",
+      "label": "Preseason power rank: Pure Greatness",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0005",
+      "label": "Preseason power rank: HammerTime 🔨 ⏰",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0006",
+      "label": "Preseason power rank: The Long Haulers",
+      "value": 9,
+      "unit": "rank",
+      "fmt": "9",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0007",
+      "label": "Preseason power rank: Sex Manther",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0008",
+      "label": "Preseason power rank: Real Deal Creel",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0009",
+      "label": "Preseason power rank: C-Town Chivalry",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "1",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0010",
+      "label": "Preseason power rank: Blake Bombers",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0011",
+      "label": "Preseason power rank: Cleon Ca$h",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.league.power_rank_0012",
+      "label": "Preseason power rank: Hawks",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "10",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
     },
     {
       "id": "f.league.roster_max_at_auction",
@@ -129,13 +571,193 @@
       "asof": "2026"
     },
     {
-      "id": "f.league.wk_teams_final",
-      "label": "NFL teams that have played this week",
+      "id": "f.league.title_years_0001",
+      "label": "Championship years: Ryan Bousquet",
+      "value": "2014, 2021",
+      "unit": "text",
+      "fmt": "2014, 2021",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.title_years_0002",
+      "label": "Championship years: Derrick Whitman",
+      "value": "2013",
+      "unit": "text",
+      "fmt": "2013",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.title_years_0003",
+      "label": "Championship years: Matt Gerardi",
+      "value": "2022",
+      "unit": "text",
+      "fmt": "2022",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.title_years_0004",
+      "label": "Championship years: Brian Cutting",
+      "value": "2025",
+      "unit": "text",
+      "fmt": "2025",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.title_years_0005",
+      "label": "Championship years: Eric Martel",
+      "value": "2024",
+      "unit": "text",
+      "fmt": "2024",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.title_years_0007",
+      "label": "Championship years: Josh Martel",
+      "value": "2019, 2020",
+      "unit": "text",
+      "fmt": "2019, 2020",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.title_years_0009",
+      "label": "Championship years: Bear Dunn",
+      "value": "2016",
+      "unit": "text",
+      "fmt": "2016",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.title_years_0010",
+      "label": "Championship years: Shawn Blake",
+      "value": "2011, 2015, 2023",
+      "unit": "text",
+      "fmt": "2011, 2015, 2023",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0001",
+      "label": "Championships: Ryan Bousquet",
       "value": 2,
       "unit": "count",
       "fmt": "2",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0002",
+      "label": "Championships: Derrick Whitman",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0003",
+      "label": "Championships: Matt Gerardi",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0004",
+      "label": "Championships: Brian Cutting",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0005",
+      "label": "Championships: Eric Martel",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0006",
+      "label": "Championships: Brian Cross",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0007",
+      "label": "Championships: Josh Martel",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0008",
+      "label": "Championships: Keith Creelman",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0009",
+      "label": "Championships: Bear Dunn",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0010",
+      "label": "Championships: Shawn Blake",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0011",
+      "label": "Championships: Eric Mannila",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.titles_0012",
+      "label": "Championships: Chris Klingenberg",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.league.wk_teams_final",
+      "label": "NFL teams that have played this week",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
       "source": "MFL liveScoring",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.active_now",
@@ -144,7 +766,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "auction/compliance",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.active_roster_current",
@@ -180,7 +802,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.auction_spend",
@@ -189,7 +811,7 @@
       "unit": "usd",
       "fmt": "$53,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.biggest_contract_traded_away",
@@ -198,7 +820,7 @@
       "unit": "usd",
       "fmt": "$18,000",
       "source": "MFL contractInfo (live)",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.can_field_lineup_current",
@@ -234,7 +856,7 @@
       "unit": "usd",
       "fmt": "$10,000",
       "source": "auction/compliance",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.cap_current_spent",
@@ -243,7 +865,7 @@
       "unit": "usd",
       "fmt": "$290,000",
       "source": "auction/compliance",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.cap_opening",
@@ -270,16 +892,124 @@
       "unit": "rank",
       "fmt": "2",
       "source": "lineup_engine",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.composite_value",
       "label": "Composite score",
-      "value": 67344,
+      "value": 66891,
       "unit": "count",
-      "fmt": "67,344",
+      "fmt": "66,891",
       "source": "lineup_engine",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_12801_salary",
+      "label": "Tyreek Hill's 2026 salary after the multi-year contract (2026-08-05)",
+      "value": 4000,
+      "unit": "usd",
+      "fmt": "$4,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_12801_tcv",
+      "label": "Total value of Tyreek Hill's multi-year contract (2026-08-05)",
+      "value": 6000,
+      "unit": "usd",
+      "fmt": "$6,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_13198_salary",
+      "label": "Myles Garrett's 2026 salary after the tag (2026-05-17)",
+      "value": 10000,
+      "unit": "usd",
+      "fmt": "$10,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_13198_tcv",
+      "label": "Total value of Myles Garrett's tag (2026-05-17)",
+      "value": 10000,
+      "unit": "usd",
+      "fmt": "$10,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_13671_salary",
+      "label": "Mark Andrews's 2026 salary after the multi-year contract (2026-08-05)",
+      "value": 7000,
+      "unit": "usd",
+      "fmt": "$7,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_13671_tcv",
+      "label": "Total value of Mark Andrews's multi-year contract (2026-08-05)",
+      "value": 14000,
+      "unit": "usd",
+      "fmt": "$14,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_13714_salary",
+      "label": "Derwin James's 2026 salary after the multi-year contract (2026-08-05)",
+      "value": 2000,
+      "unit": "usd",
+      "fmt": "$2,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_13714_tcv",
+      "label": "Total value of Derwin James's multi-year contract (2026-08-05)",
+      "value": 6000,
+      "unit": "usd",
+      "fmt": "$6,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_14836_salary",
+      "label": "Justin Jefferson's 2026 salary after the fa contract (2026-06-05)",
+      "value": 71000,
+      "unit": "usd",
+      "fmt": "$71,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_14836_tcv",
+      "label": "Total value of Justin Jefferson's fa contract (2026-06-05)",
+      "value": 96000,
+      "unit": "usd",
+      "fmt": "$96,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_15261_salary",
+      "label": "Chuba Hubbard's 2026 salary after the multi-year contract (2026-09-06)",
+      "value": 5000,
+      "unit": "usd",
+      "fmt": "$5,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.contract_15261_tcv",
+      "label": "Total value of Chuba Hubbard's multi-year contract (2026-09-06)",
+      "value": 10000,
+      "unit": "usd",
+      "fmt": "$10,000",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.contracts_count",
@@ -288,7 +1018,7 @@
       "unit": "count",
       "fmt": "7",
       "source": "contract_activity_2026",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.cuts_count",
@@ -297,7 +1027,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.cuts_penalty_2026",
@@ -306,7 +1036,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.cuts_penalty_2027_deferred",
@@ -315,7 +1045,88 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s1",
+      "label": "Players released before the rookie draft",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s1_penalty",
+      "label": "Cap penalty from releases before the rookie draft, whichever season it is charged to",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s1_salary",
+      "label": "Salary released before the rookie draft",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s2",
+      "label": "Players released from the rookie draft to the auction lock",
+      "value": 2,
+      "unit": "count",
+      "fmt": "2",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s2_penalty",
+      "label": "Cap penalty from releases from the rookie draft to the auction lock, whichever season it is charged to",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s2_salary",
+      "label": "Salary released from the rookie draft to the auction lock",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s3",
+      "label": "Players released from the auction to week one",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s3_penalty",
+      "label": "Cap penalty from releases from the auction to week one, whichever season it is charged to",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.cuts_s3_salary",
+      "label": "Salary released from the auction to week one",
+      "value": 4000,
+      "unit": "usd",
+      "fmt": "$4,000",
+      "source": "ups_drop_events",
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.division_name",
@@ -324,16 +1135,16 @@
       "unit": "text",
       "fmt": "Outlast PG Time",
       "source": "MFL league export",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.division_rank",
-      "label": "Rank inside the division",
+      "label": "Rank inside the division, by preseason power rank",
       "value": 1,
       "unit": "count",
       "fmt": "1",
-      "source": "lineup_engine",
-      "asof": "2026-09-10T18:07:50Z"
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
     },
     {
       "id": "f.team.0004.division_size",
@@ -342,7 +1153,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL league export",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.era_lots_won",
@@ -351,7 +1162,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.era_spend",
@@ -360,7 +1171,232 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.expired_extended",
+      "label": "Of those, extended before they ran out",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "MFL 2025 rosters (Rookie, contractYear 1)",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.expired_rookies",
+      "label": "Rookie contracts that ran out into this offseason",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "MFL 2025 rosters (Rookie, contractYear 1)",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.expired_to_era",
+      "label": "Of those, sold at the Expired Rookie Auction",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "MFL 2025 rosters (Rookie, contractYear 1)",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.extensions_s1",
+      "label": "Extensions before the rookie draft",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.extensions_s2",
+      "label": "Extensions from the rookie draft to the auction lock",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.extensions_s3",
+      "label": "Extensions from the auction to week one",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_11769_price",
+      "label": "Free Agent Auction price for Demarcus Lawrence",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_11985_price",
+      "label": "Free Agent Auction price for Tress Way",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_12801_price",
+      "label": "Free Agent Auction price for Tyreek Hill",
+      "value": 2000,
+      "unit": "usd",
+      "fmt": "$2,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_13146_price",
+      "label": "Free Agent Auction price for James Conner",
+      "value": 5000,
+      "unit": "usd",
+      "fmt": "$5,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_13595_price",
+      "label": "Free Agent Auction price for Mason Rudolph",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_13671_price",
+      "label": "Free Agent Auction price for Mark Andrews",
+      "value": 7000,
+      "unit": "usd",
+      "fmt": "$7,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_13714_price",
+      "label": "Free Agent Auction price for Derwin James",
+      "value": 2000,
+      "unit": "usd",
+      "fmt": "$2,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_14067_price",
+      "label": "Free Agent Auction price for Gardner Minshew",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_14095_price",
+      "label": "Free Agent Auction price for Ty Johnson",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_14169_price",
+      "label": "Free Agent Auction price for Mack Wilson",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_15076_price",
+      "label": "Free Agent Auction price for Christian Rozeboom",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_15261_price",
+      "label": "Free Agent Auction price for Chuba Hubbard",
+      "value": 5000,
+      "unit": "usd",
+      "fmt": "$5,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_15821_price",
+      "label": "Free Agent Auction price for Nakobe Dean",
+      "value": 2000,
+      "unit": "usd",
+      "fmt": "$2,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_15861_price",
+      "label": "Free Agent Auction price for Nik Bonitto",
+      "value": 5000,
+      "unit": "usd",
+      "fmt": "$5,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_16441_price",
+      "label": "Free Agent Auction price for Tommy DeVito",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_16635_price",
+      "label": "Free Agent Auction price for Luke McCaffrey",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_16843_price",
+      "label": "Free Agent Auction price for Harrison Mevis",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_17153_price",
+      "label": "Free Agent Auction price for Andrew Mukuba",
+      "value": 1000,
+      "unit": "usd",
+      "fmt": "$1,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.faa_7836_price",
+      "label": "Free Agent Auction price for Aaron Rodgers",
+      "value": 14000,
+      "unit": "usd",
+      "fmt": "$14,000",
+      "source": "auction/lots",
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.faa_lots_won",
@@ -369,7 +1405,7 @@
       "unit": "count",
       "fmt": "19",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.faa_spend",
@@ -378,34 +1414,142 @@
       "unit": "usd",
       "fmt": "$53,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.hist_allplay_pct",
+      "label": "Career all-play winning percentage",
+      "value": 51.5,
+      "unit": "percent",
+      "fmt": "51.5%",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_ap_title_years",
+      "label": "Best all-play record, years",
+      "value": "2025",
+      "unit": "text",
+      "fmt": "2025",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_ap_titles",
+      "label": "Seasons with the league's best all-play record",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_div_title_years",
+      "label": "Division title years",
+      "value": "2011, 2013, 2016, 2017, 2019, 2021, 2022, 2024, 2025",
+      "unit": "text",
+      "fmt": "2011, 2013, 2016, 2017, 2019, 2021, 2022, 2024, 2025",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_div_titles",
+      "label": "Division titles (2011 on)",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_first_season",
+      "label": "This owner's first UPS season",
+      "value": "2010",
+      "unit": "text",
+      "fmt": "2010",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_playoffs",
+      "label": "Playoff appearances",
+      "value": 9,
+      "unit": "count",
+      "fmt": "9",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_runner_up_years",
+      "label": "Runner-up years",
+      "value": "2022",
+      "unit": "text",
+      "fmt": "2022",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_runner_ups",
+      "label": "Runner-up finishes",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_seasons",
+      "label": "UPS seasons this owner has completed",
+      "value": 16,
+      "unit": "count",
+      "fmt": "16",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_title_years",
+      "label": "Championship years",
+      "value": "2025",
+      "unit": "text",
+      "fmt": "2025",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
+    },
+    {
+      "id": "f.team.0004.hist_titles",
+      "label": "Championships",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "D1 ups_owner_career_stats",
+      "asof": "2026-09-11 09:40:40"
     },
     {
       "id": "f.team.0004.holes_opening",
       "label": "Starting-lineup holes, opening (of 9 ADP-priced slots)",
-      "value": 0,
+      "value": 1,
       "unit": "count",
-      "fmt": "0",
+      "fmt": "1",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0004.holes_postauction",
       "label": "Starting-lineup holes when the auction closed (of 9 ADP-priced slots)",
-      "value": 0,
+      "value": 1,
       "unit": "count",
-      "fmt": "0",
+      "fmt": "1",
       "source": "lineup_engine+adp-board",
       "asof": "2026-08-05"
     },
     {
       "id": "f.team.0004.holes_today",
       "label": "Starting-lineup holes today (of 9 ADP-priced slots)",
-      "value": 0,
+      "value": 1,
       "unit": "count",
-      "fmt": "0",
+      "fmt": "1",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_adds_alltime",
@@ -414,7 +1558,7 @@
       "unit": "count",
       "fmt": "244",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_adds_lead_streak",
@@ -423,7 +1567,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_adds_league_leader",
@@ -432,7 +1576,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_adds_next_best",
@@ -441,7 +1585,7 @@
       "unit": "count",
       "fmt": "234",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_adds_rank",
@@ -450,7 +1594,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_auction_share",
@@ -459,7 +1603,7 @@
       "unit": "percent",
       "fmt": "24.5%",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_auction_share_rank",
@@ -468,7 +1612,7 @@
       "unit": "count",
       "fmt": "10",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_auction_spend",
@@ -477,7 +1621,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.idp_ppw_rank",
@@ -486,7 +1630,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "src_weekly",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.inyear_flyers",
@@ -495,7 +1639,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.ir_now",
@@ -504,59 +1648,131 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.lineup_value_current",
       "label": "Legal-lineup offense value, today",
-      "value": 42291,
+      "value": 42389,
       "unit": "count",
-      "fmt": "42,291",
+      "fmt": "42,389",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.lineup_value_opening",
       "label": "Legal-lineup offense value, opening (today's market)",
-      "value": 42057,
+      "value": 42184,
       "unit": "count",
-      "fmt": "42,057",
+      "fmt": "42,184",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0004.lineup_value_postauction",
       "label": "Legal-lineup offense value when the auction closed (today's market)",
-      "value": 42291,
+      "value": 42389,
       "unit": "count",
-      "fmt": "42,291",
+      "fmt": "42,389",
       "source": "lineup_engine+adp-board",
       "asof": "2026-08-05"
     },
     {
       "id": "f.team.0004.lineup_value_preauction",
       "label": "Legal-lineup offense value, entering the auction (today's market)",
-      "value": 42057,
+      "value": 42184,
       "unit": "count",
-      "fmt": "42,057",
+      "fmt": "42,184",
       "source": "lineup_engine+adp-board",
       "asof": "2026-07-23"
     },
     {
+      "id": "f.team.0004.myac_era",
+      "label": "Multi-year contracts given to Expired Rookie Auction buys",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.myac_faa",
+      "label": "Multi-year contracts given to Free Agent Auction buys",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.myac_other",
+      "label": "Multi-year contracts given to waiver or free-agent pickups",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.myac_trade",
+      "label": "Multi-year contracts given to players acquired by trade",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.pickups_s1",
+      "label": "Players picked up off waivers or free agency before the rookie draft",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "mfl transactions",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.pickups_s2",
+      "label": "Players picked up off waivers or free agency from the rookie draft to the auction lock",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "mfl transactions",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.pickups_s3",
+      "label": "Players picked up off waivers or free agency from the auction to week one",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "mfl transactions",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.power_rank",
+      "label": "Preseason power rank (simulated expected all-play %)",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
       "id": "f.team.0004.qb_rank",
       "label": "QB starters rank",
-      "value": 5,
+      "value": 4,
       "unit": "rank",
-      "fmt": "5",
+      "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.qb_value",
       "label": "QB starters redraft value",
-      "value": 11135,
+      "value": 11235,
       "unit": "count",
-      "fmt": "11,135",
+      "fmt": "11,235",
       "source": "adp-board",
       "asof": "2026-09-10"
     },
@@ -567,16 +1783,43 @@
       "unit": "rank",
       "fmt": "2",
       "source": "lineup_engine",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.rb_value",
       "label": "RB starters redraft value",
-      "value": 14970,
+      "value": 15067,
       "unit": "count",
-      "fmt": "14,970",
+      "fmt": "15,067",
       "source": "adp-board",
       "asof": "2026-09-10"
+    },
+    {
+      "id": "f.team.0004.restructures_auction",
+      "label": "Restructures before or during the auction",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.restructures_post",
+      "label": "Restructures after the auction",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.rookie_extensions",
+      "label": "Rookie extensions this offseason",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.rookie_picks_count",
@@ -594,7 +1837,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "ups_drop_events",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.roster_total_postauction",
@@ -606,31 +1849,103 @@
       "asof": "2026-08-05"
     },
     {
+      "id": "f.team.0004.sim_exp_allplay",
+      "label": "Simulated expected regular-season all-play %",
+      "value": 58.2,
+      "unit": "percent",
+      "fmt": "58.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.team.0004.sim_exp_wins",
+      "label": "Simulated expected head-to-head wins",
+      "value": 21.1,
+      "unit": "ratio",
+      "fmt": "21.1",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.team.0004.sim_games",
+      "label": "Regular-season games",
+      "value": 37,
+      "unit": "count",
+      "fmt": "37",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_bye",
+      "label": "Simulated chance of a first-round bye",
+      "value": 30.7,
+      "unit": "percent",
+      "fmt": "30.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_division",
+      "label": "Simulated chance of winning the division",
+      "value": 48.9,
+      "unit": "percent",
+      "fmt": "48.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_playoffs",
+      "label": "Simulated playoff odds",
+      "value": 70.1,
+      "unit": "percent",
+      "fmt": "70.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_title",
+      "label": "Simulated title odds",
+      "value": 14.7,
+      "unit": "percent",
+      "fmt": "14.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T11:00:10Z"
+    },
+    {
       "id": "f.team.0004.studs_opening",
       "label": "Starting-lineup studs, opening (top-12 at position)",
-      "value": 4,
+      "value": 5,
       "unit": "count",
-      "fmt": "4",
+      "fmt": "5",
       "source": "lineup_engine+adp-board",
       "asof": "2026-04-21"
     },
     {
       "id": "f.team.0004.studs_postauction",
       "label": "Starting-lineup studs when the auction closed (top-12 at position)",
-      "value": 4,
+      "value": 5,
       "unit": "count",
-      "fmt": "4",
+      "fmt": "5",
       "source": "lineup_engine+adp-board",
       "asof": "2026-08-05"
     },
     {
       "id": "f.team.0004.studs_today",
       "label": "Starting-lineup studs today (top-12 at position)",
-      "value": 4,
+      "value": 5,
       "unit": "count",
-      "fmt": "4",
+      "fmt": "5",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.tags",
+      "label": "Players tagged",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "contract_activity_2026",
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.taxi_now",
@@ -639,7 +1954,7 @@
       "unit": "count",
       "fmt": "10",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.te_rank",
@@ -648,14 +1963,14 @@
       "unit": "rank",
       "fmt": "11",
       "source": "lineup_engine",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.te_value",
       "label": "TE starters redraft value",
-      "value": 567,
+      "value": 609,
       "unit": "count",
-      "fmt": "567",
+      "fmt": "609",
       "source": "adp-board",
       "asof": "2026-09-10"
     },
@@ -666,7 +1981,7 @@
       "unit": "percent",
       "fmt": "26.4%",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.top_buy_price",
@@ -675,7 +1990,133 @@
       "unit": "usd",
       "fmt": "$14,000",
       "source": "auction/lots",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade1_salary_in",
+      "label": "Salary taken on in the 2026-05-07 trade with The Long Haulers",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade1_salary_out",
+      "label": "Salary sent away in the 2026-05-07 trade with The Long Haulers",
+      "value": 18000,
+      "unit": "usd",
+      "fmt": "$18,000",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade2_salary_in",
+      "label": "Salary taken on in the 2026-05-25 trade with Real Deal Creel",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade2_salary_out",
+      "label": "Salary sent away in the 2026-05-25 trade with Real Deal Creel",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade3_salary_in",
+      "label": "Salary taken on in the 2026-05-25 trade with Gride",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade3_salary_out",
+      "label": "Salary sent away in the 2026-05-25 trade with Gride",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade4_salary_in",
+      "label": "Salary taken on in the 2026-05-25 trade with HammerTime 🔨 ⏰",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade4_salary_out",
+      "label": "Salary sent away in the 2026-05-25 trade with HammerTime 🔨 ⏰",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade_salary_in_s1",
+      "label": "Salary taken on in trades before the rookie draft",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade_salary_in_s2",
+      "label": "Salary taken on in trades from the rookie draft to the auction lock",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade_salary_in_s3",
+      "label": "Salary taken on in trades from the auction to week one",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade_salary_out_s1",
+      "label": "Salary traded away before the rookie draft",
+      "value": 18000,
+      "unit": "usd",
+      "fmt": "$18,000",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade_salary_out_s2",
+      "label": "Salary traded away from the rookie draft to the auction lock",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trade_salary_out_s3",
+      "label": "Salary traded away from the auction to week one",
+      "value": 0,
+      "unit": "usd",
+      "fmt": "$0",
+      "source": "mfl transactions + roster snapshots",
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.trades_count",
@@ -687,13 +2128,40 @@
       "asof": "2026-09-10"
     },
     {
+      "id": "f.team.0004.trades_s1",
+      "label": "Trades before the rookie draft",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "mfl transactions",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trades_s2",
+      "label": "Trades from the rookie draft to the auction lock",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "mfl transactions",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
+      "id": "f.team.0004.trades_s3",
+      "label": "Trades from the auction to week one",
+      "value": 0,
+      "unit": "count",
+      "fmt": "0",
+      "source": "mfl transactions",
+      "asof": "2026-09-11T11:20:25Z"
+    },
+    {
       "id": "f.team.0004.waiver_swaps",
       "label": "Drops that were the make-room leg of a waiver claim",
       "value": 0,
       "unit": "count",
       "fmt": "0",
       "source": "mfl transactions",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.wk_live",
@@ -702,25 +2170,25 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL liveScoring",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.wk_players_final",
       "label": "Rostered players whose Week 1 game is final",
-      "value": 2,
+      "value": 6,
       "unit": "count",
-      "fmt": "2",
+      "fmt": "6",
       "source": "MFL liveScoring + rosters",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.wk_points_final",
       "label": "Points already banked from finished Week 1 games",
-      "value": 13.6,
+      "value": 28.9,
       "unit": "points",
-      "fmt": "13.6",
+      "fmt": "28.9",
       "source": "MFL playerScores",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.wr_rank",
@@ -729,14 +2197,14 @@
       "unit": "rank",
       "fmt": "1",
       "source": "lineup_engine",
-      "asof": "2026-09-10T18:07:50Z"
+      "asof": "2026-09-11T11:20:25Z"
     },
     {
       "id": "f.team.0004.wr_value",
       "label": "WR starters redraft value",
-      "value": 15619,
+      "value": 15478,
       "unit": "count",
-      "fmt": "15,619",
+      "fmt": "15,478",
       "source": "adp-board",
       "asof": "2026-09-10"
     },
@@ -747,7 +2215,7 @@
       "unit": "usd",
       "fmt": "$38,000",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z"
+      "asof": "2026-09-11T11:22:02Z"
     },
     {
       "id": "f.team.0004.faa_off_spend_share",
@@ -756,16 +2224,16 @@
       "unit": "percent",
       "fmt": "3.4%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z"
+      "asof": "2026-09-11T11:22:02Z"
     },
     {
       "id": "f.team.0004.faa_off_gain_share",
       "label": "Share of the league's offensive lineup-value gain, auction lock to close",
-      "value": 0.3,
+      "value": 0.2,
       "unit": "percent",
-      "fmt": "0.3%",
+      "fmt": "0.2%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z"
+      "asof": "2026-09-11T11:22:02Z"
     },
     {
       "id": "f.team.0004.faa_off_rank",
@@ -774,7 +2242,7 @@
       "unit": "rank",
       "fmt": "11",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z"
+      "asof": "2026-09-11T11:22:02Z"
     },
     {
       "id": "f.team.0004.faa_off_gain_rank",
@@ -783,25 +2251,25 @@
       "unit": "rank",
       "fmt": "11",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z"
+      "asof": "2026-09-11T11:22:02Z"
     },
     {
       "id": "f.team.0004.faa_off_rate",
       "label": "Offensive value added per auction dollar, as a multiple of the league rate (1.00x = average)",
-      "value": 0.08,
+      "value": 0.07,
       "unit": "ratio",
-      "fmt": "0.08x",
+      "fmt": "0.07x",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z"
+      "asof": "2026-09-11T11:22:02Z"
     },
     {
       "id": "f.team.0004.faa_off_gain_pct",
       "label": "Offensive lineup value added at the auction, as a share of what he had at the lock",
-      "value": 0.6,
+      "value": 0.5,
       "unit": "percent",
-      "fmt": "0.6%",
+      "fmt": "0.5%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-10T18:10:05Z"
+      "asof": "2026-09-11T11:22:02Z"
     }
   ],
   "tables": [
@@ -1001,7 +2469,7 @@
         [
           "Bucky Irving",
           "RB",
-          "Low-end RB2",
+          "Mid RB2",
           2000
         ],
         [
@@ -1013,7 +2481,7 @@
         [
           "Brian Thomas",
           "WR",
-          "High-end WR4",
+          "Low-end WR3",
           5000
         ],
         [
@@ -1118,10 +2586,10 @@
           15,
           "no",
           236000,
-          42057,
-          4,
+          42184,
           5,
-          0
+          3,
+          1
         ],
         [
           "Entering the auction",
@@ -1129,10 +2597,10 @@
           15,
           "no",
           239000,
-          42057,
-          4,
+          42184,
           5,
-          0
+          3,
+          1
         ],
         [
           "When the auction closed",
@@ -1140,10 +2608,10 @@
           34,
           "yes",
           294000,
-          42291,
-          4,
+          42389,
           5,
-          0
+          3,
+          1
         ]
       ],
       "note": "'Could field a lineup?' is the gate on every other number in that row: where it says no, the roster had fewer than 18 active players and there was NO lineup -- the value and stud/hole figures come from the optimizer filling slots with whoever was on hand, and must never be described as the owner's lineup or his choices."
@@ -1397,34 +2865,354 @@
           "type": "text"
         },
         {
-          "key": "comp",
-          "label": "League rank overall",
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "power",
+          "label": "Power rank",
           "type": "count"
         },
         {
-          "key": "idp",
-          "label": "IDP points per started defender",
+          "key": "playoffs",
+          "label": "Playoff odds",
+          "type": "percent"
+        },
+        {
+          "key": "title",
+          "label": "Title odds",
+          "type": "percent"
+        },
+        {
+          "key": "ap",
+          "label": "Career all-play",
+          "type": "percent"
+        },
+        {
+          "key": "titles",
+          "label": "Titles",
           "type": "text"
         }
       ],
       "rows": [
         [
           "Pure Greatness",
+          "Brian Cutting",
           2,
-          "9.07"
-        ],
-        [
-          "The Long Haulers",
-          6,
-          "8.08"
+          70.1,
+          14.7,
+          51.5,
+          "1 (2025)"
         ],
         [
           "HammerTime 🔨 ⏰",
-          8,
-          "8.55"
+          "Eric Martel",
+          4,
+          53.3,
+          9.6,
+          55.6,
+          "1 (2024)"
+        ],
+        [
+          "The Long Haulers",
+          "Brian Cross",
+          9,
+          40.8,
+          5.8,
+          39.0,
+          "0"
         ]
       ],
-      "note": "Divisional opponents are played twice a season, so this is the comparison that decides a playoff seed -- more than the league-wide rank does."
+      "note": "Power rank, playoff and title odds are the preseason simulation's. Career all-play and titles are each OWNER's documented record. Each division rival is played FIVE times in the 37-game schedule -- never write that division rivals meet twice."
+    },
+    {
+      "id": "t.0004.expired",
+      "title": "Rookie deals that ran out",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "pos",
+          "label": "Pos",
+          "type": "text"
+        },
+        {
+          "key": "outcome",
+          "label": "What happened",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Darnell Washington",
+          "TE",
+          "Not kept"
+        ],
+        [
+          "Quan Martin",
+          "S",
+          "Not kept"
+        ],
+        [
+          "Quentin Johnston",
+          "WR",
+          "Traded before it ran out"
+        ],
+        [
+          "Stetson Bennett",
+          "QB",
+          "Not kept"
+        ]
+      ],
+      "note": "Rookie contracts in their final year on MFL's final 2025 rosters (contractYear 1 = the last year). Extended = this owner extended him in 2026 before the deal ran out."
+    },
+    {
+      "id": "t.0004.faa",
+      "title": "Free Agent Auction buys",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "pos",
+          "label": "Pos",
+          "type": "text"
+        },
+        {
+          "key": "price",
+          "label": "Price",
+          "type": "usd"
+        },
+        {
+          "key": "bids",
+          "label": "Bids",
+          "type": "count"
+        },
+        {
+          "key": "grade",
+          "label": "Grade today",
+          "type": "text"
+        },
+        {
+          "key": "band",
+          "label": "Bought",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Aaron Rodgers",
+          "QB",
+          14000,
+          7,
+          "Replacement-level QB",
+          "Depth"
+        ],
+        [
+          "Mark Andrews",
+          "TE",
+          7000,
+          4,
+          "Replacement-level TE",
+          "Depth"
+        ],
+        [
+          "James Conner",
+          "RB",
+          5000,
+          4,
+          "Replacement-level RB",
+          "Depth"
+        ],
+        [
+          "Chuba Hubbard",
+          "RB",
+          5000,
+          3,
+          "Replacement-level RB",
+          "Depth"
+        ],
+        [
+          "Nik Bonitto",
+          "DE",
+          5000,
+          3,
+          "Mid DL1",
+          "--"
+        ],
+        [
+          "Tyreek Hill",
+          "WR",
+          2000,
+          2,
+          "unranked by the redraft board",
+          "Depth"
+        ],
+        [
+          "Derwin James",
+          "S",
+          2000,
+          2,
+          "Mid DB3",
+          "--"
+        ],
+        [
+          "Nakobe Dean",
+          "LB",
+          2000,
+          2,
+          "Replacement-level LB",
+          "--"
+        ],
+        [
+          "Demarcus Lawrence",
+          "DE",
+          1000,
+          1,
+          "Low-end DL2",
+          "--"
+        ],
+        [
+          "Tress Way",
+          "PN",
+          1000,
+          1,
+          "High-end PN1, 9th in points per game in 2025",
+          "--"
+        ],
+        [
+          "Mason Rudolph",
+          "QB",
+          1000,
+          1,
+          "unranked by the redraft board",
+          "Depth"
+        ],
+        [
+          "Gardner Minshew",
+          "QB",
+          1000,
+          1,
+          "unranked by the redraft board",
+          "Depth"
+        ],
+        [
+          "Ty Johnson",
+          "RB",
+          1000,
+          1,
+          "unranked by the redraft board",
+          "Depth"
+        ],
+        [
+          "Mack Wilson",
+          "LB",
+          1000,
+          1,
+          "Replacement-level LB",
+          "--"
+        ],
+        [
+          "Christian Rozeboom",
+          "LB",
+          1000,
+          1,
+          "Replacement-level LB",
+          "--"
+        ],
+        [
+          "Tommy DeVito",
+          "QB",
+          1000,
+          1,
+          "unranked by the redraft board",
+          "Depth"
+        ],
+        [
+          "Luke McCaffrey",
+          "WR",
+          1000,
+          1,
+          "unranked by the redraft board",
+          "Depth"
+        ],
+        [
+          "Harrison Mevis",
+          "PK",
+          1000,
+          1,
+          "Elite PK1, only 5 games in 2025",
+          "--"
+        ],
+        [
+          "Andrew Mukuba",
+          "S",
+          1000,
+          1,
+          "Replacement-level DB",
+          "--"
+        ]
+      ],
+      "note": "Grade is today's tier at his position, the same vocabulary as the lineup. 'Bought' buckets OFFENSE by league-wide position rank on the live redraft board: Elite = top 3, Very good = 4-12, Good = 13-24, Depth = everything below, off-board players included. The league value table counts these buckets for every owner."
+    },
+    {
+      "id": "t.0004.history",
+      "title": "Owner history",
+      "columns": [
+        {
+          "key": "seasons",
+          "label": "Seasons",
+          "type": "count"
+        },
+        {
+          "key": "titles",
+          "label": "Titles",
+          "type": "text"
+        },
+        {
+          "key": "runner",
+          "label": "Runner-up",
+          "type": "text"
+        },
+        {
+          "key": "ap",
+          "label": "All-play titles",
+          "type": "text"
+        },
+        {
+          "key": "playoffs",
+          "label": "Playoff trips",
+          "type": "count"
+        },
+        {
+          "key": "divs",
+          "label": "Division titles",
+          "type": "text"
+        },
+        {
+          "key": "ap_pct",
+          "label": "Career all-play",
+          "type": "percent"
+        }
+      ],
+      "rows": [
+        [
+          16,
+          "1 (2025)",
+          "1 (2022)",
+          "1 (2025)",
+          9,
+          "9 (2011, 2013, 2016, 2017, 2019, 2021, 2022, 2024, 2025)",
+          51.5
+        ]
+      ],
+      "note": "The league's own documented record, by OWNER: a season counts for whoever owned the team at kickoff. All-play is regular season only 2010-2016 and the full season from 2017 (league context D.1); an all-play title is the season's best all-play record. Playoff trips are actual seeds. Division titles from 2011 (2010 had two divisions)."
     },
     {
       "id": "t.0004.idp_activity",
@@ -1564,7 +3352,7 @@
           "WR",
           "Chris Olave",
           "WR",
-          "High-end WR2"
+          "Low-end WR1"
         ],
         [
           "TE",
@@ -1594,13 +3382,13 @@
           "K",
           "Harrison Mevis",
           "PK",
-          "no ranking source (salary-filled)"
+          "Elite PK1, only 5 games in 2025"
         ],
         [
           "P",
           "Tress Way",
           "PN",
-          "no ranking source (salary-filled)"
+          "High-end PN1, 9th in points per game in 2025"
         ],
         [
           "DL",
@@ -1646,6 +3434,165 @@
         ]
       ],
       "note": "Offense (QB/RB/WR/TE) filled by current redraft ADP. DL/LB/DB filled by points-above-replacement from real production under UPS scoring, where the player has a prior season. A defender with no prior-season production is unvalued (not zero) and only salary-filled if the slot would otherwise go empty. K/P have neither source and are salary-filled. Fixed slots before flex."
+    },
+    {
+      "id": "t.0004.moves_s1",
+      "title": "Before the rookie draft",
+      "columns": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "text"
+        },
+        {
+          "key": "move",
+          "label": "Move",
+          "type": "text"
+        },
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "detail",
+          "label": "Detail",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "2026-05-07",
+          "Trade",
+          "with The Long Haulers",
+          "Gave Quentin Johnston (WR, $18,000). Got 2027 round-3 pick (The Long Haulers')."
+        ]
+      ],
+      "note": "Every roster and contract move before the rookie draft, in date order. Salaries in a trade row are each player's salary in the first daily roster snapshot after the trade (snapshots begin 2026-04-21). A penalty 'charged to 2027' is ledger-only this season. Tags always sit in the pre-auction phase and every restructure in the auction phase, whatever their date."
+    },
+    {
+      "id": "t.0004.moves_s2",
+      "title": "From the draft to the auction lock",
+      "columns": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "text"
+        },
+        {
+          "key": "move",
+          "label": "Move",
+          "type": "text"
+        },
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "detail",
+          "label": "Detail",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "2026-05-17",
+          "Tag",
+          "Myles Garrett (DE)",
+          "tagged at $10,000"
+        ],
+        [
+          "2026-05-25",
+          "Trade",
+          "with Gride",
+          "Gave 2026 pick 2.09 (became Emmett Johnson, Gride); 2026 pick 4.12 (became Anthony Hill Jr., Gride). Got 2027 round-2 pick (Gride's)."
+        ],
+        [
+          "2026-05-25",
+          "Trade",
+          "with HammerTime 🔨 ⏰",
+          "Gave 2026 pick 2.12 (became Skyler Bell, HammerTime 🔨 ⏰). Got 2026 pick 4.01 (became Max Klare, Pure Greatness); 2027 round-3 pick (HammerTime 🔨 ⏰'s)."
+        ],
+        [
+          "2026-05-25",
+          "Trade",
+          "with Real Deal Creel",
+          "Gave 2026 pick 2.06 (became De'Zhaun Stribling, Real Deal Creel). Got 2026 pick 2.09 (became Emmett Johnson, Gride); 2027 round-3 pick (Real Deal Creel's)."
+        ],
+        [
+          "2026-05-27 to 2026-07-20",
+          "Released at no cost",
+          "Nic Scourton, Zach Ertz",
+          "minimum salary or taxi squad; no penalty on any of them"
+        ],
+        [
+          "2026-06-05",
+          "FA Contract",
+          "Justin Jefferson (WR)",
+          "$71,000 this year, $96,000 in all"
+        ]
+      ],
+      "note": "Every roster and contract move from the rookie draft to the auction lock, in date order. Salaries in a trade row are each player's salary in the first daily roster snapshot after the trade (snapshots begin 2026-04-21). A penalty 'charged to 2027' is ledger-only this season. Tags always sit in the pre-auction phase and every restructure in the auction phase, whatever their date."
+    },
+    {
+      "id": "t.0004.moves_s3",
+      "title": "From the auction to week one",
+      "columns": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "text"
+        },
+        {
+          "key": "move",
+          "label": "Move",
+          "type": "text"
+        },
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "detail",
+          "label": "Detail",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "2026-08-05",
+          "Multi-year contract",
+          "Derwin James (S)",
+          "a Free Agent Auction buy: $2,000 this year, $6,000 in all"
+        ],
+        [
+          "2026-08-05",
+          "Multi-year contract",
+          "Mark Andrews (TE)",
+          "a Free Agent Auction buy: $7,000 this year, $14,000 in all"
+        ],
+        [
+          "2026-08-05",
+          "Multi-year contract",
+          "Tyreek Hill (WR)",
+          "a Free Agent Auction buy: $4,000 this year, $6,000 in all"
+        ],
+        [
+          "2026-08-23 to 2026-08-29",
+          "Released at no cost",
+          "Demarcus Lawrence, Luke McCaffrey, Mason Rudolph, Ty Johnson",
+          "minimum salary or taxi squad; no penalty on any of them"
+        ],
+        [
+          "2026-09-06",
+          "Multi-year contract",
+          "Chuba Hubbard (RB)",
+          "a Free Agent Auction buy: $5,000 this year, $10,000 in all"
+        ]
+      ],
+      "note": "Every roster and contract move from the auction to week one, in date order. Salaries in a trade row are each player's salary in the first daily roster snapshot after the trade (snapshots begin 2026-04-21). A penalty 'charged to 2027' is ledger-only this season. Tags always sit in the pre-auction phase and every restructure in the auction phase, whatever their date."
     },
     {
       "id": "t.0004.rookies",
@@ -1758,9 +3705,9 @@
         ],
         [
           "WR2",
-          "Chris Olave, High-end WR2",
-          "Chris Olave, High-end WR2",
-          "Chris Olave, High-end WR2"
+          "Chris Olave, Low-end WR1",
+          "Chris Olave, Low-end WR1",
+          "Chris Olave, Low-end WR1"
         ],
         [
           "TE1",
@@ -1823,8 +3770,8 @@
         [
           "2026-05-07",
           "The Long Haulers",
-          "Quentin Johnston (WR, redraft value 1,010)",
-          "2027 round-3 pick (The Long Haulers's natural pick)",
+          "Quentin Johnston (Mid WR4)",
+          "2027 round-3 pick (The Long Haulers' natural pick)",
           "—"
         ],
         [
@@ -1902,6 +3849,42 @@
           "3 Interceptions, 10 Sack Yards Lost, 178 Passing Yards, 47 Rushing Yards, 2 yd Passing TD, 14 First Downs"
         ],
         [
+          "Nick Bosa",
+          "DE",
+          "SFO",
+          "Started",
+          5000,
+          "8.5",
+          "2 Tackles for a Loss, 1 Assists, 3 Tackles, 1 QB Hits"
+        ],
+        [
+          "Davante Adams",
+          "WR",
+          "LAR",
+          "Started",
+          20000,
+          "5.8",
+          "3 Receptions, 26 Receiving Yards, 1 First Downs"
+        ],
+        [
+          "Harrison Mevis",
+          "PK",
+          "LAR",
+          "Started",
+          1000,
+          "1.0",
+          "1 Extra Points"
+        ],
+        [
+          "Myles Garrett",
+          "DE",
+          "LAR",
+          "Started",
+          10000,
+          "0.0",
+          ""
+        ],
+        [
           "Tommy DeVito",
           "QB",
           "NEP",
@@ -1911,7 +3894,7 @@
           ""
         ]
       ],
-      "note": "ONLY players whose Week 1 game has finished -- 2 of the 32 NFL teams carrying a rostered starter had played at build time. This is a handful of snaps, not a season, and it grades nothing. An empty 'What he did' cell means the player took the field and recorded no scoring stat, or did not play at all; it is not a zero-yard line."
+      "note": "ONLY players whose Week 1 game has finished -- 4 of the 32 NFL teams carrying a rostered starter had played at build time. This is a handful of snaps, not a season, and it grades nothing. An empty 'What he did' cell means the player took the field and recorded no scoring stat, or did not play at all; it is not a zero-yard line."
     },
     {
       "id": "t.0004.faa_value",
@@ -1946,6 +3929,11 @@
           "key": "rank",
           "label": "Rank",
           "type": "count"
+        },
+        {
+          "key": "bought",
+          "label": "What it bought",
+          "type": "text"
         }
       ],
       "rows": [
@@ -1953,100 +3941,112 @@
           "Blake Bombers",
           117000,
           10.4,
-          14.9,
-          "1.43x",
-          1
+          13.7,
+          "1.32x",
+          1,
+          "1 Elite, 1 Good, 2 Depth"
         ],
         [
           "C-Town Chivalry",
           138000,
           12.3,
-          15.7,
-          "1.28x",
-          2
-        ],
-        [
-          "Hawks",
-          101000,
-          9.0,
-          10.5,
-          "1.17x",
-          3
-        ],
-        [
-          "CBP",
-          152000,
-          13.5,
-          15.7,
-          "1.16x",
-          4
-        ],
-        [
-          "Sex Manther",
-          138000,
-          12.3,
-          13.4,
-          "1.09x",
-          5
-        ],
-        [
-          "Real Deal Creel",
-          173000,
-          15.4,
-          15.5,
-          "1.01x",
-          6
-        ],
-        [
-          "L.A. Looks",
-          103000,
-          9.2,
-          6.7,
-          "0.73x",
-          7
-        ],
-        [
-          "Gride",
-          94000,
-          8.4,
-          5.6,
-          "0.67x",
-          8
+          15.9,
+          "1.30x",
+          2,
+          "2 Very good, 7 Depth"
         ],
         [
           "The Long Haulers",
           7000,
           0.6,
-          0.4,
-          "0.64x",
-          9
+          0.8,
+          "1.29x",
+          3,
+          "3 Depth"
+        ],
+        [
+          "CBP",
+          152000,
+          13.5,
+          15.9,
+          "1.18x",
+          4,
+          "1 Elite, 1 Very good, 1 Good, 4 Depth"
+        ],
+        [
+          "Sex Manther",
+          138000,
+          12.3,
+          14.3,
+          "1.16x",
+          5,
+          "1 Elite, 2 Good, 6 Depth"
+        ],
+        [
+          "Hawks",
+          101000,
+          9.0,
+          10.1,
+          "1.12x",
+          6,
+          "2 Very good, 1 Good, 4 Depth"
+        ],
+        [
+          "Real Deal Creel",
+          173000,
+          15.4,
+          15.3,
+          "1.00x",
+          7,
+          "2 Very good, 1 Good, 8 Depth"
+        ],
+        [
+          "L.A. Looks",
+          103000,
+          9.2,
+          6.8,
+          "0.74x",
+          8,
+          "1 Very good, 1 Good, 5 Depth"
+        ],
+        [
+          "Gride",
+          94000,
+          8.4,
+          5.7,
+          "0.68x",
+          9,
+          "1 Very good, 1 Good, 7 Depth"
         ],
         [
           "HammerTime 🔨 ⏰",
           37000,
           3.3,
           1.2,
-          "0.36x",
-          10
+          "0.37x",
+          10,
+          "1 Good, 3 Depth"
         ],
         [
           "Pure Greatness",
           38000,
           3.4,
-          0.3,
-          "0.08x",
-          11
+          0.2,
+          "0.07x",
+          11,
+          "10 Depth"
         ],
         [
           "Cleon Ca$h",
           25000,
           2.2,
-          0.1,
-          "0.04x",
-          12
+          0.0,
+          "0.01x",
+          12,
+          "5 Depth"
         ]
       ],
-      "note": "League value comparison: offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. Both are measured from the auction roster lock (2026-07-23) to the close (2026-08-05). Rate = share of the league's lineup gain divided by share of the league's offensive spend; 1.00x is the league average. It does not credit bench depth, and an owner whose lineup had no holes had little room to improve it."
+      "note": "League value comparison: offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. Both are measured from the auction roster lock (2026-07-23) to the close (2026-08-05). Rate = share of the league's lineup gain divided by share of the league's offensive spend, and only the rank is printed. 'What it bought' counts each owner's offensive buys by grade (Elite = top 3 at the position, Very good = 4-12, Good = 13-24, Depth = the rest). It does not credit bench depth, and an owner whose lineup had no holes had little room to improve it."
     }
   ],
   "charts": [],
@@ -2056,33 +4056,38 @@
   "sections": [
     {
       "id": "s1",
-      "title": "The Lineup",
-      "brief": "How this team's legal starting lineup stacks up against the other 11 -- name every starter, name the position ranks, and say whether the strength is balanced or concentrated in one or two players.",
+      "title": "Early Preseason",
+      "brief": "The lay of the land in April, then everything before the rookie draft. Open with the April column of the slot table -- which priced slots were filled, and by whom -- and the active players and salary he carried. Then, from the moves table, in date order: cuts (say whether they were large cap hits or mostly small, and quote a big one with its salary and penalty facts), trades with the salary that moved (and any player he extended and then traded), rookie extensions, and his rookie deals that ran out and what became of each (the expired table). A contract running out on schedule is the league's normal cycle, not a crisis. If the roster shrank before the auction, say WHY from the rows: which players were cut, traded, or ran out.",
       "factIds": [
-        "f.league.teams",
-        "f.team.0004.composite_rank",
-        "f.team.0004.composite_value",
-        "f.team.0004.idp_adds_alltime",
-        "f.team.0004.idp_adds_lead_streak",
-        "f.team.0004.idp_adds_next_best",
-        "f.team.0004.idp_adds_rank",
-        "f.team.0004.idp_auction_share",
-        "f.team.0004.idp_auction_share_rank",
-        "f.team.0004.idp_auction_spend",
-        "f.team.0004.idp_ppw_rank",
-        "f.team.0004.qb_rank",
-        "f.team.0004.qb_value",
-        "f.team.0004.rb_rank",
-        "f.team.0004.rb_value",
-        "f.team.0004.te_rank",
-        "f.team.0004.te_value",
-        "f.team.0004.wr_rank",
-        "f.team.0004.wr_value"
+        "f.team.0004.active_roster_opening",
+        "f.team.0004.biggest_contract_traded_away",
+        "f.team.0004.can_field_lineup_opening",
+        "f.team.0004.cap_opening",
+        "f.team.0004.cuts_s1",
+        "f.team.0004.cuts_s1_penalty",
+        "f.team.0004.cuts_s1_salary",
+        "f.team.0004.expired_extended",
+        "f.team.0004.expired_rookies",
+        "f.team.0004.expired_to_era",
+        "f.team.0004.extensions_s1",
+        "f.team.0004.holes_opening",
+        "f.team.0004.pickups_s1",
+        "f.team.0004.rookie_extensions",
+        "f.team.0004.studs_opening",
+        "f.team.0004.trade1_salary_in",
+        "f.team.0004.trade1_salary_out",
+        "f.team.0004.trade_salary_in_s1",
+        "f.team.0004.trade_salary_out_s1",
+        "f.team.0004.trades_s1"
       ],
       "tableIds": [
-        "t.0004.bench",
-        "t.0004.idp_activity",
-        "t.0004.lineup"
+        "t.0004.bridge",
+        "t.0004.contracts",
+        "t.0004.cuts",
+        "t.0004.expired",
+        "t.0004.moves_s1",
+        "t.0004.slot_bridge",
+        "t.0004.trades"
       ],
       "chartIds": [],
       "quoteIds": [],
@@ -2091,39 +4096,41 @@
     },
     {
       "id": "s2",
-      "title": "The Bridge",
-      "brief": "Tell the offseason arc in three stages -- entering the offseason, entering the auction, now -- using the two bridge tables. Keep 'strongest team' (carried on existing contracts) and 'best offseason' (created this year) explicitly separate. NOTHING HERE IS INHERITED: this owner kept the same franchise, contracts expired, and he rebuilt -- an empty April roster is the normal state of that cycle, not a crisis and not news. Use the slot-by-slot table to name who actually filled each priced slot at each stage; a stud count that moves 1 -> 2 can hide the single biggest upgrade of the offseason, so report the NAME CHANGE in the slot, not just the count. The studs/solid/holes columns are a NEEDS read, separate from the value total: say explicitly whether this is a lineup of a few elite starters with real gaps, or one that is merely adequate everywhere -- two teams can carry the same summed value and look completely different on this axis, and that difference is the story, not the total.",
+      "title": "Pre-Auction",
+      "brief": "The rookie draft, the Expired Rookie Auction, tags, and the cuts and trades from the draft to the auction roster lock (lock-day cuts included). For each rookie pick compare the player with the historical baseline at that slot -- an expectation before any outcome, not a grade. ERA players are expired rookie deals, a different caliber from the free-agent market; never grade them against it. A TAG IS A CHIP (Keith): an owner tags a player to trade him, or to let him go and get the money back to spend on someone else, so a tag followed by a release is not automatically a mistake -- say what the money did next. Give a released player's salary and penalty from his row facts.",
       "factIds": [
-        "f.league.roster_max_at_auction",
-        "f.team.0004.active_now",
-        "f.team.0004.active_roster_current",
-        "f.team.0004.active_roster_opening",
+        "f.league.era_pool_size",
+        "f.league.era_top_price",
         "f.team.0004.active_roster_preauction",
-        "f.team.0004.active_today",
-        "f.team.0004.can_field_lineup_current",
-        "f.team.0004.can_field_lineup_opening",
         "f.team.0004.can_field_lineup_preauction",
-        "f.team.0004.cap_current_room",
-        "f.team.0004.cap_current_spent",
-        "f.team.0004.cap_opening",
         "f.team.0004.cap_preauction",
-        "f.team.0004.holes_opening",
-        "f.team.0004.holes_postauction",
-        "f.team.0004.holes_today",
-        "f.team.0004.ir_now",
-        "f.team.0004.lineup_value_current",
-        "f.team.0004.lineup_value_opening",
-        "f.team.0004.lineup_value_postauction",
-        "f.team.0004.lineup_value_preauction",
-        "f.team.0004.roster_total_postauction",
-        "f.team.0004.studs_opening",
-        "f.team.0004.studs_postauction",
-        "f.team.0004.studs_today",
-        "f.team.0004.taxi_now"
+        "f.team.0004.contract_13198_salary",
+        "f.team.0004.contract_13198_tcv",
+        "f.team.0004.contract_14836_salary",
+        "f.team.0004.contract_14836_tcv",
+        "f.team.0004.cuts_s2",
+        "f.team.0004.cuts_s2_penalty",
+        "f.team.0004.cuts_s2_salary",
+        "f.team.0004.era_lots_won",
+        "f.team.0004.era_spend",
+        "f.team.0004.extensions_s2",
+        "f.team.0004.pickups_s2",
+        "f.team.0004.rookie_picks_count",
+        "f.team.0004.tags",
+        "f.team.0004.trade2_salary_in",
+        "f.team.0004.trade2_salary_out",
+        "f.team.0004.trade3_salary_in",
+        "f.team.0004.trade3_salary_out",
+        "f.team.0004.trade4_salary_in",
+        "f.team.0004.trade4_salary_out",
+        "f.team.0004.trade_salary_in_s2",
+        "f.team.0004.trade_salary_out_s2",
+        "f.team.0004.trades_s2"
       ],
       "tableIds": [
-        "t.0004.bridge",
-        "t.0004.slot_bridge"
+        "t.0004.auction",
+        "t.0004.moves_s2",
+        "t.0004.rookies"
       ],
       "chartIds": [],
       "quoteIds": [],
@@ -2132,19 +4139,78 @@
     },
     {
       "id": "s3",
-      "title": "The Auctions",
-      "brief": "THERE ARE TWO AUCTIONS AND THEY ARE SEPARATE EVENTS: the Expired Rookie Auction (ERA) in May, for players whose rookie deals ran out, and the Free Agent Auction (FAA) in late July, the open market. Report them separately -- separate spend, separate buys, separate verdict -- and never merge them into one 'auction'. The Auction column in the table says which is which. Use the top-buy-percent fact for any 'most of his spend' style claim -- never estimate one, and note that it is a share of the FAA, not of both.",
+      "title": "The Auction and Preseason Contracts",
+      "brief": "The Free Agent Auction: what he spent and what it BOUGHT -- the grade column, and the league table's Bought column (Elite / Very good / Good / Depth), which is how his money compares with everyone else's; never print a value-per-dollar multiple. Every restructure: those before or during the auction opened room for it -- say whether the room was then used -- and those after it are post-auction restructures. Multi-year contracts, from the ERA and the FAA alike. Then the preseason waiver and free-agent moves to week one and the contracts that came from them. Close on the lineup it built: NAME the holes and the studs rather than counting them. Defense and the kicker are footnotes -- one clause each.",
       "factIds": [
-        "f.league.era_pool_size",
-        "f.league.era_top_price",
         "f.league.faa_top_price",
+        "f.league.roster_max_at_auction",
+        "f.team.0004.active_roster_current",
+        "f.team.0004.active_today",
         "f.team.0004.auction_spend",
-        "f.team.0004.era_lots_won",
-        "f.team.0004.era_spend",
+        "f.team.0004.cap_current_room",
+        "f.team.0004.cap_current_spent",
+        "f.team.0004.contract_12801_salary",
+        "f.team.0004.contract_12801_tcv",
+        "f.team.0004.contract_13671_salary",
+        "f.team.0004.contract_13671_tcv",
+        "f.team.0004.contract_13714_salary",
+        "f.team.0004.contract_13714_tcv",
+        "f.team.0004.contract_15261_salary",
+        "f.team.0004.contract_15261_tcv",
+        "f.team.0004.cuts_s3",
+        "f.team.0004.cuts_s3_penalty",
+        "f.team.0004.cuts_s3_salary",
+        "f.team.0004.extensions_s3",
+        "f.team.0004.faa_11769_price",
+        "f.team.0004.faa_11985_price",
+        "f.team.0004.faa_12801_price",
+        "f.team.0004.faa_13146_price",
+        "f.team.0004.faa_13595_price",
+        "f.team.0004.faa_13671_price",
+        "f.team.0004.faa_13714_price",
+        "f.team.0004.faa_14067_price",
+        "f.team.0004.faa_14095_price",
+        "f.team.0004.faa_14169_price",
+        "f.team.0004.faa_15076_price",
+        "f.team.0004.faa_15261_price",
+        "f.team.0004.faa_15821_price",
+        "f.team.0004.faa_15861_price",
+        "f.team.0004.faa_16441_price",
+        "f.team.0004.faa_16635_price",
+        "f.team.0004.faa_16843_price",
+        "f.team.0004.faa_17153_price",
+        "f.team.0004.faa_7836_price",
         "f.team.0004.faa_lots_won",
         "f.team.0004.faa_spend",
+        "f.team.0004.holes_postauction",
+        "f.team.0004.holes_today",
+        "f.team.0004.idp_adds_alltime",
+        "f.team.0004.idp_adds_lead_streak",
+        "f.team.0004.idp_adds_next_best",
+        "f.team.0004.idp_adds_rank",
+        "f.team.0004.idp_auction_share",
+        "f.team.0004.idp_auction_spend",
+        "f.team.0004.idp_ppw_rank",
+        "f.team.0004.ir_now",
+        "f.team.0004.myac_era",
+        "f.team.0004.myac_faa",
+        "f.team.0004.myac_other",
+        "f.team.0004.myac_trade",
+        "f.team.0004.pickups_s3",
+        "f.team.0004.qb_rank",
+        "f.team.0004.rb_rank",
+        "f.team.0004.restructures_auction",
+        "f.team.0004.restructures_post",
+        "f.team.0004.studs_postauction",
+        "f.team.0004.studs_today",
+        "f.team.0004.taxi_now",
+        "f.team.0004.te_rank",
         "f.team.0004.top_buy_pct_of_spend",
         "f.team.0004.top_buy_price",
+        "f.team.0004.trade_salary_in_s3",
+        "f.team.0004.trade_salary_out_s3",
+        "f.team.0004.trades_s3",
+        "f.team.0004.wr_rank",
         "f.team.0004.faa_off_spend",
         "f.team.0004.faa_off_spend_share",
         "f.team.0004.faa_off_gain_share",
@@ -2154,7 +4220,11 @@
         "f.team.0004.faa_off_gain_pct"
       ],
       "tableIds": [
-        "t.0004.auction",
+        "t.0004.bench",
+        "t.0004.faa",
+        "t.0004.idp_activity",
+        "t.0004.lineup",
+        "t.0004.moves_s3",
         "t.0004.faa_value"
       ],
       "chartIds": [],
@@ -2164,25 +4234,24 @@
     },
     {
       "id": "s4",
-      "title": "Contracts, Trades, Cuts and the Rookie Class",
-      "brief": "Use each table's own words: the contracts table's Type column already says Restructure or Extension, and those are different operations -- never merge them into a phrase like 'restructured into extension years'. Call a deal minimum-salary ONLY where the 'At league minimum?' column says yes; if you name a group of players as minimum-salary signings, check every single name against that column first. Do not name a subset of a table's rows in a way that skips a row contradicting the point. In the cuts table, the 'Charged to' column is the cap year the penalty actually lands in -- deferred rows are NOT part of this season's cap. Cover the contracts table first -- extensions, restructures, tags, MYM and FA deals are as much a part of the offseason as trades or auction buys. Classify each trade as talent-driven, cap-driven, mixed or unclear from the actual assets on both sides -- never from guessing motive, and never claim a traded draft pick 'became' a specific player unless the table names one; where it does not, describe the pick by round and slot only, because it was moved again before the draft and this dataset cannot follow it further. For every cut, say whether it removed a starter, depth, or a non-contributor. For every rookie pick, compare the actual player to the historical baseline at that exact slot -- that baseline is a PRE-outcome expectation, not a grade on a rookie with zero games played.",
+      "title": "Historical Context",
+      "brief": "This owner's record in the league, from the history table: seasons, titles with their years, runner-up finishes, all-play titles, playoff trips and division titles. It is the league's own documented record, by owner. Two or three sentences of context, not a eulogy.",
       "factIds": [
-        "f.team.0004.biggest_contract_traded_away",
-        "f.team.0004.contracts_count",
-        "f.team.0004.cuts_count",
-        "f.team.0004.cuts_penalty_2026",
-        "f.team.0004.cuts_penalty_2027_deferred",
-        "f.team.0004.inyear_flyers",
-        "f.team.0004.rookie_picks_count",
-        "f.team.0004.roster_removals_total",
-        "f.team.0004.trades_count",
-        "f.team.0004.waiver_swaps"
+        "f.team.0004.hist_allplay_pct",
+        "f.team.0004.hist_ap_title_years",
+        "f.team.0004.hist_ap_titles",
+        "f.team.0004.hist_div_title_years",
+        "f.team.0004.hist_div_titles",
+        "f.team.0004.hist_first_season",
+        "f.team.0004.hist_playoffs",
+        "f.team.0004.hist_runner_up_years",
+        "f.team.0004.hist_runner_ups",
+        "f.team.0004.hist_seasons",
+        "f.team.0004.hist_title_years",
+        "f.team.0004.hist_titles"
       ],
       "tableIds": [
-        "t.0004.contracts",
-        "t.0004.cuts",
-        "t.0004.rookies",
-        "t.0004.trades"
+        "t.0004.history"
       ],
       "chartIds": [],
       "quoteIds": [],
@@ -2191,20 +4260,93 @@
     },
     {
       "id": "s5",
-      "title": "The Verdict",
-      "brief": "Finish inside the DIVISION -- divisional opponents are played twice, so that is the comparison deciding a playoff seed and it is who this owner actually plays; use the division table and say plainly where he sits in it. Then a direct verdict: is this the strongest team in the league right now, and separately, was this a good offseason? They can disagree. Name the single biggest advantage and the single biggest weakness, each with players. If a Week table is present, close on it in NO MORE THAN a short paragraph: it is the first live evidence on an offseason bet, and only a handful of games are final, so write it as an opening data point and never as a verdict or a trend. Salary next to a score is the point -- an expensive starter who did nothing and a minimum-salary one who did plenty are the same sentence. Do NOT call any player injured: nothing here carries an injury designation, and a low score is not a diagnosis. Where a quarterback's line explains his receiver's line, say so -- that is a real dependency and it belongs to whoever is paying the receiver.",
+      "title": "The Division",
+      "brief": "The division by the preseason simulation -- each team's power rank and its playoff and title odds, beside each owner's career all-play and title years. Division rivals meet FIVE times each. Then a short, fun look at the next three years, clearly framed as a projection. If a Week table is present, close on it in a sentence or two: an opening data point, never a verdict, and never call a player injured from a score.",
       "factIds": [
+        "f.league.allplay_career_0001",
+        "f.league.allplay_career_0002",
+        "f.league.allplay_career_0003",
+        "f.league.allplay_career_0004",
+        "f.league.allplay_career_0005",
+        "f.league.allplay_career_0006",
+        "f.league.allplay_career_0007",
+        "f.league.allplay_career_0008",
+        "f.league.allplay_career_0009",
+        "f.league.allplay_career_0010",
+        "f.league.allplay_career_0011",
+        "f.league.allplay_career_0012",
+        "f.league.p_playoffs_0001",
+        "f.league.p_playoffs_0002",
+        "f.league.p_playoffs_0003",
+        "f.league.p_playoffs_0004",
+        "f.league.p_playoffs_0005",
+        "f.league.p_playoffs_0006",
+        "f.league.p_playoffs_0007",
+        "f.league.p_playoffs_0008",
+        "f.league.p_playoffs_0009",
+        "f.league.p_playoffs_0010",
+        "f.league.p_playoffs_0011",
+        "f.league.p_playoffs_0012",
+        "f.league.p_title_0001",
+        "f.league.p_title_0002",
+        "f.league.p_title_0003",
+        "f.league.p_title_0004",
+        "f.league.p_title_0005",
+        "f.league.p_title_0006",
+        "f.league.p_title_0007",
+        "f.league.p_title_0008",
+        "f.league.p_title_0009",
+        "f.league.p_title_0010",
+        "f.league.p_title_0011",
+        "f.league.p_title_0012",
+        "f.league.power_rank_0001",
+        "f.league.power_rank_0002",
+        "f.league.power_rank_0003",
+        "f.league.power_rank_0004",
+        "f.league.power_rank_0005",
+        "f.league.power_rank_0006",
+        "f.league.power_rank_0007",
+        "f.league.power_rank_0008",
+        "f.league.power_rank_0009",
+        "f.league.power_rank_0010",
+        "f.league.power_rank_0011",
+        "f.league.power_rank_0012",
+        "f.league.teams",
+        "f.league.title_years_0001",
+        "f.league.title_years_0002",
+        "f.league.title_years_0003",
+        "f.league.title_years_0004",
+        "f.league.title_years_0005",
+        "f.league.title_years_0007",
+        "f.league.title_years_0009",
+        "f.league.title_years_0010",
+        "f.league.titles_0001",
+        "f.league.titles_0002",
+        "f.league.titles_0003",
+        "f.league.titles_0004",
+        "f.league.titles_0005",
+        "f.league.titles_0006",
+        "f.league.titles_0007",
+        "f.league.titles_0008",
+        "f.league.titles_0009",
+        "f.league.titles_0010",
+        "f.league.titles_0011",
+        "f.league.titles_0012",
         "f.league.wk_teams_final",
-        "f.team.0004.composite_rank",
+        "f.team.0004.division_name",
         "f.team.0004.division_rank",
         "f.team.0004.division_size",
-        "f.team.0004.qb_rank",
-        "f.team.0004.rb_rank",
-        "f.team.0004.te_rank",
+        "f.team.0004.power_rank",
+        "f.team.0004.sim_exp_allplay",
+        "f.team.0004.sim_exp_wins",
+        "f.team.0004.sim_games",
+        "f.team.0004.sim_p_bye",
+        "f.team.0004.sim_p_division",
+        "f.team.0004.sim_p_playoffs",
+        "f.team.0004.sim_p_title",
         "f.team.0004.wk_live",
         "f.team.0004.wk_players_final",
-        "f.team.0004.wk_points_final",
-        "f.team.0004.wr_rank"
+        "f.team.0004.wk_points_final"
       ],
       "tableIds": [
         "t.0004.division",

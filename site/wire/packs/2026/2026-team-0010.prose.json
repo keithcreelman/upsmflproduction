@@ -1,29 +1,155 @@
 {
  "meta": {
-  "engine": "claude-opus-5 (session agent)",
+  "engine": "claude-opus-5 (session, written by hand)",
   "packId": "2026-team-0010"
  },
  "prose": {
-  "kicker": "Blake Bombers · Shawn Blake",
-  "title": "Blake Bombers Paid the Summer's Top Price for Josh Allen and Still Got More Offense per Auction Dollar Than Anyone",
-  "dek": "Shawn Blake spent {{f.team.0010.top_buy_price}} on one quarterback — the most expensive player anybody bought all summer and {{f.team.0010.top_buy_pct_of_spend}} of everything he spent at the Free Agent Auction. It paid off: he ranks {{f.team.0010.composite_rank|ord}} of {{f.league.teams}}, and {{f.team.0010.qb_rank|ord}} at quarterback.",
+  "title": "Blake Bombers Extended Two Receivers, Traded Both, and Bought Josh Allen",
+  "dek": "Shawn Blake turned Puka Nacua and Jayden Reed into Drake London, a 2027 first and depth, then paid the auction's top price, {{f.team.0010.faa_13589_price}}, for Josh Allen. No owner got more for his auction money, and the preseason simulation ranks the Bombers {{f.team.0010.power_rank|ord}}.",
   "sections": [
    {
     "id": "s1",
-    "lead": "",
     "paragraphs": [
-     "Josh Allen grades Elite QB1 and Brock Purdy High-end QB2 behind him. Quarterback ranks {{f.team.0010.qb_rank|ord}} in the league, which is what the biggest check of the summer is supposed to buy, and did.",
-     "Everything else on offense is good without being frightening. Drake London is a Mid WR1, DeVonta Smith a High-end WR2, Terry McLaurin a High-end WR3 in the flex, and the room still only ranks {{f.team.0010.wr_rank|ord}}. The backfield ranks {{f.team.0010.rb_rank|ord}} on Omarion Hampton at High-end RB2, Justice Hill at Mid RB2 and Quinshon Judkins at Low-end RB2 in the other flex. George Kittle is a Mid TE1 and tight end ranks {{f.team.0010.te_rank|ord}}.",
-     "That is the shape of this roster: one genuinely elite player and then a long, even stretch of solid ones. {{f.team.0010.studs_today}} studs and {{f.team.0010.holes_today}} hole is a modest-looking line for a team ranked {{f.team.0010.composite_rank|ord}}, and it is exactly why he is ranked there — very little is missing and almost nothing is spectacular.",
-     "The defense cost next to nothing — Will Anderson, Byron Young and Nate Landman all start on minimum or near-minimum money — and its weakest spot, Xavier Watts at Replacement-level DB, is the cheapest kind of problem in the league to fix. The last flex holds Kaleb Elarms-Orr, a rookie with no NFL season behind him and so no grade yet."
+     "April was a work in progress. Blake had {{f.team.0010.active_roster_opening}} active players and {{f.team.0010.cap_opening}} in salary, and {{f.team.0010.studs_opening}} top-twelve starters, Puka Nacua, an Elite WR1, and Omarion Hampton at running back. Brock Purdy and Quinshon Judkins were solid. The {{f.team.0010.holes_opening}} holes were Terry McLaurin at the second receiver spot, Brenton Strange at tight end, Rico Dowdle and Chris Godwin in the flexes, and Cam Ward in the superflex.",
+     "The spring was about keeping his young receivers. Both of his expiring rookie deals were extended in May: Nacua at {{f.team.0010.contract_16211_salary}} this year and {{f.team.0010.contract_16211_tcv}} in all, and Jayden Reed at {{f.team.0010.contract_16184_salary}} for one more year. In March he had already sent his 2027 first to Sex Manther for 1.10. No cuts."
     ],
     "place": [
+     "t.0010.slot_bridge",
+     "t.0010.moves_s1",
+     "t.0010.expired"
+    ],
+    "placeAt": {
+     "t.0010.slot_bridge": 0,
+     "t.0010.moves_s1": 1,
+     "t.0010.expired": 1
+    },
+    "views": {
+     "t.0010.slot_bridge": {
+      "cols": [
+       "slot",
+       "open"
+      ],
+      "labels": {
+       "open": "April"
+      },
+      "title": "April: who held each priced slot"
+     },
+     "t.0010.moves_s1": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "Before the rookie draft"
+     },
+     "t.0010.expired": {
+      "cols": [
+       "player",
+       "pos",
+       "outcome"
+      ],
+      "title": "Rookie deals that ran out"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "Blake used 1.10 on Denzel Boston, one of {{f.team.0010.rookie_picks_count}} picks, and bought Emanuel Wilson at the Expired Rookie Auction for {{f.team.0010.era_16432_price}}. He tagged nobody. In July he cut Jacoby Brissett, {{f.team.0010.cut_12616_salary}} of salary with no penalty, and sent a 2027 second to Sex Manther for George Kittle, with a little blind-bid money coming back the other way.",
+     "The next deal was the big one, and it was an extend-and-trade. Two months after extending Nacua, Blake sent him into the three-way with Real Deal Creel and C-Town and got back Drake London, Real Deal Creel's 2027 first, two depth players and {{f.team.0010.trade_blind_bid_cash}} of blind-bid money. Between the draft and the lock he took on {{f.team.0010.trade_salary_in_s2}} of salary in trades and sent out {{f.team.0010.trade_salary_out_s2}}, which is why he walked into the auction with {{f.team.0010.active_roster_preauction}} active players and {{f.team.0010.cap_preauction}} committed, more of both than in April."
+    ],
+    "place": [
+     "t.0010.rookies",
+     "t.0010.moves_s2"
+    ],
+    "placeAt": {
+     "t.0010.rookies": 0,
+     "t.0010.moves_s2": 0
+    },
+    "views": {
+     "t.0010.rookies": {
+      "cols": [
+       "pick",
+       "player",
+       "baseline",
+       "val"
+      ],
+      "title": "The rookie class",
+      "labels": {
+       "baseline": "History at this slot",
+       "val": "Grade today"
+      }
+     },
+     "t.0010.moves_s2": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the draft to the auction lock"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "An auction restructure of McLaurin, down to {{f.team.0010.contract_14109_salary}} for 2026, opened the last of the room, and Blake put most of it on one player. Josh Allen cost {{f.team.0010.faa_13589_price}} after fifteen bids, the most anyone paid for anyone this summer and {{f.team.0010.top_buy_pct_of_spend}} of his {{f.team.0010.faa_spend}}. DeVonta Smith cost {{f.team.0010.faa_15282_price}}, and the rest was defenders, a kicker and depth.",
+     "It worked. Allen is an Elite QB1 and Smith a High-end WR2, the Elite and the Good in his What it bought column, and on the league table no owner got more for each dollar: {{f.team.0010.faa_off_rank|ord}} of {{f.league.teams}}. With Purdy in the superflex his quarterbacks rank {{f.team.0010.qb_rank|ord}} in the league.",
+     "After the auction came the second extend-and-trade. In August Reed, extended in May, went to CBP with three depth players and blind-bid money for Ricky Pearsall, Jonah Coleman and a 2027 fourth, and the same day London's deal was restructured to {{f.team.0010.contract_15751_salary}} for 2026 and {{f.team.0010.contract_15751_tcv}} in all. Smith signed a multi-year deal at {{f.team.0010.contract_15282_salary}} this year and {{f.team.0010.contract_15282_tcv}} in all, one of {{f.team.0010.myac_faa}} from the auction, and Will Anderson and AJ Barner were extended cheaply. He claimed {{f.team.0010.pickups_s3}} players off waivers, a kicker among them, and released the ones that did not stick at no cost.",
+     "The lineup it built has {{f.team.0010.studs_today}} top-twelve starters, Allen, Hampton, London and Kittle, with Judkins, Smith and Purdy solid, and {{f.team.0010.holes_today}} holes, both flexes: McLaurin and Justice Hill. The punter, Ryan Rehkow, is an Elite PN1 on MFL's projections; the kicker is a waiver pickup and a footnote."
+    ],
+    "place": [
+     "t.0010.faa",
+     "t.0010.faa_value",
+     "t.0010.moves_s3",
      "t.0010.lineup"
     ],
     "placeAt": {
-     "t.0010.lineup": 0
+     "t.0010.faa": 0,
+     "t.0010.faa_value": 1,
+     "t.0010.moves_s3": 0,
+     "t.0010.lineup": 3
     },
     "views": {
+     "t.0010.faa": {
+      "cols": [
+       "player",
+       "pos",
+       "price",
+       "grade"
+      ],
+      "rows": 8,
+      "title": "Biggest buys"
+     },
+     "t.0010.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend",
+       "bought"
+      ],
+      "labels": {
+       "spend": "Spent on offense",
+       "bought": "What it bought"
+      },
+      "title": "What every owner's auction money bought"
+     },
+     "t.0010.moves_s3": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the auction to week one"
+     },
      "t.0010.lineup": {
       "cols": [
        "slot",
@@ -33,132 +159,38 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "Strongest legal lineup"
-     }
-    }
-   },
-   {
-    "id": "s2",
-    "lead": "",
-    "paragraphs": [
-     "He opened April with {{f.team.0010.active_roster_opening}} active players and {{f.team.0010.cap_opening}} committed. The starting offense had {{f.team.0010.holes_opening}} holes and only {{f.team.0010.studs_opening}} top-twelve player anywhere in it, Puka Nacua, an Elite WR1; Cam Ward, a Replacement-level QB, was the superflex, and Brenton Strange, a Low-end TE2, was the tight end.",
-     "The three months to the auction lock were a step back overall. He was up to {{f.team.0010.active_roster_preauction}} active and {{f.team.0010.cap_preauction}} committed, and George Kittle, a Mid TE1, had replaced Brenton Strange at tight end, but Puka Nacua had been traded and Drake London, a Mid WR1, had moved into the top receiver slot. Holes stayed where they were. He added bodies and salary, and his starting offense was worth less than it had been in April.",
-     "The auction fixed it decisively: {{f.team.0010.active_roster_current}} active, holes down to {{f.team.0010.holes_postauction}} and studs up to {{f.team.0010.studs_postauction}}. Josh Allen took quarterback and shunted Brock Purdy into the superflex, which alone removed a Replacement-level QB from the lineup. DeVonta Smith took the second receiver slot and pushed Terry McLaurin into a flex, which pushed Chris Godwin out. Justice Hill, a Mid RB2, did the same at running back, moving Quinshon Judkins into the other flex and Rico Dowdle out.",
-     "Six of the priced slots improved in under two weeks, and his starting offense came out far stronger than it was at the lock and stronger than it had been in April. The route there was strange — sell the most valuable player moved in any trade this summer, then buy the most expensive one at auction — but the destination is a top-three roster."
-    ],
-    "place": [
-     "t.0010.slot_bridge"
-    ],
-    "placeAt": {
-     "t.0010.slot_bridge": 0
-    },
-    "views": {
-     "t.0010.slot_bridge": {
-      "cols": [
-       "slot",
-       "open",
-       "pre",
-       "now"
-      ],
-      "stack": true,
-      "title": "Who filled each priced slot",
-      "labels": {
-       "open": "April",
-       "pre": "Before the auction",
-       "now": "After it"
-      }
-     }
-    }
-   },
-   {
-    "id": "s3",
-    "lead": "",
-    "paragraphs": [
-     "One buy at the Expired Rookie Auction: Emanuel Wilson for {{f.team.0010.era_spend}}, one of {{f.league.era_pool_size}} players sold there whose rookie contracts ran out without earning a second one. He was dropped in August as the make-room leg of a waiver claim.",
-     "The Free Agent Auction was a single enormous swing. {{f.team.0010.faa_lots_won}} players for {{f.team.0010.faa_spend}}, and {{f.team.0010.top_buy_price}} of that went on Josh Allen: {{f.team.0010.top_buy_pct_of_spend}} of everything he spent there on one player, and the highest price anybody in the league paid this year. Fifteen separate bids went in on Allen before the bidding closed.",
-     "His {{f.team.0010.faa_off_spend}} on quarterbacks, backs, receivers and tight ends at the Free Agent Auction bought more offense per dollar than anybody else's: {{f.team.0010.faa_off_rank|ord}} of {{f.league.teams}}, just ahead of C-Town Chivalry. His total improvement ranks {{f.team.0010.faa_off_gain_rank|ord}}; C-Town Chivalry, CBP and Real Deal Creel each added more, but all three spent more to do it. Like CBP and Real Deal Creel, he came to the lock with holes to fill, which is where the easiest gains are.",
-     "Superflex makes quarterbacks the scarcest thing on the board, and in July a Replacement-level QB was filling his superflex. That is the hole the Allen money closed.",
-     "DeVonta Smith took most of what was left, and most of what came after was small money on defense: {{f.team.0010.idp_auction_spend}}, just {{f.team.0010.idp_auction_share}} of his auction money and a smaller share than most of the league spent, for Nate Landman, Byron Young, Nick Cross, Devin Lloyd and two depth safeties."
-    ],
-    "place": [
-     "t.0010.auction",
-     "t.0010.faa_value"
-    ],
-    "placeAt": {
-     "t.0010.auction": 1,
-     "t.0010.faa_value": 2
-    },
-    "views": {
-     "t.0010.auction": {
-      "cols": [
-       "player",
-       "pos",
-       "auction",
-       "price"
-      ],
-      "sortDesc": "price",
-      "rows": 5,
-      "title": "Biggest buys",
-      "labels": {
-       "auction": "Where"
-      }
-     },
-     "t.0010.faa_value": {
-      "cols": [
-       "rank",
-       "team",
-       "spend"
-      ],
-      "labels": {
-       "spend": "Spent on offense"
-      },
-      "title": "Who got the most for his money"
+      "title": "The lineup it built"
      }
     },
     "captions": {
-     "t.0010.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
+     "t.0010.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
     }
    },
    {
     "id": "s4",
-    "lead": "",
     "paragraphs": [
-     "{{f.team.0010.contracts_count}} contract moves — more than anybody in the league — plus {{f.team.0010.trades_count}} trades and {{f.team.0010.roster_removals_total}} removals, with {{f.team.0010.cuts_penalty_2026}} charged against this season and nothing deferred.",
-     "Will Anderson and AJ Barner were both extended with this season still at the league minimum. Puka Nacua and Jayden Reed were extended in May, and both were traded away afterwards.",
-     "Terry McLaurin was restructured the day the auction rosters locked, and Drake London's contract was restructured in August.",
-     "Then the three-way, the biggest deal of the year. He sent Puka Nacua — the most valuable player moved in any trade this summer — to Real Deal Creel. From C-Town Chivalry he received Drake London and {{f.team.0010.trade_blind_bid_cash}} of blind-bid money; from Real Deal Creel, its 2027 first-round pick and two further players. Real Deal Creel, in turn, sent Tetairoa McMillan to C-Town Chivalry. Three-way trades are rare here and this is the only one ever completed through the league's own trade tool.",
-     "On raw board value he lost that trade and it is not close — London is worth a little over half of Nacua. What he got instead was {{f.team.0010.trade_blind_bid_cash}} of blind-bid money and a future first. Judged as a talent swap it is bad; the case for it rests on that pick and that money.",
-     "The other trades are smaller and mostly fine: a 2027 first to Sex Manther for the pick at 1.10 that became Denzel Boston, a 2027 second to the same partner for George Kittle and cash, and an August swap with CBP that sent Jayden Reed, three other players and cash out for Ricky Pearsall, Jonah Coleman and a 2027 fourth.",
-     "Jacoby Brissett was cut in July at a real salary with no penalty attached, and Daiyan Henley went the day the auction closed, also without a penalty. Apart from the Emanuel Wilson waiver swap, the rest is taxi housekeeping and {{f.team.0010.inyear_flyers}} in-year flyers.",
-     "The rookie class is still a projection: {{f.team.0010.rookie_picks_count}} picks led by Denzel Boston at 1.10, who grades Replacement-level WR so far, with three more in the second and third rounds not yet graded. Eli Heidenreich, the pick at 5.10, went to CBP in that August swap. The pick at 6.10 is a defender who happens to share a name with a very famous receiver and is not him."
+     "Blake has the best trophy case in the league. Since {{f.team.0010.hist_first_season}} he has won {{f.team.0010.hist_titles}} titles, in {{f.team.0010.hist_title_years}}, more than any other owner, with runner-up finishes in {{f.team.0010.hist_runner_up_years}}, {{f.team.0010.hist_playoffs}} playoff trips in {{f.team.0010.hist_seasons}} seasons, the most in the league, and {{f.team.0010.hist_div_titles}} division titles, including the last three. His career all-play record is {{f.team.0010.hist_allplay_pct}}."
     ],
     "place": [
-     "t.0010.trades"
+     "t.0010.history"
     ],
     "placeAt": {
-     "t.0010.trades": 1
+     "t.0010.history": 0
     },
     "views": {
-     "t.0010.trades": {
-      "cols": [
-       "date",
-       "partner",
-       "gave",
-       "got"
-      ],
+     "t.0010.history": {
       "stack": true,
-      "title": "Trades"
+      "title": "Owner history"
      }
-    }
+    },
+    "captions": {}
    },
    {
     "id": "s5",
-    "lead": "",
     "paragraphs": [
-     "He is {{f.team.0010.division_rank|ord}} of {{f.team.0010.division_size}} in his division, ahead of CBP and Gride, and he sees each of them five times. Those are the ninth and eleventh-ranked teams in the league. Ten of his regular-season games are against opponents he should beat, which for a team ranked {{f.team.0010.composite_rank|ord}} is close to the ideal draw.",
-     "Strongest team in the league? Third, well behind C-Town Chivalry and nearer to Cleon Ca$h in fourth than to Pure Greatness in second. Best offseason? Not quite: Real Deal Creel and CBP each closed more holes, though nobody got more offense for his auction money. He entered April with {{f.team.0010.studs_opening}} top-twelve player and {{f.team.0010.holes_opening}} holes and finished with {{f.team.0010.studs_today}} and {{f.team.0010.holes_today}}, first in the league at quarterback.",
-     "The biggest advantage is Josh Allen, plainly, with Brock Purdy behind him — which makes his superflex a strength rather than a compromise. The biggest weakness is that outside Allen nothing on this offense is elite, and the receiver room ranks {{f.team.0010.wr_rank|ord}} despite three startable names, because the man who made it frightening now plays for somebody else.",
-     "{{f.league.wk_teams_final}} NFL teams had played when this was written and none of his starters was among them — {{f.team.0010.wk_points_final}} points banked, because the two players of his who have finished a game were both on the bench. AJ Barner, the minimum-salary tight end, outscored the receiver sitting next to him at seven times the price. Everything that matters for this roster is still to come."
+     "LEGION OF BOOM runs through the Bombers again on the simulation's numbers: {{f.team.0010.power_rank|ord}} in the league, a {{f.team.0010.sim_p_division}} chance at a fourth straight division title, {{f.team.0010.sim_p_playoffs}} playoff odds and {{f.team.0010.sim_p_title}} title odds. CBP is {{f.league.power_rank_0002|ord}}, and Derrick Whitman owns the league's best career all-play record at {{f.league.allplay_career_0002}}. Gride is {{f.league.power_rank_0003|ord}}. Blake plays both five times.",
+     "The next three years, filed live, as they happen. 2027: Allen. Division title. Playoff win. Sucks to be everyone else ha. 2028: title number four, which he will downplay in the same message he announces it. 2029: a model like this one ranks him third again, and he questions the model, ha, and keeps the email.",
+     "Week one started with {{f.league.wk_teams_final}} NFL teams done and the Bombers already at {{f.team.0010.wk_points_final}} points, most of them from Purdy, who threw three touchdowns."
     ],
     "place": [
      "t.0010.division",
@@ -166,17 +198,11 @@
     ],
     "placeAt": {
      "t.0010.division": 0,
-     "t.0010.week1": 3
+     "t.0010.week1": 2
     },
     "views": {
      "t.0010.division": {
-      "cols": [
-       "team",
-       "comp"
-      ],
-      "labels": {
-       "comp": "League rank"
-      },
+      "stack": true,
       "title": "The division"
      },
      "t.0010.week1": {
@@ -200,22 +226,21 @@
     }
    }
   ],
+  "kicker": "Blake Bombers · Shawn Blake",
   "strip": [
    {
-    "fact": "f.team.0010.composite_rank",
+    "fact": "f.team.0010.power_rank",
     "ord": true,
     "of": "f.league.teams",
-    "label": "Overall"
+    "label": "Power rank"
    },
    {
-    "fact": "f.team.0010.studs_today",
-    "label": "Offensive studs",
-    "suffix": "of nine"
+    "fact": "f.team.0010.sim_p_playoffs",
+    "label": "Playoff odds"
    },
    {
-    "fact": "f.team.0010.holes_today",
-    "label": "Offensive holes",
-    "suffix": "of nine"
+    "fact": "f.team.0010.sim_p_title",
+    "label": "Title odds"
    },
    {
     "fact": "f.team.0010.auction_spend",
@@ -227,7 +252,7 @@
    }
   ],
   "card": {
-   "rankFact": "f.team.0010.composite_rank",
+   "rankFact": "f.team.0010.power_rank",
    "ofFact": "f.league.teams",
    "featured": false
   }

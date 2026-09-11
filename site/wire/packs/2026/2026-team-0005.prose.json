@@ -1,30 +1,153 @@
 {
  "meta": {
-  "engine": "claude-opus-5 (session agent)",
+  "engine": "claude-opus-5 (session, written by hand)",
   "packId": "2026-team-0005"
  },
  "prose": {
-  "kicker": "HammerTime 🔨 ⏰ · Eric Martel",
-  "title": "HammerTime Sold Jalen Hurts in April and Has Been Playing a Man Short Ever Since",
-  "dek": "Eric Martel traded a starting quarterback for a first and a second, sent his own first and second out for running backs, and now ranks {{f.team.0005.qb_rank|ord}} of {{f.league.teams}} at the position. His receivers rank {{f.team.0005.wr_rank|ord}} and his tight end {{f.team.0005.te_rank|ord}}, which is what makes it hurt.",
+  "title": "HammerTime Has No Holes and No Quarterback",
+  "dek": "Eric Martel paid {{f.team.0005.trade_blind_bid_cash}} to move Jalen Hurts in April, turned the savings into Kenneth Walker and David Montgomery, and has kept a lineup with no holes all summer. His quarterbacks rank last in the league. The preseason simulation ranks the {{f.team.0005.hist_title_years}} champion {{f.team.0005.power_rank|ord}}.",
   "sections": [
    {
     "id": "s1",
-    "lead": "",
     "paragraphs": [
-     "Ja'Marr Chase is an Elite WR1 and Trey McBride an Elite TE1 — two of the best players at their positions in the league, on the same roster. Receiver ranks {{f.team.0005.wr_rank|ord}} and tight end {{f.team.0005.te_rank|ord}}. Ladd McConkey is a Mid WR2 and Luther Burden a High-end WR3 in the flex.",
-     "The backfield ranks {{f.team.0005.rb_rank|ord}} and is genuinely deep: Kenneth Walker at Low-end RB1, Javonte Williams at High-end RB2, David Montgomery filling a flex at Low-end RB2. Three startable backs, which in this format is a luxury.",
-     "The defense is strong as well, with T.J. Watt and Jack Campbell at the head of it, though good defenders are the easiest thing in this league to find.",
-     "And then quarterback, which ranks dead last and is not a near miss. C.J. Stroud grades Low-end QB2. Behind him sit Geno Smith and Michael Penix, both Replacement-level QB, and the best lineup he can set passes over both of them and puts Jordan Addison — a wide receiver, grading Replacement-level WR — in the superflex instead. In a format built around starting two quarterbacks, he is effectively starting one.",
-     "Composite {{f.team.0005.composite_rank|ord}} of {{f.league.teams}} with {{f.team.0005.studs_today}} studs and {{f.team.0005.holes_today}} holes. Leave the quarterbacks out of it and this is a top-three roster. You cannot leave them out of it."
+     "April was deep. Martel carried {{f.team.0005.active_roster_opening}} active players and {{f.team.0005.cap_opening}} in salary, with {{f.team.0005.studs_opening}} top-twelve starters, Ja'Marr Chase, an Elite WR1, Trey McBride, an Elite TE1, Kenneth Walker and T.J. Hockenson in the superflex, and {{f.team.0005.holes_opening}} holes. C.J. Stroud, Javonte Williams, Ladd McConkey, Montgomery and Luther Burden were all solid. It is also a lineup whose best quarterback grades as a Low-end QB2.",
+     "The spring was a salary swap. In March Martel extended Stroud's rookie deal for one more year at {{f.team.0005.contract_16150_salary}}. In April he sent Jalen Hurts and {{f.team.0005.trade_blind_bid_cash}} of blind-bid money to the Long Haulers for their 2027 first and second, which is paying to move a {{f.team.0005.trade1_salary_out}} quarterback, then spent his own 2027 first on Walker and his own second on Montgomery. Before the draft {{f.team.0005.trade_salary_out_s1}} of salary went out and {{f.team.0005.trade_salary_in_s1}} came in. Of his other expiring rookies, Sean Tucker went to Sex Manther at the Expired Rookie Auction and Tyree Wilson was let go."
     ],
     "place": [
+     "t.0005.slot_bridge",
+     "t.0005.moves_s1",
+     "t.0005.expired"
+    ],
+    "placeAt": {
+     "t.0005.slot_bridge": 0,
+     "t.0005.moves_s1": 1,
+     "t.0005.expired": 1
+    },
+    "views": {
+     "t.0005.slot_bridge": {
+      "cols": [
+       "slot",
+       "open"
+      ],
+      "labels": {
+       "open": "April"
+      },
+      "title": "April: who held each priced slot"
+     },
+     "t.0005.moves_s1": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "Before the rookie draft"
+     },
+     "t.0005.expired": {
+      "cols": [
+       "player",
+       "pos",
+       "outcome"
+      ],
+      "title": "Rookie deals that ran out"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "Martel tagged Javonte Williams in May at {{f.team.0005.contract_15256_salary}}, and unlike the other tags this summer this one was simply a keep: Williams is his second running back and grades as a High-end RB2. On draft day he moved up twice, sending 4.01, 4.08, 5.01 and two 2027 picks away for 2.12 and 3.08, and made {{f.team.0005.rookie_picks_count}} picks, Skyler Bell and Demond Claiborne first. The only release before the lock cost something small: Troy Franklin, {{f.team.0005.cut_16619_salary}} of salary with a {{f.team.0005.cut_16619_penalty}} penalty."
+    ],
+    "place": [
+     "t.0005.rookies",
+     "t.0005.moves_s2"
+    ],
+    "placeAt": {
+     "t.0005.rookies": 0,
+     "t.0005.moves_s2": 0
+    },
+    "views": {
+     "t.0005.rookies": {
+      "cols": [
+       "pick",
+       "player",
+       "baseline",
+       "val"
+      ],
+      "title": "The rookie class",
+      "labels": {
+       "baseline": "History at this slot",
+       "val": "Grade today"
+      }
+     },
+     "t.0005.moves_s2": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the draft to the auction lock"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "With no hole to fill, Martel spent {{f.team.0005.faa_spend}} at the Free Agent Auction mostly on depth and defense. Josh Jacobs was the big buy at {{f.team.0005.faa_14073_price}}, and Aidan Hutchinson, Micah Parsons, Ernest Jones and T.J. Watt came cheaply behind him. Jacobs, a Low-end RB2, is the one Good buy in the What it bought column, and the league table ranks the money {{f.team.0005.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added, which says less about the auction than about how little there was to add.",
+     "The contracts were long. Jacobs signed a back-loaded deal at {{f.team.0005.contract_14073_salary}} this year and {{f.team.0005.contract_14073_tcv}} in all, and Hutchinson, Jones and Parsons got multi-year deals too. There were no restructures. After the auction he cut Jonnu Smith, whose {{f.team.0005.cut_13193_salary}} salary carried a {{f.team.0005.cut_13193_penalty}} penalty charged to 2027, and claimed {{f.team.0005.pickups_s3}} players off waivers, among them Quentin Lake and Jalen Nailor.",
+     "The lineup it built still has {{f.team.0005.holes_today}} holes and {{f.team.0005.studs_today}} top-twelve starters, Chase, McBride, Walker and Hockenson, with the league's best tight ends and its second-best receivers. The hole that the count does not show is under center: Stroud is the only quarterback in it, a tight end plays the superflex, and his quarterbacks rank {{f.team.0005.qb_rank|ord}} of {{f.league.teams}}. The defense and the kicker are footnotes, and good ones."
+    ],
+    "place": [
+     "t.0005.faa",
+     "t.0005.faa_value",
+     "t.0005.moves_s3",
      "t.0005.lineup"
     ],
     "placeAt": {
-     "t.0005.lineup": 0
+     "t.0005.faa": 0,
+     "t.0005.faa_value": 0,
+     "t.0005.moves_s3": 1,
+     "t.0005.lineup": 2
     },
     "views": {
+     "t.0005.faa": {
+      "cols": [
+       "player",
+       "pos",
+       "price",
+       "grade"
+      ],
+      "rows": 8,
+      "title": "Biggest buys"
+     },
+     "t.0005.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend",
+       "bought"
+      ],
+      "labels": {
+       "spend": "Spent on offense",
+       "bought": "What it bought"
+      },
+      "title": "What every owner's auction money bought"
+     },
+     "t.0005.moves_s3": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the auction to week one"
+     },
      "t.0005.lineup": {
       "cols": [
        "slot",
@@ -34,131 +157,38 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "Strongest legal lineup"
-     }
-    }
-   },
-   {
-    "id": "s2",
-    "lead": "",
-    "paragraphs": [
-     "Once his April trades were done he had {{f.team.0005.active_roster_opening}} active players, {{f.team.0005.cap_opening}} committed, {{f.team.0005.studs_opening}} studs and {{f.team.0005.holes_opening}} holes — only Pure Greatness and C-Town Chivalry had fewer holes at that point. He did not spend this offseason rebuilding from nothing. He spent it rearranging something that already worked.",
-     "By the auction lock he was down to {{f.team.0005.active_roster_preauction}} active players and {{f.team.0005.cap_preauction}} committed, and every one of his nine offensive starting spots held the same player in July that it had held in April. Not one changed.",
-     "The auction added bodies — he left it with {{f.team.0005.active_roster_current}} active players — and exactly one new offensive starter: Josh Jacobs took a flex spot, which pushed Luther Burden into the superflex and Jordan Addison to the bench. His starting offense barely moved. Holes stayed at {{f.team.0005.holes_postauction}} and studs at {{f.team.0005.studs_postauction}} throughout — opening, auction, today. Nothing he did after the April trades changed either number.",
-     "Jacobs now sits on injured reserve, so for now the superflex has reverted to Jordan Addison and his starting offense is right back where it stood in April. The one offensive improvement of the offseason is on hold until he returns."
-    ],
-    "place": [
-     "t.0005.slot_bridge"
-    ],
-    "placeAt": {
-     "t.0005.slot_bridge": 0
-    },
-    "views": {
-     "t.0005.slot_bridge": {
-      "cols": [
-       "slot",
-       "open",
-       "pre",
-       "now"
-      ],
-      "stack": true,
-      "title": "Who filled each priced slot",
-      "labels": {
-       "open": "April",
-       "pre": "Before the auction",
-       "now": "After it"
-      }
-     }
-    }
-   },
-   {
-    "id": "s3",
-    "lead": "",
-    "paragraphs": [
-     "Nothing at the Expired Rookie Auction — {{f.team.0005.era_lots_won}} players, {{f.team.0005.era_spend}} — in an auction that sold only {{f.league.era_pool_size}} players, all of them men whose rookie deals had run out.",
-     "At the Free Agent Auction he won {{f.team.0005.faa_lots_won}} players for {{f.team.0005.faa_spend}}, and {{f.team.0005.idp_auction_spend}} of it went on defenders — {{f.team.0005.idp_auction_share}} of everything he spent, the second-largest defensive share in the league, behind only The Long Haulers.",
-     "The rest, bar a kicker and a punter, went on offense: {{f.team.0005.faa_off_spend}}. For what that money bought, he ranks {{f.team.0005.faa_off_rank|ord}} of {{f.league.teams}} — only Pure Greatness, who spent about the same, and Cleon Ca$h got less for their money. In fairness, a lineup with only {{f.team.0005.holes_opening}} holes had less to fix than most, but one of them was the superflex, and it is still a hole.",
-     "His largest buy was Josh Jacobs at {{f.team.0005.top_buy_price}}, {{f.team.0005.top_buy_pct_of_spend}} of his auction money, against a league-high price elsewhere of {{f.league.faa_top_price}}. Jacobs is one of the {{f.team.0005.ir_now}} players he has on injured reserve, so his most expensive purchase is unavailable for the opener.",
-     "What he did not buy, at any price, in either auction, was a quarterback."
-    ],
-    "place": [
-     "t.0005.auction",
-     "t.0005.faa_value"
-    ],
-    "placeAt": {
-     "t.0005.auction": 1,
-     "t.0005.faa_value": 2
-    },
-    "views": {
-     "t.0005.auction": {
-      "cols": [
-       "player",
-       "pos",
-       "auction",
-       "price"
-      ],
-      "sortDesc": "price",
-      "rows": 5,
-      "title": "Biggest buys",
-      "labels": {
-       "auction": "Where"
-      }
-     },
-     "t.0005.faa_value": {
-      "cols": [
-       "rank",
-       "team",
-       "spend"
-      ],
-      "labels": {
-       "spend": "Spent on offense"
-      },
-      "title": "Who got the most for his money"
+      "title": "The lineup it built"
      }
     },
     "captions": {
-     "t.0005.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
+     "t.0005.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
     }
    },
    {
     "id": "s4",
-    "lead": "",
     "paragraphs": [
-     "{{f.team.0005.contracts_count}} contract moves, {{f.team.0005.trades_count}} trades, {{f.team.0005.roster_removals_total}} removals. The trades are the story of his year, and the three that matter all came in April.",
-     "On the ninth of April he sent Jalen Hurts and {{f.team.0005.trade_blind_bid_cash}} of blind-bid money to The Long Haulers for their 2027 first and second-round picks. Hurts is the only player he traded away all offseason, and he paid cash to move him. Four days later he sent his own 2027 first to Real Deal Creel for Kenneth Walker. Four days after that he sent his own 2027 second to L.A. Looks for David Montgomery.",
-     "Read those three in order. He converted a starting quarterback into a future first and second, then immediately converted his own first and second into two running backs, at a position where he already had Javonte Williams, whom he tagged in May. He did not sell the future to buy the present — he sold a quarterback to buy running backs, with a round trip through the draft in between, and left the superflex slot to fend for itself.",
-     "The other two trades are pick shuffling with Pure Greatness and L.A. Looks that moved him up into 2.12 and 3.08, at the cost of three later 2026 picks plus a 2027 third and fourth. His class is {{f.team.0005.rookie_picks_count}} picks, none earlier than 2.12, and none of them yet valued for this season.",
-     "C.J. Stroud was extended in March, Javonte Williams was tagged, and four of the auction wins — Jacobs, Hutchinson, Jones and Parsons — were converted to multi-year deals. None of those six is at the league minimum.",
-     "The removals are where a real mistake sits. Jonnu Smith was cut in late August and the penalty exceeded the salary removed: the cut cleared his salary off this season's cap, but the full {{f.team.0005.cuts_penalty_2027_deferred}} penalty lands next season, so across the two years it cost more than it freed. Troy Franklin's cut carries a further {{f.team.0005.cuts_penalty_unstamped}} with no charge year stamped on it at all. Nothing is charged to this season yet — {{f.team.0005.cuts_penalty_2026}} — but the bill exists.",
-     "Beyond that it is churn: a waiver swap and {{f.team.0005.inyear_flyers}} bodies signed and discarded inside the same offseason."
+     "Martel is one of the league's newer owners, here since {{f.team.0005.hist_first_season}}, and he has made the most of it: a title in {{f.team.0005.hist_title_years}}, a division title in {{f.team.0005.hist_div_title_years}}, {{f.team.0005.hist_playoffs}} playoff trips in {{f.team.0005.hist_seasons}} seasons, and a {{f.team.0005.hist_allplay_pct}} career all-play record."
     ],
     "place": [
-     "t.0005.trades"
+     "t.0005.history"
     ],
     "placeAt": {
-     "t.0005.trades": 1
+     "t.0005.history": 0
     },
     "views": {
-     "t.0005.trades": {
-      "cols": [
-       "date",
-       "partner",
-       "gave",
-       "got"
-      ],
+     "t.0005.history": {
       "stack": true,
-      "title": "Trades"
+      "title": "Owner history"
      }
-    }
+    },
+    "captions": {}
    },
    {
     "id": "s5",
-    "lead": "",
     "paragraphs": [
-     "He is {{f.team.0005.division_rank|ord}} of {{f.team.0005.division_size}} in his division, behind Pure Greatness and The Long Haulers, and he plays each of them five times. Pure Greatness is the second-best team in the league. That is ten games against opponents ranked above him, in the division that decides his playoff seed.",
-     "Strongest team in the league? No — {{f.team.0005.composite_rank|ord}} of {{f.league.teams}}. Best offseason? No. On offense this was a busy offseason that added up to nothing: holes and studs were identical in April and are identical now, and the one offensive gain the auction produced is on injured reserve with Jacobs. He spent {{f.team.0005.auction_spend}} and made {{f.team.0005.trades_count}} trades, and his offense today is the one he had in late April — two running backs richer and a quarterback short of where he began.",
-     "The biggest advantage is genuine and large: Chase and McBride anchor a receiving corps ranked {{f.team.0005.wr_rank|ord}} and a tight end position ranked {{f.team.0005.te_rank|ord}}, with three startable running backs behind them. The biggest weakness is one slot, and it is self-inflicted — a superflex filled by a replacement-level wide receiver because the quarterback who should be in it was traded in April for picks, while his own picks became running backs.",
-     "{{f.league.wk_teams_final}} NFL teams had played when this was written, and his lone finished starter was Ernest Jones, a linebacker he bought at the auction, who banked {{f.team.0005.wk_points_final}} points on tackles alone. One game settles nothing."
+     "Outlast PG Time holds the last two champions, Pure Greatness and HammerTime, and the simulation has them in that order: Pure Greatness {{f.league.power_rank_0004|ord}}, HammerTime {{f.team.0005.power_rank|ord}}, the Long Haulers {{f.league.power_rank_0006|ord}}. That is a {{f.team.0005.sim_p_division}} chance at defending the division, {{f.team.0005.sim_p_playoffs}} playoff odds and {{f.team.0005.sim_p_title}} title odds, with Cutting and Cross five times each.",
+     "The next three years, entered into the record. Finding one, 2027: HammerTime wins the division on the strength of Chase and McBride, and precedent dictates a ruling on the quarterback question, which is deferred. Finding two, 2028: a quarterback is acquired at considerable expense and at least four GIFs. Finding three, 2029: a second title, followed by a closing argument that ends in I rest my case. Ruling: likely, pending appeal.",
+     "Week one has started with a waiver pickup leading the way: with {{f.league.wk_teams_final}} NFL teams done, Quentin Lake had an interception and HammerTime has {{f.team.0005.wk_points_final}} points in the bank."
     ],
     "place": [
      "t.0005.division",
@@ -166,17 +196,11 @@
     ],
     "placeAt": {
      "t.0005.division": 0,
-     "t.0005.week1": 3
+     "t.0005.week1": 2
     },
     "views": {
      "t.0005.division": {
-      "cols": [
-       "team",
-       "comp"
-      ],
-      "labels": {
-       "comp": "League rank"
-      },
+      "stack": true,
       "title": "The division"
      },
      "t.0005.week1": {
@@ -200,22 +224,21 @@
     }
    }
   ],
+  "kicker": "HammerTime 🔨 ⏰ · Eric Martel",
   "strip": [
    {
-    "fact": "f.team.0005.composite_rank",
+    "fact": "f.team.0005.power_rank",
     "ord": true,
     "of": "f.league.teams",
-    "label": "Overall"
+    "label": "Power rank"
    },
    {
-    "fact": "f.team.0005.studs_today",
-    "label": "Offensive studs",
-    "suffix": "of nine"
+    "fact": "f.team.0005.sim_p_playoffs",
+    "label": "Playoff odds"
    },
    {
-    "fact": "f.team.0005.holes_today",
-    "label": "Offensive holes",
-    "suffix": "of nine"
+    "fact": "f.team.0005.sim_p_title",
+    "label": "Title odds"
    },
    {
     "fact": "f.team.0005.auction_spend",
@@ -227,7 +250,7 @@
    }
   ],
   "card": {
-   "rankFact": "f.team.0005.composite_rank",
+   "rankFact": "f.team.0005.power_rank",
    "ofFact": "f.league.teams",
    "featured": false
   }

@@ -54,6 +54,7 @@ OFFENSE = ("QB", "RB", "WR", "TE")
 SOURCE = "team_review_league (derived from the twelve team packs)"
 WARN_MARK = "League value comparison:"
 WINDOW = ("2026-07-23", "2026-08-05")
+BANDS = ("Elite", "Very good", "Good", "Depth")
 
 
 def fail(msg):
@@ -89,12 +90,24 @@ def _team_inputs(pack):
     trades = tables.get("trades") or {"rows": [], "columns": []}
     tkeys = [c["key"] for c in trades["columns"]]
     in_window = [r for r in trades["rows"] if "date" in tkeys and WINDOW[0] <= str(r[tkeys.index("date")]) <= WINDOW[1]]
+    # WHAT IT BOUGHT. Keith, on this table: "We see $$ Spent, but we don't know
+    # what it bought" -- so each owner's offensive buys are counted by grade,
+    # from the band the pack's own FAA table already assigns.
+    faa_t = tables.get("faa")
+    if not faa_t:
+        fail("%s has no faa table -- rebuild the pack" % pack["packId"])
+    ib = [c["key"] for c in faa_t["columns"]].index("band")
+    bands = {}
+    for r in faa_t["rows"]:
+        if r[ib] != "--":
+            bands[r[ib]] = bands.get(r[ib], 0) + 1
     return {
         "fid": fid,
         "name": pack["entities"]["franchises"][0]["name"],
         "pre": facts[need[0]], "post": facts[need[1]],
         "off_spend": sum(r[ipr] for r in faa if r[ip] in OFFENSE),
         "trades_in_window": len(in_window),
+        "bought": ", ".join("%d %s" % (bands[b], b) for b in BANDS if bands.get(b)) or "no offense",
     }
 
 
@@ -131,12 +144,15 @@ def run(season):
 
     asof = max(p["generatedAtUtc"] for p in packs)
     rows = [[t["name"], t["off_spend"], round(t["spend_share"], 1), round(t["gain_share"], 1),
-             ("%.2fx" % t["rate"]) if t["rate"] is not None else "--", t["rate_rank"]] for t in by_rate]
+             ("%.2fx" % t["rate"]) if t["rate"] is not None else "--", t["rate_rank"], t["bought"]]
+            for t in by_rate]
     warn = ("%s offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the "
             "live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. "
             "Both are measured from the auction roster lock (%s) to the close (%s). Rate = share of "
-            "the league's lineup gain divided by share of the league's offensive spend; 1.00x is the "
-            "league average. It does not credit bench depth, and an owner whose lineup had no holes "
+            "the league's lineup gain divided by share of the league's offensive spend, and only the "
+            "rank is printed. 'What it bought' counts each owner's offensive buys by grade "
+            "(Elite = top 3 at the position, Very good = 4-12, Good = 13-24, Depth = the rest). "
+            "It does not credit bench depth, and an owner whose lineup had no holes "
             "had little room to improve it." % (WARN_MARK, WINDOW[0], WINDOW[1]))
 
     changed = 0
@@ -173,6 +189,7 @@ def run(season):
                 {"key": "gain_share", "label": "Share of league gain", "type": "percent"},
                 {"key": "rate", "label": "Value per dollar", "type": "text"},
                 {"key": "rank", "label": "Rank", "type": "count"},
+                {"key": "bought", "label": "What it bought", "type": "text"},
             ],
             "rows": rows,
             "note": warn,

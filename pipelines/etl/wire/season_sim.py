@@ -395,7 +395,27 @@ def prepare(season, cache_dir=None, roster_week=None, projections="weekly"):
     rep = replacement_levels(proj, pos, rostered, end, reg_end)
     wp_raw, fills = weekly_projections(rosters, proj, end, rep)
     return {"league": league, "teams": teams, "sched": sched, "reg_end": reg_end, "end": end,
-            "games": games, "wp_raw": wp_raw, "fills": fills}
+            "games": games, "wp_raw": wp_raw, "fills": fills, "proj": proj, "pos": pos}
+
+
+def special_teams(proj, pos, end):
+    """{pid: {pos, seasonProj, rank}} for every kicker and punter MFL projects.
+
+    Keith 2026-09-11: "MFL has kicker forecasts for this season, let's use that
+    as our source of truth." The team reviews had no source for K/P at all and
+    printed "no ranking source (salary-filled)" in every lineup. The season
+    total is weeks 1..end summed, byes included, and the rank is league-wide at
+    the position, rostered or not -- the same basis the tier labels use."""
+    out = {}
+    for g in ("PK", "PN"):
+        tot = {}
+        for wk in range(1, end + 1):
+            for pid, pts in proj[wk].items():
+                if LE.pos_group(pos.get(pid, "")) == g:
+                    tot[pid] = tot.get(pid, 0.0) + pts
+        for i, pid in enumerate(sorted(tot, key=lambda p: (-tot[p], p)), 1):
+            out[pid] = {"pos": g, "seasonProj": round(tot[pid], 1), "rank": i}
+    return out
 
 
 def fit(prep, k, runs, seed, collect=True):
@@ -529,6 +549,7 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
                   "divisionTiebreak": league.get("standingsSort")},
         "powerRankBasis": "expected regular-season all-play %, schedule-neutral",
         "teams": rows,
+        "specialTeams": {"weeks": [1, end], "players": special_teams(prep["proj"], prep["pos"], end)},
     }
     if out_path:
         os.makedirs(os.path.dirname(out_path), exist_ok=True)

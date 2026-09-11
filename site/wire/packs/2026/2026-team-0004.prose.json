@@ -1,29 +1,155 @@
 {
  "meta": {
-  "engine": "claude-opus-5 (session agent)",
+  "engine": "claude-opus-5 (session, written by hand)",
   "packId": "2026-team-0004"
  },
  "prose": {
-  "kicker": "Pure Greatness · Brian Cutting",
-  "title": "Pure Greatness Spent the Offseason Changing Almost Nothing, Which Was the Correct Answer",
-  "dek": "Brian Cutting never had a hole in a priced slot: not in April, not entering the auction, not when it closed. He ranks {{f.team.0004.composite_rank|ord}} of {{f.league.teams}}, and the most expensive player he bought all summer is on his bench.",
+  "title": "The Champion Spent the Summer Standing Still, and It Was the Right Call",
+  "dek": "Brian Cutting won the {{f.team.0004.hist_title_years}} title, kept every starter who won it, and spent just {{f.team.0004.faa_off_spend}} on offense at the Free Agent Auction. The preseason simulation ranks Pure Greatness {{f.team.0004.power_rank|ord}}, favourite in its division.",
   "sections": [
    {
     "id": "s1",
-    "lead": "",
     "paragraphs": [
-     "The best way to judge Brian Cutting's summer is to notice how little he had to do. Drake Maye is an Elite QB1, Jahmyr Gibbs is an Elite RB1, and Justin Jefferson leads a receiver room, Chris Olave and Zay Flowers right behind him, that ranks {{f.team.0004.wr_rank|ord}} in the league. While everyone else spent the offseason hunting for starters, he spent it admiring his. What follows is the case that standing still was the smartest move anybody made, and the one spot on the field where it could still cost him.",
-     "Davante Adams fills the second flex at Low-end WR2. Quarterback ranks {{f.team.0004.qb_rank|ord}} with Baker Mayfield at Mid QB2 behind Maye, good rather than excellent, and the one real soft spot is tight end, ranked {{f.team.0004.te_rank|ord}}, where Mark Andrews grades Replacement-level TE.",
-     "On defense the thin spots are linebacker, where Christian Rozeboom and Nakobe Dean both grade Replacement-level LB, and the last flex, where Nick Bosa is a Replacement-level DL.",
-     "Composite {{f.team.0004.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0004.studs_today}} studs, {{f.team.0004.holes_today}} holes. Only C-Town Chivalry, the one team ranked above him, also has no holes today, and it carries more studs; but C-Town began the year with a hole, and he did not. It is neither a few stars papering over gaps nor a roster that is merely adequate everywhere."
+     "The champion's April roster looked like a champion's. Cutting carried {{f.team.0004.active_roster_opening}} active players and {{f.team.0004.cap_opening}} in salary, and {{f.team.0004.studs_opening}} top-twelve starters: Drake Maye, an Elite QB1, Jahmyr Gibbs, an Elite RB1, Ashton Jeanty beside him, and Justin Jefferson and Chris Olave at receiver. Zay Flowers, Davante Adams and Baker Mayfield were solid in the flexes and the superflex. The one hole was tight end, where Dalton Schultz grades replacement-level.",
+     "He barely touched it before the draft. One trade: Quentin Johnston and his {{f.team.0004.trade1_salary_out}} salary went to the Long Haulers in May for a 2027 third, which also settled Johnston's expiring rookie deal. The other three rookie deals that ran out, Darnell Washington, Quan Martin and Stetson Bennett, were let go. No cuts, no extensions."
     ],
     "place": [
+     "t.0004.slot_bridge",
+     "t.0004.moves_s1",
+     "t.0004.expired"
+    ],
+    "placeAt": {
+     "t.0004.slot_bridge": 0,
+     "t.0004.moves_s1": 0,
+     "t.0004.expired": 1
+    },
+    "views": {
+     "t.0004.slot_bridge": {
+      "cols": [
+       "slot",
+       "open"
+      ],
+      "labels": {
+       "open": "April"
+      },
+      "title": "April: who held each priced slot"
+     },
+     "t.0004.moves_s1": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "Before the rookie draft"
+     },
+     "t.0004.expired": {
+      "cols": [
+       "player",
+       "pos",
+       "outcome"
+      ],
+      "title": "Rookie deals that ran out"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "The tag was the one expensive-looking decision, and it was not expensive: Cutting tagged Myles Garrett in May at {{f.team.0004.contract_13198_salary}}, and Garrett is an Elite DL1. In June Justin Jefferson got a new contract, {{f.team.0004.contract_14836_salary}} this year and {{f.team.0004.contract_14836_tcv}} in all, the deal that keeps the league's top receiver room together.",
+     "Draft day was about next year. Cutting traded out of the second round three times, sending 2.06, 2.09, 2.12 and 4.12 away for 4.01 and three 2027 picks, a second and two thirds. Add the third he got for Johnston and he goes into next spring with extra picks in both of those rounds. This year he made {{f.team.0004.rookie_picks_count}} picks from 4.01 down, Max Klare, Elijah Sarratt, Caleb Douglas, Cole Payton and Josiah Trotter, a class that will not touch this lineup. The only releases before the lock were Nic Scourton off the taxi squad and Zach Ertz, both at no cost."
+    ],
+    "place": [
+     "t.0004.rookies",
+     "t.0004.moves_s2"
+    ],
+    "placeAt": {
+     "t.0004.rookies": 1,
+     "t.0004.moves_s2": 0
+    },
+    "views": {
+     "t.0004.rookies": {
+      "cols": [
+       "pick",
+       "player",
+       "baseline",
+       "val"
+      ],
+      "title": "The rookie class",
+      "labels": {
+       "baseline": "History at this slot",
+       "val": "Grade today"
+      }
+     },
+     "t.0004.moves_s2": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the draft to the auction lock"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "The auction was maintenance. Cutting won {{f.team.0004.faa_lots_won}} players for {{f.team.0004.faa_spend}}, and the most expensive was Aaron Rodgers at {{f.team.0004.faa_7836_price}}, who is on the bench. Mark Andrews cost {{f.team.0004.faa_13671_price}} to take over at tight end, and James Conner and Chuba Hubbard {{f.team.0004.faa_13146_price}} each for running back depth.",
+     "On the league table that money finishes near the bottom, {{f.team.0004.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added, and the What it bought column says why: depth, all of it. That is not a failed auction. There was almost nothing to add to an offense that went in with no hole but tight end, and the owners who bought starters were buying what Cutting already had.",
+     "The contract work was light. {{f.team.0004.myac_faa}} auction buys got multi-year contracts, Andrews at {{f.team.0004.contract_13671_salary}} this year and {{f.team.0004.contract_13671_tcv}} in all among them. There were no restructures, no waiver claims, and the four players released after the auction all went at no cost.",
+     "So the lineup it built is the lineup he started with. {{f.team.0004.studs_today}} top-twelve starters, Maye, Gibbs, Jeanty, Jefferson and Olave; receivers that rank {{f.team.0004.wr_rank|ord}} in the league and backs that rank {{f.team.0004.rb_rank|ord}}; and {{f.team.0004.holes_today}} hole, still tight end, now Andrews instead of Schultz. The kicker, Harrison Mevis, is MFL's top-projected at the position, and the defense, led by Garrett, is a footnote that happens to be a good one."
+    ],
+    "place": [
+     "t.0004.faa",
+     "t.0004.faa_value",
+     "t.0004.moves_s3",
      "t.0004.lineup"
     ],
     "placeAt": {
-     "t.0004.lineup": 0
+     "t.0004.faa": 0,
+     "t.0004.faa_value": 1,
+     "t.0004.moves_s3": 2,
+     "t.0004.lineup": 3
     },
     "views": {
+     "t.0004.faa": {
+      "cols": [
+       "player",
+       "pos",
+       "price",
+       "grade"
+      ],
+      "rows": 8,
+      "title": "Biggest buys"
+     },
+     "t.0004.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend",
+       "bought"
+      ],
+      "labels": {
+       "spend": "Spent on offense",
+       "bought": "What it bought"
+      },
+      "title": "What every owner's auction money bought"
+     },
+     "t.0004.moves_s3": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail"
+      ],
+      "stack": true,
+      "title": "From the auction to week one"
+     },
      "t.0004.lineup": {
       "cols": [
        "slot",
@@ -33,132 +159,38 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "Strongest legal lineup"
-     }
-    }
-   },
-   {
-    "id": "s2",
-    "lead": "",
-    "paragraphs": [
-     "The whole offseason fits in a sentence: almost nothing moved. In April he had {{f.team.0004.active_roster_opening}} active players, {{f.team.0004.studs_opening}} studs and no hole in a priced slot. At the auction roster lock, three months later, he still had {{f.team.0004.active_roster_preauction}} active players, the same studs and the same nine best players at the priced positions.",
-     "He was carrying {{f.team.0004.cap_opening}} against those {{f.team.0004.active_roster_opening}} players in April, the most concentrated payroll in the league, and {{f.team.0004.cap_preauction}} at the lock. Every other team opened April with at least one hole in a priced slot; the nine players filling his were all still under contract.",
-     "The auction filled the roster out to {{f.team.0004.active_roster_current}} active players and changed exactly one priced slot: Mark Andrews replaced Dalton Schultz at tight end, and both grade Replacement-level TE, so even that was lateral. His starting offense came out of the auction barely better than it went in.",
-     "When no priced slot has a hole in it, there is little an auction can add, and with {{f.team.0004.cap_preauction}} already committed at the lock, there was not much room to add it with."
-    ],
-    "place": [
-     "t.0004.slot_bridge"
-    ],
-    "placeAt": {
-     "t.0004.slot_bridge": 0
-    },
-    "views": {
-     "t.0004.slot_bridge": {
-      "cols": [
-       "slot",
-       "open",
-       "pre",
-       "now"
-      ],
-      "stack": true,
-      "title": "Who filled each priced slot",
-      "labels": {
-       "open": "April",
-       "pre": "Before the auction",
-       "now": "After it"
-      }
-     }
-    }
-   },
-   {
-    "id": "s3",
-    "lead": "",
-    "paragraphs": [
-     "Nothing at the Expired Rookie Auction: {{f.team.0004.era_lots_won}} players won, {{f.team.0004.era_spend}} spent. He had no expiring holes to fill from a pool of players whose rookie deals ran out without a second one.",
-     "At the Free Agent Auction he bought as many players as anybody — {{f.team.0004.faa_lots_won}}, tied for the most in the league — for {{f.team.0004.faa_spend}}, which is a fraction of what the top spenders laid out. That was the approach: volume at the bottom of the market, and {{f.team.0004.inyear_flyers}} of those buys were gone again before the season started.",
-     "On offense that money bought almost nothing, because there was almost nothing left to buy. He spent {{f.team.0004.faa_off_spend}} on quarterbacks, backs, receivers and tight ends at the Free Agent Auction, and for what it bought he ranks {{f.team.0004.faa_off_rank|ord}} of {{f.league.teams}}, ahead of only Cleon Ca$h. He walked in with the most valuable starting offense in the league and no holes in it, and Cleon, the one owner behind him, walked in with the second-most valuable. Blake Bombers, by contrast, got more for every dollar than anyone.",
-     "The prices were low: every buy but one came in at single-digit thousands, and most went uncontested, at a single bid.",
-     "His largest purchase was Aaron Rodgers at {{f.team.0004.top_buy_price}}, {{f.team.0004.top_buy_pct_of_spend}} of his auction money, and Rodgers grades Replacement-level QB and sits on the bench. That was his one big buy, and it did not work, but it barely matters: it cost less than a sixth of what the league's most expensive player went for at {{f.league.faa_top_price}}. Being wrong cheaply is a skill.",
-     "Defenders took {{f.team.0004.idp_auction_spend}}, {{f.team.0004.idp_auction_share}} of his money and the third-largest share in the league, a heavy tilt toward the one position group the waiver wire restocks all season, for a defense that already ranked {{f.team.0004.idp_ppw_rank|ord}} in points per started defender over the last three seasons."
-    ],
-    "place": [
-     "t.0004.auction",
-     "t.0004.faa_value"
-    ],
-    "placeAt": {
-     "t.0004.auction": 1,
-     "t.0004.faa_value": 2
-    },
-    "views": {
-     "t.0004.auction": {
-      "cols": [
-       "player",
-       "pos",
-       "auction",
-       "price"
-      ],
-      "sortDesc": "price",
-      "rows": 5,
-      "title": "Biggest buys",
-      "labels": {
-       "auction": "Where"
-      }
-     },
-     "t.0004.faa_value": {
-      "cols": [
-       "rank",
-       "team",
-       "spend"
-      ],
-      "labels": {
-       "spend": "Spent on offense"
-      },
-      "title": "Who got the most for his money"
+      "title": "The lineup it built"
      }
     },
     "captions": {
-     "t.0004.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
+     "t.0004.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
     }
    },
    {
     "id": "s4",
-    "lead": "",
     "paragraphs": [
-     "{{f.team.0004.contracts_count}} contract moves, {{f.team.0004.trades_count}} trades, {{f.team.0004.roster_removals_total}} removals, {{f.team.0004.cuts_penalty_2026}} of penalty charged. Clean, and strategically coherent.",
-     "Myles Garrett was tagged, for less than the {{f.team.0004.top_buy_price}} he is paying Aaron Rodgers to sit on his own bench.",
-     "Justin Jefferson was moved onto a multi-year deal, and Tyreek Hill, Derwin James, Mark Andrews and Chuba Hubbard were all converted off auction wins. None of them is at the league minimum.",
-     "The trades are where the plan shows. Every one of them brings 2027 back: three are pure pick work, and the first sent a player out. Quentin Johnston went to The Long Haulers for a 2027 third. A 2026 second went to Real Deal Creel for a lower 2026 second and a 2027 third. That lower second and a 2026 fourth went to Gride for a 2027 second. A 2026 second went to HammerTime for a 2026 fourth and another 2027 third. He came out holding four extra picks next year and made only {{f.team.0004.rookie_picks_count}} selections this year, none of them before 4.01.",
-     "He sold a draft he did not need to buy a draft he might.",
-     "The removals are housekeeping: a taxi player whose salary was never on the cap, Zach Ertz, and {{f.team.0004.inyear_flyers}} bodies signed and discarded inside the same offseason. Nothing charged.",
-     "The rookie class is thin by design. Max Klare at 4.01 and Elijah Sarratt at 4.06 sit in bands where history says almost nothing usable emerges, and Josiah Trotter at 6.04 is a defensive rookie who has not played an NFL season yet. He was not trying to win this draft."
+     "Cutting has been here from the start, {{f.team.0004.hist_first_season}}, {{f.team.0004.hist_seasons}} completed seasons. The title everyone remembers is the most recent one, {{f.team.0004.hist_title_years}}, the same year he had the league's best all-play record, and it came three years after a runner-up finish in {{f.team.0004.hist_runner_up_years}}. The rest of the record is steadier than it is spectacular: {{f.team.0004.hist_playoffs}} playoff trips, {{f.team.0004.hist_div_titles}} division titles, and a {{f.team.0004.hist_allplay_pct}} career all-play record."
     ],
     "place": [
-     "t.0004.trades"
+     "t.0004.history"
     ],
     "placeAt": {
-     "t.0004.trades": 3
+     "t.0004.history": 0
     },
     "views": {
-     "t.0004.trades": {
-      "cols": [
-       "date",
-       "partner",
-       "gave",
-       "got"
-      ],
+     "t.0004.history": {
       "stack": true,
-      "title": "Trades"
+      "title": "Owner history"
      }
-    }
+    },
+    "captions": {}
    },
    {
     "id": "s5",
-    "lead": "",
     "paragraphs": [
-     "He is {{f.team.0004.division_rank|ord}} of {{f.team.0004.division_size}} in his division, ahead of The Long Haulers and HammerTime, and he plays each of them five times. That is one of the most comfortable divisional positions in the league — the nearest team to him is four places back overall.",
-     "Is this the strongest team in the league? Very nearly: {{f.team.0004.composite_rank|ord}} of {{f.league.teams}}, and it is first at receiver with an Elite QB1 and an Elite RB1 on the same sheet. Was it a good offseason? That question almost does not apply. He spent {{f.team.0004.auction_spend}}, less than all but two owners, because there was no hole to fill and little cap room to fill one with, and he finished the summer about as strong as he started it, which, from {{f.team.0004.holes_today}} holes, is the correct outcome.",
-     "The biggest advantage is an offense with stars at the top and no hole anywhere below them: Maye, Gibbs, Jefferson. The biggest weakness is tight end, {{f.team.0004.te_rank|ord}} in the league, where Mark Andrews grades Replacement-level TE, no better than the Dalton Schultz he replaced; the thin middle of the defense is the cheapest problem in the league to fix.",
-     "One caveat on the crown jewel, and it is one game. {{f.league.wk_teams_final}} NFL teams had played when this was written. Drake Maye, the Elite QB1, threw three interceptions and still banked {{f.team.0004.wk_points_final}} points, his legs making up some of what the picks cost him. It is one night, it grades nothing, and it is no reason yet to doubt him."
+     "Outlast PG Time holds the last two champions, and the simulation still makes Cutting the favourite in it: {{f.team.0004.power_rank|ord}} in the league, a {{f.team.0004.sim_p_division}} chance at the division, {{f.team.0004.sim_p_playoffs}} playoff odds and {{f.team.0004.sim_p_title}} title odds. HammerTime, the {{f.league.title_years_0005}} champion, is {{f.league.power_rank_0005|ord}}, and the Long Haulers {{f.league.power_rank_0006|ord}}. He plays each of them five times.",
+     "The next three years, in Cutting's own register. 2027: Pure Greatness does not repeat. It is fine. The tight end is still a hole lol. 2028: Maye is the best quarterback in the league and Cutting says so, briefly, and then says the defense carried him. 2029: another title, and a message about it that is four words long and ends in lol.",
+     "Week one opened with {{f.league.wk_teams_final}} NFL teams done and {{f.team.0004.wk_points_final}} points in the bank. Maye threw three interceptions and still put up points, which is the kind of problem the rest of the division would like to have."
     ],
     "place": [
      "t.0004.division",
@@ -166,17 +198,11 @@
     ],
     "placeAt": {
      "t.0004.division": 0,
-     "t.0004.week1": 3
+     "t.0004.week1": 2
     },
     "views": {
      "t.0004.division": {
-      "cols": [
-       "team",
-       "comp"
-      ],
-      "labels": {
-       "comp": "League rank"
-      },
+      "stack": true,
       "title": "The division"
      },
      "t.0004.week1": {
@@ -200,22 +226,21 @@
     }
    }
   ],
+  "kicker": "Pure Greatness · Brian Cutting",
   "strip": [
    {
-    "fact": "f.team.0004.composite_rank",
+    "fact": "f.team.0004.power_rank",
     "ord": true,
     "of": "f.league.teams",
-    "label": "Overall"
+    "label": "Power rank"
    },
    {
-    "fact": "f.team.0004.studs_today",
-    "label": "Offensive studs",
-    "suffix": "of nine"
+    "fact": "f.team.0004.sim_p_playoffs",
+    "label": "Playoff odds"
    },
    {
-    "fact": "f.team.0004.holes_today",
-    "label": "Offensive holes",
-    "suffix": "of nine"
+    "fact": "f.team.0004.sim_p_title",
+    "label": "Title odds"
    },
    {
     "fact": "f.team.0004.auction_spend",
@@ -227,7 +252,7 @@
    }
   ],
   "card": {
-   "rankFact": "f.team.0004.composite_rank",
+   "rankFact": "f.team.0004.power_rank",
    "ofFact": "f.league.teams",
    "featured": false
   }
