@@ -6,7 +6,7 @@
  "prose": {
   "kicker": "Gride · Matt Gerardi",
   "title": "Gride Landed Amon-Ra St. Brown, Cash, and Eleventh Place",
-  "dek": "Matt Gerardi took the best player in one of the summer's biggest trades and got paid {{f.team.0003.trade_blind_bid_cash}} to do it. He still ranks {{f.team.0003.composite_rank|ord}} of {{f.league.teams}}, because he spent almost everything else on the one position he had already solved.",
+  "dek": "Matt Gerardi took the best player in one of the summer's biggest trades and got paid {{f.team.0003.trade_blind_bid_cash}} to do it. He still ranks {{f.team.0003.composite_rank|ord}} of {{f.league.teams}}, because that trade cost him his quarterback, most of his auction money went on replacing him, and the backfield and tight end, both last in the league, got the scraps.",
   "sections": [
    {
     "id": "s1",
@@ -15,8 +15,7 @@
      "Amon-Ra St. Brown grades High-end WR1 and he is the reason to look at this roster at all. DJ Moore is a High-end WR3 next to him and the receiver room ranks {{f.team.0003.wr_rank|ord}} — which tells you what the rest of it looks like, because a High-end WR1 usually drags a room higher than that on his own.",
      "Quarterback ranks {{f.team.0003.qb_rank|ord}} with Patrick Mahomes at Low-end QB1 and Malik Willis at Low-end QB2. Hold that thought. It becomes the story.",
      "The backfield ranks {{f.team.0003.rb_rank}}, which is last, on Cam Skattebo at Mid RB2 and rookie Jadarian Price at Mid RB3, with Kimani Vidal filling a flex as a Replacement-level RB. Tight end also ranks {{f.team.0003.te_rank}}, also last, on Hunter Henry at Replacement-level TE. Two positions, both bottom of the league, and Deebo Samuel in the other flex as a Replacement-level WR.",
-     "The defense is close to unmanned. Alex Wright and Myles Murphy are both Replacement-level DL, Malachi Moore is a Replacement-level DB, Grover Stewart fills the last flex as another Replacement-level DL, and one starting linebacker slot holds Anthony Hill Jr., a rookie the production model cannot rate because he has never played an NFL season. Payton Wilson at High-end LB2 and Kamari Lassiter at Low-end DB1 are the only two defenders here who are actually good.",
-     "That is not an accident of one summer either. {{f.team.0003.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0003.idp_adds_rank|ord}}, points per started defender ranks {{f.team.0003.idp_ppw_rank|ord}}, and he put {{f.team.0003.idp_auction_share}} of his auction money into the entire defensive side of the ball — a share that ranks {{f.team.0003.idp_auction_share_rank}} of {{f.league.teams}} from the bottom. Composite {{f.team.0003.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0003.studs_today}} studs, {{f.team.0003.holes_today}} holes."
+     "The defense is mostly replacement-level, and it got {{f.team.0003.idp_auction_share}} of his auction money, a smaller share than anyone but Hawks and Sex Manther put there. Composite {{f.team.0003.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0003.studs_today}} studs, {{f.team.0003.holes_today}} holes."
     ],
     "place": [
      "t.0003.lineup"
@@ -42,10 +41,10 @@
     "id": "s2",
     "lead": "",
     "paragraphs": [
-     "April found him with {{f.team.0003.active_roster_opening}} active players, no legal lineup, {{f.team.0003.studs_opening}} top-twelve players anywhere on the roster and {{f.team.0003.cap_opening}} already committed to that. Contracts expiring is the league's normal cycle, but carrying that much salary against that little roster is a harder starting position than most.",
-     "He arrived at the auction lock still unable to field a lineup, at {{f.team.0003.active_roster_preauction}} active. The priced slots had moved though, and moved well: Amon-Ra St. Brown had displaced DJ Moore at the top of the receiver room and pushed Michael Pittman out of the lineup entirely, and Jadarian Price had taken the second back slot off Chris Rodriguez. Legal-lineup value went from {{f.team.0003.lineup_value_opening}} to {{f.team.0003.lineup_value_preauction}} before he had spent a dollar at auction, which is the trade doing the work.",
-     "The auction added bodies and one genuine upgrade: {{f.team.0003.active_roster_current}} active at the close, {{f.team.0003.lineup_value_postauction}} of value, holes from {{f.team.0003.holes_opening}} down to {{f.team.0003.holes_postauction}}. Patrick Mahomes replaced Bryce Young at quarterback and Malik Willis replaced Kimani Vidal in the superflex, which is two real improvements in the same room.",
-     "Studs went {{f.team.0003.studs_opening}} to {{f.team.0003.studs_postauction}} and stopped. {{f.team.0003.holes_postauction}} of the priced slots still hold nobody the board ranks. He is carrying {{f.team.0003.cap_current_room}} of room against {{f.team.0003.cap_current_spent}} committed, so unlike most of the league he can still act — which makes what he chose to buy the central question."
+     "April found him with {{f.team.0003.active_roster_opening}} active players, {{f.team.0003.holes_opening}} holes among the nine priced starting slots, not one top-twelve starter and {{f.team.0003.cap_opening}} already committed. Only Hawks also opened without a top-twelve starter, and they had more players for less money.",
+     "The trade with L.A. Looks brought in Amon-Ra St. Brown before the auction opened, which made DJ Moore his second-best receiver. The rest of the change came from elsewhere: Jadarian Price, the rookie from his May trade-up, had moved ahead of Chris Rodriguez in the backfield, and Michael Pittman was cut the day the auction rosters locked. The cost of the St. Brown deal was the quarterback. Sam Darnold went to L.A. Looks in the same trade, leaving Bryce Young, a Replacement-level QB, as the best quarterback he had and little behind him. He walked into the auction with {{f.team.0003.active_roster_preauction}} active players and {{f.team.0003.cap_preauction}} committed, the best offense he could assemble worth about half as much again as in April and his hole count exactly where it had started.",
+     "The auction filled both quarterback holes: Patrick Mahomes and Malik Willis gave him two quarterbacks worth starting where he had had one replacement-level one, and Hunter Henry moved ahead of an unranked David Njoku at tight end. He closed with {{f.team.0003.active_roster_current}} active players and a starting offense only modestly better than the one he took in; studs went from {{f.team.0003.studs_opening}} in April to {{f.team.0003.studs_postauction}}, holes from {{f.team.0003.holes_opening}} to {{f.team.0003.holes_postauction}}.",
+     "Those {{f.team.0003.holes_today}} holes are still there. He is carrying {{f.team.0003.cap_current_room}} of cap room, more than anyone but Hawks, against {{f.team.0003.cap_current_spent}} committed, so he can still act — which makes what he chose to buy the central question."
     ],
     "place": [
      "t.0003.slot_bridge"
@@ -64,8 +63,8 @@
       "stack": true,
       "title": "Who filled each priced slot",
       "labels": {
-       "open": "April (short of a lineup)",
-       "pre": "Before the auction (short of a lineup)",
+       "open": "April",
+       "pre": "Before the auction",
        "now": "After it"
       }
      }
@@ -75,16 +74,19 @@
     "id": "s3",
     "lead": "",
     "paragraphs": [
-     "Nothing at the Expired Rookie Auction: {{f.team.0003.era_lots_won}} lots, {{f.team.0003.era_spend}}, from a pool of {{f.league.era_pool_size}}. Fine. That pool sells players whose rookie deals ran out without earning a second one and its best player anywhere went for {{f.league.era_top_price}}.",
-     "The Free Agent Auction is where it gets strange. {{f.team.0003.faa_lots_won}} lots for {{f.team.0003.faa_spend}}, and Patrick Mahomes alone took {{f.team.0003.top_buy_price}} of it — {{f.team.0003.top_buy_pct_of_spend}} of everything he spent. That is a defensible price for a Low-end QB1 in superflex and nobody would blink at it in isolation.",
-     "Then he bought Malik Willis, for nearly as much again. Two quarterbacks, back to back, the two most expensive lots of his summer, while Bryce Young sat on an extension he had signed in May and Justin Fields came in at the minimum for good measure. Four quarterbacks. The room ranks {{f.team.0003.qb_rank|ord}}.",
-     "What that left for everything else was fourteen lots at the league minimum. Hunter Henry, Jake Tonges, Jalen Tolbert, CJ Daniels, Brenen Thompson, Colbie Young, and a defensive unit assembled for {{f.team.0003.idp_auction_spend}} in total. A last-ranked tight end room, a last-ranked backfield and a defense of replacement-level starters is what the quarterback money bought, and it bought it at a position he had already fixed by trade."
+     "Nothing at the Expired Rookie Auction: {{f.team.0003.era_lots_won}} players, {{f.team.0003.era_spend}}, from a pool of {{f.league.era_pool_size}}. Fine. That pool sells players whose rookie deals ran out without earning a second one and its best player anywhere went for {{f.league.era_top_price}}.",
+     "The Free Agent Auction is where it gets strange. {{f.team.0003.faa_lots_won}} players for {{f.team.0003.faa_spend}}, and Patrick Mahomes alone took {{f.team.0003.top_buy_price}} of it — {{f.team.0003.top_buy_pct_of_spend}} of everything he spent. That is a defensible price for a Low-end QB1 in superflex and nobody would blink at it in isolation.",
+     "He also bought Malik Willis, for nearly as much again. Two quarterbacks, the two most expensive buys of his summer, while Bryce Young sat on an extension he had signed in May and Justin Fields came in at the minimum for good measure. Five quarterbacks, counting Shedeur Sanders from the St. Brown trade. The room ranks {{f.team.0003.qb_rank|ord}}.",
+     "What that left for everything else was fourteen buys at the league minimum. Hunter Henry, Jake Tonges, Jalen Tolbert, CJ Daniels, Brenen Thompson, Colbie Young, and a defensive unit assembled for {{f.team.0003.idp_auction_spend}} in total. A last-ranked tight end room and a last-ranked backfield were the price of paying twice over at quarterback after trading his starter away.",
+     "Measured against the money, it was a thin return. He spent {{f.team.0003.faa_off_spend}} on offense at the Free Agent Auction, and for what that money bought he ranks {{f.team.0003.faa_off_rank|ord}} of {{f.league.teams}}. Room to improve was not the problem: nobody took more holes into the auction. Hawks took in as many, spent a little more and got far more for every dollar; CBP, in his own division, spent more than half as much again and did better still on the improvement itself."
     ],
     "place": [
-     "t.0003.auction"
+     "t.0003.auction",
+     "t.0003.faa_value"
     ],
     "placeAt": {
-     "t.0003.auction": 1
+     "t.0003.auction": 1,
+     "t.0003.faa_value": 4
     },
     "views": {
      "t.0003.auction": {
@@ -100,19 +102,33 @@
       "labels": {
        "auction": "Where"
       }
+     },
+     "t.0003.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend"
+      ],
+      "labels": {
+       "spend": "Spent on offense"
+      },
+      "title": "Who got the most for his money"
      }
+    },
+    "captions": {
+     "t.0003.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
     }
    },
    {
     "id": "s4",
     "lead": "",
     "paragraphs": [
-     "{{f.team.0003.contracts_count}} contract moves, {{f.team.0003.trades_count}} trades, {{f.team.0003.roster_removals_total}} removals. The trades are the interesting half and they come in two very different flavours.",
-     "Four of the five are pick shuffling, all inside two days in late May, and he came out of it with {{f.team.0003.rookie_picks_count}} rookie picks — more than anyone. He moved up to 1.04 and took Jadarian Price, who is already a Mid RB3 and started Week One. He turned a 2027 second into 2.09 and 4.12. He span 3.06 into 3.09 and 3.12. It is real work and it produced real players, though the cost was Travis Etienne, whom he had tagged only two days earlier and then sent to Real Deal Creel with 1.07 to move up three slots.",
-     "The fifth is the one that matters. He sent Sam Darnold, Jalen Coker and Emmett Johnson to L.A. Looks and received Amon-Ra St. Brown, Shedeur Sanders and {{f.team.0003.trade_blind_bid_cash}} of blind-bid money. He gave up three players who total less than half of what St. Brown alone is worth on the board, and the other franchise paid him cash on top. There is no reading of that trade in which he loses it.",
-     "The contracts are less impressive. Bryce Young was extended in May and now sits on the bench at Replacement-level QB carrying a salary that would be a starting quarterback's on most of these rosters. Mahomes was signed to a multi-year deal and restructured the same day — two operations, not one — which front-loaded him and pushed his current-year charge up rather than down. Travis Etienne was tagged and then immediately traded, which is a lot of process for a player he did not keep.",
+     "{{f.team.0003.contracts_count}} contract moves, {{f.team.0003.trades_count}} trades, {{f.team.0003.roster_removals_total}} removals. The trades are the interesting half and they come in two very different flavors.",
+     "Four of the five are pick shuffling, all inside two days in late May, and he came out of it with {{f.team.0003.rookie_picks_count}} rookie picks — more than anyone. He moved up to 1.04 and took Jadarian Price, who is already a Mid RB3 and started Week One. He turned a 2027 second into 2.09 and 4.12. He spun 3.06 into 3.09 and 3.12. It is real work and it produced real players, though the cost was Travis Etienne, whom he had tagged only two days earlier and then sent to Real Deal Creel with 1.07 to move up three slots.",
+     "The fifth is the one that matters. He sent Sam Darnold, Jalen Coker and Emmett Johnson to L.A. Looks and received Amon-Ra St. Brown, Shedeur Sanders and {{f.team.0003.trade_blind_bid_cash}} of blind-bid money. He gave up three players who together are worth less than half of St. Brown alone, and the other franchise paid him cash on top. On value, he won it going away; the bill arrived later, at quarterback.",
+     "The contracts are less impressive. Bryce Young was extended in May and now sits on the bench at Replacement-level QB carrying a salary that would be a starting quarterback's on most of these rosters. Mahomes was signed to a multi-year deal and restructured the same day, two operations for one contract. Travis Etienne was tagged and then immediately traded, which is a lot of process for a player he did not keep.",
      "The removals carry a warning worth stating plainly. Michael Pittman was cut at a salary of real size and the penalty attached to it has no charge year stamped on it yet, so {{f.team.0003.cuts_penalty_unstamped}} of cap consequence is sitting in the ledger unassigned. Nothing has hit this season — {{f.team.0003.cuts_penalty_2026}} — and {{f.team.0003.cuts_penalty_2027_deferred}} is formally deferred, but that unstamped figure is not a rounding error and it is going to land somewhere.",
-     "The rookie class is deep and unproven. Jordyn Tyson at 1.05 and Chris Bell at 2.03 sit in the two strongest historical bands of his own class and both grade Replacement-level WR so far. Anthony Hill Jr. at 4.12 is already starting at linebacker with no NFL season behind him, which is not a grade on him — no source can price him — so much as a statement about what is behind him."
+     "The rookie class is deep and unproven. Jordyn Tyson at 1.05 and Chris Bell at 2.03 sit in the two strongest historical bands of his own class and both grade Replacement-level WR so far. Anthony Hill Jr. at 4.12 is already starting at linebacker with no NFL season behind him, which is not a grade on him — nobody can price him yet — so much as a statement about what is behind him."
     ],
     "place": [
      "t.0003.trades"
@@ -137,10 +153,10 @@
     "id": "s5",
     "lead": "",
     "paragraphs": [
-     "He is {{f.team.0003.division_rank|ord}} of {{f.team.0003.division_size}} in his division, behind Blake Bombers and CBP, and he plays both of them twice. Those are the games that decide his seed and he is the underdog in all four of them.",
-     "Strongest team in the league? No — {{f.team.0003.composite_rank|ord}} of {{f.league.teams}}. Best offseason? Genuinely closer than the rank suggests, and this is the honest tension in his summer: he made one of the best individual moves of the summer, acquiring a High-end WR1 and cash for three players who do not add up to him, and he built {{f.team.0003.rookie_picks_count}} rookie picks out of a pile of swaps. Then he spent {{f.team.0003.faa_spend}} at auction and used almost half of it on a position the trade market had already handed him.",
-     "The biggest advantage is Amon-Ra St. Brown, full stop, with DJ Moore behind him. The biggest weakness is everything that is not a quarterback or a receiver: last in the league at running back, last at tight end, and a defensive unit where four starters grade replacement-level and a fifth has never played.",
-     "For the little it is worth this early — {{f.league.wk_teams_final}} NFL teams had played when this was written — his two finished starters banked {{f.team.0003.wk_points_final}} points between them. Jadarian Price, the rookie he traded up for, was the better of the two. Hunter Henry, bought at the league minimum, was barely behind him. Neither of those men is a quarterback."
+     "He is {{f.team.0003.division_rank|ord}} of {{f.team.0003.division_size}} in his division, behind Blake Bombers and CBP, and he plays each of them five times. Those ten games decide his seed, and he is the underdog in all of them.",
+     "Strongest team in the league? No — {{f.team.0003.composite_rank|ord}} of {{f.league.teams}}. Best offseason? Genuinely closer than the rank suggests, and this is the honest tension in his summer: he made one of the best individual moves of the summer, acquiring a High-end WR1 and cash for three players who do not add up to him, and he built {{f.team.0003.rookie_picks_count}} rookie picks out of a pile of swaps. Then he spent {{f.team.0003.faa_spend}} at auction, most of it on two quarterbacks to refill the position that same trade had emptied.",
+     "The biggest advantage is Amon-Ra St. Brown, full stop, and Patrick Mahomes is the only other offensive starter here who ranks in the top twelve at his position. The biggest weakness is everything around them: a receiver room that ranks {{f.team.0003.wr_rank|ord}} even with St. Brown in it, a quarterback room that still ranks {{f.team.0003.qb_rank|ord}} despite the money, and last in the league at both running back and tight end. The thin defense is the cheapest of his problems to fix.",
+     "For the little it is worth this early — {{f.league.wk_teams_final}} NFL teams had played when this was written — his two finished starters banked {{f.team.0003.wk_points_final}} points between them. Jadarian Price, the rookie he traded up for, was the better of the two. Hunter Henry, bought at the league minimum, was barely behind him. None of his quarterbacks had played yet."
     ],
     "place": [
      "t.0003.division",

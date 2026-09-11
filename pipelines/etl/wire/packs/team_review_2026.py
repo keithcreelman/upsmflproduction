@@ -79,7 +79,26 @@ def _fresh_adp_board():
     average) -- confirmed against all four cases above, every one came out
     right. `rsfConfidence` ("single-source" / "agree" / "elevated") is
     carried through as a real caveat on the value, not silently dropped.
+
+    ONE BOARD FOR A WHOLE SEASON'S BUILD. The board is live and moves during
+    the day -- the Hawks pack rebuilt at 16:13 read 220 players where the other
+    eleven, built 15:02-15:07, read 221 -- so twelve packs built one after
+    another are not valued on the same market, and team_review_league.py
+    compares them with each other. Set WIRE_ADP_BOARD_CACHE to a file path: the
+    first build fetches the board and saves it there, and every later build
+    reads the same bytes back. The pack's source entry records when THAT board
+    was fetched, not when each build ran.
     """
+    global _BOARD_FETCHED_AT
+    import datetime as _dt
+    import io as _io
+    import os as _os
+    cache = _os.environ.get("WIRE_ADP_BOARD_CACHE")
+    if cache and _os.path.exists(cache):
+        c = json.load(_io.open(cache, encoding="utf-8"))
+        _BOARD_FETCHED_AT = c["fetchedAt"]
+        return c["rsf"], c["name"], c["pos_rank"], c["confidence"]
+    _BOARD_FETCHED_AT = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     base = D.WORKER_BASE + "/api/adp-board"
     rsf, name, pos_rank, confidence = {}, {}, {}, {}
     board_rows = {}
@@ -116,7 +135,14 @@ def _fresh_adp_board():
     for pos, rows in board_rows.items():
         for i, (pid, _v) in enumerate(sorted(rows, key=lambda r: -r[1]), 1):
             pos_rank[pid] = i
+    if cache:
+        _io.open(cache, "w", encoding="utf-8").write(json.dumps(
+            {"fetchedAt": _BOARD_FETCHED_AT, "rsf": rsf, "name": name,
+             "pos_rank": pos_rank, "confidence": confidence}))
     return rsf, name, pos_rank, confidence
+
+
+_BOARD_FETCHED_AT = None
 
 
 # The 9 legal-lineup slots whose eligible positions ADP actually prices.
@@ -517,8 +543,7 @@ def build(pack_id):
               "carry more uncertainty than a value both sources agree on, per the endpoint's "
               "own rsfConfidence flag." % single_source_n)
     pack.source("worker /api/adp-board (live redraft consensus, fc+ktc mean rsf)",
-               __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
-               .strftime("%Y-%m-%dT%H:%M:%SZ"),
+               _BOARD_FETCHED_AT,
                rows=len(rsf), note="current, NOT the 2026-07-21 committed snapshot")
 
     dates = D.snapshot_dates()
@@ -1748,8 +1773,10 @@ def build(pack_id):
         t_idp = None
 
     # ---- division ----
-    # "6th of 12" is an abstraction nobody plays against. You play your division,
-    # twice each (Keith: "finish by including how i look within the division").
+    # "6th of 12" is an abstraction nobody plays against. You play your division
+    # -- FIVE times each in 2026's 37-game, multi-game-week schedule (MFL
+    # export?TYPE=schedule), not twice as this once said and every review printed
+    # (Keith: "finish by including how i look within the division").
     try:
         _lg = (D.worker_get("/api/mfl-export", TYPE="league", JSON=1).get("league") or {})
         _dnames = {str(x.get("id")): x.get("name")
@@ -1782,9 +1809,10 @@ def build(pack_id):
                            [[owners.get(f, {}).get("team_name", f),
                              _league_order.index(f) + 1 if f in composite else 0,
                              "%.2f" % ppw[f] if f in ppw else "--"] for f in _ord],
-                           note="Divisional opponents are played twice a season, so this is the "
-                                "comparison that decides a playoff seed -- more than the league-wide "
-                                "rank does.")
+                           note="Each division rival is played FIVE times in the 37-game 2026 "
+                                "schedule (ten of every owner's games), so this is the comparison "
+                                "that decides a playoff seed -- more than the league-wide rank does. "
+                                "Never write that division rivals meet twice.")
 
     # ---- rookie picks ----
     tiers = json.load(open(os.path.join(D.REPO, "site", "rookies", "rookie_draft_tiers.json")))
@@ -1997,9 +2025,10 @@ def build(pack_id):
                          "f.team.%s.inyear_flyers" % fid,
                          "f.team.%s.rookie_picks_count" % fid],
                 table_ids=[t_contracts, t_trades, t_cuts, t_rookies])
-    pack.section("s5", "The Verdict", "Finish inside the DIVISION -- divisional opponents are "
-                "played twice, so that is the comparison deciding a playoff seed and it is who this "
-                "owner actually plays; use the division table and say plainly where he sits in it. "
+    pack.section("s5", "The Verdict", "Finish inside the DIVISION -- each division rival is "
+                "played FIVE times (ten of his 37 games), so that is the comparison deciding a playoff "
+                "seed and it is who this owner actually plays; use the division table and say plainly "
+                "where he sits in it. "
                 "Then a direct verdict: is this the strongest team in "
                 "the league right now, and separately, was this a good offseason? They can disagree. "
                 "Name the single biggest advantage and the single biggest weakness, each with players. "

@@ -173,6 +173,25 @@ same audit as body copy:
 Team reviews get all of this from `pipelines/etl/wire/team_review_layout.py`,
 run after `write` and before `render`.
 
+### Building the twelve team reviews
+
+The packs are compared with each other (the league value-per-dollar table), so
+they must be built together, on ONE ADP board -- the board is live and moves
+during the day:
+
+```bash
+export WIRE_ADP_BOARD_CACHE=/tmp/adp_board_$(date -u +%Y%m%dT%H%M%S).json
+for n in 0001 0002 0003 0004 0005 0006 0007 0008 0009 0010 0011 0012; do
+  python pipelines/etl/wire/wire.py build --pack 2026-team-$n
+done
+python pipelines/etl/wire/packs/team_review_league.py --season 2026
+python pipelines/etl/wire/team_review_layout.py --all 2026
+```
+
+`team_review_league.py` refuses to run if the packs were valued on different
+boards. Then `render` each pack, `restyle`, `index`, `verify` -- and re-check
+every grade and comparative claim before publishing, because a rebuild moves them.
+
 ### Adding an article
 
 1. Copy `articles/_template/article_skeleton.html.tmpl` to

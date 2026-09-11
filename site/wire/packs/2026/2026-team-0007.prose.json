@@ -5,19 +5,17 @@
  },
  "prose": {
   "kicker": "Sex Manther · Josh Martel",
-  "title": "Sex Manther Tore Down a Contender in Three Days and Rebuilt a Better One",
-  "dek": "Josh Martel went into the auction carrying {{f.team.0007.cap_preauction}} of salary, down from {{f.team.0007.cap_opening}} in April. He released two of the most expensive players in the league in the same week and used the money on one of the two best quarterback rooms in the league.",
+  "title": "Sex Manther Tore Down a Contender in July and Rebuilt a Better Offense",
+  "dek": "Josh Martel went into the auction carrying {{f.team.0007.cap_preauction}} of salary, down from {{f.team.0007.cap_opening}} in April. He released Christian McCaffrey and Tyreek Hill in the same week and used the money on one of the two best quarterback rooms in the league.",
   "sections": [
    {
     "id": "s1",
     "lead": "",
     "paragraphs": [
-     "Lamar Jackson grades Elite QB1 and Caleb Williams High-end QB1. In a format that forces two starting quarterbacks, that is the pairing everybody else is trying to build, and the room ranks {{f.team.0007.qb_rank|ord}} in the league.",
+     "Lamar Jackson grades Elite QB1 and Caleb Williams High-end QB1. In a superflex format that rewards a second starting quarterback, that is the pairing everybody else is trying to build, and the room ranks {{f.team.0007.qb_rank|ord}} in the league.",
      "Receiver ranks {{f.team.0007.wr_rank|ord}} and is deep rather than top-heavy: Rashee Rice at Low-end WR1, Jaylen Waddle at Low-end WR2, Jameson Williams at Low-end WR2 in a flex and Rome Odunze at High-end WR3 in the other. Harold Fannin is a Mid TE1 and tight end ranks {{f.team.0007.te_rank|ord}}.",
-     "The backfield is the hole and it is a real one, ranked {{f.team.0007.rb_rank|ord}}. De'Von Achane grades Mid RB1 and behind him is Jacory Croskey-Merritt, a Replacement-level RB, starting. Kenneth Gainwell, the third-most expensive player he bought all summer, is a Replacement-level RB on the bench.",
-     "The defense is where the bill for all this comes due. Talanoa Hufanga is an Elite DB1 and a genuine bargain, Tuli Tuipulotu a Mid DL1 and Carson Schwesinger a Mid LB1. After that it falls apart: Andrew Van Ginkel grades Replacement-level DL, Demetrius Knight Replacement-level LB, and two starting slots are filled by Jaishawn Barham and Dillon Thieneman, rookies the production model cannot rate at all because neither has played an NFL season. That is not a grade on them — no source has an opinion — but it is two of seven defensive slots occupied by unknowns.",
-     "Historically this is out of character. {{f.team.0007.idp_adds_alltime}} defensive acquisitions ranks {{f.team.0007.idp_adds_rank|ord}} and points per started defender ranks {{f.team.0007.idp_ppw_rank}}, third in the league. He knows how to field a defense. This year he chose not to pay for one, putting {{f.team.0007.idp_auction_share}} of his auction money into defenders, a share that ranks {{f.team.0007.idp_auction_share_rank}} of {{f.league.teams}} from the bottom.",
-     "Composite {{f.team.0007.composite_rank|ord}} of {{f.league.teams}}, {{f.team.0007.studs_today}} studs, {{f.team.0007.holes_today}} holes."
+     "The backfield is the weakest room and it is a real problem, ranked {{f.team.0007.rb_rank|ord}}. De'Von Achane grades Mid RB1 and behind him is Jonathon Brooks, a Replacement-level RB, starting. Kenneth Gainwell, the third-most expensive player he bought all summer, is a Replacement-level RB on the bench.",
+     "Defense is where he saved money. He put {{f.team.0007.idp_auction_share}} of his auction money into defenders, the second-smallest share in the league, and two of the seven defenders in his strongest lineup, Jaishawn Barham and Dillon Thieneman, have not played an NFL season yet."
     ],
     "place": [
      "t.0007.lineup"
@@ -43,11 +41,11 @@
     "id": "s2",
     "lead": "",
     "paragraphs": [
-     "In April he had {{f.team.0007.active_roster_opening}} active players, {{f.team.0007.studs_opening}} studs — tied with C-Town for the most in the league at that point — and {{f.team.0007.cap_opening}} committed. He could field a legal lineup and it was a good one, worth {{f.team.0007.lineup_value_opening}}.",
-     "Then he took it apart. By the auction lock the active roster was unchanged at {{f.team.0007.active_roster_preauction}}, but committed salary had collapsed to {{f.team.0007.cap_preauction}}. Studs fell from {{f.team.0007.studs_opening}} to four, holes rose from {{f.team.0007.holes_opening}} to four, and legal-lineup value dropped from {{f.team.0007.lineup_value_opening}} to {{f.team.0007.lineup_value_preauction}}. On paper that is the worst three months anybody had.",
-     "It was deliberate, and the slot table shows what it cost him in the moment. Christian McCaffrey vacated the first back slot and Achane slid up into it. George Kittle left the first offensive flex. Jonathon Brooks, a Replacement-level RB, ended up in the superflex — a running back occupying the slot a second quarterback should hold, which is what a roster looks like mid-demolition.",
-     "The auction put it back together and then some: {{f.team.0007.active_roster_current}} active, {{f.team.0007.lineup_value_postauction}} of value — higher than where he started in April — with holes back down to {{f.team.0007.holes_postauction}}. Lamar Jackson took the top quarterback slot and pushed Caleb Williams into the superflex, which is one of the best pairs of moves in a single room anybody made. Jaylen Waddle and Jameson Williams filled two more.",
-     "He finished the offseason stronger than he started it while spending three months looking like he was quitting. That is the whole trick and almost nobody else attempted it."
+     "In April he had {{f.team.0007.studs_opening}} studs — tied with C-Town for the most in the league at that point — only {{f.team.0007.holes_opening}} holes, and {{f.team.0007.cap_opening}} committed. It was a contender's roster.",
+     "Then he took it apart. By the auction lock committed salary had collapsed to {{f.team.0007.cap_preauction}}. Two of his {{f.team.0007.studs_opening}} studs were gone, and a fourth hole had opened. No team's starting offense fell further over those three months.",
+     "It was deliberate, and it cost him in the moment. Christian McCaffrey vacated the first back slot and Achane slid up into it, leaving Jonathon Brooks, a Replacement-level RB, in the second. George Kittle left the first offensive flex. And the superflex, the spot a second quarterback should hold, held a Replacement-level RB, Jacory Croskey-Merritt, in April and a Replacement-level TE, Oronde Gadsden, at the lock.",
+     "The auction put it back together. When it closed his studs were back up to {{f.team.0007.studs_postauction}} and his holes down to {{f.team.0007.holes_postauction}}, and his starting offense was more than half again as good as the one he took into it — and better than the one he had in April. Lamar Jackson took the top quarterback slot and pushed Caleb Williams into the superflex, one purchase that upgraded two slots. Jaylen Waddle and Jameson Williams filled two more.",
+     "He finished the offseason with a better offense than he started it with."
     ],
     "place": [
      "t.0007.slot_bridge"
@@ -77,17 +75,19 @@
     "id": "s3",
     "lead": "",
     "paragraphs": [
-     "One lot at the Expired Rookie Auction, Sean Tucker for {{f.team.0007.era_spend}}, from a pool of {{f.league.era_pool_size}} players whose rookie deals ran out without a second one. He has since been discarded.",
-     "The Free Agent Auction is where the money went: {{f.team.0007.faa_lots_won}} lots for {{f.team.0007.faa_spend}}. Lamar Jackson alone took {{f.team.0007.top_buy_price}}, which is {{f.team.0007.top_buy_pct_of_spend}} of his auction spend and, not by coincidence, the identical figure he had been paying Christian McCaffrey. He swapped a running back's salary for an Elite QB1 at the same price. Jackson drew more bids than any other lot he entered and he won him anyway.",
-     "Jaylen Waddle and Jameson Williams were sensible follow-ups. Talanoa Hufanga at a small price is the best value on the sheet, an Elite DB1 for barely more than a punter costs.",
-     "The mistake is Kenneth Gainwell, bought for real money and now sitting on the bench as a Replacement-level RB while a Replacement-level RB starts ahead of him in the lineup. That is the one lot where the plan and the outcome do not meet, and it is at the position ranked {{f.team.0007.rb_rank|ord}}.",
-     "Defensively he spent {{f.team.0007.idp_auction_spend}} in total — Van Ginkel, Hufanga, Demetrius Knight — and filled the rest of the unit with rookies. It is one of the cheapest defenses in the league and it shows in the grades."
+     "One buy at the Expired Rookie Auction, Sean Tucker for {{f.team.0007.era_spend}}, one of {{f.league.era_pool_size}} players sold there after their rookie deals ran out without a second one. He has since been discarded.",
+     "The Free Agent Auction is where the money went: {{f.team.0007.faa_lots_won}} players for {{f.team.0007.faa_spend}}. Lamar Jackson alone took {{f.team.0007.top_buy_price}}, which is {{f.team.0007.top_buy_pct_of_spend}} of that money and the identical figure he had been paying Christian McCaffrey. He swapped a running back's tag salary for an Elite QB1 at the same figure, on a back-loaded deal that charges him less than that this year. Jackson drew more bids than anyone else he bought, and Martel won him anyway.",
+     "Measured against the money, it was good business rather than great. He put {{f.team.0007.faa_off_spend}} into offense at the Free Agent Auction, and for what that money bought he ranks {{f.team.0007.faa_off_rank|ord}} of {{f.league.teams}}. C-Town Chivalry spent the identical sum and got more for it, and Blake Bombers got more while spending less.",
+     "Jaylen Waddle and Jameson Williams were sensible follow-ups. The mistake is Kenneth Gainwell, bought for real money and now sitting on the bench as a Replacement-level RB while a Replacement-level RB starts ahead of him in the lineup. That is the costliest buy where the plan and the outcome do not meet, and it is at the position ranked {{f.team.0007.rb_rank|ord}}.",
+     "Defense got {{f.team.0007.idp_auction_spend}} across both auctions, one of the smallest defensive budgets in the league, spread over Andrew Van Ginkel, Talanoa Hufanga and Demetrius Knight."
     ],
     "place": [
-     "t.0007.auction"
+     "t.0007.auction",
+     "t.0007.faa_value"
     ],
     "placeAt": {
-     "t.0007.auction": 1
+     "t.0007.auction": 1,
+     "t.0007.faa_value": 2
     },
     "views": {
      "t.0007.auction": {
@@ -103,7 +103,21 @@
       "labels": {
        "auction": "Where"
       }
+     },
+     "t.0007.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend"
+      ],
+      "labels": {
+       "spend": "Spent on offense"
+      },
+      "title": "Who got the most for his money"
      }
+    },
+    "captions": {
+     "t.0007.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
     }
    },
    {
@@ -111,11 +125,11 @@
     "lead": "",
     "paragraphs": [
      "{{f.team.0007.contracts_count}} contract moves, {{f.team.0007.trades_count}} trades, {{f.team.0007.roster_removals_total}} removals. The removals are the headline and they are savage.",
-     "Christian McCaffrey was tagged in May at one of the largest salaries in the competition, and cut in July with no penalty at all — the full salary came straight back onto the cap. Three days later Tyreek Hill went the same way at the same salary, this time with a penalty attached, and Tanner McKee with him. Between them those two releases are why {{f.team.0007.cuts_penalty_unstamped}} of cap penalty is sitting in the ledger with no charge year stamped on it — the largest unstamped figure of any team, and a bill that is going to land somewhere.",
-     "Tagging a player in May and releasing him in July is, on its face, an expensive way to change your mind. In this case the tag cost nothing to walk away from and the money became Lamar Jackson, so the sequence works. It is still worth saying plainly that he paid to keep a player he then decided he did not want.",
-     "The contract sheet is busy and well judged. Rashee Rice and De'Von Achane were both extended in June, and both were later restructured — Achane's current-year charge cut sharply, Rice's raised. Those are four separate operations on two contracts, and together they are what made the auction budget possible.",
+     "Christian McCaffrey was tagged in May and cut in July with no penalty at all — the full salary came straight off his cap. Three days later Tyreek Hill went the same way at the same salary, this time with a penalty attached, and Tanner McKee with him. Between them, Hill's and McKee's releases are why {{f.team.0007.cuts_penalty_unstamped}} of cap penalty has no charge year yet — the largest such figure of any team, and a bill that is going to land somewhere.",
+     "The tag cost him nothing to walk away from, and the money became Lamar Jackson.",
+     "The contract sheet is busy and well judged. Rashee Rice and De'Von Achane were both extended in June, and both were later restructured. Achane's came the day before the auction lock and cut his current-year charge sharply, which is part of what paid for the auction; Rice's came a month after the auction closed and raised his. Those are four separate operations on two contracts.",
      "The trades are all future-facing. He sold 2026 pick 1.10 to Blake Bombers for a 2027 first before the draft even started, sent George Kittle and {{f.team.0007.trade_blind_bid_cash}} of blind-bid money to the same partner for a 2027 second, and turned two mid-round picks into five from The Long Haulers in May.",
-     "That haul is also the weakness of the class. {{f.team.0007.rookie_picks_count}} picks, not one earlier than 3.11, and four of them defenders no source can price yet. Volume, at slots where history says volume is mostly what you get."
+     "That haul is also the weakness of the class. {{f.team.0007.rookie_picks_count}} picks, not one earlier than 3.11, and four of them defenders with no NFL season behind them yet. Volume, at slots where history says volume is mostly what you get."
     ],
     "place": [
      "t.0007.trades"
@@ -140,10 +154,10 @@
     "id": "s5",
     "lead": "",
     "paragraphs": [
-     "He is {{f.team.0007.division_rank|ord}} of {{f.team.0007.division_size}} in his division, ahead of Real Deal Creel and L.A. Looks, and he plays both twice. That is the most valuable position on this sheet: he leads the division outright, and both teams chasing him sit below him in the league table as well.",
-     "Strongest team in the league? Not quite — {{f.team.0007.composite_rank|ord}} of {{f.league.teams}}. Best offseason? He has as strong a claim as anybody. He removed two of the largest contracts in the competition, took a short-term hit that made his roster look like a fire sale in July, and came out of the auction with more lineup value than he had in April and one of the two best quarterback rooms in the league.",
-     "The biggest advantage is Lamar Jackson and Caleb Williams, an Elite QB1 and a High-end QB1 in the same lineup. The biggest weakness is everything behind De'Von Achane at running back, with a defense of unknowns and replacement-level bodies close behind.",
-     "{{f.league.wk_teams_final}} NFL teams had played when this was written. His starter among them was Julian Love, bought at the league minimum, who intercepted a pass and banked {{f.team.0007.wk_points_final}} points, the second-best return by any player that night, on a minimum contract. A defense bought on the cheap opened well."
+     "He is {{f.team.0007.division_rank|ord}} of {{f.team.0007.division_size}} in his division, ahead of Real Deal Creel and L.A. Looks, and he plays each of them five times, starting this week. No division game has been decided yet, so that order is the power rankings rather than the standings, but both teams chasing him start the season below him.",
+     "Strongest team in the league? No — {{f.team.0007.composite_rank|ord}} of {{f.league.teams}}. Boldest offseason? Nobody took more salary off his roster before the auction. He cut Christian McCaffrey and Tyreek Hill, let his starting offense fall further than anyone's before the auction, and came out of it with a better one than he had in April and one of the two best quarterback rooms in the league.",
+     "The biggest advantage is Lamar Jackson and Caleb Williams, an Elite QB1 and a High-end QB1 in the same lineup. The biggest weakness is everything behind De'Von Achane at running back.",
+     "{{f.league.wk_teams_final}} NFL teams had played when this was written. His starter among them was Julian Love, who intercepted a pass and banked {{f.team.0007.wk_points_final}} points, the second-best return by any rostered player that night, on a minimum contract. One game, from one defender, and a long way from a verdict."
     ],
     "place": [
      "t.0007.division",
