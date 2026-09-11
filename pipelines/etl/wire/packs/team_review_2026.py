@@ -134,6 +134,56 @@ def _salary_on_or_after(pid, day, horizon=30):
     return None
 
 
+def _salary_on_or_before(pid, day, horizon=30):
+    """A player's salary in the LAST daily snapshot on or before `day` -- what
+    he carried on the old roster when he was traded. The first snapshot AFTER a
+    trade can already hold the new owner's restructure: Drake London was
+    $52,000 on C-Town every day up to the three-way and $20,000 on Blake's
+    roster the morning after. None when no snapshot in range has him."""
+    seen = 0
+    for d in reversed(D.snapshot_dates()):
+        if d > str(day)[:10]:
+            continue
+        idx = _SAL_BY_DAY.get(d)
+        if idx is None:
+            idx = {}
+            for fr in D.snapshot(d, "rosters")["rosters"]["franchise"]:
+                for p in _as_list(fr.get("player")):
+                    idx[str(p.get("id"))] = _money(p.get("salary"))
+            _SAL_BY_DAY[d] = idx
+        if pid in idx and idx[pid] >= LEAGUE_MIN_SALARY:
+            return idx[pid]
+        seen += 1
+        if seen >= horizon:
+            break
+    return None
+
+
+_CI_BY_DAY = {}
+
+
+def _snapshot_player_before(pid, day, horizon=10):
+    """The player's row (contractInfo, salary) in the last daily snapshot
+    strictly BEFORE `day`, or None."""
+    seen = 0
+    for d in reversed(D.snapshot_dates()):
+        if d >= str(day)[:10]:
+            continue
+        idx = _CI_BY_DAY.get(d)
+        if idx is None:
+            idx = {}
+            for fr in D.snapshot(d, "rosters")["rosters"]["franchise"]:
+                for p in _as_list(fr.get("player")):
+                    idx[str(p.get("id"))] = p
+            _CI_BY_DAY[d] = idx
+        if pid in idx:
+            return idx[pid]
+        seen += 1
+        if seen >= horizon:
+            break
+    return None
+
+
 _PRIOR_ROSTERS = {}
 
 
@@ -1941,6 +1991,36 @@ def build(pack_id):
                                "to": _et_date(last.get("submitted_at_utc")),
                                "baseline": baseline}
 
+    # EVERY RESTRUCTURE THAT CHANGED THE MONEY IS A MOVE (fact-check 2026-09-11).
+    # distinct_outcomes keeps one row per (franchise, player, type), so Blake's
+    # 07-22 restructure of Drake London ($52,000 -> $20,000 this year, the room
+    # that bought Josh Allen) vanished behind his 08-24 one. Put back each earlier
+    # day's last restructure by this franchise whose year-by-year salaries differ
+    # from the day before. Same-day UI revisions stay collapsed; round trips are
+    # rebuilt from the whole chain in the contract loop.
+    _kept = {id(r) for r in my_contracts}
+    _rs_chain = {}
+    for r in sorted(activity_rows, key=lambda r: str(r.get("submitted_at_utc") or "")):
+        if str(r.get("franchise_id", "")).zfill(4) == fid and r.get("activity_type") == "Restructure":
+            _rs_chain.setdefault(str(r.get("player_id")), []).append(r)
+    for _pid, _chain in _rs_chain.items():
+        if round_trip.get(_pid) and round_trip[_pid]["freed"] > 0:
+            continue
+        _by_day = {}
+        for r in _chain:
+            _by_day[_et_date(r.get("submitted_at_utc"))] = r
+        # Any kept row that day, of any type: Achane's 06-05 restructure row is
+        # half of the same submission as his 06-05 extension.
+        _kept_days = {_et_date(k.get("submitted_at_utc")) for k in my_contracts
+                      if str(k.get("player_id")) == _pid}
+        _prev = None
+        for _d in sorted(_by_day):
+            r = _by_day[_d]
+            _y = _year_salaries(r.get("contract_info"))
+            if id(r) not in _kept and _d not in _kept_days and _y and _y != _prev:
+                my_contracts.append(r)
+            _prev = _y or _prev
+
     contract_rows = []
     for r in sorted(my_contracts, key=lambda r: r.get("submitted_at_utc") or ""):
         pid = str(r.get("player_id"))
@@ -2447,7 +2527,37 @@ def build(pack_id):
     # its own, and the first one after it can already carry the NEW owner's
     # restructure: Kenneth Walker was $32,000 on 04-13 and $15,000 by 04-21. The
     # latest logged contract event on or before the trade day comes first.
-    def _salary_at_trade(tok, day):
+    def _salary_at_trade(tok, day, ts=None):
+        _dates = D.snapshot_dates() or []
+        _snap0 = _dates[0] if _dates else "9999-12-31"
+        if day >= _snap0:
+            # WHICH SNAPSHOT (fact-check 2026-09-11). The one AFTER the trade can
+            # hold the new owner's same-evening restructure (Drake London: $52,000
+            # on C-Town all day, $20,000 on Blake's roster the next morning); the
+            # one ON the trade day can predate the old owner's same-day extension
+            # (Quentin Johnston: $8,000 that morning, then extended and traded).
+            # Take the next morning's figure unless a contract event for him lands
+            # between the trade and that snapshot.
+            _nxt = next((d for d in _dates if d > day), None)
+            _t = (_dtm.datetime.fromtimestamp(int(float(ts)), _dtm.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+                  if ts else day + "T23:59:59")
+            _evs = sorted((e for e in activity_rows if str(e.get("player_id")) == str(tok)),
+                          key=lambda e: str(e.get("submitted_at_utc") or ""))
+            _after = [e for e in _evs if str(e.get("submitted_at_utc") or "") > _t
+                      and (_nxt is None or _et_date(e.get("submitted_at_utc")) < _nxt)]
+            if _nxt and not _after:
+                _s = _salary_on_or_after(tok, _nxt)
+                if _s:
+                    return _s
+            _same_day = [e for e in _evs if str(e.get("submitted_at_utc") or "") <= _t
+                         and _et_date(e.get("submitted_at_utc")) == day]
+            if _same_day:
+                _ys = _year_salaries(_same_day[-1].get("contract_info"))
+                if _ys:
+                    return _ys[0]
+            _s = _salary_on_or_before(tok, day)
+            if _s:
+                return _s
         _evs = [e for e in activity_rows if str(e.get("player_id")) == str(tok)
                 and _et_date(e.get("submitted_at_utc")) <= day]
         if _evs:
@@ -2484,7 +2594,7 @@ def build(pack_id):
             elif tok.startswith("BB_"):
                 out.append("%s of blind-bid money" % _usd(int(tok.split("_")[1])))
             else:
-                s = _salary_at_trade(tok, day)
+                s = _salary_at_trade(tok, day, ts)
                 total += s or 0
                 ext = (", extended %s" % extended_on[tok]) if extended_on.get(tok, "9999") <= day else ""
                 if s is None:
@@ -2579,6 +2689,18 @@ def build(pack_id):
     for r in my_contracts:
         if r.get("activity_type") == "Restructure":
             _rs_days.setdefault(str(r.get("player_id")), []).append(_et_date(r.get("submitted_at_utc")))
+    # A TAG ALREADY ON THE APRIL ROSTER was made before April; its Front Office
+    # rows are records. McCaffrey was TAG at $62,000 on 04-21 and his rows are
+    # dated 05-19, which put the biggest pre-draft move after the draft.
+    _open_snap = (D.snapshot_dates() or [None])[0]
+    _open_tags, _open_tag_sal = set(), {}
+    if _open_snap:
+        for _fr in D.snapshot(_open_snap, "rosters")["rosters"]["franchise"]:
+            if str(_fr.get("id")).zfill(4) == fid:
+                for _p in _as_list(_fr.get("player")):
+                    if "TAG" in str(_p.get("contractStatus") or "").upper():
+                        _open_tags.add(str(_p.get("id")))
+                        _open_tag_sal[str(_p.get("id"))] = _money(_p.get("salary"))
     for r in _contract_rows:
         pid = str(r.get("player_id"))
         day = _et_date(r.get("submitted_at_utc"))
@@ -2586,6 +2708,15 @@ def build(pack_id):
         sal, tcv = int(r.get("salary") or 0), int(r.get("tcv") or 0)
         ci = str(r.get("contract_info") or "")
         ys = _year_salaries(ci)
+        # A STATUS RE-STAMP IS NOT A MOVE. The league-wide 06-01 re-stamp wrote
+        # rows for contracts whose money did not change -- Herbert's 2025 deal
+        # printed as a June "restructure" and Jefferson's as a June "FA
+        # Contract", both with year one read as 2026. If the day before shows the
+        # same year-by-year salaries, nothing happened.
+        if ys and not (round_trip.get(pid) and round_trip[pid]["freed"] > 0):
+            _pre = _snapshot_player_before(pid, day)
+            if _pre and _year_salaries(_pre.get("contractInfo")) == ys:
+                continue
         load = _loading(r.get("contract_status"), ys)
         if typ == "Extension" and not load:
             _lv = _live_ci.get(pid) or {}
@@ -2612,7 +2743,10 @@ def build(pack_id):
             money = "one more year at %s for %d, %s TCV over %d seasons" % (
                 _usd(ys[-1]), SEASON + len(ys) - 1, _usd(tcv), len(ys))
         rt = round_trip.get(pid)
-        if typ == "Tag":
+        if typ == "Tag" and pid in _open_tags:
+            ph, kind, det, day = "s1", "Tag", "on a %s tag by the April roster" % _usd(sal), _open_snap
+            ctr["tags"] += 1
+        elif typ == "Tag":
             ph, kind, det = "s2", "Tag", "tagged at %s" % _usd(sal)
             ctr["tags"] += 1
         elif typ == "Restructure" and rt and rt["freed"] > 0:
@@ -2625,7 +2759,11 @@ def build(pack_id):
                             if str(e.get("franchise_id", "")).zfill(4) == fid
                             and e.get("activity_type") == "Restructure"),
                            key=lambda e: str(e.get("submitted_at_utc") or ""))
-            _f1, _f2 = _mine[0], _mine[-1]
+            # The first row is the DIP, not the first submission: Collins's 07-25
+            # row re-stamped the $30,000 he already had; the room came 07-29.
+            _dip = min(int(e.get("salary") or 0) for e in _mine)
+            _f1 = next(e for e in _mine if int(e.get("salary") or 0) == _dip)
+            _f2 = _mine[-1]
             _d1, _d2 = _et_date(_f1.get("submitted_at_utc")), _et_date(_f2.get("submitted_at_utc"))
             _ys1 = _year_salaries(_f1.get("contract_info"))
             _t1 = _terms(_ys1[0] if _ys1 else int(_f1.get("salary") or 0), int(_f1.get("tcv") or 0),
@@ -2701,6 +2839,17 @@ def build(pack_id):
         if sal:
             _rf("s2", "tag_%s_salary" % pid, "%s's tag salary (%s)" % (_nm_pid(pid), day), sal,
                 source="MFL roster load + daily snapshot")
+    # TAGS THE FRONT OFFICE NEVER LOGGED. Blake's Jacoby Brissett and Cross's
+    # quarterback were TAG contracts on the April roster with no Front Office
+    # row, so both reviews said "he tagged nobody". The opening snapshot is the
+    # record.
+    for pid, sal in sorted(_open_tag_sal.items()):
+        if pid in tagged_fo or pid in mfl_tags:
+            continue
+        ctr["tags"] += 1
+        _move("s1", _open_snap, "Tag", _who(pid), "on a %s tag by the April roster" % _usd(sal))
+        _rf("s1", "tag_%s_salary" % pid, "%s's tag salary (on the April roster)" % _nm_pid(pid), sal,
+            source="MFL roster snapshot %s" % _open_snap)
 
     # -- Expired Rookie Auction buys
     for l in sorted(era_lots, key=lambda l: l.get("won_at_unix") or 0):
@@ -2995,6 +3144,7 @@ def build(pack_id):
         _rivals = [f2 for f2 in sorted(_div_members) if f2 != fid]
         _tn = lambda f2: owners.get(f2, {}).get("team_name", f2)
         dw_rows, dweeks, own_n, riv_n = [], [], 0, 0
+        riv_by = dict((r2, 0) for r2 in _rivals)
         for _w in SS._as_list(SS.fetch(SS.MFL % (SEASON, "schedule", ""))["schedule"]["weeklySchedule"]):
             wk = int(_w["week"])
             opps = []
@@ -3009,6 +3159,8 @@ def build(pack_id):
             riv = dict((r2, _on_bye(r2, wk)) for r2 in _rivals)
             own_n += len(own)
             riv_n += sum(len(v) for v in riv.values())
+            for r2, v in riv.items():
+                riv_by[r2] += len(v)
             dw_rows.append([wk, ", ".join("%s (%d)" % (_tn(r2), opps.count(r2)) for r2 in _rivals if r2 in opps),
                             ", ".join(own) or "none",
                             "; ".join("%s: %s" % (_tn(r2), ", ".join(v) or "none") for r2, v in riv.items())])
@@ -3035,6 +3187,13 @@ def build(pack_id):
           "count", _dw_src, NOW_UTC)
         row_facts["s5"] += ["f.team.%s.%s" % (fid, k) for k in
                             ("div_weeks", "div_week_count", "div_week_last", "div_week_own_byes", "div_week_rival_byes")]
+        # PER RIVAL, NEVER SUMMED (fact-check 2026-09-11): "he loses 9 and his
+        # rivals 16" set one team against two added together and read as an edge
+        # he did not have.
+        for r2, n2 in riv_by.items():
+            F("f.team.%s.div_week_byes_%s" % (fid, r2), "%s's starter-byes across the division weeks" % _tn(r2),
+              n2, "count", _dw_src, NOW_UTC)
+            row_facts["s5"].append("f.team.%s.div_week_byes_%s" % (fid, r2))
 
     _f = lambda *keys: ["f.team.%s.%s" % (fid, k) for k in keys]
     _have = lambda ids: [x for x in ids if x in pack._facts]

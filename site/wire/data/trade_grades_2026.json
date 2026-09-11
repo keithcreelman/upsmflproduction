@@ -279,14 +279,19 @@
     "0001"
    ],
    "grades": {
-    "0006": "D+",
-    "0001": "A+"
+    "0006": "A",
+    "0001": "C"
    },
    "published": true,
    "publishedAt": "2026-07-18T02:16:01Z",
    "confidence": "verified",
-   "source": "main content_archive trade-1784340660 env=prod ch 1059111651846131833 ('The Long Haulers - GRADE: D+' / 'Ulterior Warrior - GRADE: A+'); D1 roast_message_id 1527861469990096928. Commit 2b623b35 (branch claude/roast-grader-fixes, NOT on main) computed a correction A (0006) / C (0001) via post_roast_correction.py (dry-run by default); no record of it being posted in D1, the tracker, or the archive",
-   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0006': 'A-', '0001': 'C+'} ({'0006': 23.1, '0001': -23.1}). | Published and recomputed letters differ; the published letter came from the grader code/data live at post time (see publish_source). | Contracts: data/mfl-snapshots/2026-07-18/rosters.json (earliest snapshot showing the post-trade roster) | PPG: Isaiah Bond 4.3 PPG from published context | PPG: Jordan Battle 8.3 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals) | PPG: Adonai Mitchell 6.5 PPG from published context"
+   "source": "main content_archive trade-1784340660 env=prod ch 1059111651846131833 ('The Long Haulers - GRADE: D+' / 'Ulterior Warrior - GRADE: A+'); D1 roast_message_id 1527861469990096928. Commit 2b623b35 (branch claude/roast-grader-fixes, NOT on main) computed a correction A (0006) / C (0001) via post_roast_correction.py (dry-run by default); no record of it being posted in D1, the tracker, or the archive | CORRECTION POSTED: UPS Contracts Hub Bot, #transactions thread 'Trade Roast -- The Long Haulers <-> L.A. Looks' (tid 1527861289832153110, msg 1528014200801202318), 2026-07-18T12:22:54: 'I ran this trade backwards' -- re-graded The Long Haulers A (winner) and L.A. Looks C.",
+   "note": "PUBLISHED grade used: the bot's own published CORRECTION (A / C), which replaced the first post (D+ / A+, graded with the trade inverted). PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0006': 'A-', '0001': 'C+'} ({'0006': 23.1, '0001': -23.1}). | Published and recomputed letters differ; the published letter came from the grader code/data live at post time (see publish_source). | Contracts: data/mfl-snapshots/2026-07-18/rosters.json (earliest snapshot showing the post-trade roster) | PPG: Isaiah Bond 4.3 PPG from published context | PPG: Jordan Battle 8.3 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals) | PPG: Adonai Mitchell 6.5 PPG from published context",
+   "firstPublished": {
+    "0006": "D+",
+    "0001": "A+"
+   },
+   "correctedAt": "2026-07-18T12:22:54Z"
   },
   {
    "keys": [
