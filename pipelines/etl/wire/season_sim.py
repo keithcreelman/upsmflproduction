@@ -47,6 +47,8 @@ import math
 import os
 import random
 import sys
+import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
@@ -55,6 +57,7 @@ import lineup_engine as LE  # noqa: E402
 
 MFL = "https://www48.myfantasyleague.com/%d/export?TYPE=%s&L=74598&JSON=1%s"
 MFL_PLAYERS = "https://api.myfantasyleague.com/%d/export?TYPE=players&JSON=1"
+MFL_BYES = "https://api.myfantasyleague.com/%d/export?TYPE=nflByeWeeks&JSON=1"
 
 # Calibration targets, measured on prod D1 2026-09-11 (regular season only):
 #   within-team-season variance of weekly team score, 2021-2025   943.2
@@ -77,15 +80,33 @@ def fetch(url, cache_dir=None):
     if path and os.path.exists(path):
         return json.load(open(path, encoding="utf-8"))
     req = urllib.request.Request(url, headers={"User-Agent": "ups-season-sim"})
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
+    # A backtest pulls ~150 exports; MFL answers a burst with 429 and keeps
+    # refusing for minutes. Pace fresh requests, honour Retry-After, and wait
+    # up to ~20 minutes in all before failing. Cached responses skip all this,
+    # so a rerun resumes where the last one stopped.
+    for attempt in range(8):
+        time.sleep(1.5)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or attempt == 7:
+                raise
+            retry_after = e.headers.get("Retry-After") if e.headers else None
+            wait = int(retry_after) if (retry_after or "").isdigit() else min(300, 15 * 2 ** attempt)
+            print("season_sim: MFL 429, waiting %ds" % wait, file=sys.stderr, flush=True)
+            time.sleep(wait)
     if path:
         os.makedirs(cache_dir, exist_ok=True)
         json.dump(data, open(path, "w", encoding="utf-8"))
     return data
 
 
-def load_inputs(season, cache_dir=None):
+def load_inputs(season, cache_dir=None, roster_week=None):
+    """roster_week=None is today's roster; the backtest passes 1 for the roster a
+    past season actually opened with (MFL serves real point-in-time rosters for
+    2021+: 2025's week-1 and week-14 rosters differ by 354 players)."""
     league = fetch(MFL % (season, "league", ""), cache_dir)["league"]
     reg_end = int(league.get("lastRegularSeasonWeek") or 14)
     end = int(league.get("endWeek") or 17)
@@ -94,7 +115,8 @@ def load_inputs(season, cache_dir=None):
     pos = {p["id"]: p.get("position") for p in fetch(MFL_PLAYERS % season, cache_dir)["players"]["player"]}
 
     rosters, rostered = {}, set()
-    for f in _as_list(fetch(MFL % (season, "rosters", ""), cache_dir)["rosters"]["franchise"]):
+    rw = "&W=%d" % roster_week if roster_week else ""
+    for f in _as_list(fetch(MFL % (season, "rosters", rw), cache_dir)["rosters"]["franchise"]):
         rows = []
         for p in _as_list(f.get("player")):
             if not p:
@@ -207,6 +229,21 @@ def weekly_projections(rosters, proj, end, rep=None):
 # multiplied by REGRESS (1.0 = trust projections fully, 0.0 = everyone is
 # average), and the season-level uncertainty is then re-fitted so final
 # standings still spread out the way real UPS seasons do.
+#
+# 0.7 is BACKTESTED (backtest() below; 2021-2025, week-1 rosters, preseason
+# projections, 1500 runs a season, 60 team-seasons; run 2026-09-11):
+#     k     miss (rmse)  slope   rank corr.
+#    1.0      .128       0.67      .56     overconfident: gaps too big
+#    0.8      .120       0.84      .57
+#    0.7      .118       0.96      .57     smallest miss, gaps right-sized
+#    0.6      .119       1.13      .56
+#    0.5      .121       1.36      .56     underconfident
+#    "everyone .500"  .153
+# It explains about 40% of the spread in final all-play %. Rank correlation
+# by season: .90 .87 .42 .31 .34 (2021-2025) -- the recent seasons were far
+# less predictable from September, and the reviews should say so. The same
+# backtest on MFL's week-of projections (which knew in-season news) prefers
+# k = 1.0 with rank correlation .72 -- that is hindsight, not a better model.
 REGRESS_DEFAULT = 0.7
 
 
@@ -267,6 +304,8 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         aps = [st[f]["ap_pct"] for f in fids]
         m = sum(aps) / len(aps)
         ap_var_sum += sum((x - m) ** 2 for x in aps) / len(aps)
+        for f in fids:
+            agg[f]["ap_pct"] += st[f]["ap_pct"]
         if not collect:
             continue
 
@@ -295,7 +334,6 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             agg[f]["ap_rank"][i] += 1
         for f in fids:
             agg[f]["h2h_w"] += rec[f]["w"] + 0.5 * rec[f]["t"]
-            agg[f]["ap_pct"] += st[f]["ap_pct"]
         for f in dws:
             agg[f]["div"] += 1
         for f in seeds:
@@ -324,21 +362,141 @@ def calibrate(teams, sched, wp, reg_end, end, sigma_w, runs, seed):
     return float(best["sigma_s"]), table
 
 
-def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
-    league, teams, rosters, sched, proj, reg_end, end, pos, rostered = load_inputs(season, cache_dir)
+def preseason_view(proj, season, cache_dir, end):
+    """What a projection made BEFORE week 1 knows: each player's week-1 projection
+    carried through the season, zeroed on his NFL bye. The backtest's honest mode.
+
+    MFL archives past seasons' weekly projections, but the week-9 projection was
+    made the week of week 9 -- it already knew who got hurt, benched or traded.
+    Backtesting on those grades a preseason model with in-season hindsight and
+    flatters it (it would argue for trusting projections more than we can in
+    September). Blind spot of this view: a player hurt for week 1 only is zero
+    all year, as he was on the draft sheet."""
+    team_of = {p["id"]: p.get("team") for p in fetch(MFL_PLAYERS % season, cache_dir)["players"]["player"]}
+    bye = {t["id"]: int(t["bye_week"]) for t in _as_list(fetch(MFL_BYES % season, cache_dir)
+                                                          ["nflByeWeeks"].get("team")) if t.get("bye_week")}
+    if not bye:
+        raise SystemExit("season_sim: MFL returned no %d bye weeks" % season)
+    return {wk: {pid: (0.0 if bye.get(team_of.get(pid)) == wk else pts) for pid, pts in proj[1].items()}
+            for wk in range(1, end + 1)}
+
+
+def prepare(season, cache_dir=None, roster_week=None, projections="weekly"):
+    """Everything that does not depend on the regression dial."""
+    league, teams, rosters, sched, proj, reg_end, end, pos, rostered = load_inputs(season, cache_dir, roster_week)
     games = {}
     for wk, ms in sched.items():
         for a, b in ms:
             games[a] = games.get(a, 0) + 1; games[b] = games.get(b, 0) + 1
     if set(games.values()) != {37} and season == 2026:
         raise SystemExit("season_sim: expected 37 regular-season games per team, got %s" % sorted(set(games.values())))
+    if projections == "preseason":
+        proj = preseason_view(proj, season, cache_dir, end)
     rep = replacement_levels(proj, pos, rostered, end, reg_end)
     wp_raw, fills = weekly_projections(rosters, proj, end, rep)
-    wp = regress(wp_raw, k)
+    return {"league": league, "teams": teams, "sched": sched, "reg_end": reg_end, "end": end,
+            "games": games, "wp_raw": wp_raw, "fills": fills}
+
+
+def fit(prep, k, runs, seed, collect=True):
+    """Regress, calibrate both noise layers, simulate."""
+    teams, sched, reg_end, end = prep["teams"], prep["sched"], prep["reg_end"], prep["end"]
+    wp = regress(prep["wp_raw"], k)
     proj_var = _within_var_of_projections(wp, reg_end)
     sigma_w = math.sqrt(max(TARGET_WITHIN_VAR - proj_var, 0.0))
     sigma_s, table = calibrate(teams, sched, wp, reg_end, end, sigma_w, max(500, runs // 5), seed)
-    agg, ap_var = simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, random.Random(seed))
+    agg, ap_var = simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, random.Random(seed), collect)
+    return {"wp": wp, "proj_var": proj_var, "sigma_w": sigma_w, "sigma_s": sigma_s, "table": table,
+            "agg": agg, "ap_var": ap_var}
+
+
+def actual_allplay(season, reg_end, cache_dir=None):
+    """{fid: regular-season all-play %} from MFL's own weekly results -- every
+    week's score against the other eleven, weeks 1..reg_end (the same basis as
+    D1 src_standings.allplay_regseason_*, 154 decisions a team)."""
+    ap = {}
+    for wk in range(1, reg_end + 1):
+        wr = fetch(MFL % (season, "weeklyResults", "&W=%d" % wk), cache_dir)["weeklyResults"]
+        score = {}
+        for m in _as_list(wr.get("matchup")):
+            for x in _as_list(m.get("franchise")):
+                score[x["id"]] = float(x["score"])
+        for x in _as_list(wr.get("franchise")):
+            score.setdefault(x["id"], float(x["score"]))
+        if len(score) != 12:
+            raise SystemExit("season_sim: %d week %d weekly results cover %d teams, not 12" % (season, wk, len(score)))
+        for f, s in score.items():
+            w = sum(1 for g, o in score.items() if g != f and s > o)
+            t = sum(1 for g, o in score.items() if g != f and s == o)
+            a = ap.setdefault(f, [0.0, 0])
+            a[0] += w + 0.5 * t
+            a[1] += len(score) - 1
+    return {f: w / n for f, (w, n) in ap.items()}
+
+
+def _spearman(xs, ys):
+    def ranks(v):
+        order = sorted(range(len(v)), key=lambda i: v[i])
+        r = [0.0] * len(v)
+        for pos_, i in enumerate(order):
+            r[i] = float(pos_)
+        return r
+    rx, ry = ranks(xs), ranks(ys)
+    n = len(xs)
+    mx, my = sum(rx) / n, sum(ry) / n
+    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    return cov / math.sqrt(sum((a - mx) ** 2 for a in rx) * sum((b - my) ** 2 for b in ry))
+
+
+# BACKTEST (Keith 2026-09-11: "allow back testing via projections which should
+# be available in the API? else just use the rec of 70%"). Each past season is
+# replayed from the roster it opened with (week 1) and MFL's archived
+# projections, at every regression dial in `ks`, and the expected all-play %
+# is scored against what happened:
+#   rmse   -- typical miss per team-season, in all-play %; the model to beat is
+#             "everyone is .500" (rmse = the real spread, about .15)
+#   slope  -- actual on predicted; 1.0 means the predicted gaps were the right
+#             size, below 1 means the model was overconfident (regress more)
+#   rho    -- Spearman rank correlation, the power-ranking order alone
+# Caveat that belongs next to any number it produces: the variance targets
+# were measured on these same seasons, so this checks the regression dial and
+# the ranking, not the noise calibration.
+def backtest(seasons, ks, runs, seed, cache_dir, projections="preseason"):
+    rows = {k: [] for k in ks}
+    per_season = []
+    for season in seasons:
+        prep = prepare(season, cache_dir, roster_week=1, projections=projections)
+        act = actual_allplay(season, prep["reg_end"], cache_dir)
+        fids = sorted(prep["teams"])
+        for k in ks:
+            res = fit(prep, k, runs, seed, collect=False)
+            pred = [res["agg"][f]["ap_pct"] / runs for f in fids]
+            real = [act[f] for f in fids]
+            rows[k].extend(zip(pred, real))
+            per_season.append({"season": season, "k": k, "rho": round(_spearman(pred, real), 3),
+                               "sigma_s": round(res["sigma_s"], 1)})
+    summary = []
+    for k in ks:
+        pr = rows[k]
+        n = len(pr)
+        rmse = math.sqrt(sum((p - a) ** 2 for p, a in pr) / n)
+        base = math.sqrt(sum((0.5 - a) ** 2 for _, a in pr) / n)
+        sxx = sum((p - 0.5) ** 2 for p, _ in pr)
+        slope = sum((p - 0.5) * (a - 0.5) for p, a in pr) / sxx if sxx else 0.0
+        rhos = [r["rho"] for r in per_season if r["k"] == k]
+        summary.append({"k": k, "n": n, "rmse": round(rmse, 4), "rmseEveryone500": round(base, 4),
+                        "slope": round(slope, 3), "meanRho": round(sum(rhos) / len(rhos), 3)})
+    return {"seasons": list(seasons), "projections": projections, "runs": runs, "summary": summary,
+            "perSeason": per_season}
+
+
+def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
+    prep = prepare(season, cache_dir)
+    league, teams, games, fills, wp_raw = prep["league"], prep["teams"], prep["games"], prep["fills"], prep["wp_raw"]
+    reg_end, end = prep["reg_end"], prep["end"]
+    res = fit(prep, k, runs, seed)
+    wp, proj_var, sigma_w, sigma_s = res["wp"], res["proj_var"], res["sigma_w"], res["sigma_s"]
+    table, agg, ap_var = res["table"], res["agg"], res["ap_var"]
 
     rows = []
     for f in sorted(teams):
@@ -380,14 +538,35 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--season", type=int, required=True)
+    ap.add_argument("--season", type=int)
     ap.add_argument("--runs", type=int, default=10000)
     ap.add_argument("--seed", type=int, default=20260911)
     ap.add_argument("--cache-dir", default=None, help="reuse MFL responses from this directory")
     ap.add_argument("--out", default=None)
     ap.add_argument("--regress", type=float, default=REGRESS_DEFAULT,
                     help="share of each team's projected edge to keep (1.0 = none regressed)")
+    ap.add_argument("--backtest", default=None, metavar="2021-2025",
+                    help="replay these past seasons from their week-1 rosters and score each --ks value")
+    ap.add_argument("--ks", default="1.0,0.9,0.8,0.7,0.6,0.5,0.4,0.3")
+    ap.add_argument("--projections", choices=("preseason", "weekly"), default="preseason",
+                    help="backtest only: preseason = week-1 projections carried forward (honest); "
+                         "weekly = MFL's archived week-of projections (knows in-season news)")
     a = ap.parse_args()
+    if a.backtest:
+        lo, _, hi = a.backtest.partition("-")
+        seasons = range(int(lo), int(hi or lo) + 1)
+        ks = [float(x) for x in a.ks.split(",")]
+        bt = backtest(seasons, ks, a.runs, a.seed, a.cache_dir, a.projections)
+        if a.out:
+            open(a.out, "w", encoding="utf-8").write(json.dumps(bt, indent=1) + "\n")
+        print("backtest %s, %s projections, %d runs/season" % (a.backtest, a.projections, a.runs))
+        print("  k     rmse   (everyone .500)  slope   mean rho")
+        for r in bt["summary"]:
+            print("%5.2f  %.4f   (%.4f)          %5.3f   %5.3f" % (
+                r["k"], r["rmse"], r["rmseEveryone500"], r["slope"], r["meanRho"]))
+        return 0
+    if not a.season:
+        ap.error("--season is required unless --backtest is given")
     out = run(a.season, a.runs, a.seed, a.cache_dir, a.out, k=a.regress)
     m = out["model"]
     print("sigma_w %.1f  sigma_s %.1f  (sim AP var %.4f vs target %.4f)" % (
