@@ -225,6 +225,9 @@ def build_entry(path, html):
         # the one story the front page leads with. Both optional.
         "order": int(meta["order"]) if meta.get("order") else None,
         "featured": (meta.get("featured") or "").strip().lower() in ("yes", "true", "1"),
+        # The front page draws the lead story's table from here (see
+        # wire_render.lead_table_meta) -- formatted cells, never raw numbers.
+        "leadTable": json.loads(meta["leadTable"]) if meta.get("leadTable") else None,
         "provenance": None,
     }
     return entry
@@ -450,7 +453,10 @@ def fail(msg):
 # ---------------------------------------------------------------- packs
 
 PACKS_DIR = os.path.join(WIRE, "packs")
-PACK_BUILDERS = {"2026-preseason-review": "preseason_review"}
+PACK_BUILDERS = {"2026-preseason-review": "preseason_review",
+                 # The front page's lead (Keith 2026-09-11): blurb, then the
+                 # season forecast table, then the season in general.
+                 "2026-season-forecast": "season_forecast"}
 # weekly_recap is generic (season, week) -- one module, five 2025 instances:
 # the last two regular-season weeks plus the full 3-round playoffs. Each pack
 # id is registered explicitly (no wildcard matching) so `_load_builder` keeps
@@ -546,8 +552,8 @@ def cmd_check_pack(args):
     return 0
 
 
-PACK_FAMILY = {"2026-preseason-review": "season-review"}
-PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review"}
+PACK_FAMILY = {"2026-preseason-review": "season-review", "2026-season-forecast": "season-review"}
+PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review", "2026-season-forecast": "2026-season-forecast"}
 for _wk in (13, 14, 15, 16, 17):
     PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
 for _fid in ("0001", "0002", "0003", "0004", "0005", "0006",

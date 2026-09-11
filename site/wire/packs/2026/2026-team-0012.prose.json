@@ -46,7 +46,7 @@
    {
     "id": "s2",
     "paragraphs": [
-     "The draft was the whole pre-auction offseason, and it was a good one to have. The Hawks made {{f.team.0012.rookie_picks_count}} picks, two of them in the first round: Carnell Tate at 1.02, a slot that has produced a usable player half the time, and Makai Lemon at 1.06. Tate went straight into the lineup as a Low-end WR3. Kaelon Black, Ja'Kobi Lane, Drew Allar, CJ Allen and Mansoor Delane followed, and the two defenders, Allen and Delane, are already starting.",
+     "The draft was the whole pre-auction offseason, and it was a good one to have. The Hawks made {{f.team.0012.rookie_picks_count}} picks, two of them in the first round: Carnell Tate at 1.02, a slot that has produced a usable player half the time, and Makai Lemon at 1.06. Tate went straight into the lineup as a Low-end WR3. Kaelon Black, Ja'Kobi Lane and Drew Allar followed, and the two defenders, CJ Allen and Mansoor Delane, are already starting: Allen, taken early in the fourth round, projects as an Elite LB1 on MFL's numbers.",
      "No Expired Rookie Auction buys, no tags, no cuts and no trades until the roster locked. Klingenberg carried {{f.team.0012.active_roster_preauction}} active players and {{f.team.0012.cap_preauction}} into the auction, plenty of room and a lot of it needed."
     ],
     "place": [
@@ -75,23 +75,25 @@
    {
     "id": "s3",
     "paragraphs": [
-     "He spent it on quarterbacks. Jared Goff cost {{f.team.0012.faa_12611_price}} after twelve bids, the most contested of his wins, and Matthew Stafford {{f.team.0012.faa_9431_price}}. That is {{f.team.0012.faa_spend}} in all at the Free Agent Auction, with Rachaad White at {{f.team.0012.faa_15721_price}}, Rhamondre Stevenson at {{f.team.0012.faa_15259_price}} and Travis Kelce at {{f.team.0012.faa_11244_price}} behind them.",
-     "It bought two real starters. Stafford grades as a Low-end QB1 and Kelce as a Low-end TE1; Goff, a High-end QB2 in the superflex, is the Good in the What it bought column. White and Stevenson are depth. Measured against every owner's money, his money ranks {{f.team.0012.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added, and {{f.team.0012.faa_off_gain_rank|ord}} for how much it added in all: the middle of the league on both counts, which for a team that started with no quarterback is a real summer.",
-     "Six of those buys went on multi-year contracts at the auction, and the biggest ones are long: Goff at {{f.team.0012.contract_12611_salary}} this year and {{f.team.0012.contract_12611_tcv}} in all, Stafford at {{f.team.0012.contract_9431_tcv}}, and White at {{f.team.0012.contract_15721_tcv}}. There were no restructures before, during or after it.",
-     "After the auction he traded a 2027 fourth to Real Deal Creel for George Karlaftis and a 2027 fifth, cut Marquise Brown with {{f.team.0012.cut_14105_salary}} of salary and a {{f.team.0012.cut_14105_penalty}} penalty charged to 2027, and claimed Cairo Santos and Sam Martin off waivers to kick and punt.",
-     "The lineup it built has {{f.team.0012.studs_today}} top-twelve starters, Stafford and Kelce, and {{f.team.0012.holes_today}} holes: Stevenson at the second running back spot, Mike Evans and Carnell Tate at receiver, and Michael Wilson and J.K. Dobbins in the flexes. Receiver is where the Hawks rank lowest, {{f.team.0012.wr_rank|ord}} of {{f.league.teams}}. The kicker, Andres Borregales, is an Elite PK1 on MFL's projections."
+     "The Hawks spent {{f.team.0012.faa_spend}} at the Free Agent Auction, and most of it went on the position they did not have. Jared Goff cost {{f.team.0012.faa_12611_price}} after twelve bids, the most contested of his wins, and Matthew Stafford {{f.team.0012.faa_9431_price}}, with Rachaad White at {{f.team.0012.faa_15721_price}}, Rhamondre Stevenson at {{f.team.0012.faa_15259_price}} and Travis Kelce at {{f.team.0012.faa_11244_price}} behind them.",
+     "What it bought: Stafford, a Low-end QB1, and Kelce, a Low-end TE1, the two Very good buys; Goff, a High-end QB2 and the Good one in a league where every team starts two quarterbacks; and Stevenson, who starts. White is depth. The league table ranks the Hawks {{f.team.0012.faa_off_rank|ord}} of {{f.league.teams}} for how much the auction improved the offense, which for a team that started with no quarterback is a real summer.",
+     "The biggest buys signed long: Goff for {{f.team.0012.contract_12611_years}} years at {{f.team.0012.contract_12611_salary}} a year, a TCV of {{f.team.0012.contract_12611_tcv}}, Stafford at {{f.team.0012.contract_9431_tcv}} over two, and White at {{f.team.0012.contract_15721_tcv}}. He made no restructures. After the auction he traded a 2027 fourth to Real Deal Creel for George Karlaftis and a 2027 fifth, a {{f.team.0012.trade1_grade}} from the trade bot, cut Marquise Brown with {{f.team.0012.cut_14105_salary}} of salary and a {{f.team.0012.cut_14105_penalty}} penalty charged to 2027, and claimed Cairo Santos and Sam Martin off waivers to kick and punt.",
+     "The lineup it built has {{f.team.0012.studs_today}} top-twelve starters, Stafford and Kelce, and {{f.team.0012.holes_today}} holes: Stevenson at the second running back spot, Mike Evans and Carnell Tate at receiver, and Michael Wilson and J.K. Dobbins in the flexes. Receiver is where the Hawks rank lowest, {{f.team.0012.wr_rank|ord}} of {{f.league.teams}}. Graded on MFL's projections, the defense is the better half of the roster: Allen, Fred Warner and Chop Robinson all grade as starters near the top of their positions, and the kicker, Andres Borregales, is an Elite PK1.",
+     "No starter is hurt. Jakobi Meyers is questionable on the bench with a thumb, Jeremiah Owusu-Koramoah is on injured reserve for the season, and two taxi-squad players are banged up."
     ],
     "place": [
      "t.0012.faa",
      "t.0012.faa_value",
      "t.0012.moves_s3",
-     "t.0012.lineup"
+     "t.0012.lineup",
+     "t.0012.injuries"
     ],
     "placeAt": {
      "t.0012.faa": 0,
      "t.0012.faa_value": 1,
      "t.0012.moves_s3": 2,
-     "t.0012.lineup": 4
+     "t.0012.lineup": 4,
+     "t.0012.injuries": 4
     },
     "views": {
      "t.0012.faa": {
@@ -109,10 +111,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -122,7 +126,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -137,50 +142,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0012.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0012.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0012.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Klingenberg has been here since {{f.team.0012.hist_first_season}}, {{f.team.0012.hist_seasons}} completed seasons, and the record is honest about them: no title, one runner-up finish in {{f.team.0012.hist_runner_up_years}}, {{f.team.0012.hist_playoffs}} playoff trips, and division titles in {{f.team.0012.hist_div_title_years}}. His career all-play record of {{f.team.0012.hist_allplay_pct}} is the lowest in the league."
+     "Klingenberg has been here since {{f.team.0012.hist_first_season}}, {{f.team.0012.hist_seasons}} completed seasons, and the record is honest about them: no title, one runner-up finish in {{f.team.0012.hist_runner_up_years}}, {{f.team.0012.hist_playoffs}} playoff trips, and division titles in {{f.team.0012.hist_div_title_years}}. His career all-play record of {{f.team.0012.hist_allplay_pct}} is the lowest in the league.",
+     "His new division picked him first among its own. This is year one of the alignment the owners drafted themselves, and Bear Dunn, seated third among the captains, took the Hawks {{f.league.div_draft_pick_0012|ord}} overall, exactly as he had announced in January, the day the draft was first floated. DOG POUND 4 LIFE belongs to C-Town on paper: {{f.league.p_division_0009}} to win it, against {{f.league.p_division_0011}} for Cleon Ca$h and {{f.team.0012.sim_p_division}} for the Hawks, whose playoff odds are {{f.team.0012.sim_p_playoffs}}.",
+     "The division weeks are {{f.team.0012.div_weeks}}, with no byes in the first two, and one of them is the worst week on any roster in the division. Week eight costs him Evans and Warner. Week eleven takes five Hawks starters at once, Stafford, Kyren Williams, Stevenson, Borregales and Marcus Jones, against four for C-Town and three for Cleon Ca$h. Week fourteen, the last of the regular season, takes Wilson and DeMarvion Overshown. Across the five weeks he loses {{f.team.0012.div_week_own_byes}} starters to byes and his rivals {{f.team.0012.div_week_rival_byes}}.",
+     "The next three years, Klingenberg style. 2027: the Hawks win DOG POUND 4 LIFE?!?! Goff and Stafford carry it... no, wait, strike that, C-Town wins it, bro, but the Hawks make the playoffs. 2028: Tate is a lead receiver and Lemon is right behind him, and this is the year, dude, this is definitely the year. 2029: Cleon Ca$h wins the title, out of this very division, and Klingenberg says he called it. He did not.",
+     "Week one is a division week, and it is off to a better start than the spring. With {{f.league.wk_teams_final}} NFL teams done, Mike Evans caught a touchdown, Kyren Williams ran one in, and the Hawks already have {{f.team.0012.wk_points_final}} points in the bank. Stafford threw an interception in a quiet first game."
     ],
     "place": [
-     "t.0012.history"
+     "t.0012.history",
+     "t.0012.division",
+     "t.0012.division_weeks",
+     "t.0012.week1"
     ],
     "placeAt": {
-     "t.0012.history": 0
+     "t.0012.history": 0,
+     "t.0012.division": 1,
+     "t.0012.division_weeks": 2,
+     "t.0012.week1": 4
     },
     "views": {
      "t.0012.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "DOG POUND 4 LIFE is C-Town Chivalry's division until someone takes it from them. The simulation ranks C-Town {{f.league.power_rank_0009|ord}} in the league with {{f.league.p_title_0009}} title odds, Cleon Ca$h {{f.league.power_rank_0011|ord}}, and the Hawks {{f.team.0012.power_rank|ord}}, with {{f.team.0012.sim_p_playoffs}} playoff odds and a {{f.team.0012.sim_p_division}} chance at the division. Each of them is played five times.",
-     "The next three years, Klingenberg style. 2027: the Hawks win DOG POUND 4 LIFE?!?! Goff and Stafford carry it... no, wait, strike that, C-Town wins it, bro, but the Hawks make the playoffs. 2028: Tate is a lead receiver and Lemon is right behind him, and this is the year, dude, this is definitely the year. 2029: they do not win the title. Actually, they might. That is the projection, and he will have changed his mind about it twice by the time you read this.",
-     "Week one is off to a better start than the spring. With {{f.league.wk_teams_final}} NFL teams done, Mike Evans caught a touchdown, Kyren Williams ran one in, and the Hawks already have {{f.team.0012.wk_points_final}} points in the bank. Stafford threw an interception in a quiet first game."
-    ],
-    "place": [
-     "t.0012.division",
-     "t.0012.week1"
-    ],
-    "placeAt": {
-     "t.0012.division": 0,
-     "t.0012.week1": 2
-    },
-    "views": {
+     },
      "t.0012.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0012.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0012.week1": {
       "cols": [

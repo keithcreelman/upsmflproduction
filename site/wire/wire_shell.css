@@ -95,6 +95,29 @@
   margin-left: 0.45rem;
 }
 
+/* The cover story's own table, drawn under its card as one block. */
+.wire-leadbox { display: block; }
+.wire-lead-table {
+  background: var(--surface); border: 1px solid var(--line); border-top: 0;
+  padding: 0.2rem clamp(1rem, 3vw, 1.4rem) 1.1rem;
+}
+.wire-lead-table-title {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold);
+  margin: 0.8rem 0 0.5rem;
+}
+.wire-lead-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wire-lead-table table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.wire-lead-table th {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); text-align: left;
+  padding: 0.4rem 0.55rem; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.wire-lead-table td { padding: 0.38rem 0.55rem; border-bottom: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
+.wire-lead-table tbody tr:last-child td { border-bottom: 0; }
+.wire-lead-table .wire-num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.wire-lead-table .wire-seeall { margin-top: 0.85rem; }
+
 .wire-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 1rem; }
 
 /* ---------- family rails ---------- */

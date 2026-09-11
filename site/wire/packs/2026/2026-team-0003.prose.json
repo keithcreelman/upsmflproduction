@@ -5,13 +5,13 @@
  },
  "prose": {
   "title": "Gride Worked the Phones All Summer and Came Out With Mahomes and St. Brown",
-  "dek": "Matt Gerardi made {{f.team.0003.trades_s2}} trades between the draft and the lock, flipped a tag and a same-day extension into Amon-Ra St. Brown, and paid {{f.team.0003.faa_13116_price}} for Patrick Mahomes. The preseason simulation still ranks Gride {{f.team.0003.power_rank|ord}}, and there is a lot of season to change that.",
+  "dek": "Matt Gerardi made {{f.team.0003.trades_s2}} trades between the draft and the lock, flipped a tag into Jadarian Price and a same-day extension into Amon-Ra St. Brown, and paid {{f.team.0003.faa_13116_price}} for Patrick Mahomes. The preseason simulation still ranks Gride {{f.team.0003.power_rank|ord}}, and there is a lot of season to change that.",
   "sections": [
    {
     "id": "s1",
     "paragraphs": [
      "April was a roster without a single top-twelve starter. Gerardi had {{f.team.0003.active_roster_opening}} active players and {{f.team.0003.cap_opening}} in salary; Sam Darnold and Cam Skattebo were solid, and the other {{f.team.0003.holes_opening}} spots were holes: Chris Rodriguez at the second running back spot, DJ Moore and Michael Pittman at receiver, David Njoku at tight end, Deebo Samuel and Jalen Coker in the flexes, and Bryce Young in the superflex.",
-     "Before the draft he made one move, and it was a big one. Young's rookie deal was running out, and Gerardi extended him in May at {{f.team.0003.contract_16148_salary}} this year and {{f.team.0003.contract_16148_tcv}} in all. The other three expiring rookies, Rodriguez, Kendre Miller and Tyjae Spears, went to the Expired Rookie Auction and to other teams."
+     "Before the draft he made one move, and it was a big one. Young's rookie deal was running out, and in May Gerardi extended him for {{f.team.0003.contract_16148_salary}} a year for {{f.team.0003.contract_16148_years}} years, a TCV of {{f.team.0003.contract_16148_tcv}}. The other three expiring rookies, Rodriguez, Kendre Miller and Tyjae Spears, went to the Expired Rookie Auction and to other teams."
     ],
     "place": [
      "t.0003.slot_bridge",
@@ -39,7 +39,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "Before the rookie draft"
@@ -58,8 +59,8 @@
    {
     "id": "s2",
     "paragraphs": [
-     "Then he got busy. Gerardi tagged Travis Etienne at {{f.team.0003.contract_15253_salary}}, and two days later the tag was a chip: Etienne and 1.07 went to Real Deal Creel for 1.04, where Gride took Jadarian Price. Over draft week he made four more deals, moving up and down the board, and came out with {{f.team.0003.rookie_picks_count}} picks, three of them first-rounders: Price at 1.04, Jordyn Tyson at 1.05, a slot that has produced a usable player half the time, and Antonio Williams at 1.11, plus Chris Bell at 2.03 and Trey Smack at 6.03, who is already his starting kicker.",
-     "July brought the second chip. On the same day, Gerardi extended Sam Darnold at {{f.team.0003.contract_13592_salary}} this year and sent him to L.A. Looks with Coker and Emmett Johnson for Amon-Ra St. Brown, Shedeur Sanders and {{f.team.0003.trade_blind_bid_cash}} of blind-bid money. That deal alone took on {{f.team.0003.trade5_salary_in}} of salary and sent {{f.team.0003.trade5_salary_out}} away, and it bought a High-end WR1. On lock day he cut Pittman, {{f.team.0003.cut_14842_salary}} of salary with a {{f.team.0003.cut_14842_penalty}} penalty, to make the room back."
+     "Then he got busy. Gerardi tagged Travis Etienne at {{f.team.0003.contract_15253_salary}}, and three days later the tag was a chip: on draft night Etienne and 1.07 went to Real Deal Creel for 1.04, where Gride took Jadarian Price, a {{f.team.0003.trade1_grade}} from the trade bot. He made three more deals that night: 2.05 and 2.10 to The Long Haulers for 2.03 and 3.06, a {{f.team.0003.trade2_grade}}; a 2027 second to Pure Greatness for 2.09 and 4.12, a {{f.team.0003.trade3_grade}}; and, about an hour after getting it, 3.06 to Real Deal Creel for 3.09 and 3.12, which the bot graded {{f.team.0003.trade4_grade}}. He came out with {{f.team.0003.rookie_picks_count}} picks, three of them first-rounders: Price at 1.04, Jordyn Tyson at 1.05, a slot that has produced a usable player half the time, and Antonio Williams at 1.11, plus Chris Bell at 2.03 and Trey Smack at 6.03, who is already his starting kicker.",
+     "July brought the second chip. On the same day Gerardi extended Sam Darnold one more year, {{f.team.0003.contract_13592_next_salary}} for 2027, and sent him to L.A. Looks with Coker and Emmett Johnson for Amon-Ra St. Brown, Shedeur Sanders and {{f.team.0003.trade_blind_bid_cash}} of blind-bid money, a {{f.team.0003.trade5_grade}} from the bot. That deal alone took on {{f.team.0003.trade5_salary_in}} of salary and sent {{f.team.0003.trade5_salary_out}} away, and it bought a High-end WR1. On lock day he cut Pittman, {{f.team.0003.cut_14842_salary}} of salary with a {{f.team.0003.cut_14842_penalty}} penalty, to make the room back."
     ],
     "place": [
      "t.0003.rookies",
@@ -88,7 +89,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the draft to the auction lock"
@@ -99,21 +101,24 @@
    {
     "id": "s3",
     "paragraphs": [
-     "The auction was quarterbacks and nothing else of size. Patrick Mahomes cost {{f.team.0003.faa_13116_price}} and Malik Willis {{f.team.0003.faa_15694_price}} after fourteen bids; every other one of his {{f.team.0003.faa_lots_won}} wins cost the minimum. Mahomes is the Very good and Willis the Good in the What it bought column, and the league table ranks the money {{f.team.0003.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added.",
-     "Mahomes signed a multi-year deal the day he was won and had it restructured the same afternoon, front-loaded to {{f.team.0003.contract_13116_salary_2}} this year with the {{f.team.0003.contract_13116_tcv}} total unchanged, using the room the Pittman cut had opened. Willis got his multi-year deal in September, {{f.team.0003.contract_15694_salary}} this year and {{f.team.0003.contract_15694_tcv}} in all. No waiver claims, one late release of a minimum receiver, and {{f.team.0003.cap_current_room}} of room left.",
-     "The lineup it built has {{f.team.0003.studs_today}} top-twelve starters, Mahomes and St. Brown, with Skattebo and Willis solid, and {{f.team.0003.holes_today}} holes: Price at the second running back spot, DJ Moore at receiver, Hunter Henry at tight end, and Deebo Samuel and Kimani Vidal in the flexes. His backs and his tight ends both rank last in the league. Bryce Young, extended in May, is on the bench."
+     "Gride spent {{f.team.0003.faa_spend}} at the Free Agent Auction, almost all of it on two quarterbacks. Patrick Mahomes cost {{f.team.0003.faa_13116_price}} and Malik Willis {{f.team.0003.faa_15694_price}} after fourteen bids; every other one of his {{f.team.0003.faa_lots_won}} wins cost the minimum. Mahomes is the Very good buy and Willis the Good one, and the league table ranks Gride {{f.team.0003.faa_off_rank|ord}} of {{f.league.teams}} for how much the auction improved the offense.",
+     "Mahomes signed for {{f.team.0003.contract_13116_years}} years at a TCV of {{f.team.0003.contract_13116_tcv}} the day he was won and was restructured the same day, front-loaded to {{f.team.0003.contract_13116_salary_2}} this year and {{f.team.0003.contract_13116_next_salary_2}} in 2027 with the total unchanged, using the room the Pittman cut had opened. Willis got his multi-year deal in September, {{f.team.0003.contract_15694_years}} years at {{f.team.0003.contract_15694_salary}} a year. No waiver claims, one late release of a minimum receiver, and {{f.team.0003.cap_current_room}} of room left.",
+     "The lineup it built has {{f.team.0003.studs_today}} top-twelve starters, Mahomes and St. Brown, with Skattebo and Willis solid, and {{f.team.0003.holes_today}} holes: Price at the second running back spot, DJ Moore at receiver, Hunter Henry at tight end, and Deebo Samuel and Kimani Vidal in the flexes. His backs and his tight ends both rank last in the league. Graded on MFL's projections the defense is the thinnest in the division, Myles Murphy the only starter above replacement level, and Bryce Young, extended in May, is on the bench.",
+     "No starter is hurt, but the rookie class is. Tyson, the 1.05 pick, is on injured reserve into October, and Chris Brazzell II is out for the season; Alex Wright, a one-dollar auction defender, is out for the year with an Achilles."
     ],
     "place": [
      "t.0003.faa",
      "t.0003.faa_value",
      "t.0003.moves_s3",
-     "t.0003.lineup"
+     "t.0003.lineup",
+     "t.0003.injuries"
     ],
     "placeAt": {
      "t.0003.faa": 0,
      "t.0003.faa_value": 0,
      "t.0003.moves_s3": 1,
-     "t.0003.lineup": 2
+     "t.0003.lineup": 3,
+     "t.0003.injuries": 3
     },
     "views": {
      "t.0003.faa": {
@@ -131,10 +136,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -144,7 +151,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -159,50 +167,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0003.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0003.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0003.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Gerardi has been here since {{f.team.0003.hist_first_season}}, {{f.team.0003.hist_seasons}} completed seasons, and his one title, in {{f.team.0003.hist_title_years}}, came in one of his two division-winning years, {{f.team.0003.hist_div_title_years}}. It is a thin record around a real trophy: {{f.team.0003.hist_playoffs}} playoff trips and a {{f.team.0003.hist_allplay_pct}} career all-play record."
+     "Gerardi has been here since {{f.team.0003.hist_first_season}}, {{f.team.0003.hist_seasons}} completed seasons, and his one title, in {{f.team.0003.hist_title_years}}, came in one of his two division-winning years, {{f.team.0003.hist_div_title_years}}. It is a thin record around a real trophy: {{f.team.0003.hist_playoffs}} playoff trips and a {{f.team.0003.hist_allplay_pct}} career all-play record.",
+     "Derrick Whitman took Gride {{f.league.div_draft_pick_0003|ord}} overall in the league's first Owner Divisional Draft, the first pick of his captaincy, and LEGION OF BOOM is a hard room for the team the simulation ranks last. Blake Bombers are {{f.league.power_rank_0010|ord}} and the division favorite at {{f.league.p_division_0010}}, CBP is at {{f.league.p_division_0002}}, and Gride is at {{f.team.0003.sim_p_division}}, with {{f.team.0003.sim_p_playoffs}} playoff odds.",
+     "The division weeks are {{f.team.0003.div_weeks}}, and the byes split evenly. Week eight costs him Skattebo, Samuel and Kamari Lassiter, three starters, the same as CBP and Blake Bombers lose. Week eleven takes Price, Henry, Smack and Divine Deablo, while CBP loses six. Week fourteen, the last of the regular season, has no byes anywhere in the division. Across the five weeks he loses {{f.team.0003.div_week_own_byes}} starters to byes and his rivals {{f.team.0003.div_week_rival_byes}}.",
+     "The next three years, as Gride would put them... 2027.. the rookies arrive, Price and Tyson start, and Gride misses the playoffs by a game... 2028... Mahomes and St. Brown one more time, and the phones stay busy.... 2029..... the playoffs, finally, and Gride announces it in the third person",
+     "Week one is a division week, and it started well for the team at the bottom: with {{f.league.wk_teams_final}} NFL teams done, Deebo Samuel scored a touchdown and Gride has {{f.team.0003.wk_points_final}} points in the bank."
     ],
     "place": [
-     "t.0003.history"
+     "t.0003.history",
+     "t.0003.division",
+     "t.0003.division_weeks",
+     "t.0003.week1"
     ],
     "placeAt": {
-     "t.0003.history": 0
+     "t.0003.history": 0,
+     "t.0003.division": 1,
+     "t.0003.division_weeks": 2,
+     "t.0003.week1": 4
     },
     "views": {
      "t.0003.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "LEGION OF BOOM is a hard room for the team the simulation ranks last. Blake Bombers are {{f.league.power_rank_0010|ord}}, CBP is {{f.league.power_rank_0002|ord}}, and Gride is {{f.team.0003.power_rank|ord}}, with {{f.team.0003.sim_p_playoffs}} playoff odds and {{f.team.0003.sim_p_title}} title odds. Gerardi plays Blake and Whitman five times each.",
-     "The next three years, as Gride would put them... 2027.. the rookies arrive, Price and Tyson start, and Gride makes the playoffs... 2028... Mahomes and St. Brown one more time, and Gride announces it in the third person.... 2029..... a second title, and nobody hears about it for a quarter",
-     "Week one started well for the team at the bottom: with {{f.league.wk_teams_final}} NFL teams done, Deebo Samuel scored a touchdown and Gride has {{f.team.0003.wk_points_final}} points in the bank."
-    ],
-    "place": [
-     "t.0003.division",
-     "t.0003.week1"
-    ],
-    "placeAt": {
-     "t.0003.division": 0,
-     "t.0003.week1": 2
-    },
-    "views": {
+     },
      "t.0003.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0003.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0003.week1": {
       "cols": [

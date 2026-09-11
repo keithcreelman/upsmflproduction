@@ -1,0 +1,409 @@
+{
+ "season": 2026,
+ "asof": "2026-09-11",
+ "rule": "Grade = the league trade bot's letter for each side (pipelines/etl/scripts/trade_grader.py). published=true: the bot posted that grade to the league at the time (content_archive.json / D1 ups_roast_threads); where the bot later re-graded a trade in an official SECOND LOOK (Kittle, 2026-07-13) the re-grade stands. published=false: the trade predates the bot's league posts (before 2026-05-24), so it was graded after the fact by the same grader on as-of-trade contracts and is printed with an asterisk -- 'not graded at the time'. The Hurts trade (2026-04-09) is treated as not graded: its only post (2026-05-23) went to a channel that cannot be confirmed as the league's.",
+ "trades": [
+  {
+   "keys": [
+    "1774623376"
+   ],
+   "date": "2026-03-27T14:56:16Z",
+   "franchises": [
+    "0007",
+    "0010"
+   ],
+   "grades": {
+    "0007": "C",
+    "0010": "C+"
+   },
+   "published": false,
+   "publishedAt": null,
+   "confidence": null,
+   "source": "recomputed",
+   "note": "NOT GRADED AT THE TIME (*). Grade = current trade_grader.analyze_trade on as-of inputs; score {'0007': -28.5, '0010': -21.9}. | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1775772921"
+   ],
+   "date": "2026-04-09T22:15:21Z",
+   "franchises": [
+    "0006",
+    "0005"
+   ],
+   "grades": {
+    "0006": "C",
+    "0005": "A-"
+   },
+   "published": false,
+   "publishedAt": null,
+   "confidence": "undetermined (treated as not published; possibly published)",
+   "source": "recomputed",
+   "note": "NOT GRADED AT THE TIME (*). Grade = current trade_grader.analyze_trade on as-of inputs; score {'0006': -35.2, '0005': 18.9}. | A grade exists ONLY in the TEST channel: 2026-05-23T14:10:58Z, 'The Long Haulers: D+ (-56.1%) / HammerTime: A (+37.3%)' (D1 ups_roast_threads roast_message_id 1507747674659754035, channel 1089538054236160010 = TEST; exciting-tharp roast_tracker entry 1507747577334993028). That run valued Hurts at 0.0 PPG (pre-2026-07-12 bug, see commit 9b14316f), so it is not a usable grade. | Contracts: snapshot 2026-04-21 (first snapshot; = src_contracts 2025 rolled; ext only 2026-07"
+  },
+  {
+   "keys": [
+    "1776092645"
+   ],
+   "date": "2026-04-13T15:04:05Z",
+   "franchises": [
+    "0005",
+    "0008"
+   ],
+   "grades": {
+    "0005": "D+",
+    "0008": "A"
+   },
+   "published": false,
+   "publishedAt": null,
+   "confidence": null,
+   "source": "recomputed",
+   "note": "NOT GRADED AT THE TIME (*). Grade = current trade_grader.analyze_trade on as-of inputs; score {'0005': -46.9, '0008': 27.6}. | Contracts: snapshot 2026-04-21 (8 days post-trade); pre-trade extension per MFL trade comment | PPG: Kenneth Walker III 13.2 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals) | Sensitivity - IF the pre-trade extension had NOT been applied: 2025 row rolled (last year $32K) -> {'0005': 'D+', '0008': 'B+'} ({'0005': -43.4, '0008': 13.5})"
+  },
+  {
+   "keys": [
+    "1776396348"
+   ],
+   "date": "2026-04-17T03:25:48Z",
+   "franchises": [
+    "0005",
+    "0001"
+   ],
+   "grades": {
+    "0005": "C",
+    "0001": "A"
+   },
+   "published": false,
+   "publishedAt": null,
+   "confidence": null,
+   "source": "recomputed",
+   "note": "NOT GRADED AT THE TIME (*). Grade = current trade_grader.analyze_trade on as-of inputs; score {'0005': -38.3, '0001': 38.3}. | Contracts: reconstructed: src_contracts 2025 row rolled one year; extension 2026-04-17T19:14Z postdates trade | PPG: David Montgomery 12.9 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals) | Sensitivity - IF graded on the post-extension contract (2026-04-21 snapshot) -> {'0005': 'C', '0001': 'A'} ({'0005': -39.7, '0001': 39.7})"
+  },
+  {
+   "keys": [
+    "1778117113"
+   ],
+   "date": "2026-05-07T01:25:13Z",
+   "franchises": [
+    "0004",
+    "0006"
+   ],
+   "grades": {
+    "0004": "A",
+    "0006": "C"
+   },
+   "published": false,
+   "publishedAt": null,
+   "confidence": null,
+   "source": "recomputed",
+   "note": "NOT GRADED AT THE TIME (*). Grade = current trade_grader.analyze_trade on as-of inputs; score {'0004': 39.6, '0006': -39.6}. | Contracts: data/mfl-snapshots/2026-05-07/rosters.json (earliest snapshot showing the post-trade roster) | 16188 contract differs vs pre-trade snapshot 2026-05-06 (pre: $8000 cy0 'CL 3| TCV 24K| AAV 8K' -> used: $18000 cy1 'CL 1| TCV 18K| AAV 18K| Y1-18K| Ext: PG| GTD: 13.5K') | PPG: Quentin Johnston 12.8 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals)"
+  },
+  {
+   "keys": [
+    "1778546756"
+   ],
+   "date": "2026-05-12T00:45:56Z",
+   "franchises": [
+    "0006",
+    "0007"
+   ],
+   "grades": {
+    "0006": "B",
+    "0007": "B"
+   },
+   "published": false,
+   "publishedAt": null,
+   "confidence": null,
+   "source": "recomputed",
+   "note": "NOT GRADED AT THE TIME (*). Grade = current trade_grader.analyze_trade on as-of inputs; score {'0006': 4.2, '0007': -4.2}. | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1779663725"
+   ],
+   "date": "2026-05-24T23:02:05Z",
+   "franchises": [
+    "0008",
+    "0003"
+   ],
+   "grades": {
+    "0008": "C",
+    "0003": "B-"
+   },
+   "published": true,
+   "publishedAt": "2026-05-25T02:07:31Z",
+   "confidence": "probable",
+   "source": "W-T roast_tracker.json entry ann_msg 1508290290967122041 (worktree prod-mode bot; channel_id not recorded) GRADES 'UPS Commish: C (-34.2%) / Gride: B- (-9.2%)'; same letters in TEST-channel posts 2026-05-25T00:05-01:00Z (main content_archive trade-1779663725; D1 ups_roast_threads channel 1089538054236160010)",
+   "note": "PUBLISHED grade used (probable). Recomputed with the current grader + as-of inputs for reference: {'0008': 'C+', '0003': 'C+'} ({'0008': -22.6, '0003': -20.0}). | Published and recomputed letters differ; the published letter came from the grader code/data live at post time (see publish_source). | Contracts: data/mfl-snapshots/2026-05-25/rosters.json (earliest snapshot showing the post-trade roster) | PPG: Travis Etienne 14.6 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals)"
+  },
+  {
+   "keys": [
+    "1779667183"
+   ],
+   "date": "2026-05-24T23:59:43Z",
+   "franchises": [
+    "0006",
+    "0003"
+   ],
+   "grades": {
+    "0006": "B",
+    "0003": "B"
+   },
+   "published": true,
+   "publishedAt": "2026-05-25T02:07:54Z",
+   "confidence": "probable",
+   "source": "W-T entry ann_msg 1508290397062037525 (channel_id not recorded) GRADES 'The Long Haulers: B (+4.0%) / Gride: B (-4.0%)'; same letters in TEST-channel posts 2026-05-25T00:59Z/01:01Z (main content_archive trade-1779667183)",
+   "note": "PUBLISHED grade used (probable). Recomputed with the current grader + as-of inputs for reference: {'0006': 'B', '0003': 'B'} ({'0006': 3.4, '0003': -3.4}). | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1779668012"
+   ],
+   "date": "2026-05-25T00:13:32Z",
+   "franchises": [
+    "0008",
+    "0004"
+   ],
+   "grades": {
+    "0008": "C+",
+    "0004": "A-"
+   },
+   "published": true,
+   "publishedAt": "2026-05-25T02:08:19Z",
+   "confidence": "verified (06-01 repost)",
+   "source": "W-T entry ann_msg 1508290493639954673 2026-05-25T02:08:19Z 'UPS Commish: C+ (-20.4%) / Pure Greatness: A- (+20.4%)'; VERIFIED prod re-post 2026-06-01T10:46:09Z (worktree content_archive trade-1779668012 env=prod channel 1059111651846131833, grades 0008 C+ / 0004 A-)",
+   "note": "PUBLISHED grade used (verified (06-01 repost)). Recomputed with the current grader + as-of inputs for reference: {'0008': 'C+', '0004': 'A-'} ({'0008': -23.4, '0004': 23.4}). | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1779668813"
+   ],
+   "date": "2026-05-25T00:26:53Z",
+   "franchises": [
+    "0004",
+    "0003"
+   ],
+   "grades": {
+    "0004": "B-",
+    "0003": "B+"
+   },
+   "published": true,
+   "publishedAt": "2026-05-25T02:08:43Z",
+   "confidence": "verified (06-01 repost)",
+   "source": "W-T entry ann_msg 1508290594555039904 'Pure Greatness: B- (-5.4%) / Gride: B+ (+5.4%)'; VERIFIED prod re-posts 2026-06-01T10:45:49Z and 11:05:51Z (worktree content_archive env=prod ch 1059111651846131833)",
+   "note": "PUBLISHED grade used (verified (06-01 repost)). Recomputed with the current grader + as-of inputs for reference: {'0004': 'B-', '0003': 'B+'} ({'0004': -5.7, '0003': 5.7}). | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1779669427"
+   ],
+   "date": "2026-05-25T00:37:07Z",
+   "franchises": [
+    "0005",
+    "0004"
+   ],
+   "grades": {
+    "0005": "B",
+    "0004": "B"
+   },
+   "published": true,
+   "publishedAt": "2026-05-25T02:09:08Z",
+   "confidence": "verified (06-01 repost)",
+   "source": "W-T entry ann_msg 1508290697063825428 'HammerTime: B (-3.6%) / Pure Greatness: B (+3.6%)'; VERIFIED prod re-posts 2026-06-01T10:45:27Z, 11:05:29Z, 11:10:25Z",
+   "note": "PUBLISHED grade used (verified (06-01 repost)). Recomputed with the current grader + as-of inputs for reference: {'0005': 'B', '0004': 'B'} ({'0005': -3.9, '0004': 3.9}). | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1779670862"
+   ],
+   "date": "2026-05-25T01:01:02Z",
+   "franchises": [
+    "0008",
+    "0003"
+   ],
+   "grades": {
+    "0008": "C",
+    "0003": "A"
+   },
+   "published": true,
+   "publishedAt": "2026-05-25T02:27:30Z",
+   "confidence": "verified (06-01 repost)",
+   "source": "W-T entry ann_msg 1508295323942912102 'UPS Commish: C (-25.3%) / Gride: A (+25.3%)'; VERIFIED prod re-posts 2026-06-01T10:45:06Z, 11:05:07Z, 11:10:02Z, 11:15:02Z",
+   "note": "PUBLISHED grade used (verified (06-01 repost)). Recomputed with the current grader + as-of inputs for reference: {'0008': 'C', '0003': 'A'} ({'0008': -27.3, '0003': 27.3}). | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1779671397"
+   ],
+   "date": "2026-05-25T01:09:57Z",
+   "franchises": [
+    "0001",
+    "0005"
+   ],
+   "grades": {
+    "0001": "B-",
+    "0005": "B+"
+   },
+   "published": true,
+   "publishedAt": "2026-06-01T10:44:43Z",
+   "confidence": "verified",
+   "source": "VERIFIED prod posts 2026-06-01T10:44:43Z, 11:04:44Z, 11:09:41Z, 11:14:41Z (worktree content_archive trade-1779671397 env=prod ch 1059111651846131833, 0001 B- / 0005 B+). NOTE the earlier worktree post 2026-05-25T02:27:55Z (W-T ann_msg 1508295424338034799, channel not recorded) said 'Ulterior Warrior: B (-1.3%) / HammerTime: B (+1.3%)' - two different letters exist for this trade",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0001': 'B-', '0005': 'B+'} ({'0001': -12.1, '0005': 12.1}). | Contracts: no players in trade (picks/BB only) - contracts not needed"
+  },
+  {
+   "keys": [
+    "1783770745"
+   ],
+   "date": "2026-07-11T11:52:25Z",
+   "franchises": [
+    "0007",
+    "0010"
+   ],
+   "grades": {
+    "0007": "B+",
+    "0010": "B-"
+   },
+   "published": true,
+   "publishedAt": "2026-07-13T13:26:36Z",
+   "confidence": "verified",
+   "source": "FINAL = 'SECOND LOOK (posted 2026-07-13, the CURRENT official assessment) ... Manther B+ / Blake B-' (D1 ups_roast_threads roast_message_id 1526218134527279134, channel 1059111651846131833, posted_at 1783949196). History: original post 2026-07-12T13:26:07Z A+ (0007) / D+ (0010) (main content_archive trade-1783770745; tracker channel 1059111651846131833); in-thread correction 2026-07-12T15:23Z 'Reg",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0007': 'A', '0010': 'C'} ({'0007': 30.8, '0010': -30.8}). | Published and recomputed letters differ; the published letter came from the grader code/data live at post time (see publish_source). | Contracts: data/mfl-snapshots/2026-07-12/rosters.json (earliest snapshot showing the post-trade roster) | PPG: George Kittle 19.2 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals)"
+  },
+  {
+   "keys": [
+    "1784340660"
+   ],
+   "date": "2026-07-18T02:11:00Z",
+   "franchises": [
+    "0006",
+    "0001"
+   ],
+   "grades": {
+    "0006": "D+",
+    "0001": "A+"
+   },
+   "published": true,
+   "publishedAt": "2026-07-18T02:16:01Z",
+   "confidence": "verified",
+   "source": "main content_archive trade-1784340660 env=prod ch 1059111651846131833 ('The Long Haulers - GRADE: D+' / 'Ulterior Warrior - GRADE: A+'); D1 roast_message_id 1527861469990096928. Commit 2b623b35 (branch claude/roast-grader-fixes, NOT on main) computed a correction A (0006) / C (0001) via post_roast_correction.py (dry-run by default); no record of it being posted in D1, the tracker, or the archive",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0006': 'A-', '0001': 'C+'} ({'0006': 23.1, '0001': -23.1}). | Published and recomputed letters differ; the published letter came from the grader code/data live at post time (see publish_source). | Contracts: data/mfl-snapshots/2026-07-18/rosters.json (earliest snapshot showing the post-trade roster) | PPG: Isaiah Bond 4.3 PPG from published context | PPG: Jordan Battle 8.3 PPG = trade_grader.fetch_weighted_ppg (2025/24/23 MFL actuals) | PPG: Adonai Mitchell 6.5 PPG from published context"
+  },
+  {
+   "keys": [
+    "1784472018"
+   ],
+   "date": "2026-07-19T14:40:18Z",
+   "franchises": [
+    "0007",
+    "0011"
+   ],
+   "grades": {
+    "0007": "B-",
+    "0011": "B+"
+   },
+   "published": true,
+   "publishedAt": "2026-07-19T14:41:31Z",
+   "confidence": "verified",
+   "source": "main content_archive trade-1784472018 env=prod; D1 roast_message_id 1528411466464755733",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0007': 'B-', '0011': 'B+'} ({'0007': -6.1, '0011': 6.1}). | Contracts: data/mfl-snapshots/2026-07-20/rosters.json (earliest snapshot showing the post-trade roster) | PPG: Efton Chism 3.1 PPG from published context"
+  },
+  {
+   "keys": [
+    "1784743076",
+    "1784743077"
+   ],
+   "date": "2026-07-22T17:57:56Z",
+   "franchises": [
+    "0008",
+    "0009",
+    "0010"
+   ],
+   "grades": {
+    "0008": "A-",
+    "0009": "C+",
+    "0010": "B"
+   },
+   "published": true,
+   "publishedAt": "2026-07-22T18:45:46Z",
+   "confidence": "verified",
+   "source": "Combined 3-way roast: main content_archive id trade-3way-72cea017-d8ca-485b-8089-4122e5dc117a (env=prod, channel 1059111651846131833): 'Real Deal Creel - GRADE: A-' / 'C-Town Chivalry - GRADE: C+' / 'Blake Bombers - GRADE: B'; D1 ups_roast_threads roast_message_id 1529560099448688652. These three letters were assigned by the roast LLM, NOT by trade_grader math: the 3-way prompt says there is no ca",
+   "note": "trade_grader.py only grades 2-party trades; the published whole-deal letters are the LLM's. Per-leg grader letters (published, then superseded by the combined roast): 0008-0009 leg 0008 C / 0009 A; 0009-0010 leg 0009 B+ / 0010 B-; 0008-0010 leg 0008 C+ / 0010 B. The legs are individually one-sided (a team gives an asset for nothing because its return arrives on another leg), which is why the bot later collapsed 3-ways into one roast (commit 3c3ec2ee)."
+  },
+  {
+   "keys": [
+    "1784746367"
+   ],
+   "date": "2026-07-22T18:52:47Z",
+   "franchises": [
+    "0001",
+    "0003"
+   ],
+   "grades": {
+    "0001": "B-",
+    "0003": "B+"
+   },
+   "published": true,
+   "publishedAt": "2026-07-22T18:57:27Z",
+   "confidence": "verified",
+   "source": "main content_archive trade-1784746367 env=prod; D1 roast_message_id 1529563036770369749",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0001': 'B-', '0003': 'B+'} ({'0001': -7.7, '0003': 7.7}). | Contracts: data/mfl-snapshots/2026-07-23/rosters.json (earliest snapshot showing the post-trade roster) | 13592 contract differs vs pre-trade snapshot 2026-07-21 (pre: $18000 cy1 'CL 2| TCV 36K| AAV 18K| Y1-18K, Y2-18K| GTD: 27K' -> used: $18000 cy2 'CL 2|TCV 46K|AAV 18K, 28K|Y1-18K, Y2-28K|Ext: GRID|GTD: 34.5K') | PPG: Amon-Ra St. Brown 21.6 PPG from published context | PPG: Shedeur Sanders 22.5 PPG from published context | PPG: Sam Da"
+  },
+  {
+   "keys": [
+    "1786072948"
+   ],
+   "date": "2026-08-07T03:22:28Z",
+   "franchises": [
+    "0008",
+    "0012"
+   ],
+   "grades": {
+    "0008": "A",
+    "0012": "C"
+   },
+   "published": true,
+   "publishedAt": "2026-08-07T03:23:28Z",
+   "confidence": "verified",
+   "source": "main content_archive trade-1786072948 env=prod; D1 roast_message_id 1535126199616147527",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0008': 'A', '0012': 'C'} ({'0008': 33.3, '0012': -33.3}). | Contracts: data/mfl-snapshots/2026-08-07/rosters.json (earliest snapshot showing the post-trade roster) | PPG: George Karlaftis 6.3 PPG from published context"
+  },
+  {
+   "keys": [
+    "1787538681"
+   ],
+   "date": "2026-08-24T02:31:21Z",
+   "franchises": [
+    "0002",
+    "0010"
+   ],
+   "grades": {
+    "0002": "B",
+    "0010": "B"
+   },
+   "published": true,
+   "publishedAt": "2026-08-24T02:35:09Z",
+   "confidence": "verified",
+   "source": "main content_archive trade-1787538681 env=prod; D1 roast_message_id 1541274635855855698",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0002': 'B', '0010': 'B'} ({'0002': 4.4, '0010': -4.4}). | Contracts: data/mfl-snapshots/2026-08-24/rosters.json (earliest snapshot showing the post-trade roster) | PPG: Ricky Pearsall 10.1 PPG from published context | PPG: Jonah Coleman 9.2 PPG from published context | PPG: Jayden Reed 11.8 PPG from published context | PPG: Eli Heidenreich 3.7 PPG from published context | PPG: Omar Cooper Jr. 11.7 PPG from published context | PPG: Jarquez Hunter 3.0 PPG from published context"
+  },
+  {
+   "keys": [
+    "1788305827"
+   ],
+   "date": "2026-09-01T23:37:07Z",
+   "franchises": [
+    "0007",
+    "0006"
+   ],
+   "grades": {
+    "0007": "C",
+    "0006": "A"
+   },
+   "published": true,
+   "publishedAt": "2026-09-01T23:42:36Z",
+   "confidence": "verified",
+   "source": "main content_archive trade-1788305827 env=prod; D1 roast_message_id 1544492703453024257",
+   "note": "PUBLISHED grade used (verified). Recomputed with the current grader + as-of inputs for reference: {'0007': 'C', '0006': 'A'} ({'0007': -33.0, '0006': 33.0}). | Contracts: data/mfl-snapshots/2026-09-02/rosters.json (earliest snapshot showing the post-trade roster) | PPG: Gunnar Helm 7.4 PPG from published context"
+  }
+ ]
+}

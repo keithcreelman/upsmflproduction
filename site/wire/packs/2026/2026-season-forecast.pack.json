@@ -1,0 +1,2053 @@
+{
+  "schema": 1,
+  "packId": "2026-season-forecast",
+  "title": "The 2026 Season Forecast",
+  "generatedAtUtc": "2026-09-11T13:54:48Z",
+  "season": 2026,
+  "week": null,
+  "sources": [
+    {
+      "name": "D1 ups_owner_career_stats (each owner's documented record)",
+      "asof": "2026-09-11T13:54:48Z",
+      "rows": 12,
+      "note": null
+    },
+    {
+      "name": "MFL league export (divisions)",
+      "asof": "2026-09-11T13:54:48Z",
+      "rows": 4,
+      "note": null
+    },
+    {
+      "name": "site/wire/data/discord_quotes_2026_preseason.json -- league Discord, curated by hand, each quote re-checked against the raw message",
+      "asof": "2026-09-11T13:15:00Z",
+      "rows": 19,
+      "note": null
+    },
+    {
+      "name": "site/wire/data/season_sim_2026.json -- preseason Monte Carlo over MFL's weekly projections",
+      "asof": "2026-09-11T13:45:00Z",
+      "rows": 12,
+      "note": "20000 seasons; each team's projected edge kept at 70% (backtested 2021-2025); power rank = expected regular-season all-play %"
+    }
+  ],
+  "coverage": {
+    "seasonsComplete": [
+      2010,
+      2025
+    ],
+    "currentSeason": 2026,
+    "currentSeasonPartial": true
+  },
+  "warnings": [
+    "The forecast is a SIMULATION of today's rosters on MFL's weekly projections, regressed toward the league (backtested on 2021-2025: it explained about 40%% of the spread in final all-play, but ranked the field at only .3 to .4 in each of the last three seasons). Say 'projected' and 'odds', never 'will'. It cannot see trades, waiver moves, injuries after the build, or lineup choices.",
+    "Every team plays each division rival five times in the 37-game schedule -- that is never news."
+  ],
+  "entities": {
+    "owners": [
+      {
+        "key": "owner:0001",
+        "display": "Ryan Bousquet"
+      },
+      {
+        "key": "owner:0002",
+        "display": "Derrick Whitman"
+      },
+      {
+        "key": "owner:0003",
+        "display": "Matt Gerardi"
+      },
+      {
+        "key": "owner:0004",
+        "display": "Brian Cutting"
+      },
+      {
+        "key": "owner:0005",
+        "display": "Eric Martel"
+      },
+      {
+        "key": "owner:0006",
+        "display": "Brian Cross"
+      },
+      {
+        "key": "owner:0007",
+        "display": "Josh Martel"
+      },
+      {
+        "key": "owner:0008",
+        "display": "Keith Creelman"
+      },
+      {
+        "key": "owner:0009",
+        "display": "Bear Dunn"
+      },
+      {
+        "key": "owner:0010",
+        "display": "Shawn Blake"
+      },
+      {
+        "key": "owner:0011",
+        "display": "Eric Mannila"
+      },
+      {
+        "key": "owner:0012",
+        "display": "Chris Klingenberg"
+      }
+    ],
+    "franchises": [
+      {
+        "season": 2026,
+        "franchiseId": "0001",
+        "ownerKey": "owner:0001",
+        "name": "L.A. Looks",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0002",
+        "ownerKey": "owner:0002",
+        "name": "CBP",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0003",
+        "ownerKey": "owner:0003",
+        "name": "Gride",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0004",
+        "ownerKey": "owner:0004",
+        "name": "Pure Greatness",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0005",
+        "ownerKey": "owner:0005",
+        "name": "HammerTime 🔨 ⏰",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0006",
+        "ownerKey": "owner:0006",
+        "name": "The Long Haulers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0007",
+        "ownerKey": "owner:0007",
+        "name": "Sex Manther",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0008",
+        "ownerKey": "owner:0008",
+        "name": "Real Deal Creel",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0009",
+        "ownerKey": "owner:0009",
+        "name": "C-Town Chivalry",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0010",
+        "ownerKey": "owner:0010",
+        "name": "Blake Bombers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0011",
+        "ownerKey": "owner:0011",
+        "name": "Cleon Ca$h",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0012",
+        "ownerKey": "owner:0012",
+        "name": "Hawks",
+        "attributionSource": "src_franchises"
+      }
+    ],
+    "divisions": [
+      "DOG POUND 4 LIFE",
+      "LEGION OF BOOM",
+      "Maddie Mondays",
+      "Outlast PG Time"
+    ]
+  },
+  "facts": [
+    {
+      "id": "f.league.div_draft_captain_0002",
+      "label": "Captain's seat in the 2026 Owner Divisional Draft: CBP",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_captain_0005",
+      "label": "Captain's seat in the 2026 Owner Divisional Draft: HammerTime 🔨 ⏰",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "1",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_captain_0007",
+      "label": "Captain's seat in the 2026 Owner Divisional Draft: Sex Manther",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_captain_0009",
+      "label": "Captain's seat in the 2026 Owner Divisional Draft: C-Town Chivalry",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0001",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: L.A. Looks",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0003",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: Gride",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0004",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: Pure Greatness",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0006",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: The Long Haulers",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "1",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0008",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: Real Deal Creel",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0010",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: Blake Bombers",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "7",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0011",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: Cleon Ca$h",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.div_draft_pick_0012",
+      "label": "Overall pick in the 2026 Owner Divisional Draft: Hawks",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3",
+      "source": "Keith (commissioner), 2026-09-11; checked against MFL's divisions",
+      "asof": "2026-05-24"
+    },
+    {
+      "id": "f.league.sim_games",
+      "label": "Regular-season games per team",
+      "value": 37,
+      "unit": "count",
+      "fmt": "37",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.league.sim_runs",
+      "label": "Seasons simulated",
+      "value": 20000,
+      "unit": "count",
+      "fmt": "20,000",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.league.teams",
+      "label": "Teams in the league",
+      "value": 12,
+      "unit": "count",
+      "fmt": "12",
+      "source": "src_franchises",
+      "asof": "2026"
+    },
+    {
+      "id": "f.team.0001.allplay_career",
+      "label": "Career all-play %: Ryan Bousquet",
+      "value": 54.9,
+      "unit": "percent",
+      "fmt": "54.9%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0001.power_rank",
+      "label": "Preseason power rank: L.A. Looks",
+      "value": 11,
+      "unit": "rank",
+      "fmt": "11",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0001.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: L.A. Looks",
+      "value": 43.0,
+      "unit": "percent",
+      "fmt": "43.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0001.sim_exp_wins",
+      "label": "Projected head-to-head wins: L.A. Looks",
+      "value": 15.9,
+      "unit": "ratio",
+      "fmt": "15.9",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0001.sim_p_bye",
+      "label": "First-round bye odds: L.A. Looks",
+      "value": 7.0,
+      "unit": "percent",
+      "fmt": "7.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0001.sim_p_division",
+      "label": "Division odds: L.A. Looks",
+      "value": 21.2,
+      "unit": "percent",
+      "fmt": "21.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0001.sim_p_playoffs",
+      "label": "Playoff odds: L.A. Looks",
+      "value": 32.9,
+      "unit": "percent",
+      "fmt": "32.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0001.sim_p_title",
+      "label": "Title odds: L.A. Looks",
+      "value": 2.6,
+      "unit": "percent",
+      "fmt": "2.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0002.allplay_career",
+      "label": "Career all-play %: Derrick Whitman",
+      "value": 60.0,
+      "unit": "percent",
+      "fmt": "60.0%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0002.power_rank",
+      "label": "Preseason power rank: CBP",
+      "value": 7,
+      "unit": "rank",
+      "fmt": "7",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0002.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: CBP",
+      "value": 50.0,
+      "unit": "percent",
+      "fmt": "50.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0002.sim_exp_wins",
+      "label": "Projected head-to-head wins: CBP",
+      "value": 18.6,
+      "unit": "ratio",
+      "fmt": "18.6",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0002.sim_p_bye",
+      "label": "First-round bye odds: CBP",
+      "value": 15.4,
+      "unit": "percent",
+      "fmt": "15.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0002.sim_p_division",
+      "label": "Division odds: CBP",
+      "value": 36.0,
+      "unit": "percent",
+      "fmt": "36.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0002.sim_p_playoffs",
+      "label": "Playoff odds: CBP",
+      "value": 52.0,
+      "unit": "percent",
+      "fmt": "52.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0002.sim_p_title",
+      "label": "Title odds: CBP",
+      "value": 7.3,
+      "unit": "percent",
+      "fmt": "7.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0003.allplay_career",
+      "label": "Career all-play %: Matt Gerardi",
+      "value": 41.4,
+      "unit": "percent",
+      "fmt": "41.4%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0003.power_rank",
+      "label": "Preseason power rank: Gride",
+      "value": 12,
+      "unit": "rank",
+      "fmt": "12",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0003.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: Gride",
+      "value": 38.3,
+      "unit": "percent",
+      "fmt": "38.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0003.sim_exp_wins",
+      "label": "Projected head-to-head wins: Gride",
+      "value": 14.1,
+      "unit": "ratio",
+      "fmt": "14.1",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0003.sim_p_bye",
+      "label": "First-round bye odds: Gride",
+      "value": 3.7,
+      "unit": "percent",
+      "fmt": "3.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0003.sim_p_division",
+      "label": "Division odds: Gride",
+      "value": 11.8,
+      "unit": "percent",
+      "fmt": "11.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0003.sim_p_playoffs",
+      "label": "Playoff odds: Gride",
+      "value": 20.9,
+      "unit": "percent",
+      "fmt": "20.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0003.sim_p_title",
+      "label": "Title odds: Gride",
+      "value": 1.7,
+      "unit": "percent",
+      "fmt": "1.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0004.allplay_career",
+      "label": "Career all-play %: Brian Cutting",
+      "value": 51.5,
+      "unit": "percent",
+      "fmt": "51.5%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0004.power_rank",
+      "label": "Preseason power rank: Pure Greatness",
+      "value": 2,
+      "unit": "rank",
+      "fmt": "2",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0004.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: Pure Greatness",
+      "value": 58.2,
+      "unit": "percent",
+      "fmt": "58.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0004.sim_exp_wins",
+      "label": "Projected head-to-head wins: Pure Greatness",
+      "value": 21.1,
+      "unit": "ratio",
+      "fmt": "21.1",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_bye",
+      "label": "First-round bye odds: Pure Greatness",
+      "value": 31.0,
+      "unit": "percent",
+      "fmt": "31.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_division",
+      "label": "Division odds: Pure Greatness",
+      "value": 49.5,
+      "unit": "percent",
+      "fmt": "49.5%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_playoffs",
+      "label": "Playoff odds: Pure Greatness",
+      "value": 70.4,
+      "unit": "percent",
+      "fmt": "70.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_title",
+      "label": "Title odds: Pure Greatness",
+      "value": 14.8,
+      "unit": "percent",
+      "fmt": "14.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0005.allplay_career",
+      "label": "Career all-play %: Eric Martel",
+      "value": 55.6,
+      "unit": "percent",
+      "fmt": "55.6%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0005.power_rank",
+      "label": "Preseason power rank: HammerTime 🔨 ⏰",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0005.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: HammerTime 🔨 ⏰",
+      "value": 52.2,
+      "unit": "percent",
+      "fmt": "52.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0005.sim_exp_wins",
+      "label": "Projected head-to-head wins: HammerTime 🔨 ⏰",
+      "value": 18.8,
+      "unit": "ratio",
+      "fmt": "18.8",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0005.sim_p_bye",
+      "label": "First-round bye odds: HammerTime 🔨 ⏰",
+      "value": 17.1,
+      "unit": "percent",
+      "fmt": "17.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0005.sim_p_division",
+      "label": "Division odds: HammerTime 🔨 ⏰",
+      "value": 30.6,
+      "unit": "percent",
+      "fmt": "30.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0005.sim_p_playoffs",
+      "label": "Playoff odds: HammerTime 🔨 ⏰",
+      "value": 53.5,
+      "unit": "percent",
+      "fmt": "53.5%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0005.sim_p_title",
+      "label": "Title odds: HammerTime 🔨 ⏰",
+      "value": 9.6,
+      "unit": "percent",
+      "fmt": "9.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0006.allplay_career",
+      "label": "Career all-play %: Brian Cross",
+      "value": 39.0,
+      "unit": "percent",
+      "fmt": "39.0%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0006.power_rank",
+      "label": "Preseason power rank: The Long Haulers",
+      "value": 9,
+      "unit": "rank",
+      "fmt": "9",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0006.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: The Long Haulers",
+      "value": 47.1,
+      "unit": "percent",
+      "fmt": "47.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0006.sim_exp_wins",
+      "label": "Projected head-to-head wins: The Long Haulers",
+      "value": 16.8,
+      "unit": "ratio",
+      "fmt": "16.8",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0006.sim_p_bye",
+      "label": "First-round bye odds: The Long Haulers",
+      "value": 10.0,
+      "unit": "percent",
+      "fmt": "10.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0006.sim_p_division",
+      "label": "Division odds: The Long Haulers",
+      "value": 19.9,
+      "unit": "percent",
+      "fmt": "19.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0006.sim_p_playoffs",
+      "label": "Playoff odds: The Long Haulers",
+      "value": 39.1,
+      "unit": "percent",
+      "fmt": "39.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0006.sim_p_title",
+      "label": "Title odds: The Long Haulers",
+      "value": 5.6,
+      "unit": "percent",
+      "fmt": "5.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0007.allplay_career",
+      "label": "Career all-play %: Josh Martel",
+      "value": 57.2,
+      "unit": "percent",
+      "fmt": "57.2%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0007.power_rank",
+      "label": "Preseason power rank: Sex Manther",
+      "value": 6,
+      "unit": "rank",
+      "fmt": "6",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0007.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: Sex Manther",
+      "value": 50.3,
+      "unit": "percent",
+      "fmt": "50.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0007.sim_exp_wins",
+      "label": "Projected head-to-head wins: Sex Manther",
+      "value": 18.7,
+      "unit": "ratio",
+      "fmt": "18.7",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0007.sim_p_bye",
+      "label": "First-round bye odds: Sex Manther",
+      "value": 15.9,
+      "unit": "percent",
+      "fmt": "15.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0007.sim_p_division",
+      "label": "Division odds: Sex Manther",
+      "value": 38.3,
+      "unit": "percent",
+      "fmt": "38.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0007.sim_p_playoffs",
+      "label": "Playoff odds: Sex Manther",
+      "value": 52.8,
+      "unit": "percent",
+      "fmt": "52.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0007.sim_p_title",
+      "label": "Title odds: Sex Manther",
+      "value": 7.5,
+      "unit": "percent",
+      "fmt": "7.5%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0008.allplay_career",
+      "label": "Career all-play %: Keith Creelman",
+      "value": 53.1,
+      "unit": "percent",
+      "fmt": "53.1%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0008.power_rank",
+      "label": "Preseason power rank: Real Deal Creel",
+      "value": 5,
+      "unit": "rank",
+      "fmt": "5",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0008.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: Real Deal Creel",
+      "value": 50.9,
+      "unit": "percent",
+      "fmt": "50.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0008.sim_exp_wins",
+      "label": "Projected head-to-head wins: Real Deal Creel",
+      "value": 19.0,
+      "unit": "ratio",
+      "fmt": "19.0",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0008.sim_p_bye",
+      "label": "First-round bye odds: Real Deal Creel",
+      "value": 16.9,
+      "unit": "percent",
+      "fmt": "16.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0008.sim_p_division",
+      "label": "Division odds: Real Deal Creel",
+      "value": 40.5,
+      "unit": "percent",
+      "fmt": "40.5%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0008.sim_p_playoffs",
+      "label": "Playoff odds: Real Deal Creel",
+      "value": 54.9,
+      "unit": "percent",
+      "fmt": "54.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0008.sim_p_title",
+      "label": "Title odds: Real Deal Creel",
+      "value": 10.0,
+      "unit": "percent",
+      "fmt": "10.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0009.allplay_career",
+      "label": "Career all-play %: Bear Dunn",
+      "value": 56.7,
+      "unit": "percent",
+      "fmt": "56.7%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0009.power_rank",
+      "label": "Preseason power rank: C-Town Chivalry",
+      "value": 1,
+      "unit": "rank",
+      "fmt": "1",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0009.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: C-Town Chivalry",
+      "value": 59.8,
+      "unit": "percent",
+      "fmt": "59.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0009.sim_exp_wins",
+      "label": "Projected head-to-head wins: C-Town Chivalry",
+      "value": 22.6,
+      "unit": "ratio",
+      "fmt": "22.6",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0009.sim_p_bye",
+      "label": "First-round bye odds: C-Town Chivalry",
+      "value": 36.2,
+      "unit": "percent",
+      "fmt": "36.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0009.sim_p_division",
+      "label": "Division odds: C-Town Chivalry",
+      "value": 57.2,
+      "unit": "percent",
+      "fmt": "57.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0009.sim_p_playoffs",
+      "label": "Playoff odds: C-Town Chivalry",
+      "value": 74.9,
+      "unit": "percent",
+      "fmt": "74.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0009.sim_p_title",
+      "label": "Title odds: C-Town Chivalry",
+      "value": 20.8,
+      "unit": "percent",
+      "fmt": "20.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0010.allplay_career",
+      "label": "Career all-play %: Shawn Blake",
+      "value": 53.3,
+      "unit": "percent",
+      "fmt": "53.3%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0010.power_rank",
+      "label": "Preseason power rank: Blake Bombers",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0010.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: Blake Bombers",
+      "value": 55.1,
+      "unit": "percent",
+      "fmt": "55.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0010.sim_exp_wins",
+      "label": "Projected head-to-head wins: Blake Bombers",
+      "value": 20.6,
+      "unit": "ratio",
+      "fmt": "20.6",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0010.sim_p_bye",
+      "label": "First-round bye odds: Blake Bombers",
+      "value": 25.2,
+      "unit": "percent",
+      "fmt": "25.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0010.sim_p_division",
+      "label": "Division odds: Blake Bombers",
+      "value": 52.2,
+      "unit": "percent",
+      "fmt": "52.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0010.sim_p_playoffs",
+      "label": "Playoff odds: Blake Bombers",
+      "value": 66.6,
+      "unit": "percent",
+      "fmt": "66.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0010.sim_p_title",
+      "label": "Title odds: Blake Bombers",
+      "value": 10.2,
+      "unit": "percent",
+      "fmt": "10.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0011.allplay_career",
+      "label": "Career all-play %: Eric Mannila",
+      "value": 39.6,
+      "unit": "percent",
+      "fmt": "39.6%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0011.power_rank",
+      "label": "Preseason power rank: Cleon Ca$h",
+      "value": 8,
+      "unit": "rank",
+      "fmt": "8",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0011.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: Cleon Ca$h",
+      "value": 49.1,
+      "unit": "percent",
+      "fmt": "49.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0011.sim_exp_wins",
+      "label": "Projected head-to-head wins: Cleon Ca$h",
+      "value": 18.5,
+      "unit": "ratio",
+      "fmt": "18.5",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0011.sim_p_bye",
+      "label": "First-round bye odds: Cleon Ca$h",
+      "value": 12.7,
+      "unit": "percent",
+      "fmt": "12.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0011.sim_p_division",
+      "label": "Division odds: Cleon Ca$h",
+      "value": 24.4,
+      "unit": "percent",
+      "fmt": "24.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0011.sim_p_playoffs",
+      "label": "Playoff odds: Cleon Ca$h",
+      "value": 45.3,
+      "unit": "percent",
+      "fmt": "45.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0011.sim_p_title",
+      "label": "Title odds: Cleon Ca$h",
+      "value": 5.8,
+      "unit": "percent",
+      "fmt": "5.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0012.allplay_career",
+      "label": "Career all-play %: Chris Klingenberg",
+      "value": 36.9,
+      "unit": "percent",
+      "fmt": "36.9%",
+      "source": "ups_owner_career_stats",
+      "asof": "2026-09-11T13:54:48Z"
+    },
+    {
+      "id": "f.team.0012.power_rank",
+      "label": "Preseason power rank: Hawks",
+      "value": 10,
+      "unit": "rank",
+      "fmt": "10",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0012.sim_exp_allplay",
+      "label": "Projected regular-season all-play %: Hawks",
+      "value": 45.9,
+      "unit": "percent",
+      "fmt": "45.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0012.sim_exp_wins",
+      "label": "Projected head-to-head wins: Hawks",
+      "value": 17.3,
+      "unit": "ratio",
+      "fmt": "17.3",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0012.sim_p_bye",
+      "label": "First-round bye odds: Hawks",
+      "value": 8.8,
+      "unit": "percent",
+      "fmt": "8.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0012.sim_p_division",
+      "label": "Division odds: Hawks",
+      "value": 18.4,
+      "unit": "percent",
+      "fmt": "18.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0012.sim_p_playoffs",
+      "label": "Playoff odds: Hawks",
+      "value": 36.6,
+      "unit": "percent",
+      "fmt": "36.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    },
+    {
+      "id": "f.team.0012.sim_p_title",
+      "label": "Title odds: Hawks",
+      "value": 4.2,
+      "unit": "percent",
+      "fmt": "4.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-11T13:45:00Z"
+    }
+  ],
+  "tables": [
+    {
+      "id": "t.league.captains",
+      "title": "The four captains",
+      "columns": [
+        {
+          "key": "seat",
+          "label": "Seat",
+          "type": "count"
+        },
+        {
+          "key": "team",
+          "label": "Captain",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "ap",
+          "label": "Career all-play",
+          "type": "percent"
+        },
+        {
+          "key": "division",
+          "label": "Division",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "HammerTime 🔨 ⏰",
+          "Eric Martel",
+          55.6,
+          "Outlast PG Time"
+        ],
+        [
+          2,
+          "CBP",
+          "Derrick Whitman",
+          60.0,
+          "LEGION OF BOOM"
+        ],
+        [
+          3,
+          "C-Town Chivalry",
+          "Bear Dunn",
+          56.7,
+          "DOG POUND 4 LIFE"
+        ],
+        [
+          4,
+          "Sex Manther",
+          "Josh Martel",
+          57.2,
+          "Maddie Mondays"
+        ]
+      ],
+      "note": "Seated by career all-play %, the rule for the first draft under the 2026 realignment rule."
+    },
+    {
+      "id": "t.league.division_draft",
+      "title": "The 2026 Owner Divisional Draft",
+      "columns": [
+        {
+          "key": "pick",
+          "label": "Pick",
+          "type": "count"
+        },
+        {
+          "key": "round",
+          "label": "Round",
+          "type": "count"
+        },
+        {
+          "key": "captain",
+          "label": "Captain",
+          "type": "text"
+        },
+        {
+          "key": "took",
+          "label": "Took",
+          "type": "text"
+        },
+        {
+          "key": "division",
+          "label": "Division",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "HammerTime 🔨 ⏰",
+          "The Long Haulers",
+          "Outlast PG Time"
+        ],
+        [
+          2,
+          1,
+          "CBP",
+          "Gride",
+          "LEGION OF BOOM"
+        ],
+        [
+          3,
+          1,
+          "C-Town Chivalry",
+          "Hawks",
+          "DOG POUND 4 LIFE"
+        ],
+        [
+          4,
+          1,
+          "Sex Manther",
+          "Real Deal Creel",
+          "Maddie Mondays"
+        ],
+        [
+          5,
+          2,
+          "Sex Manther",
+          "L.A. Looks",
+          "Maddie Mondays"
+        ],
+        [
+          6,
+          2,
+          "C-Town Chivalry",
+          "Cleon Ca$h",
+          "DOG POUND 4 LIFE"
+        ],
+        [
+          7,
+          2,
+          "CBP",
+          "Blake Bombers",
+          "LEGION OF BOOM"
+        ],
+        [
+          8,
+          2,
+          "HammerTime 🔨 ⏰",
+          "Pure Greatness",
+          "Outlast PG Time"
+        ]
+      ],
+      "note": "A two-round snake at the rookie draft: seats one to four, then four to one. 2026 is year one of the three-year alignment."
+    },
+    {
+      "id": "t.league.forecast",
+      "title": "The 2026 forecast",
+      "columns": [
+        {
+          "key": "rank",
+          "label": "Rank",
+          "type": "count"
+        },
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "division",
+          "label": "Division",
+          "type": "text"
+        },
+        {
+          "key": "ap",
+          "label": "Projected all-play",
+          "type": "percent"
+        },
+        {
+          "key": "wins",
+          "label": "Projected wins",
+          "type": "text"
+        },
+        {
+          "key": "div",
+          "label": "Division odds",
+          "type": "percent"
+        },
+        {
+          "key": "po",
+          "label": "Playoff odds",
+          "type": "percent"
+        },
+        {
+          "key": "bye",
+          "label": "Bye odds",
+          "type": "percent"
+        },
+        {
+          "key": "title",
+          "label": "Title odds",
+          "type": "percent"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "C-Town Chivalry",
+          "Bear Dunn",
+          "DOG POUND 4 LIFE",
+          59.8,
+          "22.6 of 37",
+          57.2,
+          74.9,
+          36.2,
+          20.8
+        ],
+        [
+          2,
+          "Pure Greatness",
+          "Brian Cutting",
+          "Outlast PG Time",
+          58.2,
+          "21.1 of 37",
+          49.5,
+          70.4,
+          31.0,
+          14.8
+        ],
+        [
+          3,
+          "Blake Bombers",
+          "Shawn Blake",
+          "LEGION OF BOOM",
+          55.1,
+          "20.6 of 37",
+          52.2,
+          66.6,
+          25.2,
+          10.2
+        ],
+        [
+          4,
+          "HammerTime 🔨 ⏰",
+          "Eric Martel",
+          "Outlast PG Time",
+          52.2,
+          "18.8 of 37",
+          30.6,
+          53.5,
+          17.1,
+          9.6
+        ],
+        [
+          5,
+          "Real Deal Creel",
+          "Keith Creelman",
+          "Maddie Mondays",
+          50.9,
+          "19.0 of 37",
+          40.5,
+          54.9,
+          16.9,
+          10.0
+        ],
+        [
+          6,
+          "Sex Manther",
+          "Josh Martel",
+          "Maddie Mondays",
+          50.3,
+          "18.7 of 37",
+          38.3,
+          52.8,
+          15.9,
+          7.5
+        ],
+        [
+          7,
+          "CBP",
+          "Derrick Whitman",
+          "LEGION OF BOOM",
+          50.0,
+          "18.6 of 37",
+          36.0,
+          52.0,
+          15.4,
+          7.3
+        ],
+        [
+          8,
+          "Cleon Ca$h",
+          "Eric Mannila",
+          "DOG POUND 4 LIFE",
+          49.1,
+          "18.5 of 37",
+          24.4,
+          45.3,
+          12.7,
+          5.8
+        ],
+        [
+          9,
+          "The Long Haulers",
+          "Brian Cross",
+          "Outlast PG Time",
+          47.1,
+          "16.8 of 37",
+          19.9,
+          39.1,
+          10.0,
+          5.6
+        ],
+        [
+          10,
+          "Hawks",
+          "Chris Klingenberg",
+          "DOG POUND 4 LIFE",
+          45.9,
+          "17.3 of 37",
+          18.4,
+          36.6,
+          8.8,
+          4.2
+        ],
+        [
+          11,
+          "L.A. Looks",
+          "Ryan Bousquet",
+          "Maddie Mondays",
+          43.0,
+          "15.9 of 37",
+          21.2,
+          32.9,
+          7.0,
+          2.6
+        ],
+        [
+          12,
+          "Gride",
+          "Matt Gerardi",
+          "LEGION OF BOOM",
+          38.3,
+          "14.1 of 37",
+          11.8,
+          20.9,
+          3.7,
+          1.7
+        ]
+      ],
+      "note": "Power rank = projected regular-season all-play %, schedule-neutral. Wins are head-to-head, out of the 37-game schedule. Odds are the share of 20000 simulated seasons."
+    }
+  ],
+  "charts": [],
+  "quotes": [
+    {
+      "id": "q_bear_boring",
+      "text": "I don’t even think I have any last minute moves to make. Boring. I’ll await Rybo’s 11:50 pm barrage.",
+      "author": "Bear Dunn, C-Town Chivalry",
+      "when": "September 6, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0009",
+      "context": "Contract deadline day",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_bear_calls_hawks",
+      "text": "Having said that, I’ll take Hawks with my first pick.",
+      "author": "Bear Dunn, C-Town Chivalry",
+      "when": "January 27, 2026, #league-announcements",
+      "ownerKey": "owner:0009",
+      "context": "January, the day the captain draft was first floated -- four months later he took the Hawks with his first pick",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_bear_forecast",
+      "text": "Can the bot give us preseason predictions for the league? Forecast?",
+      "author": "Bear Dunn, C-Town Chivalry",
+      "when": "August 15, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0009",
+      "context": "Asking for the preseason forecast in August",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_blake_preview",
+      "text": "I was promised a season preview. I am prepared to be torn apart.",
+      "author": "Shawn Blake, Blake Bombers",
+      "when": "September 9, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0010",
+      "context": "Opening night, as the opener kicked off",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_bot_first",
+      "text": "Logic of the format: getting picked FIRST = the captain thinks you're the weakest.",
+      "author": "The league bot",
+      "when": "May 25, 2026, #league-announcements",
+      "ownerKey": null,
+      "context": "The bot's recap of the captains' draft",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_cross_champs",
+      "text": "“Two Recent Champs & a Problem” Division .",
+      "author": "Brian Cross, The Long Haulers",
+      "when": "June 27, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0006",
+      "context": "Pitching a name for his division a month later",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_cross_love",
+      "text": "I LOVE THIS HOBBY AND THIS LEAGUE REGARDLESS ….",
+      "author": "Brian Cross, The Long Haulers",
+      "when": "July 28, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0006",
+      "context": "After the auction",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_cross_name",
+      "text": "At least I chose an appropriate team name when I joined the league ..",
+      "author": "Brian Cross, The Long Haulers",
+      "when": "May 25, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0006",
+      "context": "Cross, taken first overall, replying to Bousquet",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_cutting_kittle",
+      "text": "He is good for now.    But we know he will be injured soon",
+      "author": "Brian Cutting, Pure Greatness",
+      "when": "September 10, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0004",
+      "context": "After Blake crowed that George Kittle looked solid on Thursday night",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_cutting_maye",
+      "text": "Trading Jordan Love for a 1st and Drake Maye was a big win for me",
+      "author": "Brian Cutting, Pure Greatness",
+      "when": "December 30, 2025, #the-coffee-shop",
+      "ownerKey": "owner:0004",
+      "context": "After winning the 2025 title",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_emart_coinflip",
+      "text": "Me and PG a coin flip tho, I'm biased toward myself so I I gave me the edge",
+      "author": "Eric Martel, HammerTime",
+      "when": "July 29, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0005",
+      "context": "On his own division, where his last pick is the reigning champion",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_emart_meniscus",
+      "text": "They reporting a trimmed meniscus like its a haircut",
+      "author": "Eric Martel, HammerTime",
+      "when": "September 9, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0005",
+      "context": "Hours before the opener, on the news about Brock Bowers's knee",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_emart_stacked",
+      "text": "The last remaining team is gonna be stacked at times, hence being picked last.",
+      "author": "Eric Martel, HammerTime",
+      "when": "May 6, 2026, #rules-discussion",
+      "ownerKey": "owner:0005",
+      "context": "While the captain-draft rule was being voted on",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_hawks_schefter",
+      "text": "Who needs Schefter, we got Bombers!",
+      "author": "Chris Klingenberg, Hawks",
+      "when": "September 10, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0012",
+      "context": "On Shawn Blake, the league's injury newswire",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_manther_enough",
+      "text": "None of this is going to be enough",
+      "author": "Josh Martel, Sex Manther",
+      "when": "September 10, 2026, #transactions",
+      "ownerKey": "owner:0007",
+      "context": "Replying to one of Real Deal Creel's week-one waiver claims -- week one is a division week",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_manther_punter",
+      "text": "That’s my punter",
+      "author": "Josh Martel, Sex Manther",
+      "when": "July 28, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0007",
+      "context": "On the one Free Agent Auction buy nobody else wanted",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_rybo_haul",
+      "text": "It’s gonna be a long haul",
+      "author": "Ryan Bousquet, L.A. Looks",
+      "when": "May 25, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0001",
+      "context": "The morning after the draft, on the new Outlast PG Time division",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_rybo_plans",
+      "text": "“The Free Agent Auction: Where Plans Go to Die”",
+      "author": "Ryan Bousquet, L.A. Looks",
+      "when": "July 28, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0001",
+      "context": "Naming the Free Agent Auction",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_whitman_tiger",
+      "text": "I like being the underdog tho expectations low got a lot of younger guys then I strike like a tiger in the tall grass",
+      "author": "Derrick Whitman, CBP",
+      "when": "July 29, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0002",
+      "context": "In the 'who is winning each division?' thread",
+      "source": "discord",
+      "permalink": null
+    }
+  ],
+  "playcards": [],
+  "games": [],
+  "sections": [
+    {
+      "id": "s1",
+      "title": "The Forecast",
+      "brief": "Open with a blurb about the season as the simulation sees it -- who is the favorite, how close the middle is, which division is a fight and which is a runaway -- then the forecast table. Quote odds as odds. Fun, but every number is a token.",
+      "factIds": [
+        "f.league.sim_games",
+        "f.league.sim_runs",
+        "f.league.teams",
+        "f.team.0001.allplay_career",
+        "f.team.0001.power_rank",
+        "f.team.0001.sim_exp_allplay",
+        "f.team.0001.sim_exp_wins",
+        "f.team.0001.sim_p_bye",
+        "f.team.0001.sim_p_division",
+        "f.team.0001.sim_p_playoffs",
+        "f.team.0001.sim_p_title",
+        "f.team.0002.allplay_career",
+        "f.team.0002.power_rank",
+        "f.team.0002.sim_exp_allplay",
+        "f.team.0002.sim_exp_wins",
+        "f.team.0002.sim_p_bye",
+        "f.team.0002.sim_p_division",
+        "f.team.0002.sim_p_playoffs",
+        "f.team.0002.sim_p_title",
+        "f.team.0003.allplay_career",
+        "f.team.0003.power_rank",
+        "f.team.0003.sim_exp_allplay",
+        "f.team.0003.sim_exp_wins",
+        "f.team.0003.sim_p_bye",
+        "f.team.0003.sim_p_division",
+        "f.team.0003.sim_p_playoffs",
+        "f.team.0003.sim_p_title",
+        "f.team.0004.allplay_career",
+        "f.team.0004.power_rank",
+        "f.team.0004.sim_exp_allplay",
+        "f.team.0004.sim_exp_wins",
+        "f.team.0004.sim_p_bye",
+        "f.team.0004.sim_p_division",
+        "f.team.0004.sim_p_playoffs",
+        "f.team.0004.sim_p_title",
+        "f.team.0005.allplay_career",
+        "f.team.0005.power_rank",
+        "f.team.0005.sim_exp_allplay",
+        "f.team.0005.sim_exp_wins",
+        "f.team.0005.sim_p_bye",
+        "f.team.0005.sim_p_division",
+        "f.team.0005.sim_p_playoffs",
+        "f.team.0005.sim_p_title",
+        "f.team.0006.allplay_career",
+        "f.team.0006.power_rank",
+        "f.team.0006.sim_exp_allplay",
+        "f.team.0006.sim_exp_wins",
+        "f.team.0006.sim_p_bye",
+        "f.team.0006.sim_p_division",
+        "f.team.0006.sim_p_playoffs",
+        "f.team.0006.sim_p_title",
+        "f.team.0007.allplay_career",
+        "f.team.0007.power_rank",
+        "f.team.0007.sim_exp_allplay",
+        "f.team.0007.sim_exp_wins",
+        "f.team.0007.sim_p_bye",
+        "f.team.0007.sim_p_division",
+        "f.team.0007.sim_p_playoffs",
+        "f.team.0007.sim_p_title",
+        "f.team.0008.allplay_career",
+        "f.team.0008.power_rank",
+        "f.team.0008.sim_exp_allplay",
+        "f.team.0008.sim_exp_wins",
+        "f.team.0008.sim_p_bye",
+        "f.team.0008.sim_p_division",
+        "f.team.0008.sim_p_playoffs",
+        "f.team.0008.sim_p_title",
+        "f.team.0009.allplay_career",
+        "f.team.0009.power_rank",
+        "f.team.0009.sim_exp_allplay",
+        "f.team.0009.sim_exp_wins",
+        "f.team.0009.sim_p_bye",
+        "f.team.0009.sim_p_division",
+        "f.team.0009.sim_p_playoffs",
+        "f.team.0009.sim_p_title",
+        "f.team.0010.allplay_career",
+        "f.team.0010.power_rank",
+        "f.team.0010.sim_exp_allplay",
+        "f.team.0010.sim_exp_wins",
+        "f.team.0010.sim_p_bye",
+        "f.team.0010.sim_p_division",
+        "f.team.0010.sim_p_playoffs",
+        "f.team.0010.sim_p_title",
+        "f.team.0011.allplay_career",
+        "f.team.0011.power_rank",
+        "f.team.0011.sim_exp_allplay",
+        "f.team.0011.sim_exp_wins",
+        "f.team.0011.sim_p_bye",
+        "f.team.0011.sim_p_division",
+        "f.team.0011.sim_p_playoffs",
+        "f.team.0011.sim_p_title",
+        "f.team.0012.allplay_career",
+        "f.team.0012.power_rank",
+        "f.team.0012.sim_exp_allplay",
+        "f.team.0012.sim_exp_wins",
+        "f.team.0012.sim_p_bye",
+        "f.team.0012.sim_p_division",
+        "f.team.0012.sim_p_playoffs",
+        "f.team.0012.sim_p_title"
+      ],
+      "tableIds": [
+        "t.league.forecast"
+      ],
+      "chartIds": [],
+      "quoteIds": [
+        "q_bear_boring",
+        "q_bear_calls_hawks",
+        "q_bear_forecast",
+        "q_blake_preview",
+        "q_bot_first",
+        "q_cross_champs",
+        "q_cross_love",
+        "q_cross_name",
+        "q_cutting_kittle",
+        "q_cutting_maye",
+        "q_emart_coinflip",
+        "q_emart_meniscus",
+        "q_emart_stacked",
+        "q_hawks_schefter",
+        "q_manther_enough",
+        "q_manther_punter",
+        "q_rybo_haul",
+        "q_rybo_plans",
+        "q_whitman_tiger"
+      ],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s2",
+      "title": "The Divisional Draft",
+      "brief": "The league's first Owner Divisional Draft: the four captains and every pick, who went first, who went last, and how each division looks now that the simulation has seen it. Place the league's own chat about it by id.",
+      "factIds": [
+        "f.league.div_draft_captain_0002",
+        "f.league.div_draft_captain_0005",
+        "f.league.div_draft_captain_0007",
+        "f.league.div_draft_captain_0009",
+        "f.league.div_draft_pick_0001",
+        "f.league.div_draft_pick_0003",
+        "f.league.div_draft_pick_0004",
+        "f.league.div_draft_pick_0006",
+        "f.league.div_draft_pick_0008",
+        "f.league.div_draft_pick_0010",
+        "f.league.div_draft_pick_0011",
+        "f.league.div_draft_pick_0012"
+      ],
+      "tableIds": [
+        "t.league.captains",
+        "t.league.division_draft"
+      ],
+      "chartIds": [],
+      "quoteIds": [
+        "q_bear_boring",
+        "q_bear_calls_hawks",
+        "q_bear_forecast",
+        "q_blake_preview",
+        "q_bot_first",
+        "q_cross_champs",
+        "q_cross_love",
+        "q_cross_name",
+        "q_cutting_kittle",
+        "q_cutting_maye",
+        "q_emart_coinflip",
+        "q_emart_meniscus",
+        "q_emart_stacked",
+        "q_hawks_schefter",
+        "q_manther_enough",
+        "q_manther_punter",
+        "q_rybo_haul",
+        "q_rybo_plans",
+        "q_whitman_tiger"
+      ],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s3",
+      "title": "The Lay of the Land",
+      "brief": "The season in general, as the league chat tells it: the running jokes and the trash talk heading into week one. Good-natured only. Quotes are placed by id, never typed.",
+      "factIds": [
+        "f.team.0001.allplay_career",
+        "f.team.0001.power_rank",
+        "f.team.0001.sim_exp_allplay",
+        "f.team.0001.sim_exp_wins",
+        "f.team.0001.sim_p_bye",
+        "f.team.0001.sim_p_division",
+        "f.team.0001.sim_p_playoffs",
+        "f.team.0001.sim_p_title",
+        "f.team.0002.allplay_career",
+        "f.team.0002.power_rank",
+        "f.team.0002.sim_exp_allplay",
+        "f.team.0002.sim_exp_wins",
+        "f.team.0002.sim_p_bye",
+        "f.team.0002.sim_p_division",
+        "f.team.0002.sim_p_playoffs",
+        "f.team.0002.sim_p_title",
+        "f.team.0003.allplay_career",
+        "f.team.0003.power_rank",
+        "f.team.0003.sim_exp_allplay",
+        "f.team.0003.sim_exp_wins",
+        "f.team.0003.sim_p_bye",
+        "f.team.0003.sim_p_division",
+        "f.team.0003.sim_p_playoffs",
+        "f.team.0003.sim_p_title",
+        "f.team.0004.allplay_career",
+        "f.team.0004.power_rank",
+        "f.team.0004.sim_exp_allplay",
+        "f.team.0004.sim_exp_wins",
+        "f.team.0004.sim_p_bye",
+        "f.team.0004.sim_p_division",
+        "f.team.0004.sim_p_playoffs",
+        "f.team.0004.sim_p_title",
+        "f.team.0005.allplay_career",
+        "f.team.0005.power_rank",
+        "f.team.0005.sim_exp_allplay",
+        "f.team.0005.sim_exp_wins",
+        "f.team.0005.sim_p_bye",
+        "f.team.0005.sim_p_division",
+        "f.team.0005.sim_p_playoffs",
+        "f.team.0005.sim_p_title",
+        "f.team.0006.allplay_career",
+        "f.team.0006.power_rank",
+        "f.team.0006.sim_exp_allplay",
+        "f.team.0006.sim_exp_wins",
+        "f.team.0006.sim_p_bye",
+        "f.team.0006.sim_p_division",
+        "f.team.0006.sim_p_playoffs",
+        "f.team.0006.sim_p_title",
+        "f.team.0007.allplay_career",
+        "f.team.0007.power_rank",
+        "f.team.0007.sim_exp_allplay",
+        "f.team.0007.sim_exp_wins",
+        "f.team.0007.sim_p_bye",
+        "f.team.0007.sim_p_division",
+        "f.team.0007.sim_p_playoffs",
+        "f.team.0007.sim_p_title",
+        "f.team.0008.allplay_career",
+        "f.team.0008.power_rank",
+        "f.team.0008.sim_exp_allplay",
+        "f.team.0008.sim_exp_wins",
+        "f.team.0008.sim_p_bye",
+        "f.team.0008.sim_p_division",
+        "f.team.0008.sim_p_playoffs",
+        "f.team.0008.sim_p_title",
+        "f.team.0009.allplay_career",
+        "f.team.0009.power_rank",
+        "f.team.0009.sim_exp_allplay",
+        "f.team.0009.sim_exp_wins",
+        "f.team.0009.sim_p_bye",
+        "f.team.0009.sim_p_division",
+        "f.team.0009.sim_p_playoffs",
+        "f.team.0009.sim_p_title",
+        "f.team.0010.allplay_career",
+        "f.team.0010.power_rank",
+        "f.team.0010.sim_exp_allplay",
+        "f.team.0010.sim_exp_wins",
+        "f.team.0010.sim_p_bye",
+        "f.team.0010.sim_p_division",
+        "f.team.0010.sim_p_playoffs",
+        "f.team.0010.sim_p_title",
+        "f.team.0011.allplay_career",
+        "f.team.0011.power_rank",
+        "f.team.0011.sim_exp_allplay",
+        "f.team.0011.sim_exp_wins",
+        "f.team.0011.sim_p_bye",
+        "f.team.0011.sim_p_division",
+        "f.team.0011.sim_p_playoffs",
+        "f.team.0011.sim_p_title",
+        "f.team.0012.allplay_career",
+        "f.team.0012.power_rank",
+        "f.team.0012.sim_exp_allplay",
+        "f.team.0012.sim_exp_wins",
+        "f.team.0012.sim_p_bye",
+        "f.team.0012.sim_p_division",
+        "f.team.0012.sim_p_playoffs",
+        "f.team.0012.sim_p_title"
+      ],
+      "tableIds": [],
+      "chartIds": [],
+      "quoteIds": [
+        "q_bear_boring",
+        "q_bear_calls_hawks",
+        "q_bear_forecast",
+        "q_blake_preview",
+        "q_bot_first",
+        "q_cross_champs",
+        "q_cross_love",
+        "q_cross_name",
+        "q_cutting_kittle",
+        "q_cutting_maye",
+        "q_emart_coinflip",
+        "q_emart_meniscus",
+        "q_emart_stacked",
+        "q_hawks_schefter",
+        "q_manther_enough",
+        "q_manther_punter",
+        "q_rybo_haul",
+        "q_rybo_plans",
+        "q_whitman_tiger"
+      ],
+      "cardIds": [],
+      "gameIds": []
+    }
+  ]
+}

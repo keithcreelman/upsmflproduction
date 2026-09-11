@@ -10,8 +10,8 @@
    {
     "id": "s1",
     "paragraphs": [
-     "April found the Long Haulers top-heavy. Cross carried {{f.team.0006.active_roster_opening}} active players and {{f.team.0006.cap_opening}} in salary, with {{f.team.0006.studs_opening}} real starters on offense: Jalen Hurts, a High-end QB1, Derrick Henry at running back, A.J. Brown at receiver, Tyler Warren, a High-end TE1, and Trevor Lawrence in the superflex. The {{f.team.0006.holes_opening}} holes were Jordan Mason at the second running back spot, Josh Downs at the second receiver spot, and Tre Tucker and Woody Marks in the two flexes, all replacement-level.",
-     "He did his shopping before the draft and paid in picks, not salary. In April his 2027 first- and second-round picks went to HammerTime for Hurts, and HammerTime added {{f.team.0006.trade_blind_bid_cash}} of blind-bid money to the deal, so Cross was paid to take on a {{f.team.0006.trade1_salary_in}} quarterback. In May a 2027 third bought Quentin Johnston and his {{f.team.0006.trade2_salary_in}} salary from Pure Greatness, and five later-round rookie picks went to Sex Manther for 3.04 and 3.06. Before the draft he took on {{f.team.0006.trade_salary_in_s1}} of salary in trades and sent none away.",
+     "April found The Long Haulers top-heavy. Cross carried {{f.team.0006.active_roster_opening}} active players and {{f.team.0006.cap_opening}} in salary, with {{f.team.0006.studs_opening}} real starters on offense: Jalen Hurts, a High-end QB1, Derrick Henry at running back, A.J. Brown at receiver, Tyler Warren, a High-end TE1, and Trevor Lawrence in the superflex. The {{f.team.0006.holes_opening}} holes were Jordan Mason at the second running back spot, Josh Downs at the second receiver spot, and Tre Tucker and Woody Marks in the two flexes, all replacement-level.",
+     "He did his shopping before the draft and paid in picks, not salary, before the trade bot graded deals; graded now as of each day, the three spring trades come out {{f.team.0006.trade1_grade}}, {{f.team.0006.trade2_grade}} and {{f.team.0006.trade3_grade}}. In April his 2027 first- and second-round picks went to HammerTime for Hurts, in the last year of a deal HammerTime had restructured the season before, and HammerTime added {{f.team.0006.trade_blind_bid_cash}} of blind-bid money, so Cross was paid to take on a {{f.team.0006.trade1_salary_in}} quarterback. In May a 2027 third bought Quentin Johnston from Pure Greatness, and five later-round rookie picks went to Sex Manther for 3.04 and 3.06.",
      "There were no cuts and no extensions in that stretch. Two rookie deals ran out: Devon Witherspoon is still on the roster, and Will Levis went to the Expired Rookie Auction, where Cross bought him back."
     ],
     "place": [
@@ -40,7 +40,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "Before the rookie draft"
@@ -59,8 +60,8 @@
    {
     "id": "s2",
     "paragraphs": [
-     "On draft day he flipped 2.03 and the 3.06 he had just bought to Gride for 2.05 and 2.10, then made {{f.team.0006.rookie_picks_count}} picks: Fernando Mendoza at 1.03, a slot that has produced a usable player more often than not, then Malachi Fields, Germie Bernard, Mike Washington Jr., Carson Beck at 3.04, Kevin Coleman and Keldric Faulk. Mendoza and Beck make two rookie quarterbacks behind Hurts and Lawrence. None of the class grades as a starter yet, which at this stage is the expectation, not a verdict.",
-     "At the Expired Rookie Auction he bought Tyjae Spears for {{f.team.0006.era_16165_price}} and Levis back for {{f.team.0006.era_16149_price}}. He tagged nobody. His cuts before the lock were small: six taxi-squad and minimum-salary bodies at no cost, and one real release, Theo Johnson in July, with {{f.team.0006.cut_16649_salary}} of salary and a {{f.team.0006.cut_16649_penalty}} penalty. A July trade with L.A. Looks sent Isaiah Bond and a 2027 fourth for safety Jordan Battle, Adonai Mitchell and a 2027 fifth, and on the day the auction roster locked he extended Hurts at {{f.team.0006.contract_14783_salary}} this year and {{f.team.0006.contract_14783_tcv}} in all."
+     "On draft night he kept 3.04 and used it on Carson Beck, and flipped 3.06 with 2.03 to Gride for 2.05 and 2.10, a {{f.team.0006.trade4_grade}} from the bot; Gride sent 3.06 on to Real Deal Creel an hour later. He made {{f.team.0006.rookie_picks_count}} picks: Fernando Mendoza at 1.03, a slot that has produced a usable player more often than not, then Malachi Fields, Germie Bernard, Mike Washington Jr., Beck, Kevin Coleman and Keldric Faulk. Mendoza and Beck make two rookie quarterbacks behind Hurts and Lawrence. None of the class grades as a starter yet, which at this stage is the expectation, not a verdict.",
+     "At the Expired Rookie Auction he bought Tyjae Spears for {{f.team.0006.era_16165_price}} and Levis back for {{f.team.0006.era_16149_price}}. He tagged nobody. His cuts before the lock were small: six taxi-squad and minimum-salary bodies at no cost, and one real release, Theo Johnson in July, with {{f.team.0006.cut_16649_salary}} of salary and a {{f.team.0006.cut_16649_penalty}} penalty. A July trade with L.A. Looks sent Isaiah Bond and a 2027 fourth for safety Jordan Battle, Adonai Mitchell and a 2027 fifth; the bot graded it a {{f.team.0006.trade5_grade}} for him at the time. And the night before the auction roster locked he extended Hurts one more year, {{f.team.0006.contract_14783_next_salary}} for 2027, a TCV of {{f.team.0006.contract_14783_tcv}} over two seasons."
     ],
     "place": [
      "t.0006.rookies",
@@ -68,7 +69,7 @@
     ],
     "placeAt": {
      "t.0006.rookies": 0,
-     "t.0006.moves_s2": 1
+     "t.0006.moves_s2": 0
     },
     "views": {
      "t.0006.rookies": {
@@ -89,7 +90,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the draft to the auction lock"
@@ -100,23 +102,26 @@
    {
     "id": "s3",
     "paragraphs": [
-     "Then Cross spent the Free Agent Auction on defense. Of his {{f.team.0006.faa_spend}}, {{f.team.0006.idp_auction_spend}} went to defenders: Maxx Crosby for {{f.team.0006.faa_14225_price}} and Brian Burns for {{f.team.0006.faa_14171_price}}, both Elite DL1s, and Jordyn Brooks, an Elite LB1, for {{f.team.0006.faa_14892_price}}. It is a real defense, and like every defense in this league it is a footnote to the offense.",
-     "On offense he spent {{f.team.0006.faa_off_spend}}, and that is why the league table flatters him. It ranks value gained per dollar, and so little money that moved the lineup at all ranks high: {{f.team.0006.faa_off_rank|ord}} of {{f.league.teams}}. The What it bought column is the honest one. Three depth players, George Holani, Jalen Nailor and Nick Mullens, and in total value added he was {{f.team.0006.faa_off_gain_rank|ord}} of {{f.league.teams}}.",
-     "The contract work ran through the auction. The lock-day restructure cut Hurts to {{f.team.0006.contract_14783_salary_2}} for 2026 without touching his {{f.team.0006.contract_14783_tcv_2}} total, a little room opened for bidding. {{f.team.0006.myac_faa}} auction buys and both Expired Rookie Auction buys got multi-year contracts, and so did two trade pickups, Jordan Battle and Gunnar Helm. One of those did not last: Levis, bought back and signed on, was cut in August with a {{f.team.0006.cut_16149_penalty}} penalty that lands on the 2027 cap. Josh Downs was extended in September at {{f.team.0006.contract_16187_salary}} this year and {{f.team.0006.contract_16187_tcv}} in all.",
-     "After the auction came the churn: {{f.team.0006.pickups_s3}} pickups before week one, most of them tight ends passing through. Zach Ertz, Darren Waller and Matthew Hibner all came and went, Helm arrived by trade, and Najee Harris and Malik Davis joined at running back. The {{f.team.0006.cuts_s3}} releases in that stretch cost {{f.team.0006.cuts_s3_penalty}} in penalties, all of it charged to 2027.",
-     "The lineup it built has the shape it had in April: {{f.team.0006.studs_today}} real starters in Hurts, Henry, Brown, Warren and Lawrence, and {{f.team.0006.holes_today}} holes, now George Holani at the second running back spot, Quentin Johnston at the second receiver spot, and Jordan Mason and Josh Downs in the flexes. The kicker, Jason Myers, led all kickers in points per game last year and cost {{f.team.0006.faa_12437_price}}."
+     "The Long Haulers spent {{f.team.0006.faa_spend}} at the Free Agent Auction, and {{f.team.0006.idp_auction_share}} of it went on defenders: Maxx Crosby, an Elite DL1, for {{f.team.0006.faa_14225_price}}, Jordyn Brooks, an Elite LB1, for {{f.team.0006.faa_14892_price}}, and Brian Burns for {{f.team.0006.faa_14171_price}}. It is a real defense, and like every defense in this league it is a footnote to the offense.",
+     "On offense he spent {{f.team.0006.faa_off_spend}}, on three depth players, George Holani, Jalen Nailor and Nick Mullens. That is a net-neutral auction for the lineup, and the league table, which ranks every owner by how much the auction improved his starting offense, puts The Long Haulers {{f.team.0006.faa_off_rank|ord}} of {{f.league.teams}}, beside Pure Greatness and Cleon Ca$h.",
+     "The contract work ran through the auction. The morning of the lock Cross restructured Hurts, back-loading him to {{f.team.0006.contract_14783_salary_2}} this year and {{f.team.0006.contract_14783_next_salary_2}} in 2027 with the {{f.team.0006.contract_14783_tcv_2}} total unchanged, which opened a little room for bidding; so Hurts's deal has now been restructured twice, once by HammerTime and once by Cross, around one extension. {{f.team.0006.myac_faa}} auction buys and both Expired Rookie Auction buys got multi-year contracts, and so did two trade pickups, Battle and Gunnar Helm. One of those did not last: Levis, bought back and signed on, was cut in August with a {{f.team.0006.cut_16149_penalty}} penalty that lands on the 2027 cap. Josh Downs was extended one more year in September, {{f.team.0006.contract_16187_next_salary}} for 2027.",
+     "After the auction came the churn: {{f.team.0006.pickups_s3}} pickups before week one, most of them tight ends passing through. Zach Ertz, Darren Waller and Matthew Hibner all came and went, Helm arrived from Sex Manther in a trade the bot graded {{f.team.0006.trade6_grade}}, and Najee Harris and Malik Davis joined at running back. The {{f.team.0006.cuts_s3}} releases in that stretch cost {{f.team.0006.cuts_s3_penalty}} in penalties, all of it charged to 2027.",
+     "The lineup it built has the shape it had in April: {{f.team.0006.studs_today}} real starters in Hurts, Henry, Brown, Warren and Lawrence, and {{f.team.0006.holes_today}} holes, now Holani at the second running back spot, Johnston at the second receiver spot, and Mason and Downs in the flexes. The kicker, Jason Myers, led all kickers in points per game last year and cost {{f.team.0006.faa_12437_price}}, and the punter is a High-end PN1.",
+     "The injury that matters is Brown's. He caught three passes in the opener and left in the third quarter with a right high-ankle sprain; an MRI confirmed it, and NFL Network reports he will miss at least four weeks. MFL has not listed him yet, so the forecast holds him out of weeks two through four by hand, and a receiver room that was already the thin part of the roster gets thinner."
     ],
     "place": [
      "t.0006.faa",
      "t.0006.faa_value",
      "t.0006.moves_s3",
-     "t.0006.lineup"
+     "t.0006.lineup",
+     "t.0006.injuries"
     ],
     "placeAt": {
      "t.0006.faa": 0,
      "t.0006.faa_value": 1,
      "t.0006.moves_s3": 2,
-     "t.0006.lineup": 4
+     "t.0006.lineup": 5,
+     "t.0006.injuries": 5
     },
     "views": {
      "t.0006.faa": {
@@ -134,10 +139,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -147,7 +154,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -162,50 +170,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0006.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0006.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0006.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Cross is a short story so far. The league's documented record starts him in {{f.team.0006.hist_first_season}}, and his one completed season produced a {{f.team.0006.hist_allplay_pct}} all-play record and no playoff trip. No titles, no division crowns, nothing on the wall yet, which is the easiest kind of history to improve on."
+     "Cross is a short story so far. He took over the franchise late in 2024, and the league neither credits nor blames him for that season, so his record starts in {{f.team.0006.hist_first_season}}: one completed season, a {{f.team.0006.hist_allplay_pct}} all-play record and no playoff trip. This is year two, and it is the easiest kind of history to improve on.",
+     "He hosted the league's first Owner Divisional Draft at his house and then went first in it, {{f.league.div_draft_pick_0006|ord}} overall to Eric Martel, which by the room's own rule of thumb meant his captain thought he was the weakest team left. Cross leaned all the way in: when Ryan Bousquet said it was going to be a long haul, Cross allowed that at least he had picked the right team name, and a month later he pitched names for the division, one of them about the two recent champions and a problem. The simulation puts Outlast PG Time in the champions' hands, Pure Greatness at {{f.league.p_division_0004}} and HammerTime at {{f.league.p_division_0005}}, and The Long Haulers at {{f.team.0006.sim_p_division}} with {{f.team.0006.sim_p_playoffs}} playoff odds.",
+     "The division weeks are {{f.team.0006.div_weeks}}, and the byes cut both ways. Week eight costs him Burns and Tremaine Edmunds, while HammerTime loses Stroud, its only startable quarterback. Week eleven is his worst, four starters at once, Holani, Brown, Myers and Witherspoon. And week fourteen, the last of the regular season, is the only division week in which he loses nobody while both rivals lose starters. Across the five weeks he loses {{f.team.0006.div_week_own_byes}} starters to byes and his rivals {{f.team.0006.div_week_rival_byes}}.",
+     "The next three years, filed the way Cross would file them. 2027: no first-round pick, because HammerTime owns it, and he congratulates HammerTime by name when they use it. The defense he bought this summer is still under contract and still the best thing on the depth chart. 2028: Mendoza or Beck takes the superflex from Lawrence, the Team finally fills the second receiver spot, and it is Let's GO season in the group chat. 2029, and this is a prediction, not a verdict: a winning record, the Fantasy Gods square part of the account, and a Promise, capital P, about 2030.",
+     "Week one is a division week, and it has already cost him. With {{f.league.wk_teams_final}} NFL teams done, Myers kicked two field goals and Brown caught three passes before the ankle, and The Long Haulers have {{f.team.0006.wk_points_final}} points in the bank."
     ],
     "place": [
-     "t.0006.history"
+     "t.0006.history",
+     "t.0006.division",
+     "t.0006.division_weeks",
+     "t.0006.week1"
     ],
     "placeAt": {
-     "t.0006.history": 0
+     "t.0006.history": 0,
+     "t.0006.division": 1,
+     "t.0006.division_weeks": 2,
+     "t.0006.week1": 4
     },
     "views": {
      "t.0006.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "Outlast PG Time is the division that holds the last two champions, and Cross plays each of them five times: Pure Greatness won in {{f.league.title_years_0004}} and HammerTime in {{f.league.title_years_0005}}. The simulation likes them again, Pure Greatness {{f.league.power_rank_0004|ord}} with {{f.league.p_title_0004}} title odds and HammerTime {{f.league.power_rank_0005|ord}}. It puts the Long Haulers {{f.team.0006.power_rank|ord}}, with {{f.team.0006.sim_p_playoffs}} playoff odds and a {{f.team.0006.sim_p_division}} chance at the division.",
-     "The next three years, filed the way Cross would file them. 2027: no first-round pick, because HammerTime owns it, and he congratulates HammerTime by name when they use it. The defense he bought this summer is still under contract and still the best thing on the depth chart. 2028: Mendoza or Beck takes the superflex from Lawrence, the Team finally fills the second receiver spot, and it is Let's GO season in the group chat. 2029, and this is a prediction, not a verdict: the Fantasy Gods square the account, and a Championship, capital C, ships to the Long Haulers.",
-     "Week one has barely started, with {{f.league.wk_teams_final}} NFL teams done. Myers kicked two field goals, A.J. Brown caught three passes, and the Long Haulers have {{f.team.0006.wk_points_final}} points in the bank."
-    ],
-    "place": [
-     "t.0006.division",
-     "t.0006.week1"
-    ],
-    "placeAt": {
-     "t.0006.division": 0,
-     "t.0006.week1": 2
-    },
-    "views": {
+     },
      "t.0006.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0006.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0006.week1": {
       "cols": [

@@ -20,6 +20,7 @@ fabricated CLAIM, which is why the human review gate before draft->live exists
 and why there is no auto-publish path.
 """
 
+import json
 import re
 from datetime import datetime
 
@@ -342,6 +343,48 @@ def table_view(table, view, where, facts, proper):
     return out_cols, out_rows, title_html, bool(view.get("note")), stack
 
 
+def cell_text(col, v):
+    """(text, css class) for one table cell -- the article table and the front
+    page's lead table print a number exactly the same way."""
+    kind = col.get("type")
+    if kind == "usd":
+        return "$%s" % format(int(round(v)), ",d"), "wire-num"
+    if kind == "points":
+        # Fantasy points, NOT money. Margins and scores were typed "usd" and
+        # rendered as "$91" for a 91.3-point margin -- currency symbol on a
+        # football score, and the decimal truncated away. One decimal, no symbol.
+        return "%.1f" % float(v), "wire-num"
+    if kind == "count":
+        return format(int(v), ",d"), "wire-num"
+    if kind == "percent":
+        return "%.1f%%" % v, "wire-num"
+    return str(v), ""
+
+
+def lead_table_meta(pack, prose, facts, proper):
+    """The front page's lead table, as one line of JSON for the wire-meta block.
+
+    Keith 2026-09-11: "Front Page should have a blurb like you do followed by
+    Seasonal Forecast. Show me the Forecast ... as a table". The lead story's
+    `card.leadTable` names a pack table and a view of it; the index carries the
+    formatted cells so the shell can draw them without opening the article.
+    Same view rules and label audit as a table inside the article."""
+    lt = (prose.get("card") or {}).get("leadTable")
+    if not lt:
+        return ""
+    t = dict((x["id"], x) for x in pack["tables"]).get(lt.get("table"))
+    if not t:
+        raise RenderError("card.leadTable names unknown table %r" % lt.get("table"))
+    cols, rows, _, _, _ = table_view(t, lt, "card.leadTable", facts, proper)
+    blob = {"title": lt.get("title") or t.get("title") or "",
+            "columns": [c["label"] for c in cols],
+            "num": [cell_text(c, 0 if c.get("type") in ("usd", "points", "count", "percent") else "")[1] == "wire-num"
+                    for c in cols],
+            "rows": [[cell_text(c, v)[0] for c, v in zip(cols, r)] for r in rows]}
+    # One line, and nothing that can close the HTML comment it lives in.
+    return json.dumps(blob, ensure_ascii=True, separators=(",", ":")).replace("--", "\\u002d\\u002d")
+
+
 def render_table(table, caption_html=None, view=None):
     """`view` is the (columns, rows, title_html, show_note, stack) tuple from
     table_view, or None for the whole table exactly as the pack built it."""
@@ -355,21 +398,7 @@ def render_table(table, caption_html=None, view=None):
     for row in rows:
         cells = []
         for c, v in zip(cols, row):
-            kind = c.get("type")
-            if kind == "usd":
-                txt, cls = "$%s" % format(int(round(v)), ",d"), "wire-num"
-            elif kind == "points":
-                # Fantasy points, NOT money. Margins and scores were typed "usd"
-                # and rendered as "$91" for a 91.3-point margin -- currency
-                # symbol on a football score, and the decimal truncated away.
-                # One decimal, no symbol.
-                txt, cls = "%.1f" % float(v), "wire-num"
-            elif kind == "count":
-                txt, cls = format(int(v), ",d"), "wire-num"
-            elif kind == "percent":
-                txt, cls = "%.1f%%" % v, "wire-num"
-            else:
-                txt, cls = str(v), ""
+            txt, cls = cell_text(c, v)
             # data-label feeds the stacked phone layout (td::before), which
             # needs each cell to carry its own column name.
             cells.append('<td%s data-label="%s">%s</td>'
@@ -795,10 +824,11 @@ def render_article(pack, prose, meta):
     title_html = audit_and_substitute(title, "the title", facts, proper) if title else ""
     dek = audit_and_substitute(dek, "the dek", facts, proper) if dek else ""
     kpis = render_kpis(prose.get("strip") or [], facts, proper)
+    meta = dict(meta, leadTable=lead_table_meta(pack, prose, facts, proper))
 
     meta_lines = "\n".join("  %s: %s" % (k, meta.get(k, "")) for k in
                            ("familyId", "season", "week", "status", "publishedAt",
-                            "tags", "heroValue", "heroLabel", "order", "featured"))
+                            "tags", "heroValue", "heroLabel", "order", "featured", "leadTable"))
 
     # A byline a reader can use, not "built from 2026-team-0008 · league 74598".
     # The pack id and its timestamp are still in the wire-provenance comment.

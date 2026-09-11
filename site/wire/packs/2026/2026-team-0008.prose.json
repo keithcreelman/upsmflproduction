@@ -10,8 +10,8 @@
    {
     "id": "s1",
     "paragraphs": [
-     "April was a teardown. Creelman carried {{f.team.0008.active_roster_opening}} active players and just {{f.team.0008.cap_opening}} in salary, the smallest commitment in the league, and one top-twelve starter, Dallas Goedert at tight end. Tetairoa McMillan was solid. The {{f.team.0008.holes_opening}} holes were Deshaun Watson at quarterback, TreVeyon Henderson and Emanuel Wilson at running back, Christian Watson at receiver, Marvin Harrison Jr and Trey Benson in the flexes, and Keon Coleman in the superflex.",
-     "The first big move came in April. Kenneth Walker, the largest contract he moved all year at {{f.team.0008.biggest_contract_traded_away}} a year, went to HammerTime for their 2027 first. Blake Watson came off the taxi squad at no cost. Two rookie deals ran out: Emanuel Wilson went to Blake Bombers at the Expired Rookie Auction and Jalen Carter was let go."
+     "April was a teardown. Creelman carried {{f.team.0008.active_roster_opening}} active players and just {{f.team.0008.cap_opening}} in salary, the smallest commitment in the league, and one top-twelve starter, Dallas Goedert at tight end. Tetairoa McMillan was solid. The {{f.team.0008.holes_opening}} holes were Deshaun Watson at quarterback, TreVeyon Henderson and Emanuel Wilson at running back, Christian Watson at receiver, Marvin Harrison Jr. and Trey Benson in the flexes, and Keon Coleman in the superflex.",
+     "The first big move came in April, and it was an extend-and-trade: Kenneth Walker, extended a year and then shipped, the largest contract he moved all year at {{f.team.0008.biggest_contract_traded_away}}, went to HammerTime for their 2027 first. The trade bot was not grading deals yet; graded now as of that day, it comes out {{f.team.0008.trade1_grade}} for Real Deal Creel. Blake Watson came off the taxi squad at no cost. Two rookie deals ran out: Emanuel Wilson went to Blake Bombers at the Expired Rookie Auction and Jalen Carter was let go."
     ],
     "place": [
      "t.0008.slot_bridge",
@@ -20,6 +20,7 @@
     ],
     "placeAt": {
      "t.0008.slot_bridge": 0,
+     "t.0008.moves_s1": 1,
      "t.0008.expired": 1
     },
     "views": {
@@ -38,7 +39,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "Before the rookie draft"
@@ -57,8 +59,8 @@
    {
     "id": "s2",
     "paragraphs": [
-     "Draft week he sent 1.04 to Gride for 1.07 and Travis Etienne, whom Gride had tagged two days earlier, then moved around the second and third rounds and made {{f.team.0008.rookie_picks_count}} picks: KC Concepcion at 1.07, a slot that has produced a usable player more often than not, Omar Cooper Jr. at 1.09, De'Zhaun Stribling, Sonny Styles and Zion Young. He was the busiest buyer at the Expired Rookie Auction too, {{f.team.0008.era_lots_won}} players for {{f.team.0008.era_spend}}: Chris Rodriguez, Kayshon Boutte, Michael Mayer, Kendre Miller and Will McDonald.",
-     "Then he made room. In July he cut Noah Fant ({{f.team.0008.cut_14137_salary}} of salary, a {{f.team.0008.cut_14137_penalty}} penalty), Trey Benson ({{f.team.0008.cut_16594_salary}}, {{f.team.0008.cut_16594_penalty}}) and Keon Coleman ({{f.team.0008.cut_16617_salary}}, {{f.team.0008.cut_16617_penalty}}), and in the three-way with C-Town and Blake Bombers he sent McMillan, his own 2027 first, Rodriguez and Omar Cooper for Puka Nacua, an Elite WR1, moving {{f.team.0008.trade5_salary_out}} of salary out and {{f.team.0008.trade5_salary_in}} in. The first-round pick he gave up was his own; the one Walker bought, HammerTime's, is still his. He went into the auction with {{f.team.0008.active_roster_preauction}} active players and {{f.team.0008.cap_preauction}} committed."
+     "Draft night he made three trades, and the bot graded all three as middling: 1.04 to Gride for 1.07 and Travis Etienne, whom Gride had tagged three days earlier, a {{f.team.0008.trade2_grade}}; 2.09 and a 2027 third to Pure Greatness for 2.06, a {{f.team.0008.trade3_grade}}; and 3.09 and 3.12 to Gride for 3.06, a {{f.team.0008.trade4_grade}}. That last pick had been CBP's, then Sex Manther's, then The Long Haulers', and Gride had held it for an hour; Creelman used it less than a minute after the trade, on Sonny Styles, who already projects as a High-end LB1. He made {{f.team.0008.rookie_picks_count}} picks in all: KC Concepcion at 1.07, a slot that has produced a usable player more often than not, Omar Cooper Jr. at 1.09, De'Zhaun Stribling, Styles and Zion Young. He was the busiest buyer at the Expired Rookie Auction too, {{f.team.0008.era_lots_won}} players for {{f.team.0008.era_spend}}: Chris Rodriguez, Kayshon Boutte, Michael Mayer, Kendre Miller and Will McDonald.",
+     "Then he made room. In July he cut Noah Fant ({{f.team.0008.cut_14137_salary}} of salary, a {{f.team.0008.cut_14137_penalty}} penalty), Trey Benson ({{f.team.0008.cut_16594_salary}}, {{f.team.0008.cut_16594_penalty}}) and Keon Coleman ({{f.team.0008.cut_16617_salary}}, {{f.team.0008.cut_16617_penalty}}), and in the three-way with C-Town and Blake Bombers he sent McMillan, his own 2027 first, Rodriguez and Omar Cooper for Puka Nacua, an Elite WR1, moving {{f.team.0008.trade5_salary_out}} of salary out and {{f.team.0008.trade5_salary_in}} in, an {{f.team.0008.trade5_grade}} from the bot. The first-round pick he gave up was his own; the one Walker bought, HammerTime's, is still his. He went into the auction with {{f.team.0008.active_roster_preauction}} active players and {{f.team.0008.cap_preauction}} committed."
     ],
     "place": [
      "t.0008.rookies",
@@ -87,7 +89,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the draft to the auction lock"
@@ -98,22 +101,25 @@
    {
     "id": "s3",
     "paragraphs": [
-     "Then he spent more than anyone. At the Free Agent Auction it was {{f.team.0008.faa_spend}} on {{f.team.0008.faa_lots_won}} players: Dak Prescott for {{f.team.0008.faa_12620_price}} after fifteen bids, Saquon Barkley for {{f.team.0008.faa_13604_price}}, Kyler Murray for {{f.team.0008.faa_14056_price}}, and Jacoby Brissett, Blake's July cut, for {{f.team.0008.faa_12616_price}} as insurance.",
-     "What it bought: Prescott and Barkley, the two Very good buys, and Murray, the Good one, in the superflex. His offense gained the third-most at the auction, {{f.team.0008.faa_off_gain_rank|ord}} of {{f.league.teams}}, and the league table ranks the money {{f.team.0008.faa_off_rank|ord}} for what each dollar added, right at the league average.",
-     "Then the churn. {{f.team.0008.pickups_s3}} waiver pickups before week one, more than anyone, most of them one-for-one swaps at the back of the roster, and Trey Benson among them, claimed back less than three weeks after he was cut. The multi-year contracts came in September: Parker Washington at {{f.team.0008.contract_16192_salary}} this year and {{f.team.0008.contract_16192_tcv}} in all, Chig Okonkwo at {{f.team.0008.contract_15889_salary}} and {{f.team.0008.contract_15889_tcv}}, both front-loaded, plus the two Expired Rookie Auction buys and four waiver pickups. Nacua's deal was restructured and put back the same week, a temporary {{f.team.0008.restructure_room_freed}} of room, and Deshaun Watson was cut with a {{f.team.0008.cut_13113_penalty}} penalty charged to 2027. He sits at {{f.team.0008.cap_current_room}} of room.",
-     "The lineup it built has {{f.team.0008.studs_today}} top-twelve starters, Prescott, Barkley, Nacua and Goedert, with Etienne and Murray solid, and {{f.team.0008.holes_today}} holes: Christian Watson at receiver and Parker Washington and TreVeyon Henderson in the flexes. The defense is a footnote, as always, but the work behind it is not: he has acquired {{f.team.0008.idp_adds_alltime}} defenders since 2010, the most in the league, and led it in that for {{f.team.0008.idp_adds_lead_streak}} straight seasons."
+     "Real Deal Creel spent {{f.team.0008.faa_spend}} at the Free Agent Auction on {{f.team.0008.faa_lots_won}} players, more than anyone: Dak Prescott for {{f.team.0008.faa_12620_price}} after fifteen bids, Saquon Barkley for {{f.team.0008.faa_13604_price}}, Kyler Murray for {{f.team.0008.faa_14056_price}}, and Jacoby Brissett, Blake's July cut, for {{f.team.0008.faa_12616_price}} as insurance. Hours after winning Prescott, in the middle of the auction, he made more room by back-loading Nacua's deal to {{f.team.0008.rt_16211_salary}} this year and {{f.team.0008.rt_16211_next_salary}} in 2027, freeing {{f.team.0008.restructure_room_freed}}; he put it back as it was {{f.team.0008.rt_16211_days}} days later, four days before the season opened, and the total never changed.",
+     "What it bought: Prescott and Barkley, the two Very good buys; Murray, the Good one in the superflex; and Parker Washington, who starts. The league table ranks Real Deal Creel {{f.team.0008.faa_off_rank|ord}} of {{f.league.teams}} for how much the auction improved the offense.",
+     "Then the churn. {{f.team.0008.pickups_s3}} waiver pickups before week one, more than anyone, most of them one-for-one swaps at the back of the roster, and Trey Benson among them, claimed back less than three weeks after he was cut. The multi-year contracts came in September, both front-loaded: Washington for {{f.team.0008.contract_16192_years}} years at a TCV of {{f.team.0008.contract_16192_tcv}}, {{f.team.0008.contract_16192_salary}} this year, and Chig Okonkwo for {{f.team.0008.contract_15889_years}} at {{f.team.0008.contract_15889_tcv}}, {{f.team.0008.contract_15889_salary}} this year, plus the two Expired Rookie Auction buys and {{f.team.0008.myac_other}} waiver pickups. He traded George Karlaftis and a 2027 fifth to the Hawks for their fourth, an {{f.team.0008.trade6_grade}} from the bot, and cut Deshaun Watson with a {{f.team.0008.cut_13113_penalty}} penalty charged to 2027. He sits at {{f.team.0008.cap_current_room}} of room.",
+     "The lineup it built has {{f.team.0008.studs_today}} top-twelve starters, Prescott, Barkley, Nacua and Goedert, with Etienne and Murray solid, and {{f.team.0008.holes_today}} holes: Christian Watson at receiver and Washington and Henderson in the flexes. Graded on MFL's projections, the defense is the soft spot, and the irony is not lost: he has acquired {{f.team.0008.idp_adds_alltime}} defenders since 2010, the most in the league, and led it in that for {{f.team.0008.idp_adds_lead_streak}} straight seasons, and only Nick Bolton among his starters grades above replacement level.",
+     "Henderson is out for the opener with an ankle, so the forecast sits him in week one and Marvin Harrison Jr. is next up in the flex. James Pearce is suspended into November, and Benson, cut and claimed back, is on injured reserve for the season."
     ],
     "place": [
      "t.0008.faa",
      "t.0008.faa_value",
      "t.0008.moves_s3",
-     "t.0008.lineup"
+     "t.0008.lineup",
+     "t.0008.injuries"
     ],
     "placeAt": {
      "t.0008.faa": 0,
      "t.0008.faa_value": 1,
-     "t.0008.moves_s3": 2,
-     "t.0008.lineup": 3
+     "t.0008.moves_s3": 0,
+     "t.0008.lineup": 4,
+     "t.0008.injuries": 4
     },
     "views": {
      "t.0008.faa": {
@@ -131,10 +137,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -144,7 +152,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -159,50 +168,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0008.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0008.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0008.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Creelman has been here since {{f.team.0008.hist_first_season}}, all {{f.team.0008.hist_seasons}} completed seasons, and the record has one gap that everyone in the league knows about: {{f.team.0008.hist_playoffs}} playoff trips, {{f.team.0008.hist_div_titles}} division titles, runner-up finishes in {{f.team.0008.hist_runner_up_years}}, and no title. His career all-play record is {{f.team.0008.hist_allplay_pct}}."
+     "Creelman has been here since {{f.team.0008.hist_first_season}}, all {{f.team.0008.hist_seasons}} completed seasons, and the record has one gap that everyone in the league knows about: {{f.team.0008.hist_playoffs}} playoff trips, {{f.team.0008.hist_div_titles}} division titles, runner-up finishes in {{f.team.0008.hist_runner_up_years}}, and no title. His career all-play record is {{f.team.0008.hist_allplay_pct}}.",
+     "He started the Owner Divisional Draft talk in January and then was drafted himself: Josh Martel, the last of the four captains, took Real Deal Creel {{f.league.div_draft_pick_0008|ord}} overall and L.A. Looks right after, rivals on purpose. Creelman had told Brian Cross in May to get ready to go first overall. He did. Maddie Mondays is the closest division in the simulation, and Real Deal Creel leads it: {{f.team.0008.sim_p_division}} to win it, against {{f.league.p_division_0007}} for Sex Manther and {{f.league.p_division_0001}} for L.A. Looks, with {{f.team.0008.sim_p_playoffs}} playoff odds and {{f.team.0008.sim_p_title}} title odds.",
+     "The division weeks are {{f.team.0008.div_weeks}}, and week eleven is his hardest, Nacua, Christian Watson and Henderson all on bye. Week eight costs him Etienne and Jonas Sanker. And week fourteen, the last of the regular season, takes Prescott, while L.A. Looks loses three Cowboys and Sex Manther nobody. Across the five weeks he loses {{f.team.0008.div_week_own_byes}} starters to byes and his rivals {{f.team.0008.div_week_rival_byes}}.",
+     "the next three years, as the owner would type them.... 2027.... close. manther wins the division and reminds everyone who has the rings haha. 2028.... the division, finally, and the final.... and a third runner-up banner. the commissioner reviews the result, cites precedent, rules it valid, and shrugs lol. 2029.... he lists the franchise for sale, gets no offers, and keeps it anyway haha",
+     "Week one is a division week and has barely started for Real Deal Creel: with {{f.league.wk_teams_final}} NFL teams done, Nacua has all {{f.team.0008.wk_points_final}} of his points so far, and his week-one waiver claims drew a reply from Josh Martel that none of it is going to be enough."
     ],
     "place": [
-     "t.0008.history"
+     "t.0008.history",
+     "t.0008.division",
+     "t.0008.division_weeks",
+     "t.0008.week1"
     ],
     "placeAt": {
-     "t.0008.history": 0
+     "t.0008.history": 0,
+     "t.0008.division": 1,
+     "t.0008.division_weeks": 2,
+     "t.0008.week1": 4
     },
     "views": {
      "t.0008.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "Maddie Mondays holds two owners with two titles each, and the simulation picks the one without a title to win it: Real Deal Creel is {{f.team.0008.power_rank|ord}} in the league with a {{f.team.0008.sim_p_division}} chance at the division and {{f.team.0008.sim_p_title}} title odds, Sex Manther {{f.league.power_rank_0007|ord}}, and L.A. Looks {{f.league.power_rank_0001|ord}}. Josh Martel won in {{f.league.title_years_0007}} and Ryan Bousquet in {{f.league.title_years_0001}}, and Creelman plays each of them five times.",
-     "the next three years, as the owner would type them.... 2027.... the first title haha. the commissioner reviews the result, cites precedent, rules it valid, and shrugs. 2028.... a repeat, celebrated with a keystone light and a winamp playlist nobody asked for lol. 2029.... he lists the franchise for sale, gets no offers, and wins it again anyway haha",
-     "Week one has barely started for Real Deal Creel: with {{f.league.wk_teams_final}} NFL teams done, Nacua has all {{f.team.0008.wk_points_final}} of his points so far."
-    ],
-    "place": [
-     "t.0008.division",
-     "t.0008.week1"
-    ],
-    "placeAt": {
-     "t.0008.division": 0,
-     "t.0008.week1": 2
-    },
-    "views": {
+     },
      "t.0008.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0008.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0008.week1": {
       "cols": [

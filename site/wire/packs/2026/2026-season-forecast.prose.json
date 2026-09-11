@@ -1,0 +1,159 @@
+{
+ "meta": {
+  "engine": "claude-opus-5 (session, written by hand)",
+  "packId": "2026-season-forecast"
+ },
+ "prose": {
+  "title": "The 2026 Forecast: C-Town on Top, the Champion Right Behind, and a Crowded Middle",
+  "dek": "Bear Dunn asked for a forecast in August. The Wire played the season {{f.league.sim_runs}} times: C-Town Chivalry is the favorite at {{f.team.0009.sim_p_title}} to win it all, Pure Greatness and Blake Bombers are next, and the four teams in the middle are separated by less than a game.",
+  "kicker": "Season Forecast · 2026",
+  "sections": [
+   {
+    "id": "s1",
+    "paragraphs": [
+     "Bear Dunn asked for a preseason forecast in August, and Shawn Blake reminded the room on opening night that he was still waiting for one. Here it is. The Wire played the season {{f.league.sim_runs}} times from every roster as it stands, on MFL's own weekly projections, with each team's edge trimmed back by nearly a third, because projections always think they know more than they do. Players MFL lists as out sit until it expects them back, and so does Sam Darnold for week two.",
+     "C-Town Chivalry is the favorite: first in projected all-play at {{f.team.0009.sim_exp_allplay}}, a {{f.team.0009.sim_p_playoffs}} chance at the playoffs and {{f.team.0009.sim_p_title}} title odds, the best in the league. Pure Greatness, the defending champion, is right behind at {{f.team.0004.sim_p_title}}, and Blake Bombers are third at {{f.team.0010.sim_p_title}}.",
+     "Then it gets crowded. HammerTime, Real Deal Creel, Sex Manther and CBP are fourth through seventh, less than a game apart in projected wins and all of them between {{f.team.0002.sim_p_playoffs}} and {{f.team.0008.sim_p_playoffs}} to make the playoffs, and Derrick Whitman, whose CBP is {{f.team.0002.power_rank|ord}}, says he likes it down there. Cleon Ca$h, The Long Haulers and the Hawks follow, and L.A. Looks and Gride bring up the rear, Gride with {{f.team.0003.sim_p_playoffs}} playoff odds: a long shot, not a closed door.",
+     "By division, DOG POUND 4 LIFE is C-Town's to lose, a {{f.team.0009.sim_p_division}} chance, and LEGION OF BOOM leans toward Blake Bombers at {{f.team.0010.sim_p_division}}. Eric Martel called Outlast PG Time a coin flip in July; the forecast is less generous to him, with Pure Greatness at {{f.team.0004.sim_p_division}} and HammerTime at {{f.team.0005.sim_p_division}}. The real coin flip is Maddie Mondays: Real Deal Creel {{f.team.0008.sim_p_division}}, Sex Manther {{f.team.0007.sim_p_division}} and L.A. Looks {{f.team.0001.sim_p_division}}.",
+     "A forecast is not a promise. Tested on the last five seasons, this one got the order roughly right in 2021 and 2022 and much less right since, so read every number here as odds, not a verdict."
+    ],
+    "place": [
+     "t.league.forecast"
+    ],
+    "placeAt": {
+     "t.league.forecast": 2
+    },
+    "views": {
+     "t.league.forecast": {
+      "cols": [
+       "rank",
+       "team",
+       "division",
+       "ap",
+       "wins",
+       "div",
+       "po",
+       "bye",
+       "title"
+      ],
+      "title": "The forecast"
+     }
+    },
+    "captions": {
+     "t.league.forecast": "Ranked by projected regular-season all-play. Wins are head-to-head over the full schedule; every odds column is the share of simulated seasons in which it happened."
+    },
+    "quotes": [
+     "q_bear_forecast",
+     "q_blake_preview",
+     "q_whitman_tiger",
+     "q_emart_coinflip"
+    ]
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "This is year one of a three-year alignment, and the first the owners chose themselves. The rule passed in May: the four owners with the best career all-play records became captains and drafted their divisions in a two-round snake on the night of the rookie draft, most of the league in Brian Cross's house and the rest dialed in.",
+     "The captains, in seat order, were Eric Martel of HammerTime, Derrick Whitman of CBP, Bear Dunn of C-Town and Josh Martel of Sex Manther. The room's rule of thumb came from the bot's own recap: going first meant your captain thought you were the weakest team left. So when Eric Martel opened the draft by taking The Long Haulers, Cross heard it exactly that way, and so did everyone else.",
+     "Whitman took Gride second. Dunn took the Hawks third, which he had announced in January, the day the captain draft was first floated. Josh Martel, who had said captains would pick for rivalry as much as weakness, took Real Deal Creel fourth and doubled back for L.A. Looks fifth. Dunn added Cleon Ca$h, Whitman took Blake Bombers, and the last team on the board was the defending champion, Pure Greatness, which landed with HammerTime. Eric Martel had predicted in May that the last team left would be a strong one. He was right, and now he has to play it.",
+     "Cross has leaned all the way in. A month later he pitched names for his new division, and one of them is simply accurate: HammerTime won the title in 2024 and Pure Greatness in 2025. The forecast has The Long Haulers {{f.team.0006.power_rank|ord}}."
+    ],
+    "place": [
+     "t.league.captains",
+     "t.league.division_draft"
+    ],
+    "placeAt": {
+     "t.league.captains": 1,
+     "t.league.division_draft": 2
+    },
+    "views": {
+     "t.league.captains": {
+      "cols": [
+       "seat",
+       "team",
+       "owner",
+       "division"
+      ],
+      "title": "The four captains"
+     },
+     "t.league.division_draft": {
+      "cols": [
+       "pick",
+       "round",
+       "captain",
+       "took"
+      ],
+      "title": "Every pick"
+     }
+    },
+    "captions": {},
+    "quotes": [
+     "q_bot_first",
+     "q_rybo_haul",
+     "q_cross_name",
+     "q_bear_calls_hawks",
+     "q_cross_champs"
+    ]
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "The offseason in the chat started where the last season ended, with Brian Cutting explaining how he won his first title: he swapped Jordan Love for Drake Maye. Ryan Bousquet named the Free Agent Auction before it opened, and it lived up to the name. Blake Bombers beat the commissioner to Josh Allen, and Real Deal Creel spent the most anyway.",
+     "Shawn Blake has since become the league's injury desk. On the eve of the opener he broke the news of Brock Bowers's knee surgery, bad news for C-Town and the forecast's favorite, and the room treated it with the gravity you would expect. Blake then spent the Thursday opener defending George Kittle, the tight end the trade bot had mocked for his age and his Achilles, and Brian Cutting answered for everyone.",
+     "And week one opened where the forecast says the season will be decided, in the division weeks. Maddie Mondays played its first one straight away, Real Deal Creel put in a round of waiver claims, and Josh Martel was not impressed. The last word goes to Brian Cross, picked first in May and {{f.team.0006.power_rank|ord}} in the forecast now."
+    ],
+    "place": [],
+    "placeAt": {},
+    "views": {},
+    "captions": {},
+    "quotes": [
+     "q_cutting_maye",
+     "q_rybo_plans",
+     "q_emart_meniscus",
+     "q_hawks_schefter",
+     "q_cutting_kittle",
+     "q_manther_enough",
+     "q_cross_love"
+    ]
+   }
+  ],
+  "strip": [
+   {
+    "fact": "f.league.sim_runs",
+    "label": "Seasons simulated"
+   },
+   {
+    "fact": "f.team.0009.sim_p_title",
+    "label": "The favorite's title odds"
+   },
+   {
+    "fact": "f.team.0004.sim_p_title",
+    "label": "The champion's title odds"
+   },
+   {
+    "fact": "f.team.0003.sim_p_playoffs",
+    "label": "The longest shot's playoff odds"
+   }
+  ],
+  "card": {
+   "featured": true,
+   "leadTable": {
+    "table": "t.league.forecast",
+    "cols": [
+     "rank",
+     "team",
+     "ap",
+     "div",
+     "po",
+     "title"
+    ],
+    "labels": {
+     "ap": "All-play",
+     "div": "Division",
+     "po": "Playoffs",
+     "title": "Title"
+    },
+    "title": "The forecast"
+   }
+  }
+ }
+}

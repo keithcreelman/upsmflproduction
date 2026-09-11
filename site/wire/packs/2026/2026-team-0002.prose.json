@@ -46,7 +46,7 @@
    {
     "id": "s2",
     "paragraphs": [
-     "The draft was the whole pre-auction offseason. Whitman made {{f.team.0002.rookie_picks_count}} picks, two in the first round: Kenyon Sadiq at 1.08, a slot where history finds a usable player a little under half the time, and Eli Stowers at 1.12. Jonah Coleman at 2.01, Ted Hurst, Cade Klubnik and Keyshaun Elliott followed. Sadiq and Coleman are already on the redraft board, both replacement-level for now.",
+     "The draft was the whole pre-auction offseason. Whitman made {{f.team.0002.rookie_picks_count}} picks, two in the first round: Kenyon Sadiq at 1.08, a slot where history finds a usable player a little under half the time, and Eli Stowers at 1.12, where it almost never has. Jonah Coleman at 2.01, Ted Hurst, Cade Klubnik and a defender, Keyshaun Elliott, followed. Sadiq and Coleman are already on the redraft board, both replacement-level for now.",
      "No Expired Rookie Auction buys, no tags, no cuts, no trades. He went into the auction with {{f.team.0002.active_roster_preauction}} active players and {{f.team.0002.cap_preauction}} committed: plenty of room, and plenty of rebuilding to do with it."
     ],
     "place": [
@@ -75,22 +75,25 @@
    {
     "id": "s3",
     "paragraphs": [
-     "He opened a little more first. Jordan Love was extended and restructured on the auction's opening weekend, {{f.team.0002.contract_14782_salary}} this year cut to {{f.team.0002.contract_14782_salary_2}}, and then Whitman bought a backfield. Jonathan Taylor cost {{f.team.0002.faa_14802_price}}, D'Andre Swift {{f.team.0002.faa_14797_price}}, and Tony Pollard, cut by C-Town on lock day, {{f.team.0002.faa_14085_price}} after thirteen bids. Kyle Pitts cost {{f.team.0002.faa_15329_price}}. In all it came to {{f.team.0002.faa_spend}} for {{f.team.0002.faa_lots_won}} players.",
-     "What it bought was real: Taylor is an Elite RB1, Pitts a High-end TE1, Swift the Good buy, with Pollard, Aaron Jones and Michael Pittman as depth. His offense gained more than all but one other at the auction, {{f.team.0002.faa_off_gain_rank|ord}} of {{f.league.teams}}, and ranked {{f.team.0002.faa_off_rank|ord}} for what each dollar added.",
-     "The contracts that followed ran him right to the cap. Pitts signed a front-loaded deal, {{f.team.0002.contract_15329_salary}} this year and {{f.team.0002.contract_15329_tcv}} in all. In late August Nico Collins's deal was restructured and put straight back, a temporary {{f.team.0002.restructure_room_freed}} of room, and the next day Whitman took Jayden Reed, three depth players and {{f.team.0002.trade_blind_bid_cash}} of blind-bid money from Blake Bombers for Pearsall, Coleman and a 2027 fourth. He cut Kmet at no cost, claimed Calvin Ridley and Xavier Hutchinson off waivers, and sits at {{f.team.0002.cap_current_room}} of room.",
-     "The lineup it built has {{f.team.0002.studs_today}} top-twelve starters, Taylor, Collins and Pitts, five solid ones around them, and {{f.team.0002.holes_today}} hole, Pollard in a flex. Quarterback is the soft spot: Tyler Shough and Love both grade as a Mid QB2, and his quarterbacks rank {{f.team.0002.qb_rank|ord}} in the league. The kicker and the defense are footnotes."
+     "CBP spent {{f.team.0002.faa_spend}} at the Free Agent Auction on {{f.team.0002.faa_lots_won}} players, and made a little more room first. On the auction's opening weekend Jordan Love was extended one more year, {{f.team.0002.contract_14782_next_salary}} for 2027, and restructured the same day, back-loaded to {{f.team.0002.contract_14782_salary_2}} this year and {{f.team.0002.contract_14782_next_salary_2}} next. Then Whitman bought a backfield: Jonathan Taylor for {{f.team.0002.faa_14802_price}}, D'Andre Swift for {{f.team.0002.faa_14797_price}} and Tony Pollard, cut by C-Town on lock day, for {{f.team.0002.faa_14085_price}} after thirteen bids. Kyle Pitts cost {{f.team.0002.faa_15329_price}}.",
+     "What it bought was real: Taylor, an Elite RB1; Pitts, a High-end TE1 and the Very good buy; Swift, the Good one; and Pollard, who starts. Aaron Jones and Michael Pittman are depth. Only C-Town's offense improved more at the auction; the league table ranks CBP {{f.team.0002.faa_off_rank|ord}} of {{f.league.teams}}.",
+     "The contracts that followed ran him to the cap. Pitts signed front-loaded, {{f.team.0002.contract_15329_salary}} this year and {{f.team.0002.contract_15329_next_salary}} in 2027. In late August Nico Collins's deal was restructured to {{f.team.0002.rt_15290_salary}} this year and put back {{f.team.0002.rt_15290_days}} days later, a temporary {{f.team.0002.restructure_room_freed}} of room, and in between Whitman took Jayden Reed, three depth players and {{f.team.0002.trade_blind_bid_cash}} of blind-bid money from Blake Bombers for Pearsall, Coleman and a 2027 fourth, a {{f.team.0002.trade1_grade}} from the trade bot. He cut Kmet at no cost, claimed Calvin Ridley and Xavier Hutchinson off waivers, and sits at {{f.team.0002.cap_current_room}} of room.",
+     "The lineup it built has {{f.team.0002.studs_today}} top-twelve starters, Taylor, Collins and Pitts, five solid ones around them, and {{f.team.0002.holes_today}} hole, Pollard in a flex. Quarterback is the soft spot: Tyler Shough and Love both grade as a Mid QB2, and his quarterbacks rank {{f.team.0002.qb_rank|ord}} in the league. Graded on MFL's projections the defense is thin, Foyesade Oluokun the only defender above replacement level.",
+     "No starter is hurt. The injury list is all bench and taxi: Keaton Mitchell and Eli Stowers are questionable, and Isiah Pacheco and Dillon Gabriel are on injured reserve into October."
     ],
     "place": [
      "t.0002.faa",
      "t.0002.faa_value",
      "t.0002.moves_s3",
-     "t.0002.lineup"
+     "t.0002.lineup",
+     "t.0002.injuries"
     ],
     "placeAt": {
      "t.0002.faa": 0,
      "t.0002.faa_value": 1,
      "t.0002.moves_s3": 0,
-     "t.0002.lineup": 3
+     "t.0002.lineup": 4,
+     "t.0002.injuries": 4
     },
     "views": {
      "t.0002.faa": {
@@ -108,10 +111,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -121,7 +126,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -136,50 +142,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0002.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0002.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0002.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Whitman has the best career all-play record in the league, {{f.team.0002.hist_allplay_pct}}, across {{f.team.0002.hist_seasons}} seasons in two spells since {{f.team.0002.hist_first_season}}. His teams have had the league's best all-play record {{f.team.0002.hist_ap_titles}} times, in {{f.team.0002.hist_ap_title_years}}, and won {{f.team.0002.hist_div_titles}} division titles, but the championship count is one, in {{f.team.0002.hist_title_years}}, with a runner-up finish in {{f.team.0002.hist_runner_up_years}}."
+     "Whitman's teams have had the league's best all-play record {{f.team.0002.hist_ap_titles}} times, in {{f.team.0002.hist_ap_title_years}}, and won {{f.team.0002.hist_div_titles}} division titles, but the championship count is one, in {{f.team.0002.hist_title_years}}, with a runner-up finish in {{f.team.0002.hist_runner_up_years}}. His career all-play record is {{f.team.0002.hist_allplay_pct}}.",
+     "This year's division is one he built. Whitman sat {{f.league.div_draft_captain_0002|ord}} among the four captains, took Gride {{f.league.div_draft_pick_0003|ord}} overall and came back for Blake Bombers {{f.league.div_draft_pick_0010|ord}}, and he has made a point of calling LEGION OF BOOM his division, not ours, because he put it together. The simulation is less sure it is his: Blake Bombers are the favorite at {{f.league.p_division_0010}}, CBP is at {{f.team.0002.sim_p_division}} with {{f.team.0002.sim_p_playoffs}} playoff odds, and Gride is at {{f.league.p_division_0003}}.",
+     "The division weeks are {{f.team.0002.div_weeks}}, and one of them is a problem. Week eight costs him Shough and Collins, while Gride and Blake Bombers lose three starters each, George Kittle and Brock Purdy among Blake's. But week eleven takes six CBP starters at once, Pitts, Love and four defenders, against four apiece for his rivals. Week fourteen, the last of the regular season, has no byes at all in the division. Across the five weeks he loses {{f.team.0002.div_week_own_byes}} starters to byes and his rivals {{f.team.0002.div_week_rival_byes}}.",
+     "The next three years CBP style no commas. 2027 the young guys grow up and CBP does not say a word about it until somebody else brings it up and then CBP says a lot. 2028 playoffs and the quarterback problem gets solved in silence at an auction. 2029 the division title in the division he put together himself and a thank you to the whole league because we are all friends here and then quiet for a year.",
+     "Week one is a division week and has barely touched CBP: with {{f.league.wk_teams_final}} NFL teams done, Leonard Williams had a sack and CBP has {{f.team.0002.wk_points_final}} points in the bank."
     ],
     "place": [
-     "t.0002.history"
+     "t.0002.history",
+     "t.0002.division",
+     "t.0002.division_weeks",
+     "t.0002.week1"
     ],
     "placeAt": {
-     "t.0002.history": 0
+     "t.0002.history": 0,
+     "t.0002.division": 1,
+     "t.0002.division_weeks": 2,
+     "t.0002.week1": 4
     },
     "views": {
      "t.0002.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "LEGION OF BOOM has the league's most decorated owner in Shawn Blake, and the simulation ranks his Bombers {{f.league.power_rank_0010|ord}} in the league, Gride {{f.league.power_rank_0003|ord}}, and CBP {{f.team.0002.power_rank|ord}}, with {{f.team.0002.sim_p_playoffs}} playoff odds and a {{f.team.0002.sim_p_division}} chance at the division. Whitman plays Blake and Gerardi five times each.",
-     "The next three years, CBP style, no commas. 2027 CBP makes the playoffs and does not say a word about it until somebody else brings it up and then CBP says a lot. 2028 the quarterback problem gets solved in silence at an auction and the all-play record goes up again. 2029 a second title and CBP thanks the whole league because we are all friends here and then goes quiet for a year.",
-     "Week one has barely touched CBP: with {{f.league.wk_teams_final}} NFL teams done, Leonard Williams had a sack and CBP has {{f.team.0002.wk_points_final}} points in the bank."
-    ],
-    "place": [
-     "t.0002.division",
-     "t.0002.week1"
-    ],
-    "placeAt": {
-     "t.0002.division": 0,
-     "t.0002.week1": 2
-    },
-    "views": {
+     },
      "t.0002.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0002.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0002.week1": {
       "cols": [

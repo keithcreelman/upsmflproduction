@@ -5,13 +5,13 @@
  },
  "prose": {
   "title": "L.A. Looks Tagged Amon-Ra St. Brown, Traded Him, and Bought George Pickens",
-  "dek": "Ryan Bousquet used his biggest tag as a trade chip, took Sam Darnold for it, then paid {{f.team.0001.faa_15762_price}} for the Pickens that C-Town had let go. The preseason simulation ranks L.A. Looks {{f.team.0001.power_rank|ord}}.",
+  "dek": "Ryan Bousquet traded his tagged Amon-Ra St. Brown for Sam Darnold, paid {{f.team.0001.faa_15762_price}} for the George Pickens that C-Town let go, and lost Darnold to a hip injury on the first drive of the opener. The preseason simulation ranks L.A. Looks {{f.team.0001.power_rank|ord}}.",
   "sections": [
    {
     "id": "s1",
     "paragraphs": [
      "April was thin and cheap. Bousquet carried {{f.team.0001.active_roster_opening}} active players and only {{f.team.0001.cap_opening}} in salary, and one top-twelve starter, Chase Brown at running back. Bo Nix and Jake Ferguson were solid. The {{f.team.0001.holes_opening}} holes were Zach Charbonnet at the second running back spot, Alec Pierce and Courtland Sutton at receiver, Tank Bigsby and Jauan Jennings in the flexes, and Carson Wentz in the superflex.",
-     "The early moves were about money. In April David Montgomery and his {{f.team.0001.trade1_salary_out}} salary went to HammerTime for a 2027 second, and in May Brown's rookie deal was extended at {{f.team.0001.contract_16181_salary}} this year and {{f.team.0001.contract_16181_tcv}} in all. Brown was one of {{f.team.0001.expired_rookies}} rookie deals running out. {{f.team.0001.expired_to_era}} of the others went to the Expired Rookie Auction, where Bousquet bought Charbonnet and Bigsby back and let Brian Branch and Michael Mayer go to C-Town and Real Deal Creel."
+     "The early moves were about money. In April David Montgomery and his {{f.team.0001.trade1_salary_out}} salary went to HammerTime for a 2027 second; the trade bot did not grade deals yet, and graded now as of that day it comes out {{f.team.0001.trade1_grade}} for L.A. Looks. In May Brown's rookie deal was extended for {{f.team.0001.contract_16181_salary}} a year for {{f.team.0001.contract_16181_years}} years, a TCV of {{f.team.0001.contract_16181_tcv}}. Brown was one of {{f.team.0001.expired_rookies}} rookie deals running out; {{f.team.0001.expired_to_era}} of the others went to the Expired Rookie Auction, where Bousquet bought Charbonnet and Bigsby back and let Brian Branch and Michael Mayer go to C-Town and Real Deal Creel."
     ],
     "place": [
      "t.0001.slot_bridge",
@@ -39,7 +39,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "Before the rookie draft"
@@ -58,8 +59,8 @@
    {
     "id": "s2",
     "paragraphs": [
-     "The tags were the story. Bousquet tagged Kamren Curl at {{f.team.0001.tag_15001_salary}} and Amon-Ra St. Brown at {{f.team.0001.tag_15287_salary}} in May, and St. Brown turned out to be exactly what a tag is in this league, a chip. In July he went to Gride with Shedeur Sanders and {{f.team.0001.trade_blind_bid_cash}} of blind-bid money for Sam Darnold, Jalen Coker and Emmett Johnson, and the deal moved {{f.team.0001.trade4_salary_out}} of salary out and {{f.team.0001.trade4_salary_in}} in. A top receiver on a one-year tag became a starting quarterback and room for the auction.",
-     "Around it, the draft and the Expired Rookie Auction filled out the roster. On draft day he traded 3.08 to HammerTime for 4.08, 5.01 and a 2027 fourth, then made {{f.team.0001.rookie_picks_count}} picks, starting with Bryce Lance at 3.10. At the Expired Rookie Auction he paid {{f.team.0001.era_16169_price}} to keep Charbonnet and {{f.team.0001.era_16164_price}} for Bigsby, and bought Jordan Battle and Marvin Mims, then sent Battle and Adonai Mitchell to the Long Haulers in July for Isaiah Bond and a 2027 fourth. No cuts. The roster went into the auction at {{f.team.0001.active_roster_preauction}} active players and {{f.team.0001.cap_preauction}} in salary."
+     "The tags were the story. Bousquet tagged Kamren Curl at {{f.team.0001.tag_15001_salary}} and Amon-Ra St. Brown at {{f.team.0001.tag_15287_salary}} in May, and St. Brown turned out to be exactly what a tag is in this league, a chip. In July he went to Gride with Shedeur Sanders and {{f.team.0001.trade_blind_bid_cash}} of blind-bid money for Sam Darnold, Jalen Coker and Emmett Johnson, moving {{f.team.0001.trade4_salary_out}} of salary out and {{f.team.0001.trade4_salary_in}} in, and the trade bot graded his side a {{f.team.0001.trade4_grade}}. A top receiver on a one-year tag became a starting quarterback and room for the auction.",
+     "Around it, the draft and the Expired Rookie Auction filled out the roster. On draft day he traded 3.08 to HammerTime for 4.08, 5.01 and a 2027 fourth, a {{f.team.0001.trade2_grade}} from the bot, then made {{f.team.0001.rookie_picks_count}} picks, starting with Bryce Lance at 3.10. At the Expired Rookie Auction he paid {{f.team.0001.era_16169_price}} to keep Charbonnet and {{f.team.0001.era_16164_price}} for Bigsby, and bought Jordan Battle and Marvin Mims, then sent Battle and Adonai Mitchell to The Long Haulers in July for Isaiah Bond and a 2027 fourth, which the bot graded {{f.team.0001.trade3_grade}} for him. No cuts. The roster went into the auction at {{f.team.0001.active_roster_preauction}} active players and {{f.team.0001.cap_preauction}} in salary."
     ],
     "place": [
      "t.0001.rookies",
@@ -88,7 +89,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the draft to the auction lock"
@@ -99,22 +101,25 @@
    {
     "id": "s3",
     "paragraphs": [
-     "Then he bought back the receiver he had traded away, in a different body. George Pickens, released by C-Town on lock day, cost {{f.team.0001.faa_15762_price}} after eleven bids, the biggest of {{f.team.0001.faa_lots_won}} wins that came to {{f.team.0001.faa_spend}}. Daniel Jones cost {{f.team.0001.faa_14059_price}} and Jaylen Warren {{f.team.0001.faa_15742_price}}.",
-     "Pickens is the one buy that changed the lineup, a Mid WR1 and the only Very good entry in the What it bought column. Jones is a backup quarterback and Warren a Low-end RB3, and for all that money the league table ranks the auction {{f.team.0001.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added.",
-     "The contracts came late. Pickens got a multi-year deal in September, days before the opener, {{f.team.0001.contract_15762_salary}} this year and {{f.team.0001.contract_15762_tcv}} in all, and so did Charbonnet at {{f.team.0001.contract_16169_tcv}} and Mims, the two Expired Rookie Auction buys. Alec Pierce was extended at {{f.team.0001.contract_15768_salary}} this year and {{f.team.0001.contract_15768_tcv}} in all, and Darnold's deal was restructured after the auction to {{f.team.0001.contract_13592_salary}} this year. He claimed Chris Brooks off waivers and released Wentz, Riley Leonard and Troy Franklin at no cost, and he is down to {{f.team.0001.cap_current_room}} of room.",
-     "The lineup it built has {{f.team.0001.studs_today}} top-twelve starters, Brown and Pickens, with Nix, Ferguson and Darnold solid, and {{f.team.0001.holes_today}} holes: Warren at the second running back spot, Pierce at receiver, Sutton in a flex and Isaiah Likely, a replacement-level tight end, in the other. The defense is a footnote, but a good one: over the last three seasons his defenders have scored more per start than anyone's."
+     "L.A. Looks spent {{f.team.0001.faa_spend}} at the Free Agent Auction on {{f.team.0001.faa_lots_won}} players, and most of it went on one receiver. George Pickens, whom C-Town had tagged and then released on lock day, cost {{f.team.0001.faa_15762_price}} after eleven bids. Daniel Jones cost {{f.team.0001.faa_14059_price}} and Jaylen Warren {{f.team.0001.faa_15742_price}}.",
+     "What it bought: Pickens, a Mid WR1 and the one Very good buy; Jones, a Good one, because in a superflex league every team starts two quarterbacks; and Warren, a Low-end RB3 who starts. The rest was depth, and the league table ranks the auction {{f.team.0001.faa_off_rank|ord}} of {{f.league.teams}} for how much it improved his offense.",
+     "The contracts came late, days before the opener. Pickens signed for {{f.team.0001.contract_15762_years}} years at {{f.team.0001.contract_15762_salary}} a year, a TCV of {{f.team.0001.contract_15762_tcv}}, and the two Expired Rookie Auction buys got multi-year deals too, Charbonnet for {{f.team.0001.contract_16169_tcv}} and Mims. Alec Pierce was extended for {{f.team.0001.contract_15768_years}} years at a TCV of {{f.team.0001.contract_15768_tcv}}, back-loaded: {{f.team.0001.contract_15768_salary}} this year and {{f.team.0001.contract_15768_next_salary}} in 2027. Darnold's deal was restructured after the auction, front-loaded to {{f.team.0001.contract_13592_salary}} this year and {{f.team.0001.contract_13592_next_salary}} in 2027. He claimed Chris Brooks off waivers and released Wentz, Riley Leonard and Troy Franklin at no cost, and he is down to {{f.team.0001.cap_current_room}} of room.",
+     "The lineup it built has {{f.team.0001.studs_today}} top-twelve starters, Brown and Pickens, with Nix, Ferguson and Darnold solid, and {{f.team.0001.holes_today}} holes: Warren at the second running back spot, Pierce at receiver, Sutton in a flex and Isaiah Likely, a replacement-level tight end, in the other. The defense, graded on MFL's projections, is sound: Laiatu Latu and Zack Baun are starters at the top of their positions and Danielle Hunter and Jamien Sherwood are right behind them.",
+     "The injury that matters is at quarterback. Darnold was sacked on Seattle's first drive of the opener, left with a hip injury and did not return; a fracture was ruled out, but NFL Network reports he is expected to miss week two. MFL has not listed him yet, so the forecast holds him out of that week by hand, and Daniel Jones, the auction backup, starts in the superflex. Pierce is questionable with a heel, Charbonnet is on injured reserve into October, and Aaron Donald, a Low-end DL3 on MFL's projections, is out for the first two weeks."
     ],
     "place": [
      "t.0001.faa",
      "t.0001.faa_value",
      "t.0001.moves_s3",
-     "t.0001.lineup"
+     "t.0001.lineup",
+     "t.0001.injuries"
     ],
     "placeAt": {
      "t.0001.faa": 0,
      "t.0001.faa_value": 1,
      "t.0001.moves_s3": 2,
-     "t.0001.lineup": 3
+     "t.0001.lineup": 4,
+     "t.0001.injuries": 4
     },
     "views": {
      "t.0001.faa": {
@@ -132,10 +137,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -145,7 +152,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -160,50 +168,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0001.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0001.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0001.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Bousquet is an original, here since {{f.team.0001.hist_first_season}}, and the record is a winner's: titles in {{f.team.0001.hist_title_years}}, runner-up finishes in {{f.team.0001.hist_runner_up_years}}, {{f.team.0001.hist_playoffs}} playoff trips in {{f.team.0001.hist_seasons}} seasons, and {{f.team.0001.hist_div_titles}} division titles. His career all-play record is {{f.team.0001.hist_allplay_pct}}."
+     "Bousquet is an original, here since {{f.team.0001.hist_first_season}}, and the record is a winner's: titles in {{f.team.0001.hist_title_years}}, runner-up finishes in {{f.team.0001.hist_runner_up_years}}, {{f.team.0001.hist_playoffs}} playoff trips in {{f.team.0001.hist_seasons}} seasons, and {{f.team.0001.hist_div_titles}} division titles. He has never had the league's best all-play record, though he has finished second in it three times. His career all-play record is {{f.team.0001.hist_allplay_pct}}.",
+     "His new division was drafted around him. This is year one of the alignment the owners picked themselves, and Josh Martel, the last of the four captains, took Real Deal Creel {{f.league.div_draft_pick_0008|ord}} overall and doubled back for L.A. Looks {{f.league.div_draft_pick_0001|ord}}, rivals on purpose. Maddie Mondays is the closest division in the simulation: Real Deal Creel {{f.league.p_division_0008}}, Sex Manther {{f.league.p_division_0007}} and L.A. Looks {{f.team.0001.sim_p_division}}, with {{f.team.0001.sim_p_playoffs}} playoff odds for Bousquet.",
+     "The division weeks are {{f.team.0001.div_weeks}}, and the byes run against him late. Week eight costs him Likely and Hunter, and Sex Manther only its kicker. Week eleven takes Darnold and Curl, while Real Deal Creel loses Puka Nacua, Christian Watson and TreVeyon Henderson. Week fourteen, the last week of the regular season and a division week, takes three Cowboys at once, Pickens, Ferguson and Brandon Aubrey, while Sex Manther loses nobody. Across the five weeks he loses {{f.team.0001.div_week_own_byes}} starters to byes and his rivals {{f.team.0001.div_week_rival_byes}}.",
+     "The next three years, as a memo to his Esteemed Colleagues. 2027: a building year, and he would like the record to show it was a choice. 2028: Darnold is healthy, Pickens is a top receiver, and Maddie Mondays is informed of both, at length, in the group chat. 2029: the division title, accepted with a movie quote and a GIF, and a note that the third championship is next on the agenda.",
+     "Week one is a division week, and it has already hurt: with {{f.league.wk_teams_final}} NFL teams done, L.A. Looks has {{f.team.0001.wk_points_final}} points in the bank, almost none of them from Darnold, whose game ended on the first drive."
     ],
     "place": [
-     "t.0001.history"
+     "t.0001.history",
+     "t.0001.division",
+     "t.0001.division_weeks",
+     "t.0001.week1"
     ],
     "placeAt": {
-     "t.0001.history": 0
+     "t.0001.history": 0,
+     "t.0001.division": 1,
+     "t.0001.division_weeks": 2,
+     "t.0001.week1": 4
     },
     "views": {
      "t.0001.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "Maddie Mondays is a division of champions on paper and middleweights in the simulation. Sex Manther, champion in {{f.league.title_years_0007}}, is {{f.league.power_rank_0007|ord}}; Real Deal Creel is {{f.league.power_rank_0008|ord}}; and L.A. Looks is {{f.team.0001.power_rank|ord}}, with {{f.team.0001.sim_p_playoffs}} playoff odds and a {{f.team.0001.sim_p_division}} chance at the division. Bousquet plays Creel and Manther five times each.",
-     "The next three years, as a progress report to his Esteemed Colleagues. 2027: L.A. Looks shows a growth mindset. Pickens is a top receiver, Darnold is the answer, and Manther and Creel are informed, at length, in the group chat. 2028: a third title, and a victory lap made entirely of movie quotes. 2029: the retirement speech, delivered as a GIF.",
-     "Week one has been quiet so far: {{f.league.wk_teams_final}} NFL teams done and {{f.team.0001.wk_points_final}} points in the bank, with Darnold held to almost nothing through the air in the opener."
-    ],
-    "place": [
-     "t.0001.division",
-     "t.0001.week1"
-    ],
-    "placeAt": {
-     "t.0001.division": 0,
-     "t.0001.week1": 2
-    },
-    "views": {
+     },
      "t.0001.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0001.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0001.week1": {
       "cols": [

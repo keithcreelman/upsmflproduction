@@ -86,8 +86,10 @@ def apply_layout(prose, pack):
     if not team or not owner:
         raise SystemExit("%s: pack entities lack a team or owner name" % pack["packId"])
     secs = dict((s["id"], s) for s in prose["sections"])
-    if sorted(secs) != ["s1", "s2", "s3", "s4", "s5"]:
-        raise SystemExit("%s: expected sections s1-s5, got %s" % (pack["packId"], sorted(secs)))
+    # Four sections since 2026-09-11: history and the division are one
+    # ("you can combine historical context with the divisional writeup").
+    if sorted(secs) != ["s1", "s2", "s3", "s4"]:
+        raise SystemExit("%s: expected sections s1-s4, got %s" % (pack["packId"], sorted(secs)))
 
     prose["kicker"] = "%s · %s" % (team, owner)
     for k in ("dek", "title"):
@@ -107,8 +109,10 @@ def apply_layout(prose, pack):
         {"fact": F("auction_spend"), "label": "Spent at auction"},
         {"fact": F("cap_current_room"), "label": "Cap room"},
     ]
-    prose["card"] = {"rankFact": F("power_rank"), "ofFact": "f.league.teams",
-                     "featured": int(float(facts[F("power_rank")]["value"])) == 1}
+    # Never the front-page lead: the Season Forecast is (Keith 2026-09-11:
+    # "Front Page should have a blurb like you do followed by Seasonal
+    # Forecast"). The team-review family still reads in power-rank order.
+    prose["card"] = {"rankFact": F("power_rank"), "ofFact": "f.league.teams", "featured": False}
 
     def lay(sid, items):
         """items: (table key, view, anchor, caption). A table with no rows is
@@ -137,7 +141,7 @@ def apply_layout(prose, pack):
                     at[tid(key)] = k
         secs[sid].update(place=place, placeAt=at, views=views, captions=caps)
 
-    moves = {"cols": ["date", "move", "player", "detail"], "stack": True}
+    moves = {"cols": ["date", "move", "player", "detail", "grade"], "stack": True}
     # Keith: "give the lay of the land the way you do in the bridge, however
     # only show the 1st column of the table."
     lay("s1", [
@@ -160,31 +164,50 @@ def apply_layout(prose, pack):
     # the money bought -- Keith: "We see $$ Spent, but we don't know what it
     # bought". The shares and the rate multiple stay in the pack, unprinted.
     if "faa_value" in tables:
-        s3.append(("faa_value", {"cols": ["rank", "team", "spend", "bought"],
-                                 "labels": {"spend": "Spent on offense", "bought": "What it bought"},
+        # Ranked by the IMPROVEMENT, not improvement per dollar: per dollar
+        # put The Long Haulers third for three depth buys (Keith: "at best this
+        # is a net neutral play ... it shouldn't be much different than PG or
+        # Cleon").
+        s3.append(("faa_value", {"cols": ["rank", "team", "spend", "gain_share", "bought"],
+                                 "labels": {"spend": "Spent on offense", "gain_share": "Share of the improvement",
+                                            "bought": "What it bought"},
                                  "title": "What every owner's auction money bought"},
                    r"faa_off_",
                    "Ranked by how much each owner's starting offense improved between the auction lock and "
-                   "the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at "
-                   "the Free Agent Auction. What it bought sorts those buys by grade at their position: "
-                   "Elite, Very good, Good or Depth."))
+                   "the close; a buy that never makes the lineup adds nothing. What it bought grades each "
+                   "quarterback, back, receiver and tight end at his position: Elite is the top three, Very "
+                   "good the rest of the top twelve, Good the next twelve at quarterback, back and receiver "
+                   "(every team starts two, counting the superflex), Starter anyone else the league's "
+                   "lineups would start, and Depth the rest."))
     s3 += [("moves_s3", dict(moves, title="From the auction to week one"),
             r"restructur|multi-year|waiver|free-agent|picked up", None),
            # The pack's lineup is the strongest LEGAL lineup the roster can
            # field, by grade -- not the one the owner set (the Week table has
            # that, and they differ).
            ("lineup", {"cols": ["slot", "player", "val"], "labels": {"val": "Grade"},
-                       "title": "The lineup it built"}, "last", None)]
+                       "title": "The lineup it built"}, "last", None),
+           # Keith: "review all injuries that have occurred thus far".
+           ("injuries", {"cols": ["player", "slot", "status", "details", "returns", "held"],
+                         "labels": {"details": "Injury", "returns": "Expected back",
+                                    "held": "Forecast sits him (weeks)"},
+                         "title": "Injuries"}, r"injur", None)]
     lay("s3", s3)
-    lay("s4", [("history", {"stack": True, "title": "Owner history"}, 0, None)])
+    # History and the division are ONE section -- Keith: "you can combine
+    # historical context with the divisional writeup...it's a natural flow".
     wk = next((k for k in sorted(tables) if re.match(r"week\d+$", k)), None)
-    s5 = [("division", {"stack": True, "title": "The division"}, 0, None)]
+    s4 = [("history", {"stack": True, "title": "Owner history"}, 0, None),
+          ("division", {"stack": True, "title": "The division"},
+           r"division_name|power_rank_\d|sim_p_division", None),
+          ("division_weeks", {"cols": ["week", "games", "byes", "rival_byes"], "title": "The division weeks",
+                              "labels": {"games": "Division games", "byes": "His starters on bye",
+                                         "rival_byes": "Rivals' starters on bye"}},
+           r"div_weeks|div_week_", None)]
     if wk:
-        s5.append((wk, {"cols": ["player", "pos", "slot", "pts", "line"], "stack": True,
+        s4.append((wk, {"cols": ["player", "pos", "slot", "pts", "line"], "stack": True,
                         "title": "Week one, so far", "labels": {"pts": "Points", "line": "What he did"}},
                    "last", "Only games that had finished when this was written. A blank line means he "
                            "recorded no scoring stat or did not play."))
-    lay("s5", s5)
+    lay("s4", s4)
     return prose
 
 

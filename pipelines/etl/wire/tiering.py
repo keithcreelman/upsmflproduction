@@ -108,3 +108,37 @@ def is_starter_grade(pos, rank):
         return False
     repl = REPLACEMENT_RANK.get(pos)
     return repl is None or int(rank) <= repl
+
+
+# WHAT AN AUCTION BUY BOUGHT. Keith 2026-09-11, on the league value table:
+# "It's Super Flex that needs to be considered. Also what is Depth? Anyone
+# that's a starter should be considered better than depth." The first cut was
+# top 3 / 4-12 / 13-24 / everything else, so a receiver who starts in his
+# owner's flex (Parker Washington, WR30) read as Depth.
+#   Elite      top 3 at the position
+#   Very good  the rest of the top 12 -- every team's first starter
+#   Good       13-24 where every team starts two: RB and WR by slot, and QB
+#              because the superflex is a second quarterback in practice (11
+#              of the 12 superflex slots held one in the 2026-09-11 build)
+#   Starter    still inside the league's own starter demand -- how many at the
+#              position the 12 best legal lineups actually start, flex included
+#   Depth      everyone else, and anyone past the position's replacement bar
+BOUGHT_BANDS = ("Elite", "Very good", "Good", "Starter", "Depth")
+TWO_STARTER = ("QB", "RB", "WR")
+
+
+def bought_band(pos, rank, demand):
+    """One of BOUGHT_BANDS for an offensive player at league-wide `rank`.
+    `demand` = how many at `pos` start across the league's 12 lineups."""
+    if rank is None or not is_starter_grade(pos, rank):
+        return "Depth"
+    rank = int(rank)
+    if rank <= 3:
+        return "Elite"
+    if rank <= BAND:
+        return "Very good"
+    if pos in TWO_STARTER and rank <= 2 * BAND:
+        return "Good"
+    if rank <= int(demand or 0):
+        return "Starter"
+    return "Depth"

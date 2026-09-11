@@ -54,7 +54,7 @@ OFFENSE = ("QB", "RB", "WR", "TE")
 SOURCE = "team_review_league (derived from the twelve team packs)"
 WARN_MARK = "League value comparison:"
 WINDOW = ("2026-07-23", "2026-08-05")
-BANDS = ("Elite", "Very good", "Good", "Depth")
+BANDS = ("Elite", "Very good", "Good", "Starter", "Depth")   # tiering.BOUGHT_BANDS
 
 
 def fail(msg):
@@ -139,19 +139,27 @@ def run(season):
     by_rate = sorted(teams, key=lambda t: (t["rate"] is None, -(t["rate"] or 0), -t["gain"]))
     for i, t in enumerate(by_rate, 1):
         t["rate_rank"] = i
-    for i, t in enumerate(sorted(teams, key=lambda t: -t["gain"]), 1):
+    # THE RANK IS THE IMPROVEMENT, NOT THE IMPROVEMENT PER DOLLAR. Per dollar
+    # rewarded spending almost nothing: The Long Haulers put $7,000 into three
+    # depth players, moved their lineup 2.7%, and ranked 3rd. Keith: "How is LH
+    # #3 when all he bought was depth? ... at best this is a net neutral play.
+    # It shouldn't be much different then PG or Cleon." The per-dollar rate
+    # stays in the pack as faa_off_rate_rank, unprinted.
+    by_gain = sorted(teams, key=lambda t: (-t["gain"], t["off_spend"]))
+    for i, t in enumerate(by_gain, 1):
         t["gain_rank"] = i
 
     asof = max(p["generatedAtUtc"] for p in packs)
     rows = [[t["name"], t["off_spend"], round(t["spend_share"], 1), round(t["gain_share"], 1),
-             ("%.2fx" % t["rate"]) if t["rate"] is not None else "--", t["rate_rank"], t["bought"]]
-            for t in by_rate]
+             ("%.2fx" % t["rate"]) if t["rate"] is not None else "--", t["gain_rank"], t["bought"]]
+            for t in by_gain]
     warn = ("%s offense only. 'Value' is the redraft value of the QB/RB/WR/TE starters on the "
             "live board; 'money' is what each owner spent on QB/RB/WR/TE at the Free Agent Auction. "
-            "Both are measured from the auction roster lock (%s) to the close (%s). Rate = share of "
-            "the league's lineup gain divided by share of the league's offensive spend, and only the "
-            "rank is printed. 'What it bought' counts each owner's offensive buys by grade "
-            "(Elite = top 3 at the position, Very good = 4-12, Good = 13-24, Depth = the rest). "
+            "Both are measured from the auction roster lock (%s) to the close (%s). The RANK is how much "
+            "the starting offense improved -- a buy that never makes the lineup adds nothing, however "
+            "cheap. 'What it bought' counts each owner's offensive buys by grade (tiering.bought_band: "
+            "Elite = top 3 at the position, Very good = 4-12, Good = 13-24 at QB/RB/WR where every team "
+            "starts two, Starter = inside the league's own starter demand, Depth = the rest). "
             "It does not credit bench depth, and an owner whose lineup had no holes "
             "had little room to improve it." % (WARN_MARK, WINDOW[0], WINDOW[1]))
 
@@ -169,7 +177,8 @@ def run(season):
             _fact(pre + "spend", "Spent on QB/RB/WR/TE at the Free Agent Auction", t["off_spend"], "usd", asof),
             _fact(pre + "spend_share", "Share of the league's offensive Free Agent Auction spend", round(t["spend_share"], 1), "percent", asof),
             _fact(pre + "gain_share", "Share of the league's offensive lineup-value gain, auction lock to close", round(t["gain_share"], 1), "percent", asof),
-            _fact(pre + "rank", "League rank for offensive lineup value added per offensive auction dollar (1 = most)", t["rate_rank"], "rank", asof),
+            _fact(pre + "rank", "League rank for how much the auction improved his starting offense (1 = most)", t["gain_rank"], "rank", asof),
+            _fact(pre + "rate_rank", "League rank for offensive lineup value added per offensive auction dollar (1 = most; not printed)", t["rate_rank"], "rank", asof),
             _fact(pre + "gain_rank", "League rank for total offensive lineup value added, auction lock to close (1 = most)", t["gain_rank"], "rank", asof),
         ]
         if t["rate"] is not None:
@@ -214,9 +223,9 @@ def run(season):
             changed += 1
 
     print("league: %d/12 pack(s) updated" % changed)
-    for t in by_rate:
+    for t in by_gain:
         print("  %2d %s %-18s spend %5.1f%%  gain %5.1f%%  %s" % (
-            t["rate_rank"], t["fid"], t["name"], t["spend_share"], t["gain_share"],
+            t["gain_rank"], t["fid"], t["name"], t["spend_share"], t["gain_share"],
             ("%.2fx" % t["rate"]) if t["rate"] is not None else "--"))
     return 0
 

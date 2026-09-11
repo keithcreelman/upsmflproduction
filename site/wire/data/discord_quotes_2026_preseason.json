@@ -1,0 +1,196 @@
+{
+ "asof": "2026-09-11T13:15:00Z",
+ "note": "League Discord, hand-curated 2026-09-11 for the Season Forecast. Every text is VERBATIM and was re-checked against the raw message (the Aug-5 archive export or a read-only GET of the message by id). Good-natured material only; nothing from private or admin channels.",
+ "quotes": [
+  {
+   "id": "q_bear_forecast",
+   "text": "Can the bot give us preseason predictions for the league? Forecast?",
+   "author": "Bear Dunn, C-Town Chivalry",
+   "when": "August 15, 2026, #the-coffee-shop",
+   "fid": "0009",
+   "context": "Asking for the preseason forecast in August",
+   "messageId": "1538168365586059355",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_blake_preview",
+   "text": "I was promised a season preview. I am prepared to be torn apart.",
+   "author": "Shawn Blake, Blake Bombers",
+   "when": "September 9, 2026, #the-coffee-shop",
+   "fid": "0010",
+   "context": "Opening night, as the opener kicked off",
+   "messageId": "1547399940433776681",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_emart_stacked",
+   "text": "The last remaining team is gonna be stacked at times, hence being picked last.",
+   "author": "Eric Martel, HammerTime",
+   "when": "May 6, 2026, #rules-discussion",
+   "fid": "0005",
+   "context": "While the captain-draft rule was being voted on",
+   "messageId": "1501650101012267152",
+   "channel": "rules-discussion"
+  },
+  {
+   "id": "q_bot_first",
+   "text": "Logic of the format: getting picked FIRST = the captain thinks you're the weakest.",
+   "author": "The league bot",
+   "when": "May 25, 2026, #league-announcements",
+   "fid": null,
+   "context": "The bot's recap of the captains' draft",
+   "messageId": "1508476495054766352",
+   "channel": "league-announcements"
+  },
+  {
+   "id": "q_rybo_haul",
+   "text": "It’s gonna be a long haul",
+   "author": "Ryan Bousquet, L.A. Looks",
+   "when": "May 25, 2026, #the-coffee-shop",
+   "fid": "0001",
+   "context": "The morning after the draft, on the new Outlast PG Time division",
+   "messageId": "1508468039656411230",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_cross_name",
+   "text": "At least I chose an appropriate team name when I joined the league ..",
+   "author": "Brian Cross, The Long Haulers",
+   "when": "May 25, 2026, #the-coffee-shop",
+   "fid": "0006",
+   "context": "Cross, taken first overall, replying to Bousquet",
+   "messageId": "1508468693242216690",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_cross_champs",
+   "text": "“Two Recent Champs & a Problem” Division .",
+   "author": "Brian Cross, The Long Haulers",
+   "when": "June 27, 2026, #the-coffee-shop",
+   "fid": "0006",
+   "context": "Pitching a name for his division a month later",
+   "messageId": "1520488200458473643",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_whitman_tiger",
+   "text": "I like being the underdog tho expectations low got a lot of younger guys then I strike like a tiger in the tall grass",
+   "author": "Derrick Whitman, CBP",
+   "when": "July 29, 2026, #the-coffee-shop",
+   "fid": "0002",
+   "context": "In the 'who is winning each division?' thread",
+   "messageId": "1532047532895768830",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_emart_coinflip",
+   "text": "Me and PG a coin flip tho, I'm biased toward myself so I I gave me the edge",
+   "author": "Eric Martel, HammerTime",
+   "when": "July 29, 2026, #the-coffee-shop",
+   "fid": "0005",
+   "context": "On his own division, where his last pick is the reigning champion",
+   "messageId": "1532046728738377918",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_bear_boring",
+   "text": "I don’t even think I have any last minute moves to make. Boring. I’ll await Rybo’s 11:50 pm barrage.",
+   "author": "Bear Dunn, C-Town Chivalry",
+   "when": "September 6, 2026, #the-coffee-shop",
+   "fid": "0009",
+   "context": "Contract deadline day",
+   "messageId": "1546226807093592094",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_emart_meniscus",
+   "text": "They reporting a trimmed meniscus like its a haircut",
+   "author": "Eric Martel, HammerTime",
+   "when": "September 9, 2026, #the-coffee-shop",
+   "fid": "0005",
+   "context": "Hours before the opener, on the news about Brock Bowers's knee",
+   "messageId": "1547343794553229363",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_hawks_schefter",
+   "text": "Who needs Schefter, we got Bombers!",
+   "author": "Chris Klingenberg, Hawks",
+   "when": "September 10, 2026, #the-coffee-shop",
+   "fid": "0012",
+   "context": "On Shawn Blake, the league's injury newswire",
+   "messageId": "1547610962016735232",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_cutting_kittle",
+   "text": "He is good for now.    But we know he will be injured soon",
+   "author": "Brian Cutting, Pure Greatness",
+   "when": "September 10, 2026, #the-coffee-shop",
+   "fid": "0004",
+   "context": "After Blake crowed that George Kittle looked solid on Thursday night",
+   "messageId": "1547772431186534523",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_manther_enough",
+   "text": "None of this is going to be enough",
+   "author": "Josh Martel, Sex Manther",
+   "when": "September 10, 2026, #transactions",
+   "fid": "0007",
+   "context": "Replying to one of Real Deal Creel's week-one waiver claims -- week one is a division week",
+   "messageId": "1547638618540212364",
+   "channel": "transactions"
+  },
+  {
+   "id": "q_bear_calls_hawks",
+   "text": "Having said that, I’ll take Hawks with my first pick.",
+   "author": "Bear Dunn, C-Town Chivalry",
+   "when": "January 27, 2026, #league-announcements",
+   "fid": "0009",
+   "context": "January, the day the captain draft was first floated -- four months later he took the Hawks with his first pick",
+   "messageId": "1465875555009167524",
+   "channel": "league-announcements"
+  },
+  {
+   "id": "q_cutting_maye",
+   "text": "Trading Jordan Love for a 1st and Drake Maye was a big win for me",
+   "author": "Brian Cutting, Pure Greatness",
+   "when": "December 30, 2025, #the-coffee-shop",
+   "fid": "0004",
+   "context": "After winning the 2025 title",
+   "messageId": "1455595488589119762",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_manther_punter",
+   "text": "That’s my punter",
+   "author": "Josh Martel, Sex Manther",
+   "when": "July 28, 2026, #the-coffee-shop",
+   "fid": "0007",
+   "context": "On the one Free Agent Auction buy nobody else wanted",
+   "messageId": "1531695947837341910",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_rybo_plans",
+   "text": "“The Free Agent Auction: Where Plans Go to Die”",
+   "author": "Ryan Bousquet, L.A. Looks",
+   "when": "July 28, 2026, #the-coffee-shop",
+   "fid": "0001",
+   "context": "Naming the Free Agent Auction",
+   "messageId": "1531621084917661716",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_cross_love",
+   "text": "I LOVE THIS HOBBY AND THIS LEAGUE REGARDLESS ….",
+   "author": "Brian Cross, The Long Haulers",
+   "when": "July 28, 2026, #the-coffee-shop",
+   "fid": "0006",
+   "context": "After the auction",
+   "messageId": "1531847341835948093",
+   "channel": "the-coffee-shop"
+  }
+ ]
+}

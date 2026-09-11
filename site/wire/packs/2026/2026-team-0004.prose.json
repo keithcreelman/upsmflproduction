@@ -11,7 +11,7 @@
     "id": "s1",
     "paragraphs": [
      "The champion's April roster looked like a champion's. Cutting carried {{f.team.0004.active_roster_opening}} active players and {{f.team.0004.cap_opening}} in salary, and {{f.team.0004.studs_opening}} top-twelve starters: Drake Maye, an Elite QB1, Jahmyr Gibbs, an Elite RB1, Ashton Jeanty beside him, and Justin Jefferson and Chris Olave at receiver. Zay Flowers, Davante Adams and Baker Mayfield were solid in the flexes and the superflex. The one hole was tight end, where Dalton Schultz grades replacement-level.",
-     "He barely touched it before the draft. One trade: Quentin Johnston and his {{f.team.0004.trade1_salary_out}} salary went to the Long Haulers in May for a 2027 third, which also settled Johnston's expiring rookie deal. The other three rookie deals that ran out, Darnell Washington, Quan Martin and Stetson Bennett, were let go. No cuts, no extensions."
+     "He barely touched it before the draft. One trade: Quentin Johnston and his {{f.team.0004.trade1_salary_out}} salary went to The Long Haulers in May for a 2027 third, which also settled Johnston's expiring rookie deal. The trade bot was not grading deals yet; graded now as of that day, it comes out {{f.team.0004.trade1_grade}} for Cutting. The other three rookie deals that ran out, Darnell Washington, Quan Martin and Stetson Bennett, were let go. No cuts, no extensions."
     ],
     "place": [
      "t.0004.slot_bridge",
@@ -39,7 +39,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "Before the rookie draft"
@@ -58,8 +59,8 @@
    {
     "id": "s2",
     "paragraphs": [
-     "The tag was the one expensive-looking decision, and it was not expensive: Cutting tagged Myles Garrett in May at {{f.team.0004.contract_13198_salary}}, and Garrett is an Elite DL1. In June Justin Jefferson got a new contract, {{f.team.0004.contract_14836_salary}} this year and {{f.team.0004.contract_14836_tcv}} in all, the deal that keeps the league's top receiver room together.",
-     "Draft day was about next year. Cutting traded out of the second round three times, sending 2.06, 2.09, 2.12 and 4.12 away for 4.01 and three 2027 picks, a second and two thirds. Add the third he got for Johnston and he goes into next spring with extra picks in both of those rounds. This year he made {{f.team.0004.rookie_picks_count}} picks from 4.01 down, Max Klare, Elijah Sarratt, Caleb Douglas, Cole Payton and Josiah Trotter, a class that will not touch this lineup. The only releases before the lock were Nic Scourton off the taxi squad and Zach Ertz, both at no cost."
+     "The tag was cheap: Cutting tagged Myles Garrett in May at {{f.team.0004.contract_13198_salary}}. In June Justin Jefferson re-signed for {{f.team.0004.contract_14836_years}} years at a TCV of {{f.team.0004.contract_14836_tcv}}, back-loaded: {{f.team.0004.contract_14836_salary}} this year and {{f.team.0004.contract_14836_next_salary}} in 2027, the deal that keeps the league's top receiver room together.",
+     "Draft night was about next year. Cutting traded out of the second round three times, the trade bot grading them {{f.team.0004.trade2_grade}}, {{f.team.0004.trade3_grade}} and {{f.team.0004.trade4_grade}}, sending 2.06, 2.09, 2.12 and 4.12 away for 4.01 and three 2027 picks, a second and two thirds; 2.09 was his for thirteen minutes on the way to Gride. Add the third he got for Johnston and he goes into next spring with extra picks in both rounds. This year he made {{f.team.0004.rookie_picks_count}} picks from 4.01 down, Max Klare, Elijah Sarratt, Caleb Douglas, Cole Payton and Josiah Trotter, a class that will not touch this lineup. The only releases before the lock were Nic Scourton off the taxi squad and Zach Ertz, both at no cost."
     ],
     "place": [
      "t.0004.rookies",
@@ -88,7 +89,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the draft to the auction lock"
@@ -99,22 +101,25 @@
    {
     "id": "s3",
     "paragraphs": [
-     "The auction was maintenance. Cutting won {{f.team.0004.faa_lots_won}} players for {{f.team.0004.faa_spend}}, and the most expensive was Aaron Rodgers at {{f.team.0004.faa_7836_price}}, who is on the bench. Mark Andrews cost {{f.team.0004.faa_13671_price}} to take over at tight end, and James Conner and Chuba Hubbard {{f.team.0004.faa_13146_price}} each for running back depth.",
-     "On the league table that money finishes near the bottom, {{f.team.0004.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added, and the What it bought column says why: depth, all of it. That is not a failed auction. There was almost nothing to add to an offense that went in with no hole but tight end, and the owners who bought starters were buying what Cutting already had.",
-     "The contract work was light. {{f.team.0004.myac_faa}} auction buys got multi-year contracts, Andrews at {{f.team.0004.contract_13671_salary}} this year and {{f.team.0004.contract_13671_tcv}} in all among them. There were no restructures, no waiver claims, and the four players released after the auction all went at no cost.",
-     "So the lineup it built is the lineup he started with. {{f.team.0004.studs_today}} top-twelve starters, Maye, Gibbs, Jeanty, Jefferson and Olave; receivers that rank {{f.team.0004.wr_rank|ord}} in the league and backs that rank {{f.team.0004.rb_rank|ord}}; and {{f.team.0004.holes_today}} hole, still tight end, now Andrews instead of Schultz. The kicker, Harrison Mevis, is MFL's top-projected at the position, and the defense, led by Garrett, is a footnote that happens to be a good one."
+     "Pure Greatness spent {{f.team.0004.faa_spend}} at the Free Agent Auction on {{f.team.0004.faa_lots_won}} players and did not buy a star, on purpose. The most expensive was Aaron Rodgers at {{f.team.0004.faa_7836_price}}, who is on the bench. Mark Andrews cost {{f.team.0004.faa_13671_price}} to take over at tight end, James Conner and Chuba Hubbard {{f.team.0004.faa_13146_price}} each for running back depth, and Tyreek Hill, recovering from a torn ACL, {{f.team.0004.faa_12801_price}} as a flyer for later in the year.",
+     "Every offensive buy grades as depth, and the league table ranks the auction {{f.team.0004.faa_off_rank|ord}} of {{f.league.teams}} for how much it improved his offense. That is not a failed auction. There was almost nothing to add to an offense that went in with no hole but tight end, and the owners who bought starters were buying what Cutting already had.",
+     "The contract work was light. {{f.team.0004.myac_faa}} auction buys got multi-year contracts, Andrews for {{f.team.0004.contract_13671_years}} years at {{f.team.0004.contract_13671_salary}} a year among them. He made no restructures and no waiver claims, and the four players released after the auction all went at no cost.",
+     "So the lineup it built is the lineup he started with: {{f.team.0004.studs_today}} top-twelve starters, Maye, Gibbs, Jeanty, Jefferson and Olave; receivers that rank {{f.team.0004.wr_rank|ord}} in the league and backs that rank {{f.team.0004.rb_rank|ord}}; and {{f.team.0004.holes_today}} hole, still tight end, now Andrews instead of Schultz. Graded on MFL's projections, the defense is led by Andrew Mukuba, an Elite DB1, and Nick Bosa; Garrett, now a Ram, grades as a Low-end DL2 and sits on the bench. The kicker, Harrison Mevis, is an Elite PK1.",
+     "The injuries are mostly on the bench. Hill is out into October, so the forecast leaves him out of the first five weeks, and Conner is on injured reserve for four. The one starter with a designation is Christian Rozeboom, questionable with a foot."
     ],
     "place": [
      "t.0004.faa",
      "t.0004.faa_value",
      "t.0004.moves_s3",
-     "t.0004.lineup"
+     "t.0004.lineup",
+     "t.0004.injuries"
     ],
     "placeAt": {
      "t.0004.faa": 0,
      "t.0004.faa_value": 1,
      "t.0004.moves_s3": 2,
-     "t.0004.lineup": 3
+     "t.0004.lineup": 4,
+     "t.0004.injuries": 4
     },
     "views": {
      "t.0004.faa": {
@@ -132,10 +137,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -145,7 +152,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -160,50 +168,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0004.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0004.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0004.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Cutting has been here from the start, {{f.team.0004.hist_first_season}}, {{f.team.0004.hist_seasons}} completed seasons. The title everyone remembers is the most recent one, {{f.team.0004.hist_title_years}}, the same year he had the league's best all-play record, and it came three years after a runner-up finish in {{f.team.0004.hist_runner_up_years}}. The rest of the record is steadier than it is spectacular: {{f.team.0004.hist_playoffs}} playoff trips, {{f.team.0004.hist_div_titles}} division titles, and a {{f.team.0004.hist_allplay_pct}} career all-play record."
+     "Cutting has been here from the start, {{f.team.0004.hist_first_season}}, {{f.team.0004.hist_seasons}} completed seasons. The title everyone remembers is the most recent one, {{f.team.0004.hist_title_years}}, the same year he had the league's best all-play record, and it came three years after a runner-up finish in {{f.team.0004.hist_runner_up_years}}. The rest of the record is steadier than it is spectacular: {{f.team.0004.hist_playoffs}} playoff trips, {{f.team.0004.hist_div_titles}} division titles, and a {{f.team.0004.hist_allplay_pct}} career all-play record.",
+     "The defending champion was the last team picked in the league's first Owner Divisional Draft, {{f.league.div_draft_pick_0004|ord}} overall, left on the board for HammerTime, whose owner had said in May that the last team left would be a strong one. So Outlast PG Time holds the last two champions and The Long Haulers, and Eric Martel has called it a coin flip. The simulation does not: Pure Greatness is {{f.team.0004.power_rank|ord}} in the league with a {{f.team.0004.sim_p_division}} chance at the division, against {{f.league.p_division_0005}} for HammerTime and {{f.league.p_division_0006}} for The Long Haulers, and {{f.team.0004.sim_p_playoffs}} playoff odds.",
+     "The division weeks are {{f.team.0004.div_weeks}}, with no byes in the first two. Week eight costs him Olave and Bosa, while HammerTime loses C.J. Stroud, David Montgomery and its kicker. Week eleven is his hardest, Maye, Adams and Mevis at once, though The Long Haulers lose four starters that week, A.J. Brown among them. Week fourteen, the last of the regular season, costs him only Mack Wilson and costs HammerTime Trey McBride and Javonte Williams. Across the five weeks he loses {{f.team.0004.div_week_own_byes}} starters to byes and his rivals {{f.team.0004.div_week_rival_byes}}.",
+     "The next three years, in Cutting's own register. 2027: Pure Greatness gets back to the final and loses it. It is fine. The tight end is still a hole lol. 2028: the division, and Maye is the best quarterback in the league; Cutting says so, briefly, and then says the defense carried him. 2029: HammerTime takes the division back, and Cutting's message about it is four words long and ends in lol.",
+     "Week one is a division week, and it opened with {{f.league.wk_teams_final}} NFL teams done and {{f.team.0004.wk_points_final}} points in the bank for Pure Greatness. Maye threw three interceptions and still put up points, which is the kind of problem the rest of the division would like to have."
     ],
     "place": [
-     "t.0004.history"
+     "t.0004.history",
+     "t.0004.division",
+     "t.0004.division_weeks",
+     "t.0004.week1"
     ],
     "placeAt": {
-     "t.0004.history": 0
+     "t.0004.history": 0,
+     "t.0004.division": 1,
+     "t.0004.division_weeks": 2,
+     "t.0004.week1": 4
     },
     "views": {
      "t.0004.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "Outlast PG Time holds the last two champions, and the simulation still makes Cutting the favourite in it: {{f.team.0004.power_rank|ord}} in the league, a {{f.team.0004.sim_p_division}} chance at the division, {{f.team.0004.sim_p_playoffs}} playoff odds and {{f.team.0004.sim_p_title}} title odds. HammerTime, the {{f.league.title_years_0005}} champion, is {{f.league.power_rank_0005|ord}}, and the Long Haulers {{f.league.power_rank_0006|ord}}. He plays each of them five times.",
-     "The next three years, in Cutting's own register. 2027: Pure Greatness does not repeat. It is fine. The tight end is still a hole lol. 2028: Maye is the best quarterback in the league and Cutting says so, briefly, and then says the defense carried him. 2029: another title, and a message about it that is four words long and ends in lol.",
-     "Week one opened with {{f.league.wk_teams_final}} NFL teams done and {{f.team.0004.wk_points_final}} points in the bank. Maye threw three interceptions and still put up points, which is the kind of problem the rest of the division would like to have."
-    ],
-    "place": [
-     "t.0004.division",
-     "t.0004.week1"
-    ],
-    "placeAt": {
-     "t.0004.division": 0,
-     "t.0004.week1": 2
-    },
-    "views": {
+     },
      "t.0004.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0004.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0004.week1": {
       "cols": [

@@ -11,7 +11,7 @@
     "id": "s1",
     "paragraphs": [
      "April was already strong. Mannila carried {{f.team.0011.active_roster_opening}} active players and {{f.team.0011.cap_opening}} in salary, with {{f.team.0011.studs_opening}} top-twelve starters: Justin Herbert, Bijan Robinson, an Elite RB1, CeeDee Lamb and Malik Nabers at receiver, Colston Loveland, an Elite TE1, and Tucker Kraft in a flex. Jaxson Dart was solid in the superflex. The {{f.team.0011.holes_opening}} holes were nobody at all at the second running back spot, and Wan'Dale Robinson in the other flex.",
-     "Before the draft he kept what he had. Robinson's rookie deal was extended at {{f.team.0011.contract_16161_salary}} this year and {{f.team.0011.contract_16161_tcv}} in all, and Kraft's at {{f.team.0011.contract_16222_salary}} for one more year. The other three expiring rookies, Kayshon Boutte, Marvin Mims and Will McDonald, went to the Expired Rookie Auction, two of them to Real Deal Creel. No trades, no cuts."
+     "Before the draft he kept what he had. Robinson's rookie deal was extended for {{f.team.0011.contract_16161_years}} years at {{f.team.0011.contract_16161_salary}} a year, a TCV of {{f.team.0011.contract_16161_tcv}}, and Kraft's for one more year at {{f.team.0011.contract_16222_salary}}. The other three expiring rookies, Kayshon Boutte, Marvin Mims and Will McDonald, went to the Expired Rookie Auction, two of them to Real Deal Creel. No trades, no cuts."
     ],
     "place": [
      "t.0011.slot_bridge",
@@ -39,7 +39,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "Before the rookie draft"
@@ -58,8 +59,8 @@
    {
     "id": "s2",
     "paragraphs": [
-     "The draft filled the empty spot. Mannila held 1.01 and took Jeremiyah Love, the surest pick in the class: that slot has produced a usable player almost every time, and Love walked straight into the lineup as a High-end RB2. {{f.team.0011.rookie_picks_count}} picks in all, with Nicholas Singleton, Arvell Reese, already starting at linebacker, Zachariah Branch, Taylen Green, Jam Miller and Gabe Jacas after him.",
-     "The rest of the pre-auction offseason was quiet. No tags, no Expired Rookie Auction buys, one July trade, a 2027 fifth to Sex Manther for Efton Chism, and one release at no cost, Bralen Trice. He went into the auction with {{f.team.0011.active_roster_preauction}} active players and {{f.team.0011.cap_preauction}} committed."
+     "The draft filled the empty spot. Mannila held 1.01 and took Jeremiyah Love, the surest pick in the class: that slot has produced a usable player almost every time, and Love walked straight into the lineup as a High-end RB2. {{f.team.0011.rookie_picks_count}} picks in all, with Nicholas Singleton, Arvell Reese, Zachariah Branch, Taylen Green, Jam Miller and Gabe Jacas after him; none of them grades as a starter yet.",
+     "The rest of the pre-auction offseason was quiet. No tags and no Expired Rookie Auction buys; one July trade, a 2027 fifth to Sex Manther for Efton Chism, which the trade bot graded a {{f.team.0011.trade1_grade}} for his side; and one release at no cost, Bralen Trice. He went into the auction with {{f.team.0011.active_roster_preauction}} active players and {{f.team.0011.cap_preauction}} committed."
     ],
     "place": [
      "t.0011.rookies",
@@ -88,7 +89,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the draft to the auction lock"
@@ -99,21 +101,24 @@
    {
     "id": "s3",
     "paragraphs": [
-     "Two restructures went with the auction, and they pointed in opposite directions. In June Herbert's deal was front-loaded to {{f.team.0011.contract_14779_salary}} this year and {{f.team.0011.contract_14779_tcv}} in all, and the day after the lock Robinson's was cut to {{f.team.0011.contract_16161_salary_2}} for 2026, which opened room. Opening room is not the same as using it, and here it was not used: Mannila spent {{f.team.0011.faa_spend}} at the Free Agent Auction, the least of any owner, and still has {{f.team.0011.cap_current_room}} of room.",
-     "Romeo Doubs took {{f.team.0011.faa_15779_price}} of it after twelve bids and signed long, {{f.team.0011.contract_15779_tcv}} in all. He is a replacement-level receiver and the one hole in the lineup. Kirk Cousins cost {{f.team.0011.faa_10700_price}}, Tyler Allgeier {{f.team.0011.faa_15712_price}}, and the kicker Cameron Dicker a little more than the minimum. The What it bought column is all depth, and the league table ranks the money {{f.team.0011.faa_off_rank|ord}} of {{f.league.teams}} for what each dollar added and {{f.team.0011.faa_off_gain_rank|ord}} for how much it added in all. For a lineup this complete, that was always going to be the result.",
-     "The lineup it built is the April lineup with the hole filled by the draft: {{f.team.0011.studs_today}} top-twelve starters in Herbert, Robinson, Lamb, Nabers, Loveland and Kraft, Love and Dart solid, and {{f.team.0011.holes_today}} hole, Doubs in the flex. His tight ends rank {{f.team.0011.te_rank|ord}} in the league and his backs {{f.team.0011.rb_rank|ord}}. The defense is thin, and since the simulation plays every starting spot, it counts."
+     "Cleon Ca$h restructured two big contracts around the auction and then barely spent the room. In June Herbert's deal was front-loaded across {{f.team.0011.contract_14779_years}} years, {{f.team.0011.contract_14779_salary}} this year on a TCV of {{f.team.0011.contract_14779_tcv}}, and the day after the lock Robinson's new extension was back-loaded to {{f.team.0011.contract_16161_salary_2}} this year and {{f.team.0011.contract_16161_next_salary}} in 2027. Opening room is not the same as using it: Mannila spent {{f.team.0011.faa_spend}} at the Free Agent Auction, the least of any owner, and still has {{f.team.0011.cap_current_room}} of room.",
+     "Romeo Doubs took {{f.team.0011.faa_15779_price}} of it after twelve bids and signed for {{f.team.0011.contract_15779_years}} years at {{f.team.0011.contract_15779_salary}} a year, a TCV of {{f.team.0011.contract_15779_tcv}}. He is a replacement-level receiver and the one hole in the lineup. Kirk Cousins cost {{f.team.0011.faa_10700_price}}, Tyler Allgeier {{f.team.0011.faa_15712_price}}, and the kicker Cameron Dicker a little more than the minimum. Every offensive buy grades as depth, and the league table ranks Cleon Ca$h {{f.team.0011.faa_off_rank|ord}} of {{f.league.teams}} for how much the auction improved his offense: it did not, and for a lineup this complete it did not need to.",
+     "The lineup it built is the April lineup with the hole filled by the draft: {{f.team.0011.studs_today}} top-twelve starters in Herbert, Robinson, Lamb, Nabers, Loveland and Kraft, Love and Dart solid, and {{f.team.0011.holes_today}} hole, Doubs in the flex. His tight ends rank {{f.team.0011.te_rank|ord}} in the league and his backs {{f.team.0011.rb_rank|ord}}. Graded on MFL's projections, the defense is the weak spot: only Roquan Smith grades above low-end, and the simulation plays every starting spot.",
+     "The injury list is long but mostly questionable. Four starters carry a designation for the opener, Nabers with a knee, Love with an ankle, and two defenders, Jonathan Greenard and Teddye Buchanan; none is listed out, so the forecast plays them all, and if Nabers sits, Wan'Dale Robinson and Khalil Shakir are next. Mykel Williams, on the taxi squad, is on injured reserve into October."
     ],
     "place": [
      "t.0011.faa",
      "t.0011.faa_value",
      "t.0011.moves_s3",
-     "t.0011.lineup"
+     "t.0011.lineup",
+     "t.0011.injuries"
     ],
     "placeAt": {
      "t.0011.faa": 0,
      "t.0011.faa_value": 1,
      "t.0011.moves_s3": 0,
-     "t.0011.lineup": 2
+     "t.0011.lineup": 3,
+     "t.0011.injuries": 3
     },
     "views": {
      "t.0011.faa": {
@@ -131,10 +136,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -144,7 +151,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -159,50 +167,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0011.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0011.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0011.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Mannila has been here since {{f.team.0011.hist_first_season}}, all {{f.team.0011.hist_seasons}} completed seasons, and the record is modest: {{f.team.0011.hist_playoffs}} playoff trip, no title, no division crown, and a {{f.team.0011.hist_allplay_pct}} career all-play record. On paper, this is the roster to change that."
+     "Mannila has been here since {{f.team.0011.hist_first_season}}, all {{f.team.0011.hist_seasons}} completed seasons, and the record is modest: {{f.team.0011.hist_playoffs}} playoff trip, no title, no division crown, and a {{f.team.0011.hist_allplay_pct}} career all-play record. On paper, this is the roster to change that.",
+     "It will have to change it in a new division. This is year one of the alignment the owners drafted themselves, and Bear Dunn, seated third among the captains, took Cleon Ca$h {{f.league.div_draft_pick_0011|ord}} overall, in the second round, after taking the Hawks in the first. DOG POUND 4 LIFE runs through C-Town, the simulation's {{f.league.power_rank_0009|ord}} team; Cleon Ca$h is {{f.team.0011.power_rank|ord}} with a {{f.team.0011.sim_p_division}} chance at the division and {{f.team.0011.sim_p_playoffs}} playoff odds, and the Hawks are {{f.league.power_rank_0012|ord}}.",
+     "The division weeks are {{f.team.0011.div_weeks}}, with no byes in the first two, and the byes land hardest on Mannila. Week eight takes four of his starters, Nabers and Dart among them, while C-Town loses McCaffrey and Chase Young. Week eleven takes Robinson, Kraft and Doubs. And week fourteen, the last division week of the regular season, takes Love and Lamb. Across the five weeks he loses {{f.team.0011.div_week_own_byes}} starters to byes and his rivals lose {{f.team.0011.div_week_rival_byes}}.",
+     "The next three years, in Mannila's register, which is to say briefly. 2027: close, not quite. He says that is fine. 2028: a playoff trip. He says it was probably luck. 2029: a title, and the division with it. One sentence about it, no follow-up.",
+     "Week one is a division week and has not started for Cleon Ca$h. With {{f.league.wk_teams_final}} NFL teams done, none of his starters had played, and the two New England receivers who had, Chism and Doubs, were on his bench."
     ],
     "place": [
-     "t.0011.history"
+     "t.0011.history",
+     "t.0011.division",
+     "t.0011.division_weeks",
+     "t.0011.week1"
     ],
     "placeAt": {
-     "t.0011.history": 0
+     "t.0011.history": 0,
+     "t.0011.division": 1,
+     "t.0011.division_weeks": 2,
+     "t.0011.week1": 4
     },
     "views": {
      "t.0011.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "DOG POUND 4 LIFE runs through C-Town, the simulation's {{f.league.power_rank_0009|ord}} team, and Cleon Ca$h is {{f.team.0011.power_rank|ord}}, with {{f.team.0011.sim_p_playoffs}} playoff odds and a {{f.team.0011.sim_p_division}} chance at the division. The Hawks are {{f.league.power_rank_0012|ord}}. He plays both five times.",
-     "The next three years, in Mannila's register, which is to say briefly. 2027: a playoff trip. He says it was probably luck. 2028: Love and Robinson are the best backfield in the league. He points out that C-Town was once, too. 2029: a title. One sentence about it, no follow-up.",
-     "Week one has not started for Cleon Ca$h. With {{f.league.wk_teams_final}} NFL teams done, none of his starters had played, and the two New England receivers who had, Chism and Doubs, were on his bench."
-    ],
-    "place": [
-     "t.0011.division",
-     "t.0011.week1"
-    ],
-    "placeAt": {
-     "t.0011.division": 0,
-     "t.0011.week1": 2
-    },
-    "views": {
+     },
      "t.0011.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0011.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0011.week1": {
       "cols": [

@@ -10,8 +10,8 @@
    {
     "id": "s1",
     "paragraphs": [
-     "Dunn started the offseason with the best roster in the league and knew it. In April he had {{f.team.0009.active_roster_opening}} active players and {{f.team.0009.cap_opening}} in salary, and {{f.team.0009.studs_opening}} top-twelve starters: Jayden Daniels at quarterback, James Cook at running back, Jaxon Smith-Njigba, an Elite WR1, and Drake London at receiver, Brock Bowers, an Elite TE1, and Sam LaPorta in the superflex. Breece Hall and Tee Higgins were solid behind them. The one hole was Tony Pollard, a Low-end RB3, in the second flex.",
-     "Before the draft he kept it simple. LaPorta's rookie deal was running out, so Dunn extended him in May at {{f.team.0009.contract_16214_salary}} this year and {{f.team.0009.contract_16214_tcv}} in all. The other three expiring rookies, Hendon Hooker, Jake Haener and Jonathan Mingo, were let go. He cut Dyami Brown, whose {{f.team.0009.cut_15292_salary}} salary cost a {{f.team.0009.cut_15292_penalty}} penalty, and released Tyler Higbee for nothing. No trades."
+     "Dunn started the offseason with the best roster in the league and knew it. In April he had {{f.team.0009.active_roster_opening}} active players, {{f.team.0009.cap_opening}} in salary and {{f.team.0009.studs_opening}} top-twelve starters: Jayden Daniels at quarterback, James Cook at running back, Jaxon Smith-Njigba, an Elite WR1, and Drake London at receiver, Brock Bowers, an Elite TE1, and Sam LaPorta in the superflex. Breece Hall and Tee Higgins were solid behind them. The one hole was Tony Pollard, a Low-end RB3, in the second flex.",
+     "Before the draft he kept it simple. LaPorta's rookie deal was running out, so in May Dunn extended him for {{f.team.0009.contract_16214_years}} years at a TCV of {{f.team.0009.contract_16214_tcv}}, back-loaded: {{f.team.0009.contract_16214_salary}} this year and {{f.team.0009.contract_16214_next_salary}} in 2027. The other three expiring rookies, Hendon Hooker, Jake Haener and Jonathan Mingo, were let go. He cut Dyami Brown, whose {{f.team.0009.cut_15292_salary}} salary cost a {{f.team.0009.cut_15292_penalty}} penalty, and released Tyler Higbee for nothing. No trades."
     ],
     "place": [
      "t.0009.slot_bridge",
@@ -39,7 +39,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "Before the rookie draft"
@@ -59,7 +60,7 @@
     "id": "s2",
     "paragraphs": [
      "The tag came first. In May Dunn tagged George Pickens at {{f.team.0009.tag_15762_salary}}, which is what a tag really is in this league: a chip. Keep the player, trade him, or hand him back before the auction and take the money with you. The draft was an afterthought, {{f.team.0009.rookie_picks_count}} late picks, both defenders, Caleb Downs at 4.09 and Jake Golday at 6.09, and he bought Brian Branch at the Expired Rookie Auction for {{f.team.0009.era_16244_price}}.",
-     "Then the week before the lock, everything moved. He extended James Cook at {{f.team.0009.contract_15715_salary}} this year and {{f.team.0009.contract_15715_tcv}} in all. In a three-way deal with Real Deal Creel and Blake Bombers he sent Drake London and {{f.team.0009.trade_blind_bid_cash}} of blind-bid money away and got Tetairoa McMillan back, shedding {{f.team.0009.trade1_salary_out}} of salary and taking on {{f.team.0009.trade1_salary_in}}. And on lock day he cashed the chip: Pickens was released with no penalty, all {{f.team.0009.cut_15762_salary}} straight back to him, and Tony Pollard went the same day, {{f.team.0009.cut_14085_salary}} of salary off the books with a {{f.team.0009.cut_14085_penalty}} penalty.",
+     "The week before the lock, everything moved. He extended James Cook for {{f.team.0009.contract_15715_years}} years at a TCV of {{f.team.0009.contract_15715_tcv}}, back-loaded at {{f.team.0009.contract_15715_salary}} this year and {{f.team.0009.contract_15715_next_salary}} next. In the three-way deal with Real Deal Creel and Blake Bombers he sent Drake London and {{f.team.0009.trade_blind_bid_cash}} of blind-bid money away for Tetairoa McMillan, shedding {{f.team.0009.trade1_salary_out}} of salary and taking on {{f.team.0009.trade1_salary_in}}; the trade bot graded his side a {{f.team.0009.trade1_grade}}. And on lock day he cashed the chip: Pickens was released with no penalty, all {{f.team.0009.cut_15762_salary}} straight back to him, and Tony Pollard went the same day, {{f.team.0009.cut_14085_salary}} of salary off the books for a {{f.team.0009.cut_14085_penalty}} penalty.",
      "That is why the roster shrank before the auction, from {{f.team.0009.active_roster_opening}} active players in April to {{f.team.0009.active_roster_preauction}} at the lock, and the salary from {{f.team.0009.cap_opening}} to {{f.team.0009.cap_preauction}}. Brown, Higbee, Pollard and London went out, McMillan and Branch came in, and Pickens came and went. None of it was an accident: it was room for the auction."
     ],
     "place": [
@@ -89,7 +90,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the draft to the auction lock"
@@ -100,22 +102,25 @@
    {
     "id": "s3",
     "paragraphs": [
-     "The room was opened on purpose too. The Cook deal was restructured the same day it was signed, down to {{f.team.0009.contract_15715_salary_2}} for 2026 with the {{f.team.0009.contract_15715_tcv_2}} total untouched, and all of it got used. At the Free Agent Auction Dunn spent {{f.team.0009.faa_spend}} on {{f.team.0009.faa_lots_won}} players: Christian McCaffrey for {{f.team.0009.faa_13130_price}} after seventeen bids, Joe Burrow for {{f.team.0009.faa_14777_price}} and DK Metcalf for {{f.team.0009.faa_14102_price}}.",
-     "McCaffrey has a history this summer. Sex Manther tagged him in May and let him go in July, and Dunn paid barely more than that tag to get him. That is not a mistake by Josh Martel: the tag was his chip, and when he threw it back the money went back in his pocket to spend on other people.",
-     "What it bought is what separates C-Town from the rest of the league table. McCaffrey is a High-end RB1 and Burrow a High-end QB1, the two Very good buys in the What it bought column, and his offense gained more at the auction than anyone's, {{f.team.0009.faa_off_gain_rank|ord}} of {{f.league.teams}}, and ranked {{f.team.0009.faa_off_rank|ord}} for what each dollar added. Burrow's deal runs long, {{f.team.0009.contract_14777_salary}} this year and {{f.team.0009.contract_14777_tcv}} in all, one of {{f.team.0009.myac_faa}} multi-year contracts he handed out from the auction. After it he trimmed only depth, releasing Patrick Queen and three minimum bodies at no cost.",
-     "The lineup it built has {{f.team.0009.holes_today}} holes. The {{f.team.0009.studs_today}} top-twelve starters are Burrow, McCaffrey, Cook, Smith-Njigba, Bowers and Daniels in the superflex, with Higgins, Hall and McMillan solid around them. His backfield ranks {{f.team.0009.rb_rank|ord}} in the league, his quarterbacks {{f.team.0009.qb_rank|ord}}, his receivers {{f.team.0009.wr_rank|ord}} and his tight ends {{f.team.0009.te_rank|ord}}. The kicker, Jake Bates, is an Elite PK1 on MFL's projections, and the defense is the one thin spot, a footnote on a roster like this."
+     "C-Town went into the Free Agent Auction with room it had made on purpose. James Cook's new deal was restructured the same day it was signed, down to {{f.team.0009.contract_15715_salary_2}} this year and up to {{f.team.0009.contract_15715_next_salary_2}} in 2027 with the {{f.team.0009.contract_15715_tcv_2}} total untouched, and Dunn used all of it: {{f.team.0009.faa_spend}} on {{f.team.0009.faa_lots_won}} players, Christian McCaffrey for {{f.team.0009.faa_13130_price}} after seventeen bids, Joe Burrow for {{f.team.0009.faa_14777_price}} and DK Metcalf for {{f.team.0009.faa_14102_price}}.",
+     "McCaffrey came with a history. Sex Manther had tagged him in May and released him in July, and Dunn paid barely more than the tag.",
+     "What it bought: McCaffrey, a High-end RB1, and Burrow, a High-end QB1, the two Very good buys, and Metcalf, a Starter. No owner's offense improved more at the auction; C-Town ranks {{f.team.0009.faa_off_rank|ord}} of {{f.league.teams}} in the league table. Burrow signed long and back-loaded, {{f.team.0009.contract_14777_years}} years at a TCV of {{f.team.0009.contract_14777_tcv}}: {{f.team.0009.contract_14777_salary}} this year and {{f.team.0009.contract_14777_next_salary}} in 2027, one of {{f.team.0009.myac_faa}} multi-year contracts from the auction. After it he trimmed only depth, releasing Patrick Queen and three minimum-salary players at no cost.",
+     "The lineup it built has {{f.team.0009.holes_today}} holes: {{f.team.0009.studs_today}} top-twelve starters in Burrow, McCaffrey, Cook, Smith-Njigba, Bowers and Daniels in the superflex, with Higgins, Hall and McMillan solid around them. His backfield ranks {{f.team.0009.rb_rank|ord}} in the league, his quarterbacks {{f.team.0009.qb_rank|ord}}, his receivers {{f.team.0009.wr_rank|ord}} and his tight ends {{f.team.0009.te_rank|ord}}. Graded on MFL's projections, the defense is better than a footnote: Chase Young and Blake Cashman are Elite at their positions, and cost {{f.team.0009.faa_14877_price}} and {{f.team.0009.faa_14251_price}}. The kicker, Jake Bates, is an Elite PK1.",
+     "The injury that matters is at tight end. Bowers is listed out for the opener with a meniscus injury, and LaPorta, the back-loaded extension, is next up. Tua Tagovailoa is questionable on the bench, and Branch, the Expired Rookie Auction buy, is on injured reserve into October, so the forecast leaves him out of the first four weeks."
     ],
     "place": [
      "t.0009.faa",
      "t.0009.faa_value",
      "t.0009.moves_s3",
-     "t.0009.lineup"
+     "t.0009.lineup",
+     "t.0009.injuries"
     ],
     "placeAt": {
      "t.0009.faa": 0,
      "t.0009.faa_value": 2,
      "t.0009.moves_s3": 0,
-     "t.0009.lineup": 3
+     "t.0009.lineup": 4,
+     "t.0009.injuries": 4
     },
     "views": {
      "t.0009.faa": {
@@ -133,10 +138,12 @@
        "rank",
        "team",
        "spend",
+       "gain_share",
        "bought"
       ],
       "labels": {
        "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
        "bought": "What it bought"
       },
       "title": "What every owner's auction money bought"
@@ -146,7 +153,8 @@
        "date",
        "move",
        "player",
-       "detail"
+       "detail",
+       "grade"
       ],
       "stack": true,
       "title": "From the auction to week one"
@@ -161,50 +169,71 @@
        "val": "Grade"
       },
       "title": "The lineup it built"
+     },
+     "t.0009.injuries": {
+      "cols": [
+       "player",
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
+      ],
+      "labels": {
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
+      },
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0009.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction. What it bought sorts those buys by grade at their position: Elite, Very good, Good or Depth."
+     "t.0009.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is the top three, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter anyone else the league's lineups would start, and Depth the rest."
     }
    },
    {
     "id": "s4",
     "paragraphs": [
-     "Dunn has been here since {{f.team.0009.hist_first_season}}, and the record has a gap in it that he would recognise. His teams have had the league's best all-play record {{f.team.0009.hist_ap_titles}} times, in {{f.team.0009.hist_ap_title_years}}, with {{f.team.0009.hist_div_titles}} division titles and {{f.team.0009.hist_playoffs}} playoff trips, but only one championship, in {{f.team.0009.hist_title_years}}. His career all-play record is {{f.team.0009.hist_allplay_pct}}."
+     "Dunn has been here since {{f.team.0009.hist_first_season}}, and the record has a gap in it he would recognise. His teams have had the league's best all-play record {{f.team.0009.hist_ap_titles}} times, in {{f.team.0009.hist_ap_title_years}}, with {{f.team.0009.hist_div_titles}} division titles and {{f.team.0009.hist_playoffs}} playoff trips, but one championship, in {{f.team.0009.hist_title_years}}. His career all-play record is {{f.team.0009.hist_allplay_pct}}.",
+     "His last two division titles came in the old alignment. This is year one of a new one, chosen in the league's first Owner Divisional Draft, and Dunn built DOG POUND 4 LIFE himself. He sat {{f.league.div_draft_captain_0009|ord}} among the four captains, took the Hawks {{f.league.div_draft_pick_0012|ord}} overall, exactly as he had announced in January, and came back for Cleon Ca$h {{f.league.div_draft_pick_0011|ord}}, the team he had complained he could never get away from. The simulation makes it his division to lose: {{f.team.0009.sim_p_division}} for C-Town, {{f.league.p_division_0011}} for Cleon Ca$h and {{f.league.p_division_0012}} for the Hawks, with C-Town at {{f.team.0009.sim_p_playoffs}} to make the playoffs and {{f.team.0009.sim_p_bye}} to earn a bye.",
+     "The division weeks are {{f.team.0009.div_weeks}}, and nobody has a bye in the first two. The trouble starts in week eight, when McCaffrey and Chase Young are off, but so are four Cleon Ca$h starters, Malik Nabers and Jaxson Dart among them. Week eleven is the hard one: Smith-Njigba and three of his defenders sit, against Bijan Robinson and Tucker Kraft for Cleon Ca$h and Matthew Stafford and Kyren Williams for the Hawks. The last one, week fourteen, costs C-Town only Budda Baker and costs Cleon Ca$h Jeremiyah Love and CeeDee Lamb. Across the five weeks his rivals lose {{f.team.0009.div_week_rival_byes}} starters to byes and he loses {{f.team.0009.div_week_own_byes}}.",
+     "The next three years, told the way Dunn would tell them. 2027: C-Town won the whole thing. It had been eleven years. He posted one line about it and logged off. 2028: (in the voice of Morgan Freeman) He won the division again, and he had built the roster without saying much at all. 2029: Cleon Ca$h won the title, out of his own division. Dunn had said in January that the two of them were inseparable. He was right about that, too.",
+     "Week one is a division week, and it has started the way the summer went. With {{f.league.wk_teams_final}} NFL teams done, Smith-Njigba had a long touchdown and a big day, McCaffrey chipped in, and C-Town has {{f.team.0009.wk_points_final}} points in the bank."
     ],
     "place": [
-     "t.0009.history"
+     "t.0009.history",
+     "t.0009.division",
+     "t.0009.division_weeks",
+     "t.0009.week1"
     ],
     "placeAt": {
-     "t.0009.history": 0
+     "t.0009.history": 0,
+     "t.0009.division": 1,
+     "t.0009.division_weeks": 2,
+     "t.0009.week1": 4
     },
     "views": {
      "t.0009.history": {
       "stack": true,
       "title": "Owner history"
-     }
-    },
-    "captions": {}
-   },
-   {
-    "id": "s5",
-    "paragraphs": [
-     "DOG POUND 4 LIFE belongs to C-Town until someone takes it: Dunn has won it the last two years. The simulation gives him a {{f.team.0009.sim_p_division}} chance to make it three, {{f.team.0009.sim_p_playoffs}} playoff odds and {{f.team.0009.sim_p_bye}} odds of a bye. Cleon Ca$h is {{f.league.power_rank_0011|ord}} in the league and the Hawks {{f.league.power_rank_0012|ord}}, and C-Town plays each of them five times.",
-     "The next three years, told the way Dunn would tell them. 2027: C-Town won the division. Nobody was surprised. 2028: (In the voice of Morgan Freeman) He had the best roster in the league for a third straight year, and he had built it without saying much at all. 2029: They won the whole thing. It had been thirteen years. He posted one line about it and logged off.",
-     "Week one has started the way the summer went. With {{f.league.wk_teams_final}} NFL teams done, Smith-Njigba had a long touchdown and a big day, McCaffrey chipped in, and C-Town has {{f.team.0009.wk_points_final}} points in the bank."
-    ],
-    "place": [
-     "t.0009.division",
-     "t.0009.week1"
-    ],
-    "placeAt": {
-     "t.0009.division": 0,
-     "t.0009.week1": 2
-    },
-    "views": {
+     },
      "t.0009.division": {
       "stack": true,
       "title": "The division"
+     },
+     "t.0009.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0009.week1": {
       "cols": [
@@ -255,7 +284,7 @@
   "card": {
    "rankFact": "f.team.0009.power_rank",
    "ofFact": "f.league.teams",
-   "featured": true
+   "featured": false
   }
  }
 }
