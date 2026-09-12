@@ -50,7 +50,7 @@
     },
     {
       "name": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z",
+      "asof": "2026-09-12T17:49:05Z",
       "rows": 12,
       "note": "Derived from facts and tables already in the twelve packs; no new data."
     }
@@ -2894,7 +2894,7 @@
       "unit": "usd",
       "fmt": "$94,000",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     },
     {
       "id": "f.team.0003.faa_off_spend_share",
@@ -2903,7 +2903,7 @@
       "unit": "percent",
       "fmt": "8.4%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     },
     {
       "id": "f.team.0003.faa_off_gain_share",
@@ -2912,7 +2912,7 @@
       "unit": "percent",
       "fmt": "5.7%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     },
     {
       "id": "f.team.0003.faa_off_rank",
@@ -2921,7 +2921,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     },
     {
       "id": "f.team.0003.faa_off_rate_rank",
@@ -2930,7 +2930,7 @@
       "unit": "rank",
       "fmt": "9",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     },
     {
       "id": "f.team.0003.faa_off_gain_rank",
@@ -2939,7 +2939,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     },
     {
       "id": "f.team.0003.faa_off_rate",
@@ -2948,7 +2948,7 @@
       "unit": "ratio",
       "fmt": "0.68x",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     },
     {
       "id": "f.team.0003.faa_off_gain_pct",
@@ -2957,7 +2957,7 @@
       "unit": "percent",
       "fmt": "28.6%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T16:09:41Z"
+      "asof": "2026-09-12T17:49:05Z"
     }
   ],
   "tables": [
