@@ -56787,9 +56787,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           ok: false,
           queued: false,
           skipped: true,
-          reason: looksOk && anyChanged ? "not_attempted" : "No applied change detected",
+          reason: dryRunFlag === 1
+            ? "dry_run_not_logged"
+            : (looksOk && anyChanged ? "not_attempted" : "No applied change detected"),
         };
-        if (looksOk && anyChanged) {
+        // A DRY RUN IS NOT CONTRACT ACTIVITY. The dry-run short-circuit sets
+        // looksOk/anyChanged, and this used to dispatch the pre-change values
+        // with test_flag 0, so dry runs landed in contract_activity_<yr>.json as
+        // real events (Rashee Rice 06-05, McCaffrey 05-19, JSN and Collins 07-28).
+        if (looksOk && anyChanged && dryRunFlag !== 1) {
           try {
             contractActivityDispatch = await dispatchRepoEvent("log-contract-activity", {
               payload: {
