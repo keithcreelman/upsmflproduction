@@ -237,7 +237,7 @@ def build(pack_id=None):
         [[seat, name[cap], (hist.get(cap) or {}).get("owner_display") or "",
           _pct((hist.get(cap) or {}).get("owner_allplay_pct") or 0), div_of[cap]]
          for seat, cap in enumerate(dd["captains"], 1)],
-        note="Seated by career all-play %, the rule for the first draft under the 2026 realignment rule.")
+        note="Seat order as the draft was run. The career all-play beside each captain is his own documented record; the printed seats do not descend by it, so the seeding rule is not asserted here.")
     t_draft = pack.table(
         "t.league.division_draft", "The 2026 Owner Divisional Draft",
         [{"key": "pick", "label": "Pick", "type": "count"},
