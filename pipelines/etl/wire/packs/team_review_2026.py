@@ -824,6 +824,34 @@ def build(pack_id):
                 sim["generatedAtUtc"], rows=len(sim["teams"]),
                 note="%d runs, regression %.1f (backtested 2021-2025); power rank = expected regular-season "
                      "all-play %%" % (sim["runs"], sim["model"]["regress"]))
+    # WHAT COUNTS AS ELITE THIS YEAR (Keith 2026-09-11, after the nine-season
+    # study of what elite has been worth): "Review it every year and confirm it
+    # with me. But for now let the board decide ... history should serve as a
+    # balancer to ensure things stay within reason." The cut is recomputed from
+    # this season's own value series at every position -- board value for
+    # offense, projected season points for defense, kickers and punters -- and
+    # printed in the warning below so it can be confirmed each season.
+    _eseries = {}
+    for _pid, _r in pos_rank.items():
+        _pg = LE.pos_group(positions.get(_pid, ""))
+        if _pg in ("QB", "RB", "WR", "TE") and rsf.get(_pid):
+            _eseries.setdefault(_pg, []).append((int(_r), float(rsf[_pid])))
+    for _pid, _v in _sp["players"].items():
+        _eseries.setdefault(_v["pos"], []).append((int(_v["rank"]), float(_v["seasonProj"])))
+    elite_cuts = {}
+    for _pg, _xs in _eseries.items():
+        _xs.sort()
+        elite_cuts[_pg] = tiering.elite_cut(_pg, [_v for _, _v in _xs])
+    tiering.set_elite_cuts(elite_cuts)
+    pack.warn("ELITE IS THIS YEAR'S, NOT A FIXED TOP THREE. At each position it is the top man plus anyone "
+              "within %d%% of him, kept only when the next man down is at least %d%% back, and capped at what "
+              "2017-2025 scoring in this league can justify. For %d that is %s. A position whose top is flat "
+              "has NO elite tier this year -- write high-end, never elite, and never call a player elite the "
+              "grade does not."
+              % (int(tiering.ELITE_NEAR * 100), int(tiering.ELITE_CLIFF * 100), SEASON,
+                 ", ".join("%s %d" % (p, elite_cuts.get(p, 0))
+                           for p in ("QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"))))
+
     kp_ppg = {}
     _kp_rows = D.d1("SELECT player_id, pos_group, COUNT(DISTINCT week) g, SUM(score) pts FROM src_weekly "
                     "WHERE season=%d AND is_reg=1 AND pos_group IN ('PK','PN') AND score IS NOT NULL "
@@ -936,8 +964,10 @@ def build(pack_id):
     # How many at each position the league's twelve best legal lineups start,
     # flex and superflex included -- the Starter line in tiering.bought_band.
     starter_demand = {}
+    all_starter_pids = set()
     for _lu in all_lineups.values():
         for _pid in _lu["starter_pids"]:
+            all_starter_pids.add(str(_pid))
             _g = LE.pos_group(positions.get(_pid, ""))
             starter_demand[_g] = starter_demand.get(_g, 0) + 1
 
@@ -2966,7 +2996,8 @@ def build(pack_id):
         pg = LE.pos_group(positions.get(pid, ""))
         if pg not in ("QB", "RB", "WR", "TE"):
             return "--"
-        return tiering.bought_band(pg, pos_rank.get(pid), starter_demand.get(pg))
+        return tiering.bought_band(pg, pos_rank.get(pid), starter_demand.get(pg),
+                                   pid in all_starter_pids)
 
     faa_rows = []
     for l in sorted(faa_lots, key=lambda l: (-(l.get("current_high_bid_k") or 0), str(l.get("player_id")))):
@@ -2986,11 +3017,12 @@ def build(pack_id):
         faa_rows,
         note="Grade is today's tier at his position, the same vocabulary as the lineup. 'Bought' grades "
              "OFFENSE by league-wide position rank on the live redraft board (tiering.bought_band): Elite = "
-             "top 3, Very good = 4-12, Good = 13-24 at QB/RB/WR where every team starts two (the superflex "
-             "counts as a second QB), Starter = inside the league's own starter demand (%s), Depth = "
-             "everyone else, off-board and replacement-level players included. The league value table "
-             "counts these for every owner." % ", ".join(
-                 "%s %d" % (g, starter_demand.get(g, 0)) for g in ("QB", "RB", "WR", "TE")))
+             "this year's separated top (%s), Very good = the rest of the top twelve, Good = 13-24 at "
+             "QB/RB/WR where every team starts two (the superflex counts as a second QB), Starter depth = "
+             "he starts somewhere in the league or is inside its own starter demand (%s), Bench depth = "
+             "nobody starts him. The league value table counts these for every owner." % (
+                 ", ".join("%s %d" % (g, elite_cuts.get(g, 0)) for g in ("QB", "RB", "WR", "TE")),
+                 ", ".join("%s %d" % (g, starter_demand.get(g, 0)) for g in ("QB", "RB", "WR", "TE"))))
 
     # -- the owner's history (D1, rebuilt weekly by owner-career-stats.yml)
     _hist_all = {str(r["franchise_id"]).zfill(4): r for r in D.d1("SELECT * FROM ups_owner_career_stats")}

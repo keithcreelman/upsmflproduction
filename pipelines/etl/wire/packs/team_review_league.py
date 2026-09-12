@@ -54,7 +54,7 @@ OFFENSE = ("QB", "RB", "WR", "TE")
 SOURCE = "team_review_league (derived from the twelve team packs)"
 WARN_MARK = "League value comparison:"
 WINDOW = ("2026-07-23", "2026-08-05")
-BANDS = ("Elite", "Very good", "Good", "Starter", "Depth")   # tiering.BOUGHT_BANDS
+BANDS = ("Elite", "Very good", "Good", "Starter depth", "Bench depth")   # tiering.BOUGHT_BANDS
 
 
 def fail(msg):
@@ -159,8 +159,9 @@ def run(season):
             "the starting offense improved -- a buy that never makes the lineup adds nothing, however "
             "cheap. 'What it bought' counts each owner's offensive buys by grade (tiering.bought_band: "
             "Elite = top 3 at the position, Very good = 4-12, Good = 13-24 at QB/RB/WR where every team "
-            "starts two, Starter = inside the league's own starter demand, Depth = the rest). "
-            "It does not credit bench depth, and an owner whose lineup had no holes "
+            "starts two, Starter depth = he starts somewhere in the league or is inside its own starter "
+            "demand, Bench depth = nobody starts him). "
+            "An owner whose lineup had no holes "
             "had little room to improve it." % (WARN_MARK, WINDOW[0], WINDOW[1]))
 
     changed = 0
