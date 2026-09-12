@@ -3,7 +3,7 @@
     "note": "Restructures recorded OUTSIDE the FO/worker submit path (e.g. the 'UPS Contracts Hub Bot' Discord posts, or manual MFL edits) that are not in contract_activity_2026.json or ups_restructure_submissions. The FO Restructures tab merges these into the per-team used count (canon §C5, 3/team/season). Add an entry here whenever a restructure happens off-path.",
     "season": "2026",
     "league_id": "74598",
-    "updated_at": "2026-08-01"
+    "updated_at": "2026-09-12"
   },
   "restructures": [
     {
@@ -17,7 +17,10 @@
       "tcv": 129000,
       "guaranteed": 96800,
       "aav": 54000,
-      "year_salaries": [26000, 103000],
+      "year_salaries": [
+        26000,
+        103000
+      ],
       "note": "Restructure 2 of 3 (HammerTime). Was already BL — no shape change."
     },
     {
@@ -31,7 +34,10 @@
       "tcv": 74000,
       "guaranteed": 55500,
       "aav": 42000,
-      "year_salaries": [15000, 59000],
+      "year_salaries": [
+        15000,
+        59000
+      ],
       "note": "Restructure 1 of 3 (HammerTime). Flipped EXT1 -> BL after the Real Deal Creel trade."
     }
   ],
@@ -42,6 +48,30 @@
       "player_id": "16594",
       "player_name": "Benson, Trey",
       "reason": "Testing only — NOT a real restructure (Keith 2026-06-05). Skip in the count and DELETE from D1."
+    },
+    {
+      "franchise_id": "0002",
+      "franchise_name": "CBP",
+      "player_id": "15290",
+      "player_name": "Collins, Nico",
+      "submitted_at_utc": "2026-08-23T19:59:51.709Z",
+      "reason": "REVERSED, not applied. Keith 2026-09-12: 'Nico Collins tried restructuring him a 3rd time but it was his 4th restructure so we reversed it.' The attempt would have put him back to $30,000 / $64,000; MFL still carries the 07-29 shape, $19,000 / $75,000. His 07-29 restructure stands."
+    },
+    {
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "16167",
+      "player_name": "Achane, De'Von",
+      "submitted_at_utc": "2026-06-05T21:39:58.765Z",
+      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; DELETE from D1 too."
+    },
+    {
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "16167",
+      "player_name": "Achane, De'Von",
+      "submitted_at_utc": "2026-06-05T21:40:44.435Z",
+      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; DELETE from D1 too."
     }
   ]
 }

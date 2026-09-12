@@ -2016,6 +2016,27 @@ def build(pack_id):
     _man_path = os.path.join(D.REPO, "site", "rosters", "contract_submissions", "restructure_manual_%d.json" % SEASON)
     _man = json.load(open(_man_path, encoding="utf-8"))
     _excl = set((str(x.get("franchise_id")).zfill(4), str(x.get("player_id"))) for x in _man.get("exclusions") or [])
+    # AN EXCLUSION MAY NAME ONE SUBMISSION. Keith 2026-09-12: Nico Collins
+    # "tried restructuring him a 3rd time but it was his 4th restructure so we
+    # reversed it", and the Achane June entry "was test data delete". A
+    # franchise-and-player exclusion is too blunt for either -- Collins has a
+    # real restructure the same month that must stand. An exclusion carrying
+    # submitted_at_utc drops exactly that row, from the Front Office log as well
+    # as from the manual file; one without a date behaves as it always has.
+    _excl_rows = set()
+    for x in _man.get("exclusions") or []:
+        if x.get("submitted_at_utc"):
+            _excl_rows.add((str(x.get("franchise_id")).zfill(4), str(x.get("player_id")),
+                            str(x["submitted_at_utc"])[:10]))
+    if _excl_rows:
+        _before = len(activity_rows)
+        activity_rows = [r for r in activity_rows
+                         if (str(r.get("franchise_id", "")).zfill(4), str(r.get("player_id")),
+                             str(r.get("submitted_at_utc") or "")[:10]) not in _excl_rows]
+        _dropped = _before - len(activity_rows)
+        if _dropped:
+            pack.source("site/rosters/contract_submissions/restructure_manual_%d.json (exclusions: submissions "
+                        "the commissioner has voided)" % SEASON, current_date, rows=_dropped)
     _have_rs = set((str(r.get("franchise_id")).zfill(4), str(r.get("player_id")), str(r.get("submitted_at_utc") or "")[:10])
                    for r in activity_rows if r.get("activity_type") == "Restructure")
     _added_rs = 0
@@ -2822,6 +2843,26 @@ def build(pack_id):
             if (_lload and _lys and sum(_lys) == tcv and "Restructured" not in _lci
                     and not any(d >= day for d in _rs_days.get(pid, []))):
                 ys, load, sal = _lys, _lload, _lys[0]
+        # MFL WINS ON THE LAST WORD. Keith 2026-09-12 on Mahomes: "I don't trust
+        # your numbers in the Front Office it reads 28K and if it was 58K he'd be
+        # well over the cap double check that." He was right -- Gride carries
+        # $288,000 against a $300,000 cap with Mahomes at $28,000, so the log's
+        # $58,000 first year is impossible, and the two disagree only in the
+        # ORDER of the years. When nothing later in the log explains the
+        # difference, the roster the league actually plays with is the contract.
+        if ys:
+            _lv2 = _live_ci.get(pid) or {}
+            _lys2 = _year_salaries(str(_lv2.get("contractInfo") or ""))
+            _later = any(str(e.get("player_id")) == pid
+                         and _et_date(e.get("submitted_at_utc")) > day for e in activity_rows)
+            if _lys2 and not _later and _lys2 != ys:
+                pack.warn("%s's %s of %s is logged as %s but MFL carries %s today, and nothing later in the "
+                          "log explains the difference -- the review follows MFL, which is what the league "
+                          "plays with. Worth fixing at the source."
+                          % (_nm_pid(pid), typ.lower(), day, ", ".join(_usd(v) for v in ys),
+                             ", ".join(_usd(v) for v in _lys2)))
+                ys = _lys2
+                load = _loading(_lv2.get("contractStatus"), _lys2)
         # The year-by-year salaries are the contract; the log's `salary` field is
         # not always this season's (James Cook's extension logged $37,000 against
         # "Y1-27K, Y2-37K"), so the 2026 figure follows the terms.
