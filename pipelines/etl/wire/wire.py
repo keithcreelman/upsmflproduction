@@ -456,7 +456,9 @@ PACKS_DIR = os.path.join(WIRE, "packs")
 PACK_BUILDERS = {"2026-preseason-review": "preseason_review",
                  # The front page's lead (Keith 2026-09-11): blurb, then the
                  # season forecast table, then the season in general.
-                 "2026-season-forecast": "season_forecast"}
+                 "2026-season-forecast": "season_forecast",
+                 # Stub for the section, ahead of week one (Keith 2026-09-12).
+                 "2026-weekly-recap-placeholder": "weekly_recap_placeholder"}
 # weekly_recap is generic (season, week) -- one module, five 2025 instances:
 # the last two regular-season weeks plus the full 3-round playoffs. Each pack
 # id is registered explicitly (no wildcard matching) so `_load_builder` keeps
@@ -552,13 +554,19 @@ def cmd_check_pack(args):
     return 0
 
 
-PACK_FAMILY = {"2026-preseason-review": "season-review", "2026-season-forecast": "season-review"}
-PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review", "2026-season-forecast": "2026-season-forecast"}
+# "season-review" is the Wire's single Previews section (Keith 2026-09-12:
+# "Move Team Previews under Season Previews. But make the header Previews.")
+# -- the forecast, the preseason review and all twelve team previews share it,
+# so there is one nav tab and one front-page rail, not two.
+PACK_FAMILY = {"2026-preseason-review": "season-review", "2026-season-forecast": "season-review",
+               "2026-weekly-recap-placeholder": "weekly"}
+PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review", "2026-season-forecast": "2026-season-forecast",
+                "2026-weekly-recap-placeholder": "2026-weekly-recap-placeholder"}
 for _wk in (13, 14, 15, 16, 17):
     PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
 for _fid in ("0001", "0002", "0003", "0004", "0005", "0006",
              "0007", "0008", "0009", "0010", "0011", "0012"):
-    PACK_FAMILY["2026-team-%s" % _fid] = "team-review"
+    PACK_FAMILY["2026-team-%s" % _fid] = "season-review"
     PACK_ARTICLE["2026-team-%s" % _fid] = "2026-team-%s" % _fid
 
 
