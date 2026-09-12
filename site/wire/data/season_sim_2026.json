@@ -1,0 +1,4869 @@
+{
+ "schema": 1,
+ "season": 2026,
+ "generatedAtUtc": "2026-09-12T18:57:32Z",
+ "runs": 20000,
+ "seed": 20260911,
+ "model": {
+  "regress": 0.7,
+  "sigmaWeekly": 30.01,
+  "sigmaSeason": 14.02,
+  "projectionWithinVar": 42.5,
+  "targetWithinVar": 943.2,
+  "targetApVar": 0.0238,
+  "simApVar": 0.02382,
+  "calibration": [
+   {
+    "sigma_s": 0,
+    "sim_ap_var": 0.0108
+   },
+   {
+    "sigma_s": 4,
+    "sim_ap_var": 0.01201
+   },
+   {
+    "sigma_s": 8,
+    "sim_ap_var": 0.01551
+   },
+   {
+    "sigma_s": 12,
+    "sim_ap_var": 0.02068
+   },
+   {
+    "sigma_s": 16,
+    "sim_ap_var": 0.02685
+   },
+   {
+    "sigma_s": 20,
+    "sim_ap_var": 0.03336
+   },
+   {
+    "sigma_s": 24,
+    "sim_ap_var": 0.03971
+   },
+   {
+    "sigma_s": 28,
+    "sim_ap_var": 0.04565
+   },
+   {
+    "sigma_s": 32,
+    "sim_ap_var": 0.05107
+   }
+  ],
+  "regularSeasonWeeks": 14,
+  "endWeek": 17,
+  "replacementRankByGroup": {
+   "QB": 3,
+   "RB": 3,
+   "WR": 3,
+   "TE": 3,
+   "PK": 6,
+   "PN": 6,
+   "DL": 12,
+   "LB": 12,
+   "DB": 12
+  },
+  "divisionTiebreak": "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR,"
+ },
+ "powerRankBasis": "expected regular-season all-play %, schedule-neutral",
+ "seasonShape": {
+  "byFinish": [
+   0.7588,
+   0.6842,
+   0.6335,
+   0.5915,
+   0.5536,
+   0.5178,
+   0.4833,
+   0.4471,
+   0.4092,
+   0.3668,
+   0.3151,
+   0.239
+  ],
+  "champApRank": [
+   0.3721,
+   0.2465,
+   0.1497,
+   0.1018,
+   0.0731,
+   0.0368,
+   0.0107,
+   0.0062,
+   0.0016,
+   0.0007,
+   0.0006,
+   0.0001
+  ]
+ },
+ "teams": [
+  {
+   "franchiseId": "0009",
+   "team": "C-Town Chivalry",
+   "division": "03",
+   "projWeekly": 216.5,
+   "projWeeklyRegressed": 212.0,
+   "waiverFillSlotWeeks": 19,
+   "projWeeklyOffense": 143.5,
+   "projWeeklyDefense": 60.6,
+   "projWeeklyKicking": 12.3,
+   "expAllPlayPct": 0.5947,
+   "apP10": 0.4026,
+   "apP50": 0.6039,
+   "apP90": 0.7792,
+   "expWins": 22.5,
+   "games": 37,
+   "pDivision": 0.5763,
+   "pPlayoffs": 0.7433,
+   "pBye": 0.3557,
+   "pTitle": 0.1806,
+   "pRunnerUp": 0.1396,
+   "apRankDist": [
+    0.1986,
+    0.1493,
+    0.1189,
+    0.1043,
+    0.0925,
+    0.0775,
+    0.0669,
+    0.0568,
+    0.0492,
+    0.0367,
+    0.0308,
+    0.0185
+   ],
+   "powerRank": 1
+  },
+  {
+   "franchiseId": "0004",
+   "team": "Pure Greatness",
+   "division": "00",
+   "projWeekly": 214.3,
+   "projWeeklyRegressed": 210.5,
+   "waiverFillSlotWeeks": 20,
+   "projWeeklyOffense": 142.6,
+   "projWeeklyDefense": 58.5,
+   "projWeeklyKicking": 13.2,
+   "expAllPlayPct": 0.5809,
+   "apP10": 0.3896,
+   "apP50": 0.5844,
+   "apP90": 0.7662,
+   "expWins": 21.0,
+   "games": 37,
+   "pDivision": 0.4697,
+   "pPlayoffs": 0.696,
+   "pBye": 0.2989,
+   "pTitle": 0.1501,
+   "pRunnerUp": 0.1312,
+   "apRankDist": [
+    0.1734,
+    0.1391,
+    0.1187,
+    0.1032,
+    0.0945,
+    0.0833,
+    0.0711,
+    0.0592,
+    0.053,
+    0.0456,
+    0.0362,
+    0.0231
+   ],
+   "powerRank": 2
+  },
+  {
+   "franchiseId": "0010",
+   "team": "Blake Bombers",
+   "division": "01",
+   "projWeekly": 209.2,
+   "projWeeklyRegressed": 206.9,
+   "waiverFillSlotWeeks": 47,
+   "projWeeklyOffense": 140.2,
+   "projWeeklyDefense": 56.3,
+   "projWeeklyKicking": 12.7,
+   "expAllPlayPct": 0.5491,
+   "apP10": 0.3636,
+   "apP50": 0.5519,
+   "apP90": 0.7338,
+   "expWins": 20.5,
+   "games": 37,
+   "pDivision": 0.5247,
+   "pPlayoffs": 0.6649,
+   "pBye": 0.2492,
+   "pTitle": 0.1023,
+   "pRunnerUp": 0.1167,
+   "apRankDist": [
+    0.119,
+    0.1161,
+    0.1108,
+    0.1027,
+    0.0951,
+    0.0906,
+    0.0809,
+    0.0745,
+    0.0674,
+    0.0587,
+    0.0502,
+    0.034
+   ],
+   "powerRank": 3
+  },
+  {
+   "franchiseId": "0005",
+   "team": "HammerTime 🔨 ⏰",
+   "division": "00",
+   "projWeekly": 208.2,
+   "projWeeklyRegressed": 206.1,
+   "waiverFillSlotWeeks": 46,
+   "projWeeklyOffense": 137.2,
+   "projWeeklyDefense": 58.7,
+   "projWeeklyKicking": 12.3,
+   "expAllPlayPct": 0.5439,
+   "apP10": 0.3571,
+   "apP50": 0.5455,
+   "apP90": 0.7338,
+   "expWins": 19.6,
+   "games": 37,
+   "pDivision": 0.3454,
+   "pPlayoffs": 0.5929,
+   "pBye": 0.209,
+   "pTitle": 0.1163,
+   "pRunnerUp": 0.1125,
+   "apRankDist": [
+    0.1171,
+    0.1091,
+    0.1051,
+    0.1022,
+    0.0944,
+    0.0903,
+    0.0843,
+    0.0757,
+    0.0704,
+    0.0599,
+    0.0502,
+    0.0411
+   ],
+   "powerRank": 4
+  },
+  {
+   "franchiseId": "0008",
+   "team": "Real Deal Creel",
+   "division": "02",
+   "projWeekly": 202.8,
+   "projWeeklyRegressed": 202.4,
+   "waiverFillSlotWeeks": 75,
+   "projWeeklyOffense": 139.1,
+   "projWeeklyDefense": 51.2,
+   "projWeeklyKicking": 12.6,
+   "expAllPlayPct": 0.5079,
+   "apP10": 0.3247,
+   "apP50": 0.5065,
+   "apP90": 0.6948,
+   "expWins": 18.9,
+   "games": 37,
+   "pDivision": 0.4011,
+   "pPlayoffs": 0.5444,
+   "pBye": 0.1676,
+   "pTitle": 0.1011,
+   "pRunnerUp": 0.0984,
+   "apRankDist": [
+    0.074,
+    0.0858,
+    0.0887,
+    0.0884,
+    0.0897,
+    0.0896,
+    0.0916,
+    0.0935,
+    0.0861,
+    0.0809,
+    0.073,
+    0.0588
+   ],
+   "powerRank": 5
+  },
+  {
+   "franchiseId": "0007",
+   "team": "Sex Manther",
+   "division": "02",
+   "projWeekly": 201.9,
+   "projWeeklyRegressed": 201.8,
+   "waiverFillSlotWeeks": 50,
+   "projWeeklyOffense": 131.4,
+   "projWeeklyDefense": 59.5,
+   "projWeeklyKicking": 11.0,
+   "expAllPlayPct": 0.501,
+   "apP10": 0.3117,
+   "apP50": 0.5,
+   "apP90": 0.6883,
+   "expWins": 18.6,
+   "games": 37,
+   "pDivision": 0.3769,
+   "pPlayoffs": 0.5221,
+   "pBye": 0.1552,
+   "pTitle": 0.0775,
+   "pRunnerUp": 0.0698,
+   "apRankDist": [
+    0.0678,
+    0.0796,
+    0.0872,
+    0.0853,
+    0.0893,
+    0.0911,
+    0.0923,
+    0.09,
+    0.0893,
+    0.0842,
+    0.0765,
+    0.0674
+   ],
+   "powerRank": 6
+  },
+  {
+   "franchiseId": "0002",
+   "team": "CBP",
+   "division": "01",
+   "projWeekly": 201.3,
+   "projWeeklyRegressed": 201.3,
+   "waiverFillSlotWeeks": 81,
+   "projWeeklyOffense": 138.1,
+   "projWeeklyDefense": 51.0,
+   "projWeeklyKicking": 12.2,
+   "expAllPlayPct": 0.498,
+   "apP10": 0.3052,
+   "apP50": 0.5,
+   "apP90": 0.6883,
+   "expWins": 18.5,
+   "games": 37,
+   "pDivision": 0.3593,
+   "pPlayoffs": 0.5149,
+   "pBye": 0.151,
+   "pTitle": 0.0736,
+   "pRunnerUp": 0.0809,
+   "apRankDist": [
+    0.0673,
+    0.0771,
+    0.0834,
+    0.0868,
+    0.0888,
+    0.089,
+    0.0945,
+    0.0889,
+    0.0873,
+    0.0858,
+    0.081,
+    0.0699
+   ],
+   "powerRank": 7
+  },
+  {
+   "franchiseId": "0011",
+   "team": "Cleon Ca$h",
+   "division": "03",
+   "projWeekly": 198.9,
+   "projWeeklyRegressed": 199.7,
+   "waiverFillSlotWeeks": 93,
+   "projWeeklyOffense": 136.5,
+   "projWeeklyDefense": 51.0,
+   "projWeeklyKicking": 11.4,
+   "expAllPlayPct": 0.484,
+   "apP10": 0.2987,
+   "apP50": 0.4805,
+   "apP90": 0.6753,
+   "expWins": 18.3,
+   "games": 37,
+   "pDivision": 0.2359,
+   "pPlayoffs": 0.4339,
+   "pBye": 0.1176,
+   "pTitle": 0.0552,
+   "pRunnerUp": 0.0622,
+   "apRankDist": [
+    0.0553,
+    0.0691,
+    0.0758,
+    0.0785,
+    0.0858,
+    0.0892,
+    0.0927,
+    0.0919,
+    0.0971,
+    0.089,
+    0.0922,
+    0.0835
+   ],
+   "powerRank": 8
+  },
+  {
+   "franchiseId": "0006",
+   "team": "The Long Haulers",
+   "division": "00",
+   "projWeekly": 196.2,
+   "projWeeklyRegressed": 197.8,
+   "waiverFillSlotWeeks": 35,
+   "projWeeklyOffense": 123.8,
+   "projWeeklyDefense": 59.8,
+   "projWeeklyKicking": 12.5,
+   "expAllPlayPct": 0.4684,
+   "apP10": 0.2792,
+   "apP50": 0.4675,
+   "apP90": 0.6558,
+   "expWins": 16.7,
+   "games": 37,
+   "pDivision": 0.1849,
+   "pPlayoffs": 0.3797,
+   "pBye": 0.096,
+   "pTitle": 0.0544,
+   "pRunnerUp": 0.0731,
+   "apRankDist": [
+    0.0464,
+    0.0586,
+    0.0673,
+    0.0766,
+    0.0805,
+    0.0846,
+    0.0877,
+    0.0946,
+    0.0998,
+    0.1018,
+    0.1029,
+    0.099
+   ],
+   "powerRank": 9
+  },
+  {
+   "franchiseId": "0012",
+   "team": "Hawks",
+   "division": "03",
+   "projWeekly": 195.0,
+   "projWeeklyRegressed": 197.0,
+   "waiverFillSlotWeeks": 49,
+   "projWeeklyOffense": 126.9,
+   "projWeeklyDefense": 55.4,
+   "projWeeklyKicking": 12.7,
+   "expAllPlayPct": 0.4573,
+   "apP10": 0.2727,
+   "apP50": 0.4545,
+   "apP90": 0.6494,
+   "expWins": 17.3,
+   "games": 37,
+   "pDivision": 0.1878,
+   "pPlayoffs": 0.3638,
+   "pBye": 0.0882,
+   "pTitle": 0.0435,
+   "pRunnerUp": 0.0507,
+   "apRankDist": [
+    0.0389,
+    0.0534,
+    0.0617,
+    0.0736,
+    0.0761,
+    0.0814,
+    0.0856,
+    0.0975,
+    0.1008,
+    0.109,
+    0.1103,
+    0.1119
+   ],
+   "powerRank": 10
+  },
+  {
+   "franchiseId": "0001",
+   "team": "L.A. Looks",
+   "division": "02",
+   "projWeekly": 191.3,
+   "projWeeklyRegressed": 194.3,
+   "waiverFillSlotWeeks": 44,
+   "projWeeklyOffense": 122.0,
+   "projWeeklyDefense": 56.5,
+   "projWeeklyKicking": 12.8,
+   "expAllPlayPct": 0.4354,
+   "apP10": 0.2532,
+   "apP50": 0.4286,
+   "apP90": 0.6234,
+   "expWins": 16.1,
+   "games": 37,
+   "pDivision": 0.222,
+   "pPlayoffs": 0.3401,
+   "pBye": 0.0757,
+   "pTitle": 0.0284,
+   "pRunnerUp": 0.0428,
+   "apRankDist": [
+    0.0294,
+    0.0408,
+    0.0541,
+    0.0612,
+    0.0681,
+    0.0772,
+    0.0823,
+    0.094,
+    0.1008,
+    0.1195,
+    0.1312,
+    0.1416
+   ],
+   "powerRank": 11
+  },
+  {
+   "franchiseId": "0003",
+   "team": "Gride",
+   "division": "01",
+   "projWeekly": 182.2,
+   "projWeeklyRegressed": 188.0,
+   "waiverFillSlotWeeks": 119,
+   "projWeeklyOffense": 120.1,
+   "projWeeklyDefense": 51.2,
+   "projWeeklyKicking": 10.9,
+   "expAllPlayPct": 0.3794,
+   "apP10": 0.2013,
+   "apP50": 0.3701,
+   "apP90": 0.5649,
+   "expWins": 13.9,
+   "games": 37,
+   "pDivision": 0.1161,
+   "pPlayoffs": 0.2039,
+   "pBye": 0.0356,
+   "pTitle": 0.0171,
+   "pRunnerUp": 0.022,
+   "apRankDist": [
+    0.0127,
+    0.0221,
+    0.0282,
+    0.0374,
+    0.0451,
+    0.0563,
+    0.0701,
+    0.0835,
+    0.0988,
+    0.129,
+    0.1656,
+    0.2512
+   ],
+   "powerRank": 12
+  }
+ ],
+ "seasonProjections": {
+  "weeks": [
+   1,
+   17
+  ],
+  "groups": [
+   "PK",
+   "PN",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "players": {
+   "16843": {
+    "pos": "PK",
+    "seasonProj": 107.3,
+    "rank": 1
+   },
+   "16846": {
+    "pos": "PK",
+    "seasonProj": 104.6,
+    "rank": 2
+   },
+   "17220": {
+    "pos": "PK",
+    "seasonProj": 102.5,
+    "rank": 3
+   },
+   "16414": {
+    "pos": "PK",
+    "seasonProj": 99.7,
+    "rank": 4
+   },
+   "14983": {
+    "pos": "PK",
+    "seasonProj": 97.9,
+    "rank": 5
+   },
+   "15368": {
+    "pos": "PK",
+    "seasonProj": 97.5,
+    "rank": 6
+   },
+   "17222": {
+    "pos": "PK",
+    "seasonProj": 95.9,
+    "rank": 7
+   },
+   "12437": {
+    "pos": "PK",
+    "seasonProj": 95.0,
+    "rank": 8
+   },
+   "12956": {
+    "pos": "PK",
+    "seasonProj": 94.5,
+    "rank": 9
+   },
+   "11945": {
+    "pos": "PK",
+    "seasonProj": 93.9,
+    "rank": 10
+   },
+   "16680": {
+    "pos": "PK",
+    "seasonProj": 93.5,
+    "rank": 11
+   },
+   "11936": {
+    "pos": "PK",
+    "seasonProj": 91.5,
+    "rank": 12
+   },
+   "13303": {
+    "pos": "PK",
+    "seasonProj": 90.2,
+    "rank": 13
+   },
+   "14717": {
+    "pos": "PK",
+    "seasonProj": 89.5,
+    "rank": 14
+   },
+   "16681": {
+    "pos": "PK",
+    "seasonProj": 88.5,
+    "rank": 15
+   },
+   "13719": {
+    "pos": "PK",
+    "seasonProj": 87.8,
+    "rank": 16
+   },
+   "16292": {
+    "pos": "PK",
+    "seasonProj": 87.4,
+    "rank": 17
+   },
+   "16896": {
+    "pos": "PK",
+    "seasonProj": 87.1,
+    "rank": 18
+   },
+   "17668": {
+    "pos": "PK",
+    "seasonProj": 87.0,
+    "rank": 19
+   },
+   "17726": {
+    "pos": "PK",
+    "seasonProj": 86.8,
+    "rank": 20
+   },
+   "15369": {
+    "pos": "PK",
+    "seasonProj": 84.2,
+    "rank": 21
+   },
+   "15979": {
+    "pos": "PK",
+    "seasonProj": 83.8,
+    "rank": 22
+   },
+   "13354": {
+    "pos": "PK",
+    "seasonProj": 83.2,
+    "rank": 23
+   },
+   "12860": {
+    "pos": "PK",
+    "seasonProj": 82.3,
+    "rank": 24
+   },
+   "14600": {
+    "pos": "PK",
+    "seasonProj": 80.8,
+    "rank": 25
+   },
+   "17736": {
+    "pos": "PK",
+    "seasonProj": 80.3,
+    "rank": 26
+   },
+   "17277": {
+    "pos": "PK",
+    "seasonProj": 80.2,
+    "rank": 27
+   },
+   "14244": {
+    "pos": "PK",
+    "seasonProj": 80.0,
+    "rank": 28
+   },
+   "16444": {
+    "pos": "PK",
+    "seasonProj": 79.3,
+    "rank": 29
+   },
+   "13718": {
+    "pos": "PK",
+    "seasonProj": 78.0,
+    "rank": 30
+   },
+   "8851": {
+    "pos": "PK",
+    "seasonProj": 77.6,
+    "rank": 31
+   },
+   "16419": {
+    "pos": "PK",
+    "seasonProj": 76.9,
+    "rank": 32
+   },
+   "13782": {
+    "pos": "PN",
+    "seasonProj": 118.2,
+    "rank": 1
+   },
+   "16887": {
+    "pos": "PN",
+    "seasonProj": 115.0,
+    "rank": 2
+   },
+   "17339": {
+    "pos": "PN",
+    "seasonProj": 114.8,
+    "rank": 3
+   },
+   "15051": {
+    "pos": "PN",
+    "seasonProj": 109.5,
+    "rank": 4
+   },
+   "17241": {
+    "pos": "PN",
+    "seasonProj": 106.7,
+    "rank": 5
+   },
+   "11985": {
+    "pos": "PN",
+    "seasonProj": 106.1,
+    "rank": 6
+   },
+   "12323": {
+    "pos": "PN",
+    "seasonProj": 105.9,
+    "rank": 7
+   },
+   "16351": {
+    "pos": "PN",
+    "seasonProj": 105.6,
+    "rank": 8
+   },
+   "13844": {
+    "pos": "PN",
+    "seasonProj": 105.2,
+    "rank": 9
+   },
+   "12842": {
+    "pos": "PN",
+    "seasonProj": 104.3,
+    "rank": 10
+   },
+   "11383": {
+    "pos": "PN",
+    "seasonProj": 102.4,
+    "rank": 11
+   },
+   "13869": {
+    "pos": "PN",
+    "seasonProj": 100.5,
+    "rank": 12
+   },
+   "14630": {
+    "pos": "PN",
+    "seasonProj": 99.1,
+    "rank": 13
+   },
+   "14256": {
+    "pos": "PN",
+    "seasonProj": 95.5,
+    "rank": 14
+   },
+   "16724": {
+    "pos": "PN",
+    "seasonProj": 92.9,
+    "rank": 15
+   },
+   "13431": {
+    "pos": "PN",
+    "seasonProj": 91.4,
+    "rank": 16
+   },
+   "15032": {
+    "pos": "PN",
+    "seasonProj": 91.3,
+    "rank": 17
+   },
+   "15911": {
+    "pos": "PN",
+    "seasonProj": 90.7,
+    "rank": 18
+   },
+   "16010": {
+    "pos": "PN",
+    "seasonProj": 86.8,
+    "rank": 19
+   },
+   "13848": {
+    "pos": "PN",
+    "seasonProj": 86.1,
+    "rank": 20
+   },
+   "17352": {
+    "pos": "PN",
+    "seasonProj": 83.8,
+    "rank": 21
+   },
+   "17761": {
+    "pos": "PN",
+    "seasonProj": 81.8,
+    "rank": 22
+   },
+   "14985": {
+    "pos": "PN",
+    "seasonProj": 78.6,
+    "rank": 23
+   },
+   "16452": {
+    "pos": "PN",
+    "seasonProj": 78.2,
+    "rank": 24
+   },
+   "15884": {
+    "pos": "PN",
+    "seasonProj": 77.9,
+    "rank": 25
+   },
+   "17664": {
+    "pos": "PN",
+    "seasonProj": 76.5,
+    "rank": 26
+   },
+   "17689": {
+    "pos": "PN",
+    "seasonProj": 70.4,
+    "rank": 27
+   },
+   "10814": {
+    "pos": "PN",
+    "seasonProj": 66.4,
+    "rank": 28
+   },
+   "15499": {
+    "pos": "PN",
+    "seasonProj": 56.6,
+    "rank": 29
+   },
+   "16330": {
+    "pos": "PN",
+    "seasonProj": 54.4,
+    "rank": 30
+   },
+   "14225": {
+    "pos": "DL",
+    "seasonProj": 156.7,
+    "rank": 1
+   },
+   "14877": {
+    "pos": "DL",
+    "seasonProj": 142.5,
+    "rank": 2
+   },
+   "16266": {
+    "pos": "DL",
+    "seasonProj": 138.2,
+    "rank": 3
+   },
+   "17182": {
+    "pos": "DL",
+    "seasonProj": 129.5,
+    "rank": 4
+   },
+   "13214": {
+    "pos": "DL",
+    "seasonProj": 127.8,
+    "rank": 5
+   },
+   "16300": {
+    "pos": "DL",
+    "seasonProj": 126.3,
+    "rank": 6
+   },
+   "16651": {
+    "pos": "DL",
+    "seasonProj": 126.2,
+    "rank": 7
+   },
+   "14249": {
+    "pos": "DL",
+    "seasonProj": 125.7,
+    "rank": 8
+   },
+   "16223": {
+    "pos": "DL",
+    "seasonProj": 125.1,
+    "rank": 9
+   },
+   "15805": {
+    "pos": "DL",
+    "seasonProj": 123.0,
+    "rank": 10
+   },
+   "15861": {
+    "pos": "DL",
+    "seasonProj": 120.0,
+    "rank": 11
+   },
+   "16224": {
+    "pos": "DL",
+    "seasonProj": 119.6,
+    "rank": 12
+   },
+   "12221": {
+    "pos": "DL",
+    "seasonProj": 118.5,
+    "rank": 13
+   },
+   "13284": {
+    "pos": "DL",
+    "seasonProj": 118.2,
+    "rank": 14
+   },
+   "16655": {
+    "pos": "DL",
+    "seasonProj": 115.3,
+    "rank": 15
+   },
+   "14147": {
+    "pos": "DL",
+    "seasonProj": 113.9,
+    "rank": 16
+   },
+   "16650": {
+    "pos": "DL",
+    "seasonProj": 113.9,
+    "rank": 17
+   },
+   "14171": {
+    "pos": "DL",
+    "seasonProj": 113.4,
+    "rank": 18
+   },
+   "14940": {
+    "pos": "DL",
+    "seasonProj": 112.3,
+    "rank": 19
+   },
+   "17135": {
+    "pos": "DL",
+    "seasonProj": 111.0,
+    "rank": 20
+   },
+   "13198": {
+    "pos": "DL",
+    "seasonProj": 106.6,
+    "rank": 21
+   },
+   "14163": {
+    "pos": "DL",
+    "seasonProj": 102.9,
+    "rank": 22
+   },
+   "11769": {
+    "pos": "DL",
+    "seasonProj": 102.7,
+    "rank": 23
+   },
+   "15349": {
+    "pos": "DL",
+    "seasonProj": 98.5,
+    "rank": 24
+   },
+   "11757": {
+    "pos": "DL",
+    "seasonProj": 98.4,
+    "rank": 25
+   },
+   "16252": {
+    "pos": "DL",
+    "seasonProj": 97.8,
+    "rank": 26
+   },
+   "10266": {
+    "pos": "DL",
+    "seasonProj": 97.4,
+    "rank": 27
+   },
+   "13294": {
+    "pos": "DL",
+    "seasonProj": 96.2,
+    "rank": 28
+   },
+   "15809": {
+    "pos": "DL",
+    "seasonProj": 94.4,
+    "rank": 29
+   },
+   "13681": {
+    "pos": "DL",
+    "seasonProj": 93.6,
+    "rank": 30
+   },
+   "14897": {
+    "pos": "DL",
+    "seasonProj": 92.9,
+    "rank": 31
+   },
+   "14888": {
+    "pos": "DL",
+    "seasonProj": 91.9,
+    "rank": 32
+   },
+   "16653": {
+    "pos": "DL",
+    "seasonProj": 91.5,
+    "rank": 33
+   },
+   "14164": {
+    "pos": "DL",
+    "seasonProj": 91.2,
+    "rank": 34
+   },
+   "14405": {
+    "pos": "DL",
+    "seasonProj": 88.6,
+    "rank": 35
+   },
+   "16282": {
+    "pos": "DL",
+    "seasonProj": 88.6,
+    "rank": 36
+   },
+   "12688": {
+    "pos": "DL",
+    "seasonProj": 88.5,
+    "rank": 37
+   },
+   "14167": {
+    "pos": "DL",
+    "seasonProj": 87.3,
+    "rank": 38
+   },
+   "14148": {
+    "pos": "DL",
+    "seasonProj": 87.1,
+    "rank": 39
+   },
+   "16228": {
+    "pos": "DL",
+    "seasonProj": 86.2,
+    "rank": 40
+   },
+   "15808": {
+    "pos": "DL",
+    "seasonProj": 86.1,
+    "rank": 41
+   },
+   "15346": {
+    "pos": "DL",
+    "seasonProj": 85.4,
+    "rank": 42
+   },
+   "14153": {
+    "pos": "DL",
+    "seasonProj": 84.4,
+    "rank": 43
+   },
+   "11721": {
+    "pos": "DL",
+    "seasonProj": 84.1,
+    "rank": 44
+   },
+   "13704": {
+    "pos": "DL",
+    "seasonProj": 83.5,
+    "rank": 45
+   },
+   "13690": {
+    "pos": "DL",
+    "seasonProj": 83.3,
+    "rank": 46
+   },
+   "17550": {
+    "pos": "DL",
+    "seasonProj": 82.4,
+    "rank": 47
+   },
+   "16276": {
+    "pos": "DL",
+    "seasonProj": 82.4,
+    "rank": 48
+   },
+   "13770": {
+    "pos": "DL",
+    "seasonProj": 80.6,
+    "rank": 49
+   },
+   "15358": {
+    "pos": "DL",
+    "seasonProj": 80.0,
+    "rank": 50
+   },
+   "16298": {
+    "pos": "DL",
+    "seasonProj": 79.8,
+    "rank": 51
+   },
+   "16712": {
+    "pos": "DL",
+    "seasonProj": 78.9,
+    "rank": 52
+   },
+   "14882": {
+    "pos": "DL",
+    "seasonProj": 77.8,
+    "rank": 53
+   },
+   "16278": {
+    "pos": "DL",
+    "seasonProj": 77.5,
+    "rank": 54
+   },
+   "14158": {
+    "pos": "DL",
+    "seasonProj": 77.1,
+    "rank": 55
+   },
+   "17570": {
+    "pos": "DL",
+    "seasonProj": 76.8,
+    "rank": 56
+   },
+   "15815": {
+    "pos": "DL",
+    "seasonProj": 76.5,
+    "rank": 57
+   },
+   "15817": {
+    "pos": "DL",
+    "seasonProj": 76.2,
+    "rank": 58
+   },
+   "16233": {
+    "pos": "DL",
+    "seasonProj": 76.1,
+    "rank": 59
+   },
+   "16927": {
+    "pos": "DL",
+    "seasonProj": 75.8,
+    "rank": 60
+   },
+   "16734": {
+    "pos": "DL",
+    "seasonProj": 74.6,
+    "rank": 61
+   },
+   "15173": {
+    "pos": "DL",
+    "seasonProj": 74.4,
+    "rank": 62
+   },
+   "15378": {
+    "pos": "DL",
+    "seasonProj": 74.2,
+    "rank": 63
+   },
+   "12301": {
+    "pos": "DL",
+    "seasonProj": 73.8,
+    "rank": 64
+   },
+   "16324": {
+    "pos": "DL",
+    "seasonProj": 72.3,
+    "rank": 65
+   },
+   "13723": {
+    "pos": "DL",
+    "seasonProj": 72.1,
+    "rank": 66
+   },
+   "15357": {
+    "pos": "DL",
+    "seasonProj": 71.2,
+    "rank": 67
+   },
+   "16303": {
+    "pos": "DL",
+    "seasonProj": 70.1,
+    "rank": 68
+   },
+   "14149": {
+    "pos": "DL",
+    "seasonProj": 69.9,
+    "rank": 69
+   },
+   "17112": {
+    "pos": "DL",
+    "seasonProj": 69.8,
+    "rank": 70
+   },
+   "14947": {
+    "pos": "DL",
+    "seasonProj": 69.7,
+    "rank": 71
+   },
+   "10292": {
+    "pos": "DL",
+    "seasonProj": 68.8,
+    "rank": 72
+   },
+   "15853": {
+    "pos": "DL",
+    "seasonProj": 68.1,
+    "rank": 73
+   },
+   "14925": {
+    "pos": "DL",
+    "seasonProj": 68.0,
+    "rank": 74
+   },
+   "11706": {
+    "pos": "DL",
+    "seasonProj": 67.1,
+    "rank": 75
+   },
+   "16265": {
+    "pos": "DL",
+    "seasonProj": 66.8,
+    "rank": 76
+   },
+   "16369": {
+    "pos": "DL",
+    "seasonProj": 66.8,
+    "rank": 77
+   },
+   "13682": {
+    "pos": "DL",
+    "seasonProj": 66.7,
+    "rank": 78
+   },
+   "16257": {
+    "pos": "DL",
+    "seasonProj": 66.7,
+    "rank": 79
+   },
+   "14899": {
+    "pos": "DL",
+    "seasonProj": 66.6,
+    "rank": 80
+   },
+   "15345": {
+    "pos": "DL",
+    "seasonProj": 66.0,
+    "rank": 81
+   },
+   "15089": {
+    "pos": "DL",
+    "seasonProj": 65.7,
+    "rank": 82
+   },
+   "13769": {
+    "pos": "DL",
+    "seasonProj": 64.9,
+    "rank": 83
+   },
+   "12225": {
+    "pos": "DL",
+    "seasonProj": 64.6,
+    "rank": 84
+   },
+   "13298": {
+    "pos": "DL",
+    "seasonProj": 63.8,
+    "rank": 85
+   },
+   "16787": {
+    "pos": "DL",
+    "seasonProj": 63.7,
+    "rank": 86
+   },
+   "15391": {
+    "pos": "DL",
+    "seasonProj": 62.9,
+    "rank": 87
+   },
+   "13742": {
+    "pos": "DL",
+    "seasonProj": 62.8,
+    "rank": 88
+   },
+   "13839": {
+    "pos": "DL",
+    "seasonProj": 62.2,
+    "rank": 89
+   },
+   "16786": {
+    "pos": "DL",
+    "seasonProj": 61.9,
+    "rank": 90
+   },
+   "13208": {
+    "pos": "DL",
+    "seasonProj": 61.3,
+    "rank": 91
+   },
+   "13692": {
+    "pos": "DL",
+    "seasonProj": 60.5,
+    "rank": 92
+   },
+   "13332": {
+    "pos": "DL",
+    "seasonProj": 60.4,
+    "rank": 93
+   },
+   "16657": {
+    "pos": "DL",
+    "seasonProj": 60.0,
+    "rank": 94
+   },
+   "15813": {
+    "pos": "DL",
+    "seasonProj": 59.3,
+    "rank": 95
+   },
+   "14930": {
+    "pos": "DL",
+    "seasonProj": 59.2,
+    "rank": 96
+   },
+   "16230": {
+    "pos": "DL",
+    "seasonProj": 58.6,
+    "rank": 97
+   },
+   "9051": {
+    "pos": "DL",
+    "seasonProj": 58.4,
+    "rank": 98
+   },
+   "15484": {
+    "pos": "DL",
+    "seasonProj": 58.4,
+    "rank": 99
+   },
+   "17209": {
+    "pos": "DL",
+    "seasonProj": 58.0,
+    "rank": 100
+   },
+   "17137": {
+    "pos": "DL",
+    "seasonProj": 57.7,
+    "rank": 101
+   },
+   "16294": {
+    "pos": "DL",
+    "seasonProj": 57.7,
+    "rank": 102
+   },
+   "12697": {
+    "pos": "DL",
+    "seasonProj": 57.6,
+    "rank": 103
+   },
+   "15352": {
+    "pos": "DL",
+    "seasonProj": 57.5,
+    "rank": 104
+   },
+   "15819": {
+    "pos": "DL",
+    "seasonProj": 56.9,
+    "rank": 105
+   },
+   "16262": {
+    "pos": "DL",
+    "seasonProj": 56.5,
+    "rank": 106
+   },
+   "16689": {
+    "pos": "DL",
+    "seasonProj": 56.4,
+    "rank": 107
+   },
+   "12305": {
+    "pos": "DL",
+    "seasonProj": 56.4,
+    "rank": 108
+   },
+   "16513": {
+    "pos": "DL",
+    "seasonProj": 56.4,
+    "rank": 109
+   },
+   "12741": {
+    "pos": "DL",
+    "seasonProj": 56.4,
+    "rank": 110
+   },
+   "17154": {
+    "pos": "DL",
+    "seasonProj": 56.0,
+    "rank": 111
+   },
+   "14157": {
+    "pos": "DL",
+    "seasonProj": 55.7,
+    "rank": 112
+   },
+   "13759": {
+    "pos": "DL",
+    "seasonProj": 55.3,
+    "rank": 113
+   },
+   "13693": {
+    "pos": "DL",
+    "seasonProj": 55.2,
+    "rank": 114
+   },
+   "17121": {
+    "pos": "DL",
+    "seasonProj": 55.2,
+    "rank": 115
+   },
+   "15398": {
+    "pos": "DL",
+    "seasonProj": 55.0,
+    "rank": 116
+   },
+   "12754": {
+    "pos": "DL",
+    "seasonProj": 55.0,
+    "rank": 117
+   },
+   "16694": {
+    "pos": "DL",
+    "seasonProj": 55.0,
+    "rank": 118
+   },
+   "14159": {
+    "pos": "DL",
+    "seasonProj": 54.7,
+    "rank": 119
+   },
+   "17165": {
+    "pos": "DL",
+    "seasonProj": 54.2,
+    "rank": 120
+   },
+   "15863": {
+    "pos": "DL",
+    "seasonProj": 54.0,
+    "rank": 121
+   },
+   "16660": {
+    "pos": "DL",
+    "seasonProj": 53.0,
+    "rank": 122
+   },
+   "14154": {
+    "pos": "DL",
+    "seasonProj": 52.9,
+    "rank": 123
+   },
+   "17136": {
+    "pos": "DL",
+    "seasonProj": 52.8,
+    "rank": 124
+   },
+   "17174": {
+    "pos": "DL",
+    "seasonProj": 52.6,
+    "rank": 125
+   },
+   "16663": {
+    "pos": "DL",
+    "seasonProj": 52.5,
+    "rank": 126
+   },
+   "15892": {
+    "pos": "DL",
+    "seasonProj": 52.4,
+    "rank": 127
+   },
+   "12739": {
+    "pos": "DL",
+    "seasonProj": 52.2,
+    "rank": 128
+   },
+   "13448": {
+    "pos": "DL",
+    "seasonProj": 49.0,
+    "rank": 129
+   },
+   "12218": {
+    "pos": "DL",
+    "seasonProj": 48.4,
+    "rank": 130
+   },
+   "14879": {
+    "pos": "DL",
+    "seasonProj": 48.1,
+    "rank": 131
+   },
+   "16923": {
+    "pos": "DL",
+    "seasonProj": 48.1,
+    "rank": 132
+   },
+   "13933": {
+    "pos": "DL",
+    "seasonProj": 47.5,
+    "rank": 133
+   },
+   "13802": {
+    "pos": "DL",
+    "seasonProj": 46.8,
+    "rank": 134
+   },
+   "13888": {
+    "pos": "DL",
+    "seasonProj": 46.7,
+    "rank": 135
+   },
+   "16273": {
+    "pos": "DL",
+    "seasonProj": 46.3,
+    "rank": 136
+   },
+   "17196": {
+    "pos": "DL",
+    "seasonProj": 46.0,
+    "rank": 137
+   },
+   "17177": {
+    "pos": "DL",
+    "seasonProj": 45.9,
+    "rank": 138
+   },
+   "13744": {
+    "pos": "DL",
+    "seasonProj": 45.7,
+    "rank": 139
+   },
+   "12735": {
+    "pos": "DL",
+    "seasonProj": 45.6,
+    "rank": 140
+   },
+   "15393": {
+    "pos": "DL",
+    "seasonProj": 45.5,
+    "rank": 141
+   },
+   "15395": {
+    "pos": "DL",
+    "seasonProj": 45.2,
+    "rank": 142
+   },
+   "17120": {
+    "pos": "DL",
+    "seasonProj": 44.0,
+    "rank": 143
+   },
+   "17115": {
+    "pos": "DL",
+    "seasonProj": 43.8,
+    "rank": 144
+   },
+   "13700": {
+    "pos": "DL",
+    "seasonProj": 43.7,
+    "rank": 145
+   },
+   "14254": {
+    "pos": "DL",
+    "seasonProj": 43.5,
+    "rank": 146
+   },
+   "15412": {
+    "pos": "DL",
+    "seasonProj": 43.3,
+    "rank": 147
+   },
+   "14900": {
+    "pos": "DL",
+    "seasonProj": 43.3,
+    "rank": 148
+   },
+   "15806": {
+    "pos": "DL",
+    "seasonProj": 43.0,
+    "rank": 149
+   },
+   "13683": {
+    "pos": "DL",
+    "seasonProj": 42.6,
+    "rank": 150
+   },
+   "13317": {
+    "pos": "DL",
+    "seasonProj": 42.6,
+    "rank": 151
+   },
+   "12698": {
+    "pos": "DL",
+    "seasonProj": 42.3,
+    "rank": 152
+   },
+   "12782": {
+    "pos": "DL",
+    "seasonProj": 42.2,
+    "rank": 153
+   },
+   "17155": {
+    "pos": "DL",
+    "seasonProj": 42.1,
+    "rank": 154
+   },
+   "14670": {
+    "pos": "DL",
+    "seasonProj": 41.9,
+    "rank": 155
+   },
+   "16777": {
+    "pos": "DL",
+    "seasonProj": 41.4,
+    "rank": 156
+   },
+   "17116": {
+    "pos": "DL",
+    "seasonProj": 41.2,
+    "rank": 157
+   },
+   "12764": {
+    "pos": "DL",
+    "seasonProj": 41.1,
+    "rank": 158
+   },
+   "14901": {
+    "pos": "DL",
+    "seasonProj": 40.7,
+    "rank": 159
+   },
+   "11872": {
+    "pos": "DL",
+    "seasonProj": 40.3,
+    "rank": 160
+   },
+   "17139": {
+    "pos": "DL",
+    "seasonProj": 39.7,
+    "rank": 161
+   },
+   "16654": {
+    "pos": "DL",
+    "seasonProj": 39.5,
+    "rank": 162
+   },
+   "15081": {
+    "pos": "DL",
+    "seasonProj": 39.5,
+    "rank": 163
+   },
+   "15382": {
+    "pos": "DL",
+    "seasonProj": 39.4,
+    "rank": 164
+   },
+   "17118": {
+    "pos": "DL",
+    "seasonProj": 39.1,
+    "rank": 165
+   },
+   "16693": {
+    "pos": "DL",
+    "seasonProj": 39.0,
+    "rank": 166
+   },
+   "15390": {
+    "pos": "DL",
+    "seasonProj": 38.1,
+    "rank": 167
+   },
+   "15413": {
+    "pos": "DL",
+    "seasonProj": 38.1,
+    "rank": 168
+   },
+   "13330": {
+    "pos": "DL",
+    "seasonProj": 37.7,
+    "rank": 169
+   },
+   "13260": {
+    "pos": "DL",
+    "seasonProj": 37.6,
+    "rank": 170
+   },
+   "16235": {
+    "pos": "DL",
+    "seasonProj": 37.2,
+    "rank": 171
+   },
+   "17204": {
+    "pos": "DL",
+    "seasonProj": 36.9,
+    "rank": 172
+   },
+   "17176": {
+    "pos": "DL",
+    "seasonProj": 36.8,
+    "rank": 173
+   },
+   "16344": {
+    "pos": "DL",
+    "seasonProj": 36.5,
+    "rank": 174
+   },
+   "17579": {
+    "pos": "DL",
+    "seasonProj": 36.5,
+    "rank": 175
+   },
+   "15350": {
+    "pos": "DL",
+    "seasonProj": 36.0,
+    "rank": 176
+   },
+   "15878": {
+    "pos": "DL",
+    "seasonProj": 36.0,
+    "rank": 177
+   },
+   "10267": {
+    "pos": "DL",
+    "seasonProj": 35.8,
+    "rank": 178
+   },
+   "12270": {
+    "pos": "DL",
+    "seasonProj": 35.8,
+    "rank": 179
+   },
+   "13201": {
+    "pos": "DL",
+    "seasonProj": 35.4,
+    "rank": 180
+   },
+   "11286": {
+    "pos": "DL",
+    "seasonProj": 35.2,
+    "rank": 181
+   },
+   "15812": {
+    "pos": "DL",
+    "seasonProj": 35.1,
+    "rank": 182
+   },
+   "16749": {
+    "pos": "DL",
+    "seasonProj": 35.1,
+    "rank": 183
+   },
+   "14934": {
+    "pos": "DL",
+    "seasonProj": 35.0,
+    "rank": 184
+   },
+   "15356": {
+    "pos": "DL",
+    "seasonProj": 35.0,
+    "rank": 185
+   },
+   "16455": {
+    "pos": "DL",
+    "seasonProj": 34.6,
+    "rank": 186
+   },
+   "17160": {
+    "pos": "DL",
+    "seasonProj": 34.6,
+    "rank": 187
+   },
+   "12234": {
+    "pos": "DL",
+    "seasonProj": 34.5,
+    "rank": 188
+   },
+   "13296": {
+    "pos": "DL",
+    "seasonProj": 34.5,
+    "rank": 189
+   },
+   "12229": {
+    "pos": "DL",
+    "seasonProj": 33.4,
+    "rank": 190
+   },
+   "15397": {
+    "pos": "DL",
+    "seasonProj": 32.8,
+    "rank": 191
+   },
+   "13694": {
+    "pos": "DL",
+    "seasonProj": 32.4,
+    "rank": 192
+   },
+   "15910": {
+    "pos": "DL",
+    "seasonProj": 32.4,
+    "rank": 193
+   },
+   "16894": {
+    "pos": "DL",
+    "seasonProj": 31.3,
+    "rank": 194
+   },
+   "15492": {
+    "pos": "DL",
+    "seasonProj": 31.2,
+    "rank": 195
+   },
+   "16661": {
+    "pos": "DL",
+    "seasonProj": 30.8,
+    "rank": 196
+   },
+   "16520": {
+    "pos": "DL",
+    "seasonProj": 30.5,
+    "rank": 197
+   },
+   "17190": {
+    "pos": "DL",
+    "seasonProj": 30.4,
+    "rank": 198
+   },
+   "15559": {
+    "pos": "DL",
+    "seasonProj": 30.0,
+    "rank": 199
+   },
+   "15461": {
+    "pos": "DL",
+    "seasonProj": 29.7,
+    "rank": 200
+   },
+   "12802": {
+    "pos": "DL",
+    "seasonProj": 29.5,
+    "rank": 201
+   },
+   "16376": {
+    "pos": "DL",
+    "seasonProj": 29.4,
+    "rank": 202
+   },
+   "17619": {
+    "pos": "DL",
+    "seasonProj": 29.3,
+    "rank": 203
+   },
+   "16691": {
+    "pos": "DL",
+    "seasonProj": 28.7,
+    "rank": 204
+   },
+   "15388": {
+    "pos": "DL",
+    "seasonProj": 28.0,
+    "rank": 205
+   },
+   "12758": {
+    "pos": "DL",
+    "seasonProj": 27.7,
+    "rank": 206
+   },
+   "14962": {
+    "pos": "DL",
+    "seasonProj": 27.5,
+    "rank": 207
+   },
+   "14894": {
+    "pos": "DL",
+    "seasonProj": 27.2,
+    "rank": 208
+   },
+   "17261": {
+    "pos": "DL",
+    "seasonProj": 26.4,
+    "rank": 209
+   },
+   "15814": {
+    "pos": "DL",
+    "seasonProj": 26.4,
+    "rank": 210
+   },
+   "17114": {
+    "pos": "DL",
+    "seasonProj": 26.3,
+    "rank": 211
+   },
+   "15851": {
+    "pos": "DL",
+    "seasonProj": 26.3,
+    "rank": 212
+   },
+   "17146": {
+    "pos": "DL",
+    "seasonProj": 25.6,
+    "rank": 213
+   },
+   "17228": {
+    "pos": "DL",
+    "seasonProj": 25.6,
+    "rank": 214
+   },
+   "17113": {
+    "pos": "DL",
+    "seasonProj": 25.2,
+    "rank": 215
+   },
+   "16869": {
+    "pos": "DL",
+    "seasonProj": 25.0,
+    "rank": 216
+   },
+   "13755": {
+    "pos": "DL",
+    "seasonProj": 24.1,
+    "rank": 217
+   },
+   "17695": {
+    "pos": "DL",
+    "seasonProj": 23.6,
+    "rank": 218
+   },
+   "17666": {
+    "pos": "DL",
+    "seasonProj": 23.5,
+    "rank": 219
+   },
+   "17236": {
+    "pos": "DL",
+    "seasonProj": 23.3,
+    "rank": 220
+   },
+   "16082": {
+    "pos": "DL",
+    "seasonProj": 23.0,
+    "rank": 221
+   },
+   "15565": {
+    "pos": "DL",
+    "seasonProj": 23.0,
+    "rank": 222
+   },
+   "17568": {
+    "pos": "DL",
+    "seasonProj": 22.8,
+    "rank": 223
+   },
+   "12217": {
+    "pos": "DL",
+    "seasonProj": 22.0,
+    "rank": 224
+   },
+   "16302": {
+    "pos": "DL",
+    "seasonProj": 22.0,
+    "rank": 225
+   },
+   "14161": {
+    "pos": "DL",
+    "seasonProj": 21.4,
+    "rank": 226
+   },
+   "17583": {
+    "pos": "DL",
+    "seasonProj": 21.4,
+    "rank": 227
+   },
+   "16692": {
+    "pos": "DL",
+    "seasonProj": 21.3,
+    "rank": 228
+   },
+   "17552": {
+    "pos": "DL",
+    "seasonProj": 21.2,
+    "rank": 229
+   },
+   "17193": {
+    "pos": "DL",
+    "seasonProj": 21.0,
+    "rank": 230
+   },
+   "17551": {
+    "pos": "DL",
+    "seasonProj": 20.2,
+    "rank": 231
+   },
+   "15898": {
+    "pos": "DL",
+    "seasonProj": 20.0,
+    "rank": 232
+   },
+   "16762": {
+    "pos": "DL",
+    "seasonProj": 19.9,
+    "rank": 233
+   },
+   "17158": {
+    "pos": "DL",
+    "seasonProj": 19.8,
+    "rank": 234
+   },
+   "17389": {
+    "pos": "DL",
+    "seasonProj": 19.8,
+    "rank": 235
+   },
+   "17553": {
+    "pos": "DL",
+    "seasonProj": 19.5,
+    "rank": 236
+   },
+   "17587": {
+    "pos": "DL",
+    "seasonProj": 19.3,
+    "rank": 237
+   },
+   "17580": {
+    "pos": "DL",
+    "seasonProj": 19.2,
+    "rank": 238
+   },
+   "17149": {
+    "pos": "DL",
+    "seasonProj": 19.1,
+    "rank": 239
+   },
+   "17618": {
+    "pos": "DL",
+    "seasonProj": 18.7,
+    "rank": 240
+   },
+   "17633": {
+    "pos": "DL",
+    "seasonProj": 18.3,
+    "rank": 241
+   },
+   "17216": {
+    "pos": "DL",
+    "seasonProj": 17.9,
+    "rank": 242
+   },
+   "17330": {
+    "pos": "DL",
+    "seasonProj": 17.4,
+    "rank": 243
+   },
+   "17138": {
+    "pos": "DL",
+    "seasonProj": 17.3,
+    "rank": 244
+   },
+   "16817": {
+    "pos": "DL",
+    "seasonProj": 16.7,
+    "rank": 245
+   },
+   "17584": {
+    "pos": "DL",
+    "seasonProj": 16.5,
+    "rank": 246
+   },
+   "17151": {
+    "pos": "DL",
+    "seasonProj": 16.3,
+    "rank": 247
+   },
+   "16322": {
+    "pos": "DL",
+    "seasonProj": 15.3,
+    "rank": 248
+   },
+   "16707": {
+    "pos": "DL",
+    "seasonProj": 15.3,
+    "rank": 249
+   },
+   "17602": {
+    "pos": "DL",
+    "seasonProj": 15.2,
+    "rank": 250
+   },
+   "17554": {
+    "pos": "DL",
+    "seasonProj": 14.5,
+    "rank": 251
+   },
+   "15931": {
+    "pos": "DL",
+    "seasonProj": 14.5,
+    "rank": 252
+   },
+   "13199": {
+    "pos": "DL",
+    "seasonProj": 13.0,
+    "rank": 253
+   },
+   "16144": {
+    "pos": "DL",
+    "seasonProj": 11.9,
+    "rank": 254
+   },
+   "15870": {
+    "pos": "DL",
+    "seasonProj": 10.8,
+    "rank": 255
+   },
+   "17588": {
+    "pos": "DL",
+    "seasonProj": 10.8,
+    "rank": 256
+   },
+   "15820": {
+    "pos": "DL",
+    "seasonProj": 9.1,
+    "rank": 257
+   },
+   "16363": {
+    "pos": "DL",
+    "seasonProj": 8.6,
+    "rank": 258
+   },
+   "17569": {
+    "pos": "DL",
+    "seasonProj": 8.5,
+    "rank": 259
+   },
+   "16077": {
+    "pos": "DL",
+    "seasonProj": 7.9,
+    "rank": 260
+   },
+   "17555": {
+    "pos": "DL",
+    "seasonProj": 7.7,
+    "rank": 261
+   },
+   "17152": {
+    "pos": "DL",
+    "seasonProj": 7.6,
+    "rank": 262
+   },
+   "17558": {
+    "pos": "LB",
+    "seasonProj": 145.2,
+    "rank": 1
+   },
+   "14892": {
+    "pos": "LB",
+    "seasonProj": 142.0,
+    "rank": 2
+   },
+   "14251": {
+    "pos": "LB",
+    "seasonProj": 140.9,
+    "rank": 3
+   },
+   "14926": {
+    "pos": "LB",
+    "seasonProj": 137.2,
+    "rank": 4
+   },
+   "16239": {
+    "pos": "LB",
+    "seasonProj": 136.1,
+    "rank": 5
+   },
+   "17557": {
+    "pos": "LB",
+    "seasonProj": 130.5,
+    "rank": 6
+   },
+   "15404": {
+    "pos": "LB",
+    "seasonProj": 130.2,
+    "rank": 7
+   },
+   "14893": {
+    "pos": "LB",
+    "seasonProj": 128.8,
+    "rank": 8
+   },
+   "17147": {
+    "pos": "LB",
+    "seasonProj": 128.3,
+    "rank": 9
+   },
+   "13697": {
+    "pos": "LB",
+    "seasonProj": 127.7,
+    "rank": 10
+   },
+   "14169": {
+    "pos": "LB",
+    "seasonProj": 123.8,
+    "rank": 11
+   },
+   "13837": {
+    "pos": "LB",
+    "seasonProj": 123.5,
+    "rank": 12
+   },
+   "15355": {
+    "pos": "LB",
+    "seasonProj": 122.7,
+    "rank": 13
+   },
+   "15846": {
+    "pos": "LB",
+    "seasonProj": 122.6,
+    "rank": 14
+   },
+   "15428": {
+    "pos": "LB",
+    "seasonProj": 122.5,
+    "rank": 15
+   },
+   "13743": {
+    "pos": "LB",
+    "seasonProj": 121.6,
+    "rank": 16
+   },
+   "13813": {
+    "pos": "LB",
+    "seasonProj": 121.3,
+    "rank": 17
+   },
+   "16013": {
+    "pos": "LB",
+    "seasonProj": 120.6,
+    "rank": 18
+   },
+   "13696": {
+    "pos": "LB",
+    "seasonProj": 118.7,
+    "rank": 19
+   },
+   "14168": {
+    "pos": "LB",
+    "seasonProj": 117.2,
+    "rank": 20
+   },
+   "14322": {
+    "pos": "LB",
+    "seasonProj": 116.3,
+    "rank": 21
+   },
+   "15076": {
+    "pos": "LB",
+    "seasonProj": 115.8,
+    "rank": 22
+   },
+   "16280": {
+    "pos": "LB",
+    "seasonProj": 111.8,
+    "rank": 23
+   },
+   "14412": {
+    "pos": "LB",
+    "seasonProj": 108.9,
+    "rank": 24
+   },
+   "14896": {
+    "pos": "LB",
+    "seasonProj": 105.2,
+    "rank": 25
+   },
+   "14590": {
+    "pos": "LB",
+    "seasonProj": 103.3,
+    "rank": 26
+   },
+   "16696": {
+    "pos": "LB",
+    "seasonProj": 102.0,
+    "rank": 27
+   },
+   "15869": {
+    "pos": "LB",
+    "seasonProj": 100.1,
+    "rank": 28
+   },
+   "15822": {
+    "pos": "LB",
+    "seasonProj": 100.0,
+    "rank": 29
+   },
+   "14218": {
+    "pos": "LB",
+    "seasonProj": 99.7,
+    "rank": 30
+   },
+   "16283": {
+    "pos": "LB",
+    "seasonProj": 98.1,
+    "rank": 31
+   },
+   "17124": {
+    "pos": "LB",
+    "seasonProj": 96.6,
+    "rank": 32
+   },
+   "16926": {
+    "pos": "LB",
+    "seasonProj": 96.3,
+    "rank": 33
+   },
+   "17125": {
+    "pos": "LB",
+    "seasonProj": 96.2,
+    "rank": 34
+   },
+   "17629": {
+    "pos": "LB",
+    "seasonProj": 95.5,
+    "rank": 35
+   },
+   "16314": {
+    "pos": "LB",
+    "seasonProj": 95.5,
+    "rank": 36
+   },
+   "17123": {
+    "pos": "LB",
+    "seasonProj": 95.3,
+    "rank": 37
+   },
+   "15681": {
+    "pos": "LB",
+    "seasonProj": 95.0,
+    "rank": 38
+   },
+   "13952": {
+    "pos": "LB",
+    "seasonProj": 91.5,
+    "rank": 39
+   },
+   "14217": {
+    "pos": "LB",
+    "seasonProj": 91.1,
+    "rank": 40
+   },
+   "13447": {
+    "pos": "LB",
+    "seasonProj": 91.0,
+    "rank": 41
+   },
+   "10816": {
+    "pos": "LB",
+    "seasonProj": 90.9,
+    "rank": 42
+   },
+   "14170": {
+    "pos": "LB",
+    "seasonProj": 89.8,
+    "rank": 43
+   },
+   "16667": {
+    "pos": "LB",
+    "seasonProj": 88.8,
+    "rank": 44
+   },
+   "14235": {
+    "pos": "LB",
+    "seasonProj": 88.2,
+    "rank": 45
+   },
+   "13987": {
+    "pos": "LB",
+    "seasonProj": 87.7,
+    "rank": 46
+   },
+   "16450": {
+    "pos": "LB",
+    "seasonProj": 86.8,
+    "rank": 47
+   },
+   "13268": {
+    "pos": "LB",
+    "seasonProj": 86.2,
+    "rank": 48
+   },
+   "15914": {
+    "pos": "LB",
+    "seasonProj": 86.1,
+    "rank": 49
+   },
+   "16236": {
+    "pos": "LB",
+    "seasonProj": 85.4,
+    "rank": 50
+   },
+   "17203": {
+    "pos": "LB",
+    "seasonProj": 84.3,
+    "rank": 51
+   },
+   "15823": {
+    "pos": "LB",
+    "seasonProj": 84.1,
+    "rank": 52
+   },
+   "14303": {
+    "pos": "LB",
+    "seasonProj": 84.0,
+    "rank": 53
+   },
+   "15396": {
+    "pos": "LB",
+    "seasonProj": 83.3,
+    "rank": 54
+   },
+   "16346": {
+    "pos": "LB",
+    "seasonProj": 81.1,
+    "rank": 55
+   },
+   "14247": {
+    "pos": "LB",
+    "seasonProj": 80.0,
+    "rank": 56
+   },
+   "15899": {
+    "pos": "LB",
+    "seasonProj": 79.8,
+    "rank": 57
+   },
+   "16296": {
+    "pos": "LB",
+    "seasonProj": 78.8,
+    "rank": 58
+   },
+   "15821": {
+    "pos": "LB",
+    "seasonProj": 77.5,
+    "rank": 59
+   },
+   "17178": {
+    "pos": "LB",
+    "seasonProj": 77.2,
+    "rank": 60
+   },
+   "14221": {
+    "pos": "LB",
+    "seasonProj": 76.6,
+    "rank": 61
+   },
+   "16870": {
+    "pos": "LB",
+    "seasonProj": 75.6,
+    "rank": 62
+   },
+   "16716": {
+    "pos": "LB",
+    "seasonProj": 74.4,
+    "rank": 63
+   },
+   "15387": {
+    "pos": "LB",
+    "seasonProj": 73.4,
+    "rank": 64
+   },
+   "15473": {
+    "pos": "LB",
+    "seasonProj": 73.0,
+    "rank": 65
+   },
+   "16722": {
+    "pos": "LB",
+    "seasonProj": 71.1,
+    "rank": 66
+   },
+   "14943": {
+    "pos": "LB",
+    "seasonProj": 67.7,
+    "rank": 67
+   },
+   "17556": {
+    "pos": "LB",
+    "seasonProj": 66.6,
+    "rank": 68
+   },
+   "15409": {
+    "pos": "LB",
+    "seasonProj": 64.0,
+    "rank": 69
+   },
+   "14979": {
+    "pos": "LB",
+    "seasonProj": 63.9,
+    "rank": 70
+   },
+   "17623": {
+    "pos": "LB",
+    "seasonProj": 62.6,
+    "rank": 71
+   },
+   "16666": {
+    "pos": "LB",
+    "seasonProj": 56.9,
+    "rank": 72
+   },
+   "17185": {
+    "pos": "LB",
+    "seasonProj": 53.4,
+    "rank": 73
+   },
+   "15890": {
+    "pos": "LB",
+    "seasonProj": 51.6,
+    "rank": 74
+   },
+   "16234": {
+    "pos": "LB",
+    "seasonProj": 49.4,
+    "rank": 75
+   },
+   "16492": {
+    "pos": "LB",
+    "seasonProj": 49.4,
+    "rank": 76
+   },
+   "16799": {
+    "pos": "LB",
+    "seasonProj": 47.0,
+    "rank": 77
+   },
+   "16383": {
+    "pos": "LB",
+    "seasonProj": 46.8,
+    "rank": 78
+   },
+   "17361": {
+    "pos": "LB",
+    "seasonProj": 46.6,
+    "rank": 79
+   },
+   "15831": {
+    "pos": "LB",
+    "seasonProj": 46.2,
+    "rank": 80
+   },
+   "16704": {
+    "pos": "LB",
+    "seasonProj": 46.1,
+    "rank": 81
+   },
+   "17201": {
+    "pos": "LB",
+    "seasonProj": 46.1,
+    "rank": 82
+   },
+   "14953": {
+    "pos": "LB",
+    "seasonProj": 44.2,
+    "rank": 83
+   },
+   "16793": {
+    "pos": "LB",
+    "seasonProj": 43.0,
+    "rank": 84
+   },
+   "17208": {
+    "pos": "LB",
+    "seasonProj": 42.7,
+    "rank": 85
+   },
+   "12238": {
+    "pos": "LB",
+    "seasonProj": 40.4,
+    "rank": 86
+   },
+   "17126": {
+    "pos": "LB",
+    "seasonProj": 40.1,
+    "rank": 87
+   },
+   "17247": {
+    "pos": "LB",
+    "seasonProj": 40.0,
+    "rank": 88
+   },
+   "16284": {
+    "pos": "LB",
+    "seasonProj": 39.6,
+    "rank": 89
+   },
+   "16738": {
+    "pos": "LB",
+    "seasonProj": 36.6,
+    "rank": 90
+   },
+   "13750": {
+    "pos": "LB",
+    "seasonProj": 35.3,
+    "rank": 91
+   },
+   "16019": {
+    "pos": "LB",
+    "seasonProj": 33.1,
+    "rank": 92
+   },
+   "16009": {
+    "pos": "LB",
+    "seasonProj": 32.3,
+    "rank": 93
+   },
+   "17354": {
+    "pos": "LB",
+    "seasonProj": 31.2,
+    "rank": 94
+   },
+   "14200": {
+    "pos": "LB",
+    "seasonProj": 31.1,
+    "rank": 95
+   },
+   "14260": {
+    "pos": "LB",
+    "seasonProj": 30.0,
+    "rank": 96
+   },
+   "17606": {
+    "pos": "LB",
+    "seasonProj": 28.4,
+    "rank": 97
+   },
+   "16759": {
+    "pos": "LB",
+    "seasonProj": 27.5,
+    "rank": 98
+   },
+   "17140": {
+    "pos": "LB",
+    "seasonProj": 26.2,
+    "rank": 99
+   },
+   "16733": {
+    "pos": "LB",
+    "seasonProj": 25.5,
+    "rank": 100
+   },
+   "16063": {
+    "pos": "LB",
+    "seasonProj": 22.5,
+    "rank": 101
+   },
+   "17586": {
+    "pos": "LB",
+    "seasonProj": 21.9,
+    "rank": 102
+   },
+   "17362": {
+    "pos": "LB",
+    "seasonProj": 21.7,
+    "rank": 103
+   },
+   "16872": {
+    "pos": "LB",
+    "seasonProj": 21.3,
+    "rank": 104
+   },
+   "14495": {
+    "pos": "LB",
+    "seasonProj": 21.3,
+    "rank": 105
+   },
+   "17617": {
+    "pos": "LB",
+    "seasonProj": 20.8,
+    "rank": 106
+   },
+   "16710": {
+    "pos": "LB",
+    "seasonProj": 20.2,
+    "rank": 107
+   },
+   "16664": {
+    "pos": "LB",
+    "seasonProj": 17.6,
+    "rank": 108
+   },
+   "16911": {
+    "pos": "LB",
+    "seasonProj": 17.3,
+    "rank": 109
+   },
+   "16072": {
+    "pos": "LB",
+    "seasonProj": 16.8,
+    "rank": 110
+   },
+   "17667": {
+    "pos": "LB",
+    "seasonProj": 16.3,
+    "rank": 111
+   },
+   "16730": {
+    "pos": "LB",
+    "seasonProj": 15.7,
+    "rank": 112
+   },
+   "17244": {
+    "pos": "LB",
+    "seasonProj": 15.7,
+    "rank": 113
+   },
+   "17265": {
+    "pos": "LB",
+    "seasonProj": 15.6,
+    "rank": 114
+   },
+   "17286": {
+    "pos": "LB",
+    "seasonProj": 15.1,
+    "rank": 115
+   },
+   "17379": {
+    "pos": "LB",
+    "seasonProj": 14.9,
+    "rank": 116
+   },
+   "16238": {
+    "pos": "LB",
+    "seasonProj": 14.2,
+    "rank": 117
+   },
+   "17367": {
+    "pos": "LB",
+    "seasonProj": 13.5,
+    "rank": 118
+   },
+   "17369": {
+    "pos": "LB",
+    "seasonProj": 12.6,
+    "rank": 119
+   },
+   "17410": {
+    "pos": "LB",
+    "seasonProj": 12.5,
+    "rank": 120
+   },
+   "17571": {
+    "pos": "LB",
+    "seasonProj": 11.2,
+    "rank": 121
+   },
+   "16231": {
+    "pos": "LB",
+    "seasonProj": 10.0,
+    "rank": 122
+   },
+   "17621": {
+    "pos": "LB",
+    "seasonProj": 9.6,
+    "rank": 123
+   },
+   "16443": {
+    "pos": "LB",
+    "seasonProj": 9.0,
+    "rank": 124
+   },
+   "17159": {
+    "pos": "LB",
+    "seasonProj": 8.9,
+    "rank": 125
+   },
+   "15498": {
+    "pos": "LB",
+    "seasonProj": 8.6,
+    "rank": 126
+   },
+   "15622": {
+    "pos": "LB",
+    "seasonProj": 8.1,
+    "rank": 127
+   },
+   "16328": {
+    "pos": "LB",
+    "seasonProj": 6.6,
+    "rank": 128
+   },
+   "13216": {
+    "pos": "LB",
+    "seasonProj": 5.9,
+    "rank": 129
+   },
+   "15049": {
+    "pos": "LB",
+    "seasonProj": 5.9,
+    "rank": 130
+   },
+   "17560": {
+    "pos": "LB",
+    "seasonProj": 5.5,
+    "rank": 131
+   },
+   "17408": {
+    "pos": "LB",
+    "seasonProj": 5.4,
+    "rank": 132
+   },
+   "17010": {
+    "pos": "LB",
+    "seasonProj": 4.8,
+    "rank": 133
+   },
+   "17340": {
+    "pos": "LB",
+    "seasonProj": 4.1,
+    "rank": 134
+   },
+   "17747": {
+    "pos": "LB",
+    "seasonProj": 3.7,
+    "rank": 135
+   },
+   "17625": {
+    "pos": "LB",
+    "seasonProj": 3.6,
+    "rank": 136
+   },
+   "17645": {
+    "pos": "LB",
+    "seasonProj": 2.1,
+    "rank": 137
+   },
+   "16237": {
+    "pos": "LB",
+    "seasonProj": 2.0,
+    "rank": 138
+   },
+   "14467": {
+    "pos": "LB",
+    "seasonProj": 1.7,
+    "rank": 139
+   },
+   "16017": {
+    "pos": "LB",
+    "seasonProj": 1.6,
+    "rank": 140
+   },
+   "16669": {
+    "pos": "LB",
+    "seasonProj": 1.4,
+    "rank": 141
+   },
+   "17636": {
+    "pos": "LB",
+    "seasonProj": 0.5,
+    "rank": 142
+   },
+   "17658": {
+    "pos": "LB",
+    "seasonProj": 0.1,
+    "rank": 143
+   },
+   "17683": {
+    "pos": "LB",
+    "seasonProj": 0.1,
+    "rank": 144
+   },
+   "17153": {
+    "pos": "DB",
+    "seasonProj": 177.3,
+    "rank": 1
+   },
+   "13322": {
+    "pos": "DB",
+    "seasonProj": 175.9,
+    "rank": 2
+   },
+   "14179": {
+    "pos": "DB",
+    "seasonProj": 170.5,
+    "rank": 3
+   },
+   "13251": {
+    "pos": "DB",
+    "seasonProj": 162.7,
+    "rank": 4
+   },
+   "15676": {
+    "pos": "DB",
+    "seasonProj": 162.4,
+    "rank": 5
+   },
+   "15366": {
+    "pos": "DB",
+    "seasonProj": 159.8,
+    "rank": 6
+   },
+   "17576": {
+    "pos": "DB",
+    "seasonProj": 158.6,
+    "rank": 7
+   },
+   "14908": {
+    "pos": "DB",
+    "seasonProj": 153.0,
+    "rank": 8
+   },
+   "12752": {
+    "pos": "DB",
+    "seasonProj": 152.9,
+    "rank": 9
+   },
+   "14954": {
+    "pos": "DB",
+    "seasonProj": 152.9,
+    "rank": 10
+   },
+   "15921": {
+    "pos": "DB",
+    "seasonProj": 151.6,
+    "rank": 11
+   },
+   "14927": {
+    "pos": "DB",
+    "seasonProj": 151.4,
+    "rank": 12
+   },
+   "16245": {
+    "pos": "DB",
+    "seasonProj": 146.5,
+    "rank": 13
+   },
+   "15418": {
+    "pos": "DB",
+    "seasonProj": 146.1,
+    "rank": 14
+   },
+   "13713": {
+    "pos": "DB",
+    "seasonProj": 145.3,
+    "rank": 15
+   },
+   "13228": {
+    "pos": "DB",
+    "seasonProj": 144.6,
+    "rank": 16
+   },
+   "16676": {
+    "pos": "DB",
+    "seasonProj": 142.8,
+    "rank": 17
+   },
+   "16708": {
+    "pos": "DB",
+    "seasonProj": 142.6,
+    "rank": 18
+   },
+   "13714": {
+    "pos": "DB",
+    "seasonProj": 142.5,
+    "rank": 19
+   },
+   "14982": {
+    "pos": "DB",
+    "seasonProj": 142.4,
+    "rank": 20
+   },
+   "14909": {
+    "pos": "DB",
+    "seasonProj": 141.7,
+    "rank": 21
+   },
+   "15868": {
+    "pos": "DB",
+    "seasonProj": 141.7,
+    "rank": 22
+   },
+   "15452": {
+    "pos": "DB",
+    "seasonProj": 140.7,
+    "rank": 23
+   },
+   "16672": {
+    "pos": "DB",
+    "seasonProj": 139.9,
+    "rank": 24
+   },
+   "15839": {
+    "pos": "DB",
+    "seasonProj": 138.3,
+    "rank": 25
+   },
+   "16719": {
+    "pos": "DB",
+    "seasonProj": 137.9,
+    "rank": 26
+   },
+   "17601": {
+    "pos": "DB",
+    "seasonProj": 137.5,
+    "rank": 27
+   },
+   "13767": {
+    "pos": "DB",
+    "seasonProj": 135.6,
+    "rank": 28
+   },
+   "16241": {
+    "pos": "DB",
+    "seasonProj": 135.1,
+    "rank": 29
+   },
+   "14910": {
+    "pos": "DB",
+    "seasonProj": 133.7,
+    "rank": 30
+   },
+   "15923": {
+    "pos": "DB",
+    "seasonProj": 133.5,
+    "rank": 31
+   },
+   "15904": {
+    "pos": "DB",
+    "seasonProj": 133.1,
+    "rank": 32
+   },
+   "14302": {
+    "pos": "DB",
+    "seasonProj": 132.4,
+    "rank": 33
+   },
+   "13288": {
+    "pos": "DB",
+    "seasonProj": 131.9,
+    "rank": 34
+   },
+   "13223": {
+    "pos": "DB",
+    "seasonProj": 131.8,
+    "rank": 35
+   },
+   "14669": {
+    "pos": "DB",
+    "seasonProj": 130.7,
+    "rank": 36
+   },
+   "14933": {
+    "pos": "DB",
+    "seasonProj": 130.5,
+    "rank": 37
+   },
+   "16700": {
+    "pos": "DB",
+    "seasonProj": 129.8,
+    "rank": 38
+   },
+   "17131": {
+    "pos": "DB",
+    "seasonProj": 129.6,
+    "rank": 39
+   },
+   "15365": {
+    "pos": "DB",
+    "seasonProj": 129.4,
+    "rank": 40
+   },
+   "12772": {
+    "pos": "DB",
+    "seasonProj": 128.0,
+    "rank": 41
+   },
+   "13737": {
+    "pos": "DB",
+    "seasonProj": 127.2,
+    "rank": 42
+   },
+   "14434": {
+    "pos": "DB",
+    "seasonProj": 127.1,
+    "rank": 43
+   },
+   "14907": {
+    "pos": "DB",
+    "seasonProj": 126.4,
+    "rank": 44
+   },
+   "15834": {
+    "pos": "DB",
+    "seasonProj": 125.0,
+    "rank": 45
+   },
+   "16295": {
+    "pos": "DB",
+    "seasonProj": 124.6,
+    "rank": 46
+   },
+   "15001": {
+    "pos": "DB",
+    "seasonProj": 124.6,
+    "rank": 47
+   },
+   "17145": {
+    "pos": "DB",
+    "seasonProj": 123.8,
+    "rank": 48
+   },
+   "14995": {
+    "pos": "DB",
+    "seasonProj": 123.6,
+    "rank": 49
+   },
+   "16679": {
+    "pos": "DB",
+    "seasonProj": 123.5,
+    "rank": 50
+   },
+   "14518": {
+    "pos": "DB",
+    "seasonProj": 122.8,
+    "rank": 51
+   },
+   "17132": {
+    "pos": "DB",
+    "seasonProj": 122.8,
+    "rank": 52
+   },
+   "16675": {
+    "pos": "DB",
+    "seasonProj": 122.4,
+    "rank": 53
+   },
+   "17562": {
+    "pos": "DB",
+    "seasonProj": 121.7,
+    "rank": 54
+   },
+   "14182": {
+    "pos": "DB",
+    "seasonProj": 121.6,
+    "rank": 55
+   },
+   "16251": {
+    "pos": "DB",
+    "seasonProj": 121.2,
+    "rank": 56
+   },
+   "14252": {
+    "pos": "DB",
+    "seasonProj": 120.5,
+    "rank": 57
+   },
+   "14328": {
+    "pos": "DB",
+    "seasonProj": 119.1,
+    "rank": 58
+   },
+   "15835": {
+    "pos": "DB",
+    "seasonProj": 118.9,
+    "rank": 59
+   },
+   "15860": {
+    "pos": "DB",
+    "seasonProj": 118.8,
+    "rank": 60
+   },
+   "16018": {
+    "pos": "DB",
+    "seasonProj": 117.8,
+    "rank": 61
+   },
+   "16460": {
+    "pos": "DB",
+    "seasonProj": 117.8,
+    "rank": 62
+   },
+   "16246": {
+    "pos": "DB",
+    "seasonProj": 117.5,
+    "rank": 63
+   },
+   "16102": {
+    "pos": "DB",
+    "seasonProj": 117.3,
+    "rank": 64
+   },
+   "13717": {
+    "pos": "DB",
+    "seasonProj": 116.6,
+    "rank": 65
+   },
+   "17172": {
+    "pos": "DB",
+    "seasonProj": 115.7,
+    "rank": 66
+   },
+   "16725": {
+    "pos": "DB",
+    "seasonProj": 115.4,
+    "rank": 67
+   },
+   "15140": {
+    "pos": "DB",
+    "seasonProj": 114.6,
+    "rank": 68
+   },
+   "16698": {
+    "pos": "DB",
+    "seasonProj": 114.5,
+    "rank": 69
+   },
+   "15380": {
+    "pos": "DB",
+    "seasonProj": 114.4,
+    "rank": 70
+   },
+   "15364": {
+    "pos": "DB",
+    "seasonProj": 113.9,
+    "rank": 71
+   },
+   "16279": {
+    "pos": "DB",
+    "seasonProj": 113.5,
+    "rank": 72
+   },
+   "16281": {
+    "pos": "DB",
+    "seasonProj": 112.8,
+    "rank": 73
+   },
+   "16705": {
+    "pos": "DB",
+    "seasonProj": 112.6,
+    "rank": 74
+   },
+   "17202": {
+    "pos": "DB",
+    "seasonProj": 112.0,
+    "rank": 75
+   },
+   "15895": {
+    "pos": "DB",
+    "seasonProj": 111.7,
+    "rank": 76
+   },
+   "16670": {
+    "pos": "DB",
+    "seasonProj": 110.6,
+    "rank": 77
+   },
+   "15933": {
+    "pos": "DB",
+    "seasonProj": 109.3,
+    "rank": 78
+   },
+   "16261": {
+    "pos": "DB",
+    "seasonProj": 108.1,
+    "rank": 79
+   },
+   "14224": {
+    "pos": "DB",
+    "seasonProj": 108.0,
+    "rank": 80
+   },
+   "15856": {
+    "pos": "DB",
+    "seasonProj": 108.0,
+    "rank": 81
+   },
+   "16145": {
+    "pos": "DB",
+    "seasonProj": 107.7,
+    "rank": 82
+   },
+   "16267": {
+    "pos": "DB",
+    "seasonProj": 106.7,
+    "rank": 83
+   },
+   "15836": {
+    "pos": "DB",
+    "seasonProj": 105.2,
+    "rank": 84
+   },
+   "14270": {
+    "pos": "DB",
+    "seasonProj": 104.7,
+    "rank": 85
+   },
+   "15850": {
+    "pos": "DB",
+    "seasonProj": 104.4,
+    "rank": 86
+   },
+   "14918": {
+    "pos": "DB",
+    "seasonProj": 104.0,
+    "rank": 87
+   },
+   "13731": {
+    "pos": "DB",
+    "seasonProj": 103.8,
+    "rank": 88
+   },
+   "15361": {
+    "pos": "DB",
+    "seasonProj": 103.1,
+    "rank": 89
+   },
+   "13774": {
+    "pos": "DB",
+    "seasonProj": 101.7,
+    "rank": 90
+   },
+   "15401": {
+    "pos": "DB",
+    "seasonProj": 101.7,
+    "rank": 91
+   },
+   "16673": {
+    "pos": "DB",
+    "seasonProj": 101.5,
+    "rank": 92
+   },
+   "15394": {
+    "pos": "DB",
+    "seasonProj": 101.2,
+    "rank": 93
+   },
+   "12711": {
+    "pos": "DB",
+    "seasonProj": 101.1,
+    "rank": 94
+   },
+   "16690": {
+    "pos": "DB",
+    "seasonProj": 99.9,
+    "rank": 95
+   },
+   "15875": {
+    "pos": "DB",
+    "seasonProj": 99.5,
+    "rank": 96
+   },
+   "13227": {
+    "pos": "DB",
+    "seasonProj": 98.7,
+    "rank": 97
+   },
+   "16572": {
+    "pos": "DB",
+    "seasonProj": 98.5,
+    "rank": 98
+   },
+   "15832": {
+    "pos": "DB",
+    "seasonProj": 98.4,
+    "rank": 99
+   },
+   "13710": {
+    "pos": "DB",
+    "seasonProj": 98.3,
+    "rank": 100
+   },
+   "13281": {
+    "pos": "DB",
+    "seasonProj": 97.5,
+    "rank": 101
+   },
+   "17214": {
+    "pos": "DB",
+    "seasonProj": 97.3,
+    "rank": 102
+   },
+   "17169": {
+    "pos": "DB",
+    "seasonProj": 96.9,
+    "rank": 103
+   },
+   "11327": {
+    "pos": "DB",
+    "seasonProj": 96.5,
+    "rank": 104
+   },
+   "16012": {
+    "pos": "DB",
+    "seasonProj": 96.5,
+    "rank": 105
+   },
+   "17163": {
+    "pos": "DB",
+    "seasonProj": 96.4,
+    "rank": 106
+   },
+   "16703": {
+    "pos": "DB",
+    "seasonProj": 95.8,
+    "rank": 107
+   },
+   "15405": {
+    "pos": "DB",
+    "seasonProj": 95.1,
+    "rank": 108
+   },
+   "16702": {
+    "pos": "DB",
+    "seasonProj": 94.5,
+    "rank": 109
+   },
+   "15913": {
+    "pos": "DB",
+    "seasonProj": 94.3,
+    "rank": 110
+   },
+   "17167": {
+    "pos": "DB",
+    "seasonProj": 94.1,
+    "rank": 111
+   },
+   "16263": {
+    "pos": "DB",
+    "seasonProj": 94.0,
+    "rank": 112
+   },
+   "17127": {
+    "pos": "DB",
+    "seasonProj": 93.9,
+    "rank": 113
+   },
+   "16240": {
+    "pos": "DB",
+    "seasonProj": 93.2,
+    "rank": 114
+   },
+   "15989": {
+    "pos": "DB",
+    "seasonProj": 91.7,
+    "rank": 115
+   },
+   "15362": {
+    "pos": "DB",
+    "seasonProj": 91.0,
+    "rank": 116
+   },
+   "15845": {
+    "pos": "DB",
+    "seasonProj": 90.7,
+    "rank": 117
+   },
+   "13707": {
+    "pos": "DB",
+    "seasonProj": 90.4,
+    "rank": 118
+   },
+   "15402": {
+    "pos": "DB",
+    "seasonProj": 90.2,
+    "rank": 119
+   },
+   "15833": {
+    "pos": "DB",
+    "seasonProj": 89.6,
+    "rank": 120
+   },
+   "15871": {
+    "pos": "DB",
+    "seasonProj": 88.6,
+    "rank": 121
+   },
+   "14180": {
+    "pos": "DB",
+    "seasonProj": 88.5,
+    "rank": 122
+   },
+   "15445": {
+    "pos": "DB",
+    "seasonProj": 88.5,
+    "rank": 123
+   },
+   "16729": {
+    "pos": "DB",
+    "seasonProj": 88.0,
+    "rank": 124
+   },
+   "17144": {
+    "pos": "DB",
+    "seasonProj": 87.8,
+    "rank": 125
+   },
+   "14924": {
+    "pos": "DB",
+    "seasonProj": 87.3,
+    "rank": 126
+   },
+   "16268": {
+    "pos": "DB",
+    "seasonProj": 86.9,
+    "rank": 127
+   },
+   "15950": {
+    "pos": "DB",
+    "seasonProj": 86.0,
+    "rank": 128
+   },
+   "16736": {
+    "pos": "DB",
+    "seasonProj": 85.9,
+    "rank": 129
+   },
+   "17187": {
+    "pos": "DB",
+    "seasonProj": 84.7,
+    "rank": 130
+   },
+   "17207": {
+    "pos": "DB",
+    "seasonProj": 84.5,
+    "rank": 131
+   },
+   "13920": {
+    "pos": "DB",
+    "seasonProj": 83.3,
+    "rank": 132
+   },
+   "15881": {
+    "pos": "DB",
+    "seasonProj": 82.9,
+    "rank": 133
+   },
+   "17639": {
+    "pos": "DB",
+    "seasonProj": 82.1,
+    "rank": 134
+   },
+   "17129": {
+    "pos": "DB",
+    "seasonProj": 80.7,
+    "rank": 135
+   },
+   "16356": {
+    "pos": "DB",
+    "seasonProj": 80.6,
+    "rank": 136
+   },
+   "16677": {
+    "pos": "DB",
+    "seasonProj": 79.7,
+    "rank": 137
+   },
+   "16741": {
+    "pos": "DB",
+    "seasonProj": 79.6,
+    "rank": 138
+   },
+   "16714": {
+    "pos": "DB",
+    "seasonProj": 79.2,
+    "rank": 139
+   },
+   "17156": {
+    "pos": "DB",
+    "seasonProj": 79.0,
+    "rank": 140
+   },
+   "17643": {
+    "pos": "DB",
+    "seasonProj": 78.6,
+    "rank": 141
+   },
+   "17164": {
+    "pos": "DB",
+    "seasonProj": 78.2,
+    "rank": 142
+   },
+   "16255": {
+    "pos": "DB",
+    "seasonProj": 78.0,
+    "rank": 143
+   },
+   "16731": {
+    "pos": "DB",
+    "seasonProj": 77.8,
+    "rank": 144
+   },
+   "16244": {
+    "pos": "DB",
+    "seasonProj": 76.9,
+    "rank": 145
+   },
+   "17141": {
+    "pos": "DB",
+    "seasonProj": 76.5,
+    "rank": 146
+   },
+   "14219": {
+    "pos": "DB",
+    "seasonProj": 76.4,
+    "rank": 147
+   },
+   "15464": {
+    "pos": "DB",
+    "seasonProj": 76.3,
+    "rank": 148
+   },
+   "16253": {
+    "pos": "DB",
+    "seasonProj": 75.3,
+    "rank": 149
+   },
+   "15124": {
+    "pos": "DB",
+    "seasonProj": 75.1,
+    "rank": 150
+   },
+   "17200": {
+    "pos": "DB",
+    "seasonProj": 74.8,
+    "rank": 151
+   },
+   "11317": {
+    "pos": "DB",
+    "seasonProj": 74.7,
+    "rank": 152
+   },
+   "15894": {
+    "pos": "DB",
+    "seasonProj": 74.6,
+    "rank": 153
+   },
+   "16737": {
+    "pos": "DB",
+    "seasonProj": 74.4,
+    "rank": 154
+   },
+   "15375": {
+    "pos": "DB",
+    "seasonProj": 74.2,
+    "rank": 155
+   },
+   "15866": {
+    "pos": "DB",
+    "seasonProj": 73.8,
+    "rank": 156
+   },
+   "14957": {
+    "pos": "DB",
+    "seasonProj": 73.0,
+    "rank": 157
+   },
+   "14037": {
+    "pos": "DB",
+    "seasonProj": 72.3,
+    "rank": 158
+   },
+   "17614": {
+    "pos": "DB",
+    "seasonProj": 70.4,
+    "rank": 159
+   },
+   "17162": {
+    "pos": "DB",
+    "seasonProj": 69.1,
+    "rank": 160
+   },
+   "16671": {
+    "pos": "DB",
+    "seasonProj": 68.8,
+    "rank": 161
+   },
+   "15377": {
+    "pos": "DB",
+    "seasonProj": 68.4,
+    "rank": 162
+   },
+   "13738": {
+    "pos": "DB",
+    "seasonProj": 68.0,
+    "rank": 163
+   },
+   "16912": {
+    "pos": "DB",
+    "seasonProj": 67.6,
+    "rank": 164
+   },
+   "14904": {
+    "pos": "DB",
+    "seasonProj": 66.9,
+    "rank": 165
+   },
+   "15888": {
+    "pos": "DB",
+    "seasonProj": 66.9,
+    "rank": 166
+   },
+   "13414": {
+    "pos": "DB",
+    "seasonProj": 65.4,
+    "rank": 167
+   },
+   "16242": {
+    "pos": "DB",
+    "seasonProj": 64.9,
+    "rank": 168
+   },
+   "17221": {
+    "pos": "DB",
+    "seasonProj": 64.4,
+    "rank": 169
+   },
+   "16316": {
+    "pos": "DB",
+    "seasonProj": 64.2,
+    "rank": 170
+   },
+   "17239": {
+    "pos": "DB",
+    "seasonProj": 61.7,
+    "rank": 171
+   },
+   "17563": {
+    "pos": "DB",
+    "seasonProj": 61.0,
+    "rank": 172
+   },
+   "16717": {
+    "pos": "DB",
+    "seasonProj": 60.4,
+    "rank": 173
+   },
+   "16727": {
+    "pos": "DB",
+    "seasonProj": 59.4,
+    "rank": 174
+   },
+   "16753": {
+    "pos": "DB",
+    "seasonProj": 58.8,
+    "rank": 175
+   },
+   "16274": {
+    "pos": "DB",
+    "seasonProj": 57.3,
+    "rank": 176
+   },
+   "15852": {
+    "pos": "DB",
+    "seasonProj": 56.7,
+    "rank": 177
+   },
+   "17295": {
+    "pos": "DB",
+    "seasonProj": 56.3,
+    "rank": 178
+   },
+   "16754": {
+    "pos": "DB",
+    "seasonProj": 56.1,
+    "rank": 179
+   },
+   "16695": {
+    "pos": "DB",
+    "seasonProj": 55.8,
+    "rank": 180
+   },
+   "17573": {
+    "pos": "DB",
+    "seasonProj": 55.7,
+    "rank": 181
+   },
+   "14921": {
+    "pos": "DB",
+    "seasonProj": 55.5,
+    "rank": 182
+   },
+   "14956": {
+    "pos": "DB",
+    "seasonProj": 55.1,
+    "rank": 183
+   },
+   "13231": {
+    "pos": "DB",
+    "seasonProj": 54.8,
+    "rank": 184
+   },
+   "14452": {
+    "pos": "DB",
+    "seasonProj": 54.3,
+    "rank": 185
+   },
+   "16889": {
+    "pos": "DB",
+    "seasonProj": 54.1,
+    "rank": 186
+   },
+   "16928": {
+    "pos": "DB",
+    "seasonProj": 52.9,
+    "rank": 187
+   },
+   "13263": {
+    "pos": "DB",
+    "seasonProj": 51.7,
+    "rank": 188
+   },
+   "16784": {
+    "pos": "DB",
+    "seasonProj": 51.7,
+    "rank": 189
+   },
+   "13764": {
+    "pos": "DB",
+    "seasonProj": 51.0,
+    "rank": 190
+   },
+   "17179": {
+    "pos": "DB",
+    "seasonProj": 50.9,
+    "rank": 191
+   },
+   "16735": {
+    "pos": "DB",
+    "seasonProj": 49.6,
+    "rank": 192
+   },
+   "15879": {
+    "pos": "DB",
+    "seasonProj": 49.6,
+    "rank": 193
+   },
+   "16288": {
+    "pos": "DB",
+    "seasonProj": 49.2,
+    "rank": 194
+   },
+   "15893": {
+    "pos": "DB",
+    "seasonProj": 48.5,
+    "rank": 195
+   },
+   "17608": {
+    "pos": "DB",
+    "seasonProj": 47.7,
+    "rank": 196
+   },
+   "16311": {
+    "pos": "DB",
+    "seasonProj": 47.6,
+    "rank": 197
+   },
+   "15469": {
+    "pos": "DB",
+    "seasonProj": 47.5,
+    "rank": 198
+   },
+   "17143": {
+    "pos": "DB",
+    "seasonProj": 47.0,
+    "rank": 199
+   },
+   "16336": {
+    "pos": "DB",
+    "seasonProj": 45.4,
+    "rank": 200
+   },
+   "16900": {
+    "pos": "DB",
+    "seasonProj": 44.5,
+    "rank": 201
+   },
+   "16701": {
+    "pos": "DB",
+    "seasonProj": 44.5,
+    "rank": 202
+   },
+   "16954": {
+    "pos": "DB",
+    "seasonProj": 44.2,
+    "rank": 203
+   },
+   "12988": {
+    "pos": "DB",
+    "seasonProj": 42.7,
+    "rank": 204
+   },
+   "16014": {
+    "pos": "DB",
+    "seasonProj": 42.2,
+    "rank": 205
+   },
+   "17590": {
+    "pos": "DB",
+    "seasonProj": 41.9,
+    "rank": 206
+   },
+   "16054": {
+    "pos": "DB",
+    "seasonProj": 41.9,
+    "rank": 207
+   },
+   "17604": {
+    "pos": "DB",
+    "seasonProj": 41.3,
+    "rank": 208
+   },
+   "15880": {
+    "pos": "DB",
+    "seasonProj": 41.1,
+    "rank": 209
+   },
+   "16728": {
+    "pos": "DB",
+    "seasonProj": 40.4,
+    "rank": 210
+   },
+   "14902": {
+    "pos": "DB",
+    "seasonProj": 39.6,
+    "rank": 211
+   },
+   "16726": {
+    "pos": "DB",
+    "seasonProj": 39.5,
+    "rank": 212
+   },
+   "15849": {
+    "pos": "DB",
+    "seasonProj": 38.9,
+    "rank": 213
+   },
+   "15448": {
+    "pos": "DB",
+    "seasonProj": 37.9,
+    "rank": 214
+   },
+   "17592": {
+    "pos": "DB",
+    "seasonProj": 37.6,
+    "rank": 215
+   },
+   "17609": {
+    "pos": "DB",
+    "seasonProj": 36.2,
+    "rank": 216
+   },
+   "16310": {
+    "pos": "DB",
+    "seasonProj": 36.1,
+    "rank": 217
+   },
+   "16709": {
+    "pos": "DB",
+    "seasonProj": 35.9,
+    "rank": 218
+   },
+   "15392": {
+    "pos": "DB",
+    "seasonProj": 33.9,
+    "rank": 219
+   },
+   "16304": {
+    "pos": "DB",
+    "seasonProj": 33.7,
+    "rank": 220
+   },
+   "17319": {
+    "pos": "DB",
+    "seasonProj": 33.3,
+    "rank": 221
+   },
+   "17130": {
+    "pos": "DB",
+    "seasonProj": 32.5,
+    "rank": 222
+   },
+   "17181": {
+    "pos": "DB",
+    "seasonProj": 32.3,
+    "rank": 223
+   },
+   "15129": {
+    "pos": "DB",
+    "seasonProj": 32.0,
+    "rank": 224
+   },
+   "15527": {
+    "pos": "DB",
+    "seasonProj": 31.6,
+    "rank": 225
+   },
+   "17246": {
+    "pos": "DB",
+    "seasonProj": 31.4,
+    "rank": 226
+   },
+   "14905": {
+    "pos": "DB",
+    "seasonProj": 31.2,
+    "rank": 227
+   },
+   "16139": {
+    "pos": "DB",
+    "seasonProj": 30.8,
+    "rank": 228
+   },
+   "17598": {
+    "pos": "DB",
+    "seasonProj": 29.7,
+    "rank": 229
+   },
+   "17624": {
+    "pos": "DB",
+    "seasonProj": 29.1,
+    "rank": 230
+   },
+   "15944": {
+    "pos": "DB",
+    "seasonProj": 28.7,
+    "rank": 231
+   },
+   "13325": {
+    "pos": "DB",
+    "seasonProj": 28.0,
+    "rank": 232
+   },
+   "17755": {
+    "pos": "DB",
+    "seasonProj": 28.0,
+    "rank": 233
+   },
+   "15859": {
+    "pos": "DB",
+    "seasonProj": 25.7,
+    "rank": 234
+   },
+   "17168": {
+    "pos": "DB",
+    "seasonProj": 25.3,
+    "rank": 235
+   },
+   "13715": {
+    "pos": "DB",
+    "seasonProj": 25.2,
+    "rank": 236
+   },
+   "16880": {
+    "pos": "DB",
+    "seasonProj": 25.0,
+    "rank": 237
+   },
+   "17762": {
+    "pos": "DB",
+    "seasonProj": 24.9,
+    "rank": 238
+   },
+   "17626": {
+    "pos": "DB",
+    "seasonProj": 23.7,
+    "rank": 239
+   },
+   "17229": {
+    "pos": "DB",
+    "seasonProj": 23.3,
+    "rank": 240
+   },
+   "17653": {
+    "pos": "DB",
+    "seasonProj": 22.9,
+    "rank": 241
+   },
+   "17615": {
+    "pos": "DB",
+    "seasonProj": 22.7,
+    "rank": 242
+   },
+   "13736": {
+    "pos": "DB",
+    "seasonProj": 22.3,
+    "rank": 243
+   },
+   "15872": {
+    "pos": "DB",
+    "seasonProj": 22.1,
+    "rank": 244
+   },
+   "17649": {
+    "pos": "DB",
+    "seasonProj": 22.0,
+    "rank": 245
+   },
+   "15384": {
+    "pos": "DB",
+    "seasonProj": 21.8,
+    "rank": 246
+   },
+   "15956": {
+    "pos": "DB",
+    "seasonProj": 21.2,
+    "rank": 247
+   },
+   "15441": {
+    "pos": "DB",
+    "seasonProj": 20.6,
+    "rank": 248
+   },
+   "17257": {
+    "pos": "DB",
+    "seasonProj": 20.2,
+    "rank": 249
+   },
+   "15959": {
+    "pos": "DB",
+    "seasonProj": 19.7,
+    "rank": 250
+   },
+   "17575": {
+    "pos": "DB",
+    "seasonProj": 18.7,
+    "rank": 251
+   },
+   "16045": {
+    "pos": "DB",
+    "seasonProj": 18.4,
+    "rank": 252
+   },
+   "15094": {
+    "pos": "DB",
+    "seasonProj": 17.4,
+    "rank": 253
+   },
+   "15595": {
+    "pos": "DB",
+    "seasonProj": 16.9,
+    "rank": 254
+   },
+   "16352": {
+    "pos": "DB",
+    "seasonProj": 16.4,
+    "rank": 255
+   },
+   "15874": {
+    "pos": "DB",
+    "seasonProj": 15.9,
+    "rank": 256
+   },
+   "16289": {
+    "pos": "DB",
+    "seasonProj": 15.7,
+    "rank": 257
+   },
+   "16326": {
+    "pos": "DB",
+    "seasonProj": 15.7,
+    "rank": 258
+   },
+   "15926": {
+    "pos": "DB",
+    "seasonProj": 15.3,
+    "rank": 259
+   },
+   "17753": {
+    "pos": "DB",
+    "seasonProj": 14.7,
+    "rank": 260
+   },
+   "17640": {
+    "pos": "DB",
+    "seasonProj": 13.8,
+    "rank": 261
+   },
+   "17250": {
+    "pos": "DB",
+    "seasonProj": 13.2,
+    "rank": 262
+   },
+   "16271": {
+    "pos": "DB",
+    "seasonProj": 11.9,
+    "rank": 263
+   },
+   "16750": {
+    "pos": "DB",
+    "seasonProj": 9.1,
+    "rank": 264
+   },
+   "17564": {
+    "pos": "DB",
+    "seasonProj": 9.0,
+    "rank": 265
+   },
+   "17646": {
+    "pos": "DB",
+    "seasonProj": 8.8,
+    "rank": 266
+   },
+   "16059": {
+    "pos": "DB",
+    "seasonProj": 7.6,
+    "rank": 267
+   },
+   "17581": {
+    "pos": "DB",
+    "seasonProj": 7.3,
+    "rank": 268
+   },
+   "15862": {
+    "pos": "DB",
+    "seasonProj": 6.5,
+    "rank": 269
+   },
+   "17582": {
+    "pos": "DB",
+    "seasonProj": 5.7,
+    "rank": 270
+   },
+   "17398": {
+    "pos": "DB",
+    "seasonProj": 5.2,
+    "rank": 271
+   },
+   "17343": {
+    "pos": "DB",
+    "seasonProj": 4.7,
+    "rank": 272
+   },
+   "14414": {
+    "pos": "DB",
+    "seasonProj": 3.4,
+    "rank": 273
+   },
+   "16247": {
+    "pos": "DB",
+    "seasonProj": 3.3,
+    "rank": 274
+   },
+   "15885": {
+    "pos": "DB",
+    "seasonProj": 2.7,
+    "rank": 275
+   },
+   "17684": {
+    "pos": "DB",
+    "seasonProj": 2.6,
+    "rank": 276
+   },
+   "17166": {
+    "pos": "DB",
+    "seasonProj": 1.6,
+    "rank": 277
+   }
+  }
+ },
+ "absences": {
+  "11757": {
+   "weeks": [
+    1,
+    2
+   ],
+   "status": "Out",
+   "details": "Coach's Decision",
+   "returns": "Sep 21, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "12801": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "status": "Out",
+   "details": "Knee - ACL",
+   "returns": "Oct 18, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "13146": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-R",
+   "details": "Foot",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "13806": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-R",
+   "details": "Undisclosed",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "14073": {
+   "weeks": [
+    1,
+    2
+   ],
+   "status": "Suspended",
+   "details": "Personal",
+   "returns": "Sep 27, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "14778": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Oblique",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "14882": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Pectoral",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "15350": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-PUP",
+   "details": "Knee - ACL",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "15351": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "status": "IR-PUP",
+   "details": "Neck",
+   "returns": "Feb 15, 2027",
+   "source": "MFL injuries export (week 1)"
+  },
+  "15484": {
+   "weeks": [
+    1,
+    2
+   ],
+   "status": "Suspended",
+   "details": "Undisclosed",
+   "returns": "Sep 27, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "15749": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR",
+   "details": "Back",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "15864": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "status": "IR",
+   "details": "Achilles",
+   "returns": "Feb 15, 2027",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16169": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-PUP",
+   "details": "Knee - ACL",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16204": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-R",
+   "details": "Knee - ACL + MCL",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16244": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-PUP",
+   "details": "Achilles",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16583": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Knee - ACL",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16594": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "status": "IR",
+   "details": "Knee",
+   "returns": "Feb 15, 2027",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16622": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "status": "IR",
+   "details": "Knee - PCL",
+   "returns": "Feb 15, 2027",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16641": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Knee - Meniscus",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "16667": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Concussion",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17033": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Coach's Decision",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17037": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-R",
+   "details": "Back",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17043": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Ankle",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17055": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Coach's Decision",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17056": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "status": "IR-R",
+   "details": "Ankle",
+   "returns": "Oct 18, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17083": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "status": "IR",
+   "details": "Knee - ACL",
+   "returns": "Feb 15, 2027",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17087": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR",
+   "details": "Undisclosed",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17096": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-R",
+   "details": "Ankle",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17098": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Hamstring",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17113": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-PUP",
+   "details": "Knee - ACL",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17115": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "status": "Suspended",
+   "details": "Suspension",
+   "returns": "Nov 8, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17122": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "status": "IR",
+   "details": "Knee - ACL",
+   "returns": "Feb 15, 2027",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17144": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Ankle",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17159": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR",
+   "details": "Hamstring",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17185": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Knee - ACL",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17269": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Coach's Decision",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17463": {
+   "weeks": [
+    1,
+    2
+   ],
+   "status": "Out",
+   "details": "Coach's Decision",
+   "returns": "Sep 21, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17498": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-R",
+   "details": "Hamstring",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17504": {
+   "weeks": [
+    1,
+    2
+   ],
+   "status": "Out",
+   "details": "Coach's Decision",
+   "returns": "Sep 21, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17509": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "status": "IR",
+   "details": "Knee",
+   "returns": "Feb 15, 2027",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17547": {
+   "weeks": [
+    1,
+    2
+   ],
+   "status": "Out",
+   "details": "Coach's Decision",
+   "returns": "Sep 21, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17567": {
+   "weeks": [
+    1
+   ],
+   "status": "Out",
+   "details": "Hamstring",
+   "returns": "Sep 20, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "17652": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "status": "IR-R",
+   "details": "Undisclosed",
+   "returns": "Oct 11, 2026",
+   "source": "MFL injuries export (week 1)"
+  },
+  "13592": {
+   "weeks": [
+    2
+   ],
+   "status": "Reported out",
+   "details": "Right hip",
+   "returns": "",
+   "source": "Sam Darnold was hurt on Seattle's first drive of the opener (2026-09-09); NFL Network, 2026-09-10: expected to miss week 2. Not in MFL's injury feed as of 2026-09-11 12:01 UTC."
+  },
+  "14104": {
+   "weeks": [
+    2,
+    3,
+    4
+   ],
+   "status": "Reported out",
+   "details": "Right high-ankle sprain",
+   "returns": "",
+   "source": "A.J. Brown left the opener (2026-09-09) in the third quarter with a right high-ankle sprain, MRI-confirmed 2026-09-10; NFL Network (Rapoport, via ESPN) reports at least four weeks, other reports three to six. Weeks 2-4 only are held out. Not in MFL's injury feed as of 2026-09-11 12:01 UTC."
+  }
+ }
+}

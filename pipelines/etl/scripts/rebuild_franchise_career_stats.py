@@ -127,6 +127,18 @@ def build_effective_ownership(mfl_ownership: dict, overrides: dict) -> tuple[dic
             effective[(fid, season)] = owner
 
     override_meta_by_fid: dict = defaultdict(list)
+
+    # A TENURE CAN HAVE GAPS, AND IT CAN RECLAIM A SEASON. The first version
+    # could only TRIM: it walked the seasons MFL gave an owner and handed the
+    # out-of-tenure ones back. That cannot express either half of Derrick
+    # Whitman's record on CBP -- two stints (2012-2017 and 2023 on) with AJ
+    # Balderelli in between -- because two entries for one owner each trimmed
+    # the other's seasons, and because 2017 has to be TAKEN BACK from the owner
+    # MFL credits with it (AJ finished that season; Keith's rule gives it to the
+    # man who started it). So entries for the same (franchise, owner) are read
+    # as one tenure with gaps: a season inside any range is his, whoever MFL
+    # names, and a season outside every range is not, even if MFL names him.
+    tenures: dict = {}
     for fid, entries in overrides.items():
         for entry in entries:
             owner_nm = (entry.get("owner_name") or "").strip()
@@ -140,30 +152,30 @@ def build_effective_ownership(mfl_ownership: dict, overrides: dict) -> tuple[dic
                 "tenure_end_season": end,
                 "notes": entry.get("notes", ""),
             })
+            tenures.setdefault((fid, owner_nm), []).append((start, end))
 
-            # Seasons where MFL attributes this owner to this franchise
-            mfl_seasons_for_owner = sorted(
-                s for (f, s), nm in effective.items()
-                if f == fid and _owners_match(nm, owner_nm)
-            )
-            for season in mfl_seasons_for_owner:
-                in_tenure = (
-                    (start is None or season >= start)
-                    and (end is None or season <= end)
-                )
-                if in_tenure:
-                    continue
-                # Out-of-tenure: reassign to prior MFL owner on this franchise
-                prior_owner = None
-                for psn in range(season - 1, season - 16, -1):
-                    cand = mfl_ownership.get(psn, {}).get(fid)
-                    if cand and not _owners_match(cand, owner_nm):
-                        prior_owner = cand
-                        break
-                if prior_owner:
-                    effective[(fid, season)] = prior_owner
-                else:
-                    effective.pop((fid, season), None)
+    all_seasons = sorted(mfl_ownership)
+    for (fid, owner_nm), ranges in tenures.items():
+        for season in all_seasons:
+            if fid not in mfl_ownership.get(season, {}):
+                continue                      # the franchise did not play that season
+            in_tenure = any((start is None or season >= start) and (end is None or season <= end)
+                            for start, end in ranges)
+            if in_tenure:
+                effective[(fid, season)] = owner_nm            # claim it, whoever MFL names
+                continue
+            if not _owners_match(effective.get((fid, season)) or "", owner_nm):
+                continue                      # not his anyway; nothing to trim
+            prior_owner = None
+            for psn in range(season - 1, season - 16, -1):
+                cand = mfl_ownership.get(psn, {}).get(fid)
+                if cand and not _owners_match(cand, owner_nm):
+                    prior_owner = cand
+                    break
+            if prior_owner:
+                effective[(fid, season)] = prior_owner
+            else:
+                effective.pop((fid, season), None)
 
     return effective, dict(override_meta_by_fid)
 

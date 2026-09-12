@@ -1,29 +1,154 @@
 {
  "meta": {
-  "engine": "claude-opus-5 (session agent)",
+  "engine": "claude-opus-5 (session, written by hand)",
   "packId": "2026-team-0007"
  },
  "prose": {
-  "kicker": "Sex Manther · Josh Martel",
-  "title": "Sex Manther Tore Down a Contender in July and Rebuilt a Better Offense",
-  "dek": "Josh Martel went into the auction carrying {{f.team.0007.cap_preauction}} of salary, down from {{f.team.0007.cap_opening}} in April. He released Christian McCaffrey and Tyreek Hill in the same week and used the money on one of the two best quarterback rooms in the league.",
+  "title": "Sex Manther Tagged McCaffrey, Threw Him Back, and Bought Lamar Jackson",
+  "dek": "Josh Martel released {{f.team.0007.cuts_s2_salary}} of salary before the auction lock, spent {{f.team.0007.top_buy_price}} on Lamar Jackson, and front-loaded Rashee Rice with what was left. The preseason simulation ranks Sex Manther {{f.team.0007.power_rank|ord}}.",
   "sections": [
    {
     "id": "s1",
-    "lead": "",
     "paragraphs": [
-     "Lamar Jackson grades Elite QB1 and Caleb Williams High-end QB1. In a superflex format that rewards a second starting quarterback, that is the pairing everybody else is trying to build, and the room ranks {{f.team.0007.qb_rank|ord}} in the league.",
-     "Receiver ranks {{f.team.0007.wr_rank|ord}} and is deep rather than top-heavy: Rashee Rice at Low-end WR1, Jaylen Waddle at Low-end WR2, Jameson Williams at Low-end WR2 in a flex and Rome Odunze at High-end WR3 in the other. Harold Fannin is a Mid TE1 and tight end ranks {{f.team.0007.te_rank|ord}}.",
-     "The backfield is the weakest room and it is a real problem, ranked {{f.team.0007.rb_rank|ord}}. De'Von Achane grades Mid RB1 and behind him is Jonathon Brooks, a Replacement-level RB, starting. Kenneth Gainwell, the third-most expensive player he bought all summer, is a Replacement-level RB on the bench.",
-     "Defense is where he saved money. He put {{f.team.0007.idp_auction_share}} of his auction money into defenders, the second-smallest share in the league, and two of the seven defenders in his strongest lineup, Jaishawn Barham and Dillon Thieneman, have not played an NFL season yet."
+     "April was expensive. Martel carried {{f.team.0007.active_roster_opening}} active players and {{f.team.0007.cap_opening}} in salary, with {{f.team.0007.studs_opening}} top-twelve starters: Caleb Williams, a Mid QB1, Christian McCaffrey and De'Von Achane at running back, and Harold Fannin and George Kittle at tight end. Rashee Rice was solid at receiver. The {{f.team.0007.holes_opening}} holes were Rome Odunze at the second receiver spot, Jacory Croskey-Merritt in a flex, and Jonathon Brooks, a running back, in the superflex.",
+     "Martel already had Christian McCaffrey on a {{f.team.0007.contract_13130_salary}} tag by April. The spring trades were all about picks, and the trade bot was not grading deals yet; graded now on what was known on each trade's date, they come out {{f.team.0007.trade1_grade}} and {{f.team.0007.trade2_grade}}. In March Martel sent 1.10 to Blake Bombers for their 2027 first, and in May he sent 3.04 and 3.06 to The Long Haulers for five later picks; 3.06 went on through Gride to Real Deal Creel, who used it on Sonny Styles. He made no cuts or extensions, and no rookie deals ran out on him."
     ],
     "place": [
-     "t.0007.lineup"
+     "t.0007.slot_bridge",
+     "t.0007.moves_s1"
     ],
     "placeAt": {
-     "t.0007.lineup": 0
+     "t.0007.slot_bridge": 0,
+     "t.0007.moves_s1": 1
     },
     "views": {
+     "t.0007.slot_bridge": {
+      "cols": [
+       "slot",
+       "open"
+      ],
+      "labels": {
+       "open": "April"
+      },
+      "title": "April: who held each priced slot"
+     },
+     "t.0007.moves_s1": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail",
+       "grade"
+      ],
+      "stack": true,
+      "title": "Before the rookie draft"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "McCaffrey was the chip. A tag in this league is something to trade, to keep, or to hand back, and in July Martel handed it back, releasing McCaffrey with no penalty and keeping all {{f.team.0007.cut_13130_salary}} of the tag money to spend on other players.",
+     "In June he extended Rice for {{f.team.0007.contract_16194_years}} years at a TCV of {{f.team.0007.contract_16194_tcv}}, back-loaded: {{f.team.0007.contract_16194_salary}} this year and {{f.team.0007.contract_16194_next_salary}} next. The room came in July: Kittle and his {{f.team.0007.trade3_salary_out}} salary went to Blake Bombers with {{f.team.0007.trade_blind_bid_cash}} of blind-bid money for a 2027 second, a {{f.team.0007.trade3_grade}} from the trade bot on its second look, Efton Chism went to Cleon Ca$h for a 2027 fifth, a {{f.team.0007.trade4_grade}}, and the day before the lock Martel cut Tyreek Hill, {{f.team.0007.cut_12801_salary}} of salary with a {{f.team.0007.cut_12801_penalty}} penalty. The draft, {{f.team.0007.rookie_picks_count}} picks from 3.11 down, was mostly defenders, and Sean Tucker came from the Expired Rookie Auction for {{f.team.0007.era_16166_price}}.",
+     "The roster held at {{f.team.0007.active_roster_preauction}} active players while the salary fell from {{f.team.0007.cap_opening}} to {{f.team.0007.cap_preauction}}. McCaffrey, Hill and Kittle were most of the difference, and the day before the auction Martel restructured Achane and Rice down to {{f.team.0007.contract_16167_salary}} and {{f.team.0007.contract_16194_salary_2}} this year, which did most of the rest; the room was the point."
+    ],
+    "place": [
+     "t.0007.rookies",
+     "t.0007.moves_s2"
+    ],
+    "placeAt": {
+     "t.0007.rookies": 1,
+     "t.0007.moves_s2": 0
+    },
+    "views": {
+     "t.0007.rookies": {
+      "cols": [
+       "pick",
+       "player",
+       "baseline",
+       "val"
+      ],
+      "title": "The rookie class",
+      "labels": {
+       "baseline": "History at this slot",
+       "val": "Grade today"
+      }
+     },
+     "t.0007.moves_s2": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail",
+       "grade"
+      ],
+      "stack": true,
+      "title": "From the draft to the auction lock"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "Sex Manther spent {{f.team.0007.faa_spend}} at the Free Agent Auction. Lamar Jackson cost {{f.team.0007.faa_13593_price}} after twelve bids, Jaylen Waddle {{f.team.0007.faa_15284_price}}, Jameson Williams {{f.team.0007.faa_15756_price}} and Kenny Gainwell {{f.team.0007.faa_15255_price}}, part of {{f.team.0007.faa_lots_won}} wins that also included a punter, Ryan Eckley, for {{f.team.0007.faa_17664_price}}, whom Martel claimed in the chat as his punter while the bidding was still open.",
+     "What it bought: Jackson, the one Very good buy, and Waddle and Jameson Williams, two Good ones; the rest is bench depth. The league table ranks Sex Manther {{f.team.0007.faa_off_rank|ord}} of {{f.league.teams}} for how much the auction improved the offense, and with Caleb Williams in the superflex his quarterbacks rank {{f.team.0007.qb_rank|ord}} in the league.",
+     "The contracts that followed were long. Jackson signed for {{f.team.0007.contract_13593_years}} years at a TCV of {{f.team.0007.contract_13593_tcv}}, back-loaded: {{f.team.0007.contract_13593_salary}} this year and {{f.team.0007.contract_13593_next_salary}} in 2027. Waddle signed for {{f.team.0007.contract_15284_years}} years at {{f.team.0007.contract_15284_salary}} a year and Williams for {{f.team.0007.contract_15756_years}} at {{f.team.0007.contract_15756_salary}}. The room left over after the auction did not go to waste: in September Martel restructured Rice the other way, front-loading him to {{f.team.0007.contract_16194_salary_3}} this year and {{f.team.0007.contract_16194_next_salary_3}} in 2027. He claimed {{f.team.0007.pickups_s3}} players off waivers before week one, released Tucker and seven others at no cost, two taxi-squad players and five he had signed this offseason, and traded Gunnar Helm to The Long Haulers for a 2027 fifth, a {{f.team.0007.trade5_grade}} from the bot.",
+     "The lineup it built has {{f.team.0007.studs_today}} top-twelve starters, Jackson, Caleb Williams, Achane and Fannin, with Rice, Waddle and Jameson Williams solid at receiver, and {{f.team.0007.holes_today}} holes: Croskey-Merritt at the second running back spot and Odunze in a flex. Graded on MFL's projections the defense is a strength, Tuli Tuipulotu a High-end DL1, Julian Love a High-end DB1, and the rookie Dillon Thieneman already a starter. The kicker, Eddy Pineiro, is replacement-level.",
+     "Two starters are questionable for the opener, Odunze with a calf and Tuipulotu with a hip; neither is listed out, so the forecast plays them both. Tank Dell is on injured reserve into October, and Jayden Higgins, on the taxi squad, is out for the season."
+    ],
+    "place": [
+     "t.0007.faa",
+     "t.0007.faa_value",
+     "t.0007.moves_s3",
+     "t.0007.lineup",
+     "t.0007.injuries"
+    ],
+    "placeAt": {
+     "t.0007.faa": 0,
+     "t.0007.faa_value": 1,
+     "t.0007.moves_s3": 2,
+     "t.0007.lineup": 4,
+     "t.0007.injuries": 4
+    },
+    "views": {
+     "t.0007.faa": {
+      "cols": [
+       "player",
+       "pos",
+       "price",
+       "grade"
+      ],
+      "rows": 8,
+      "title": "Biggest buys"
+     },
+     "t.0007.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend",
+       "gain_share",
+       "bought"
+      ],
+      "labels": {
+       "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
+       "bought": "What it bought"
+      },
+      "title": "What every owner's auction money bought"
+     },
+     "t.0007.moves_s3": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail",
+       "grade"
+      ],
+      "stack": true,
+      "title": "From the auction to week one"
+     },
      "t.0007.lineup": {
       "cols": [
        "slot",
@@ -33,150 +158,72 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "Strongest legal lineup"
-     }
-    }
-   },
-   {
-    "id": "s2",
-    "lead": "",
-    "paragraphs": [
-     "In April he had {{f.team.0007.studs_opening}} studs — tied with C-Town for the most in the league at that point — only {{f.team.0007.holes_opening}} holes, and {{f.team.0007.cap_opening}} committed. It was a contender's roster.",
-     "Then he took it apart. By the auction lock committed salary had collapsed to {{f.team.0007.cap_preauction}}. Two of his {{f.team.0007.studs_opening}} studs were gone, and a fourth hole had opened. No team's starting offense fell further over those three months.",
-     "It was deliberate, and it cost him in the moment. Christian McCaffrey vacated the first back slot and Achane slid up into it, leaving Jonathon Brooks, a Replacement-level RB, in the second. George Kittle left the first offensive flex. And the superflex, the spot a second quarterback should hold, held a Replacement-level RB, Jacory Croskey-Merritt, in April and a Replacement-level TE, Oronde Gadsden, at the lock.",
-     "The auction put it back together. When it closed his studs were back up to {{f.team.0007.studs_postauction}} and his holes down to {{f.team.0007.holes_postauction}}, and his starting offense was more than half again as good as the one he took into it — and better than the one he had in April. Lamar Jackson took the top quarterback slot and pushed Caleb Williams into the superflex, one purchase that upgraded two slots. Jaylen Waddle and Jameson Williams filled two more.",
-     "He finished the offseason with a better offense than he started it with."
-    ],
-    "place": [
-     "t.0007.slot_bridge"
-    ],
-    "placeAt": {
-     "t.0007.slot_bridge": 0
-    },
-    "views": {
-     "t.0007.slot_bridge": {
-      "cols": [
-       "slot",
-       "open",
-       "pre",
-       "now"
-      ],
-      "stack": true,
-      "title": "Who filled each priced slot",
-      "labels": {
-       "open": "April",
-       "pre": "Before the auction",
-       "now": "After it"
-      }
-     }
-    }
-   },
-   {
-    "id": "s3",
-    "lead": "",
-    "paragraphs": [
-     "One buy at the Expired Rookie Auction, Sean Tucker for {{f.team.0007.era_spend}}, one of {{f.league.era_pool_size}} players sold there after their rookie deals ran out without a second one. He has since been discarded.",
-     "The Free Agent Auction is where the money went: {{f.team.0007.faa_lots_won}} players for {{f.team.0007.faa_spend}}. Lamar Jackson alone took {{f.team.0007.top_buy_price}}, which is {{f.team.0007.top_buy_pct_of_spend}} of that money and the identical figure he had been paying Christian McCaffrey. He swapped a running back's tag salary for an Elite QB1 at the same figure, on a back-loaded deal that charges him less than that this year. Jackson drew more bids than anyone else he bought, and Martel won him anyway.",
-     "Measured against the money, it was good business rather than great. He put {{f.team.0007.faa_off_spend}} into offense at the Free Agent Auction, and for what that money bought he ranks {{f.team.0007.faa_off_rank|ord}} of {{f.league.teams}}. C-Town Chivalry spent the identical sum and got more for it, and Blake Bombers got more while spending less.",
-     "Jaylen Waddle and Jameson Williams were sensible follow-ups. The mistake is Kenneth Gainwell, bought for real money and now sitting on the bench as a Replacement-level RB while a Replacement-level RB starts ahead of him in the lineup. That is the costliest buy where the plan and the outcome do not meet, and it is at the position ranked {{f.team.0007.rb_rank|ord}}.",
-     "Defense got {{f.team.0007.idp_auction_spend}} across both auctions, one of the smallest defensive budgets in the league, spread over Andrew Van Ginkel, Talanoa Hufanga and Demetrius Knight."
-    ],
-    "place": [
-     "t.0007.auction",
-     "t.0007.faa_value"
-    ],
-    "placeAt": {
-     "t.0007.auction": 1,
-     "t.0007.faa_value": 2
-    },
-    "views": {
-     "t.0007.auction": {
+      "title": "The lineup it built"
+     },
+     "t.0007.injuries": {
       "cols": [
        "player",
-       "pos",
-       "auction",
-       "price"
-      ],
-      "sortDesc": "price",
-      "rows": 5,
-      "title": "Biggest buys",
-      "labels": {
-       "auction": "Where"
-      }
-     },
-     "t.0007.faa_value": {
-      "cols": [
-       "rank",
-       "team",
-       "spend"
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
       ],
       "labels": {
-       "spend": "Spent on offense"
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
       },
-      "title": "Who got the most for his money"
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0007.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
+     "t.0007.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is this year's separated top, which is one man at some positions and nobody at others, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter depth anyone else who starts somewhere in the league, and Bench depth the rest."
     }
    },
    {
     "id": "s4",
-    "lead": "",
     "paragraphs": [
-     "{{f.team.0007.contracts_count}} contract moves, {{f.team.0007.trades_count}} trades, {{f.team.0007.roster_removals_total}} removals. The removals are the headline and they are savage.",
-     "Christian McCaffrey was tagged in May and cut in July with no penalty at all — the full salary came straight off his cap. Three days later Tyreek Hill went the same way at the same salary, this time with a penalty attached, and Tanner McKee with him. Between them, Hill's and McKee's releases are why {{f.team.0007.cuts_penalty_unstamped}} of cap penalty has no charge year yet — the largest such figure of any team, and a bill that is going to land somewhere.",
-     "The tag cost him nothing to walk away from, and the money became Lamar Jackson.",
-     "The contract sheet is busy and well judged. Rashee Rice and De'Von Achane were both extended in June, and both were later restructured. Achane's came the day before the auction lock and cut his current-year charge sharply, which is part of what paid for the auction; Rice's came a month after the auction closed and raised his. Those are four separate operations on two contracts.",
-     "The trades are all future-facing. He sold 2026 pick 1.10 to Blake Bombers for a 2027 first before the draft even started, sent George Kittle and {{f.team.0007.trade_blind_bid_cash}} of blind-bid money to the same partner for a 2027 second, and turned two mid-round picks into five from The Long Haulers in May.",
-     "That haul is also the weakness of the class. {{f.team.0007.rookie_picks_count}} picks, not one earlier than 3.11, and four of them defenders with no NFL season behind them yet. Volume, at slots where history says volume is mostly what you get."
+     "Martel arrived in {{f.team.0007.hist_first_season}}, and in {{f.team.0007.hist_seasons}} seasons he has built one of the league's best records: back-to-back titles in 2019 and 2020, runner-up in 2018 and 2025, {{f.team.0007.hist_div_titles}} division titles and {{f.team.0007.hist_playoffs}} playoff trips, and a {{f.team.0007.hist_allplay_pct}} career all-play record.",
+     "He drafted this division himself, and for the rivalry. Seated {{f.league.div_draft_captain_0007|ord}} among the captains, Martel had said in May that some captains would pick for fun rather than for the weakest team left, and then took Real Deal Creel {{f.league.div_draft_pick_0008|ord}} overall and doubled back for L.A. Looks {{f.league.div_draft_pick_0001|ord}}. Maddie Mondays is now the closest division in the simulation: Real Deal Creel {{f.league.p_division_0008}}, Sex Manther {{f.team.0007.sim_p_division}} and L.A. Looks {{f.league.p_division_0001}}, with {{f.team.0007.sim_p_playoffs}} playoff odds for Martel.",
+     "The byes fall his way. The division weeks are {{f.team.0007.div_weeks}}, and across all five he loses {{f.team.0007.div_week_own_byes}} starters to byes, L.A. Looks {{f.team.0007.div_week_byes_0001}} and Real Deal Creel {{f.team.0007.div_week_byes_0008}}. Week eight costs him only Pineiro, week eleven Fannin, Carson Schwesinger and Julian Love, and week fourteen, the last of the regular season, nobody at all, while L.A. Looks loses three Cowboys and Real Deal Creel loses Dak Prescott.",
+     "The next three years, Martel style. 2027: Lamar. Achane. Blake's first-round pick. The broom comes out 🧹 and the division is his. 2028: Real Deal Creel takes the division from him, and Martel reminds Real Deal Creel which of them has the rings. 2029: L.A. Looks takes Maddie Mondays, and Sex Manther watches the playoffs from home.",
+     "Week one is a division week. With {{f.league.wk_teams_final}} NFL teams done, Julian Love had an interception, Pineiro hit a long field goal, and Sex Manther has {{f.team.0007.wk_points_final}} points in the bank. Martel has already told Real Deal Creel, in reply to one of its week-one waiver claims, that none of it is going to be enough."
     ],
     "place": [
-     "t.0007.trades"
-    ],
-    "placeAt": {
-     "t.0007.trades": 4
-    },
-    "views": {
-     "t.0007.trades": {
-      "cols": [
-       "date",
-       "partner",
-       "gave",
-       "got"
-      ],
-      "stack": true,
-      "title": "Trades"
-     }
-    }
-   },
-   {
-    "id": "s5",
-    "lead": "",
-    "paragraphs": [
-     "He is {{f.team.0007.division_rank|ord}} of {{f.team.0007.division_size}} in his division, ahead of Real Deal Creel and L.A. Looks, and he plays each of them five times, starting this week. No division game has been decided yet, so that order is the power rankings rather than the standings, but both teams chasing him start the season below him.",
-     "Strongest team in the league? No — {{f.team.0007.composite_rank|ord}} of {{f.league.teams}}. Boldest offseason? Nobody took more salary off his roster before the auction. He cut Christian McCaffrey and Tyreek Hill, let his starting offense fall further than anyone's before the auction, and came out of it with a better one than he had in April and one of the two best quarterback rooms in the league.",
-     "The biggest advantage is Lamar Jackson and Caleb Williams, an Elite QB1 and a High-end QB1 in the same lineup. The biggest weakness is everything behind De'Von Achane at running back.",
-     "{{f.league.wk_teams_final}} NFL teams had played when this was written. His starter among them was Julian Love, who intercepted a pass and banked {{f.team.0007.wk_points_final}} points, the second-best return by any rostered player that night, on a minimum contract. One game, from one defender, and a long way from a verdict."
-    ],
-    "place": [
+     "t.0007.history",
      "t.0007.division",
+     "t.0007.division_weeks",
      "t.0007.week1"
     ],
     "placeAt": {
-     "t.0007.division": 0,
-     "t.0007.week1": 3
+     "t.0007.history": 0,
+     "t.0007.division": 1,
+     "t.0007.division_weeks": 2,
+     "t.0007.week1": 4
     },
     "views": {
+     "t.0007.history": {
+      "stack": true,
+      "title": "Owner history"
+     },
      "t.0007.division": {
-      "cols": [
-       "team",
-       "comp"
-      ],
-      "labels": {
-       "comp": "League rank"
-      },
+      "stack": true,
       "title": "The division"
+     },
+     "t.0007.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0007.week1": {
       "cols": [
@@ -199,22 +246,21 @@
     }
    }
   ],
+  "kicker": "Sex Manther · Josh Martel",
   "strip": [
    {
-    "fact": "f.team.0007.composite_rank",
+    "fact": "f.team.0007.power_rank",
     "ord": true,
     "of": "f.league.teams",
-    "label": "Overall"
+    "label": "Power rank"
    },
    {
-    "fact": "f.team.0007.studs_today",
-    "label": "Offensive studs",
-    "suffix": "of nine"
+    "fact": "f.team.0007.sim_p_playoffs",
+    "label": "Playoff odds"
    },
    {
-    "fact": "f.team.0007.holes_today",
-    "label": "Offensive holes",
-    "suffix": "of nine"
+    "fact": "f.team.0007.sim_p_title",
+    "label": "Title odds"
    },
    {
     "fact": "f.team.0007.auction_spend",
@@ -226,7 +272,7 @@
    }
   ],
   "card": {
-   "rankFact": "f.team.0007.composite_rank",
+   "rankFact": "f.team.0007.power_rank",
    "ofFact": "f.league.teams",
    "featured": false
   }

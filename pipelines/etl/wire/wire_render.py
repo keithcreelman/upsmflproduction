@@ -20,6 +20,7 @@ fabricated CLAIM, which is why the human review gate before draft->live exists
 and why there is no auto-publish path.
 """
 
+import json
 import re
 from datetime import datetime
 
@@ -342,6 +343,48 @@ def table_view(table, view, where, facts, proper):
     return out_cols, out_rows, title_html, bool(view.get("note")), stack
 
 
+def cell_text(col, v):
+    """(text, css class) for one table cell -- the article table and the front
+    page's lead table print a number exactly the same way."""
+    kind = col.get("type")
+    if kind == "usd":
+        return "$%s" % format(int(round(v)), ",d"), "wire-num"
+    if kind == "points":
+        # Fantasy points, NOT money. Margins and scores were typed "usd" and
+        # rendered as "$91" for a 91.3-point margin -- currency symbol on a
+        # football score, and the decimal truncated away. One decimal, no symbol.
+        return "%.1f" % float(v), "wire-num"
+    if kind == "count":
+        return format(int(v), ",d"), "wire-num"
+    if kind == "percent":
+        return "%.1f%%" % v, "wire-num"
+    return str(v), ""
+
+
+def lead_table_meta(pack, prose, facts, proper):
+    """The front page's lead table, as one line of JSON for the wire-meta block.
+
+    Keith 2026-09-11: "Front Page should have a blurb like you do followed by
+    Seasonal Forecast. Show me the Forecast ... as a table". The lead story's
+    `card.leadTable` names a pack table and a view of it; the index carries the
+    formatted cells so the shell can draw them without opening the article.
+    Same view rules and label audit as a table inside the article."""
+    lt = (prose.get("card") or {}).get("leadTable")
+    if not lt:
+        return ""
+    t = dict((x["id"], x) for x in pack["tables"]).get(lt.get("table"))
+    if not t:
+        raise RenderError("card.leadTable names unknown table %r" % lt.get("table"))
+    cols, rows, _, _, _ = table_view(t, lt, "card.leadTable", facts, proper)
+    blob = {"title": lt.get("title") or t.get("title") or "",
+            "columns": [c["label"] for c in cols],
+            "num": [cell_text(c, 0 if c.get("type") in ("usd", "points", "count", "percent") else "")[1] == "wire-num"
+                    for c in cols],
+            "rows": [[cell_text(c, v)[0] for c, v in zip(cols, r)] for r in rows]}
+    # One line, and nothing that can close the HTML comment it lives in.
+    return json.dumps(blob, ensure_ascii=True, separators=(",", ":")).replace("--", "\\u002d\\u002d")
+
+
 def render_table(table, caption_html=None, view=None):
     """`view` is the (columns, rows, title_html, show_note, stack) tuple from
     table_view, or None for the whole table exactly as the pack built it."""
@@ -355,21 +398,7 @@ def render_table(table, caption_html=None, view=None):
     for row in rows:
         cells = []
         for c, v in zip(cols, row):
-            kind = c.get("type")
-            if kind == "usd":
-                txt, cls = "$%s" % format(int(round(v)), ",d"), "wire-num"
-            elif kind == "points":
-                # Fantasy points, NOT money. Margins and scores were typed "usd"
-                # and rendered as "$91" for a 91.3-point margin -- currency
-                # symbol on a football score, and the decimal truncated away.
-                # One decimal, no symbol.
-                txt, cls = "%.1f" % float(v), "wire-num"
-            elif kind == "count":
-                txt, cls = format(int(v), ",d"), "wire-num"
-            elif kind == "percent":
-                txt, cls = "%.1f%%" % v, "wire-num"
-            else:
-                txt, cls = str(v), ""
+            txt, cls = cell_text(c, v)
             # data-label feeds the stacked phone layout (td::before), which
             # needs each cell to carry its own column name.
             cells.append('<td%s data-label="%s">%s</td>'
@@ -685,8 +714,34 @@ def render_sections(pack, prose):
             else:
                 tail.append(fig)
 
+        # Placed quotes. `quoteAt` puts a quote directly after the paragraph that
+        # sets it up (0-based), the way placeAt does for tables. The 2026-09-12
+        # review of the league article found every quote rendering at the end of
+        # its section, away from the sentence that introduced it -- one appeared
+        # twice and two had no setup at all. A position for a quote the section
+        # does not carry, or past its last paragraph, fails the build.
+        quote_at = s.get("quoteAt") or {}
+        stray_q = sorted(set(quote_at) - set(s.get("quotes") or []))
+        if stray_q:
+            raise RenderError("%s has a quoteAt for quote(s) it does not carry: %s"
+                              % (where, ", ".join(stray_q)))
+        # A quote answers the sentence before it, so it goes BEFORE any table
+        # placed after the same paragraph.
+        placed_quotes = set()
+        quotes_after = {}
+        for qid, k in quote_at.items():
+            if qid not in quotes:
+                raise RenderError("%s places unknown quote id %s" % (where, qid))
+            k = int(k)
+            if not 0 <= k < len(paras):
+                raise RenderError("%s places quote %s after paragraph %d, but it has %d"
+                                  % (where, qid, k, len(paras)))
+            quotes_after.setdefault(k, []).append(render_quote(quotes[qid]))
+            placed_quotes.add(qid)
+
         for i, para in enumerate(paras):
             body.append("<p>%s</p>" % para)
+            body.extend(quotes_after.get(i, []))
             body.extend(after.get(i, []))
 
         bullets = s.get("bullets") or []
@@ -736,6 +791,8 @@ def render_sections(pack, prose):
             body.append(render_playcard(cards[cid]))
 
         for qid in s.get("quotes") or []:
+            if qid in placed_quotes:
+                continue
             if qid not in quotes:
                 raise RenderError("%s places unknown quote id %s" % (where, qid))
             body.append(render_quote(quotes[qid]))
@@ -795,10 +852,11 @@ def render_article(pack, prose, meta):
     title_html = audit_and_substitute(title, "the title", facts, proper) if title else ""
     dek = audit_and_substitute(dek, "the dek", facts, proper) if dek else ""
     kpis = render_kpis(prose.get("strip") or [], facts, proper)
+    meta = dict(meta, leadTable=lead_table_meta(pack, prose, facts, proper))
 
     meta_lines = "\n".join("  %s: %s" % (k, meta.get(k, "")) for k in
                            ("familyId", "season", "week", "status", "publishedAt",
-                            "tags", "heroValue", "heroLabel", "order", "featured"))
+                            "tags", "heroValue", "heroLabel", "order", "featured", "leadTable"))
 
     # A byline a reader can use, not "built from 2026-team-0008 · league 74598".
     # The pack id and its timestamp are still in the wire-provenance comment.
@@ -860,6 +918,50 @@ def render_article(pack, prose, meta):
 </div>
 
 <script data-wire-runtime>
+/* Sortable tables. Keith 2026-09-12: "Make that table sortable by header."
+   Click or press Enter on a header to sort by it; click again to reverse.
+   Numbers, money, percentages and multipliers sort numerically, dates and
+   names as text. Whole rows move, so the phone layout's cell labels follow. */
+(function () {
+  function value(cell) {
+    var t = (cell ? cell.textContent : "").trim();
+    if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}/.test(t)) return t;
+    if (!/[0-9]/.test(t)) return t.toLowerCase();
+    var n = parseFloat(t.replace(/[^0-9.eE+-]/g, ""));
+    return isNaN(n) ? t.toLowerCase() : n;
+  }
+  function sortBy(table, index, dir) {
+    var body = table.tBodies[0];
+    if (!body) return;
+    var rows = Array.prototype.slice.call(body.rows);
+    rows.sort(function (a, b) {
+      var x = value(a.cells[index]), y = value(b.cells[index]);
+      if (typeof x === "number" && typeof y === "number") return dir * (x - y);
+      return dir * String(x).localeCompare(String(y));
+    });
+    rows.forEach(function (r) { body.appendChild(r); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("table"), function (table) {
+    var head = table.tHead && table.tHead.rows[0];
+    if (!head || !table.tBodies[0] || table.tBodies[0].rows.length < 3) return;
+    Array.prototype.forEach.call(head.cells, function (th, i) {
+      th.classList.add("wire-sortable");
+      th.tabIndex = 0;
+      th.setAttribute("role", "button");
+      th.title = "Sort by " + (th.textContent || "").trim();
+      function go() {
+        var dir = th.getAttribute("aria-sort") === "ascending" ? -1 : 1;
+        Array.prototype.forEach.call(head.cells, function (o) { o.removeAttribute("aria-sort"); });
+        th.setAttribute("aria-sort", dir === 1 ? "ascending" : "descending");
+        sortBy(table, i, dir);
+      }
+      th.addEventListener("click", go);
+      th.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+      });
+    });
+  });
+})();
 </script>
 </body>
 </html>

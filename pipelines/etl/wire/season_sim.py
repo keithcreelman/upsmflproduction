@@ -50,7 +50,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lineup_engine as LE  # noqa: E402
@@ -58,6 +58,34 @@ import lineup_engine as LE  # noqa: E402
 MFL = "https://www48.myfantasyleague.com/%d/export?TYPE=%s&L=74598&JSON=1%s"
 MFL_PLAYERS = "https://api.myfantasyleague.com/%d/export?TYPE=players&JSON=1"
 MFL_BYES = "https://api.myfantasyleague.com/%d/export?TYPE=nflByeWeeks&JSON=1"
+MFL_INJURIES = "https://api.myfantasyleague.com/%d/export?TYPE=injuries&JSON=1"   # no L=
+
+# KNOWN ABSENCES (Keith 2026-09-11: "review all injuries that have occurred
+# thus far. Sam Darnold no mention of injury and impact"). MFL's projections do
+# not price an injury on their own: the 2026-09-11 cache still projected Brock
+# Bowers (Out, meniscus) for week one and Darnold for weeks two to four. So the
+# forecast removes a player's projection for every week he is listed out:
+#   * MFL's injury feed, status Out / IR* / Suspended / Holdout / RETIRED, for
+#     every week whose Sunday falls before his expected-return DATE;
+#   * with no return date: IR is the NFL's four-game minimum, anything else
+#     the current week only;
+#   * Questionable and Doubtful change nothing -- most of them play;
+#   * REPORTED_ABSENCES: a reported absence MFL has not listed yet, each with
+#     its source. Remove an entry the moment MFL lists the player.
+ABSENT_STATUSES = ("Out", "IR", "IR-R", "IR-PUP", "IR-NFI", "Suspended", "Holdout", "RETIRED")
+NFL_IR_MIN_GAMES = 4
+WEEK1_SUNDAY = {2026: date(2026, 9, 13)}
+REPORTED_ABSENCES = {2026: {
+    "13592": {"weeks": [2], "status": "Reported out", "details": "Right hip",
+              "source": "Sam Darnold was hurt on Seattle's first drive of the opener (2026-09-09); NFL "
+                        "Network, 2026-09-10: expected to miss week 2. Not in MFL's injury feed as of "
+                        "2026-09-11 12:01 UTC."},
+    "14104": {"weeks": [2, 3, 4], "status": "Reported out", "details": "Right high-ankle sprain",
+              "source": "A.J. Brown left the opener (2026-09-09) in the third quarter with a right high-ankle "
+                        "sprain, MRI-confirmed 2026-09-10; NFL Network (Rapoport, via ESPN) reports at least four "
+                        "weeks, other reports three to six. Weeks 2-4 only are held out. Not in MFL's injury feed "
+                        "as of 2026-09-11 12:01 UTC."},
+}}
 
 # Calibration targets, measured on prod D1 2026-09-11 (regular season only):
 #   within-team-season variance of weekly team score, 2021-2025   943.2
@@ -74,10 +102,22 @@ def _as_list(v):
     return v if isinstance(v, list) else [v]
 
 
+# A LIVE FORECAST READS TODAY. The cache exists so a backtest can resume after
+# MFL's rate limit, but the 2026-09-12 forecast ran on a cache written the
+# morning before: rosters, projections and an injury feed that still had
+# Jonathan Greenard and Teddye Buchanan Questionable when MFL had them Out, while
+# the team reviews beside it showed them Out. run() sets the season; any cached
+# export for it older than LIVE_MAX_AGE_HOURS is fetched again.
+LIVE_SEASON = None
+LIVE_MAX_AGE_HOURS = 3
+
+
 def fetch(url, cache_dir=None):
     key = hashlib.sha1(url.encode()).hexdigest()[:16]
     path = os.path.join(cache_dir, key + ".json") if cache_dir else None
-    if path and os.path.exists(path):
+    stale = (path and LIVE_SEASON and "/%d/" % LIVE_SEASON in url and os.path.exists(path)
+             and time.time() - os.path.getmtime(path) > LIVE_MAX_AGE_HOURS * 3600)
+    if path and os.path.exists(path) and not stale:
         return json.load(open(path, encoding="utf-8"))
     req = urllib.request.Request(url, headers={"User-Agent": "ups-season-sim"})
     # A backtest pulls ~150 exports; MFL answers a burst with 429 and keeps
@@ -103,7 +143,7 @@ def fetch(url, cache_dir=None):
     return data
 
 
-def load_inputs(season, cache_dir=None, roster_week=None):
+def load_inputs(season, cache_dir=None, roster_week=None, include_ir=False):
     """roster_week=None is today's roster; the backtest passes 1 for the roster a
     past season actually opened with (MFL serves real point-in-time rosters for
     2021+: 2025's week-1 and week-14 rosters differ by 354 players)."""
@@ -114,7 +154,7 @@ def load_inputs(season, cache_dir=None, roster_week=None):
     teams = {f["id"]: {"name": f.get("name"), "division": f.get("division")} for f in fr}
     pos = {p["id"]: p.get("position") for p in fetch(MFL_PLAYERS % season, cache_dir)["players"]["player"]}
 
-    rosters, rostered = {}, set()
+    rosters, rostered, ir_pids = {}, set(), set()
     rw = "&W=%d" % roster_week if roster_week else ""
     for f in _as_list(fetch(MFL % (season, "rosters", rw), cache_dir)["rosters"]["franchise"]):
         rows = []
@@ -122,7 +162,15 @@ def load_inputs(season, cache_dir=None, roster_week=None):
             if not p:
                 continue
             rostered.add(p["id"])          # any status: taxi and IR are not free agents
-            if p.get("status") != "ROSTER":
+            # IR PLAYERS COME BACK. The first version dropped every injured-reserve
+            # player for all fourteen weeks, return date or not: Josh Jacobs, back in
+            # week three with 171 projected points, never started for HammerTime
+            # (the 2026-09-12 review measured 3.9 points a week). The live forecast
+            # now keeps them in the pool and lets absences() zero the weeks they miss;
+            # the backtest does not, because MFL's injury feed only knows today.
+            if p.get("status") == "INJURED_RESERVE" and include_ir:
+                ir_pids.add(p["id"])
+            elif p.get("status") != "ROSTER":
                 continue
             rows.append({"pid": p["id"], "pos": pos.get(p["id"], ""), "is_taxi": False, "is_ir": False})
         rosters[f["id"]] = rows
@@ -142,7 +190,7 @@ def load_inputs(season, cache_dir=None, roster_week=None):
         if not proj[wk]:
             raise SystemExit("season_sim: MFL returned no projections for week %d -- refusing to "
                              "simulate a week as if everyone scores zero" % wk)
-    return league, teams, rosters, sched, proj, reg_end, end, pos, rostered
+    return league, teams, rosters, sched, proj, reg_end, end, pos, rostered, ir_pids
 
 
 # REPLACEMENT LEVEL. The first run left thin rosters' dead slots dead for all
@@ -196,16 +244,31 @@ def replacement_levels(proj, pos, rostered, end, reg_end):
             for wk in range(1, end + 1)}
 
 
-def weekly_projections(rosters, proj, end, rep=None):
-    """({fid: {week: projected points of the best legal lineup}}, {fid: replacement slot-weeks}).
+# WHERE A TEAM'S POINTS COME FROM. Keith 2026-09-12, on Cleon Ca$h ranking 8th
+# with the third-best offense: "This tells me something is wrong with the
+# forecast because defense isn't that big of a factor based on your prior
+# analysis." It is a fair challenge and the answer is in the slots: nine of the
+# eighteen a team starts are defenders, a kicker and a punter. The tier study is
+# still right that the TOP of defense is flat -- you cannot buy an edge there --
+# but a team can be short at all nine at once, and this split shows who is.
+SLOT_SIDES = {"O": ("QB1", "RB1", "RB2", "WR1", "WR2", "TE1", "OF1", "OF2", "SF1"),
+              "D": ("DL1", "DL2", "LB1", "LB2", "DB1", "DB2", "DF1"),
+              "K": ("PK1", "PN1")}
+
+
+def weekly_projections(rosters, proj, end, rep=None, reg_end=None):
+    """({fid: {week: projected points of the best legal lineup}},
+        {fid: replacement slot-weeks},
+        {fid: {"O"/"D"/"K": projected points a week from those slots}}).
 
     The pool is the active roster plus replacement-level bodies (see
     REPLACEMENT_RANK_BY_GROUP); a replacement only starts where it beats every eligible
     rostered player, and each start is counted so the reviews can say how often
     a team is leaning on the wire."""
-    out, fills = {}, {}
+    out, fills, parts = {}, {}, {}
     for fid, rows in rosters.items():
         out[fid], fills[fid] = {}, 0
+        parts[fid] = {"O": 0.0, "D": 0.0, "K": 0.0}
         for wk in range(1, end + 1):
             pw = dict(proj[wk])
             pool = list(rows)
@@ -218,7 +281,16 @@ def weekly_projections(rosters, proj, end, rep=None):
             slots = LE.fill_slots(pool, lambda r, pw=pw: pw.get(r["pid"], 0.0))
             out[fid][wk] = sum(pw.get(pid, 0.0) for pid in slots.values() if pid)
             fills[fid] += sum(1 for pid in slots.values() if pid and pid.startswith("REP:"))
-    return out, fills
+            # The split must cover the SAME weeks as the total it sits beside
+            # (weeks 1 to the end of the regular season). The first version
+            # averaged 1-17 against a 1-14 total, so no row of the table added up.
+            if wk <= (reg_end or end):
+                for side, ids in SLOT_SIDES.items():
+                    parts[fid][side] += sum(pw.get(slots.get(sid), 0.0) for sid in ids if slots.get(sid))
+    for fid in parts:
+        for side in parts[fid]:
+            parts[fid][side] = round(parts[fid][side] / float(reg_end or end), 1)
+    return out, fills, parts
 
 
 # REGRESSION TO THE MEAN (Keith 2026-09-11: "there probably needs to be some
@@ -271,10 +343,18 @@ def _div_winner_key(t):
     return (-t["pct"], -t["divpct"], -t["pf"], -t["ap_pct"])
 
 
-def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True):
+def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None):
     fids = sorted(teams)
     agg = {f: {"h2h_w": 0.0, "ap_pct": 0.0, "div": 0, "po": 0, "bye": 0, "title": 0, "runner": 0,
-               "ap_rank": [0] * len(fids)} for f in fids}
+               "ap_rank": [0] * len(fids), "ap_samples": []} for f in fids}
+    # THE SHAPE OF A SEASON, not just its average. Keith 2026-09-12: "i need to
+    # see a more realistic regular season. You can show 'Averages' as a baseline
+    # but then also show the more league-shaped result." A team's MEAN all-play
+    # across 20,000 seasons is compressed by construction -- the good and the bad
+    # cancel -- so the table also needs what one season looks like: each team's
+    # own spread, and the all-play that lands at each finishing place.
+    shape_by_finish = [0.0] * len(fids)
+    champ_ap_rank = [0] * len(fids)
     ap_var_sum = 0.0
     for _ in range(runs):
         shock = {f: rng.gauss(0, sigma_s) for f in fids}
@@ -306,6 +386,9 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         ap_var_sum += sum((x - m) ** 2 for x in aps) / len(aps)
         for f in fids:
             agg[f]["ap_pct"] += st[f]["ap_pct"]
+            agg[f]["ap_samples"].append(st[f]["ap_pct"])
+        for i, f in enumerate(sorted(fids, key=lambda f2: (-st[f2]["ap_pct"], -st[f2]["pf"]))):
+            shape_by_finish[i] += st[f]["ap_pct"]
         if not collect:
             continue
 
@@ -330,7 +413,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         champ = play(f1, f2, min(end, reg_end + 3))
         runner = f2 if champ == f1 else f1
 
-        for i, f in enumerate(sorted(fids, key=lambda f: -st[f]["ap_pct"])):
+        for i, f in enumerate(sorted(fids, key=lambda f: (-st[f]["ap_pct"], -st[f]["pf"]))):
             agg[f]["ap_rank"][i] += 1
         for f in fids:
             agg[f]["h2h_w"] += rec[f]["w"] + 0.5 * rec[f]["t"]
@@ -342,6 +425,17 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             agg[f]["bye"] += 1
         agg[champ]["title"] += 1
         agg[runner]["runner"] += 1
+        champ_ap_rank[sorted(fids, key=lambda f2: (-st[f2]["ap_pct"], -st[f2]["pf"])).index(champ)] += 1
+        # Diagnostics (inert in production): one call per simulated season, so a
+        # caller can ask what the CHAMPION's realized all-play looks like rather
+        # than what a team's mean is. Keith 2026-09-12: ".598 for a league
+        # champion feels low ... which might make sense since this is the mean".
+        if hook is not None:
+            hook(st, champ, runner, seeds)
+    for f in fids:
+        agg[f]["ap_samples"].sort()
+    agg["_shape"] = {"byFinish": [x / runs for x in shape_by_finish],
+                     "champApRank": [x / runs for x in champ_ap_rank]}
     return agg, ap_var_sum / runs
 
 
@@ -381,9 +475,48 @@ def preseason_view(proj, season, cache_dir, end):
             for wk in range(1, end + 1)}
 
 
-def prepare(season, cache_dir=None, roster_week=None, projections="weekly"):
+def absences(season, cache_dir, end):
+    """{pid: {weeks, status, details, returns, source}} -- the weeks a player will
+    not play, per the rules at ABSENT_STATUSES. Fails closed on a season with no
+    week-one Sunday on file rather than guessing the calendar."""
+    if season not in WEEK1_SUNDAY:
+        raise SystemExit("season_sim: no WEEK1_SUNDAY for %s -- add it before simulating injuries" % season)
+    feed = fetch(MFL_INJURIES % season, cache_dir)["injuries"]
+    cur = int(feed.get("week") or 1)
+    sun1 = WEEK1_SUNDAY[season]
+    out = {}
+    for r in _as_list(feed.get("injury")):
+        st = r.get("status") or ""
+        if st not in ABSENT_STATUSES:
+            continue
+        ret = r.get("exp_return") or ""
+        if ret:
+            back = datetime.strptime(ret, "%b %d, %Y").date()
+            weeks = [w for w in range(cur, end + 1) if sun1 + timedelta(days=7 * (w - 1)) < back]
+            # Listed OUT means out this week, whatever the return date says:
+            # Brock Bowers (Out, meniscus) carried a return date of the week-one
+            # Sunday and was otherwise projected to play the game he will miss.
+            weeks = sorted(set(weeks) | {cur})
+        elif st.startswith("IR"):
+            weeks = list(range(cur, min(end, cur + NFL_IR_MIN_GAMES - 1) + 1))
+        else:
+            weeks = [cur]
+        if weeks:
+            out[r["id"]] = {"weeks": weeks, "status": st, "details": r.get("details") or "",
+                            "returns": ret, "source": "MFL injuries export (week %d)" % cur}
+    for pid, a in REPORTED_ABSENCES.get(season, {}).items():
+        have = out.get(pid)
+        out[pid] = {"weeks": sorted(set(a["weeks"]) | set((have or {}).get("weeks") or [])),
+                    "status": (have or {}).get("status") or a["status"],
+                    "details": (have or {}).get("details") or a["details"],
+                    "returns": (have or {}).get("returns") or "", "source": a["source"]}
+    return out
+
+
+def prepare(season, cache_dir=None, roster_week=None, projections="weekly", injuries=False):
     """Everything that does not depend on the regression dial."""
-    league, teams, rosters, sched, proj, reg_end, end, pos, rostered = load_inputs(season, cache_dir, roster_week)
+    league, teams, rosters, sched, proj, reg_end, end, pos, rostered, ir_pids = load_inputs(
+        season, cache_dir, roster_week, include_ir=injuries)
     games = {}
     for wk, ms in sched.items():
         for a, b in ms:
@@ -392,10 +525,55 @@ def prepare(season, cache_dir=None, roster_week=None, projections="weekly"):
         raise SystemExit("season_sim: expected 37 regular-season games per team, got %s" % sorted(set(games.values())))
     if projections == "preseason":
         proj = preseason_view(proj, season, cache_dir, end)
+    # Only the live forecast takes injuries: a backtest must see what MFL said
+    # at the time, and the feed only knows today.
+    absent = absences(season, cache_dir, end) if injuries else {}
+    # An IR player the injury feed does not list still cannot play: hold him out
+    # for the NFL's four-game minimum rather than start him in week one. No
+    # fail-open -- an unlisted IR player is absent, not healthy.
+    if ir_pids:
+        _cur = int((fetch(MFL_INJURIES % season, cache_dir)["injuries"] or {}).get("week") or 1)
+        for pid in ir_pids:
+            if pid not in absent:
+                absent[pid] = {"weeks": list(range(_cur, min(end, _cur + NFL_IR_MIN_GAMES - 1) + 1)),
+                               "status": "IR (not on the injury feed)", "details": "",
+                               "returns": "", "source": "MFL rosters export: INJURED_RESERVE"}
+    for pid, a in absent.items():
+        for wk in a["weeks"]:
+            (proj.get(wk) or {}).pop(pid, None)
     rep = replacement_levels(proj, pos, rostered, end, reg_end)
-    wp_raw, fills = weekly_projections(rosters, proj, end, rep)
+    wp_raw, fills, parts = weekly_projections(rosters, proj, end, rep, reg_end=reg_end)
     return {"league": league, "teams": teams, "sched": sched, "reg_end": reg_end, "end": end,
-            "games": games, "wp_raw": wp_raw, "fills": fills}
+            "games": games, "wp_raw": wp_raw, "fills": fills, "parts": parts, "proj": proj, "pos": pos,
+            "absent": dict((p, a) for p, a in absent.items() if p in rostered)}
+
+
+SEASON_PROJ_GROUPS = ("PK", "PN", "DL", "LB", "DB")
+
+
+def season_projections(proj, pos, end, groups=SEASON_PROJ_GROUPS):
+    """{pid: {pos, seasonProj, rank}} for every kicker, punter and defender MFL
+    projects.
+
+    Keith 2026-09-11: "MFL has kicker forecasts for this season, let's use that
+    as our source of truth." The team reviews had no source for K/P at all and
+    printed "no ranking source (salary-filled)" in every lineup. Then, on the
+    defenders graded from last season's production: "Isn't IDP based on
+    projected season finish? No prior season shouldn't matter" -- a rookie or a
+    returning veteran printed "no prior-season production" instead of a grade.
+    The season total is weeks 1..end summed, byes included, and the rank is
+    league-wide at the position, rostered or not -- the same basis the tier
+    labels use."""
+    out = {}
+    for g in groups:
+        tot = {}
+        for wk in range(1, end + 1):
+            for pid, pts in proj[wk].items():
+                if LE.pos_group(pos.get(pid, "")) == g:
+                    tot[pid] = tot.get(pid, 0.0) + pts
+        for i, pid in enumerate(sorted(tot, key=lambda p: (-tot[p], p)), 1):
+            out[pid] = {"pos": g, "seasonProj": round(tot[pid], 1), "rank": i}
+    return out
 
 
 def fit(prep, k, runs, seed, collect=True):
@@ -491,12 +669,18 @@ def backtest(seasons, ks, runs, seed, cache_dir, projections="preseason"):
 
 
 def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
-    prep = prepare(season, cache_dir)
+    global LIVE_SEASON
+    LIVE_SEASON = season
+    prep = prepare(season, cache_dir, injuries=True)
     league, teams, games, fills, wp_raw = prep["league"], prep["teams"], prep["games"], prep["fills"], prep["wp_raw"]
+    parts = prep["parts"]
     reg_end, end = prep["reg_end"], prep["end"]
     res = fit(prep, k, runs, seed)
     wp, proj_var, sigma_w, sigma_s = res["wp"], res["proj_var"], res["sigma_w"], res["sigma_s"]
     table, agg, ap_var = res["table"], res["agg"], res["ap_var"]
+
+    def _pctl(xs, p):
+        return xs[min(len(xs) - 1, int(p * len(xs)))] if xs else 0.0
 
     rows = []
     for f in sorted(teams):
@@ -507,7 +691,13 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
             "projWeekly": round(sum(wp_raw[f][w] for w in range(1, reg_end + 1)) / reg_end, 1),
             "projWeeklyRegressed": round(sum(wp[f][w] for w in range(1, reg_end + 1)) / reg_end, 1),
             "waiverFillSlotWeeks": fills.get(f, 0),
+            "projWeeklyOffense": (parts.get(f) or {}).get("O", 0.0),
+            "projWeeklyDefense": (parts.get(f) or {}).get("D", 0.0),
+            "projWeeklyKicking": (parts.get(f) or {}).get("K", 0.0),
             "expAllPlayPct": round(exp_ap, 4),
+            "apP10": round(_pctl(a["ap_samples"], 0.10), 4),
+            "apP50": round(_pctl(a["ap_samples"], 0.50), 4),
+            "apP90": round(_pctl(a["ap_samples"], 0.90), 4),
             "expWins": round(a["h2h_w"] / runs, 1), "games": games.get(f, 0),
             "pDivision": round(a["div"] / runs, 4), "pPlayoffs": round(a["po"] / runs, 4),
             "pBye": round(a["bye"] / runs, 4), "pTitle": round(a["title"] / runs, 4),
@@ -528,7 +718,15 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
                   "replacementRankByGroup": REPLACEMENT_RANK_BY_GROUP,
                   "divisionTiebreak": league.get("standingsSort")},
         "powerRankBasis": "expected regular-season all-play %, schedule-neutral",
+        # What one simulated season looks like: the all-play that lands at each
+        # finishing place, and where the champion finished in all-play.
+        "seasonShape": {"byFinish": [round(x, 4) for x in agg["_shape"]["byFinish"]],
+                        "champApRank": [round(x, 4) for x in agg["_shape"]["champApRank"]]},
         "teams": rows,
+        "seasonProjections": {"weeks": [1, end], "groups": list(SEASON_PROJ_GROUPS),
+                              "players": season_projections(prep["proj"], prep["pos"], end)},
+        # Rostered players the forecast holds out, and for which weeks.
+        "absences": prep["absent"],
     }
     if out_path:
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
