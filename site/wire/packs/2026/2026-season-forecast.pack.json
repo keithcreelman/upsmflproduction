@@ -2,19 +2,19 @@
   "schema": 1,
   "packId": "2026-season-forecast",
   "title": "The 2026 Season Forecast",
-  "generatedAtUtc": "2026-09-12T17:49:12Z",
+  "generatedAtUtc": "2026-09-12T19:22:51Z",
   "season": 2026,
   "week": null,
   "sources": [
     {
       "name": "D1 ups_owner_career_stats (each owner's documented record)",
-      "asof": "2026-09-12T17:49:05Z",
+      "asof": "2026-09-12T19:22:46Z",
       "rows": 12,
       "note": null
     },
     {
       "name": "MFL league export (divisions)",
-      "asof": "2026-09-12T17:49:05Z",
+      "asof": "2026-09-12T19:22:46Z",
       "rows": 4,
       "note": null
     },
@@ -25,14 +25,20 @@
       "note": null
     },
     {
+      "name": "site/wire/data/forecast_backtest_2021_2025.json -- 2021-2025 replayed through season_sim.py from cached MFL exports",
+      "asof": "2026-09-12T17:40:00Z",
+      "rows": 60,
+      "note": "Each season 2021-2025 replayed with pipelines/etl/wire/season_sim.py (prepare + fit) run offline from cached MFL exports: that season's week-1 rosters, MFL's week-1 projections carried through the season with each player zeroed on his NFL bye, no injury hold-outs, 1,500 simulated seasons, seed 20260911, k = 0.7. Projected all-play is compared with actual regular-season all-play for weeks 1-14 from MFL weeklyResults, which matches D1 src_standings.allplay_regseason for all 60 team-seasons. Final finishes and owners are D1 src_final_standings / src_standings. Built by the 2026-09-12 forecast review; every recorded backtest figure in season_sim.py reproduced exactly."
+    },
+    {
       "name": "site/wire/data/season_sim_2026.json -- preseason Monte Carlo over MFL's weekly projections",
-      "asof": "2026-09-12T16:34:51Z",
+      "asof": "2026-09-12T18:57:32Z",
       "rows": 12,
       "note": "20000 seasons; each team's projected edge kept at 70% (backtested 2021-2025); power rank = expected regular-season all-play %"
     },
     {
       "name": "the twelve 2026 team-review packs (starters, money and lineup value)",
-      "asof": "2026-09-12T17:49:05Z",
+      "asof": "2026-09-12T19:22:46Z",
       "rows": 12,
       "note": null
     }
@@ -46,8 +52,7 @@
     "currentSeasonPartial": true
   },
   "warnings": [
-    "The forecast is a SIMULATION of today's rosters on MFL's weekly projections, regressed toward the league (backtested on 2021-2025: it explained about 40%% of the spread in final all-play, but ranked the field at only .3 to .4 in each of the last three seasons). Say 'projected' and 'odds', never 'will'. It cannot see trades, waiver moves, injuries after the build, or lineup choices.",
-    "Every team plays each division rival five times in the 37-game schedule -- that is never news."
+    "The forecast simulates today's rosters on MFL's weekly projections, with each team's edge pulled back toward the league average. Replayed on 2021-2025 it explained about 40% of the spread in final all-play, but its rank correlation was only .31 to .42 in each of the last three seasons, and this year's projections are flatter than any season it was tested on. It cannot see trades, waiver moves, injuries after the build or lineup choices, and future injuries appear only as random noise."
   ],
   "entities": {
     "owners": [
@@ -201,7 +206,7 @@
       "unit": "percent",
       "fmt": "31.2%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.ap_leader_titles",
@@ -210,7 +215,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.auction_lots",
@@ -219,7 +224,7 @@
       "unit": "count",
       "fmt": "196",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.auction_spend",
@@ -228,7 +233,151 @@
       "unit": "usd",
       "fmt": "$1,352,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
+    },
+    {
+      "id": "f.league.bt_inside_band",
+      "label": "Team-seasons that finished inside their own big-year to bad-year range, edges included as printed",
+      "value": 48,
+      "unit": "count",
+      "fmt": "48",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_r2",
+      "label": "Share of the spread in final all-play the backtest explained",
+      "value": 40.1,
+      "unit": "percent",
+      "fmt": "40.1%",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_rho_2021",
+      "label": "Rank correlation, projection against finish, 2021",
+      "value": 0.895,
+      "unit": "ratio",
+      "fmt": "0.90",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_rho_2022",
+      "label": "Rank correlation, projection against finish, 2022",
+      "value": 0.867,
+      "unit": "ratio",
+      "fmt": "0.87",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_rho_2023",
+      "label": "Rank correlation, projection against finish, 2023",
+      "value": 0.42,
+      "unit": "ratio",
+      "fmt": "0.42",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_rho_2024",
+      "label": "Rank correlation, projection against finish, 2024",
+      "value": 0.308,
+      "unit": "ratio",
+      "fmt": "0.31",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_rho_2025",
+      "label": "Rank correlation, projection against finish, 2025",
+      "value": 0.343,
+      "unit": "ratio",
+      "fmt": "0.34",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_rmse",
+      "label": "Typical miss in all-play points, backtest",
+      "value": 11.8,
+      "unit": "ratio",
+      "fmt": "11.8",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_rmse_500",
+      "label": "Typical miss in all-play points calling every team .500",
+      "value": 15.3,
+      "unit": "ratio",
+      "fmt": "15.3",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_sd_low_pre",
+      "label": "Smallest spread of projected all-play in a tested season (preseason)",
+      "value": 9.37,
+      "unit": "ratio",
+      "fmt": "9.4",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_sd_low_weekly",
+      "label": "Smallest spread of projected all-play in a tested season (weekly)",
+      "value": 7.4,
+      "unit": "ratio",
+      "fmt": "7.4",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_sd_now",
+      "label": "Spread of projected all-play in this year's published forecast",
+      "value": 5.9,
+      "unit": "ratio",
+      "fmt": "5.9",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.league.bt_sd_now_pre",
+      "label": "Spread of projected all-play this year on week-one projections",
+      "value": 7.2,
+      "unit": "ratio",
+      "fmt": "7.2",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_shock_high_pre",
+      "label": "Largest season-long luck fitted in a tested season (preseason)",
+      "value": 11.22,
+      "unit": "ratio",
+      "fmt": "11.2",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_shock_high_weekly",
+      "label": "Largest season-long luck fitted in a tested season (weekly)",
+      "value": 12.92,
+      "unit": "ratio",
+      "fmt": "12.9",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
+    },
+    {
+      "id": "f.league.bt_team_seasons",
+      "label": "Team-seasons in the backtest",
+      "value": 60,
+      "unit": "count",
+      "fmt": "60",
+      "source": "forecast backtest 2021-2025",
+      "asof": "2026-09-12T17:40:00Z"
     },
     {
       "id": "f.league.cap_committed",
@@ -237,7 +386,7 @@
       "unit": "usd",
       "fmt": "$3,470,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.cap_opening",
@@ -246,7 +395,7 @@
       "unit": "usd",
       "fmt": "$2,156,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.cap_room",
@@ -255,7 +404,7 @@
       "unit": "usd",
       "fmt": "$130,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.champ_top3_real",
@@ -264,43 +413,43 @@
       "unit": "percent",
       "fmt": "75.0%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.champ_top3_sim",
       "label": "Simulated champions who came from the top three in all-play",
-      "value": 77.1,
+      "value": 76.8,
       "unit": "percent",
-      "fmt": "77.1%",
+      "fmt": "76.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_dogpound4life_allplay",
       "label": "DOG POUND 4 LIFE: mean projected all-play",
-      "value": 51.6,
+      "value": 51.2,
       "unit": "percent",
-      "fmt": "51.6%",
+      "fmt": "51.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_dogpound4life_playoff_spots",
       "label": "DOG POUND 4 LIFE: expected playoff spots of the six",
-      "value": 1.57,
+      "value": 1.54,
       "unit": "ratio",
-      "fmt": "1.57",
+      "fmt": "1.54",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_dogpound4life_title",
       "label": "DOG POUND 4 LIFE: combined title odds",
-      "value": 30.8,
+      "value": 27.9,
       "unit": "percent",
-      "fmt": "30.8%",
+      "fmt": "27.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_draft_captain_0002",
@@ -413,29 +562,29 @@
     {
       "id": "f.league.div_legionofboom_allplay",
       "label": "LEGION OF BOOM: mean projected all-play",
-      "value": 47.8,
+      "value": 47.5,
       "unit": "percent",
-      "fmt": "47.8%",
+      "fmt": "47.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_legionofboom_playoff_spots",
       "label": "LEGION OF BOOM: expected playoff spots of the six",
-      "value": 1.4,
+      "value": 1.38,
       "unit": "ratio",
-      "fmt": "1.40",
+      "fmt": "1.38",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_legionofboom_title",
       "label": "LEGION OF BOOM: combined title odds",
-      "value": 19.1,
+      "value": 19.3,
       "unit": "percent",
-      "fmt": "19.1%",
+      "fmt": "19.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_maddiemondays_allplay",
@@ -444,7 +593,7 @@
       "unit": "percent",
       "fmt": "48.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_maddiemondays_playoff_spots",
@@ -453,43 +602,43 @@
       "unit": "ratio",
       "fmt": "1.41",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_maddiemondays_title",
       "label": "Maddie Mondays: combined title odds",
-      "value": 20.1,
+      "value": 20.7,
       "unit": "percent",
-      "fmt": "20.1%",
+      "fmt": "20.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_outlastpgtime_allplay",
       "label": "Outlast PG Time: mean projected all-play",
-      "value": 52.5,
+      "value": 53.1,
       "unit": "percent",
-      "fmt": "52.5%",
+      "fmt": "53.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_outlastpgtime_playoff_spots",
       "label": "Outlast PG Time: expected playoff spots of the six",
-      "value": 1.63,
+      "value": 1.67,
       "unit": "ratio",
-      "fmt": "1.63",
+      "fmt": "1.67",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.div_outlastpgtime_title",
       "label": "Outlast PG Time: combined title odds",
-      "value": 30.0,
+      "value": 32.1,
       "unit": "percent",
-      "fmt": "30.0%",
+      "fmt": "32.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.faa_spend",
@@ -498,7 +647,7 @@
       "unit": "usd",
       "fmt": "$1,315,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -507,7 +656,7 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.free_db",
@@ -516,7 +665,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "MFL rosters + season projections",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.free_kickers",
@@ -525,7 +674,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "MFL rosters + season projections",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.free_offense",
@@ -534,7 +683,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "MFL rosters + live redraft board",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.free_punters",
@@ -543,7 +692,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "MFL rosters + season projections",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.holes_opening",
@@ -552,7 +701,7 @@
       "unit": "count",
       "fmt": "51",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.holes_today",
@@ -561,16 +710,16 @@
       "unit": "count",
       "fmt": "29",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.injured_starters",
       "label": "Starters the forecast holds out of week one",
-      "value": 7,
+      "value": 5,
       "unit": "count",
-      "fmt": "7",
+      "fmt": "5",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.lineup_value_current",
@@ -579,7 +728,7 @@
       "unit": "count",
       "fmt": "380,665",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.lineup_value_opening",
@@ -588,7 +737,7 @@
       "unit": "count",
       "fmt": "283,202",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.lineup_value_postauction",
@@ -597,7 +746,7 @@
       "unit": "count",
       "fmt": "382,118",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.lineup_value_preauction",
@@ -606,7 +755,7 @@
       "unit": "count",
       "fmt": "295,942",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.no_lineup_opening",
@@ -615,7 +764,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.pickups",
@@ -624,7 +773,7 @@
       "unit": "count",
       "fmt": "42",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.rookie_picks",
@@ -633,7 +782,7 @@
       "unit": "count",
       "fmt": "72",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.seasons_measured",
@@ -642,7 +791,7 @@
       "unit": "count",
       "fmt": "16",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.shape_first_real",
@@ -651,7 +800,7 @@
       "unit": "percent",
       "fmt": "73.3%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.shape_first_sim",
@@ -660,7 +809,7 @@
       "unit": "percent",
       "fmt": "75.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.shape_last_real",
@@ -669,7 +818,7 @@
       "unit": "percent",
       "fmt": "22.9%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.sim_games",
@@ -678,7 +827,16 @@
       "unit": "count",
       "fmt": "37",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.league.sim_regress",
+      "label": "Share of each team's projected edge the forecast keeps",
+      "value": 70,
+      "unit": "percent",
+      "fmt": "70.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.sim_runs",
@@ -687,7 +845,16 @@
       "unit": "count",
       "fmt": "20,000",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.league.sim_shock",
+      "label": "Season-long luck, one standard deviation, in points a week",
+      "value": 14.0,
+      "unit": "ratio",
+      "fmt": "14.0",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.studs_today",
@@ -696,7 +863,7 @@
       "unit": "count",
       "fmt": "46",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.teams",
@@ -714,7 +881,7 @@
       "unit": "percent",
       "fmt": "8.3%",
       "source": "twelve teams",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.value_gap_current",
@@ -723,7 +890,7 @@
       "unit": "ratio",
       "fmt": "2.48x",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.league.value_gap_opening",
@@ -732,7 +899,7 @@
       "unit": "ratio",
       "fmt": "4.74x",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0001.allplay_career",
@@ -741,7 +908,7 @@
       "unit": "percent",
       "fmt": "54.9%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0001.power_rank",
@@ -750,61 +917,79 @@
       "unit": "rank",
       "fmt": "11",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0001.sim_exp_allplay",
       "label": "Projected regular-season all-play %: L.A. Looks",
-      "value": 43.0,
+      "value": 43.5,
       "unit": "percent",
-      "fmt": "43.0%",
+      "fmt": "43.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0001.sim_exp_wins",
       "label": "Projected head-to-head wins: L.A. Looks",
-      "value": 15.9,
+      "value": 16.1,
       "unit": "ratio",
-      "fmt": "15.9",
+      "fmt": "16.1",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0001.sim_p_bye",
       "label": "First-round bye odds: L.A. Looks",
-      "value": 7.0,
+      "value": 7.6,
       "unit": "percent",
-      "fmt": "7.0%",
+      "fmt": "7.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0001.sim_p_division",
       "label": "Division odds: L.A. Looks",
-      "value": 21.2,
+      "value": 22.2,
       "unit": "percent",
-      "fmt": "21.2%",
+      "fmt": "22.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0001.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: L.A. Looks",
+      "value": 14.2,
+      "unit": "percent",
+      "fmt": "14.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0001.sim_p_playoffs",
       "label": "Playoff odds: L.A. Looks",
-      "value": 32.9,
+      "value": 34.0,
       "unit": "percent",
-      "fmt": "32.9%",
+      "fmt": "34.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0001.sim_p_title",
       "label": "Title odds: L.A. Looks",
-      "value": 2.6,
+      "value": 2.8,
       "unit": "percent",
-      "fmt": "2.6%",
+      "fmt": "2.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0001.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: L.A. Looks",
+      "value": 12.4,
+      "unit": "percent",
+      "fmt": "12.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0002.allplay_career",
@@ -813,7 +998,7 @@
       "unit": "percent",
       "fmt": "59.4%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0002.power_rank",
@@ -822,61 +1007,79 @@
       "unit": "rank",
       "fmt": "7",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0002.sim_exp_allplay",
       "label": "Projected regular-season all-play %: CBP",
-      "value": 50.0,
+      "value": 49.8,
       "unit": "percent",
-      "fmt": "50.0%",
+      "fmt": "49.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0002.sim_exp_wins",
       "label": "Projected head-to-head wins: CBP",
-      "value": 18.6,
+      "value": 18.5,
       "unit": "ratio",
-      "fmt": "18.6",
+      "fmt": "18.5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0002.sim_p_bye",
       "label": "First-round bye odds: CBP",
-      "value": 15.4,
+      "value": 15.1,
       "unit": "percent",
-      "fmt": "15.4%",
+      "fmt": "15.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0002.sim_p_division",
       "label": "Division odds: CBP",
-      "value": 36.0,
+      "value": 35.9,
       "unit": "percent",
-      "fmt": "36.0%",
+      "fmt": "35.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0002.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: CBP",
+      "value": 7.0,
+      "unit": "percent",
+      "fmt": "7.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0002.sim_p_playoffs",
       "label": "Playoff odds: CBP",
-      "value": 52.0,
+      "value": 51.5,
       "unit": "percent",
-      "fmt": "52.0%",
+      "fmt": "51.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0002.sim_p_title",
       "label": "Title odds: CBP",
-      "value": 7.3,
+      "value": 7.4,
       "unit": "percent",
-      "fmt": "7.3%",
+      "fmt": "7.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0002.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: CBP",
+      "value": 22.8,
+      "unit": "percent",
+      "fmt": "22.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0003.allplay_career",
@@ -885,7 +1088,7 @@
       "unit": "percent",
       "fmt": "41.4%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0003.power_rank",
@@ -894,52 +1097,61 @@
       "unit": "rank",
       "fmt": "12",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0003.sim_exp_allplay",
       "label": "Projected regular-season all-play %: Gride",
-      "value": 38.3,
+      "value": 37.9,
       "unit": "percent",
-      "fmt": "38.3%",
+      "fmt": "37.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0003.sim_exp_wins",
       "label": "Projected head-to-head wins: Gride",
-      "value": 14.1,
+      "value": 13.9,
       "unit": "ratio",
-      "fmt": "14.1",
+      "fmt": "13.9",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0003.sim_p_bye",
       "label": "First-round bye odds: Gride",
-      "value": 3.7,
+      "value": 3.6,
       "unit": "percent",
-      "fmt": "3.7%",
+      "fmt": "3.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0003.sim_p_division",
       "label": "Division odds: Gride",
-      "value": 11.8,
+      "value": 11.6,
       "unit": "percent",
-      "fmt": "11.8%",
+      "fmt": "11.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0003.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: Gride",
+      "value": 25.1,
+      "unit": "percent",
+      "fmt": "25.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0003.sim_p_playoffs",
       "label": "Playoff odds: Gride",
-      "value": 20.9,
+      "value": 20.4,
       "unit": "percent",
-      "fmt": "20.9%",
+      "fmt": "20.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0003.sim_p_title",
@@ -948,7 +1160,16 @@
       "unit": "percent",
       "fmt": "1.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0003.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: Gride",
+      "value": 6.3,
+      "unit": "percent",
+      "fmt": "6.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0004.allplay_career",
@@ -957,7 +1178,7 @@
       "unit": "percent",
       "fmt": "51.5%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0004.power_rank",
@@ -966,61 +1187,79 @@
       "unit": "rank",
       "fmt": "2",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0004.sim_exp_allplay",
       "label": "Projected regular-season all-play %: Pure Greatness",
-      "value": 58.2,
+      "value": 58.1,
       "unit": "percent",
-      "fmt": "58.2%",
+      "fmt": "58.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0004.sim_exp_wins",
       "label": "Projected head-to-head wins: Pure Greatness",
-      "value": 21.1,
+      "value": 21.0,
       "unit": "ratio",
-      "fmt": "21.1",
+      "fmt": "21.0",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0004.sim_p_bye",
       "label": "First-round bye odds: Pure Greatness",
-      "value": 31.0,
+      "value": 29.9,
       "unit": "percent",
-      "fmt": "31.0%",
+      "fmt": "29.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0004.sim_p_division",
       "label": "Division odds: Pure Greatness",
-      "value": 49.5,
+      "value": 47.0,
       "unit": "percent",
-      "fmt": "49.5%",
+      "fmt": "47.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: Pure Greatness",
+      "value": 2.3,
+      "unit": "percent",
+      "fmt": "2.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0004.sim_p_playoffs",
       "label": "Playoff odds: Pure Greatness",
-      "value": 70.4,
+      "value": 69.6,
       "unit": "percent",
-      "fmt": "70.4%",
+      "fmt": "69.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0004.sim_p_title",
       "label": "Title odds: Pure Greatness",
-      "value": 14.8,
+      "value": 15.0,
       "unit": "percent",
-      "fmt": "14.8%",
+      "fmt": "15.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0004.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: Pure Greatness",
+      "value": 43.1,
+      "unit": "percent",
+      "fmt": "43.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0005.allplay_career",
@@ -1029,7 +1268,7 @@
       "unit": "percent",
       "fmt": "62.9%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0005.power_rank",
@@ -1038,61 +1277,79 @@
       "unit": "rank",
       "fmt": "4",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0005.sim_exp_allplay",
       "label": "Projected regular-season all-play %: HammerTime 🔨 ⏰",
-      "value": 52.2,
+      "value": 54.4,
       "unit": "percent",
-      "fmt": "52.2%",
+      "fmt": "54.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0005.sim_exp_wins",
       "label": "Projected head-to-head wins: HammerTime 🔨 ⏰",
-      "value": 18.8,
+      "value": 19.6,
       "unit": "ratio",
-      "fmt": "18.8",
+      "fmt": "19.6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0005.sim_p_bye",
       "label": "First-round bye odds: HammerTime 🔨 ⏰",
-      "value": 17.1,
+      "value": 20.9,
       "unit": "percent",
-      "fmt": "17.1%",
+      "fmt": "20.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0005.sim_p_division",
       "label": "Division odds: HammerTime 🔨 ⏰",
-      "value": 30.6,
+      "value": 34.5,
       "unit": "percent",
-      "fmt": "30.6%",
+      "fmt": "34.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0005.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: HammerTime 🔨 ⏰",
+      "value": 4.1,
+      "unit": "percent",
+      "fmt": "4.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0005.sim_p_playoffs",
       "label": "Playoff odds: HammerTime 🔨 ⏰",
-      "value": 53.5,
+      "value": 59.3,
       "unit": "percent",
-      "fmt": "53.5%",
+      "fmt": "59.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0005.sim_p_title",
       "label": "Title odds: HammerTime 🔨 ⏰",
-      "value": 9.6,
+      "value": 11.6,
       "unit": "percent",
-      "fmt": "9.6%",
+      "fmt": "11.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0005.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: HammerTime 🔨 ⏰",
+      "value": 33.1,
+      "unit": "percent",
+      "fmt": "33.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0006.allplay_career",
@@ -1101,7 +1358,7 @@
       "unit": "percent",
       "fmt": "39.0%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0006.power_rank",
@@ -1110,61 +1367,79 @@
       "unit": "rank",
       "fmt": "9",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0006.sim_exp_allplay",
       "label": "Projected regular-season all-play %: The Long Haulers",
-      "value": 47.1,
+      "value": 46.8,
       "unit": "percent",
-      "fmt": "47.1%",
+      "fmt": "46.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0006.sim_exp_wins",
       "label": "Projected head-to-head wins: The Long Haulers",
-      "value": 16.8,
+      "value": 16.7,
       "unit": "ratio",
-      "fmt": "16.8",
+      "fmt": "16.7",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0006.sim_p_bye",
       "label": "First-round bye odds: The Long Haulers",
-      "value": 10.0,
+      "value": 9.6,
       "unit": "percent",
-      "fmt": "10.0%",
+      "fmt": "9.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0006.sim_p_division",
       "label": "Division odds: The Long Haulers",
-      "value": 19.9,
+      "value": 18.5,
       "unit": "percent",
-      "fmt": "19.9%",
+      "fmt": "18.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0006.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: The Long Haulers",
+      "value": 9.9,
+      "unit": "percent",
+      "fmt": "9.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0006.sim_p_playoffs",
       "label": "Playoff odds: The Long Haulers",
-      "value": 39.1,
+      "value": 38.0,
       "unit": "percent",
-      "fmt": "39.1%",
+      "fmt": "38.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0006.sim_p_title",
       "label": "Title odds: The Long Haulers",
-      "value": 5.6,
+      "value": 5.4,
       "unit": "percent",
-      "fmt": "5.6%",
+      "fmt": "5.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0006.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: The Long Haulers",
+      "value": 17.2,
+      "unit": "percent",
+      "fmt": "17.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0007.allplay_career",
@@ -1173,7 +1448,7 @@
       "unit": "percent",
       "fmt": "57.2%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0007.power_rank",
@@ -1182,61 +1457,79 @@
       "unit": "rank",
       "fmt": "6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0007.sim_exp_allplay",
       "label": "Projected regular-season all-play %: Sex Manther",
-      "value": 50.3,
+      "value": 50.1,
       "unit": "percent",
-      "fmt": "50.3%",
+      "fmt": "50.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0007.sim_exp_wins",
       "label": "Projected head-to-head wins: Sex Manther",
-      "value": 18.7,
+      "value": 18.6,
       "unit": "ratio",
-      "fmt": "18.7",
+      "fmt": "18.6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0007.sim_p_bye",
       "label": "First-round bye odds: Sex Manther",
-      "value": 15.9,
+      "value": 15.5,
       "unit": "percent",
-      "fmt": "15.9%",
+      "fmt": "15.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0007.sim_p_division",
       "label": "Division odds: Sex Manther",
-      "value": 38.3,
+      "value": 37.7,
       "unit": "percent",
-      "fmt": "38.3%",
+      "fmt": "37.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0007.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: Sex Manther",
+      "value": 6.7,
+      "unit": "percent",
+      "fmt": "6.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0007.sim_p_playoffs",
       "label": "Playoff odds: Sex Manther",
-      "value": 52.8,
+      "value": 52.2,
       "unit": "percent",
-      "fmt": "52.8%",
+      "fmt": "52.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0007.sim_p_title",
       "label": "Title odds: Sex Manther",
-      "value": 7.5,
+      "value": 7.8,
       "unit": "percent",
-      "fmt": "7.5%",
+      "fmt": "7.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0007.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: Sex Manther",
+      "value": 23.5,
+      "unit": "percent",
+      "fmt": "23.5%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.allplay_career",
@@ -1245,7 +1538,7 @@
       "unit": "percent",
       "fmt": "53.1%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.power_rank",
@@ -1254,61 +1547,79 @@
       "unit": "rank",
       "fmt": "5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_exp_allplay",
       "label": "Projected regular-season all-play %: Real Deal Creel",
-      "value": 50.9,
+      "value": 50.8,
       "unit": "percent",
-      "fmt": "50.9%",
+      "fmt": "50.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_exp_wins",
       "label": "Projected head-to-head wins: Real Deal Creel",
-      "value": 19.0,
+      "value": 18.9,
       "unit": "ratio",
-      "fmt": "19.0",
+      "fmt": "18.9",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_bye",
       "label": "First-round bye odds: Real Deal Creel",
-      "value": 16.9,
+      "value": 16.8,
       "unit": "percent",
-      "fmt": "16.9%",
+      "fmt": "16.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_division",
       "label": "Division odds: Real Deal Creel",
-      "value": 40.5,
+      "value": 40.1,
       "unit": "percent",
-      "fmt": "40.5%",
+      "fmt": "40.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0008.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: Real Deal Creel",
+      "value": 5.9,
+      "unit": "percent",
+      "fmt": "5.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_playoffs",
       "label": "Playoff odds: Real Deal Creel",
-      "value": 54.9,
+      "value": 54.4,
       "unit": "percent",
-      "fmt": "54.9%",
+      "fmt": "54.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_title",
       "label": "Title odds: Real Deal Creel",
-      "value": 10.0,
+      "value": 10.1,
       "unit": "percent",
-      "fmt": "10.0%",
+      "fmt": "10.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0008.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: Real Deal Creel",
+      "value": 24.9,
+      "unit": "percent",
+      "fmt": "24.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0009.allplay_career",
@@ -1317,7 +1628,7 @@
       "unit": "percent",
       "fmt": "56.7%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0009.power_rank",
@@ -1326,61 +1637,79 @@
       "unit": "rank",
       "fmt": "1",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0009.sim_exp_allplay",
       "label": "Projected regular-season all-play %: C-Town Chivalry",
-      "value": 59.8,
+      "value": 59.5,
       "unit": "percent",
-      "fmt": "59.8%",
+      "fmt": "59.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0009.sim_exp_wins",
       "label": "Projected head-to-head wins: C-Town Chivalry",
-      "value": 22.6,
+      "value": 22.5,
       "unit": "ratio",
-      "fmt": "22.6",
+      "fmt": "22.5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0009.sim_p_bye",
       "label": "First-round bye odds: C-Town Chivalry",
-      "value": 36.2,
+      "value": 35.6,
       "unit": "percent",
-      "fmt": "36.2%",
+      "fmt": "35.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0009.sim_p_division",
       "label": "Division odds: C-Town Chivalry",
-      "value": 57.2,
+      "value": 57.6,
       "unit": "percent",
-      "fmt": "57.2%",
+      "fmt": "57.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0009.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: C-Town Chivalry",
+      "value": 1.8,
+      "unit": "percent",
+      "fmt": "1.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0009.sim_p_playoffs",
       "label": "Playoff odds: C-Town Chivalry",
-      "value": 74.9,
+      "value": 74.3,
       "unit": "percent",
-      "fmt": "74.9%",
+      "fmt": "74.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0009.sim_p_title",
       "label": "Title odds: C-Town Chivalry",
-      "value": 20.8,
+      "value": 18.1,
       "unit": "percent",
-      "fmt": "20.8%",
+      "fmt": "18.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0009.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: C-Town Chivalry",
+      "value": 46.7,
+      "unit": "percent",
+      "fmt": "46.7%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0010.allplay_career",
@@ -1389,7 +1718,7 @@
       "unit": "percent",
       "fmt": "53.3%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0010.power_rank",
@@ -1398,52 +1727,61 @@
       "unit": "rank",
       "fmt": "3",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0010.sim_exp_allplay",
       "label": "Projected regular-season all-play %: Blake Bombers",
-      "value": 55.1,
+      "value": 54.9,
       "unit": "percent",
-      "fmt": "55.1%",
+      "fmt": "54.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0010.sim_exp_wins",
       "label": "Projected head-to-head wins: Blake Bombers",
-      "value": 20.6,
+      "value": 20.5,
       "unit": "ratio",
-      "fmt": "20.6",
+      "fmt": "20.5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0010.sim_p_bye",
       "label": "First-round bye odds: Blake Bombers",
-      "value": 25.2,
+      "value": 24.9,
       "unit": "percent",
-      "fmt": "25.2%",
+      "fmt": "24.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0010.sim_p_division",
       "label": "Division odds: Blake Bombers",
-      "value": 52.2,
+      "value": 52.5,
       "unit": "percent",
-      "fmt": "52.2%",
+      "fmt": "52.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0010.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: Blake Bombers",
+      "value": 3.4,
+      "unit": "percent",
+      "fmt": "3.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0010.sim_p_playoffs",
       "label": "Playoff odds: Blake Bombers",
-      "value": 66.6,
+      "value": 66.5,
       "unit": "percent",
-      "fmt": "66.6%",
+      "fmt": "66.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0010.sim_p_title",
@@ -1452,7 +1790,16 @@
       "unit": "percent",
       "fmt": "10.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0010.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: Blake Bombers",
+      "value": 34.6,
+      "unit": "percent",
+      "fmt": "34.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0011.allplay_career",
@@ -1461,7 +1808,7 @@
       "unit": "percent",
       "fmt": "39.6%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0011.power_rank",
@@ -1470,61 +1817,79 @@
       "unit": "rank",
       "fmt": "8",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0011.sim_exp_allplay",
       "label": "Projected regular-season all-play %: Cleon Ca$h",
-      "value": 49.1,
+      "value": 48.4,
       "unit": "percent",
-      "fmt": "49.1%",
+      "fmt": "48.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0011.sim_exp_wins",
       "label": "Projected head-to-head wins: Cleon Ca$h",
-      "value": 18.5,
+      "value": 18.3,
       "unit": "ratio",
-      "fmt": "18.5",
+      "fmt": "18.3",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0011.sim_p_bye",
       "label": "First-round bye odds: Cleon Ca$h",
-      "value": 12.7,
+      "value": 11.8,
       "unit": "percent",
-      "fmt": "12.7%",
+      "fmt": "11.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0011.sim_p_division",
       "label": "Division odds: Cleon Ca$h",
-      "value": 24.4,
+      "value": 23.6,
       "unit": "percent",
-      "fmt": "24.4%",
+      "fmt": "23.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0011.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: Cleon Ca$h",
+      "value": 8.3,
+      "unit": "percent",
+      "fmt": "8.3%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0011.sim_p_playoffs",
       "label": "Playoff odds: Cleon Ca$h",
-      "value": 45.3,
+      "value": 43.4,
       "unit": "percent",
-      "fmt": "45.3%",
+      "fmt": "43.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0011.sim_p_title",
       "label": "Title odds: Cleon Ca$h",
-      "value": 5.8,
+      "value": 5.5,
       "unit": "percent",
-      "fmt": "5.8%",
+      "fmt": "5.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0011.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: Cleon Ca$h",
+      "value": 20.0,
+      "unit": "percent",
+      "fmt": "20.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0012.allplay_career",
@@ -1533,7 +1898,7 @@
       "unit": "percent",
       "fmt": "36.9%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0012.power_rank",
@@ -1542,16 +1907,16 @@
       "unit": "rank",
       "fmt": "10",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0012.sim_exp_allplay",
       "label": "Projected regular-season all-play %: Hawks",
-      "value": 45.9,
+      "value": 45.7,
       "unit": "percent",
-      "fmt": "45.9%",
+      "fmt": "45.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0012.sim_exp_wins",
@@ -1560,7 +1925,7 @@
       "unit": "ratio",
       "fmt": "17.3",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0012.sim_p_bye",
@@ -1569,37 +1934,1089 @@
       "unit": "percent",
       "fmt": "8.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0012.sim_p_division",
       "label": "Division odds: Hawks",
-      "value": 18.4,
+      "value": 18.8,
       "unit": "percent",
-      "fmt": "18.4%",
+      "fmt": "18.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0012.sim_p_last",
+      "label": "Share of simulated seasons finishing last in all-play: Hawks",
+      "value": 11.2,
+      "unit": "percent",
+      "fmt": "11.2%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0012.sim_p_playoffs",
       "label": "Playoff odds: Hawks",
-      "value": 36.6,
+      "value": 36.4,
       "unit": "percent",
-      "fmt": "36.6%",
+      "fmt": "36.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0012.sim_p_title",
       "label": "Title odds: Hawks",
-      "value": 4.2,
+      "value": 4.3,
       "unit": "percent",
-      "fmt": "4.2%",
+      "fmt": "4.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-12T16:34:51Z"
+      "asof": "2026-09-12T18:57:32Z"
+    },
+    {
+      "id": "f.team.0012.sim_p_top3",
+      "label": "Share of simulated seasons finishing top three in all-play: Hawks",
+      "value": 15.4,
+      "unit": "percent",
+      "fmt": "15.4%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T18:57:32Z"
     }
   ],
   "tables": [
+    {
+      "id": "t.league.bt_calibration",
+      "title": "Were the playoff odds honest?",
+      "columns": [
+        {
+          "key": "group",
+          "label": "Playoff odds it gave",
+          "type": "text"
+        },
+        {
+          "key": "n",
+          "label": "Team-seasons",
+          "type": "count"
+        },
+        {
+          "key": "avg",
+          "label": "Average odds given",
+          "type": "text"
+        },
+        {
+          "key": "made",
+          "label": "How many made it",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Under 25%",
+          13,
+          "15.4%",
+          "2 made (15.4%)"
+        ],
+        [
+          "25-50%",
+          17,
+          "35.6%",
+          "6 made (35.3%)"
+        ],
+        [
+          "50-75%",
+          18,
+          "65.4%",
+          "11 made (61.1%)"
+        ],
+        [
+          "75% or more",
+          12,
+          "84.9%",
+          "11 made (91.7%)"
+        ]
+      ],
+      "note": "Teams grouped by the playoff odds the forecast gave them before the season, against how many actually made the six-team bracket."
+    },
+    {
+      "id": "t.league.bt_dial",
+      "title": "How much of the projection to trust",
+      "columns": [
+        {
+          "key": "k",
+          "label": "Share of each team's edge kept",
+          "type": "text"
+        },
+        {
+          "key": "miss",
+          "label": "Typical miss",
+          "type": "text"
+        },
+        {
+          "key": "slope",
+          "label": "Real gap per projected gap",
+          "type": "text"
+        },
+        {
+          "key": "rho",
+          "label": "Order it got right",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "100%",
+          "12.8",
+          "0.67",
+          "0.56"
+        ],
+        [
+          "90%",
+          "12.3",
+          "0.74",
+          "0.56"
+        ],
+        [
+          "80%",
+          "12.0",
+          "0.84",
+          "0.56"
+        ],
+        [
+          "70%",
+          "11.8",
+          "0.96",
+          "0.57"
+        ],
+        [
+          "60%",
+          "11.9",
+          "1.13",
+          "0.56"
+        ],
+        [
+          "50%",
+          "12.1",
+          "1.36",
+          "0.56"
+        ],
+        [
+          "40%",
+          "12.5",
+          "1.71",
+          "0.56"
+        ],
+        [
+          "30%",
+          "13.0",
+          "2.28",
+          "0.54"
+        ]
+      ],
+      "note": "The forecast trims every team's projected edge over the league before simulating. Kept whole, the projected gaps between teams came out too big -- real gaps were only about two thirds of them. At the chosen setting the projected gaps matched the real ones almost exactly, and the typical miss was at its smallest."
+    },
+    {
+      "id": "t.league.bt_seasons",
+      "title": "How the forecast would have done, season by season",
+      "columns": [
+        {
+          "key": "season",
+          "label": "Season",
+          "type": "text"
+        },
+        {
+          "key": "rho",
+          "label": "Order it got right",
+          "type": "text"
+        },
+        {
+          "key": "off",
+          "label": "Places off, per team",
+          "type": "text"
+        },
+        {
+          "key": "miss",
+          "label": "Typical miss",
+          "type": "text"
+        },
+        {
+          "key": "miss500",
+          "label": "Miss if everyone .500",
+          "type": "text"
+        },
+        {
+          "key": "top6",
+          "label": "Projected top six who made the playoffs",
+          "type": "text"
+        },
+        {
+          "key": "champ",
+          "label": "The champion",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "2021",
+          "0.90",
+          "0.9",
+          "8.4",
+          "15.2",
+          "5 of 6",
+          "Ulterior Warrior: projected 3, title odds 16.3%, all-play T-3"
+        ],
+        [
+          "2022",
+          "0.87",
+          "1.0",
+          "10.3",
+          "17.7",
+          "5 of 6",
+          "Gride: projected 4, title odds 14.8%, all-play 6"
+        ],
+        [
+          "2023",
+          "0.42",
+          "3.0",
+          "14.1",
+          "14.2",
+          "4 of 6",
+          "Blake Bombers: projected 7, title odds 6.5%, all-play 3"
+        ],
+        [
+          "2024",
+          "0.31",
+          "3.1",
+          "14.2",
+          "16.8",
+          "3 of 6",
+          "HammerTime 🔨 ⏰: projected 1, title odds 28.8%, all-play T-3"
+        ],
+        [
+          "2025",
+          "0.34",
+          "2.9",
+          "11.1",
+          "11.7",
+          "4 of 6",
+          "Pure Greatness: projected 4, title odds 7.1%, all-play 1"
+        ]
+      ],
+      "note": "Order it got right is the rank correlation between projected and actual all-play: 1.00 is the exact order, 0 is no relation. Places off is how far the average team finished from its projected rank. Misses are in all-play percentage points; the last column is how badly you would do by calling every team .500."
+    },
+    {
+      "id": "t.league.bt_spread",
+      "title": "Why this year is harder to call",
+      "columns": [
+        {
+          "key": "season",
+          "label": "Season",
+          "type": "text"
+        },
+        {
+          "key": "basis",
+          "label": "Projections used",
+          "type": "text"
+        },
+        {
+          "key": "sd",
+          "label": "Spread of projected all-play",
+          "type": "text"
+        },
+        {
+          "key": "shock",
+          "label": "Season luck needed",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "2021",
+          "Week-one projections, all season",
+          "10.4",
+          "9.6"
+        ],
+        [
+          "2021",
+          "Each week's own projections, made that week",
+          "7.8",
+          "12.7"
+        ],
+        [
+          "2022",
+          "Week-one projections, all season",
+          "10.6",
+          "9.9"
+        ],
+        [
+          "2022",
+          "Each week's own projections, made that week",
+          "8.9",
+          "12.0"
+        ],
+        [
+          "2023",
+          "Week-one projections, all season",
+          "9.9",
+          "10.7"
+        ],
+        [
+          "2023",
+          "Each week's own projections, made that week",
+          "8.3",
+          "12.4"
+        ],
+        [
+          "2024",
+          "Week-one projections, all season",
+          "9.9",
+          "10.5"
+        ],
+        [
+          "2024",
+          "Each week's own projections, made that week",
+          "8.0",
+          "12.6"
+        ],
+        [
+          "2025",
+          "Week-one projections, all season",
+          "9.4",
+          "11.2"
+        ],
+        [
+          "2025",
+          "Each week's own projections, made that week",
+          "7.4",
+          "12.9"
+        ],
+        [
+          "2026",
+          "Week-one projections, all season",
+          "7.2",
+          "13.3"
+        ],
+        [
+          "2026",
+          "This forecast: this week's projections for every week, injuries held out",
+          "5.9",
+          "14.0"
+        ]
+      ],
+      "note": "How far apart the twelve teams project (a standard deviation of projected all-play), and how much season-long luck the model has to add for the finish to spread out like a real UPS season. The flatter the projections, the more of the forecast is luck."
+    },
+    {
+      "id": "t.league.bt_teams",
+      "title": "Every team, projection against finish, 2021-2025",
+      "columns": [
+        {
+          "key": "season",
+          "label": "Season",
+          "type": "text"
+        },
+        {
+          "key": "team",
+          "label": "Team (owner then)",
+          "type": "text"
+        },
+        {
+          "key": "proj_rank",
+          "label": "Projected",
+          "type": "count"
+        },
+        {
+          "key": "proj",
+          "label": "Projected all-play",
+          "type": "percent"
+        },
+        {
+          "key": "band",
+          "label": "Big year to bad year",
+          "type": "text"
+        },
+        {
+          "key": "actual",
+          "label": "Actual all-play",
+          "type": "percent"
+        },
+        {
+          "key": "rank",
+          "label": "Finished",
+          "type": "text"
+        },
+        {
+          "key": "places",
+          "label": "Places",
+          "type": "text"
+        },
+        {
+          "key": "final",
+          "label": "Final finish",
+          "type": "count"
+        }
+      ],
+      "rows": [
+        [
+          "2021",
+          "Good in Da Hood (Steve Bousquet)",
+          1,
+          68.2,
+          "81.8% to 53.9%",
+          73.4,
+          "1",
+          "0",
+          2
+        ],
+        [
+          "2021",
+          "Sex Manther (Josh Martel)",
+          2,
+          61.2,
+          "74.7% to 46.8%",
+          69.5,
+          "2",
+          "0",
+          3
+        ],
+        [
+          "2021",
+          "Ulterior Warrior (Ryan Bousquet)",
+          3,
+          61.1,
+          "75.3% to 46.1%",
+          63.0,
+          "T-3",
+          "0",
+          1
+        ],
+        [
+          "2021",
+          "Blake Bombers (Shawn Blake)",
+          4,
+          58.6,
+          "73.4% to 43.5%",
+          41.6,
+          "8",
+          "-4",
+          9
+        ],
+        [
+          "2021",
+          "Pure Greatness (Brian Cutting)",
+          5,
+          54.7,
+          "69.5% to 39.6%",
+          57.8,
+          "5",
+          "0",
+          5
+        ],
+        [
+          "2021",
+          "The Bash Bros (AJ Balderelli)",
+          6,
+          53.4,
+          "68.2% to 37.7%",
+          63.0,
+          "T-3",
+          "3",
+          4
+        ],
+        [
+          "2021",
+          "Cleon Ca$h (Eric Mannila)",
+          7,
+          43.1,
+          "58.4% to 27.9%",
+          54.5,
+          "6",
+          "1",
+          7
+        ],
+        [
+          "2021",
+          "Hawks (Chris Klingenberg)",
+          8,
+          42.8,
+          "58.4% to 27.3%",
+          45.5,
+          "7",
+          "1",
+          6
+        ],
+        [
+          "2021",
+          "Run CMC (Rico Balderelli)",
+          9,
+          42.8,
+          "56.5% to 27.9%",
+          39.0,
+          "10",
+          "-1",
+          8
+        ],
+        [
+          "2021",
+          "Gride (Matt Gerardi)",
+          10,
+          41.4,
+          "57.1% to 26.6%",
+          39.6,
+          "9",
+          "1",
+          12
+        ],
+        [
+          "2021",
+          "#BLM (Keith Creelman)",
+          11,
+          39.8,
+          "55.2% to 26.0%",
+          29.9,
+          "11",
+          "0",
+          11
+        ],
+        [
+          "2021",
+          "C-Town Chivalry (Bear Dunn)",
+          12,
+          33.0,
+          "46.8% to 19.5%",
+          23.4,
+          "12",
+          "0",
+          10
+        ],
+        [
+          "2022",
+          "Good in Da Hood (Steve Bousquet)",
+          1,
+          66.6,
+          "79.9% to 51.9%",
+          74.0,
+          "1",
+          "0",
+          4
+        ],
+        [
+          "2022",
+          "Pure Greatness (Brian Cutting)",
+          2,
+          62.2,
+          "77.3% to 47.4%",
+          70.8,
+          "2",
+          "0",
+          2
+        ],
+        [
+          "2022",
+          "Ulterior Warrior (Ryan Bousquet)",
+          3,
+          60.4,
+          "74.7% to 45.5%",
+          68.2,
+          "3",
+          "0",
+          6
+        ],
+        [
+          "2022",
+          "Gride (Matt Gerardi)",
+          4,
+          59.1,
+          "74.0% to 44.2%",
+          61.7,
+          "6",
+          "-2",
+          1
+        ],
+        [
+          "2022",
+          "Sex Manther (Josh Martel)",
+          5,
+          55.0,
+          "69.5% to 40.3%",
+          35.1,
+          "9",
+          "-4",
+          8
+        ],
+        [
+          "2022",
+          "#BLM (Keith Creelman)",
+          6,
+          51.4,
+          "66.2% to 36.4%",
+          62.3,
+          "5",
+          "1",
+          5
+        ],
+        [
+          "2022",
+          "Cleon Ca$h (Eric Mannila)",
+          7,
+          48.8,
+          "64.3% to 33.8%",
+          39.0,
+          "7",
+          "0",
+          7
+        ],
+        [
+          "2022",
+          "C-Town Chivalry (Bear Dunn)",
+          8,
+          48.8,
+          "64.3% to 33.1%",
+          66.2,
+          "4",
+          "4",
+          3
+        ],
+        [
+          "2022",
+          "Run CMC (Rico Balderelli)",
+          9,
+          39.2,
+          "53.2% to 25.3%",
+          35.7,
+          "8",
+          "1",
+          10
+        ],
+        [
+          "2022",
+          "Blake Bombers (Shawn Blake)",
+          10,
+          37.8,
+          "52.6% to 24.0%",
+          30.5,
+          "10",
+          "0",
+          11
+        ],
+        [
+          "2022",
+          "The Bash Bros (AJ Balderelli)",
+          11,
+          35.5,
+          "50.6% to 21.4%",
+          29.2,
+          "11",
+          "0",
+          9
+        ],
+        [
+          "2022",
+          "Hawks (Chris Klingenberg)",
+          12,
+          35.1,
+          "50.0% to 20.8%",
+          27.3,
+          "12",
+          "0",
+          12
+        ],
+        [
+          "2023",
+          "HammerTime 🔨 ⏰ (Eric Martel)",
+          1,
+          61.3,
+          "76.0% to 45.5%",
+          64.9,
+          "2",
+          "-1",
+          4
+        ],
+        [
+          "2023",
+          "Sex Manther (Josh Martel)",
+          2,
+          58.6,
+          "74.0% to 42.2%",
+          60.4,
+          "4",
+          "-2",
+          6
+        ],
+        [
+          "2023",
+          "Real Deal Creel (Keith Creelman)",
+          3,
+          57.7,
+          "73.4% to 42.2%",
+          57.8,
+          "6",
+          "-3",
+          5
+        ],
+        [
+          "2023",
+          "Gride (Matt Gerardi)",
+          4,
+          57.6,
+          "74.0% to 42.2%",
+          44.2,
+          "7",
+          "-3",
+          8
+        ],
+        [
+          "2023",
+          "Pure Greatness (Brian Cutting)",
+          5,
+          57.5,
+          "73.4% to 41.6%",
+          38.3,
+          "10",
+          "-5",
+          11
+        ],
+        [
+          "2023",
+          "Ulterior Warrior (Ryan Bousquet)",
+          6,
+          54.0,
+          "68.8% to 38.3%",
+          59.7,
+          "5",
+          "1",
+          2
+        ],
+        [
+          "2023",
+          "Blake Bombers (Shawn Blake)",
+          7,
+          51.3,
+          "66.9% to 35.7%",
+          63.0,
+          "3",
+          "4",
+          1
+        ],
+        [
+          "2023",
+          "Cleon Ca$h (Eric Mannila)",
+          8,
+          47.7,
+          "63.6% to 31.2%",
+          39.0,
+          "9",
+          "-1",
+          10
+        ],
+        [
+          "2023",
+          "The Main Event Mafia (Josh Lima)",
+          9,
+          45.9,
+          "61.7% to 30.5%",
+          22.7,
+          "12",
+          "-3",
+          12
+        ],
+        [
+          "2023",
+          "CBP (Derrick Whitman)",
+          10,
+          42.3,
+          "57.8% to 26.6%",
+          72.1,
+          "1",
+          "9",
+          3
+        ],
+        [
+          "2023",
+          "Hawks (Chris Klingenberg)",
+          11,
+          41.3,
+          "57.1% to 25.3%",
+          40.3,
+          "8",
+          "3",
+          7
+        ],
+        [
+          "2023",
+          "C-Town Chivalry (Bear Dunn)",
+          12,
+          24.9,
+          "38.3% to 12.3%",
+          37.7,
+          "11",
+          "1",
+          9
+        ],
+        [
+          "2024",
+          "HammerTime 🔨 ⏰ (Eric Martel)",
+          1,
+          66.4,
+          "80.5% to 51.3%",
+          61.7,
+          "T-3",
+          "-2",
+          1
+        ],
+        [
+          "2024",
+          "Ulterior Warrior (Ryan Bousquet)",
+          2,
+          58.6,
+          "73.4% to 42.9%",
+          70.1,
+          "2",
+          "0",
+          4
+        ],
+        [
+          "2024",
+          "Sex Manther (Josh Martel)",
+          3,
+          58.0,
+          "72.7% to 42.2%",
+          41.6,
+          "9",
+          "-6",
+          8
+        ],
+        [
+          "2024",
+          "Hawks (Chris Klingenberg)",
+          4,
+          56.8,
+          "72.7% to 40.3%",
+          42.2,
+          "8",
+          "-4",
+          7
+        ],
+        [
+          "2024",
+          "Cleon Ca$h (Eric Mannila)",
+          5,
+          53.7,
+          "68.8% to 37.7%",
+          57.1,
+          "5",
+          "0",
+          9
+        ],
+        [
+          "2024",
+          "CBP (Derrick Whitman)",
+          6,
+          52.2,
+          "67.5% to 35.7%",
+          61.7,
+          "T-3",
+          "3",
+          2
+        ],
+        [
+          "2024",
+          "Gride (Matt Gerardi)",
+          7,
+          49.9,
+          "66.2% to 34.4%",
+          31.2,
+          "11",
+          "-4",
+          11
+        ],
+        [
+          "2024",
+          "Pure Greatness (Brian Cutting)",
+          8,
+          47.1,
+          "63.0% to 31.2%",
+          40.9,
+          "10",
+          "-2",
+          6
+        ],
+        [
+          "2024",
+          "Blake Bombers (Shawn Blake)",
+          9,
+          44.1,
+          "59.1% to 29.2%",
+          56.5,
+          "6",
+          "3",
+          5
+        ],
+        [
+          "2024",
+          "Real Deal Creel (Keith Creelman)",
+          10,
+          44.1,
+          "60.4% to 28.6%",
+          55.2,
+          "7",
+          "3",
+          10
+        ],
+        [
+          "2024",
+          "C-Town Chivalry (Bear Dunn)",
+          11,
+          43.5,
+          "59.1% to 27.9%",
+          71.4,
+          "1",
+          "10",
+          3
+        ],
+        [
+          "2024",
+          "The Main Event Mafia (Josh Lima)",
+          12,
+          25.6,
+          "39.0% to 13.0%",
+          10.4,
+          "12",
+          "0",
+          12
+        ],
+        [
+          "2025",
+          "C-Town Chivalry (Bear Dunn)",
+          1,
+          69.2,
+          "83.1% to 53.9%",
+          63.6,
+          "2",
+          "-1",
+          4
+        ],
+        [
+          "2025",
+          "HammerTime 🔨 ⏰ (Eric Martel)",
+          2,
+          64.7,
+          "79.2% to 48.7%",
+          57.8,
+          "5",
+          "-3",
+          3
+        ],
+        [
+          "2025",
+          "CBP (Derrick Whitman)",
+          3,
+          55.3,
+          "71.4% to 38.3%",
+          38.3,
+          "11",
+          "-8",
+          12
+        ],
+        [
+          "2025",
+          "Pure Greatness (Brian Cutting)",
+          4,
+          52.3,
+          "68.8% to 35.7%",
+          69.5,
+          "1",
+          "3",
+          1
+        ],
+        [
+          "2025",
+          "Cleon Ca$h (Eric Mannila)",
+          5,
+          51.6,
+          "68.2% to 34.4%",
+          51.9,
+          "6",
+          "-1",
+          7
+        ],
+        [
+          "2025",
+          "Blake Bombers (Shawn Blake)",
+          6,
+          50.9,
+          "66.9% to 34.4%",
+          43.5,
+          "9",
+          "-3",
+          5
+        ],
+        [
+          "2025",
+          "L.A. Looks (Ryan Bousquet)",
+          7,
+          50.1,
+          "66.2% to 33.8%",
+          59.1,
+          "4",
+          "3",
+          6
+        ],
+        [
+          "2025",
+          "Real Deal Creel (Keith Creelman)",
+          8,
+          46.3,
+          "63.0% to 29.9%",
+          44.8,
+          "T-7",
+          "1",
+          10
+        ],
+        [
+          "2025",
+          "Hawks (Chris Klingenberg)",
+          9,
+          42.1,
+          "58.4% to 25.3%",
+          44.8,
+          "T-7",
+          "2",
+          8
+        ],
+        [
+          "2025",
+          "The Long Haulers (Brian Cross)",
+          10,
+          40.6,
+          "56.5% to 24.7%",
+          39.0,
+          "10",
+          "0",
+          9
+        ],
+        [
+          "2025",
+          "Gride (Matt Gerardi)",
+          11,
+          39.9,
+          "57.1% to 24.0%",
+          27.9,
+          "12",
+          "-1",
+          11
+        ],
+        [
+          "2025",
+          "Sex Manther (Josh Martel)",
+          12,
+          37.1,
+          "52.6% to 21.4%",
+          59.7,
+          "3",
+          "9",
+          2
+        ]
+      ],
+      "note": "One row per team-season, team and owner as they were that year. Projected is the preseason rank; Finished is the actual all-play rank (T means tied). Places is projected rank minus finish, so a plus sign means the team beat its projection. Final finish is where the season ended, one through six being the playoff bracket."
+    },
     {
       "id": "t.league.captains",
       "title": "The four captains",
@@ -1742,7 +3159,7 @@
           6,
           6,
           6,
-          7,
+          6,
           9,
           1
         ],
@@ -1753,7 +3170,7 @@
           4,
           3,
           4,
-          6,
+          7,
           12,
           2
         ],
@@ -1761,7 +3178,7 @@
           5,
           "Real Deal Creel",
           10,
-          11,
+          10,
           10,
           11,
           10,
@@ -1794,7 +3211,7 @@
           8,
           "Cleon Ca$h",
           9,
-          9,
+          11,
           11,
           7,
           5,
@@ -1838,7 +3255,7 @@
           12,
           "Gride",
           12,
-          10,
+          9,
           12,
           12,
           12,
@@ -1987,21 +3404,21 @@
         [
           "Outlast PG Time",
           "Pure Greatness (2), HammerTime 🔨 ⏰ (4), The Long Haulers (9)",
-          52.5,
-          "1.63 of 6",
-          30.0,
-          "58.2% to 47.1%",
-          0.0,
+          53.1,
+          "1.67 of 6",
+          32.1,
+          "58.1% to 46.8%",
+          2788.7,
           159000
         ],
         [
           "DOG POUND 4 LIFE",
           "C-Town Chivalry (1), Cleon Ca$h (8), Hawks (10)",
-          51.6,
-          "1.57 of 6",
-          30.8,
-          "59.8% to 45.9%",
-          0.0,
+          51.2,
+          "1.54 of 6",
+          27.9,
+          "59.5% to 45.7%",
+          2531.5,
           292000
         ],
         [
@@ -2009,23 +3426,23 @@
           "Real Deal Creel (5), Sex Manther (6), L.A. Looks (11)",
           48.1,
           "1.41 of 6",
-          20.1,
-          "50.9% to 43.0%",
-          0.0,
+          20.7,
+          "50.8% to 43.5%",
+          2529.6,
           462000
         ],
         [
           "LEGION OF BOOM",
           "Blake Bombers (3), CBP (7), Gride (12)",
-          47.8,
-          "1.40 of 6",
-          19.1,
-          "55.1% to 38.3%",
-          0.0,
+          47.5,
+          "1.38 of 6",
+          19.3,
+          "54.9% to 37.9%",
+          2067.1,
           402000
         ]
       ],
-      "note": "Ordered by the mean of its three teams' projected all-play. Expected playoff spots sum each team's playoff odds; the six add up across the league. Defensive starters are the projected season points of the DL, LB and DB a division starts. All-play is a projected percentage, not points per game. Divisions are year one of a three-year alignment the owners drafted themselves."
+      "note": "Ordered by the mean of its three teams' projected all-play. Expected playoff spots sum each team's playoff odds; the six add up across the league. Defensive starters are the projected season points of the seven defenders each team starts, added across the division. All-play is a projected percentage, not points per game. Divisions are year one of a three-year alignment the owners drafted themselves."
     },
     {
       "id": "t.league.forecast",
@@ -2103,44 +3520,44 @@
           "C-Town Chivalry",
           "Bear Dunn",
           "DOG POUND 4 LIFE",
-          59.8,
+          59.5,
           75.9,
           77.9,
-          40.9,
-          "22.6 of 37",
-          57.2,
-          74.9,
-          36.2,
-          20.8
+          40.3,
+          "22.5 of 37",
+          57.6,
+          74.3,
+          35.6,
+          18.1
         ],
         [
           2,
           "Pure Greatness",
           "Brian Cutting",
           "Outlast PG Time",
-          58.2,
+          58.1,
           68.4,
           76.6,
-          39.6,
-          "21.1 of 37",
-          49.5,
-          70.4,
-          31.0,
-          14.8
+          39.0,
+          "21.0 of 37",
+          47.0,
+          69.6,
+          29.9,
+          15.0
         ],
         [
           3,
           "Blake Bombers",
           "Shawn Blake",
           "LEGION OF BOOM",
-          55.1,
+          54.9,
           63.3,
           73.4,
           36.4,
-          "20.6 of 37",
-          52.2,
-          66.6,
-          25.2,
+          "20.5 of 37",
+          52.5,
+          66.5,
+          24.9,
           10.2
         ],
         [
@@ -2148,134 +3565,134 @@
           "HammerTime 🔨 ⏰",
           "Eric Martel",
           "Outlast PG Time",
-          52.2,
-          59.1,
-          70.8,
-          33.8,
-          "18.8 of 37",
-          30.6,
-          53.5,
-          17.1,
-          9.6
+          54.4,
+          59.2,
+          73.4,
+          35.7,
+          "19.6 of 37",
+          34.5,
+          59.3,
+          20.9,
+          11.6
         ],
         [
           5,
           "Real Deal Creel",
           "Keith Creelman",
           "Maddie Mondays",
-          50.9,
-          55.3,
+          50.8,
+          55.4,
           69.5,
           32.5,
-          "19.0 of 37",
-          40.5,
-          54.9,
-          16.9,
-          10.0
+          "18.9 of 37",
+          40.1,
+          54.4,
+          16.8,
+          10.1
         ],
         [
           6,
           "Sex Manther",
           "Josh Martel",
           "Maddie Mondays",
-          50.3,
+          50.1,
           51.8,
           68.8,
-          31.8,
-          "18.7 of 37",
-          38.3,
-          52.8,
-          15.9,
-          7.5
+          31.2,
+          "18.6 of 37",
+          37.7,
+          52.2,
+          15.5,
+          7.8
         ],
         [
           7,
           "CBP",
           "Derrick Whitman",
           "LEGION OF BOOM",
-          50.0,
+          49.8,
           48.3,
           68.8,
-          31.2,
-          "18.6 of 37",
-          36.0,
-          52.0,
-          15.4,
-          7.3
+          30.5,
+          "18.5 of 37",
+          35.9,
+          51.5,
+          15.1,
+          7.4
         ],
         [
           8,
           "Cleon Ca$h",
           "Eric Mannila",
           "DOG POUND 4 LIFE",
-          49.1,
+          48.4,
           44.7,
-          68.2,
-          30.5,
-          "18.5 of 37",
-          24.4,
-          45.3,
-          12.7,
-          5.8
+          67.5,
+          29.9,
+          "18.3 of 37",
+          23.6,
+          43.4,
+          11.8,
+          5.5
         ],
         [
           9,
           "The Long Haulers",
           "Brian Cross",
           "Outlast PG Time",
-          47.1,
+          46.8,
           40.9,
-          66.2,
-          28.6,
-          "16.8 of 37",
-          19.9,
-          39.1,
-          10.0,
-          5.6
+          65.6,
+          27.9,
+          "16.7 of 37",
+          18.5,
+          38.0,
+          9.6,
+          5.4
         ],
         [
           10,
           "Hawks",
           "Chris Klingenberg",
           "DOG POUND 4 LIFE",
-          45.9,
+          45.7,
           36.7,
           64.9,
           27.3,
           "17.3 of 37",
-          18.4,
-          36.6,
+          18.8,
+          36.4,
           8.8,
-          4.2
+          4.3
         ],
         [
           11,
           "L.A. Looks",
           "Ryan Bousquet",
           "Maddie Mondays",
-          43.0,
+          43.5,
           31.5,
           62.3,
-          24.7,
-          "15.9 of 37",
-          21.2,
-          32.9,
-          7.0,
-          2.6
+          25.3,
+          "16.1 of 37",
+          22.2,
+          34.0,
+          7.6,
+          2.8
         ],
         [
           12,
           "Gride",
           "Matt Gerardi",
           "LEGION OF BOOM",
-          38.3,
+          37.9,
           23.9,
-          57.1,
-          20.8,
-          "14.1 of 37",
-          11.8,
-          20.9,
-          3.7,
+          56.5,
+          20.1,
+          "13.9 of 37",
+          11.6,
+          20.4,
+          3.6,
           1.7
         ]
       ],
@@ -2534,7 +3951,7 @@
           12
         ]
       ],
-      "note": "1 is best. Each column ranks what a team STARTS in those slots, by its players' value on the live redraft board: one quarterback slot, the superflex, two running backs, two receivers, a tight end and the two flexes. Offense is all eleven of them together. Ranking by slot rather than by position keeps the comparison even -- a team is measured on the same places as everyone else, and a quarterback in the superflex is counted once."
+      "note": "1 is best. Each column ranks what a team STARTS in those slots, by its players' value on the live redraft board: one quarterback slot, the superflex, two running backs, two receivers, a tight end and the two flexes. Offense is all nine of them together. Ranking by slot rather than by position keeps the comparison even -- a team is measured on the same places as everyone else, and a quarterback in the superflex is counted once."
     },
     {
       "id": "t.league.phases",
@@ -2727,39 +4144,39 @@
         [
           1,
           "C-Town Chivalry",
-          "145.5",
-          "60.7",
+          "143.5",
+          "60.6",
           "12.3",
-          "216.8"
+          "216.5"
         ],
         [
           2,
           "Pure Greatness",
-          "143.6",
-          "58.7",
+          "142.6",
+          "58.5",
           "13.2",
           "214.3"
         ],
         [
           3,
           "Blake Bombers",
-          "140.7",
+          "140.2",
           "56.3",
-          "12.8",
+          "12.7",
           "209.2"
         ],
         [
           4,
           "HammerTime 🔨 ⏰",
-          "134.9",
-          "59.2",
+          "137.2",
+          "58.7",
           "12.3",
-          "204.5"
+          "208.2"
         ],
         [
           5,
           "Real Deal Creel",
-          "141.1",
+          "139.1",
           "51.2",
           "12.6",
           "202.8"
@@ -2767,58 +4184,58 @@
         [
           6,
           "Sex Manther",
-          "131.8",
-          "59.8",
-          "11.1",
+          "131.4",
+          "59.5",
+          "11.0",
           "201.9"
         ],
         [
           7,
           "CBP",
-          "139.2",
+          "138.1",
           "51.0",
           "12.2",
-          "201.4"
+          "201.3"
         ],
         [
           8,
           "Cleon Ca$h",
-          "137.1",
-          "52.0",
+          "136.5",
+          "51.0",
           "11.4",
-          "199.8"
+          "198.9"
         ],
         [
           9,
           "The Long Haulers",
-          "125.3",
-          "60.0",
+          "123.8",
+          "59.8",
           "12.5",
-          "196.3"
+          "196.2"
         ],
         [
           10,
           "Hawks",
-          "127.4",
-          "55.5",
-          "12.8",
+          "126.9",
+          "55.4",
+          "12.7",
           "195.0"
         ],
         [
           11,
           "L.A. Looks",
-          "120.5",
+          "122.0",
           "56.5",
           "12.8",
-          "190.1"
+          "191.3"
         ],
         [
           12,
           "Gride",
-          "121.0",
-          "51.1",
-          "11.0",
-          "182.4"
+          "120.1",
+          "51.2",
+          "10.9",
+          "182.2"
         ]
       ],
       "note": "MFL's own weekly projections for the best legal lineup each roster can field, split by the slots that produce them: nine offensive, seven defensive, a kicker and a punter. This is the currency the forecast runs on, and it is not the same as the redraft-market value the lineup tables use -- a team can rank higher on one than the other."
@@ -2862,12 +4279,12 @@
         [
           "Fourth",
           61.2,
-          59.1
+          59.2
         ],
         [
           "Fifth",
           57.5,
-          55.3
+          55.4
         ],
         [
           "Sixth",
@@ -3074,7 +4491,7 @@
           "0.71x"
         ]
       ],
-      "note": "Every column is this team's share of the twelve-team total, so each adds to a hundred per cent. Value per dollar is the share of the league's lineup value divided by the share of its salary: above 1.00x a team holds more of the league's value than of its payroll, below it he is paying for less than he has. April salary is active-roster salary; the figure for now is cap committed, which includes salary adjustments."
+      "note": "Every share column is this team's slice of the twelve-team total, so each adds to a hundred per cent. Value per dollar is his slice of the league's lineup value divided by his slice of its salary: above 1.00x he holds more of the league's talent than he pays for, below it he pays for more than he has. April salary is active-roster salary; the figure for now is cap committed, which includes salary adjustments."
     }
   ],
   "charts": [],
@@ -3135,7 +4552,7 @@
       "author": "Brian Cross, The Long Haulers",
       "when": "June 27, 2026, #the-coffee-shop",
       "ownerKey": "owner:0006",
-      "context": "Pitching a name for his division a month later",
+      "context": "Pitching names for his division in June -- a joke he first made on draft night",
       "source": "discord",
       "permalink": null
     },
@@ -3235,7 +4652,7 @@
       "author": "Josh Martel, Sex Manther",
       "when": "July 28, 2026, #the-coffee-shop",
       "ownerKey": "owner:0007",
-      "context": "On the one Free Agent Auction buy nobody else wanted",
+      "context": "While he and Blake were bidding against each other for a punter, Ryan Eckley",
       "source": "discord",
       "permalink": null
     },
@@ -3315,96 +4732,120 @@
         "f.team.0001.sim_exp_wins",
         "f.team.0001.sim_p_bye",
         "f.team.0001.sim_p_division",
+        "f.team.0001.sim_p_last",
         "f.team.0001.sim_p_playoffs",
         "f.team.0001.sim_p_title",
+        "f.team.0001.sim_p_top3",
         "f.team.0002.allplay_career",
         "f.team.0002.power_rank",
         "f.team.0002.sim_exp_allplay",
         "f.team.0002.sim_exp_wins",
         "f.team.0002.sim_p_bye",
         "f.team.0002.sim_p_division",
+        "f.team.0002.sim_p_last",
         "f.team.0002.sim_p_playoffs",
         "f.team.0002.sim_p_title",
+        "f.team.0002.sim_p_top3",
         "f.team.0003.allplay_career",
         "f.team.0003.power_rank",
         "f.team.0003.sim_exp_allplay",
         "f.team.0003.sim_exp_wins",
         "f.team.0003.sim_p_bye",
         "f.team.0003.sim_p_division",
+        "f.team.0003.sim_p_last",
         "f.team.0003.sim_p_playoffs",
         "f.team.0003.sim_p_title",
+        "f.team.0003.sim_p_top3",
         "f.team.0004.allplay_career",
         "f.team.0004.power_rank",
         "f.team.0004.sim_exp_allplay",
         "f.team.0004.sim_exp_wins",
         "f.team.0004.sim_p_bye",
         "f.team.0004.sim_p_division",
+        "f.team.0004.sim_p_last",
         "f.team.0004.sim_p_playoffs",
         "f.team.0004.sim_p_title",
+        "f.team.0004.sim_p_top3",
         "f.team.0005.allplay_career",
         "f.team.0005.power_rank",
         "f.team.0005.sim_exp_allplay",
         "f.team.0005.sim_exp_wins",
         "f.team.0005.sim_p_bye",
         "f.team.0005.sim_p_division",
+        "f.team.0005.sim_p_last",
         "f.team.0005.sim_p_playoffs",
         "f.team.0005.sim_p_title",
+        "f.team.0005.sim_p_top3",
         "f.team.0006.allplay_career",
         "f.team.0006.power_rank",
         "f.team.0006.sim_exp_allplay",
         "f.team.0006.sim_exp_wins",
         "f.team.0006.sim_p_bye",
         "f.team.0006.sim_p_division",
+        "f.team.0006.sim_p_last",
         "f.team.0006.sim_p_playoffs",
         "f.team.0006.sim_p_title",
+        "f.team.0006.sim_p_top3",
         "f.team.0007.allplay_career",
         "f.team.0007.power_rank",
         "f.team.0007.sim_exp_allplay",
         "f.team.0007.sim_exp_wins",
         "f.team.0007.sim_p_bye",
         "f.team.0007.sim_p_division",
+        "f.team.0007.sim_p_last",
         "f.team.0007.sim_p_playoffs",
         "f.team.0007.sim_p_title",
+        "f.team.0007.sim_p_top3",
         "f.team.0008.allplay_career",
         "f.team.0008.power_rank",
         "f.team.0008.sim_exp_allplay",
         "f.team.0008.sim_exp_wins",
         "f.team.0008.sim_p_bye",
         "f.team.0008.sim_p_division",
+        "f.team.0008.sim_p_last",
         "f.team.0008.sim_p_playoffs",
         "f.team.0008.sim_p_title",
+        "f.team.0008.sim_p_top3",
         "f.team.0009.allplay_career",
         "f.team.0009.power_rank",
         "f.team.0009.sim_exp_allplay",
         "f.team.0009.sim_exp_wins",
         "f.team.0009.sim_p_bye",
         "f.team.0009.sim_p_division",
+        "f.team.0009.sim_p_last",
         "f.team.0009.sim_p_playoffs",
         "f.team.0009.sim_p_title",
+        "f.team.0009.sim_p_top3",
         "f.team.0010.allplay_career",
         "f.team.0010.power_rank",
         "f.team.0010.sim_exp_allplay",
         "f.team.0010.sim_exp_wins",
         "f.team.0010.sim_p_bye",
         "f.team.0010.sim_p_division",
+        "f.team.0010.sim_p_last",
         "f.team.0010.sim_p_playoffs",
         "f.team.0010.sim_p_title",
+        "f.team.0010.sim_p_top3",
         "f.team.0011.allplay_career",
         "f.team.0011.power_rank",
         "f.team.0011.sim_exp_allplay",
         "f.team.0011.sim_exp_wins",
         "f.team.0011.sim_p_bye",
         "f.team.0011.sim_p_division",
+        "f.team.0011.sim_p_last",
         "f.team.0011.sim_p_playoffs",
         "f.team.0011.sim_p_title",
+        "f.team.0011.sim_p_top3",
         "f.team.0012.allplay_career",
         "f.team.0012.power_rank",
         "f.team.0012.sim_exp_allplay",
         "f.team.0012.sim_exp_wins",
         "f.team.0012.sim_p_bye",
         "f.team.0012.sim_p_division",
+        "f.team.0012.sim_p_last",
         "f.team.0012.sim_p_playoffs",
-        "f.team.0012.sim_p_title"
+        "f.team.0012.sim_p_title",
+        "f.team.0012.sim_p_top3"
       ],
       "tableIds": [
         "t.league.defense_board",
@@ -3651,96 +5092,120 @@
         "f.team.0001.sim_exp_wins",
         "f.team.0001.sim_p_bye",
         "f.team.0001.sim_p_division",
+        "f.team.0001.sim_p_last",
         "f.team.0001.sim_p_playoffs",
         "f.team.0001.sim_p_title",
+        "f.team.0001.sim_p_top3",
         "f.team.0002.allplay_career",
         "f.team.0002.power_rank",
         "f.team.0002.sim_exp_allplay",
         "f.team.0002.sim_exp_wins",
         "f.team.0002.sim_p_bye",
         "f.team.0002.sim_p_division",
+        "f.team.0002.sim_p_last",
         "f.team.0002.sim_p_playoffs",
         "f.team.0002.sim_p_title",
+        "f.team.0002.sim_p_top3",
         "f.team.0003.allplay_career",
         "f.team.0003.power_rank",
         "f.team.0003.sim_exp_allplay",
         "f.team.0003.sim_exp_wins",
         "f.team.0003.sim_p_bye",
         "f.team.0003.sim_p_division",
+        "f.team.0003.sim_p_last",
         "f.team.0003.sim_p_playoffs",
         "f.team.0003.sim_p_title",
+        "f.team.0003.sim_p_top3",
         "f.team.0004.allplay_career",
         "f.team.0004.power_rank",
         "f.team.0004.sim_exp_allplay",
         "f.team.0004.sim_exp_wins",
         "f.team.0004.sim_p_bye",
         "f.team.0004.sim_p_division",
+        "f.team.0004.sim_p_last",
         "f.team.0004.sim_p_playoffs",
         "f.team.0004.sim_p_title",
+        "f.team.0004.sim_p_top3",
         "f.team.0005.allplay_career",
         "f.team.0005.power_rank",
         "f.team.0005.sim_exp_allplay",
         "f.team.0005.sim_exp_wins",
         "f.team.0005.sim_p_bye",
         "f.team.0005.sim_p_division",
+        "f.team.0005.sim_p_last",
         "f.team.0005.sim_p_playoffs",
         "f.team.0005.sim_p_title",
+        "f.team.0005.sim_p_top3",
         "f.team.0006.allplay_career",
         "f.team.0006.power_rank",
         "f.team.0006.sim_exp_allplay",
         "f.team.0006.sim_exp_wins",
         "f.team.0006.sim_p_bye",
         "f.team.0006.sim_p_division",
+        "f.team.0006.sim_p_last",
         "f.team.0006.sim_p_playoffs",
         "f.team.0006.sim_p_title",
+        "f.team.0006.sim_p_top3",
         "f.team.0007.allplay_career",
         "f.team.0007.power_rank",
         "f.team.0007.sim_exp_allplay",
         "f.team.0007.sim_exp_wins",
         "f.team.0007.sim_p_bye",
         "f.team.0007.sim_p_division",
+        "f.team.0007.sim_p_last",
         "f.team.0007.sim_p_playoffs",
         "f.team.0007.sim_p_title",
+        "f.team.0007.sim_p_top3",
         "f.team.0008.allplay_career",
         "f.team.0008.power_rank",
         "f.team.0008.sim_exp_allplay",
         "f.team.0008.sim_exp_wins",
         "f.team.0008.sim_p_bye",
         "f.team.0008.sim_p_division",
+        "f.team.0008.sim_p_last",
         "f.team.0008.sim_p_playoffs",
         "f.team.0008.sim_p_title",
+        "f.team.0008.sim_p_top3",
         "f.team.0009.allplay_career",
         "f.team.0009.power_rank",
         "f.team.0009.sim_exp_allplay",
         "f.team.0009.sim_exp_wins",
         "f.team.0009.sim_p_bye",
         "f.team.0009.sim_p_division",
+        "f.team.0009.sim_p_last",
         "f.team.0009.sim_p_playoffs",
         "f.team.0009.sim_p_title",
+        "f.team.0009.sim_p_top3",
         "f.team.0010.allplay_career",
         "f.team.0010.power_rank",
         "f.team.0010.sim_exp_allplay",
         "f.team.0010.sim_exp_wins",
         "f.team.0010.sim_p_bye",
         "f.team.0010.sim_p_division",
+        "f.team.0010.sim_p_last",
         "f.team.0010.sim_p_playoffs",
         "f.team.0010.sim_p_title",
+        "f.team.0010.sim_p_top3",
         "f.team.0011.allplay_career",
         "f.team.0011.power_rank",
         "f.team.0011.sim_exp_allplay",
         "f.team.0011.sim_exp_wins",
         "f.team.0011.sim_p_bye",
         "f.team.0011.sim_p_division",
+        "f.team.0011.sim_p_last",
         "f.team.0011.sim_p_playoffs",
         "f.team.0011.sim_p_title",
+        "f.team.0011.sim_p_top3",
         "f.team.0012.allplay_career",
         "f.team.0012.power_rank",
         "f.team.0012.sim_exp_allplay",
         "f.team.0012.sim_exp_wins",
         "f.team.0012.sim_p_bye",
         "f.team.0012.sim_p_division",
+        "f.team.0012.sim_p_last",
         "f.team.0012.sim_p_playoffs",
-        "f.team.0012.sim_p_title"
+        "f.team.0012.sim_p_title",
+        "f.team.0012.sim_p_top3"
       ],
       "tableIds": [
         "t.league.divisions"
@@ -3767,6 +5232,43 @@
         "q_rybo_plans",
         "q_whitman_tiger"
       ],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s7",
+      "title": "Appendix: How the Forecast Is Calculated",
+      "brief": "For the reader who wants to check the work. Plain English, step by step: where the projections come from, how a week and a season are played, how much the projection is trusted and why, and the evidence -- how the same model would have called 2021 through 2025, team by team, projection against finish. Then what it cannot do. No sales pitch: the last three seasons were hard to call and the page should say so.",
+      "factIds": [
+        "f.league.bt_inside_band",
+        "f.league.bt_r2",
+        "f.league.bt_rho_2021",
+        "f.league.bt_rho_2022",
+        "f.league.bt_rho_2023",
+        "f.league.bt_rho_2024",
+        "f.league.bt_rho_2025",
+        "f.league.bt_rmse",
+        "f.league.bt_rmse_500",
+        "f.league.bt_sd_low_pre",
+        "f.league.bt_sd_low_weekly",
+        "f.league.bt_sd_now",
+        "f.league.bt_sd_now_pre",
+        "f.league.bt_shock_high_pre",
+        "f.league.bt_shock_high_weekly",
+        "f.league.bt_team_seasons",
+        "f.league.sim_regress",
+        "f.league.sim_runs",
+        "f.league.sim_shock"
+      ],
+      "tableIds": [
+        "t.league.bt_calibration",
+        "t.league.bt_dial",
+        "t.league.bt_seasons",
+        "t.league.bt_spread",
+        "t.league.bt_teams"
+      ],
+      "chartIds": [],
+      "quoteIds": [],
       "cardIds": [],
       "gameIds": []
     }

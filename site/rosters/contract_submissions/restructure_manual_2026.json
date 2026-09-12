@@ -63,7 +63,7 @@
       "player_id": "16167",
       "player_name": "Achane, De'Von",
       "submitted_at_utc": "2026-06-05T21:39:58.765Z",
-      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; DELETE from D1 too."
+      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; Never reached D1 (no ups_restructure_submissions row)."
     },
     {
       "franchise_id": "0007",
@@ -71,7 +71,7 @@
       "player_id": "16167",
       "player_name": "Achane, De'Von",
       "submitted_at_utc": "2026-06-05T21:40:44.435Z",
-      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; DELETE from D1 too."
+      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; Deleted from D1 2026-09-12 (ups_extension_submissions id 659, a dry-run commissioner revert)."
     }
   ]
 }

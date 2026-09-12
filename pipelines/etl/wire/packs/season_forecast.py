@@ -28,6 +28,7 @@ Deterministic; no language model. Stdlib + the Wire's own modules.
 
 import io
 import json
+import statistics
 import os
 import sys
 
@@ -44,6 +45,7 @@ SEASON = 2026
 PACK_ID = "2026-season-forecast"
 SIM_PATH = os.path.join(D.REPO, "site", "wire", "data", "season_sim_%d.json" % SEASON)
 QUOTES_PATH = os.path.join(D.REPO, "site", "wire", "data", "discord_quotes_%d_preseason.json" % SEASON)
+BACKTEST_PATH = os.path.join(D.REPO, "site", "wire", "data", "forecast_backtest_2021_2025.json")
 DRAFT_SRC = "Keith (commissioner), 2026-09-11; checked against MFL's divisions"
 DRAFT_DAY = "2026-05-24"
 
@@ -103,7 +105,11 @@ def build(pack_id=None):
                 ("sim_p_division", "Division odds", _pct(t["pDivision"]), "percent", None),
                 ("sim_p_playoffs", "Playoff odds", _pct(t["pPlayoffs"]), "percent", None),
                 ("sim_p_bye", "First-round bye odds", _pct(t["pBye"]), "percent", None),
-                ("sim_p_title", "Title odds", _pct(t["pTitle"]), "percent", None)):
+                ("sim_p_title", "Title odds", _pct(t["pTitle"]), "percent", None),
+                ("sim_p_top3", "Share of simulated seasons finishing top three in all-play",
+                 _pct(sum(t["apRankDist"][:3])), "percent", None),
+                ("sim_p_last", "Share of simulated seasons finishing last in all-play",
+                 _pct(t["apRankDist"][-1]), "percent", None)):
             fact_id = "f.team.%s.%s" % (fid, key)
             F(fact_id, "%s: %s" % (label, t["team"]), v, unit, sim_src, sim["generatedAtUtc"], fmt=fmt)
             team_ids.append(fact_id)
@@ -345,7 +351,7 @@ def build(pack_id=None):
         OFF_UNITS,
         "1 is best. Each column ranks what a team STARTS in those slots, by its players' value on the live "
         "redraft board: one quarterback slot, the superflex, two running backs, two receivers, a tight end "
-        "and the two flexes. Offense is all eleven of them together. Ranking by slot rather than by position "
+        "and the two flexes. Offense is all nine of them together. Ranking by slot rather than by position "
         "keeps the comparison even -- a team is measured on the same places as everyone else, and a "
         "quarterback in the superflex is counted once.")
     t_defense = _board(
@@ -490,11 +496,11 @@ def build(pack_id=None):
           _share(_n(fid, "cap_current_spent"), _sal_now), _share(_n(fid, "lineup_value_current"), _val_now),
           _idx(_n(fid, "lineup_value_current"), _val_now, _n(fid, "cap_current_spent"), _sal_now)]
          for fid in _order],
-        note="Every column is this team's share of the twelve-team total, so each adds to a hundred per cent. "
-             "Value per dollar is the share of the league's lineup value divided by the share of its salary: "
-             "above 1.00x a team holds more of the league's value than of its payroll, below it he is paying "
-             "for less than he has. April salary is active-roster salary; the figure for now is cap "
-             "committed, which includes salary adjustments.")
+        note="Every share column is this team's slice of the twelve-team total, so each adds to a hundred per "
+             "cent. Value per dollar is his slice of the league's lineup value divided by his slice of its "
+             "salary: above 1.00x he holds more of the league's talent than he pays for, below it he pays for "
+             "more than he has. April salary is active-roster salary; the figure for now is cap committed, "
+             "which includes salary adjustments.")
     F("f.league.cap_opening", "Active-roster salary across the league in April", int(_sal_open), "usd", FS, now)
 
     # DIVISION STRENGTH.
@@ -508,7 +514,7 @@ def build(pack_id=None):
         d["po"] += t["pPlayoffs"]
         d["title"] += t["pTitle"]
         d["faa"] += _n(fid, "faa_spend")
-        d["idp"] += _n(fid, "dl_value") + _n(fid, "lb_value") + _n(fid, "db_value")
+        d["idp"] += _n(fid, "slot_dl_value") + _n(fid, "slot_lb_value") + _n(fid, "slot_db_value") + _n(fid, "slot_df_value")
         d["holes"] += _n(fid, "holes_today")
     dord = sorted(dsum, key=lambda dn: -dsum[dn]["ap"])
     for dn in dord:
@@ -539,8 +545,141 @@ def build(pack_id=None):
           round(dsum[dn]["idp"], 1), dsum[dn]["faa"]] for dn in dord],
         note="Ordered by the mean of its three teams' projected all-play. Expected playoff spots sum each "
              "team's playoff odds; the six add up across the league. Defensive starters are the projected "
-             "season points of the DL, LB and DB a division starts. All-play is a projected percentage, not "
+             "season points of the seven defenders each team starts, added across the division. All-play is a "
+             "projected percentage, not "
              "points per game. Divisions are year one of a three-year alignment the owners drafted themselves.")
+
+    # THE APPENDIX: HOW THE FORECAST IS CALCULATED, AND HOW IT WOULD HAVE DONE.
+    # Keith 2026-09-12: "build a 'Projection: Calculation Source' as an appendix
+    # essentially. Simulations are based off projected points ... breakdown the
+    # historical projections vs. historical finish." Every figure comes from the
+    # backtest file, which replays 2021-2025 through season_sim.py itself.
+    if not os.path.exists(BACKTEST_PATH):
+        raise SystemExit("season_forecast: %s is missing -- the appendix has no source" % BACKTEST_PATH)
+    bt = json.load(io.open(BACKTEST_PATH, encoding="utf-8"))
+    pack.source("site/wire/data/forecast_backtest_2021_2025.json -- 2021-2025 replayed through season_sim.py "
+                "from cached MFL exports", bt["generatedAtUtc"], rows=len(bt["teams"]), note=bt["method"])
+    BT = "forecast backtest 2021-2025"
+    _bsum = bt["summary"]
+    F("f.league.sim_regress", "Share of each team's projected edge the forecast keeps", round(100 * sim["model"]["regress"]),
+      "percent", sim_src, sim["generatedAtUtc"])
+    F("f.league.sim_shock", "Season-long luck, one standard deviation, in points a week",
+      round(sim["model"]["sigmaSeason"], 1), "ratio", sim_src, sim["generatedAtUtc"],
+      fmt="%.1f" % sim["model"]["sigmaSeason"])
+    F("f.league.bt_team_seasons", "Team-seasons in the backtest", _bsum["team_seasons"], "count", BT, bt["generatedAtUtc"])
+    F("f.league.bt_r2", "Share of the spread in final all-play the backtest explained", _bsum["r_squared_pct"],
+      "percent", BT, bt["generatedAtUtc"])
+    F("f.league.bt_rmse", "Typical miss in all-play points, backtest", _bsum["rmse_allplay_pts_k07"], "ratio", BT,
+      bt["generatedAtUtc"], fmt="%.1f" % _bsum["rmse_allplay_pts_k07"])
+    F("f.league.bt_rmse_500", "Typical miss in all-play points calling every team .500", _bsum["rmse_everyone_500_pts"],
+      "ratio", BT, bt["generatedAtUtc"], fmt="%.1f" % _bsum["rmse_everyone_500_pts"])
+    # Inside means inside AS PRINTED: CBP 2025 finished exactly on its printed
+    # bad-year edge, and a reader counting the table must get the same number.
+    _inside = sum(1 for x in bt["teams"]
+                  if round(x["band_lo"], 1) <= round(x["actual_allplay"], 1) <= round(x["band_hi"], 1))
+    F("f.league.bt_inside_band", "Team-seasons that finished inside their own big-year to bad-year range, edges "
+      "included as printed", _inside, "count", BT, bt["generatedAtUtc"])
+    for _row in bt["seasons"]:
+        F("f.league.bt_rho_%d" % _row["season"], "Rank correlation, projection against finish, %d" % _row["season"],
+          _row["rank_corr"], "ratio", BT, bt["generatedAtUtc"], fmt="%.2f" % _row["rank_corr"])
+    # LIKE FOR LIKE. The backtest file measured each season twice: on week-one
+    # projections carried all season ("preseason") and on MFL's archived
+    # week-of projections ("weekly", which already knew each week's news). The
+    # first appendix compared this year's weekly spread with the tested
+    # PRESEASON rows, and the table under it contradicted the text. This year's
+    # published row is also read from the simulation actually published, not
+    # from the backtest file, which was written before the last rerun.
+    _sd_now = statistics.pstdev([100 * t["expAllPlayPct"] for t in sim["teams"]])
+    _tested = [x for x in bt["spread"] if x["season"] != "2026"]
+    _pre_now = [x for x in bt["spread"] if x["season"] == "2026" and x["basis"] == "preseason"]
+    if not _pre_now:
+        raise SystemExit("season_forecast: backtest file has no 2026 preseason spread row")
+    for _basis, _key in (("preseason", "pre"), ("weekly", "weekly")):
+        _rows = [x for x in _tested if x["basis"] == _basis]
+        F("f.league.bt_sd_low_%s" % _key, "Smallest spread of projected all-play in a tested season (%s)" % _basis,
+          min(x["sd_projected_allplay"] for x in _rows), "ratio", BT, bt["generatedAtUtc"],
+          fmt="%.1f" % min(x["sd_projected_allplay"] for x in _rows))
+        F("f.league.bt_shock_high_%s" % _key, "Largest season-long luck fitted in a tested season (%s)" % _basis,
+          max(x["season_shock"] for x in _rows), "ratio", BT, bt["generatedAtUtc"],
+          fmt="%.1f" % max(x["season_shock"] for x in _rows))
+    F("f.league.bt_sd_now_pre", "Spread of projected all-play this year on week-one projections",
+      _pre_now[0]["sd_projected_allplay"], "ratio", BT, bt["generatedAtUtc"], fmt="%.1f" % _pre_now[0]["sd_projected_allplay"])
+    F("f.league.bt_sd_now", "Spread of projected all-play in this year's published forecast", round(_sd_now, 2),
+      "ratio", sim_src, sim["generatedAtUtc"], fmt="%.1f" % _sd_now)
+    _bt_ids = [f for f in pack._facts if f.startswith("f.league.bt_")] + ["f.league.sim_regress", "f.league.sim_shock"]
+
+    t_bt_seasons = pack.table(
+        "t.league.bt_seasons", "How the forecast would have done, season by season",
+        [{"key": "season", "label": "Season", "type": "text"},
+         {"key": "rho", "label": "Order it got right", "type": "text"},
+         {"key": "off", "label": "Places off, per team", "type": "text"},
+         {"key": "miss", "label": "Typical miss", "type": "text"},
+         {"key": "miss500", "label": "Miss if everyone .500", "type": "text"},
+         {"key": "top6", "label": "Projected top six who made the playoffs", "type": "text"},
+         {"key": "champ", "label": "The champion", "type": "text"}],
+        [[str(x["season"]), "%.2f" % x["rank_corr"], "%.1f" % x["avg_places_off"], "%.1f" % x["rmse_pts"],
+          "%.1f" % x["rmse_500_pts"], "%d of 6" % x["proj_top6_made_playoffs"], x["champion"]] for x in bt["seasons"]],
+        note="Order it got right is the rank correlation between projected and actual all-play: 1.00 is the exact "
+             "order, 0 is no relation. Places off is how far the average team finished from its projected rank. "
+             "Misses are in all-play percentage points; the last column is how badly you would do by calling "
+             "every team .500.")
+    t_bt_dial = pack.table(
+        "t.league.bt_dial", "How much of the projection to trust",
+        [{"key": "k", "label": "Share of each team's edge kept", "type": "text"},
+         {"key": "miss", "label": "Typical miss", "type": "text"},
+         {"key": "slope", "label": "Real gap per projected gap", "type": "text"},
+         {"key": "rho", "label": "Order it got right", "type": "text"}],
+        [["%d%%" % round(100 * x["k"]), "%.1f" % x["rmse_pts"], "%.2f" % x["slope"], "%.2f" % x["mean_rank_corr"]]
+         for x in bt["dial"]],
+        note="The forecast trims every team's projected edge over the league before simulating. Kept whole, the "
+             "projected gaps between teams came out too big -- real gaps were only about two thirds of them. "
+             "At the chosen setting the projected gaps matched the real ones almost exactly, and the typical miss "
+             "was at its smallest.")
+    t_bt_calib = pack.table(
+        "t.league.bt_calibration", "Were the playoff odds honest?",
+        [{"key": "group", "label": "Playoff odds it gave", "type": "text"},
+         {"key": "n", "label": "Team-seasons", "type": "count"},
+         {"key": "avg", "label": "Average odds given", "type": "text"},
+         {"key": "made", "label": "How many made it", "type": "text"}],
+        [[x["group"].replace("playoff odds ", "").capitalize(), x["team_seasons"], x["average_forecast"], x["actual"]]
+         for x in bt["calibration"]],
+        note="Teams grouped by the playoff odds the forecast gave them before the season, against how many "
+             "actually made the six-team bracket.")
+    t_bt_teams = pack.table(
+        "t.league.bt_teams", "Every team, projection against finish, 2021-2025",
+        [{"key": "season", "label": "Season", "type": "text"},
+         {"key": "team", "label": "Team (owner then)", "type": "text"},
+         {"key": "proj_rank", "label": "Projected", "type": "count"},
+         {"key": "proj", "label": "Projected all-play", "type": "percent"},
+         {"key": "band", "label": "Big year to bad year", "type": "text"},
+         {"key": "actual", "label": "Actual all-play", "type": "percent"},
+         {"key": "rank", "label": "Finished", "type": "text"},
+         {"key": "places", "label": "Places", "type": "text"},
+         {"key": "final", "label": "Final finish", "type": "count"}],
+        [[str(x["season"]), "%s (%s)" % (x["team"], x["owner"]), x["proj_rank"], x["proj_allplay"],
+          "%.1f%% to %.1f%%" % (x["band_hi"], x["band_lo"]), x["actual_allplay"], x["actual_rank"],
+          x["places"], x["final_finish"]] for x in bt["teams"]],
+        note="One row per team-season, team and owner as they were that year. Projected is the preseason rank; "
+             "Finished is the actual all-play rank (T means tied). Places is projected rank minus finish, so a "
+             "plus sign means the team beat its projection. Final finish is where the season ended, "
+             "one through six being the playoff bracket.")
+    _BASIS_LABEL = {"preseason": "Week-one projections, all season",
+                    "weekly": "Each week's own projections, made that week"}
+    t_bt_spread = pack.table(
+        "t.league.bt_spread", "Why this year is harder to call",
+        [{"key": "season", "label": "Season", "type": "text"},
+         {"key": "basis", "label": "Projections used", "type": "text"},
+         {"key": "sd", "label": "Spread of projected all-play", "type": "text"},
+         {"key": "shock", "label": "Season luck needed", "type": "text"}],
+        [[x["season"], _BASIS_LABEL[x["basis"]], "%.1f" % x["sd_projected_allplay"], "%.1f" % x["season_shock"]]
+         for x in bt["spread"] if x["season"] != "2026"]
+        + [["2026", _BASIS_LABEL["preseason"], "%.1f" % _pre_now[0]["sd_projected_allplay"],
+            "%.1f" % _pre_now[0]["season_shock"]],
+           ["2026", "This forecast: this week's projections for every week, injuries held out",
+            "%.1f" % _sd_now, "%.1f" % sim["model"]["sigmaSeason"]]],
+        note="How far apart the twelve teams project (a standard deviation of projected all-play), and how much "
+             "season-long luck the model has to add for the finish to spread out like a real UPS season. The "
+             "flatter the projections, the more of the forecast is luck.")
 
     # League chat, verbatim, from the hand-curated file.
     quote_ids = []
@@ -556,11 +695,12 @@ def build(pack_id=None):
         pack.warn("No curated Discord quotes file (%s): the chat section has nothing to quote -- do not "
                   "paraphrase anyone." % os.path.relpath(QUOTES_PATH, D.REPO))
 
-    pack.warn("The forecast is a SIMULATION of today's rosters on MFL's weekly projections, regressed toward the "
-              "league (backtested on 2021-2025: it explained about 40%% of the spread in final all-play, but "
-              "ranked the field at only .3 to .4 in each of the last three seasons). Say 'projected' and 'odds', "
-              "never 'will'. It cannot see trades, waiver moves, injuries after the build, or lineup choices.")
-    pack.warn("Every team plays each division rival five times in the %d-game schedule -- that is never news." % teams[0]["games"])
+    pack.warn("The forecast simulates today's rosters on MFL's weekly projections, with each team's edge pulled "
+              "back toward the league average. Replayed on 2021-2025 it explained about 40% of the spread in "
+              "final all-play, but its rank correlation was only .31 to .42 in each of the last three seasons, "
+              "and this year's projections are flatter than any season it was tested on. It cannot see trades, "
+              "waiver moves, injuries after the build or lineup choices, and future injuries appear only as "
+              "random noise.")
     pack.coverage = {"seasonsComplete": [2010, 2025], "currentSeason": SEASON, "currentSeasonPartial": True}
 
     _lg = lambda *keys: ["f.league.%s" % k for k in keys]
@@ -612,4 +752,12 @@ def build(pack_id=None):
         "expect of the six. Name the teams. Close on the stakes -- year one of three -- and on the model's own "
         "limits.",
         fact_ids=_div_ids + team_ids, table_ids=[t_divisions], quote_ids=quote_ids)
+    pack.section(
+        "s7", "Appendix: How the Forecast Is Calculated",
+        "For the reader who wants to check the work. Plain English, step by step: where the projections come from, "
+        "how a week and a season are played, how much the projection is trusted and why, and the evidence -- how "
+        "the same model would have called 2021 through 2025, team by team, projection against finish. Then what "
+        "it cannot do. No sales pitch: the last three seasons were hard to call and the page should say so.",
+        fact_ids=_bt_ids + ["f.league.sim_runs"],
+        table_ids=[t_bt_seasons, t_bt_dial, t_bt_calib, t_bt_spread, t_bt_teams])
     return pack

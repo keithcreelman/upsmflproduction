@@ -714,8 +714,34 @@ def render_sections(pack, prose):
             else:
                 tail.append(fig)
 
+        # Placed quotes. `quoteAt` puts a quote directly after the paragraph that
+        # sets it up (0-based), the way placeAt does for tables. The 2026-09-12
+        # review of the league article found every quote rendering at the end of
+        # its section, away from the sentence that introduced it -- one appeared
+        # twice and two had no setup at all. A position for a quote the section
+        # does not carry, or past its last paragraph, fails the build.
+        quote_at = s.get("quoteAt") or {}
+        stray_q = sorted(set(quote_at) - set(s.get("quotes") or []))
+        if stray_q:
+            raise RenderError("%s has a quoteAt for quote(s) it does not carry: %s"
+                              % (where, ", ".join(stray_q)))
+        # A quote answers the sentence before it, so it goes BEFORE any table
+        # placed after the same paragraph.
+        placed_quotes = set()
+        quotes_after = {}
+        for qid, k in quote_at.items():
+            if qid not in quotes:
+                raise RenderError("%s places unknown quote id %s" % (where, qid))
+            k = int(k)
+            if not 0 <= k < len(paras):
+                raise RenderError("%s places quote %s after paragraph %d, but it has %d"
+                                  % (where, qid, k, len(paras)))
+            quotes_after.setdefault(k, []).append(render_quote(quotes[qid]))
+            placed_quotes.add(qid)
+
         for i, para in enumerate(paras):
             body.append("<p>%s</p>" % para)
+            body.extend(quotes_after.get(i, []))
             body.extend(after.get(i, []))
 
         bullets = s.get("bullets") or []
@@ -765,6 +791,8 @@ def render_sections(pack, prose):
             body.append(render_playcard(cards[cid]))
 
         for qid in s.get("quotes") or []:
+            if qid in placed_quotes:
+                continue
             if qid not in quotes:
                 raise RenderError("%s places unknown quote id %s" % (where, qid))
             body.append(render_quote(quotes[qid]))

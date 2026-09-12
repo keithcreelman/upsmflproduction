@@ -53,6 +53,20 @@ class DataError(RuntimeError):
 
 # ------------------------------------------------------------------ D1
 
+def _demojibake(v):
+    """Undo UTF-8 text that was stored after a Latin-1 round trip. src_franchises
+    holds HammerTime's name that way, and every team review printed its emoji as
+    four accented letters. A correctly stored string either is not Latin-1
+    encodable or does not decode as UTF-8 afterwards, so it comes back as it was."""
+    if not isinstance(v, str) or v.isascii():
+        return v
+    try:
+        fixed = v.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return v
+    return fixed
+
+
 def d1(sql, retries=1):
     """Run a single SELECT against the remote D1 and return list-of-dicts.
 
@@ -77,7 +91,7 @@ def d1(sql, retries=1):
         if proc.returncode == 0 and out:
             try:
                 payload = json.loads(out)
-                return payload[0]["results"]
+                return [dict((k, _demojibake(v)) for k, v in row.items()) for row in payload[0]["results"]]
             except Exception as exc:          # noqa: BLE001 - report the raw text
                 last = "unparseable wrangler output: %s / %s" % (exc, out[:200])
         else:

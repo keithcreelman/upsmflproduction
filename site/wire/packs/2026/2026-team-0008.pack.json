@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0008",
   "title": "2026 Team Review: Real Deal Creel",
-  "generatedAtUtc": "2026-09-12T15:22:04Z",
+  "generatedAtUtc": "2026-09-12T19:21:38Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -20,8 +20,14 @@
     },
     {
       "name": "MFL rosters export, live (all 12 franchises, for league-relative ranks)",
-      "asof": "2026-09-12T15:21:50Z",
+      "asof": "2026-09-12T19:21:21Z",
       "rows": 216,
+      "note": null
+    },
+    {
+      "name": "site/rosters/contract_submissions/restructure_manual_2026.json (exclusions: submissions the commissioner has voided)",
+      "asof": "2026-09-10",
+      "rows": 3,
       "note": null
     },
     {
@@ -32,7 +38,7 @@
     },
     {
       "name": "site/wire/data/season_sim_2026.json -- preseason Monte Carlo; K/P and DL/LB/DB from MFL projectedScores weeks 1-17",
-      "asof": "2026-09-11T13:45:00Z",
+      "asof": "2026-09-12T18:57:32Z",
       "rows": 12,
       "note": "20000 runs, regression 0.7 (backtested 2021-2025); power rank = expected regular-season all-play %"
     },
@@ -44,7 +50,7 @@
     },
     {
       "name": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z",
+      "asof": "2026-09-12T19:22:46Z",
       "rows": 12,
       "note": "Derived from facts and tables already in the twelve packs; no new data."
     }
@@ -106,16 +112,16 @@
       "unit": "percent",
       "fmt": "54.9%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0002",
       "label": "Career all-play %: Derrick Whitman",
-      "value": 60.0,
+      "value": 59.4,
       "unit": "percent",
-      "fmt": "60.0%",
+      "fmt": "59.4%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0003",
@@ -124,7 +130,7 @@
       "unit": "percent",
       "fmt": "41.4%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0004",
@@ -133,16 +139,16 @@
       "unit": "percent",
       "fmt": "51.5%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0005",
       "label": "Career all-play %: Eric Martel",
-      "value": 55.6,
+      "value": 62.9,
       "unit": "percent",
-      "fmt": "55.6%",
+      "fmt": "62.9%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0006",
@@ -151,7 +157,7 @@
       "unit": "percent",
       "fmt": "39.0%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0007",
@@ -160,7 +166,7 @@
       "unit": "percent",
       "fmt": "57.2%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0008",
@@ -169,7 +175,7 @@
       "unit": "percent",
       "fmt": "53.1%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0009",
@@ -178,7 +184,7 @@
       "unit": "percent",
       "fmt": "56.7%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0010",
@@ -187,7 +193,7 @@
       "unit": "percent",
       "fmt": "53.3%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0011",
@@ -196,7 +202,7 @@
       "unit": "percent",
       "fmt": "39.6%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.allplay_career_0012",
@@ -205,7 +211,7 @@
       "unit": "percent",
       "fmt": "36.9%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.div_draft_captain_0007",
@@ -241,7 +247,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.league.era_top_price",
@@ -250,7 +256,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -259,241 +265,241 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.league.p_division_0001",
       "label": "Simulated division odds: L.A. Looks",
-      "value": 21.2,
+      "value": 22.2,
       "unit": "percent",
-      "fmt": "21.2%",
+      "fmt": "22.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0002",
       "label": "Simulated division odds: CBP",
-      "value": 36.0,
+      "value": 35.9,
       "unit": "percent",
-      "fmt": "36.0%",
+      "fmt": "35.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0003",
       "label": "Simulated division odds: Gride",
-      "value": 11.8,
+      "value": 11.6,
       "unit": "percent",
-      "fmt": "11.8%",
+      "fmt": "11.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0004",
       "label": "Simulated division odds: Pure Greatness",
-      "value": 49.5,
+      "value": 47.0,
       "unit": "percent",
-      "fmt": "49.5%",
+      "fmt": "47.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0005",
       "label": "Simulated division odds: HammerTime 🔨 ⏰",
-      "value": 30.6,
+      "value": 34.5,
       "unit": "percent",
-      "fmt": "30.6%",
+      "fmt": "34.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0006",
       "label": "Simulated division odds: The Long Haulers",
-      "value": 19.9,
+      "value": 18.5,
       "unit": "percent",
-      "fmt": "19.9%",
+      "fmt": "18.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0007",
       "label": "Simulated division odds: Sex Manther",
-      "value": 38.3,
+      "value": 37.7,
       "unit": "percent",
-      "fmt": "38.3%",
+      "fmt": "37.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0008",
       "label": "Simulated division odds: Real Deal Creel",
-      "value": 40.5,
+      "value": 40.1,
       "unit": "percent",
-      "fmt": "40.5%",
+      "fmt": "40.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0009",
       "label": "Simulated division odds: C-Town Chivalry",
-      "value": 57.2,
+      "value": 57.6,
       "unit": "percent",
-      "fmt": "57.2%",
+      "fmt": "57.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0010",
       "label": "Simulated division odds: Blake Bombers",
-      "value": 52.2,
+      "value": 52.5,
       "unit": "percent",
-      "fmt": "52.2%",
+      "fmt": "52.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0011",
       "label": "Simulated division odds: Cleon Ca$h",
-      "value": 24.4,
+      "value": 23.6,
       "unit": "percent",
-      "fmt": "24.4%",
+      "fmt": "23.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_division_0012",
       "label": "Simulated division odds: Hawks",
-      "value": 18.4,
+      "value": 18.8,
       "unit": "percent",
-      "fmt": "18.4%",
+      "fmt": "18.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0001",
       "label": "Simulated playoff odds: L.A. Looks",
-      "value": 32.9,
+      "value": 34.0,
       "unit": "percent",
-      "fmt": "32.9%",
+      "fmt": "34.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0002",
       "label": "Simulated playoff odds: CBP",
-      "value": 52.0,
+      "value": 51.5,
       "unit": "percent",
-      "fmt": "52.0%",
+      "fmt": "51.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0003",
       "label": "Simulated playoff odds: Gride",
-      "value": 20.9,
+      "value": 20.4,
       "unit": "percent",
-      "fmt": "20.9%",
+      "fmt": "20.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0004",
       "label": "Simulated playoff odds: Pure Greatness",
-      "value": 70.4,
+      "value": 69.6,
       "unit": "percent",
-      "fmt": "70.4%",
+      "fmt": "69.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0005",
       "label": "Simulated playoff odds: HammerTime 🔨 ⏰",
-      "value": 53.5,
+      "value": 59.3,
       "unit": "percent",
-      "fmt": "53.5%",
+      "fmt": "59.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0006",
       "label": "Simulated playoff odds: The Long Haulers",
-      "value": 39.1,
+      "value": 38.0,
       "unit": "percent",
-      "fmt": "39.1%",
+      "fmt": "38.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0007",
       "label": "Simulated playoff odds: Sex Manther",
-      "value": 52.8,
+      "value": 52.2,
       "unit": "percent",
-      "fmt": "52.8%",
+      "fmt": "52.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0008",
       "label": "Simulated playoff odds: Real Deal Creel",
-      "value": 54.9,
+      "value": 54.4,
       "unit": "percent",
-      "fmt": "54.9%",
+      "fmt": "54.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0009",
       "label": "Simulated playoff odds: C-Town Chivalry",
-      "value": 74.9,
+      "value": 74.3,
       "unit": "percent",
-      "fmt": "74.9%",
+      "fmt": "74.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0010",
       "label": "Simulated playoff odds: Blake Bombers",
-      "value": 66.6,
+      "value": 66.5,
       "unit": "percent",
-      "fmt": "66.6%",
+      "fmt": "66.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0011",
       "label": "Simulated playoff odds: Cleon Ca$h",
-      "value": 45.3,
+      "value": 43.4,
       "unit": "percent",
-      "fmt": "45.3%",
+      "fmt": "43.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_playoffs_0012",
       "label": "Simulated playoff odds: Hawks",
-      "value": 36.6,
+      "value": 36.4,
       "unit": "percent",
-      "fmt": "36.6%",
+      "fmt": "36.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0001",
       "label": "Simulated title odds: L.A. Looks",
-      "value": 2.6,
+      "value": 2.8,
       "unit": "percent",
-      "fmt": "2.6%",
+      "fmt": "2.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0002",
       "label": "Simulated title odds: CBP",
-      "value": 7.3,
+      "value": 7.4,
       "unit": "percent",
-      "fmt": "7.3%",
+      "fmt": "7.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0003",
@@ -502,61 +508,61 @@
       "unit": "percent",
       "fmt": "1.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0004",
       "label": "Simulated title odds: Pure Greatness",
-      "value": 14.8,
+      "value": 15.0,
       "unit": "percent",
-      "fmt": "14.8%",
+      "fmt": "15.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0005",
       "label": "Simulated title odds: HammerTime 🔨 ⏰",
-      "value": 9.6,
+      "value": 11.6,
       "unit": "percent",
-      "fmt": "9.6%",
+      "fmt": "11.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0006",
       "label": "Simulated title odds: The Long Haulers",
-      "value": 5.6,
+      "value": 5.4,
       "unit": "percent",
-      "fmt": "5.6%",
+      "fmt": "5.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0007",
       "label": "Simulated title odds: Sex Manther",
-      "value": 7.5,
+      "value": 7.8,
       "unit": "percent",
-      "fmt": "7.5%",
+      "fmt": "7.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0008",
       "label": "Simulated title odds: Real Deal Creel",
-      "value": 10.0,
+      "value": 10.1,
       "unit": "percent",
-      "fmt": "10.0%",
+      "fmt": "10.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0009",
       "label": "Simulated title odds: C-Town Chivalry",
-      "value": 20.8,
+      "value": 18.1,
       "unit": "percent",
-      "fmt": "20.8%",
+      "fmt": "18.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0010",
@@ -565,25 +571,25 @@
       "unit": "percent",
       "fmt": "10.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0011",
       "label": "Simulated title odds: Cleon Ca$h",
-      "value": 5.8,
+      "value": 5.5,
       "unit": "percent",
-      "fmt": "5.8%",
+      "fmt": "5.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.p_title_0012",
       "label": "Simulated title odds: Hawks",
-      "value": 4.2,
+      "value": 4.3,
       "unit": "percent",
-      "fmt": "4.2%",
+      "fmt": "4.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0001",
@@ -592,7 +598,7 @@
       "unit": "rank",
       "fmt": "11",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0002",
@@ -601,7 +607,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0003",
@@ -610,7 +616,7 @@
       "unit": "rank",
       "fmt": "12",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0004",
@@ -619,7 +625,7 @@
       "unit": "rank",
       "fmt": "2",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0005",
@@ -628,7 +634,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0006",
@@ -637,7 +643,7 @@
       "unit": "rank",
       "fmt": "9",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0007",
@@ -646,7 +652,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0008",
@@ -655,7 +661,7 @@
       "unit": "rank",
       "fmt": "5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0009",
@@ -664,7 +670,7 @@
       "unit": "rank",
       "fmt": "1",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0010",
@@ -673,7 +679,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0011",
@@ -682,7 +688,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.power_rank_0012",
@@ -691,7 +697,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.league.roster_max_at_auction",
@@ -718,7 +724,7 @@
       "unit": "text",
       "fmt": "2014, 2021",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.title_years_0002",
@@ -727,7 +733,7 @@
       "unit": "text",
       "fmt": "2013",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.title_years_0003",
@@ -736,7 +742,7 @@
       "unit": "text",
       "fmt": "2022",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.title_years_0004",
@@ -745,7 +751,7 @@
       "unit": "text",
       "fmt": "2025",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.title_years_0005",
@@ -754,7 +760,7 @@
       "unit": "text",
       "fmt": "2024",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.title_years_0007",
@@ -763,7 +769,7 @@
       "unit": "text",
       "fmt": "2019, 2020",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.title_years_0009",
@@ -772,7 +778,7 @@
       "unit": "text",
       "fmt": "2016",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.title_years_0010",
@@ -781,7 +787,7 @@
       "unit": "text",
       "fmt": "2011, 2015, 2023",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0001",
@@ -790,7 +796,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0002",
@@ -799,7 +805,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0003",
@@ -808,7 +814,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0004",
@@ -817,7 +823,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0005",
@@ -826,7 +832,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0006",
@@ -835,7 +841,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0007",
@@ -844,7 +850,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0008",
@@ -853,7 +859,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0009",
@@ -862,7 +868,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0010",
@@ -871,7 +877,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0011",
@@ -880,7 +886,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.titles_0012",
@@ -889,7 +895,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.league.wk_teams_final",
@@ -898,7 +904,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "MFL liveScoring",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.active_now",
@@ -907,7 +913,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "auction/compliance",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.active_roster_current",
@@ -943,7 +949,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.auction_spend",
@@ -952,7 +958,7 @@
       "unit": "usd",
       "fmt": "$198,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.biggest_contract_traded_away",
@@ -961,7 +967,7 @@
       "unit": "usd",
       "fmt": "$32,000",
       "source": "MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.can_field_lineup_current",
@@ -997,7 +1003,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "auction/compliance",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cap_current_spent",
@@ -1006,7 +1012,7 @@
       "unit": "usd",
       "fmt": "$297,000",
       "source": "auction/compliance",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cap_opening",
@@ -1033,7 +1039,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.composite_value",
@@ -1042,7 +1048,7 @@
       "unit": "count",
       "fmt": "51,148",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_12186_next_salary",
@@ -1051,7 +1057,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_12186_salary",
@@ -1060,7 +1066,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_12186_tcv",
@@ -1069,7 +1075,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_12186_years",
@@ -1078,7 +1084,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15716_next_salary",
@@ -1087,7 +1093,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15716_salary",
@@ -1096,7 +1102,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15716_tcv",
@@ -1105,7 +1111,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15716_years",
@@ -1114,7 +1120,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15795_next_salary",
@@ -1123,7 +1129,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15795_salary",
@@ -1132,7 +1138,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15795_tcv",
@@ -1141,7 +1147,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15795_years",
@@ -1150,7 +1156,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15889_loading",
@@ -1159,7 +1165,7 @@
       "unit": "text",
       "fmt": "front-loaded",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15889_next_salary",
@@ -1168,7 +1174,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15889_salary",
@@ -1177,7 +1183,7 @@
       "unit": "usd",
       "fmt": "$11,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15889_tcv",
@@ -1186,7 +1192,7 @@
       "unit": "usd",
       "fmt": "$14,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_15889_years",
@@ -1195,7 +1201,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16192_loading",
@@ -1204,7 +1210,7 @@
       "unit": "text",
       "fmt": "front-loaded",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16192_next_salary",
@@ -1213,7 +1219,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16192_salary",
@@ -1222,7 +1228,7 @@
       "unit": "usd",
       "fmt": "$12,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16192_tcv",
@@ -1231,7 +1237,7 @@
       "unit": "usd",
       "fmt": "$15,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16192_years",
@@ -1240,7 +1246,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16193_next_salary",
@@ -1249,7 +1255,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16193_salary",
@@ -1258,7 +1264,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16193_tcv",
@@ -1267,7 +1273,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16193_years",
@@ -1276,7 +1282,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16212_next_salary",
@@ -1285,7 +1291,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16212_salary",
@@ -1294,7 +1300,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16212_tcv",
@@ -1303,7 +1309,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16212_years",
@@ -1312,7 +1318,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16594_next_salary",
@@ -1321,7 +1327,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16594_salary",
@@ -1330,7 +1336,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16594_tcv",
@@ -1339,7 +1345,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16594_years",
@@ -1348,7 +1354,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16680_next_salary",
@@ -1357,7 +1363,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16680_salary",
@@ -1366,7 +1372,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16680_tcv",
@@ -1375,7 +1381,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16680_years",
@@ -1384,7 +1390,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16850_next_salary",
@@ -1393,7 +1399,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16850_salary",
@@ -1402,7 +1408,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16850_tcv",
@@ -1411,7 +1417,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_16850_years",
@@ -1420,7 +1426,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_17743_next_salary",
@@ -1429,7 +1435,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_17743_salary",
@@ -1438,7 +1444,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_17743_tcv",
@@ -1447,7 +1453,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contract_17743_years",
@@ -1456,7 +1462,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.contracts_count",
@@ -1465,7 +1471,7 @@
       "unit": "count",
       "fmt": "12",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_13113_penalty",
@@ -1474,7 +1480,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_13113_salary",
@@ -1483,7 +1489,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_14137_penalty",
@@ -1492,7 +1498,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_14137_salary",
@@ -1501,7 +1507,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_15241_penalty",
@@ -1510,7 +1516,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_15241_salary",
@@ -1519,7 +1525,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_16594_penalty",
@@ -1528,7 +1534,7 @@
       "unit": "usd",
       "fmt": "$1,500",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_16594_salary",
@@ -1537,7 +1543,7 @@
       "unit": "usd",
       "fmt": "$6,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_16617_penalty",
@@ -1546,7 +1552,7 @@
       "unit": "usd",
       "fmt": "$1,250",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cut_16617_salary",
@@ -1555,7 +1561,7 @@
       "unit": "usd",
       "fmt": "$5,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_count",
@@ -1564,7 +1570,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_penalty_2026",
@@ -1573,7 +1579,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_penalty_2027_deferred",
@@ -1582,7 +1588,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s1",
@@ -1591,7 +1597,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s1_penalty",
@@ -1600,7 +1606,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s1_salary",
@@ -1609,7 +1615,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s2",
@@ -1618,7 +1624,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s2_penalty",
@@ -1627,7 +1633,7 @@
       "unit": "usd",
       "fmt": "$3,750",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s2_salary",
@@ -1636,7 +1642,7 @@
       "unit": "usd",
       "fmt": "$15,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s3",
@@ -1645,7 +1651,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s3_penalty",
@@ -1654,7 +1660,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.cuts_s3_salary",
@@ -1663,7 +1669,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.div_week_byes_0001",
@@ -1672,7 +1678,7 @@
       "unit": "count",
       "fmt": "7",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.div_week_byes_0007",
@@ -1681,7 +1687,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.div_week_count",
@@ -1690,7 +1696,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.div_week_last",
@@ -1699,7 +1705,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.div_week_own_byes",
@@ -1708,7 +1714,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.div_week_rival_byes",
@@ -1717,7 +1723,7 @@
       "unit": "count",
       "fmt": "11",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.div_weeks",
@@ -1726,7 +1732,7 @@
       "unit": "text",
       "fmt": "1, 4, 8, 11 and 14",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.division_name",
@@ -1735,7 +1741,7 @@
       "unit": "text",
       "fmt": "Maddie Mondays",
       "source": "MFL league export",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.division_rank",
@@ -1744,7 +1750,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.division_size",
@@ -1753,7 +1759,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL league export",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.era_16171_price",
@@ -1762,7 +1768,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.era_16174_price",
@@ -1771,7 +1777,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.era_16193_price",
@@ -1780,7 +1786,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.era_16212_price",
@@ -1789,7 +1795,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.era_16252_price",
@@ -1798,7 +1804,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.era_lots_won",
@@ -1807,7 +1813,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.era_spend",
@@ -1816,7 +1822,7 @@
       "unit": "usd",
       "fmt": "$9,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.expired_extended",
@@ -1825,7 +1831,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "MFL 2025 rosters (Rookie, contractYear 1)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.expired_rookies",
@@ -1834,7 +1840,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL 2025 rosters (Rookie, contractYear 1)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.expired_to_era",
@@ -1843,7 +1849,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL 2025 rosters (Rookie, contractYear 1)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.extensions_s1",
@@ -1852,7 +1858,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.extensions_s2",
@@ -1861,7 +1867,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.extensions_s3",
@@ -1870,7 +1876,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_12186_price",
@@ -1879,7 +1885,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_12616_price",
@@ -1888,7 +1894,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_12620_price",
@@ -1897,7 +1903,7 @@
       "unit": "usd",
       "fmt": "$63,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_13604_price",
@@ -1906,7 +1912,7 @@
       "unit": "usd",
       "fmt": "$45,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_13713_price",
@@ -1915,7 +1921,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_14056_price",
@@ -1924,7 +1930,7 @@
       "unit": "usd",
       "fmt": "$32,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_14167_price",
@@ -1933,7 +1939,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_14472_price",
@@ -1942,7 +1948,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_14974_price",
@@ -1951,7 +1957,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_15051_price",
@@ -1960,7 +1966,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_15241_price",
@@ -1969,7 +1975,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_15271_price",
@@ -1978,7 +1984,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_15346_price",
@@ -1987,7 +1993,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_15355_price",
@@ -1996,7 +2002,7 @@
       "unit": "usd",
       "fmt": "$5,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_15716_price",
@@ -2005,7 +2011,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_15889_price",
@@ -2014,7 +2020,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_16192_price",
@@ -2023,7 +2029,7 @@
       "unit": "usd",
       "fmt": "$5,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_16295_price",
@@ -2032,7 +2038,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_16680_price",
@@ -2041,7 +2047,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_lots_won",
@@ -2050,7 +2056,7 @@
       "unit": "count",
       "fmt": "19",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.faa_spend",
@@ -2059,7 +2065,7 @@
       "unit": "usd",
       "fmt": "$189,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.hist_allplay_pct",
@@ -2068,7 +2074,7 @@
       "unit": "percent",
       "fmt": "53.1%",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_ap_titles",
@@ -2077,7 +2083,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_div_title_years",
@@ -2086,7 +2092,7 @@
       "unit": "text",
       "fmt": "2018, 2022",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_div_titles",
@@ -2095,7 +2101,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_first_season",
@@ -2104,7 +2110,7 @@
       "unit": "text",
       "fmt": "2010",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_playoffs",
@@ -2113,7 +2119,7 @@
       "unit": "count",
       "fmt": "9",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_runner_up_years",
@@ -2122,7 +2128,7 @@
       "unit": "text",
       "fmt": "2013, 2019",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_runner_ups",
@@ -2131,7 +2137,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_seasons",
@@ -2140,7 +2146,7 @@
       "unit": "count",
       "fmt": "16",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.hist_titles",
@@ -2149,7 +2155,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "D1 ups_owner_career_stats",
-      "asof": "2026-09-11 09:40:40"
+      "asof": "2026-09-12 17:48:02"
     },
     {
       "id": "f.team.0008.holes_opening",
@@ -2176,7 +2182,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_adds_alltime",
@@ -2185,7 +2191,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_adds_lead_streak",
@@ -2194,7 +2200,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_adds_league_leader",
@@ -2203,7 +2209,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_adds_next_best",
@@ -2212,7 +2218,7 @@
       "unit": "count",
       "fmt": "257",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_adds_rank",
@@ -2221,7 +2227,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_auction_share",
@@ -2230,7 +2236,7 @@
       "unit": "percent",
       "fmt": "7.1%",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_auction_share_rank",
@@ -2239,7 +2245,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_auction_spend",
@@ -2248,7 +2254,7 @@
       "unit": "usd",
       "fmt": "$14,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.idp_ppw_rank",
@@ -2257,7 +2263,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "src_weekly",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.injured_listed",
@@ -2266,7 +2272,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL injuries export + season_sim absences",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.injured_starters",
@@ -2275,7 +2281,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL injuries export + season_sim absences",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.inyear_flyers",
@@ -2284,7 +2290,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.ir_now",
@@ -2293,7 +2299,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.lineup_value_current",
@@ -2302,7 +2308,7 @@
       "unit": "count",
       "fmt": "32,231",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.lineup_value_opening",
@@ -2338,7 +2344,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.myac_faa",
@@ -2347,7 +2353,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.myac_other",
@@ -2356,7 +2362,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.myac_trade",
@@ -2365,7 +2371,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.pickups_s1",
@@ -2374,7 +2380,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.pickups_s2",
@@ -2383,7 +2389,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.pickups_s3",
@@ -2392,7 +2398,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.power_rank",
@@ -2401,7 +2407,7 @@
       "unit": "rank",
       "fmt": "5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.qb_rank",
@@ -2410,7 +2416,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.qb_value",
@@ -2428,7 +2434,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.rb_value",
@@ -2446,7 +2452,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.restructures_auction",
@@ -2455,7 +2461,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.restructures_early",
@@ -2464,7 +2470,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.restructures_post",
@@ -2473,7 +2479,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.rookie_extensions",
@@ -2482,7 +2488,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.rookie_picks_count",
@@ -2500,7 +2506,7 @@
       "unit": "count",
       "fmt": "24",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.roster_total_postauction",
@@ -2518,7 +2524,7 @@
       "unit": "count",
       "fmt": "40",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.rt_16211_from",
@@ -2527,7 +2533,7 @@
       "unit": "text",
       "fmt": "2026-07-27",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.rt_16211_next_salary",
@@ -2536,7 +2542,7 @@
       "unit": "usd",
       "fmt": "$35,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.rt_16211_salary",
@@ -2545,7 +2551,7 @@
       "unit": "usd",
       "fmt": "$9,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.rt_16211_to",
@@ -2554,25 +2560,25 @@
       "unit": "text",
       "fmt": "2026-09-05",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.sim_exp_allplay",
       "label": "Simulated expected regular-season all-play %",
-      "value": 50.9,
+      "value": 50.8,
       "unit": "percent",
-      "fmt": "50.9%",
+      "fmt": "50.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_exp_wins",
       "label": "Simulated expected head-to-head wins",
-      "value": 19.0,
+      "value": 18.9,
       "unit": "ratio",
-      "fmt": "19.0",
+      "fmt": "18.9",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_games",
@@ -2581,43 +2587,43 @@
       "unit": "count",
       "fmt": "37",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_bye",
       "label": "Simulated chance of a first-round bye",
-      "value": 16.9,
+      "value": 16.8,
       "unit": "percent",
-      "fmt": "16.9%",
+      "fmt": "16.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_division",
       "label": "Simulated chance of winning the division",
-      "value": 40.5,
+      "value": 40.1,
       "unit": "percent",
-      "fmt": "40.5%",
+      "fmt": "40.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_playoffs",
       "label": "Simulated playoff odds",
-      "value": 54.9,
+      "value": 54.4,
       "unit": "percent",
-      "fmt": "54.9%",
+      "fmt": "54.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.sim_p_title",
       "label": "Simulated title odds",
-      "value": 10.0,
+      "value": 10.1,
       "unit": "percent",
-      "fmt": "10.0%",
+      "fmt": "10.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T18:57:32Z"
     },
     {
       "id": "f.team.0008.slot_db_rank",
@@ -2626,7 +2632,7 @@
       "unit": "rank",
       "fmt": "11",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_db_value",
@@ -2644,7 +2650,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_def_value",
@@ -2662,7 +2668,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_df_value",
@@ -2676,11 +2682,11 @@
     {
       "id": "f.team.0008.slot_dl_rank",
       "label": "League rank for the two defensive line slots",
-      "value": 11,
+      "value": 10,
       "unit": "rank",
-      "fmt": "11",
+      "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_dl_value",
@@ -2698,7 +2704,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_lb_value",
@@ -2716,7 +2722,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_of_value",
@@ -2734,7 +2740,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_off_value",
@@ -2752,7 +2758,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_pk_value",
@@ -2770,7 +2776,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_pn_value",
@@ -2788,7 +2794,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_qb_value",
@@ -2806,7 +2812,7 @@
       "unit": "rank",
       "fmt": "5",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_rb_value",
@@ -2824,7 +2830,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_sf_value",
@@ -2842,7 +2848,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_st_value",
@@ -2860,7 +2866,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_te_value",
@@ -2878,7 +2884,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.slot_wr_value",
@@ -2914,7 +2920,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.tags",
@@ -2923,7 +2929,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.taxi_now",
@@ -2932,7 +2938,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.te_rank",
@@ -2941,7 +2947,7 @@
       "unit": "rank",
       "fmt": "9",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.te_value",
@@ -2959,7 +2965,7 @@
       "unit": "percent",
       "fmt": "33.3%",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.top_buy_price",
@@ -2968,34 +2974,34 @@
       "unit": "usd",
       "fmt": "$63,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade1_grade",
-      "label": "Trade bot's grade for his side of the 2026-04-13 trade with HammerTime ð¨ â° -- NOT graded at the time; graded as of the trade date",
+      "label": "Trade bot's grade for his side of the 2026-04-13 trade with HammerTime 🔨 ⏰ -- NOT graded at the time; graded as of the trade date",
       "value": "A",
       "unit": "text",
       "fmt": "A",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade1_salary_in",
-      "label": "Salary taken on in the 2026-04-13 trade with HammerTime ð¨ â°",
+      "label": "Salary taken on in the 2026-04-13 trade with HammerTime 🔨 ⏰",
       "value": 0,
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade1_salary_out",
-      "label": "Salary sent away in the 2026-04-13 trade with HammerTime ð¨ â°",
+      "label": "Salary sent away in the 2026-04-13 trade with HammerTime 🔨 ⏰",
       "value": 0,
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade2_grade",
@@ -3004,7 +3010,7 @@
       "unit": "text",
       "fmt": "C",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade2_salary_in",
@@ -3013,7 +3019,7 @@
       "unit": "usd",
       "fmt": "$19,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade2_salary_out",
@@ -3022,7 +3028,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade3_grade",
@@ -3031,7 +3037,7 @@
       "unit": "text",
       "fmt": "C+",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade3_salary_in",
@@ -3040,7 +3046,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade3_salary_out",
@@ -3049,7 +3055,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade4_grade",
@@ -3058,7 +3064,7 @@
       "unit": "text",
       "fmt": "C",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade4_salary_in",
@@ -3067,7 +3073,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade4_salary_out",
@@ -3076,7 +3082,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade5_grade",
@@ -3085,7 +3091,7 @@
       "unit": "text",
       "fmt": "A-",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade5_salary_in",
@@ -3094,7 +3100,7 @@
       "unit": "usd",
       "fmt": "$22,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade5_salary_out",
@@ -3103,7 +3109,7 @@
       "unit": "usd",
       "fmt": "$17,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade6_grade",
@@ -3112,7 +3118,7 @@
       "unit": "text",
       "fmt": "A",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade6_salary_in",
@@ -3121,7 +3127,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade6_salary_out",
@@ -3130,7 +3136,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade_blind_bid_elsewhere",
@@ -3139,7 +3145,7 @@
       "unit": "usd",
       "fmt": "$19,000",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade_salary_in_s1",
@@ -3148,7 +3154,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade_salary_in_s2",
@@ -3157,7 +3163,7 @@
       "unit": "usd",
       "fmt": "$41,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade_salary_in_s3",
@@ -3166,7 +3172,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade_salary_out_s1",
@@ -3175,7 +3181,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade_salary_out_s2",
@@ -3184,7 +3190,7 @@
       "unit": "usd",
       "fmt": "$17,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trade_salary_out_s3",
@@ -3193,7 +3199,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trades_count",
@@ -3211,7 +3217,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trades_s2",
@@ -3220,7 +3226,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.trades_s3",
@@ -3229,7 +3235,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.waiver_swaps",
@@ -3238,7 +3244,7 @@
       "unit": "count",
       "fmt": "16",
       "source": "mfl transactions",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.wk_live",
@@ -3247,7 +3253,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL liveScoring",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.wk_players_final",
@@ -3256,7 +3262,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL liveScoring + rosters",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.wk_points_final",
@@ -3265,7 +3271,7 @@
       "unit": "points",
       "fmt": "13.8",
       "source": "MFL playerScores",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.wr_rank",
@@ -3274,7 +3280,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-12T15:21:50Z"
+      "asof": "2026-09-12T19:21:21Z"
     },
     {
       "id": "f.team.0008.wr_value",
@@ -3292,7 +3298,7 @@
       "unit": "usd",
       "fmt": "$173,000",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.faa_off_spend_share",
@@ -3301,7 +3307,7 @@
       "unit": "percent",
       "fmt": "15.4%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.faa_off_gain_share",
@@ -3310,7 +3316,7 @@
       "unit": "percent",
       "fmt": "15.3%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.faa_off_rank",
@@ -3319,7 +3325,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.faa_off_rate_rank",
@@ -3328,7 +3334,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.faa_off_gain_rank",
@@ -3337,7 +3343,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.faa_off_rate",
@@ -3346,7 +3352,7 @@
       "unit": "ratio",
       "fmt": "1.00x",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     },
     {
       "id": "f.team.0008.faa_off_gain_pct",
@@ -3355,7 +3361,7 @@
       "unit": "percent",
       "fmt": "69.5%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T17:49:05Z"
+      "asof": "2026-09-12T19:22:46Z"
     }
   ],
   "tables": [
@@ -3904,7 +3910,7 @@
           "2026-09-07"
         ]
       ],
-      "note": "Distinct deals, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. 'At league minimum?' answers the only question that word means: the UPS minimum salary is $1,000, so a $2,000 deal is NOT a minimum deal and must never be called one. Provenance: working copy (identical to origin/main); 15 uncorroborated row(s) dropped"
+      "note": "Distinct deals, not raw Front Office submissions -- a deal revised several times in one sitting counts once, as the shape that stuck. 'At league minimum?' answers the only question that word means: the UPS minimum salary is $1,000, so a $2,000 deal is NOT a minimum deal and must never be called one. Provenance: origin/main (local checkout is behind); 15 uncorroborated row(s) dropped"
     },
     {
       "id": "t.0008.cuts",
@@ -4274,9 +4280,9 @@
           "Real Deal Creel",
           "Keith Creelman",
           5,
-          40.5,
-          54.9,
-          10.0,
+          40.1,
+          54.4,
+          10.1,
           53.1,
           "0"
         ],
@@ -4284,9 +4290,9 @@
           "Sex Manther",
           "Josh Martel",
           6,
-          38.3,
-          52.8,
-          7.5,
+          37.7,
+          52.2,
+          7.8,
           57.2,
           "2 (2019, 2020)"
         ],
@@ -4294,9 +4300,9 @@
           "L.A. Looks",
           "Ryan Bousquet",
           11,
-          21.2,
-          32.9,
-          2.6,
+          22.2,
+          34.0,
+          2.8,
           54.9,
           "2 (2014, 2021)"
         ]
@@ -4702,7 +4708,7 @@
           "7.61"
         ],
         [
-          "HammerTime ð¨ â°",
+          "HammerTime 🔨 ⏰",
           182,
           "8.55"
         ],
@@ -4966,8 +4972,8 @@
         [
           "2026-04-13",
           "Trade",
-          "with HammerTime ð¨ â°",
-          "Gave Kenneth Walker (RB, restructured 2026-04-17). Got 2027 round-1 pick (HammerTime ð¨ â°'s).",
+          "with HammerTime 🔨 ⏰",
+          "Gave Kenneth Walker (RB, restructured 2026-04-17). Got 2027 round-1 pick (HammerTime 🔨 ⏰'s).",
           "A*"
         ],
         [
@@ -5524,9 +5530,9 @@
       "rows": [
         [
           "2026-04-13",
-          "HammerTime ð¨ â°",
+          "HammerTime 🔨 ⏰",
           "Kenneth Walker (Low-end RB1)",
-          "2027 round-1 pick (HammerTime ð¨ â°'s natural pick)",
+          "2027 round-1 pick (HammerTime 🔨 ⏰'s natural pick)",
           "—"
         ],
         [
@@ -5743,7 +5749,7 @@
           "1 Very good, 1 Good, 1 Starter depth, 6 Bench depth"
         ],
         [
-          "HammerTime ð¨ â°",
+          "HammerTime 🔨 ⏰",
           37000,
           3.3,
           1.2,

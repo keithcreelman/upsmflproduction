@@ -184,6 +184,21 @@ def _snapshot_player_before(pid, day, horizon=10):
     return None
 
 
+_FR_BY_DAY = {}
+
+
+def _snapshot_franchise_row(pid, day):
+    """(franchise id, player row) for `pid` in the `day` roster snapshot, or None."""
+    idx = _FR_BY_DAY.get(day)
+    if idx is None:
+        idx = {}
+        for fr in D.snapshot(day, "rosters")["rosters"]["franchise"]:
+            for p in _as_list(fr.get("player")):
+                idx[str(p.get("id"))] = (str(fr.get("id")).zfill(4), p)
+        _FR_BY_DAY[day] = idx
+    return idx.get(pid)
+
+
 _PRIOR_ROSTERS = {}
 
 
@@ -2056,6 +2071,44 @@ def build(pack_id):
         _added_rs += 1
     pack.source("site/rosters/contract_submissions/restructure_manual_%d.json (restructures made off the Front "
                 "Office path)" % SEASON, current_date, rows=_added_rs)
+    # RESTRUCTURES THAT ARE ONLY ON MFL. Chase Brown's extension is logged flat
+    # at $22,000 / $22,000 on 05-21, and MFL carried exactly that until early
+    # September, when his contract became $32,000 / $12,000 "Restructured 2026"
+    # with no row in either log. The last-word rule below then rewrote the MAY
+    # extension as front-loaded, which it never was. When MFL's live contract
+    # says it was restructured this season and neither log has a restructure
+    # for him, the restructure happened: date it by the first daily snapshot
+    # that carries the live salaries and add it as its own row.
+    _have_rs_pid = set(str(r.get("player_id")) for r in activity_rows if r.get("activity_type") == "Restructure")
+    _off_log = 0
+    if not _LIVE_ROSTERS.get("__failed__"):
+        for _lp in _LIVE_ROSTERS.get(fid) or []:
+            _lpid = str(_lp.get("id"))
+            _lci = str(_lp.get("contractInfo") or "")
+            _lys = _year_salaries(_lci)
+            if not _lys or "Restructured %d" % SEASON not in _lci or _lpid in _have_rs_pid:
+                continue
+            _first = None
+            for _d in reversed(D.snapshot_dates()):
+                _row = _snapshot_franchise_row(_lpid, _d)
+                if not _row or _year_salaries(_row[1].get("contractInfo")) != _lys:
+                    break
+                _first = (_d, _row[0], _row[1])
+            if not _first:
+                continue
+            activity_rows.append({
+                "franchise_id": _first[1], "player_id": _lpid, "player_name": adp_name.get(_lpid) or _lpid,
+                "activity_type": "Restructure", "submitted_at_utc": "%sT12:00:00Z" % _first[0],
+                "salary": _lys[0], "tcv": sum(_lys), "contract_status": _first[2].get("contractStatus"),
+                "contract_info": _first[2].get("contractInfo"), "source": "mfl-roster-snapshot"})
+            _off_log += 1
+            pack.warn("%s was restructured on MFL to %s by the %s roster, but neither the Front Office log nor "
+                      "restructure_manual_%d.json has it; the review dates it by that snapshot. It may belong in "
+                      "restructure_manual_%d.json, which the Front Office's restructure count reads."
+                      % (adp_name.get(_lpid) or _lpid, ", ".join("$%s" % format(v, ",d") for v in _lys),
+                         _first[0], SEASON, SEASON))
+    if _off_log:
+        pack.source("MFL daily roster snapshots (restructures on MFL that no log has)", current_date, rows=_off_log)
     from preseason_review import distinct_outcomes as _distinct_outcomes
     outcomes = _distinct_outcomes(activity_rows)
     my_contracts = [r for r in outcomes if str(r.get("franchise_id", "")).zfill(4) == fid]
@@ -2853,8 +2906,12 @@ def build(pack_id):
         if ys:
             _lv2 = _live_ci.get(pid) or {}
             _lys2 = _year_salaries(str(_lv2.get("contractInfo") or ""))
+            # Later means later in TIME, not a later day: James Cook was extended
+            # at 18:15 and restructured at 18:39 on 07-20, and a day-only test
+            # rewrote the extension with the restructure's salaries.
             _later = any(str(e.get("player_id")) == pid
-                         and _et_date(e.get("submitted_at_utc")) > day for e in activity_rows)
+                         and str(e.get("submitted_at_utc") or "") > str(r.get("submitted_at_utc") or "")
+                         for e in activity_rows)
             if _lys2 and not _later and _lys2 != ys:
                 pack.warn("%s's %s of %s is logged as %s but MFL carries %s today, and nothing later in the "
                           "log explains the difference -- the review follows MFL, which is what the league "
