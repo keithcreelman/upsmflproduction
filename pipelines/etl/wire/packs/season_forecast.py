@@ -37,7 +37,8 @@ sys.path.insert(0, HERE)
 
 import wire_data as D                                         # noqa: E402
 from wire_pack import Pack                                    # noqa: E402
-from team_review_2026 import DIVISION_DRAFT_2026, _division_draft_picker  # noqa: E402
+from team_review_2026 import DIVISION_DRAFT_2026, _division_draft_picker, _fresh_adp_board  # noqa: E402
+from lineup_engine import pos_group as LE_pos                  # noqa: E402
 
 SEASON = 2026
 PACK_ID = "2026-season-forecast"
@@ -116,8 +117,8 @@ def build(pack_id=None):
          {"key": "owner", "label": "Owner", "type": "text"},
          {"key": "division", "label": "Division", "type": "text"},
          {"key": "ap", "label": "Projected all-play", "type": "percent"},
-         {"key": "typ", "label": "A typical season", "type": "percent"},
-         {"key": "band", "label": "Eight seasons in ten", "type": "text"},
+         {"key": "hi", "label": "In a big year", "type": "percent"},
+         {"key": "lo", "label": "In a bad one", "type": "percent"},
          {"key": "wins", "label": "Projected wins", "type": "text"},
          {"key": "div", "label": "Division odds", "type": "percent"},
          {"key": "po", "label": "Playoff odds", "type": "percent"},
@@ -125,14 +126,14 @@ def build(pack_id=None):
          {"key": "title", "label": "Title odds", "type": "percent"}],
         [[t["powerRank"], t["team"], (hist.get(t["franchiseId"]) or {}).get("owner_display") or "",
           div_name.get(str(t["division"]), str(t["division"])), _pct(t["expAllPlayPct"]),
-          _pct(t["apP50"]), "%.1f%% to %.1f%%" % (_pct(t["apP10"]), _pct(t["apP90"])),
+          _pct(t["apP90"]), _pct(t["apP10"]),
           "%.1f of %d" % (t["expWins"], t["games"]), _pct(t["pDivision"]), _pct(t["pPlayoffs"]),
           _pct(t["pBye"]), _pct(t["pTitle"])] for t in teams],
-        note="Power rank = projected all-play %%, schedule-neutral. 'Projected all-play' is the AVERAGE over "
-             "%d simulated seasons, which is why it bunches: a team's good years and bad years cancel out. "
-             "'A typical season' is its median and the band holds eight seasons in ten -- that is the shape a "
-             "real season has. Wins are head-to-head out of the %d-game schedule; odds are the share of "
-             "seasons in which it happened." % (sim["runs"], teams[0]["games"]))
+        note="Projected all-play is the AVERAGE of %d simulated seasons, so it bunches -- good years and bad "
+             "years cancel. The two columns beside it are what a season looks like when it goes well or badly: "
+             "the best and the worst tenth of this team's simulated seasons. Wins are head-to-head out of the "
+             "%d-game schedule; odds are the share of seasons in which it happened." % (
+                 sim["runs"], teams[0]["games"]))
 
     # THE SHAPE OF A SEASON. Keith 2026-09-12: "if you look at real life UPS we
     # certainly have more winners coming from a much higher AP ... The playoffs
@@ -365,10 +366,132 @@ def build(pack_id=None):
         [[name[fid], _n(fid, "lineup_value_opening"), _n(fid, "lineup_value_preauction"),
           _n(fid, "lineup_value_postauction"), _n(fid, "lineup_value_current"), _n(fid, "auction_spend"),
           _n(fid, "lineup_value_current") - _n(fid, "lineup_value_opening")] for fid in _order],
-        note="The redraft value of the best legal lineup each roster could field on 2026-04-21, at the auction "
+        note="VALUE is one number for a starting lineup: every offensive starter priced at his current "
+             "redraft-superflex market value on the live ADP board, added up. It is a market price, not a "
+             "points projection -- the forecast runs on MFL's own weekly projections instead, which is why a "
+             "team can rank higher here than it does there. The redraft value of the best legal lineup each "
+             "roster could field on 2026-04-21, at the auction "
              "roster lock (07-23), at the close (08-05) and today. Six teams could not field a legal lineup in "
              "April and five could not at the lock: those columns are the optimizer filling slots with whoever "
              "was on hand, never the owner's lineup. Spend is both auctions.")
+
+    # WHERE A TEAM'S POINTS COME FROM, and where help is still free. Keith
+    # 2026-09-12, challenging Cleon Ca$h at 8th with the third-best offense:
+    # "This tells me something is wrong with the forecast because defense isn't
+    # that big of a factor based on your prior analysis" -- and then: "advise
+    # that the WW is most fruitful at IDP during the season and there is an
+    # opportunity to improve in this facet easier than offense." Both belong in
+    # the paper, and both are measurable.
+    t_points = pack.table(
+        "t.league.points", "Where the points come from",
+        [{"key": "rank", "label": "Pwr", "type": "count"},
+         {"key": "team", "label": "Team", "type": "text"},
+         {"key": "off", "label": "Offense a week", "type": "text"},
+         {"key": "def", "label": "Defense a week", "type": "text"},
+         {"key": "kp", "label": "Kicker and punter", "type": "text"},
+         {"key": "tot", "label": "Projected a week", "type": "text"}],
+        [[t["powerRank"], t["team"], "%.1f" % t["projWeeklyOffense"], "%.1f" % t["projWeeklyDefense"],
+          "%.1f" % t["projWeeklyKicking"], "%.1f" % t["projWeekly"]] for t in teams],
+        note="MFL's own weekly projections for the best legal lineup each roster can field, split by the "
+             "slots that produce them: nine offensive, seven defensive, a kicker and a punter. This is the "
+             "currency the forecast runs on, and it is not the same as the redraft-market value the lineup "
+             "tables use -- a team can rank higher on one than the other.")
+
+    _last_snap = D.snapshot_dates()[-1]
+    _owned = set()
+    for _fr in D.snapshot(_last_snap, "rosters")["rosters"]["franchise"]:
+        _pl = _fr.get("player") or []
+        if isinstance(_pl, dict):
+            _pl = [_pl]
+        for _p in _pl:
+            _owned.add(str(_p.get("id")))
+    _rsf, _bname, _brank, _bconf = _fresh_adp_board()
+    _pos_of = dict((str(r["player_id"]), str(r["position"] or "")) for r in
+                   D.d1("SELECT player_id, position FROM src_players"))
+    _proj = (sim.get("seasonProjections") or {}).get("players") or {}
+
+    def _best(pos):
+        """The position's players, best first: offense on the redraft board,
+        everyone else on MFL's season projection."""
+        if pos in ("QB", "RB", "WR", "TE"):
+            xs = [(r, p) for p, r in _brank.items() if LE_pos(_pos_of.get(str(p), "")) == pos]
+            return [p for _, p in sorted(xs)]
+        xs = [(-v["seasonProj"], p) for p, v in _proj.items() if v.get("pos") == pos]
+        return [p for _, p in sorted(xs)]
+
+    _free_rows, _free = [], {}
+    for _pos, _label in (("QB", "Quarterback"), ("RB", "Running back"), ("WR", "Receiver"),
+                         ("TE", "Tight end"), ("DL", "Defensive line"), ("LB", "Linebacker"),
+                         ("DB", "Defensive back"), ("PK", "Kicker"), ("PN", "Punter")):
+        ranked = _best(_pos)
+        if not ranked:
+            continue
+        top12 = sum(1 for p in ranked[:12] if str(p) not in _owned)
+        top24 = sum(1 for p in ranked[:24] if str(p) not in _owned)
+        _free[_pos] = (top12, top24)
+        _free_rows.append([_label, top12, top24])
+    t_free = pack.table(
+        "t.league.free", "Where help is still free",
+        [{"key": "pos", "label": "Position", "type": "text"},
+         {"key": "top12", "label": "Unowned, of the best twelve", "type": "count"},
+         {"key": "top24", "label": "Unowned, of the best twenty-four", "type": "count"}],
+        _free_rows,
+        note="Players nobody rosters as of %s, counted among the best at each position: offense by the live "
+             "redraft board, defenders, kickers and punters by MFL's 2026 season projection. Twelve teams "
+             "start two defensive backs each, so the top twenty-four is roughly the league's demand." % _last_snap)
+    F("f.league.free_db", "Unowned among the twelve best projected defensive backs", _free.get("DB", (0, 0))[0],
+      "count", "MFL rosters + season projections", now)
+    F("f.league.free_kickers", "Unowned among the twelve best projected kickers", _free.get("PK", (0, 0))[0],
+      "count", "MFL rosters + season projections", now)
+    F("f.league.free_punters", "Unowned among the twelve best projected punters", _free.get("PN", (0, 0))[0],
+      "count", "MFL rosters + season projections", now)
+    F("f.league.free_offense", "Unowned among the twenty-four best at each offensive position, all four added",
+      sum(_free.get(p, (0, 0))[1] for p in ("QB", "RB", "WR", "TE")), "count",
+      "MFL rosters + live redraft board", now)
+
+    # WHAT IT COMMITTED AGAINST WHAT IT GOT. Keith 2026-09-12: "How about we look
+    # at this as Teams represented: X% of the salary in April and y% of the value
+    # ... I had 100K committed at start (33%) but my value was 22% ... Is the
+    # league getting better via the auction? Yes, but it obviously cost more to do
+    # so ... those that have the best value coming can be more selective with
+    # their auction spending." Shares normalise it: a team holding more of the
+    # league's value than of its payroll is getting more for its money.
+    _sal_open = float(L("cap_opening")) or 1.0
+    _val_open = float(L("lineup_value_opening")) or 1.0
+    _sal_now = float(L("cap_current_spent")) or 1.0
+    _val_now = float(L("lineup_value_current")) or 1.0
+    _spend_tot = float(L("auction_spend")) or 1.0
+
+    def _share(v, tot):
+        return round(100.0 * v / tot, 1)
+
+    def _idx(val, val_tot, sal, sal_tot):
+        vs, ss = val / val_tot, sal / sal_tot
+        return "%.2fx" % (vs / ss) if ss else "--"
+
+    t_shares = pack.table(
+        "t.league.shares", "What each owner committed, and what he got for it",
+        [{"key": "team", "label": "Team", "type": "text"},
+         {"key": "sal_apr", "label": "Share of April salary", "type": "percent"},
+         {"key": "val_apr", "label": "Share of April value", "type": "percent"},
+         {"key": "idx_apr", "label": "April, value per dollar", "type": "text"},
+         {"key": "spend", "label": "Share of auction money", "type": "percent"},
+         {"key": "sal_now", "label": "Share of salary now", "type": "percent"},
+         {"key": "val_now", "label": "Share of value now", "type": "percent"},
+         {"key": "idx_now", "label": "Now, value per dollar", "type": "text"}],
+        [[name[fid],
+          _share(_n(fid, "cap_opening"), _sal_open), _share(_n(fid, "lineup_value_opening"), _val_open),
+          _idx(_n(fid, "lineup_value_opening"), _val_open, _n(fid, "cap_opening"), _sal_open),
+          _share(_n(fid, "auction_spend"), _spend_tot),
+          _share(_n(fid, "cap_current_spent"), _sal_now), _share(_n(fid, "lineup_value_current"), _val_now),
+          _idx(_n(fid, "lineup_value_current"), _val_now, _n(fid, "cap_current_spent"), _sal_now)]
+         for fid in _order],
+        note="Every column is this team's share of the twelve-team total, so each adds to a hundred per cent. "
+             "Value per dollar is the share of the league's lineup value divided by the share of its salary: "
+             "above 1.00x a team holds more of the league's value than of its payroll, below it he is paying "
+             "for less than he has. April salary is active-roster salary; the figure for now is cap "
+             "committed, which includes salary adjustments.")
+    F("f.league.cap_opening", "Active-roster salary across the league in April", int(_sal_open), "usd", FS, now)
 
     # DIVISION STRENGTH.
     div_of = dict((t["franchiseId"], div_name.get(str(t["division"]), str(t["division"]))) for t in teams)
@@ -471,7 +594,7 @@ def build(pack_id=None):
         "who only spent. The phase table is the spine -- April, the lock, the close, today -- and the story is "
         "which lineups moved, not which owners were loudest. Never add the Expired Rookie Auction and the Free "
         "Agent Auction into one number without saying so: they sell different calibres of player.",
-        fact_ids=_money_ids + _value_ids, table_ids=[t_phases], quote_ids=quote_ids)
+        fact_ids=_money_ids + _value_ids, table_ids=[t_phases, t_shares], quote_ids=quote_ids)
     pack.section(
         "s5", "Since the Auction",
         "Five weeks in which the board barely moved: waivers and churn, a league with almost no cap room left, "

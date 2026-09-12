@@ -224,16 +224,31 @@ def replacement_levels(proj, pos, rostered, end, reg_end):
             for wk in range(1, end + 1)}
 
 
+# WHERE A TEAM'S POINTS COME FROM. Keith 2026-09-12, on Cleon Ca$h ranking 8th
+# with the third-best offense: "This tells me something is wrong with the
+# forecast because defense isn't that big of a factor based on your prior
+# analysis." It is a fair challenge and the answer is in the slots: nine of the
+# eighteen a team starts are defenders, a kicker and a punter. The tier study is
+# still right that the TOP of defense is flat -- you cannot buy an edge there --
+# but a team can be short at all nine at once, and this split shows who is.
+SLOT_SIDES = {"O": ("QB1", "RB1", "RB2", "WR1", "WR2", "TE1", "OF1", "OF2", "SF1"),
+              "D": ("DL1", "DL2", "LB1", "LB2", "DB1", "DB2", "DF1"),
+              "K": ("PK1", "PN1")}
+
+
 def weekly_projections(rosters, proj, end, rep=None):
-    """({fid: {week: projected points of the best legal lineup}}, {fid: replacement slot-weeks}).
+    """({fid: {week: projected points of the best legal lineup}},
+        {fid: replacement slot-weeks},
+        {fid: {"O"/"D"/"K": projected points a week from those slots}}).
 
     The pool is the active roster plus replacement-level bodies (see
     REPLACEMENT_RANK_BY_GROUP); a replacement only starts where it beats every eligible
     rostered player, and each start is counted so the reviews can say how often
     a team is leaning on the wire."""
-    out, fills = {}, {}
+    out, fills, parts = {}, {}, {}
     for fid, rows in rosters.items():
         out[fid], fills[fid] = {}, 0
+        parts[fid] = {"O": 0.0, "D": 0.0, "K": 0.0}
         for wk in range(1, end + 1):
             pw = dict(proj[wk])
             pool = list(rows)
@@ -246,7 +261,12 @@ def weekly_projections(rosters, proj, end, rep=None):
             slots = LE.fill_slots(pool, lambda r, pw=pw: pw.get(r["pid"], 0.0))
             out[fid][wk] = sum(pw.get(pid, 0.0) for pid in slots.values() if pid)
             fills[fid] += sum(1 for pid in slots.values() if pid and pid.startswith("REP:"))
-    return out, fills
+            for side, ids in SLOT_SIDES.items():
+                parts[fid][side] += sum(pw.get(slots.get(sid), 0.0) for sid in ids if slots.get(sid))
+    for fid in parts:
+        for side in parts[fid]:
+            parts[fid][side] = round(parts[fid][side] / float(end), 1)
+    return out, fills, parts
 
 
 # REGRESSION TO THE MEAN (Keith 2026-09-11: "there probably needs to be some
@@ -487,9 +507,9 @@ def prepare(season, cache_dir=None, roster_week=None, projections="weekly", inju
         for wk in a["weeks"]:
             (proj.get(wk) or {}).pop(pid, None)
     rep = replacement_levels(proj, pos, rostered, end, reg_end)
-    wp_raw, fills = weekly_projections(rosters, proj, end, rep)
+    wp_raw, fills, parts = weekly_projections(rosters, proj, end, rep)
     return {"league": league, "teams": teams, "sched": sched, "reg_end": reg_end, "end": end,
-            "games": games, "wp_raw": wp_raw, "fills": fills, "proj": proj, "pos": pos,
+            "games": games, "wp_raw": wp_raw, "fills": fills, "parts": parts, "proj": proj, "pos": pos,
             "absent": dict((p, a) for p, a in absent.items() if p in rostered)}
 
 
@@ -616,6 +636,7 @@ def backtest(seasons, ks, runs, seed, cache_dir, projections="preseason"):
 def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
     prep = prepare(season, cache_dir, injuries=True)
     league, teams, games, fills, wp_raw = prep["league"], prep["teams"], prep["games"], prep["fills"], prep["wp_raw"]
+    parts = prep["parts"]
     reg_end, end = prep["reg_end"], prep["end"]
     res = fit(prep, k, runs, seed)
     wp, proj_var, sigma_w, sigma_s = res["wp"], res["proj_var"], res["sigma_w"], res["sigma_s"]
@@ -633,6 +654,9 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
             "projWeekly": round(sum(wp_raw[f][w] for w in range(1, reg_end + 1)) / reg_end, 1),
             "projWeeklyRegressed": round(sum(wp[f][w] for w in range(1, reg_end + 1)) / reg_end, 1),
             "waiverFillSlotWeeks": fills.get(f, 0),
+            "projWeeklyOffense": (parts.get(f) or {}).get("O", 0.0),
+            "projWeeklyDefense": (parts.get(f) or {}).get("D", 0.0),
+            "projWeeklyKicking": (parts.get(f) or {}).get("K", 0.0),
             "expAllPlayPct": round(exp_ap, 4),
             "apP10": round(_pctl(a["ap_samples"], 0.10), 4),
             "apP50": round(_pctl(a["ap_samples"], 0.50), 4),

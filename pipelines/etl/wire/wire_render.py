@@ -890,6 +890,50 @@ def render_article(pack, prose, meta):
 </div>
 
 <script data-wire-runtime>
+/* Sortable tables. Keith 2026-09-12: "Make that table sortable by header."
+   Click or press Enter on a header to sort by it; click again to reverse.
+   Numbers, money, percentages and multipliers sort numerically, dates and
+   names as text. Whole rows move, so the phone layout's cell labels follow. */
+(function () {
+  function value(cell) {
+    var t = (cell ? cell.textContent : "").trim();
+    if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}/.test(t)) return t;
+    if (!/[0-9]/.test(t)) return t.toLowerCase();
+    var n = parseFloat(t.replace(/[^0-9.eE+-]/g, ""));
+    return isNaN(n) ? t.toLowerCase() : n;
+  }
+  function sortBy(table, index, dir) {
+    var body = table.tBodies[0];
+    if (!body) return;
+    var rows = Array.prototype.slice.call(body.rows);
+    rows.sort(function (a, b) {
+      var x = value(a.cells[index]), y = value(b.cells[index]);
+      if (typeof x === "number" && typeof y === "number") return dir * (x - y);
+      return dir * String(x).localeCompare(String(y));
+    });
+    rows.forEach(function (r) { body.appendChild(r); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("table"), function (table) {
+    var head = table.tHead && table.tHead.rows[0];
+    if (!head || !table.tBodies[0] || table.tBodies[0].rows.length < 3) return;
+    Array.prototype.forEach.call(head.cells, function (th, i) {
+      th.classList.add("wire-sortable");
+      th.tabIndex = 0;
+      th.setAttribute("role", "button");
+      th.title = "Sort by " + (th.textContent || "").trim();
+      function go() {
+        var dir = th.getAttribute("aria-sort") === "ascending" ? -1 : 1;
+        Array.prototype.forEach.call(head.cells, function (o) { o.removeAttribute("aria-sort"); });
+        th.setAttribute("aria-sort", dir === 1 ? "ascending" : "descending");
+        sortBy(table, i, dir);
+      }
+      th.addEventListener("click", go);
+      th.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+      });
+    });
+  });
+})();
 </script>
 </body>
 </html>

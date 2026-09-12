@@ -5,29 +5,30 @@
  },
  "prose": {
   "title": "Bear Dunn Asked for a Forecast. It Came Back With His Name on Top.",
-  "dek": "The simulation puts Bear Dunn's team first, the defending champion second and Matt Gerardi's Gride alone at the bottom. In between sits a middle it can barely separate, {{f.league.auction_spend}} of auction money that made it that way, and {{f.league.cap_room}} left in the entire league to change anything with.",
+  "dek": "Bear Dunn asked the league for a forecast in August. It came back with his team first, the defending champion second and Matt Gerardi's Gride alone at the bottom -- and with a middle five teams deep that it cannot separate. The summer cost {{f.league.auction_spend}} and left {{f.league.cap_room}} in the whole league to change any of it.",
   "kicker": "Season Forecast · 2026",
   "sections": [
    {
     "paragraphs": [
      "Bear Dunn asked for this. In the middle of August, in the chat where these twelve argue all year, he wanted to know whether the bot could hand the league a preseason forecast. It can. It has. And it likes him better than it likes anybody else in the room: C-Town Chivalry first, {{f.team.0009.sim_p_title}} to win the whole thing.",
-     "The rest of the board is less obliging. Brian Cutting's Pure Greatness, the defending champion, is second. Shawn Blake is third, with the most expensive player of the summer on his roster. Then the thing flattens out. Eric Martel, Keith Creelman, Josh Martel, Derrick Whitman and Eric Mannila are stacked on top of one another between {{f.team.0005.sim_exp_allplay}} and {{f.team.0011.sim_exp_allplay}}, which is a technical way of saying a good October reorders them. Brian Cross, Chris Klingenberg and Ryan Bousquet trail. Matt Gerardi's Gride sits by itself at the bottom, {{f.team.0003.sim_p_playoffs}} to make the playoffs.",
-     "First place on a preseason board is worth arguing about, and the record makes it look like more than it is. In all {{f.league.seasons_measured}} completed seasons, the team that led all-play also won its division, which bought it a first-round bye every time, and a bye means the season cannot end worse than fourth. That floor belongs to the bracket, not to the team. What the team earns is the top of it. The all-play leader has gone on to win the championship {{f.league.ap_leader_title_pct}} of the time. An even split among the twelve would hand him {{f.league.title_odds_even}}. And {{f.league.champ_top3_real}} of this league's champions have come out of the top three.",
-     "Now the number everybody misreads. The all-play figure beside each team is an average over {{f.league.sim_runs}} simulated seasons, and an average is where a team's best year and its worst year cancel each other out. That is what makes the middle of the board look like a traffic jam. Real seasons are not so polite. In the seasons this league has actually played, the team that led all-play won {{f.league.shape_first_real}} of its weekly matchups, and the team that finished last won {{f.league.shape_last_real}}. Nobody's average looks like either one. What every team really carries is a band, wide enough to hold both of those seasons, and eight seasons in ten land inside it.",
-     "The summer that built this board cost {{f.league.auction_spend}} and left {{f.league.cap_room}} in the league's collective pocket, which is not enough to fix anybody. What the money did was level the place out. In April the best starting lineup in the league was worth {{f.league.value_gap_opening}} the worst; it is {{f.league.value_gap_current}} now. What it did not do was rearrange the top.",
-     "Below that top line the talent is distributed strangely. C-Town is first in the league on offense and first on defense, which is the entire case for the top seed and the only tidy thing on either board. Shawn Blake paid {{f.league.faa_top_price}} for Josh Allen, the most anyone paid for anyone this summer, and starts the best quarterbacks in the league. Eric Martel traded Jalen Hurts away in April, never replaced him, and starts the worst, behind the best receivers and the best tight end in the league. Eric Mannila starts the third-best offense in the league and the forecast still has him {{f.team.0011.power_rank|ord}}, because his defense and his kicker are near the bottom of the league. Brian Cross owns the best defensive line and the best linebackers and sits {{f.team.0006.power_rank|ord}}, because his receivers are thin. And there is exactly one column on either board where Gride is in the top half of the league: the receivers."
+     "The rest of the board is less obliging. Brian Cutting's Pure Greatness, the defending champion, is second. Shawn Blake is third, with the most expensive player of the summer on his roster. Then it flattens out. Eric Martel, Keith Creelman, Josh Martel, Derrick Whitman and Eric Mannila are stacked on top of one another between {{f.team.0005.sim_exp_allplay}} and {{f.team.0011.sim_exp_allplay}}, which is a technical way of saying a good October reorders them. Brian Cross, Chris Klingenberg and Ryan Bousquet trail. Gerardi's Gride sits by itself at the bottom, {{f.team.0003.sim_p_playoffs}} to make the playoffs.",
+     "Read the board across, not down. The all-play column is an average of {{f.league.sim_runs}} seasons, so it bunches; the two columns beside it are the same team in a big year and in a bad one, and they are miles apart. Dunn averages {{f.team.0009.sim_exp_allplay}} and his good year is better than anything on the page. That is what a real season looks like: in the {{f.league.seasons_measured}} this league has played, the team that led all-play won {{f.league.shape_first_real}} of its matchups and the team that finished last won {{f.league.shape_last_real}}.",
+     "Below the top line the talent is scattered strangely. C-Town is first in the league on offense and first on defense, which is the entire case for the top seed. Blake paid {{f.league.faa_top_price}} for Josh Allen, the most anyone paid for anyone this summer, and starts the best quarterbacks in the league. Eric Martel traded Jalen Hurts away in April, never replaced him, and starts the worst -- behind the best receivers and the best tight end in the league. Cross owns the best defensive line and the best linebackers and sits {{f.team.0006.power_rank|ord}}, because his receivers are thin. And there is exactly one column on either board where Gride is in the league's top half: the receivers.",
+     "Which brings up the board's sharpest argument. Mannila starts the third-most valuable offense in the league and the forecast has him {{f.team.0011.power_rank|ord}}, which looks wrong until you see where the points come from. Value is a market price; the forecast runs on MFL's weekly projections, and those rank his offense sixth, his defense tenth and his kicker and punter eleventh. Nine of the eighteen slots a team starts are defenders, a kicker and a punter. Nobody wins a league there -- the gap from the best defense to the worst is a fraction of the gap between the best offense and the worst -- but a team can quietly give away a few points a week at nine positions at once, and that is Mannila's season."
     ],
     "place": [
      "t.league.forecast",
      "t.league.shape",
      "t.league.offense_board",
-     "t.league.defense_board"
+     "t.league.defense_board",
+     "t.league.points"
     ],
     "placeAt": {
      "t.league.forecast": 1,
-     "t.league.shape": 3,
-     "t.league.offense_board": 5,
-     "t.league.defense_board": 5
+     "t.league.shape": 2,
+     "t.league.offense_board": 3,
+     "t.league.defense_board": 3,
+     "t.league.points": 4
     },
     "views": {
      "t.league.forecast": {
@@ -35,8 +36,8 @@
        "rank",
        "team",
        "ap",
-       "typ",
-       "band",
+       "hi",
+       "lo",
        "div",
        "po",
        "title"
@@ -78,6 +79,17 @@
        "pn"
       ],
       "title": "Defense and the specialists"
+     },
+     "t.league.points": {
+      "cols": [
+       "rank",
+       "team",
+       "off",
+       "def",
+       "kp",
+       "tot"
+      ],
+      "title": "Where the points come from"
      }
     },
     "captions": {},
@@ -90,14 +102,31 @@
    },
    {
     "paragraphs": [
-     "Eric Martel spent April taking the best thing he had and turning it into two other things. He sent Jalen Hurts and blind-bid money to Brian Cross for The Long Haulers' 2027 first and second, then spent two 2027 picks of his own on Kenneth Walker, bought from Keith Creelman, and on David Montgomery, and restructured Ja'Marr Chase and Walker to pay for it. It is the one spring move that changed a contender. It is also why his quarterback room now ranks last in the league.",
-     "He was one of the few owners with anything to trade. Half the league could not put a legal lineup on the field in April, {{f.league.no_lineup_opening}} of the {{f.league.teams}} rosters, which is a calendar rather than a scandal: contracts run out in the spring and there is nobody to sign until the auction. Where a roster came up short there was no lineup at all, so nothing about who was playing where in April is an owner's choice. It is an optimizer filling slots with whoever was on hand.",
-     "What the twelve had between them was mostly holes -- {{f.league.holes_opening}} of them -- and the ones who had players really had them. The best starting lineup in the league was worth {{f.league.value_gap_opening}} the worst. Cutting and Dunn showed up in April with something close to a football team. Derrick Whitman showed up with fewer active players than anyone in the league and made no trade, no cut and no extension until the rookie draft. Creelman had the smallest salary commitment in the league and a roster that looked like it.",
-     "Then everybody sat still for months, because in this league the spring is not where teams get built."
+     "Eric Martel spent April taking the best thing he had and turning it into two other things. He sent Jalen Hurts and blind-bid money to Cross for The Long Haulers' 2027 first and second, then spent two 2027 picks of his own on Kenneth Walker, bought from Creelman, and on David Montgomery, and restructured Ja'Marr Chase and Walker to pay for it. It is the one spring move that changed a contender. It is also why his quarterback room now ranks last in the league.",
+     "He was one of the few owners with anything to trade. Half the league could not even field a legal lineup in April, which is a calendar rather than a scandal: contracts run out in the spring and there is nobody to sign until the auction.",
+     "What April is good for is seeing who was getting value for money, and the table below puts every owner's payroll beside his talent as a share of the league's. Blake held a small slice of the salary and a much bigger slice of the value; so did Cutting and Dunn. Josh Martel and Cross were paying for more than they were starting. Creelman had almost no salary committed and almost no team -- which, as it turned out, was a position rather than a problem."
     ],
-    "place": [],
-    "placeAt": {},
-    "views": {},
+    "place": [
+     "t.league.shares"
+    ],
+    "placeAt": {
+     "t.league.shares": 2
+    },
+    "views": {
+     "t.league.shares": {
+      "cols": [
+       "team",
+       "sal_apr",
+       "val_apr",
+       "idx_apr",
+       "spend",
+       "sal_now",
+       "val_now",
+       "idx_now"
+      ],
+      "title": "What each owner committed, and what he got for it"
+     }
+    },
     "captions": {},
     "quotes": [
      "q_emart_stacked"
@@ -106,11 +135,11 @@
    },
    {
     "paragraphs": [
-     "Eric Martel opened the league's first Owner Divisional Draft by taking Brian Cross, and under the rules of the thing that was not a compliment. The owners had voted in May to pick their own divisions themselves: four captains, two rounds, a snake, run on the same night as the rookie draft. The bot laid out the logic the next morning. Getting picked first means your captain thinks you are the weakest team on the board. Cross's reply pointed at his own team name.",
-     "The same night moved {{f.league.rookie_picks}} rookie picks, and the trading was busier than the drafting. Martel moved up twice. Creelman traded three times and spent one of the picks he got on Sonny Styles less than a minute after acquiring it -- a pick that had belonged to CBP, then L.A. Looks, then CBP again, then Sex Manther, then The Long Haulers, then Gride for about an hour.",
-     "The captains, in seat order: Martel, Whitman, Dunn, Josh Martel. Nobody has ever accused this league of subtlety.",
-     "Then they built. Martel took Cross {{f.league.div_draft_pick_0006|ord}} and came back with the last pick of the night for Pure Greatness, the reigning champion, still sitting there at {{f.league.div_draft_pick_0004|ord}}; that is how Outlast PG Time ended up holding the last two champions. Whitman took Gride {{f.league.div_draft_pick_0003|ord}} and Blake {{f.league.div_draft_pick_0010|ord}}. Dunn took the Hawks {{f.league.div_draft_pick_0012|ord}}, exactly as he had announced he would in January, four months before there was a draft to announce it for, and doubled back for Cleon Ca$h. Josh Martel took Real Deal Creel {{f.league.div_draft_pick_0008|ord}} and L.A. Looks {{f.league.div_draft_pick_0001|ord}}.",
-     "The tags, meanwhile, were chips rather than keeps. Amon-Ra St. Brown was tagged and traded. George Pickens was tagged in May and released on lock day, the money going straight back to Dunn. Christian McCaffrey was tagged by Josh Martel, handed back in July and bought at the auction by Dunn for barely more than the tag had cost. The ones that stuck were the quiet ones: Kamren Curl, Myles Garrett, Javonte Williams, Trevor Lawrence."
+     "Eric Martel opened the league's first Owner Divisional Draft by taking Cross, and under the rules of the thing that was not a compliment. The owners had voted in May to pick their own divisions: four captains, two rounds, a snake, run on the same night as the rookie draft. The bot spelled out the logic the next morning. Getting picked first means your captain thinks you are the weakest team on the board.",
+     "Bousquet welcomed Cross to the honour by telling him it was going to be a long haul. Cross, whose team is called The Long Haulers, said he had at least chosen the right name when he joined.",
+     "The same night moved {{f.league.rookie_picks}} rookie picks, and the trading was busier than the drafting. Eric Martel moved up twice. Creelman traded three times and spent one of the picks he got on Sonny Styles less than a minute after acquiring it -- a pick that had belonged to CBP, then L.A. Looks, then CBP again, then Sex Manther, then The Long Haulers, then Gride for about an hour.",
+     "Then they built. Eric Martel took Cross {{f.league.div_draft_pick_0006|ord}} and came back with the last pick of the night for Pure Greatness, the reigning champion, still sitting there at {{f.league.div_draft_pick_0004|ord}}; that is how Outlast PG Time ended up holding the last two champions. Whitman took Gride {{f.league.div_draft_pick_0003|ord}} and Blake {{f.league.div_draft_pick_0010|ord}}. Dunn took the Hawks {{f.league.div_draft_pick_0012|ord}}, exactly as he had announced he would in January, four months before there was a draft to announce it for, and doubled back for Cleon Ca$h. Josh Martel took Real Deal Creel {{f.league.div_draft_pick_0008|ord}} and L.A. Looks {{f.league.div_draft_pick_0001|ord}}.",
+     "The tags were chips rather than keeps. Amon-Ra St. Brown was tagged and traded. George Pickens was tagged in May and released on lock day, the money going straight back to Dunn. Christian McCaffrey was tagged by Josh Martel, handed back in July and bought at the auction by Dunn for barely more than the tag had cost. The ones that stuck were the quiet ones: Kamren Curl, Myles Garrett, Javonte Williams, Trevor Lawrence."
     ],
     "place": [
      "t.league.captains",
@@ -154,17 +183,17 @@
    },
    {
     "paragraphs": [
-     "Shawn Blake paid {{f.league.faa_top_price}} for Josh Allen after fifteen bids, beating the commissioner to him, and that was the biggest single check anyone wrote this summer. It was not the biggest bill. Creelman spent more than any owner in the league and walked out with Dak Prescott, Saquon Barkley and Kyler Murray. Whitman spent nearly as much and bought an entire backfield, Tony Pollard included -- the same Tony Pollard that C-Town had cut on lock day to make room.",
-     "Across the two auctions the twelve bought {{f.league.auction_lots}} players for {{f.league.auction_spend}}. Almost all of that, {{f.league.faa_spend}}, was the Free Agent Auction. The Expired Rookie Auction is a different room selling a different calibre of player at different prices, and adding the two together flatters everybody.",
-     "Thirteen days did nearly the whole year's work. Whatever a roster looked like at the lock in late July, it looked like a football team by the close in early August, and virtually every dollar of improvement the twelve made in 2026 landed inside that fortnight.",
-     "The pattern is not that the rich got richer. Two of the three biggest gains of the summer went to the owners who had arrived with the least: Whitman, who had the fewest players in the league, and Creelman, who had the smallest salary commitment in it. Dunn gained the most of anyone, and he had walked in with the second-best roster in the league. Cutting and Mannila came in with two of the three best lineups in the league, spent about as little as anybody, and finished the summer roughly where they started. That is how the gap between the best lineup in the league and the worst closed from {{f.league.value_gap_opening}} to {{f.league.value_gap_current}} while the order at the top barely moved.",
-     "Defense was where the money was not. Only Cross and Martel put a serious share of their auction budget into defenders, and it did what it was supposed to do: The Long Haulers start the best defensive line and the best linebackers in the league, and the forecast still has Cross {{f.team.0006.power_rank|ord}}. Everybody else bought offense. Everybody else was right."
+     "Blake paid {{f.league.faa_top_price}} for Josh Allen after fifteen bids, beating the commissioner to him, and that was the biggest single check anyone wrote this summer. It was not the biggest bill. Creelman spent more than any owner in the league and walked out with Dak Prescott, Saquon Barkley and Kyler Murray. Whitman spent nearly as much and bought an entire backfield, Tony Pollard included -- the same Tony Pollard that C-Town had cut on lock day to make room.",
+     "Across the two auctions the twelve bought {{f.league.auction_lots}} players for {{f.league.auction_spend}}. Almost all of it, {{f.league.faa_spend}}, was the Free Agent Auction. Thirteen days did nearly the whole year's work: whatever a roster looked like at the lock in late July, it looked like a football team by the close in early August.",
+     "The money did not go where the talent already was. Two of the three biggest gains went to the owners who arrived with the least -- Whitman, who had the fewest players in the league, and Creelman, who had the smallest salary committed in it. Dunn gained the most of anyone and he had walked in with the second-best roster, but Cutting and Mannila, holding two of the other best lineups, spent about as little as anybody and finished the summer where they started.",
+     "The share table tells the rest, and it is the most useful thing on this page. Payroll is now almost perfectly level: every owner in the league carries within a point or so of a twelfth of the league's salary. Talent is not. Dunn holds a far bigger slice of the league's lineup value than of its payroll, Mannila too on the strength of spending almost nothing at auction, while the Hawks, L.A. Looks and Gride hold a twelfth of the salary and about half a twelfth of the value. The league bought itself level on money and stayed unequal on players.",
+     "Defense was where the money was not. Only Cross and Eric Martel put a serious share of their budget into defenders, and it worked: The Long Haulers start the best defensive line and the best linebackers in the league. Everybody else bought offense. Everybody else was probably right."
     ],
     "place": [
      "t.league.phases"
     ],
     "placeAt": {
-     "t.league.phases": 3
+     "t.league.phases": 2
     },
     "views": {
      "t.league.phases": {
@@ -190,15 +219,28 @@
    },
    {
     "paragraphs": [
-     "Keith Creelman made fourteen waiver pickups before week one, more than any owner in the league, most of them one-for-one swaps at the very back of his roster. One of them was Trey Benson, whom he had cut in July and claimed back less than three weeks later. Josh Martel had a view on all that activity.",
-     "Nothing else moved much. The league has made {{f.league.pickups}} waiver and free-agent pickups since the auction closed and put through three trades, and the twelve starting lineups came out of five weeks almost exactly where the auction left them. Two are worth less than they were at the close, HammerTime's and Gride's, and most of that is Josh Jacobs serving a suspension.",
-     "There is also no money left. {{f.league.cap_committed}} is committed across the league against {{f.league.cap_room}} of room, which means the owners with the biggest holes are largely the owners who cannot do anything about them. Whitman has nothing at all. Creelman has barely more.",
-     "The forecast holds {{f.league.injured_starters}} starters out of week one, and two more by hand: Sam Darnold for week two and A.J. Brown for weeks two through four, both hurt in the opener and neither of them listed yet. The one that lands on a contender is Brock Bowers, C-Town's tight end, and the meniscus that kept him out of the opener. Eric Martel had thoughts about the wording of the report.",
-     "As for week one itself: four NFL teams had finished when this was put together. The owners whose players happen to have played already look better than the owners whose players have not, and that is the entire content of it. Chris Klingenberg is currently crediting Shawn Blake with breaking injury news faster than Schefter. That is the level of information available in September."
+     "Creelman made fourteen waiver pickups before week one, more than any owner in the league, most of them one-for-one swaps at the very back of his roster. One was Trey Benson, whom he had cut in July and claimed back less than three weeks later. Josh Martel had a view on all that activity.",
+     "There is more room there than anyone is using, and it is not on offense. The wire holds none of the league's best at any offensive position -- offense is bought in July or traded for, and that is the end of it. But {{f.league.free_db}} of the twelve best projected defensive backs are sitting on the wire right now, along with {{f.league.free_kickers}} of the twelve best kickers and {{f.league.free_punters}} of the twelve best punters, including the best-projected punter in the league. The cheapest points available to anybody this season are defensive, and they cost a waiver claim.",
+     "Otherwise nothing much has moved. The league has made {{f.league.pickups}} waiver and free-agent pickups since the auction closed and put through three trades, and the twelve starting lineups came out of five weeks about where the auction left them. There is no money either: {{f.league.cap_committed}} is committed against {{f.league.cap_room}} of room in the entire league, so the owners with the biggest holes are largely the owners who cannot do anything about them. Whitman has nothing at all. Creelman has barely more.",
+     "The forecast holds {{f.league.injured_starters}} starters out of week one, and two more by hand: Sam Darnold for week two and A.J. Brown for weeks two through four, both hurt in the opener and neither of them listed yet. The one that lands on a contender is Brock Bowers, C-Town's tight end, whose knee needed a trimmed meniscus. Eric Martel thought the report made surgery sound like a haircut.",
+     "As for week one itself: four NFL teams had finished when this was put together. The owners whose players happen to have played already look better than the owners whose players have not, and that is the entire content of it. Klingenberg is currently crediting Blake with breaking injury news faster than Schefter. That is the level of information available in September."
     ],
-    "place": [],
-    "placeAt": {},
-    "views": {},
+    "place": [
+     "t.league.free"
+    ],
+    "placeAt": {
+     "t.league.free": 1
+    },
+    "views": {
+     "t.league.free": {
+      "cols": [
+       "pos",
+       "top12",
+       "top24"
+      ],
+      "title": "Where help is still free"
+     }
+    },
     "captions": {},
     "quotes": [
      "q_hawks_schefter",
@@ -209,10 +251,10 @@
    },
    {
     "paragraphs": [
-     "The owners drew these divisions themselves and they are stuck with them through 2028, which is what makes the argument about which one came out strongest worth having at all. On the simulation's own arithmetic it is Martel's Outlast PG Time, {{f.league.div_outlastpgtime_allplay}} across Pure Greatness, HammerTime and The Long Haulers. It also spent less at the auction than any other division. Cross had a name for it in June: two recent champions and a problem. He was volunteering for the third part.",
-     "DOG POUND 4 LIFE is a hair behind at {{f.league.div_dogpound4life_allplay}} and holds more title equity than anyone at {{f.league.div_dogpound4life_title}}. Two thirds of that is Bear Dunn by himself. Mannila and Klingenberg are what is behind him. It is the division with the best team in it and not the best three.",
-     "Maddie Mondays and LEGION OF BOOM finish level, at {{f.league.div_maddiemondays_allplay}} and {{f.league.div_legionofboom_allplay}}, and they are level in completely different ways. Maddie Mondays is the tightest division in the league and the one that spent the most at the auction: Creelman, Josh Martel and Bousquet, nobody clear of anybody. LEGION OF BOOM is the widest in the league. Blake is third, Gerardi is twelfth, Whitman is in between, and that is a floor problem rather than a ceiling one.",
-     "None of this is a promise, and it is worth saying plainly. Backtested against the last five seasons, the model explained roughly two fifths of the spread in final all-play and ranked the field only loosely in each of the last three. So: odds, not outcomes. Gride finishes in the top three in a real share of the {{f.league.sim_runs}} runs and C-Town finishes last in a few of them, and the reason anybody plays it out is that the board does not get a vote. Year one of three starts now."
+     "The owners drew these divisions themselves and they are stuck with them through 2028, which is what makes the argument about which came out strongest worth having. On the simulation's arithmetic it is Outlast PG Time: {{f.league.div_outlastpgtime_allplay}} across Pure Greatness, HammerTime and The Long Haulers, and it spent less at the auction than any other division. Cross pitched a name for it in June, two recent champions and a problem, casting himself as the problem. The name that stuck was Outlast PG Time. The forecast kept his joke anyway: the champions are second and fourth in the league, and Cross is {{f.team.0006.power_rank|ord}}.",
+     "DOG POUND 4 LIFE is a hair behind at {{f.league.div_dogpound4life_allplay}} and holds more title equity than anyone at {{f.league.div_dogpound4life_title}}. Two thirds of that is Dunn by himself, with Mannila and Klingenberg behind him. It is the division with the best team in it and not the best three.",
+     "Maddie Mondays and LEGION OF BOOM finish level, at {{f.league.div_maddiemondays_allplay}} and {{f.league.div_legionofboom_allplay}}, and they are level in completely different ways. Maddie Mondays is the tightest division in the league and the one that spent the most at the auction: Creelman, Josh Martel and Bousquet, nobody clear of anybody. LEGION OF BOOM is the widest: Blake third in the league, Gerardi twelfth, Whitman in between. That is a floor problem rather than a ceiling one.",
+     "None of this is a promise. Backtested against the last five seasons the model explained roughly two fifths of the spread in final all-play and ranked the field only loosely in each of the last three, so read it as odds. Gride finishes top three in a real share of the {{f.league.sim_runs}} runs and C-Town finishes last in a few of them. Year one of three starts now."
     ],
     "place": [
      "t.league.divisions"
