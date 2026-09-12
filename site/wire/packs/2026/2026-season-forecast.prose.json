@@ -36,6 +36,7 @@
        "rank",
        "team",
        "ap",
+       "sim",
        "hi",
        "lo",
        "div",
@@ -103,14 +104,13 @@
    {
     "paragraphs": [
      "Eric Martel spent April taking the best thing he had and turning it into two other things. He sent Jalen Hurts and blind-bid money to Cross for The Long Haulers' 2027 first and second, then spent two 2027 picks of his own on Kenneth Walker, bought from Creelman, and on David Montgomery, and restructured Ja'Marr Chase and Walker to pay for it. It is the one spring move that changed a contender. It is also why his quarterback room now ranks last in the league.",
-     "He was one of the few owners with anything to trade. Half the league could not even field a legal lineup in April, which is a calendar rather than a scandal: contracts run out in the spring and there is nobody to sign until the auction.",
      "What April is good for is seeing who was getting value for money, and the table below puts every owner's payroll beside his talent as a share of the league's. Blake held a small slice of the salary and a much bigger slice of the value; so did Cutting and Dunn. Josh Martel and Cross were paying for more than they were starting. Creelman had almost no salary committed and almost no team -- which, as it turned out, was a position rather than a problem."
     ],
     "place": [
      "t.league.shares"
     ],
     "placeAt": {
-     "t.league.shares": 2
+     "t.league.shares": 1
     },
     "views": {
      "t.league.shares": {
@@ -135,10 +135,10 @@
    },
    {
     "paragraphs": [
-     "Eric Martel opened the league's first Owner Divisional Draft by taking Cross, and under the rules of the thing that was not a compliment. The owners had voted in May to pick their own divisions: four captains, two rounds, a snake, run on the same night as the rookie draft. The bot spelled out the logic the next morning. Getting picked first means your captain thinks you are the weakest team on the board.",
+     "Eric Martel opened the league's first Owner Divisional Draft by taking Cross, and under the rules of the thing that was not a compliment. The owners had voted in May to pick their own divisions: four captains, two rounds, a snake. They ran it first that night, before a single rookie was drafted. The bot spelled out the logic the next morning. Getting picked first means your captain thinks you are the weakest team on the board.",
      "Bousquet welcomed Cross to the honour by telling him it was going to be a long haul. Cross, whose team is called The Long Haulers, said he had at least chosen the right name when he joined.",
-     "The same night moved {{f.league.rookie_picks}} rookie picks, and the trading was busier than the drafting. Eric Martel moved up twice. Creelman traded three times and spent one of the picks he got on Sonny Styles less than a minute after acquiring it -- a pick that had belonged to CBP, then L.A. Looks, then CBP again, then Sex Manther, then The Long Haulers, then Gride for about an hour.",
-     "Then they built. Eric Martel took Cross {{f.league.div_draft_pick_0006|ord}} and came back with the last pick of the night for Pure Greatness, the reigning champion, still sitting there at {{f.league.div_draft_pick_0004|ord}}; that is how Outlast PG Time ended up holding the last two champions. Whitman took Gride {{f.league.div_draft_pick_0003|ord}} and Blake {{f.league.div_draft_pick_0010|ord}}. Dunn took the Hawks {{f.league.div_draft_pick_0012|ord}}, exactly as he had announced he would in January, four months before there was a draft to announce it for, and doubled back for Cleon Ca$h. Josh Martel took Real Deal Creel {{f.league.div_draft_pick_0008|ord}} and L.A. Looks {{f.league.div_draft_pick_0001|ord}}.",
+     "Only then did they draft players. {{f.league.rookie_picks}} rookie picks moved that night, and the trading was busier than the drafting. Eric Martel moved up twice. Creelman traded three times and spent one of the picks he got on Sonny Styles less than a minute after acquiring it -- a pick that had belonged to CBP, then L.A. Looks, then CBP again, then Sex Manther, then The Long Haulers, then Gride for about an hour.",
+     "The order of it is in the table. Two things in it are worth saying out loud. Dunn took the Hawks {{f.league.div_draft_pick_0012|ord}}, exactly as he had said he would in January, four months before there was a draft to say it about. And the last team on the board was the defending champion: Pure Greatness sat there until {{f.league.div_draft_pick_0004|ord}}, when Eric Martel took it, which is how one division ended up holding the last two champions.",
      "The tags were chips rather than keeps. Amon-Ra St. Brown was tagged and traded. George Pickens was tagged in May and released on lock day, the money going straight back to Dunn. Christian McCaffrey was tagged by Josh Martel, handed back in July and bought at the auction by Dunn for barely more than the tag had cost. The ones that stuck were the quiet ones: Kamren Curl, Myles Garrett, Javonte Williams, Trevor Lawrence."
     ],
     "place": [

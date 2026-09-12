@@ -66,6 +66,10 @@ def build(pack_id=None):
         raise SystemExit("season_forecast: MFL's league export has no divisions")
     hist = dict((str(r["franchise_id"]).zfill(4), r) for r in D.d1("SELECT * FROM ups_owner_career_stats"))
 
+    _shape_curve = ((sim.get("seasonShape") or {}).get("byFinish") or [])
+    if len(_shape_curve) != 12:
+        raise SystemExit("season_forecast: the sim has no seasonShape block -- rerun season_sim.py")
+
     pack = Pack(PACK_ID, SEASON, title="The %d Season Forecast" % SEASON)
     sim_src = "season_sim.py, %d runs" % sim["runs"]
     pack.source("site/wire/data/season_sim_%d.json -- preseason Monte Carlo over MFL's weekly projections"
@@ -117,6 +121,7 @@ def build(pack_id=None):
          {"key": "owner", "label": "Owner", "type": "text"},
          {"key": "division", "label": "Division", "type": "text"},
          {"key": "ap", "label": "Projected all-play", "type": "percent"},
+         {"key": "sim", "label": "The simulation", "type": "percent"},
          {"key": "hi", "label": "In a big year", "type": "percent"},
          {"key": "lo", "label": "In a bad one", "type": "percent"},
          {"key": "wins", "label": "Projected wins", "type": "text"},
@@ -126,12 +131,13 @@ def build(pack_id=None):
          {"key": "title", "label": "Title odds", "type": "percent"}],
         [[t["powerRank"], t["team"], (hist.get(t["franchiseId"]) or {}).get("owner_display") or "",
           div_name.get(str(t["division"]), str(t["division"])), _pct(t["expAllPlayPct"]),
-          _pct(t["apP90"]), _pct(t["apP10"]),
+          _pct(_shape_curve[t["powerRank"] - 1]), _pct(t["apP90"]), _pct(t["apP10"]),
           "%.1f of %d" % (t["expWins"], t["games"]), _pct(t["pDivision"]), _pct(t["pPlayoffs"]),
           _pct(t["pBye"]), _pct(t["pTitle"])] for t in teams],
         note="Projected all-play is the AVERAGE of %d simulated seasons, so it bunches -- good years and bad "
-             "years cancel. The two columns beside it are what a season looks like when it goes well or badly: "
-             "the best and the worst tenth of this team's simulated seasons. Wins are head-to-head out of the "
+             "years cancel. THE SIMULATION column is what a season finishing in that place actually pays out "
+             "across those runs, which is the number to read if a team lands where it is projected; the two "
+             "beside it are that team's own best and worst tenth of seasons. Wins are head-to-head out of the "
              "%d-game schedule; odds are the share of seasons in which it happened." % (
                  sim["runs"], teams[0]["games"]))
 
@@ -173,9 +179,7 @@ def build(pack_id=None):
             _champ_ap_rank.append([i for i, t in enumerate(order, 1) if t[0] == ch[0][0]][0])
     _real_mean = [sum(c[i] for c in _real_curve) / len(_real_curve) for i in range(12)]
     _shape = sim.get("seasonShape") or {}
-    _sim_curve = _shape.get("byFinish") or []
-    if len(_sim_curve) != 12:
-        raise SystemExit("season_forecast: the sim has no seasonShape block -- rerun season_sim.py")
+    _sim_curve = _shape_curve
     _ORD = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth",
             "Tenth", "Eleventh", "Twelfth"]
     t_shape = pack.table(

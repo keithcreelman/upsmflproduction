@@ -2,19 +2,19 @@
   "schema": 1,
   "packId": "2026-season-forecast",
   "title": "The 2026 Season Forecast",
-  "generatedAtUtc": "2026-09-12T16:36:54Z",
+  "generatedAtUtc": "2026-09-12T17:19:42Z",
   "season": 2026,
   "week": null,
   "sources": [
     {
       "name": "D1 ups_owner_career_stats (each owner's documented record)",
-      "asof": "2026-09-12T16:36:46Z",
+      "asof": "2026-09-12T17:19:33Z",
       "rows": 12,
       "note": null
     },
     {
       "name": "MFL league export (divisions)",
-      "asof": "2026-09-12T16:36:46Z",
+      "asof": "2026-09-12T17:19:33Z",
       "rows": 4,
       "note": null
     },
@@ -32,7 +32,7 @@
     },
     {
       "name": "the twelve 2026 team-review packs (starters, money and lineup value)",
-      "asof": "2026-09-12T16:36:46Z",
+      "asof": "2026-09-12T17:19:33Z",
       "rows": 12,
       "note": null
     }
@@ -201,7 +201,7 @@
       "unit": "percent",
       "fmt": "31.2%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.ap_leader_titles",
@@ -210,7 +210,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.auction_lots",
@@ -219,7 +219,7 @@
       "unit": "count",
       "fmt": "196",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.auction_spend",
@@ -228,7 +228,7 @@
       "unit": "usd",
       "fmt": "$1,352,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.cap_committed",
@@ -237,7 +237,7 @@
       "unit": "usd",
       "fmt": "$3,470,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.cap_opening",
@@ -246,7 +246,7 @@
       "unit": "usd",
       "fmt": "$2,156,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.cap_room",
@@ -255,7 +255,7 @@
       "unit": "usd",
       "fmt": "$130,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.champ_top3_real",
@@ -264,7 +264,7 @@
       "unit": "percent",
       "fmt": "75.0%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.champ_top3_sim",
@@ -498,7 +498,7 @@
       "unit": "usd",
       "fmt": "$1,315,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -507,7 +507,7 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.free_db",
@@ -516,7 +516,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "MFL rosters + season projections",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.free_kickers",
@@ -525,7 +525,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "MFL rosters + season projections",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.free_offense",
@@ -534,7 +534,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "MFL rosters + live redraft board",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.free_punters",
@@ -543,7 +543,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "MFL rosters + season projections",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.holes_opening",
@@ -552,7 +552,7 @@
       "unit": "count",
       "fmt": "51",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.holes_today",
@@ -561,7 +561,7 @@
       "unit": "count",
       "fmt": "29",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.injured_starters",
@@ -570,7 +570,7 @@
       "unit": "count",
       "fmt": "7",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.lineup_value_current",
@@ -579,7 +579,7 @@
       "unit": "count",
       "fmt": "380,665",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.lineup_value_opening",
@@ -588,7 +588,7 @@
       "unit": "count",
       "fmt": "283,202",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.lineup_value_postauction",
@@ -597,7 +597,7 @@
       "unit": "count",
       "fmt": "382,118",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.lineup_value_preauction",
@@ -606,7 +606,7 @@
       "unit": "count",
       "fmt": "295,942",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.no_lineup_opening",
@@ -615,7 +615,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.pickups",
@@ -624,7 +624,7 @@
       "unit": "count",
       "fmt": "42",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.rookie_picks",
@@ -633,7 +633,7 @@
       "unit": "count",
       "fmt": "72",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.seasons_measured",
@@ -642,7 +642,7 @@
       "unit": "count",
       "fmt": "16",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.shape_first_real",
@@ -651,7 +651,7 @@
       "unit": "percent",
       "fmt": "73.3%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.shape_first_sim",
@@ -669,7 +669,7 @@
       "unit": "percent",
       "fmt": "22.9%",
       "source": "D1 src_standings + src_final_standings",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.sim_games",
@@ -696,7 +696,7 @@
       "unit": "count",
       "fmt": "46",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.teams",
@@ -714,7 +714,7 @@
       "unit": "percent",
       "fmt": "8.3%",
       "source": "twelve teams",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.value_gap_current",
@@ -723,7 +723,7 @@
       "unit": "ratio",
       "fmt": "2.48x",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.league.value_gap_opening",
@@ -732,7 +732,7 @@
       "unit": "ratio",
       "fmt": "4.74x",
       "source": "the twelve team packs",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0001.allplay_career",
@@ -741,7 +741,7 @@
       "unit": "percent",
       "fmt": "54.9%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0001.power_rank",
@@ -813,7 +813,7 @@
       "unit": "percent",
       "fmt": "60.0%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0002.power_rank",
@@ -885,7 +885,7 @@
       "unit": "percent",
       "fmt": "41.4%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0003.power_rank",
@@ -957,7 +957,7 @@
       "unit": "percent",
       "fmt": "51.5%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0004.power_rank",
@@ -1029,7 +1029,7 @@
       "unit": "percent",
       "fmt": "55.6%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0005.power_rank",
@@ -1101,7 +1101,7 @@
       "unit": "percent",
       "fmt": "39.0%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0006.power_rank",
@@ -1173,7 +1173,7 @@
       "unit": "percent",
       "fmt": "57.2%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0007.power_rank",
@@ -1245,7 +1245,7 @@
       "unit": "percent",
       "fmt": "53.1%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0008.power_rank",
@@ -1317,7 +1317,7 @@
       "unit": "percent",
       "fmt": "56.7%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0009.power_rank",
@@ -1389,7 +1389,7 @@
       "unit": "percent",
       "fmt": "53.3%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0010.power_rank",
@@ -1461,7 +1461,7 @@
       "unit": "percent",
       "fmt": "39.6%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0011.power_rank",
@@ -1533,7 +1533,7 @@
       "unit": "percent",
       "fmt": "36.9%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-12T16:36:46Z"
+      "asof": "2026-09-12T17:19:33Z"
     },
     {
       "id": "f.team.0012.power_rank",
@@ -2057,6 +2057,11 @@
           "type": "percent"
         },
         {
+          "key": "sim",
+          "label": "The simulation",
+          "type": "percent"
+        },
+        {
           "key": "hi",
           "label": "In a big year",
           "type": "percent"
@@ -2099,6 +2104,7 @@
           "Bear Dunn",
           "DOG POUND 4 LIFE",
           59.8,
+          75.9,
           77.9,
           40.9,
           "22.6 of 37",
@@ -2113,6 +2119,7 @@
           "Brian Cutting",
           "Outlast PG Time",
           58.2,
+          68.4,
           76.6,
           39.6,
           "21.1 of 37",
@@ -2127,6 +2134,7 @@
           "Shawn Blake",
           "LEGION OF BOOM",
           55.1,
+          63.3,
           73.4,
           36.4,
           "20.6 of 37",
@@ -2141,6 +2149,7 @@
           "Eric Martel",
           "Outlast PG Time",
           52.2,
+          59.1,
           70.8,
           33.8,
           "18.8 of 37",
@@ -2155,6 +2164,7 @@
           "Keith Creelman",
           "Maddie Mondays",
           50.9,
+          55.3,
           69.5,
           32.5,
           "19.0 of 37",
@@ -2169,6 +2179,7 @@
           "Josh Martel",
           "Maddie Mondays",
           50.3,
+          51.8,
           68.8,
           31.8,
           "18.7 of 37",
@@ -2183,6 +2194,7 @@
           "Derrick Whitman",
           "LEGION OF BOOM",
           50.0,
+          48.3,
           68.8,
           31.2,
           "18.6 of 37",
@@ -2197,6 +2209,7 @@
           "Eric Mannila",
           "DOG POUND 4 LIFE",
           49.1,
+          44.7,
           68.2,
           30.5,
           "18.5 of 37",
@@ -2211,6 +2224,7 @@
           "Brian Cross",
           "Outlast PG Time",
           47.1,
+          40.9,
           66.2,
           28.6,
           "16.8 of 37",
@@ -2225,6 +2239,7 @@
           "Chris Klingenberg",
           "DOG POUND 4 LIFE",
           45.9,
+          36.7,
           64.9,
           27.3,
           "17.3 of 37",
@@ -2239,6 +2254,7 @@
           "Ryan Bousquet",
           "Maddie Mondays",
           43.0,
+          31.5,
           62.3,
           24.7,
           "15.9 of 37",
@@ -2253,6 +2269,7 @@
           "Matt Gerardi",
           "LEGION OF BOOM",
           38.3,
+          23.9,
           57.1,
           20.8,
           "14.1 of 37",
@@ -2262,7 +2279,7 @@
           1.7
         ]
       ],
-      "note": "Projected all-play is the AVERAGE of 20000 simulated seasons, so it bunches -- good years and bad years cancel. The two columns beside it are what a season looks like when it goes well or badly: the best and the worst tenth of this team's simulated seasons. Wins are head-to-head out of the 37-game schedule; odds are the share of seasons in which it happened."
+      "note": "Projected all-play is the AVERAGE of 20000 simulated seasons, so it bunches -- good years and bad years cancel. THE SIMULATION column is what a season finishing in that place actually pays out across those runs, which is the number to read if a team lands where it is projected; the two beside it are that team's own best and worst tenth of seasons. Wins are head-to-head out of the 37-game schedule; odds are the share of seasons in which it happened."
     },
     {
       "id": "t.league.free",
