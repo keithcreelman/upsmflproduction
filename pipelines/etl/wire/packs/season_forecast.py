@@ -152,11 +152,21 @@ def build(pack_id=None):
     _seasons = [v for v in _by_season.values() if len(v) == 12]
     if len(_seasons) < 10:
         raise SystemExit("season_forecast: only %d complete all-play seasons in D1" % len(_seasons))
-    _real_curve, _leader_finish, _champ_ap_rank = [], [], []
+    # THE LEADER'S FLOOR IS THE BRACKET'S, NOT HIS. Keith 2026-09-12, on the
+    # first draft's "never finished worse than fourth": "This is by design they
+    # have a bye for 1st round of playoffs." He is right, and the record is
+    # unanimous -- the all-play leader won his division in every completed
+    # season, so he took a bye every time, and a bye means your first game is
+    # the semi-final. What he EARNED is the title count.
+    _div_wins = {}
+    for r in _real:
+        _div_wins.setdefault(r["season"], {})[r["franchise_id"]] = r
+    _real_curve, _leader_finish, _champ_ap_rank, _leader_titles = [], [], [], 0
     for v in _seasons:
         order = sorted(v, key=lambda t: -t[1])
         _real_curve.append([t[1] for t in order])
         _leader_finish.append(order[0][2])
+        _leader_titles += 1 if order[0][2] == 1 else 0
         ch = [t for t in v if t[2] == 1]
         if ch:
             _champ_ap_rank.append([i for i, t in enumerate(order, 1) if t[0] == ch[0][0]][0])
@@ -190,12 +200,17 @@ def build(pack_id=None):
       "percent", SRC_H, now)
     F("f.league.champ_top3_sim", "Simulated champions who came from the top three in all-play",
       round(_top3_sim, 1), "percent", sim_src, sim["generatedAtUtc"])
-    F("f.league.ap_leader_worst_finish", "The worst a season's all-play leader has ever finished",
-      max(_leader_finish), "rank", SRC_H, now)
+    F("f.league.ap_leader_titles", "Seasons the all-play leader went on to win the title",
+      _leader_titles, "count", SRC_H, now)
+    F("f.league.ap_leader_title_pct", "Share of seasons the all-play leader won the title",
+      round(100.0 * _leader_titles / len(_seasons), 1), "percent", SRC_H, now)
+    F("f.league.title_odds_even", "A team's share of the title if every season were a coin toss",
+      round(100.0 / 12, 1), "percent", "twelve teams", now)
     F("f.league.seasons_measured", "Completed seasons behind those figures", len(_seasons), "count", SRC_H, now)
     _season_shape_ids = ["f.league.shape_first_real", "f.league.shape_last_real", "f.league.shape_first_sim",
-                         "f.league.champ_top3_real", "f.league.champ_top3_sim",
-                         "f.league.ap_leader_worst_finish", "f.league.seasons_measured"]
+                         "f.league.champ_top3_real", "f.league.champ_top3_sim", "f.league.ap_leader_titles",
+                         "f.league.ap_leader_title_pct", "f.league.title_odds_even",
+                         "f.league.seasons_measured"]
 
     # The divisional draft, pick by pick.
     dd = DIVISION_DRAFT_2026
