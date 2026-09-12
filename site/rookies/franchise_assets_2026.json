@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-10T13:48:56.654937+00:00",
+    "generated_at_utc": "2026-09-12T13:08:54.823944+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3011,6 +3011,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16385",
+          "display": "Emari Demercado",
+          "player_id": "16385",
+          "position": "RB",
+          "nfl_team": "DAL",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_12437",
           "display": "Jason Myers",
           "player_id": "12437",
@@ -3031,18 +3043,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15738",
-          "display": "Malik Davis",
-          "player_id": "15738",
-          "position": "RB",
-          "nfl_team": "DAL",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3507,6 +3507,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17587",
+          "display": "Derrick Moore",
+          "player_id": "17587",
+          "position": "DE",
+          "nfl_team": "DET",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_13719",
           "display": "Eddy Pineiro",
           "player_id": "13719",
@@ -3515,18 +3527,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17606",
-          "display": "Jaishawn Barham",
-          "player_id": "17606",
-          "position": "LB",
-          "nfl_team": "DAL",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4415,6 +4415,18 @@
           "contract_year": 1,
           "contract_status": "Vet-ERA",
           "roster_status": "INJURED_RESERVE",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_13672",
+          "display": "Mike Gesicki",
+          "player_id": "13672",
+          "position": "TE",
+          "nfl_team": "CIN",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
