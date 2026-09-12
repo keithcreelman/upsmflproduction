@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-team-0008",
   "title": "2026 Team Review: Real Deal Creel",
-  "generatedAtUtc": "2026-09-12T19:21:38Z",
+  "generatedAtUtc": "2026-09-12T22:24:58Z",
   "season": 2026,
   "week": null,
   "sources": [
@@ -13,6 +13,12 @@
       "note": "kicker and punter points per game, 2025"
     },
     {
+      "name": "D1 ups_restructure_submissions + ups_extension_submissions (real submissions the contract activity log dropped)",
+      "asof": "2026-09-10",
+      "rows": 7,
+      "note": null
+    },
+    {
       "name": "MFL players export",
       "asof": "2026-09-10",
       "rows": 2206,
@@ -20,20 +26,20 @@
     },
     {
       "name": "MFL rosters export, live (all 12 franchises, for league-relative ranks)",
-      "asof": "2026-09-12T19:21:21Z",
+      "asof": "2026-09-12T22:24:39Z",
       "rows": 216,
-      "note": null
-    },
-    {
-      "name": "site/rosters/contract_submissions/restructure_manual_2026.json (exclusions: submissions the commissioner has voided)",
-      "asof": "2026-09-10",
-      "rows": 3,
       "note": null
     },
     {
       "name": "site/rosters/contract_submissions/restructure_manual_2026.json (restructures made off the Front Office path)",
       "asof": "2026-09-10",
-      "rows": 2,
+      "rows": 0,
+      "note": null
+    },
+    {
+      "name": "site/wire/data/contract_voids_2026.json (submissions the commissioner has voided)",
+      "asof": "2026-09-10",
+      "rows": 3,
       "note": null
     },
     {
@@ -50,7 +56,7 @@
     },
     {
       "name": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z",
+      "asof": "2026-09-12T22:25:34Z",
       "rows": 12,
       "note": "Derived from facts and tables already in the twelve packs; no new data."
     }
@@ -247,7 +253,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.league.era_top_price",
@@ -256,7 +262,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.league.faa_top_price",
@@ -265,7 +271,7 @@
       "unit": "usd",
       "fmt": "$88,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.league.p_division_0001",
@@ -904,7 +910,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "MFL liveScoring",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.active_now",
@@ -913,7 +919,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "auction/compliance",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.active_roster_current",
@@ -949,7 +955,7 @@
       "unit": "count",
       "fmt": "30",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.auction_spend",
@@ -958,7 +964,7 @@
       "unit": "usd",
       "fmt": "$198,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.biggest_contract_traded_away",
@@ -967,7 +973,7 @@
       "unit": "usd",
       "fmt": "$32,000",
       "source": "MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.can_field_lineup_current",
@@ -1003,7 +1009,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "auction/compliance",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cap_current_spent",
@@ -1012,7 +1018,7 @@
       "unit": "usd",
       "fmt": "$297,000",
       "source": "auction/compliance",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cap_opening",
@@ -1039,7 +1045,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.composite_value",
@@ -1048,7 +1054,7 @@
       "unit": "count",
       "fmt": "51,148",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_12186_next_salary",
@@ -1057,7 +1063,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_12186_salary",
@@ -1066,7 +1072,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_12186_tcv",
@@ -1075,7 +1081,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_12186_years",
@@ -1084,7 +1090,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15716_next_salary",
@@ -1093,7 +1099,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15716_salary",
@@ -1102,7 +1108,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15716_tcv",
@@ -1111,7 +1117,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15716_years",
@@ -1120,7 +1126,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15795_next_salary",
@@ -1129,7 +1135,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15795_salary",
@@ -1138,7 +1144,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15795_tcv",
@@ -1147,7 +1153,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15795_years",
@@ -1156,7 +1162,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15889_loading",
@@ -1165,7 +1171,7 @@
       "unit": "text",
       "fmt": "front-loaded",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15889_next_salary",
@@ -1174,7 +1180,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15889_salary",
@@ -1183,7 +1189,7 @@
       "unit": "usd",
       "fmt": "$11,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15889_tcv",
@@ -1192,7 +1198,7 @@
       "unit": "usd",
       "fmt": "$14,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_15889_years",
@@ -1201,7 +1207,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16192_loading",
@@ -1210,7 +1216,7 @@
       "unit": "text",
       "fmt": "front-loaded",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16192_next_salary",
@@ -1219,7 +1225,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16192_salary",
@@ -1228,7 +1234,7 @@
       "unit": "usd",
       "fmt": "$12,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16192_tcv",
@@ -1237,7 +1243,7 @@
       "unit": "usd",
       "fmt": "$15,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16192_years",
@@ -1246,7 +1252,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16193_next_salary",
@@ -1255,7 +1261,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16193_salary",
@@ -1264,7 +1270,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16193_tcv",
@@ -1273,7 +1279,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16193_years",
@@ -1282,7 +1288,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16212_next_salary",
@@ -1291,7 +1297,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16212_salary",
@@ -1300,7 +1306,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16212_tcv",
@@ -1309,7 +1315,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16212_years",
@@ -1318,7 +1324,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16594_next_salary",
@@ -1327,7 +1333,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16594_salary",
@@ -1336,7 +1342,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16594_tcv",
@@ -1345,7 +1351,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16594_years",
@@ -1354,7 +1360,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16680_next_salary",
@@ -1363,7 +1369,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16680_salary",
@@ -1372,7 +1378,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16680_tcv",
@@ -1381,7 +1387,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16680_years",
@@ -1390,7 +1396,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16850_next_salary",
@@ -1399,7 +1405,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16850_salary",
@@ -1408,7 +1414,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16850_tcv",
@@ -1417,7 +1423,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_16850_years",
@@ -1426,7 +1432,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_17743_next_salary",
@@ -1435,7 +1441,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026 + MFL contractInfo (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_17743_salary",
@@ -1444,7 +1450,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_17743_tcv",
@@ -1453,7 +1459,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contract_17743_years",
@@ -1462,7 +1468,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.contracts_count",
@@ -1471,7 +1477,7 @@
       "unit": "count",
       "fmt": "12",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_13113_penalty",
@@ -1480,7 +1486,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_13113_salary",
@@ -1489,7 +1495,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_14137_penalty",
@@ -1498,7 +1504,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_14137_salary",
@@ -1507,7 +1513,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_15241_penalty",
@@ -1516,7 +1522,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_15241_salary",
@@ -1525,7 +1531,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_16594_penalty",
@@ -1534,7 +1540,7 @@
       "unit": "usd",
       "fmt": "$1,500",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_16594_salary",
@@ -1543,7 +1549,7 @@
       "unit": "usd",
       "fmt": "$6,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_16617_penalty",
@@ -1552,7 +1558,7 @@
       "unit": "usd",
       "fmt": "$1,250",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cut_16617_salary",
@@ -1561,7 +1567,7 @@
       "unit": "usd",
       "fmt": "$5,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_count",
@@ -1570,7 +1576,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_penalty_2026",
@@ -1579,7 +1585,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_penalty_2027_deferred",
@@ -1588,7 +1594,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s1",
@@ -1597,7 +1603,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s1_penalty",
@@ -1606,7 +1612,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s1_salary",
@@ -1615,7 +1621,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s2",
@@ -1624,7 +1630,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s2_penalty",
@@ -1633,7 +1639,7 @@
       "unit": "usd",
       "fmt": "$3,750",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s2_salary",
@@ -1642,7 +1648,7 @@
       "unit": "usd",
       "fmt": "$15,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s3",
@@ -1651,7 +1657,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s3_penalty",
@@ -1660,7 +1666,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.cuts_s3_salary",
@@ -1669,7 +1675,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.div_week_byes_0001",
@@ -1678,7 +1684,7 @@
       "unit": "count",
       "fmt": "7",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.div_week_byes_0007",
@@ -1687,7 +1693,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.div_week_count",
@@ -1696,7 +1702,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.div_week_last",
@@ -1705,7 +1711,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.div_week_own_byes",
@@ -1714,7 +1720,7 @@
       "unit": "count",
       "fmt": "6",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.div_week_rival_byes",
@@ -1723,7 +1729,7 @@
       "unit": "count",
       "fmt": "11",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.div_weeks",
@@ -1732,7 +1738,7 @@
       "unit": "text",
       "fmt": "1, 4, 8, 11 and 14",
       "source": "MFL schedule + nflByeWeeks exports",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.division_name",
@@ -1741,7 +1747,7 @@
       "unit": "text",
       "fmt": "Maddie Mondays",
       "source": "MFL league export",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.division_rank",
@@ -1759,7 +1765,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL league export",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.era_16171_price",
@@ -1768,7 +1774,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.era_16174_price",
@@ -1777,7 +1783,7 @@
       "unit": "usd",
       "fmt": "$3,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.era_16193_price",
@@ -1786,7 +1792,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.era_16212_price",
@@ -1795,7 +1801,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.era_16252_price",
@@ -1804,7 +1810,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.era_lots_won",
@@ -1813,7 +1819,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.era_spend",
@@ -1822,7 +1828,7 @@
       "unit": "usd",
       "fmt": "$9,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.expired_extended",
@@ -1831,7 +1837,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "MFL 2025 rosters (Rookie, contractYear 1)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.expired_rookies",
@@ -1840,7 +1846,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL 2025 rosters (Rookie, contractYear 1)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.expired_to_era",
@@ -1849,7 +1855,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL 2025 rosters (Rookie, contractYear 1)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.extensions_s1",
@@ -1858,7 +1864,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.extensions_s2",
@@ -1867,7 +1873,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.extensions_s3",
@@ -1876,7 +1882,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_12186_price",
@@ -1885,7 +1891,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_12616_price",
@@ -1894,7 +1900,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_12620_price",
@@ -1903,7 +1909,7 @@
       "unit": "usd",
       "fmt": "$63,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_13604_price",
@@ -1912,7 +1918,7 @@
       "unit": "usd",
       "fmt": "$45,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_13713_price",
@@ -1921,7 +1927,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_14056_price",
@@ -1930,7 +1936,7 @@
       "unit": "usd",
       "fmt": "$32,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_14167_price",
@@ -1939,7 +1945,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_14472_price",
@@ -1948,7 +1954,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_14974_price",
@@ -1957,7 +1963,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_15051_price",
@@ -1966,7 +1972,7 @@
       "unit": "usd",
       "fmt": "$2,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_15241_price",
@@ -1975,7 +1981,7 @@
       "unit": "usd",
       "fmt": "$4,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_15271_price",
@@ -1984,7 +1990,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_15346_price",
@@ -1993,7 +1999,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_15355_price",
@@ -2002,7 +2008,7 @@
       "unit": "usd",
       "fmt": "$5,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_15716_price",
@@ -2011,7 +2017,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_15889_price",
@@ -2020,7 +2026,7 @@
       "unit": "usd",
       "fmt": "$7,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_16192_price",
@@ -2029,7 +2035,7 @@
       "unit": "usd",
       "fmt": "$5,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_16295_price",
@@ -2038,7 +2044,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_16680_price",
@@ -2047,7 +2053,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_lots_won",
@@ -2056,7 +2062,7 @@
       "unit": "count",
       "fmt": "19",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.faa_spend",
@@ -2065,7 +2071,7 @@
       "unit": "usd",
       "fmt": "$189,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.hist_allplay_pct",
@@ -2182,7 +2188,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_adds_alltime",
@@ -2191,7 +2197,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_adds_lead_streak",
@@ -2200,7 +2206,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_adds_league_leader",
@@ -2209,7 +2215,7 @@
       "unit": "count",
       "fmt": "428",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_adds_next_best",
@@ -2218,7 +2224,7 @@
       "unit": "count",
       "fmt": "257",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_adds_rank",
@@ -2227,7 +2233,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "src_adddrop + src_players",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_auction_share",
@@ -2236,7 +2242,7 @@
       "unit": "percent",
       "fmt": "7.1%",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_auction_share_rank",
@@ -2245,7 +2251,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_auction_spend",
@@ -2254,7 +2260,7 @@
       "unit": "usd",
       "fmt": "$14,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.idp_ppw_rank",
@@ -2263,7 +2269,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "src_weekly",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.injured_listed",
@@ -2272,7 +2278,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL injuries export + season_sim absences",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.injured_starters",
@@ -2281,7 +2287,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL injuries export + season_sim absences",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.inyear_flyers",
@@ -2290,7 +2296,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.ir_now",
@@ -2299,7 +2305,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.lineup_value_current",
@@ -2308,7 +2314,7 @@
       "unit": "count",
       "fmt": "32,231",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.lineup_value_opening",
@@ -2344,7 +2350,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.myac_faa",
@@ -2353,7 +2359,7 @@
       "unit": "count",
       "fmt": "5",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.myac_other",
@@ -2362,7 +2368,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.myac_trade",
@@ -2371,7 +2377,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.pickups_s1",
@@ -2380,7 +2386,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.pickups_s2",
@@ -2389,7 +2395,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.pickups_s3",
@@ -2398,7 +2404,7 @@
       "unit": "count",
       "fmt": "14",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.power_rank",
@@ -2416,7 +2422,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.qb_value",
@@ -2434,7 +2440,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.rb_value",
@@ -2452,7 +2458,7 @@
       "unit": "usd",
       "fmt": "$13,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.restructures_auction",
@@ -2461,7 +2467,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.restructures_early",
@@ -2470,7 +2476,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.restructures_post",
@@ -2479,7 +2485,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.rookie_extensions",
@@ -2488,7 +2494,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.rookie_picks_count",
@@ -2506,7 +2512,7 @@
       "unit": "count",
       "fmt": "24",
       "source": "ups_drop_events",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.roster_total_postauction",
@@ -2524,7 +2530,7 @@
       "unit": "count",
       "fmt": "40",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.rt_16211_from",
@@ -2533,7 +2539,7 @@
       "unit": "text",
       "fmt": "2026-07-27",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.rt_16211_next_salary",
@@ -2542,7 +2548,7 @@
       "unit": "usd",
       "fmt": "$35,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.rt_16211_salary",
@@ -2551,7 +2557,7 @@
       "unit": "usd",
       "fmt": "$9,000",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.rt_16211_to",
@@ -2560,7 +2566,7 @@
       "unit": "text",
       "fmt": "2026-09-05",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.sim_exp_allplay",
@@ -2632,7 +2638,7 @@
       "unit": "rank",
       "fmt": "11",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_db_value",
@@ -2650,7 +2656,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_def_value",
@@ -2668,7 +2674,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_df_value",
@@ -2686,7 +2692,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_dl_value",
@@ -2704,7 +2710,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_lb_value",
@@ -2722,7 +2728,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_of_value",
@@ -2740,7 +2746,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_off_value",
@@ -2758,7 +2764,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_pk_value",
@@ -2776,7 +2782,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_pn_value",
@@ -2794,7 +2800,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_qb_value",
@@ -2812,7 +2818,7 @@
       "unit": "rank",
       "fmt": "5",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_rb_value",
@@ -2830,7 +2836,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_sf_value",
@@ -2848,7 +2854,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_st_value",
@@ -2866,7 +2872,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_te_value",
@@ -2884,7 +2890,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.slot_wr_value",
@@ -2920,7 +2926,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "lineup_engine+adp-board",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.tags",
@@ -2929,7 +2935,7 @@
       "unit": "count",
       "fmt": "0",
       "source": "contract_activity_2026",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.taxi_now",
@@ -2938,7 +2944,7 @@
       "unit": "count",
       "fmt": "3",
       "source": "MFL rosters (live)",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.te_rank",
@@ -2947,7 +2953,7 @@
       "unit": "rank",
       "fmt": "9",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.te_value",
@@ -2965,7 +2971,7 @@
       "unit": "percent",
       "fmt": "33.3%",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.top_buy_price",
@@ -2974,7 +2980,7 @@
       "unit": "usd",
       "fmt": "$63,000",
       "source": "auction/lots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade1_grade",
@@ -2983,7 +2989,7 @@
       "unit": "text",
       "fmt": "A",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade1_salary_in",
@@ -2992,7 +2998,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade1_salary_out",
@@ -3001,7 +3007,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade2_grade",
@@ -3010,7 +3016,7 @@
       "unit": "text",
       "fmt": "C",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade2_salary_in",
@@ -3019,7 +3025,7 @@
       "unit": "usd",
       "fmt": "$19,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade2_salary_out",
@@ -3028,7 +3034,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade3_grade",
@@ -3037,7 +3043,7 @@
       "unit": "text",
       "fmt": "C+",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade3_salary_in",
@@ -3046,7 +3052,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade3_salary_out",
@@ -3055,7 +3061,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade4_grade",
@@ -3064,7 +3070,7 @@
       "unit": "text",
       "fmt": "C",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade4_salary_in",
@@ -3073,7 +3079,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade4_salary_out",
@@ -3082,7 +3088,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade5_grade",
@@ -3091,7 +3097,7 @@
       "unit": "text",
       "fmt": "A-",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade5_salary_in",
@@ -3100,7 +3106,7 @@
       "unit": "usd",
       "fmt": "$22,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade5_salary_out",
@@ -3109,7 +3115,7 @@
       "unit": "usd",
       "fmt": "$17,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade6_grade",
@@ -3118,7 +3124,7 @@
       "unit": "text",
       "fmt": "A",
       "source": "site/wire/data/trade_grades_2026.json",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade6_salary_in",
@@ -3127,7 +3133,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade6_salary_out",
@@ -3136,7 +3142,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade_blind_bid_elsewhere",
@@ -3145,7 +3151,7 @@
       "unit": "usd",
       "fmt": "$19,000",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade_salary_in_s1",
@@ -3154,7 +3160,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade_salary_in_s2",
@@ -3163,7 +3169,7 @@
       "unit": "usd",
       "fmt": "$41,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade_salary_in_s3",
@@ -3172,7 +3178,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade_salary_out_s1",
@@ -3181,7 +3187,7 @@
       "unit": "usd",
       "fmt": "$0",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade_salary_out_s2",
@@ -3190,7 +3196,7 @@
       "unit": "usd",
       "fmt": "$17,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trade_salary_out_s3",
@@ -3199,7 +3205,7 @@
       "unit": "usd",
       "fmt": "$1,000",
       "source": "mfl transactions + roster snapshots",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trades_count",
@@ -3217,7 +3223,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trades_s2",
@@ -3226,7 +3232,7 @@
       "unit": "count",
       "fmt": "4",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.trades_s3",
@@ -3235,7 +3241,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.waiver_swaps",
@@ -3244,7 +3250,7 @@
       "unit": "count",
       "fmt": "16",
       "source": "mfl transactions",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.wk_live",
@@ -3253,7 +3259,7 @@
       "unit": "count",
       "fmt": "1",
       "source": "MFL liveScoring",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.wk_players_final",
@@ -3262,7 +3268,7 @@
       "unit": "count",
       "fmt": "2",
       "source": "MFL liveScoring + rosters",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.wk_points_final",
@@ -3271,7 +3277,7 @@
       "unit": "points",
       "fmt": "13.8",
       "source": "MFL playerScores",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.wr_rank",
@@ -3280,7 +3286,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "lineup_engine",
-      "asof": "2026-09-12T19:21:21Z"
+      "asof": "2026-09-12T22:24:39Z"
     },
     {
       "id": "f.team.0008.wr_value",
@@ -3298,7 +3304,7 @@
       "unit": "usd",
       "fmt": "$173,000",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     },
     {
       "id": "f.team.0008.faa_off_spend_share",
@@ -3307,7 +3313,7 @@
       "unit": "percent",
       "fmt": "15.4%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     },
     {
       "id": "f.team.0008.faa_off_gain_share",
@@ -3316,7 +3322,7 @@
       "unit": "percent",
       "fmt": "15.3%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     },
     {
       "id": "f.team.0008.faa_off_rank",
@@ -3325,7 +3331,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     },
     {
       "id": "f.team.0008.faa_off_rate_rank",
@@ -3334,7 +3340,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     },
     {
       "id": "f.team.0008.faa_off_gain_rank",
@@ -3343,7 +3349,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     },
     {
       "id": "f.team.0008.faa_off_rate",
@@ -3352,7 +3358,7 @@
       "unit": "ratio",
       "fmt": "1.00x",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     },
     {
       "id": "f.team.0008.faa_off_gain_pct",
@@ -3361,7 +3367,7 @@
       "unit": "percent",
       "fmt": "69.5%",
       "source": "team_review_league (derived from the twelve team packs)",
-      "asof": "2026-09-12T19:22:46Z"
+      "asof": "2026-09-12T22:25:34Z"
     }
   ],
   "tables": [

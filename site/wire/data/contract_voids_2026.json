@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "note": "Contract submissions the commissioner voided, one submission at a time (submitted_at_utc). WIRE-ONLY: the Front Office restructure count and restructure-ingest-d1.yml read exclusions in restructure_manual_<season>.json by franchise+player and would drop or DELETE every restructure for that player, so dated voids must never go there until those consumers honour the timestamp.",
+    "season": "2026",
+    "updated_at": "2026-09-12"
+  },
+  "voids": [
+    {
+      "franchise_id": "0002",
+      "franchise_name": "CBP",
+      "player_id": "15290",
+      "player_name": "Collins, Nico",
+      "submitted_at_utc": "2026-08-23T19:59:51.709Z",
+      "reason": "REVERSED, not applied. Keith 2026-09-12: 'Nico Collins tried restructuring him a 3rd time but it was his 4th restructure so we reversed it.' The attempt would have put him back to $30,000 / $64,000; MFL still carries the 07-29 shape, $19,000 / $75,000. His 07-29 restructure stands."
+    },
+    {
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "16167",
+      "player_name": "Achane, De'Von",
+      "submitted_at_utc": "2026-06-05T21:39:58.765Z",
+      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; Never reached D1 (no ups_restructure_submissions row)."
+    },
+    {
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "16167",
+      "player_name": "Achane, De'Von",
+      "submitted_at_utc": "2026-06-05T21:40:44.435Z",
+      "reason": "Test data (Keith 2026-09-12: 'The Achane June entry was test data delete'). Deleted from the log; Deleted from D1 2026-09-12 (ups_extension_submissions id 659, a dry-run commissioner revert)."
+    }
+  ]
+}

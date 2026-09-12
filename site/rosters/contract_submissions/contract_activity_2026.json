@@ -4,7 +4,7 @@
   "source": "contract-activity-log",
   "count": 153,
   "season": 2026,
-  "last_edit": "2026-09-12: removed 2 Achane (16167) test submissions dated 06-05 at Keith's instruction; see restructure_manual_2026.json exclusions"
+  "last_edit": "2026-09-12: removed 2 Achane (16167) test submissions dated 06-05 at Keith's instruction; see site/wire/data/contract_voids_2026.json"
  },
  "activities": [
   {

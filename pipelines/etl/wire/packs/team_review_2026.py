@@ -2038,11 +2038,20 @@ def build(pack_id):
     # real restructure the same month that must stand. An exclusion carrying
     # submitted_at_utc drops exactly that row, from the Front Office log as well
     # as from the manual file; one without a date behaves as it always has.
+    # The dated voids live in site/wire/data/contract_voids_<season>.json, NOT in
+    # the manual ledger: the Front Office count and restructure-ingest-d1.yml read
+    # the ledger's exclusions by franchise+player, so a dated Collins void there
+    # would drop both of his real July restructures and have the ingest DELETE
+    # them from D1.
+    _voids_path = os.path.join(D.REPO, "site", "wire", "data", "contract_voids_%d.json" % SEASON)
+    _voids = json.load(open(_voids_path, encoding="utf-8")).get("voids") or []
+    if any(x.get("submitted_at_utc") for x in _man.get("exclusions") or []):
+        raise SystemExit("team_review_2026: restructure_manual_%d.json carries a dated exclusion; move it to "
+                         "contract_voids_%d.json (the Front Office and the D1 ingest ignore the date)" % (SEASON, SEASON))
     _excl_rows = set()
-    for x in _man.get("exclusions") or []:
-        if x.get("submitted_at_utc"):
-            _excl_rows.add((str(x.get("franchise_id")).zfill(4), str(x.get("player_id")),
-                            str(x["submitted_at_utc"])[:10]))
+    for x in _voids:
+        _excl_rows.add((str(x.get("franchise_id")).zfill(4), str(x.get("player_id")),
+                        str(x["submitted_at_utc"])[:10]))
     if _excl_rows:
         _before = len(activity_rows)
         activity_rows = [r for r in activity_rows
@@ -2050,8 +2059,29 @@ def build(pack_id):
                              str(r.get("submitted_at_utc") or "")[:10]) not in _excl_rows]
         _dropped = _before - len(activity_rows)
         if _dropped:
-            pack.source("site/rosters/contract_submissions/restructure_manual_%d.json (exclusions: submissions "
-                        "the commissioner has voided)" % SEASON, current_date, rows=_dropped)
+            pack.source("site/wire/data/contract_voids_%d.json (submissions the commissioner has voided)"
+                        % SEASON, current_date, rows=_dropped)
+    # D1 BEFORE THE LOG. Keith 2026-09-12 on Chase Brown's restructure: "Why isnt
+    # this logged already? It was posted to discord fix that". It was in D1
+    # (ups_restructure_submissions id 26); the GitHub job that appends to the JSON
+    # log hit a merge conflict and dropped it, with four multi-year contracts the
+    # same night. Every real D1 submission the log lacks (same player, same
+    # timestamp) joins the rows here, minus the commissioner's voids.
+    _log_keys = set((str(r.get("player_id")), str(r.get("submitted_at_utc") or "")) for r in activity_rows)
+    _from_d1 = 0
+    for _dr in D.contract_submissions_d1(SEASON):
+        _k = (_dr["player_id"], str(_dr["submitted_at_utc"]))
+        if _k in _log_keys or (_dr["franchise_id"], _dr["player_id"], _k[1][:10]) in _excl_rows:
+            continue
+        if not re.match(r"\d{4}-\d{2}-\d{2}T", _k[1]):
+            # trade-workbench rows carry a hand-typed local time; the worker's
+            # own submissions are ISO UTC. Only the latter are owner moves.
+            continue
+        activity_rows.append(_dr)
+        _log_keys.add(_k)
+        _from_d1 += 1
+    pack.source("D1 ups_restructure_submissions + ups_extension_submissions (real submissions the contract "
+                "activity log dropped)", current_date, rows=_from_d1)
     _have_rs = set((str(r.get("franchise_id")).zfill(4), str(r.get("player_id")), str(r.get("submitted_at_utc") or "")[:10])
                    for r in activity_rows if r.get("activity_type") == "Restructure")
     _added_rs = 0
