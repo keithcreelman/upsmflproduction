@@ -4,66 +4,120 @@
   "packId": "2026-season-forecast"
  },
  "prose": {
-  "title": "The 2026 Forecast: C-Town on Top, the Champion Right Behind, and a Crowded Middle",
-  "dek": "C-Town Chivalry is the favorite at {{f.team.0009.sim_p_title}} to win it all, Pure Greatness and Blake Bombers are next, and the four teams in the middle are separated by less than a game across {{f.league.sim_runs}} simulated seasons.",
+  "title": "C-Town Chivalry Opens the Season at Number One",
+  "dek": "The simulation has Bear Dunn's team first, the defending champion second and Gride alone at the bottom. In between, the league spent {{f.league.auction_spend}} and cut the gap between its best starting lineup and its worst from {{f.league.value_gap_opening}} to {{f.league.value_gap_current}} without much changing the order.",
   "kicker": "Season Forecast · 2026",
   "sections": [
    {
-    "id": "s1",
     "paragraphs": [
-     "Bear Dunn asked for a preseason forecast in August, and Shawn Blake reminded the room on opening night that he was still waiting for one. Here it is. The Wire played the season {{f.league.sim_runs}} times from every roster as it stands, on MFL's own weekly projections, with each team's edge trimmed back by nearly a third, because projections always think they know more than they do. Players MFL lists as out sit until it expects them back, and so do two players hurt in the opener whom MFL has not listed yet: Sam Darnold for week two and A.J. Brown for weeks two through four.",
-     "C-Town Chivalry is the favorite: first in projected all-play at {{f.team.0009.sim_exp_allplay}}, a {{f.team.0009.sim_p_playoffs}} chance at the playoffs and {{f.team.0009.sim_p_title}} title odds, the best in the league. Pure Greatness, the defending champion, is right behind at {{f.team.0004.sim_p_title}}, and Blake Bombers are third at {{f.team.0010.sim_p_title}}.",
-     "Behind the top three it gets crowded. HammerTime, Real Deal Creel, Sex Manther and CBP are fourth through seventh, less than a game apart in projected wins and all of them between {{f.team.0002.sim_p_playoffs}} and {{f.team.0008.sim_p_playoffs}} to make the playoffs. Derrick Whitman, whose CBP is {{f.team.0002.power_rank|ord}}, said in July that he likes being the underdog. Cleon Ca$h, The Long Haulers and the Hawks follow, and L.A. Looks and Gride bring up the rear, Gride with {{f.team.0003.sim_p_playoffs}} playoff odds: a long shot, not a closed door.",
-     "By division, DOG POUND 4 LIFE is C-Town's to lose, a {{f.team.0009.sim_p_division}} chance, and LEGION OF BOOM leans toward Blake Bombers at {{f.team.0010.sim_p_division}}. Eric Martel called HammerTime against Pure Greatness a coin flip in July and gave himself the edge; the forecast is less generous to him, with Pure Greatness at {{f.team.0004.sim_p_division}} and HammerTime at {{f.team.0005.sim_p_division}}. The real coin flip is Maddie Mondays: Real Deal Creel {{f.team.0008.sim_p_division}}, Sex Manther {{f.team.0007.sim_p_division}} and L.A. Looks {{f.team.0001.sim_p_division}}.",
-     "A forecast is not a promise. Tested on the last five seasons, this one got the order roughly right in 2021 and 2022 and much less right since, so read every number here as odds, not a verdict."
+     "C-Town Chivalry opens the season at number one. The Wire played {{f.league.sim_runs}} seasons from the rosters as they stand, and Bear Dunn's team came out with a projected all-play of {{f.team.0009.sim_exp_allplay}}, {{f.team.0009.sim_p_playoffs}} to make the playoffs and {{f.team.0009.sim_p_title}} to win the whole thing, the best odds in the league. Pure Greatness, the defending champion, is next at {{f.team.0004.sim_p_title}}, and Blake Bombers third at {{f.team.0010.sim_p_title}}.",
+     "Behind those three the table bunches. Five teams sit between {{f.team.0005.sim_exp_allplay}} and {{f.team.0011.sim_exp_allplay}} in projected all-play: HammerTime, Real Deal Creel, Sex Manther, CBP and Cleon Ca$h, which is close enough that a good month reorders them. The Long Haulers, the Hawks and L.A. Looks follow, and Gride is alone at the bottom at {{f.team.0003.sim_exp_allplay}} with {{f.team.0003.sim_p_playoffs}} playoff odds.",
+     "One word on how to read that column, because it is the easiest number in the paper to misread. Projected all-play is an AVERAGE over {{f.league.sim_runs}} seasons, and averages bunch: a team's good years and bad years cancel each other out, so nobody's average looks like a real season. Real seasons are far wider. Across the {{f.league.seasons_measured}} completed seasons in the record, the team that led all-play won {{f.league.shape_first_real}} of its matchups and the team that finished last in it won {{f.league.shape_last_real}}; the simulation's own leader averages {{f.league.shape_first_sim}}. That is why the forecast table carries a typical season and the band that holds eight seasons in ten beside the average, and why the shape table below sets the simulated league against the real one, place by place.",
+     "The regular season is also worth more than it looks. The playoffs are a coin toss with six teams in it, but the coins are not drawn at random: in {{f.league.seasons_measured}} seasons the all-play leader has never finished worse than {{f.league.ap_leader_worst_finish|ord}}, and {{f.league.champ_top3_real}} of champions came out of the top three in all-play. The simulation agrees almost exactly, at {{f.league.champ_top3_sim}}.",
+     "The offseason that produced all this moved {{f.league.auction_spend}} across {{f.league.auction_lots}} auction lots and left {{f.league.cap_room}} of cap room in the entire league against {{f.league.cap_committed}} committed. It did level the place out: league starting-lineup value rose from {{f.league.lineup_value_opening}} in April to {{f.league.lineup_value_current}}, holes in the twelve lineups fell from {{f.league.holes_opening}} to {{f.league.holes_today}}, and the gap between the best starting lineup and the worst closed from {{f.league.value_gap_opening}} to {{f.league.value_gap_current}}. What it did not do is change the order much.",
+     "The two boards below rank every starting slot in the league, offense and defense kept apart so the comparison is even. C-Town tops both, which is the whole case for the top seed. The rest is less tidy. Cleon Ca$h starts one of the best offenses in the league and the simulation still has him {{f.team.0011.power_rank|ord}}, because the defense and the kicker are near the bottom. The Long Haulers own the defensive line and the linebackers and sit {{f.team.0006.power_rank|ord}}, because the receivers are thin. HammerTime starts the best receiver pair and the best tight end in the league alongside the worst quarterback room and the worst kicker. Gride is the only team with nowhere to hide: bottom three on both boards, and last at five of the seven defensive columns."
     ],
     "place": [
-     "t.league.forecast"
+     "t.league.forecast",
+     "t.league.shape",
+     "t.league.offense_board",
+     "t.league.defense_board"
     ],
     "placeAt": {
-     "t.league.forecast": 2
+     "t.league.forecast": 1,
+     "t.league.shape": 3,
+     "t.league.offense_board": 5,
+     "t.league.defense_board": 5
     },
     "views": {
      "t.league.forecast": {
       "cols": [
        "rank",
        "team",
-       "division",
        "ap",
-       "wins",
+       "typ",
+       "band",
        "div",
        "po",
-       "bye",
        "title"
       ],
       "title": "The forecast"
+     },
+     "t.league.shape": {
+      "cols": [
+       "finish",
+       "real",
+       "sim"
+      ],
+      "title": "What a season actually looks like"
+     },
+     "t.league.offense_board": {
+      "cols": [
+       "rank",
+       "team",
+       "off",
+       "qb",
+       "sf",
+       "rb",
+       "wr",
+       "te",
+       "of"
+      ],
+      "title": "Offense, slot by slot"
+     },
+     "t.league.defense_board": {
+      "cols": [
+       "rank",
+       "team",
+       "def",
+       "dl",
+       "lb",
+       "db",
+       "df",
+       "pk",
+       "pn"
+      ],
+      "title": "Defense and the specialists"
      }
     },
-    "captions": {
-     "t.league.forecast": "Ranked by projected regular-season all-play. Wins are head-to-head over the full schedule; every odds column is the share of simulated seasons in which it happened."
-    },
+    "captions": {},
     "quotes": [
      "q_bear_forecast",
      "q_blake_preview",
-     "q_whitman_tiger",
-     "q_emart_coinflip"
-    ]
+     "q_emart_stacked"
+    ],
+    "id": "s1"
    },
    {
-    "id": "s2",
     "paragraphs": [
-     "This is year one of a three-year alignment, and the first the owners chose themselves. The rule passed in May: the four owners with the best career all-play records became captains and drafted their divisions in a two-round snake on the night of the rookie draft, most of the league in Brian Cross's house and the rest dialed in.",
-     "The captains, in seat order, were Eric Martel of HammerTime, Derrick Whitman of CBP, Bear Dunn of C-Town and Josh Martel of Sex Manther. The room's rule of thumb, as the bot's recap put it the next morning: going first meant your captain thought you were the weakest team. So when Eric Martel opened the draft by taking The Long Haulers, the room knew what it meant, and Cross took it in stride: when Ryan Bousquet said it was going to be a long haul, Cross allowed that at least he had picked the right team name.",
-     "With the second pick, Derrick Whitman took Gride. Dunn took the Hawks third, which he had announced in January, the day the captain draft was first floated. Josh Martel, who had said captains would pick for rivalry as much as weakness, took Real Deal Creel fourth and doubled back for L.A. Looks fifth. Dunn added Cleon Ca$h, Whitman took Blake Bombers, and the last team on the board was the defending champion, Pure Greatness, which landed with HammerTime. Eric Martel had predicted in May that the last team left would be a strong one. He was right, and now he has to play it.",
-     "Cross, the first team picked, has made the joke his own. A month later he pitched names for his new division, and the best of them, in the box here, casts The Long Haulers as the problem sitting next to two recent champions. It is simply accurate: HammerTime won the title in 2024 and Pure Greatness in 2025. The forecast has The Long Haulers {{f.team.0006.power_rank|ord}}."
+     "In April half the league could not field a team. {{f.league.no_lineup_opening}} of the {{f.league.teams}} rosters had too few active players to fill the eighteen starting slots, which is less a scandal than a calendar: contracts run out, rookie deals expire, and nobody signs anybody until the auction. Where a roster could not field a lineup there was no lineup, so the April figures are the optimizer putting whoever was on hand into slots, never an owner's choice.",
+     "What the twelve had between them was {{f.league.lineup_value_opening}} of starting-lineup value and {{f.league.holes_opening}} holes, and it was not spread evenly: the best starting lineup in the league was worth {{f.league.value_gap_opening}} the worst. Pure Greatness and C-Town arrived with something close to a team. Real Deal Creel had the smallest salary commitment in the league and a roster to match.",
+     "The one spring move that changed a contender was HammerTime's. In April Eric Martel sent Jalen Hurts and blind-bid money to The Long Haulers for two 2027 picks, then spent his own first-round pick on Kenneth Walker and his second on David Montgomery, and restructured Ja'Marr Chase and Walker to pay for it. That is the trade the quarterback column on the offense board still remembers.",
+     "Otherwise the league sat on its hands. Not one waiver claim or free-agent signing was made anywhere before the auction closed: all {{f.league.pickups}} of the league's pickups came afterwards."
+    ],
+    "place": [],
+    "placeAt": {},
+    "views": {},
+    "captions": {},
+    "quotes": [
+     "q_emart_stacked"
+    ],
+    "id": "s2"
+   },
+   {
+    "paragraphs": [
+     "Late May did two things at once. The rookie draft put {{f.league.rookie_picks}} picks into the league, and the owners drafted their own divisions for the first time.",
+     "Four captains, seated by career all-play, took turns in a two-round snake at Brian Cross's house on draft night. Eric Martel's HammerTime sat {{f.league.div_draft_captain_0005|ord}}, Derrick Whitman's CBP {{f.league.div_draft_captain_0002|ord}}, Bear Dunn's C-Town {{f.league.div_draft_captain_0009|ord}} and Josh Martel's Sex Manther {{f.league.div_draft_captain_0007|ord}}. Martel opened by taking The Long Haulers {{f.league.div_draft_pick_0006|ord}} overall; Whitman took Gride {{f.league.div_draft_pick_0003|ord}}; Dunn took the Hawks {{f.league.div_draft_pick_0012|ord}}, exactly as he had said he would in January; and Josh Martel took Real Deal Creel {{f.league.div_draft_pick_0008|ord}} and doubled back for L.A. Looks {{f.league.div_draft_pick_0001|ord}}, rivalry picks both.",
+     "The room's rule of thumb, as the league bot put it the next morning: going first meant your captain thought you were the weakest team in the draft. By that logic the captains were broadly right, and the last team on the board was the defending champion, Pure Greatness, which landed with HammerTime {{f.league.div_draft_pick_0004|ord}} and gave Outlast PG Time the last two champions in one division.",
+     "The tags told their own story. They went out in May and most of them were chips rather than keeps: Amon-Ra St. Brown was tagged and traded, George Pickens was tagged and released on lock day, and Christian McCaffrey was tagged, handed back in July and bought at auction by somebody else. The ones that stuck were cheap or quiet: Kamren Curl, Myles Garrett, Javonte Williams and Trevor Lawrence."
     ],
     "place": [
      "t.league.captains",
      "t.league.division_draft"
     ],
     "placeAt": {
-     "t.league.captains": 1,
-     "t.league.division_draft": 2
+     "t.league.captains": 2,
+     "t.league.division_draft": 3
     },
     "views": {
      "t.league.captains": {
@@ -71,6 +125,7 @@
        "seat",
        "team",
        "owner",
+       "ap",
        "division"
       ],
       "title": "The four captains"
@@ -80,7 +135,8 @@
        "pick",
        "round",
        "captain",
-       "took"
+       "took",
+       "division"
       ],
       "title": "Every pick"
      }
@@ -90,30 +146,100 @@
      "q_bot_first",
      "q_rybo_haul",
      "q_cross_name",
-     "q_bear_calls_hawks",
-     "q_cross_champs"
-    ]
+     "q_cross_champs",
+     "q_bear_calls_hawks"
+    ],
+    "id": "s3"
    },
    {
-    "id": "s3",
     "paragraphs": [
-     "The offseason in the chat started where the last season ended, with Brian Cutting explaining how he won his first title: he traded Jordan Love for Drake Maye and a first-round pick. Ryan Bousquet named the Free Agent Auction while it was still running, and it lived up to the name. Blake Bombers beat the commissioner to Josh Allen, and Real Deal Creel spent the most anyway.",
-     "Shawn Blake has since become the league's injury desk. Hours before the opener he broke the news of Brock Bowers's knee surgery, bad news for C-Town, the forecast's favorite, and the room treated it with the gravity you would expect. Blake then spent Thursday night's game defending George Kittle, the tight end the trade bot had mocked for his age and his Achilles, and Brian Cutting answered for everyone.",
-     "Week one is a division week for everyone. In Maddie Mondays, Real Deal Creel put in a round of waiver claims, and Josh Martel was not impressed. The last word goes to Brian Cross, who hosted the draft night and still loves the league."
+     "The Free Agent Auction is where the league actually built its teams. Across both auctions the twelve spent {{f.league.auction_spend}} on {{f.league.auction_lots}} players, {{f.league.faa_spend}} of it at the Free Agent Auction itself, and the top price of the summer was {{f.league.faa_top_price}}, which Blake Bombers paid for Josh Allen after fifteen bids.",
+     "Almost all of the season's roster-building happened in those thirteen days. League starting-lineup value went into the lock at {{f.league.lineup_value_preauction}} and came out of the close at {{f.league.lineup_value_postauction}} -- nearly the whole of the year's improvement, in under a fortnight.",
+     "The phase table below is the league's offseason in one block: what each lineup was worth in April, at the lock, at the close and now. Read it and the pattern is not that the rich got richer. The biggest gains went to the teams that arrived with the least -- CBP and Real Deal Creel, who had the thinnest April rosters in the league, took two of the three largest -- while the two best April rosters, Pure Greatness and Cleon Ca$h, spent modestly and moved barely at all. That is the whole reason the gap between the best lineup and the worst closed from {{f.league.value_gap_opening}} to {{f.league.value_gap_current}} while the order at the top stayed put.",
+     "Defense was where the money was not. Only The Long Haulers and HammerTime put a serious share of their auction money into defenders, and the defense board says it worked: The Long Haulers start the best defensive line and the best linebackers in the league. Everybody else bought offense, and the two boards below the forecast show who got what for it."
+    ],
+    "place": [
+     "t.league.phases"
+    ],
+    "placeAt": {
+     "t.league.phases": 3
+    },
+    "views": {
+     "t.league.phases": {
+      "cols": [
+       "team",
+       "april",
+       "lock",
+       "close",
+       "now",
+       "spend",
+       "change"
+      ],
+      "title": "What each lineup was worth, phase by phase"
+     }
+    },
+    "captions": {},
+    "quotes": [
+     "q_rybo_plans",
+     "q_manther_punter",
+     "q_cutting_kittle"
+    ],
+    "id": "s4"
+   },
+   {
+    "paragraphs": [
+     "Since the auction closed the board has barely moved. League starting-lineup value was {{f.league.lineup_value_postauction}} at the close and is {{f.league.lineup_value_current}} now, and most of that difference is one suspension.",
+     "That is not the same as nothing happening. The league made all {{f.league.pickups}} of its waiver and free-agent pickups in this stretch, Real Deal Creel more than anyone, and three trades went through after the close. What there is not, anywhere, is money: {{f.league.cap_committed}} is committed and {{f.league.cap_room}} of room is left across all {{f.league.teams}} teams, so the owners with the biggest holes are mostly not the owners who can fix them.",
+     "The forecast holds {{f.league.injured_starters}} starters out of week one, and it holds out two more by hand: Sam Darnold for week two and A.J. Brown for weeks two through four, both hurt in the opener and neither listed by MFL yet.",
+     "Week one itself is an opening data point and nothing else. Only a handful of NFL teams had finished when this was written, and the teams whose players happened to play look better than the teams whose players did not. It is not evidence, and the paper will not treat it as any."
     ],
     "place": [],
     "placeAt": {},
     "views": {},
     "captions": {},
     "quotes": [
-     "q_cutting_maye",
-     "q_rybo_plans",
-     "q_emart_meniscus",
      "q_hawks_schefter",
-     "q_cutting_kittle",
-     "q_manther_enough",
-     "q_cross_love"
-    ]
+     "q_emart_meniscus",
+     "q_manther_enough"
+    ],
+    "id": "s5"
+   },
+   {
+    "paragraphs": [
+     "The divisions are new this year, the owners drafted them themselves, and they hold until 2028 -- which is the only reason it is worth arguing about which one is the strongest. On the simulation's own currency, it is Outlast PG Time: {{f.league.div_outlastpgtime_allplay}} mean projected all-play across Pure Greatness, HammerTime and The Long Haulers, {{f.league.div_outlastpgtime_playoff_spots}} of the six playoff places, and the best defense in the league. It also spent the least of any division at the auction.",
+     "DOG POUND 4 LIFE is a hair behind at {{f.league.div_dogpound4life_allplay}} and holds the most title equity in the league at {{f.league.div_dogpound4life_title}} -- but two thirds of that is C-Town alone, with Cleon Ca$h and the Hawks behind him. It is the division with the best team and not the best three.",
+     "Maddie Mondays and LEGION OF BOOM finish level, at {{f.league.div_maddiemondays_allplay}} and {{f.league.div_legionofboom_allplay}}, and by projected points a week they are inside a point of each other -- call it a tie and mean it. They are level in completely different ways. Maddie Mondays is the closest division in the league, Real Deal Creel, Sex Manther and L.A. Looks packed together, and it spent more at the auction than anyone. LEGION OF BOOM is the widest: Blake Bombers third in the league, Gride twelfth, and CBP in between. That is a floor problem, not a ceiling problem.",
+     "Which leaves the thing the whole paper has to say out loud. This is a projection, not a promise. Tested on the last five seasons it explained about two fifths of the spread in final all-play and ranked the field at only a third to two fifths in each of the last three, so read every number here as odds. Gride, last in the table, still finishes top three in all-play in a meaningful share of the {{f.league.sim_runs}} runs. C-Town, first in it, finishes last in a few of them too."
+    ],
+    "place": [
+     "t.league.divisions"
+    ],
+    "placeAt": {
+     "t.league.divisions": 0
+    },
+    "views": {
+     "t.league.divisions": {
+      "cols": [
+       "division",
+       "teams",
+       "ap",
+       "spots",
+       "title",
+       "spread",
+       "idp",
+       "faa"
+      ],
+      "title": "The four divisions, strongest to weakest"
+     }
+    },
+    "captions": {},
+    "quotes": [
+     "q_whitman_tiger",
+     "q_emart_coinflip",
+     "q_cross_love",
+     "q_bear_boring"
+    ],
+    "id": "s6"
    }
   ],
   "strip": [
@@ -126,12 +252,16 @@
     "label": "The favorite's title odds"
    },
    {
-    "fact": "f.team.0004.sim_p_title",
-    "label": "The champion's title odds"
+    "fact": "f.league.auction_spend",
+    "label": "Spent at auction"
    },
    {
-    "fact": "f.team.0003.sim_p_playoffs",
-    "label": "The longest shot's playoff odds"
+    "fact": "f.league.cap_room",
+    "label": "Cap room left, league-wide"
+   },
+   {
+    "fact": "f.league.value_gap_current",
+    "label": "Best lineup to worst"
    }
   ],
   "card": {

@@ -2,19 +2,19 @@
   "schema": 1,
   "packId": "2026-season-forecast",
   "title": "The 2026 Season Forecast",
-  "generatedAtUtc": "2026-09-11T13:54:48Z",
+  "generatedAtUtc": "2026-09-12T15:30:27Z",
   "season": 2026,
   "week": null,
   "sources": [
     {
       "name": "D1 ups_owner_career_stats (each owner's documented record)",
-      "asof": "2026-09-11T13:54:48Z",
+      "asof": "2026-09-12T15:30:25Z",
       "rows": 12,
       "note": null
     },
     {
       "name": "MFL league export (divisions)",
-      "asof": "2026-09-11T13:54:48Z",
+      "asof": "2026-09-12T15:30:25Z",
       "rows": 4,
       "note": null
     },
@@ -26,9 +26,15 @@
     },
     {
       "name": "site/wire/data/season_sim_2026.json -- preseason Monte Carlo over MFL's weekly projections",
-      "asof": "2026-09-11T13:45:00Z",
+      "asof": "2026-09-12T15:28:51Z",
       "rows": 12,
       "note": "20000 seasons; each team's projected edge kept at 70% (backtested 2021-2025); power rank = expected regular-season all-play %"
+    },
+    {
+      "name": "the twelve 2026 team-review packs (starters, money and lineup value)",
+      "asof": "2026-09-12T15:30:25Z",
+      "rows": 12,
+      "note": null
     }
   ],
   "coverage": {
@@ -189,6 +195,96 @@
   },
   "facts": [
     {
+      "id": "f.league.ap_leader_worst_finish",
+      "label": "The worst a season's all-play leader has ever finished",
+      "value": 4,
+      "unit": "rank",
+      "fmt": "4",
+      "source": "D1 src_standings + src_final_standings",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.auction_lots",
+      "label": "Players bought at the two auctions",
+      "value": 196,
+      "unit": "count",
+      "fmt": "196",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.auction_spend",
+      "label": "Spent across both auctions, league-wide",
+      "value": 1352000,
+      "unit": "usd",
+      "fmt": "$1,352,000",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.cap_committed",
+      "label": "Salary committed across the league",
+      "value": 3470000,
+      "unit": "usd",
+      "fmt": "$3,470,000",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.cap_room",
+      "label": "Cap room left across the league",
+      "value": 130000,
+      "unit": "usd",
+      "fmt": "$130,000",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.champ_top3_real",
+      "label": "Champions who came from the top three in all-play",
+      "value": 75.0,
+      "unit": "percent",
+      "fmt": "75.0%",
+      "source": "D1 src_standings + src_final_standings",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.champ_top3_sim",
+      "label": "Simulated champions who came from the top three in all-play",
+      "value": 77.1,
+      "unit": "percent",
+      "fmt": "77.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_dogpound4life_allplay",
+      "label": "DOG POUND 4 LIFE: mean projected all-play",
+      "value": 51.6,
+      "unit": "percent",
+      "fmt": "51.6%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_dogpound4life_playoff_spots",
+      "label": "DOG POUND 4 LIFE: expected playoff spots of the six",
+      "value": 1.57,
+      "unit": "ratio",
+      "fmt": "1.57",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_dogpound4life_title",
+      "label": "DOG POUND 4 LIFE: combined title odds",
+      "value": 30.8,
+      "unit": "percent",
+      "fmt": "30.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
       "id": "f.league.div_draft_captain_0002",
       "label": "Captain's seat in the 2026 Owner Divisional Draft: CBP",
       "value": 2,
@@ -297,13 +393,238 @@
       "asof": "2026-05-24"
     },
     {
+      "id": "f.league.div_legionofboom_allplay",
+      "label": "LEGION OF BOOM: mean projected all-play",
+      "value": 47.8,
+      "unit": "percent",
+      "fmt": "47.8%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_legionofboom_playoff_spots",
+      "label": "LEGION OF BOOM: expected playoff spots of the six",
+      "value": 1.4,
+      "unit": "ratio",
+      "fmt": "1.40",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_legionofboom_title",
+      "label": "LEGION OF BOOM: combined title odds",
+      "value": 19.1,
+      "unit": "percent",
+      "fmt": "19.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_maddiemondays_allplay",
+      "label": "Maddie Mondays: mean projected all-play",
+      "value": 48.1,
+      "unit": "percent",
+      "fmt": "48.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_maddiemondays_playoff_spots",
+      "label": "Maddie Mondays: expected playoff spots of the six",
+      "value": 1.41,
+      "unit": "ratio",
+      "fmt": "1.41",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_maddiemondays_title",
+      "label": "Maddie Mondays: combined title odds",
+      "value": 20.1,
+      "unit": "percent",
+      "fmt": "20.1%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_outlastpgtime_allplay",
+      "label": "Outlast PG Time: mean projected all-play",
+      "value": 52.5,
+      "unit": "percent",
+      "fmt": "52.5%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_outlastpgtime_playoff_spots",
+      "label": "Outlast PG Time: expected playoff spots of the six",
+      "value": 1.63,
+      "unit": "ratio",
+      "fmt": "1.63",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.div_outlastpgtime_title",
+      "label": "Outlast PG Time: combined title odds",
+      "value": 30.0,
+      "unit": "percent",
+      "fmt": "30.0%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.faa_spend",
+      "label": "Spent at the Free Agent Auction, league-wide",
+      "value": 1315000,
+      "unit": "usd",
+      "fmt": "$1,315,000",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.faa_top_price",
+      "label": "The highest price paid at the Free Agent Auction",
+      "value": 88000,
+      "unit": "usd",
+      "fmt": "$88,000",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.holes_opening",
+      "label": "Holes in the twelve lineups in April",
+      "value": 51,
+      "unit": "count",
+      "fmt": "51",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.holes_today",
+      "label": "Holes in the twelve lineups now",
+      "value": 29,
+      "unit": "count",
+      "fmt": "29",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.injured_starters",
+      "label": "Starters the forecast holds out of week one",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.lineup_value_current",
+      "label": "Starting-lineup value now, league-wide",
+      "value": 380665,
+      "unit": "count",
+      "fmt": "380,665",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.lineup_value_opening",
+      "label": "Starting-lineup value in April, league-wide",
+      "value": 283202,
+      "unit": "count",
+      "fmt": "283,202",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.lineup_value_postauction",
+      "label": "Starting-lineup value at the auction close, league-wide",
+      "value": 382118,
+      "unit": "count",
+      "fmt": "382,118",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.lineup_value_preauction",
+      "label": "Starting-lineup value at the auction lock, league-wide",
+      "value": 295942,
+      "unit": "count",
+      "fmt": "295,942",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.no_lineup_opening",
+      "label": "Teams that could not field a legal lineup in April",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.pickups",
+      "label": "Waiver and free-agent pickups since the auction closed",
+      "value": 42,
+      "unit": "count",
+      "fmt": "42",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.rookie_picks",
+      "label": "Rookie picks made",
+      "value": 72,
+      "unit": "count",
+      "fmt": "72",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.seasons_measured",
+      "label": "Completed seasons behind those figures",
+      "value": 16,
+      "unit": "count",
+      "fmt": "16",
+      "source": "D1 src_standings + src_final_standings",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.shape_first_real",
+      "label": "All-play of the team that led it, on average, in the completed seasons",
+      "value": 73.3,
+      "unit": "percent",
+      "fmt": "73.3%",
+      "source": "D1 src_standings + src_final_standings",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.shape_first_sim",
+      "label": "All-play of the team that leads it, on average, in the simulation",
+      "value": 75.9,
+      "unit": "percent",
+      "fmt": "75.9%",
+      "source": "season_sim.py, 20000 runs",
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.shape_last_real",
+      "label": "All-play of the team that finished last in it, on average",
+      "value": 22.9,
+      "unit": "percent",
+      "fmt": "22.9%",
+      "source": "D1 src_standings + src_final_standings",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
       "id": "f.league.sim_games",
       "label": "Regular-season games per team",
       "value": 37,
       "unit": "count",
       "fmt": "37",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.league.sim_runs",
@@ -312,7 +633,16 @@
       "unit": "count",
       "fmt": "20,000",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
+    },
+    {
+      "id": "f.league.studs_today",
+      "label": "Top-twelve starters across the league now",
+      "value": 46,
+      "unit": "count",
+      "fmt": "46",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.league.teams",
@@ -324,13 +654,31 @@
       "asof": "2026"
     },
     {
+      "id": "f.league.value_gap_current",
+      "label": "Best starting lineup against the worst, now",
+      "value": 2.48,
+      "unit": "ratio",
+      "fmt": "2.48x",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
+      "id": "f.league.value_gap_opening",
+      "label": "Best starting lineup against the worst, in April",
+      "value": 4.74,
+      "unit": "ratio",
+      "fmt": "4.74x",
+      "source": "the twelve team packs",
+      "asof": "2026-09-12T15:30:25Z"
+    },
+    {
       "id": "f.team.0001.allplay_career",
       "label": "Career all-play %: Ryan Bousquet",
       "value": 54.9,
       "unit": "percent",
       "fmt": "54.9%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0001.power_rank",
@@ -339,7 +687,7 @@
       "unit": "rank",
       "fmt": "11",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0001.sim_exp_allplay",
@@ -348,7 +696,7 @@
       "unit": "percent",
       "fmt": "43.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0001.sim_exp_wins",
@@ -357,7 +705,7 @@
       "unit": "ratio",
       "fmt": "15.9",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0001.sim_p_bye",
@@ -366,7 +714,7 @@
       "unit": "percent",
       "fmt": "7.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0001.sim_p_division",
@@ -375,7 +723,7 @@
       "unit": "percent",
       "fmt": "21.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0001.sim_p_playoffs",
@@ -384,7 +732,7 @@
       "unit": "percent",
       "fmt": "32.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0001.sim_p_title",
@@ -393,7 +741,7 @@
       "unit": "percent",
       "fmt": "2.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0002.allplay_career",
@@ -402,7 +750,7 @@
       "unit": "percent",
       "fmt": "60.0%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0002.power_rank",
@@ -411,7 +759,7 @@
       "unit": "rank",
       "fmt": "7",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0002.sim_exp_allplay",
@@ -420,7 +768,7 @@
       "unit": "percent",
       "fmt": "50.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0002.sim_exp_wins",
@@ -429,7 +777,7 @@
       "unit": "ratio",
       "fmt": "18.6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0002.sim_p_bye",
@@ -438,7 +786,7 @@
       "unit": "percent",
       "fmt": "15.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0002.sim_p_division",
@@ -447,7 +795,7 @@
       "unit": "percent",
       "fmt": "36.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0002.sim_p_playoffs",
@@ -456,7 +804,7 @@
       "unit": "percent",
       "fmt": "52.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0002.sim_p_title",
@@ -465,7 +813,7 @@
       "unit": "percent",
       "fmt": "7.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0003.allplay_career",
@@ -474,7 +822,7 @@
       "unit": "percent",
       "fmt": "41.4%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0003.power_rank",
@@ -483,7 +831,7 @@
       "unit": "rank",
       "fmt": "12",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0003.sim_exp_allplay",
@@ -492,7 +840,7 @@
       "unit": "percent",
       "fmt": "38.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0003.sim_exp_wins",
@@ -501,7 +849,7 @@
       "unit": "ratio",
       "fmt": "14.1",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0003.sim_p_bye",
@@ -510,7 +858,7 @@
       "unit": "percent",
       "fmt": "3.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0003.sim_p_division",
@@ -519,7 +867,7 @@
       "unit": "percent",
       "fmt": "11.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0003.sim_p_playoffs",
@@ -528,7 +876,7 @@
       "unit": "percent",
       "fmt": "20.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0003.sim_p_title",
@@ -537,7 +885,7 @@
       "unit": "percent",
       "fmt": "1.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0004.allplay_career",
@@ -546,7 +894,7 @@
       "unit": "percent",
       "fmt": "51.5%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0004.power_rank",
@@ -555,7 +903,7 @@
       "unit": "rank",
       "fmt": "2",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0004.sim_exp_allplay",
@@ -564,7 +912,7 @@
       "unit": "percent",
       "fmt": "58.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0004.sim_exp_wins",
@@ -573,7 +921,7 @@
       "unit": "ratio",
       "fmt": "21.1",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0004.sim_p_bye",
@@ -582,7 +930,7 @@
       "unit": "percent",
       "fmt": "31.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0004.sim_p_division",
@@ -591,7 +939,7 @@
       "unit": "percent",
       "fmt": "49.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0004.sim_p_playoffs",
@@ -600,7 +948,7 @@
       "unit": "percent",
       "fmt": "70.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0004.sim_p_title",
@@ -609,7 +957,7 @@
       "unit": "percent",
       "fmt": "14.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0005.allplay_career",
@@ -618,7 +966,7 @@
       "unit": "percent",
       "fmt": "55.6%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0005.power_rank",
@@ -627,7 +975,7 @@
       "unit": "rank",
       "fmt": "4",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0005.sim_exp_allplay",
@@ -636,7 +984,7 @@
       "unit": "percent",
       "fmt": "52.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0005.sim_exp_wins",
@@ -645,7 +993,7 @@
       "unit": "ratio",
       "fmt": "18.8",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0005.sim_p_bye",
@@ -654,7 +1002,7 @@
       "unit": "percent",
       "fmt": "17.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0005.sim_p_division",
@@ -663,7 +1011,7 @@
       "unit": "percent",
       "fmt": "30.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0005.sim_p_playoffs",
@@ -672,7 +1020,7 @@
       "unit": "percent",
       "fmt": "53.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0005.sim_p_title",
@@ -681,7 +1029,7 @@
       "unit": "percent",
       "fmt": "9.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0006.allplay_career",
@@ -690,7 +1038,7 @@
       "unit": "percent",
       "fmt": "39.0%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0006.power_rank",
@@ -699,7 +1047,7 @@
       "unit": "rank",
       "fmt": "9",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0006.sim_exp_allplay",
@@ -708,7 +1056,7 @@
       "unit": "percent",
       "fmt": "47.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0006.sim_exp_wins",
@@ -717,7 +1065,7 @@
       "unit": "ratio",
       "fmt": "16.8",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0006.sim_p_bye",
@@ -726,7 +1074,7 @@
       "unit": "percent",
       "fmt": "10.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0006.sim_p_division",
@@ -735,7 +1083,7 @@
       "unit": "percent",
       "fmt": "19.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0006.sim_p_playoffs",
@@ -744,7 +1092,7 @@
       "unit": "percent",
       "fmt": "39.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0006.sim_p_title",
@@ -753,7 +1101,7 @@
       "unit": "percent",
       "fmt": "5.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0007.allplay_career",
@@ -762,7 +1110,7 @@
       "unit": "percent",
       "fmt": "57.2%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0007.power_rank",
@@ -771,7 +1119,7 @@
       "unit": "rank",
       "fmt": "6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0007.sim_exp_allplay",
@@ -780,7 +1128,7 @@
       "unit": "percent",
       "fmt": "50.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0007.sim_exp_wins",
@@ -789,7 +1137,7 @@
       "unit": "ratio",
       "fmt": "18.7",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0007.sim_p_bye",
@@ -798,7 +1146,7 @@
       "unit": "percent",
       "fmt": "15.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0007.sim_p_division",
@@ -807,7 +1155,7 @@
       "unit": "percent",
       "fmt": "38.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0007.sim_p_playoffs",
@@ -816,7 +1164,7 @@
       "unit": "percent",
       "fmt": "52.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0007.sim_p_title",
@@ -825,7 +1173,7 @@
       "unit": "percent",
       "fmt": "7.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0008.allplay_career",
@@ -834,7 +1182,7 @@
       "unit": "percent",
       "fmt": "53.1%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0008.power_rank",
@@ -843,7 +1191,7 @@
       "unit": "rank",
       "fmt": "5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0008.sim_exp_allplay",
@@ -852,7 +1200,7 @@
       "unit": "percent",
       "fmt": "50.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0008.sim_exp_wins",
@@ -861,7 +1209,7 @@
       "unit": "ratio",
       "fmt": "19.0",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0008.sim_p_bye",
@@ -870,7 +1218,7 @@
       "unit": "percent",
       "fmt": "16.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0008.sim_p_division",
@@ -879,7 +1227,7 @@
       "unit": "percent",
       "fmt": "40.5%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0008.sim_p_playoffs",
@@ -888,7 +1236,7 @@
       "unit": "percent",
       "fmt": "54.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0008.sim_p_title",
@@ -897,7 +1245,7 @@
       "unit": "percent",
       "fmt": "10.0%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0009.allplay_career",
@@ -906,7 +1254,7 @@
       "unit": "percent",
       "fmt": "56.7%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0009.power_rank",
@@ -915,7 +1263,7 @@
       "unit": "rank",
       "fmt": "1",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0009.sim_exp_allplay",
@@ -924,7 +1272,7 @@
       "unit": "percent",
       "fmt": "59.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0009.sim_exp_wins",
@@ -933,7 +1281,7 @@
       "unit": "ratio",
       "fmt": "22.6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0009.sim_p_bye",
@@ -942,7 +1290,7 @@
       "unit": "percent",
       "fmt": "36.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0009.sim_p_division",
@@ -951,7 +1299,7 @@
       "unit": "percent",
       "fmt": "57.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0009.sim_p_playoffs",
@@ -960,7 +1308,7 @@
       "unit": "percent",
       "fmt": "74.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0009.sim_p_title",
@@ -969,7 +1317,7 @@
       "unit": "percent",
       "fmt": "20.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0010.allplay_career",
@@ -978,7 +1326,7 @@
       "unit": "percent",
       "fmt": "53.3%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0010.power_rank",
@@ -987,7 +1335,7 @@
       "unit": "rank",
       "fmt": "3",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0010.sim_exp_allplay",
@@ -996,7 +1344,7 @@
       "unit": "percent",
       "fmt": "55.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0010.sim_exp_wins",
@@ -1005,7 +1353,7 @@
       "unit": "ratio",
       "fmt": "20.6",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0010.sim_p_bye",
@@ -1014,7 +1362,7 @@
       "unit": "percent",
       "fmt": "25.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0010.sim_p_division",
@@ -1023,7 +1371,7 @@
       "unit": "percent",
       "fmt": "52.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0010.sim_p_playoffs",
@@ -1032,7 +1380,7 @@
       "unit": "percent",
       "fmt": "66.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0010.sim_p_title",
@@ -1041,7 +1389,7 @@
       "unit": "percent",
       "fmt": "10.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0011.allplay_career",
@@ -1050,7 +1398,7 @@
       "unit": "percent",
       "fmt": "39.6%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0011.power_rank",
@@ -1059,7 +1407,7 @@
       "unit": "rank",
       "fmt": "8",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0011.sim_exp_allplay",
@@ -1068,7 +1416,7 @@
       "unit": "percent",
       "fmt": "49.1%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0011.sim_exp_wins",
@@ -1077,7 +1425,7 @@
       "unit": "ratio",
       "fmt": "18.5",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0011.sim_p_bye",
@@ -1086,7 +1434,7 @@
       "unit": "percent",
       "fmt": "12.7%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0011.sim_p_division",
@@ -1095,7 +1443,7 @@
       "unit": "percent",
       "fmt": "24.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0011.sim_p_playoffs",
@@ -1104,7 +1452,7 @@
       "unit": "percent",
       "fmt": "45.3%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0011.sim_p_title",
@@ -1113,7 +1461,7 @@
       "unit": "percent",
       "fmt": "5.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0012.allplay_career",
@@ -1122,7 +1470,7 @@
       "unit": "percent",
       "fmt": "36.9%",
       "source": "ups_owner_career_stats",
-      "asof": "2026-09-11T13:54:48Z"
+      "asof": "2026-09-12T15:30:25Z"
     },
     {
       "id": "f.team.0012.power_rank",
@@ -1131,7 +1479,7 @@
       "unit": "rank",
       "fmt": "10",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0012.sim_exp_allplay",
@@ -1140,7 +1488,7 @@
       "unit": "percent",
       "fmt": "45.9%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0012.sim_exp_wins",
@@ -1149,7 +1497,7 @@
       "unit": "ratio",
       "fmt": "17.3",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0012.sim_p_bye",
@@ -1158,7 +1506,7 @@
       "unit": "percent",
       "fmt": "8.8%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0012.sim_p_division",
@@ -1167,7 +1515,7 @@
       "unit": "percent",
       "fmt": "18.4%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0012.sim_p_playoffs",
@@ -1176,7 +1524,7 @@
       "unit": "percent",
       "fmt": "36.6%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     },
     {
       "id": "f.team.0012.sim_p_title",
@@ -1185,7 +1533,7 @@
       "unit": "percent",
       "fmt": "4.2%",
       "source": "season_sim.py, 20000 runs",
-      "asof": "2026-09-11T13:45:00Z"
+      "asof": "2026-09-12T15:28:51Z"
     }
   ],
   "tables": [
@@ -1250,6 +1598,192 @@
         ]
       ],
       "note": "Seated by career all-play %, the rule for the first draft under the 2026 realignment rule."
+    },
+    {
+      "id": "t.league.defense_board",
+      "title": "Defense and the specialists, slot by slot",
+      "columns": [
+        {
+          "key": "rank",
+          "label": "Pwr",
+          "type": "count"
+        },
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "def",
+          "label": "Defense",
+          "type": "count"
+        },
+        {
+          "key": "dl",
+          "label": "DL",
+          "type": "count"
+        },
+        {
+          "key": "lb",
+          "label": "LB",
+          "type": "count"
+        },
+        {
+          "key": "db",
+          "label": "DB",
+          "type": "count"
+        },
+        {
+          "key": "df",
+          "label": "Flex",
+          "type": "count"
+        },
+        {
+          "key": "pk",
+          "label": "K",
+          "type": "count"
+        },
+        {
+          "key": "pn",
+          "label": "P",
+          "type": "count"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "C-Town Chivalry",
+          1,
+          3,
+          4,
+          3,
+          3,
+          2,
+          10
+        ],
+        [
+          2,
+          "Pure Greatness",
+          4,
+          7,
+          7,
+          2,
+          1,
+          1,
+          5
+        ],
+        [
+          3,
+          "Blake Bombers",
+          6,
+          6,
+          6,
+          6,
+          7,
+          9,
+          1
+        ],
+        [
+          4,
+          "HammerTime 🔨 ⏰",
+          5,
+          4,
+          3,
+          4,
+          6,
+          12,
+          2
+        ],
+        [
+          5,
+          "Real Deal Creel",
+          10,
+          11,
+          10,
+          11,
+          10,
+          6,
+          3
+        ],
+        [
+          6,
+          "Sex Manther",
+          2,
+          2,
+          8,
+          1,
+          2,
+          8,
+          11
+        ],
+        [
+          7,
+          "CBP",
+          11,
+          12,
+          9,
+          10,
+          11,
+          7,
+          7
+        ],
+        [
+          8,
+          "Cleon Ca$h",
+          9,
+          9,
+          11,
+          7,
+          5,
+          11,
+          9
+        ],
+        [
+          9,
+          "The Long Haulers",
+          3,
+          1,
+          1,
+          5,
+          4,
+          5,
+          4
+        ],
+        [
+          10,
+          "Hawks",
+          8,
+          8,
+          2,
+          8,
+          9,
+          3,
+          8
+        ],
+        [
+          11,
+          "L.A. Looks",
+          7,
+          5,
+          5,
+          9,
+          8,
+          4,
+          6
+        ],
+        [
+          12,
+          "Gride",
+          12,
+          10,
+          12,
+          12,
+          12,
+          10,
+          12
+        ]
+      ],
+      "note": "1 is best, on MFL's own 2026 season projections (weeks 1-17), the only value source for defenders, kickers and punters: two defensive line slots, two linebackers, two defensive backs and the defensive flex, with the kicker and the punter beside them. Defense is the seven defensive slots together. A starter MFL does not project adds nothing to his team's total -- unprojected is unranked, never zero."
     },
     {
       "id": "t.league.division_draft",
@@ -1342,6 +1876,95 @@
       "note": "A two-round snake at the rookie draft: seats one to four, then four to one. 2026 is year one of the three-year alignment."
     },
     {
+      "id": "t.league.divisions",
+      "title": "The four divisions, strongest to weakest",
+      "columns": [
+        {
+          "key": "division",
+          "label": "Division",
+          "type": "text"
+        },
+        {
+          "key": "teams",
+          "label": "Teams, by power rank",
+          "type": "text"
+        },
+        {
+          "key": "ap",
+          "label": "Mean projected all-play",
+          "type": "percent"
+        },
+        {
+          "key": "spots",
+          "label": "Expected playoff spots",
+          "type": "text"
+        },
+        {
+          "key": "title",
+          "label": "Combined title odds",
+          "type": "percent"
+        },
+        {
+          "key": "spread",
+          "label": "All-play, best to worst",
+          "type": "text"
+        },
+        {
+          "key": "idp",
+          "label": "Defensive starters projected",
+          "type": "count"
+        },
+        {
+          "key": "faa",
+          "label": "Spent at the auction",
+          "type": "usd"
+        }
+      ],
+      "rows": [
+        [
+          "Outlast PG Time",
+          "Pure Greatness (2), HammerTime 🔨 ⏰ (4), The Long Haulers (9)",
+          52.5,
+          "1.63 of 6",
+          30.0,
+          "58.2% to 47.1%",
+          0.0,
+          159000
+        ],
+        [
+          "DOG POUND 4 LIFE",
+          "C-Town Chivalry (1), Cleon Ca$h (8), Hawks (10)",
+          51.6,
+          "1.57 of 6",
+          30.8,
+          "59.8% to 45.9%",
+          0.0,
+          292000
+        ],
+        [
+          "Maddie Mondays",
+          "Real Deal Creel (5), Sex Manther (6), L.A. Looks (11)",
+          48.1,
+          "1.41 of 6",
+          20.1,
+          "50.9% to 43.0%",
+          0.0,
+          462000
+        ],
+        [
+          "LEGION OF BOOM",
+          "Blake Bombers (3), CBP (7), Gride (12)",
+          47.8,
+          "1.40 of 6",
+          19.1,
+          "55.1% to 38.3%",
+          0.0,
+          402000
+        ]
+      ],
+      "note": "Ordered by the mean of its three teams' projected all-play. Expected playoff spots sum each team's playoff odds; the six add up across the league. Defensive starters are the projected season points of the DL, LB and DB a division starts. All-play is a projected percentage, not points per game. Divisions are year one of a three-year alignment the owners drafted themselves."
+    },
+    {
       "id": "t.league.forecast",
       "title": "The 2026 forecast",
       "columns": [
@@ -1369,6 +1992,16 @@
           "key": "ap",
           "label": "Projected all-play",
           "type": "percent"
+        },
+        {
+          "key": "typ",
+          "label": "A typical season",
+          "type": "percent"
+        },
+        {
+          "key": "band",
+          "label": "Eight seasons in ten",
+          "type": "text"
         },
         {
           "key": "wins",
@@ -1403,6 +2036,8 @@
           "Bear Dunn",
           "DOG POUND 4 LIFE",
           59.8,
+          60.4,
+          "40.9% to 77.9%",
           "22.6 of 37",
           57.2,
           74.9,
@@ -1415,6 +2050,8 @@
           "Brian Cutting",
           "Outlast PG Time",
           58.2,
+          58.4,
+          "39.6% to 76.6%",
           "21.1 of 37",
           49.5,
           70.4,
@@ -1427,6 +2064,8 @@
           "Shawn Blake",
           "LEGION OF BOOM",
           55.1,
+          55.8,
+          "36.4% to 73.4%",
           "20.6 of 37",
           52.2,
           66.6,
@@ -1439,6 +2078,8 @@
           "Eric Martel",
           "Outlast PG Time",
           52.2,
+          52.6,
+          "33.8% to 70.8%",
           "18.8 of 37",
           30.6,
           53.5,
@@ -1451,6 +2092,8 @@
           "Keith Creelman",
           "Maddie Mondays",
           50.9,
+          50.6,
+          "32.5% to 69.5%",
           "19.0 of 37",
           40.5,
           54.9,
@@ -1463,6 +2106,8 @@
           "Josh Martel",
           "Maddie Mondays",
           50.3,
+          50.0,
+          "31.8% to 68.8%",
           "18.7 of 37",
           38.3,
           52.8,
@@ -1475,6 +2120,8 @@
           "Derrick Whitman",
           "LEGION OF BOOM",
           50.0,
+          50.0,
+          "31.2% to 68.8%",
           "18.6 of 37",
           36.0,
           52.0,
@@ -1487,6 +2134,8 @@
           "Eric Mannila",
           "DOG POUND 4 LIFE",
           49.1,
+          49.4,
+          "30.5% to 68.2%",
           "18.5 of 37",
           24.4,
           45.3,
@@ -1499,6 +2148,8 @@
           "Brian Cross",
           "Outlast PG Time",
           47.1,
+          46.8,
+          "28.6% to 66.2%",
           "16.8 of 37",
           19.9,
           39.1,
@@ -1511,6 +2162,8 @@
           "Chris Klingenberg",
           "DOG POUND 4 LIFE",
           45.9,
+          45.5,
+          "27.3% to 64.9%",
           "17.3 of 37",
           18.4,
           36.6,
@@ -1523,6 +2176,8 @@
           "Ryan Bousquet",
           "Maddie Mondays",
           43.0,
+          42.2,
+          "24.7% to 62.3%",
           "15.9 of 37",
           21.2,
           32.9,
@@ -1535,6 +2190,8 @@
           "Matt Gerardi",
           "LEGION OF BOOM",
           38.3,
+          37.7,
+          "20.8% to 57.1%",
           "14.1 of 37",
           11.8,
           20.9,
@@ -1542,7 +2199,429 @@
           1.7
         ]
       ],
-      "note": "Power rank = projected regular-season all-play %, schedule-neutral. Wins are head-to-head, out of the 37-game schedule. Odds are the share of 20000 simulated seasons."
+      "note": "Power rank = projected all-play %, schedule-neutral. 'Projected all-play' is the AVERAGE over 20000 simulated seasons, which is why it bunches: a team's good years and bad years cancel out. 'A typical season' is its median and the band holds eight seasons in ten -- that is the shape a real season has. Wins are head-to-head out of the 37-game schedule; odds are the share of seasons in which it happened."
+    },
+    {
+      "id": "t.league.offense_board",
+      "title": "Offense, slot by slot",
+      "columns": [
+        {
+          "key": "rank",
+          "label": "Pwr",
+          "type": "count"
+        },
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "off",
+          "label": "Offense",
+          "type": "count"
+        },
+        {
+          "key": "qb",
+          "label": "QB",
+          "type": "count"
+        },
+        {
+          "key": "sf",
+          "label": "SF",
+          "type": "count"
+        },
+        {
+          "key": "rb",
+          "label": "RB",
+          "type": "count"
+        },
+        {
+          "key": "wr",
+          "label": "WR",
+          "type": "count"
+        },
+        {
+          "key": "te",
+          "label": "TE",
+          "type": "count"
+        },
+        {
+          "key": "of",
+          "label": "Flex",
+          "type": "count"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "C-Town Chivalry",
+          1,
+          4,
+          2,
+          2,
+          2,
+          2,
+          1
+        ],
+        [
+          2,
+          "Pure Greatness",
+          2,
+          3,
+          7,
+          1,
+          6,
+          11,
+          2
+        ],
+        [
+          3,
+          "Blake Bombers",
+          4,
+          1,
+          4,
+          9,
+          7,
+          7,
+          6
+        ],
+        [
+          4,
+          "HammerTime 🔨 ⏰",
+          7,
+          12,
+          12,
+          6,
+          1,
+          1,
+          4
+        ],
+        [
+          5,
+          "Real Deal Creel",
+          6,
+          6,
+          8,
+          5,
+          3,
+          8,
+          7
+        ],
+        [
+          6,
+          "Sex Manther",
+          5,
+          2,
+          1,
+          8,
+          9,
+          6,
+          3
+        ],
+        [
+          7,
+          "CBP",
+          8,
+          11,
+          9,
+          4,
+          8,
+          5,
+          5
+        ],
+        [
+          8,
+          "Cleon Ca$h",
+          3,
+          7,
+          5,
+          3,
+          4,
+          3,
+          8
+        ],
+        [
+          9,
+          "The Long Haulers",
+          9,
+          5,
+          3,
+          7,
+          11,
+          4,
+          11
+        ],
+        [
+          10,
+          "Hawks",
+          12,
+          8,
+          6,
+          11,
+          12,
+          9,
+          9
+        ],
+        [
+          11,
+          "L.A. Looks",
+          11,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        [
+          12,
+          "Gride",
+          10,
+          9,
+          11,
+          12,
+          5,
+          12,
+          12
+        ]
+      ],
+      "note": "1 is best. Each column ranks what a team STARTS in those slots, by its players' value on the live redraft board: one quarterback slot, the superflex, two running backs, two receivers, a tight end and the two flexes. Offense is all eleven of them together. Ranking by slot rather than by position keeps the comparison even -- a team is measured on the same places as everyone else, and a quarterback in the superflex is counted once."
+    },
+    {
+      "id": "t.league.phases",
+      "title": "What each lineup was worth, phase by phase",
+      "columns": [
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "april",
+          "label": "April",
+          "type": "count"
+        },
+        {
+          "key": "lock",
+          "label": "At the lock",
+          "type": "count"
+        },
+        {
+          "key": "close",
+          "label": "At the close",
+          "type": "count"
+        },
+        {
+          "key": "now",
+          "label": "Now",
+          "type": "count"
+        },
+        {
+          "key": "spend",
+          "label": "Spent at auction",
+          "type": "usd"
+        },
+        {
+          "key": "change",
+          "label": "April to now",
+          "type": "count"
+        }
+      ],
+      "rows": [
+        [
+          "C-Town Chivalry",
+          38265,
+          35561,
+          49285,
+          49285,
+          156000,
+          11020
+        ],
+        [
+          "Pure Greatness",
+          42184,
+          42184,
+          42389,
+          42389,
+          53000,
+          205
+        ],
+        [
+          "Blake Bombers",
+          26451,
+          22788,
+          34612,
+          34612,
+          131000,
+          8161
+        ],
+        [
+          "HammerTime 🔨 ⏰",
+          31500,
+          31500,
+          32557,
+          31500,
+          69000,
+          0
+        ],
+        [
+          "Real Deal Creel",
+          8894,
+          19017,
+          32231,
+          32231,
+          198000,
+          23337
+        ],
+        [
+          "Sex Manther",
+          29533,
+          21583,
+          33887,
+          33887,
+          154000,
+          4354
+        ],
+        [
+          "CBP",
+          13485,
+          16585,
+          30295,
+          30295,
+          172000,
+          16810
+        ],
+        [
+          "Cleon Ca$h",
+          33675,
+          37200,
+          37211,
+          37211,
+          34000,
+          3536
+        ],
+        [
+          "The Long Haulers",
+          24808,
+          25643,
+          26338,
+          26338,
+          39000,
+          1530
+        ],
+        [
+          "Hawks",
+          10562,
+          11194,
+          19911,
+          19911,
+          106000,
+          9349
+        ],
+        [
+          "L.A. Looks",
+          12626,
+          15642,
+          21480,
+          21480,
+          139000,
+          8854
+        ],
+        [
+          "Gride",
+          11219,
+          17045,
+          21922,
+          21526,
+          101000,
+          10307
+        ]
+      ],
+      "note": "The redraft value of the best legal lineup each roster could field on 2026-04-21, at the auction roster lock (07-23), at the close (08-05) and today. Six teams could not field a legal lineup in April and five could not at the lock: those columns are the optimizer filling slots with whoever was on hand, never the owner's lineup. Spend is both auctions."
+    },
+    {
+      "id": "t.league.shape",
+      "title": "What a season actually looks like",
+      "columns": [
+        {
+          "key": "finish",
+          "label": "Finish in all-play",
+          "type": "text"
+        },
+        {
+          "key": "real",
+          "label": "The completed seasons",
+          "type": "percent"
+        },
+        {
+          "key": "sim",
+          "label": "The simulation",
+          "type": "percent"
+        }
+      ],
+      "rows": [
+        [
+          "First",
+          73.3,
+          75.9
+        ],
+        [
+          "Second",
+          67.4,
+          68.4
+        ],
+        [
+          "Third",
+          64.1,
+          63.3
+        ],
+        [
+          "Fourth",
+          61.2,
+          59.1
+        ],
+        [
+          "Fifth",
+          57.5,
+          55.3
+        ],
+        [
+          "Sixth",
+          53.7,
+          51.8
+        ],
+        [
+          "Seventh",
+          47.9,
+          48.3
+        ],
+        [
+          "Eighth",
+          44.4,
+          44.7
+        ],
+        [
+          "Ninth",
+          39.9,
+          40.9
+        ],
+        [
+          "Tenth",
+          36.3,
+          36.7
+        ],
+        [
+          "Eleventh",
+          31.3,
+          31.5
+        ],
+        [
+          "Twelfth",
+          22.9,
+          23.9
+        ]
+      ],
+      "note": "Mean regular-season all-play by where a team finished in it: the 16 completed UPS seasons in D1 against the 20000 simulated ones. This is the shape the forecast's averages hide -- the team that leads all-play wins about three quarters of the matchups available and the team that finishes last wins about a quarter, and no team's AVERAGE ever looks like either."
     }
   ],
   "charts": [],
@@ -1743,12 +2822,38 @@
   "sections": [
     {
       "id": "s1",
-      "title": "The Forecast",
-      "brief": "Open with a blurb about the season as the simulation sees it -- who is the favorite, how close the middle is, which division is a fight and which is a runaway -- then the forecast table. Quote odds as odds. Fun, but every number is a token.",
+      "title": "The Board",
+      "brief": "The opener, and it has to stand on its own: where the twelve teams sit in the simulation, the shape of the table (who is clear, where the pack is, who is adrift), the handful of offseason moves that actually changed a contender, and which teams own which positions. Then the forecast table and the positional board. Say 'projected' and 'odds', never 'will'; read each position column against itself.",
       "factIds": [
+        "f.league.ap_leader_worst_finish",
+        "f.league.auction_lots",
+        "f.league.auction_spend",
+        "f.league.cap_committed",
+        "f.league.cap_room",
+        "f.league.champ_top3_real",
+        "f.league.champ_top3_sim",
+        "f.league.faa_spend",
+        "f.league.faa_top_price",
+        "f.league.holes_opening",
+        "f.league.holes_today",
+        "f.league.injured_starters",
+        "f.league.lineup_value_current",
+        "f.league.lineup_value_opening",
+        "f.league.lineup_value_postauction",
+        "f.league.lineup_value_preauction",
+        "f.league.no_lineup_opening",
+        "f.league.pickups",
+        "f.league.rookie_picks",
+        "f.league.seasons_measured",
+        "f.league.shape_first_real",
+        "f.league.shape_first_sim",
+        "f.league.shape_last_real",
         "f.league.sim_games",
         "f.league.sim_runs",
+        "f.league.studs_today",
         "f.league.teams",
+        "f.league.value_gap_current",
+        "f.league.value_gap_opening",
         "f.team.0001.allplay_career",
         "f.team.0001.power_rank",
         "f.team.0001.sim_exp_allplay",
@@ -1847,7 +2952,10 @@
         "f.team.0012.sim_p_title"
       ],
       "tableIds": [
-        "t.league.forecast"
+        "t.league.defense_board",
+        "t.league.forecast",
+        "t.league.offense_board",
+        "t.league.shape"
       ],
       "chartIds": [],
       "quoteIds": [
@@ -1876,8 +2984,56 @@
     },
     {
       "id": "s2",
-      "title": "The Divisional Draft",
-      "brief": "The league's first Owner Divisional Draft: the four captains and every pick, who went first, who went last, and how each division looks now that the simulation has seen it. Place the league's own chat about it by id.",
+      "title": "April: What Twelve Teams Had",
+      "brief": "The league before anyone did anything, the same way a team review opens. How many teams could not even field a legal lineup, how far apart the best and worst rosters were, where the holes were, and the one or two spring trades that mattered league-wide. Where a team could not field a lineup there was no lineup: those figures are the optimizer filling slots, never an owner's choice.",
+      "factIds": [
+        "f.league.holes_opening",
+        "f.league.holes_today",
+        "f.league.injured_starters",
+        "f.league.lineup_value_current",
+        "f.league.lineup_value_opening",
+        "f.league.lineup_value_postauction",
+        "f.league.lineup_value_preauction",
+        "f.league.no_lineup_opening",
+        "f.league.pickups",
+        "f.league.rookie_picks",
+        "f.league.sim_games",
+        "f.league.sim_runs",
+        "f.league.studs_today",
+        "f.league.teams",
+        "f.league.value_gap_current",
+        "f.league.value_gap_opening"
+      ],
+      "tableIds": [],
+      "chartIds": [],
+      "quoteIds": [
+        "q_bear_boring",
+        "q_bear_calls_hawks",
+        "q_bear_forecast",
+        "q_blake_preview",
+        "q_bot_first",
+        "q_cross_champs",
+        "q_cross_love",
+        "q_cross_name",
+        "q_cutting_kittle",
+        "q_cutting_maye",
+        "q_emart_coinflip",
+        "q_emart_meniscus",
+        "q_emart_stacked",
+        "q_hawks_schefter",
+        "q_manther_enough",
+        "q_manther_punter",
+        "q_rybo_haul",
+        "q_rybo_plans",
+        "q_whitman_tiger"
+      ],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s3",
+      "title": "The Draft and the Tags",
+      "brief": "Late May: the rookie draft, the tags, and the league's first Owner Divisional Draft -- the four captains, the snake, who went first and what the room made of it. This is year one of a three-year alignment, which is why the divisions are worth an argument. Place the league's own chat by id.",
       "factIds": [
         "f.league.div_draft_captain_0002",
         "f.league.div_draft_captain_0005",
@@ -1890,7 +3046,8 @@
         "f.league.div_draft_pick_0008",
         "f.league.div_draft_pick_0010",
         "f.league.div_draft_pick_0011",
-        "f.league.div_draft_pick_0012"
+        "f.league.div_draft_pick_0012",
+        "f.league.rookie_picks"
       ],
       "tableIds": [
         "t.league.captains",
@@ -1922,10 +3079,116 @@
       "gameIds": []
     },
     {
-      "id": "s3",
-      "title": "The Lay of the Land",
-      "brief": "The season in general, as the league chat tells it: the running jokes and the trash talk heading into week one. Good-natured only. Quotes are placed by id, never typed.",
+      "id": "s4",
+      "title": "The Two Auctions",
+      "brief": "The thirteen days that did most of the work: what the league spent, what it bought, who improved and who only spent. The phase table is the spine -- April, the lock, the close, today -- and the story is which lineups moved, not which owners were loudest. Never add the Expired Rookie Auction and the Free Agent Auction into one number without saying so: they sell different calibres of player.",
       "factIds": [
+        "f.league.auction_lots",
+        "f.league.auction_spend",
+        "f.league.cap_committed",
+        "f.league.cap_room",
+        "f.league.faa_spend",
+        "f.league.faa_top_price",
+        "f.league.lineup_value_current",
+        "f.league.lineup_value_opening",
+        "f.league.lineup_value_postauction",
+        "f.league.lineup_value_preauction",
+        "f.league.value_gap_current",
+        "f.league.value_gap_opening"
+      ],
+      "tableIds": [
+        "t.league.phases"
+      ],
+      "chartIds": [],
+      "quoteIds": [
+        "q_bear_boring",
+        "q_bear_calls_hawks",
+        "q_bear_forecast",
+        "q_blake_preview",
+        "q_bot_first",
+        "q_cross_champs",
+        "q_cross_love",
+        "q_cross_name",
+        "q_cutting_kittle",
+        "q_cutting_maye",
+        "q_emart_coinflip",
+        "q_emart_meniscus",
+        "q_emart_stacked",
+        "q_hawks_schefter",
+        "q_manther_enough",
+        "q_manther_punter",
+        "q_rybo_haul",
+        "q_rybo_plans",
+        "q_whitman_tiger"
+      ],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s5",
+      "title": "Since the Auction",
+      "brief": "Five weeks in which the board barely moved: waivers and churn, a league with almost no cap room left, the injuries the forecast holds out, and week one as an opening data point and nothing more -- only a handful of NFL teams had played when this was built.",
+      "factIds": [
+        "f.league.auction_lots",
+        "f.league.auction_spend",
+        "f.league.cap_committed",
+        "f.league.cap_room",
+        "f.league.faa_spend",
+        "f.league.faa_top_price",
+        "f.league.holes_opening",
+        "f.league.holes_today",
+        "f.league.injured_starters",
+        "f.league.no_lineup_opening",
+        "f.league.pickups",
+        "f.league.rookie_picks",
+        "f.league.sim_games",
+        "f.league.sim_runs",
+        "f.league.studs_today",
+        "f.league.teams"
+      ],
+      "tableIds": [],
+      "chartIds": [],
+      "quoteIds": [
+        "q_bear_boring",
+        "q_bear_calls_hawks",
+        "q_bear_forecast",
+        "q_blake_preview",
+        "q_bot_first",
+        "q_cross_champs",
+        "q_cross_love",
+        "q_cross_name",
+        "q_cutting_kittle",
+        "q_cutting_maye",
+        "q_emart_coinflip",
+        "q_emart_meniscus",
+        "q_emart_stacked",
+        "q_hawks_schefter",
+        "q_manther_enough",
+        "q_manther_punter",
+        "q_rybo_haul",
+        "q_rybo_plans",
+        "q_whitman_tiger"
+      ],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s6",
+      "title": "The Divisions, Strongest to Weakest",
+      "brief": "Rank the four divisions and say what makes each what it is: the mean projection, how the three teams inside it are spread, what it spent, what it starts on defense, and how many playoff spots it can expect of the six. Name the teams. Close on the stakes -- year one of three -- and on the model's own limits.",
+      "factIds": [
+        "f.league.div_dogpound4life_allplay",
+        "f.league.div_dogpound4life_playoff_spots",
+        "f.league.div_dogpound4life_title",
+        "f.league.div_legionofboom_allplay",
+        "f.league.div_legionofboom_playoff_spots",
+        "f.league.div_legionofboom_title",
+        "f.league.div_maddiemondays_allplay",
+        "f.league.div_maddiemondays_playoff_spots",
+        "f.league.div_maddiemondays_title",
+        "f.league.div_outlastpgtime_allplay",
+        "f.league.div_outlastpgtime_playoff_spots",
+        "f.league.div_outlastpgtime_title",
         "f.team.0001.allplay_career",
         "f.team.0001.power_rank",
         "f.team.0001.sim_exp_allplay",
@@ -2023,7 +3286,9 @@
         "f.team.0012.sim_p_playoffs",
         "f.team.0012.sim_p_title"
       ],
-      "tableIds": [],
+      "tableIds": [
+        "t.league.divisions"
+      ],
       "chartIds": [],
       "quoteIds": [
         "q_bear_boring",

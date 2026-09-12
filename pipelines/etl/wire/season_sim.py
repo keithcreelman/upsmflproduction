@@ -299,10 +299,18 @@ def _div_winner_key(t):
     return (-t["pct"], -t["divpct"], -t["pf"], -t["ap_pct"])
 
 
-def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True):
+def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None):
     fids = sorted(teams)
     agg = {f: {"h2h_w": 0.0, "ap_pct": 0.0, "div": 0, "po": 0, "bye": 0, "title": 0, "runner": 0,
-               "ap_rank": [0] * len(fids)} for f in fids}
+               "ap_rank": [0] * len(fids), "ap_samples": []} for f in fids}
+    # THE SHAPE OF A SEASON, not just its average. Keith 2026-09-12: "i need to
+    # see a more realistic regular season. You can show 'Averages' as a baseline
+    # but then also show the more league-shaped result." A team's MEAN all-play
+    # across 20,000 seasons is compressed by construction -- the good and the bad
+    # cancel -- so the table also needs what one season looks like: each team's
+    # own spread, and the all-play that lands at each finishing place.
+    shape_by_finish = [0.0] * len(fids)
+    champ_ap_rank = [0] * len(fids)
     ap_var_sum = 0.0
     for _ in range(runs):
         shock = {f: rng.gauss(0, sigma_s) for f in fids}
@@ -334,6 +342,9 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         ap_var_sum += sum((x - m) ** 2 for x in aps) / len(aps)
         for f in fids:
             agg[f]["ap_pct"] += st[f]["ap_pct"]
+            agg[f]["ap_samples"].append(st[f]["ap_pct"])
+        for i, f in enumerate(sorted(fids, key=lambda f2: -st[f2]["ap_pct"])):
+            shape_by_finish[i] += st[f]["ap_pct"]
         if not collect:
             continue
 
@@ -370,6 +381,17 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             agg[f]["bye"] += 1
         agg[champ]["title"] += 1
         agg[runner]["runner"] += 1
+        champ_ap_rank[sorted(fids, key=lambda f2: -st[f2]["ap_pct"]).index(champ)] += 1
+        # Diagnostics (inert in production): one call per simulated season, so a
+        # caller can ask what the CHAMPION's realized all-play looks like rather
+        # than what a team's mean is. Keith 2026-09-12: ".598 for a league
+        # champion feels low ... which might make sense since this is the mean".
+        if hook is not None:
+            hook(st, champ, runner, seeds)
+    for f in fids:
+        agg[f]["ap_samples"].sort()
+    agg["_shape"] = {"byFinish": [x / runs for x in shape_by_finish],
+                     "champApRank": [x / runs for x in champ_ap_rank]}
     return agg, ap_var_sum / runs
 
 
@@ -599,6 +621,9 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
     wp, proj_var, sigma_w, sigma_s = res["wp"], res["proj_var"], res["sigma_w"], res["sigma_s"]
     table, agg, ap_var = res["table"], res["agg"], res["ap_var"]
 
+    def _pctl(xs, p):
+        return xs[min(len(xs) - 1, int(p * len(xs)))] if xs else 0.0
+
     rows = []
     for f in sorted(teams):
         a = agg[f]
@@ -609,6 +634,9 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
             "projWeeklyRegressed": round(sum(wp[f][w] for w in range(1, reg_end + 1)) / reg_end, 1),
             "waiverFillSlotWeeks": fills.get(f, 0),
             "expAllPlayPct": round(exp_ap, 4),
+            "apP10": round(_pctl(a["ap_samples"], 0.10), 4),
+            "apP50": round(_pctl(a["ap_samples"], 0.50), 4),
+            "apP90": round(_pctl(a["ap_samples"], 0.90), 4),
             "expWins": round(a["h2h_w"] / runs, 1), "games": games.get(f, 0),
             "pDivision": round(a["div"] / runs, 4), "pPlayoffs": round(a["po"] / runs, 4),
             "pBye": round(a["bye"] / runs, 4), "pTitle": round(a["title"] / runs, 4),
@@ -629,6 +657,10 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
                   "replacementRankByGroup": REPLACEMENT_RANK_BY_GROUP,
                   "divisionTiebreak": league.get("standingsSort")},
         "powerRankBasis": "expected regular-season all-play %, schedule-neutral",
+        # What one simulated season looks like: the all-play that lands at each
+        # finishing place, and where the champion finished in all-play.
+        "seasonShape": {"byFinish": [round(x, 4) for x in agg["_shape"]["byFinish"]],
+                        "champApRank": [round(x, 4) for x in agg["_shape"]["champApRank"]]},
         "teams": rows,
         "seasonProjections": {"weeks": [1, end], "groups": list(SEASON_PROJ_GROUPS),
                               "players": season_projections(prep["proj"], prep["pos"], end)},

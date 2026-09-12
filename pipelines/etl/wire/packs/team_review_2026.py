@@ -943,6 +943,61 @@ def build(pack_id):
         order = sorted(vals.items(), key=lambda kv: -kv[1])
         ranks[p] = {f: i + 1 for i, (f, v) in enumerate(order)}
 
+    # EVERY STARTING SLOT, RANKED LEAGUE-WIDE. Keith 2026-09-12, for the league
+    # article: "build a table to show rankings by starters at each position ...
+    # QB - Rank, SF - Rank", then: "I would also want to see offense flex
+    # ranking and defensive Flex ... because it normalizes the rankings".
+    # So the unit is the SLOT, not the position group: every team is compared on
+    # the same number of slots (one QB, two RB, two flex, one superflex, and so
+    # on) and the columns never double-count a man. Offense is the redraft
+    # board; defenders, kickers and punters are MFL's own season projection --
+    # never other_score, whose salary fallback fills a slot and is not a value.
+    SLOT_UNITS = [("qb", ["QB1"], "O"), ("sf", ["SF1"], "O"), ("rb", ["RB1", "RB2"], "O"),
+                  ("wr", ["WR1", "WR2"], "O"), ("te", ["TE1"], "O"), ("of", ["OF1", "OF2"], "O"),
+                  ("dl", ["DL1", "DL2"], "D"), ("lb", ["LB1", "LB2"], "D"), ("db", ["DB1", "DB2"], "D"),
+                  ("df", ["DF1"], "D"), ("pk", ["PK1"], "K"), ("pn", ["PN1"], "K")]
+
+    def _slot_worth(pid):
+        """What the man in a slot is worth, on his own side's scale. None when
+        MFL does not project him -- unprojected is unranked, never zero."""
+        if pid is None:
+            return 0.0, False
+        pg = LE.pos_group(positions.get(pid, ""))
+        if pg in ("QB", "RB", "WR", "TE"):
+            return float(rsf.get(pid, 0) or 0), True
+        hit = idp_proj.get(pid) or kp_proj.get(pid)
+        return (float(hit["seasonProj"]), True) if hit else (0.0, False)
+
+    unit_value = dict((u, {}) for u, _, _ in SLOT_UNITS)
+    for side in ("off", "def", "st"):
+        unit_value[side] = {}
+    unit_unprojected = {}
+    for f, lu in all_lineups.items():
+        miss = 0
+        side_tot = {"O": 0.0, "D": 0.0, "K": 0.0}
+        for u, slots, side in SLOT_UNITS:
+            tot = 0.0
+            for sid in slots:
+                v, ok = _slot_worth(lu["slots"].get(sid))
+                tot += v
+                if not ok and lu["slots"].get(sid) is not None:
+                    miss += 1
+            unit_value[u][f] = round(tot, 1)
+            side_tot[side] += tot
+        unit_value["off"][f] = round(side_tot["O"], 1)
+        unit_value["def"][f] = round(side_tot["D"], 1)
+        unit_value["st"][f] = round(side_tot["K"], 1)
+        unit_unprojected[f] = miss
+    unit_rank = {}
+    for u, vals in unit_value.items():
+        order = sorted(vals.items(), key=lambda kv: -kv[1])
+        unit_rank[u] = {f2: i + 1 for i, (f2, v) in enumerate(order)}
+    if unit_unprojected.get(fid):
+        pack.warn("%d of this team's starters are players MFL does not project, so they add nothing to its "
+                  "defensive, kicker or punter slot totals in the league positional boards -- the rank is what "
+                  "the projected starters are worth, not a claim that the slot is empty."
+                  % unit_unprojected[fid])
+
     weights = {"QB": 1.0, "RB": 2.0, "WR": 2.0, "TE": 1.0}
     of_total = sum(flex_fills["OF"].values()) or 1
     sf_total = sum(flex_fills["SF"].values()) or 1
@@ -983,6 +1038,17 @@ def build(pack_id):
     F("f.team.%s.rb_value" % fid, "RB starters redraft value", pos_value["RB"][fid], "count", "adp-board", current_date)
     F("f.team.%s.wr_value" % fid, "WR starters redraft value", pos_value["WR"][fid], "count", "adp-board", current_date)
     F("f.team.%s.te_value" % fid, "TE starters redraft value", pos_value["TE"][fid], "count", "adp-board", current_date)
+    _SLOT_LABEL = {"qb": "the quarterback slot", "sf": "the superflex", "rb": "the two running back slots",
+                   "wr": "the two receiver slots", "te": "the tight end slot", "of": "the two offensive flexes",
+                   "dl": "the two defensive line slots", "lb": "the two linebacker slots",
+                   "db": "the two defensive back slots", "df": "the defensive flex", "pk": "the kicker",
+                   "pn": "the punter", "off": "the eleven offensive slots", "def": "the seven defensive slots",
+                   "st": "the kicker and punter"}
+    for _u in [u for u, _, _ in SLOT_UNITS] + ["off", "def", "st"]:
+        F("f.team.%s.slot_%s_rank" % (fid, _u), "League rank for %s" % _SLOT_LABEL[_u],
+          unit_rank[_u][fid], "rank", "lineup_engine", NOW_UTC)
+        F("f.team.%s.slot_%s_value" % (fid, _u), "What this team starts in %s is worth" % _SLOT_LABEL[_u],
+          unit_value[_u][fid], "count", "adp-board + season_sim projections", current_date)
     F("f.team.%s.composite_rank" % fid, "Overall power rank", comp_rank[fid], "rank", "lineup_engine", NOW_UTC)
     F("f.team.%s.composite_value" % fid, "Composite score", round(composite[fid]), "count", "lineup_engine", NOW_UTC)
     F("f.league.teams", "Teams in the league", 12, "count", "src_franchises", str(SEASON))
