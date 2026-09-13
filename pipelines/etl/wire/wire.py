@@ -463,11 +463,13 @@ PACK_BUILDERS = {
                  "2026-season-forecast": "season_forecast",
                  # Stub for the section, ahead of week one (Keith 2026-09-12).
                  "2026-weekly-recap-placeholder": "weekly_recap_placeholder"}
-# weekly_recap is generic (season, week) -- one module, five 2025 instances:
-# the last two regular-season weeks plus the full 3-round playoffs. Each pack
-# id is registered explicitly (no wildcard matching) so `_load_builder` keeps
-# failing loudly on a typo rather than silently routing somewhere unintended.
-for _wk in (13, 14, 15, 16, 17):
+# weekly_recap is generic (season, week) -- one module, six 2025 instances:
+# week 7 (Keith 2026-09-13: a baseline recap for the new Weekly Recap
+# section), the last two regular-season weeks, and the full 3-round playoffs.
+# Each pack id is registered explicitly (no wildcard matching) so
+# `_load_builder` keeps failing loudly on a typo rather than silently routing
+# somewhere unintended.
+for _wk in (7, 13, 14, 15, 16, 17):
     PACK_BUILDERS["2025-wk%02d-recap" % _wk] = "weekly_recap"
 # All 12 franchises (Keith 2026-09-10: "next let's get those articles written").
 # The 2026-09-06 test scope was 0006 and 0008 only -- one heavy auction spender
@@ -567,7 +569,7 @@ PACK_FAMILY = {"2026-season-forecast": "season-review",
                "2026-weekly-recap-placeholder": "weekly"}
 PACK_ARTICLE = {"2026-season-forecast": "2026-season-forecast",
                 "2026-weekly-recap-placeholder": "2026-weekly-recap-placeholder"}
-for _wk in (13, 14, 15, 16, 17):
+for _wk in (7, 13, 14, 15, 16, 17):
     PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
 for _fid in ("0001", "0002", "0003", "0004", "0005", "0006",
              "0007", "0008", "0009", "0010", "0011", "0012"):
