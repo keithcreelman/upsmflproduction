@@ -33,7 +33,7 @@ import {
   evaluateLineup, bookLineupViolation, lineupStandings, voidLineupViolation,
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
-import { runLineupDmSweep, runLineupBooking } from "./lineup_wiring.js";
+import { runLineupDmSweep, runLineupBooking, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
@@ -6755,6 +6755,10 @@ export default {
               if (bk && bk.booked) console.log(`[scheduled hourly] lineup violations booked: wk${wk} -> ${bk.booked} (${bk.clean} clean, ${bk.skipped} skipped)`);
             }
           } catch (e) { console.error(`[scheduled hourly] lineup booking failed: ${e && e.message}`); }
+          try {
+            const sat = await runLineupSaturdayAnnounce(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek });
+            if (sat && !sat.skipped) console.log(`[scheduled hourly] lineup Sat-AM post: wk${lcWeek} -> clean=${sat.clean} issues=${sat.issues} msg=${sat.message_id}`);
+          } catch (e) { console.error(`[scheduled hourly] lineup Sat-AM announce failed: ${e && e.message}`); }
         })());
       }
     } catch (e) {

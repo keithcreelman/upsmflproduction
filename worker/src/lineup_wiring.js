@@ -1,15 +1,22 @@
 // §H delivery layer for §G3 lineup compliance — the plumbing around
 // lineup_compliance.js's evaluator.
 //
-// Three jobs, all driven off the hourly cron:
+// Four jobs, all driven off the hourly cron:
 //
-//   1. runLineupDmSweep()   — 1.5h before each game window, DM every owner
-//                             their status. Keith's §H spec.
-//   2. runLineupBooking()   — once the week's last game is final, evaluate and
-//                             book violations onto the §G3 ladder.
-//   3. resolveReplacements  — "did you have anyone to sub in?", which decides
-//                             whether a bad starter is a violation at all
-//                             (Keith 2026-08-17).
+//   1. runLineupDmSweep()       — 1.5h before each game window, DM every
+//                                 owner their status. Keith's §H spec.
+//   2. runLineupBooking()       — once the week's last game is final,
+//                                 evaluate and book violations onto the §G3
+//                                 ladder.
+//   3. runLineupSaturdayAnnounce() — once, Saturday morning, ONE public post
+//                                 (not DMs) summarizing every franchise's
+//                                 current lineup risk off the injury report
+//                                 (Keith 2026-09-13: "a Sat AM Post that's
+//                                 supposed to be based off the injury
+//                                 reports not just DMs").
+//   4. resolveReplacements      — "did you have anyone to sub in?", which
+//                                 decides whether a bad starter is a
+//                                 violation at all (Keith 2026-08-17).
 //
 // THE RULE IT SERVES lives in lineup_compliance.js. Nothing here decides
 // whether something is a violation; this module only gathers inputs, delivers
@@ -157,19 +164,27 @@ export async function submittedStarters(season, leagueId, fid, playerIds, cookie
     d = r.ok ? await r.json().catch(() => null) : null;
   } catch (_) { d = null; }
   if (!d) return { known: false, state: "unknown", starters: null, reason: "playerRosterStatus read failed" };
-  const block = d.playerRosterStatuses || d.playerRosterStatus;
-  const rows = block && _arr(block.playerRosterStatus || block.player);
+  // CONTRACT (verified against a live L=74598 FID=0008 fetch — see the fuller
+  // parser + comment at index.js's GET /api/lineup, ~40677, which this was
+  // copied from after discovering this function never matched a single row):
+  // payload.playerRosterStatuses.playerStatus[] entries, each { id,
+  // roster_franchise }; roster_franchise is an object normally but an ARRAY
+  // in leagues with multiple copies of a player, and carries { franchise_id,
+  // status } — NOT { id, status }. Key order varies between entries, so read
+  // by name, never by position.
+  const block = d.playerRosterStatuses;
+  const rows = block && _arr(block.playerStatus);
   if (!rows || !rows.length) return { known: false, state: "unknown", starters: null, reason: "empty payload" };
   const starters = [];
+  const seenStarter = {};
   let sawAny = false;
   for (const r of rows) {
-    const pid = _s(r && r.id);
-    // Key order varies between entries, so read the franchise block defensively.
-    for (const rf of _arr(r && (r.roster_franchise || r.franchise))) {
-      if (_fid(rf && rf.id) !== _fid(fid)) continue;
+    const pid = _s(r && (r.id || r.player_id));
+    for (const rf of _arr(r && r.roster_franchise)) {
+      if (_fid(rf && rf.franchise_id) !== _fid(fid)) continue;
       const st = _s(rf && rf.status).toUpperCase();
       if (st) sawAny = true;
-      if (st === "S") starters.push(pid);
+      if (st === "S" && pid && !seenStarter[pid]) { seenStarter[pid] = 1; starters.push(pid); }
     }
   }
   if (!sawAny) return { known: false, state: "no_record", starters: null, reason: "no lineup submitted" };
@@ -353,4 +368,123 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
   await _stampLineupHeartbeat(db, "lineup_booking", `ok:booked=${booked.length}`);
   return { ok: true, week, booked: booked.length, clean: clean.length, skipped: skipped.length,
            detail: { booked, skipped } };
+}
+
+// fid -> franchise name, for the public post (DMs don't need this — Discord
+// already knows who it's DMing).
+async function franchiseNames(season, leagueId) {
+  const d = await _json(`${MFL_WWW}/${season}/export?TYPE=league&L=${leagueId}&JSON=1`);
+  const rows = d && d.league && d.league.franchises && _arr(d.league.franchises.franchise);
+  if (!rows) return null;
+  const out = {};
+  for (const f of rows) { const fid = _fid(f && f.id); if (fid) out[fid] = _s(f && f.name) || `Team ${fid}`; }
+  return out;
+}
+
+// Saturday morning ET, once. A plain UTC-hour gate (like the 09:05 UTC daily
+// backup elsewhere) would drift a Saturday post onto Friday or Sunday across
+// EDT/EST and DST — this reads the wall clock in the timezone the rule
+// actually runs on.
+function _etWeekdayHour(nowUnix) {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", hour: "2-digit", hour12: false,
+  }).formatToParts(new Date(nowUnix * 1000));
+  const g = (t) => (f.find((p) => p.type === t) || {}).value;
+  return { weekday: g("weekday"), hour: parseInt(g("hour"), 10) };
+}
+const SAT_ANNOUNCE_HOUR_ET = 8; // 8am ET Saturday — ahead of the Saturday-8pm MNF notice cap
+
+// ── 3. the Saturday-AM public compliance post (§H, per Keith 2026-09-13) ───
+//
+// Distinct from runLineupDmSweep: that is a PRIVATE per-owner heads-up fired
+// close to kickoff. This is ONE public post to the league, once a week,
+// summarizing what the injury report says about everyone's CURRENT lineup —
+// "based off the injury reports, not just DMs." Uses the same evaluator,
+// final:false (advisory view — the week isn't over, nothing is booked here).
+export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, nowUnix, channelId, dryRun = false }) {
+  const db = env && env.UPS_MFL_DB;
+  if (!db) return { ok: false, error: "no_db" };
+  const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
+
+  const { weekday, hour } = _etWeekdayHour(now);
+  if (weekday !== "Sat" || hour !== SAT_ANNOUNCE_HOUR_ET) {
+    return { ok: true, skipped: "not_sat_am_window" };
+  }
+
+  const already = await db.prepare(
+    `SELECT 1 FROM ups_lineup_sat_announce_log WHERE season=? AND league_id=? AND week=?`
+  ).bind(Number(season), String(leagueId), Number(week)).first();
+  if (already) return { ok: true, skipped: "already_posted" };
+
+  const [players, rosters, byes, sched, names] = await Promise.all([
+    playerIndex(season, leagueId),
+    leagueRosters(season, leagueId, env.MFL_COOKIE),
+    byeTeams(season, week),
+    weekSchedule(season, week),
+    franchiseNames(season, leagueId),
+  ]);
+  if (!players || !rosters || !sched) {
+    await _stampLineupHeartbeat(db, "lineup_sat_announce", "skipped:inputs_unreadable");
+    return { ok: true, skipped: "inputs_unreadable" };
+  }
+
+  const history = await injuryHistoryForWeek(env, { season, week });
+  const observedFrom = await injuryObservedFrom(env, { season, week });
+
+  const clean = [], issues = [];
+  for (const fid of Object.keys(rosters).sort()) {
+    const name = (names && names[fid]) || `Team ${fid}`;
+    const ev = await evaluateFranchiseWeek(env, {
+      season, leagueId, fid, week, roster: rosters[fid], players, sched, byes, history, observedFrom, final: false,
+    });
+    if (ev.skipped) { issues.push({ fid, name, verdict: "unchecked", lines: [`Lineup not readable yet (${ev.reason}).`] }); continue; }
+    if (ev.result.verdict === "clean") { clean.push({ fid, name }); continue; }
+    const lines = [...ev.result.violations, ...ev.result.advisories].map((l) => l.detail);
+    issues.push({ fid, name, verdict: ev.result.verdict, lines });
+  }
+
+  const L = [];
+  L.push(`📋 **Week ${week} lineup check-in — as of this morning's injury report**`);
+  L.push("");
+  if (!issues.length) {
+    L.push(`✅ All ${clean.length} teams clean — nobody starting an Out/Doubtful/bye player right now.`);
+  } else {
+    L.push(`✅ ${clean.length} team${clean.length === 1 ? "" : "s"} clean.`);
+    L.push("");
+    for (const it of issues) {
+      const tag = it.verdict === "violation" ? "🚨" : it.verdict === "advisory" ? "⚠️" : "❔";
+      L.push(`${tag} **${it.name}**`);
+      for (const line of it.lines) L.push(`   • ${line}`);
+    }
+    L.push("");
+    L.push("_Violations are only counted at end of week — plenty of time to fix a bench before kickoff._");
+  }
+  const body = L.join("\n");
+
+  let messageId = "";
+  if (!dryRun) {
+    try {
+      const { postToDiscordChannel } = await import("./discord_roast_reply.js");
+      const botToken = _s(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
+      const chId = _s(channelId || env.DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID || "");
+      if (botToken && chId) {
+        const res = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(chId)}/messages`, {
+          method: "POST",
+          headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json",
+                     "User-Agent": "upsmflproduction-worker" },
+          body: JSON.stringify({ content: body.slice(0, 1900), allowed_mentions: { parse: [] } }),
+        });
+        const j = await res.json().catch(() => null);
+        if (res.ok) messageId = _s(j && j.id);
+      }
+    } catch (e) { console.log(`[lineup-sat-announce] post failed: ${e && e.message}`); }
+    await db.prepare(
+      `INSERT OR IGNORE INTO ups_lineup_sat_announce_log
+         (season, league_id, week, message_id, clean_count, issue_count, posted_unix)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(Number(season), String(leagueId), Number(week), messageId, clean.length, issues.length, now).run();
+  }
+
+  await _stampLineupHeartbeat(db, "lineup_sat_announce", `ok:clean=${clean.length} issues=${issues.length}`);
+  return { ok: true, week, clean: clean.length, issues: issues.length, message_id: messageId, body };
 }
