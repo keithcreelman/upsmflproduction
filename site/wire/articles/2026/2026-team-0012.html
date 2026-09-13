@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">Hawks · Chris Klingenberg</div>
     <h1>The Hawks Had No Quarterback in April and Two Starters by August</h1>
     <p class="wire-dek">Chris Klingenberg made no moves in the spring beyond the rookie draft, then spent <span class="wire-num" data-fact="f.team.0012.faa_spend">$106,000</span> at the Free Agent Auction, <span class="wire-num" data-fact="f.team.0012.top_buy_price">$38,000</span> of it on Jared Goff. The preseason simulation has the Hawks <span class="wire-num" data-fact="f.team.0012.power_rank">10th</span>, in a division with the league's top-ranked team.</p>

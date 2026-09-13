@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">Gride · Matt Gerardi</div>
     <h1>Gride Traded for St. Brown and Bid for Mahomes</h1>
     <p class="wire-dek">Matt Gerardi made <span class="wire-num" data-fact="f.team.0003.trades_s2">5</span> trades between the draft and the lock, flipped a tag into Jadarian Price and a same-day extension into Amon-Ra St. Brown, and paid <span class="wire-num" data-fact="f.team.0003.faa_13116_price">$48,000</span> for Patrick Mahomes. The preseason simulation still ranks Gride <span class="wire-num" data-fact="f.team.0003.power_rank">12th</span>, and there is a lot of season to change that.</p>

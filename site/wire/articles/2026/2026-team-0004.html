@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">Pure Greatness · Brian Cutting</div>
     <h1>The Champion Kept His Offense and Stood Still All Summer</h1>
     <p class="wire-dek">Brian Cutting won the <span class="wire-num" data-fact="f.team.0004.hist_title_years">2025</span> title, kept every offensive starter from the title game, and spent just <span class="wire-num" data-fact="f.team.0004.faa_off_spend">$38,000</span> on offense at the Free Agent Auction. The preseason simulation ranks Pure Greatness <span class="wire-num" data-fact="f.team.0004.power_rank">2nd</span>, favorite in its division.</p>

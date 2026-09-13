@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">Real Deal Creel · Keith Creelman</div>
     <h1>Real Deal Creel Spent the Most, Churned the Most, and Leads Its Division on Paper</h1>
     <p class="wire-dek">Keith Creelman spent <span class="wire-num" data-fact="f.team.0008.faa_spend">$189,000</span> at the Free Agent Auction, more than any owner, landed Puka Nacua in the summer's three-way, and made <span class="wire-num" data-fact="f.team.0008.pickups_s3">14</span> waiver pickups before week one. The preseason simulation ranks Real Deal Creel <span class="wire-num" data-fact="f.team.0008.power_rank">5th</span>, and first in Maddie Mondays.</p>

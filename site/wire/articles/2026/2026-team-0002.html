@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">CBP · Derrick Whitman</div>
     <h1>CBP Drafted, Waited, Then Spent to the Last Dollar</h1>
     <p class="wire-dek">Derrick Whitman started April with <span class="wire-num" data-fact="f.team.0002.active_roster_opening">9</span> active players, made no trade, cut or signing before the auction beyond <span class="wire-num" data-fact="f.team.0002.rookie_picks_count">6</span> rookie picks, then spent <span class="wire-num" data-fact="f.team.0002.faa_spend">$172,000</span>, most of it on Jonathan Taylor, D'Andre Swift, Kyle Pitts and the Tony Pollard that C-Town let go. He has <span class="wire-num" data-fact="f.team.0002.cap_current_room">$0</span> of cap room left, and the preseason simulation ranks CBP <span class="wire-num" data-fact="f.team.0002.power_rank">7th</span>.</p>
