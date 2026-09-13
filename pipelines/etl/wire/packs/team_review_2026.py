@@ -24,7 +24,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/..")
 import wire_data as D
 import wire_pack
 import lineup_engine as LE
-import idp_value as IV
+import season_sim as SS  # noqa: E402
+import datetime as _dtm  # noqa: E402
+from zoneinfo import ZoneInfo  # noqa: E402
 import tiering
 
 PACK_ID_RE = re.compile(r"^2026-team-(\d{4})$")
@@ -47,6 +49,175 @@ LEAGUE_MIN_SALARY = 1000
 # canon §B3: an IR player is charged HALF his salary against the cap. Dropping
 # him therefore frees only that half, not the full number.
 IR_RELIEF_RATE = 0.5
+
+# THE OFFSEASON IN KEITH'S PHASES (2026-09-11). The review follows the calendar
+# an owner actually lives through, not a list of topics:
+#   s1 Early Preseason  -- April to the rookie draft (first pick 2026-05-24
+#                          22:41 UTC, MFL draftResults): cuts, trades,
+#                          extensions, and which rookie deals expired
+#   s2 Pre-Auction      -- the draft through the auction roster lock: the draft,
+#                          the Expired Rookie Auction, tags, and the cuts made
+#                          to get under the lock (lock-day cuts included)
+#   s3 Auction and Preseason Contracts -- the Free Agent Auction to week one:
+#                          buys, every restructure, multi-year contracts, waivers
+# Two kinds of move are filed by WHAT they are, not when. Tags are a pre-auction
+# decision even though all four landed 05-17..05-22, days before the draft. And
+# every restructure belongs with the auction -- "one opens money for the draft,
+# but doesn't mean it's fully used" -- split into before/during and after it.
+ROOKIE_DRAFT_DATE = "2026-05-24"
+WEEK1_DATE = "2026-09-10"
+SIM_PATH = os.path.join(D.REPO, "site", "wire", "data", "season_sim_%d.json" % SEASON)
+KP_MIN_GAMES = 8
+
+
+def _phase(day):
+    day = str(day)[:10]
+    return "s1" if day < ROOKIE_DRAFT_DATE else "s2" if day <= PREAUCTION_DATE else "s3"
+
+
+def _ord(n):
+    n = int(n)
+    return "%d%s" % (n, "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th"))
+
+
+def _poss(name):
+    """"The Long Haulers'" -- not "The Long Haulers's"."""
+    name = str(name)
+    return name + "'" if name.endswith("s") else name + "'s"
+
+
+_SIM = {}
+
+
+def _season_sim():
+    """The preseason Monte Carlo (pipelines/etl/wire/season_sim.py), committed
+    beside the Wire. Fails closed: a review that prints power rankings must be
+    reading this season's run, not an old one or none."""
+    if not _SIM:
+        if not os.path.exists(SIM_PATH):
+            raise SystemExit("team_review_2026: %s is missing -- run season_sim.py --season %d --out %s"
+                             % (SIM_PATH, SEASON, os.path.relpath(SIM_PATH, D.REPO)))
+        d = json.load(open(SIM_PATH, encoding="utf-8"))
+        if int(d.get("season") or 0) != SEASON or len(d.get("teams") or []) != 12:
+            raise SystemExit("team_review_2026: %s is not a twelve-team %d run" % (SIM_PATH, SEASON))
+        if not (d.get("seasonProjections") or {}).get("players"):
+            raise SystemExit("team_review_2026: %s has no seasonProjections block -- rerun season_sim.py" % SIM_PATH)
+        _SIM.update(d)
+    return _SIM
+
+
+_SAL_BY_DAY = {}
+
+
+def _salary_on_or_after(pid, day, horizon=30):
+    """A player's salary in the first daily snapshot on or after `day` that
+    carries him, looking at most `horizon` snapshots ahead. A trade does not
+    change a salary, so this is what moved. The snapshots begin 2026-04-21, so
+    the March and April trades read the first snapshot after them. None when no
+    snapshot in range has him -- unknown, never $0."""
+    seen = 0
+    for d in D.snapshot_dates():
+        if d < str(day)[:10]:
+            continue
+        idx = _SAL_BY_DAY.get(d)
+        if idx is None:
+            idx = {}
+            for fr in D.snapshot(d, "rosters")["rosters"]["franchise"]:
+                for p in _as_list(fr.get("player")):
+                    idx[str(p.get("id"))] = _money(p.get("salary"))
+            _SAL_BY_DAY[d] = idx
+        if pid in idx and idx[pid] >= LEAGUE_MIN_SALARY:
+            return idx[pid]
+        seen += 1
+        if seen >= horizon:
+            break
+    return None
+
+
+def _salary_on_or_before(pid, day, horizon=30):
+    """A player's salary in the LAST daily snapshot on or before `day` -- what
+    he carried on the old roster when he was traded. The first snapshot AFTER a
+    trade can already hold the new owner's restructure: Drake London was
+    $52,000 on C-Town every day up to the three-way and $20,000 on Blake's
+    roster the morning after. None when no snapshot in range has him."""
+    seen = 0
+    for d in reversed(D.snapshot_dates()):
+        if d > str(day)[:10]:
+            continue
+        idx = _SAL_BY_DAY.get(d)
+        if idx is None:
+            idx = {}
+            for fr in D.snapshot(d, "rosters")["rosters"]["franchise"]:
+                for p in _as_list(fr.get("player")):
+                    idx[str(p.get("id"))] = _money(p.get("salary"))
+            _SAL_BY_DAY[d] = idx
+        if pid in idx and idx[pid] >= LEAGUE_MIN_SALARY:
+            return idx[pid]
+        seen += 1
+        if seen >= horizon:
+            break
+    return None
+
+
+_CI_BY_DAY = {}
+
+
+def _snapshot_player_before(pid, day, horizon=10):
+    """The player's row (contractInfo, salary) in the last daily snapshot
+    strictly BEFORE `day`, or None."""
+    seen = 0
+    for d in reversed(D.snapshot_dates()):
+        if d >= str(day)[:10]:
+            continue
+        idx = _CI_BY_DAY.get(d)
+        if idx is None:
+            idx = {}
+            for fr in D.snapshot(d, "rosters")["rosters"]["franchise"]:
+                for p in _as_list(fr.get("player")):
+                    idx[str(p.get("id"))] = p
+            _CI_BY_DAY[d] = idx
+        if pid in idx:
+            return idx[pid]
+        seen += 1
+        if seen >= horizon:
+            break
+    return None
+
+
+_FR_BY_DAY = {}
+
+
+def _snapshot_franchise_row(pid, day):
+    """(franchise id, player row) for `pid` in the `day` roster snapshot, or None."""
+    idx = _FR_BY_DAY.get(day)
+    if idx is None:
+        idx = {}
+        for fr in D.snapshot(day, "rosters")["rosters"]["franchise"]:
+            for p in _as_list(fr.get("player")):
+                idx[str(p.get("id"))] = (str(fr.get("id")).zfill(4), p)
+        _FR_BY_DAY[day] = idx
+    return idx.get(pid)
+
+
+_PRIOR_ROSTERS = {}
+
+
+def _prior_season_rosters():
+    """pid -> {fid, status, cy} from MFL's final rosters of the season before.
+    contractYear is YEARS REMAINING, so a 'Rookie' deal at cy 1 was in its last
+    year and expired into this offseason -- the pool the Expired Rookie Auction
+    sold from (all fourteen 2026 ERA players were on a 2025 roster)."""
+    if not _PRIOR_ROSTERS:
+        url = "https://www48.myfantasyleague.com/%d/export?TYPE=rosters&L=74598&JSON=1" % (SEASON - 1)
+        req = urllib.request.Request(url, headers={"User-Agent": "ups-wire-pack-builder"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            d = json.loads(resp.read().decode("utf-8"))
+        for fr in _as_list(d["rosters"]["franchise"]):
+            for p in _as_list(fr.get("player")):
+                _PRIOR_ROSTERS[str(p.get("id"))] = {"fid": str(fr.get("id")).zfill(4),
+                                                     "status": str(p.get("contractStatus") or ""),
+                                                     "cy": str(p.get("contractYear") or "")}
+    return _PRIOR_ROSTERS
 
 
 def _money(v):
@@ -151,7 +322,25 @@ _BOARD_FETCHED_AT = None
 _ADP_SLOTS = ("QB1", "RB1", "RB2", "WR1", "WR2", "TE1", "OF1", "OF2", "SF1")
 
 
-def _tier_counts(lu_, pos_rank):
+# THE 2026 OWNER DIVISIONAL DRAFT -- the league's first (Keith, 2026-09-11).
+# The four captains, seated by career all-play, snake-drafted their division
+# mates in two rounds at the rookie draft; 2026 is year one of the three-year
+# alignment, so no owner has "won this division" before. Captains in seat
+# order: EMART (HammerTime), CBP, Bear (C-Town), Josh (Sex Manther). Picks in
+# overall order: The Long Haulers, Gride, Hawks, Real Deal Creel | L.A. Looks,
+# Cleon Ca$h, Blake Bombers, Pure Greatness. The builder refuses to run if any
+# pick is not in his captain's MFL division.
+DIVISION_DRAFT_2026 = {"captains": ["0005", "0002", "0009", "0007"],
+                       "picks": ["0006", "0003", "0012", "0008", "0001", "0011", "0010", "0004"]}
+
+
+def _division_draft_picker(i):
+    """Captain franchise id who made overall pick i (0-based), snake order."""
+    c = DIVISION_DRAFT_2026["captains"]
+    return c[i] if i < len(c) else c[2 * len(c) - 1 - i]
+
+
+def _tier_counts(lu_, pos_rank, pos_of=None):
     """Classify each of the 9 ADP-priced starting slots by the occupying
     player's position rank: this is the "how many holes, not just how much
     total value" read Keith asked for -- a lineup with a few elite starters
@@ -168,7 +357,20 @@ def _tier_counts(lu_, pos_rank):
     for slot_id in _ADP_SLOTS:
         pid = lu_["slots"].get(slot_id)
         rank = pos_rank.get(pid) if pid else None
+        # THE SUPERFLEX IS A QUARTERBACK SLOT in practice: 11 of 12 teams start
+        # one there. Keith, on HammerTime's "no holes" beside "his quarterbacks
+        # rank last": "How can he have no holes but the worst QBs" -- T.J.
+        # Hockenson, TE10, was grading as a stud in it. Anyone else there is a hole.
+        if slot_id == "SF1" and pid and pos_of and pos_of(pid) != "QB":
+            out["hole"] += 1
+            continue
         if rank is None:
+            out["hole"] += 1
+        elif pos_of and not tiering.is_starter_grade(pos_of(pid), rank):
+            # Past his position's replacement bar he is a hole whatever the raw
+            # rank: tight end's bar is 13, so a TE14-24 is "Replacement-level TE"
+            # in the slot table and was "solid" here -- the Hawks' Dalton Kincaid
+            # read as both, and the count and the named holes disagreed.
             out["hole"] += 1
         elif rank <= 12:
             out["stud"] += 1
@@ -204,6 +406,68 @@ def _band_for(tiers, rnd, slot):
     return {}
 
 
+def _slot_history(tiers, rnd, slot, side):
+    """(where, stats) -- how picks on this side of the ball have turned out here.
+
+    Keith 2026-09-11, on a 4.09 defender shown the OFFENSIVE rate: "If Offense
+    give offensive usability at the slot. If Defense, see what the defensive
+    usability is. And it doesn't need to be oh hey it was pick 5.8 how does 5.8
+    do, instead look at it as end of the 5th...treat Round 1 as more pick
+    specific but as you get into the 2nd and later start to spread the bands."
+    So round 1 reads the exact slot (falling back to its third when that side
+    has no history at the slot); every later round reads its early (01-04),
+    middle (05-08) or late (09-12) third. rookie_draft_tiers.json keeps
+    offense, defense and special separately for both kinds of key.
+    """
+    bands = (tiers or {}).get("bands", {})
+    rnd, slot = int(rnd), int(slot)
+    third = "01-04" if slot <= 4 else "05-08" if slot <= 8 else "09-12"
+    part = "early in" if slot <= 4 else "in the middle of" if slot <= 8 else "late in"
+    if rnd == 1:
+        hit = bands.get("1.%02d" % slot, {}).get(side)
+        if hit and hit.get("n"):
+            return "at 1.%02d" % slot, hit
+    return "%s the %s" % (part, _ord(rnd)), bands.get("%d.%s" % (rnd, third), {}).get(side) or {}
+
+
+def _year_salaries(ci):
+    """[Y1, Y2, ...] in dollars from a contractInfo string, or []. Per-year
+    figures are often written bare ("Y1-5 Y2-25") and mean thousands."""
+    out = []
+    for _, v, k in re.findall(r"Y(\d+)\s*-\s*([\d.]+)\s*([Kk]?)", ci or ""):
+        x = float(v)
+        out.append(int(round(x * 1000)) if (k or x < 1000) else int(round(x)))
+    return out
+
+
+def _loading(status, ys):
+    """"front-loaded" / "back-loaded" / "" from the SHAPE of the year-by-year
+    salaries. Never from the FL/BL suffix: MFL stamps that at signing and a
+    restructure preserves it, so Nico Collins at $30,000 then $64,000 carried
+    "-FL" and printed as front-loaded. `status` is kept for the call sites."""
+    if len(ys) > 1 and ys[-1] > ys[0]:
+        return "back-loaded"
+    if len(ys) > 1 and ys[0] > ys[-1]:
+        return "front-loaded"
+    return ""
+
+
+_ET = ZoneInfo("America/New_York")
+
+
+def _et_date(iso):
+    """The league's calendar date (Eastern) for a UTC timestamp string. UTC put
+    every draft-night move after 8 pm ET on May 24 onto May 25, so the 3.06 chain
+    looked like it spanned two days when it took an hour."""
+    s = str(iso or "")
+    if not s:
+        return ""
+    try:
+        return _dtm.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(_ET).strftime("%Y-%m-%d")
+    except ValueError:
+        return s[:10]
+
+
 def _tier_slots(lu_, pos_rank, name_of, pos_of):
     """Per-slot occupant + rank + tier, in _ADP_SLOTS order.
 
@@ -222,8 +486,11 @@ def _tier_slots(lu_, pos_rank, name_of, pos_of):
         if not pid:
             out.append((slot_id, None, "(empty)", None, "hole", None))
             continue
-        tier = "hole" if rank is None else ("stud" if rank <= 12 else
-                                            "solid" if rank <= 24 else "hole")
+        if (rank is None or (slot_id == "SF1" and pos_of(pid) != "QB")
+                or not tiering.is_starter_grade(pos_of(pid), rank)):
+            tier = "hole"
+        else:
+            tier = "stud" if rank <= 12 else "solid" if rank <= 24 else "hole"
         out.append((slot_id, pid, name_of(pid), rank, tier, pos_of(pid)))
     return out
 
@@ -559,54 +826,89 @@ def build(pack_id):
               "This measures which players a team held or acquired, not what the market "
               "thought of them at the time. Never read as a claim about historical ADP.")
 
-    idp_rows = IV.load_seasons(D.d1)
-    idp_value = IV.par_by_pid(idp_rows, SEASON - 1)
-    idp_seasons = IV.seasons_present(idp_rows)
-    pack.source("D1 src_weekly (MFL's own official weekly scores, regular season only)",
-               current_date, rows=len(idp_rows),
-               note="IDP points-above-replacement; seasons per group: " +
-                    ", ".join("%s %s" % (p, "-".join(str(s) for s in ss))
-                              for p, ss in sorted(idp_seasons.items())))
-    pack.warn("IDP value is points-above-replacement computed from REAL production under UPS's own "
-              "scoring rules -- not ADP (which does not price defenders) and not auction price (which "
-              "is what the league paid, not what a player is worth). A defender's rank comes from the "
-              "last completed season; the points-per-rank curve is averaged across seasons. "
-              + IV.par_floor_note())
-    pack.warn("IDP value supports TIER claims -- 'a top-12 DL', 'startable', 'replacement-level' -- and "
-              "NOT fine ordering inside a tier. Year-over-year rank correlation within the top 24 is "
-              "about 0.32 at DL, 0.30 at DB and effectively zero at LB, and a within-season split-half "
-              "agrees. Never write 'the 4th-best linebacker'.")
-    pack.warn("Two DIFFERENT numbers per defender, and they must never be conflated or summed. "
-              "'PAR' is a PROJECTION for this season, already regressed. 'realized' is what he actually "
-              "produced above replacement LAST season. Myles Garrett is +107.0 realized (8.23 per game) "
-              "against a +34.9 projection -- both true, answering different questions. Quote realized as "
-              "history ('was worth eight points a game last year'), never as an expectation.")
-    pack.warn("The IDP tail is flat but the TOP IS STEEP -- do not describe the position as uniformly "
-              "flat. Against a DL26 replacement of 88.5 in 2025: DL1 +107.0, DL2 +72.5, DL12 +19.0, "
-              "DL24 +3.0. DL1 to DL2 alone is 34.5 points, a bigger step than DL12 to DL26 spans across "
-              "fourteen ranks. An elite defender IS worth a lot; it is the replaceable middle that is "
-              "flat, which is what the waiver-wire finding (52%% of top-24 IDP came off the wire vs 6%% "
-              "on offense) actually describes. Separately: IDP PAR and offense redraft value are "
-              "different scales -- never compare or add them.")
-    pack.warn("Regression is the real effect and it bites HARDEST at the top: sweeping the shrink on "
-              "last season's top-6 defenders, error rises monotonically from 42.8 at 0.20 to 58.2 at no "
-              "shrink. Last year's elite defenders are the group that repeats least, which is why a "
-              "realized +107 projects to roughly +35. That gap is the model working, not a bug.")
-    pack.warn("The shrink constant (%.2f) was picked by out-of-sample holdout, but the objective is "
-              "nearly flat -- 0.25 and 0.73 score within about 2%% of it. Treat it as 'roughly this "
-              "much regression', never as a tuned figure." % IV.SHRINK)
+    sim = _season_sim()
+    _sp = sim["seasonProjections"]
+    kp_proj = dict((p, v) for p, v in _sp["players"].items() if v["pos"] in ("PK", "PN"))
+    # Keith 2026-09-11: "Isn't IDP based on projected season finish? No prior
+    # season shouldn't matter." Defenders were graded on LAST season's
+    # production, so Aaron Donald and every rookie defender printed "no
+    # prior-season production" instead of a grade.
+    idp_proj = dict((p, v) for p, v in _sp["players"].items() if v["pos"] in ("DL", "LB", "DB"))
+    pack.source("site/wire/data/season_sim_%d.json -- preseason Monte Carlo; K/P and DL/LB/DB from MFL "
+                "projectedScores weeks %d-%d" % (SEASON, _sp["weeks"][0], _sp["weeks"][1]),
+                sim["generatedAtUtc"], rows=len(sim["teams"]),
+                note="%d runs, regression %.1f (backtested 2021-2025); power rank = expected regular-season "
+                     "all-play %%" % (sim["runs"], sim["model"]["regress"]))
+    # WHAT COUNTS AS ELITE THIS YEAR (Keith 2026-09-11, after the nine-season
+    # study of what elite has been worth): "Review it every year and confirm it
+    # with me. But for now let the board decide ... history should serve as a
+    # balancer to ensure things stay within reason." The cut is recomputed from
+    # this season's own value series at every position -- board value for
+    # offense, projected season points for defense, kickers and punters -- and
+    # printed in the warning below so it can be confirmed each season.
+    _eseries = {}
+    for _pid, _r in pos_rank.items():
+        _pg = LE.pos_group(positions.get(_pid, ""))
+        if _pg in ("QB", "RB", "WR", "TE") and rsf.get(_pid):
+            _eseries.setdefault(_pg, []).append((int(_r), float(rsf[_pid])))
+    for _pid, _v in _sp["players"].items():
+        _eseries.setdefault(_v["pos"], []).append((int(_v["rank"]), float(_v["seasonProj"])))
+    elite_cuts = {}
+    for _pg, _xs in _eseries.items():
+        _xs.sort()
+        elite_cuts[_pg] = tiering.elite_cut(_pg, [_v for _, _v in _xs])
+    tiering.set_elite_cuts(elite_cuts)
+    pack.warn("ELITE IS THIS YEAR'S, NOT A FIXED TOP THREE. At each position it is the top man plus anyone "
+              "within %d%% of him, kept only when the next man down is at least %d%% back, and capped at what "
+              "2017-2025 scoring in this league can justify. For %d that is %s. A position whose top is flat "
+              "has NO elite tier this year -- write high-end, never elite, and never call a player elite the "
+              "grade does not."
+              % (int(tiering.ELITE_NEAR * 100), int(tiering.ELITE_CLIFF * 100), SEASON,
+                 ", ".join("%s %d" % (p, elite_cuts.get(p, 0))
+                           for p in ("QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"))))
+
+    kp_ppg = {}
+    _kp_rows = D.d1("SELECT player_id, pos_group, COUNT(DISTINCT week) g, SUM(score) pts FROM src_weekly "
+                    "WHERE season=%d AND is_reg=1 AND pos_group IN ('PK','PN') AND score IS NOT NULL "
+                    "GROUP BY player_id, pos_group" % (SEASON - 1))
+    for _g in ("PK", "PN"):
+        _el = sorted(((str(r["player_id"]), float(r["pts"]) / int(r["g"])) for r in _kp_rows
+                      if r["pos_group"] == _g and int(r["g"]) >= KP_MIN_GAMES), key=lambda x: (-x[1], x[0]))
+        for i, (_pid, _ppg) in enumerate(_el, 1):
+            kp_ppg[_pid] = {"rank": i, "ppg": _ppg}
+    for r in _kp_rows:
+        kp_ppg.setdefault(str(r["player_id"]), {"rank": None, "games": int(r["g"])})
+    pack.warn("Kickers and punters are graded on MFL's own %d projections -- weeks 1-17 summed, ranked "
+              "league-wide at the position (Keith: 'MFL has kicker forecasts for this season, let's use "
+              "that as our source of truth') -- with last season's points-per-game rank beside it "
+              "(%d regular-season games minimum). A kicker or punter is a footnote, like defense: one "
+              "clause, never a paragraph." % (SEASON, KP_MIN_GAMES))
+    pack.source("D1 src_weekly (MFL's own official weekly scores, regular season only)", current_date,
+                rows=len(_kp_rows), note="kicker and punter points per game, %d" % (SEASON - 1))
+    pack.warn("Defenders are graded on MFL's own %d projections the same way -- weeks 1-17 summed, ranked "
+              "league-wide at DL, LB and DB, tiered on the same bands as offense (Keith: 'Isn't IDP based on "
+              "projected season finish? No prior season shouldn't matter'). A rookie or a veteran back from "
+              "a lost season is graded like anyone else; a defender MFL does not project is unranked, never "
+              "zero." % SEASON)
+    pack.warn("Defensive grades support TIER claims -- 'a top-12 DL', 'startable', 'replacement-level' -- and "
+              "NOT fine ordering inside a tier: defensive scoring swings week to week and year to year. Never "
+              "write 'the 4th-best linebacker'.")
 
     def offense_score(r):
         return rsf.get(r["pid"], 0.0)
 
     def other_score(r):
-        # Slot-FILLING only. A defender with no prior-season production has no
+        # Slot-FILLING only. A defender MFL does not project has no
         # value here and must never be scored 0 into a reported sum, but the
         # lineup still has to put somebody in the slot -- salary is the
-        # tiebreaker for that and nothing else. K/P reach this too; ADP and this
-        # model both decline to price them.
-        hit = idp_value.get(r["pid"])
-        return float(hit["par"]) if hit else float(r["salary"]) / 100000.0
+        # tiebreaker for that and nothing else. K/P are scored on MFL's own
+        # season projection -- they compete only with each other for the slot.
+        if LE.pos_group(r.get("pos") or "") in ("PK", "PN"):
+            kp = kp_proj.get(r["pid"])
+            if kp:
+                return float(kp["seasonProj"])
+        hit = idp_proj.get(r["pid"])
+        return float(hit["seasonProj"]) if hit else float(r["salary"]) / 100000.0
 
     # ---- legal lineup, all 12 teams (needed for league-relative ranks) ----
     all_lineups = {}
@@ -656,6 +958,61 @@ def build(pack_id):
         order = sorted(vals.items(), key=lambda kv: -kv[1])
         ranks[p] = {f: i + 1 for i, (f, v) in enumerate(order)}
 
+    # EVERY STARTING SLOT, RANKED LEAGUE-WIDE. Keith 2026-09-12, for the league
+    # article: "build a table to show rankings by starters at each position ...
+    # QB - Rank, SF - Rank", then: "I would also want to see offense flex
+    # ranking and defensive Flex ... because it normalizes the rankings".
+    # So the unit is the SLOT, not the position group: every team is compared on
+    # the same number of slots (one QB, two RB, two flex, one superflex, and so
+    # on) and the columns never double-count a man. Offense is the redraft
+    # board; defenders, kickers and punters are MFL's own season projection --
+    # never other_score, whose salary fallback fills a slot and is not a value.
+    SLOT_UNITS = [("qb", ["QB1"], "O"), ("sf", ["SF1"], "O"), ("rb", ["RB1", "RB2"], "O"),
+                  ("wr", ["WR1", "WR2"], "O"), ("te", ["TE1"], "O"), ("of", ["OF1", "OF2"], "O"),
+                  ("dl", ["DL1", "DL2"], "D"), ("lb", ["LB1", "LB2"], "D"), ("db", ["DB1", "DB2"], "D"),
+                  ("df", ["DF1"], "D"), ("pk", ["PK1"], "K"), ("pn", ["PN1"], "K")]
+
+    def _slot_worth(pid):
+        """What the man in a slot is worth, on his own side's scale. None when
+        MFL does not project him -- unprojected is unranked, never zero."""
+        if pid is None:
+            return 0.0, False
+        pg = LE.pos_group(positions.get(pid, ""))
+        if pg in ("QB", "RB", "WR", "TE"):
+            return float(rsf.get(pid, 0) or 0), True
+        hit = idp_proj.get(pid) or kp_proj.get(pid)
+        return (float(hit["seasonProj"]), True) if hit else (0.0, False)
+
+    unit_value = dict((u, {}) for u, _, _ in SLOT_UNITS)
+    for side in ("off", "def", "st"):
+        unit_value[side] = {}
+    unit_unprojected = {}
+    for f, lu in all_lineups.items():
+        miss = 0
+        side_tot = {"O": 0.0, "D": 0.0, "K": 0.0}
+        for u, slots, side in SLOT_UNITS:
+            tot = 0.0
+            for sid in slots:
+                v, ok = _slot_worth(lu["slots"].get(sid))
+                tot += v
+                if not ok and lu["slots"].get(sid) is not None:
+                    miss += 1
+            unit_value[u][f] = round(tot, 1)
+            side_tot[side] += tot
+        unit_value["off"][f] = round(side_tot["O"], 1)
+        unit_value["def"][f] = round(side_tot["D"], 1)
+        unit_value["st"][f] = round(side_tot["K"], 1)
+        unit_unprojected[f] = miss
+    unit_rank = {}
+    for u, vals in unit_value.items():
+        order = sorted(vals.items(), key=lambda kv: -kv[1])
+        unit_rank[u] = {f2: i + 1 for i, (f2, v) in enumerate(order)}
+    if unit_unprojected.get(fid):
+        pack.warn("%d of this team's starters are players MFL does not project, so they add nothing to its "
+                  "defensive, kicker or punter slot totals in the league positional boards -- the rank is what "
+                  "the projected starters are worth, not a claim that the slot is empty."
+                  % unit_unprojected[fid])
+
     weights = {"QB": 1.0, "RB": 2.0, "WR": 2.0, "TE": 1.0}
     of_total = sum(flex_fills["OF"].values()) or 1
     sf_total = sum(flex_fills["SF"].values()) or 1
@@ -674,6 +1031,15 @@ def build(pack_id):
         composite[f] = sum(weights[p] * (pos_value[p][f] / per_slot[p]) for p in weights)
     comp_order = sorted(composite.items(), key=lambda kv: -kv[1])
     comp_rank = {f: i + 1 for i, (f, v) in enumerate(comp_order)}
+    # How many at each position the league's twelve best legal lineups start,
+    # flex and superflex included -- the Starter line in tiering.bought_band.
+    starter_demand = {}
+    all_starter_pids = set()
+    for _lu in all_lineups.values():
+        for _pid in _lu["starter_pids"]:
+            all_starter_pids.add(str(_pid))
+            _g = LE.pos_group(positions.get(_pid, ""))
+            starter_demand[_g] = starter_demand.get(_g, 0) + 1
 
     # ---- this team's detail ----
     lu = all_lineups[fid]
@@ -687,6 +1053,17 @@ def build(pack_id):
     F("f.team.%s.rb_value" % fid, "RB starters redraft value", pos_value["RB"][fid], "count", "adp-board", current_date)
     F("f.team.%s.wr_value" % fid, "WR starters redraft value", pos_value["WR"][fid], "count", "adp-board", current_date)
     F("f.team.%s.te_value" % fid, "TE starters redraft value", pos_value["TE"][fid], "count", "adp-board", current_date)
+    _SLOT_LABEL = {"qb": "the quarterback slot", "sf": "the superflex", "rb": "the two running back slots",
+                   "wr": "the two receiver slots", "te": "the tight end slot", "of": "the two offensive flexes",
+                   "dl": "the two defensive line slots", "lb": "the two linebacker slots",
+                   "db": "the two defensive back slots", "df": "the defensive flex", "pk": "the kicker",
+                   "pn": "the punter", "off": "the eleven offensive slots", "def": "the seven defensive slots",
+                   "st": "the kicker and punter"}
+    for _u in [u for u, _, _ in SLOT_UNITS] + ["off", "def", "st"]:
+        F("f.team.%s.slot_%s_rank" % (fid, _u), "League rank for %s" % _SLOT_LABEL[_u],
+          unit_rank[_u][fid], "rank", "lineup_engine", NOW_UTC)
+        F("f.team.%s.slot_%s_value" % (fid, _u), "What this team starts in %s is worth" % _SLOT_LABEL[_u],
+          unit_value[_u][fid], "count", "adp-board + season_sim projections", current_date)
     F("f.team.%s.composite_rank" % fid, "Overall power rank", comp_rank[fid], "rank", "lineup_engine", NOW_UTC)
     F("f.team.%s.composite_value" % fid, "Composite score", round(composite[fid]), "count", "lineup_engine", NOW_UTC)
     F("f.league.teams", "Teams in the league", 12, "count", "src_franchises", str(SEASON))
@@ -705,12 +1082,24 @@ def build(pack_id):
             lab = tiering.tier_label(pg, pos_rank.get(pid))
             return lab or "unranked by the redraft board"
         if pg in ("DL", "LB", "DB"):
-            hit = idp_value.get(pid)
+            hit = idp_proj.get(pid)
             if not hit:
-                # No prior season is UNKNOWN, never zero -- a rookie and a
-                # washed veteran are not the same thing and neither is a 0.
-                return "no prior-season production"
+                # Not projected is UNKNOWN, never zero.
+                return "not projected by MFL"
             return tiering.tier_label(hit["pos"], hit["rank"]) or "unranked"
+        if pg in ("PK", "PN"):
+            kp = kp_proj.get(pid)
+            if not kp:
+                return "not projected by MFL"
+            lab = tiering.tier_label(pg, kp["rank"]) or "unranked"
+            last = kp_ppg.get(pid)
+            # Comma-separated: wire_render.tier_strings splits cells on commas to
+            # learn which tier labels prose may quote.
+            if last and last.get("rank"):
+                return "%s, %s in points per game in %d" % (lab, _ord(last["rank"]), SEASON - 1)
+            if last:
+                return "%s, only %d games in %d" % (lab, last["games"], SEASON - 1)
+            return "%s, no %d games" % (lab, SEASON - 1)
         return "no ranking source (salary-filled)"
 
     # lineup table
@@ -729,11 +1118,10 @@ def build(pack_id):
                            {"key": "pos", "label": "Pos", "type": "text"},
                            {"key": "val", "label": "Value", "type": "text"}],
                           lineup_rows,
-                          note="Offense (QB/RB/WR/TE) filled by current redraft ADP. DL/LB/DB filled by "
-                               "points-above-replacement from real production under UPS scoring, where the "
-                               "player has a prior season. A defender with no prior-season production is "
-                               "unvalued (not zero) and only salary-filled if the slot would otherwise go "
-                               "empty. K/P have neither source and are salary-filled. Fixed slots before flex.")
+                          note="Offense (QB/RB/WR/TE) filled by current redraft ADP. DL/LB/DB, kickers and "
+                               "punters filled by MFL's own %d season projection (weeks 1-17). A player MFL "
+                               "does not project is unvalued (not zero) and only salary-filled if the slot "
+                               "would otherwise go empty. Fixed slots before flex." % SEASON)
 
     # bench / depth
     # ONE sort key cannot span two scales. rsf is redraft dollars (thousands)
@@ -764,6 +1152,61 @@ def build(pack_id):
                           {"key": "val", "label": "2026 redraft value", "type": "text"},
                           {"key": "sal", "label": "Salary", "type": "usd"}],
                          bench_rows, note="Descriptive only -- does not feed the composite score.")
+
+    # ---- injuries. Keith 2026-09-11: "review all injuries that have occurred
+    # thus far. Sam Darnold no mention of injury and impact". Every current
+    # designation on the roster from MFL's injury feed, plus the absences the
+    # forecast applies (season_sim.absences), including a reported absence MFL
+    # has not listed yet -- Darnold's name appeared nowhere in the feed, which
+    # is why the first draft never mentioned him.
+    _inj_feed = SS.fetch(SS.MFL_INJURIES % SEASON)["injuries"]
+    _inj = dict((r["id"], r) for r in SS._as_list(_inj_feed.get("injury")))
+    if not _inj:
+        raise SystemExit("team_review_2026: MFL's injury feed came back empty -- refusing to report "
+                         "a roster with no injuries")
+    _absent = sim.get("absences") or {}
+    _slot_of = {}
+    for _s in LE.LINEUP_SLOTS:
+        _p = lu["slots"].get(_s["id"])
+        if _p:
+            _slot_of[_p] = _s["label"]
+    inj_rows, _inj_starters = [], 0
+    for r in sorted(current_rows_by_fid.get(fid) or [],
+                    key=lambda r: (r["pid"] not in _slot_of, -(rsf.get(r["pid"]) or 0))):
+        p = r["pid"]
+        hit, ab = _inj.get(p), _absent.get(p)
+        if not hit and not ab:
+            continue
+        status = (hit or {}).get("status") or ab["status"]
+        if p in _slot_of and (ab or status in SS.ABSENT_STATUSES):
+            _inj_starters += 1
+        inj_rows.append([adp_name.get(p) or mfl_name.get(p, "Unknown player %s" % p), positions.get(p, "?"),
+                         _slot_of.get(p) or ("Taxi" if r["is_taxi"] else "IR" if r["is_ir"] else "Bench"),
+                         status, (hit or {}).get("details") or (ab or {}).get("details") or "",
+                         (hit or {}).get("exp_return") or "",
+                         ", ".join(str(w) for w in (ab or {}).get("weeks") or []) or "none"])
+    t_injuries = pack.table(
+        "t.%s.injuries" % fid, "Injuries",
+        [{"key": "player", "label": "Player", "type": "text"},
+         {"key": "pos", "label": "Pos", "type": "text"},
+         {"key": "slot", "label": "Slot", "type": "text"},
+         {"key": "status", "label": "Status", "type": "text"},
+         {"key": "details", "label": "Injury", "type": "text"},
+         {"key": "returns", "label": "Expected back", "type": "text"},
+         {"key": "held", "label": "Forecast holds him out (weeks)", "type": "text"}],
+        inj_rows,
+        note="MFL's injury feed (week %s, fetched live) for every player on the roster, starters first, plus "
+             "any reported absence the forecast applies that MFL has not listed yet (see the method panel). "
+             "'Forecast holds him out' = the weeks the preseason simulation removes his projection: MFL's "
+             "expected-return date, the NFL's four-game minimum for IR with none, the current week for "
+             "anything else Out. Questionable changes nothing." % _inj_feed.get("week"))
+    F("f.team.%s.injured_starters" % fid, "Starters who are out, or held out by the forecast", _inj_starters,
+      "count", "MFL injuries export + season_sim absences", NOW_UTC)
+    F("f.team.%s.injured_listed" % fid, "Players on his roster with an injury designation", len(inj_rows),
+      "count", "MFL injuries export + season_sim absences", NOW_UTC)
+    for _p, _a in sorted(_absent.items()):
+        if "MFL injuries export" not in _a["source"] and _p in dict((r["pid"], 1) for r in current_rows_by_fid.get(fid) or []):
+            pack.warn("REPORTED ABSENCE the forecast applies although MFL has not listed it: %s" % _a["source"])
 
     # ---- the bridge ----
     open_rows = _roster_rows(opening_date, fid, positions)
@@ -812,10 +1255,11 @@ def build(pack_id):
               "the live 'cap committed now' figure DOES include adjustments. The two are not "
               "subtractable -- they measure different things.")
 
-    tiers_open = _tier_counts(lu_open, pos_rank)
-    tiers_pre = _tier_counts(lu_pre, pos_rank)
-    tiers_post = _tier_counts(lu_post, pos_rank)
-    tiers_now = _tier_counts(lu, pos_rank)
+    _pos_of = lambda pid: LE.pos_group(positions.get(pid, ""))
+    tiers_open = _tier_counts(lu_open, pos_rank, _pos_of)
+    tiers_pre = _tier_counts(lu_pre, pos_rank, _pos_of)
+    tiers_post = _tier_counts(lu_post, pos_rank, _pos_of)
+    tiers_now = _tier_counts(lu, pos_rank, _pos_of)
     F("f.team.%s.holes_opening" % fid, "Starting-lineup holes, opening (of 9 ADP-priced slots)", tiers_open["hole"], "count", "lineup_engine+adp-board", opening_date)
     F("f.team.%s.studs_opening" % fid, "Starting-lineup studs, opening (top-12 at position)", tiers_open["stud"], "count", "lineup_engine+adp-board", opening_date)
     F("f.team.%s.holes_postauction" % fid, "Starting-lineup holes when the auction closed (of 9 ADP-priced slots)", tiers_post["hole"], "count", "lineup_engine+adp-board", POSTAUCTION_DATE)
@@ -1182,13 +1626,13 @@ def build(pack_id):
     pen_unstamped = sum((d.get("penalty_amount") or 0) for d in drops
                         if _applies(d) is None and (d.get("penalty_amount") or 0))
     if pen_unstamped:
-        F("f.team.%s.cuts_penalty_unstamped" % fid,
-          "Cap penalty whose charge year is not yet stamped", pen_unstamped,
-          "usd", "ups_drop_events", NOW_UTC)
+        # No fact for it any more. Keith, on "$14,500 of penalty ... sits in the
+        # ledger unassigned": "Way too much details". It is bookkeeping, not a
+        # story, so the review is given nothing to quote.
         pack.warn("$%s of cap penalty has NO applies_to_season stamp yet (migration 0125 "
                   "backfills nothing; the worker stamps a row when it next touches it). That "
-                  "money is NOT in either the this-season or the deferred total and its cap year "
-                  "is genuinely unknown -- do not add it to this season's figure."
+                  "money is NOT in either the this-season or the deferred total. Do not mention "
+                  "it in the review at all -- Keith: 'way too much details'."
                   % "{:,}".format(pen_unstamped))
 
     F("f.team.%s.cuts_count" % fid, "Contracts cut (carried into the season)", len(real_cuts),
@@ -1346,7 +1790,8 @@ def build(pack_id):
                     if toks:
                         dst = t["f2"] if src == t["f1"] else t["f1"]
                         elsewhere.append((src, dst, list(toks)))
-        my_events.append({"ts": min(t["ts"] for t in legs), "partners": sorted(partners),
+        my_events.append({"ts": min(t["ts"] for t in legs), "ts_max": max(t["ts"] for t in legs),
+                          "partners": sorted(partners),
                           "gave": gave, "got": got, "elsewhere": elsewhere})
     my_events.sort(key=lambda e: e["ts"])
 
@@ -1382,8 +1827,31 @@ def build(pack_id):
             "fid": str(p["fid"]).zfill(4), "name": D.display_name(p["pn"]),
         }
 
-    def _describe_dp(token):
+    # WHERE EACH PICK WENT AFTERWARDS. Keith 2026-09-11, on a Long Haulers row
+    # that "Got 2026 pick 3.06 (became Sonny Styles, Real Deal Creel)": "How did
+    # he get 3.6 if it became Sonny Styles for me, did he trade me 3.6? These
+    # things matter" -- and a later row where the same owner GAVE 3.06 read as a
+    # contradiction. 'became' was true and useless: it skipped the hops in
+    # between. Every hop of every 2026 draft pick, league-wide, from MFL's own
+    # trade legs (mirror swaps already removed above).
+    _dp_moves = {}
+    for _t in all_trades:
+        for _tok in _t["f1_gave"]:
+            if _tok.startswith("DP_"):
+                _dp_moves.setdefault(_tok, []).append({"ts": _t["ts"], "from": _t["f1"], "to": _t["f2"]})
+        for _tok in _t["f2_gave"]:
+            if _tok.startswith("DP_"):
+                _dp_moves.setdefault(_tok, []).append({"ts": _t["ts"], "from": _t["f2"], "to": _t["f1"]})
+    _utc_day = lambda ts: _dtm.datetime.fromtimestamp(ts, tz=_ET).strftime("%Y-%m-%d")
+
+    def _describe_dp(token, ts=None):
         """DP_<round-1>_<slot-1> -> '2026 pick 1.04 (became Jadarian Price, Gride)'.
+
+        Given the trade's timestamp, a pick that moved AGAIN afterwards names
+        every later hop and who finally used it: '2026 pick 3.06 (Gride sent it
+        to Real Deal Creel on 2026-05-25; Real Deal Creel took Sonny Styles)'.
+        Legs of one multi-way trade land within seconds of each other and are
+        not later hops, hence the two-minute margin.
 
         The parenthetical is what the slot BECAME -- who actually drafted there
         and who they took -- not who the pick was traded to in this particular
@@ -1406,37 +1874,43 @@ def build(pack_id):
         if not hit:
             return label
         team = owners.get(hit["fid"], {}).get("team_name", hit["fid"])
-        return "%s (became %s, %s)" % (label, hit["name"], team)
+        later = [m for m in _dp_moves.get(token, []) if ts is not None and m["ts"] > ts + 120]
+        if not later:
+            return "%s (%s took %s)" % (label, team, hit["name"])
+        _tn = lambda f2: owners.get(f2, {}).get("team_name", f2)
+        return "%s (%s; %s took %s)" % (label, "; ".join(
+            "%s sent it to %s on %s" % (_tn(m["from"]), _tn(m["to"]), _utc_day(m["ts"])) for m in later),
+            team, hit["name"])
 
     current_salary_by_pid = {}
     for f, rows in current_rows_by_fid.items():
         for r in rows:
             current_salary_by_pid[r["pid"]] = r["salary"]
 
-    def describe_side(tokens):
+    def describe_side(tokens, ts=None):
         out = []
         for t in tokens:
             if t.startswith("DP_"):
-                out.append(_describe_dp(t))
+                out.append(_describe_dp(t, ts))
             elif t.startswith("FP_"):
                 _, own_fid, yr, rnd = t.split("_")
-                out.append("%s round-%s pick (%s's natural pick)" %
-                           (yr, rnd, owners.get(own_fid.zfill(4), {}).get("team_name", own_fid)))
+                out.append("%s round-%s pick (%s natural pick)" %
+                           (yr, rnd, _poss(owners.get(own_fid.zfill(4), {}).get("team_name", own_fid))))
             elif t.startswith("BB_"):
                 out.append("$%s of blind-bid consideration" % format(int(t.split("_")[1]), ","))
             else:
                 pg = LE.pos_group(positions.get(t, ""))
                 nm = adp_name.get(t) or mfl_name.get(t, "Unknown player %s" % t)
                 if pg in ("QB", "RB", "WR", "TE"):
-                    val = rsf.get(t)
-                    out.append("%s (%s, redraft value %s)" % (nm, positions.get(t, "?"),
-                               "{:,}".format(val) if val is not None else "unpriced -- off the redraft board"))
+                    # A tier, not "redraft value 6,733" -- Keith: numbers like
+                    # that "dont make sense to people".
+                    out.append("%s (%s)" % (nm, tiering.tier_label(pg, pos_rank.get(t))
+                                            or "%s, off the redraft board" % positions.get(t, "?")))
                 else:
-                    idp_hit = idp_value.get(t)
+                    idp_hit = idp_proj.get(t) or kp_proj.get(t)
                     if idp_hit:
-                        out.append("%s (%s, %s %s, +%.1f PAR)" %
-                                  (nm, positions.get(t, "?"), idp_hit["tier"],
-                                   idp_hit["pos"], idp_hit["par"]))
+                        out.append("%s (%s)" % (nm, tiering.tier_label(idp_hit["pos"], idp_hit["rank"])
+                                                or positions.get(t, "?")))
                     else:
                         sal = current_salary_by_pid.get(t)
                         out.append("%s (%s, unranked -- %s)" %
@@ -1450,13 +1924,14 @@ def build(pack_id):
         partner = " + ".join(owners.get(p, {}).get("team_name", p) for p in e["partners"])
         if len(e["partners"]) > 1:
             partner += " (3-way)"
-        dt = datetime.fromtimestamp(e["ts"], tz=timezone.utc).strftime("%Y-%m-%d")
+        dt = datetime.fromtimestamp(e["ts"], tz=_ET).strftime("%Y-%m-%d")
         other = "; ".join(
             "%s sent %s to %s" % (owners.get(src, {}).get("team_name", src),
-                                  describe_side(toks),
+                                  describe_side(toks, e.get("ts_max", e["ts"])),
                                   owners.get(dst, {}).get("team_name", dst))
             for src, dst, toks in e.get("elsewhere", []))
-        trade_rows.append([dt, partner, describe_side(e["gave"]), describe_side(e["got"]),
+        trade_rows.append([dt, partner, describe_side(e["gave"], e.get("ts_max", e["ts"])),
+                           describe_side(e["got"], e.get("ts_max", e["ts"])),
                            other or "—"])
     F("f.team.%s.trades_count" % fid, "Trades made", len(my_events), "count", "mfl transactions export", current_date)
     t_trades = pack.table("t.%s.trades" % fid, "Trades",
@@ -1546,6 +2021,124 @@ def build(pack_id):
 
     # ---- contracts handed out (extensions/restructures/tags/MYM/FA) ----
     activity_rows, activity_provenance = D.contract_activity(SEASON)
+    # RESTRUCTURES MADE OFF THE FRONT OFFICE PATH. Keith, on "There were no
+    # restructures" in HammerTime's review: "Not true Hammer did have some
+    # restructures". Chase and Walker were restructured on 2026-04-17 through the
+    # Contracts Hub Bot on Discord and live only in restructure_manual_2026.json
+    # (which the Front Office's own count merges), never in contract_activity.
+    # Merge them, skipping any the FO log already has for that player and day,
+    # and anything the file excludes as a test.
+    _man_path = os.path.join(D.REPO, "site", "rosters", "contract_submissions", "restructure_manual_%d.json" % SEASON)
+    _man = json.load(open(_man_path, encoding="utf-8"))
+    _excl = set((str(x.get("franchise_id")).zfill(4), str(x.get("player_id"))) for x in _man.get("exclusions") or [])
+    # AN EXCLUSION MAY NAME ONE SUBMISSION. Keith 2026-09-12: Nico Collins
+    # "tried restructuring him a 3rd time but it was his 4th restructure so we
+    # reversed it", and the Achane June entry "was test data delete". A
+    # franchise-and-player exclusion is too blunt for either -- Collins has a
+    # real restructure the same month that must stand. An exclusion carrying
+    # submitted_at_utc drops exactly that row, from the Front Office log as well
+    # as from the manual file; one without a date behaves as it always has.
+    # The dated voids live in site/wire/data/contract_voids_<season>.json, NOT in
+    # the manual ledger: the Front Office count and restructure-ingest-d1.yml read
+    # the ledger's exclusions by franchise+player, so a dated Collins void there
+    # would drop both of his real July restructures and have the ingest DELETE
+    # them from D1.
+    _voids_path = os.path.join(D.REPO, "site", "wire", "data", "contract_voids_%d.json" % SEASON)
+    _voids = json.load(open(_voids_path, encoding="utf-8")).get("voids") or []
+    if any(x.get("submitted_at_utc") for x in _man.get("exclusions") or []):
+        raise SystemExit("team_review_2026: restructure_manual_%d.json carries a dated exclusion; move it to "
+                         "contract_voids_%d.json (the Front Office and the D1 ingest ignore the date)" % (SEASON, SEASON))
+    _excl_rows = set()
+    for x in _voids:
+        _excl_rows.add((str(x.get("franchise_id")).zfill(4), str(x.get("player_id")),
+                        str(x["submitted_at_utc"])[:10]))
+    if _excl_rows:
+        _before = len(activity_rows)
+        activity_rows = [r for r in activity_rows
+                         if (str(r.get("franchise_id", "")).zfill(4), str(r.get("player_id")),
+                             str(r.get("submitted_at_utc") or "")[:10]) not in _excl_rows]
+        _dropped = _before - len(activity_rows)
+        if _dropped:
+            pack.source("site/wire/data/contract_voids_%d.json (submissions the commissioner has voided)"
+                        % SEASON, current_date, rows=_dropped)
+    # D1 BEFORE THE LOG. Keith 2026-09-12 on Chase Brown's restructure: "Why isnt
+    # this logged already? It was posted to discord fix that". It was in D1
+    # (ups_restructure_submissions id 26); the GitHub job that appends to the JSON
+    # log hit a merge conflict and dropped it, with four multi-year contracts the
+    # same night. Every real D1 submission the log lacks (same player, same
+    # timestamp) joins the rows here, minus the commissioner's voids.
+    _log_keys = set((str(r.get("player_id")), str(r.get("submitted_at_utc") or "")) for r in activity_rows)
+    _from_d1 = 0
+    for _dr in D.contract_submissions_d1(SEASON):
+        _k = (_dr["player_id"], str(_dr["submitted_at_utc"]))
+        if _k in _log_keys or (_dr["franchise_id"], _dr["player_id"], _k[1][:10]) in _excl_rows:
+            continue
+        if not re.match(r"\d{4}-\d{2}-\d{2}T", _k[1]):
+            # trade-workbench rows carry a hand-typed local time; the worker's
+            # own submissions are ISO UTC. Only the latter are owner moves.
+            continue
+        activity_rows.append(_dr)
+        _log_keys.add(_k)
+        _from_d1 += 1
+    pack.source("D1 ups_restructure_submissions + ups_extension_submissions (real submissions the contract "
+                "activity log dropped)", current_date, rows=_from_d1)
+    _have_rs = set((str(r.get("franchise_id")).zfill(4), str(r.get("player_id")), str(r.get("submitted_at_utc") or "")[:10])
+                   for r in activity_rows if r.get("activity_type") == "Restructure")
+    _added_rs = 0
+    for _mr in _man.get("restructures") or []:
+        _k = (str(_mr["franchise_id"]).zfill(4), str(_mr["player_id"]), str(_mr.get("submitted_at_utc") or "")[:10])
+        if _k in _have_rs or _k[:2] in _excl:
+            continue
+        _ys = [int(y) for y in _mr.get("year_salaries") or []]
+        activity_rows.append({
+            "franchise_id": _k[0], "player_id": _k[1], "player_name": _mr.get("player_name"),
+            "activity_type": "Restructure", "submitted_at_utc": _mr.get("submitted_at_utc"),
+            "salary": _ys[0] if _ys else None, "tcv": _mr.get("tcv"),
+            "contract_status": _mr.get("contract_status"),
+            "contract_info": "CL %d|TCV %dK|%s" % (len(_ys), int(_mr.get("tcv") or 0) // 1000,
+                                                  ", ".join("Y%d-%dK" % (i + 1, y // 1000) for i, y in enumerate(_ys))),
+            "source": _mr.get("source") or "restructure_manual"})
+        _added_rs += 1
+    pack.source("site/rosters/contract_submissions/restructure_manual_%d.json (restructures made off the Front "
+                "Office path)" % SEASON, current_date, rows=_added_rs)
+    # RESTRUCTURES THAT ARE ONLY ON MFL. Chase Brown's extension is logged flat
+    # at $22,000 / $22,000 on 05-21, and MFL carried exactly that until early
+    # September, when his contract became $32,000 / $12,000 "Restructured 2026"
+    # with no row in either log. The last-word rule below then rewrote the MAY
+    # extension as front-loaded, which it never was. When MFL's live contract
+    # says it was restructured this season and neither log has a restructure
+    # for him, the restructure happened: date it by the first daily snapshot
+    # that carries the live salaries and add it as its own row.
+    _have_rs_pid = set(str(r.get("player_id")) for r in activity_rows if r.get("activity_type") == "Restructure")
+    _off_log = 0
+    if not _LIVE_ROSTERS.get("__failed__"):
+        for _lp in _LIVE_ROSTERS.get(fid) or []:
+            _lpid = str(_lp.get("id"))
+            _lci = str(_lp.get("contractInfo") or "")
+            _lys = _year_salaries(_lci)
+            if not _lys or "Restructured %d" % SEASON not in _lci or _lpid in _have_rs_pid:
+                continue
+            _first = None
+            for _d in reversed(D.snapshot_dates()):
+                _row = _snapshot_franchise_row(_lpid, _d)
+                if not _row or _year_salaries(_row[1].get("contractInfo")) != _lys:
+                    break
+                _first = (_d, _row[0], _row[1])
+            if not _first:
+                continue
+            activity_rows.append({
+                "franchise_id": _first[1], "player_id": _lpid, "player_name": adp_name.get(_lpid) or _lpid,
+                "activity_type": "Restructure", "submitted_at_utc": "%sT12:00:00Z" % _first[0],
+                "salary": _lys[0], "tcv": sum(_lys), "contract_status": _first[2].get("contractStatus"),
+                "contract_info": _first[2].get("contractInfo"), "source": "mfl-roster-snapshot"})
+            _off_log += 1
+            pack.warn("%s was restructured on MFL to %s by the %s roster, but neither the Front Office log nor "
+                      "restructure_manual_%d.json has it; the review dates it by that snapshot. It may belong in "
+                      "restructure_manual_%d.json, which the Front Office's restructure count reads."
+                      % (adp_name.get(_lpid) or _lpid, ", ".join("$%s" % format(v, ",d") for v in _lys),
+                         _first[0], SEASON, SEASON))
+    if _off_log:
+        pack.source("MFL daily roster snapshots (restructures on MFL that no log has)", current_date, rows=_off_log)
     from preseason_review import distinct_outcomes as _distinct_outcomes
     outcomes = _distinct_outcomes(activity_rows)
     my_contracts = [r for r in outcomes if str(r.get("franchise_id", "")).zfill(4) == fid]
@@ -1594,9 +2187,39 @@ def build(pack_id):
         dip = min(_sals)
         if last.get("salary") == baseline and dip < baseline:
             round_trip[pid] = {"freed": (baseline or 0) - dip, "n": len(mine),
-                               "from": str(evs[mine[0]].get("submitted_at_utc") or "")[:10],
-                               "to": str(last.get("submitted_at_utc") or "")[:10],
+                               "from": _et_date(evs[mine[0]].get("submitted_at_utc")),
+                               "to": _et_date(last.get("submitted_at_utc")),
                                "baseline": baseline}
+
+    # EVERY RESTRUCTURE THAT CHANGED THE MONEY IS A MOVE (fact-check 2026-09-11).
+    # distinct_outcomes keeps one row per (franchise, player, type), so Blake's
+    # 07-22 restructure of Drake London ($52,000 -> $20,000 this year, the room
+    # that bought Josh Allen) vanished behind his 08-24 one. Put back each earlier
+    # day's last restructure by this franchise whose year-by-year salaries differ
+    # from the day before. Same-day UI revisions stay collapsed; round trips are
+    # rebuilt from the whole chain in the contract loop.
+    _kept = {id(r) for r in my_contracts}
+    _rs_chain = {}
+    for r in sorted(activity_rows, key=lambda r: str(r.get("submitted_at_utc") or "")):
+        if str(r.get("franchise_id", "")).zfill(4) == fid and r.get("activity_type") == "Restructure":
+            _rs_chain.setdefault(str(r.get("player_id")), []).append(r)
+    for _pid, _chain in _rs_chain.items():
+        if round_trip.get(_pid) and round_trip[_pid]["freed"] > 0:
+            continue
+        _by_day = {}
+        for r in _chain:
+            _by_day[_et_date(r.get("submitted_at_utc"))] = r
+        # Any kept row that day, of any type: Achane's 06-05 restructure row is
+        # half of the same submission as his 06-05 extension.
+        _kept_days = {_et_date(k.get("submitted_at_utc")) for k in my_contracts
+                      if str(k.get("player_id")) == _pid}
+        _prev = None
+        for _d in sorted(_by_day):
+            r = _by_day[_d]
+            _y = _year_salaries(r.get("contract_info"))
+            if id(r) not in _kept and _d not in _kept_days and _y and _y != _prev:
+                my_contracts.append(r)
+            _prev = _y or _prev
 
     contract_rows = []
     for r in sorted(my_contracts, key=lambda r: r.get("submitted_at_utc") or ""):
@@ -1791,28 +2414,32 @@ def build(pack_id):
                   "missing from this pack (%s). Section 5 asks for a divisional finish and has "
                   "nothing to build it from -- say the division standing is unavailable rather "
                   "than substituting the league-wide rank for it." % type(_e).__name__)
+    # The division TABLE is built further down, with the season simulation and
+    # the owners' records; here only the membership and the name. The name is
+    # registered as an entity so the digit audit reads "DOG POUND 4 LIFE" as a
+    # name -- this builder never did, so no review could print its division.
     t_div = None
+    _div_members = list(_mem.get(_mydiv, [])) if _mydiv is not None else []
     if _mydiv is not None:
-        _comp = {f: composite[f] for f in _mem[_mydiv] if f in composite}
-        _ord = sorted(_comp, key=lambda f: -_comp[f])
-        _league_order = sorted(composite, key=lambda x: -composite[x])
-        F("f.team.%s.division_name" % fid, "Division", _dnames.get(_mydiv, _mydiv),
-          "text", "MFL league export", NOW_UTC)
-        F("f.team.%s.division_rank" % fid, "Rank inside the division",
-          _ord.index(fid) + 1, "count", "lineup_engine", NOW_UTC)
-        F("f.team.%s.division_size" % fid, "Teams in the division", len(_mem[_mydiv]),
+        _dname = _dnames.get(_mydiv, _mydiv)
+        pack.division(_dname)
+        F("f.team.%s.division_name" % fid, "Division", _dname, "text", "MFL league export", NOW_UTC)
+        F("f.team.%s.division_size" % fid, "Teams in the division", len(_div_members),
           "count", "MFL league export", NOW_UTC)
-        t_div = pack.table("t.%s.division" % fid, "The division",
-                           [{"key": "team", "label": "Team", "type": "text"},
-                            {"key": "comp", "label": "League rank overall", "type": "count"},
-                            {"key": "idp", "label": "IDP points per started defender", "type": "text"}],
-                           [[owners.get(f, {}).get("team_name", f),
-                             _league_order.index(f) + 1 if f in composite else 0,
-                             "%.2f" % ppw[f] if f in ppw else "--"] for f in _ord],
-                           note="Each division rival is played FIVE times in the 37-game 2026 "
-                                "schedule (ten of every owner's games), so this is the comparison "
-                                "that decides a playoff seed -- more than the league-wide rank does. "
-                                "Never write that division rivals meet twice.")
+        _dd = DIVISION_DRAFT_2026
+        for _i, _pk in enumerate(_dd["picks"]):
+            if (_pk in _div_members) != (_division_draft_picker(_i) in _div_members):
+                raise SystemExit("team_review_2026: divisional-draft pick %d (%s by %s) disagrees with MFL's "
+                                 "divisions -- fix DIVISION_DRAFT_2026" % (_i + 1, _pk, _division_draft_picker(_i)))
+        for _f2 in sorted(_div_members):
+            _nm2 = owners.get(_f2, {}).get("team_name", _f2)
+            if _f2 in _dd["captains"]:
+                F("f.league.div_draft_captain_%s" % _f2, "Captain's seat in the 2026 Owner Divisional Draft: %s" % _nm2,
+                  _dd["captains"].index(_f2) + 1, "rank", "Keith (commissioner), 2026-09-11", "2026-05-24")
+            else:
+                _i = _dd["picks"].index(_f2)
+                F("f.league.div_draft_pick_%s" % _f2, "Overall pick in the 2026 Owner Divisional Draft: %s" % _nm2,
+                  _i + 1, "rank", "Keith (commissioner), 2026-09-11", "2026-05-24")
 
     # ---- rookie picks ----
     tiers = json.load(open(os.path.join(D.REPO, "site", "rookies", "rookie_draft_tiers.json")))
@@ -1822,41 +2449,41 @@ def build(pack_id):
     rookie_rows = []
     for p in picks:
         label = _pick_label(p["draftpick_round"], p["draftpick_roundorder"])
-        band = _band_for(tiers, p["draftpick_round"], p["draftpick_roundorder"])
         pid = str(p["player_id"])
         val = rsf.get(pid)
         pg = LE.pos_group(positions.get(pid, ""))
-        # "off the redraft board yet" implies the board looked and passed. For a
-        # DEFENDER the board does not cover the position at all, so that phrasing
-        # invented a verdict (Keith 2026-09-09, on Sonny Styles and Zion Young:
-        # "IDP needs a different way to analyze these players"). ADP prices
-        # offense; the IDP model needs a prior NFL season, which a 2026 rookie by
-        # definition does not have. Neither source has an opinion -- say that,
-        # and do not let a blank read as a bad grade.
-        if pg in ("DL", "LB", "DB"):
-            valcol = "IDP -- not priced by ADP, and no NFL season yet to measure"
+        side = "defense" if pg in ("DL", "LB", "DB") else "special" if pg in ("PK", "PN") else "offense"
+        where, hist = _slot_history(tiers, p["draftpick_round"], p["draftpick_roundorder"], side)
+        noun = {"offense": "offensive players", "defense": "defenders", "special": "kickers and punters"}[side]
+        if hist.get("n"):
+            _use = int(hist.get("smash", 0)) + int(hist.get("hit", 0))
+            base = "%.0f%% of %s taken %s became usable (%d of %d)" % (
+                100.0 * _use / hist["n"], noun, where, _use, hist["n"])
+        else:
+            base = "no %s taken %s before" % (noun, where)
+        # Defenders and kickers take MFL's season projection, the same source
+        # as the lineup -- a rookie has one from day one.
+        if pg in ("DL", "LB", "DB", "PK", "PN"):
+            hit = (idp_proj if side == "defense" else kp_proj).get(pid)
+            valcol = (tiering.tier_label(hit["pos"], hit["rank"]) or "unranked") if hit else "not projected by MFL"
         elif val is not None:
             valcol = tiering.tier_label(pg, pos_rank.get(pid)) or "{:,}".format(val)
         else:
             valcol = "not yet on the redraft board"
-        rookie_rows.append([label, D.display_name(p["player_name"]),
-                            "%.0f%% usable historically at this slot" % (band.get("usable_pct", 0) * 100) if band else "no band data",
-                            valcol])
+        rookie_rows.append([label, D.display_name(p["player_name"]), base, valcol])
     F("f.team.%s.rookie_picks_count" % fid, "Rookie picks made", len(picks), "count", "src_draft_picks", current_date)
     t_rookies = pack.table("t.%s.rookies" % fid, "2026 rookie draft class",
                            [{"key": "pick", "label": "Pick", "type": "text"},
                             {"key": "player", "label": "Player", "type": "text"},
                             {"key": "baseline", "label": "Historical baseline at this slot", "type": "text"},
-                            {"key": "val", "label": "Current redraft value", "type": "text"}],
+                            {"key": "val", "label": "Grade today", "type": "text"}],
                            rookie_rows,
-                           note="Baseline = 2015-2025 smash/hit/contrib/bust outcome rates at that exact "
-                                "draft slot. 2026 rookies have zero seasons of outcome data, so this is "
-                                "the PRE-outcome expectation, not a grade on the player yet. The "
-                                "historical band is measured on OFFENSE outcomes; for a defensive pick "
-                                "neither the redraft board (which does not price IDP) nor the IDP model "
-                                "(which needs a completed NFL season) can value the player at all, and "
-                                "an empty value column there means NO SOURCE HAS AN OPINION -- never "
-                                "report it as a low or bad valuation.")
+                           note="Baseline = how 2015-2025 picks on the SAME side of the ball turned out: "
+                                "round 1 at the exact slot, later rounds early (picks 1-4), middle (5-8) or "
+                                "late (9-12) in the round. Usable = a Smash or Hit (in a starting lineup at an "
+                                "Elite/Plus rate at least 35%% of the time over his first four seasons). A "
+                                "pre-outcome expectation, not a grade. Grade today = the redraft board's tier "
+                                "for offense; MFL's %d season projection for defenders, kickers and punters." % SEASON)
 
     # ---- week one, so far -----------------------------------------------
     # Keith 2026-09-10: "add a little context as well for injuries to AJ Brown,
@@ -1929,125 +2556,949 @@ def build(pack_id):
                       "source for a designation, and it carried none for these players."
                       % (_lw, _teams_final, _teams_seen))
 
-    pack.coverage = {"seasonsComplete": [2010, 2025], "currentSeason": SEASON, "currentSeasonPartial": True}
+    # =====================================================================
+    # KEITH'S STRUCTURE (2026-09-11) -- the offseason phase by phase (see
+    # _phase), the owner's history, and the division with the preseason
+    # simulation. Every amount a moves row names also gets its own fact, so the
+    # review can quote it: "Tony Pollard give me his total".
+    # =====================================================================
+    def _nm_pid(pid):
+        return adp_name.get(pid) or mfl_name.get(pid, "Unknown player %s" % pid)
 
-    pack.section("s1", "The Lineup", "How this team's legal starting lineup stacks up against the "
-                "other 11 -- name every starter, name the position ranks, and say whether the "
-                "strength is balanced or concentrated in one or two players.",
-                fact_ids=["f.team.%s.qb_rank" % fid, "f.team.%s.rb_rank" % fid,
-                         "f.team.%s.wr_rank" % fid, "f.team.%s.te_rank" % fid,
-                         "f.team.%s.qb_value" % fid, "f.team.%s.rb_value" % fid,
-                         "f.team.%s.wr_value" % fid, "f.team.%s.te_value" % fid,
-                         "f.team.%s.composite_rank" % fid, "f.team.%s.composite_value" % fid,
-                         "f.league.teams"]
-                + [k for k in ("f.team.%s.idp_auction_spend" % fid,
-                               "f.team.%s.idp_auction_share" % fid,
-                               "f.team.%s.idp_auction_share_rank" % fid,
-                               "f.team.%s.idp_adds_alltime" % fid, "f.team.%s.idp_adds_rank" % fid,
-                               "f.team.%s.idp_adds_next_best" % fid,
-                               "f.team.%s.idp_adds_lead_streak" % fid,
-                               "f.team.%s.idp_ppw_rank" % fid) if k in pack._facts],
-                table_ids=[t_lineup, t_bench] + ([t_idp] if t_idp else []))
-    pack.section("s2", "The Bridge", "Tell the offseason arc in three stages -- entering the "
-                "offseason, entering the auction, now -- using the two bridge tables. Keep "
-                "'strongest team' (carried on existing contracts) and 'best offseason' (created "
-                "this year) explicitly separate. NOTHING HERE IS INHERITED: this owner kept the "
-                "same franchise, contracts expired, and he rebuilt -- an empty April roster is the "
-                "normal state of that cycle, not a crisis and not news. Use the slot-by-slot table "
-                "to name who actually filled each priced slot at each stage; a stud count that "
-                "moves 1 -> 2 can hide the single biggest upgrade of the offseason, so report the "
-                "NAME CHANGE in the slot, not just the count. "
-                "The studs/solid/holes columns are a NEEDS read, separate from the value total: say "
-                "explicitly whether this is a lineup of a few elite starters with real gaps, or one "
-                "that is merely adequate everywhere -- two teams can carry the same summed value and "
-                "look completely different on this axis, and that difference is the story, not the total.",
-                fact_ids=["f.team.%s.cap_opening" % fid, "f.team.%s.cap_preauction" % fid,
-                         "f.team.%s.cap_current_spent" % fid, "f.team.%s.cap_current_room" % fid,
-                         "f.team.%s.active_now" % fid, "f.team.%s.lineup_value_opening" % fid,
-                         "f.team.%s.lineup_value_preauction" % fid,
-                         "f.team.%s.lineup_value_postauction" % fid,
-                         "f.team.%s.lineup_value_current" % fid,
-                         "f.team.%s.holes_opening" % fid, "f.team.%s.studs_opening" % fid,
-                         "f.team.%s.holes_postauction" % fid, "f.team.%s.studs_postauction" % fid,
-                         "f.team.%s.holes_today" % fid, "f.team.%s.studs_today" % fid,
-                         "f.team.%s.active_roster_opening" % fid, "f.team.%s.active_roster_preauction" % fid,
-                         "f.team.%s.active_roster_current" % fid,
-                         "f.team.%s.can_field_lineup_opening" % fid,
-                         "f.team.%s.can_field_lineup_preauction" % fid,
-                         "f.team.%s.can_field_lineup_current" % fid,
-                         "f.team.%s.roster_total_postauction" % fid,
-                         "f.league.roster_max_at_auction",
-                         "f.team.%s.active_today" % fid,
-                         "f.team.%s.taxi_now" % fid, "f.team.%s.ir_now" % fid],
-                table_ids=[t_bridge, t_slots])
-    pack.section("s3", "The Auctions", "THERE ARE TWO AUCTIONS AND THEY ARE SEPARATE EVENTS: the "
-                "Expired Rookie Auction (ERA) in May, for players whose rookie deals ran out, and "
-                "the Free Agent Auction (FAA) in late July, the open market. Report them "
-                "separately -- separate spend, separate buys, separate verdict -- and never merge "
-                "them into one 'auction'. The Auction column in the table says which is which. "
-                "Use the top-buy-percent fact for any 'most of his spend' style claim -- never "
-                "estimate one, and note that it is a share of the FAA, not of both.",
-                fact_ids=["f.league.era_pool_size", "f.league.era_top_price",
-                         "f.league.faa_top_price",
-                         "f.team.%s.era_spend" % fid, "f.team.%s.era_lots_won" % fid,
-                         "f.team.%s.faa_spend" % fid, "f.team.%s.faa_lots_won" % fid,
-                         "f.team.%s.auction_spend" % fid]
-                + (["f.team.%s.top_buy_price" % fid, "f.team.%s.top_buy_pct_of_spend" % fid] if top else []),
-                table_ids=[t_auction])
-    pack.section("s4", "Contracts, Trades, Cuts and the Rookie Class", "Use each table's own "
-                "words: the contracts table's Type column already says Restructure or Extension, "
-                "and those are different operations -- never merge them into a phrase like "
-                "'restructured into extension years'. Call a deal minimum-salary ONLY where the "
-                "'At league minimum?' column says yes; if you name a group of players as "
-                "minimum-salary signings, check every single name against that column first. Do "
-                "not name a subset of a table's rows in a way that skips a row contradicting the "
-                "point. In the cuts table, the 'Charged to' column is the cap year the penalty "
-                "actually lands in -- deferred rows are NOT part of this season's cap. "
-                "Cover the contracts table "
-                "first -- extensions, restructures, tags, MYM and FA deals are as much a part of the "
-                "offseason as trades or auction buys. Classify each trade as talent-driven, "
-                "cap-driven, mixed or unclear from the actual assets on both sides -- never from "
-                "guessing motive, and never claim a traded draft pick 'became' a specific player "
-                "unless the table names one; where it does not, describe the pick by round and slot "
-                "only, because it was moved again before the draft and this dataset cannot follow it "
-                "further. For every cut, say whether it removed a starter, depth, or a "
-                "non-contributor. For every rookie pick, compare the actual player to the historical "
-                "baseline at that exact slot -- that baseline is a PRE-outcome expectation, not a "
-                "grade on a rookie with zero games played.",
-                fact_ids=["f.team.%s.contracts_count" % fid, "f.team.%s.trades_count" % fid,
-                         "f.team.%s.cuts_count" % fid, "f.team.%s.cuts_penalty_%d" % (fid, SEASON)]
-                + [k for k in ("f.team.%s.restructure_room_freed" % fid,
-                               "f.team.%s.trade_blind_bid_cash" % fid,
-                               "f.team.%s.biggest_contract_traded_away" % fid) if k in pack._facts]
-                + [
-                         "f.team.%s.cuts_penalty_%d_deferred" % (fid, SEASON + 1),
-                         "f.team.%s.roster_removals_total" % fid, "f.team.%s.waiver_swaps" % fid,
-                         "f.team.%s.inyear_flyers" % fid,
-                         "f.team.%s.rookie_picks_count" % fid],
-                table_ids=[t_contracts, t_trades, t_cuts, t_rookies])
-    pack.section("s5", "The Verdict", "Finish inside the DIVISION -- each division rival is "
-                "played FIVE times (ten of his 37 games), so that is the comparison deciding a playoff "
-                "seed and it is who this owner actually plays; use the division table and say plainly "
-                "where he sits in it. "
-                "Then a direct verdict: is this the strongest team in "
-                "the league right now, and separately, was this a good offseason? They can disagree. "
-                "Name the single biggest advantage and the single biggest weakness, each with players. "
-                "If a Week table is present, close on it in NO MORE THAN a short paragraph: it is the "
-                "first live evidence on an offseason bet, and only a handful of games are final, so "
-                "write it as an opening data point and never as a verdict or a trend. Salary next to "
-                "a score is the point -- an expensive starter who did nothing and a minimum-salary "
-                "one who did plenty are the same sentence. Do NOT call any player injured: nothing "
-                "here carries an injury designation, and a low score is not a diagnosis. Where a "
-                "quarterback's line explains his receiver's line, say so -- that is a real "
-                "dependency and it belongs to whoever is paying the receiver.",
-                fact_ids=[k for k in ("f.team.%s.division_rank" % fid, "f.team.%s.division_size" % fid)
-                          if k in pack._facts]
-                + [k for k in ("f.team.%s.wk_live" % fid, "f.team.%s.wk_players_final" % fid,
-                               "f.team.%s.wk_points_final" % fid, "f.league.wk_teams_final")
-                   if k in pack._facts]
-                + ["f.team.%s.composite_rank" % fid, "f.team.%s.qb_rank" % fid,
-                   "f.team.%s.rb_rank" % fid, "f.team.%s.wr_rank" % fid, "f.team.%s.te_rank" % fid],
-                table_ids=([t_div] if t_div else []) + ([t_wk1] if t_wk1 else []))
+    def _who(pid):
+        return "%s (%s)" % (_nm_pid(pid), positions.get(pid, "?"))
+
+    def _usd(v):
+        return "$%s" % format(int(v), ",d")
+
+    def _day(ts):
+        return datetime.fromtimestamp(int(ts or 0), tz=_ET).strftime("%Y-%m-%d")
+
+    PHASES = ("s1", "s2", "s3")
+    PHASE_WORDS = {"s1": "before the rookie draft", "s2": "from the rookie draft to the auction lock",
+                   "s3": "from the auction to week one"}
+    moves = {p: [] for p in PHASES}
+    row_facts = {p: [] for p in PHASES + ("s4", "s5")}
+
+    def _rf(sec, key, label, value, unit="usd", source="ups_drop_events"):
+        fact_id = "f.team.%s.%s" % (fid, key)
+        n = 2
+        while fact_id in pack._facts:
+            fact_id = "f.team.%s.%s_%d" % (fid, key, n)
+            n += 1
+        F(fact_id, label, value, unit, source, NOW_UTC)
+        row_facts[sec].append(fact_id)
+        return fact_id
+
+    def _move(ph, day, kind, player, detail, grade=""):
+        # Week one is the season, not the offseason.
+        if str(day)[:10] >= WEEK1_DATE:
+            return False
+        moves[ph].append([str(day)[:10], kind, player, detail, grade])
+        return True
+
+    prior = _prior_season_rosters()
+    era_won = {str(l.get("player_id")): l for l in era_lots}
+    faa_won = {str(l.get("player_id")): l for l in faa_lots}
+
+    # -- tags applied straight in MFL. The Front Office log is missing tags that
+    # MFL itself carries as commissioner roster loads inside the tag window:
+    # George Pickens to C-Town on 05-22 (Keith: "Pickens and the tag") and two
+    # for L.A. Looks. A load counts only if it STUCK -- he is on this roster in
+    # the next daily snapshot -- and was not unloaded again inside the window.
+    # That second test is what keeps out the phantom Mahomes tag (loaded 05-19,
+    # unloaded 05-21) and the 0008 test loads that netted to nothing.
+    tagged_fo = {str(r.get("player_id")) for r in my_contracts if r.get("activity_type") == "Tag"}
+    mfl_tags = {}
+    _tag_days = sorted(str(r.get("submitted_at_utc") or "")[:10] for r in activity_rows
+                       if r.get("activity_type") == "Tag")
+    if _tag_days:
+        import datetime as _dt
+        _lo = (_dt.date.fromisoformat(_tag_days[0]) - _dt.timedelta(days=1)).isoformat()
+        _hi = (_dt.date.fromisoformat(_tag_days[-1]) + _dt.timedelta(days=1)).isoformat()
+        _loads = []
+        for t in _rows:
+            if str(t.get("type")) != "LOAD_ROSTERS" or str(t.get("franchise", "")).zfill(4) != fid:
+                continue
+            day = _day(t.get("timestamp"))
+            if _lo <= day <= _hi:
+                add, _, rem = str(t.get("transaction") or "").partition("|")
+                _loads.append((int(t.get("timestamp") or 0), day,
+                               [x for x in add.split(",") if x.strip().isdigit()],
+                               [x for x in rem.split(",") if x.strip().isdigit()]))
+        _loads.sort()
+        for ts, day, adds, _rems in _loads:
+            for pid in adds:
+                if pid in tagged_fo or pid in mfl_tags:
+                    continue
+                if any(pid in r2 for ts2, _d2, _a2, r2 in _loads if ts2 > ts):
+                    continue
+                nxt = next((d for d in D.snapshot_dates() if d > day), None)
+                if not nxt:
+                    continue
+                if any(str(p.get("id")) == pid for fr in D.snapshot(nxt, "rosters")["rosters"]["franchise"]
+                       if str(fr["id"]).zfill(4) == fid for p in _as_list(fr.get("player"))):
+                    mfl_tags[pid] = (day, _salary_on_or_after(pid, day))
+    if mfl_tags:
+        pack.warn("%d tag(s) for this team exist only as MFL commissioner roster loads inside the tag window "
+                  "(%s), not in the Front Office contract log; they are reported as tags at the salary MFL "
+                  "carried the next day." % (len(mfl_tags), ", ".join(_nm_pid(p) for p in sorted(mfl_tags))))
+    tagged_pids = tagged_fo | set(mfl_tags)
+
+    # -- pickups. MFL writes FREE_AGENT as "added|dropped" and BBID_WAIVER as
+    # "added|bid|dropped". The dropped half goes in the pickup's own row, so a
+    # make-room release is not listed a second time as a cut. A FREE_AGENT row
+    # with nothing added is a bare release, which ups_drop_events already has.
+    pickup_drops = set()
+    pickups = {p: 0 for p in PHASES}
+    for t in _rows:
+        typ = str(t.get("type"))
+        if typ not in ("FREE_AGENT", "BBID_WAIVER") or str(t.get("franchise", "")).zfill(4) != fid:
+            continue
+        parts = str(t.get("transaction") or "").split("|")
+        added = [x.strip() for x in parts[0].split(",") if x.strip().isdigit()]
+        if not added:
+            continue
+        seg = (parts[2] if len(parts) > 2 else "") if typ == "BBID_WAIVER" else (parts[1] if len(parts) > 1 else "")
+        dropped = [x.strip() for x in seg.split(",") if x.strip().isdigit()]
+        day = _day(t.get("timestamp"))
+        for p in dropped:
+            pickup_drops.add((p, day))
+        ph = _phase(day)
+        bid = parts[1].strip() if typ == "BBID_WAIVER" and len(parts) > 1 else ""
+        det = ["won on waivers for %s" % _usd(int(bid))] if bid.isdigit() else ["signed off the free-agent pool"]
+        if dropped:
+            det.append("released " + ", ".join(_nm_pid(p) for p in dropped))
+        if _move(ph, day, "Waiver claim" if bid.isdigit() else "Free-agent pickup",
+                 ", ".join(_who(p) for p in added), "; ".join(det)):
+            pickups[ph] += len(added)
+
+    # -- cuts. Keith: "Any large cap hits or mostly small". The small ones --
+    # no penalty, and at the minimum salary or off the taxi squad (whose salary
+    # was never on the cap) -- share one row per phase; every release that cost
+    # something keeps its own row and its own facts.
+    cut_tot = {p: {"n": 0, "sal": 0, "pen": 0} for p in PHASES}
+    small = {p: [] for p in PHASES}
+    for d in drops:
+        pid = str(d.get("player_id"))
+        day = str(d.get("dropped_at_iso"))[:10]
+        k = _kind(d)
+        if k == "waiver swap" or (pid, day) in pickup_drops or day >= WEEK1_DATE:
+            continue
+        ph = _phase(day)
+        try:
+            sal = int(d.get("pre_drop_salary"))
+        except (TypeError, ValueError):
+            sal = None
+        if sal is not None and sal < LEAGUE_MIN_SALARY:
+            sal = None
+        pen = int(d.get("penalty_amount") or 0)
+        taxi = _status_before(fid, day, pid, positions) == "TAXI_SQUAD"
+        cut_tot[ph]["n"] += 1
+        cut_tot[ph]["sal"] += 0 if taxi else (sal or 0)
+        cut_tot[ph]["pen"] += pen
+        if not pen and (taxi or sal is None or sal <= LEAGUE_MIN_SALARY):
+            small[ph].append((day, _nm_pid(pid)))
+            continue
+        ap = _applies(d)
+        det = ["off the taxi squad" if taxi else ("%s salary" % _usd(sal)) if sal else "salary not recorded",
+               "no penalty" if not pen else "%s penalty%s" % (
+                   _usd(pen), (", charged to %d" % ap) if ap and ap > SEASON else "")]
+        _move(ph, day, "Released after a tag" if pid in tagged_pids else
+              "Cut" if k == "cut" else "Released (signed this offseason)", _who(pid), "; ".join(det))
+        if sal and not taxi:
+            _rf(ph, "cut_%s_salary" % pid, "%s's salary when released (%s)" % (_nm_pid(pid), day), sal)
+        _rf(ph, "cut_%s_penalty" % pid, "Cap penalty for releasing %s (%s)" % (_nm_pid(pid), day), pen)
+    for ph in PHASES:
+        if small[ph]:
+            days = sorted(set(d for d, _ in small[ph]))
+            moves[ph].append([days[0] if len(days) == 1 else "%s to %s" % (days[0], days[-1]),
+                              "Released at no cost", ", ".join(n for _, n in sorted(small[ph])),
+                              "minimum salary or taxi squad; no penalty on any of them", ""])
+
+    # -- trades, with the salary that moved. "Extend and trades" (Keith): a
+    # player this owner extended and then shipped is marked in the row.
+    extended_on = {}
+    for r in my_contracts:
+        if r.get("activity_type") == "Extension":
+            extended_on.setdefault(str(r.get("player_id")), _et_date(r.get("submitted_at_utc")))
+
+    # A trade before the first daily snapshot (2026-04-21) has no snapshot of
+    # its own, and the first one after it can already carry the NEW owner's
+    # restructure: Kenneth Walker was $32,000 on 04-13 and $15,000 by 04-21. The
+    # latest logged contract event on or before the trade day comes first.
+    def _salary_at_trade(tok, day, ts=None):
+        _dates = D.snapshot_dates() or []
+        _snap0 = _dates[0] if _dates else "9999-12-31"
+        if day >= _snap0:
+            # WHICH SNAPSHOT (fact-check 2026-09-11). The one AFTER the trade can
+            # hold the new owner's same-evening restructure (Drake London: $52,000
+            # on C-Town all day, $20,000 on Blake's roster the next morning); the
+            # one ON the trade day can predate the old owner's same-day extension
+            # (Quentin Johnston: $8,000 that morning, then extended and traded).
+            # Take the next morning's figure unless a contract event for him lands
+            # between the trade and that snapshot.
+            _nxt = next((d for d in _dates if d > day), None)
+            _t = (_dtm.datetime.fromtimestamp(int(float(ts)), _dtm.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+                  if ts else day + "T23:59:59")
+            _evs = sorted((e for e in activity_rows if str(e.get("player_id")) == str(tok)),
+                          key=lambda e: str(e.get("submitted_at_utc") or ""))
+            _after = [e for e in _evs if str(e.get("submitted_at_utc") or "") > _t
+                      and (_nxt is None or _et_date(e.get("submitted_at_utc")) < _nxt)]
+            if _nxt and not _after:
+                _s = _salary_on_or_after(tok, _nxt)
+                if _s:
+                    return _s
+            _same_day = [e for e in _evs if str(e.get("submitted_at_utc") or "") <= _t
+                         and _et_date(e.get("submitted_at_utc")) == day]
+            if _same_day:
+                _ys = _year_salaries(_same_day[-1].get("contract_info"))
+                if _ys:
+                    return _ys[0]
+            _s = _salary_on_or_before(tok, day)
+            if _s:
+                return _s
+        _evs = [e for e in activity_rows if str(e.get("player_id")) == str(tok)
+                and _et_date(e.get("submitted_at_utc")) <= day]
+        if _evs:
+            _last = max(_evs, key=lambda e: str(e.get("submitted_at_utc") or ""))
+            _ys = _year_salaries(_last.get("contract_info"))
+            if _ys:
+                return _ys[0]
+            if _last.get("salary"):
+                return int(_last["salary"])
+        # Nothing logged by the trade day, and a restructure lands between it and
+        # the first snapshot: the snapshot shows the NEW owner's figure, not the
+        # trade-day one, and nothing on file holds the old one. Print no salary
+        # rather than the wrong one; _brief names the restructure instead.
+        _snap0 = (D.snapshot_dates() or ["9999-12-31"])[0]
+        if day < _snap0 and _restructured_before_snapshot(tok, day, _snap0):
+            return None
+        return _salary_on_or_after(tok, day)
+
+    def _restructured_before_snapshot(tok, day, snap0):
+        for e in activity_rows:
+            if (str(e.get("player_id")) == str(tok) and e.get("activity_type") == "Restructure"
+                    and day <= _et_date(e.get("submitted_at_utc")) <= snap0):
+                return _et_date(e.get("submitted_at_utc"))
+        return None
+
+    def _brief(tokens, day, ts=None):
+        out, total = [], 0
+        for tok in tokens:
+            if tok.startswith("DP_"):
+                out.append(_describe_dp(tok, ts))
+            elif tok.startswith("FP_"):
+                _, own, yr, rnd = tok.split("_")
+                out.append("%s round-%s pick (%s)" % (yr, rnd, _poss(owners.get(own.zfill(4), {}).get("team_name", own))))
+            elif tok.startswith("BB_"):
+                out.append("%s of blind-bid money" % _usd(int(tok.split("_")[1])))
+            else:
+                s = _salary_at_trade(tok, day, ts)
+                total += s or 0
+                ext = (", extended %s" % extended_on[tok]) if extended_on.get(tok, "9999") <= day else ""
+                if s is None:
+                    _snap0 = (D.snapshot_dates() or ["9999-12-31"])[0]
+                    _rsd = _restructured_before_snapshot(tok, day, _snap0)
+                    if _rsd:
+                        ext += ", restructured %s" % _rsd
+                out.append("%s (%s%s%s)" % (_nm_pid(tok), positions.get(tok, "?"),
+                                            (", " + _usd(s)) if s else "", ext))
+        return ("; ".join(out) or "nothing"), total
+
+    # THE TRADE GRADE (Keith 2026-09-11): "Add the trade Grade..if the trade
+    # grade was published already use it and reference it in the discussion.
+    # If the trade was made before publish, determine what the trade would've
+    # been at that time and grade it but asterisk it as not graded at the
+    # time." site/wire/data/trade_grades_2026.json carries both kinds and the
+    # rule; a trade with no entry fails the build rather than printing blank.
+    _tg = json.load(open(os.path.join(D.REPO, "site", "wire", "data", "trade_grades_%d.json" % SEASON),
+                         encoding="utf-8"))
+    _grade_by_ts = {}
+    for _t in _tg["trades"]:
+        for _k in _t["keys"]:
+            _grade_by_ts[str(_k)] = _t
+    trade_tot = {p: {"n": 0, "out": 0, "in": 0} for p in PHASES}
+    for i, e in enumerate(my_events, 1):
+        day = _day(e["ts"])
+        ph = _phase(day)
+        gave, s_out = _brief(e["gave"], day, e.get("ts_max", e["ts"]))
+        got, s_in = _brief(e["got"], day, e.get("ts_max", e["ts"]))
+        partner = " + ".join(owners.get(p, {}).get("team_name", p) for p in e["partners"])
+        _g = _grade_by_ts.get(str(e["ts"]))
+        if not _g or fid not in _g["grades"]:
+            raise SystemExit("team_review_2026: no trade grade for %s's %s trade (MFL ts %s) in "
+                             "trade_grades_%d.json" % (fid, day, e["ts"], SEASON))
+        _letter = _g["grades"][fid]
+        if not _move(ph, day, "Trade", "with %s" % partner, "Gave %s. Got %s." % (gave, got),
+                     _letter + ("" if _g["published"] else "*")):
+            continue
+        _rf(ph, "trade%d_grade" % i, "Trade bot's grade for his side of the %s trade with %s%s" % (
+            day, partner, "" if _g["published"] else " -- NOT graded at the time; graded as of the trade date"),
+            _letter, unit="text", source="site/wire/data/trade_grades_%d.json" % SEASON)
+        trade_tot[ph]["n"] += 1
+        trade_tot[ph]["out"] += s_out
+        trade_tot[ph]["in"] += s_in
+        _rf(ph, "trade%d_salary_out" % i, "Salary sent away in the %s trade with %s" % (day, partner), s_out,
+            source="mfl transactions + roster snapshots")
+        _rf(ph, "trade%d_salary_in" % i, "Salary taken on in the %s trade with %s" % (day, partner), s_in,
+            source="mfl transactions + roster snapshots")
+
+    # -- contracts. Tags are a pre-auction decision; every restructure goes with
+    # the auction, split before/during vs after; a multi-year contract (MYAC)
+    # says which market the player came from.
+    ctr = {"ext": {p: 0 for p in PHASES}, "rookie_ext": 0, "tags": 0, "rs_pre": 0, "rs_post": 0, "rs_s1": 0,
+           "myac_era": 0, "myac_faa": 0, "myac_trade": 0, "myac_other": 0}
+    got_by_trade = {tok for e in my_events for tok in e["got"]}
+    # One deal logged under two types on the same day (Justin Jefferson: "FA
+    # Contract" and "MYM", both $71,000 / $96,000 on 06-05) is one move. Keep the
+    # more specific MYM label and drop the twin.
+    _seen_deal = {}
+    _contract_rows = []
+    for r in sorted(my_contracts, key=lambda r: (str(r.get("submitted_at_utc") or ""),
+                                                  r.get("activity_type") != "MYM")):
+        key = (str(r.get("player_id")), str(r.get("submitted_at_utc") or "")[:10],
+               int(r.get("salary") or 0), int(r.get("tcv") or 0))
+        if key in _seen_deal and {_seen_deal[key], r.get("activity_type")} <= {"MYM", "FA Contract"}:
+            continue
+        _seen_deal.setdefault(key, r.get("activity_type"))
+        _contract_rows.append(r)
+    # Keith 2026-09-11: "Extended for 22,000 for 2 years for a TCV of 44000 is
+    # a better way to say it" -- and, on C-Town's LaPorta: "don't mention it was
+    # a BL Extension...important to know". Years, TCV, and the loading with the
+    # year-by-year salaries whenever the years differ.
+    def _terms(sal, tcv, yrs, ys, load):
+        if not tcv or yrs <= 1:
+            return "%s for %d" % (_usd(sal), SEASON)
+        if load and len(ys) == yrs:
+            return "%d years, %s TCV, %s: %s" % (yrs, _usd(tcv), load, ", ".join(
+                "%s in %d" % (_usd(y), SEASON + i) for i, y in enumerate(ys)))
+        return "%s a year for %d years, %s TCV" % (_usd(sal), yrs, _usd(tcv))
+
+    # MFL's live contract, league-wide (a player extended and then traded now
+    # sits on another roster). THE FRONT OFFICE LOG CAN LAG MFL: LaPorta's
+    # 05-15 extension is flat $25,000 / $25,000 in the log and back-loaded
+    # $10,000 / $40,000 on MFL, with no restructure in between. When nothing
+    # later explains the difference and the TCV matches, MFL is the truth.
+    _live_ci = {}
+    for _pl in _LIVE_ROSTERS.values():
+        if isinstance(_pl, list):
+            for _p in _pl:
+                _live_ci[str(_p.get("id"))] = _p
+    _rs_days = {}
+    for r in my_contracts:
+        if r.get("activity_type") == "Restructure":
+            _rs_days.setdefault(str(r.get("player_id")), []).append(_et_date(r.get("submitted_at_utc")))
+    # A TAG ALREADY ON THE APRIL ROSTER was made before April; its Front Office
+    # rows are records. McCaffrey was TAG at $62,000 on 04-21 and his rows are
+    # dated 05-19, which put the biggest pre-draft move after the draft.
+    _open_snap = (D.snapshot_dates() or [None])[0]
+    _open_tags, _open_tag_sal = set(), {}
+    if _open_snap:
+        for _fr in D.snapshot(_open_snap, "rosters")["rosters"]["franchise"]:
+            if str(_fr.get("id")).zfill(4) == fid:
+                for _p in _as_list(_fr.get("player")):
+                    if "TAG" in str(_p.get("contractStatus") or "").upper():
+                        _open_tags.add(str(_p.get("id")))
+                        _open_tag_sal[str(_p.get("id"))] = _money(_p.get("salary"))
+    for r in _contract_rows:
+        pid = str(r.get("player_id"))
+        day = _et_date(r.get("submitted_at_utc"))
+        typ = str(r.get("activity_type") or "")
+        sal, tcv = int(r.get("salary") or 0), int(r.get("tcv") or 0)
+        ci = str(r.get("contract_info") or "")
+        ys = _year_salaries(ci)
+        # A STATUS RE-STAMP IS NOT A MOVE. The league-wide 06-01 re-stamp wrote
+        # rows for contracts whose money did not change -- Herbert's 2025 deal
+        # printed as a June "restructure" and Jefferson's as a June "FA
+        # Contract", both with year one read as 2026. If the day before shows the
+        # same year-by-year salaries, nothing happened.
+        if ys and not (round_trip.get(pid) and round_trip[pid]["freed"] > 0):
+            _pre = _snapshot_player_before(pid, day)
+            if _pre and _year_salaries(_pre.get("contractInfo")) == ys:
+                continue
+        load = _loading(r.get("contract_status"), ys)
+        if typ == "Extension" and not load:
+            _lv = _live_ci.get(pid) or {}
+            _lci = str(_lv.get("contractInfo") or "")
+            _lys = _year_salaries(_lci)
+            _lload = _loading(_lv.get("contractStatus"), _lys)
+            if (_lload and _lys and sum(_lys) == tcv and "Restructured" not in _lci
+                    and not any(d >= day for d in _rs_days.get(pid, []))):
+                ys, load, sal = _lys, _lload, _lys[0]
+        # MFL WINS ON THE LAST WORD. Keith 2026-09-12 on Mahomes: "I don't trust
+        # your numbers in the Front Office it reads 28K and if it was 58K he'd be
+        # well over the cap double check that." He was right -- Gride carries
+        # $288,000 against a $300,000 cap with Mahomes at $28,000, so the log's
+        # $58,000 first year is impossible, and the two disagree only in the
+        # ORDER of the years. When nothing later in the log explains the
+        # difference, the roster the league actually plays with is the contract.
+        if ys:
+            _lv2 = _live_ci.get(pid) or {}
+            _lys2 = _year_salaries(str(_lv2.get("contractInfo") or ""))
+            # Later means later in TIME, not a later day: James Cook was extended
+            # at 18:15 and restructured at 18:39 on 07-20, and a day-only test
+            # rewrote the extension with the restructure's salaries.
+            _later = any(str(e.get("player_id")) == pid
+                         and str(e.get("submitted_at_utc") or "") > str(r.get("submitted_at_utc") or "")
+                         for e in activity_rows)
+            if _lys2 and not _later and _lys2 != ys:
+                pack.warn("%s's %s of %s is logged as %s but MFL carries %s today, and nothing later in the "
+                          "log explains the difference -- the review follows MFL, which is what the league "
+                          "plays with. Worth fixing at the source."
+                          % (_nm_pid(pid), typ.lower(), day, ", ".join(_usd(v) for v in ys),
+                             ", ".join(_usd(v) for v in _lys2)))
+                ys = _lys2
+                load = _loading(_lv2.get("contractStatus"), _lys2)
+        # The year-by-year salaries are the contract; the log's `salary` field is
+        # not always this season's (James Cook's extension logged $37,000 against
+        # "Y1-27K, Y2-37K"), so the 2026 figure follows the terms.
+        if ys:
+            sal = ys[0]
+        _cl = re.search(r"CL\s*(\d+)", ci)
+        yrs = len(ys) or (int(_cl.group(1)) if _cl else 1)
+        money = _terms(sal, tcv, yrs, ys, load)
+        if typ == "Extension" and re.search(r"ext\s*1", str(r.get("contract_status") or ""), re.I) and len(ys) >= 2:
+            # A ONE-YEAR extension adds a season to the year already running and
+            # cannot be front- or back-loaded (league_context C4). Hurts' read
+            # "front-loaded: $67,000 in 2026, $52,000 in 2027" -- the $67,000 was
+            # the year he already had; the extension is the $52,000.
+            load = ""
+            money = "one more year at %s for %d, %s TCV over %d seasons" % (
+                _usd(ys[-1]), SEASON + len(ys) - 1, _usd(tcv), len(ys))
+        rt = round_trip.get(pid)
+        if typ == "Tag" and pid in _open_tags:
+            ph, kind, det, day = "s1", "Tag", "on a %s tag by the April roster" % _usd(sal), _open_snap
+            ctr["tags"] += 1
+        elif typ == "Tag":
+            ph, kind, det = "s2", "Tag", "tagged at %s" % _usd(sal)
+            ctr["tags"] += 1
+        elif typ == "Restructure" and rt and rt["freed"] > 0:
+            # A ROUND TRIP IS TWO MOVES. Keith, on Nacua's "restructured and put
+            # back the same week": "Double check your timing that's not correct
+            # at all". It was back-loaded on 07-27 mid-auction and put back on
+            # 09-05, forty days later; distinct_outcomes had kept only the second
+            # row. Emit both, dated, and give the prose the span.
+            _mine = sorted((e for e in by_player.get(pid, [])
+                            if str(e.get("franchise_id", "")).zfill(4) == fid
+                            and e.get("activity_type") == "Restructure"),
+                           key=lambda e: str(e.get("submitted_at_utc") or ""))
+            # The first row is the DIP, not the first submission: Collins's 07-25
+            # row re-stamped the $30,000 he already had; the room came 07-29.
+            _dip = min(int(e.get("salary") or 0) for e in _mine)
+            _f1 = next(e for e in _mine if int(e.get("salary") or 0) == _dip)
+            _f2 = _mine[-1]
+            _d1, _d2 = _et_date(_f1.get("submitted_at_utc")), _et_date(_f2.get("submitted_at_utc"))
+            _ys1 = _year_salaries(_f1.get("contract_info"))
+            _t1 = _terms(_ys1[0] if _ys1 else int(_f1.get("salary") or 0), int(_f1.get("tcv") or 0),
+                         len(_ys1) or 1, _ys1, _loading(None, _ys1))
+            _span = (_dtm.date.fromisoformat(_d2) - _dtm.date.fromisoformat(_d1)).days
+            _pre1 = _d1 <= POSTAUCTION_DATE
+            ctr["rs_pre" if _pre1 else "rs_post"] += 1
+            _move("s3", _d1, "Auction restructure" if _pre1 else "Post-auction restructure", _who(pid),
+                  "%s; %s of %d room" % (_t1, _usd(rt["freed"]), SEASON))
+            _move("s3", _d2, "Restructure reversed", _who(pid), "%s, %d days later" % (money, _span))
+            _rf("s3", "rt_%s_from" % pid, "%s's temporary restructure: the day it was made" % _nm_pid(pid), _d1,
+                unit="text", source="contract_activity_2026")
+            _rf("s3", "rt_%s_to" % pid, "%s's temporary restructure: the day it was put back" % _nm_pid(pid), _d2,
+                unit="text", source="contract_activity_2026")
+            _rf("s3", "rt_%s_days" % pid, "Days %s's temporary restructure stayed in place" % _nm_pid(pid), _span,
+                unit="count", source="contract_activity_2026")
+            if _ys1:
+                _rf("s3", "rt_%s_salary" % pid, "%s's %d salary while restructured" % (_nm_pid(pid), SEASON), _ys1[0],
+                    source="contract_activity_2026")
+                if len(_ys1) > 1:
+                    _rf("s3", "rt_%s_next_salary" % pid, "%s's %d salary while restructured" % (_nm_pid(pid), SEASON + 1),
+                        _ys1[1], source="contract_activity_2026")
+            continue
+        elif typ == "Restructure":
+            # By date: a restructure before the rookie draft is early-offseason
+            # business (HammerTime's Chase and Walker, 04-17), not an auction move.
+            if day < ROOKIE_DRAFT_DATE:
+                ph, kind, det = "s1", "Restructure", money
+                ctr["rs_s1"] += 1
+            else:
+                ph = "s3"
+                pre = day <= POSTAUCTION_DATE
+                kind = "Auction restructure" if pre else "Post-auction restructure"
+                det = money
+                ctr["rs_pre" if pre else "rs_post"] += 1
+        elif typ == "Multi-Year Contract":
+            ph, kind = "s3", "Multi-year contract"
+            src = ("era" if pid in era_won else "faa" if pid in faa_won else
+                   "trade" if pid in got_by_trade else "other")
+            det = {"era": "an Expired Rookie Auction buy", "faa": "a Free Agent Auction buy",
+                   "trade": "acquired in a trade", "other": "a waiver or free-agent pickup"}[src] + ": " + money
+            ctr["myac_" + src] += 1
+        elif typ == "Extension":
+            ph = _phase(day)
+            rookie = "Rookie" in prior.get(pid, {}).get("status", "")
+            kind = "Rookie extension" if rookie else "Extension"
+            det = money
+            ctr["ext"][ph] += 1
+            ctr["rookie_ext"] += 1 if rookie else 0
+        else:
+            ph, kind, det = _phase(day), typ, money
+        if not _move(ph, day, kind, _who(pid), det):
+            continue
+        _rf(ph, "contract_%s_salary" % pid, "%s's %d salary after the %s (%s)" % (_nm_pid(pid), SEASON, typ.lower(), day),
+            sal, source="contract_activity_2026")
+        if tcv:
+            _rf(ph, "contract_%s_tcv" % pid, "Total value of %s's %s (%s)" % (_nm_pid(pid), typ.lower(), day),
+                tcv, source="contract_activity_2026")
+        if yrs > 1:
+            _rf(ph, "contract_%s_years" % pid, "Years on %s's %s (%s)" % (_nm_pid(pid), typ.lower(), day),
+                yrs, unit="count", source="contract_activity_2026")
+        if load:
+            _rf(ph, "contract_%s_loading" % pid, "How %s's %s is loaded (%s)" % (_nm_pid(pid), typ.lower(), day),
+                load, unit="text", source="contract_activity_2026 + MFL contractInfo (live)")
+        if len(ys) > 1:
+            _rf(ph, "contract_%s_next_salary" % pid, "%s's %d salary under the %s (%s)" % (
+                _nm_pid(pid), SEASON + 1, typ.lower(), day), ys[1],
+                source="contract_activity_2026 + MFL contractInfo (live)")
+
+    for pid, (day, sal) in sorted(mfl_tags.items(), key=lambda kv: kv[1][0]):
+        ctr["tags"] += 1
+        _move("s2", day, "Tag", _who(pid), ("tagged at %s" % _usd(sal)) if sal else "tagged")
+        if sal:
+            _rf("s2", "tag_%s_salary" % pid, "%s's tag salary (%s)" % (_nm_pid(pid), day), sal,
+                source="MFL roster load + daily snapshot")
+    # TAGS THE FRONT OFFICE NEVER LOGGED. Blake's Jacoby Brissett and Cross's
+    # quarterback were TAG contracts on the April roster with no Front Office
+    # row, so both reviews said "he tagged nobody". The opening snapshot is the
+    # record.
+    for pid, sal in sorted(_open_tag_sal.items()):
+        if pid in tagged_fo or pid in mfl_tags:
+            continue
+        ctr["tags"] += 1
+        _move("s1", _open_snap, "Tag", _who(pid), "on a %s tag by the April roster" % _usd(sal))
+        _rf("s1", "tag_%s_salary" % pid, "%s's tag salary (on the April roster)" % _nm_pid(pid), sal,
+            source="MFL roster snapshot %s" % _open_snap)
+
+    # -- Expired Rookie Auction buys
+    for l in sorted(era_lots, key=lambda l: l.get("won_at_unix") or 0):
+        pid = str(l.get("player_id"))
+        price = (l.get("current_high_bid_k") or 0) * 1000
+        own = prior.get(pid, {}).get("fid") == fid
+        if _move("s2", _day(l.get("won_at_unix") or l.get("locks_at_unix")), "Expired Rookie Auction buy", _who(pid),
+                 _usd(price) + ("; his own expired rookie, bought back" if own else "")):
+            _rf("s2", "era_%s_price" % pid, "Expired Rookie Auction price for %s" % _nm_pid(pid), price,
+                source="auction/lots")
+
+    # -- rookie deals that ran out, and what became of each
+    era_all = {str(l.get("player_id")): l for l in _all_era}
+    faa_all = {str(l.get("player_id")): l for l in _all_faa}
+    traded_away = {tok for e in my_events for tok in e["gave"]}
+    now_team = {}
+    for _f2, _pl in _LIVE_ROSTERS.items():
+        if _f2 != "__failed__":
+            for _p in _pl:
+                now_team[str(_p.get("id"))] = _f2
+    exp = sorted((pid for pid, v in prior.items()
+                  if v["fid"] == fid and "Rookie" in v["status"] and v["cy"] == "1"), key=_nm_pid)
+    exp_rows, n_ext, n_era = [], 0, 0
+    for pid in exp:
+        if pid in extended_on:
+            out = "Extended (%s)" % extended_on[pid]
+            n_ext += 1
+        elif pid in era_all:
+            l = era_all[pid]
+            w = str(l.get("winner_fid", "")).zfill(4)
+            price = (l.get("current_high_bid_k") or 0) * 1000
+            out = ("Went to the Expired Rookie Auction; he bought him back for %s" % _usd(price) if w == fid else
+                   "Went to the Expired Rookie Auction; %s paid %s" % (owners.get(w, {}).get("team_name", w), _usd(price)))
+            n_era += 1
+        elif pid in traded_away:
+            out = "Traded before it ran out"
+        elif pid in faa_all:
+            l = faa_all[pid]
+            w = str(l.get("winner_fid", "")).zfill(4)
+            out = "Went to the Free Agent Auction; %s paid %s" % (
+                "he" if w == fid else owners.get(w, {}).get("team_name", w),
+                _usd((l.get("current_high_bid_k") or 0) * 1000))
+        elif now_team.get(pid) == fid:
+            # Devon Witherspoon: his rookie deal ran out and he is still on the
+            # roster -- "not kept; now with The Long Haulers" said both at once.
+            out = "Still on his roster"
+        elif now_team.get(pid):
+            out = "Not kept; now with %s" % owners.get(now_team[pid], {}).get("team_name", now_team[pid])
+        else:
+            out = "Not kept"
+        exp_rows.append([_nm_pid(pid), positions.get(pid, "?"), out])
+    _exp_src = "MFL %d rosters (Rookie, contractYear 1)" % (SEASON - 1)
+    F("f.team.%s.expired_rookies" % fid, "Rookie contracts that ran out into this offseason", len(exp), "count", _exp_src, NOW_UTC)
+    F("f.team.%s.expired_extended" % fid, "Of those, extended before they ran out", n_ext, "count", _exp_src, NOW_UTC)
+    F("f.team.%s.expired_to_era" % fid, "Of those, sold at the Expired Rookie Auction", n_era, "count", _exp_src, NOW_UTC)
+
+    # -- phase totals
+    for ph in PHASES:
+        w = PHASE_WORDS[ph]
+        F("f.team.%s.cuts_%s" % (fid, ph), "Players released %s" % w, cut_tot[ph]["n"], "count", "ups_drop_events", NOW_UTC)
+        F("f.team.%s.cuts_%s_salary" % (fid, ph), "Salary released %s" % w, cut_tot[ph]["sal"], "usd", "ups_drop_events", NOW_UTC)
+        F("f.team.%s.cuts_%s_penalty" % (fid, ph), "Cap penalty from releases %s, whichever season it is charged to" % w,
+          cut_tot[ph]["pen"], "usd", "ups_drop_events", NOW_UTC)
+        F("f.team.%s.trades_%s" % (fid, ph), "Trades %s" % w, trade_tot[ph]["n"], "count", "mfl transactions", NOW_UTC)
+        F("f.team.%s.trade_salary_out_%s" % (fid, ph), "Salary traded away %s" % w, trade_tot[ph]["out"], "usd",
+          "mfl transactions + roster snapshots", NOW_UTC)
+        F("f.team.%s.trade_salary_in_%s" % (fid, ph), "Salary taken on in trades %s" % w, trade_tot[ph]["in"], "usd",
+          "mfl transactions + roster snapshots", NOW_UTC)
+        F("f.team.%s.extensions_%s" % (fid, ph), "Extensions %s" % w, ctr["ext"][ph], "count", "contract_activity_2026", NOW_UTC)
+        F("f.team.%s.pickups_%s" % (fid, ph), "Players picked up off waivers or free agency %s" % w, pickups[ph],
+          "count", "mfl transactions", NOW_UTC)
+    for key, label, v in (("rookie_extensions", "Rookie extensions this offseason", ctr["rookie_ext"]),
+                          ("tags", "Players tagged", ctr["tags"]),
+                          ("restructures_early", "Restructures before the rookie draft", ctr["rs_s1"]),
+                          ("restructures_auction", "Restructures before or during the auction", ctr["rs_pre"]),
+                          ("restructures_post", "Restructures after the auction", ctr["rs_post"]),
+                          ("myac_era", "Multi-year contracts given to Expired Rookie Auction buys", ctr["myac_era"]),
+                          ("myac_faa", "Multi-year contracts given to Free Agent Auction buys", ctr["myac_faa"]),
+                          ("myac_trade", "Multi-year contracts given to players acquired by trade", ctr["myac_trade"]),
+                          ("myac_other", "Multi-year contracts given to waiver or free-agent pickups", ctr["myac_other"])):
+        F("f.team.%s.%s" % (fid, key), label, v, "count", "contract_activity_2026", NOW_UTC)
+
+    _mcols = [{"key": "date", "label": "Date", "type": "text"},
+              {"key": "move", "label": "Move", "type": "text"},
+              {"key": "player", "label": "Player", "type": "text"},
+              {"key": "detail", "label": "Detail", "type": "text"},
+              {"key": "grade", "label": "Grade", "type": "text"}]
+    _mtitle = {"s1": "Before the rookie draft", "s2": "From the draft to the auction lock",
+               "s3": "From the auction to week one"}
+    t_moves = {}
+    for ph in PHASES:
+        t_moves[ph] = pack.table(
+            "t.%s.moves_%s" % (fid, ph), _mtitle[ph], _mcols,
+            sorted(moves[ph], key=lambda r: (r[0], r[1], r[2])),
+            note="Every roster and contract move %s, in date order. Salaries in a trade row are each "
+                 "player's salary in the first daily roster snapshot after the trade (snapshots begin "
+                 "2026-04-21). A penalty 'charged to %d' is ledger-only this season. Tags always sit in the "
+                 "pre-auction phase; a restructure before the rookie draft sits in the first phase and every later one in the auction phase. Dates are Eastern. Grade = the league "
+                 "trade bot's letter for his side; * = not graded at the time (the trade predates the bot's league "
+                 "posts), graded as of the trade date by the same grader."
+                 % (PHASE_WORDS[ph], SEASON + 1))
+    t_expired = pack.table(
+        "t.%s.expired" % fid, "Rookie deals that ran out",
+        [{"key": "player", "label": "Player", "type": "text"},
+         {"key": "pos", "label": "Pos", "type": "text"},
+         {"key": "outcome", "label": "What happened", "type": "text"}],
+        exp_rows,
+        note="Rookie contracts in their final year on MFL's final %d rosters (contractYear 1 = the last "
+             "year). Extended = this owner extended him in %d before the deal ran out." % (SEASON - 1, SEASON))
+
+    # -- Free Agent Auction buys, each with what it bought. Keith, on the value
+    # table: "We see $$ Spent, but we don't know what it bought".
+    def _band(pid):
+        pg = LE.pos_group(positions.get(pid, ""))
+        if pg not in ("QB", "RB", "WR", "TE"):
+            return "--"
+        return tiering.bought_band(pg, pos_rank.get(pid), starter_demand.get(pg),
+                                   pid in all_starter_pids)
+
+    faa_rows = []
+    for l in sorted(faa_lots, key=lambda l: (-(l.get("current_high_bid_k") or 0), str(l.get("player_id")))):
+        pid = str(l.get("player_id"))
+        price = (l.get("current_high_bid_k") or 0) * 1000
+        faa_rows.append([_nm_pid(pid), positions.get(pid, l.get("position") or "?"), price,
+                         l.get("bid_count") or 0, _val_display(pid, LE.pos_group(positions.get(pid, ""))), _band(pid)])
+        _rf("s3", "faa_%s_price" % pid, "Free Agent Auction price for %s" % _nm_pid(pid), price, source="auction/lots")
+    t_faa = pack.table(
+        "t.%s.faa" % fid, "Free Agent Auction buys",
+        [{"key": "player", "label": "Player", "type": "text"},
+         {"key": "pos", "label": "Pos", "type": "text"},
+         {"key": "price", "label": "Price", "type": "usd"},
+         {"key": "bids", "label": "Bids", "type": "count"},
+         {"key": "grade", "label": "Grade today", "type": "text"},
+         {"key": "band", "label": "Bought", "type": "text"}],
+        faa_rows,
+        note="Grade is today's tier at his position, the same vocabulary as the lineup. 'Bought' grades "
+             "OFFENSE by league-wide position rank on the live redraft board (tiering.bought_band): Elite = "
+             "this year's separated top (%s), Very good = the rest of the top twelve, Good = 13-24 at "
+             "QB/RB/WR where every team starts two (the superflex counts as a second QB), Starter depth = "
+             "he starts somewhere in the league or is inside its own starter demand (%s), Bench depth = "
+             "nobody starts him. The league value table counts these for every owner." % (
+                 ", ".join("%s %d" % (g, elite_cuts.get(g, 0)) for g in ("QB", "RB", "WR", "TE")),
+                 ", ".join("%s %d" % (g, starter_demand.get(g, 0)) for g in ("QB", "RB", "WR", "TE"))))
+
+    # -- the owner's history (D1, rebuilt weekly by owner-career-stats.yml)
+    _hist_all = {str(r["franchise_id"]).zfill(4): r for r in D.d1("SELECT * FROM ups_owner_career_stats")}
+    h = _hist_all.get(fid)
+    if not h:
+        raise SystemExit("team_review_2026: ups_owner_career_stats has no row for %s" % fid)
+
+    def _years(s):
+        try:
+            return [int(y) for y in json.loads(s or "[]")]
+        except (TypeError, ValueError):
+            return []
+
+    def _n_years(n, s):
+        ys = _years(s)
+        return ("%d (%s)" % (n, ", ".join(str(y) for y in ys))) if n and ys else str(n or 0)
+
+    H_SRC = "D1 ups_owner_career_stats"
+    H_ASOF = str(h.get("updated_at") or NOW_UTC)
+    for key, label, v, unit in (
+            ("hist_seasons", "UPS seasons this owner has completed", int(h["owner_seasons_count"] or 0), "count"),
+            ("hist_first_season", "This owner's first UPS season", str(h["owner_first_season"]), "text"),
+            ("hist_titles", "Championships", int(h["owner_championships"] or 0), "count"),
+            ("hist_runner_ups", "Runner-up finishes", int(h["owner_runner_ups"] or 0), "count"),
+            ("hist_ap_titles", "Seasons with the league's best all-play record", int(h["owner_allplay_titles"] or 0), "count"),
+            ("hist_playoffs", "Playoff appearances", int(h["owner_playoff_appearances"] or 0), "count"),
+            ("hist_div_titles", "Division titles (2011 on)", int(h["owner_division_titles"] or 0), "count"),
+            ("hist_allplay_pct", "Career all-play winning percentage", round(100.0 * float(h["owner_allplay_pct"] or 0), 1), "percent")):
+        F("f.team.%s.%s" % (fid, key), label, v, unit, H_SRC, H_ASOF)
+        row_facts["s4"].append("f.team.%s.%s" % (fid, key))
+    for key, col, label in (("hist_title_years", "owner_title_years", "Championship years"),
+                            ("hist_runner_up_years", "owner_runner_up_years", "Runner-up years"),
+                            ("hist_ap_title_years", "owner_allplay_title_years", "Best all-play record, years"),
+                            ("hist_div_title_years", "owner_division_title_years", "Division title years")):
+        ys = _years(h.get(col))
+        if ys:
+            F("f.team.%s.%s" % (fid, key), label, ", ".join(str(y) for y in ys), "text", H_SRC, H_ASOF)
+            row_facts["s4"].append("f.team.%s.%s" % (fid, key))
+    t_hist = pack.table(
+        "t.%s.history" % fid, "Owner history",
+        [{"key": "seasons", "label": "Seasons", "type": "count"},
+         {"key": "titles", "label": "Titles", "type": "text"},
+         {"key": "runner", "label": "Runner-up", "type": "text"},
+         {"key": "ap", "label": "All-play titles", "type": "text"},
+         {"key": "playoffs", "label": "Playoff trips", "type": "count"},
+         {"key": "divs", "label": "Division titles", "type": "text"},
+         {"key": "ap_pct", "label": "Career all-play", "type": "percent"}],
+        [[int(h["owner_seasons_count"] or 0),
+          _n_years(int(h["owner_championships"] or 0), h.get("owner_title_years")),
+          _n_years(int(h["owner_runner_ups"] or 0), h.get("owner_runner_up_years")),
+          _n_years(int(h["owner_allplay_titles"] or 0), h.get("owner_allplay_title_years")),
+          int(h["owner_playoff_appearances"] or 0),
+          _n_years(int(h["owner_division_titles"] or 0), h.get("owner_division_title_years")),
+          round(100.0 * float(h["owner_allplay_pct"] or 0), 1)]],
+        note="The league's own documented record, by OWNER: a season counts for whoever owned the team at "
+             "kickoff. All-play is regular season only 2010-2016 and the full season from 2017 (league "
+             "context D.1); an all-play title is the season's best all-play record. Playoff trips are "
+             "actual seeds. Division titles from 2011 (2010 had two divisions).")
+
+    # -- the division, by the preseason simulation (season_sim.py)
+    sim_by = {t["franchiseId"]: t for t in sim["teams"]}
+    if fid not in sim_by:
+        raise SystemExit("team_review_2026: the season sim has no row for %s" % fid)
+    S_SRC = "season_sim.py, %d runs" % sim["runs"]
+    S_ASOF = sim["generatedAtUtc"]
+    me = sim_by[fid]
+    for key, label, v, unit, fmt in (
+            ("power_rank", "Preseason power rank (simulated expected all-play %)", me["powerRank"], "rank", None),
+            ("sim_exp_allplay", "Simulated expected regular-season all-play %", round(100.0 * me["expAllPlayPct"], 1), "percent", None),
+            ("sim_exp_wins", "Simulated expected head-to-head wins", round(me["expWins"], 1), "ratio", "%.1f" % me["expWins"]),
+            ("sim_games", "Regular-season games", me["games"], "count", None),
+            ("sim_p_division", "Simulated chance of winning the division", round(100.0 * me["pDivision"], 1), "percent", None),
+            ("sim_p_playoffs", "Simulated playoff odds", round(100.0 * me["pPlayoffs"], 1), "percent", None),
+            ("sim_p_bye", "Simulated chance of a first-round bye", round(100.0 * me["pBye"], 1), "percent", None),
+            ("sim_p_title", "Simulated title odds", round(100.0 * me["pTitle"], 1), "percent", None)):
+        F("f.team.%s.%s" % (fid, key), label, v, unit, S_SRC, S_ASOF, fmt=fmt)
+        row_facts["s5"].append("f.team.%s.%s" % (fid, key))
+    for f2 in sorted(sim_by):
+        t2, h2 = sim_by[f2], _hist_all.get(f2) or {}
+        F("f.league.power_rank_%s" % f2, "Preseason power rank: %s" % t2["team"], t2["powerRank"], "rank", S_SRC, S_ASOF)
+        F("f.league.p_playoffs_%s" % f2, "Simulated playoff odds: %s" % t2["team"], round(100.0 * t2["pPlayoffs"], 1), "percent", S_SRC, S_ASOF)
+        F("f.league.p_title_%s" % f2, "Simulated title odds: %s" % t2["team"], round(100.0 * t2["pTitle"], 1), "percent", S_SRC, S_ASOF)
+        F("f.league.p_division_%s" % f2, "Simulated division odds: %s" % t2["team"], round(100.0 * t2["pDivision"], 1), "percent", S_SRC, S_ASOF)
+        row_facts["s5"] += ["f.league.power_rank_%s" % f2, "f.league.p_playoffs_%s" % f2, "f.league.p_title_%s" % f2,
+                            "f.league.p_division_%s" % f2]
+        if h2:
+            F("f.league.allplay_career_%s" % f2, "Career all-play %%: %s" % h2.get("owner_display"),
+              round(100.0 * float(h2.get("owner_allplay_pct") or 0), 1), "percent", H_SRC, H_ASOF)
+            F("f.league.titles_%s" % f2, "Championships: %s" % h2.get("owner_display"),
+              int(h2.get("owner_championships") or 0), "count", H_SRC, H_ASOF)
+            row_facts["s5"] += ["f.league.allplay_career_%s" % f2, "f.league.titles_%s" % f2]
+            ys = _years(h2.get("owner_title_years"))
+            if ys:
+                F("f.league.title_years_%s" % f2, "Championship years: %s" % h2.get("owner_display"),
+                  ", ".join(str(y) for y in ys), "text", H_SRC, H_ASOF)
+                row_facts["s5"].append("f.league.title_years_%s" % f2)
+    pack.warn("POWER RANKINGS are the preseason simulation's (site/wire/data/season_sim_%d.json): %d seasons "
+              "simulated from today's rosters and MFL's weekly projections, each team's projected edge kept at "
+              "%.0f%% (regressed toward the league; backtested on 2021-2025, where it explained about 40%% of "
+              "the spread in final all-play and ranked the field with a correlation of about .57 -- but only "
+              ".3 to .4 in each of the last three seasons). Say 'projected' and 'odds', never 'will'. It cannot "
+              "see trades, waiver moves or owners' lineup choices."
+              % (SEASON, sim["runs"], 100 * sim["model"]["regress"]))
+    if _div_members:
+        _dord = sorted(_div_members, key=lambda f2: sim_by[f2]["powerRank"])
+        F("f.team.%s.division_rank" % fid, "Rank inside the division, by preseason power rank",
+          _dord.index(fid) + 1, "count", S_SRC, S_ASOF)
+        t_div = pack.table(
+            "t.%s.division" % fid, "The division",
+            [{"key": "team", "label": "Team", "type": "text"},
+             {"key": "owner", "label": "Owner", "type": "text"},
+             {"key": "power", "label": "Power rank", "type": "count"},
+             {"key": "division", "label": "Division odds", "type": "percent"},
+             {"key": "playoffs", "label": "Playoff odds", "type": "percent"},
+             {"key": "title", "label": "Title odds", "type": "percent"},
+             {"key": "ap", "label": "Career all-play", "type": "percent"},
+             {"key": "titles", "label": "Titles", "type": "text"}],
+            [[owners.get(f2, {}).get("team_name", f2), (_hist_all.get(f2) or {}).get("owner_display") or "",
+              sim_by[f2]["powerRank"], round(100.0 * sim_by[f2]["pDivision"], 1),
+              round(100.0 * sim_by[f2]["pPlayoffs"], 1),
+              round(100.0 * sim_by[f2]["pTitle"], 1),
+              round(100.0 * float((_hist_all.get(f2) or {}).get("owner_allplay_pct") or 0), 1),
+              _n_years(int((_hist_all.get(f2) or {}).get("owner_championships") or 0),
+                       (_hist_all.get(f2) or {}).get("owner_title_years"))] for f2 in _dord],
+            note="Power rank and division, playoff and title odds are the preseason simulation's. Career "
+                 "all-play and titles are each OWNER's documented record. Every team plays each division rival "
+                 "five times, so that is never news; the division WEEKS are.")
+
+    pack.coverage = {"seasonsComplete": [2010, 2025], "currentSeason": SEASON, "currentSeasonPartial": True}
+    # ---- the division weeks. Keith 2026-09-11, on "Bousquet plays Creel and
+    # Manther five times each": "This is true of all divisions, instead let's
+    # discuss the weeks that we play each other and possible bye week
+    # challenges instead. Every week is either Intra or Inter Divisional so when
+    # we play the same division it's incredibly important." A division week is
+    # one in which every game he plays is against a division rival; the byes are
+    # the starters in each team's best legal lineup today (MFL nflByeWeeks).
+    t_divweeks = None
+    if _div_members:
+        _bye = {}
+        for _t in SS._as_list((SS.fetch(SS.MFL_BYES % SEASON).get("nflByeWeeks") or {}).get("team")):
+            _bye[_t["id"]] = int(_t["bye_week"])
+        if not _bye:
+            raise SystemExit("team_review_2026: MFL returned no NFL bye weeks")
+        _nflt = _nfl_team_map()
+
+        def _on_bye(f2, wk):
+            lu2 = all_lineups.get(f2) or {"slots": {}}
+            return [adp_name.get(p) or mfl_name.get(p, p) for p in
+                    (lu2["slots"].get(s["id"]) for s in LE.LINEUP_SLOTS) if p and _bye.get(_nflt.get(p)) == wk]
+
+        _rivals = [f2 for f2 in sorted(_div_members) if f2 != fid]
+        _tn = lambda f2: owners.get(f2, {}).get("team_name", f2)
+        dw_rows, dweeks, own_n, riv_n = [], [], 0, 0
+        riv_by = dict((r2, 0) for r2 in _rivals)
+        for _w in SS._as_list(SS.fetch(SS.MFL % (SEASON, "schedule", ""))["schedule"]["weeklySchedule"]):
+            wk = int(_w["week"])
+            opps = []
+            for _m in SS._as_list(_w.get("matchup")):
+                ids = [x["id"] for x in SS._as_list(_m.get("franchise"))]
+                if fid in ids:
+                    opps += [x for x in ids if x != fid]
+            if not opps or not all(o in _rivals for o in opps):
+                continue
+            dweeks.append(wk)
+            own = _on_bye(fid, wk)
+            riv = dict((r2, _on_bye(r2, wk)) for r2 in _rivals)
+            own_n += len(own)
+            riv_n += sum(len(v) for v in riv.values())
+            for r2, v in riv.items():
+                riv_by[r2] += len(v)
+            dw_rows.append([wk, ", ".join("%s (%d)" % (_tn(r2), opps.count(r2)) for r2 in _rivals if r2 in opps),
+                            ", ".join(own) or "none",
+                            "; ".join("%s: %s" % (_tn(r2), ", ".join(v) or "none") for r2, v in riv.items())])
+        if not dweeks:
+            raise SystemExit("team_review_2026: found no division weeks for %s -- check the schedule export" % fid)
+        t_divweeks = pack.table(
+            "t.%s.division_weeks" % fid, "The division weeks",
+            [{"key": "week", "label": "Week", "type": "count"},
+             {"key": "games", "label": "Division games", "type": "text"},
+             {"key": "byes", "label": "His starters on bye", "type": "text"},
+             {"key": "rival_byes", "label": "Rivals' starters on bye", "type": "text"}],
+            dw_rows,
+            note="Weeks in which every game he plays is against a division rival (MFL schedule export). Byes are "
+                 "NFL bye weeks for the starters in each team's best legal lineup today; no team has a bye "
+                 "before week five.")
+        _dw_src = "MFL schedule + nflByeWeeks exports"
+        F("f.team.%s.div_weeks" % fid, "The weeks he plays only division games",
+          ", ".join(str(w) for w in dweeks[:-1]) + " and %d" % dweeks[-1], "text", _dw_src, NOW_UTC)
+        F("f.team.%s.div_week_count" % fid, "Division weeks", len(dweeks), "count", _dw_src, NOW_UTC)
+        F("f.team.%s.div_week_last" % fid, "The last division week", dweeks[-1], "count", _dw_src, NOW_UTC)
+        F("f.team.%s.div_week_own_byes" % fid, "His starter-byes across the division weeks", own_n,
+          "count", _dw_src, NOW_UTC)
+        F("f.team.%s.div_week_rival_byes" % fid, "His rivals' starter-byes across the division weeks", riv_n,
+          "count", _dw_src, NOW_UTC)
+        row_facts["s5"] += ["f.team.%s.%s" % (fid, k) for k in
+                            ("div_weeks", "div_week_count", "div_week_last", "div_week_own_byes", "div_week_rival_byes")]
+        # PER RIVAL, NEVER SUMMED (fact-check 2026-09-11): "he loses 9 and his
+        # rivals 16" set one team against two added together and read as an edge
+        # he did not have.
+        for r2, n2 in riv_by.items():
+            F("f.team.%s.div_week_byes_%s" % (fid, r2), "%s's starter-byes across the division weeks" % _tn(r2),
+              n2, "count", _dw_src, NOW_UTC)
+            row_facts["s5"].append("f.team.%s.div_week_byes_%s" % (fid, r2))
+
+    _f = lambda *keys: ["f.team.%s.%s" % (fid, k) for k in keys]
+    _have = lambda ids: [x for x in ids if x in pack._facts]
+
+    pack.section(
+        "s1", "Early Preseason",
+        "The lay of the land in April, then everything before the rookie draft. Open with the April column of "
+        "the slot table -- which priced slots were filled, and by whom -- and the active players and salary he "
+        "carried. Then, from the moves table, in date order: cuts (say whether they were large cap hits or "
+        "mostly small, and quote a big one with its salary and penalty facts), trades with the salary that "
+        "moved (and any player he extended and then traded), rookie extensions, and his rookie deals that ran "
+        "out and what became of each (the expired table). A contract running out on schedule is the league's "
+        "normal cycle, not a crisis. If the roster shrank before the auction, say WHY from the rows: which "
+        "players were cut, traded, or ran out.",
+        fact_ids=_have(_f("active_roster_opening", "cap_opening", "studs_opening", "holes_opening",
+                          "can_field_lineup_opening", "expired_rookies", "expired_extended", "expired_to_era",
+                          "rookie_extensions", "restructures_early", "cuts_s1", "cuts_s1_salary", "cuts_s1_penalty", "trades_s1",
+                          "trade_salary_out_s1", "trade_salary_in_s1", "extensions_s1", "pickups_s1",
+                          "biggest_contract_traded_away", "trade_blind_bid_cash", "trade_blind_bid_elsewhere"))
+        + row_facts["s1"],
+        table_ids=[t_slots, t_bridge, t_moves["s1"], t_expired, t_trades, t_contracts, t_cuts])
+    pack.section(
+        "s2", "Pre-Auction",
+        "The rookie draft, the Expired Rookie Auction, tags, and the cuts and trades from the draft to the "
+        "auction roster lock (lock-day cuts included). For each rookie pick compare the player with the "
+        "historical baseline at that slot -- an expectation before any outcome, not a grade. ERA players are "
+        "expired rookie deals, a different caliber from the free-agent market; never grade them against it. "
+        "A TAG IS A CHIP (Keith): an owner tags a player to trade him, or to let him go and get the money back "
+        "to spend on someone else, so a tag followed by a release is not automatically a mistake -- say what "
+        "the money did next. Give a released player's salary and penalty from his row facts.",
+        fact_ids=_have(_f("rookie_picks_count", "era_spend", "era_lots_won", "tags", "cuts_s2", "cuts_s2_salary",
+                          "cuts_s2_penalty", "trades_s2", "trade_salary_out_s2", "trade_salary_in_s2",
+                          "extensions_s2", "pickups_s2", "active_roster_preauction", "cap_preauction",
+                          "can_field_lineup_preauction"))
+        + _have(["f.league.era_pool_size", "f.league.era_top_price"]) + row_facts["s2"],
+        table_ids=[t_rookies, t_moves["s2"], t_auction])
+    pack.section(
+        "s3", "The Auction and Preseason Contracts",
+        "The Free Agent Auction: what he spent and what it BOUGHT -- the grade column, and the league table's "
+        "Bought column (Elite / Very good / Good / Starter / Depth), which is how his money compares with everyone "
+        "else's; never print a value-per-dollar multiple. Every restructure: those before or during the "
+        "auction opened room for it -- say whether the room was then used -- and those after it are "
+        "post-auction restructures. Multi-year contracts, from the ERA and the FAA alike. Then the preseason "
+        "waiver and free-agent moves to week one and the contracts that came from them. Close on the lineup "
+        "it built: NAME the holes and the studs rather than counting them. Defense and the kicker are "
+        "footnotes -- one clause each. Then the injuries table: who on the roster is hurt, who plays instead, "
+        "and which weeks the forecast holds a player out.",
+        fact_ids=_have(_f("faa_spend", "faa_lots_won", "auction_spend", "top_buy_price", "top_buy_pct_of_spend",
+                          "restructures_auction", "restructures_post", "restructure_room_freed", "myac_era",
+                          "myac_faa", "myac_trade", "myac_other", "cuts_s3", "cuts_s3_salary", "cuts_s3_penalty", "trades_s3",
+                          "trade_salary_out_s3", "trade_salary_in_s3", "extensions_s3", "pickups_s3",
+                          "studs_postauction", "holes_postauction", "studs_today", "holes_today",
+                          "active_roster_current", "active_today", "taxi_now", "ir_now", "cap_current_spent",
+                          "cap_current_room", "qb_rank", "rb_rank", "wr_rank", "te_rank", "idp_auction_spend",
+                          "idp_auction_share", "idp_adds_alltime", "idp_adds_rank", "idp_adds_next_best",
+                          "idp_adds_lead_streak", "idp_ppw_rank", "injured_starters", "injured_listed"))
+        + _have(["f.league.faa_top_price", "f.league.roster_max_at_auction"]) + row_facts["s3"],
+        table_ids=[t_faa, t_moves["s3"], t_lineup, t_bench, t_injuries] + ([t_idp] if t_idp else []))
+    # ONE section: Keith, "you can combine historical context with the
+    # divisional writeup...it's a natural flow".
+    _dd_ids = [x for x in pack._facts if x.startswith("f.league.div_draft_")]
+    pack.section(
+        "s4", "History and the Division",
+        "This owner's record from the history table -- seasons, titles with their years, runner-up finishes, "
+        "all-play titles, playoff trips and division titles -- flowing straight into his division, two or three "
+        "sentences of history and no eulogy. 2026 is YEAR ONE of a three-year alignment chosen in the league's "
+        "first Owner Divisional Draft: say who captained this division and where each member was picked (the "
+        "div_draft facts), and never credit anyone with past wins in a division that did not exist before 2026. "
+        "Then the division by the preseason simulation: each team's power rank and division, playoff and title "
+        "odds beside each owner's career record. Every team plays each rival five times, so never say so; use "
+        "the division weeks instead -- every week is either divisional or not, and whose starters are on bye "
+        "in the division weeks is the story. Then a short, fun look at the next three years in the owner's own "
+        "style, clearly framed as a projection. If a Week table is present, close on it in a sentence or two: "
+        "an opening data point, never a verdict.",
+        fact_ids=row_facts["s4"] + _have(_f("division_name", "division_size", "division_rank", "wk_live",
+                                             "wk_players_final", "wk_points_final"))
+        + _have(["f.league.wk_teams_final", "f.league.teams"]) + row_facts["s5"] + _dd_ids,
+        table_ids=[t_hist] + ([t_div] if t_div else []) + ([t_divweeks] if t_divweeks else [])
+        + ([t_wk1] if t_wk1 else []))
 
     return pack
 

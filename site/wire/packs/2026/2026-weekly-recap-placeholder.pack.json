@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "packId": "2026-weekly-recap-placeholder",
+  "title": "Weekly Recap",
+  "generatedAtUtc": "2026-09-12T23:28:38Z",
+  "season": 2026,
+  "week": null,
+  "sources": [
+    {
+      "name": "MFL schedule",
+      "asof": "2026-09-12T23:28:38Z",
+      "rows": null,
+      "note": "No games have been played yet -- this pack carries no facts."
+    }
+  ],
+  "coverage": {},
+  "warnings": [],
+  "entities": {
+    "owners": [],
+    "franchises": [],
+    "divisions": []
+  },
+  "facts": [],
+  "tables": [],
+  "charts": [],
+  "quotes": [],
+  "playcards": [],
+  "games": [],
+  "sections": [
+    {
+      "id": "s1",
+      "title": "Coming Soon",
+      "brief": "One short paragraph: recaps start once there is a week of games to recap. No facts, no numbers, no promises about what it will cover.",
+      "factIds": [],
+      "tableIds": [],
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
+    }
+  ]
+}

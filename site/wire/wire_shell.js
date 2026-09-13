@@ -133,11 +133,14 @@
   function byOrder(list) {
     return list.slice().sort(function (x, y) {
       // Newest season first, THEN the order inside it -- otherwise next year's
-      // team reviews interleave with this year's as 1, 1, 2, 2...
+      // team reviews interleave with this year's as 1, 1, 2, 2... Unranked
+      // pieces (the season forecast, the preseason review) have no order at
+      // all, and sort BEFORE the ranked ones -- Keith 2026-09-13: "Move the
+      // season Preview above the team previews."
       var sx = x.season || 0, sy = y.season || 0;
       if (sx !== sy) return sy - sx;
-      var a = x.order == null ? Infinity : x.order;
-      var b = y.order == null ? Infinity : y.order;
+      var a = x.order == null ? -Infinity : x.order;
+      var b = y.order == null ? -Infinity : y.order;
       if (a !== b) return a - b;
       return String(y.publishedAt).localeCompare(String(x.publishedAt));
     });
@@ -188,12 +191,55 @@
     return card;
   }
 
+  // The lead story's own table, straight from the index (wire.py stores the
+  // formatted cells), so the front page shows the numbers and not just a link
+  // to them -- Keith: "Front Page should have a blurb ... followed by Seasonal
+  // Forecast ... as a table". It sits UNDER the card, not in it: a <table> is
+  // not valid inside the card's <button>.
+  function leadTable(a) {
+    var t = a.leadTable;
+    var box = el("div", "wire-lead-table");
+    if (t.title) box.appendChild(el("div", "wire-lead-table-title", t.title));
+    var wrap = el("div", "wire-lead-table-wrap");
+    var table = document.createElement("table");
+    var thead = document.createElement("thead");
+    var hr = document.createElement("tr");
+    (t.columns || []).forEach(function (c, i) {
+      var th = el("th", t.num && t.num[i] ? "wire-num" : null, c);
+      th.setAttribute("scope", "col");
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+    var tb = document.createElement("tbody");
+    t.rows.forEach(function (r) {
+      var tr = document.createElement("tr");
+      r.forEach(function (v, i) { tr.appendChild(el("td", t.num && t.num[i] ? "wire-num" : null, String(v))); });
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb);
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+    var more = btn("wire-seeall", "Read the full story ›");
+    more.addEventListener("click", function () { openArticle(a); });
+    box.appendChild(more);
+    return box;
+  }
+
   // A ranked family (team reviews) reads as a table of contents: rank, team,
   // headline, one line of dek. Twelve full cards were ~4,500px of near-identical
   // boxes on a phone, and nothing on them said which team a card was about.
   function rankedList(list) {
     var box = el("div", "wire-ranked");
+    // A divider between unranked entries (the season forecast, the preseason
+    // review -- no rank number) and the ranked team-by-team list below them.
+    var sawUnranked = false, dividerDrawn = false;
     list.forEach(function (a) {
+      if (a.order == null) sawUnranked = true;
+      else if (sawUnranked && !dividerDrawn) {
+        box.appendChild(el("hr", "wire-ranked-divider"));
+        dividerDrawn = true;
+      }
       var row = btn("wire-rrow", null);
       row.setAttribute("aria-label", (a.order != null ? "Number " + a.order + ". " : "") +
         (a.kicker ? a.kicker + ". " : "") + (a.title || "Untitled") +
@@ -268,7 +314,12 @@
     // the old front page showed five stories on eight cards.
     var featured = all.filter(function (a) { return a.featured; });
     var lead = featured.length ? featured[0] : all[0];
-    els.body.appendChild(articleCard(lead, { lead: true }));
+    var leadBox = el("div", "wire-leadbox");
+    leadBox.appendChild(articleCard(lead, { lead: true }));
+    if (lead.leadTable && lead.leadTable.rows && lead.leadTable.rows.length) {
+      leadBox.appendChild(leadTable(lead));
+    }
+    els.body.appendChild(leadBox);
 
     families().forEach(function (f) {
       var total = all.filter(function (a) { return a.familyId === f.id; }).length;

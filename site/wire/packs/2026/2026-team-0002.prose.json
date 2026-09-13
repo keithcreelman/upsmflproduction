@@ -1,30 +1,137 @@
 {
  "meta": {
-  "engine": "claude-opus-5 (session agent)",
+  "engine": "claude-opus-5 (session, written by hand)",
   "packId": "2026-team-0002"
  },
  "prose": {
-  "kicker": "CBP · Derrick Whitman",
-  "title": "CBP Bought Every Running Back in the Building and Forgot the Position That Matters",
-  "dek": "Derrick Whitman entered the offseason with {{f.team.0002.active_roster_opening}} active players and left the auction with {{f.team.0002.holes_postauction}} hole in his starting offense. It cost him {{f.team.0002.faa_spend}}, and today he has {{f.team.0002.cap_current_room}} of cap room left.",
+  "title": "CBP Drafted, Waited, Then Spent to the Last Dollar",
+  "dek": "Derrick Whitman started April with {{f.team.0002.active_roster_opening}} active players, made no trade, cut or signing before the auction beyond {{f.team.0002.rookie_picks_count}} rookie picks, then spent {{f.team.0002.faa_spend}}, most of it on Jonathan Taylor, D'Andre Swift, Kyle Pitts and the Tony Pollard that C-Town let go. He has {{f.team.0002.cap_current_room}} of cap room left, and the preseason simulation ranks CBP {{f.team.0002.power_rank|ord}}.",
   "sections": [
    {
     "id": "s1",
-    "lead": "",
     "paragraphs": [
-     "Jonathan Taylor is an Elite RB1 and the reason this roster functions. D'Andre Swift is a Low-end RB2 beside him and the backfield ranks {{f.team.0002.rb_rank|ord}}. Kyle Pitts grades High-end TE1 and puts the tight end room {{f.team.0002.te_rank|ord}} as well; those two rooms are the best on this roster.",
-     "Receiver is sound rather than a strength. Nico Collins is a Low-end WR1, Emeka Egbuka a Mid WR2, Garrett Wilson a Low-end WR2 in the flex, and the room ranks {{f.team.0002.wr_rank|ord}}, just below the middle of the league. Three real starters and no passengers.",
-     "Then quarterback, which ranks {{f.team.0002.qb_rank|ord}} and is the entire argument against this team. Tyler Shough grades Mid QB2 and Jordan Love grades Mid QB2. That is not a superflex pair, it is the same player in two jerseys. In a format that rewards starting two of them, going into a season with a matched set of backups is a decision, and it is the wrong one.",
-     "The defense is honest work and no more: points per started defender ranks {{f.team.0002.idp_ppw_rank|ord}} across the last three seasons, the cheapest shortfall in this league to fix.",
-     "The composite lands {{f.team.0002.composite_rank|ord}} of {{f.league.teams}} with {{f.team.0002.studs_today}} studs and only {{f.team.0002.holes_today}} hole. That gap between rank and hole count is the whole team in one line: there is a competent body in nearly every slot, and beyond Jonathan Taylor little that wins a week by itself."
+     "April was nearly empty: {{f.team.0002.active_roster_opening}} active players, not enough for a lineup, and {{f.team.0002.cap_opening}} in salary. Nico Collins was the one top-twelve player; Jordan Love, Emeka Egbuka and Garrett Wilson were solid; and behind them were only Keaton Mitchell at running back, Cole Kmet at tight end, Ricky Pearsall and Spencer Rattler.",
+     "Before the rookie draft he made no trade, no cut and no extension, and his one expiring rookie deal, A.T. Perry's, simply ran out."
     ],
     "place": [
-     "t.0002.lineup"
+     "t.0002.slot_bridge",
+     "t.0002.expired"
     ],
     "placeAt": {
-     "t.0002.lineup": 0
+     "t.0002.slot_bridge": 0,
+     "t.0002.expired": 1
     },
     "views": {
+     "t.0002.slot_bridge": {
+      "cols": [
+       "slot",
+       "open"
+      ],
+      "labels": {
+       "open": "April"
+      },
+      "title": "April: who held each priced slot"
+     },
+     "t.0002.expired": {
+      "cols": [
+       "player",
+       "pos",
+       "outcome"
+      ],
+      "title": "Rookie deals that ran out"
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s2",
+    "paragraphs": [
+     "The draft was the whole pre-auction offseason. Whitman made {{f.team.0002.rookie_picks_count}} picks, two in the first round: Kenyon Sadiq at 1.08, a slot where history finds a usable player a little under half the time, and Eli Stowers at 1.12, where it almost never has. Jonah Coleman at 2.01, Ted Hurst, Cade Klubnik and a defender, Keyshaun Elliott, followed. Sadiq and Coleman are already on the redraft board, both replacement-level for now.",
+     "No Expired Rookie Auction buys, no tags, no cuts, no trades. He went into the auction with {{f.team.0002.active_roster_preauction}} active players and {{f.team.0002.cap_preauction}} in active-roster salary: plenty of room, and plenty of rebuilding to do with it."
+    ],
+    "place": [
+     "t.0002.rookies"
+    ],
+    "placeAt": {
+     "t.0002.rookies": 0
+    },
+    "views": {
+     "t.0002.rookies": {
+      "cols": [
+       "pick",
+       "player",
+       "baseline",
+       "val"
+      ],
+      "title": "The rookie class",
+      "labels": {
+       "baseline": "History at this slot",
+       "val": "Grade today"
+      }
+     }
+    },
+    "captions": {}
+   },
+   {
+    "id": "s3",
+    "paragraphs": [
+     "CBP spent {{f.team.0002.faa_spend}} at the Free Agent Auction on {{f.team.0002.faa_lots_won}} players, and made a little more room first. On the auction's opening weekend Jordan Love was extended one more year, {{f.team.0002.contract_14782_next_salary}} for 2027, and restructured the same day, back-loaded to {{f.team.0002.contract_14782_salary_2}} this year and {{f.team.0002.contract_14782_next_salary_2}} next. Then Whitman bought a backfield: Jonathan Taylor for {{f.team.0002.faa_14802_price}}, D'Andre Swift for {{f.team.0002.faa_14797_price}} and Tony Pollard, cut by C-Town on lock day, for {{f.team.0002.faa_14085_price}} after thirteen bids. Kyle Pitts cost {{f.team.0002.faa_15329_price}}.",
+     "What it bought was real: Taylor and Pitts, a High-end RB1 and a High-end TE1, the two Very good buys; Swift, the Good one; and Pollard, who starts. Aaron Jones and Michael Pittman are bench depth. His offense and C-Town's improved the most at the auction, all but tied; the league table ranks CBP {{f.team.0002.faa_off_rank|ord}} of {{f.league.teams}}, by a hair.",
+     "The contracts that followed ran him to the cap. Pitts signed front-loaded, {{f.team.0002.contract_15329_salary}} this year and {{f.team.0002.contract_15329_next_salary}} in 2027. Nico Collins was restructured twice inside auction week: a three-year deal became two at {{f.team.0002.contract_15290_salary}} this year, then {{f.team.0002.contract_15290_salary_2}}, with {{f.team.0002.contract_15290_next_salary_2}} pushed into 2027. In August Whitman took Jayden Reed, three depth players and {{f.team.0002.trade_blind_bid_cash}} of blind-bid money from Blake Bombers for Pearsall, Coleman and a 2027 fourth, a {{f.team.0002.trade1_grade}} from the trade bot. He cut Kmet at no cost, claimed Calvin Ridley and Xavier Hutchinson off waivers, and sits at {{f.team.0002.cap_current_room}} of room.",
+     "The lineup it built has {{f.team.0002.studs_today}} top-twelve starters, Taylor, Collins and Pitts, five solid ones around them, and {{f.team.0002.holes_today}} hole, Pollard in a flex. Quarterback is the soft spot: Tyler Shough and Love both grade as a Mid QB2, and his quarterbacks rank {{f.team.0002.qb_rank|ord}} in the league. Graded on MFL's projections the defense is thin: Foyesade Oluokun is a Mid LB2, Edgerrin Cooper a Low-end LB3, and every other defensive starter is replacement-level.",
+     "No starter is hurt. The injury list is all bench and taxi: Eli Stowers is questionable, and Isiah Pacheco and Dillon Gabriel are on injured reserve into October."
+    ],
+    "place": [
+     "t.0002.faa",
+     "t.0002.faa_value",
+     "t.0002.moves_s3",
+     "t.0002.lineup",
+     "t.0002.injuries"
+    ],
+    "placeAt": {
+     "t.0002.faa": 0,
+     "t.0002.faa_value": 1,
+     "t.0002.moves_s3": 0,
+     "t.0002.lineup": 4,
+     "t.0002.injuries": 4
+    },
+    "views": {
+     "t.0002.faa": {
+      "cols": [
+       "player",
+       "pos",
+       "price",
+       "grade"
+      ],
+      "rows": 8,
+      "title": "Biggest buys"
+     },
+     "t.0002.faa_value": {
+      "cols": [
+       "rank",
+       "team",
+       "spend",
+       "gain_share",
+       "bought"
+      ],
+      "labels": {
+       "spend": "Spent on offense",
+       "gain_share": "Share of the improvement",
+       "bought": "What it bought"
+      },
+      "title": "What every owner's auction money bought"
+     },
+     "t.0002.moves_s3": {
+      "cols": [
+       "date",
+       "move",
+       "player",
+       "detail",
+       "grade"
+      ],
+      "stack": true,
+      "title": "From the auction to week one"
+     },
      "t.0002.lineup": {
       "cols": [
        "slot",
@@ -34,149 +141,72 @@
       "labels": {
        "val": "Grade"
       },
-      "title": "Strongest legal lineup"
-     }
-    }
-   },
-   {
-    "id": "s2",
-    "lead": "",
-    "paragraphs": [
-     "In April this roster held {{f.team.0002.active_roster_opening}} active players, the barest in the league, with {{f.team.0002.cap_opening}} committed to them, {{f.team.0002.holes_opening}} of the priced offensive spots still holes and Nico Collins the only stud on hand. He had a long way to climb.",
-     "He barely moved before the auction. At the roster lock he was up to {{f.team.0002.active_roster_preauction}} active players and {{f.team.0002.cap_preauction}} committed. Tyler Shough had arrived to pair with Jordan Love, where in April the best he had beside Love was the unranked Spencer Rattler, and the rookie Kenyon Sadiq joined Cole Kmet at tight end, though he grades only Replacement-level TE. Three months, one hole closed.",
-     "Everything happened at the auction. He came out with {{f.team.0002.active_roster_current}} active players, holes down to {{f.team.0002.holes_postauction}}, studs up from {{f.team.0002.studs_opening}} to {{f.team.0002.studs_postauction}}, and a starting offense far stronger than the one he carried in, the biggest proportional jump any team made at the auction. Jonathan Taylor went ahead of Keaton Mitchell as the lead back, D'Andre Swift gave him a second back where he had had nobody at all, Kyle Pitts moved past Sadiq at tight end, and Tony Pollard took the second flex, where the best he had on hand before was the unranked Ricky Pearsall. Four of the priced slots got a new name in a fortnight.",
-     "It is a real rebuild and it deserves credit. It also leaves him today with {{f.team.0002.cap_current_room}} of room against {{f.team.0002.cap_current_spent}} committed, which means the fix for the quarterback room does not exist unless somebody leaves."
-    ],
-    "place": [
-     "t.0002.slot_bridge"
-    ],
-    "placeAt": {
-     "t.0002.slot_bridge": 0
-    },
-    "views": {
-     "t.0002.slot_bridge": {
-      "cols": [
-       "slot",
-       "open",
-       "pre",
-       "now"
-      ],
-      "stack": true,
-      "title": "Who filled each priced slot",
-      "labels": {
-       "open": "April",
-       "pre": "Before the auction",
-       "now": "After it"
-      }
-     }
-    }
-   },
-   {
-    "id": "s3",
-    "lead": "",
-    "paragraphs": [
-     "He did not buy a single player at the Expired Rookie Auction — {{f.team.0002.era_lots_won}} wins, {{f.team.0002.era_spend}} spent, out of a pool of {{f.league.era_pool_size}} players league-wide. The ERA sells men whose rookie deals ran out without earning a second one, and its most expensive player anywhere went for {{f.league.era_top_price}}.",
-     "The Free Agent Auction was the opposite of a pass. {{f.team.0002.faa_lots_won}} players, {{f.team.0002.faa_spend}}, and a clear obsession. Jonathan Taylor at {{f.team.0002.top_buy_price}}, {{f.team.0002.top_buy_pct_of_spend}} of his auction money; the most expensive player in the auction went for {{f.league.faa_top_price}}. Then Tony Pollard, then D'Andre Swift, then Aaron Jones, then Isiah Pacheco. Five running backs.",
-     "For all that, the money worked. He spent {{f.team.0002.faa_off_spend}} on offense at the Free Agent Auction, and only Real Deal Creel spent more. For what that money bought, he ranked {{f.team.0002.faa_off_rank|ord}} of {{f.league.teams}}: only Blake Bombers, C-Town Chivalry and Hawks got more for their dollars.",
-     "What the totals hide is the shape of it. Taylor and Swift start. Pollard is the second-most expensive player he bought all summer and he grades Replacement-level RB in the flex. Aaron Jones and Pacheco sit on the bench, both replacement-level, and Jones was not cheap. Kyle Pitts at tight end was the smartest buy of his auction and the running back pile-up is what he spent instead of solving the position ranked {{f.team.0002.qb_rank|ord}}.",
-     "His defense took {{f.team.0002.idp_auction_spend}}, {{f.team.0002.idp_auction_share}} of his money, most of it on Edgerrin Cooper and Foyesade Oluokun, with minimum-priced bodies behind them."
-    ],
-    "place": [
-     "t.0002.auction",
-     "t.0002.faa_value"
-    ],
-    "placeAt": {
-     "t.0002.auction": 1,
-     "t.0002.faa_value": 2
-    },
-    "views": {
-     "t.0002.auction": {
+      "title": "The lineup it built"
+     },
+     "t.0002.injuries": {
       "cols": [
        "player",
-       "pos",
-       "auction",
-       "price"
-      ],
-      "sortDesc": "price",
-      "rows": 5,
-      "title": "Biggest buys",
-      "labels": {
-       "auction": "Where"
-      }
-     },
-     "t.0002.faa_value": {
-      "cols": [
-       "rank",
-       "team",
-       "spend"
+       "slot",
+       "status",
+       "details",
+       "returns",
+       "held"
       ],
       "labels": {
-       "spend": "Spent on offense"
+       "details": "Injury",
+       "returns": "Expected back",
+       "held": "Forecast sits him (weeks)"
       },
-      "title": "Who got the most for his money"
+      "title": "Injuries"
      }
     },
     "captions": {
-     "t.0002.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close, for every dollar he spent on quarterbacks, backs, receivers and tight ends at the Free Agent Auction."
+     "t.0002.faa_value": "Ranked by how much each owner's starting offense improved between the auction lock and the close; a buy that never makes the lineup adds nothing. What it bought grades each quarterback, back, receiver and tight end at his position: Elite is this year's separated top, which is one man at some positions and nobody at others, Very good the rest of the top twelve, Good the next twelve at quarterback, back and receiver (every team starts two, counting the superflex), Starter depth anyone else who starts somewhere in the league, and Bench depth the rest."
     }
    },
    {
     "id": "s4",
-    "lead": "",
     "paragraphs": [
-     "{{f.team.0002.contracts_count}} contract moves, {{f.team.0002.trades_count}} trade, {{f.team.0002.roster_removals_total}} roster removal, {{f.team.0002.cuts_penalty_2026}} of penalty. This is a quiet ledger attached to a loud auction.",
-     "Jordan Love got an extension and then a restructure on the same day. Kyle Pitts and Michael Pittman were converted to multi-year deals off their auction wins.",
-     "The interesting one is Nico Collins: his salary came down to free {{f.team.0002.restructure_room_freed}} of room while the auction was running, then went back up afterwards, ending on exactly the deal it started as. That is well-timed cap handling, and the neatest piece of work in his offseason.",
-     "The single trade went to Blake Bombers, who share his division and sit ahead of him. He sent Ricky Pearsall, Jonah Coleman and a 2027 fourth, and got back Jayden Reed, three players nobody is drafting in redraft leagues, and {{f.team.0002.trade_blind_bid_cash}} of blind-bid money. Of the four players he got back, Reed is the only one who matters this season, and he grades Replacement-level WR on the bench at a salary that says he was supposed to be more. Selling a second-round rookie to a division rival for cash and a bench receiver is not obviously a win.",
-     "One cut: Cole Kmet, released in late August with no penalty charged. Nobody else was dropped.",
-     "The rookie class had two genuinely good slots and he has not converted them yet. Kenyon Sadiq at 1.08 sits in the best historical band of his own class and grades only Replacement-level TE on today's board. Jonah Coleman at 2.01 was in the second-best band and has already been traded. Cade Klubnik at 4.03 is a lottery ticket, and Keyshaun Elliott at 6.02 is a defender with no NFL season to judge yet."
+     "Whitman's teams have had the league's best all-play record {{f.team.0002.hist_ap_titles}} times, in {{f.team.0002.hist_ap_title_years}}, and won {{f.team.0002.hist_div_titles}} division titles, but the championship count is one, in {{f.team.0002.hist_title_years}}, with a runner-up finish in {{f.team.0002.hist_runner_up_years}}. His career all-play record is {{f.team.0002.hist_allplay_pct}}.",
+     "This year's division is one he built. Whitman sat {{f.league.div_draft_captain_0002|ord}} among the four captains, took Gride {{f.league.div_draft_pick_0003|ord}} overall and came back for Blake Bombers {{f.league.div_draft_pick_0010|ord}}, and he has made a point of calling LEGION OF BOOM his division, not ours, because he put it together, though in July he picked Blake to win it. The simulation agrees: Blake Bombers are the favorite at {{f.league.p_division_0010}}, CBP is at {{f.team.0002.sim_p_division}} with {{f.team.0002.sim_p_playoffs}} playoff odds, and Gride is at {{f.league.p_division_0003}}.",
+     "The division weeks are {{f.team.0002.div_weeks}}, and one of them is a problem. Week eight costs him three starters, Shough, Collins and Kaden Elliss, and Gride and Blake Bombers three apiece, George Kittle and Brock Purdy among Blake's. But week eleven takes six CBP starters at once, Pitts, Love and four defenders, against four apiece for his rivals. Week fourteen, the last of the regular season, has no byes at all in the division. Across the five weeks he loses {{f.team.0002.div_week_own_byes}} starters to byes, Gride {{f.team.0002.div_week_byes_0003}} and Blake Bombers {{f.team.0002.div_week_byes_0010}}.",
+     "The next three years: in 2027 the young players grow up; in 2028 CBP makes the playoffs and finally solves quarterback at an auction; in 2029 it wins the division he put together himself.",
+     "Week one is a division week and has barely touched CBP: with {{f.league.wk_teams_final}} NFL teams done, Leonard Williams had a sack and CBP has {{f.team.0002.wk_points_final}} points in the bank."
     ],
     "place": [
-     "t.0002.trades"
-    ],
-    "placeAt": {
-     "t.0002.trades": 3
-    },
-    "views": {
-     "t.0002.trades": {
-      "cols": [
-       "date",
-       "partner",
-       "gave",
-       "got"
-      ],
-      "stack": true,
-      "title": "Trades"
-     }
-    }
-   },
-   {
-    "id": "s5",
-    "lead": "",
-    "paragraphs": [
-     "His division has {{f.team.0002.division_size}} teams and he sits {{f.team.0002.division_rank|ord}} in it, behind Blake Bombers and ahead of Gride, and he plays each of them five times. The Bombers are also the team he sold his second-round rookie to, and Gride is the matchup he has to hold.",
-     "Strongest team in the league? No: {{f.team.0002.composite_rank|ord}} of {{f.league.teams}}. Best offseason, though — that is a genuinely different question and he has a real case. He took {{f.team.0002.active_roster_opening}} active players and {{f.team.0002.holes_opening}} holes in April and turned them into a starting offense with {{f.team.0002.holes_today}} hole in it. Only Real Deal Creel closed as many.",
-     "The biggest advantage is Jonathan Taylor with Kyle Pitts behind him, an Elite RB1 and a High-end TE1 who put the backfield {{f.team.0002.rb_rank|ord}} and the tight end room {{f.team.0002.te_rank|ord}}. The biggest weakness is quarterback, ranked {{f.team.0002.qb_rank|ord}}, where Tyler Shough and Jordan Love are the same grade as each other and he has {{f.team.0002.cap_current_room}} left to do anything about it.",
-     "For what one game is worth: {{f.league.wk_teams_final}} NFL teams had played when this was written, and the only CBP starter among them was Leonard Williams, bought at the league minimum, who banked {{f.team.0002.wk_points_final}} points with a sack in it. One of the cheapest players in his auction was the first to pay."
-    ],
-    "place": [
+     "t.0002.history",
      "t.0002.division",
+     "t.0002.division_weeks",
      "t.0002.week1"
     ],
     "placeAt": {
-     "t.0002.division": 0,
-     "t.0002.week1": 3
+     "t.0002.history": 0,
+     "t.0002.division": 1,
+     "t.0002.division_weeks": 2,
+     "t.0002.week1": 4
     },
     "views": {
+     "t.0002.history": {
+      "stack": true,
+      "title": "Owner history"
+     },
      "t.0002.division": {
-      "cols": [
-       "team",
-       "comp"
-      ],
-      "labels": {
-       "comp": "League rank"
-      },
+      "stack": true,
       "title": "The division"
+     },
+     "t.0002.division_weeks": {
+      "cols": [
+       "week",
+       "games",
+       "byes",
+       "rival_byes"
+      ],
+      "title": "The division weeks",
+      "labels": {
+       "games": "Division games",
+       "byes": "His starters on bye",
+       "rival_byes": "Rivals' starters on bye"
+      }
      },
      "t.0002.week1": {
       "cols": [
@@ -199,22 +229,21 @@
     }
    }
   ],
+  "kicker": "CBP · Derrick Whitman",
   "strip": [
    {
-    "fact": "f.team.0002.composite_rank",
+    "fact": "f.team.0002.power_rank",
     "ord": true,
     "of": "f.league.teams",
-    "label": "Overall"
+    "label": "Power rank"
    },
    {
-    "fact": "f.team.0002.studs_today",
-    "label": "Offensive studs",
-    "suffix": "of nine"
+    "fact": "f.team.0002.sim_p_playoffs",
+    "label": "Playoff odds"
    },
    {
-    "fact": "f.team.0002.holes_today",
-    "label": "Offensive holes",
-    "suffix": "of nine"
+    "fact": "f.team.0002.sim_p_title",
+    "label": "Title odds"
    },
    {
     "fact": "f.team.0002.auction_spend",
@@ -226,7 +255,7 @@
    }
   ],
   "card": {
-   "rankFact": "f.team.0002.composite_rank",
+   "rankFact": "f.team.0002.power_rank",
    "ofFact": "f.league.teams",
    "featured": false
   }

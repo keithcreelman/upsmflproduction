@@ -502,3 +502,12 @@
 .wire-gamepage blockquote { margin-top: 1rem; }
 
 @media print { .wire-deck-on .wire-gamepage { display: block !important; } }
+
+/* Sortable table headers (the article runtime wires these up). */
+th.wire-sortable { cursor: pointer; user-select: none; -webkit-user-select: none; }
+th.wire-sortable:hover,
+th.wire-sortable:focus-visible { color: var(--wire-ink, inherit); text-decoration: underline; }
+th.wire-sortable::after { content: " \2195"; opacity: .28; font-size: .85em; }
+th.wire-sortable[aria-sort="ascending"]::after { content: " \2191"; opacity: .9; }
+th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9; }
+@media (max-width: 700px) { th.wire-sortable::after { content: ""; } }

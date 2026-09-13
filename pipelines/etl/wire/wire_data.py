@@ -53,6 +53,20 @@ class DataError(RuntimeError):
 
 # ------------------------------------------------------------------ D1
 
+def _demojibake(v):
+    """Undo UTF-8 text that was stored after a Latin-1 round trip. src_franchises
+    holds HammerTime's name that way, and every team review printed its emoji as
+    four accented letters. A correctly stored string either is not Latin-1
+    encodable or does not decode as UTF-8 afterwards, so it comes back as it was."""
+    if not isinstance(v, str) or v.isascii():
+        return v
+    try:
+        fixed = v.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return v
+    return fixed
+
+
 def d1(sql, retries=1):
     """Run a single SELECT against the remote D1 and return list-of-dicts.
 
@@ -77,7 +91,7 @@ def d1(sql, retries=1):
         if proc.returncode == 0 and out:
             try:
                 payload = json.loads(out)
-                return payload[0]["results"]
+                return [dict((k, _demojibake(v)) for k, v in row.items()) for row in payload[0]["results"]]
             except Exception as exc:          # noqa: BLE001 - report the raw text
                 last = "unparseable wrangler output: %s / %s" % (exc, out[:200])
         else:
@@ -326,6 +340,61 @@ def contract_activity(season="2026"):
     if dropped:
         provenance = "%s; %d uncorroborated row(s) dropped" % (provenance, len(dropped))
     return rows, provenance
+
+
+def contract_submissions_d1(season="2026"):
+    """Real (non-dry-run, non-voided) extension, multi-year and restructure
+    submissions from D1, shaped like contract-activity log rows.
+
+    D1 is the single source of truth for contracts. The JSON log is written by a
+    GitHub workflow that dropped entries whenever submissions landed seconds apart
+    (2026-09-06: Chase Brown's restructure and four multi-year contracts), so a
+    reader that trusts only the log misses real moves. Commissioner reverts and
+    trade-workbench rows are not owner submissions and are left out.
+    """
+    import re as _re
+    season = int(season)
+
+    def _tcv(info):
+        m = _re.search(r"TCV\s*([\d.]+)K", info or "")
+        return int(round(float(m.group(1)) * 1000)) if m else None
+
+    rows = []
+    for r in d1("SELECT id, franchise_id, player_id, player_name, position, new_salary, new_contract_year, "
+                "new_contract_status, new_contract_info, tcv_usd, source, submitted_at_utc FROM "
+                "ups_restructure_submissions WHERE season = %d AND COALESCE(dry_run, 0) = 0 "
+                "AND voided_at_utc IS NULL" % season):
+        # tcv_usd is stored in thousands on some rows (Chase Brown: 44); the
+        # contract string is the contract.
+        rows.append({"activity_type": "Restructure", "tcv": _tcv(r["new_contract_info"]),
+                     "d1_table": "ups_restructure_submissions", **r})
+    for r in d1("SELECT id, franchise_id, player_id, player_name, position, new_salary, new_contract_year, "
+                "new_contract_status, new_contract_info, source, submitted_at_utc FROM "
+                "ups_extension_submissions WHERE season = %d AND COALESCE(dry_run, 0) = 0" % season):
+        src = str(r["source"] or "")
+        if "myac" in src:
+            typ = "Multi-Year Contract"
+        elif "extension" in src:
+            typ = "Extension"
+        else:
+            continue
+        rows.append({"activity_type": typ, "tcv": _tcv(r["new_contract_info"]),
+                     "d1_table": "ups_extension_submissions", **r})
+    out = []
+    for r in rows:
+        out.append({
+            "activity_scope": "contract_mutation", "franchise_id": str(r["franchise_id"]).zfill(4),
+            "player_id": str(r["player_id"]), "player_name": r["player_name"], "position": r["position"],
+            "activity_type": r["activity_type"], "salary": r["new_salary"], "contract_year": r["new_contract_year"],
+            "contract_status": r["new_contract_status"], "contract_info": r["new_contract_info"], "tcv": r["tcv"],
+            "submitted_at_utc": r["submitted_at_utc"], "test_flag": 0,
+            "source": "d1:%s#%s (%s)" % (r["d1_table"], r["id"], r["source"])})
+    # The same test cutoff and phantom list the log reader applies: Keith's
+    # franchise was the Front Office test bed, and its pre-cutoff submissions are
+    # in D1 too.
+    out = _drop_test_contract_rows(out, season)
+    out, _dropped = _drop_uncorroborated_contract_rows(out, season)
+    return out
 
 
 def _drop_test_contract_rows(rows, season):

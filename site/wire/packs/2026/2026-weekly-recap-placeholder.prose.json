@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "engine": "hand-authored",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "packId": "2026-weekly-recap-placeholder",
+    "packGeneratedAtUtc": "2026-09-12T23:28:38Z"
+  },
+  "prose": {
+    "kicker": "Coming after week one",
+    "title": "Weekly Recap",
+    "dek": "This is where the recaps will run once there is a week of games to recap.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Nothing has been played yet, so there is nothing to write up here. Once the first week of games is complete, this section becomes the recap: the scoreboard, the best performance, the bench that cost somebody a win, and the league's own chat about all of it."
+        ],
+        "bullets": [],
+        "place": [],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {}
+      }
+    ]
+  }
+}
