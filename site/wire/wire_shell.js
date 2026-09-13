@@ -322,8 +322,11 @@
     if (!all.length) { els.body.appendChild(emptyCard("Nothing published yet.")); return; }
 
     // The cover story is a deliberate choice (`featured: yes` in wire-meta),
-    // falling back to the newest. It is then left OUT of every rail below --
-    // the old front page showed five stories on eight cards.
+    // falling back to the newest. Front Page is a preview of that ONE story
+    // and nothing else (Keith 2026-09-13: "should only be the front page...
+    // a preview of the most recent article...save the weekly and previews
+    // for their individual sections") -- no family rails here anymore; each
+    // section is reached from the nav instead.
     var featured = all.filter(function (a) { return a.featured; });
     var lead = featured.length ? featured[0] : all[0];
     var leadBox = el("div", "wire-leadbox");
@@ -332,35 +335,6 @@
       leadBox.appendChild(leadTable(lead));
     }
     els.body.appendChild(leadBox);
-
-    families().forEach(function (f) {
-      var total = all.filter(function (a) { return a.familyId === f.id; }).length;
-      var mine = all.filter(function (a) { return a.familyId === f.id && a !== lead; });
-      if (!mine.length) return;
-      els.body.appendChild(familyRail(f, mine, total));
-    });
-  }
-
-  // `total` counts the family INCLUDING the lead story, which is left out of
-  // `mine` so it is not shown twice -- "See all" still means all of them.
-  function familyRail(f, mine, total) {
-    var sec = el("section");
-    mine = byOrder(mine);
-    if (f.layout === "ranked") {
-      sec.appendChild(familyHead(f));
-      sec.appendChild(rankedList(mine));
-      return sec;
-    }
-    var see = null;
-    if (total > 3) {
-      see = btn("wire-seeall", "See all " + total + " \u203A");
-      see.addEventListener("click", function () { go({ kind: "family", familyId: f.id, season: null, page: 1 }); });
-    }
-    sec.appendChild(familyHead(f, see));
-    var grid = el("div", "wire-grid");
-    mine.slice(0, 3).forEach(function (a) { grid.appendChild(articleCard(a)); });
-    sec.appendChild(grid);
-    return sec;
   }
 
   function renderFamily() {

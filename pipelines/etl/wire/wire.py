@@ -457,7 +457,7 @@ def fail(msg):
 # ---------------------------------------------------------------- packs
 
 PACKS_DIR = os.path.join(WIRE, "packs")
-PACK_BUILDERS = {"2026-preseason-review": "preseason_review",
+PACK_BUILDERS = {
                  # The front page's lead (Keith 2026-09-11): blurb, then the
                  # season forecast table, then the season in general.
                  "2026-season-forecast": "season_forecast",
@@ -560,11 +560,12 @@ def cmd_check_pack(args):
 
 # "season-review" is the Wire's single Previews section (Keith 2026-09-12:
 # "Move Team Previews under Season Previews. But make the header Previews.")
-# -- the forecast, the preseason review and all twelve team previews share it,
-# so there is one nav tab and one front-page rail, not two.
-PACK_FAMILY = {"2026-preseason-review": "season-review", "2026-season-forecast": "season-review",
+# -- the forecast and all twelve team previews share it, so there is one nav
+# tab, not two. (The preseason review, "Everybody Paid. Somebody Overpaid.",
+# was removed outright 2026-09-13 -- Keith: "that's trash".)
+PACK_FAMILY = {"2026-season-forecast": "season-review",
                "2026-weekly-recap-placeholder": "weekly"}
-PACK_ARTICLE = {"2026-preseason-review": "2026-preseason-review", "2026-season-forecast": "2026-season-forecast",
+PACK_ARTICLE = {"2026-season-forecast": "2026-season-forecast",
                 "2026-weekly-recap-placeholder": "2026-weekly-recap-placeholder"}
 for _wk in (13, 14, 15, 16, 17):
     PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
