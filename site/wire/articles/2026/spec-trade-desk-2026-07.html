@@ -17,7 +17,7 @@
   heroValue: 3
   heroLabel: deals
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-53180684">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-4d632834">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -428,16 +428,17 @@ html { background: var(--ground); }
 }
 .wire-secnav span { font-family: var(--display); font-weight: 700; font-size: 1rem; line-height: 1.25; }
 
-/* ---------- Back bar. Hidden unless the runtime says we are embedded. ---------- */
-.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+/* ---------- Top nav. Hidden unless the runtime says we are embedded. ---------- */
+.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
 .wire-embedded .wire-topbar { display: flex; }
-.wire-back {
+.wire-topnav { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.wire-navlink {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--gold); background: none; border: 1px solid var(--gold-dim);
   padding: 0.4rem 0.7rem; cursor: pointer; line-height: 1;
 }
-.wire-back:hover { color: var(--ground); background: var(--gold); }
+.wire-navlink:hover { color: var(--ground); background: var(--gold); }
 .wire-topbar-title { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
 
 @media (max-width: 34rem) {
@@ -788,17 +789,26 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
   if (theme === "dark" || theme === "light") docEl.setAttribute("data-theme", theme);
   if (embedded) docEl.classList.add("wire-embedded");
 
-  // 2. Back bar. Only visible when embedded (CSS: .wire-embedded .wire-topbar).
-  var back = document.querySelector("[data-wire-back]");
-  if (back) {
-    back.addEventListener("click", function () {
-      if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+  // 2. Top nav. Only visible when embedded (CSS: .wire-embedded .wire-topbar).
+  //    Every button carries data-wire-goto with a shell route ("/", "/f/<id>",
+  //    ...) so a reader deep in one article can jump straight to Front Page,
+  //    Previews, or The Week without detouring back through "All stories"
+  //    first. Embedded, the loader owns navigation and already understands
+  //    every route shape the shell does (mfl_hpm_embed_loader.js parseRoute);
+  //    standalone, this file has no router of its own, so it hands off to the
+  //    shell page's own hash-based one.
+  var navBtns = [].slice.call(document.querySelectorAll("[data-wire-goto]"));
+  navBtns.forEach(function (b) {
+    var goto = b.getAttribute("data-wire-goto") || "/";
+    b.addEventListener("click", function () {
+      if (embedded) { post({ type: "wire-route", route: goto }); return; }
       // Standalone: UPS_WIRE_PAGES_BASE is the one place the Pages path shape
       // is written down. The relative fallback covers an Artifact or any host
       // that never set it.
-      window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+      var base = String(window.UPS_WIRE_PAGES_BASE || "../../");
+      window.location.href = goto === "/" ? base : base + "#" + goto;
     });
-  }
+  });
 
   // 3. Paging.
   var secs = [].slice.call(document.querySelectorAll(".wire-sec"));

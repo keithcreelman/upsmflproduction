@@ -323,16 +323,17 @@
 }
 .wire-secnav span { font-family: var(--display); font-weight: 700; font-size: 1rem; line-height: 1.25; }
 
-/* ---------- Back bar. Hidden unless the runtime says we are embedded. ---------- */
-.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+/* ---------- Top nav. Hidden unless the runtime says we are embedded. ---------- */
+.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
 .wire-embedded .wire-topbar { display: flex; }
-.wire-back {
+.wire-topnav { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.wire-navlink {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--gold); background: none; border: 1px solid var(--gold-dim);
   padding: 0.4rem 0.7rem; cursor: pointer; line-height: 1;
 }
-.wire-back:hover { color: var(--ground); background: var(--gold); }
+.wire-navlink:hover { color: var(--ground); background: var(--gold); }
 .wire-topbar-title { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
 
 @media (max-width: 34rem) {
