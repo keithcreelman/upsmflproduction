@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-12T13:08:54.823944+00:00",
+    "generated_at_utc": "2026-09-13T13:53:14.229627+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1226,6 +1226,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_13322",
+          "display": "Chuck Clark",
+          "player_id": "13322",
+          "position": "S",
+          "nfl_team": "DET",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17046",
           "display": "Devin Neal",
           "player_id": "17046",
@@ -1262,6 +1274,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17066",
+          "display": "Kyle Monangai",
+          "player_id": "17066",
+          "position": "RB",
+          "nfl_team": "CHI",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15864",
           "display": "Alex Wright",
           "player_id": "15864",
@@ -1270,7 +1294,7 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -1507,18 +1531,6 @@
           "player_id": "17060",
           "position": "RB",
           "nfl_team": "IND",
-          "salary": 2000,
-          "contract_year": 2,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
-          "asset_id": "P_17066",
-          "display": "Kyle Monangai",
-          "player_id": "17066",
-          "position": "RB",
-          "nfl_team": "CHI",
           "salary": 2000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
@@ -1905,18 +1917,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_14067",
-          "display": "Gardner Minshew",
-          "player_id": "14067",
-          "position": "QB",
-          "nfl_team": "ARI",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16843",
           "display": "Harrison Mevis",
           "player_id": "16843",
@@ -1973,6 +1973,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_13113",
+          "display": "Deshaun Watson",
+          "player_id": "13113",
+          "position": "QB",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
