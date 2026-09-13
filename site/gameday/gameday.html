@@ -190,8 +190,14 @@
   .gd-plink:hover { color: var(--accent); border-bottom-color: var(--accent); }
   .gd-sb-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; font-size: 14px; }
   .gd-sb-wk { font-weight: 800; }
-  .gd-sb-meta { color: var(--muted); font-size: 12px; }
+  .gd-sb-meta { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
   .gd-sb-livedot { color: var(--ok); font-weight: 800; }
+  .gd-sb-refresh { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px;
+    width: 22px; height: 22px; line-height: 1; font-size: 13px; cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center; padding: 0; }
+  .gd-sb-refresh:hover { color: var(--fg); border-color: var(--fg); }
+  .gd-sb-refresh[disabled] { opacity: 0.5; cursor: default; animation: gd-spin 0.8s linear infinite; }
+  @keyframes gd-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .gd-sb-myline { display: flex; align-items: baseline; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
   .gd-sb-myline .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
   .gd-sb-myline .live { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -1547,7 +1553,8 @@
       : (sbSource() === "weekly" ? '<span class="gd-sb-final">Final</span> ' : '');
     var hdr = weekControls() +
       '<div class="gd-sb-top"><div><span class="gd-sb-wk">' + esc(sbYear()) + ' · Week ' + esc(wk) + '</span> · ' + esc(me.name) +
-      '</div><div class="gd-sb-meta">' + statusTag + esc(updated) + '</div></div>';
+      '</div><div class="gd-sb-meta">' + statusTag + esc(updated) +
+      '<button type="button" id="gd-sb-refresh" class="gd-sb-refresh" title="Refresh live scoring now">↻</button></div></div>';
 
     // My row: tap the caret to drop down my starters breakdown (no pill — it's me).
     // Shows the week's H2H record (the double/triple-header result). Once my week
@@ -1664,7 +1671,24 @@
       });
     });
     bindWeekControls(el);
+    bindSbRefresh(el);
     scheduleSbPoll();
+  }
+
+  // Manual refresh (Keith 2026-09-13: "live scoring only refreshes once i
+  // close the app and reopen...i refresh and nothing happens"). Root cause:
+  // loadScoreboard() memoizes on STATE.sb.loaded and only refetches when
+  // called with force=true, which previously only ever happened from the
+  // internal 30s poll timer -- nothing the user could click ever passed it.
+  // This button always calls loadScoreboard(true), bypassing that memo.
+  function bindSbRefresh(el) {
+    var b = el.querySelector("#gd-sb-refresh");
+    if (!b) return;
+    b.addEventListener("click", function () {
+      if (b.disabled) return;
+      b.disabled = true;
+      loadScoreboard(true);
+    });
   }
 
   // MFL player page for the selected week (the "Full profile ↗" fallback link) —
