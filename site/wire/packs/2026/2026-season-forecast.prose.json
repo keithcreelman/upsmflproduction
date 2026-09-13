@@ -18,6 +18,7 @@
      "Mannila is the one that looks wrong. He starts the third-most valuable offense in the league, and the forecast has him {{f.team.0011.power_rank|ord}}. Value is what his players would fetch on the redraft market; the forecast runs on MFL's weekly projections instead, and MFL is cooler than the market on CeeDee Lamb, Malik Nabers and Tucker Kraft. In the weekly points the forecast runs on, the table below, his offense is seventh, his defense is level with CBP's for the league's worst and his kicker and punter together rank tenth; the bottom four defenses there are separated by a fraction of a point. Nine of the eighteen slots a team starts are defenders, a kicker and a punter. Nobody wins a league there -- the gap from the best defense to the worst is a fraction of the gap on offense -- but a team can give away a point or two a week at nine positions at once, and those are the easiest points in the league to get back.",
      "Strip away the projections and this is still twelve grown adults who will lose real sleep over a punter, diagnose a stranger's meniscus like it's their own patient, and call a bidding war over backup tight ends an auction with a straight face. Hand this group chat to any comedian and the set writes itself, because nobody in it needed help embarrassing themselves.",
      "Brian Cross named his own team the Long Haulers, built the league's best defensive line and linebacker corps around a quarterback nobody else wanted, and still can't climb out of the league's back third -- which reads either as prophecy or a warning label. Bear Dunn has the league's best forecast and still called his own contract-deadline day boring, then said he'd stay up specifically to watch Ryan Bousquet's instead. Derrick Whitman called himself an underdog stalking prey from the tall grass while his own team sits dead in the league's middle. Brian Cutting won it all last year and spent this off-season predicting a rival's tight end would get hurt and re-litigating an old quarterback trade like it was breaking news. Chris Klingenberg has stopped checking Adam Schefter's feed now that Shawn Blake breaks every injury faster than he does. And Josh Martel's proudest purchase of the entire summer, by his own account, was a punter.",
+     "Two owners in particular have history working against them. Eric Mannila has run a legitimately dangerous offense for years and made the playoffs exactly once in this league's entire existence -- and the model has him doing it again this year, quietly great and finishing eighth anyway, like the offense and the record agreed to stop speaking to each other. Chris Klingenberg's entire trophy case is one runner-up finish, a single second-place banner he has been dining out on ever since, because the alternative is admitting there isn't a first-place one to talk about instead.",
      "None of it needed a punchline added. It is below, word for word."
     ],
     "place": [
@@ -153,13 +154,13 @@
     "quoteAt": {
      "q_bear_forecast": 0,
      "q_blake_preview": 1,
-     "q_hawks_schefter": 7,
-     "q_cutting_kittle": 7,
-     "q_rybo_plans": 7,
-     "q_bear_boring": 7,
-     "q_whitman_tiger": 7,
-     "q_cutting_maye": 7,
-     "q_cross_love": 7
+     "q_hawks_schefter": 8,
+     "q_cutting_kittle": 8,
+     "q_rybo_plans": 8,
+     "q_bear_boring": 8,
+     "q_whitman_tiger": 8,
+     "q_cutting_maye": 8,
+     "q_cross_love": 8
     }
    },
    {
