@@ -201,6 +201,26 @@
    "context": "After Shawn Blake posted the franchise's full team-name history (Bad Newz Kennels to Real Deal Creel)",
    "messageId": "1496125773315313716",
    "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_cross_goodluck",
+   "text": "Finally! Good Luck this season to ALL!",
+   "author": "Brian Cross, The Long Haulers",
+   "when": "September 9, 2026, #the-coffee-shop",
+   "fid": "0006",
+   "context": "The morning after the deadline rush finally ended",
+   "messageId": "1547203315475947593",
+   "channel": "the-coffee-shop"
+  },
+  {
+   "id": "q_creel_fuckyou",
+   "text": "Fuck you too bro! May your team rot in shit this yr...Respectfully of course",
+   "author": "Keith Creelman, Real Deal Creel",
+   "when": "September 9, 2026, #the-coffee-shop",
+   "fid": "0008",
+   "context": "The commissioner's own reply, forty-four minutes later, same channel",
+   "messageId": "1547214285195976736",
+   "channel": "the-coffee-shop"
   }
  ]
 }
