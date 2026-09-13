@@ -20,7 +20,9 @@
      "Brian Cross named his own team the Long Haulers, built the league's best defensive line and linebacker corps around a quarterback nobody else wanted, and still can't climb out of the league's back third -- which reads either as prophecy or a warning label. Bear Dunn has the league's best forecast and still called his own contract-deadline day boring, then said he'd stay up specifically to watch Ryan Bousquet's instead. Derrick Whitman called himself an underdog stalking prey from the tall grass while his own team sits dead in the league's middle. Brian Cutting won it all last year and spent this off-season predicting a rival's tight end would get hurt and re-litigating an old quarterback trade like it was breaking news. Chris Klingenberg has stopped checking Adam Schefter's feed now that Shawn Blake breaks every injury faster than he does. And Josh Martel's proudest purchase of the entire summer, by his own account, was a punter.",
      "Two owners in particular have history working against them. Eric Mannila has run a legitimately dangerous offense for years and made the playoffs exactly once in this league's entire existence -- and the model has him doing it again this year, quietly great and finishing eighth anyway, like the offense and the record agreed to stop speaking to each other. Chris Klingenberg's entire trophy case is one runner-up finish, a single second-place banner he has been dining out on ever since, because the alternative is admitting there isn't a first-place one to talk about instead.",
      "And since the owner who built this bot just noticed it left him out of the above: fair. Keith Creelman filed more contract moves than anyone in the league this off-season and outspent the entire auction room too, and the roster he built with all of it starts a defense that ranks tenth of twelve, worst at defensive back, because apparently all that activity only goes toward one side of the ball. He fixed half a roster to death and left the other half to fend for itself.",
-     "None of it needed a punchline added. It is below, word for word."
+     "None of it needed a punchline added. It is below, word for word.",
+     "The league's actual send-off already exists, the same morning, the same channel, once the deadline rush finally ended.",
+     "That is the whole 2026 season in two sentences, whether a given owner is rooting for everybody to have a good time or is quietly desperate for a title: good luck, and fuck you all. Bot out."
     ],
     "place": [
      "t.league.forecast",
@@ -151,7 +153,9 @@
      "q_whitman_tiger",
      "q_cutting_maye",
      "q_cross_love",
-     "q_creel_bnk"
+     "q_creel_bnk",
+     "q_cross_goodluck",
+     "q_creel_fuckyou"
     ],
     "quoteAt": {
      "q_bear_forecast": 0,
@@ -163,7 +167,9 @@
      "q_whitman_tiger": 9,
      "q_cutting_maye": 9,
      "q_cross_love": 9,
-     "q_creel_bnk": 8
+     "q_creel_bnk": 8,
+     "q_cross_goodluck": 10,
+     "q_creel_fuckyou": 10
     }
    },
    {

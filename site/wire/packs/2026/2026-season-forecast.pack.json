@@ -21,7 +21,7 @@
     {
       "name": "site/wire/data/discord_quotes_2026_preseason.json -- league Discord, curated by hand, each quote re-checked against the raw message",
       "asof": "2026-09-11T13:15:00Z",
-      "rows": 20,
+      "rows": 22,
       "note": null
     },
     {
@@ -4693,6 +4693,26 @@
       "when": "April 21, 2026, #the-coffee-shop",
       "ownerKey": "owner:0008",
       "context": "After Shawn Blake posted the franchise's full team-name history (Bad Newz Kennels to Real Deal Creel)",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_cross_goodluck",
+      "text": "Finally! Good Luck this season to ALL!",
+      "author": "Brian Cross, The Long Haulers",
+      "when": "September 9, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0006",
+      "context": "The morning after the deadline rush finally ended",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_creel_fuckyou",
+      "text": "Fuck you too bro! May your team rot in shit this yr...Respectfully of course",
+      "author": "Keith Creelman, Real Deal Creel",
+      "when": "September 9, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0008",
+      "context": "The commissioner's own reply, forty-four minutes later, same channel",
       "source": "discord",
       "permalink": null
     }
