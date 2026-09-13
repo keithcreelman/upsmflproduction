@@ -150,7 +150,8 @@
      "q_bear_boring",
      "q_whitman_tiger",
      "q_cutting_maye",
-     "q_cross_love"
+     "q_cross_love",
+     "q_creel_bnk"
     ],
     "quoteAt": {
      "q_bear_forecast": 0,
@@ -161,7 +162,8 @@
      "q_bear_boring": 9,
      "q_whitman_tiger": 9,
      "q_cutting_maye": 9,
-     "q_cross_love": 9
+     "q_cross_love": 9,
+     "q_creel_bnk": 8
     }
    },
    {
