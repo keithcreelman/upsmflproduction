@@ -29,6 +29,7 @@
 }
 .wire-wordmark span { color: var(--gold); }
 .wire-tagline { color: var(--ink-dim); font-size: 0.98rem; margin: 0; max-width: 52ch; }
+.wire-mast-hero { display: block; width: 100%; height: auto; border-radius: 14px; }
 
 .wire-nav { display: flex; flex-wrap: wrap; gap: 0.4rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }
 .wire-navbtn {

@@ -248,6 +248,9 @@ def cmd_index(args):
         "generatedAtUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "builder": "pipelines/etl/wire/wire.py index",
         "note": existing.get("note", ""),
+        # Front-page-only hero banner, path relative to site/wire/. Curated by
+        # hand like `families` and `note` -- not touched by any pack build.
+        "heroImage": existing.get("heroImage", ""),
         "families": families,
         "articles": entries,
     }
