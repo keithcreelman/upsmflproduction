@@ -54506,6 +54506,25 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             season, leagueId, playerId, franchiseId,
             placing: action === "deactivate_ir",
           });
+          // Seed ups_ir_roster_status with the status we just verified above,
+          // so the hourly ir-native-detect diff (~6604) sees no change on its
+          // next tick and does not re-announce a move this path already
+          // announced. Without this, every in-app IR move double-posted:
+          // once here immediately, once more an hour later when the detector
+          // diffed against a ledger this path never touched (Keith 2026-09-13,
+          // "why are you double posting IR spots to discord").
+          if (env.UPS_MFL_DB && verification && verification.status) {
+            try {
+              await env.UPS_MFL_DB.prepare(
+                `INSERT INTO ups_ir_roster_status (season, league_id, franchise_id, player_id, last_status, last_checked_at)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(season, league_id, franchise_id, player_id) DO UPDATE SET
+                   last_status = excluded.last_status, last_checked_at = excluded.last_checked_at`
+              ).bind(season, leagueId, franchiseId, playerId, verification.status, Math.floor(Date.now() / 1000)).run();
+            } catch (e) {
+              console.log(`[ir-announce] ledger seed failed (non-fatal, next hourly diff may re-announce): ${e && e.message}`);
+            }
+          }
         }
 
         return jsonOut(200, {
