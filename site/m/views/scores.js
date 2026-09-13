@@ -406,8 +406,32 @@
     M.state.sbOrder = (v === "pts") ? "pts" : "pos";
     try { localStorage.setItem(SB_ORDER_KEY, M.state.sbOrder); } catch (_) {}
   }
+  // Starters / Bench flip (Keith 2026-09-13: "a button to show the bench as a
+  // flip on then back to starters thing"), mirrors gameday.html's
+  // sbRosterView. Bench rows never touch a team's live/projFinal/remaining --
+  // comparison only.
+  var SB_ROSTER_VIEW_KEY = "ups_m_sb_rosterview_v1";
+  function sbRosterView() {
+    if (!M.state.sbRosterView) {
+      var v = ""; try { v = localStorage.getItem(SB_ROSTER_VIEW_KEY) || ""; } catch (_) {}
+      M.state.sbRosterView = (v === "bench") ? "bench" : "starters";
+    }
+    return M.state.sbRosterView;
+  }
+  function setSbRosterView(v) {
+    M.state.sbRosterView = (v === "bench") ? "bench" : "starters";
+    try { localStorage.setItem(SB_ROSTER_VIEW_KEY, M.state.sbRosterView); } catch (_) {}
+  }
   function rosterList(team) {
-    if (!team.starters.length) return '<div class="ups-m-sb-ros-empty">No starters scored.</div>';
+    var view = sbRosterView();
+    var list = view === "bench" ? (team.bench || []) : team.starters;
+    var flip = '<div class="ups-m-sb-order"><span>View</span><span class="ups-m-sb-toggle">' +
+      '<button type="button" data-sbrosterview="starters"' + (view === "starters" ? ' class="on"' : '') + '>Starters</button>' +
+      '<button type="button" data-sbrosterview="bench"' + (view === "bench" ? ' class="on"' : '') + '>Bench</button></span></div>';
+    if (!list.length) {
+      return flip + '<div class="ups-m-sb-ros-empty">' +
+        (view === "bench" ? "No bench players scored." : "No starters scored.") + '</div>';
+    }
     function rowHtml(p) {
       var st = p.done ? '<span class="st done">Final</span>'
         : p.playing ? '<span class="st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
@@ -431,12 +455,12 @@
       '<button type="button" data-sborder="pos"' + (order === "pos" ? ' class="on"' : '') + '>Position</button>' +
       '<button type="button" data-sborder="pts"' + (order === "pts" ? ' class="on"' : '') + '>Points</button></span></div>';
     var body = order === "pos"
-      ? LS.groupStarters(team.starters).map(function (g) {
+      ? LS.groupStarters(list).map(function (g) {
           return '<div class="ups-m-sb-grp"><span>' + esc(g.label) + '<small>' + g.rows.length + '</small></span>' +
             '<span>' + fmtPts(g.live) + '</span></div>' + g.rows.map(rowHtml).join("");
         }).join("")
-      : team.starters.map(rowHtml).join("");
-    return toggle + body;
+      : list.map(rowHtml).join("");
+    return flip + toggle + body;
   }
 
   // ---- year/week controls ----
@@ -616,6 +640,12 @@
       od[o].addEventListener("click", (function (el) {
         return function (e) { e.stopPropagation(); setSbOrder(el.getAttribute("data-sborder")); renderRoute(); };
       })(od[o]));
+    }
+    var rv = mount.querySelectorAll("[data-sbrosterview]");
+    for (var rvi = 0; rvi < rv.length; rvi++) {
+      rv[rvi].addEventListener("click", (function (el) {
+        return function (e) { e.stopPropagation(); setSbRosterView(el.getAttribute("data-sbrosterview")); renderRoute(); };
+      })(rv[rvi]));
     }
     // All-Play: tap a team to open its starters, like the head-to-head rows.
     var ap = mount.querySelectorAll("[data-apexp]");

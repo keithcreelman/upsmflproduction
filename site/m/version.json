@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.13.1",
-  "label": "Scores: a manual refresh button on Live Scoring (it was silently stuck until you closed and reopened the app), and a recalibrated win-probability model that matches this league's real scoring volatility instead of reading overconfident early in the week."
+  "build": "2026.09.13.2",
+  "label": "Scores: a Starters / Bench flip on every expanded roster, so you can compare what you started against what you left behind without leaving the page."
 }

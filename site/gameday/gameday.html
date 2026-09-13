@@ -1666,6 +1666,9 @@
     el.querySelectorAll("[data-sborder]").forEach(function (b) {
       b.addEventListener("click", function (e) { e.stopPropagation(); setSbOrder(b.getAttribute("data-sborder")); render(); });
     });
+    el.querySelectorAll("[data-sbrosterview]").forEach(function (b) {
+      b.addEventListener("click", function (e) { e.stopPropagation(); setSbRosterView(b.getAttribute("data-sbrosterview")); render(); });
+    });
     el.querySelectorAll("tr.gd-sb-prow[data-bd-row]").forEach(function (tr) {
       tr.addEventListener("click", function (e) {
         // A modified click ON THE NAME still opens the MFL profile in a new tab,
@@ -1856,8 +1859,32 @@
     STATE.sbOrder = (v === "pts") ? "pts" : "pos";
     try { localStorage.setItem(SB_ORDER_KEY, STATE.sbOrder); } catch (_) {}
   }
+  // Starters / Bench flip (Keith 2026-09-13: "a button to show the bench as a
+  // flip on then back to starters thing"). Same remembered-per-browser shape
+  // as sbOrder, its own key so the two toggles don't collide. Bench rows never
+  // touch a team's live/projFinal/remaining -- this is comparison only.
+  var SB_ROSTER_VIEW_KEY = "ups_gd_sb_rosterview_v1";
+  function sbRosterView() {
+    if (!STATE.sbRosterView) {
+      var v = ""; try { v = localStorage.getItem(SB_ROSTER_VIEW_KEY) || ""; } catch (_) {}
+      STATE.sbRosterView = (v === "bench") ? "bench" : "starters";
+    }
+    return STATE.sbRosterView;
+  }
+  function setSbRosterView(v) {
+    STATE.sbRosterView = (v === "bench") ? "bench" : "starters";
+    try { localStorage.setItem(SB_ROSTER_VIEW_KEY, STATE.sbRosterView); } catch (_) {}
+  }
   function rosterTable(team) {
-    if (!team.starters.length) return '<div class="gd-stub" style="padding:14px">No starters scored yet.</div>';
+    var view = sbRosterView();
+    var list = view === "bench" ? (team.bench || []) : team.starters;
+    var flip = '<div class="gd-sb-order">View<span class="gd-sb-toggle">' +
+      '<button type="button" data-sbrosterview="starters"' + (view === "starters" ? ' class="on"' : '') + '>Starters</button>' +
+      '<button type="button" data-sbrosterview="bench"' + (view === "bench" ? ' class="on"' : '') + '>Bench</button></span></div>';
+    if (!list.length) {
+      return flip + '<div class="gd-stub" style="padding:14px">' +
+        (view === "bench" ? "No bench players scored yet." : "No starters scored yet.") + '</div>';
+    }
     function rowHtml(p) {
         var st = p.done ? '<span class="gd-sb-st done">Final</span>'
           : p.playing ? '<span class="gd-sb-st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
@@ -1886,12 +1913,12 @@
       '<button type="button" data-sborder="pos"' + (order === "pos" ? ' class="on"' : '') + '>Position</button>' +
       '<button type="button" data-sborder="pts"' + (order === "pts" ? ' class="on"' : '') + '>Points</button></span></div>';
     var body = order === "pos"
-      ? LS.groupStarters(team.starters).map(function (g) {
+      ? LS.groupStarters(list).map(function (g) {
           return '<tr class="gd-sb-grp"><td colspan="4">' + esc(g.label) + '<span class="n">' + g.rows.length + '</span></td>' +
             '<td class="gd-taxi-sal">' + fmtPts(g.live) + '</td><td></td></tr>' + g.rows.map(rowHtml).join("");
         }).join("")
-      : team.starters.map(rowHtml).join("");
-    return toggle + '<table class="gd-taxi-table gd-sb-ros"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>State</th><th style="text-align:right">Live</th><th style="text-align:right">Proj</th></tr></thead><tbody>' + body + '</tbody></table>';
+      : list.map(rowHtml).join("");
+    return flip + toggle + '<table class="gd-taxi-table gd-sb-ros"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>State</th><th style="text-align:right">Live</th><th style="text-align:right">Proj</th></tr></thead><tbody>' + body + '</tbody></table>';
   }
 
   // ---------- boot ----------
