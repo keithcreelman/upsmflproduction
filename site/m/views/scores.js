@@ -187,7 +187,10 @@
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
     var ls = sbLive(); return ls ? String(ls.week || "") : (sbWeekSel() || "");
   }
-  function injStatusFor(pid) { return (M.state.injuriesByPid || {})[String(pid)] || ""; }
+  function injStatusFor(pid) {
+    var mfl = (M.state.injuriesByPid || {})[String(pid)] || "";
+    return LS.withInjuryOverride(window.UPS_INJURY_OVERRIDES, pid, mfl);
+  }
   function anyGameLive() {
     if (sbSource() !== "live") return false;
     var ls = sbLive(); return ls ? asArray(ls.franchise).some(function (f) { return parseInt(f.playersCurrentlyPlaying, 10) > 0; }) : false;
