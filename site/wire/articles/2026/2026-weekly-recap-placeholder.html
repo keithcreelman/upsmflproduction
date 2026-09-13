@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">Coming after week one</div>
     <h1>Weekly Recap</h1>
     <p class="wire-dek">This is where the recaps will run once there is a week of games to recap.</p>

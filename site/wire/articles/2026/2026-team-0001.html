@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">L.A. Looks · Ryan Bousquet</div>
     <h1>L.A. Looks Tagged Amon-Ra St. Brown, Traded Him, and Bought George Pickens</h1>
     <p class="wire-dek">Ryan Bousquet traded his tagged Amon-Ra St. Brown for Sam Darnold, paid <span class="wire-num" data-fact="f.team.0001.faa_15762_price">$48,000</span> for the George Pickens that C-Town let go, and lost Darnold to a hip injury on the first drive of the opener. The preseason simulation ranks L.A. Looks <span class="wire-num" data-fact="f.team.0001.power_rank">11th</span>.</p>

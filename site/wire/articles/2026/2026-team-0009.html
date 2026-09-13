@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">C-Town Chivalry · Bear Dunn</div>
     <h1>C-Town Chivalry Let Two Big Salaries Go and Bought Better Ones</h1>
     <p class="wire-dek">Bear Dunn released George Pickens and Tony Pollard on the day the auction roster locked, then spent <span class="wire-num" data-fact="f.team.0009.faa_spend">$152,000</span> on Christian McCaffrey, Joe Burrow and more. The preseason simulation ranks C-Town <span class="wire-num" data-fact="f.team.0009.power_rank">1st</span>, with the league's best title odds at <span class="wire-num" data-fact="f.team.0009.sim_p_title">18.1%</span>.</p>

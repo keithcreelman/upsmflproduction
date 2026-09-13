@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">Cleon Ca$h · Eric Mannila</div>
     <h1>Cleon Ca$h Took the First Pick and Stopped Shopping</h1>
     <p class="wire-dek">Eric Mannila extended Bijan Robinson and Tucker Kraft, took Jeremiyah Love at 1.01, and spent <span class="wire-num" data-fact="f.team.0011.auction_spend">$34,000</span> at auction, less than any owner. The preseason simulation ranks Cleon Ca$h <span class="wire-num" data-fact="f.team.0011.power_rank">8th</span>.</p>

@@ -646,11 +646,16 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 <div class="wire-wrap wire-article">
 
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 
   <header class="wire-hero">
+    
     <div class="wire-eyebrow">HammerTime 🔨 ⏰ · Eric Martel</div>
     <h1>HammerTime Is Stacked Everywhere but Quarterback</h1>
     <p class="wire-dek">Eric Martel sent Jalen Hurts and <span class="wire-num" data-fact="f.team.0005.trade_blind_bid_cash">$20,000</span> of blind-bid money to The Long Haulers for two 2027 picks in April, turned the savings into Kenneth Walker and David Montgomery, and restructured Ja'Marr Chase and Walker for room. His quarterbacks rank last in the league. The preseason simulation ranks the <span class="wire-num" data-fact="f.team.0005.hist_title_years">2024</span> champion <span class="wire-num" data-fact="f.team.0005.power_rank">4th</span>.</p>
