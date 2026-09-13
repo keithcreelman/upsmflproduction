@@ -133,11 +133,14 @@
   function byOrder(list) {
     return list.slice().sort(function (x, y) {
       // Newest season first, THEN the order inside it -- otherwise next year's
-      // team reviews interleave with this year's as 1, 1, 2, 2...
+      // team reviews interleave with this year's as 1, 1, 2, 2... Unranked
+      // pieces (the season forecast, the preseason review) have no order at
+      // all, and sort BEFORE the ranked ones -- Keith 2026-09-13: "Move the
+      // season Preview above the team previews."
       var sx = x.season || 0, sy = y.season || 0;
       if (sx !== sy) return sy - sx;
-      var a = x.order == null ? Infinity : x.order;
-      var b = y.order == null ? Infinity : y.order;
+      var a = x.order == null ? -Infinity : x.order;
+      var b = y.order == null ? -Infinity : y.order;
       if (a !== b) return a - b;
       return String(y.publishedAt).localeCompare(String(x.publishedAt));
     });
@@ -228,7 +231,15 @@
   // boxes on a phone, and nothing on them said which team a card was about.
   function rankedList(list) {
     var box = el("div", "wire-ranked");
+    // A divider between unranked entries (the season forecast, the preseason
+    // review -- no rank number) and the ranked team-by-team list below them.
+    var sawUnranked = false, dividerDrawn = false;
     list.forEach(function (a) {
+      if (a.order == null) sawUnranked = true;
+      else if (sawUnranked && !dividerDrawn) {
+        box.appendChild(el("hr", "wire-ranked-divider"));
+        dividerDrawn = true;
+      }
       var row = btn("wire-rrow", null);
       row.setAttribute("aria-label", (a.order != null ? "Number " + a.order + ". " : "") +
         (a.kicker ? a.kicker + ". " : "") + (a.title || "Untitled") +

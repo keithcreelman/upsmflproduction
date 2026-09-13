@@ -10,7 +10,7 @@
       "order": 10,
       "blurb": "The season, and each team, before it starts.",
       "layout": "ranked",
-      "rankNote": "Team previews listed in order of the Wire's overall power ranking; the season forecast and preseason review follow."
+      "rankNote": "The season forecast and preseason review lead; team previews follow, in order of the Wire's overall power ranking."
     },
     {
       "id": "weekly",
