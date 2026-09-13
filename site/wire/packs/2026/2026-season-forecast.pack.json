@@ -21,7 +21,7 @@
     {
       "name": "site/wire/data/discord_quotes_2026_preseason.json -- league Discord, curated by hand, each quote re-checked against the raw message",
       "asof": "2026-09-11T13:15:00Z",
-      "rows": 19,
+      "rows": 20,
       "note": null
     },
     {
@@ -4683,6 +4683,16 @@
       "when": "July 29, 2026, #the-coffee-shop",
       "ownerKey": "owner:0002",
       "context": "In the 'who is winning each division?' thread",
+      "source": "discord",
+      "permalink": null
+    },
+    {
+      "id": "q_creel_bnk",
+      "text": "All losing franchises. I should go back to BNK, because I had a soplid All Play with BNK and I won multiple titles as BNK in Surhoff",
+      "author": "Keith Creelman, Real Deal Creel",
+      "when": "April 21, 2026, #the-coffee-shop",
+      "ownerKey": "owner:0008",
+      "context": "After Shawn Blake posted the franchise's full team-name history (Bad Newz Kennels to Real Deal Creel)",
       "source": "discord",
       "permalink": null
     }
