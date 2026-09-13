@@ -17,6 +17,12 @@ import {
   handleRoastReplyComponent,
   handleRoastReplyModal,
 } from "./discord_roast_reply.js";
+import {
+  isWireReplyButton,
+  isWireReplyModal,
+  handleWireReplyComponent,
+  handleWireReplyModal,
+} from "./discord_wire_reply.js";
 import { handleTradeThinkButton } from "./trade_dm.js";
 import { handle3WayButton } from "./trade_3way.js";
 
@@ -179,6 +185,15 @@ export async function handleDiscordInteraction(request, env, ctx) {
         return ephemeralReply(`Reply button failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
+    // Wire post "Challenge this" buttons ("wire_reply:<message_id>").
+    if (isWireReplyButton(customId)) {
+      try {
+        return await handleWireReplyComponent(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[wire-btn] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Challenge button failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
     // 3-way trade buttons ("tr3:accept|decline:<id>") — checked before "tr:".
     if (customId.startsWith("tr3:")) {
       try {
@@ -224,6 +239,14 @@ export async function handleDiscordInteraction(request, env, ctx) {
       } catch (e) {
         console.log(`[roast-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
         return ephemeralReply(`Reply modal failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
+    if (isWireReplyModal(customId)) {
+      try {
+        return await handleWireReplyModal(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[wire-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Challenge modal failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
     if (customId.startsWith("rp:")) {

@@ -462,7 +462,7 @@ function renderAmmoRow(row) {
   return lines.join("\n");
 }
 
-async function buildReplierContext(env, replierUserId) {
+export async function buildReplierContext(env, replierUserId) {
   // Lookup the replier's franchise via discord_owners (D1).
   if (!env.UPS_MFL_DB || !replierUserId) return { text: "", fid: "" };
   let fid = "";
@@ -616,7 +616,7 @@ async function buildReplierContext(env, replierUserId) {
 
 // ── Anthropic helpers ───────────────────────────────────────────────────────
 
-async function callAnthropic(env, { model, maxTokens, system, userText }) {
+export async function callAnthropic(env, { model, maxTokens, system, userText }) {
   const apiKey = safeStr(env.ANTHROPIC_API_KEY || "");
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY not configured");
@@ -728,7 +728,7 @@ export async function generateClapBack(env, replyText, contextText, replierConte
 
 // ── Discord helpers ─────────────────────────────────────────────────────────
 
-async function postToDiscordChannel(botToken, channelId, body) {
+export async function postToDiscordChannel(botToken, channelId, body) {
   try {
     const res = await fetch(
       `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`,
@@ -753,7 +753,7 @@ async function postToDiscordChannel(botToken, channelId, body) {
   }
 }
 
-async function followUpInteraction(applicationId, interactionToken, body) {
+export async function followUpInteraction(applicationId, interactionToken, body) {
   try {
     const res = await fetch(
       `https://discord.com/api/v10/webhooks/${encodeURIComponent(applicationId)}/${encodeURIComponent(interactionToken)}`,
