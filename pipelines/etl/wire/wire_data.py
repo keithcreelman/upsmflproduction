@@ -984,6 +984,20 @@ def did_not_play(season, week):
     return out
 
 
+_BOX_COLS = ("pass_cmp", "pass_att", "pass_yds", "pass_tds", "pass_ints",
+             "rush_att", "rush_yds", "rush_tds",
+             "receptions", "targets", "rec_yds", "rec_tds",
+             "fg_made", "fg_att", "fg_long",
+             "def_tackles_total", "def_sacks", "def_ints", "def_tds")
+# 50+-yard TD tier flags (migration 0119 / nfl_player_weekly_ext) -- UPS pays
+# 7 points instead of 6 on any TD of 50+ yards, on every TD code. These are
+# COUNTS of qualifying TDs, not per-play yardage: nflverse/PBP is scanned at
+# ETL time and only the threshold count survives, so a box line can honestly
+# say "a touchdown of 50+ yards" but never a specific "65-yard" -- that number
+# is not stored anywhere in D1. See worker/migrations/0119_td_distance_and_2pt.sql.
+_BOX_50PLUS_COLS = ("pass_tds_50plus", "rush_tds_50plus", "rec_tds_50plus", "def_ret_tds_50plus")
+
+
 def nfl_box_line(season, week, player_id):
     """The real NFL box score, so HOW someone scored can be described instead of
     invented. Returns only columns that are actually populated for the season --
@@ -992,23 +1006,21 @@ def nfl_box_line(season, week, player_id):
     # and D1's remote API refuses the result set ("too many columns").
     # Column names are nflverse-style abbreviations (pass_yds, not
     # passing_yards) and the join key is gsis_id on both sides.
-    cols = ("pass_cmp", "pass_att", "pass_yds", "pass_tds", "pass_ints",
-            "rush_att", "rush_yds", "rush_tds",
-            "receptions", "targets", "rec_yds", "rec_tds",
-            "fg_made", "fg_att", "fg_long",
-            "def_tackles_total", "def_sacks", "def_ints", "def_tds")
+    cols = _BOX_COLS
     rows = d1(
-        "SELECT %s, w.team, w.opponent FROM nfl_player_weekly w "
+        "SELECT %s, %s, w.team, w.opponent FROM nfl_player_weekly w "
         "JOIN player_id_crosswalk x ON x.gsis_id = w.gsis_id "
+        "LEFT JOIN nfl_player_weekly_ext e ON e.season = w.season AND e.week = w.week "
+        "AND e.gsis_id = w.gsis_id "
         "WHERE w.season = %d AND w.week = %d AND x.mfl_player_id = '%s' LIMIT 1"
-        % (", ".join("w." + c for c in cols), int(season), int(week),
-           str(player_id).replace("'", "''")))
+        % (", ".join("w." + c for c in cols), ", ".join("e." + c for c in _BOX_50PLUS_COLS),
+           int(season), int(week), str(player_id).replace("'", "''")))
     if not rows:
         return None
     r = rows[0]
     # Drop zeros as well as NULLs -- "0 rushing touchdowns" is not colour, and
     # several columns are 100% NULL for 2025 anyway.
-    out = dict((k, r[k]) for k in cols if r.get(k) not in (None, 0))
+    out = dict((k, r[k]) for k in cols + _BOX_50PLUS_COLS if r.get(k) not in (None, 0))
     if r.get("team"):
         out["matchup"] = "%s vs %s" % (r["team"], r.get("opponent") or "")
     return out
@@ -1090,19 +1102,18 @@ def nfl_box_lines(season, week, player_ids):
     ids = [p for p in dict.fromkeys(player_ids) if p]
     if not ids:
         return {}
-    cols = ("pass_cmp", "pass_att", "pass_yds", "pass_tds", "pass_ints",
-            "rush_att", "rush_yds", "rush_tds",
-            "receptions", "targets", "rec_yds", "rec_tds",
-            "fg_made", "fg_att", "fg_long",
-            "def_tackles_total", "def_sacks", "def_ints", "def_tds")
+    cols = _BOX_COLS
     rows = d1(
-        "SELECT x.mfl_player_id AS pid, %s, w.team, w.opponent FROM nfl_player_weekly w "
+        "SELECT x.mfl_player_id AS pid, %s, %s, w.team, w.opponent FROM nfl_player_weekly w "
         "JOIN player_id_crosswalk x ON x.gsis_id = w.gsis_id "
+        "LEFT JOIN nfl_player_weekly_ext e ON e.season = w.season AND e.week = w.week "
+        "AND e.gsis_id = w.gsis_id "
         "WHERE w.season = %d AND w.week = %d AND x.mfl_player_id IN (%s)"
-        % (", ".join("w." + c for c in cols), int(season), int(week), _quoted(ids)))
+        % (", ".join("w." + c for c in cols), ", ".join("e." + c for c in _BOX_50PLUS_COLS),
+           int(season), int(week), _quoted(ids)))
     out = {}
     for r in rows:
-        d = dict((k, r[k]) for k in cols if r.get(k) not in (None, 0))
+        d = dict((k, r[k]) for k in cols + _BOX_50PLUS_COLS if r.get(k) not in (None, 0))
         if r.get("team"):
             d["matchup"] = "%s vs %s" % (r["team"], r.get("opponent") or "")
         out[str(r["pid"])] = d

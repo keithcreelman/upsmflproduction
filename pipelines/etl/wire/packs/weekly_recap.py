@@ -46,6 +46,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import wire_data as D                                    # noqa: E402
+import wire_video                                         # noqa: E402
 from wire_pack import Pack                                # noqa: E402
 
 PACK_ID_RE = re.compile(r"^(\d{4})-wk(\d{2})-recap$")
@@ -72,6 +73,22 @@ def _slug(name):
     return "".join(out).strip("-") or "unknown"
 
 
+def _50plus(n):
+    """'(one 50+ yards)' / '(2 of them 50+ yards)' -- or "" for zero/None.
+
+    UPS pays 7 points instead of 6 on any TD of 50+ yards. The count comes
+    from nfl_player_weekly_ext (migration 0119); it is a THRESHOLD COUNT, not
+    a specific yardage -- nflverse/PBP is scanned at ETL time and only "was
+    this 50+?" survives, so this can honestly say "a touchdown of 50+ yards"
+    and never a specific number like "65-yard" -- that figure is not stored
+    anywhere in D1.
+    """
+    n = int(n or 0)
+    if n <= 0:
+        return ""
+    return " (one 50+ yards)" if n == 1 else " (%d of them 50+ yards)" % n
+
+
 def _box_phrase(box):
     """A real box line as readable text, for the fact's fmt.
 
@@ -84,20 +101,20 @@ def _box_phrase(box):
     if box.get("pass_att"):
         p = "%s-of-%s for %s" % (box.get("pass_cmp", 0), box["pass_att"], box.get("pass_yds", 0))
         if box.get("pass_tds"):
-            p += ", %d TD" % box["pass_tds"]
+            p += ", %d TD" % box["pass_tds"] + _50plus(box.get("pass_tds_50plus"))
         if box.get("pass_ints"):
             p += ", %d INT" % box["pass_ints"]
         bits.append(p)
     if box.get("rush_att"):
         r = "%s carries for %s" % (box["rush_att"], box.get("rush_yds", 0))
         if box.get("rush_tds"):
-            r += " and %d TD" % box["rush_tds"]
+            r += " and %d TD" % box["rush_tds"] + _50plus(box.get("rush_tds_50plus"))
         bits.append(r)
     if box.get("receptions"):
         c = "%s catches on %s targets for %s" % (
             box["receptions"], box.get("targets", box["receptions"]), box.get("rec_yds", 0))
         if box.get("rec_tds"):
-            c += " and %d TD" % box["rec_tds"]
+            c += " and %d TD" % box["rec_tds"] + _50plus(box.get("rec_tds_50plus"))
         bits.append(c)
     if box.get("fg_made"):
         f = "%s-of-%s on field goals" % (box["fg_made"], box.get("fg_att", box["fg_made"]))
@@ -109,6 +126,8 @@ def _box_phrase(box):
         for k, lbl in (("def_sacks", "sack"), ("def_ints", "INT"), ("def_tds", "TD")):
             if box.get(k):
                 d += ", %s %s" % (box[k], lbl)
+        if box.get("def_tds"):
+            d += _50plus(box.get("def_ret_tds_50plus"))
         bits.append(d)
     return "; ".join(bits) if bits else None
 
@@ -125,6 +144,12 @@ def build(pack_id):
     is_playoff = week >= 15
     pack = Pack(pack_id, season, week=week,
                 title="%d %s" % (season, PLAYOFF_ROUND_NAME.get(week, "Week %d" % week)))
+
+    # Verified-highlight lookups for the per-game playcards (Keith 2026-09-13:
+    # embed real footage of big plays where possible). Cached so a rerun is
+    # byte-identical -- see wire_video's own docstring for why. Saved once at
+    # the end of this function.
+    video_cache = wire_video.load_cache()
 
     # ---------------------------------------------------------- attribution
     drift = D.check_attribution()
@@ -803,12 +828,26 @@ def build(pack_id):
                 cnote = None
                 if pfm and pfm["games"] >= 3 and float(star["score"]) > pfm["best"]:
                     cnote = "Season high -- previous best %.1f" % pfm["best"]
+                # A verified clip if one clears every conviction test (official
+                # channel, surname in title, "highlights", published inside the
+                # game's own window) -- never a guess. See wire_video.find_highlight.
+                # Live lookup only happens here, at BUILD time, and only when a
+                # YOUTUBE_API_KEY is present (env var or macOS keychain) -- its
+                # absence is normal, not an error, and just means no clip. The
+                # result (hit or miss) is cached to highlight_cache.json so the
+                # later `render` stage stays deterministic and key-free, and a
+                # miss falls through to the watch_url search link below.
+                video = wire_video.find_highlight(
+                    season, week, star["player_id"], star["player_name"],
+                    nfl_team=star.get("nfl_team"),
+                    position=star.get("position") or star.get("pos_group") or "",
+                    cache=video_cache)
                 pack.playcard(
                     cid, player=star["player_name"],
                     position=star.get("position") or star.get("pos_group") or "",
                     nfl_matchup=(pbox or {}).get("matchup") or (star.get("nfl_team") or ""),
                     score=float(star["score"]), box_line=_box_phrase(pbox),
-                    owner=who(star["fid"]), note=cnote,
+                    owner=who(star["fid"]), note=cnote, video=video,
                     watch_url="https://www.youtube.com/results?search_query=" + "+".join(
                         (star["player_name"] + " week %d %d highlights" % (week, season)).split()))
             card_id = cid
@@ -1085,4 +1124,5 @@ def build(pack_id):
                      + [k for k in team_facts if k.endswith(".div_record")],
                      table_ids=["t.standings"], quote_ids=spare[4:])
 
+    wire_video.save_cache(video_cache)
     return pack
