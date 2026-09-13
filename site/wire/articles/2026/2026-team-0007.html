@@ -24,7 +24,7 @@
   packGeneratedAtUtc: 2026-09-12T22:22:35Z
   engine: claude-opus-5 (session, written by hand)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-8b0e84ae">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-53180684">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -166,6 +166,20 @@ html { background: var(--ground); }
   color: var(--ink-dim);
   max-width: 60ch;
   margin: 0;
+}
+
+/* An optional hero photo, its OWN block above the eyebrow/title/dek -- not a
+   background behind them. The source art already carries its own "UPS WIRE"
+   title baked in, so overlaying the article's real headline on top of it
+   doubled up two competing titles in the same space and neither read
+   cleanly. A plain image block sidesteps that: nothing needs to stay legible
+   over anything else. */
+.wire-hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  margin: 0 0 0.35rem;
 }
 
 /* ---------- key numbers under the dek ---------- */

@@ -833,9 +833,16 @@ def render_method(pack):
             '    </details>\n  </div>' % (label, "\n        ".join(rows)))
 
 
-def render_article(pack, prose, meta):
+def render_article(pack, prose, meta, hero_image_data_uri=None):
     """Full self-contained document, minus the style and runtime bodies --
-    `restyle` fills those, so this stage never duplicates them."""
+    `restyle` fills those, so this stage never duplicates them.
+
+    hero_image_data_uri: an already-encoded `data:image/...;base64,...` string
+    (built by cmd_render from a file under site/wire/images/), or None. Kept
+    as a data URI rather than a path because an article has to render with no
+    network access (inside an MFL iframe, at its own Pages URL, or as a
+    Claude Artifact review copy) -- see site/wire/README.md.
+    """
     kicker = prose.get("kicker") or meta.get("kicker") or ""
     title = prose.get("title") or pack.get("title") or pack["packId"]
     dek = prose.get("dek") or ""
@@ -898,6 +905,7 @@ def render_article(pack, prose, meta):
   </div>
 
   <header class="wire-hero">
+    %(hero_image)s
     <div class="wire-eyebrow">%(kicker)s</div>
     <h1>%(title)s</h1>
     <p class="wire-dek">%(dek)s</p>
@@ -979,6 +987,8 @@ def render_article(pack, prose, meta):
         "kicker": kicker,
         "dek": dek,
         "kpis": kpis,
+        "hero_image": ('<img class="wire-hero-image" src="%s" alt="" role="presentation">'
+                       % hero_image_data_uri) if hero_image_data_uri else "",
         "footer": footer,
         "meta_lines": meta_lines,
         "pack_id": esc(pack["packId"]),
