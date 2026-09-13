@@ -146,12 +146,16 @@
     var raw = franchiseRaw(opts.source, opts.live, opts.weekly, fid);
     if (!raw) {
       return { fid: fid, name: name, live: 0, projFinal: 0, origProj: 0, remaining: 0,
-               secRem: 0, slots: 0, starters: [], hasData: false };
+               secRem: 0, slots: 0, starters: [], bench: [], hasData: false };
     }
     var isLive = opts.source === "live";
-    var teamScore = num(raw.score), remaining = 0, secRem = 0, origTot = 0, starters = [];
+    var teamScore = num(raw.score), remaining = 0, secRem = 0, origTot = 0, starters = [], bench = [];
     starterRows(raw).forEach(function (p) {
-      if (String(p.status) !== "starter") return;
+      // MFL's own status vocabulary for this export is exactly two values:
+      // "starter" | "nonstarter" (verified live, weeklyResults + liveScoring
+      // both, 2026-09-13) -- unrelated to playerRosterStatus's S/NS/IR/TS/R,
+      // which is a different export entirely (see lineup_wiring.js).
+      var isStarter = String(p.status) === "starter";
       var pid = String(p.id), pts = num(p.score);
       var gsr = isLive ? (parseInt(p.gameSecondsRemaining, 10) || 0) : 0;
       var status = isLive ? (opts.injuryOf ? opts.injuryOf(pid) : "") : "";
@@ -160,20 +164,30 @@
       // A player ruled out contributes nothing further, however much clock is
       // left; otherwise the remainder decays with the clock.
       var rem = (!isLive || factor === 0) ? 0 : origProj * factor * (gsr / 3600);
-      remaining += rem; secRem += gsr; origTot += origProj;
       var meta = (opts.metaOf && opts.metaOf(pid)) || {};
-      starters.push({
+      var row = {
         pid: pid, name: meta.name || pid, pos: meta.pos || "", nfl: meta.nfl || "",
         live: pts, gsr: gsr, status: status, origProj: origProj, projFinal: pts + rem,
         playing: isLive && gsr > 0 && gsr < 3600,
         done: !isLive || gsr <= 0,
         yet: isLive && gsr >= 3600
-      });
+      };
+      if (isStarter) {
+        remaining += rem; secRem += gsr; origTot += origProj;
+        starters.push(row);
+      } else {
+        // Team totals (score/remaining/secRem/origProj) are STARTERS ONLY --
+        // the bench never counted and still doesn't. It exists here purely so
+        // a viewer can compare "what I started" against "what I had on the
+        // bench" without it touching a single number that decides anything.
+        bench.push(row);
+      }
     });
     starters.sort(function (a, b) { return b.projFinal - a.projFinal; });
+    bench.sort(function (a, b) { return b.projFinal - a.projFinal; });
     return { fid: fid, name: name, live: teamScore, remaining: remaining,
              projFinal: teamScore + remaining, origProj: origTot, secRem: secRem,
-             slots: starters.length, starters: starters, hasData: true };
+             slots: starters.length, starters: starters, bench: bench, hasData: true };
   }
 
   /* ---- matchup state + odds ------------------------------------------- */
