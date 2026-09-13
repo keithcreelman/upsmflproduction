@@ -276,6 +276,7 @@
 </div>
 
 <script src="../shared/live_scoring.js"></script>
+<script src="../shared/injury_overrides.js"></script>
 <script>
 (function () {
   "use strict";
@@ -543,7 +544,7 @@
       var row = { id: r.id, name: nameFromMfl(p.name) || ("Player " + r.id), pos: s(p.position).toUpperCase(),
         team: s(p.team), salary: r.salary, group: posGroup(p.position),
         isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0,
-        injStatus: (STATE.injuries && STATE.injuries[String(r.id)]) || "" };
+        injStatus: LS.withInjuryOverride(window.UPS_INJURY_OVERRIDES, r.id, (STATE.injuries && STATE.injuries[String(r.id)]) || "") };
       row.eligible = eligibleRow(row);
       return row;
     });
@@ -1401,7 +1402,10 @@
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
     var ls = sbLive(); return ls ? String(ls.week || "") : (sbWeekSel() || "");
   }
-  function injStatusFor(pid) { return (STATE.sb && STATE.sb.injuries && STATE.sb.injuries[String(pid)]) || ""; }
+  function injStatusFor(pid) {
+    var mfl = (STATE.sb && STATE.sb.injuries && STATE.sb.injuries[String(pid)]) || "";
+    return LS.withInjuryOverride(window.UPS_INJURY_OVERRIDES, pid, mfl);
+  }
   function anyGameLive() {
     if (sbSource() !== "live") return false;
     var ls = sbLive(); return ls ? asArray(ls.franchise).some(function (f) { return parseInt(f.playersCurrentlyPlaying, 10) > 0; }) : false;

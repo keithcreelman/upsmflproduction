@@ -75,6 +75,20 @@
     return map;
   }
 
+  // MFL's own injuries export can lag real, widely-reported news by a wide
+  // margin -- verified 2026-09-13: over an hour after Kyler Murray (id 14056)
+  // was ruled out live, mid-game, with a concussion, MFL's export still had
+  // NO entry for him at all (an entry-less player reads as healthy, per
+  // parseInjuries above). site/shared/injury_overrides.js is the standing
+  // patch list for exactly this gap: a real player id, a real status, and a
+  // real source, confirmed by hand against actual reporting before it's
+  // added. This always wins over MFL's own export when present, since it
+  // only ever gets added for a status MFL is already behind on.
+  function withInjuryOverride(overrides, pid, mflStatus) {
+    var o = overrides && overrides[String(pid)];
+    return (o && o.status) ? String(o.status) : (mflStatus || "");
+  }
+
   /* ---- which payload are we reading? ---------------------------------- */
 
   // Teams arrive in ONE of two shapes depending on the week: a top-level
@@ -350,6 +364,7 @@
   root.UPSLive = {
     asArray: asArray, pad4: pad4,
     injuryFactor: injuryFactor, injuryShort: injuryShort, parseInjuries: parseInjuries,
+    withInjuryOverride: withInjuryOverride,
     countLiveFranchises: countLiveFranchises, pickSource: pickSource,
     franchiseRaw: franchiseRaw, starterRows: starterRows,
     computeTeam: computeTeam,

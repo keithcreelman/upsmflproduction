@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.13.2",
-  "label": "Scores: a Starters / Bench flip on every expanded roster, so you can compare what you started against what you left behind without leaving the page."
+  "build": "2026.09.13.3",
+  "label": "Scores: a manual patch list layers on top of MFL's injury feed so a player real news has ruled out (like Kyler Murray's Week 1 concussion) shows Out and stops accruing projection, even before MFL's own export catches up."
 }
