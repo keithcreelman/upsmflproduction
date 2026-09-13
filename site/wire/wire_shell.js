@@ -271,11 +271,23 @@
   function renderMast() {
     clear(els.mast);
     var mast = el("div", "wire-mast");
-    var wm = el("h1", "wire-wordmark", "UPS ");
-    wm.appendChild(el("span", null, "Wire"));
-    mast.appendChild(wm);
-    mast.appendChild(el("p", "wire-tagline",
-      "The league paper. Season reviews, weekly recaps and previews, and every trade the bot had something to say about."));
+    // The hero banner is Front Page only (Keith 2026-09-13: "my image should
+    // be attached to the Front Page and not the Season Forecast") -- and it
+    // already carries its own UPS WIRE wordmark and tagline, so showing it
+    // replaces the plain-text mast here rather than sitting next to a second
+    // one (the article-header attempt hit exactly that collision).
+    if (route.kind === "home" && data && data.heroImage) {
+      var hero = el("img", "wire-mast-hero");
+      hero.src = data.heroImage;
+      hero.alt = "UPS Wire";
+      mast.appendChild(hero);
+    } else {
+      var wm = el("h1", "wire-wordmark", "UPS ");
+      wm.appendChild(el("span", null, "Wire"));
+      mast.appendChild(wm);
+      mast.appendChild(el("p", "wire-tagline",
+        "The league paper. Season reviews, weekly recaps and previews, and every trade the bot had something to say about."));
+    }
 
     var nav = el("nav", "wire-nav");
     var home = btn("wire-navbtn", "Front Page");
