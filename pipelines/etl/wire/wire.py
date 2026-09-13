@@ -30,6 +30,7 @@ SOURCE OF TRUTH
 """
 
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -660,8 +661,22 @@ def cmd_render(args):
     if card.get("featured"):
         meta["featured"] = "yes"
 
+    hero_image_data_uri = None
+    hero_image = prose.get("heroImage")
+    if hero_image:
+        hero_path = os.path.join(WIRE, hero_image)
+        if not os.path.exists(hero_path):
+            fail("prose heroImage %r does not exist at %s" % (hero_image, hero_path))
+        ext = os.path.splitext(hero_path)[1].lower()
+        mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+                ".webp": "image/webp"}.get(ext)
+        if not mime:
+            fail("prose heroImage %r has an unsupported extension" % hero_image)
+        b64 = base64.b64encode(io.open(hero_path, "rb").read()).decode("ascii")
+        hero_image_data_uri = "data:%s;base64,%s" % (mime, b64)
+
     try:
-        html = wire_render.render_article(pack, prose, meta)
+        html = wire_render.render_article(pack, prose, meta, hero_image_data_uri=hero_image_data_uri)
     except wire_render.RenderError as exc:
         print("render FAILED: %s" % exc, file=sys.stderr)
         return 1

@@ -56,6 +56,20 @@
   margin: 0;
 }
 
+/* An optional hero photo, its OWN block above the eyebrow/title/dek -- not a
+   background behind them. The source art already carries its own "UPS WIRE"
+   title baked in, so overlaying the article's real headline on top of it
+   doubled up two competing titles in the same space and neither read
+   cleanly. A plain image block sidesteps that: nothing needs to stay legible
+   over anything else. */
+.wire-hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  margin: 0 0 0.35rem;
+}
+
 /* ---------- key numbers under the dek ---------- */
 .wire-kpis {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
