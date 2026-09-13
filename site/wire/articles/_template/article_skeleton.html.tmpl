@@ -53,10 +53,16 @@
 <div class="wire-page">
 <div class="wire-wrap">
 
-  <!-- Back bar. display:none until the runtime detects it is embedded, so it
-       is invisible standalone and in an Artifact. -->
+  <!-- Top nav. display:none until the runtime detects it is embedded, so it
+       is invisible standalone and in an Artifact. Every button carries
+       data-wire-goto with a shell route; article_runtime.js wires them all
+       up the same way, so adding a shortcut is just another <button> here. -->
   <div class="wire-topbar">
-    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
     <span class="wire-topbar-title">UPS Wire</span>
   </div>
 

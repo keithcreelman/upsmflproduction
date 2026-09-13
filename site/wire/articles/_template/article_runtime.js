@@ -52,17 +52,26 @@
   if (theme === "dark" || theme === "light") docEl.setAttribute("data-theme", theme);
   if (embedded) docEl.classList.add("wire-embedded");
 
-  // 2. Back bar. Only visible when embedded (CSS: .wire-embedded .wire-topbar).
-  var back = document.querySelector("[data-wire-back]");
-  if (back) {
-    back.addEventListener("click", function () {
-      if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+  // 2. Top nav. Only visible when embedded (CSS: .wire-embedded .wire-topbar).
+  //    Every button carries data-wire-goto with a shell route ("/", "/f/<id>",
+  //    ...) so a reader deep in one article can jump straight to Front Page,
+  //    Previews, or The Week without detouring back through "All stories"
+  //    first. Embedded, the loader owns navigation and already understands
+  //    every route shape the shell does (mfl_hpm_embed_loader.js parseRoute);
+  //    standalone, this file has no router of its own, so it hands off to the
+  //    shell page's own hash-based one.
+  var navBtns = [].slice.call(document.querySelectorAll("[data-wire-goto]"));
+  navBtns.forEach(function (b) {
+    var goto = b.getAttribute("data-wire-goto") || "/";
+    b.addEventListener("click", function () {
+      if (embedded) { post({ type: "wire-route", route: goto }); return; }
       // Standalone: UPS_WIRE_PAGES_BASE is the one place the Pages path shape
       // is written down. The relative fallback covers an Artifact or any host
       // that never set it.
-      window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+      var base = String(window.UPS_WIRE_PAGES_BASE || "../../");
+      window.location.href = goto === "/" ? base : base + "#" + goto;
     });
-  }
+  });
 
   // 3. Paging.
   var secs = [].slice.call(document.querySelectorAll(".wire-sec"));
