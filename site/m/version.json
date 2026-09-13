@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.10.3",
-  "label": "Scores: starters who haven't played show their kickoff (e.g. Sun 1:00 PM) instead of 'Yet', and tapping a team on the All-Play board opens its starters and points."
+  "build": "2026.09.13.1",
+  "label": "Scores: a manual refresh button on Live Scoring (it was silently stuck until you closed and reopened the app), and a recalibrated win-probability model that matches this league's real scoring volatility instead of reading overconfident early in the week."
 }

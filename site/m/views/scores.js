@@ -19,7 +19,12 @@
   var DATA = M.data;
   var API = M.api;
 
-  var SIGMA_BASE = 30, SB_POLL_MS = 30000;
+  // SIGMA_BASE: standard deviation of the final-score MARGIN between two
+  // matched-up teams, not a single team's own spread -- see the matching
+  // comment in site/gameday/gameday.html (Keith 2026-09-13). Measured from
+  // every real regular-season matchup margin 2023-2025 (666 games): 48.75.
+  // The old 30 understated this league's real volatility by ~40%.
+  var SIGMA_BASE = 49, SB_POLL_MS = 30000;
 
   function esc(v) { return U.escapeHtml(v); }
   function pad4(v) { return U.pad4(v); }
@@ -513,7 +518,11 @@
     var wk = sbWeek();
     var statusTag = anyGameLive() ? '<span class="ups-m-sb-livedot">● LIVE</span>'
       : (sbSource() === "weekly" ? '<span class="ups-m-sb-final">Final</span>' : '');
-    var top = '<div class="ups-m-sb-top"><span class="wk">' + esc(sbYear()) + ' · Week ' + esc(wk) + ' · ' + esc(me.name) + '</span>' + statusTag + '</div>';
+    var updated = "";
+    try { if (M.state.sbAt) updated = "updated " + Math.max(0, Math.round((Date.now() - M.state.sbAt) / 1000)) + "s ago"; } catch (e) {}
+    var top = '<div class="ups-m-sb-top"><span class="wk">' + esc(sbYear()) + ' · Week ' + esc(wk) + ' · ' + esc(me.name) + '</span>' +
+      '<div class="ups-m-sb-meta">' + statusTag + esc(updated) +
+      '<button type="button" id="ups-m-sb-refresh" class="ups-m-sb-refresh" title="Refresh live scoring now">↻</button></div></div>';
 
     var meRow = teamRow(me, true, me, opps);
     var oppRows = opps.length
@@ -548,6 +557,7 @@
       '<div class="ups-m-sb-actions"><a href="' + esc(nativeUrl) + '" target="_blank" rel="noopener">MFL Live Scoring ↗</a></div>';
     bindControls(mount);
     bindRows(mount);
+    bindSbRefresh(mount);
     scheduleSbPoll();
   }
 
@@ -561,6 +571,20 @@
     });
     var wEl = mount.querySelector("#ups-m-sb-week");
     if (wEl) wEl.addEventListener("change", function () { M.state.sbWeek = wEl.value; resetSb(); });
+  }
+  // Manual refresh (mirrors gameday.html's bindSbRefresh / gd-sb-refresh fix,
+  // 2026-09-13 — Keith: "i don't see it on the mobile app"). loadScoreboard()
+  // memoizes on M.state.sb.loaded and only refetches when called with
+  // force=true; previously only the internal 30s poll timer (scheduleSbPoll)
+  // ever did that, so nothing tappable on mobile could force a refresh.
+  function bindSbRefresh(mount) {
+    var b = mount.querySelector("#ups-m-sb-refresh");
+    if (!b) return;
+    b.addEventListener("click", function () {
+      if (b.disabled) return;
+      b.disabled = true;
+      loadScoreboard(true);
+    });
   }
   function bindRows(mount) {
     var rows = mount.querySelectorAll("[data-sbexp]");

@@ -1228,7 +1228,20 @@
   // double/triple-header support, per-matchup win probability, and an All-Play
   // board. Data via the worker proxy (60s cache = shared poller); polls ~30s
   // while games are live. Spec: memory project_gameday_scoreboard.
-  var SB_POLL_MS = 30000, SIGMA_BASE = 30;
+  //
+  // SIGMA_BASE calibration (Keith 2026-09-13: "45 minutes into the day...hard
+  // to say I'm that big a dog to Martel given the time and talent still left
+  // to play" -- a 98% win prob that early read as overconfident, and it was).
+  // winProb() treats sigmaBase as the standard deviation of the FINAL-SCORE
+  // MARGIN between two matched-up teams -- not a single team's own score
+  // spread. The old value (30) was never measured against this league; the
+  // real number, from every actual regular-season matchup margin
+  // (team_score - opponent_score) across 2023-2025 (666 games, src_schedule):
+  // mean -4.5, stdev 48.75. 30 understated real margin volatility by ~40%,
+  // which is why win probabilities looked overconfident early in a week (when
+  // frac is near 1 and sigma ~= sigmaBase) -- the model wasn't accounting for
+  // how wide this specific league's scores actually swing.
+  var SB_POLL_MS = 30000, SIGMA_BASE = 49;
 
   // standard normal CDF (Abramowitz-Stegun 26.2.17)
   // Year/week filter (default: current year, current/live week). "" week = current.
