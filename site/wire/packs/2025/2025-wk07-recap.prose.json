@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "engine": "claude-sonnet-5",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "packId": "2025-wk07-recap",
+    "packGeneratedAtUtc": "2026-09-13T00:00:00Z"
+  },
+  "prose": {
+    "kicker": "A week that never crossed a division line",
+    "title": "Eric Martel Beat Everybody. Matt Gerardi Beat Nobody.",
+    "dek": "Every matchup on the board was interdivision, Ryan Bousquet's Bo Nix put up the loudest single number in the league, and the race at the bottom of MAKE IT RAIN did not move an inch.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "paragraphs": [
+          "Eric Martel went {{f.team.0005.week_allplay}} against the field, and it started before most of the league had even set a lineup. Ja'Marr Chase went for {{f.player.ja-marr-chase.score}} on Thursday night, and Martel spent the rest of the weekend just watching the number hold up. He finished {{f.team.0005.vs_avg}} against his own average, {{f.team.0005.week_rank_own}}, and left almost nothing behind him: {{f.team.0005.left_on_bench}} stranded on a bench that barely mattered.",
+          "Ryan Bousquet's week broke later and louder. Bo Nix did not play until the Sunday-afternoon window closed in on itself, and when he was done he had the single best line in the league: {{f.star.line}}, good for {{f.star.score}} on a card that had been averaging {{f.star.prior_avg}}. Bousquet used it to hang the largest margin of the week on Matt Gerardi, {{f.game.10.margin}}, {{f.game.10.margin_rank}}, and to post {{f.team.0001.week_rank_own}}.",
+          "Gerardi's weekend never had a chance to turn. He went {{f.team.0003.week_allplay}} against the field, {{f.team.0003.week_rank_own}}, {{f.team.0003.season_pf_rank}}, and {{f.team.0003.could_have_won}} — the best lineup on his bench still finished behind every score that beat him. Somewhere in the league chat there is a franchise-relocation joke waiting to be made about LEGION OF BOOM's basement tenant, and if nobody has made it yet, give it until Tuesday.",
+          "The wire moved {{f.wire.adds}} bodies and {{f.wire.trades}} deals cleared, and the only pickup that actually produced was Derrick Whitman's {{f.wire.best_add}}, started and cashed the same week he claimed it. Ryan Bousquet is the hottest team in the league over the last three weeks at {{f.mo.hot}}; Keith Creelman is the coldest at {{f.mo.cold}}, a stretch ugly enough that his own group chat has stopped asking him what happened and started just sending condolences."
+        ],
+        "bullets": [],
+        "place": ["t.performers", "t.pickups"],
+        "quotes": ["q2", "q5"],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.performers": "Five different quarterbacks in the top ten, which is what this format looks like on a week nobody's defense showed up.",
+          "t.pickups": "One add out of {{f.wire.adds}} actually got started and paid off; the rest sat and watched, same as usual."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "",
+        "paragraphs": [
+          "The week opened on a Thursday split screen: Ja'Marr Chase lit the board for Martel while Joe Flacco kept Keith Creelman's card afloat for exactly one night, {{f.team.0008.best_player}}, before the rest of his roster spent the weekend proving Thursday was the peak. The early Sunday window belonged to Patrick Mahomes and to a receiver room in Philadelphia that Brian Cross and Derrick Whitman both leaned on at once. Nothing was settled by kickoff of the late window, when Bo Nix turned in the number that decided the week's biggest blowout and Eric Mannila quietly put together {{f.team.0011.week_rank_own}} behind Justin Herbert. Sunday night belonged to Christian McCaffrey, spent on a Josh Martel card that lost every game it played this week regardless. And the week did not actually finish until Monday's second game, ten o'clock kickoff, when Jaxon Smith-Njigba closed the books on Bear Dunn's worst week of the season — one of the last men in the league to find out how his week had gone was also the closest thing this slate had to a contender. Every result below crossed a division line; nobody on this list beat a rival who shares his own standings group.",
+          "Brian Cutting had the highest-scoring team in the league walk into the week and still lost twice. {{f.team.0004.best_player}} did what he does, and it was not enough against Bo Nix in the biggest game on the board — {{f.game.01.margin}}, {{f.game.01.margin_rank}}. Cutting was {{f.team.0004.vs_avg}} his own average in the loss; this was simply a bad week wearing a good record.",
+          "Cutting's only win of the week came two games later, against a Bear Dunn roster having {{f.team.0009.week_rank_own}}. {{f.game.02.margin}} decided it, and Cutting did not need to be good to get it — Dunn's card was simply worse. A win manufactured entirely by the other guy's week, not his own.",
+          "Eric Mannila closed out a rough week for Cutting's roster, {{f.game.03.margin}}, behind {{f.team.0011.best_player}}. Cutting's best player put up the second-best number of the week on the losing side and it did not matter — {{f.team.0004.could_have_won}}. Two losses bookending one gift of a win, and LEGION OF BOOM's top seed heads into next week having proven a lot less than his record suggests.",
+          "Ryan Bousquet's other blowout, {{f.game.04.margin}}, buried Josh Martel under Bo Nix's number a second time. Martel had the best individual score in the game — {{f.team.0007.best_player}} — and still lost by the length of a football field. His bench told the real story: {{f.burn.benched}} sat for {{f.burn.benched_score}} behind {{f.burn.started}}'s {{f.burn.started_score}}, the biggest swing on the board, and {{f.burn.verdict}}.",
+          "Bear Dunn's second win, over the same Josh Martel, came by the tightest margin of his week — {{f.game.05.margin}}. This is the one {{f.burn.covers_margin}}: put Gadsden in for Kittle and Martel wins it. He didn't, and a bad bench call in one game turned into a loss in a completely different one.",
+          "Derrick Whitman's closest win of the week, {{f.game.06.margin}}, came off {{f.team.0002.best_player}} against a Shawn Blake card that never got going. Whitman left {{f.team.0002.left_on_bench}} on his own bench and still had enough. Blake's whole week can be read in one number: {{f.team.0010.vs_avg}} his own average, in a game he lost by less than a converted first down.",
+          "Then Eric Martel found Shawn Blake a second time and buried him by {{f.game.07.margin}}, the widest margin outside the Bousquet-Gerardi game. {{f.team.0005.best_player}} did the damage. Blake has now lost to both of the league's two best weeks in the same slate — bad scheduling luck stacked on top of a bad week.",
+          "Whitman's other win, over Keith Creelman, was closer — {{f.game.08.margin}} — and came off the same {{f.team.0002.best_player}} line. Creelman's best number, {{f.team.0008.best_player}}, could not keep pace. His week did not get better from here.",
+          "It got worse two games later, when Eric Martel ran his week to {{f.team.0005.week_allplay}} by putting Creelman away a second time, {{f.game.09.margin}}. {{f.team.0005.best_player}} did the heavy lifting again. Creelman is now on the wrong end of the coldest stretch in the league and it is starting to show up in more than one column.",
+          "The week's biggest number belonged to the week's biggest blowout: Bousquet over Gerardi, {{f.game.10.margin}}, {{f.game.10.margin_rank}}. {{f.team.0001.best_player}} did what it did, Gerardi's best player, {{f.team.0003.best_player}}, was not close, and {{f.team.0003.could_have_won}}. There was no version of this one that ends differently.",
+          "Chris Klingenberg's best win of the week, over Derrick Whitman, came down to a bench call that actually mattered: {{f.game.11.margin_rank}} in margin, decided in part by Whitman starting {{f.burn.started}} over a healthier option. {{f.team.0012.best_player}} outscored {{f.team.0002.best_player}} by enough to make the difference — {{f.game.11.margin}}.",
+          "Eric Martel's third win, closing out his perfect week, came against that same Klingenberg team, {{f.game.12.margin}}. {{f.team.0005.best_player}} was the story again — this is what a card running {{f.team.0005.vs_avg}} over its own baseline does to a division leader on a good week. Klingenberg still had {{f.team.0012.ceiling_rank}}, which tells you how good his roster actually was; it just ran into the best week in the league.",
+          "Bear Dunn closed his own week the way it opened, beating Matt Gerardi by {{f.game.13.margin}} behind {{f.team.0009.best_player}}. Two wins, two ugly scores, and a division record that says more about Dunn's season than either of them did.",
+          "Eric Mannila's best win of the week, {{f.game.14.margin}}, came at Josh Martel's expense and off {{f.team.0011.best_player}} — the same card that carried him to {{f.team.0011.week_rank_own}}. Martel had the single best player in the game, {{f.team.0007.best_player}}, and lost anyway. That is three losses in three games for a roster that was never actually the problem.",
+          "Brian Cross's first win, over Shawn Blake, went by {{f.game.15.margin}} on the back of {{f.team.0006.best_player}}. It was {{f.team.0006.week_rank_own}}, and it came against a Blake team that has now lost its last three games by a combined margin nobody wants to add up out loud.",
+          "Cross's second win, over Keith Creelman, was wider — {{f.game.16.margin}} — off the same {{f.team.0006.best_player}} line. Creelman's card, led again by {{f.team.0008.best_player}}, simply did not have the pieces. Three losses on the week for Creelman, and the group chat has noticed.",
+          "Eric Mannila's third win, over Matt Gerardi, {{f.game.17.margin}}, was the least competitive of his week and the most predictable result on the board. {{f.team.0011.best_player}} was more than enough against a Gride roster that had nothing left to give by the weekend's third meeting.",
+          "The week ended the way any good week should: on the closest game of the slate. Chris Klingenberg beat Brian Cross by {{f.game.18.margin}}, {{f.game.18.margin_rank}}, behind {{f.team.0012.best_player}}. Cross's own {{f.team.0006.best_player}} nearly got there. {{f.week.no_process_burns}} bad bench calls turned up across the whole league this week — this one just came down to whose good decisions scored more."
+        ],
+        "bullets": [],
+        "place": ["t.burns"],
+        "quotes": [],
+        "cards": [],
+        "games": ["g.1", "g.2", "g.3", "g.4", "g.5", "g.6", "g.7", "g.8", "g.9", "g.10", "g.11", "g.12", "g.13", "g.14", "g.15", "g.16", "g.17", "g.18"],
+        "gameNotes": {
+          "g.1": "Brian Cutting brought the highest-scoring team in the league into the biggest game of the week and Bo Nix simply outscored him. Cutting was under his own average; Bousquet was nowhere close to his ceiling and did not need to be. The record book will remember this as a Cutting loss. It should remember it as a Bousquet week.",
+          "g.2": "Brian Cutting's only win of the week, and it says more about Bear Dunn's week than about his own. Dunn was already having his worst outing of the season, and Cutting did not need to play well to beat it. Neither roster was good here; one of them was simply less bad.",
+          "g.3": "Cutting's second loss of the week is the one that actually hurts — his best player put up the league's second-best number and it still was not enough. Eric Mannila did not have to be great, just present. A card that will win plenty of weeks it does not deserve to did not get one of them here.",
+          "g.4": "This is Josh Martel's week in one page: the best individual score in the game, the worst bench decision of the week sitting right below it, and a loss that would have been a win with one swap. Bousquet's number did the rest.",
+          "g.5": "The game that actually turns on the Kittle-for-Gadsden mistake. Martel had the ceiling to win this one outright and buried it on his own bench before Dunn ever had to be good. Dunn was not good. He did not need to be.",
+          "g.6": "The tightest of Derrick Whitman's three wins, and the one where Shawn Blake's collapsing week is most visible — well under his own average, in a game decided by less than a field goal's worth of points. Whitman's bench was deep enough to survive leaving real production on it.",
+          "g.7": "Martel's biggest win of the week outside the Bousquet-Gerardi game, and Blake's second loss of the slate. There is no lineup call to blame here — Blake simply drew the hottest card in the league twice in one week and lost both times by a lot.",
+          "g.8": "Whitman's closer win, and Keith Creelman's first loss of what turns into a rough weekend. Creelman's best player kept the score respectable. Nothing else on his roster showed up to help him.",
+          "g.9": "Martel's second win of the week, and the number that pushed his own record to its final shape. Creelman's card had no counter for a roster this hot; nobody's did.",
+          "g.10": "The biggest number of the week, attached to the worst week Matt Gerardi has had all season. Bousquet's ceiling was never in danger. Gerardi's best lineup available still finishes behind what actually beat him — there was no version of this one that goes the other way.",
+          "g.11": "The one game this week where the bench call genuinely decided the outcome. Whitman had a healthier option sitting behind the player he started; Klingenberg did not need one, and the margin split almost exactly where that mistake sits.",
+          "g.12": "Klingenberg had the highest ceiling of any loser in the league this week and still lost by a wide margin, which says everything about how good Martel's week actually was. A flawless Klingenberg card beats most weeks in this league. It did not beat this one.",
+          "g.13": "The less interesting half of Dunn's doubleheader over Gerardi — same result, uglier number, and no change at the bottom of LEGION OF BOOM.",
+          "g.14": "Mannila's best win of his week, and Josh Martel's third loss in three games — despite fielding, again, the single best player on the field. A team can lead the box score and still lose the week if the other seventeen roster spots do not show up with him.",
+          "g.15": "Brian Cross's week starts turning here, on the back of a receiver having his best game of the season. Blake's card, already cold, gets colder. The losing streak that follows him into next week starts on this page.",
+          "g.16": "Cross's second win of the day, wider than his first, and Creelman's third loss of the week. By this point in the slate Creelman's card had stopped being unlucky and started looking like a pattern.",
+          "g.17": "The most lopsided of Mannila's three wins and the least surprising result of the entire week — Gerardi's roster had already proven twice over it had nothing to give.",
+          "g.18": "The closest game of the week, decided at the very end of the slate. No bad bench call on either side — just two good rosters, one very small gap, and Klingenberg's card being a fraction of a point better where it counted."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "paragraphs": [
+          "Read the four division leaders next to their division records and the tension in this format shows up immediately. {{f.div.dog-pound-4-life.leader}} holds DOG POUND 4 LIFE despite a division record of {{f.team.0001.div_record}} — he is winning the league and losing his own neighborhood. Bear Dunn is the one actually doing damage inside it, {{f.team.0009.div_record}}, and still sits behind him on the overall math.",
+          "ICE UP SON! is the strangest of the four: {{f.div.ice-up-son.leader}} leads a division where all three teams sit at {{f.team.0005.div_record}} against each other. Nobody inside that group has separated from anybody else — the bid is being decided entirely by what each of them does to the other eight teams outside it, which is exactly backwards from how a division race is supposed to work.",
+          "LEGION OF BOOM is the one division that actually looks like a division. {{f.div.legion-of-boom.leader}} is unbeaten inside it at {{f.team.0004.div_record}}, and it is propping up a record that would otherwise read as ordinary — his week off the field was bad, his week inside his own group has been perfect all year. Matt Gerardi is the mirror image at the bottom, {{f.team.0003.div_record}}, and this week did nothing to change that story.",
+          "MAKE IT RAIN is the fourth automatic bid and it belongs, for now, to a losing record. {{f.div.make-it-rain.leader}} leads it at a division mark that is the best of a genuinely bad group — Chris Klingenberg is right behind him despite {{f.team.0012.week_rank_own}} sitting on his résumé, and Keith Creelman, mired in the coldest three-week stretch anybody in this league is currently riding at {{f.mo.cold}}, is closer to the top of this division than his overall record has any business being. Whoever wins MAKE IT RAIN is going to back into a bid nobody else wanted badly enough to take from them.",
+          "Zoom out and the all-play table tells a cleaner story than any of the four division races do. Ryan Bousquet is the hottest team in the league over the last three weeks, {{f.mo.hot}}, and it is backed by real production — {{f.team.0001.season_pf_rank}}. Brian Cutting still sits on {{f.team.0004.season_pf_rank}} despite the week he just had, which is what a good September buys a bad October. And at the other end, Matt Gerardi's {{f.team.0003.season_pf_rank}} is not a slump anymore. This deep into the season, it is a pattern, and the group chat has already stopped being surprised by it."
+        ],
+        "bullets": [],
+        "place": ["t.standings"],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.standings": "Match the Record column against the Div column before you decide who is actually in trouble — this week they disagree almost everywhere."
+        }
+      }
+    ]
+  }
+}
