@@ -25,6 +25,7 @@ import {
 } from "./discord_wire_reply.js";
 import { handleTradeThinkButton } from "./trade_dm.js";
 import { handle3WayButton } from "./trade_3way.js";
+import { handleTherapyCommand } from "./discord_therapy.js";
 
 const INTERACTION_TYPE = {
   PING: 1,
@@ -115,6 +116,14 @@ async function handlePing(interaction, env) {
 
 async function dispatchApplicationCommand(interaction, env, ctx) {
   const cmdName = safeStr(interaction?.data?.name).toLowerCase();
+  if (cmdName === "therapy") {
+    try {
+      return await handleTherapyCommand(interaction, env, ctx);
+    } catch (e) {
+      console.log(`[therapy-cmd] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+      return ephemeralReply(`Therapy command failed: ${e && e.message ? e.message : "unknown error"}`);
+    }
+  }
   // Accept both /rules (new) and /hall (legacy alias during transition).
   if (cmdName !== "rules" && cmdName !== "hall") {
     return ephemeralReply(`Unknown command \`${cmdName}\`.`);
