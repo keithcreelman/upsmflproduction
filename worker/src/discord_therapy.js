@@ -85,6 +85,7 @@ RULES:
 - The RIVAL BAD BEAT and the TRADE HISTORY are both "one aside about someone/something else" ingredients -- when both are present, pick whichever tells the sharper, more specific story and use only that one. The TWIST AMMO is separate and can pair with either. Using every ingredient at once in the same 90 words reads cluttered, not clever.
 - Vary yourself. Don't open the same way twice in a row, don't always lead with the same kind of fact or the same structure -- you have several real ingredients each time (the facts, an optional quote, an optional rival aside, an optional trade history); lean on a different mix and a different angle each session so this never reads like a template.
 - If the patient predicts or dreads something that HASN'T happened yet (a game still to be played, a matchup still in progress), that's their anxiety talking -- respond to the feeling, never confirm or deny the outcome as if you know it. You don't.
+- SESSION RECENCY tells you how long it's been since their last visit. Under ~30 minutes: acknowledge they're back fast -- your own words each time, something like "back so soon?" but never that exact phrase twice in a row. Several days or longer: a brief "welcome back" acknowledging the gap is a nice touch, not required. Their first-ever session: don't mention recency at all, there's nothing to reference.
 - Max 90 words. Plain text, no markdown, no bullet points.
 - Address them by name. One "session" or "couch" joke is welcome; the rest should read like you mean it.
 - FAMILY AND HEALTH ARE OFF LIMITS FOR EVERYONE -- the patient and any rival -- same as every other bot in this server.`;
@@ -173,6 +174,58 @@ async function loadPositiveReceipts(env, fid) {
   } catch (_) {
     return [];
   }
+}
+
+// Session recency (migration 0156). Keith: "when you go back to the therapy
+// session fairly quickly from the last session, 'Back again so soon?'...
+// and when it's been a minute give similar feedback." No historical-accuracy
+// risk here (unlike the bad-beat/trade tables) -- forward-looking state,
+// always correct by construction.
+async function loadLastSession(env, fid) {
+  if (!env.UPS_MFL_DB || !fid) return null;
+  try {
+    const { results } = await env.UPS_MFL_DB
+      .prepare("SELECT last_session_at_utc, session_count FROM ups_therapy_sessions WHERE franchise_id = ? LIMIT 1")
+      .bind(fid)
+      .all();
+    return results?.[0] || null;
+  } catch (e) {
+    console.log(`[therapy] loadLastSession failed: ${e?.message || e}`);
+    return null;
+  }
+}
+
+async function recordSession(env, fid) {
+  if (!env.UPS_MFL_DB || !fid) return;
+  try {
+    const now = new Date().toISOString();
+    await env.UPS_MFL_DB
+      .prepare(
+        "INSERT INTO ups_therapy_sessions (franchise_id, last_session_at_utc, session_count) VALUES (?, ?, 1) " +
+        "ON CONFLICT(franchise_id) DO UPDATE SET last_session_at_utc = excluded.last_session_at_utc, session_count = ups_therapy_sessions.session_count + 1"
+      )
+      .bind(fid, now)
+      .run();
+  } catch (e) {
+    console.log(`[therapy] recordSession failed: ${e?.message || e}`);
+  }
+}
+
+// Real elapsed time since their last visit, phrased plainly -- the model
+// decides the tone ("back so soon?" vs "welcome back"), this just hands it
+// the real number so it never has to guess or invent a gap.
+function recencyFact(lastSession) {
+  if (!lastSession) return "(no prior session on record -- this is their first time on this couch, don't reference recency at all)";
+  const last = new Date(lastSession.last_session_at_utc);
+  const mins = (Date.now() - last.getTime()) / 60000;
+  const count = (Number(lastSession.session_count) || 0) + 1;
+  let when;
+  if (!(mins >= 0)) when = "recently";
+  else if (mins < 1) when = "under a minute ago";
+  else if (mins < 60) when = `${Math.round(mins)} minute${Math.round(mins) === 1 ? "" : "s"} ago`;
+  else if (mins < 60 * 24) when = `${Math.round(mins / 60)} hour${Math.round(mins / 60) === 1 ? "" : "s"} ago`;
+  else when = `${Math.round(mins / (60 * 24))} day${Math.round(mins / (60 * 24)) === 1 ? "" : "s"} ago`;
+  return `Their last session was ${when}. This will be session #${count} for them.`;
 }
 
 async function loadAllOwners(env) {
@@ -523,11 +576,17 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
     return;
   }
 
-  const [row, receipts, owners] = await Promise.all([
+  const [row, receipts, owners, lastSession] = await Promise.all([
     loadCareerStats(env, fid),
     loadPositiveReceipts(env, fid),
     loadAllOwners(env),
+    loadLastSession(env, fid),
   ]);
+  // Record THIS session now -- read the prior value above first (for the
+  // gap calculation), then write the new one so the NEXT session sees this
+  // one as "last time". Fire-and-forget is fine: a missed write just means
+  // the next session's recency fact is slightly stale, not wrong.
+  const recordSessionPromise = recordSession(env, fid);
 
   const facts = shuffle(buildPositiveFacts(row));
   const displayName = safeStr(row?.owner_display) || invoker.name;
@@ -606,7 +665,14 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
     if (dossier || extraBeat) twist = { name: twistTarget.name, dossier, beat: extraBeat || rival?.beat || null };
   }
 
-  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist);
+  // recordSessionPromise runs concurrently with the (slower) Anthropic call
+  // rather than a true fire-and-forget -- Workers can cancel an unawaited
+  // promise once the handler returns, so this still needs a real await
+  // somewhere before the pipeline ends.
+  const [body] = await Promise.all([
+    generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist, recencyFact(lastSession)),
+    recordSessionPromise,
+  ]);
 
   // Echo the patient's own words into the channel first, same pattern the
   // roast/wire reply bots already use -- Keith: "I would like what i send
@@ -729,7 +795,7 @@ function tradeBlock(trade) {
   );
 }
 
-async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade, twist) {
+async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade, twist, recency) {
   const factsBlock = facts.length
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(none on record yet -- lean on tenure/camaraderie only, and keep it short)";
@@ -744,6 +810,7 @@ async function generateTherapy(env, displayName, facts, receipts, ventText, riva
     `OPTIONAL RIVAL BAD BEAT (a real event about a DIFFERENT owner -- may be used for one light "misery loves company" aside if it fits naturally, never the focus of the session):\n${rivalBlock(rival)}\n\n` +
     `OPTIONAL TRADE HISTORY (a real trade the PATIENT made -- who they gave up, who they got, what happened next, and whether the other player stuck around and what they cost. Real and often the best material, per the patient's own rule: "shit on me but in a sarcastic fluff me up way"):\n${tradeBlock(trade)}\n\n` +
     `OPTIONAL TWIST AMMO (real material for the closing twist against a rival -- ONLY use a fact from here, or a current_contract dollar figure already given above; never write a rhetorical line implying a real-world consequence, like "he's paying you", without an actual number behind it):\n${twistBlock(twist)}\n\n` +
+    `SESSION RECENCY (real, always true):\n${recency}\n\n` +
     `Open the session.`;
   for (const model of [THERAPY_MODEL, THERAPY_FALLBACK_MODEL]) {
     try {
