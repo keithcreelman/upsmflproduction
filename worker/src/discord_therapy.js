@@ -6,18 +6,30 @@
 // weeks): "add a Therapy Bot similar to our clap back... pull some wins for
 // each owner so they can feel good about themselves."
 //
-// Design constraint that shaped everything below: this bot must NEVER invent
-// or imply anything. A clap-back can get away with a sharp guess because the
-// room pushes back in the same thread; a "make someone feel good" bot that
-// gets a fact wrong, or worse states a real fact in a backhanded way ("only
-// one playoff trip in 16 years"), lands as an insult wearing a therapy
-// costume. So the positive-fact selection happens in PLAIN CODE
-// (buildPositiveFacts below), not the model: every fact handed to the model
-// is real, sourced from ups_owner_career_stats (migrations 0058 + 0148,
-// already covers all 12 owners), and only ever a genuinely flattering one —
-// a losing record or a zero count is simply never added to the list, never
-// spun. The model's only job is to phrase what it's given, warmly, and nothing
-// else.
+// v1 shipped as /therapy [owner: user mention] with no free-text input.
+// Keith's first real attempt to use it typed a whole vent ("I'm sad, I'm
+// going to drop a 240 burger...") into the `owner` field, which is a
+// Discord USER-mention picker and can't take prose — and separately flagged
+// that @-mentioning another owner inside a vent would wrongly make the
+// session ABOUT that owner. Both point at the same fix: this needs to work
+// like the roast bot's "Reply to bot" button (click -> MODAL -> paragraph
+// text box -> submit), always about the person who ran the command, with
+// whatever they typed handed to the model as context rather than parsed as
+// a target. Naming someone else in the vent is just prose -- the model may
+// riff on what was SAID about them, never assert a new fact about them.
+//
+// Design constraint that shaped everything else below: this bot must NEVER
+// invent or imply anything. A clap-back can get away with a sharp guess
+// because the room pushes back in the same thread; a "make someone feel
+// good" bot that gets a fact wrong, or worse states a real fact in a
+// backhanded way ("only one playoff trip in 16 years"), lands as an insult
+// wearing a therapy costume. So the positive-fact selection happens in
+// PLAIN CODE (buildPositiveFacts below), not the model: every fact handed to
+// the model is real, sourced from ups_owner_career_stats (migrations 0058 +
+// 0148, already covers all 12 owners), and only ever a genuinely flattering
+// one — a losing record or a zero count is simply never added to the list,
+// never spun. The model's only job is to respond to what the patient said
+// and phrase the real facts warmly, nothing else.
 //
 // positive_receipts_json (migration 0150) is an OPTIONAL, hand-curated
 // counterpart to the roast bot's discord_receipts_json — empty by default.
@@ -32,7 +44,12 @@ import { postToDiscordChannel, followUpInteraction, callAnthropic } from "./disc
 const INTERACTION_RESPONSE = {
   CHANNEL_MESSAGE_WITH_SOURCE: 4,
   DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE: 5,
+  MODAL: 9,
 };
+
+const COMPONENT_TYPE = { ACTION_ROW: 1, TEXT_INPUT: 4 };
+const TEXT_INPUT_STYLE = { PARAGRAPH: 2 };
+const FLAG_EPHEMERAL = 64;
 
 const THERAPY_MODEL = "claude-opus-4-8";
 const THERAPY_FALLBACK_MODEL = "claude-sonnet-5";
@@ -41,13 +58,16 @@ const THERAPY_SYSTEM = `You are the UPS Therapy Bot -- same wiseguy voice as UPS
 
 You're posting in #on-the-sofa, a joke "therapeutic space" where owners vent about bad weeks. Play the part -- a little theatrical, "you're safe here", couch-and-clipboard energy -- but the content underneath must be completely sincere. This is not a roast wearing a nice hat.
 
+If the patient typed something (a vent, trash talk, whatever's bothering them), open by responding to it directly and specifically -- show you actually read it -- before or while working in the reassurance. If they name another owner or team in their vent, you may riff on what THEY said about that person, but never assert a new fact about that other person that wasn't in what the patient wrote. If nothing was typed, skip straight to the session.
+
 RULES:
-- Use ONLY the VERIFIED POSITIVE FACTS block below. Never invent a stat, year, quote or event, and never add context (a total, a "only", a comparison) that isn't itself in the block.
-- Never imply a gap, a shortfall or a "could be better" -- if a fact is small, say it plainly and let it stand. No backhanded compliments.
+- Facts about the patient: use ONLY the VERIFIED POSITIVE FACTS block below. Never invent a stat, year, quote or event about them, and never add context (a total, a "only", a comparison) that isn't itself in the block.
+- Never imply a gap, a shortfall or a "could be better" about the patient -- if a fact is small, say it plainly and let it stand. No backhanded compliments.
 - If a REAL QUOTE is provided, you may use it verbatim (never alter it) if it fits naturally -- otherwise skip it, don't force it.
 - If the facts are thin, keep the message short and warm rather than padding with something not given to you. Tenure and camaraderie are real things worth saying.
-- Max 80 words. Plain text, no markdown, no bullet points.
-- Address them by name. One "session" or "couch" joke is welcome; the rest should read like you mean it.`;
+- Max 90 words. Plain text, no markdown, no bullet points.
+- Address them by name. One "session" or "couch" joke is welcome; the rest should read like you mean it.
+- FAMILY AND HEALTH ARE OFF LIMITS, same as every other bot in this server.`;
 
 function safeStr(v) {
   return String(v == null ? "" : v).trim();
@@ -63,31 +83,29 @@ function jsonResponse(payload, status) {
 function ephemeralReply(content) {
   return jsonResponse({
     type: INTERACTION_RESPONSE.CHANNEL_MESSAGE_WITH_SOURCE,
-    data: { content: String(content || "").slice(0, 2000), flags: 64 },
+    data: { content: String(content || "").slice(0, 2000), flags: FLAG_EPHEMERAL },
   });
 }
 
-// ── target resolution ───────────────────────────────────────────────────────
+// ── invoker identity ─────────────────────────────────────────────────────
 
-function resolveTargetUser(interaction) {
+function resolveInvoker(interaction) {
   const invoker = interaction?.member?.user || interaction?.user || {};
-  const invokerId = safeStr(invoker?.id);
-  const opts = interaction?.data?.options || [];
-  const ownerOpt = opts.find((o) => o?.name === "owner");
-  const uid = safeStr(ownerOpt?.value);
-  if (!uid || uid === invokerId) {
-    const name = safeStr(interaction?.member?.nick || invoker?.global_name || invoker?.username || "owner");
-    return { id: invokerId, name };
-  }
-  const resolvedMembers = interaction?.data?.resolved?.members || {};
-  const resolvedUsers = interaction?.data?.resolved?.users || {};
-  const m = resolvedMembers[uid];
-  const u = resolvedUsers[uid] || {};
-  const name = safeStr(m?.nick || u?.global_name || u?.username || "owner");
-  return { id: uid, name };
+  const name = safeStr(interaction?.member?.nick || invoker?.global_name || invoker?.username || "owner");
+  return { id: safeStr(invoker?.id), name };
 }
 
-// ── D1 lookups ───────────────────────────────────────────────────────────────
+function extractVentText(interaction) {
+  const rows = interaction?.data?.components || [];
+  for (const row of rows) {
+    for (const c of row?.components || []) {
+      if (c?.custom_id === "vent_text") return safeStr(c?.value || "");
+    }
+  }
+  return "";
+}
+
+// ── D1 lookups ───────────────────────────────────────────────────────────
 
 async function resolveFranchiseId(env, discordUserId) {
   if (!env.UPS_MFL_DB || !discordUserId) return "";
@@ -130,8 +148,7 @@ async function loadPositiveReceipts(env, fid) {
       .prepare("SELECT positive_receipts_json FROM ups_roast_owner_ammo WHERE franchise_id = ? LIMIT 1")
       .bind(fid)
       .all();
-    const raw = results?.[0]?.positive_receipts_json;
-    const arr = JSON.parse(raw || "[]");
+    const arr = JSON.parse(results?.[0]?.positive_receipts_json || "[]");
     return Array.isArray(arr) ? arr : [];
   } catch (_) {
     return [];
@@ -202,33 +219,61 @@ export function buildPositiveFacts(row) {
   return facts;
 }
 
-// ── slash command entry point ───────────────────────────────────────────────
+// ── slash command entry point → MODAL ───────────────────────────────────
 
-export async function handleTherapyCommand(interaction, env, ctx) {
-  const target = resolveTargetUser(interaction);
+export async function handleTherapyCommand(interaction, _env, _ctx) {
+  return jsonResponse({
+    type: INTERACTION_RESPONSE.MODAL,
+    data: {
+      custom_id: "therapy_modal",
+      title: "🛋️ On the couch",
+      components: [
+        {
+          type: COMPONENT_TYPE.ACTION_ROW,
+          components: [
+            {
+              type: COMPONENT_TYPE.TEXT_INPUT,
+              custom_id: "vent_text",
+              label: "What's going on?",
+              style: TEXT_INPUT_STYLE.PARAGRAPH,
+              min_length: 0,
+              max_length: 1900,
+              placeholder: "Vent. Trash talk. Whatever's rattling around up there. (Optional -- leave blank for a straight pep talk.)",
+              required: false,
+            },
+          ],
+        },
+      ],
+    },
+  });
+}
+
+export function isTherapyModal(customId) {
+  return safeStr(customId) === "therapy_modal";
+}
+
+// ── modal submit → defer + generate ─────────────────────────────────────
+
+export async function handleTherapyModal(interaction, env, ctx) {
+  const invoker = resolveInvoker(interaction);
+  const ventText = extractVentText(interaction);
   const interactionToken = safeStr(interaction?.token || "");
   const applicationId = safeStr(interaction?.application_id || env.DISCORD_APPLICATION_ID || "");
   const channelId = safeStr(interaction?.channel_id || "");
 
-  if (!target.id) {
-    return ephemeralReply("Couldn't tell who this session is for -- try again.");
+  if (!invoker.id) {
+    return ephemeralReply("Couldn't tell who's on the couch -- try again.");
   }
 
   const run = () =>
-    runTherapyPipelineSafe({ env, target, interactionToken, applicationId, channelId });
+    runTherapyPipelineSafe({ env, invoker, ventText, interactionToken, applicationId, channelId });
   if (ctx && typeof ctx.waitUntil === "function") {
     ctx.waitUntil(run());
   } else {
     await run();
   }
 
-  // Deferred EPHEMERAL ack -- same shape as the roast/wire reply pipelines.
-  // The real message posts as a normal bot message via postToDiscordChannel
-  // below; a public deferred response would instead leave a stray "UPS
-  // Therapy Bot is thinking..." placeholder sitting above it unless the
-  // @original message is explicitly edited, which the existing button flows
-  // deliberately avoid.
-  return jsonResponse({ type: INTERACTION_RESPONSE.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE, data: { flags: 64 } });
+  return jsonResponse({ type: INTERACTION_RESPONSE.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE, data: { flags: FLAG_EPHEMERAL } });
 }
 
 async function runTherapyPipelineSafe(args) {
@@ -240,7 +285,7 @@ async function runTherapyPipelineSafe(args) {
     try {
       await followUpInteraction(args.applicationId, args.interactionToken, {
         content: "⚠️ Therapy session crashed mid-sentence. The commish has been notified.",
-        flags: 64,
+        flags: FLAG_EPHEMERAL,
       });
     } catch (_) { /* interaction may have expired */ }
     try {
@@ -256,7 +301,7 @@ async function runTherapyPipelineSafe(args) {
           await fetch(`https://discord.com/api/v10/channels/${ch.id}/messages`, {
             method: "POST",
             headers: { Authorization: `Bot ${botToken}`, "content-type": "application/json" },
-            body: JSON.stringify({ content: `🚨 therapy pipeline crash (target ${args.target?.name}):\n\`\`\`${msg.slice(0, 1500)}\`\`\`` }),
+            body: JSON.stringify({ content: `🚨 therapy pipeline crash (patient ${args.invoker?.name}):\n\`\`\`${msg.slice(0, 1500)}\`\`\`` }),
           });
         }
       }
@@ -264,13 +309,13 @@ async function runTherapyPipelineSafe(args) {
   }
 }
 
-async function runTherapyPipeline({ env, target, interactionToken, applicationId, channelId }) {
+async function runTherapyPipeline({ env, invoker, ventText, interactionToken, applicationId, channelId }) {
   const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
-  const fid = await resolveFranchiseId(env, target.id);
+  const fid = await resolveFranchiseId(env, invoker.id);
   if (!fid) {
     await followUpInteraction(applicationId, interactionToken, {
-      content: `Couldn't find ${target.name} on a roster -- no session today.`,
-      flags: 64,
+      content: "Couldn't find you on a roster -- no session today.",
+      flags: FLAG_EPHEMERAL,
     });
     return;
   }
@@ -281,9 +326,9 @@ async function runTherapyPipeline({ env, target, interactionToken, applicationId
   ]);
 
   const facts = buildPositiveFacts(row);
-  const displayName = safeStr(row?.owner_display) || target.name;
+  const displayName = safeStr(row?.owner_display) || invoker.name;
 
-  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2));
+  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText);
 
   let posted = false;
   if (channelId && botToken) {
@@ -294,11 +339,11 @@ async function runTherapyPipeline({ env, target, interactionToken, applicationId
   }
   await followUpInteraction(applicationId, interactionToken, {
     content: posted ? "🛋️ Session posted ✓" : "Couldn't post to the channel -- try again.",
-    flags: 64,
+    flags: FLAG_EPHEMERAL,
   });
 }
 
-async function generateTherapy(env, displayName, facts, receipts) {
+async function generateTherapy(env, displayName, facts, receipts, ventText) {
   const factsBlock = facts.length
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(none on record yet -- lean on tenure/camaraderie only, and keep it short)";
@@ -307,7 +352,8 @@ async function generateTherapy(env, displayName, facts, receipts) {
     : "(none provided)";
   const userText =
     `Patient: ${displayName}\n\n` +
-    `VERIFIED POSITIVE FACTS (the only facts you may use):\n${factsBlock}\n\n` +
+    `WHAT THE PATIENT TYPED (may be empty -- respond to it directly if present, riff on any other owner named in it without asserting new facts about them):\n"${ventText || "(nothing typed -- go straight to the session)"}"\n\n` +
+    `VERIFIED POSITIVE FACTS ABOUT THE PATIENT (the only facts you may assert about them):\n${factsBlock}\n\n` +
     `REAL QUOTES (verbatim, optional, use at most one if it fits):\n${receiptsBlock}\n\n` +
     `Open the session.`;
   for (const model of [THERAPY_MODEL, THERAPY_FALLBACK_MODEL]) {

@@ -25,7 +25,7 @@ import {
 } from "./discord_wire_reply.js";
 import { handleTradeThinkButton } from "./trade_dm.js";
 import { handle3WayButton } from "./trade_3way.js";
-import { handleTherapyCommand } from "./discord_therapy.js";
+import { handleTherapyCommand, isTherapyModal, handleTherapyModal } from "./discord_therapy.js";
 
 const INTERACTION_TYPE = {
   PING: 1,
@@ -242,6 +242,14 @@ export async function handleDiscordInteraction(request, env, ctx) {
   }
   if (type === INTERACTION_TYPE.MODAL_SUBMIT) {
     const customId = safeStr(interaction?.data?.custom_id || "");
+    if (isTherapyModal(customId)) {
+      try {
+        return await handleTherapyModal(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[therapy-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Therapy modal failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
     if (isRoastReplyModal(customId)) {
       try {
         return await handleRoastReplyModal(interaction, env, ctx);
