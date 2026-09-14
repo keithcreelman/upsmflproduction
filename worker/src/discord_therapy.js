@@ -379,7 +379,14 @@ export async function handleTherapyCommand(interaction, _env, _ctx) {
               style: TEXT_INPUT_STYLE.PARAGRAPH,
               min_length: 0,
               max_length: 1900,
-              placeholder: "Vent. Trash talk. Whatever's rattling around up there. (Optional -- leave blank for a straight pep talk.)",
+              // Discord caps TEXT_INPUT placeholder at 100 chars -- the first
+              // version of this string was 105 and Discord silently rejects
+              // an over-length modal response as invalid. The worker still
+              // logs a clean 200 (it never validates Discord's own field
+              // limits), so from our side nothing looks wrong at all -- the
+              // only symptom is Discord showing the command as having never
+              // responded. Keep any future edit here under 100 chars.
+              placeholder: "Vent. Trash talk. Whatever's on your mind. (Optional -- blank for a straight pep talk.)",
               required: false,
             },
           ],
