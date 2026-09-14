@@ -42,6 +42,32 @@ DESIGN NOTES:
   * ACQUIRE/RELINQUISH direction is exactly the kind of thing that already
     got misremembered by hand once this session — see build_groups()'s
     docstring and the trade2023_75 self-check in --dry-run output.
+  * NEXT-SEASON ATTRIBUTION IS GATED ON ACTUAL ROSTER MEMBERSHIP (fixed
+    2026-09-14): proven bug -- trade2024_30 (2024-07-24) had Keith (0008)
+    GIVE A.J. Brown and GET Christian McCaffrey from Hammer (0005). McCaffrey
+    moved on to a THIRD franchise (0007) before 2025 started, yet the old
+    got_next_season_pts/notable_json attributed his real 2025 #1-RB season
+    (415.6 pts, on 0007's roster) to what Keith "got" -- Keith's actual 2024
+    with McCaffrey was 48.4 pts across 4 games, badly injured. gave/got
+    _next_season_pts and notable_json now GATE on a direct
+    contract_history[player_id][next_season]['franchise_id'] == holding_fid
+    check (holding_fid is other_franchise_id for a gave_players entry,
+    franchise_id for a got_players entry -- same "whoever has them now" logic
+    as retention_info(), but checked at next_season exactly, not via the
+    years_retained consecutive-run proxy). A player who fails the check is
+    excluded from the SUM entirely (not counted as 0), and never gets a
+    next_season notable line. If NO player on a side passes the check, that
+    side's pts field is NULL (not 0) so the bot can tell "no valid
+    next-season data" apart from "scored zero". See cmc_trade_check() for the
+    explicit self-check on this exact case.
+  * TRADE-SEASON STATS (added 2026-09-14, same fix): gave_trade_season_pts /
+    got_trade_season_pts / trade_season_notable_json (migration 0153) capture
+    how each traded player performed in the TRADE'S OWN season, fresh on the
+    new roster -- unconditionally valid (no gate needed; whoever the trade
+    gave them to is who actually held them for those weeks). This is the
+    only way McCaffrey's real, brutal, injury-marred 2024 with Keith is
+    expressible at all -- the gated next-season fact for that side is NULL,
+    but the trade-season fact is real and present.
   * RETENTION + CURRENT CONTRACT (Keith 2026-09-14, same conversation as the
     McBride correction above: "look at the player if they stay on the same
     team after a trade for long years that is worth highlighting... that's
@@ -98,7 +124,9 @@ COLS = [
     "gave_players_json", "got_players_json",
     "gave_extra", "got_extra",
     "next_season", "gave_next_season_pts", "got_next_season_pts",
-    "notable_json", "synced_at_utc",
+    "notable_json",
+    "gave_trade_season_pts", "got_trade_season_pts", "trade_season_notable_json",
+    "synced_at_utc",
 ]
 
 # Non-PLAYER asset types get folded into a plain-text "plus ..." note rather
@@ -237,6 +265,21 @@ def retention_info(player_id, holding_fid, start_season, current_season, contrac
     return out
 
 
+def held_by_in_season(player_id, holding_fid, target_season, contract_history):
+    """Direct, season-exact roster-membership check: was this player under
+    contract to holding_fid in target_season SPECIFICALLY (not "for N
+    consecutive seasons starting somewhere" -- that's years_retained, a
+    different question). Looks up
+    contract_history[player_id][target_season]['franchise_id'] directly,
+    since contract_history already carries season-level granularity -- no
+    reason to go through a consecutive-run proxy for a single-season
+    question. Used to gate next_season pts/notable attribution onto whoever
+    actually held the player that season (see trade2024_30/McCaffrey in the
+    module docstring for the proven case this fixes)."""
+    row = (contract_history.get(player_id) or {}).get(target_season)
+    return bool(row and row.get("franchise_id") == holding_fid)
+
+
 def player_entries(rows, positions, holding_fid, start_season, current_season, contract_history):
     out = []
     for r in rows:
@@ -266,9 +309,11 @@ def positions_for(season, player_ids):
     return {r["player_id"]: r["position"] for r in rows}
 
 
-def next_season_totals(next_season, player_ids):
-    """player_id -> SUM(src_weekly.score) in next_season, across all weeks,
-    whatever roster they were on. Missing from the map == no rows == 0.0."""
+def season_totals(season, player_ids):
+    """player_id -> SUM(src_weekly.score) in the given season, across all
+    weeks, whatever roster they were on. Missing from the map == no rows ==
+    0.0. Generic over `season` -- reused for both next_season (gated) and
+    trade-season (unconditional) totals, no reason to duplicate this query."""
     ids = {pid for pid in player_ids if pid}
     if not ids:
         return {}
@@ -276,7 +321,7 @@ def next_season_totals(next_season, player_ids):
     rows = D.d1(
         "SELECT player_id, ROUND(SUM(score), 1) AS total FROM src_weekly "
         "WHERE season = %d AND player_id IN (%s) GROUP BY player_id"
-        % (int(next_season), id_list)
+        % (int(season), id_list)
     )
     return {r["player_id"]: float(r["total"] or 0.0) for r in rows}
 
@@ -383,8 +428,10 @@ def build_rows_for_season(season, current_season):
         if r["asset_type"] == "PLAYER" and r["player_id"]
     }
     positions = positions_for(season, all_player_ids)
-    totals = next_season_totals(next_season, all_player_ids)
+    totals = season_totals(next_season, all_player_ids)
     ranks = position_ranks(next_season)
+    trade_season_pts_map = season_totals(season, all_player_ids)
+    trade_season_ranks = position_ranks(season)
     contract_history = contract_history_for(all_player_ids, current_season)
 
     rows = []
@@ -416,12 +463,33 @@ def build_rows_for_season(season, current_season):
             gave_players = player_entries(gave_player_rows, positions, other_fid, season, current_season, contract_history)
             got_players = player_entries(got_player_rows, positions, fid, season, current_season, contract_history)
 
-            gave_ids = [p["player_id"] for p in gave_players]
-            got_ids = [p["player_id"] for p in got_players]
-            gave_pts = round(sum(totals.get(pid, 0.0) for pid in gave_ids), 1) if gave_ids else None
-            got_pts = round(sum(totals.get(pid, 0.0) for pid in got_ids), 1) if got_ids else None
+            # GATE next-season attribution on actual roster membership at
+            # next_season SPECIFICALLY (held_by_in_season, a direct
+            # contract_history[player_id][next_season] lookup -- NOT the
+            # years_retained consecutive-run proxy). A player who was moved
+            # on before next_season contributes nothing to the pts SUM and
+            # gets no next_season notable line -- see module docstring for
+            # the proven trade2024_30/McCaffrey case this fixes.
+            gave_gated = [p for p in gave_players if held_by_in_season(p["player_id"], other_fid, next_season, contract_history)]
+            got_gated = [p for p in got_players if held_by_in_season(p["player_id"], fid, next_season, contract_history)]
+            gave_pts = round(sum(totals.get(p["player_id"], 0.0) for p in gave_gated), 1) if gave_gated else None
+            got_pts = round(sum(totals.get(p["player_id"], 0.0) for p in got_gated), 1) if got_gated else None
 
-            notable = notable_for(gave_players, ranks, next_season) + notable_for(got_players, ranks, next_season)
+            notable = notable_for(gave_gated, ranks, next_season) + notable_for(got_gated, ranks, next_season)
+
+            # TRADE-SEASON stats are unconditional -- the trade's own season
+            # is, by definition, when the acquiring side actually held the
+            # player, so no gate is needed (or possible: gave_players lists
+            # the RELINQUISHING side's own former players, who are never
+            # "held" by other_fid before the trade completes). Reuses the
+            # exact same season_totals()/position_ranks()/notable_for() as
+            # next_season, just called with `season` instead.
+            gave_trade_pts = round(sum(trade_season_pts_map.get(p["player_id"], 0.0) for p in gave_players), 1) if gave_players else None
+            got_trade_pts = round(sum(trade_season_pts_map.get(p["player_id"], 0.0) for p in got_players), 1) if got_players else None
+            trade_season_notable = (
+                notable_for(gave_players, trade_season_ranks, season)
+                + notable_for(got_players, trade_season_ranks, season)
+            )
 
             rows.append({
                 "trade_group_id": gid,
@@ -437,6 +505,9 @@ def build_rows_for_season(season, current_season):
                 "gave_next_season_pts": gave_pts,
                 "got_next_season_pts": got_pts,
                 "notable_json": json.dumps(notable),
+                "gave_trade_season_pts": gave_trade_pts,
+                "got_trade_season_pts": got_trade_pts,
+                "trade_season_notable_json": json.dumps(trade_season_notable),
                 "synced_at_utc": now,
             })
 
@@ -513,12 +584,22 @@ def print_plain_english_sample(rows, owners_by_season, n=10):
         print("\n[%s] %s (%s) vs %s (%s) -- %s" % (r["trade_group_id"], who, r["franchise_id"], vs, r["other_franchise_id"], r["datetime_et"]))
         print("  GAVE: %s%s" % (gave_names, "  " + r["gave_extra"] if r["gave_extra"] else ""))
         print("   GOT: %s%s" % (got_names, "  " + r["got_extra"] if r["got_extra"] else ""))
-        print("  %d pts (gave) vs %d pts (got) in %d" % (
-            round(r["gave_next_season_pts"] or 0), round(r["got_next_season_pts"] or 0), r["next_season"]))
+        gave_next_str = "no data" if r["gave_next_season_pts"] is None else "%d pts" % round(r["gave_next_season_pts"])
+        got_next_str = "no data" if r["got_next_season_pts"] is None else "%d pts" % round(r["got_next_season_pts"])
+        print("  NEXT SEASON (%d, gated to actual roster membership): gave side %s, got side %s" % (
+            r["next_season"], gave_next_str, got_next_str))
         notable = json.loads(r["notable_json"])
         if notable:
             for nline in notable:
-                print("  NOTABLE: %s" % nline)
+                print("  NOTABLE (next season): %s" % nline)
+        gave_trade_str = "no data" if r["gave_trade_season_pts"] is None else "%d pts" % round(r["gave_trade_season_pts"])
+        got_trade_str = "no data" if r["got_trade_season_pts"] is None else "%d pts" % round(r["got_trade_season_pts"])
+        print("  TRADE SEASON (%d, fresh on the new roster, unconditional): gave side %s, got side %s" % (
+            r["season"], gave_trade_str, got_trade_str))
+        trade_notable = json.loads(r["trade_season_notable_json"])
+        if trade_notable:
+            for nline in trade_notable:
+                print("  NOTABLE (trade season): %s" % nline)
         for p in gave + got:
             note = _retention_note(p)
             if note:
@@ -565,6 +646,55 @@ def trade2023_75_check(rows):
     return ok and ok_retention
 
 
+def cmc_trade_check(rows):
+    """Explicit self-check for the proven next-season-attribution bug this
+    fix addresses: trade2024_30 (2024-07-24), Keith (0008) GAVE A.J. Brown
+    and GOT Christian McCaffrey from Hammer (0005). McCaffrey was traded off
+    0008's roster (to a THIRD franchise, 0007) before 2025 started -- so
+    got_next_season_pts for 0008 must be NULL (no valid next-season data,
+    not a real 0) and no notable_json line may attribute his real 2025 #1-RB
+    season to 0008. His real, immediate 2024 performance on 0008 -- 48.4 pts
+    across 4 games, badly injured -- must show up instead as
+    got_trade_season_pts. Prints PASS/FAIL and the actual row values."""
+    print("\n--- cmc_trade_check (trade2024_30 next-season gate) self-check ---")
+    r8 = next((r for r in rows if r["trade_group_id"] == "trade2024_30" and r["franchise_id"] == "0008"), None)
+    if not r8:
+        print("  FAIL: trade2024_30/0008 not found in this row set (did you run with --seasons 2024?)")
+        return False
+
+    got = json.loads(r8["got_players_json"])
+    got_names = [p["player_name"] for p in got]
+    notable = json.loads(r8["notable_json"])
+    trade_notable = json.loads(r8["trade_season_notable_json"])
+
+    print("  0008 got: %s" % got_names)
+    print("  0008 got_next_season_pts (%s): %s" % (r8["next_season"], r8["got_next_season_pts"]))
+    print("  0008 got_trade_season_pts (%s): %s" % (r8["season"], r8["got_trade_season_pts"]))
+    print("  0008 notable (next season): %s" % notable)
+    print("  0008 notable (trade season): %s" % trade_notable)
+
+    mccaffrey_present = "McCaffrey, Christian" in got_names
+    gate_ok = r8["got_next_season_pts"] is None
+    no_mis_notable = not any("McCaffrey" in n and str(r8["next_season"]) in n for n in notable)
+    trade_pts_ok = r8["got_trade_season_pts"] is not None and abs((r8["got_trade_season_pts"] or 0) - 48.4) < 1.0
+
+    ok = mccaffrey_present and gate_ok and no_mis_notable and trade_pts_ok
+    print("  RESULT: %s" % (
+        "PASS -- got_trade_season_pts ~= 48.4 (real injured 2024), got_next_season_pts is NULL "
+        "(McCaffrey was not on 0008 in 2025), no 2025 McCaffrey notable attributed to 0008"
+        if ok else "FAIL -- next-season gate or trade-season pts do not match the known-correct McCaffrey case"
+    ))
+    if not mccaffrey_present:
+        print("    (McCaffrey not found in 0008's got_players_json)")
+    if not gate_ok:
+        print("    (got_next_season_pts should be NULL, was %s)" % r8["got_next_season_pts"])
+    if not no_mis_notable:
+        print("    (a next-season notable line still attributes McCaffrey's %s season to 0008)" % r8["next_season"])
+    if not trade_pts_ok:
+        print("    (got_trade_season_pts should be ~48.4, was %s)" % r8["got_trade_season_pts"])
+    return ok
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seasons", default="2018-2024", help="e.g. 2023 or 2018-2024")
@@ -589,6 +719,8 @@ def main():
 
         if 2023 in seasons:
             trade2023_75_check(rows)
+        if 2024 in seasons:
+            cmc_trade_check(rows)
 
         print(f"\nDRY RUN — would UPSERT {len(rows)} row(s), not writing")
         return 0

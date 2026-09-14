@@ -556,20 +556,36 @@ function formatPlayerList(list) {
 function tradeBlock(trade) {
   if (!trade) return "(none available -- skip this angle entirely, don't mention any other owner unprompted)";
   const t = trade.row;
-  let gave, got, notable;
+  let gave, got, notable, tradeSeasonNotable;
   try {
     gave = JSON.parse(t.gave_players_json || "[]");
     got = JSON.parse(t.got_players_json || "[]");
     notable = JSON.parse(t.notable_json || "[]");
+    tradeSeasonNotable = JSON.parse(t.trade_season_notable_json || "[]");
   } catch (_) {
     return "(none available -- skip this angle entirely, don't mention any other owner unprompted)";
   }
+  // next_season pts/notable are GATED on the player still being on the
+  // relevant roster that exact season (fixed 2026-09-14: a McCaffrey trade
+  // used to credit Keith's side with McCaffrey's real 2025 #1-RB season even
+  // though McCaffrey had already moved to a THIRD team by then -- Keith's
+  // actual 2024 with him was 48.4 points, badly injured). NULL here means
+  // "already moved on", not "no data" -- say so explicitly rather than
+  // leaving it ambiguous, and lead with trade_season stats instead, which
+  // are always real for whoever actually held the player right after the
+  // trade.
+  const nextSeasonLine =
+    t.gave_next_season_pts == null && t.got_next_season_pts == null
+      ? `By ${t.next_season}, both sides of this had already moved the relevant player(s) on to yet another roster -- no fair next-season number to cite.`
+      : `Still true in ${t.next_season}: what he gave up scored ${t.gave_next_season_pts ?? "(he'd already moved that player on -- no fair number)"} pts, what he got scored ${t.got_next_season_pts ?? "(he'd already moved that player on -- no fair number)"} pts.`;
   return (
     `A real trade with ${trade.name}, Season ${t.season}: the patient GAVE ${formatPlayerList(gave)}` +
     `${t.gave_extra ? " " + t.gave_extra : ""}, and GOT ${formatPlayerList(got)}${t.got_extra ? " " + t.got_extra : ""} in return. ` +
-    `In ${t.next_season} (the season right after): what he gave up scored ${t.gave_next_season_pts ?? "no data"} pts total, ` +
-    `what he got scored ${t.got_next_season_pts ?? "no data"} pts total.` +
-    (notable.length ? ` Proven fact: ${notable.join("; ")}.` : "")
+    `Immediate impact, right on the new roster in ${t.season}: what he gave up scored ${t.gave_trade_season_pts ?? "no data"} pts, ` +
+    `what he got scored ${t.got_trade_season_pts ?? "no data"} pts.` +
+    (tradeSeasonNotable.length ? ` Proven fact (${t.season}): ${tradeSeasonNotable.join("; ")}.` : "") +
+    ` ${nextSeasonLine}` +
+    (notable.length ? ` Proven fact (${t.next_season}): ${notable.join("; ")}.` : "")
   );
 }
 

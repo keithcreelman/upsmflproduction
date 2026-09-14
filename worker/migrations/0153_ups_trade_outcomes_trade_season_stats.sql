@@ -1,0 +1,45 @@
+-- 0153_ups_trade_outcomes_trade_season_stats.sql
+--
+-- Fixes a proven misattribution bug in ups_trade_outcomes (migration 0152)
+-- and adds the columns needed to express the real story instead.
+--
+-- THE BUG (Keith 2026-09-14, proven against real live D1 data): 0152's
+-- gave_next_season_pts / got_next_season_pts / notable_json summed and
+-- ranked next_season src_weekly scores for every traded player REGARDLESS
+-- of whether that player was still on the relevant roster during
+-- next_season. Concretely: trade2024_30 (2024-07-24) had Keith (0008) GIVE
+-- A.J. Brown and GET Christian McCaffrey from Hammer (0005). McCaffrey was
+-- traded off 0008's roster to a THIRD franchise (0007) before 2025 started
+-- -- yet the stored row said got_next_season_pts=415.6 and notable_json
+-- named him "the #1 scoring RB in 2025", both actually earned on 0007's
+-- roster, not 0008's. Keith's real 2024 with McCaffrey (badly injured) was
+-- 48.4 pts across 4 games -- a fact the old schema had no column to express
+-- at all. Of 944 existing rows, 176 notable_json superlative claims were
+-- misattributed this same way.
+--
+-- THE FIX (in the sync script, pipelines/etl/scripts/sync_trade_outcomes_to_d1.py):
+--   1. gave_next_season_pts / got_next_season_pts / notable_json are now
+--      GATED on a direct contract_history[player_id][next_season]
+--      ['franchise_id'] == holding_fid check per player (holding_fid is
+--      other_franchise_id for a gave_players entry, franchise_id for a
+--      got_players entry -- same "whoever has them now" logic
+--      retention_info() already used, just checked at next_season
+--      exactly instead of via the years_retained consecutive-run proxy). A
+--      player who fails the check contributes nothing to the pts SUM and
+--      gets no notable line; if NO player on a side passes, that side's
+--      pts column is NULL (not 0), so the bot can tell "no valid
+--      next-season data" apart from "scored zero".
+--   2. This migration adds the trade's-OWN-season columns below --
+--      unconditionally valid (no gate needed: the trade's own season is,
+--      by definition, when the acquiring side actually held the player),
+--      reusing 0152's exact same position_ranks()/notable_for() proven
+--      top-5 rank logic, just computed for `season` instead of
+--      `next_season`. This is what actually captures a story like
+--      McCaffrey's brutal 2024 with Keith.
+--
+-- See sync_trade_outcomes_to_d1.py's cmc_trade_check() (--dry-run) for the
+-- explicit self-check on this exact case.
+
+ALTER TABLE ups_trade_outcomes ADD COLUMN gave_trade_season_pts REAL;       -- SUM(src_weekly.score) for gave_players_json, in the trade's OWN season (season column), unconditional
+ALTER TABLE ups_trade_outcomes ADD COLUMN got_trade_season_pts REAL;        -- SUM(src_weekly.score) for got_players_json, in the trade's OWN season (season column), unconditional
+ALTER TABLE ups_trade_outcomes ADD COLUMN trade_season_notable_json TEXT;   -- JSON array of PROVEN positional-rank superlative strings for the trade's OWN season, [] if none
