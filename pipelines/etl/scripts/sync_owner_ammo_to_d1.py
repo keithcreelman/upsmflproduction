@@ -52,7 +52,8 @@ COLS = [
     "franchise_id", "owner_display", "team_name", "discord_handle",
     "voice", "form", "device", "best_counterpunch",
     "roast_angles_json", "discord_receipts_json",
-    "running_gags_json", "sensitivities_json", "synced_at_utc",
+    "running_gags_json", "sensitivities_json",
+    "positive_receipts_json", "synced_at_utc",
 ]
 
 
@@ -93,6 +94,11 @@ def build_rows(profiles: dict) -> list[dict]:
             "discord_receipts_json": json.dumps(p.get("discord_receipts") or [], ensure_ascii=False),
             "running_gags_json": json.dumps(p.get("running_gags") or [], ensure_ascii=False),
             "sensitivities_json": json.dumps(p.get("sensitivities") or [], ensure_ascii=False),
+            # Opposite of discord_receipts_json (roast fodder): hand-curated,
+            # genuinely flattering quotes for the Therapy Bot. Empty until
+            # Keith adds a "positive_receipts" array to a profile — see
+            # migration 0150.
+            "positive_receipts_json": json.dumps(p.get("positive_receipts") or [], ensure_ascii=False),
             "synced_at_utc": now,
         })
     return rows
