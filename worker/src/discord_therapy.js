@@ -188,13 +188,30 @@ async function loadAllOwners(env) {
   }
 }
 
-async function loadBadBeat(env, fid) {
+// currentOwnerDisplay (optional): when given, filters to bad beats whose
+// STORED owner_name (the real, season-accurate owner -- see migration 0154)
+// matches this CURRENT owner display name. Used ONLY for the "mentioned
+// rival" path in runTherapyPipeline, where a name the patient typed today
+// (e.g. "Hammer") must only surface a bad beat that happened under THAT
+// owner's own tenure -- otherwise "a real bad beat from Hammer" could
+// surface one that happened under a PREVIOUS owner of that franchise slot,
+// which would misleadingly attribute it to Hammer. Omit it (as the
+// random-own-bad-beat / random-rival-bad-beat fallback paths do) to draw
+// from the franchise's whole history regardless of who owned it when --
+// those paths are correctly naming via the row's own owner_name already,
+// they just don't filter the SELECTION.
+async function loadBadBeat(env, fid, currentOwnerDisplay) {
   if (!env.UPS_MFL_DB || !fid) return null;
   try {
-    const { results } = await env.UPS_MFL_DB
-      .prepare("SELECT * FROM ups_bad_beats WHERE franchise_id = ? ORDER BY RANDOM() LIMIT 1")
-      .bind(fid)
-      .all();
+    const { results } = currentOwnerDisplay
+      ? await env.UPS_MFL_DB
+          .prepare("SELECT * FROM ups_bad_beats WHERE franchise_id = ? AND owner_name = ? ORDER BY RANDOM() LIMIT 1")
+          .bind(fid, currentOwnerDisplay)
+          .all()
+      : await env.UPS_MFL_DB
+          .prepare("SELECT * FROM ups_bad_beats WHERE franchise_id = ? ORDER BY RANDOM() LIMIT 1")
+          .bind(fid)
+          .all();
     return results?.[0] || null;
   } catch (e) {
     console.log(`[therapy] loadBadBeat failed: ${e?.message || e}`);
@@ -218,15 +235,28 @@ async function loadRandomBadBeat(env, excludeFid) {
 
 // A trade specifically between the patient and a named rival, if one exists
 // -- the McBride/Hammer case this whole ingredient was built for.
-async function loadTradeWith(env, fid, otherFid) {
+//
+// currentOwnerDisplay (optional): same filter as loadBadBeat above, bound
+// against other_owner_name (the counterparty's real, season-accurate owner
+// -- see migration 0155) instead of owner_name -- this is the mentioned
+// rival's side of the trade. Used ONLY for the "mentioned rival" path;
+// loadRandomOwnTrade (the no-rival-named fallback) never passes this.
+async function loadTradeWith(env, fid, otherFid, currentOwnerDisplay) {
   if (!env.UPS_MFL_DB || !fid || !otherFid) return null;
   try {
-    const { results } = await env.UPS_MFL_DB
-      .prepare(
-        "SELECT * FROM ups_trade_outcomes WHERE franchise_id = ? AND other_franchise_id = ? ORDER BY RANDOM() LIMIT 1"
-      )
-      .bind(fid, otherFid)
-      .all();
+    const { results } = currentOwnerDisplay
+      ? await env.UPS_MFL_DB
+          .prepare(
+            "SELECT * FROM ups_trade_outcomes WHERE franchise_id = ? AND other_franchise_id = ? AND other_owner_name = ? ORDER BY RANDOM() LIMIT 1"
+          )
+          .bind(fid, otherFid, currentOwnerDisplay)
+          .all()
+      : await env.UPS_MFL_DB
+          .prepare(
+            "SELECT * FROM ups_trade_outcomes WHERE franchise_id = ? AND other_franchise_id = ? ORDER BY RANDOM() LIMIT 1"
+          )
+          .bind(fid, otherFid)
+          .all();
     return results?.[0] || null;
   } catch (e) {
     console.log(`[therapy] loadTradeWith failed: ${e?.message || e}`);
@@ -506,42 +536,74 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
   let rival = null;
   let trade = null;
   if (mentionedFid) {
+    // CURRENT owner display of the mentioned rival's franchise slot -- e.g.
+    // "Hammer" typed today resolves to Eric Martel via findMentionedFranchise
+    // (correct, unchanged). This value is used ONLY to FILTER the queries
+    // below to that owner's own tenure -- it is NOT used to name the result
+    // (naming comes from the row's own stored owner_name/other_owner_name,
+    // below), since a filtered row's stored name always equals this anyway.
+    const currentOwnerDisplay = ownerNameFor(mentionedFid, owners);
     // A named rival gets first crack at BOTH ingredients -- try the sharpest
     // one (a real trade between the two of them) before falling back to a
-    // bad beat about them.
+    // bad beat about them. Both are FILTERED to currentOwnerDisplay's own
+    // tenure on that franchise slot -- a real trade/bad beat that happened
+    // under a PREVIOUS owner of the slot must not surface here, since that
+    // would misleadingly attribute it to the CURRENT owner the patient
+    // named. No unfiltered fallback: "nothing under this owner's tenure" is
+    // a correct, safe result, not an error to work around.
     const [tradeRow, beat] = await Promise.all([
-      loadTradeWith(env, fid, mentionedFid),
-      loadBadBeat(env, mentionedFid),
+      loadTradeWith(env, fid, mentionedFid, currentOwnerDisplay),
+      loadBadBeat(env, mentionedFid, currentOwnerDisplay),
     ]);
-    if (tradeRow) trade = { name: ownerNameFor(mentionedFid, owners), row: tradeRow };
-    else if (beat) rival = { name: ownerNameFor(mentionedFid, owners), beat };
+    // Name from the row's own stored, season-accurate column -- falls back
+    // to ownerNameFor() only defensively (should be rare post-backfill: a
+    // row synced before its owner_name/other_owner_name column existed).
+    if (tradeRow) trade = { name: tradeRow.other_owner_name || currentOwnerDisplay, row: tradeRow };
+    else if (beat) rival = { name: beat.owner_name || currentOwnerDisplay, beat };
   } else {
     // No rival named -- occasionally surface the patient's OWN trade
     // history (self-deprecating material) or someone else's bad beat, but
     // not both; keep the odds low enough that most sessions carry neither.
+    // UNFILTERED by design -- see loadRandomOwnTrade/loadRandomBadBeat: any
+    // real historical counterparty is fair game here, correctly labeled via
+    // the row's own stored owner_name/other_owner_name.
     const roll = Math.random();
     if (roll < 0.3) {
       const tradeRow = await loadRandomOwnTrade(env, fid);
-      if (tradeRow) trade = { name: ownerNameFor(tradeRow.other_franchise_id, owners), row: tradeRow };
+      if (tradeRow) trade = { name: tradeRow.other_owner_name || ownerNameFor(tradeRow.other_franchise_id, owners), row: tradeRow };
     } else if (roll < 0.5) {
       const beat = await loadRandomBadBeat(env, fid);
-      if (beat) rival = { name: ownerNameFor(beat.franchise_id, owners), beat };
+      if (beat) rival = { name: beat.owner_name || ownerNameFor(beat.franchise_id, owners), beat };
     }
   }
 
   // Real ammo for the closing twist against whoever the aside is about --
   // without this the model has nothing to turn the twist on and invents an
-  // ungrounded line instead. Whoever's currently in play (named rival, the
-  // trade's counterparty, or the bad beat's owner) gets checked; skip a
-  // second bad-beat fetch if `rival` already holds one.
-  const twistTargetFid = mentionedFid || trade?.row?.other_franchise_id || rival?.beat?.franchise_id || "";
+  // ungrounded line instead. MUST name the exact same person already named
+  // in `trade`/`rival` above (never re-derive via ownerNameFor(), which is
+  // the current-owner-only bug this whole fix exists to close) -- a random
+  // OWN trade/bad beat can point at a PAST owner of a franchise slot, and
+  // the twist has to follow that same person, not today's owner of the slot.
+  const twistTarget = mentionedFid
+    ? { fid: mentionedFid, name: ownerNameFor(mentionedFid, owners), isCurrentOwner: true }
+    : trade
+    ? { fid: trade.row.other_franchise_id, name: trade.name, isCurrentOwner: trade.name === ownerNameFor(trade.row.other_franchise_id, owners) }
+    : rival
+    ? { fid: rival.beat.franchise_id, name: rival.name, isCurrentOwner: rival.name === ownerNameFor(rival.beat.franchise_id, owners) }
+    : null;
   let twist = null;
-  if (twistTargetFid) {
+  if (twistTarget) {
     const [dossier, extraBeat] = await Promise.all([
-      loadRivalDossier(env, twistTargetFid),
-      rival ? Promise.resolve(null) : loadBadBeat(env, twistTargetFid),
+      // ups_roast_owner_ammo is keyed by CURRENT franchise_id and holds only
+      // the CURRENT owner's dossier -- only valid when the twist target IS
+      // that current owner, never for a past owner of the same slot.
+      twistTarget.isCurrentOwner ? loadRivalDossier(env, twistTarget.fid) : Promise.resolve(null),
+      // Filtered to twistTarget's own tenure, same as the mentioned-rival
+      // path above -- an unfiltered fetch here would silently reintroduce
+      // the exact bug this fix closes.
+      rival ? Promise.resolve(null) : loadBadBeat(env, twistTarget.fid, twistTarget.name),
     ]);
-    if (dossier || extraBeat) twist = { name: ownerNameFor(twistTargetFid, owners), dossier, beat: extraBeat || rival?.beat || null };
+    if (dossier || extraBeat) twist = { name: twistTarget.name, dossier, beat: extraBeat || rival?.beat || null };
   }
 
   const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist);
