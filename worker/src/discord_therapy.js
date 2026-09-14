@@ -38,6 +38,20 @@
 // same shape as discord_receipts, then re-run sync_owner_ammo_to_d1.py. The
 // roast ammo's own discord_receipts/roast_angles/sensitivities are NEVER read
 // here — those are curated for roasting and would defeat the point.
+//
+// VARIETY (Keith 2026-09-14: "I just don't want this to get stale"). Two
+// mechanisms, both real-data-only:
+//   1. The positive-facts list is shuffled before it reaches the model, so
+//      repeated sessions don't always lead with the same fact in the same
+//      order (buildPositiveFacts itself stays untouched -- still the only
+//      thing deciding WHAT counts as a fact).
+//   2. An optional "rival bad beat" from ups_bad_beats (migration 0151, a D1
+//      mirror of wire_data.bench_burns() -- see sync_bad_beats_to_d1.py): if
+//      the vent names another owner/team by a recognizable token of their
+//      franchise name, pull a real bench-vs-start story for THAT franchise;
+//      otherwise pull a random one from someone else about half the time.
+//      Framing is verdict-gated same as the Wire itself -- "process" (a real
+//      misplay) is fair to needle, "variance" (bad luck) is not.
 
 import { postToDiscordChannel, followUpInteraction, callAnthropic } from "./discord_roast_reply.js";
 
@@ -58,16 +72,18 @@ const THERAPY_SYSTEM = `You are the UPS Therapy Bot -- same wiseguy voice as UPS
 
 You're posting in #on-the-sofa, a joke "therapeutic space" where owners vent about bad weeks. Play the part -- a little theatrical, "you're safe here", couch-and-clipboard energy -- but the content underneath must be completely sincere. This is not a roast wearing a nice hat.
 
-If the patient typed something (a vent, trash talk, whatever's bothering them), open by responding to it directly and specifically -- show you actually read it -- before or while working in the reassurance. If they name another owner or team in their vent, you may riff on what THEY said about that person, but never assert a new fact about that other person that wasn't in what the patient wrote. If nothing was typed, skip straight to the session.
+If the patient typed something (a vent, trash talk, whatever's bothering them), open by responding to it directly and specifically -- show you actually read it -- before or while working in the reassurance. If they name another owner or team in their vent, you may riff on what THEY said about that person, but never assert a new fact about that other person that wasn't in what the patient wrote -- UNLESS the OPTIONAL RIVAL BAD BEAT block below gives you a real one.
 
 RULES:
 - Facts about the patient: use ONLY the VERIFIED POSITIVE FACTS block below. Never invent a stat, year, quote or event about them, and never add context (a total, a "only", a comparison) that isn't itself in the block.
 - Never imply a gap, a shortfall or a "could be better" about the patient -- if a fact is small, say it plainly and let it stand. No backhanded compliments.
 - If a REAL QUOTE is provided, you may use it verbatim (never alter it) if it fits naturally -- otherwise skip it, don't force it.
 - If the facts are thin, keep the message short and warm rather than padding with something not given to you. Tenure and camaraderie are real things worth saying.
+- The OPTIONAL RIVAL BAD BEAT is the one place you may say something unflattering about someone who ISN'T the patient -- real data, one aside, never the point of the session. Respect its verdict: a "process" bad beat is fair to rib as a decision; a "variance" one was bad luck and the owner made the right call, so rib the universe, not them. Skip it entirely if it doesn't fit naturally or none was given.
+- Vary yourself. Don't open the same way twice in a row, don't always lead with the same kind of fact -- you have several real ingredients each time (the facts, an optional quote, an optional rival aside); lean on a different mix each session so this doesn't read like a template.
 - Max 90 words. Plain text, no markdown, no bullet points.
 - Address them by name. One "session" or "couch" joke is welcome; the rest should read like you mean it.
-- FAMILY AND HEALTH ARE OFF LIMITS, same as every other bot in this server.`;
+- FAMILY AND HEALTH ARE OFF LIMITS FOR EVERYONE -- the patient and any rival -- same as every other bot in this server.`;
 
 function safeStr(v) {
   return String(v == null ? "" : v).trim();
@@ -153,6 +169,88 @@ async function loadPositiveReceipts(env, fid) {
   } catch (_) {
     return [];
   }
+}
+
+async function loadAllOwners(env) {
+  if (!env.UPS_MFL_DB) return [];
+  try {
+    const { results } = await env.UPS_MFL_DB
+      .prepare("SELECT franchise_id, owner_display, franchise_name FROM ups_owner_career_stats")
+      .all();
+    return results || [];
+  } catch (e) {
+    console.log(`[therapy] loadAllOwners failed: ${e?.message || e}`);
+    return [];
+  }
+}
+
+async function loadBadBeat(env, fid) {
+  if (!env.UPS_MFL_DB || !fid) return null;
+  try {
+    const { results } = await env.UPS_MFL_DB
+      .prepare("SELECT * FROM ups_bad_beats WHERE franchise_id = ? ORDER BY RANDOM() LIMIT 1")
+      .bind(fid)
+      .all();
+    return results?.[0] || null;
+  } catch (e) {
+    console.log(`[therapy] loadBadBeat failed: ${e?.message || e}`);
+    return null;
+  }
+}
+
+async function loadRandomBadBeat(env, excludeFid) {
+  if (!env.UPS_MFL_DB) return null;
+  try {
+    const { results } = await env.UPS_MFL_DB
+      .prepare("SELECT * FROM ups_bad_beats WHERE franchise_id != ? ORDER BY RANDOM() LIMIT 1")
+      .bind(excludeFid || "")
+      .all();
+    return results?.[0] || null;
+  } catch (e) {
+    console.log(`[therapy] loadRandomBadBeat failed: ${e?.message || e}`);
+    return null;
+  }
+}
+
+// ── rival name-matching (plain substring match, no LLM guessing) ──────────
+
+function normalizeNameTokens(s) {
+  return safeStr(s)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((t) => t.length >= 4);
+}
+
+// Finds a franchise whose name (or owner's name) is recognizably present in
+// the vent, e.g. "HammerTime" in a team named "HammerTime 🔨 ⏰". Deliberately
+// simple substring matching, not fuzzy/nickname-aware -- a miss just means no
+// rival callback that session, which is the safe failure direction.
+export function findMentionedFranchise(ventText, owners, excludeFid) {
+  const vent = normalizeNameTokens(ventText).join(" ");
+  if (!vent) return "";
+  for (const o of owners) {
+    const fid = safeStr(o.franchise_id);
+    if (!fid || fid === excludeFid) continue;
+    const tokens = [...normalizeNameTokens(o.franchise_name), ...normalizeNameTokens(o.owner_display)];
+    if (tokens.some((t) => vent.includes(t))) return fid;
+  }
+  return "";
+}
+
+function ownerNameFor(fid, owners) {
+  const o = owners.find((x) => safeStr(x.franchise_id) === fid);
+  return safeStr(o?.owner_display) || safeStr(o?.franchise_name) || "an owner";
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 // ── positive-fact selection (plain code — see file header) ────────────────
@@ -320,15 +418,26 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
     return;
   }
 
-  const [row, receipts] = await Promise.all([
+  const [row, receipts, owners] = await Promise.all([
     loadCareerStats(env, fid),
     loadPositiveReceipts(env, fid),
+    loadAllOwners(env),
   ]);
 
-  const facts = buildPositiveFacts(row);
+  const facts = shuffle(buildPositiveFacts(row));
   const displayName = safeStr(row?.owner_display) || invoker.name;
 
-  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText);
+  const mentionedFid = findMentionedFranchise(ventText, owners, fid);
+  let rival = null;
+  if (mentionedFid) {
+    const beat = await loadBadBeat(env, mentionedFid);
+    if (beat) rival = { name: ownerNameFor(mentionedFid, owners), beat };
+  } else if (Math.random() < 0.5) {
+    const beat = await loadRandomBadBeat(env, fid);
+    if (beat) rival = { name: ownerNameFor(beat.franchise_id, owners), beat };
+  }
+
+  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival);
 
   let posted = false;
   if (channelId && botToken) {
@@ -343,7 +452,26 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
   });
 }
 
-async function generateTherapy(env, displayName, facts, receipts, ventText) {
+function rivalBlock(rival) {
+  if (!rival) return "(none available -- skip this angle entirely, don't mention any other owner unprompted)";
+  const b = rival.beat;
+  const verdictNote =
+    b.verdict === "process"
+      ? "a real misplay -- fair to needle the DECISION"
+      : b.verdict === "variance"
+      ? "bad luck, not a mistake -- needle the universe/matchup, never their judgment"
+      : "unclear -- keep any mention light and non-judgmental";
+  const resultNote = b.matchup_result
+    ? ` That week he ${b.matchup_result} by ${b.matchup_margin} points${b.swing_flips_result ? " -- that exact swing would have flipped it" : ""}.`
+    : "";
+  return (
+    `${rival.name} -- Season ${b.season}, Week ${b.week}: benched ${b.benched_name} ` +
+    `(${b.benched_score} pts) and started ${b.started_name} (${b.started_score} pts) instead. ` +
+    `Verdict: ${verdictNote}.${resultNote}`
+  );
+}
+
+async function generateTherapy(env, displayName, facts, receipts, ventText, rival) {
   const factsBlock = facts.length
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(none on record yet -- lean on tenure/camaraderie only, and keep it short)";
@@ -355,6 +483,7 @@ async function generateTherapy(env, displayName, facts, receipts, ventText) {
     `WHAT THE PATIENT TYPED (may be empty -- respond to it directly if present, riff on any other owner named in it without asserting new facts about them):\n"${ventText || "(nothing typed -- go straight to the session)"}"\n\n` +
     `VERIFIED POSITIVE FACTS ABOUT THE PATIENT (the only facts you may assert about them):\n${factsBlock}\n\n` +
     `REAL QUOTES (verbatim, optional, use at most one if it fits):\n${receiptsBlock}\n\n` +
+    `OPTIONAL RIVAL BAD BEAT (a real event about a DIFFERENT owner -- may be used for one light "misery loves company" aside if it fits naturally, never the focus of the session):\n${rivalBlock(rival)}\n\n` +
     `Open the session.`;
   for (const model of [THERAPY_MODEL, THERAPY_FALLBACK_MODEL]) {
     try {
