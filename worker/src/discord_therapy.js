@@ -81,12 +81,15 @@ RULES:
 - If the facts are thin, keep the message short and warm rather than padding with something not given to you. Tenure and camaraderie are real things worth saying.
 - The OPTIONAL RIVAL BAD BEAT is the one place you may say something unflattering about someone who ISN'T the patient -- real data, one aside, never the point of the session. Respect its verdict: a "process" bad beat is fair to rib as a decision; a "variance" one was bad luck and the owner made the right call, so rib the universe, not them. Skip it entirely if it doesn't fit naturally or none was given.
 - If the OPTIONAL TRADE HISTORY block gives you a real trade the patient made that looks bad in hindsight (they gave up a player who went on to thrive elsewhere), that's fair game and often the BEST material: be bluntly sarcastic about the L itself first -- don't soften it -- then pivot to something genuinely true and positive (what they got instead, roster flexibility, anything real in the data). Keith's own words for this shape: "shit on me but in a sarcastic fluff me up way." That's the shape, not a script -- write a fresh version every time, never the same joke or phrasing twice.
+- A current_contract or latest_season_arc fact in the TRADE HISTORY is a CURRENT / recent fact (as of right now, or the most recently completed season) -- NEVER the trade-time value. Never imply a contract figure or a season's stats were true back when the trade happened (don't say "he was a $22K player back then" or "he was already the #1 TE that year" about a fact that is actually from years later) -- if you cite one, frame it as "now" / "since then" / "as of today," not as the trade-year price or performance.
+- If the TRADE HISTORY gives you REAL individual per-player numbers (the bracketed points next to a specific name, not just the side totals), naming the SPECIFIC weakest player received in return is great, pointed material -- e.g. "...and the guy you got instead, [Name], barely did anything" -- grounded only in the real number given, never invented, and never about a player who wasn't actually the low one by that real number.
 - A CLOSING TWIST (turning it back on whoever benefited) is optional, and MUST be grounded: only use it if you have a real number or real fact to hang it on -- a current_contract dollar figure already in the trade history, or something from the OPTIONAL TWIST AMMO block. If neither gives you anything concrete, skip the twist entirely rather than write a rhetorical line implying a real consequence with nothing behind it (a past version of this bot said "he's paying you" about someone who, in fact, was not paying anyone anything -- don't repeat that).
-- The RIVAL BAD BEAT and the TRADE HISTORY are both "one aside about someone/something else" ingredients -- when both are present, pick whichever tells the sharper, more specific story and use only that one. The TWIST AMMO is separate and can pair with either. Using every ingredient at once in the same 90 words reads cluttered, not clever.
+- The RIVAL BAD BEAT and the TRADE HISTORY are both "one aside about someone/something else" ingredients -- when both are present, pick whichever tells the sharper, more specific story and use only that one. The TWIST AMMO is separate and can pair with either. The WIN TRADE is its own thing too, meant to pair with a rough TRADE HISTORY as the "but here's a win" pivot. Using every single ingredient at once still reads cluttered, not clever -- pick the mix that makes the sharpest, most specific session, not the most crowded one.
 - Vary yourself. Don't open the same way twice in a row, don't always lead with the same kind of fact or the same structure -- you have several real ingredients each time (the facts, an optional quote, an optional rival aside, an optional trade history); lean on a different mix and a different angle each session so this never reads like a template.
 - If the patient predicts or dreads something that HASN'T happened yet (a game still to be played, a matchup still in progress), that's their anxiety talking -- respond to the feeling, never confirm or deny the outcome as if you know it. You don't.
 - SESSION RECENCY tells you how long it's been since their last visit. Under ~30 minutes: acknowledge they're back fast -- your own words each time, something like "back so soon?" but never that exact phrase twice in a row. Several days or longer: a brief "welcome back" acknowledging the gap is a nice touch, not required. Their first-ever session: don't mention recency at all, there's nothing to reference.
-- Max 90 words. Plain text, no markdown, no bullet points.
+- If the OPTIONAL WIN TRADE block gives you a real trade the patient actually won, use it -- don't let a rough TRADE HISTORY be the only trade story in the session. It pairs especially well right after a bad one: "sure, that one stung, BUT..." A win against the same rival already in play is the sharpest version of this and worth reaching for; a win against someone else is still real and still worth citing.
+- Max 110 words (bumped from 90 now that a WIN TRADE can pair with a rough one -- still tight, don't pad it out just because the ceiling moved). Plain text, no markdown, no bullet points.
 - Address them by name. One "session" or "couch" joke is welcome; the rest should read like you mean it.
 - FAMILY AND HEALTH ARE OFF LIMITS FOR EVERYONE -- the patient and any rival -- same as every other bot in this server.`;
 
@@ -315,6 +318,67 @@ async function loadTradeWith(env, fid, otherFid, currentOwnerDisplay) {
     console.log(`[therapy] loadTradeWith failed: ${e?.message || e}`);
     return null;
   }
+}
+
+// Every trade the patient made, optionally narrowed to one counterparty --
+// used to hunt for a genuinely GOOD one (see bestPositiveTrade below).
+// Keith: "maybe identify a trade that has worked out for me as a positive
+// whether it be with hammer or not but ideally the person im complaining
+// about." Unfiltered by owner-era on purpose, same reasoning as
+// loadRandomOwnTrade -- the counterparty's own stored owner_name/
+// other_owner_name already names whoever was actually involved correctly.
+async function loadAllTradesFor(env, fid, otherFid) {
+  if (!env.UPS_MFL_DB || !fid) return [];
+  try {
+    const { results } = otherFid
+      ? await env.UPS_MFL_DB
+          .prepare("SELECT * FROM ups_trade_outcomes WHERE franchise_id = ? AND other_franchise_id = ?")
+          .bind(fid, otherFid)
+          .all()
+      : await env.UPS_MFL_DB
+          .prepare("SELECT * FROM ups_trade_outcomes WHERE franchise_id = ?")
+          .bind(fid)
+          .all();
+    return results || [];
+  } catch (e) {
+    console.log(`[therapy] loadAllTradesFor failed: ${e?.message || e}`);
+    return [];
+  }
+}
+
+// Scores a trade from the PATIENT's side using only already-verified, real,
+// stored numbers -- never a stored "winner" label (this table deliberately
+// never encodes one, see its own module docstring). Higher = better for the
+// patient. A player they GOT who's still thriving is the strongest signal;
+// a player they GAVE AWAY who's still thriving works against them (that's
+// the "shit on me" trade's job, not this one's).
+function tradePatientScore(row) {
+  let got, gave;
+  try {
+    got = JSON.parse(row.got_players_json || "[]");
+    gave = JSON.parse(row.gave_players_json || "[]");
+  } catch (_) {
+    return -Infinity;
+  }
+  let score = 0;
+  if (got.some((p) => p.latest_season_arc && p.latest_season_arc.notable)) score += 100;
+  if (gave.some((p) => p.latest_season_arc && p.latest_season_arc.notable)) score -= 100;
+  if (row.got_trade_season_pts != null && row.gave_trade_season_pts != null) {
+    score += row.got_trade_season_pts - row.gave_trade_season_pts;
+  }
+  if (row.got_next_season_pts != null && row.gave_next_season_pts != null) {
+    score += (row.got_next_season_pts - row.gave_next_season_pts) * 0.5;
+  }
+  return score;
+}
+
+// The single best-for-the-patient trade in a set, or null if none of them
+// are genuinely positive (score > 0) -- never force a bad trade into this
+// slot just because it's the "best of a bad bunch".
+function bestPositiveTrade(rows) {
+  if (!rows.length) return null;
+  const top = rows.map((row) => ({ row, score: tradePatientScore(row) })).sort((a, b) => b.score - a.score)[0];
+  return top.score > 0 ? top.row : null;
 }
 
 // Any real trade the patient made, any counterparty -- the general "keep it
@@ -665,12 +729,32 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
     if (dossier || extraBeat) twist = { name: twistTarget.name, dossier, beat: extraBeat || rival?.beat || null };
   }
 
+  // A genuine WIN to pair with a rough TRADE HISTORY -- Keith: "maybe
+  // identify a trade that has worked out for me as a positive... ideally
+  // the person im complaining about." Only bothers fetching when there's
+  // already a named rival or a trade story in play (the two scenarios this
+  // is actually meant to pair with), not on every session.
+  let winTrade = null;
+  if (mentionedFid || trade) {
+    const preferredFid = mentionedFid || trade.row.other_franchise_id;
+    const preferredName = mentionedFid ? ownerNameFor(mentionedFid, owners) : trade.name;
+    let candidates = await loadAllTradesFor(env, fid, preferredFid);
+    let best = bestPositiveTrade(candidates);
+    let winName = preferredName;
+    if (!best) {
+      candidates = await loadAllTradesFor(env, fid);
+      best = bestPositiveTrade(candidates);
+      if (best) winName = best.other_owner_name || ownerNameFor(best.other_franchise_id, owners);
+    }
+    if (best) winTrade = { row: best, name: winName };
+  }
+
   // recordSessionPromise runs concurrently with the (slower) Anthropic call
   // rather than a true fire-and-forget -- Workers can cancel an unawaited
   // promise once the handler returns, so this still needs a real await
   // somewhere before the pipeline ends.
   const [body] = await Promise.all([
-    generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist, recencyFact(lastSession)),
+    generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist, recencyFact(lastSession), winTrade),
     recordSessionPromise,
   ]);
 
@@ -749,9 +833,33 @@ function formatPlayerList(list) {
   return list
     .map((p) => {
       let s = p.pos ? `${p.player_name} (${p.pos})` : p.player_name;
+      // Individual, real per-player points (added 2026-09-14, Keith: "you
+      // received something named Richie James or akin when the player
+      // returned sucks. It's just a slam in the face" -- needed a way to
+      // name ONE specific player's own score, not only the side-wide sum
+      // given separately in tradeBlock()). trade_season_pts is always real
+      // (unconditional, same as the side aggregate); next_season_pts is
+      // null when THIS player specifically had already moved on before
+      // next_season (same per-player held_by_in_season gate the side
+      // aggregate already applies, just one player at a time) -- say so
+      // rather than silently omitting it.
+      s += ` [scored ${p.trade_season_pts} pts that season`;
+      s += p.next_season_pts != null ? `, ${p.next_season_pts} pts the next season` : `, moved on before the next season`;
+      s += "]";
       if (p.still_there) {
         s += ` [still on that roster ${p.years_retained} yr${p.years_retained === 1 ? "" : "s"} later`;
         if (p.current_contract) s += `, now under contract for ${p.current_contract}`;
+        // latest_season_arc (added 2026-09-14, Keith: "he wasn't a 22K deal
+        // back then and since then he's not only the TE3 this yr, he was
+        // TE1 all of last yr") -- the most recently COMPLETED season's real
+        // performance, gated the same still_there + held_by_in_season way
+        // current_contract already is; only present when this player
+        // individually passed that gate, and never the exact same season
+        // as the next_season_pts fact above (see sync script).
+        if (p.latest_season_arc) {
+          s += `, and in ${p.latest_season_arc.season} scored ${p.latest_season_arc.pts} pts`;
+          if (p.latest_season_arc.notable) s += ` (${p.latest_season_arc.notable})`;
+        }
         s += "]";
       }
       return s;
@@ -786,16 +894,41 @@ function tradeBlock(trade) {
       : `Still true in ${t.next_season}: what he gave up scored ${t.gave_next_season_pts ?? "(he'd already moved that player on -- no fair number)"} pts, what he got scored ${t.got_next_season_pts ?? "(he'd already moved that player on -- no fair number)"} pts.`;
   return (
     `A real trade with ${trade.name}, Season ${t.season}: the patient GAVE ${formatPlayerList(gave)}` +
-    `${t.gave_extra ? " " + t.gave_extra : ""}, and GOT ${formatPlayerList(got)}${t.got_extra ? " " + t.got_extra : ""} in return. ` +
-    `Immediate impact, right on the new roster in ${t.season}: what he gave up scored ${t.gave_trade_season_pts ?? "no data"} pts, ` +
-    `what he got scored ${t.got_trade_season_pts ?? "no data"} pts.` +
+    `${t.gave_extra ? " " + t.gave_extra : ""}, and GOT ${formatPlayerList(got)}${t.got_extra ? " " + t.got_extra : ""} in return ` +
+    `(each bracket above is that PLAYER's own real points, and their own latest-season arc if still on that roster -- ` +
+    `use a specific name and number when one stands out, e.g. naming the weakest player received, not only the side totals below). ` +
+    `Side totals, right on the new roster in ${t.season}: what he gave up scored ${t.gave_trade_season_pts ?? "no data"} pts combined, ` +
+    `what he got scored ${t.got_trade_season_pts ?? "no data"} pts combined.` +
     (tradeSeasonNotable.length ? ` Proven fact (${t.season}): ${tradeSeasonNotable.join("; ")}.` : "") +
     ` ${nextSeasonLine}` +
     (notable.length ? ` Proven fact (${t.next_season}): ${notable.join("; ")}.` : "")
   );
 }
 
-async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade, twist, recency) {
+// Same shape as tradeBlock() but for a GENUINE win -- Keith: "maybe identify
+// a trade that has worked out for me as a positive... ideally the person im
+// complaining about." Built from a trade already screened by
+// bestPositiveTrade() to be genuinely positive (score > 0, real per-player
+// numbers) -- this function only renders it, never judges it.
+function winTradeBlock(winTrade) {
+  if (!winTrade) return "(none available -- skip this angle entirely)";
+  const t = winTrade.row;
+  let gave, got;
+  try {
+    gave = JSON.parse(t.gave_players_json || "[]");
+    got = JSON.parse(t.got_players_json || "[]");
+  } catch (_) {
+    return "(none available -- skip this angle entirely)";
+  }
+  return (
+    `A real trade with ${winTrade.name}, Season ${t.season}, that actually worked out well for the patient: ` +
+    `he gave ${formatPlayerList(gave)}${t.gave_extra ? " " + t.gave_extra : ""}, and got ${formatPlayerList(got)}${t.got_extra ? " " + t.got_extra : ""} in return ` +
+    `(each bracket is that player's own real points and latest-season arc if still rostered). ` +
+    `Side totals right on the new roster in ${t.season}: gave ${t.gave_trade_season_pts ?? "no data"} pts combined, got ${t.got_trade_season_pts ?? "no data"} pts combined.`
+  );
+}
+
+async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade, twist, recency, winTrade) {
   const factsBlock = facts.length
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(none on record yet -- lean on tenure/camaraderie only, and keep it short)";
@@ -810,6 +943,7 @@ async function generateTherapy(env, displayName, facts, receipts, ventText, riva
     `OPTIONAL RIVAL BAD BEAT (a real event about a DIFFERENT owner -- may be used for one light "misery loves company" aside if it fits naturally, never the focus of the session):\n${rivalBlock(rival)}\n\n` +
     `OPTIONAL TRADE HISTORY (a real trade the PATIENT made -- who they gave up, who they got, what happened next, and whether the other player stuck around and what they cost. Real and often the best material, per the patient's own rule: "shit on me but in a sarcastic fluff me up way"):\n${tradeBlock(trade)}\n\n` +
     `OPTIONAL TWIST AMMO (real material for the closing twist against a rival -- ONLY use a fact from here, or a current_contract dollar figure already given above; never write a rhetorical line implying a real-world consequence, like "he's paying you", without an actual number behind it):\n${twistBlock(twist)}\n\n` +
+    `OPTIONAL WIN TRADE (a DIFFERENT real trade the patient actually WON -- genuine pride material, the counterpoint to the TRADE HISTORY above if that one's rough. Use it, don't bury it, especially if it's against the same rival already in play):\n${winTradeBlock(winTrade)}\n\n` +
     `SESSION RECENCY (real, always true):\n${recency}\n\n` +
     `Open the session.`;
   for (const model of [THERAPY_MODEL, THERAPY_FALLBACK_MODEL]) {

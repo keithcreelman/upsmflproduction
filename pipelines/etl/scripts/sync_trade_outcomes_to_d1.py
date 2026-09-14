@@ -109,6 +109,46 @@ DESIGN NOTES:
         reformatted from contract_info's free-text string (that string's
         exact wording is a display convenience elsewhere in the codebase
         and not a contract this script should re-parse).
+  * PER-PLAYER PTS + LATEST-COMPLETED-SEASON ARC (Keith 2026-09-14, same
+    conversation, after seeing a real generated /therapy session about his
+    2023 McBride-for-James+Oweh trade: "he wasn't a 22K deal back then and
+    since then he's not only the TE3 this yr, he was TE1 all of last yr plus
+    whatever from 23 & 24 what a massive fail" / "I'd like you to
+    incorporate, you received something named Richie James or akin when the
+    player returned sucks. It's just a slam in the face."). Two additions to
+    every player entry in gave_players_json/got_players_json, both in
+    player_entries():
+      - trade_season_pts / next_season_pts: the INDIVIDUAL player's own real
+        points (not the side-wide sum gave_trade_season_pts/etc. already
+        stored) -- trade_season_pts reuses the same season_totals(season)
+        map the side aggregate already sums (unconditional, same reasoning
+        as gave_trade_season_pts above); next_season_pts applies the EXACT
+        SAME per-player held_by_in_season(next_season) gate the side
+        aggregate already applies, just per player instead of "did anyone on
+        this side pass" -- a player who individually fails the gate gets
+        next_season_pts=None even if a teammate on the same side of the
+        trade passes. This is what makes "Richie James specifically scored
+        only trade_season_pts=X" nameable, instead of only the combined
+        James+Oweh total.
+      - latest_season_arc: {season, pts, notable} for the most recently
+        COMPLETED season overall (current_season - 1, computed ONCE
+        globally, not per trade) -- the exact later-season fact the
+        next_season scope limit above says is deliberately out of reach of
+        next_season/gave_trade_season_pts. Gated on BOTH still_there AND
+        held_by_in_season(player_id, holding_fid, latest_completed_season,
+        contract_history) -- same "whoever has them now, checked at that
+        exact season" gate as next_season_pts, just one season later. None
+        (never a fabricated 0) when the player left before that season (the
+        McCaffrey case, just one season further out), when not still_there,
+        or when latest_completed_season == next_season (already reported,
+        never duplicated). This is McBride's real 2025 #1-TE season finally
+        reaching the bot -- see mcbride_arc_check() for the explicit
+        self-check. PERFORMANCE: position_ranks(latest_completed_season) and
+        its season_totals() map are each computed EXACTLY ONCE per script
+        invocation, over the full set of player_ids touched across the
+        ENTIRE backfill run, hoisted above the seasons loop in build_rows()
+        -- same "cache the dataset once" posture as everywhere else here,
+        not a per-row or per-season re-query.
 
 RUN THIS BY HAND (no cron). Re-run any time src_trades/src_weekly inputs
 change. Safe to re-run: UPSERT on (trade_group_id, franchise_id).
@@ -297,15 +337,71 @@ def held_by_in_season(player_id, holding_fid, target_season, contract_history):
     return bool(row and row.get("franchise_id") == holding_fid)
 
 
-def player_entries(rows, positions, holding_fid, start_season, current_season, contract_history):
+def player_entries(rows, positions, holding_fid, start_season, next_season, current_season,
+                    contract_history, trade_season_pts_map, next_season_pts_map,
+                    latest_completed_season, latest_totals, latest_ranks):
+    """Builds the enriched player-entry dicts stored in gave_players_json /
+    got_players_json. holding_fid is always "whoever has them now" -- the
+    COUNTERPARTY for a gave_players entry, THIS franchise for a got_players
+    entry -- same convention retention_info() already uses.
+
+    Beyond retention_info()'s years_retained/still_there/current_contract,
+    every entry also carries (see module docstring "PER-PLAYER PTS +
+    LATEST-COMPLETED-SEASON ARC"):
+      - trade_season_pts: this player's own real points in the trade's own
+        season (`start_season`), unconditional, from trade_season_pts_map
+        (the same season_totals(season) map the side-wide
+        gave_trade_season_pts/got_trade_season_pts aggregate already sums --
+        no re-query).
+      - next_season_pts: this player's own real points in next_season,
+        gated PER PLAYER on held_by_in_season(player_id, holding_fid,
+        next_season, contract_history) -- None (not 0, not omitted) if this
+        specific player fails the gate, independent of whether other players
+        on the same side pass.
+      - latest_season_arc: {season, pts, notable} for latest_completed_season
+        (current_season - 1, computed once globally and passed in), gated on
+        still_there AND held_by_in_season(player_id, holding_fid,
+        latest_completed_season, contract_history). None when not
+        still_there, when the gate fails, or when latest_completed_season ==
+        next_season (already reported above, never duplicated).
+    """
     out = []
     for r in rows:
+        pid = r["player_id"]
+        pos = positions.get(pid)
         entry = {
-            "player_id": r["player_id"],
+            "player_id": pid,
             "player_name": r["player_name"],
-            "pos": positions.get(r["player_id"]),
+            "pos": pos,
         }
-        entry.update(retention_info(r["player_id"], holding_fid, start_season, current_season, contract_history))
+        entry.update(retention_info(pid, holding_fid, start_season, current_season, contract_history))
+
+        entry["trade_season_pts"] = round(trade_season_pts_map.get(pid, 0.0), 1)
+
+        if held_by_in_season(pid, holding_fid, next_season, contract_history):
+            entry["next_season_pts"] = round(next_season_pts_map.get(pid, 0.0), 1)
+        else:
+            entry["next_season_pts"] = None
+
+        entry["latest_season_arc"] = None
+        if (
+            entry["still_there"]
+            and latest_completed_season != next_season
+            and held_by_in_season(pid, holding_fid, latest_completed_season, contract_history)
+        ):
+            arc_pts = round(latest_totals.get(pid, 0.0), 1)
+            rank = latest_ranks.get((pos, pid)) if pos else None
+            notable = ""
+            if rank is not None and rank <= 5:
+                notable = "%s finished as the #%d scoring %s in %d" % (
+                    D.display_name(r["player_name"]), rank, pos, latest_completed_season
+                )
+            entry["latest_season_arc"] = {
+                "season": latest_completed_season,
+                "pts": arc_pts,
+                "notable": notable,
+            }
+
         out.append(entry)
     return out
 
@@ -419,21 +515,30 @@ def notable_for(players, ranks, next_season, top_n=5):
 
 # ------------------------------------------------------------- row build
 
-def build_rows_for_season(season, current_season, owners):
+def build_rows_for_season(season, current_season, owners, kept, skipped_not_2way,
+                           latest_completed_season, latest_totals, latest_ranks):
     """Returns (rows, stats) for one trade season. stats is a dict of
     counters for the summary print / final report.
 
     owners: season's D.owner_map(season) result, fid -> {owner_name,
     team_name} -- the contemporaneous attribution for owner_name/
-    other_owner_name (see module docstring "OWNER_NAME / OTHER_OWNER_NAME")."""
+    other_owner_name (see module docstring "OWNER_NAME / OTHER_OWNER_NAME").
+
+    kept/skipped_not_2way: this season's already-fetched build_groups()
+    result -- fetched ONCE in build_rows()'s first pass (to also collect the
+    full-run player_id set latest_totals/latest_ranks need) rather than
+    re-fetched here, so fetch_trades() is never called twice for the same
+    season.
+
+    latest_completed_season/latest_totals/latest_ranks: the once-per-run
+    globals from build_rows() (see module docstring "PER-PLAYER PTS +
+    LATEST-COMPLETED-SEASON ARC" / PERFORMANCE note) -- threaded straight
+    into player_entries(), never recomputed per season."""
     next_season = season + 1
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    raw = fetch_trades(season)
-    kept, skipped_not_2way = build_groups(raw)
-
     stats = {
-        "groups_total": len({r["trade_group_id"] for r in raw}),
+        "groups_total": len(kept) + len(skipped_not_2way),
         "groups_2way": len(kept),
         "groups_skipped_not_2way": len(skipped_not_2way),
         "skipped_not_2way_detail": skipped_not_2way,
@@ -482,8 +587,16 @@ def build_rows_for_season(season, current_season, owners):
             # own season (season), not next_season -- a player who is
             # already re-signed/extended in the trade season itself still
             # counts as retained starting there.
-            gave_players = player_entries(gave_player_rows, positions, other_fid, season, current_season, contract_history)
-            got_players = player_entries(got_player_rows, positions, fid, season, current_season, contract_history)
+            gave_players = player_entries(
+                gave_player_rows, positions, other_fid, season, next_season, current_season,
+                contract_history, trade_season_pts_map, totals,
+                latest_completed_season, latest_totals, latest_ranks,
+            )
+            got_players = player_entries(
+                got_player_rows, positions, fid, season, next_season, current_season,
+                contract_history, trade_season_pts_map, totals,
+                latest_completed_season, latest_totals, latest_ranks,
+            )
 
             # GATE next-season attribution on actual roster membership at
             # next_season SPECIFICALLY (held_by_in_season, a direct
@@ -555,11 +668,45 @@ def build_rows(seasons, owners_by_season=None):
     to avoid re-fetching when the caller (dry-run path) already has it."""
     current_season = current_season_from_contracts()
     print("current_season (from src_contracts) = %d\n" % current_season)
+
+    # PASS 1: fetch + group every season's trades once (never re-fetched in
+    # build_rows_for_season below), and collect the FULL set of player_ids
+    # touched across the ENTIRE backfill run -- latest_season_arc's
+    # position_ranks()/season_totals() lookups are computed EXACTLY ONCE per
+    # script invocation, here, over that full-run set, not per-trade-season
+    # (see module docstring "PER-PLAYER PTS + LATEST-COMPLETED-SEASON ARC" /
+    # PERFORMANCE note -- D1 access shells out to wrangler per query).
+    grouped_by_season = {}
+    all_player_ids_global = set()
+    for season in seasons:
+        raw = fetch_trades(season)
+        kept, skipped_not_2way = build_groups(raw)
+        grouped_by_season[season] = (kept, skipped_not_2way)
+        all_player_ids_global.update(
+            r["player_id"] for grp, _fids in kept.values() for r in grp
+            if r["asset_type"] == "PLAYER" and r["player_id"]
+        )
+
+    latest_completed_season = current_season - 1
+    latest_totals = season_totals(latest_completed_season, all_player_ids_global)
+    latest_ranks = position_ranks(latest_completed_season)
+    print(
+        "latest_completed_season (current_season - 1) = %d -- position_ranks()/season_totals() "
+        "computed once for %d player_id(s) across the full run\n"
+        % (latest_completed_season, len(all_player_ids_global))
+    )
+
+    # PASS 2: build each season's rows using the already-fetched grouping
+    # and the once-per-run latest_completed_season globals above.
     all_rows = []
     total_owner_name_missing = 0
     for season in seasons:
         owners = (owners_by_season or {}).get(season) or D.owner_map(season)
-        rows, stats = build_rows_for_season(season, current_season, owners)
+        kept, skipped_not_2way = grouped_by_season[season]
+        rows, stats = build_rows_for_season(
+            season, current_season, owners, kept, skipped_not_2way,
+            latest_completed_season, latest_totals, latest_ranks,
+        )
         all_rows.extend(rows)
         total_owner_name_missing += stats["owner_name_missing"]
         print(
@@ -617,6 +764,24 @@ def _retention_note(p):
     return None
 
 
+def _player_pts_note(p):
+    """Plain-English rendering of the new per-player pts + latest_season_arc
+    fields for print_plain_english_sample() -- trade_season_pts is always
+    present (unconditional), next_season_pts is None when this specific
+    player was moved on before next_season, latest_season_arc is None unless
+    still_there AND held at latest_completed_season."""
+    parts = ["trade-season %.1f pts" % p["trade_season_pts"]]
+    if p.get("next_season_pts") is not None:
+        parts.append("next-season %.1f pts" % p["next_season_pts"])
+    else:
+        parts.append("next-season no data (moved on)")
+    arc = p.get("latest_season_arc")
+    if arc:
+        note = " -- %s" % arc["notable"] if arc.get("notable") else ""
+        parts.append("latest completed season (%d): %.1f pts%s" % (arc["season"], arc["pts"], note))
+    return ", ".join(parts)
+
+
 def print_plain_english_sample(rows, n=10):
     print("\n--- plain-English sample (%d of %d row(s)) ---" % (min(n, len(rows)), len(rows)))
     for r in rows[:n]:
@@ -652,6 +817,8 @@ def print_plain_english_sample(rows, n=10):
             note = _retention_note(p)
             if note:
                 print("  RETENTION: %s -- %s" % (D.display_name(p["player_name"]), note))
+        for p in gave + got:
+            print("  PLAYER PTS: %s -- %s" % (D.display_name(p["player_name"]), _player_pts_note(p)))
 
 
 def trade2023_75_check(rows):
@@ -762,6 +929,100 @@ def cmc_trade_check(rows):
     return ok
 
 
+def mcbride_arc_check(rows):
+    """Explicit self-check for the second fix's named-but-missing case
+    (module docstring: "McBride's 2025 #1-TE season is a good example --
+    that is TWO years after trade2023_75... that is a real, deliberate scope
+    limit, not a bug") and for the two new asks this fix adds (Keith
+    2026-09-14): "he wasn't a 22K deal back then... TE1 all of last yr" /
+    "you received something named Richie James... when the player returned
+    sucks."
+
+    DIRECTION NOTE: per trade2023_75_check() (the already-proven-correct
+    case this whole table exists for), McBride went 0008 (Keith) GAVE ->
+    0005 (Hammer) GOT -- Keith did NOT get McBride back. player_entries()
+    enriches retention/pts/arc facts relative to holding_fid (always
+    "whoever has him now", i.e. 0005), so McBride's still_there/
+    latest_season_arc facts are IDENTICAL in both places they're stored:
+      - 0008's row, gave_players_json (holding_fid=0005: "does the team I
+        gave him to still have him")
+      - 0005's row, got_players_json (holding_fid=0005 again, same
+        computation)
+    Checked against BOTH and required to match, since either is a valid
+    "the got_players_json entry for Trey McBride" reading depending on
+    whether you're looking at 0008's or 0005's row.
+    """
+    print("\n--- mcbride_arc_check (latest_season_arc + per-player pts, trade2023_75) self-check ---")
+    r8 = next((r for r in rows if r["trade_group_id"] == "trade2023_75" and r["franchise_id"] == "0008"), None)
+    r5 = next((r for r in rows if r["trade_group_id"] == "trade2023_75" and r["franchise_id"] == "0005"), None)
+    if not r8 or not r5:
+        print("  FAIL: trade2023_75 not found for both franchises in this row set "
+              "(did you run with --seasons 2023?)")
+        return False
+
+    gave8 = json.loads(r8["gave_players_json"])
+    got5 = json.loads(r5["got_players_json"])
+    mcbride8 = next((p for p in gave8 if str(p["player_id"]) == "15794"), None)
+    mcbride5 = next((p for p in got5 if str(p["player_id"]) == "15794"), None)
+    print("  0008 gave_players_json McBride entry: %s" % mcbride8)
+    print("  0005 got_players_json  McBride entry: %s" % mcbride5)
+
+    ok_present = bool(mcbride8 and mcbride5)
+    ok_still_there = bool(ok_present and mcbride8.get("still_there") and mcbride5.get("still_there"))
+    arc8 = mcbride8.get("latest_season_arc") if mcbride8 else None
+    arc5 = mcbride5.get("latest_season_arc") if mcbride5 else None
+    ok_arc_present = bool(arc8 and arc5)
+    ok_arc_match = bool(ok_arc_present and arc8 == arc5)
+    ok_season = bool(ok_arc_present and arc8.get("season") == 2025)
+
+    pts = arc8.get("pts") if arc8 else None
+    notable = arc8.get("notable") if arc8 else ""
+    print("  latest_season_arc: %s" % arc8)
+    pts_note = (
+        "PASS -- pts ~= 380.1" if (pts is not None and abs(pts - 380.1) < 5.0)
+        else "INFO -- real pts is %s (not forcing 380.1; data may have shifted)" % pts
+    )
+    notable_note = (
+        "PASS -- names him #1 TE in 2025" if (notable and "McBride" in notable and "#1" in notable and "2025" in notable)
+        else "INFO -- real notable is %r (not forcing #1; rank may have shifted)" % notable
+    )
+    print("  pts check: %s" % pts_note)
+    print("  notable check: %s" % notable_note)
+
+    # Per-player trade_season_pts cross-check: Richie James (13724) + Jayson
+    # Oweh (15378), individually, must sum to the side's existing (already
+    # independently verified) aggregate got_trade_season_pts for 0008.
+    got8 = json.loads(r8["got_players_json"])
+    james8 = next((p for p in got8 if str(p["player_id"]) == "13724"), None)
+    oweh8 = next((p for p in got8 if str(p["player_id"]) == "15378"), None)
+    print("  0008 got James entry: %s" % james8)
+    print("  0008 got Oweh entry:  %s" % oweh8)
+    ok_perplayer_present = bool(james8 and oweh8)
+    per_player_sum = (
+        round((james8.get("trade_season_pts") or 0.0) + (oweh8.get("trade_season_pts") or 0.0), 1)
+        if ok_perplayer_present else None
+    )
+    aggregate = r8["got_trade_season_pts"]
+    ok_sum_matches = bool(
+        ok_perplayer_present and aggregate is not None and per_player_sum is not None
+        and abs(per_player_sum - aggregate) < 0.15
+    )
+    print("  per-player trade_season_pts: James=%s Oweh=%s -> sum=%s vs aggregate got_trade_season_pts=%s" % (
+        james8.get("trade_season_pts") if james8 else None,
+        oweh8.get("trade_season_pts") if oweh8 else None,
+        per_player_sum, aggregate,
+    ))
+    print("  RESULT (per-player sum == aggregate): %s" % ("PASS" if ok_sum_matches else "FAIL"))
+
+    overall = ok_present and ok_still_there and ok_arc_match and ok_season and ok_perplayer_present and ok_sum_matches
+    print("  RESULT: %s" % (
+        "PASS -- latest_season_arc populated (season=2025, real pts+notable printed above, not forced), "
+        "per-player James/Oweh trade_season_pts sum to the already-correct aggregate"
+        if overall else "FAIL -- see individual checks above"
+    ))
+    return overall
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seasons", default="2018-2024", help="e.g. 2023 or 2018-2024")
@@ -786,6 +1047,7 @@ def main():
 
         if 2023 in seasons:
             trade2023_75_check(rows)
+            mcbride_arc_check(rows)
         if 2024 in seasons:
             cmc_trade_check(rows)
 
