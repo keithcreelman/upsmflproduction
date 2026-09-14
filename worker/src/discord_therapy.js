@@ -80,8 +80,9 @@ RULES:
 - If a REAL QUOTE is provided, you may use it verbatim (never alter it) if it fits naturally -- otherwise skip it, don't force it.
 - If the facts are thin, keep the message short and warm rather than padding with something not given to you. Tenure and camaraderie are real things worth saying.
 - The OPTIONAL RIVAL BAD BEAT is the one place you may say something unflattering about someone who ISN'T the patient -- real data, one aside, never the point of the session. Respect its verdict: a "process" bad beat is fair to rib as a decision; a "variance" one was bad luck and the owner made the right call, so rib the universe, not them. Skip it entirely if it doesn't fit naturally or none was given.
-- If the OPTIONAL TRADE HISTORY block gives you a real trade the patient made that looks bad in hindsight (they gave up a player who went on to thrive elsewhere), that's fair game and often the BEST material: be bluntly sarcastic about the L itself first -- don't soften it -- then pivot to something genuinely true and positive (what they got instead, roster flexibility, anything real in the data), then land it with a twist that turns it back on whoever benefited (a real cost they're now paying for that player -- a contract, a price -- if the data gives you one). Keith's own words for this shape: "shit on me but in a sarcastic fluff me up way." That's the shape, not a script -- write a fresh version every time, never the same joke or phrasing twice.
-- The RIVAL BAD BEAT and the TRADE HISTORY are both "one aside about someone/something else" ingredients -- when both are present, pick whichever tells the sharper, more specific story and use only that one. Using both in the same 90 words reads cluttered, not clever.
+- If the OPTIONAL TRADE HISTORY block gives you a real trade the patient made that looks bad in hindsight (they gave up a player who went on to thrive elsewhere), that's fair game and often the BEST material: be bluntly sarcastic about the L itself first -- don't soften it -- then pivot to something genuinely true and positive (what they got instead, roster flexibility, anything real in the data). Keith's own words for this shape: "shit on me but in a sarcastic fluff me up way." That's the shape, not a script -- write a fresh version every time, never the same joke or phrasing twice.
+- A CLOSING TWIST (turning it back on whoever benefited) is optional, and MUST be grounded: only use it if you have a real number or real fact to hang it on -- a current_contract dollar figure already in the trade history, or something from the OPTIONAL TWIST AMMO block. If neither gives you anything concrete, skip the twist entirely rather than write a rhetorical line implying a real consequence with nothing behind it (a past version of this bot said "he's paying you" about someone who, in fact, was not paying anyone anything -- don't repeat that).
+- The RIVAL BAD BEAT and the TRADE HISTORY are both "one aside about someone/something else" ingredients -- when both are present, pick whichever tells the sharper, more specific story and use only that one. The TWIST AMMO is separate and can pair with either. Using every ingredient at once in the same 90 words reads cluttered, not clever.
 - Vary yourself. Don't open the same way twice in a row, don't always lead with the same kind of fact or the same structure -- you have several real ingredients each time (the facts, an optional quote, an optional rival aside, an optional trade history); lean on a different mix and a different angle each session so this never reads like a template.
 - If the patient predicts or dreads something that HASN'T happened yet (a game still to be played, a matchup still in progress), that's their anxiety talking -- respond to the feeling, never confirm or deny the outcome as if you know it. You don't.
 - Max 90 words. Plain text, no markdown, no bullet points.
@@ -246,6 +247,30 @@ async function loadRandomOwnTrade(env, fid) {
     return results?.[0] || null;
   } catch (e) {
     console.log(`[therapy] loadRandomOwnTrade failed: ${e?.message || e}`);
+    return null;
+  }
+}
+
+// Real ammo about a rival for the closing "twist" -- Keith caught the model
+// inventing an ungrounded line ("Rent-free? He's paying you.") when the
+// trade block had no real current_contract fact to hang a twist on. His fix:
+// "come up with a stat that shits on him... figure out something from his
+// dossier." Reuses the roast bot's existing, already-curated
+// ups_roast_owner_ammo.roast_angles_json -- fine to reuse HERE (unlike
+// discord_receipts_json/positive_receipts_json, which are reserved for their
+// own bots) because this is roast material being used on a RIVAL, which is
+// exactly what it was curated for; only the PATIENT's own material stays
+// off-limits for roasting.
+async function loadRivalDossier(env, fid) {
+  if (!env.UPS_MFL_DB || !fid) return null;
+  try {
+    const { results } = await env.UPS_MFL_DB
+      .prepare("SELECT roast_angles_json FROM ups_roast_owner_ammo WHERE franchise_id = ? LIMIT 1")
+      .bind(fid)
+      .all();
+    return results?.[0] || null;
+  } catch (e) {
+    console.log(`[therapy] loadRivalDossier failed: ${e?.message || e}`);
     return null;
   }
 }
@@ -504,7 +529,33 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
     }
   }
 
-  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade);
+  // Real ammo for the closing twist against whoever the aside is about --
+  // without this the model has nothing to turn the twist on and invents an
+  // ungrounded line instead. Whoever's currently in play (named rival, the
+  // trade's counterparty, or the bad beat's owner) gets checked; skip a
+  // second bad-beat fetch if `rival` already holds one.
+  const twistTargetFid = mentionedFid || trade?.row?.other_franchise_id || rival?.beat?.franchise_id || "";
+  let twist = null;
+  if (twistTargetFid) {
+    const [dossier, extraBeat] = await Promise.all([
+      loadRivalDossier(env, twistTargetFid),
+      rival ? Promise.resolve(null) : loadBadBeat(env, twistTargetFid),
+    ]);
+    if (dossier || extraBeat) twist = { name: ownerNameFor(twistTargetFid, owners), dossier, beat: extraBeat || rival?.beat || null };
+  }
+
+  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist);
+
+  // Echo the patient's own words into the channel first, same pattern the
+  // roast/wire reply bots already use -- Keith: "I would like what i send
+  // to the bot to be passed back to the channel." No button on the echo,
+  // it's just their own words relayed before the bot's reply follows.
+  if (ventText && channelId && botToken) {
+    await postToDiscordChannel(botToken, channelId, {
+      content: `**${displayName}** says:\n> ${ventText.slice(0, 1900)}`,
+      allowed_mentions: { parse: [] },
+    });
+  }
 
   let posted = false;
   if (channelId && botToken) {
@@ -536,6 +587,33 @@ function rivalBlock(rival) {
     `(${b.benched_score} pts) and started ${b.started_name} (${b.started_score} pts) instead. ` +
     `Verdict: ${verdictNote}.${resultNote}`
   );
+}
+
+// Roast angles are curated for roasting and carry a `source` tag -- an
+// angle with NO source is explicitly marked "do not cite as a stat"
+// elsewhere in the codebase (discord_roast_reply.js), so the same rule
+// applies here: only sourced angles are real enough to hand the model.
+function twistBlock(twist) {
+  if (!twist) {
+    return "(none available -- if you want a twist, only use a current_contract fact already given above in the trade history, or skip the twist entirely)";
+  }
+  let angles = [];
+  try {
+    angles = JSON.parse(twist.dossier?.roast_angles_json || "[]");
+  } catch (_) {
+    angles = [];
+  }
+  const angleLines = angles
+    .filter((a) => safeStr(a?.source))
+    .slice(0, 4)
+    .map((a) => `- ${safeStr(a.text)} [source: ${safeStr(a.source)}]`);
+  const beatLine = twist.beat
+    ? `- A real flukey/bad week: Season ${twist.beat.season} Week ${twist.beat.week}, benched ${twist.beat.benched_name} (${twist.beat.benched_score} pts) for ${twist.beat.started_name} (${twist.beat.started_score} pts) -- ${twist.beat.verdict === "process" ? "a real misplay, fair to needle" : "bad luck, not his fault -- needle the universe, not him"}.`
+    : "";
+  const all = [beatLine, ...angleLines].filter(Boolean);
+  return all.length
+    ? `Real ammo about ${twist.name} for a closing twist (pick AT MOST ONE if it fits, phrase it fresh yourself -- these are background material, not a script to quote):\n${all.join("\n")}`
+    : "(nothing concrete available -- skip the twist rather than inventing one)";
 }
 
 function formatPlayerList(list) {
@@ -589,7 +667,7 @@ function tradeBlock(trade) {
   );
 }
 
-async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade) {
+async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade, twist) {
   const factsBlock = facts.length
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(none on record yet -- lean on tenure/camaraderie only, and keep it short)";
@@ -603,6 +681,7 @@ async function generateTherapy(env, displayName, facts, receipts, ventText, riva
     `REAL QUOTES (verbatim, optional, use at most one if it fits):\n${receiptsBlock}\n\n` +
     `OPTIONAL RIVAL BAD BEAT (a real event about a DIFFERENT owner -- may be used for one light "misery loves company" aside if it fits naturally, never the focus of the session):\n${rivalBlock(rival)}\n\n` +
     `OPTIONAL TRADE HISTORY (a real trade the PATIENT made -- who they gave up, who they got, what happened next, and whether the other player stuck around and what they cost. Real and often the best material, per the patient's own rule: "shit on me but in a sarcastic fluff me up way"):\n${tradeBlock(trade)}\n\n` +
+    `OPTIONAL TWIST AMMO (real material for the closing twist against a rival -- ONLY use a fact from here, or a current_contract dollar figure already given above; never write a rhetorical line implying a real-world consequence, like "he's paying you", without an actual number behind it):\n${twistBlock(twist)}\n\n` +
     `Open the session.`;
   for (const model of [THERAPY_MODEL, THERAPY_FALLBACK_MODEL]) {
     try {
