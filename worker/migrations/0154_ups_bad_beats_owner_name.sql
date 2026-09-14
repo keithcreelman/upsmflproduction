@@ -1,0 +1,28 @@
+-- 0154_ups_bad_beats_owner_name.sql
+--
+-- Fixes a proven misattribution bug in the Discord /therapy bot's naming of
+-- ups_bad_beats rows.
+--
+-- THE BUG (Keith 2026-09-14, proven against real live D1 data): the bot
+-- names a bad beat's owner via ownerNameFor(beat.franchise_id, owners) in
+-- worker/src/discord_therapy.js, where `owners` comes from
+-- ups_owner_career_stats -- a table keyed on franchise_id ALONE, holding
+-- only the CURRENT owner of that slot. Three franchises changed hands within
+-- the backfilled data range (2018-2024/2025): 0002 (AJ Balderelli ->
+-- Derrick Whitman), 0005 (John Richard/Jarrade Nieber -> Rico Balderelli ->
+-- Eric Martel), 0006 (Steve Bousquet -> Josh Lima -> Brian Cross). Any
+-- ups_bad_beats row for one of these franchise_ids, from a season before its
+-- most recent ownership change, gets named after the wrong (current, not
+-- contemporaneous) owner -- the same class of bug fixed in
+-- ups_trade_outcomes by the CURRENT owner_name/other_owner_name columns
+-- (migration 0155).
+--
+-- THE FIX: store the real owner_name of franchise_id AS OF the row's own
+-- season, from src_franchises via wire_data.owner_map(season) -- the
+-- already-correct, already-verified attribution path this codebase uses
+-- everywhere else (see wire_data.py's "WHY NOT ups_owner_career_stats").
+-- Populated by pipelines/etl/scripts/sync_bad_beats_to_d1.py. The Discord
+-- bot then reads beat.owner_name directly instead of re-resolving via
+-- ownerNameFor(beat.franchise_id, owners) -- see worker/src/discord_therapy.js.
+
+ALTER TABLE ups_bad_beats ADD COLUMN owner_name TEXT;

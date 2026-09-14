@@ -1,0 +1,37 @@
+-- 0155_ups_trade_outcomes_owner_names.sql
+--
+-- Fixes a proven misattribution bug in the Discord /therapy bot's naming of
+-- ups_trade_outcomes rows.
+--
+-- THE BUG (Keith 2026-09-14, proven against real live D1 data): the bot
+-- names a trade counterparty via ownerNameFor(tradeRow.other_franchise_id,
+-- owners) in worker/src/discord_therapy.js, where `owners` comes from
+-- ups_owner_career_stats -- a table keyed on franchise_id ALONE, holding
+-- only the CURRENT owner of that slot. Proven case: a random pick from
+-- ups_trade_outcomes surfaced trade_group_id trade2021_48 (season 2021,
+-- franchise_id 0008 = Keith, other_franchise_id 0005), and the bot said
+-- "that 2021 Martel trade" -- but franchise 0005's real owner_name in season
+-- 2021 was Rico Balderelli ("Run CMC"); Eric Martel ("Hammertime") did not
+-- take over 0005 until season 2023. Keith caught this live: "That wasn't
+-- with Hammer, that was before his time." Three franchises changed hands
+-- within the backfilled data range (2018-2024): 0002, 0005, 0006 -- see
+-- wire_data.py's ATTRIBUTION_FIXTURES for the exact seasons.
+--
+-- THE FIX: store the real owner_name of BOTH sides -- franchise_id and
+-- other_franchise_id -- AS OF the trade's own season, from src_franchises
+-- via wire_data.owner_map(season) (the already-correct, already-verified
+-- attribution path this codebase uses everywhere else; see wire_data.py's
+-- "WHY NOT ups_owner_career_stats"). sync_trade_outcomes_to_d1.py already
+-- computed `owners = D.owner_map(season)` per season for its dry-run sample
+-- output but never stored it -- this migration adds the columns to close
+-- that gap; the script now populates them for every row. The Discord bot
+-- then reads tradeRow.other_owner_name directly instead of re-resolving via
+-- ownerNameFor(tradeRow.other_franchise_id, owners) -- see
+-- worker/src/discord_therapy.js.
+--
+-- Both columns can, in principle, be NULL if owner_map(season) somehow does
+-- not cover a franchise_id active that season -- the sync script logs how
+-- often that happens rather than guessing a name.
+
+ALTER TABLE ups_trade_outcomes ADD COLUMN owner_name TEXT;
+ALTER TABLE ups_trade_outcomes ADD COLUMN other_owner_name TEXT;

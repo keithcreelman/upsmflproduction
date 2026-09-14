@@ -68,6 +68,22 @@ DESIGN NOTES:
     only way McCaffrey's real, brutal, injury-marred 2024 with Keith is
     expressible at all -- the gated next-season fact for that side is NULL,
     but the trade-season fact is real and present.
+  * OWNER_NAME / OTHER_OWNER_NAME (migration 0155, added 2026-09-14): fixes a
+    proven misattribution bug -- the Discord bot named a trade counterparty
+    via ups_owner_career_stats, a CURRENT-owner-only table keyed on
+    franchise_id alone. Proven case: trade2021_48 (season 2021, 0008 vs
+    0005) got narrated as "that 2021 Martel trade" even though Eric Martel
+    did not take over 0005 until 2023 -- 0005's real owner in 2021 was Rico
+    Balderelli. This script already computed `owners = D.owner_map(season)`
+    per season for its dry-run sample output but never stored it in the
+    table; it now populates owner_name (franchise_id's owner) and
+    other_owner_name (other_franchise_id's owner), both AS OF the trade's
+    own season, for every row. owner_map(season) covers every franchise_id
+    active that season, so both should always resolve -- if either is
+    somehow missing, the column is left NULL (never guessed) and counted in
+    the run summary. The Discord bot reads these columns directly instead of
+    re-resolving via ownerNameFor() at request time -- see
+    worker/src/discord_therapy.js.
   * RETENTION + CURRENT CONTRACT (Keith 2026-09-14, same conversation as the
     McBride correction above: "look at the player if they stay on the same
     team after a trade for long years that is worth highlighting... that's
@@ -126,6 +142,7 @@ COLS = [
     "next_season", "gave_next_season_pts", "got_next_season_pts",
     "notable_json",
     "gave_trade_season_pts", "got_trade_season_pts", "trade_season_notable_json",
+    "owner_name", "other_owner_name",
     "synced_at_utc",
 ]
 
@@ -402,9 +419,13 @@ def notable_for(players, ranks, next_season, top_n=5):
 
 # ------------------------------------------------------------- row build
 
-def build_rows_for_season(season, current_season):
+def build_rows_for_season(season, current_season, owners):
     """Returns (rows, stats) for one trade season. stats is a dict of
-    counters for the summary print / final report."""
+    counters for the summary print / final report.
+
+    owners: season's D.owner_map(season) result, fid -> {owner_name,
+    team_name} -- the contemporaneous attribution for owner_name/
+    other_owner_name (see module docstring "OWNER_NAME / OTHER_OWNER_NAME")."""
     next_season = season + 1
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -417,6 +438,7 @@ def build_rows_for_season(season, current_season):
         "groups_skipped_not_2way": len(skipped_not_2way),
         "skipped_not_2way_detail": skipped_not_2way,
         "sides_skipped_pick_only": 0,
+        "owner_name_missing": 0,
     }
 
     # Batch position lookups (trade-season) and outcome lookups
@@ -491,6 +513,18 @@ def build_rows_for_season(season, current_season):
                 + notable_for(got_players, trade_season_ranks, season)
             )
 
+            # Contemporaneous owner attribution (see module docstring
+            # "OWNER_NAME / OTHER_OWNER_NAME"). owner_map(season) covers
+            # every franchise_id active that season, so a miss should be
+            # rare -- if it happens, leave NULL rather than guessing, and
+            # count it for the run summary.
+            owner_name = owners.get(fid, {}).get("owner_name")
+            other_owner_name = owners.get(other_fid, {}).get("owner_name")
+            if owner_name is None:
+                stats["owner_name_missing"] += 1
+            if other_owner_name is None:
+                stats["owner_name_missing"] += 1
+
             rows.append({
                 "trade_group_id": gid,
                 "season": season,
@@ -508,28 +542,40 @@ def build_rows_for_season(season, current_season):
                 "gave_trade_season_pts": gave_trade_pts,
                 "got_trade_season_pts": got_trade_pts,
                 "trade_season_notable_json": json.dumps(trade_season_notable),
+                "owner_name": owner_name,
+                "other_owner_name": other_owner_name,
                 "synced_at_utc": now,
             })
 
     return rows, stats
 
 
-def build_rows(seasons):
+def build_rows(seasons, owners_by_season=None):
+    """owners_by_season: optional pre-fetched {season: D.owner_map(season)}
+    to avoid re-fetching when the caller (dry-run path) already has it."""
     current_season = current_season_from_contracts()
     print("current_season (from src_contracts) = %d\n" % current_season)
     all_rows = []
+    total_owner_name_missing = 0
     for season in seasons:
-        rows, stats = build_rows_for_season(season, current_season)
+        owners = (owners_by_season or {}).get(season) or D.owner_map(season)
+        rows, stats = build_rows_for_season(season, current_season, owners)
         all_rows.extend(rows)
+        total_owner_name_missing += stats["owner_name_missing"]
         print(
             "  %d -> next_season %d: %d trade group(s), %d kept (2-way), "
-            "%d skipped (not 2-way), %d row(s) built, %d side(s) skipped (pick-only)"
+            "%d skipped (not 2-way), %d row(s) built, %d side(s) skipped (pick-only), "
+            "%d owner-name lookup(s) missing"
             % (season, season + 1, stats["groups_total"], stats["groups_2way"],
-               stats["groups_skipped_not_2way"], len(rows), stats["sides_skipped_pick_only"])
+               stats["groups_skipped_not_2way"], len(rows), stats["sides_skipped_pick_only"],
+               stats["owner_name_missing"])
         )
         if stats["skipped_not_2way_detail"]:
             for gid, n in sorted(stats["skipped_not_2way_detail"].items()):
                 print("      skipped %s: %d distinct franchise(s) (not a 2-way trade)" % (gid, n))
+    if total_owner_name_missing:
+        print("\n  WARNING: %d owner-name lookup(s) missing across all seasons (left NULL, not guessed)"
+              % total_owner_name_missing)
     return all_rows
 
 
@@ -571,16 +617,18 @@ def _retention_note(p):
     return None
 
 
-def print_plain_english_sample(rows, owners_by_season, n=10):
+def print_plain_english_sample(rows, n=10):
     print("\n--- plain-English sample (%d of %d row(s)) ---" % (min(n, len(rows)), len(rows)))
     for r in rows[:n]:
         gave = json.loads(r["gave_players_json"])
         got = json.loads(r["got_players_json"])
         gave_names = ", ".join(D.display_name(p["player_name"]) + (" (%s)" % p["pos"] if p["pos"] else "") for p in gave) or "(nothing)"
         got_names = ", ".join(D.display_name(p["player_name"]) + (" (%s)" % p["pos"] if p["pos"] else "") for p in got) or "(nothing)"
-        owners = owners_by_season.get(r["season"], {})
-        who = owners.get(r["franchise_id"], {}).get("owner_name", r["franchise_id"])
-        vs = owners.get(r["other_franchise_id"], {}).get("owner_name", r["other_franchise_id"])
+        # who/vs come from the STORED row fields (owner_name/other_owner_name),
+        # not re-derived from owners_by_season here -- this is the plain-English
+        # check that what actually landed in the table is contemporaneous.
+        who = r["owner_name"] or r["franchise_id"]
+        vs = r["other_owner_name"] or r["other_franchise_id"]
         print("\n[%s] %s (%s) vs %s (%s) -- %s" % (r["trade_group_id"], who, r["franchise_id"], vs, r["other_franchise_id"], r["datetime_et"]))
         print("  GAVE: %s%s" % (gave_names, "  " + r["gave_extra"] if r["gave_extra"] else ""))
         print("   GOT: %s%s" % (got_names, "  " + r["got_extra"] if r["got_extra"] else ""))
@@ -626,10 +674,18 @@ def trade2023_75_check(rows):
         and "McBride, Trey" in got5 and "McBride, Trey" not in gave5
         and "James, Richie" in got8 and "Oweh, Jayson" in got8
     )
+    # 2023 -- Eric Martel already owned 0005 by this trade's season, so both
+    # rows' owner_name/other_owner_name should show the current, correct pair.
+    ok_owner_names = (
+        r8["owner_name"] == "Keith Creelman" and r8["other_owner_name"] == "Eric Martel"
+        and r5["owner_name"] == "Eric Martel" and r5["other_owner_name"] == "Keith Creelman"
+    )
     print("  0008 gave: %s" % gave8)
     print("  0008 got:  %s" % got8)
     print("  0005 gave: %s" % gave5)
     print("  0005 got:  %s" % got5)
+    print("  0008 owner_name: %s  other_owner_name: %s" % (r8["owner_name"], r8["other_owner_name"]))
+    print("  0005 owner_name: %s  other_owner_name: %s" % (r5["owner_name"], r5["other_owner_name"]))
     print("  0008 gave_next_season_pts (%d): %s" % (r8["next_season"], r8["gave_next_season_pts"]))
     print("  0008 got_next_season_pts (%d):  %s" % (r8["next_season"], r8["got_next_season_pts"]))
     print("  0008 notable: %s" % json.loads(r8["notable_json"]))
@@ -643,7 +699,10 @@ def trade2023_75_check(rows):
                              if ok else "FAIL -- direction does not match the known-correct case"))
     print("  RETENTION RESULT: %s" % ("PASS -- McBride still on 0005 (Hammer), retained 3+ consecutive seasons"
                                        if ok_retention else "FAIL -- retention data does not match expected McBride history"))
-    return ok and ok_retention
+    print("  OWNER_NAME RESULT: %s" % ("PASS -- 0008 owner_name=Keith Creelman/other=Eric Martel, "
+                                        "0005 owner_name=Eric Martel/other=Keith Creelman"
+                                        if ok_owner_names else "FAIL -- owner_name/other_owner_name do not match the known-correct 2023 pair"))
+    return ok and ok_retention and ok_owner_names
 
 
 def cmc_trade_check(rows):
@@ -668,6 +727,7 @@ def cmc_trade_check(rows):
     trade_notable = json.loads(r8["trade_season_notable_json"])
 
     print("  0008 got: %s" % got_names)
+    print("  0008 owner_name: %s  other_owner_name: %s" % (r8["owner_name"], r8["other_owner_name"]))
     print("  0008 got_next_season_pts (%s): %s" % (r8["next_season"], r8["got_next_season_pts"]))
     print("  0008 got_trade_season_pts (%s): %s" % (r8["season"], r8["got_trade_season_pts"]))
     print("  0008 notable (next season): %s" % notable)
@@ -677,12 +737,16 @@ def cmc_trade_check(rows):
     gate_ok = r8["got_next_season_pts"] is None
     no_mis_notable = not any("McCaffrey" in n and str(r8["next_season"]) in n for n in notable)
     trade_pts_ok = r8["got_trade_season_pts"] is not None and abs((r8["got_trade_season_pts"] or 0) - 48.4) < 1.0
+    # 2024 -- Eric Martel already owned 0005 by this trade's season, same as
+    # the 2023 McBride trade.
+    owner_names_ok = r8["owner_name"] == "Keith Creelman" and r8["other_owner_name"] == "Eric Martel"
 
-    ok = mccaffrey_present and gate_ok and no_mis_notable and trade_pts_ok
+    ok = mccaffrey_present and gate_ok and no_mis_notable and trade_pts_ok and owner_names_ok
     print("  RESULT: %s" % (
         "PASS -- got_trade_season_pts ~= 48.4 (real injured 2024), got_next_season_pts is NULL "
-        "(McCaffrey was not on 0008 in 2025), no 2025 McCaffrey notable attributed to 0008"
-        if ok else "FAIL -- next-season gate or trade-season pts do not match the known-correct McCaffrey case"
+        "(McCaffrey was not on 0008 in 2025), no 2025 McCaffrey notable attributed to 0008, "
+        "owner_name=Keith Creelman/other_owner_name=Eric Martel"
+        if ok else "FAIL -- next-season gate, trade-season pts, or owner names do not match the known-correct McCaffrey case"
     ))
     if not mccaffrey_present:
         print("    (McCaffrey not found in 0008's got_players_json)")
@@ -692,6 +756,9 @@ def cmc_trade_check(rows):
         print("    (a next-season notable line still attributes McCaffrey's %s season to 0008)" % r8["next_season"])
     if not trade_pts_ok:
         print("    (got_trade_season_pts should be ~48.4, was %s)" % r8["got_trade_season_pts"])
+    if not owner_names_ok:
+        print("    (owner_name/other_owner_name should be Keith Creelman/Eric Martel, was %s/%s)"
+              % (r8["owner_name"], r8["other_owner_name"]))
     return ok
 
 
@@ -704,7 +771,8 @@ def main():
     seasons = list(parse_season_range(args.seasons))
     print(f"Computing trade outcomes for seasons {seasons[0]}-{seasons[-1]} "
           f"(next_season = season+1)...")
-    rows = build_rows(seasons)
+    owners_by_season = {s: D.owner_map(s) for s in seasons}
+    rows = build_rows(seasons, owners_by_season)
     print(f"\n{len(rows)} trade-outcome row(s) built across {len(seasons)} season(s).")
     if not rows:
         return 0
@@ -714,8 +782,7 @@ def main():
         print("\n--- generated SQL (first 4000 chars) ---")
         print(sql_text[:4000])
 
-        owners_by_season = {s: D.owner_map(s) for s in seasons}
-        print_plain_english_sample(rows, owners_by_season, n=10)
+        print_plain_english_sample(rows, n=10)
 
         if 2023 in seasons:
             trade2023_75_check(rows)

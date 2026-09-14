@@ -18,6 +18,17 @@ Owner attribution uses src_franchises PER SEASON (wire_data.owner_map), not
 ups_owner_career_stats, because a franchise's owner can change across years
 — see wire_data.py's own module docstring on why.
 
+OWNER_NAME COLUMN (migration 0154, added 2026-09-14): the real owner_name of
+franchise_id AS OF the row's own season, from owner_map(season) -- this
+script already computed `owners = D.owner_map(season)` per season (it was
+used only to filter/skip rows whose franchise_id it didn't cover) but never
+stored the name. The Discord bot was instead re-resolving the name at
+request time via ups_owner_career_stats, a CURRENT-owner-only table, which
+misattributed any bad beat predating a franchise's most recent ownership
+change (0002, 0005, 0006 all changed hands within 2018-2025 -- see
+wire_data.py's ATTRIBUTION_FIXTURES). owner_name closes that gap: it is
+stored once, correctly, at sync time and read directly by the bot.
+
 RUN THIS BY HAND (no cron). Re-run any time bench_burns' inputs change (new
 season data lands, a correction). Safe to re-run: UPSERT on
 (season, week, franchise_id).
@@ -46,7 +57,7 @@ COLS = [
     "benched_name", "benched_id", "benched_score",
     "started_name", "started_id", "started_score",
     "diff", "verdict", "matchup_result", "matchup_margin",
-    "swing_flips_result", "synced_at_utc",
+    "swing_flips_result", "owner_name", "synced_at_utc",
 ]
 
 
@@ -89,7 +100,7 @@ def build_rows(seasons, weeks):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = []
     for season in seasons:
-        owners = D.owner_map(season)  # unused directly (names come from bench_burns), kept for parity/logging
+        owners = D.owner_map(season)  # per-season contemporaneous owner attribution (see module docstring)
         for week in weeks:
             try:
                 burns = D.bench_burns(season, week)
@@ -114,6 +125,7 @@ def build_rows(seasons, weeks):
                     "diff": b.get("diff"), "verdict": b.get("verdict"),
                     "matchup_result": result, "matchup_margin": margin,
                     "swing_flips_result": flips,
+                    "owner_name": owners[fid]["owner_name"],
                     "synced_at_utc": now,
                 })
             print("  %d wk%02d: %d bad beat(s)" % (season, week, len([r for r in rows if r["season"] == season and r["week"] == week])))
@@ -130,6 +142,21 @@ def build_sql(rows):
             f"ON CONFLICT(season, week, franchise_id) DO UPDATE SET {update_clause};"
         )
     return "\n".join(parts) + "\n"
+
+
+def print_plain_english_sample(rows, n=10):
+    print("\n--- plain-English sample (%d of %d row(s)) ---" % (min(n, len(rows)), len(rows)))
+    for r in rows[:n]:
+        print(
+            "\n[%d wk%02d] %s (%s): benched %s (%s pts), started %s (%s pts) instead -- verdict: %s"
+            % (r["season"], r["week"], r["owner_name"], r["franchise_id"],
+               r["benched_name"], r["benched_score"], r["started_name"], r["started_score"],
+               r["verdict"])
+        )
+        if r["matchup_result"]:
+            print("  matchup: %s by %s pts%s" % (
+                r["matchup_result"], r["matchup_margin"],
+                " -- that swing would have flipped it" if r["swing_flips_result"] else ""))
 
 
 def d1_execute_file(sql_text):
@@ -166,6 +193,7 @@ def main():
     sql_text = build_sql(rows)
     if args.dry_run:
         print(sql_text[:4000])
+        print_plain_english_sample(rows, n=10)
         print(f"DRY RUN — would UPSERT {len(rows)} row(s), not writing")
         return 0
 
