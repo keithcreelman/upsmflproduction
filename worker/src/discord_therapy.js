@@ -80,7 +80,10 @@ RULES:
 - If a REAL QUOTE is provided, you may use it verbatim (never alter it) if it fits naturally -- otherwise skip it, don't force it.
 - If the facts are thin, keep the message short and warm rather than padding with something not given to you. Tenure and camaraderie are real things worth saying.
 - The OPTIONAL RIVAL BAD BEAT is the one place you may say something unflattering about someone who ISN'T the patient -- real data, one aside, never the point of the session. Respect its verdict: a "process" bad beat is fair to rib as a decision; a "variance" one was bad luck and the owner made the right call, so rib the universe, not them. Skip it entirely if it doesn't fit naturally or none was given.
-- Vary yourself. Don't open the same way twice in a row, don't always lead with the same kind of fact -- you have several real ingredients each time (the facts, an optional quote, an optional rival aside); lean on a different mix each session so this doesn't read like a template.
+- If the OPTIONAL TRADE HISTORY block gives you a real trade the patient made that looks bad in hindsight (they gave up a player who went on to thrive elsewhere), that's fair game and often the BEST material: be bluntly sarcastic about the L itself first -- don't soften it -- then pivot to something genuinely true and positive (what they got instead, roster flexibility, anything real in the data), then land it with a twist that turns it back on whoever benefited (a real cost they're now paying for that player -- a contract, a price -- if the data gives you one). Keith's own words for this shape: "shit on me but in a sarcastic fluff me up way." That's the shape, not a script -- write a fresh version every time, never the same joke or phrasing twice.
+- The RIVAL BAD BEAT and the TRADE HISTORY are both "one aside about someone/something else" ingredients -- when both are present, pick whichever tells the sharper, more specific story and use only that one. Using both in the same 90 words reads cluttered, not clever.
+- Vary yourself. Don't open the same way twice in a row, don't always lead with the same kind of fact or the same structure -- you have several real ingredients each time (the facts, an optional quote, an optional rival aside, an optional trade history); lean on a different mix and a different angle each session so this never reads like a template.
+- If the patient predicts or dreads something that HASN'T happened yet (a game still to be played, a matchup still in progress), that's their anxiety talking -- respond to the feeling, never confirm or deny the outcome as if you know it. You don't.
 - Max 90 words. Plain text, no markdown, no bullet points.
 - Address them by name. One "session" or "couch" joke is welcome; the rest should read like you mean it.
 - FAMILY AND HEALTH ARE OFF LIMITS FOR EVERYONE -- the patient and any rival -- same as every other bot in this server.`;
@@ -212,6 +215,41 @@ async function loadRandomBadBeat(env, excludeFid) {
   }
 }
 
+// A trade specifically between the patient and a named rival, if one exists
+// -- the McBride/Hammer case this whole ingredient was built for.
+async function loadTradeWith(env, fid, otherFid) {
+  if (!env.UPS_MFL_DB || !fid || !otherFid) return null;
+  try {
+    const { results } = await env.UPS_MFL_DB
+      .prepare(
+        "SELECT * FROM ups_trade_outcomes WHERE franchise_id = ? AND other_franchise_id = ? ORDER BY RANDOM() LIMIT 1"
+      )
+      .bind(fid, otherFid)
+      .all();
+    return results?.[0] || null;
+  } catch (e) {
+    console.log(`[therapy] loadTradeWith failed: ${e?.message || e}`);
+    return null;
+  }
+}
+
+// Any real trade the patient made, any counterparty -- the general "keep it
+// real but find the positive" self-deprecating material even when no rival
+// was named.
+async function loadRandomOwnTrade(env, fid) {
+  if (!env.UPS_MFL_DB || !fid) return null;
+  try {
+    const { results } = await env.UPS_MFL_DB
+      .prepare("SELECT * FROM ups_trade_outcomes WHERE franchise_id = ? ORDER BY RANDOM() LIMIT 1")
+      .bind(fid)
+      .all();
+    return results?.[0] || null;
+  } catch (e) {
+    console.log(`[therapy] loadRandomOwnTrade failed: ${e?.message || e}`);
+    return null;
+  }
+}
+
 // ── rival name-matching (plain substring match, no LLM guessing) ──────────
 
 function normalizeNameTokens(s) {
@@ -224,17 +262,22 @@ function normalizeNameTokens(s) {
 }
 
 // Finds a franchise whose name (or owner's name) is recognizably present in
-// the vent, e.g. "HammerTime" in a team named "HammerTime 🔨 ⏰". Deliberately
-// simple substring matching, not fuzzy/nickname-aware -- a miss just means no
-// rival callback that session, which is the safe failure direction.
+// the vent, e.g. "HammerTime" in a team named "HammerTime 🔨 ⏰" -- OR a
+// shortened nickname of it, e.g. "Hammer" alone (people don't always say the
+// full team name). Checked BOTH directions -- vent word is a substring of a
+// name token, or vice versa -- since a nickname can be shorter OR longer
+// than the token it stands in for. Still plain substring matching, not
+// fuzzy/AI-guessed: a miss just means no rival callback that session, which
+// is the safe failure direction.
 export function findMentionedFranchise(ventText, owners, excludeFid) {
-  const vent = normalizeNameTokens(ventText).join(" ");
-  if (!vent) return "";
+  const ventWords = normalizeNameTokens(ventText);
+  if (!ventWords.length) return "";
   for (const o of owners) {
     const fid = safeStr(o.franchise_id);
     if (!fid || fid === excludeFid) continue;
-    const tokens = [...normalizeNameTokens(o.franchise_name), ...normalizeNameTokens(o.owner_display)];
-    if (tokens.some((t) => vent.includes(t))) return fid;
+    const nameTokens = [...normalizeNameTokens(o.franchise_name), ...normalizeNameTokens(o.owner_display)];
+    const hit = nameTokens.some((nt) => ventWords.some((vw) => nt.includes(vw) || vw.includes(nt)));
+    if (hit) return fid;
   }
   return "";
 }
@@ -429,15 +472,32 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
 
   const mentionedFid = findMentionedFranchise(ventText, owners, fid);
   let rival = null;
+  let trade = null;
   if (mentionedFid) {
-    const beat = await loadBadBeat(env, mentionedFid);
-    if (beat) rival = { name: ownerNameFor(mentionedFid, owners), beat };
-  } else if (Math.random() < 0.5) {
-    const beat = await loadRandomBadBeat(env, fid);
-    if (beat) rival = { name: ownerNameFor(beat.franchise_id, owners), beat };
+    // A named rival gets first crack at BOTH ingredients -- try the sharpest
+    // one (a real trade between the two of them) before falling back to a
+    // bad beat about them.
+    const [tradeRow, beat] = await Promise.all([
+      loadTradeWith(env, fid, mentionedFid),
+      loadBadBeat(env, mentionedFid),
+    ]);
+    if (tradeRow) trade = { name: ownerNameFor(mentionedFid, owners), row: tradeRow };
+    else if (beat) rival = { name: ownerNameFor(mentionedFid, owners), beat };
+  } else {
+    // No rival named -- occasionally surface the patient's OWN trade
+    // history (self-deprecating material) or someone else's bad beat, but
+    // not both; keep the odds low enough that most sessions carry neither.
+    const roll = Math.random();
+    if (roll < 0.3) {
+      const tradeRow = await loadRandomOwnTrade(env, fid);
+      if (tradeRow) trade = { name: ownerNameFor(tradeRow.other_franchise_id, owners), row: tradeRow };
+    } else if (roll < 0.5) {
+      const beat = await loadRandomBadBeat(env, fid);
+      if (beat) rival = { name: ownerNameFor(beat.franchise_id, owners), beat };
+    }
   }
 
-  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival);
+  const body = await generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade);
 
   let posted = false;
   if (channelId && botToken) {
@@ -471,7 +531,42 @@ function rivalBlock(rival) {
   );
 }
 
-async function generateTherapy(env, displayName, facts, receipts, ventText, rival) {
+function formatPlayerList(list) {
+  if (!list.length) return "nothing";
+  return list
+    .map((p) => {
+      let s = p.pos ? `${p.player_name} (${p.pos})` : p.player_name;
+      if (p.still_there) {
+        s += ` [still on that roster ${p.years_retained} yr${p.years_retained === 1 ? "" : "s"} later`;
+        if (p.current_contract) s += `, now under contract for ${p.current_contract}`;
+        s += "]";
+      }
+      return s;
+    })
+    .join(", ");
+}
+
+function tradeBlock(trade) {
+  if (!trade) return "(none available -- skip this angle entirely, don't mention any other owner unprompted)";
+  const t = trade.row;
+  let gave, got, notable;
+  try {
+    gave = JSON.parse(t.gave_players_json || "[]");
+    got = JSON.parse(t.got_players_json || "[]");
+    notable = JSON.parse(t.notable_json || "[]");
+  } catch (_) {
+    return "(none available -- skip this angle entirely, don't mention any other owner unprompted)";
+  }
+  return (
+    `A real trade with ${trade.name}, Season ${t.season}: the patient GAVE ${formatPlayerList(gave)}` +
+    `${t.gave_extra ? " " + t.gave_extra : ""}, and GOT ${formatPlayerList(got)}${t.got_extra ? " " + t.got_extra : ""} in return. ` +
+    `In ${t.next_season} (the season right after): what he gave up scored ${t.gave_next_season_pts ?? "no data"} pts total, ` +
+    `what he got scored ${t.got_next_season_pts ?? "no data"} pts total.` +
+    (notable.length ? ` Proven fact: ${notable.join("; ")}.` : "")
+  );
+}
+
+async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade) {
   const factsBlock = facts.length
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(none on record yet -- lean on tenure/camaraderie only, and keep it short)";
@@ -484,6 +579,7 @@ async function generateTherapy(env, displayName, facts, receipts, ventText, riva
     `VERIFIED POSITIVE FACTS ABOUT THE PATIENT (the only facts you may assert about them):\n${factsBlock}\n\n` +
     `REAL QUOTES (verbatim, optional, use at most one if it fits):\n${receiptsBlock}\n\n` +
     `OPTIONAL RIVAL BAD BEAT (a real event about a DIFFERENT owner -- may be used for one light "misery loves company" aside if it fits naturally, never the focus of the session):\n${rivalBlock(rival)}\n\n` +
+    `OPTIONAL TRADE HISTORY (a real trade the PATIENT made -- who they gave up, who they got, what happened next, and whether the other player stuck around and what they cost. Real and often the best material, per the patient's own rule: "shit on me but in a sarcastic fluff me up way"):\n${tradeBlock(trade)}\n\n` +
     `Open the session.`;
   for (const model of [THERAPY_MODEL, THERAPY_FALLBACK_MODEL]) {
     try {
