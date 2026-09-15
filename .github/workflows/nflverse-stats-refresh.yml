@@ -104,7 +104,9 @@ jobs:
           run() { # $1=source $2=detail; rest = command
             local src="$1" det="$2" rc; shift 2
             echo "::group::${src}"
-            "$@"; rc=$?
+            # Actions runs this step under `bash -e`: a bare "$@" that exits
+            # non-zero would end the whole script before rc is recorded.
+            rc=0; "$@" || rc=$?
             if [ "${rc}" = "0" ]; then echo "${src}: ok"; stamp "${src}" ok "${det}"
             elif [ "${rc}" = "3" ]; then echo "${src}: not published yet"; stamp "${src}" not_published "${det}"
             else echo "::error title=${src}::${src} failed (exit ${rc})"; stamp "${src}" error "${det}"; FAILED=1; fi
