@@ -2,31 +2,37 @@
  *
  * Mounted by the header's MESSAGE19 hub container when ?hub=gameday.
  * Fetches gameday.html plus every relative <script> it references as one
- * bundle from one source (see SOURCES below), inlines the scripts, injects
+ * bundle from one source (see SOURCES below), hands the scripts to the frame
+ * as blob: URLs, injects
  * the league/year/host/franchise context + a height beacon, renders via
  * srcdoc. The page itself resolves the viewer's franchise from MFL cookies
  * when FRANCHISE_ID isn't passed.
  */
 (function () {
   "use strict";
+  // One Game Day per page, even if a slow first copy of this script runs
+  // after a fallback copy.
+  if (window.__ups_gameday_loader) return;
+  window.__ups_gameday_loader = true;
   function pad4(v) { var d = String(v || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }
   function safeStr(v) { return String(v == null ? "" : v).trim(); }
   function getUrl() { try { return new URL(window.location.href); } catch (e) { return null; } }
   var u = getUrl();
 
+  // Digits only: these values are written into the frame's HTML.
   function getLeagueId() {
     var q = u ? safeStr(u.searchParams.get("L")) : "";
-    if (q) return q;
+    if (/^\d{1,8}$/.test(q)) return q;
     var g = safeStr(window.league_id || window.LEAGUE_ID);
-    if (g) return g;
+    if (/^\d{1,8}$/.test(g)) return g;
     var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
     return (m && m[1]) || "74598";
   }
   function getYear() {
     var q = u ? safeStr(u.searchParams.get("YEAR")) : "";
-    if (q) return q;
+    if (/^\d{4}$/.test(q)) return q;
     var g = safeStr(window.year || window.YEAR);
-    if (g) return g;
+    if (/^\d{4}$/.test(g)) return g;
     var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
     return (m && m[1]) || String(new Date().getFullYear());
   }
@@ -115,12 +121,17 @@
       name: "github-pages",
       fileUrl: function (p, sha) { return PAGES_ROOT + p + "?v=" + encodeURIComponent(sha); },
       baseUrl: function () { return PAGES_ROOT + "gameday/"; },
-      sameDeploy: true
+      sameDeploy: true,
+      // Not commit-pinned, so the browser must not replay a mixed pair.
+      noStore: true
     }
   ];
   var HEADERS_TIMEOUT_MS = 8000;
   var BODY_TIMEOUT_MS = 20000;
-  var PAGES_DEPLOY_SPREAD_MS = 90 * 1000;
+  // Files from one Pages deploy are stamped ~1s apart; separate deploys have
+  // landed as little as 83s apart.
+  var PAGES_DEPLOY_SPREAD_MS = 15 * 1000;
+  function isCommitSha(sha) { return /^[0-9a-f]{7,40}$/i.test(sha); }
 
   // Rejects if `promise` hasn't settled in `ms`. Needed on its own because
   // AbortController is missing in older Safari; with it, the abort also stops
@@ -138,11 +149,11 @@
   // Resolves { text, lastModified }. Rejects with a short, owner-readable
   // message ("HTTP 403 on live_scoring.js"); the full URL rides along on
   // err.url for the console.
-  function fetchText(url, sha) {
+  function fetchText(url, sha, noStore) {
     var ctrl = typeof AbortController === "function" ? new AbortController() : null;
     // @<sha> URLs are immutable, so the browser cache is safe to use; an
-    // unresolved "main" is not.
-    var opts = { cache: sha === "main" ? "no-store" : "default" };
+    // unresolved SHA or a Pages URL is not.
+    var opts = { cache: noStore || !isCommitSha(sha) ? "no-store" : "default" };
     if (ctrl) opts.signal = ctrl.signal;
     var file = url.replace(/[?#].*$/, "").replace(/^.*\//, "");
     function fail(reason) { var e = new Error(reason + " on " + file); e.url = url; return e; }
@@ -179,7 +190,7 @@
   // <template> and odd quoting behave as in a real page load), fetches every
   // relative script, and returns the parsed document plus script bodies.
   function fetchBundle(source, sha) {
-    return fetchText(source.fileUrl(PAGE_PATH, sha), sha).then(function (page) {
+    return fetchText(source.fileUrl(PAGE_PATH, sha), sha, source.noStore).then(function (page) {
       var doc = new DOMParser().parseFromString(page.text, "text/html");
       if (!doc.body || !doc.querySelector("script")) {
         throw new Error("not the Game Day page from " + source.name);
@@ -191,7 +202,7 @@
         if (!isAbsolute(src) && srcs.indexOf(src) === -1) srcs.push(src);
       });
       var paths = srcs.map(sitePathFor);
-      return Promise.all(paths.map(function (p) { return fetchText(source.fileUrl(p, sha), sha); })).then(function (files) {
+      return Promise.all(paths.map(function (p) { return fetchText(source.fileUrl(p, sha), sha, source.noStore); })).then(function (files) {
         if (source.sameDeploy) {
           var times = [page].concat(files).map(function (f) { return Date.parse(f.lastModified || ""); });
           if (times.some(function (t) { return !(t > 0); })) {
@@ -243,7 +254,10 @@
 
   function loadFromFirstWorkingSource(sha) {
     var failures = [];
-    return SOURCES.reduce(function (prev, source) {
+    // Without a real commit SHA, raw /main/ and jsDelivr @main cache each file
+    // separately and could pair versions; only Pages can prove its files match.
+    var sources = isCommitSha(sha) ? SOURCES : SOURCES.filter(function (s) { return s.sameDeploy; });
+    return sources.reduce(function (prev, source) {
       return prev.catch(function () {
         return fetchBundle(source, sha).catch(function (err) {
           failures.push(source.name + ": " + err.message);
@@ -270,11 +284,16 @@
     return frame;
   }
 
+  // Script text is serialized raw into srcdoc, so "</script" in a value would
+  // end the element. Escape "<" (and the JS line separators) in every value.
+  function jsValue(v) {
+    return JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+  }
   function contextScript(ctx) {
-    return 'window.UPS_GAMEDAY_LEAGUE_ID=' + JSON.stringify(ctx.leagueId) + ';' +
-      'window.UPS_GAMEDAY_YEAR=' + JSON.stringify(ctx.year) + ';' +
-      'window.UPS_GAMEDAY_HOST=' + JSON.stringify(ctx.host) + ';' +
-      'window.UPS_GAMEDAY_FRANCHISE_ID=' + JSON.stringify(ctx.franchiseId) + ';' +
+    return 'window.UPS_GAMEDAY_LEAGUE_ID=' + jsValue(ctx.leagueId) + ';' +
+      'window.UPS_GAMEDAY_YEAR=' + jsValue(ctx.year) + ';' +
+      'window.UPS_GAMEDAY_HOST=' + jsValue(ctx.host) + ';' +
+      'window.UPS_GAMEDAY_FRANCHISE_ID=' + jsValue(ctx.franchiseId) + ';' +
       '(function(){function post(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);parent.postMessage({type:"gameday-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +
       'if(typeof ResizeObserver==="function"){try{new ResizeObserver(post).observe(document.documentElement);}catch(e){}}' +
