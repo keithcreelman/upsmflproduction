@@ -2052,6 +2052,95 @@ async function nflWeekFirstKickoffUnix(season, week) {
   return earliest;
 }
 
+// LAST kickoff of a week (the mirror of nflWeekFirstKickoffUnix above) — used
+// by resolveCurrentLineupWeek to tell "week N is fully over" from "week N is
+// still in progress". Separate cache/key so a first-kickoff lookup elsewhere
+// never collides with this one. Same "0 = unresolved, never a guess" contract.
+const _nflWeekLastKickoffCache = new Map();
+async function nflWeekLastKickoffUnix(season, week) {
+  const yr = String(season || "").replace(/\D/g, "");
+  const w = parseInt(week, 10);
+  if (!yr || !(w >= 1)) return 0;
+  const key = `${yr}|${w}`;
+  const memo = _nflWeekLastKickoffCache.get(key);
+  if (memo && Date.now() - memo.at < _NFL_KICKOFF_TTL_MS) return memo.unix;
+  let latest = 0;
+  try {
+    const res = await fetch(
+      `https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=nflSchedule&W=${encodeURIComponent(String(w))}&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 3600 } }
+    );
+    const data = res.ok ? await res.json().catch(() => null) : null;
+    const matchups = data && data.nflSchedule && data.nflSchedule.matchup;
+    for (const m of (Array.isArray(matchups) ? matchups : matchups ? [matchups] : [])) {
+      const ko = parseInt(m && m.kickoff, 10);
+      if (ko > 0 && ko > latest) latest = ko;
+    }
+  } catch (_) {
+    latest = 0;
+  }
+  if (latest > 0) _nflWeekLastKickoffCache.set(key, { unix: latest, at: Date.now() });
+  return latest;
+}
+
+// Which week should an owner be setting a LINEUP for, right now?
+//
+// Ground truth starts from liveScoring.week (the week MFL is actively
+// scoring) -- but liveScoring does NOT roll forward to N+1 until N+1's own
+// games start producing live scores, which is too late: the whole Tue/Wed
+// window after week N's Monday-night game ends is exactly when owners set
+// next week's lineup, and liveScoring is still reporting N throughout it
+// (verified live 2026-09-15: week 1's Monday game ended ~03:xx UTC, and at
+// 15:13 UTC liveScoring STILL said week=1 while projectedScores had already
+// rolled to 2). That is the mirror-image of the ORIGINAL bug this file fixed
+// (PR #1050/#1051): projectedScores.week rolls to N+1 the moment N's FIRST
+// game kicks off -- too EARLY, while N is still being played. Neither field
+// alone is right across a whole week's lifecycle.
+//
+// So: use liveScoring.week, but bump to +1 once that week's LAST real
+// kickoff (nflWeekLastKickoffUnix) is safely in the past -- a generous fixed
+// grace period, not "no live game right now" (which is also true every
+// Tue/Wed/Fri/Sat of a week that is very much still open, and would bump
+// early). Falls back to projectedScores.week if liveScoring itself can't be
+// read, and to the un-bumped liveScoring.week if the schedule can't be read
+// -- degrading toward the old (occasionally-stale but never wrong-direction)
+// behavior rather than guessing a bump with no data behind it.
+const _LINEUP_WEEK_GRACE_SEC = 7 * 3600; // OT / late-running MNF games; better a week lingers too long than flips too early
+async function resolveCurrentLineupWeek(season, leagueId) {
+  const yr = String(season || "").replace(/\D/g, "");
+  const lid = String(leagueId || "");
+  let liveWeek = 0;
+  try {
+    const r = await fetch(
+      `https://www48.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=liveScoring&L=${encodeURIComponent(lid)}&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 30 } }
+    );
+    if (r.ok) {
+      const j = await r.json().catch(() => null);
+      liveWeek = parseInt(j && j.liveScoring && j.liveScoring.week, 10) || 0;
+    }
+  } catch (_) { /* liveWeek stays 0 */ }
+  if (liveWeek > 0) {
+    const lastKo = await nflWeekLastKickoffUnix(yr, liveWeek);
+    if (lastKo > 0 && Math.floor(Date.now() / 1000) >= lastKo + _LINEUP_WEEK_GRACE_SEC) {
+      return { week: liveWeek + 1, source: "live_scoring_week_complete" };
+    }
+    return { week: liveWeek, source: "live_scoring" };
+  }
+  try {
+    const r = await fetch(
+      `https://www48.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=projectedScores&L=${encodeURIComponent(lid)}&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 30 } }
+    );
+    if (r.ok) {
+      const j = await r.json().catch(() => null);
+      const pw = parseInt(j && j.projectedScores && j.projectedScores.week, 10) || 0;
+      if (pw > 0) return { week: pw, source: "projected_scores_fallback" };
+    }
+  } catch (_) { /* fall through to unresolved */ }
+  return { week: 0, source: "unresolved" };
+}
+
 // Week-1 boundary DATE (YYYY-MM-DD, ET) taken from MFL's real schedule, for the
 // cut-penalty math to use as `opts.week1ThursdayIso`.
 //
@@ -7353,6 +7442,7 @@ export default {
         path !== "/api/repo-html" &&
         path !== "/api/submit-lineup" &&
         path !== "/api/lineup" &&
+        path !== "/api/current-lineup-week" &&
         path !== "/api/submit-trade-bait" &&
         path !== "/api/trade-bait-notes" &&
         path !== "/api/me" &&
@@ -14768,6 +14858,34 @@ export default {
         return jsonOut(200, det);
       }
 
+      // ── GET /api/current-lineup-week — the single source of truth for
+      // "which week should the lineup screens show/write right now" ──
+      // (Keith 2026-09-15.) Both site/m/views/lineup.js and
+      // site/gameday/gameday.html used to compute this themselves, client-side,
+      // straight off raw liveScoring/projectedScores -- and POST
+      // /api/submit-lineup below resolves it a THIRD way for the actual write.
+      // Three independent implementations of a "trust one MFL field over the
+      // other" heuristic is exactly how the display and the write can disagree
+      // (screen shows Week 1, a submit silently lands on Week 1 again while the
+      // owner meant Week 2). This route and the POST handler below now both
+      // call the one shared resolveCurrentLineupWeek() (defined near the top of
+      // this file, well before this handler's TDZ-prone `const`s) so there is
+      // exactly one definition of "current lineup week" in the whole app.
+      if (path === "/api/current-lineup-week" && request.method === "GET") {
+        try {
+          const leagueId = _rdhLeagueId();
+          const year = _rdhYear();
+          const resolved = await resolveCurrentLineupWeek(year, leagueId);
+          return jsonOut(resolved.week > 0 ? 200 : 503, {
+            ok: resolved.week > 0,
+            week: resolved.week || null,
+            source: resolved.source,
+          });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
       // ── POST /api/submit-lineup — submit a starting lineup to MFL ──
       // Phase 2 of the Team Ops roster + lineup card (Keith 2026-05-15).
       // Caller's franchise is detected from the MFL_USER_ID cookie (same
@@ -14813,34 +14931,31 @@ export default {
           // projectedScores.week=2). Fall back to the client's value only if MFL
           // cannot be asked -- an unknown week is not a reason to guess a wrong one.
           const weekRequested = safeStr(body.week || "");
-          // PLAIN fetch, deliberately. mflExportJson and its siblings are
-          // `const`s declared thousands of lines further down this same
-          // handler (see the NOTE above this route), so calling one from here
-          // hits the temporal dead zone and throws ReferenceError on EVERY
-          // request. PR #1051 did exactly that inside a bare `catch (_)` that
-          // turned the throw into "week unknown": the override never ran once,
-          // the worker fell back to the client's stale week=2, and Keith's
-          // Week 1 submit on 2026-09-10 landed on Week 2 with Week 1 untouched.
-          // The no-undef deploy gate cannot see a TDZ -- the name IS defined,
-          // just later -- which is why it shipped.
-          // liveScoring is readable keyless on the league's home server
-          // (verified 2026-09-10: week=1, 12 matchups); www48 avoids api.'s 302.
+          // resolveCurrentLineupWeek (top-level function, defined well before
+          // this handler -- NOT one of the thousands-of-lines-later `const`s
+          // that bit PR #1051's TDZ, see the incident note that used to live
+          // here) resolves liveScoring.week AND bumps it once that week's last
+          // real kickoff is safely in the past -- liveScoring alone stays
+          // pinned to the just-finished week all through the Tue/Wed gap
+          // before the next week starts, which is exactly when lineups for
+          // the NEXT week get set (verified live 2026-09-15: liveScoring still
+          // said week=1 at 15:13 UTC, a day after week 1's last game ended).
           let weekCurrent = "";
           let weekResolveError = "";
+          let weekSourceDetail = "";
           try {
-            const lsR = await fetch(
-              `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=liveScoring&L=${encodeURIComponent(leagueId)}&JSON=1`,
-              { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 30 } }
-            );
-            if (!lsR.ok) throw new Error("liveScoring HTTP " + lsR.status);
-            const lsJ = await lsR.json();
-            weekCurrent = safeStr(lsJ?.liveScoring?.week || "");
-            if (!weekCurrent) weekResolveError = "liveScoring returned no week";
+            const resolved = await resolveCurrentLineupWeek(year, leagueId);
+            if (resolved.week > 0) {
+              weekCurrent = String(resolved.week);
+              weekSourceDetail = resolved.source;
+            } else {
+              weekResolveError = "resolveCurrentLineupWeek returned no week (source=" + resolved.source + ")";
+            }
           } catch (e) {
             // NOT silent. Falling back to the client's week is deliberate -- an
             // unreadable MFL is no reason to refuse a submit -- but the owner
             // and the logs must both be able to SEE that the fallback happened.
-            // A swallowed error here is precisely how this broke.
+            // A swallowed error here is precisely how this broke before.
             weekResolveError = String(e?.message || e);
           }
           if (weekResolveError) {
@@ -14853,7 +14968,7 @@ export default {
           const weekDiag = {
             week_requested: weekRequested || null,
             week_used: week || null,
-            week_source: weekCurrent ? "mfl_live_scoring" : (weekRequested ? "client" : "mfl_default"),
+            week_source: weekCurrent ? weekSourceDetail : (weekRequested ? "client" : "mfl_default"),
             ...(weekResolveError ? { week_resolve_error: weekResolveError } : {}),
           };
           const starters = Array.isArray(body.starters)

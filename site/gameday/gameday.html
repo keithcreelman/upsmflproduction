@@ -376,31 +376,35 @@
       // IR/PUP/suspended chip"). Reuses parseInjuries(), the exact parser
       // loadScoreboard() already trusts for the live tab.
       fetchJson(mflExportUrl("injuries")),
-      // liveScoring, for its WEEK ONLY. projectedScores.week is NOT the week
-      // being played: MFL rolls the projection week forward the moment the
-      // first game of a week kicks off, so on 2026-09-10 -- with Week 1 wide
-      // open and only the Wednesday NEP/SEA game finished -- projectedScores
-      // said 2 while liveScoring said 1. Every lineup surface keyed off the
-      // former, so Submit Lineup read Week 2's (empty) lineup, labelled itself
-      // Week 2, pulled Week 2 matchup ratings and posted week=2. The worker
-      // already overrides the submitted week from liveScoring (PR #1051); this
-      // is the other half, so the screen agrees with what actually gets
-      // written. Fetched here rather than in loadScoreboard() because the
-      // lineup panel renders off loadData() and must not race the scoreboard.
-      // Kept LAST on purpose: the .then() below reads results BY POSITION
-      // (r[6]). The first cut of this sat between projectedScores and
-      // injuries, which would have shifted injuries off r[5] -- blanking
-      // every injury badge -- and handed parseInjuries the liveScoring blob.
-      fetchJson(mflExportUrl("liveScoring"))
+      // The week an owner is SETTING A LINEUP for, from the worker's shared
+      // GET /api/current-lineup-week (Keith 2026-09-15) -- NOT a raw
+      // liveScoring fetch any more. liveScoring.week alone is wrong in two
+      // different windows: too EARLY (rolls to N+1 the moment week N's first
+      // game kicks off -- the original 2026-09-10 bug, when this said 2 while
+      // liveScoring still correctly said 1) and too LATE (stays pinned on N
+      // through the whole Tue/Wed gap after N's last game ends, until N+1's
+      // games start producing live scores -- exactly when lineups for the
+      // NEXT week get set: verified live 2026-09-15, this screen was still
+      // showing Week 1 opponents a full day after Week 1's last game had
+      // ended). resolveCurrentLineupWeek() in the worker is the one place
+      // that decides this now, and POST /api/submit-lineup calls the very
+      // same function for the actual write, so the screen can no longer
+      // disagree with what gets saved. Fetched here rather than in
+      // loadScoreboard() because the lineup panel renders off loadData() and
+      // must not race the scoreboard. Kept LAST on purpose: the .then() below
+      // reads results BY POSITION (r[6]). The first cut of this sat between
+      // projectedScores and injuries, which would have shifted injuries off
+      // r[5] -- blanking every injury badge.
+      fetchJson(workerUrl("/api/current-lineup-week"))
     ]).then(function (r) {
       STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
       STATE.proj = parseProj(r[4]);
       STATE.projWeek = parseInt((r[4] && r[4].projectedScores && r[4].projectedScores.week) || 0, 10) || 0;
       STATE.injuries = parseInjuries(r[5]);
-      STATE.liveWeek = parseInt((r[6] && r[6].liveScoring && r[6].liveScoring.week) || 0, 10) || 0;
-      // The week an owner is SETTING A LINEUP for. Live week wins; the
-      // projection week is only the fallback for when liveScoring cannot be
-      // read (and in the offseason both are absent, which stays 0).
+      STATE.liveWeek = parseInt((r[6] && r[6].week) || 0, 10) || 0;
+      // The week an owner is SETTING A LINEUP for. The worker's resolved week
+      // wins; the projection week is only the fallback for when that call
+      // cannot be read (and in the offseason both are absent, which stays 0).
       STATE.lineupWeek = STATE.liveWeek || STATE.projWeek;
       parseLeague(); resolveViewer();
     });
