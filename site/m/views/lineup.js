@@ -58,18 +58,30 @@
     return map;
   }
   function posRankFor(pid) { return posRankMap()[String(pid)] || null; }
-  // Resolve the week an owner is SETTING A LINEUP for, from liveScoring. Runs
-  // alongside loadProjections(); whichever lands first, liveScoring wins,
-  // because loadProjections only fills lineupWeek when it is still unset and
-  // this always overwrites. projSettled() still gates the lineup read, and
-  // both fetches start in the same tick, so the read cannot outrun them.
+  // Resolve the week an owner is SETTING A LINEUP for. Runs alongside
+  // loadProjections(); whichever lands first, this wins, because
+  // loadProjections only fills lineupWeek when it is still unset and this
+  // always overwrites. projSettled() still gates the lineup read, and both
+  // fetches start in the same tick, so the read cannot outrun them.
+  //
+  // Source: worker GET /api/current-lineup-week, NOT a raw liveScoring fetch
+  // (Keith 2026-09-15). liveScoring.week alone is wrong in TWO different
+  // windows -- too early (rolls to N+1 at week N's first kickoff, the
+  // original 2026-09-10 bug) and too late (stays pinned on N through the
+  // whole Tue/Wed gap after N's last game ends, until N+1's games start
+  // producing live scores -- exactly when lineups for the NEXT week get set:
+  // verified live 2026-09-15, this screen was showing Week 1 opponents a full
+  // day after Week 1's last game had ended). The worker's
+  // resolveCurrentLineupWeek() is the one place that decides this now, so the
+  // screen and the POST /api/submit-lineup write (which calls the very same
+  // function) can never disagree again.
   function loadLiveWeek() {
     if (M.state.lineupLiveWeekLoading) return;
     M.state.lineupLiveWeekLoading = true;
-    fetch(API.mflExportUrl("liveScoring"), { mode: "cors", credentials: "omit" })
+    fetch(API.workerUrl("/api/current-lineup-week"), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        var w = parseInt((j && j.liveScoring && j.liveScoring.week) || 0, 10) || 0;
+        var w = parseInt((j && j.week) || 0, 10) || 0;
         if (w) { M.state.lineupWeek = w; renderRoute(); }
       })
       .catch(function () { /* projectedScores.week remains the fallback */ });
@@ -86,16 +98,12 @@
           if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; }
         });
         M.state.lineupProj = { loaded: true, map: map };
-        // projectedScores.week is NOT the week being played. MFL rolls it
-        // forward the moment the first game of a week kicks off, so on
-        // 2026-09-10 -- Week 1 wide open, only the Wednesday NEP/SEA game
-        // finished -- this said 2 while liveScoring said 1. Keying the lineup
-        // off it read Week 2's (empty) lineup and posted week=2 for a Week 1
-        // that was still fully editable. The projection MAP above is still
-        // rightly projectedScores; only the WEEK moves to liveScoring, and the
-        // projection week stays as the fallback for when liveScoring is
-        // unreadable. The worker overrides the submitted week the same way
-        // (PR #1051) -- this keeps the screen agreeing with the write.
+        // projectedScores.week is not reliably "the week being played" on its
+        // own (see loadLiveWeek's comment for the full history) -- the
+        // projection MAP above is still rightly projectedScores; only the
+        // WEEK comes from the worker's shared resolveCurrentLineupWeek() via
+        // loadLiveWeek(), and this raw projectedScores.week is kept only as
+        // the last-resort fallback for when that call is unreadable.
         M.state.lineupProjWeek = parseInt((j && j.projectedScores && j.projectedScores.week) || 0, 10) || 0;
         if (!M.state.lineupWeek) M.state.lineupWeek = M.state.lineupProjWeek;
         M.state.lineupProjRank = null;  // rebuild ranks against fresh projections
