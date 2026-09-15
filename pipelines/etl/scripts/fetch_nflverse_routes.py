@@ -314,17 +314,39 @@ def main() -> None:
 
     weekly: list[tuple] = []
     failed: list[int] = []
+    unpublished: list[int] = []
     for yr in seasons:
         print(f"loading participation + PBP for {yr}…", file=sys.stderr)
         try:
             weekly += compute_season(yr)
-        except Exception as e:  # per-season isolation: one missing year ≠ dead run
+        except ValueError as e:
+            # nflreadpy refuses participation for a season FTN hasn't released
+            # (it publishes after the postseason). Expected all season long --
+            # not an error, but never "ok" either.
+            if "Season must be between" not in str(e):
+                failed.append(yr)
+                print(f"  [{yr}] FAILED: {e}", file=sys.stderr)
+                continue
+            unpublished.append(yr)
+            print(f"  [{yr}] participation not published yet (FTN releases it after the postseason)", file=sys.stderr)
+        except Exception as e:  # one bad year shouldn't block writing the others
             failed.append(yr)
             print(f"  [{yr}] FAILED: {e}", file=sys.stderr)
+
+    if weekly:
+        write_rows(weekly, args)
     if failed:
-        print(f"  seasons with no data / errors: {failed}", file=sys.stderr)
+        sys.exit(f"routes failed for seasons {failed}")
+    if unpublished:
+        # Exit 3 = "not published": the workflow records that status instead
+        # of ok, so a season with zero route rows can't look fresh.
+        print(f"NOT_PUBLISHED: {unpublished}", file=sys.stderr)
+        sys.exit(3)
     if not weekly:
         sys.exit("no rows")
+
+
+def write_rows(weekly: list[tuple], args) -> None:
 
     # Season rows are DERIVED from weekly, so Σ weekly == season by
     # construction and the two grains cannot drift.

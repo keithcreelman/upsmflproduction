@@ -19,11 +19,26 @@ Public API:
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+# D1 rejects any single statement over 100,000 bytes (SQLITE_TOOBIG). Leave
+# headroom and measure UTF-8 bytes, not characters: player names aren't ASCII.
+STATEMENT_BYTE_LIMIT = 95_000
+
+# Deterministic failures: retrying resends the same bytes and fails the same
+# way, so give up immediately instead of burning ~55s of backoff.
+_NON_RETRYABLE = (
+    "SQLITE_TOOBIG", "statement too long", "constraint failed", "no such table",
+    "no such column", "has no column named", "syntax error",
+)
+# The database was reset mid-import. The import rolls back, so the same
+# statements are safe to resend in smaller files.
+_CPU_RESET = ("exceeded its CPU time limit", "D1_RESET_DO", "reset before execute completed")
 
 # ---------------------------------------------------------------
 # SQL building
@@ -47,11 +62,14 @@ def build_insert(
     cols: list[str],
     rows: list[tuple],
     pk_cols: list[str] | None = None,
+    coalesce_cols: list[str] | None = None,
 ) -> str:
     """Build an INSERT (or UPSERT) statement for a batch of rows.
 
     With `pk_cols`: emits `INSERT … ON CONFLICT (pk) DO UPDATE SET …`
     Without:       emits `INSERT OR IGNORE`.
+    `coalesce_cols` update as `c = COALESCE(excluded.c, c)`, so a NULL in
+    this batch keeps the existing value instead of erasing it.
     """
     col_list = ", ".join(cols)
     value_tuples = []
@@ -63,7 +81,14 @@ def build_insert(
     if pk_cols:
         update_cols = [c for c in cols if c not in pk_cols]
         if update_cols:
-            set_clause = ", ".join(f"{c} = excluded.{c}" for c in update_cols)
+            keep = set(coalesce_cols or ())
+            unknown = keep - set(update_cols)
+            if unknown:
+                raise ValueError(f"build_insert {table}: coalesce_cols not in update columns: {sorted(unknown)}")
+            set_clause = ", ".join(
+                f"{c} = COALESCE(excluded.{c}, {c})" if c in keep else f"{c} = excluded.{c}"
+                for c in update_cols
+            )
             pk_list = ", ".join(pk_cols)
             return (
                 f"INSERT INTO {table} ({col_list}) VALUES\n{values_sql}\n"
@@ -78,6 +103,50 @@ def build_insert(
 # Wrangler shell-out with retry
 # ---------------------------------------------------------------
 
+def _wrangler_cmd(sql_path: Path, db: str, wrangler_config: Path | None) -> list[str]:
+    # D1_WRANGLER lets CI call one pinned, pre-installed wrangler (~1s/call)
+    # instead of `npx --yes wrangler@latest` (npm version check every call,
+    # and a surprise upgrade mid-run). Local runs keep the old default.
+    # D1_EXECUTE_LOCAL=1 targets the local Miniflare D1 for tests.
+    prefix = shlex.split(os.environ.get("D1_WRANGLER") or "npx --yes wrangler@latest")
+    target = "--local" if os.environ.get("D1_EXECUTE_LOCAL") == "1" else "--remote"
+    cmd = prefix + ["d1", "execute", db, target, "--file", str(sql_path)]
+    if wrangler_config is not None:
+        cmd.extend(["--config", str(wrangler_config)])
+    return cmd
+
+
+def _execute_with_retries(
+    sql_path: Path,
+    db: str,
+    max_attempts: int,
+    wrangler_config: Path | None,
+    worker_cwd: Path | None,
+) -> tuple[bool, str]:
+    """(ok, error_text). Retries transient failures only."""
+    cmd = _wrangler_cmd(sql_path, db, wrangler_config)
+    cwd = str(worker_cwd) if worker_cwd else None
+    env = {**os.environ, "WRANGLER_SEND_METRICS": "false"}
+    err = ""
+    for attempt in range(1, max_attempts + 1):
+        res = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
+        if res.returncode == 0:
+            if attempt > 1:
+                sys.stderr.write(f"[d1 execute] recovered on attempt {attempt} for {sql_path.name}\n")
+            return True, ""
+        err = f"STDERR:\n{res.stderr[-2000:]}\nSTDOUT:\n{res.stdout[-1000:]}"
+        blob = res.stderr + res.stdout
+        if any(s in blob for s in _NON_RETRYABLE) or any(s in blob for s in _CPU_RESET):
+            break
+        if attempt < max_attempts:
+            sys.stderr.write(
+                f"[d1 execute] transient fail on {sql_path.name} "
+                f"(attempt {attempt}/{max_attempts}), retrying...\n"
+            )
+            time.sleep(2 * attempt)
+    return False, err
+
+
 def wrangler_execute(
     sql_path: Path,
     db: str = "ups-mfl-db",
@@ -89,40 +158,14 @@ def wrangler_execute(
 
     D1 returns transient 5xx / network errors under load — typically
     clears within seconds. Retries with linear backoff absorb those
-    without aborting a 30+ minute load run.
+    without aborting a 30+ minute load run. Deterministic errors
+    (statement too long, missing column, …) fail on the first attempt.
+    Raises SystemExit on failure.
     """
-    cmd = [
-        "npx", "--yes", "wrangler@latest", "d1", "execute", db,
-        "--remote", "--file", str(sql_path),
-    ]
-    if wrangler_config is not None:
-        cmd.extend(["--config", str(wrangler_config)])
-
-    cwd = str(worker_cwd) if worker_cwd else None
-
-    for attempt in range(1, max_attempts + 1):
-        res = subprocess.run(
-            cmd, cwd=cwd, env={**os.environ},
-            capture_output=True, text=True,
-        )
-        if res.returncode == 0:
-            if attempt > 1:
-                sys.stderr.write(
-                    f"[d1 execute] recovered on attempt {attempt} for {sql_path.name}\n"
-                )
-            return
-        if attempt < max_attempts:
-            sys.stderr.write(
-                f"[d1 execute] transient fail on {sql_path.name} "
-                f"(attempt {attempt}/{max_attempts}), retrying...\n"
-            )
-            time.sleep(2 * attempt)
-            continue
-        sys.stderr.write(
-            f"[d1 execute FAILED after {max_attempts} attempts] {sql_path.name}\n"
-            f"STDERR:\n{res.stderr[:2000]}\nSTDOUT:\n{res.stdout[:500]}\n"
-        )
-        raise SystemExit(res.returncode)
+    ok, err = _execute_with_retries(sql_path, db, max_attempts, wrangler_config, worker_cwd)
+    if not ok:
+        sys.stderr.write(f"[d1 execute FAILED] {sql_path.name}\n{err}\n")
+        raise SystemExit(1)
 
 
 # ---------------------------------------------------------------
@@ -130,7 +173,7 @@ def wrangler_execute(
 # ---------------------------------------------------------------
 
 class D1Writer:
-    """Streaming UPSERT writer. Add rows; chunks flush automatically.
+    """Streaming UPSERT writer. Add rows; statements flush automatically.
 
     Example:
         with D1Writer(
@@ -143,12 +186,24 @@ class D1Writer:
         # exits flush remaining + prints summary
 
     Set `enabled=False` to no-op (useful for fetchers with --skip-d1).
+
+    `chunk_size` rows go into each INSERT statement. Statements are then
+    packed into SQL files of up to `max_file_bytes` / `max_rows_per_file`,
+    one `wrangler d1 execute` per file. Each wrangler call costs ~2.8s
+    regardless of size, so one statement per call spent ~39 of 41 minutes
+    of the Sep 9 2026 nflverse refresh starting processes. An import file
+    rolls back as a unit if it fails, and every statement is an idempotent
+    upsert, so resending a file is safe. D1WRITER_MAX_FILE_BYTES=0 restores
+    one statement per file.
     """
 
     # Wide-table UPSERTs roughly double in size due to ON CONFLICT
     # SET clause; D1 caps a single statement at ~100KB. 80 rows is
-    # safe for ~80-col tables; insert mode tolerates ~200.
+    # safe for ~80-col tables; insert mode tolerates ~200. Oversized
+    # statements are split automatically (see STATEMENT_BYTE_LIMIT).
     DEFAULT_CHUNK_SIZE = 80
+    DEFAULT_MAX_FILE_BYTES = 1_000_000
+    DEFAULT_MAX_ROWS_PER_FILE = 5_000
 
     def __init__(
         self,
@@ -162,10 +217,15 @@ class D1Writer:
         worker_cwd: Path | None = None,
         enabled: bool = True,
         verbose: bool = True,
+        *,
+        max_file_bytes: int | None = None,
+        max_rows_per_file: int | None = None,
+        coalesce_cols: list[str] | None = None,
     ):
         self.table = table
         self.cols = cols
         self.pk_cols = pk_cols
+        self.coalesce_cols = coalesce_cols
         self.db = db
         self.chunk_size = chunk_size or self.DEFAULT_CHUNK_SIZE
         self.tmp_dir = Path(tmp_dir) if tmp_dir else self._default_tmp_dir()
@@ -174,9 +234,19 @@ class D1Writer:
         self.enabled = enabled
         self.verbose = verbose
 
+        env_bytes = os.environ.get("D1WRITER_MAX_FILE_BYTES")
+        if max_file_bytes is None:
+            max_file_bytes = int(env_bytes) if env_bytes not in (None, "") else self.DEFAULT_MAX_FILE_BYTES
+        self.max_file_bytes = max_file_bytes  # 0 = one statement per file
+        self.max_rows_per_file = max_rows_per_file or self.DEFAULT_MAX_ROWS_PER_FILE
+
         self._buffer: list[tuple] = []
-        self._chunk_idx = 0
-        self._total = 0
+        self._stmts: list[tuple[str, int, int]] = []  # (sql, rows, utf-8 bytes)
+        self._file_bytes = 0
+        self._file_rows = 0
+        self._chunk_idx = 0   # statements built
+        self._file_idx = 0    # wrangler calls made
+        self._total = 0       # rows confirmed written
 
     @staticmethod
     def _repo_root() -> Path:
@@ -197,15 +267,23 @@ class D1Writer:
     def __exit__(self, exc_type, exc, tb):
         # Always flush remaining (best-effort — even on exceptions, the
         # partial data is more useful than nothing thanks to UPSERT
-        # idempotency).
+        # idempotency). On a clean exit a flush failure must propagate:
+        # swallowing it would let the fetcher exit 0 with rows missing.
         try:
-            self._flush()
+            self.close()
         except Exception as e:
+            if exc_type is None:
+                raise
             sys.stderr.write(f"[D1Writer {self.table}] flush failed on exit: {e}\n")
+
+    def close(self) -> None:
+        self._flush()
+        self._flush_file()
         if self.enabled and self.verbose:
             sys.stderr.write(
                 f"[D1Writer {self.table}] DONE: {self._total} rows in "
-                f"{self._chunk_idx} chunk{'s' if self._chunk_idx != 1 else ''}\n"
+                f"{self._chunk_idx} statement{'s' if self._chunk_idx != 1 else ''}, "
+                f"{self._file_idx} file{'s' if self._file_idx != 1 else ''}\n"
             )
 
     def add(self, row: tuple) -> None:
@@ -224,23 +302,73 @@ class D1Writer:
         for r in rows:
             self.add(r)
 
+    def _build_statements(self, rows: list[tuple]) -> list[tuple[str, int, int]]:
+        sql = build_insert(self.table, self.cols, rows, pk_cols=self.pk_cols, coalesce_cols=self.coalesce_cols)
+        size = len(sql.encode("utf-8"))
+        if size < STATEMENT_BYTE_LIMIT:
+            return [(sql, len(rows), size)]
+        if len(rows) == 1:
+            raise ValueError(
+                f"D1Writer {self.table}: a single row builds a {size}-byte statement, "
+                f"over D1's limit (~{STATEMENT_BYTE_LIMIT} bytes)"
+            )
+        mid = len(rows) // 2
+        if self.verbose:
+            sys.stderr.write(
+                f"[D1Writer {self.table}] {len(rows)}-row statement is {size} bytes; splitting\n"
+            )
+        return self._build_statements(rows[:mid]) + self._build_statements(rows[mid:])
+
     def _flush(self) -> None:
+        """Turn buffered rows into statement(s) and queue them for a file."""
         if not self._buffer or not self.enabled:
             self._buffer = []
             return
-        self._chunk_idx += 1
-        sql = build_insert(self.table, self.cols, self._buffer, pk_cols=self.pk_cols)
-        path = self.tmp_dir / f"{self.table}__{self._chunk_idx:04d}.sql"
-        path.write_text(sql)
-        wrangler_execute(
-            path, db=self.db,
-            wrangler_config=self.wrangler_config,
-            worker_cwd=self.worker_cwd,
-        )
-        self._total += len(self._buffer)
+        rows, self._buffer = self._buffer, []
+        for sql, n, size in self._build_statements(rows):
+            self._chunk_idx += 1
+            if self._stmts and (
+                self.max_file_bytes <= 0
+                or self._file_bytes + size > self.max_file_bytes
+                or self._file_rows + n > self.max_rows_per_file
+            ):
+                self._flush_file()
+            self._stmts.append((sql, n, size))
+            self._file_bytes += size
+            self._file_rows += n
+            if self.max_file_bytes <= 0:
+                self._flush_file()
+
+    def _flush_file(self) -> None:
+        if not self._stmts or not self.enabled:
+            self._stmts, self._file_bytes, self._file_rows = [], 0, 0
+            return
+        stmts = self._stmts
+        self._stmts, self._file_bytes, self._file_rows = [], 0, 0
+        self._send(stmts)
+
+    def _send(self, stmts: list[tuple[str, int, int]]) -> None:
+        self._file_idx += 1
+        path = self.tmp_dir / f"{self.table}__{self._file_idx:04d}.sql"
+        path.write_text("".join(s for s, _, _ in stmts), encoding="utf-8")
+        ok, err = _execute_with_retries(path, self.db, 4, self.wrangler_config, self.worker_cwd)
+        rows = sum(n for _, n, _ in stmts)
+        if not ok:
+            if any(s in err for s in _CPU_RESET) and len(stmts) > 1:
+                mid = len(stmts) // 2
+                sys.stderr.write(
+                    f"[D1Writer {self.table}] file {self._file_idx} ({len(stmts)} statements) "
+                    f"hit D1's CPU limit and rolled back; resending as two smaller files\n"
+                )
+                self._send(stmts[:mid])
+                self._send(stmts[mid:])
+                return
+            sys.stderr.write(f"[D1Writer {self.table}] file {self._file_idx} FAILED ({rows} rows)\n{err}\n")
+            raise SystemExit(1)
+        self._total += rows
         if self.verbose:
+            size = sum(b for _, _, b in stmts)
             sys.stderr.write(
-                f"[D1Writer {self.table}] chunk {self._chunk_idx}: "
-                f"+{len(self._buffer)} (total {self._total})\n"
+                f"[D1Writer {self.table}] file {self._file_idx}: {len(stmts)} statement"
+                f"{'s' if len(stmts) != 1 else ''}, {size // 1024} KB, +{rows} (total {self._total})\n"
             )
-        self._buffer = []

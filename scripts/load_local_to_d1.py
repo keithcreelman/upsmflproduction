@@ -727,6 +727,16 @@ def main():
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None
+    # These D1 tables are written straight from nflverse by
+    # .github/workflows/nflverse-stats-refresh.yml. The local SQLite copy
+    # stopped updating in May 2026, so pushing it would overwrite fresh D1 rows
+    # with stale ones (and --reset would empty the table first). Never load them
+    # from here, even with --only.
+    ci_owned = {"nflweekly", "nflsnaps", "nflredzone", "nflteam"}
+    skipped = [f for f, _, _, _ in plan if f in ci_owned and (not selected or f in selected)]
+    if skipped:
+        print(f"Skipping {', '.join(skipped)}: written directly by the nflverse-stats-refresh workflow")
+    plan = [p for p in plan if p[0] not in ci_owned]
 
     if args.dry_run:
         for flag, _, src_sql, _ in plan:
