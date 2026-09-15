@@ -89,7 +89,8 @@ RULES:
 - If the patient predicts or dreads something that HASN'T happened yet (a game still to be played, a matchup still in progress), that's their anxiety talking -- respond to the feeling, never confirm or deny the outcome as if you know it. You don't.
 - SESSION RECENCY tells you how long it's been since their last visit. Under ~30 minutes: acknowledge they're back fast -- your own words each time, something like "back so soon?" but never that exact phrase twice in a row. Several days or longer: a brief "welcome back" acknowledging the gap is a nice touch, not required. Their first-ever session: don't mention recency at all, there's nothing to reference.
 - If the OPTIONAL WIN TRADE block gives you a real trade the patient actually won, use it -- don't let a rough TRADE HISTORY be the only trade story in the session. It pairs especially well right after a bad one: "sure, that one stung, BUT..." A win against the same rival already in play is the sharpest version of this and worth reaching for; a win against someone else is still real and still worth citing.
-- Max 110 words (bumped from 90 now that a WIN TRADE can pair with a rough one -- still tight, don't pad it out just because the ceiling moved). Plain text, no markdown, no bullet points.
+- VISIT CAP: if that block says they're OVER THE LIMIT, open with one playful "the office is closed" line that uses the exact visit number and minutes it gives you. Write it fresh every time -- the tone is like "Visit number four in 57 minutes. I'm going to go alphabetize the waiver wire and pretend none of this happened." or "Fourth session. The front desk is closed while I stare at the ceiling and wait for the next snap count." -- but never reuse those lines or your own previous one. Aim it at the situation (the repeat visits), not at the patient as a person. Keep it absurd and harmless: no jokes about injury, death or self-harm (yours or anyone's), medical conditions, or sexual health. That line replaces the SESSION RECENCY reaction -- don't do both. Then still answer what they typed, especially an injury or lineup worry, but keep the whole session under 50 words.
+- Max 110 words (50 when the VISIT CAP applies). Plain text, no markdown, no bullet points.
 - Address them by name. One "session" or "couch" joke is welcome; the rest should read like you mean it.
 - FAMILY AND HEALTH ARE OFF LIMITS FOR EVERYONE -- the patient and any rival -- same as every other bot in this server.`;
 
@@ -212,6 +213,59 @@ async function recordSession(env, fid) {
   } catch (e) {
     console.log(`[therapy] recordSession failed: ${e?.message || e}`);
   }
+}
+
+// Visit cap (migration 0157): more than VISIT_LIMIT sessions from one Discord
+// user in one channel inside VISIT_WINDOW_MIN gets a closed-office joke and a
+// shortened session. Counted per user+channel, not per franchise.
+const VISIT_WINDOW_MIN = 90;
+const VISIT_LIMIT = 3;
+const ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"];
+
+async function loadRecentVisits(env, discordUserId, channelId) {
+  if (!env.UPS_MFL_DB || !discordUserId || !channelId) return null;
+  try {
+    const since = new Date(Date.now() - VISIT_WINDOW_MIN * 60000).toISOString();
+    const { results } = await env.UPS_MFL_DB
+      .prepare(
+        "SELECT COUNT(*) AS n, MIN(visited_at_utc) AS first_at FROM ups_therapy_visits " +
+        "WHERE discord_user_id = ? AND channel_id = ? AND visited_at_utc >= ?"
+      )
+      .bind(discordUserId, channelId, since)
+      .all();
+    return { prior: Number(results?.[0]?.n) || 0, firstAt: results?.[0]?.first_at || null };
+  } catch (e) {
+    console.log(`[therapy] loadRecentVisits failed: ${e?.message || e}`);
+    return null;
+  }
+}
+
+async function recordVisit(env, discordUserId, channelId, fid) {
+  if (!env.UPS_MFL_DB || !discordUserId || !channelId) return;
+  try {
+    await env.UPS_MFL_DB
+      .prepare("INSERT INTO ups_therapy_visits (discord_user_id, channel_id, franchise_id, visited_at_utc) VALUES (?, ?, ?, ?)")
+      .bind(discordUserId, channelId, fid || null, new Date().toISOString())
+      .run();
+  } catch (e) {
+    console.log(`[therapy] recordVisit failed: ${e?.message || e}`);
+  }
+}
+
+// null = under the cap OR the count couldn't be read. An unreadable count must
+// never produce a "fourth visit" line -- that would be an invented number.
+export function visitCapFact(visits, nowMs = Date.now()) {
+  if (!visits || visits.prior < VISIT_LIMIT) return null;
+  const visitNo = visits.prior + 1;
+  const firstMs = visits.firstAt ? new Date(visits.firstAt).getTime() : NaN;
+  const mins = Number.isFinite(firstMs) ? Math.max(1, Math.round((nowMs - firstMs) / 60000)) : null;
+  return { visitNo, ordinal: ORDINALS[visitNo - 1] || `#${visitNo}`, mins };
+}
+
+function visitCapBlock(cap) {
+  if (!cap) return "(under the limit -- ignore this, don't mention visit counts)";
+  const span = cap.mins != null ? `the last ${cap.mins} minute${cap.mins === 1 ? "" : "s"}` : `the last ${VISIT_WINDOW_MIN} minutes`;
+  return `OVER THE LIMIT: this is their ${cap.ordinal} session (visit #${cap.visitNo}) in this channel within ${span}. The normal limit is ${VISIT_LIMIT} per ${VISIT_WINDOW_MIN} minutes.`;
 }
 
 // Real elapsed time since their last visit, phrased plainly -- the model
@@ -640,17 +694,21 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
     return;
   }
 
-  const [row, receipts, owners, lastSession] = await Promise.all([
+  const [row, receipts, owners, lastSession, recentVisits] = await Promise.all([
     loadCareerStats(env, fid),
     loadPositiveReceipts(env, fid),
     loadAllOwners(env),
     loadLastSession(env, fid),
+    loadRecentVisits(env, invoker.id, channelId),
   ]);
-  // Record THIS session now -- read the prior value above first (for the
-  // gap calculation), then write the new one so the NEXT session sees this
-  // one as "last time". Fire-and-forget is fine: a missed write just means
-  // the next session's recency fact is slightly stale, not wrong.
-  const recordSessionPromise = recordSession(env, fid);
+  // Record THIS session now -- read the prior values above first (for the
+  // gap calculation and the visit count), then write so the NEXT session
+  // sees this one. A missed write just makes the next count slightly low.
+  const recordSessionPromise = Promise.all([
+    recordSession(env, fid),
+    recordVisit(env, invoker.id, channelId, fid),
+  ]);
+  const cap = visitCapFact(recentVisits);
 
   const facts = shuffle(buildPositiveFacts(row));
   const displayName = safeStr(row?.owner_display) || invoker.name;
@@ -658,7 +716,9 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
   const mentionedFid = findMentionedFranchise(ventText, owners, fid);
   let rival = null;
   let trade = null;
-  if (mentionedFid) {
+  // Over the visit cap the session is short and skips the trade/rival
+  // material entirely, so none of the lookups below run.
+  if (!cap && mentionedFid) {
     // CURRENT owner display of the mentioned rival's franchise slot -- e.g.
     // "Hammer" typed today resolves to Eric Martel via findMentionedFranchise
     // (correct, unchanged). This value is used ONLY to FILTER the queries
@@ -683,7 +743,7 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
     // row synced before its owner_name/other_owner_name column existed).
     if (tradeRow) trade = { name: tradeRow.other_owner_name || currentOwnerDisplay, row: tradeRow };
     else if (beat) rival = { name: beat.owner_name || currentOwnerDisplay, beat };
-  } else {
+  } else if (!cap) {
     // No rival named -- occasionally surface the patient's OWN trade
     // history (self-deprecating material) or someone else's bad beat, but
     // not both; keep the odds low enough that most sessions carry neither.
@@ -707,7 +767,9 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
   // the current-owner-only bug this whole fix exists to close) -- a random
   // OWN trade/bad beat can point at a PAST owner of a franchise slot, and
   // the twist has to follow that same person, not today's owner of the slot.
-  const twistTarget = mentionedFid
+  const twistTarget = cap
+    ? null
+    : mentionedFid
     ? { fid: mentionedFid, name: ownerNameFor(mentionedFid, owners), isCurrentOwner: true }
     : trade
     ? { fid: trade.row.other_franchise_id, name: trade.name, isCurrentOwner: trade.name === ownerNameFor(trade.row.other_franchise_id, owners) }
@@ -735,7 +797,7 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
   // already a named rival or a trade story in play (the two scenarios this
   // is actually meant to pair with), not on every session.
   let winTrade = null;
-  if (mentionedFid || trade) {
+  if (!cap && (mentionedFid || trade)) {
     const preferredFid = mentionedFid || trade.row.other_franchise_id;
     const preferredName = mentionedFid ? ownerNameFor(mentionedFid, owners) : trade.name;
     let candidates = await loadAllTradesFor(env, fid, preferredFid);
@@ -754,7 +816,7 @@ async function runTherapyPipeline({ env, invoker, ventText, interactionToken, ap
   // promise once the handler returns, so this still needs a real await
   // somewhere before the pipeline ends.
   const [body] = await Promise.all([
-    generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist, recencyFact(lastSession), winTrade),
+    generateTherapy(env, displayName, facts, receipts.slice(0, 2), ventText, rival, trade, twist, recencyFact(lastSession), winTrade, cap),
     recordSessionPromise,
   ]);
 
@@ -928,7 +990,7 @@ function winTradeBlock(winTrade) {
   );
 }
 
-async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade, twist, recency, winTrade) {
+async function generateTherapy(env, displayName, facts, receipts, ventText, rival, trade, twist, recency, winTrade, cap) {
   const factsBlock = facts.length
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(none on record yet -- lean on tenure/camaraderie only, and keep it short)";
@@ -945,6 +1007,7 @@ async function generateTherapy(env, displayName, facts, receipts, ventText, riva
     `OPTIONAL TWIST AMMO (real material for the closing twist against a rival -- ONLY use a fact from here, or a current_contract dollar figure already given above; never write a rhetorical line implying a real-world consequence, like "he's paying you", without an actual number behind it):\n${twistBlock(twist)}\n\n` +
     `OPTIONAL WIN TRADE (a DIFFERENT real trade the patient actually WON -- genuine pride material, the counterpoint to the TRADE HISTORY above if that one's rough. Use it, don't bury it, especially if it's against the same rival already in play):\n${winTradeBlock(winTrade)}\n\n` +
     `SESSION RECENCY (real, always true):\n${recency}\n\n` +
+    `VISIT CAP (real, always true):\n${visitCapBlock(cap)}\n\n` +
     `Open the session.`;
   for (const model of [THERAPY_MODEL, THERAPY_FALLBACK_MODEL]) {
     try {
