@@ -15,6 +15,8 @@ def available_seasons(seasons, floor=None):
     """Drop seasons nflverse doesn't have yet (future / off-season) and below an
     optional per-source floor. Logs what was dropped; returns the kept list."""
     import nflreadpy as nfl
+    from lib.nflverse_http import harden
+    harden()   # every scoped fetcher passes through here before its first download
     cur = nfl.get_current_season(roster=False)   # 2025 through the 2026 off-season
     kept = [s for s in seasons if s <= cur and (floor is None or s >= floor)]
     dropped = [s for s in seasons if s not in kept]

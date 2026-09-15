@@ -65,7 +65,10 @@ def _dual_write_d1(table: str, pk_cols: list[str], augment_cols: list[str],
     aug_n = len(augment_cols)
     d1_rows = [tuple(list(r[aug_n:aug_n+pk_n]) + list(r[:aug_n])) for r in rows]
     print(f"  [{label}] D1: writing {len(d1_rows)} rows ...", file=sys.stderr)
-    with D1Writer(table=table, cols=d1_cols, pk_cols=pk_cols) as w:
+    # COALESCE, same as every local UPDATE above: PFR returns NULL for columns
+    # it doesn't carry (it has no air yards at all), and a plain upsert erased
+    # nflverse_weekly's values -- 4,517 of 2025's rows lost receiving_air_yards.
+    with D1Writer(table=table, cols=d1_cols, pk_cols=pk_cols, coalesce_cols=list(augment_cols)) as w:
         for r in d1_rows:
             w.add(r)
     return True

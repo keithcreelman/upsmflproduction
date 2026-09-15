@@ -41,6 +41,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.d1_io import D1Writer  # noqa: E402
+from lib.nflverse_http import harden  # noqa: E402
+
+harden()
 
 COLS = ["season", "week", "team", "opponent", "is_home",
         "spread", "total_line", "implied_total", "actual_score"]

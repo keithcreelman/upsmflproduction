@@ -45,8 +45,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Pinned: lib/nflverse_http.py patches nflreadpy 0.1.5 internals to add
+      # download retries, and the season clamp depends on its calendar logic.
       - name: Install Python deps
-        run: pip install --quiet nflreadpy pandas pyarrow
+        run: pip install --quiet nflreadpy==0.1.5 pandas pyarrow
+
+      # One pinned wrangler for every D1 write (D1_WRANGLER below). Before, each
+      # write ran `npx --yes wrangler@latest`: an npm version check on every call
+      # and a version that could change mid-run.
+      - name: Install wrangler
+        run: npm install --global wrangler@4.131.2
 
       - name: Refresh nflverse stats → D1
         working-directory: worker # so the D1Writer's `wrangler` finds wrangler.toml / the D1 binding
@@ -57,25 +65,51 @@ jobs:
           # on the runner → "unable to open database file". Point it at a writable
           # throwaway so the connect succeeds; --skip-local still skips the write.
           MFL_DB_PATH: ${{ runner.temp }}/etl_local.db
+          D1_WRANGLER: wrangler
+          WRANGLER_SEND_METRICS: "false"
+          # nflreadpy's default is 30s; a 30s stall on snap_counts killed Sep 9.
+          NFLREADPY_TIMEOUT: "120"
+          # Via env, not ${{ }} inside the script, so the input can't inject shell.
+          SEASONS_INPUT: ${{ github.event.inputs.seasons }}
         run: |
           set -uo pipefail
-          # Season range: current + prior (catches late stat corrections to the
-          # most recent season + keeps the in-progress season fresh).
-          if [ -n "${{ github.event.inputs.seasons }}" ]; then
-            SEASONS="${{ github.event.inputs.seasons }}"
+
+          # STATS sources: nflverse's CURRENT season only on the schedule. It
+          # flips on the Thursday after Labor Day, so Jan–Sep this is still the
+          # prior season, which covers its late corrections (2025 snap counts
+          # were re-published 2026-02-09). Rewriting the finished prior season
+          # every week was ~80% of all rows written and most of the runtime.
+          # PREGAME sources (injuries/depth/Vegas) keep last year + this year:
+          # in the offseason they fill the upcoming season before it starts.
+          if [ -n "${SEASONS_INPUT}" ]; then
+            if ! [[ "${SEASONS_INPUT}" =~ ^[0-9]{4}(-[0-9]{4})?(,[0-9]{4}(-[0-9]{4})?)*$ ]]; then
+              echo "::error::seasons input must look like 2026, 2025-2026 or 2024,2026 (got: ${SEASONS_INPUT})"; exit 1
+            fi
+            STATS_SEASONS="${SEASONS_INPUT}"; PREGAME_SEASONS="${SEASONS_INPUT}"
           else
-            Y=$(date -u +%Y); SEASONS="$((Y-1))-${Y}"
+            if ! STATS_SEASONS=$(python3 -c "import nflreadpy as nfl; print(nfl.get_current_season(roster=False))"); then
+              echo "::error::could not read nflverse's current season"; exit 1
+            fi
+            Y=$(date -u +%Y); PREGAME_SEASONS="$((Y-1))-${Y}"
           fi
-          echo "Season range: ${SEASONS}"
+          echo "Stats seasons: ${STATS_SEASONS} | pregame seasons: ${PREGAME_SEASONS}"
 
           stamp() { # $1=source $2=status $3=detail
-            npx --yes wrangler@latest d1 execute ups-mfl-db --remote \
-              --command "INSERT OR REPLACE INTO etl_runs (source,last_run_utc,status,detail) VALUES ('$1','$(date -u +%Y-%m-%dT%H:%M:%SZ)','$2','$3');" || true
+            local q="'"; local det="${3//$q/$q$q}"
+            if ! wrangler d1 execute ups-mfl-db --remote \
+              --command "INSERT OR REPLACE INTO etl_runs (source,last_run_utc,status,detail) VALUES ('$1','$(date -u +%Y-%m-%dT%H:%M:%SZ)','$2','${det}');" > /dev/null; then
+              echo "::warning title=$1::could not record etl_runs status '$2'"
+            fi
           }
           run() { # $1=source $2=detail; rest = command
-            local src="$1" det="$2"; shift 2
+            local src="$1" det="$2" rc; shift 2
             echo "::group::${src}"
-            if "$@"; then echo "${src}: ok"; stamp "${src}" ok "${det}"; else echo "${src}: FAILED"; stamp "${src}" error "${det}"; FAILED=1; fi
+            # Actions runs this step under `bash -e`: a bare "$@" that exits
+            # non-zero would end the whole script before rc is recorded.
+            rc=0; "$@" || rc=$?
+            if [ "${rc}" = "0" ]; then echo "${src}: ok"; stamp "${src}" ok "${det}"
+            elif [ "${rc}" = "3" ]; then echo "${src}: not published yet"; stamp "${src}" not_published "${det}"
+            else echo "::error title=${src}::${src} failed (exit ${rc})"; stamp "${src}" error "${det}"; FAILED=1; fi
             echo "::endgroup::"
           }
           FAILED=0
@@ -83,13 +117,16 @@ jobs:
           # --skip-local: weekly/pbp/pfr exit with "local DB missing" without it
           # (they require the Desktop SQLite mirror unless told to write D1 only);
           # pace/names/ff_player_ids guard on LOCAL_DB.exists() so they need no flag.
-          run nflverse_weekly  "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons "${SEASONS}" --skip-local
-          run nflverse_pbp     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons "${SEASONS}" --skip-local
-          run nflverse_pace    "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pace.py --seasons "${SEASONS}"
-          run nflverse_epa     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_epa.py --seasons "${SEASONS}" --skip-local
-          run nflverse_routes  "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_routes.py --seasons "${SEASONS}" --skip-local
-          run nflverse_ngs     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_ngs.py --seasons "${SEASONS}" --skip-local
-          run pfr_advstats     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_pfr_advstats.py --seasons "${SEASONS}" --skip-local
+          # Box scores and snap counts are separate steps so a snap-count download
+          # failure can't mark box scores failed or force redoing them.
+          run nflverse_weekly  "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons "${STATS_SEASONS}" --skip-local --skip-snaps
+          run nflverse_snaps   "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons "${STATS_SEASONS}" --skip-local --skip-playerstats
+          run nflverse_pbp     "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons "${STATS_SEASONS}" --skip-local
+          run nflverse_pace    "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pace.py --seasons "${STATS_SEASONS}"
+          run nflverse_epa     "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_epa.py --seasons "${STATS_SEASONS}" --skip-local
+          run nflverse_routes  "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_routes.py --seasons "${STATS_SEASONS}" --skip-local
+          run nflverse_ngs     "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_ngs.py --seasons "${STATS_SEASONS}" --skip-local
+          run pfr_advstats     "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_pfr_advstats.py --seasons "${STATS_SEASONS}" --skip-local
           run nfl_player_names "all-eras"   python3 ../pipelines/etl/scripts/fetch_nflverse_player_names.py
           run ff_player_ids    "all"        python3 ../pipelines/etl/scripts/fetch_ff_playerids.py
 
@@ -111,8 +148,8 @@ jobs:
           #  - Vegas lines post progressively (102 of 544 rows for 2026 so far),
           #    so this re-run is what fills them in. It reports how many are still
           #    missing so "written" is never read as "complete".
-          run injuries_depth   "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_injuries_depth.py --seasons "${SEASONS}"
-          run schedule_vegas   "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_schedule_vegas.py --seasons "${SEASONS}"
+          run injuries_depth   "${PREGAME_SEASONS}" python3 ../pipelines/etl/scripts/fetch_injuries_depth.py --seasons "${PREGAME_SEASONS}"
+          run schedule_vegas   "${PREGAME_SEASONS}" python3 ../pipelines/etl/scripts/fetch_schedule_vegas.py --seasons "${PREGAME_SEASONS}"
 
           if [ "${FAILED}" = "1" ]; then echo "One or more sources failed (see groups above)."; exit 1; fi
           echo "All nflverse sources refreshed."
