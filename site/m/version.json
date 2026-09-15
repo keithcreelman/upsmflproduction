@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.13.3",
-  "label": "Scores: a manual patch list layers on top of MFL's injury feed so a player real news has ruled out (like Kyler Murray's Week 1 concussion) shows Out and stops accruing projection, even before MFL's own export catches up."
+  "build": "2026.09.15.1",
+  "label": "Lineup: fixed the current-week check so Submit Lineup stops showing Week 1 opponents after Week 1 is already over."
 }
