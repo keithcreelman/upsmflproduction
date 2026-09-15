@@ -3422,8 +3422,23 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       //   "trade-war-room":  { mountId: "..." , loaderPath: "/site/trades/mfl_hpm_embed_loader.js" },
     };
 
+    // jsDelivr @<sha> when a release SHA is known (keeps feature-branch testing).
+    // With no SHA, GitHub Pages — never jsDelivr @main, which caches a loader
+    // for up to 7 days in the browser, so a fixed loader wouldn't reach owners.
+    // (2026-09-15: the repo is past jsDelivr's 50 MB package limit, so jsDelivr
+    // also refuses some files outright; see pagesLoaderUrl fallback below.)
+    function currentSha() {
+      var sha = String(window.UPS_RELEASE_SHA || "").trim();
+      return /^[0-9a-f]{7,40}$/i.test(sha) ? sha : "";
+    }
+    function pagesLoaderUrl(path) {
+      var sha = currentSha();
+      return "https://keithcreelman.github.io/upsmflproduction" + path.replace(/^\/site/, "") +
+        (sha ? "?v=" + encodeURIComponent(sha) : "");
+    }
     function resolveLoaderUrl(path) {
-      var sha = String(window.UPS_RELEASE_SHA || "main").trim() || "main";
+      var sha = currentSha();
+      if (!sha) return pagesLoaderUrl(path);
       return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
         encodeURIComponent(sha) + path + "?v=" + encodeURIComponent(sha);
     }
@@ -3477,6 +3492,22 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       s.setAttribute("data-ups-hub-loader", loaderPath);
       s.src = loaderUrl;
       s.async = true;
+      // A refused loader (e.g. jsDelivr's 403) used to leave a blank hub with no
+      // message. Retry once from GitHub Pages, then say so.
+      s.onerror = function () {
+        var fallback = pagesLoaderUrl(loaderPath);
+        if (fallback === loaderUrl) {
+          return showError("This page's loader didn't download. Reload the page; if it keeps happening, tell the commish.");
+        }
+        var f = document.createElement("script");
+        f.setAttribute("data-ups-hub-loader-fallback", loaderPath);
+        f.src = fallback;
+        f.async = true;
+        f.onerror = function () {
+          showError("This page's loader didn't download. Reload the page; if it keeps happening, tell the commish.");
+        };
+        (document.body || document.documentElement).appendChild(f);
+      };
       (document.body || document.documentElement).appendChild(s);
     }
 

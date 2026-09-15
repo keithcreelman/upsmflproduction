@@ -1930,6 +1930,12 @@
   }
 
   // ---------- boot ----------
+  // Without the shared core every tab throws a bare "undefined is not an
+  // object (evaluating 'LS.parseInjuries')". Say what's actually missing.
+  if (!LS) {
+    root.innerHTML = '<div class="gd-wrap"><div class="gd-err">Game Day failed to load: its shared scoring script (site/shared/live_scoring.js) did not load. Reload the page; if it keeps happening, tell the commish.</div></div>';
+    return;
+  }
   loadData().then(function () {
     render();
     if (STATE.loadErrors.length && !STATE.viewerFranchiseId) {
