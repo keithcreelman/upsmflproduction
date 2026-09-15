@@ -3406,7 +3406,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       },
       "gameday": {
         mountId: "gameDayMount",
-        loaderPath: "/site/gameday/mfl_hpm_embed_loader.js"
+        loaderPath: "/site/gameday/mfl_hpm_embed_loader.js",
+        // Game Day's loader resolves its own commit and picks its own
+        // sources, so load it from Pages: no jsDelivr hop, and no stale
+        // session SHA pinning an old loader right after a merge.
+        pagesFirst: true
       },
       // UPS Wire - published league content (season reviews, weekly recaps
       // and previews, features, the trade-bot archive). Unlike the other
@@ -3422,10 +3426,29 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       //   "trade-war-room":  { mountId: "..." , loaderPath: "/site/trades/mfl_hpm_embed_loader.js" },
     };
 
-    function resolveLoaderUrl(path) {
-      var sha = String(window.UPS_RELEASE_SHA || "main").trim() || "main";
-      return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
-        encodeURIComponent(sha) + path + "?v=" + encodeURIComponent(sha);
+    // jsDelivr @<sha> when a release SHA is known (keeps feature-branch testing).
+    // With no SHA, GitHub Pages — never jsDelivr @main, which caches a loader
+    // for up to 7 days in the browser, so a fixed loader wouldn't reach owners.
+    // (2026-09-15: the repo is past jsDelivr's 50 MB package limit, so jsDelivr
+    // also refuses some files outright; see pagesLoaderUrl fallback below.)
+    function currentSha() {
+      var sha = String(window.UPS_RELEASE_SHA || "").trim();
+      return /^[0-9a-f]{7,40}$/i.test(sha) ? sha : "";
+    }
+    function pagesLoaderUrl(path) {
+      var sha = currentSha();
+      return "https://keithcreelman.github.io/upsmflproduction" + path.replace(/^\/site/, "") +
+        (sha ? "?v=" + encodeURIComponent(sha) : "");
+    }
+    function jsdelivrLoaderUrl(path) {
+      var sha = currentSha();
+      return sha
+        ? "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + encodeURIComponent(sha) + path + "?v=" + encodeURIComponent(sha)
+        : "";
+    }
+    function resolveLoaderUrl(path, pagesFirst) {
+      if (pagesFirst) return pagesLoaderUrl(path);
+      return jsdelivrLoaderUrl(path) || pagesLoaderUrl(path);
     }
 
     // The MFL MESSAGE slot reserved as the hub container. Change here +
@@ -3468,8 +3491,8 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       mount.innerHTML = "<strong>UPS Hub Container</strong><br>" + msg;
     }
 
-    function injectLoader(loaderPath) {
-      var loaderUrl = resolveLoaderUrl(loaderPath);
+    function injectLoader(loaderPath, pagesFirst) {
+      var loaderUrl = resolveLoaderUrl(loaderPath, pagesFirst);
       // Guard: don't double-inject if the user clicks between hubs
       // without a full page reload (browsers may keep the iframe alive).
       if (document.querySelector('script[data-ups-hub-loader="' + loaderPath + '"]')) return;
@@ -3477,6 +3500,24 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       s.setAttribute("data-ups-hub-loader", loaderPath);
       s.src = loaderUrl;
       s.async = true;
+      // A refused loader (e.g. jsDelivr's 403) used to leave a blank hub with no
+      // message. Retry once on the other host, then say so.
+      s.onerror = function () {
+        // Retry on the other host: Pages if jsDelivr failed, jsDelivr @sha if Pages failed.
+        var onPages = loaderUrl.indexOf("keithcreelman.github.io") !== -1;
+        var fallback = onPages ? jsdelivrLoaderUrl(loaderPath) : pagesLoaderUrl(loaderPath);
+        if (!fallback) {
+          return showError("This page's loader didn't download. Reload the page; if it keeps happening, tell the commish.");
+        }
+        var f = document.createElement("script");
+        f.setAttribute("data-ups-hub-loader-fallback", loaderPath);
+        f.src = fallback;
+        f.async = true;
+        f.onerror = function () {
+          showError("This page's loader didn't download. Reload the page; if it keeps happening, tell the commish.");
+        };
+        (document.body || document.documentElement).appendChild(f);
+      };
       (document.body || document.documentElement).appendChild(s);
     }
 
@@ -3491,7 +3532,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         return showError("Unknown hub: <code>" + ctx.hub.replace(/[<>&"]/g, "") + "</code>. Registered hubs: <code>" + Object.keys(HUBS).join("</code>, <code>") + "</code>.");
       }
       ensureMount(entry.mountId);
-      injectLoader(entry.loaderPath);
+      injectLoader(entry.loaderPath, entry.pagesFirst);
     }
 
     if (document.readyState === "loading") {
