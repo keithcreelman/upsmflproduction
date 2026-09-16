@@ -183,8 +183,11 @@ YOUR JOB, IN ORDER
    rationale_md tells the story; supporting_data_md carries the numbers.
 
 DATABASE ORIENTATION (grains, key tables — discover the rest with list_tables/describe_table)
-- src_weekly: one row per (season, week, player_id); status 'starter'|'bench'; score; pos_group;
-  roster_franchise_id. THE table for lineup/usage questions ("how many QBs start in a season").
+- src_weekly: one row per (season, week, player_id) MFL actually scored that week (no row for a bye/
+  unscored player); status 'starter'|'nonstarter'|'fa' (fa = not rostered by any of the 12 franchises
+  that week -- roster_franchise_id/'roster_franchise_name' are the literal sentinels 'FA'/'Free Agent'
+  for those rows); score; pos_group; roster_franchise_id. THE table for lineup/usage questions
+  ("how many QBs start in a season") -- filter status IN ('starter','nonstarter') to stay on-roster.
 - src_pointssummary: per (season, player_id) aggregates incl. started_games/started_points/started_ppg.
 - src_standings, src_trades, src_draft_picks: league history. ups_*: contracts, transactions,
   penalties, auction state. hall_proposals / hall_qa_log: governance history.
