@@ -1,0 +1,408 @@
+<title>Raining Bullets Round Plan</title>
+<style>
+:root{
+  --ground:#F5F4F1; --panel:#FFFFFF; --ink:#191E25; --ink-2:#4A5560; --ink-3:#77828E;
+  --rule:#DFDDD7; --rule-2:#EAE8E3; --brass:#B8862B; --brass-soft:#F0E4C6;
+  --qb:#6B5B95; --rb:#2E7D5B; --wr:#2A6FA8; --te:#A34E7B; --k:#6E7681; --dst:#7A5C3E;
+  --good:#2E7D5B; --warn:#B8862B; --crit:#A8412F;
+  --shadow:0 1px 2px rgba(25,30,37,.06),0 8px 24px rgba(25,30,37,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font:400 15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 72px}
+.bar{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:1px solid var(--rule);padding:14px 0 12px}
+.bar-in{max-width:1080px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:baseline}
+h1{margin:0;font-size:clamp(19px,2.4vw,25px);font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.sub{color:var(--ink-3);font-size:13px;letter-spacing:.02em}
+.spacer{flex:1 1 auto}
+.eyebrow{font-size:10.5px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
+button{
+  font:inherit;font-size:12.5px;font-weight:600;letter-spacing:.02em;background:var(--panel);
+  color:var(--ink-2);border:1px solid var(--rule);border-radius:6px;padding:5px 10px;cursor:pointer;
+}
+button:hover{border-color:var(--ink-3);color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.chip{display:inline-block;min-width:32px;text-align:center;font-size:10px;font-weight:750;
+  letter-spacing:.05em;padding:2px 5px;border-radius:4px;color:#fff}
+.QB{background:var(--qb)} .RB{background:var(--rb)} .WR{background:var(--wr)}
+.TE{background:var(--te)} .K{background:var(--k)} .DST{background:var(--dst)}
+
+/* -- roster shape ------------------------------------------- */
+.slots{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:22px 0 0}
+.slots .eyebrow{margin-right:4px}
+.slots button{min-width:30px;padding:5px 7px;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.undec{font-size:12px;color:var(--ink-3);margin-left:6px}
+.grid-wrap{overflow-x:auto;margin:14px 0 0}
+.grid{border-collapse:collapse;font-size:11px}
+.grid th{font-size:9.5px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  padding:3px 4px;text-align:center;font-family:ui-monospace,monospace}
+.grid td{padding:1px 2px;text-align:center}
+.grid td.slotlab{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11px;font-weight:700;color:var(--ink-3);padding-right:7px;text-align:right}
+.grid tr.on td.slotlab{color:var(--brass)}
+.grid tr.on td .g{outline:1px solid var(--brass)}
+.grid .g{display:block;width:19px;height:15px;border-radius:3px;color:#fff;font-size:8.5px;
+  font-weight:750;line-height:15px;opacity:.85}
+.grid tr:hover .g{opacity:1}
+.shape{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 6px;align-items:center}
+.sh{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--rule);
+  border-radius:7px;padding:5px 9px;font-size:12.5px;box-shadow:var(--shadow)}
+.sh b{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-weight:700}
+.shape-note{font-size:12.5px;color:var(--ink-3);margin:6px 0 26px;max-width:74ch;line-height:1.5}
+.verdict{margin:12px 0 0;padding:11px 13px;border-radius:9px;background:var(--brass-soft);
+  border:1px solid var(--brass);font-size:12.5px;line-height:1.55;color:var(--ink-2);max-width:80ch}
+.verdict b{color:var(--ink)}
+
+/* -- a turn = the pair of picks you get at once ------------- */
+.turn{margin:0 0 30px}
+.turn-hd{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;
+  padding:0 0 8px;border-bottom:1px solid var(--rule);margin-bottom:14px}
+.turn-hd .n{font-family:ui-monospace,monospace;font-size:11px;font-weight:750;color:var(--brass);
+  letter-spacing:.08em}
+.turn-hd h2{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;align-items:start}
+
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:11px;
+  box-shadow:var(--shadow);overflow:hidden}
+.card-hd{display:flex;gap:9px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--rule-2);
+  background:var(--rule-2)}
+.pk{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:12px;font-weight:750}
+.pk .ov{color:var(--ink-3);font-weight:500;margin-left:5px}
+.card-bd{padding:13px 14px 14px}
+.why{font-size:12.5px;line-height:1.5;color:var(--ink-2);margin:0 0 13px;
+  padding-left:10px;border-left:2px solid var(--brass)}
+
+.tgt{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px}
+.tgt .nm{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.tgt .meta{font-size:11.5px;color:var(--ink-3);font-family:ui-monospace,monospace}
+.ranks{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 10px}
+.rk{display:flex;flex-direction:column;gap:1px;background:var(--rule-2);border-radius:6px;padding:5px 8px;min-width:62px}
+.rk span{font-size:9.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.rk b{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700}
+.rk.pos b{color:var(--ink)} .rk.jj b{color:var(--brass)}
+.rk.gapd{outline:1px solid var(--brass)}
+.av{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:2px 0 11px}
+.meter{height:6px;border-radius:3px;background:var(--rule-2);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:3px}
+.av .pct{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--ink-3)}
+.stn{display:inline-block;font-size:10px;font-weight:750;letter-spacing:.03em;padding:1px 5px;
+  border-radius:4px;margin-right:4px;border:1px solid transparent}
+.stn.like{color:var(--good);border-color:var(--good)}
+.stn.fade{color:var(--crit);border-color:var(--crit)}
+.stn.neutral{color:var(--ink-3);border-color:var(--rule)}
+.stn.hedge{border-style:dashed}
+.note{font-size:12px;line-height:1.5;color:var(--ink-2);margin:0 0 4px}
+.note b{font-weight:700;color:var(--ink)}
+.src{color:var(--ink-3);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+.src:hover{color:var(--brass);border-bottom-color:var(--brass)}
+
+.sec{margin-top:13px;padding-top:11px;border-top:1px solid var(--rule-2)}
+.sec > .eyebrow{display:block;margin-bottom:7px}
+.row{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:baseline;
+  font-size:12.5px;padding:3px 0}
+.row .nm2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .v{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--ink-3)}
+.row .p{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11px;
+  color:var(--ink-3);min-width:34px;text-align:right}
+.empty{font-size:12.5px;color:var(--ink-3);font-style:italic}
+.flagd{font-size:10.5px;color:var(--brass);font-weight:650;margin-left:5px}
+.rook{display:inline-block;font-size:9px;font-weight:750;letter-spacing:.07em;padding:1px 4px;
+  border-radius:3px;border:1px solid var(--ink-3);color:var(--ink-3);margin-left:5px;vertical-align:2px}
+.foot{margin-top:34px;padding-top:18px;border-top:1px solid var(--rule);font-size:12.5px;
+  color:var(--ink-3);line-height:1.65;max-width:82ch}
+.foot b{color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="bar"><div class="bar-in">
+  <h1>Raining Bullets Round Plan</h1>
+  <span class="sub mono" id="meta"></span>
+  <span class="spacer"></span>
+  <span class="eyebrow">Passing TD</span>
+  <button id="r4" aria-pressed="true">4</button>
+  <button id="r6" aria-pressed="false">6</button>
+</div></div>
+
+<div class="wrap">
+  <div class="slots">
+    <span class="eyebrow">Draft slot</span>
+    <span id="slotbtns"></span>
+    <span class="undec">not drawn yet &mdash; every slot is built</span>
+  </div>
+  <div class="grid-wrap"><table class="grid" id="grid"></table></div>
+  <div class="shape" id="shape"></div>
+  <p class="verdict" id="verdict" hidden></p>
+  <p class="shape-note" id="shapenote"></p>
+  <div id="turns"></div>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+const P = __PLAN__;
+const TEAMS = P.teams || 12;
+const SLOTS = Object.keys(P.slots).map(Number).sort((a, b) => a - b);
+// Steps carry player NAMES; the record lives once in P.players.
+const PL = P.players;
+const R = n => (n == null ? null : PL[n]);
+const VOR = r => r.v[rule];
+const PR = r => r.r[rule];
+const RL = l => (l || []).map(R).filter(Boolean);
+// Default to the middle of whatever was built rather than hardcoding a slot
+// again \u2014 that is the assumption this page exists to stop making.
+let slot = SLOTS.includes(10) ? 10 : SLOTS[Math.floor(SLOTS.length / 2)];
+let rule = "p4";
+const el = id => document.getElementById(id);
+const ESC = t => String(t == null ? "" : t)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const STANCE = {like:"like", fade:"fade", neutral:"neutral"};
+const WHO = {"JJ Zachariason":"JJ","Scott Barrett":"Barrett","Evan Silva":"Silva"};
+const shortName = a => WHO[a] || (a||"?").split(" ").pop();
+const pickLabel = p => `${Math.floor((p-1)/TEAMS)+1}.${String(((p-1)%TEAMS)+1).padStart(2,"0")}`;
+const steps = () => P.slots[String(slot)][rule];
+
+function meter(pct){
+  const col = pct > .66 ? "var(--good)" : pct > .38 ? "var(--warn)" : "var(--crit)";
+  return `<div class="av"><span class="meter"><i style="width:${Math.round(pct*100)}%;background:${col}"></i></span>`
+       + `<span class="pct">${Math.round(pct*100)}% there at #</span></div>`;
+}
+
+function stances(r){
+  if (!r.st || !r.st.length) return "";
+  return r.st.slice(0,3).map(t =>
+    `<span class="stn ${STANCE[t.s]||"neutral"}${t.q?" hedge":""}" title="${t.q
+       ? "verified on the page, but the speaker may be a guest rather than "+ESC(t.a)
+       : "verified on the source page"}">${ESC(shortName(t.a))}${t.q?"?":""} `
+    + `${t.s==="like"?"\u25b2":t.s==="fade"?"\u25bc":"\u2022"}</span>`).join("");
+}
+
+// \u26a0 POSITIONAL ONLY. An analyst's overall rank encodes his scoring and his
+// positional weighting; comparing it to this board's overall rank compares two
+// different questions. Within a position, both are ranking the same pool.
+function ranks(r){
+  const gap = (r.jjpr != null) ? Math.abs(PR(r) - r.jjpr) : null;
+  let h = `<div class="rk pos"><span>this board</span><b>${r.pos}${PR(r)}</b></div>`;
+  if (r.jjpr != null) {
+    const wrong = r.jjpos && r.jjpos !== r.pos;
+    h += `<div class="rk jj${gap >= 8 ? " gapd" : ""}"><span>JJ${wrong ? " \u26a0" : ""}</span>`
+       + `<b>${ESC(r.jjpos || r.pos)}${r.jjpr}</b></div>`;
+    if (r.jjtier != null) h += `<div class="rk"><span>his tier</span><b>${r.jjtier}</b></div>`;
+    if (r.jjaav != null) h += `<div class="rk"><span>his $</span><b>$${r.jjaav}</b></div>`;
+  } else {
+    h += `<div class="rk jj"><span>JJ</span><b>&ndash;</b></div>`;
+  }
+  h += `<div class="rk"><span>VOR</span><b>${VOR(r) > 0 ? "+" : ""}${VOR(r)}</b></div>`;
+  return `<div class="ranks">${h}</div>`;
+}
+
+function target(s){
+  const r = R(s.target);
+  if (!r) return `<p class="empty">${ESC(s.why)}</p>`;
+  const av = s.av[r.nm], avn = s.avn ? s.avn[r.nm] : null;
+  const fl = r.flag === 1 ? "rushing QB" : r.flag === 2 ? "receiving RB" : "";
+  return `<div class="tgt"><span class="chip ${r.pos}">${r.pos}</span>`
+    + `<span class="nm">${ESC(r.nm)}</span>`
+    + (r.unproven ? `<span class="rook">NO TRACK RECORD</span>` : "")
+    + `<span class="meta">${ESC(r.team||"")}${r.bye?" \u00b7 bye "+r.bye:""}`
+    + `${r.adp?" \u00b7 ADP "+r.adp.toFixed(1):" \u00b7 no ADP"}</span>`
+    + (fl ? `<span class="flagd">${fl}</span>` : "")
+    + `</div>`
+    + ranks(r)
+    + `<div class="av"><span class="meter"><i style="width:${Math.round((av||0)*100)}%;background:${
+        av>.66?"var(--good)":av>.38?"var(--warn)":"var(--crit)"}"></i></span>`
+    + `<span class="pct">${Math.round((av||0)*100)}% still here at #${s.pick}`
+    + (avn != null ? ` \u00b7 ${Math.round(avn*100)}% at #${s.next}` : "") + `</span></div>`
+    + (r.st && r.st.length ? `<div style="margin-bottom:7px">${stances(r)}</div>` : "")
+    + (r.jjnote ? `<p class="note"><b>JJ:</b> ${ESC(r.jjnote)}</p>` : "")
+    + (r.st && r.st.length ? `<p class="note"><b>${ESC(r.st[0].a)}${r.st[0].q?"'s show":""}:</b> `
+        + `${ESC(r.st[0].t)}` + (r.st[0].u ? ` <a class="src" href="${ESC(r.st[0].u)}" target="_blank" rel="noopener">source</a>` : "")
+        + `</p>` : "");
+}
+
+function rows(list, av, label, note){
+  if (!list || !list.length) return "";
+  return `<div class="sec"><span class="eyebrow">${label}</span>`
+    + list.map(r => `<div class="row"><span class="chip ${r.pos}">${r.pos}</span>`
+        + `<span class="nm2">${ESC(r.nm)}</span>`
+        + `<span class="v">${VOR(r)>0?"+":""}${VOR(r)}</span>`
+        + `<span class="p">${Math.round((av[r.nm]||0)*100)}%</span></div>`).join("")
+    + (note ? `<p class="note" style="margin-top:7px;color:var(--ink-3)">${note}</p>` : "")
+    + `</div>`;
+}
+
+function card(s){
+  if (s.kdst) {
+    return `<div class="card"><div class="card-hd">`
+      + `<span class="chip ${s.pos}">${s.pos}</span>`
+      + `<span class="pk">${pickLabel(s.pick)}<span class="ov">#${s.pick}</span></span></div>`
+      + `<div class="card-bd"><p class="why">${ESC(s.why)}</p></div></div>`;
+  }
+  return `<div class="card"><div class="card-hd">`
+    + (s.pos ? `<span class="chip ${s.pos}">${s.pos}</span>` : `<span class="chip K">?</span>`)
+    + `<span class="pk">${pickLabel(s.pick)}<span class="ov">#${s.pick}</span></span>`
+    + (s.drop ? `<span class="spacer"></span><span class="eyebrow">costs ${s.drop} to wait</span>` : "")
+    + `</div><div class="card-bd">`
+    + `<p class="why">${ESC(s.why)}</p>`
+    + target(s)
+    + rows(RL(s.alts), s.av, "If he is gone")
+    + rows(RL(s.flips), s.av, "Coin flips above him",
+        "Better on this board, but under even money to last to your pick.")
+    + rows(RL(s.steals), s.av, "If one of these falls",
+        "Long shots at this pick. If the board hands you one, take it over the plan.")
+    + (s.alt_pos && s.alt_pos.length
+        ? `<div class="sec"><span class="eyebrow">The other positions</span>`
+          + s.alt_pos.map(([q, nm], i) => { const r = R(nm); return r ? `<div class="row"><span class="chip ${q}">${q}</span>`
+              + `<span class="nm2">${ESC(r.nm)}</span><span class="v">${r.v.p4>0?"+":""}${r.v[rule]}</span>`
+              + `<span class="p">${(s.alt_gain && s.alt_gain[i]) ? s.alt_gain[i][1] : 0}</span></div>` : ""; }).join("")
+          + `<p class="note" style="margin-top:7px;color:var(--ink-3)">Right column is what waiting `
+          + `costs at that position &mdash; lower than the pick above, which is why it lost.</p></div>`
+        : "")
+    + `</div></div>`;
+}
+
+function grid(){
+  // Which slot you draw changes the shape of the draft, so show all of them at
+  // once: one row per slot, one cell per round, coloured by position.
+  const rounds = P.rounds || 18;
+  let h = `<tr><th></th>` + Array.from({length: rounds}, (_, i) =>
+    `<th>${i + 1}</th>`).join("") + `</tr>`;
+  for (const sl of SLOTS) {
+    const st = P.slots[String(sl)][rule];
+    h += `<tr class="${sl === slot ? "on" : ""}" data-slot="${sl}"><td class="slotlab">${sl}</td>`
+      + st.map(s => `<td><span class="g ${s.pos || "K"}" style="${s.pos ? "" : "background:var(--rule)"}">`
+          + `${s.pos || "?"}</span></td>`).join("") + `</tr>`;
+  }
+  el("grid").innerHTML = h;
+  el("slotbtns").innerHTML = SLOTS.map(sl =>
+    `<button data-slot="${sl}" aria-pressed="${sl === slot}">${sl}</button>`).join("");
+}
+
+function render(){
+  const st = steps();
+  grid();
+  // Picks arrive in pairs five apart from the 10 slot. That is real structure,
+  // not decoration: at 3.10 and 4.03 you are choosing two players at once, and
+  // the plan commits them one at a time.
+  const turns = [];
+  for (let i = 0; i < st.length; i += 2) turns.push(st.slice(i, i + 2));
+  el("turns").innerHTML = turns.map(t => {
+    const a = t[0], b = t[1];
+    const rs = b ? `Rounds ${a.round}\u2013${b.round}` : `Round ${a.round}`;
+    const both = b && (b.pick - a.pick) <= 6;
+    return `<section class="turn"><div class="turn-hd">`
+      + `<span class="n">${rs.toUpperCase()}</span>`
+      + `<h2>${a.pos || "?"}${b ? " then " + (b.pos || "?") : ""}</h2>`
+      + (both ? `<span class="spacer"></span><span class="sub">back-to-back &mdash; `
+                + `you get both, so the order is yours</span>` : "")
+      + `</div><div class="pair">${t.map(card).join("")}</div></section>`;
+  }).join("");
+
+  const shape = {};
+  st.forEach(s => { if (s.pos) shape[s.pos] = (shape[s.pos] || 0) + 1; });
+  const order = ["QB","RB","WR","TE","K","DST"];
+  el("shape").innerHTML = order.filter(p => shape[p]).map(p =>
+    `<span class="sh"><span class="chip ${p}">${p}</span><b>${shape[p]}</b></span>`).join("")
+    + `<span class="sh"><b>${st.filter(s => s.target || s.kdst).length}</b>&nbsp;of 18 filled</span>`;
+  const held = st.filter(s => !s.pos).length;
+  verdict();
+  el("meta").textContent =
+    `TUE 8 SEP \u00b7 PICK ${slot} OF ${TEAMS} \u00b7 SNAKE \u00b7 ${P.rounds || 18} RD`;
+  el("shapenote").innerHTML =
+    `This is the roster the plan builds if the market behaves like its ADP. `
+    + (held ? `${held} round${held === 1 ? "" : "s"} could not be filled from a position `
+              + `you still need &mdash; the card says so rather than leaving a gap. ` : "")
+    + `It is a prior, not a prediction: re-read it from whichever pick you are actually at.`;
+}
+
+// !! A CONTROL THAT APPEARS TO DO NOTHING HAS TO EXPLAIN ITSELF. The passing-TD
+// vote moves quarterbacks by at most ~20 points of VOR, which is not enough to
+// change a single pick \u2014 so the toggle looks broken unless the page says the
+// result out loud.
+function verdict() {
+  const A = P.slots[String(slot)].p4, B = P.slots[String(slot)].p6;
+  const same = A.every((s, i) => s.pos === B[i].pos && s.target === B[i].target);
+  const moved = [];
+  A.forEach((s, i) => {
+    const a = R(s.target);
+    if (a && a.pos === "QB" && a.v.p4 !== a.v.p6) {
+      moved.push(`${a.nm} ${a.v.p4 > 0 ? "+" : ""}${a.v.p4} to ${a.v.p6 > 0 ? "+" : ""}${a.v.p6}`);
+    }
+  });
+  el("verdict").hidden = false;
+  el("verdict").innerHTML = same
+    ? `<b>The passing-TD vote does not change this plan.</b> All 18 picks are `
+      + `identical at 4 and at 6. Six points a touchdown lifts every quarterback, `
+      + `but it lifts the replacement quarterback too, so the widest VOR swing on `
+      + `the board is about 20 points \u2014 not enough to move a pick. It does not `
+      + `even move in one direction: pocket passers gain (Burrow +20, Purdy +8) `
+      + `while the rushing quarterbacks you draft well actually lose a little, `
+      + `because their edge was never the passing touchdown.`
+      + (moved.length ? ` Your quarterback targets: ${moved.join("; ")}.` : "")
+    : `<b>The passing-TD vote changes this plan.</b> Toggle between 4 and 6 above `
+      + `\u2014 the picks differ.`;
+}
+
+el("foot").innerHTML =
+  `<b>Why positional rank and not overall.</b> An analyst's overall list encodes his `
+  + `scoring and his own positional weighting &mdash; JJ says on the record that he `
+  + `devalues quarterbacks against ADP &mdash; so "he has him 64th and this board has him `
+  + `52nd" compares two different questions. Within a position, both are ranking the same `
+  + `pool, so that is the only comparison shown here. The scoring adjustment is already `
+  + `inside VOR, which is computed from this league's own rulebook (out-of-position TDs at `
+  + `double, TE receptions at 1.5, passing yards at 0.04), so the two layers do not `
+  + `double-count. A \u26a0 on his chip means he files the player at a different position `
+  + `than this board does.<br><br>`
+  + `<b>How availability is computed.</b> A player's draft slot is treated as a normal `
+  + `distribution around FantasyFootballCalculator's ADP with its own reported standard `
+  + `deviation, so "still here at #82" is a probability, not a yes or no. Using the mean `
+  + `alone would call a 45%-likely player gone and a 55%-likely player certain &mdash; and `
+  + `that cliff, when it was in an earlier version of this page, had the plan reaching `
+  + `24 picks for a receiver who was a coin flip.<br><br>`
+  + `<b>What the plan optimises.</b> Not "highest VOR left" &mdash; that reaches, because it `
+  + `never asks whether the player would still be there. Not "biggest drop-off" either &mdash; `
+  + `that ignores level, and left a +28 tight end on the board for a &minus;19 receiver. It `
+  + `spends each pick where the <em>marginal</em> loss from waiting is largest: best player `
+  + `now against the k-th best survivor at your next turn, where k is how many of that `
+  + `position you still need, scaled by the chance you would actually lose him.<br><br>`
+  + `<b>The slot is not decided.</b> Every one of the ${SLOTS.length} is built, and the grid `
+  + `above shows the position sequence each produces. It matters: from the turn you get two `
+  + `picks five apart, from the ends two picks two apart and then a long wait, and the plan `
+  + `spends a pick on whatever will not survive that wait.<br><br>`
+  + `<b>What it cannot see.</b> Your leaguemates' tendencies are not in the availability `
+  + `model &mdash; it is national ADP, and this league drafts to market at r=0.90 but not `
+  + `perfectly. K and DST are unranked by the projection engine. And the plan commits one `
+  + `pick at a time, so within a back-to-back turn it does not jointly optimise the pair: `
+  + `take the one less likely to survive first.`;
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "r4" || b.id === "r6") {
+    rule = b.id === "r4" ? "p4" : "p6";
+    el("r4").setAttribute("aria-pressed", rule === "p4");
+    el("r6").setAttribute("aria-pressed", rule === "p6");
+    render(); return;
+  }
+  if (b.dataset.slot) { slot = Number(b.dataset.slot); render(); }
+});
+render();
+</script>

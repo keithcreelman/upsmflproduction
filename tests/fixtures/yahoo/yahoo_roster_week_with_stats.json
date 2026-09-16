@@ -1,0 +1,748 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/449.l.529351/teams/roster;week=5/players/",
+    "            stats;type=week;week=5?format=json",
+    "",
+    "REDACTION: all identifiers invented — team keys, team names and manager",
+    "GUIDs (FAKEGUID...) are fake. Player names are real NFL players with",
+    "PLAUSIBLE BUT UNVERIFIED numeric ids.",
+    "",
+    "WHY THIS IS COMMITTED: this is the CHAINED form, and it is the answer to",
+    "yahoo_roster_week.json's first claim. A plain roster response ends each",
+    "player at selected_position and carries no points at all; only this deeper",
+    "path returns player_stats and player_points, and it is a SECOND request for",
+    "every league-week (Yahoo's ;out= is one level deep and cannot take",
+    "parameters, so there is no way to fold it into the roster call). Fifteen",
+    "seasons times seventeen weeks is a real request budget, and it is the only",
+    "route to HISTORICAL BENCH POINTS — the numbers needed to ask 'what did this",
+    "manager leave on the bench?', which no Yahoo UI will ever show you again.",
+    "",
+    "⚠️ points only exist in a LEAGUE context. Fetching a player resource bare",
+    "returns raw stats and NO points, because points are the league's stat",
+    "modifiers applied to those stats. That is why every stats request in the",
+    "adapter is made under a /league/ path.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. ⚠️ THE NUMERIC SUB-RESOURCE WRAPPER, same as yahoo_roster_week.json:",
+    "     'roster' is an object whose players collection hangs off the key \"0\"",
+    "     (yfpy's own data key list is [\"team\",\"roster\",\"0\",\"players\"]). See the",
+    "     KNOWN DISAGREEMENT note at the end.",
+    "  2. The player resource now has FOUR members: [ [metadata...],",
+    "     {selected_position}, {player_stats}, {player_points} ]. The sub-resource",
+    "     indices SHIFT relative to the un-chained roster response — same league,",
+    "     same week, different member count. Hardcoding an index against one",
+    "     response shape breaks against the other; nothing here may be read",
+    "     positionally.",
+    "  3. STAT VALUE \"-\" IS NOT ZERO. Yahoo returns the literal string '-' for a",
+    "     stat the player has no value for (Josh Allen's receiving yards, stat 12,",
+    "     below). to_float('-') is None, and None is correct: he did not record",
+    "     zero receiving yards, the stat does not apply. Stat 6 (interceptions) on",
+    "     the same player IS a literal \"0\" — he genuinely threw none. Those two",
+    "     must not collapse into one another.",
+    "  4. player_points.total is a STRING with a decimal ('27.94'); one team's",
+    "     kicker returns the whole number '9' with no decimal point.",
+    "  5. THE BENCH PLAYER HAS POINTS. Jerry Jeudy is in the BN slot and still",
+    "     carries a full stat line and a points total. That is the entire value of",
+    "     this endpoint and the assertion worth writing.",
+    "  6. The stats array is a plain LIST of {\"stat\": {...}} — no numeric-key",
+    "     wrapper at this level, unlike the collections above it. Yahoo mixes both",
+    "     conventions inside a single response.",
+    "",
+    "TRUNCATED HARD: 2 teams of 12, 3 players each, and ~5 stats per player",
+    "instead of the full ~30-line NFL stat block. Reason: the stat rows are a",
+    "uniform loop, and what is being proven here is the SHAPE (stats + points",
+    "present, '-' vs '0', bench included), not the breadth of the stat",
+    "dictionary. Scoring breadth is covered by yahoo_league_settings_auction.json.",
+    "",
+    "⚠️ KNOWN DISAGREEMENT WITH THE SHIPPED PARSER, 2026-08-11. Against parse.py",
+    "at PARSER_VERSION 1.0.0 this file parses to 0 stat rows and 0 point rows,",
+    "SILENTLY — no exception — because flatten_resource() does not descend into",
+    "the numeric-key members of an OBJECT resource, so get(roster, \"players\") is",
+    "MISSING. Reported to the parser author rather than papered over; deleting the",
+    "\"0\" wrapper would make the fixture green and the pipeline wrong against the",
+    "real API.",
+    "",
+    "EXPECTED ONCE THE PARSER HANDLES THE WRAPPER (measured by hoisting roster",
+    "[\"0\"] in a harness, with parse.py untouched):",
+    "    fantasy_player_week_stats  25     fantasy_player_week_points  6",
+    "    Josh Allen stat 6 (\"0\")  -> 0.0        stat 12 (\"-\")  -> None",
+    "    bench player nfl.p.32700 -> points_provider 23.2",
+    "Those are the numbers to assert."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/449.l.529351/teams/roster/players/stats",
+    "league": [
+      {
+        "league_key": "449.l.529351",
+        "league_id": "529351",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/529351",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2024"
+      },
+      {
+        "teams": {
+          "0": {
+            "team": [
+              [
+                {
+                  "team_key": "449.l.529351.t.4"
+                },
+                {
+                  "team_id": "4"
+                },
+                {
+                  "name": "Third Down Thunder"
+                },
+                {
+                  "managers": [
+                    {
+                      "manager": {
+                        "manager_id": "4",
+                        "nickname": "owner_delta",
+                        "guid": "FAKEGUID00000000000004"
+                      }
+                    }
+                  ]
+                }
+              ],
+              {
+                "roster": {
+                  "coverage_type": "week",
+                  "week": "5",
+                  "is_editable": 0,
+                  "0": {
+                    "players": {
+                      "0": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.30977"
+                            },
+                            {
+                              "player_id": "30977"
+                            },
+                            {
+                              "name": {
+                                "full": "Josh Allen",
+                                "first": "Josh",
+                                "last": "Allen",
+                                "ascii_first": "Josh",
+                                "ascii_last": "Allen"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.30977"
+                            },
+                            {
+                              "editorial_team_abbr": "Buf"
+                            },
+                            {
+                              "display_position": "QB"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "QB"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "QB"
+                              }
+                            ]
+                          },
+                          {
+                            "player_stats": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "stats": [
+                                {
+                                  "stat": {
+                                    "stat_id": "4",
+                                    "value": "263"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "5",
+                                    "value": "2"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "6",
+                                    "value": "0"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "9",
+                                    "value": "39"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "10",
+                                    "value": "1"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "12",
+                                    "value": "-"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "player_points": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "total": "27.42"
+                            }
+                          }
+                        ]
+                      },
+                      "1": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.31883"
+                            },
+                            {
+                              "player_id": "31883"
+                            },
+                            {
+                              "name": {
+                                "full": "CeeDee Lamb",
+                                "first": "CeeDee",
+                                "last": "Lamb",
+                                "ascii_first": "CeeDee",
+                                "ascii_last": "Lamb"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.31883"
+                            },
+                            {
+                              "editorial_team_abbr": "Dal"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "WR"
+                              }
+                            ]
+                          },
+                          {
+                            "player_stats": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "stats": [
+                                {
+                                  "stat": {
+                                    "stat_id": "11",
+                                    "value": "7"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "12",
+                                    "value": "112"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "13",
+                                    "value": "1"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "18",
+                                    "value": "0"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "player_points": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "total": "20.7"
+                            }
+                          }
+                        ]
+                      },
+                      "2": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.34878"
+                            },
+                            {
+                              "player_id": "34878"
+                            },
+                            {
+                              "name": {
+                                "full": "Brandon Aubrey",
+                                "first": "Brandon",
+                                "last": "Aubrey",
+                                "ascii_first": "Brandon",
+                                "ascii_last": "Aubrey"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.34878"
+                            },
+                            {
+                              "editorial_team_abbr": "Dal"
+                            },
+                            {
+                              "display_position": "K"
+                            },
+                            {
+                              "position_type": "K"
+                            },
+                            {
+                              "eligible_positions": {
+                                "position": "K"
+                              }
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "K"
+                              }
+                            ]
+                          },
+                          {
+                            "player_stats": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "stats": [
+                                {
+                                  "stat": {
+                                    "stat_id": "19",
+                                    "value": "0"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "22",
+                                    "value": "1"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "23",
+                                    "value": "1"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "29",
+                                    "value": "-"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "player_points": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "total": "9"
+                            }
+                          }
+                        ]
+                      },
+                      "count": 3
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "1": {
+            "team": [
+              [
+                {
+                  "team_key": "449.l.529351.t.11"
+                },
+                {
+                  "team_id": "11"
+                },
+                {
+                  "name": "Two Minute Warning"
+                },
+                {
+                  "managers": [
+                    {
+                      "manager": {
+                        "manager_id": "11",
+                        "nickname": "--hidden--",
+                        "guid": "FAKEGUID00000000000011"
+                      }
+                    }
+                  ]
+                }
+              ],
+              {
+                "roster": {
+                  "coverage_type": "week",
+                  "week": "5",
+                  "is_editable": 0,
+                  "0": {
+                    "players": {
+                      "0": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.40036"
+                            },
+                            {
+                              "player_id": "40036"
+                            },
+                            {
+                              "name": {
+                                "full": "Jayden Daniels",
+                                "first": "Jayden",
+                                "last": "Daniels",
+                                "ascii_first": "Jayden",
+                                "ascii_last": "Daniels"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.40036"
+                            },
+                            {
+                              "editorial_team_abbr": "Was"
+                            },
+                            {
+                              "display_position": "QB"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "QB"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "QB"
+                              }
+                            ]
+                          },
+                          {
+                            "player_stats": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "stats": [
+                                {
+                                  "stat": {
+                                    "stat_id": "4",
+                                    "value": "191"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "5",
+                                    "value": "1"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "6",
+                                    "value": "1"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "9",
+                                    "value": "52"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "10",
+                                    "value": "0"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "player_points": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "total": "15.84"
+                            }
+                          }
+                        ]
+                      },
+                      "1": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.40016"
+                            },
+                            {
+                              "player_id": "40016"
+                            },
+                            {
+                              "name": {
+                                "full": "Brock Bowers",
+                                "first": "Brock",
+                                "last": "Bowers",
+                                "ascii_first": "Brock",
+                                "ascii_last": "Bowers"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.40016"
+                            },
+                            {
+                              "editorial_team_abbr": "LV"
+                            },
+                            {
+                              "display_position": "TE"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "TE"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "TE"
+                              }
+                            ]
+                          },
+                          {
+                            "player_stats": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "stats": [
+                                {
+                                  "stat": {
+                                    "stat_id": "11",
+                                    "value": "9"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "12",
+                                    "value": "98"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "13",
+                                    "value": "0"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "player_points": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "total": "14.3"
+                            }
+                          }
+                        ]
+                      },
+                      "2": {
+                        "player": [
+                          [
+                            {
+                              "player_key": "449.p.32700"
+                            },
+                            {
+                              "player_id": "32700"
+                            },
+                            {
+                              "name": {
+                                "full": "Jerry Jeudy",
+                                "first": "Jerry",
+                                "last": "Jeudy",
+                                "ascii_first": "Jerry",
+                                "ascii_last": "Jeudy"
+                              }
+                            },
+                            {
+                              "editorial_player_key": "nfl.p.32700"
+                            },
+                            {
+                              "editorial_team_abbr": "Cle"
+                            },
+                            {
+                              "display_position": "WR"
+                            },
+                            {
+                              "position_type": "O"
+                            },
+                            {
+                              "eligible_positions": [
+                                {
+                                  "position": "WR"
+                                },
+                                {
+                                  "position": "W/R/T"
+                                }
+                              ]
+                            }
+                          ],
+                          {
+                            "selected_position": [
+                              {
+                                "coverage_type": "week"
+                              },
+                              {
+                                "week": "5"
+                              },
+                              {
+                                "position": "BN"
+                              }
+                            ]
+                          },
+                          {
+                            "player_stats": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "stats": [
+                                {
+                                  "stat": {
+                                    "stat_id": "11",
+                                    "value": "6"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "12",
+                                    "value": "142"
+                                  }
+                                },
+                                {
+                                  "stat": {
+                                    "stat_id": "13",
+                                    "value": "1"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "player_points": {
+                              "coverage_type": "week",
+                              "week": "5",
+                              "total": "23.2"
+                            }
+                          }
+                        ]
+                      },
+                      "count": 3
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "count": 2
+        }
+      }
+    ],
+    "time": "318.05ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

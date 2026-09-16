@@ -1,0 +1,308 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/users;use_login=1/games/leagues",
+    "            ?game_keys=423,449,461,465&format=json",
+    "",
+    "REDACTION: the authenticating user's guid is FAKEGUID00000000000004 and",
+    "every league/team id below is invented. A real capture of THIS endpoint",
+    "returns the login's own guid and may return an email on the user resource —",
+    "both must be stripped before anything from it is committed. The parser",
+    "deliberately never reads email even when Yahoo sends it.",
+    "",
+    "WHY THIS IS COMMITTED — CROSS-SEASON DISCOVERY IS THE WHOLE POINT OF THE",
+    "PIPELINE, and it has two independent failure modes, both encoded here.",
+    "",
+    "  A. THE GAME-ID PROBLEM. Season → game_key is NOT derivable: 2023=423,",
+    "     2024=449, 2025=461, and (from other seasons) 2019=390, 2020=399. There",
+    "     is no pattern. A hardcoded game id does not error — it silently queries",
+    "     a DIFFERENT SEASON and returns perfectly valid rows for the wrong year.",
+    "     Game keys must be enumerated from the provider and persisted, which is",
+    "     what this response is for.",
+    "",
+    "  B. THE FILTER. Game 465 below is NHL. It has a league, that league parses",
+    "     cleanly, and it has absolutely nothing to do with football. Discovery",
+    "     MUST filter by game_code before it walks anything — note that",
+    "     parse_user_leagues() itself does NOT filter (it faithfully returns all",
+    "     four leagues, NHL included); the filtering is YahooProvider.",
+    "     discover_leagues()'s job. The assertion worth writing is that the parser",
+    "     returns 4 and the provider returns 3.",
+    "",
+    "     ⚠️ A RELATED TRAP NOT REPRODUCED HERE, because reproducing it would mean",
+    "     inventing a shape rather than recording one: Yahoo's own docs warn that",
+    "     requesting /users;use_login=1/games/leagues UNFILTERED throws outright",
+    "     if the account ever played a game type with no league sub-resource",
+    "     (pick'em, DFS). That is why the adapter enumerates games FIRST, filters",
+    "     to code=nfl and type=full client-side, and only then asks for leagues by",
+    "     explicit game key. This fixture models the already-filtered request.",
+    "",
+    "THE RENEWAL CHAIN, which is the second discovery mechanism:",
+    "    423.l.481226 (2023)  renew ''            renewed '449_529351'",
+    "    449.l.529351 (2024)  renew '423_481226'  renewed '461_576919'",
+    "    461.l.576919 (2025)  renew '449_529351'  renewed ''",
+    "Note the FORMAT: renew/renewed use an UNDERSCORE ('449_529351'), which is",
+    "NOT a league key. canonical_league_key() rewrites it to '449.l.529351';",
+    "storing both forms would produce phantom duplicates of one league. Note also",
+    "that the league_id CHANGES every season — each season is a separate league",
+    "object and only the chain connects them.",
+    "",
+    "WHY BOTH MECHANISMS EXIST: this account-based query only reaches seasons the",
+    "AUTHENTICATING account actually played. If the league changed hands, or the",
+    "account joined in 2024, the 2023 season is invisible here — but the chain",
+    "still points at it. Neither mechanism alone is complete; the union is. The",
+    "2023 entry is present here so the two can be tested as agreeing, and its",
+    "empty renew is what tells the walker to stop rather than loop.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. The deepest nesting in the whole API: users → user → games → game →",
+    "     leagues → league, alternating COLLECTION (numeric keys + count) and",
+    "     RESOURCE (heterogeneous array) at every level, with the user's own",
+    "     metadata nested one array deeper than that.",
+    "  2. renew is \"\" on the oldest season — Yahoo's self-closing element, meaning",
+    "     'not renewed from anything'. canonical_league_key('') returns None,",
+    "     which is the correct storage: no previous season exists. That is a",
+    "     different fact from the key being absent.",
+    "  3. season arrives as a STRING on the games and league_id as a string",
+    "     everywhere, while num_teams is a bare int.",
+    "  4. The NHL league has num_teams 10 and a scoring_type of 'head' too — it",
+    "     is not distinguishable by anything except game_code. Do not try.",
+    "",
+    "NOT TRUNCATED: 4 games, one league each, is the complete response for this",
+    "invented account."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/users;use_login=1/games/leagues",
+    "users": {
+      "0": {
+        "user": [
+          [
+            {
+              "guid": "FAKEGUID00000000000004"
+            }
+          ],
+          {
+            "games": {
+              "0": {
+                "game": [
+                  {
+                    "game_key": "423",
+                    "game_id": "423",
+                    "name": "Football",
+                    "code": "nfl",
+                    "type": "full",
+                    "url": "https://football.fantasysports.yahoo.com/f1",
+                    "season": "2023",
+                    "is_registration_over": 1,
+                    "is_game_over": 1,
+                    "is_offseason": 1
+                  },
+                  {
+                    "leagues": {
+                      "0": {
+                        "league": [
+                          {
+                            "league_key": "423.l.481226",
+                            "league_id": "481226",
+                            "name": "Autumn Wind Dynasty",
+                            "url": "https://football.fantasysports.yahoo.com/f1/481226",
+                            "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_1_l.png",
+                            "draft_status": "postdraft",
+                            "num_teams": 12,
+                            "edit_key": "17",
+                            "weekly_deadline": "1",
+                            "league_update_timestamp": "1704258000",
+                            "scoring_type": "head",
+                            "league_type": "private",
+                            "renew": "",
+                            "renewed": "449_529351",
+                            "allow_add_to_dl_extra_pos": 0,
+                            "is_pro_league": "0",
+                            "is_cash_league": "0",
+                            "current_week": "17",
+                            "start_week": "1",
+                            "start_date": "2023-09-07",
+                            "end_week": "17",
+                            "end_date": "2023-12-25",
+                            "game_code": "nfl",
+                            "season": "2023",
+                            "is_finished": 1
+                          }
+                        ]
+                      },
+                      "count": 1
+                    }
+                  }
+                ]
+              },
+              "1": {
+                "game": [
+                  {
+                    "game_key": "449",
+                    "game_id": "449",
+                    "name": "Football",
+                    "code": "nfl",
+                    "type": "full",
+                    "url": "https://football.fantasysports.yahoo.com/f1",
+                    "season": "2024",
+                    "is_registration_over": 1,
+                    "is_game_over": 1,
+                    "is_offseason": 1
+                  },
+                  {
+                    "leagues": {
+                      "0": {
+                        "league": [
+                          {
+                            "league_key": "449.l.529351",
+                            "league_id": "529351",
+                            "name": "Autumn Wind Dynasty",
+                            "url": "https://football.fantasysports.yahoo.com/f1/529351",
+                            "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_1_l.png",
+                            "draft_status": "postdraft",
+                            "num_teams": 12,
+                            "edit_key": "17",
+                            "weekly_deadline": "1",
+                            "league_update_timestamp": "1735257600",
+                            "scoring_type": "head",
+                            "league_type": "private",
+                            "renew": "423_481226",
+                            "renewed": "461_576919",
+                            "allow_add_to_dl_extra_pos": 0,
+                            "is_pro_league": "0",
+                            "is_cash_league": "0",
+                            "current_week": "17",
+                            "start_week": "1",
+                            "start_date": "2024-09-05",
+                            "end_week": "17",
+                            "end_date": "2024-12-23",
+                            "game_code": "nfl",
+                            "season": "2024",
+                            "is_finished": 1
+                          }
+                        ]
+                      },
+                      "count": 1
+                    }
+                  }
+                ]
+              },
+              "2": {
+                "game": [
+                  {
+                    "game_key": "461",
+                    "game_id": "461",
+                    "name": "Football",
+                    "code": "nfl",
+                    "type": "full",
+                    "url": "https://football.fantasysports.yahoo.com/f1",
+                    "season": "2025",
+                    "is_registration_over": 1,
+                    "is_game_over": 1,
+                    "is_offseason": 0
+                  },
+                  {
+                    "leagues": {
+                      "0": {
+                        "league": [
+                          {
+                            "league_key": "461.l.576919",
+                            "league_id": "576919",
+                            "name": "Autumn Wind Dynasty",
+                            "url": "https://football.fantasysports.yahoo.com/f1/576919",
+                            "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_1_l.png",
+                            "draft_status": "postdraft",
+                            "num_teams": 12,
+                            "edit_key": "17",
+                            "weekly_deadline": "1",
+                            "league_update_timestamp": "1766707200",
+                            "scoring_type": "head",
+                            "league_type": "private",
+                            "renew": "449_529351",
+                            "renewed": "",
+                            "felo_tier": "diamond",
+                            "allow_add_to_dl_extra_pos": 1,
+                            "is_pro_league": "0",
+                            "is_cash_league": "0",
+                            "current_week": "17",
+                            "start_week": "1",
+                            "start_date": "2025-09-04",
+                            "end_week": "17",
+                            "end_date": "2025-12-22",
+                            "game_code": "nfl",
+                            "season": "2025",
+                            "is_finished": 1
+                          }
+                        ]
+                      },
+                      "count": 1
+                    }
+                  }
+                ]
+              },
+              "3": {
+                "game": [
+                  {
+                    "game_key": "465",
+                    "game_id": "465",
+                    "name": "Hockey",
+                    "code": "nhl",
+                    "type": "full",
+                    "url": "https://hockey.fantasysports.yahoo.com/hockey",
+                    "season": "2025",
+                    "is_registration_over": 1,
+                    "is_game_over": 0,
+                    "is_offseason": 0
+                  },
+                  {
+                    "leagues": {
+                      "0": {
+                        "league": [
+                          {
+                            "league_key": "465.l.71104",
+                            "league_id": "71104",
+                            "name": "Blue Line Buddies",
+                            "url": "https://hockey.fantasysports.yahoo.com/hockey/71104",
+                            "draft_status": "postdraft",
+                            "num_teams": 10,
+                            "edit_key": "2026-01-04",
+                            "weekly_deadline": "intraday",
+                            "league_update_timestamp": "1767571200",
+                            "scoring_type": "head",
+                            "league_type": "private",
+                            "renew": "",
+                            "renewed": "",
+                            "current_week": "13",
+                            "start_week": "1",
+                            "start_date": "2025-10-07",
+                            "end_week": "24",
+                            "end_date": "2026-04-12",
+                            "game_code": "nhl",
+                            "season": "2025",
+                            "is_finished": 0
+                          }
+                        ]
+                      },
+                      "count": 1
+                    }
+                  }
+                ]
+              },
+              "count": 4
+            }
+          }
+        ]
+      },
+      "count": 1
+    },
+    "time": "289.14ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

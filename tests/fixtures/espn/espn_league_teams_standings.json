@@ -1,0 +1,63 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from CONFIRMED field paths, not a live capture.",
+    "Built 2026-08-12 while ESPN cookies were unavailable. The shape (key",
+    "names, nesting) is transcribed from github.com/cwendt94/espn-api",
+    "(league.py + box_score.py + constant.py), the most actively maintained",
+    "community client, fetched and read line-by-line the same day. Real",
+    "field NAMES and TYPES; fabricated VALUES (team names, records).",
+    "Models: GET /apis/v3/games/ffl/seasons/2025/segments/0/leagues/999001",
+    "  ?view=mTeam&view=mSettings&view=mStandings",
+    "Shape hazards this fixture is built to exercise:",
+    "  - team name split across location+nickname (both present here;",
+    "    a second team below has NEITHER, to prove the None fallback)",
+    "  - owners[] as bare GUID strings (ESPN's stable cross-season identity,",
+    "    equivalent to Yahoo's manager guid)",
+    "  - waiverRank present, transactionCounter present",
+    "  - record.overall with wins/losses/ties AND pointsFor/pointsAgainst",
+    "    living OUTSIDE the record block (at the team level, not nested)",
+    "  - divisionId present on one team, absent (no key) on another"
+  ],
+  "settings": {
+    "name": "The Synthetic League",
+    "size": 3
+  },
+  "status": {
+    "latestScoringPeriod": 6
+  },
+  "teams": [
+    {
+      "id": 1,
+      "location": "Thunder",
+      "nickname": "Chickens",
+      "divisionId": 0,
+      "logo": "https://example.invalid/logo1.png",
+      "waiverRank": 3,
+      "pointsFor": 612.4,
+      "pointsAgainst": 540.1,
+      "record": { "overall": { "wins": 4, "losses": 2, "ties": 0 } },
+      "transactionCounter": { "acquisitions": 7, "trades": 1 },
+      "owners": ["{AAAAAAAA-0000-0000-0000-000000000001}"],
+      "primaryOwner": "{AAAAAAAA-0000-0000-0000-000000000001}"
+    },
+    {
+      "id": 2,
+      "waiverRank": 1,
+      "pointsFor": 550.0,
+      "pointsAgainst": 560.2,
+      "record": { "overall": { "wins": 3, "losses": 3, "ties": 0 } },
+      "transactionCounter": { "acquisitions": 2, "trades": 0 },
+      "owners": ["{BBBBBBBB-0000-0000-0000-000000000002}", "{CCCCCCCC-0000-0000-0000-000000000003}"]
+    },
+    {
+      "id": 3,
+      "location": "Zero",
+      "nickname": "Wins",
+      "waiverRank": 2,
+      "pointsFor": 480.7,
+      "pointsAgainst": 601.9,
+      "record": { "overall": { "wins": 0, "losses": 6, "ties": 0 } },
+      "owners": ["{AAAAAAAA-0000-0000-0000-000000000001}"]
+    }
+  ]
+}

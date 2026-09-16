@@ -1,0 +1,431 @@
+<title>Raining Bullets Draft List</title>
+<style>
+:root{
+  --ground:#F5F4F1; --panel:#FFFFFF; --ink:#191E25; --ink-2:#4A5560; --ink-3:#77828E;
+  --rule:#DFDDD7; --rule-2:#EAE8E3; --brass:#B8862B; --brass-soft:#F0E4C6;
+  --qb:#6B5B95; --rb:#2E7D5B; --wr:#2A6FA8; --te:#A34E7B; --k:#6E7681; --dst:#7A5C3E;
+  --good:#2E7D5B; --warn:#B8862B; --crit:#A8412F;
+  --shadow:0 1px 2px rgba(25,30,37,.06),0 8px 24px rgba(25,30,37,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font:400 15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px 72px}
+.bar{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:1px solid var(--rule);padding:14px 0 12px}
+.bar-in{max-width:1120px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+h1{margin:0;font-size:clamp(19px,2.4vw,25px);font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.sub{color:var(--ink-3);font-size:13px}
+.spacer{flex:1 1 auto}
+.eyebrow{font-size:10.5px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
+button{font:inherit;font-size:12.5px;font-weight:600;background:var(--panel);color:var(--ink-2);
+  border:1px solid var(--rule);border-radius:6px;padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--ink-3);color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.chip{display:inline-block;min-width:32px;text-align:center;font-size:10px;font-weight:750;
+  letter-spacing:.05em;padding:2px 5px;border-radius:4px;color:#fff}
+.QB{background:var(--qb)} .RB{background:var(--rb)} .WR{background:var(--wr)}
+.TE{background:var(--te)} .K{background:var(--k)} .DST{background:var(--dst)}
+
+.caveat{margin:20px 0 6px;padding:12px 14px;border-radius:9px;background:var(--brass-soft);
+  border:1px solid var(--brass);font-size:12.5px;line-height:1.55;color:var(--ink-2);max-width:84ch}
+.caveat b{color:var(--ink)}
+
+.rnd{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:11px;
+  box-shadow:var(--shadow);overflow:hidden}
+.rnd-hd{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:11px 14px;
+  border-bottom:1px solid var(--rule-2);background:var(--rule-2)}
+.rnd-hd h2{margin:0;font-size:14px;font-weight:750;letter-spacing:-.01em}
+.rnd-hd .adp{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--ink-3)}
+.pickstrip{display:flex;flex-wrap:wrap;gap:9px;padding:11px 14px;border-bottom:1px solid var(--rule-2)}
+.pk{flex:1 1 250px;display:flex;flex-direction:column;gap:3px;padding:9px 11px;border-radius:8px;
+  background:var(--rule-2);border-left:3px solid var(--brass)}
+.pk.board{border-left-color:var(--ink-3)}
+.pk .lab{font-size:9.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.pk .who{font-size:14px;font-weight:700;display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}
+.pk .num{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--ink-3)}
+.pk .say{font-size:11.5px;line-height:1.45;color:var(--ink-2);margin-top:2px}
+.pk.none{border-left-color:var(--rule);color:var(--ink-3);font-style:italic;font-size:12.5px;
+  justify-content:center}
+.said{display:flex;flex-direction:column;gap:8px;padding:11px 14px;border-bottom:1px solid var(--rule-2);
+  background:var(--brass-soft)}
+.said .hd{font-size:9.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--brass)}
+.said.nocall{background:var(--rule-2)}
+.said.nocall .hd{color:var(--ink-3)}
+.said.nocall .txt{border-left-color:var(--rule);font-style:italic}
+.said.dart{background:var(--panel);border-top:1px solid var(--rule-2)}
+.said.dart .hd{color:var(--ink-3)}
+.dt{display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:baseline;font-size:12.5px}
+.dt .conf{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:10.5px;
+  font-weight:750;padding:1px 5px;border-radius:4px;border:1px solid var(--rule);color:var(--ink-3)}
+.dt .conf.hi{border-color:var(--good);color:var(--good)}
+.dt .conf.lo{border-color:var(--rule);color:var(--ink-3);opacity:.75}
+.dt .nm4{font-weight:700}
+.dt .body{grid-column:1/-1;font-size:12px;line-height:1.5;color:var(--ink-2);
+  padding-left:11px;border-left:2px solid var(--rule)}
+.dt.avoid .body{border-left-color:var(--crit)}
+.dt.dart .body,.dt.target .body{border-left-color:var(--brass)}
+.dt .adpn{color:var(--ink-3);font-style:italic}
+.sd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;line-height:1.5}
+.sd .nm3{font-weight:700}
+.sd .by{font-size:11px;color:var(--ink-3);font-family:ui-monospace,monospace}
+.sd .txt{flex:1 1 100%;color:var(--ink-2);font-size:12px;padding-left:11px;border-left:2px solid var(--rule)}
+.sd.like .txt{border-left-color:var(--good)} .sd.fade .txt{border-left-color:var(--crit)}
+.sd .mism{color:var(--crit);font-size:10.5px;font-weight:700}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+thead th{text-align:left;font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);padding:7px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap;background:var(--panel)}
+tbody td{padding:6px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+tbody tr.has{cursor:pointer}
+tbody tr.has:hover{background:var(--rule-2)}
+tbody tr.top td{background:var(--brass-soft)}
+.num{text-align:right;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.nm{font-weight:600}
+.dim{color:var(--ink-3)}
+.stn{display:inline-block;font-size:10px;font-weight:750;padding:1px 4px;border-radius:4px;
+  margin-right:3px;border:1px solid transparent}
+.stn.like{color:var(--good);border-color:var(--good)}
+.stn.fade{color:var(--crit);border-color:var(--crit)}
+.stn.neutral{color:var(--ink-3);border-color:var(--rule)}
+.stn.hedge{border-style:dashed}
+.stn.gd{background:var(--rule-2);border-color:transparent}
+.sup{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-weight:700}
+.sup.pos{color:var(--good)} .sup.neg{color:var(--crit)} .sup.zero{color:var(--ink-3);font-weight:400}
+.rook{display:inline-block;font-size:9px;font-weight:750;letter-spacing:.07em;padding:1px 4px;
+  border-radius:3px;border:1px solid var(--ink-3);color:var(--ink-3);margin-left:5px;vertical-align:1px}
+tr.det td{white-space:normal;background:var(--rule-2);padding:10px 14px 12px}
+tr.det{cursor:default}
+.det-in{display:flex;flex-direction:column;gap:8px;max-width:80ch}
+.q{font-size:12.5px;line-height:1.5;color:var(--ink-2);padding-left:11px;border-left:2px solid var(--rule)}
+.q.like{border-left-color:var(--good)} .q.fade{border-left-color:var(--crit)}
+.q b{color:var(--ink);font-weight:700}
+.q a{color:var(--ink-3);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+.q a:hover{color:var(--brass);border-bottom-color:var(--brass)}
+.foot{margin-top:34px;padding-top:18px;border-top:1px solid var(--rule);font-size:12.5px;
+  color:var(--ink-3);line-height:1.65;max-width:82ch}
+.foot b{color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="bar"><div class="bar-in">
+  <h1>Raining Bullets Draft List</h1>
+  <span class="sub mono">12 TEAMS &middot; 18 RD &middot; GROUPED BY ADP</span>
+  <span class="spacer"></span>
+  <span class="eyebrow">Passing TD</span>
+  <button id="r4" aria-pressed="true">4</button>
+  <button id="r6" aria-pressed="false">6</button>
+  <span id="posf"></span>
+  <button id="expo" aria-pressed="false">Expert-backed only</button>
+</div></div>
+
+<div class="wrap">
+  <p class="caveat" id="caveat"></p>
+  <div id="rounds"></div>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+const L = __LIST__;
+const PL = L.players;
+const POS = ["QB","RB","WR","TE"];
+let rule = "p4", filter = "ALL", expertOnly = false;
+let open = new Set();
+const el = id => document.getElementById(id);
+const ESC = t => String(t == null ? "" : t)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const STANCE = {like:"like", fade:"fade", neutral:"neutral",
+                target:"like", avoid:"fade", dart:"neutral"};
+const WHO = {"JJ Zachariason":"JJ","Scott Barrett":"Barrett","Evan Silva":"Silva"};
+const shortName = a => WHO[a] || (a||"?").split(" ").pop();
+const VOR = r => r.v[rule];
+const PR  = r => r.r[rule];
+
+function chips(r){
+  let h = "";
+  if (r.jjv && r.jjv !== "neutral")
+    h += `<span class="stn gd ${STANCE[r.jjv]||"neutral"}" title="JJ's written guide">${r.jjv}</span>`;
+  for (const t of (r.who||[]).slice(0,3))
+    h += `<span class="stn ${STANCE[t.s]||"neutral"}${t.q?" hedge":""}" title="${t.q
+      ? "verified on the page, but the speaker may be a guest rather than "+ESC(t.a)
+      : "verified on the source page"}">${ESC(shortName(t.a))}${t.q?"?":""} `
+      + `${t.s==="like"?"\u25b2":t.s==="fade"?"\u25bc":"\u2022"}</span>`;
+  if ((r.who||[]).length > 3) h += `<span class="stn neutral">+${r.who.length-3}</span>`;
+  return h;
+}
+
+function detail(r, cols){
+  let b = "";
+  if (r.jjnote) b += `<div class="q ${STANCE[r.jjv]||"neutral"}"><b>JJ Zachariason</b> `
+    + `&middot; Late-Round Draft Guide 2026 &mdash; ${ESC(r.jjnote)}`
+    + (r.jjpr != null ? ` <span class="dim">(${ESC(r.jjpos||r.pos)}${r.jjpr}`
+        + (r.jjtier!=null?`, tier ${r.jjtier}`:"") + (r.jjaav!=null?`, $${r.jjaav}`:"") + `)</span>` : "")
+    + `</div>`;
+  for (const t of (r.who||[]))
+    b += `<div class="q ${STANCE[t.s]||"neutral"}"><b>${ESC(t.a)}${t.q?"'s show":""}</b> &mdash; `
+      + `${ESC(t.t)}` + (t.u?` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>`:"") + `</div>`;
+  return b ? `<tr class="det"><td colspan="${cols}"><div class="det-in">${b}</div></td></tr>` : "";
+}
+
+function row(r, isTop){
+  const has = !!(r.jjnote || (r.who||[]).length);
+  const s = r.sup;
+  const cls = s > 0 ? "pos" : s < 0 ? "neg" : "zero";
+  return `<tr class="${has?"has":""} ${isTop?"top":""}" data-n="${ESC(r.nm)}">
+    <td class="num dim">${r.adp ? r.adp.toFixed(1) : "\u2013"}</td>
+    <td class="nm">${ESC(r.nm)}${r.unproven?'<span class="rook">NO TRACK RECORD</span>':""}</td>
+    <td><span class="chip ${r.pos}">${r.pos}</span></td>
+    <td class="dim mono">${ESC(r.team||"")}</td>
+    <td class="num dim">${r.bye||"\u2013"}</td>
+    <td class="num">${VOR(r)>0?"+":""}${VOR(r)}</td>
+    <td class="num dim">${r.pos}${PR(r)}</td>
+    <td class="num dim">${r.jjpr!=null?ESC(r.jjpos||r.pos)+r.jjpr:"\u2013"}</td>
+    <td class="num dim">${r.jjtier!=null?r.jjtier:"\u2013"}</td>
+    <td>${chips(r)}</td>
+    <td class="num sup ${cls}" title="${r.nvoice||0} of 3 analysts on record: `
+    + `${Object.entries(r.voices||{}).map(([a,v])=>ESC(shortName(a))+" "+(v>0?"+":"")+v).join(", ")||"none"}">${s>0?"+":""}${s}</td>
+  </tr>` + (open.has(r.nm) ? detail(r, 11) : "");
+}
+
+function strip(names){
+  // !! ONLY CROWN A PICK WHEN SOMEONE ACTUALLY SAID SOMETHING. Taking the max
+  // of a set of zeroes silently promotes an arbitrary player into a slot the
+  // page labels "most expert support", which reads as an endorsement nobody
+  // gave. A band with no coverage says so.
+  const backed = names.map(n => PL[n]).filter(r => r.sup > 0);
+  const best = backed.length
+    ? backed.reduce((a, b) => (b.sup > a.sup || (b.sup === a.sup && VOR(b) > VOR(a))) ? b : a)
+    : null;
+  const vor = names.map(n => PL[n]).reduce((a, b) => VOR(b) > VOR(a) ? b : a);
+  let h = "";
+  if (best) {
+    const say = (best.who||[]).find(t => t.s === "like") || (best.who||[])[0];
+    h += `<div class="pk"><span class="lab">Most expert support</span>`
+      + `<span class="who"><span class="chip ${best.pos}">${best.pos}</span>${ESC(best.nm)}`
+      + `<span class="num">ADP ${best.adp?best.adp.toFixed(1):"\u2013"} \u00b7 VOR `
+      + `${VOR(best)>0?"+":""}${VOR(best)} \u00b7 backing ${best.sup>0?"+":""}${best.sup}</span></span>`
+      + `<span>${chips(best)}</span>`
+      + (say ? `<span class="say">${ESC(say.t.slice(0,150))}${say.t.length>150?"\u2026":""}</span>` : "")
+      + `</div>`;
+  } else {
+    h += `<div class="pk none">No verified expert take on anyone in this band.</div>`;
+  }
+  if (!best || vor.nm !== best.nm) {
+    h += `<div class="pk board"><span class="lab">Best on this board</span>`
+      + `<span class="who"><span class="chip ${vor.pos}">${vor.pos}</span>${ESC(vor.nm)}`
+      + `<span class="num">ADP ${vor.adp?vor.adp.toFixed(1):"\u2013"} \u00b7 VOR `
+      + `${VOR(vor)>0?"+":""}${VOR(vor)} \u00b7 ${vor.pos}${PR(vor)}</span></span>`
+      + `<span>${chips(vor)}</span></div>`;
+  }
+  return `<div class="pickstrip">${h}</div>`;
+}
+
+function said(rd){
+  const named = L.named || {};
+  const list = named[String(rd)] || [];
+  if (!list.length) {
+    // !! EMPTY IS NOT THE SAME AS UNCOVERED. Past the last round they cover,
+    // the series does not exist - JJ's co-host says so on air - and silently
+    // rendering nothing reads as "no opinion" rather than "behind the paywall".
+    const rds = Object.keys(named).map(Number);
+    const last = rds.length ? Math.max(...rds) : 0;
+    if (last > 0 && rd > last) {
+      const has = ((L.darts || {})[String(rd)] || []).length;
+      return `<div class="said nocall"><span class="hd">No per-round call for round ${rd}</span>`
+        + `<div class="sd"><span class="txt">The free round-by-round series stops at round ${last} `
+        + `\u2014 JJ's co-host closes that episode saying rounds 11\u201315 are dart throws you get `
+        + `by buying the guide, and Barrett's list is rounds 1\u201310. `
+        + (has ? `You own the guide, so its dart chapter fills the gap below \u2014 but it is a `
+                 + `list, not a pick per round, so those are placed by ADP rather than chosen for `
+                 + `this round.`
+               : `No dart from the guide lands in this band either.`)
+        + `</span></div></div>`;
+    }
+    return "";
+  }
+  return `<div class="said"><span class="hd">What they actually said about round ${rd}</span>`
+    + list.map(x => {
+        // !! HIS ROUND vs THIS PAGE'S ROUND. He reads FantasyPros ADP tiers,
+        // this list is cut on FFC ADP. Where they disagree, say so.
+        const mism = (x.ffc && x.ffc !== rd)
+          ? `<span class="mism">FFC ADP puts him in round ${x.ffc}</span>` : "";
+        return `<div class="sd ${x.s}">`
+          + `<span class="stn ${x.s}">${x.s === "like" ? "\u25b2 pick" : x.s === "fade" ? "\u25bc refuses" : "\u2022"}</span>`
+          + `<span class="nm3">${ESC(x.nm)}</span>`
+          + `<span class="by">${ESC(x.a)}${x.q === "paraphrased" ? " \u00b7 paraphrased" : ""}</span>`
+          + mism
+          + `<span class="txt">${ESC(x.t)}`
+          + (x.u ? ` <a href="${ESC(x.u)}" target="_blank" rel="noopener">source</a>` : "")
+          + `</span></div>`;
+      }).join("") + `</div>`;
+}
+
+function darts(rd){
+  const list = (L.darts || {})[String(rd)] || [];
+  if (!list.length) return "";
+  // !! A LIST, NOT A PICK PER ROUND. Rounds 1-10 carry JJ naming his single
+  // favourite inside a round he was handed. This chapter has no round attached
+  // at all, so it is placed by ADP and labelled as placed -- and the verdict is
+  // carried, because four entries in the chapter are players he does NOT like.
+  return `<div class="said dart"><span class="hd">From the guide's dart-throw chapter `
+    + `\u00b7 placed by ADP, not chosen for this round</span>`
+    + list.map(x => {
+        const c = x.conf;
+        const cls = c == null ? "" : c >= 8 ? "hi" : c <= 5 ? "lo" : "";
+        return `<div class="dt ${ESC(x.v || "dart")}">`
+          + `<span class="conf ${cls}">${c == null ? "no conf" : "conf " + c + "/10"}</span>`
+          + `<span class="nm4">${ESC(x.nm)}</span>`
+          + `<span class="stn ${STANCE[x.v] || "neutral"}">${ESC(x.v || "dart")}</span>`
+          + `<span class="body">${ESC(x.t)}`
+          + (x.adp_note ? ` <span class="adpn">${ESC(x.adp_note)}</span>` : "")
+          + `</span></div>`;
+      }).join("") + `</div>`;
+}
+
+function render(){
+  const g = L.groups[rule];
+  let h = "";
+  for (let rd = 1; rd <= L.rounds; rd++) {
+    const all = (g[String(rd)] || []);
+    if (!all.length) continue;
+    const shown = all.filter(n => {
+      const r = PL[n];
+      return (filter === "ALL" || r.pos === filter) && (!expertOnly || r.sup > 0 || r.jjnote);
+    });
+    if (!shown.length) continue;
+    const lo = (rd - 1) * L.teams + 1, hi = rd * L.teams;
+    h += `<section class="rnd"><div class="rnd-hd"><h2>Round ${rd}</h2>`
+      + `<span class="adp">ADP ${lo}\u2013${hi}</span><span class="spacer"></span>`
+      + `<span class="eyebrow">${shown.length} of ${all.length}</span></div>`
+      + said(rd)
+      + darts(rd)
+      + strip(all)
+      + `<div class="scroll"><table><thead><tr>`
+      + `<th class="num">ADP</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>`
+      + `<th class="num">VOR</th><th class="num">Rank</th><th class="num">JJ</th>`
+      + `<th class="num">Tier</th><th>Experts</th><th class="num">Back</th>`
+      + `</tr></thead><tbody>`
+      + shown.map(n => row(PL[n], PL[n].sup > 0 && n === (() => {
+          const b = all.map(x => PL[x]).filter(r => r.sup > 0);
+          if (!b.length) return null;
+          return b.reduce((x, y) => (y.sup > x.sup || (y.sup === x.sup && VOR(y) > VOR(x))) ? y : x).nm;
+        })())).join("")
+      + `</tbody></table></div></section>`;
+  }
+  // !! OUTSIDE THE ADP UNIVERSE IS NOT ABSENT. Undrafted in most rooms is a
+  // fact about the player, so these get a section rather than disappearing.
+  const un = (g["0"] || []).filter(n =>
+    (filter === "ALL" || PL[n].pos === filter) && (!expertOnly || PL[n].sup > 0 || PL[n].jjnote));
+  if (un.length) {
+    h += `<section class="rnd"><div class="rnd-hd"><h2>Outside the ADP universe</h2>`
+      + `<span class="adp">no national ADP</span><span class="spacer"></span>`
+      + `<span class="eyebrow">${un.length}</span></div>`
+      + `<div class="scroll"><table><thead><tr>`
+      + `<th class="num">ADP</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>`
+      + `<th class="num">VOR</th><th class="num">Rank</th><th class="num">JJ</th>`
+      + `<th class="num">Tier</th><th>Experts</th><th class="num">Back</th>`
+      + `</tr></thead><tbody>` + un.map(n => row(PL[n], false)).join("")
+      + `</tbody></table></div></section>`;
+  }
+  el("rounds").innerHTML = h;
+}
+
+el("posf").innerHTML = ["ALL", ...POS].map(p =>
+  `<button data-p="${p}" aria-pressed="${p==="ALL"}">${p}</button>`).join("");
+
+(function(){
+  const n = Object.values(PL).filter(r => r.sup !== 0 || r.jjnote).length;
+  const takes = Object.values(PL).reduce((a, r) => a + (r.who||[]).length, 0);
+  const named = L.named || {};
+  const calls = Object.values(named).reduce((a, v) => a + v.length, 0);
+  const rds = Object.keys(named).map(Number);
+  const last = rds.length ? Math.max(...rds) : 0;
+  const mism = Object.entries(named).reduce((a, [rd, v]) =>
+    a + v.filter(x => x.ffc && x.ffc !== Number(rd)).length, 0);
+  const dv = Object.values(L.darts || {}).flat();
+  const ndart = dv.length;
+  const dlate = Object.entries(L.darts || {})
+    .reduce((a, [rd, v]) => a + (Number(rd) > last ? v.length : 0), 0);
+  const davoid = dv.filter(x => x.v === "avoid" || x.v === "neutral").length;
+  el("caveat").innerHTML = !calls
+    ? `<b>The analysts' own round calls are not in this build.</b> The highlight in each band `
+      + `is this page's construction: the most expert backing, scored from confirmed stances.`
+    : `<b>They really do publish round-by-round picks, and rounds 1\u2013${last} carry them.</b> `
+    + `JJ Zachariason runs a two-part segment where a co-host reads the twelve players in each `
+    + `round's FantasyPros ADP tier and JJ names his single favourite pick in it; Scott Barrett `
+    + `does the inverse on Fantasy Points, one player he refuses to draft in every round. `
+    + `${calls} of those calls appear below, each re-fetched and confirmed by a second reader who `
+    + `had to find both the claim <em>and</em> the round tie on the page. Evan Silva has no such `
+    + `series \u2014 his round-framed takes are scattered, not a list.<br><br>`
+    + `<b>The free series stops at round ${last}, and the guide picks it up.</b> JJ's co-host says `
+    + `so on air: rounds 11\u201315 are dart throws you get by buying the guide. You own it, so its `
+    + `Late-Round Dart Throws chapter fills those bands \u2014 ${ndart} entries with JJ's own `
+    + `confidence score, ${dlate} of them in round ${last + 1} or later. <b>But a dart chapter is a `
+    + `list, not a pick per round.</b> Rounds 1\u2013${last} are him naming his single favourite `
+    + `inside a round he was handed; the darts carry no round at all, so they are placed by ADP and `
+    + `sit in their own block, labelled as placed. Their verdict is carried too \u2014 `
+    + `${davoid} entries in that chapter are players he does <em>not</em> like, and reading the `
+    + `chapter as a recommendation list would invert them.<br><br>`
+    + `<b>The band highlight is still mine, not theirs.</b> The most expert <em>backing</em>, from `
+    + `${takes} confirmed stances across ${n} players: a verified like or a guide target is +2, a `
+    + `dart +1, and a fade <em>subtracts</em>, because a player two analysts like and one fades is `
+    + `not the same as one nobody argues about. Where nobody covered a band it says so rather than `
+    + `crowning the least-uncovered name.<br><br>`
+    + `<b>His round is not this page's round, and that gap is wide.</b> He reads FantasyPros ADP; `
+    + `these bands are cut on FantasyFootballCalculator, and <b>${mism} of the ${calls} calls land `
+    + `in a different round under the two sources</b> \u2014 Jaxson Dart is his round-6 pick and FFC `
+    + `has him in round 10. Each call is filed under the round <em>he</em> said and flagged with `
+    + `where FFC puts the player, because collapsing them would quietly answer a question about `
+    + `which market you are drafting against.`;
+})();
+
+el("foot").innerHTML =
+  `<b>Rounds come from ADP, not from your picks.</b> Round 6 here means ADP 61\u201372 \u2014 `
+  + `where the market drafts a player, not where you personally pick. Cross-reference the `
+  + `round plan for what to do at your own slot.<br><br>`
+  + `<b>Positional rank on both sides.</b> The <em>Rank</em> column is this board's rank at the `
+  + `position under the current rulebook; <em>JJ</em> is his. Overall rank is deliberately absent `
+  + `\u2014 an analyst's overall list encodes his own scoring and positional weighting, so `
+  + `comparing it to this board's compares two different questions.<br><br>`
+  + `<b>What is missing.</b> K and DST are unranked by the projection engine. Coverage is `
+  + `uneven by design: these analysts write most about the rounds where drafts are won, so `
+  + `the deep bands are thin and that thinness is real, not a gap in the fetch.`;
+
+document.addEventListener("click", e => {
+  const tr = e.target.closest("tbody tr.has");
+  if (tr && !e.target.closest("a")) {
+    const n = tr.dataset.n;
+    open.has(n) ? open.delete(n) : open.add(n);
+    render(); return;
+  }
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "r4" || b.id === "r6") {
+    rule = b.id === "r4" ? "p4" : "p6";
+    el("r4").setAttribute("aria-pressed", rule === "p4");
+    el("r6").setAttribute("aria-pressed", rule === "p6");
+    render(); return;
+  }
+  if (b.id === "expo") { expertOnly = !expertOnly; b.setAttribute("aria-pressed", expertOnly); render(); return; }
+  if (b.dataset.p) {
+    filter = b.dataset.p;
+    [...el("posf").children].forEach(x => x.setAttribute("aria-pressed", x.dataset.p === filter));
+    render();
+  }
+});
+render();
+</script>

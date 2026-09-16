@@ -1,0 +1,28 @@
+{
+ "body": {
+  "rosters": {
+   "period": "1",
+   "point": "1",
+   "show_lineup_optimizer": 0,
+   "teams": [
+    {
+     "abbr": "T10",
+     "division": "East",
+     "id": "10",
+     "is_vacant": 0,
+     "lineup_status": "ok",
+     "logo": "https://example.invalid/logo.png",
+     "long_abbr": "Team10",
+     "name": "Team 10",
+     "point": "1",
+     "projected_points": null,
+     "short_name": "Team 1"
+    }
+   ]
+  }
+ },
+ "statusCode": 200,
+ "statusMessage": "OK",
+ "uri": "/league/rosters",
+ "uriAlias": "/league/rosters"
+}

@@ -1,0 +1,31 @@
+{
+ "body": {
+  "league_details": {
+   "current_period": "1",
+   "default_rankings_timeframe": "season",
+   "draft_label": "Pre-season",
+   "draft_state": "awaitingstart",
+   "draft_type": "live",
+   "effective_period": "1",
+   "effective_point": "1",
+   "is_expired": 0,
+   "is_h2h": "1",
+   "is_ppr": 1,
+   "is_pts": "1",
+   "name": "Test League",
+   "num_divisions": 3,
+   "num_teams": 12,
+   "playoff_periods": "3",
+   "regular_season_periods": 14,
+   "scoring_periods": 17,
+   "season_status": "preseason",
+   "service_level": "gold",
+   "type": "mgmt",
+   "uses_keepers": 0
+  }
+ },
+ "statusCode": 200,
+ "statusMessage": "OK",
+ "uri": "/league/details",
+ "uriAlias": "/league/details"
+}
