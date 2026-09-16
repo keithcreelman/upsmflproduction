@@ -1,0 +1,46 @@
+name: Discord message reconciliation
+
+# Keeps the Discord message archive (migration 0158_discord_message_ingestion.sql)
+# from going stale between runs. There is no real-time Gateway listener yet
+# (see pipelines/etl/scripts/discord_reconcile.py's module docstring — that's
+# an explicit, confirmed scope cut, not an oversight), so this REST
+# reconciliation IS the freshness mechanism for now: cursor-forward for new
+# messages in Coffee Shop / On the Sofa (+ their active threads), plus a
+# rolling 24h window re-fetch to catch edits and infer deletions.
+#
+# Needs CLOUDFLARE_API_TOKEN (D1 write — same secret every other D1-writing
+# workflow uses) and DISCORD_BOT_TOKEN (already a repo secret, shared with
+# the worker and trade_roast_bot.py — no new credential provisioned here).
+# DISCORD_GUILD_ID is not a credential (it grants nothing by itself without
+# the bot token) and is set inline, the same way the two channel IDs are
+# already hardcoded plainly inside discord_reconcile.py.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # every 30 minutes
+  workflow_dispatch:
+
+concurrency:
+  group: discord-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Reconcile Discord messages → D1
+        working-directory: worker # so discord_reconcile.py's `wrangler` calls find wrangler.toml / the D1 binding
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_GUILD_ID: "1057655884475531324" # UPS Dynasty FFL -- the bot's only guild, discovered via GET /users/@me/guilds
+        run: python3 ../pipelines/etl/scripts/discord_reconcile.py
