@@ -343,7 +343,13 @@ def _div_winner_key(t):
     return (-t["pct"], -t["divpct"], -t["pf"], -t["ap_pct"])
 
 
-def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None):
+def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None,
+             actual=None, posterior=None):
+    """`actual` ({week: {fid: real score}}) fixes already-played weeks instead of
+    drawing them -- what happened is not a random variable. `posterior`
+    ({fid: (mean, var)}) replaces the shared N(0, sigma_s) shock draw with each
+    team's own updated belief; see posterior_shock() for where it comes from.
+    Both default to None, which reproduces the preseason behaviour exactly."""
     fids = sorted(teams)
     agg = {f: {"h2h_w": 0.0, "ap_pct": 0.0, "div": 0, "po": 0, "bye": 0, "title": 0, "runner": 0,
                "ap_rank": [0] * len(fids), "ap_samples": []} for f in fids}
@@ -356,11 +362,13 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
     shape_by_finish = [0.0] * len(fids)
     champ_ap_rank = [0] * len(fids)
     ap_var_sum = 0.0
+    actual = actual or {}
     for _ in range(runs):
-        shock = {f: rng.gauss(0, sigma_s) for f in fids}
+        shock = ({f: rng.gauss(*posterior[f]) for f in fids} if posterior
+                 else {f: rng.gauss(0, sigma_s) for f in fids})
         rec = {f: {"w": 0, "l": 0, "t": 0, "dw": 0, "dl": 0, "apw": 0, "apl": 0, "pf": 0.0} for f in fids}
         for wk in range(1, reg_end + 1):
-            score = {f: wp[f][wk] + shock[f] + rng.gauss(0, sigma_w) for f in fids}
+            score = actual[wk] if wk in actual else {f: wp[f][wk] + shock[f] + rng.gauss(0, sigma_w) for f in fids}
             order = sorted(fids, key=lambda f: score[f])
             for i, f in enumerate(order):
                 rec[f]["apw"] += i
@@ -545,6 +553,7 @@ def prepare(season, cache_dir=None, roster_week=None, projections="weekly", inju
     wp_raw, fills, parts = weekly_projections(rosters, proj, end, rep, reg_end=reg_end)
     return {"league": league, "teams": teams, "sched": sched, "reg_end": reg_end, "end": end,
             "games": games, "wp_raw": wp_raw, "fills": fills, "parts": parts, "proj": proj, "pos": pos,
+            "rosters": rosters, "rep": rep, "rostered": rostered,
             "absent": dict((p, a) for p, a in absent.items() if p in rostered)}
 
 
@@ -586,6 +595,398 @@ def fit(prep, k, runs, seed, collect=True):
     agg, ap_var = simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, random.Random(seed), collect)
     return {"wp": wp, "proj_var": proj_var, "sigma_w": sigma_w, "sigma_s": sigma_s, "table": table,
             "agg": agg, "ap_var": ap_var}
+
+
+def actual_scores_by_week(season, through_week, cache_dir=None):
+    """{week: {fid: real team score}} for weeks 1..through_week, straight from
+    MFL's weeklyResults -- the same export actual_allplay() reads, kept
+    separate because the live update needs raw scores, not the all-play
+    summary. Fails closed on a week that does not resolve to exactly 12 teams,
+    same guard as actual_allplay()."""
+    out = {}
+    for wk in range(1, int(through_week) + 1):
+        wr = fetch(MFL % (season, "weeklyResults", "&W=%d" % wk), cache_dir)["weeklyResults"]
+        score = {}
+        for m in _as_list(wr.get("matchup")):
+            for x in _as_list(m.get("franchise")):
+                score[x["id"]] = float(x["score"])
+        for x in _as_list(wr.get("franchise")):
+            score.setdefault(x["id"], float(x["score"]))
+        if len(score) != 12:
+            raise SystemExit("season_sim: %d week %d weeklyResults covers %d teams, not 12"
+                             % (season, wk, len(score)))
+        out[wk] = score
+    return out
+
+
+# BAYESIAN UPDATE OF THE SEASON-LONG SHOCK. `simulate()`'s model is
+# score[wk] = wp[f][wk] + shock[f] + N(0, sigma_w) -- shock is drawn once per
+# simulated season from the prior N(0, sigma_s), a team's constant quality
+# error the preseason projection could not see. Once real weeks are in hand,
+# that is no longer unknown: a team that has scored consistently above its own
+# weekly projection almost certainly has positive shock, and by how much is a
+# textbook normal-normal conjugate update, using the SAME sigma_w/sigma_s this
+# file already backtested -- no new, uncalibrated "weeks of prior" knob.
+def posterior_shock(wp, actual, sigma_w, sigma_s, fids):
+    """{fid: (posterior_mean, posterior_sd)} from real deviations vs `wp`.
+
+    n=0 (nothing played yet) returns (0, sigma_s) for every team -- identical
+    to the preseason prior, so a live run before week 1 reproduces run()."""
+    out = {}
+    for f in fids:
+        devs = [actual[wk][f] - wp[f][wk] for wk in actual if f in actual[wk]]
+        n = len(devs)
+        if n == 0:
+            out[f] = (0.0, sigma_s)
+            continue
+        dbar = sum(devs) / n
+        # Posterior precision = prior precision + n * likelihood precision.
+        prior_prec = 1.0 / (sigma_s * sigma_s) if sigma_s > 0 else 0.0
+        like_prec = n / (sigma_w * sigma_w) if sigma_w > 0 else 0.0
+        post_prec = prior_prec + like_prec
+        post_var = 1.0 / post_prec if post_prec > 0 else 0.0
+        post_mean = (like_prec * dbar) / post_prec if post_prec > 0 else 0.0
+        out[f] = (post_mean, math.sqrt(post_var))
+    return out
+
+
+# NAME THE CAUSE, WHEN THE DATA ACTUALLY SUPPORTS IT. Keith 2026-09-15, after
+# tracing why The Long Haulers' outlook cratered relative to a much worse
+# week from L.A. Looks: "note when large swings ... highlight this is
+# because no A.J. Brown for 6 weeks." The preseason forecast never applies
+# injury logic (see absences() above), so any team whose real absence
+# predates or coincides with the preseason snapshot -- or is simply large
+# enough to matter -- will show a swing that looks like pure model noise
+# unless the cause is surfaced by name.
+def _net_absence_impact(prep, fid, pid, weeks, restore_value):
+    """This team's actual point swing from missing `pid` for `weeks`, using
+    the SAME lineup optimization (the rest of the bench, plus the same
+    replacement-level wire bodies) the model already applies to every week --
+    not the player's own raw value, which silently assumes the roster slot
+    goes empty. Keith 2026-09-16: "we will find a replacement on WW ... we
+    have a replacement on our bench" -- an owner fills the hole, so the
+    estimate has to reflect the next-best player actually available, not a
+    zero.
+
+    Reruns weekly_projections() for this one team with `pid`'s typical value
+    restored for the weeks he is out, and diffs against prep["wp_raw"] (the
+    current, already-without-him optimum) -- so both sides of the comparison
+    run through the identical slot-filling logic."""
+    proj_with = dict(prep["proj"])
+    for w in weeks:
+        proj_with[w] = dict(proj_with.get(w, {}))
+        proj_with[w][pid] = restore_value
+    wp_with, _, _ = weekly_projections({fid: prep["rosters"][fid]}, proj_with, prep["end"],
+                                       prep["rep"], reg_end=prep["reg_end"])
+    deltas = [wp_with[fid][w] - prep["wp_raw"][fid][w] for w in weeks if w in wp_with.get(fid, {})]
+    return sum(deltas) / len(deltas) if deltas else None
+
+
+def biggest_absences(prep, cache_dir=None, min_points=8.0):
+    """{fid: {player, pos, weeksOut, details, estPtsPerWeek, estTotalPtsLost}}
+    -- the single largest real, sourced absence per team, so a forecast swing
+    can be explained by name instead of left as an unexplained number.
+
+    estPtsPerWeek/estTotalPtsLost are the NET impact after the model's own
+    bench-and-waiver-level replacement fills the slot (see
+    _net_absence_impact) -- not the absent player's own raw value, which
+    overstates the hit every owner actually takes.
+
+    No fabricated point values: a player never projected while active (most
+    season-long IR/PUP tags -- MFL simply does not project them) is skipped
+    rather than guessed, and a team's NET absence must clear min_points
+    (roughly a full game's worth of production) before it is reported at
+    all."""
+    if not prep["absent"]:
+        return {}
+    names = ({p["id"]: p.get("name") for p in fetch(MFL_PLAYERS % LIVE_SEASON, cache_dir)
+             ["players"]["player"]} if LIVE_SEASON else {})
+    owner_of = {}
+    for fid, rows in prep["rosters"].items():
+        for r in rows:
+            owner_of[r["pid"]] = fid
+    proj = prep["proj"]
+    best = {}
+    for pid, a in prep["absent"].items():
+        fid = owner_of.get(pid)
+        if not fid:
+            continue
+        vals = [proj[w][pid] for w in proj if pid in proj[w]]
+        if not vals:
+            continue
+        avg = sum(vals) / len(vals)
+        net = _net_absence_impact(prep, fid, pid, a["weeks"], avg)
+        if net is None:
+            continue
+        total = net * len(a["weeks"])
+        if total < min_points:
+            continue
+        cur = best.get(fid)
+        if cur is None or total > cur["estTotalPtsLost"]:
+            best[fid] = {"player": names.get(pid, pid), "pos": prep["pos"].get(pid, ""),
+                        "weeksOut": a["weeks"], "details": a["details"] or a["status"],
+                        "estPtsPerWeek": round(net, 1), "estTotalPtsLost": round(total, 1)}
+    return best
+
+
+# NOT EVERY REAL LOSS IS AN ABSENCE. Keith 2026-09-16, after biggest_absences()
+# cleared everyone but Cross's A.J. Brown and only for 8.5 net points: "can't
+# you compare current projections vs what you had?" ups_player_projections
+# (2026-08-02 on) answers that for STILL-ROSTERED players whose own MFL
+# projection simply fell -- Quentin Johnston (traded for by Cross in July)
+# went 13.7 -> 7.7 in week 1's own captured history, and nets to roughly
+# 5.5 pts/week for the team because, unlike Brown, nothing on the bench sits
+# where Johnston used to.
+def biggest_decliners(prep, cache_dir=None, min_points=8.0, min_ratio=1.3, min_raw_drop=3.0):
+    """{fid: {player, pos, weekOneFirstProjected, weekOneNowProjected,
+    estPtsPerWeek, estTotalPtsLost}} -- the single largest real decline in a
+    still-active player's OWN projection since MFL's earliest captured value
+    for him, per team, netted the same way as biggest_absences(): restore his
+    old value, re-optimize the lineup, diff against the current optimum.
+    Unlike a raw point drop, this correctly reads as near-zero for a player
+    whose fall just lands him beside an equally-good bench option, and as
+    real when nothing behind him is comparable.
+
+    A player already counted in biggest_absences() is skipped here (he is out
+    entirely -- a different story, not a smaller version of this one).
+    min_ratio/min_raw_drop are a cheap pre-filter on the RAW week-1 decline,
+    checked before the expensive netting pass even runs; min_points is the
+    real gate, applied to the NET total.
+
+    CONSISTENCY GATE, not just a pre-filter (the bug the first version of
+    this shipped with): week 1's captured drop is only trusted as a real,
+    durable signal if the player's CURRENT week-1 number is close to his
+    CURRENT week-2-onward average. When it is not -- his own week-2+ number
+    is already back near his ORIGINAL week-1 projection -- the week-1 drop
+    was a one-week matchup/game-script wobble, not a quality reassessment,
+    and extrapolating it forward fabricates a number: an early version of
+    this restored Chuba Hubbard to a 25-point/week running back and Kenyon
+    Sadiq (a backup TE) to 24. Both had already-healthy week-2+ averages;
+    only a player whose current week 1 and week 2+ numbers AGREE (like
+    Quentin Johnston: 7.7 now vs a 7.65 week-2+ average) is extrapolated at
+    all. Restoration itself uses the flat point difference, not a ratio --
+    multiplying a small denominator explodes exactly when this gate is meant
+    to catch it.
+
+    PLAUSIBILITY GATE, a second and distinct check (Keith 2026-09-16: "is
+    this 16.1 for Godwin his original weekly average for the season? That's
+    elite numbers and feels like it might've been just Week 1 projection?"):
+    the consistency gate above only protects the CURRENT trajectory -- it
+    says nothing about whether the ORIGINAL captured value was ever a
+    credible number to begin with. `first_projected` is captured as early as
+    2026-08-02, deep offseason, well before camp battles and roles settle --
+    three of five early candidates (Chris Godwin 16.1, Michael Penix Jr.
+    14.6, Jake Tonges 13.4) turned out to be numbers the model has NEVER
+    shown that player again, in any week, even a good matchup (Godwin's
+    entire current range is 7.0-9.2). That is not a player who "declined" --
+    it is an unreliable first capture with nothing to have declined FROM.
+    Requiring first <= max(current weeks 2+) * 1.15 keeps only a decline
+    whose claimed old level the model still sometimes produces for that
+    player today (Quentin Johnston hits 14.4 in week 8; Rome Odunze hits
+    16.8 twice) -- a real, still-achievable level he has fallen away from,
+    not a phantom one.
+
+    Source: ups_player_projections (D1), which has captured every player's
+    own week-1 projection repeatedly since 2026-08-02 -- but only week 1 so
+    far. The decline is extrapolated onto weeks 2+ by the SAME flat point
+    amount observed in week 1 (a labeled assumption -- there is no second
+    real data point for those weeks yet), not a fabricated number: see the
+    caller for how this is surfaced."""
+    import wire_data as WD  # local: only the live path touches D1
+    owner_of = {}
+    for fid, rows in prep["rosters"].items():
+        for r in rows:
+            owner_of[r["pid"]] = fid
+    d1_rows = WD.d1("SELECT player_id, first_projected, projected_score FROM ups_player_projections "
+                    "WHERE season = %d AND week = 1" % LIVE_SEASON)
+    names = ({p["id"]: p.get("name") for p in fetch(MFL_PLAYERS % LIVE_SEASON, cache_dir)
+             ["players"]["player"]} if LIVE_SEASON else {})
+    proj = prep["proj"]
+    end, reg_end = prep["end"], prep["reg_end"]
+    best = {}
+    for r in d1_rows:
+        pid = r["player_id"]
+        fid = owner_of.get(pid)
+        if not fid or pid in prep["absent"]:
+            continue
+        first, now = r["first_projected"], r["projected_score"]
+        if not first or not now or now <= 0 or first <= now:
+            continue
+        if (first - now) < min_raw_drop or (first / now) < min_ratio:
+            continue
+        cur_vals = [proj[w][pid] for w in range(2, end + 1) if pid in proj.get(w, {})]
+        if not cur_vals:
+            continue
+        cur_avg = sum(cur_vals) / len(cur_vals)
+        if abs(now - cur_avg) > max(2.0, 0.25 * max(now, cur_avg)):
+            continue  # week 1's drop does not match his own current weeks 2+ -- noise, not a real decline
+        if first > max(cur_vals) * 1.15:
+            continue  # the model never shows him this level anymore, in any week -- an unreliable
+                      # first capture, not a real level he fell away from
+        restored = cur_avg + (first - now)
+        weeks = list(range(2, end + 1))
+        proj_with = dict(proj)
+        for w in weeks:
+            proj_with[w] = dict(proj_with.get(w, {}))
+            proj_with[w][pid] = restored
+        wp_with, _, _ = weekly_projections({fid: prep["rosters"][fid]}, proj_with, end, prep["rep"],
+                                           reg_end=reg_end)
+        deltas = [wp_with[fid][w] - prep["wp_raw"][fid][w] for w in weeks if w in wp_with.get(fid, {})]
+        if not deltas:
+            continue
+        net = sum(deltas) / len(deltas)
+        total = net * len(deltas)
+        if total < min_points:
+            continue
+        cur = best.get(fid)
+        if cur is None or total > cur["estTotalPtsLost"]:
+            best[fid] = {"player": names.get(pid, pid), "pos": prep["pos"].get(pid, ""),
+                        "weekOneFirstProjected": round(first, 1), "weekOneNowProjected": round(now, 1),
+                        "estPtsPerWeek": round(net, 1), "estTotalPtsLost": round(total, 1)}
+    return best
+
+
+def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT,
+             preseason_path=None):
+    """The in-season update: same roster/projection/injury pipeline as run(),
+    the same fit() (regression + calibration) an ordinary preseason run uses,
+    but weeks 1..through_week are FIXED to what actually happened and every
+    later week draws its shock from that team's updated posterior instead of
+    the shared prior. Diffed against the ORIGINAL preseason file, read as-is
+    and never rewritten -- Keith 2026-09-15: "Preserve it as the prior forecast
+    so readers can see how beliefs changed."
+
+    Deliberately file-based, like the preseason output, not D1: this project's
+    existing convention for season_sim's output is a committed JSON per run,
+    and a live snapshot is the same kind of artifact one week later. Call this
+    by hand once a week's games are final, the same way the preseason run is
+    invoked by hand -- no new scheduled job.
+    """
+    global LIVE_SEASON
+    LIVE_SEASON = season
+    pre_path = preseason_path or "site/wire/data/season_sim_%d.json" % season
+    if not os.path.exists(pre_path):
+        raise SystemExit("season_sim: no preseason forecast at %s -- run a preseason forecast first, "
+                         "it is the prior this update reads and never overwrites" % pre_path)
+    preseason = json.load(open(pre_path, encoding="utf-8"))
+    pre_by_fid = dict((t["franchiseId"], t) for t in preseason["teams"])
+
+    prep = prepare(season, cache_dir, injuries=True)
+    teams, games = prep["teams"], prep["games"]
+    reg_end, end = prep["reg_end"], prep["end"]
+    if through_week < 1 or through_week > reg_end:
+        raise SystemExit("season_sim: --through-week must be between 1 and %d" % reg_end)
+    res = fit(prep, k, runs, seed, collect=False)
+    wp, sigma_w, sigma_s = res["wp"], res["sigma_w"], res["sigma_s"]
+
+    actual = actual_scores_by_week(season, through_week, cache_dir)
+    fids = sorted(teams)
+    posterior = posterior_shock(wp, actual, sigma_w, sigma_s, fids)
+
+    # OFFICIAL = "refresh-only": banked results + this run's live rosters/
+    # projections/full-league resim, but NO persistent per-team shock -- every
+    # team's own quality error for weeks not yet played still draws from the
+    # shared, un-updated prior N(0, sigma_s^2), same as a fresh preseason run.
+    # Keith 2026-09-15 (Phase 2 brief): the permanent Bayesian shock below
+    # compounds one outlier week across every remaining week and has not been
+    # backtested -- it runs alongside as a SHADOW diagnostic only, never the
+    # number this function (or the Wire) publishes. See
+    # docs/wire/dynamic_forecast_model.md.
+    agg, ap_var = simulate(teams, prep["sched"], wp, reg_end, end, runs, sigma_w, sigma_s,
+                           random.Random(seed), collect=True, actual=actual, posterior=None)
+    agg_shadow, _ = simulate(teams, prep["sched"], wp, reg_end, end, runs, sigma_w, sigma_s,
+                             random.Random(seed), collect=True, actual=actual, posterior=posterior)
+    injury_by_fid = biggest_absences(prep, cache_dir)
+    decline_by_fid = biggest_decliners(prep, cache_dir)
+
+    def _pctl(xs, p):
+        return xs[min(len(xs) - 1, int(p * len(xs)))] if xs else 0.0
+
+    # Games remaining is schedule-derived (this league's weeks are not one
+    # game each -- see the docstring's 37-games note), never a flat 14 x 11.
+    played_games = dict((f, 0) for f in fids)
+    for wk, ms in prep["sched"].items():
+        if wk > through_week:
+            continue
+        for a, b in ms:
+            played_games[a] = played_games.get(a, 0) + 1
+            played_games[b] = played_games.get(b, 0) + 1
+
+    rows = []
+    for f in fids:
+        a = agg[f]
+        b = agg_shadow[f]
+        cur_wk = actual[through_week]
+        week_rank = 1 + sum(1 for g in fids if cur_wk[g] > cur_wk[f])
+        cur_ap_w = sum(1 for wk in actual for g in fids if g != f and actual[wk][f] > actual[wk][g])
+        cur_ap_l = sum(1 for wk in actual for g in fids if g != f and actual[wk][f] < actual[wk][g])
+        cur_ap_t = sum(1 for wk in actual for g in fids if g != f and actual[wk][f] == actual[wk][g])
+        pre = pre_by_fid.get(f, {})
+        rows.append({
+            "franchiseId": f, "team": teams[f]["name"], "division": teams[f]["division"],
+            "weekScore": round(cur_wk[f], 1), "weekRank": week_rank,
+            "weekApWins": cur_ap_w, "weekApLosses": (len(fids) - 1) - cur_ap_w,
+            "currentApWins": cur_ap_w, "currentApLosses": cur_ap_l, "currentApTies": cur_ap_t,
+            "currentApPct": round((cur_ap_w + 0.5 * cur_ap_t) / (cur_ap_w + cur_ap_l + cur_ap_t), 4),
+            "gamesPlayed": played_games.get(f, 0), "gamesTotal": games.get(f, 0),
+            "projectedEndingApPct": round(a["ap_pct"] / runs, 4),
+            "apP10": round(_pctl(a["ap_samples"], 0.10), 4), "apP90": round(_pctl(a["ap_samples"], 0.90), 4),
+            "currentDivisionOdds": round(a["div"] / runs, 4), "currentPlayoffOdds": round(a["po"] / runs, 4),
+            "currentByeOdds": round(a["bye"] / runs, 4), "currentTitleOdds": round(a["title"] / runs, 4),
+            "startingAllPlayPct": pre.get("expAllPlayPct"), "startingPowerRank": pre.get("powerRank"),
+            "preseasonTitleOdds": pre.get("pTitle"), "preseasonPlayoffOdds": pre.get("pPlayoffs"),
+            "preseasonDivisionOdds": pre.get("pDivision"),
+            "titleOddsChange": (round(a["title"] / runs - pre["pTitle"], 4) if pre.get("pTitle") is not None else None),
+            "playoffOddsChange": (round(a["po"] / runs - pre["pPlayoffs"], 4) if pre.get("pPlayoffs") is not None else None),
+            # The single largest real, sourced absence dragging on this team's
+            # outlook (None if nothing clears biggest_absences()'s materiality
+            # bar) -- the preseason forecast never knew about it, by design.
+            "biggestAbsence": injury_by_fid.get(f),
+            # Same idea, for a player who is still rostered but whose own
+            # projection genuinely fell (see biggest_decliners()) -- distinct
+            # from an absence, and only reported when the netted team cost
+            # clears its own materiality bar.
+            "biggestDecline": decline_by_fid.get(f),
+            # INTERNAL DIAGNOSTIC ONLY -- the permanent Bayesian shock model
+            # (current Phase 1), not backtested, never cited in Wire prose.
+            # Compare against the official fields above to see what the
+            # permanent-shock model would have published instead.
+            "shadowShock": {
+                "posteriorShockMean": round(posterior[f][0], 2), "posteriorShockSd": round(posterior[f][1], 2),
+                "projectedEndingApPct": round(b["ap_pct"] / runs, 4),
+                "currentDivisionOdds": round(b["div"] / runs, 4), "currentPlayoffOdds": round(b["po"] / runs, 4),
+                "currentByeOdds": round(b["bye"] / runs, 4), "currentTitleOdds": round(b["title"] / runs, 4),
+                "titleOddsChange": (round(b["title"] / runs - pre["pTitle"], 4)
+                                    if pre.get("pTitle") is not None else None),
+            },
+        })
+    rows.sort(key=lambda r: -r["projectedEndingApPct"])
+    out = {
+        "schema": 2, "season": season, "throughWeek": through_week,
+        "generatedAtUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "runs": runs, "seed": seed, "preseasonSource": pre_path,
+        "preseasonGeneratedAtUtc": preseason.get("generatedAtUtc"),
+        "model": {"regress": k, "sigmaWeekly": round(sigma_w, 2), "sigmaSeason": round(sigma_s, 2),
+                  "regularSeasonWeeks": reg_end, "endWeek": end,
+                  "official": "refresh-only: played weeks are fixed to actual results; every "
+                              "remaining week uses this run's live rosters and MFL projections with "
+                              "the shared, un-updated prior N(0, sigma_s^2) -- the same form as a "
+                              "fresh preseason run, just re-run on today's data. No persistent "
+                              "per-team shock is applied to the published numbers.",
+                  "shadow": "each team's shadowShock carries the Bayesian posterior-shock model "
+                            "(a normal-normal conjugate update of the season-long shock term, drawn "
+                            "from that team's own deviation from `wp` instead of the shared prior) "
+                            "-- an internal diagnostic, not backtested, not published. See "
+                            "docs/wire/dynamic_forecast_model.md."},
+        "teams": rows,
+    }
+    if out_path:
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        if os.path.exists(out_path):
+            raise SystemExit("season_sim: %s already exists -- a live snapshot is never overwritten; "
+                             "pick a new path or delete it deliberately first" % out_path)
+        open(out_path, "w", encoding="utf-8").write(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
+    return out
 
 
 def actual_allplay(season, reg_end, cache_dir=None):
@@ -749,7 +1150,33 @@ def main():
     ap.add_argument("--projections", choices=("preseason", "weekly"), default="preseason",
                     help="backtest only: preseason = week-1 projections carried forward (honest); "
                          "weekly = MFL's archived week-of projections (knows in-season news)")
+    ap.add_argument("--through-week", type=int, default=None,
+                    help="live update: blend the preseason forecast with actual results through this "
+                         "week instead of running a fresh preseason forecast")
+    ap.add_argument("--preseason-file", default=None,
+                    help="live update only: path to the preseason JSON (default site/wire/data/"
+                         "season_sim_<season>.json), read as the immutable prior")
     a = ap.parse_args()
+    if a.through_week:
+        if not a.season:
+            ap.error("--season is required with --through-week")
+        out = run_live(a.season, a.through_week, a.runs, a.seed, a.cache_dir, a.out, k=a.regress,
+                       preseason_path=a.preseason_file)
+        print("live update: season %d through week %d, %d runs" % (a.season, a.through_week, a.runs))
+        print("OFFICIAL = refresh-only (no persistent shock). shadow cols = permanent Bayesian shock "
+              "model, internal diagnostic only -- not published.")
+        print("rank team                 wk score  wk rk  cur AP   proj end AP  cur PO%%  cur title%%  "
+              "title chg  | shadow title%%  shadow chg")
+        for r in out["teams"]:
+            chg = r["titleOddsChange"]
+            sh = r["shadowShock"]
+            shg = sh["titleOddsChange"]
+            print("     %-20s %7.1f  %5d  %6.1f%%     %6.1f%%    %6.1f%%    %6.1f%%   %+.1f%%   |    %6.1f%%     %+.1f%%" % (
+                (r["team"] or "")[:20], r["weekScore"], r["weekRank"], 100 * r["currentApPct"],
+                100 * r["projectedEndingApPct"], 100 * r["currentPlayoffOdds"], 100 * r["currentTitleOdds"],
+                100 * chg if chg is not None else 0.0,
+                100 * sh["currentTitleOdds"], 100 * shg if shg is not None else 0.0))
+        return 0
     if a.backtest:
         lo, _, hi = a.backtest.partition("-")
         seasons = range(int(lo), int(hi or lo) + 1)

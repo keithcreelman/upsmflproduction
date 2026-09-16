@@ -1,0 +1,107 @@
+{
+ "seasonsUsed": [
+  {
+   "season": 2015,
+   "regEnd": 13,
+   "teams": 12
+  },
+  {
+   "season": 2017,
+   "regEnd": 13,
+   "teams": 12
+  },
+  {
+   "season": 2018,
+   "regEnd": 13,
+   "teams": 12
+  },
+  {
+   "season": 2019,
+   "regEnd": 13,
+   "teams": 12
+  },
+  {
+   "season": 2020,
+   "regEnd": 13,
+   "teams": 12
+  },
+  {
+   "season": 2021,
+   "regEnd": 14,
+   "teams": 12
+  },
+  {
+   "season": 2022,
+   "regEnd": 14,
+   "teams": 12
+  },
+  {
+   "season": 2023,
+   "regEnd": 14,
+   "teams": 12
+  },
+  {
+   "season": 2024,
+   "regEnd": 14,
+   "teams": 12
+  },
+  {
+   "season": 2025,
+   "regEnd": 14,
+   "teams": 12
+  }
+ ],
+ "splits": [
+  {
+   "earlyWeeks": 1,
+   "teamSeasons": 120,
+   "empiricalSlope": 0.1877,
+   "slopeSe": 0.0441,
+   "ci95": [
+    0.1013,
+    0.2741
+   ],
+   "pearsonR": 0.3649,
+   "intercept": 0.0
+  },
+  {
+   "earlyWeeks": 2,
+   "teamSeasons": 120,
+   "empiricalSlope": 0.3421,
+   "slopeSe": 0.0593,
+   "ci95": [
+    0.2258,
+    0.4584
+   ],
+   "pearsonR": 0.4688,
+   "intercept": -0.0
+  },
+  {
+   "earlyWeeks": 3,
+   "teamSeasons": 120,
+   "empiricalSlope": 0.4408,
+   "slopeSe": 0.0668,
+   "ci95": [
+    0.3099,
+    0.5716
+   ],
+   "pearsonR": 0.5194,
+   "intercept": -0.0
+  },
+  {
+   "earlyWeeks": 4,
+   "teamSeasons": 120,
+   "empiricalSlope": 0.5228,
+   "slopeSe": 0.0723,
+   "ci95": [
+    0.381,
+    0.6646
+   ],
+   "pearsonR": 0.5539,
+   "intercept": 0.0
+  }
+ ],
+ "generatedAtUtc": "2026-09-16T02:11:57Z",
+ "nStarReference": 4.606,
+ "nStarSource": "site/wire/data/season_sim_2026_live_wk01.json (model block)"
+}

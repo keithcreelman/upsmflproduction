@@ -24,7 +24,7 @@
   packGeneratedAtUtc: 2026-09-12T22:20:59Z
   engine: claude-opus-5 (session, written by hand)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-4d632834">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-ab6aa6a3">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -638,6 +638,40 @@ th.wire-sortable::after { content: " \2195"; opacity: .28; font-size: .85em; }
 th.wire-sortable[aria-sort="ascending"]::after { content: " \2191"; opacity: .9; }
 th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9; }
 @media (max-width: 700px) { th.wire-sortable::after { content: ""; } }
+
+/* ---------- the desk: two anchors trading the week ---------- */
+/* Keith 2026-09-15: "Stuart: line passes it to Rich." Each line carries its
+   speaker as a generated label; with no CSS it still reads "Stuart: ...". */
+.wire-desk-line { padding-left: 0.85rem; border-left: 3px solid var(--line); }
+.wire-desk-stuart { border-left-color: var(--gold); }
+.wire-desk-rich { border-left-color: var(--cool); }
+.wire-desk-who {
+  font-family: var(--display); font-weight: 800; font-size: 0.74rem;
+  letter-spacing: 0.12em; text-transform: uppercase; margin-right: 0.3rem;
+}
+.wire-desk-stuart .wire-desk-who { color: var(--gold); }
+.wire-desk-rich .wire-desk-who { color: var(--cool); }
+.wire-sechead + p.wire-desk-line { font-size: 1.12rem; }
+.wire-sec > .wire-desk-line + .wire-desk-line { margin-top: -0.45rem; }
+.wire-pot-desk { border-left: 0; padding-left: 0; }
+.wire-pot-desk .wire-desk-line { margin: 0 0 0.65rem; }
+
+/* ---------- pots: every game a division played, on one page ---------- */
+.wire-pot-banner .wire-gp-team { font-size: clamp(1.2rem, 3.2vw, 1.7rem); }
+.wire-potpage .wire-fig { margin: 0.4rem 0 0.2rem; }
+.wire-pot-lines { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.9rem 0; }
+.wire-pot-line {
+  display: grid; grid-template-columns: 1fr auto auto auto 1fr auto;
+  gap: 0.5rem; align-items: baseline; font-size: 0.95rem;
+}
+.wire-pot-line .wire-gp-num { font-size: 1.05rem; }
+.wire-pot-w { color: var(--ink); font-weight: 700; text-align: right; }
+.wire-pot-l { color: var(--ink-mute); }
+.wire-pot-margin { color: var(--ink-mute); font-size: 0.8rem; font-family: var(--mono); }
+@media (max-width: 520px) {
+  .wire-pot-line { grid-template-columns: 1fr auto auto auto 1fr; }
+  .wire-pot-margin { display: none; }
+}
 </style>
 </head>
 <body>

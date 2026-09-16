@@ -886,16 +886,163 @@ def bench_burns(season, week, min_diff=15.0):
             return f["avg"]
         return None
 
+    # THIS WEEK'S PROJECTION is the second judge, used only when recent form
+    # cannot say -- week 1 always, and any week a player has no recent games.
+    # It is the information the manager actually had when he set the lineup.
+    proj = {}
+    ids = sorted(set([v["benched_id"] for v in out.values()] + [v["started_id"] for v in out.values()]))
+    if ids:
+        for r in d1("SELECT player_id, projected_score, updated_at FROM ups_player_projections "
+                    "WHERE season = %d AND week = %d AND player_id IN (%s)"
+                    % (int(season), int(week), _quoted(ids))):
+            if r.get("projected_score") is not None and projection_in_time(season, week, r.get("updated_at")):
+                proj[str(r["player_id"])] = float(r["projected_score"])
+
     for v in out.values():
         v["benched_avg"] = _form(v["benched_id"])
         v["started_avg"] = _form(v["started_id"])
-        if v["benched_avg"] is None or v["started_avg"] is None:
-            v["verdict"] = "unknown"
-        elif v["benched_avg"] > v["started_avg"] + 2.0:
-            v["verdict"] = "process"
+        v["benched_proj"] = proj.get(str(v["benched_id"]))
+        v["started_proj"] = proj.get(str(v["started_id"]))
+        if v["benched_avg"] is not None and v["started_avg"] is not None:
+            v["basis"] = "form"
+            a, b = v["benched_avg"], v["started_avg"]
+        elif v["benched_proj"] is not None and v["started_proj"] is not None:
+            v["basis"] = "projection"
+            a, b = v["benched_proj"], v["started_proj"]
         else:
-            v["verdict"] = "variance"
+            v["basis"], v["verdict"] = None, "unknown"
+            continue
+        # A projection is the number the manager was actually shown, so a one-
+        # point edge counts; recent form is noisier and keeps its two-point
+        # margin. Gerardi (2.0) and Creelman (2.2) benched the higher-projected
+        # quarterback by the same kind of gap, and a two-point cutoff called one
+        # a coin flip and the other a blunder.
+        margin = 1.0 if v["basis"] == "projection" else 2.0
+        v["verdict"] = "process" if a > b + margin else "variance"
+        v["close"] = b < a <= b + margin
     return out
+
+
+def projection_in_time(season, week, updated_at):
+    """Whether a captured projection can stand in for what the manager saw.
+
+    MFL does not revise a projection from a game's result -- Sam Darnold, hurt
+    on the first drive of the 2026 Thursday opener, still showed 13.7 on
+    Sunday -- so a capture taken while the Sunday slate is under way is the
+    pre-game number. A capture taken more than a day after the main Sunday
+    kickoff is a backfill, and a verdict must not rest on it.
+    """
+    if updated_at is None:
+        return False
+    thursday, _ = week_window(season, week)
+    cutoff = thursday + 3 * 86400 + 17 * 3600 + 86400
+    return int(updated_at) <= cutoff
+
+
+
+def starter_projections(season, week):
+    """Every starter with a captured projection: [{fid, player, pos_group, score, proj}].
+
+    Starters with no score (MFL blank) are left out rather than counted as zero:
+    a blank is not a bust, and calling it one would be the fail-open mistake the
+    did-not-play check exists to avoid.
+    """
+    rows = d1(
+        "SELECT w.roster_franchise_id AS fid, w.pos_group, w.score, p.name AS player_name, "
+        "pr.projected_score AS proj, pr.updated_at FROM src_weekly w "
+        "JOIN ups_player_projections pr ON pr.season = w.season AND pr.week = w.week "
+        "AND pr.player_id = w.player_id "
+        "LEFT JOIN src_players p ON p.season = w.season AND p.player_id = w.player_id "
+        "WHERE w.season = %d AND w.week = %d AND w.status = 'starter' AND w.score IS NOT NULL "
+        "AND pr.projected_score IS NOT NULL AND w.roster_franchise_id IS NOT NULL"
+        % (int(season), int(week)))
+    return [{"fid": str(r["fid"]).zfill(4), "player": display_name(r["player_name"]),
+             "pos_group": r.get("pos_group") or "", "score": float(r["score"]),
+             "proj": float(r["proj"])} for r in rows
+            if projection_in_time(season, week, r.get("updated_at"))]
+
+
+def offense_repeatability(season, week):
+    """fid -> {"off_pts", "volatile_pts", "repeatable_index"} for starting
+    offense (QB/RB/WR/TE) only -- see IDP_GROUPS note below for why defense
+    is not attempted here.
+
+    volatile_pts is every touchdown and turnover event at THIS league's own
+    point values -- 6 per touchdown (offense, receiving or rushing; the +1 for
+    a 50+ yard score is folded in as one more touchdown-shaped event, not
+    tracked separately) and -2 per turnover (interception thrown, fumble
+    lost) -- read live from MFL TYPE=rules 2026-09-15 (event codes PS/RS/RC,
+    IN, FL), not assumed. Everything else a player scored (yardage tiers,
+    per-yard bonus, receptions, first downs) is repeatable_pts by construction:
+    it tracks volume, not a single binary outcome. This is a diagnostic, not a
+    verdict -- see weekly_recap.py's Signal labelling for how it is used.
+    """
+    rows = d1(
+        "SELECT w.roster_franchise_id AS fid, "
+        "COALESCE(w.score, 0) AS score, "
+        "COALESCE(n.pass_tds, 0) AS pass_tds, COALESCE(n.rush_tds, 0) AS rush_tds, "
+        "COALESCE(n.rec_tds, 0) AS rec_tds, COALESCE(n.pass_ints, 0) AS pass_ints, "
+        "COALESCE(n.rush_fumbles_lost, 0) AS rush_fum, COALESCE(n.rec_fumbles_lost, 0) AS rec_fum "
+        "FROM src_weekly w "
+        "LEFT JOIN player_id_crosswalk x ON x.mfl_player_id = w.player_id "
+        "LEFT JOIN nfl_player_weekly n ON n.season = w.season AND n.week = w.week AND n.gsis_id = x.gsis_id "
+        "WHERE w.season = %d AND w.week = %d AND w.status = 'starter' "
+        "AND w.pos_group IN ('QB','RB','WR','TE') AND w.roster_franchise_id IS NOT NULL"
+        % (int(season), int(week)))
+    out = {}
+    for r in rows:
+        fid = str(r["fid"]).zfill(4)
+        d = out.setdefault(fid, {"off_pts": 0.0, "volatile_pts": 0.0})
+        d["off_pts"] += float(r["score"])
+        tds = int(r["pass_tds"]) + int(r["rush_tds"]) + int(r["rec_tds"])
+        turnovers = int(r["pass_ints"]) + int(r["rush_fum"]) + int(r["rec_fum"])
+        d["volatile_pts"] += 6.0 * tds - 2.0 * turnovers
+    for fid, d in out.items():
+        d["off_pts"] = round(d["off_pts"], 2)
+        d["volatile_pts"] = round(d["volatile_pts"], 2)
+        d["repeatable_index"] = (round(max(0.0, min(1.0, 1.0 - d["volatile_pts"] / d["off_pts"])), 3)
+                                 if d["off_pts"] > 0 else None)
+    return out
+
+
+IDP_GROUPS = ("DL", "LB", "DB")
+OFFENSE_GROUPS = ("QB", "RB", "WR", "TE")
+KICKING_GROUPS = ("PK", "PN")
+
+
+def starter_points_by_group(season, week):
+    """fid -> {"off", "idp", "kp"} starter points, or raises when it cannot be exact.
+
+    All or nothing: a starter in an unmapped position group, or a franchise
+    whose three buckets do not add back to its official team score, fails the
+    whole split. A partial split would publish one owner's defense as zero.
+    """
+    rows = d1(
+        "SELECT w.roster_franchise_id AS fid, w.pos_group, SUM(COALESCE(w.score, 0)) AS pts "
+        "FROM src_weekly w WHERE w.season = %d AND w.week = %d AND w.status = 'starter' "
+        "AND w.roster_franchise_id IS NOT NULL GROUP BY w.roster_franchise_id, w.pos_group"
+        % (int(season), int(week)))
+    totals = dict((str(r["franchise_id"]).zfill(4), float(r["team_score"])) for r in d1(
+        "SELECT franchise_id, team_score FROM src_franchise_weekly_score "
+        "WHERE season = %d AND week = %d" % (int(season), int(week))))
+    out, bad = {}, []
+    for r in rows:
+        fid = str(r["fid"]).zfill(4)
+        g = r["pos_group"]
+        bucket = ("off" if g in OFFENSE_GROUPS else "idp" if g in IDP_GROUPS
+                  else "kp" if g in KICKING_GROUPS else None)
+        if bucket is None:
+            bad.append("%s starter in unmapped position group %r" % (fid, g))
+            continue
+        d = out.setdefault(fid, {"off": 0.0, "idp": 0.0, "kp": 0.0})
+        d[bucket] += float(r["pts"] or 0)
+    for fid, total in totals.items():
+        got = sum(out.get(fid, {}).values())
+        if abs(got - total) >= 0.1:
+            bad.append("%s buckets sum to %.1f, team score %.1f" % (fid, got, total))
+    if bad:
+        raise DataError("offense/IDP split refused: " + "; ".join(bad))
+    return dict((f, dict((k, round(v, 2)) for k, v in d.items())) for f, d in out.items())
 
 
 def did_not_play(season, week):

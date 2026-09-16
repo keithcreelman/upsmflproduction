@@ -471,6 +471,10 @@ PACK_BUILDERS = {
 # somewhere unintended.
 for _wk in (7, 13, 14, 15, 16, 17):
     PACK_BUILDERS["2025-wk%02d-recap" % _wk] = "weekly_recap"
+# The 2026 season, every week through the bracket finals (Keith 2026-09-15:
+# "write it as Week 1 - 2026 ... we can publish from here").
+for _wk in range(1, 18):
+    PACK_BUILDERS["2026-wk%02d-recap" % _wk] = "weekly_recap"
 # All 12 franchises (Keith 2026-09-10: "next let's get those articles written").
 # The 2026-09-06 test scope was 0006 and 0008 only -- one heavy auction spender
 # against one light one -- to prove the builder before paying for eleven more.
@@ -571,6 +575,8 @@ PACK_ARTICLE = {"2026-season-forecast": "2026-season-forecast",
                 "2026-weekly-recap-placeholder": "2026-weekly-recap-placeholder"}
 for _wk in (7, 13, 14, 15, 16, 17):
     PACK_FAMILY["2025-wk%02d-recap" % _wk] = "weekly"
+for _wk in range(1, 18):
+    PACK_FAMILY["2026-wk%02d-recap" % _wk] = "weekly"
 for _fid in ("0001", "0002", "0003", "0004", "0005", "0006",
              "0007", "0008", "0009", "0010", "0011", "0012"):
     PACK_FAMILY["2026-team-%s" % _fid] = "season-review"
@@ -596,6 +602,13 @@ def cmd_write(args):
 
     pack, pack_file = _load_pack(args.pack)
     family = PACK_FAMILY.get(args.pack, "dispatch")
+    if pack.get("pots"):
+        # wire_voice's payload knows games, not pots or the desk: it would mark
+        # every pot card unattached and offer pot tables as loose figures. Hand-
+        # author the prose until the voice brief is taught the shape.
+        print("write: %s carries pots, which the model payload does not describe yet -- "
+              "hand-author %s instead" % (args.pack, os.path.relpath(prose_path(args.pack, pack["season"]), REPO)))
+        return 2
     print("writing prose for %s (family %s, model %s)"
           % (args.pack, family, args.model))
     print("  pack: %s facts, %s tables, %s charts, %s warnings"

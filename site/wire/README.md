@@ -169,6 +169,9 @@ same audit as body copy:
 | `placeAt` | section | `{id: n}` -- put that figure right after paragraph `n` (0-based) |
 | `views` | section | `{id: {cols, labels, title, sortDesc, rows, stack, note}}` -- a reader's view of a pack table |
 | `{{id\|ord}}` | any text | Renders a whole-number fact as an ordinal ("7th") |
+| `desk` | section | `[{speaker, text}]` instead of `paragraphs` -- the two-anchor format. `speaker` is `stuart` or `rich`; the renderer prints the label. `placeAt`/`quoteAt` index desk lines |
+| `pots` | section | Pot ids to place, exactly the pack section's `potIds` in order (2026+ regular season). One page per division pot replaces one page per game |
+| `potNotes` | section | `{potId: [{speaker, text}]}` -- required for every placed pot. Division-audited both ways: intra pots may say "division game", inter pots may not |
 
 Team reviews get all of this from `pipelines/etl/wire/team_review_layout.py`,
 run after `write` and before `render`.

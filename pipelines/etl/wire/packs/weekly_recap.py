@@ -125,11 +125,215 @@ def _box_phrase(box):
         d = "%s tackles" % box["def_tackles_total"]
         for k, lbl in (("def_sacks", "sack"), ("def_ints", "INT"), ("def_tds", "TD")):
             if box.get(k):
-                d += ", %s %s" % (box[k], lbl)
+                plural = lbl == "sack" and float(box[k]) != 1
+                d += ", %s %s%s" % (box[k], lbl, "s" if plural else "")
         if box.get("def_tds"):
             d += _50plus(box.get("def_ret_tds_50plus"))
         bits.append(d)
     return "; ".join(bits) if bits else None
+
+
+def _verdict_phrase(b):
+    """The bench verdict in words. Three outcomes, never two: `unknown` is not
+    "right call, bad day" -- it is "we cannot say", and printing it as a
+    defence of the manager was a claim the data never made (spec 4.3)."""
+    if b["verdict"] == "process":
+        return ("the wrong man started -- %s was projected higher that week" % b["benched"]
+                if b.get("basis") == "projection" else
+                "the wrong man started -- %s had been the better player" % b["benched"])
+    if b["verdict"] == "variance" and b.get("close"):
+        return ("a coin flip on the projections that went the wrong way"
+                if b.get("basis") == "projection" else
+                "a coin flip on recent form that went the wrong way")
+    if b["verdict"] == "variance":
+        return ("the projections backed the man he started" if b.get("basis") == "projection"
+                else "the right man started and had a bad day")
+    return "there is no track record yet to call it a mistake either way"
+
+
+def _burns_note(burns):
+    """Explain exactly the verdict labels the table shows, and nothing else."""
+    cells = set(_verdict_cell(b) for b in burns.values())
+    lines = []
+    for label, text in (
+            ("wrong call", "the benched man had the better recent form going in"),
+            ("wrong call (projections)", "the benched man was projected higher that week, by more than a point"),
+            ("close call", "the benched man had slightly better recent form, inside two points"),
+            ("close call (projections)", "the benched man was projected higher, but by a point or less"),
+            ("right call, bad day", "the man who started had the better recent form -- not a mistake"),
+            ("right call, bad day (projections)", "the man who started was projected higher -- not a mistake"),
+            ("unclear", "neither player has enough of a record to judge the call")):
+        if label in cells:
+            lines.append("\"%s\" means %s." % (label[0].upper() + label[1:], text))
+    return " ".join(lines) or None
+
+
+def _verdict_cell(b):
+    basis = " (projections)" if b.get("basis") == "projection" else ""
+    if b["verdict"] == "process":
+        return "wrong call" + basis
+    if b["verdict"] == "variance":
+        return ("close call" if b.get("close") else "right call, bad day") + basis
+    return "unclear"
+
+
+def _comp_rank(values):
+    """{key: (rank, tied, is_max, is_min)} with COMPETITION ranking.
+
+    enumerate() order gave tied values different ranks and superlatives -- two
+    kickers on 10.0 cannot be "the 9th-most" and "the 10th-most". Rank is one
+    plus the number of strictly larger values; ties share it and say so.
+    """
+    vals = dict((k, round(float(v), 2)) for k, v in values.items())
+    out = {}
+    for k, v in vals.items():
+        rank = 1 + sum(1 for x in vals.values() if x > v)
+        tied = sum(1 for x in vals.values() if x == v) > 1
+        out[k] = (rank, tied, all(x <= v for x in vals.values()), all(x >= v for x in vals.values()))
+    return out
+
+
+def _rank_words(rk, most, fewest, nth):
+    """'the most X' / 'the fewest X' / 'the 7th-most X', prefixed 'tied for' on a tie."""
+    rank, tied, is_max, is_min = rk
+    tie = "tied for " if tied else ""
+    if is_max:
+        return tie + most
+    if is_min:
+        return tie + fewest
+    return tie + (nth % _ordinal(rank))
+
+
+PRESEASON_SUFFIXES = ("power_rank", "sim_exp_allplay", "sim_exp_wins", "sim_p_division",
+                      "sim_p_playoffs", "sim_p_title", "sim_p_last")
+
+
+def _compact(name):
+    return "".join(ch for ch in str(name).lower() if ch.isalnum())
+
+
+def load_preseason(season):
+    """The committed preseason forecast, as {"teams": {fid: {suffix: fact}},
+    "divs": {compact_name: {suffix: fact}}, "sim": {fid: sim_team}, "provenance"}.
+
+    Keith 2026-09-15: "the preseason rankings need to be called upon at various
+    points." The recap does not recompute anything: it re-registers the forecast
+    pack's own facts, so the numbers a recap cites are byte-for-byte the ones
+    the live Season Forecast published. Returns None when no forecast exists
+    for the season (every season before 2026).
+    """
+    rel = "site/wire/packs/%d/%d-season-forecast.pack.json" % (season, season)
+    try:
+        fc, prov = D.tracked_data_file(rel)
+        sim, _ = D.tracked_data_file("site/wire/data/season_sim_%d.json" % season)
+    except D.DataError:
+        return None
+    teams, divs = {}, {}
+    for f in fc["facts"]:
+        m = re.match(r"^f\.team\.(\d{4})\.(\w+)$", f["id"])
+        if m and m.group(2) in PRESEASON_SUFFIXES:
+            teams.setdefault(m.group(1), {})[m.group(2)] = f
+        m = re.match(r"^f\.league\.div_([a-z0-9]+)_(allplay|title|playoff_spots)$", f["id"])
+        if m:
+            divs.setdefault(m.group(1), {})[m.group(2)] = f
+    return {"teams": teams, "divs": divs, "provenance": "%s (%s)" % (rel, prov),
+            "sim": dict((t["franchiseId"], t) for t in sim["teams"]), "runs": sim["runs"],
+            "forecast_id": "%d-season-forecast" % season}
+
+
+def load_live_forecast(season, week):
+    """The most recent in-season blended forecast at or before `week`, from
+    season_sim.py --through-week (run by hand -- see its own docstring). Never
+    recomputed here, same rule as load_preseason: the recap cites the model's
+    own numbers, it does not re-run the simulation. Searches backward from
+    `week` so a skipped week's recap still gets the latest available update.
+    Returns None if no live snapshot has been produced yet for this season.
+    """
+    for wk in range(int(week), 0, -1):
+        rel = "site/wire/data/season_sim_%d_live_wk%02d.json" % (season, wk)
+        try:
+            data, prov = D.tracked_data_file(rel)
+        except D.DataError:
+            continue
+        return {"teams": dict((t["franchiseId"], t) for t in data["teams"]),
+                "through_week": data["throughWeek"], "provenance": "%s (%s)" % (rel, prov)}
+    return None
+
+
+def forecast_signal(title_change, repeatable_index, weeks_played, is_top_mover):
+    """One label for how to read a team's title-odds movement -- Keith
+    2026-09-15: "whether the change was driven by repeatable strength or
+    short-term variance." Schedule-driven labels are NOT attempted here (would
+    need the move traced to a specific opponent's strength, not just its
+    size) -- deliberately out of phase 1 rather than guessed; see the pack
+    warning this emits once. Injury attribution is handled separately, by
+    name, at the call site -- see injury_phrase() -- rather than folded into
+    this function's own categories, since it is sourced from a specific
+    absence rather than a threshold on the odds movement itself.
+    """
+    if title_change is None:
+        return "Needs more data"
+    pp = title_change * 100.0
+    rep = repeatable_index
+    if abs(pp) < 2.0:
+        return "Neutral"
+    if abs(pp) < 5.0:
+        return "Prior confirmed"
+    upgrade = pp > 0
+    low_rep = rep is not None and rep < 0.6
+    if upgrade and low_rep and is_top_mover and weeks_played <= 1:
+        return "Early overreaction risk"
+    if upgrade and low_rep:
+        return "Variance-assisted"
+    if abs(pp) >= 15.0:
+        return "Strong upgrade" if upgrade else "Strong downgrade"
+    return "Moderate upgrade" if upgrade else "Moderate downgrade"
+
+
+def injury_phrase(absence):
+    """"no A.J. Brown for 6 weeks (ankle)" from season_sim.py's biggestAbsence,
+    or None. Keith 2026-09-15, tracing why The Long Haulers cratered relative
+    to a much worse week from L.A. Looks: "note when large swings ... it's
+    important to highlight this is because no A.J. Brown for 6 weeks."
+    Real and sourced, not guessed: season_sim.py already refused to report an
+    absence it could not price (see biggest_absences()'s docstring), so
+    anything reaching here clears that bar."""
+    if not absence:
+        return None
+    n = len(absence["weeksOut"])
+    return "no %s for %d week%s (%s)" % (
+        D.display_name(absence["player"]), n, "" if n == 1 else "s",
+        (absence.get("details") or "injury").lower())
+
+
+def decline_phrase(decline):
+    """"Quentin Johnston's own projection fell from 13.7 to 7.7" from
+    season_sim.py's biggestDecline, or None. Keith 2026-09-16, after
+    injury_phrase() alone left Cross's real driver (Johnston, still
+    rostered and started, not absent) unexplained: "can't you compare
+    current projections vs what you had?" Distinct from an absence -- this
+    player is still playing -- and only reported once season_sim.py has
+    confirmed the drop is durable (matches his own current weeks-2+ average,
+    not a one-week wobble) and netted against his own replacement value; see
+    biggest_decliners()'s docstring."""
+    if not decline:
+        return None
+    return "%s's own projection fell from %.1f to %.1f" % (
+        D.display_name(decline["player"]), decline["weekOneFirstProjected"], decline["weekOneNowProjected"])
+
+
+def best_cause_note(t):
+    """Every named, real cause behind this team's forecast movement --
+    biggest_absences() AND biggest_decliners(), both, when both cleared their
+    bar, joined into one note. Keith 2026-09-16, on Cross specifically: "the
+    explanation of significant drop in original projections for QJ and
+    injury to AJ Brown are at the center of the drop" -- both, not whichever
+    is larger. None if neither cleared its bar."""
+    absence, decline = t.get("biggestAbsence"), t.get("biggestDecline")
+    parts = [p for p in (injury_phrase(absence), decline_phrase(decline)) if p]
+    if not parts:
+        return None
+    return "meaningful changes in MFL's own projections since the start of the year: " + "; ".join(parts)
 
 
 def parse_pack_id(pack_id):
@@ -168,6 +372,103 @@ def build(pack_id):
         return owners.get(str(fid).zfill(4), {}).get("owner_name") or ("Franchise %s" % fid)
 
     F = pack.fact
+
+    # ---------------------------------------------------------- preseason
+    pre = load_preseason(season)
+    pre_rank = {}
+    if pre:
+        pack.source("%d Season Forecast (committed pack)" % season, asof="preseason",
+                    rows=len(pre["teams"]),
+                    note="preseason power rank and simulated odds, re-registered verbatim from "
+                         + pre["provenance"] + " -- never recomputed")
+        for fid in sorted(pre["teams"]):
+            for suffix, src in sorted(pre["teams"][fid].items()):
+                F("f.pre.%s.%s" % (fid, suffix), "PRESEASON -- %s (%s)" % (src["label"], who(fid)),
+                  src["value"], src["unit"], pre["forecast_id"], "preseason",
+                  fmt=("No. %d" % int(src["value"])) if suffix == "power_rank" else src["fmt"])
+            if "power_rank" in pre["teams"][fid]:
+                pre_rank[fid] = int(pre["teams"][fid]["power_rank"]["value"])
+        # Preseason projected weekly offense and defense, ranked, so the writer can
+        # set "scored the most IDP points" against "was projected 9th on defense".
+        for key, noun, suffix in (("projWeeklyOffense", "offense", "off_proj_rank"),
+                                  ("projWeeklyDefense", "defense", "idp_proj_rank")):
+            rks = _comp_rank(dict((f, pre["sim"][f][key]) for f in pre["sim"]))
+            for fid in sorted(rks):
+                F("f.pre.%s.%s" % (fid, suffix),
+                  "PRESEASON -- where %s's projected weekly %s ranked (%s)" % (who(fid), noun, pre["sim"][fid][key]),
+                  rks[fid][0], "rank", "season_sim_%d.json" % season, "preseason",
+                  fmt=_rank_words(rks[fid], "the best projected %s in the league" % noun,
+                                  "the worst projected %s in the league" % noun,
+                                  "the %%s-best projected %s" % noun))
+    else:
+        pack.warn("No committed preseason forecast for %d, so this recap carries no preseason "
+                  "rankings." % season)
+
+    # ------------------------------------------------- in-season blended forecast
+    # Keith 2026-09-15: current playoff/title odds, projected-ending all-play,
+    # and how much the forecast moved since preseason -- WITHOUT overwriting the
+    # preseason numbers above. season_sim.py --through-week produces this file by
+    # hand (run_live()); this just reads it, the same "cite the model, don't
+    # rerun it" rule as load_preseason.
+    live = load_live_forecast(season, week) if pre else None
+    repeat = {}
+    if live:
+        pack.source("season_sim.py --through-week %d (committed snapshot)" % live["through_week"],
+                    asof="through wk%d" % live["through_week"], rows=len(live["teams"]),
+                    note="in-season playoff/title odds, blended with the preseason forecast via a "
+                         "Bayesian update of season_sim's own calibrated noise terms -- re-registered "
+                         "verbatim from " + live["provenance"] + ", never recomputed here")
+        try:
+            repeat = D.offense_repeatability(season, live["through_week"])
+        except D.DataError as exc:
+            pack.warn("Offense repeatability index unavailable this week: %s" % exc)
+        changes = dict((f, t.get("titleOddsChange")) for f, t in live["teams"].items())
+        top_mover = max((f for f in changes if changes[f] is not None),
+                        key=lambda f: changes[f], default=None)
+        for fid, t in sorted(live["teams"].items()):
+            F("f.live.%s.current_playoff_odds" % fid, "%s -- current playoff odds (through wk%d)"
+              % (who(fid), live["through_week"]), t["currentPlayoffOdds"], "percent",
+              "season_sim.py --through-week", "through wk%d" % live["through_week"],
+              fmt="%.1f%%" % (t["currentPlayoffOdds"] * 100))
+            F("f.live.%s.current_title_odds" % fid, "%s -- current title odds (through wk%d)"
+              % (who(fid), live["through_week"]), t["currentTitleOdds"], "percent",
+              "season_sim.py --through-week", "through wk%d" % live["through_week"],
+              fmt="%.1f%%" % (t["currentTitleOdds"] * 100))
+            F("f.live.%s.projected_ending_ap" % fid, "%s -- projected ending all-play %% (through wk%d)"
+              % (who(fid), live["through_week"]), t["projectedEndingApPct"], "percent",
+              "season_sim.py --through-week", "through wk%d" % live["through_week"],
+              fmt="%.1f%%" % (t["projectedEndingApPct"] * 100))
+            chg = t.get("titleOddsChange")
+            if chg is not None:
+                F("f.live.%s.title_odds_change" % fid, "%s -- title odds change since preseason" % who(fid),
+                  chg, "percent", "season_sim.py --through-week", "through wk%d" % live["through_week"],
+                  fmt=("%+.1f points" % (chg * 100)))
+            rep = repeat.get(fid, {}).get("repeatable_index")
+            if rep is not None:
+                F("f.live.%s.repeatable_index" % fid, "%s -- share of this week's offense that was NOT "
+                  "touchdown/turnover-driven" % who(fid), rep, "percent",
+                  "src_weekly + nfl_player_weekly", "wk%d" % week, fmt="%.0f%%" % (rep * 100))
+            note = best_cause_note(t)
+            if note:
+                F("f.live.%s.injury_note" % fid, "%s -- the largest real, named cause behind this "
+                  "team's forecast movement (an absence or a genuine projection decline, whichever "
+                  "nets the bigger swing)" % who(fid), note, "text", "season_sim.py --through-week",
+                  "through wk%d" % live["through_week"], fmt=note)
+            base_signal = forecast_signal(chg, rep, live["through_week"], fid == top_mover)
+            F("f.live.%s.signal" % fid, "%s -- how to read this week's odds movement" % who(fid),
+              base_signal, "text", "derived", "through wk%d" % live["through_week"],
+              fmt=("%s -- %s" % (base_signal, note)) if note else base_signal)
+        pack.warn("Signal labelling does not attempt \"Schedule-assisted\" yet -- that needs the move "
+                  "traced to opponent strength, not just its size. The largest real, sourced cause IS "
+                  "now named per row (an absence, or a still-rostered player whose own projection "
+                  "genuinely fell) when it clears biggest_absences()/biggest_decliners()'s materiality "
+                  "bar, netted against the team's own bench/replacement value -- not the player's raw "
+                  "number, which overstates it. A smaller or unpriced cause still reads as plain "
+                  "Strong/Moderate/Neutral.")
+    elif pre:
+        pack.warn("No in-season forecast update has been run yet for %d through week %d "
+                  "(season_sim.py --through-week) -- current/projected odds are not shown this week."
+                  % (season, week))
 
     # -------------------------------------------------------------- games
     games = D.d1("SELECT franchise_id, opponent_franchise_id, team_score, opponent_score, "
@@ -283,6 +584,97 @@ def build(pack_id):
                 F("f.star.prior_best", "Top performer's previous season high",
                   form["best"], "points", "src_weekly", "before wk%d" % week)
 
+    # ------------------------------------------------- offense vs IDP
+    # Keith 2026-09-15: "don't be afraid to breakdown offensive vs.
+    # defensive/idp points". Top-ten lists are all quarterbacks, so the best
+    # defender needs his own facts or he never gets named.
+    idp_perfs = [p for p in perfs if (p.get("pos_group") or "") in D.IDP_GROUPS]
+    if idp_perfs:
+        ib = idp_perfs[0]
+        F("f.star.idp.name", "Top IDP performer", ib["player_name"], "text",
+          "src_weekly", "wk%d" % week, fmt="%s (%s)" % (ib["player_name"], ib["pos_group"]))
+        F("f.star.idp.score", "Top IDP performer score", float(ib["score"]), "points",
+          "src_weekly", "wk%d" % week)
+        F("f.star.idp.owner", "Top IDP performer's manager", who(ib["fid"]), "text",
+          "src_weekly", "wk%d" % week, fmt=who(ib["fid"]))
+        iphrase = _box_phrase(D.nfl_box_line(season, week, ib["player_id"]))
+        if iphrase:
+            F("f.star.idp.line", "Top IDP performer's box line", iphrase, "text",
+              "nfl_player_weekly", "wk%d" % week, fmt=iphrase)
+        for p in idp_perfs[:5]:
+            key = "f.player.%s.score" % _slug(p["player_name"])
+            if key not in pack._facts:
+                F(key, "%s (%s, %s) -- week score" % (p["player_name"], p["pos_group"], who(p["fid"])),
+                  float(p["score"]), "points", "src_weekly", "wk%d" % week)
+
+    try:
+        split = D.starter_points_by_group(season, week)
+    except D.DataError as exc:
+        split = {}
+        pack.warn("No offense/IDP split this week: %s" % exc)
+    if split:
+        pack.source("src_weekly (starters by position group)", asof="%d wk%d" % (season, week),
+                    rows=len(split), note="offense = QB/RB/WR/TE, IDP = DL/LB/DB, K/P = PK/PN; "
+                    "every franchise's three buckets verified to add back to its team score")
+        for key, noun in (("off", "offensive"), ("idp", "IDP"), ("kp", "kicking and punting")):
+            rks = _comp_rank(dict((f, split[f][key]) for f in split))
+            for fid in sorted(split):
+                F("f.team.%s.%s_pts" % (fid, key), "%s -- %s points from starters" % (who(fid), noun),
+                  split[fid][key], "points", "src_weekly", "wk%d" % week)
+                F("f.team.%s.%s_rank" % (fid, key),
+                  "%s -- where his %s points rank this week" % (who(fid), noun), rks[fid][0], "rank",
+                  "src_weekly", "wk%d" % week,
+                  fmt=_rank_words(rks[fid], "the most %s points in the league" % noun,
+                                  "the fewest %s points in the league" % noun,
+                                  "the %%s-most %s points in the league" % noun))
+        pack.table("t.offidp", "Where the points came from",
+                   [{"key": "owner", "label": "Owner", "type": "text"},
+                    {"key": "off", "label": "Offense", "type": "points", "align": "right"},
+                    {"key": "idp", "label": "IDP", "type": "points", "align": "right"},
+                    {"key": "kp", "label": "K/P", "type": "points", "align": "right"},
+                    {"key": "tot", "label": "Total", "type": "points", "align": "right"}],
+                   [[who(f), split[f]["off"], split[f]["idp"], split[f]["kp"],
+                     round(split[f]["off"] + split[f]["idp"] + split[f]["kp"], 2)]
+                    for f in sorted(split, key=lambda f: -(split[f]["off"] + split[f]["idp"] + split[f]["kp"]))],
+                   note="Starters only. Offense is QB, RB, WR and TE; IDP is DL, LB and DB; K/P is "
+                        "the kicker and punter.")
+
+    # ------------------------------------------------- against projection
+    # Keith 2026-09-13: "Did anyone significantly outperform or underperform
+    # projections?" Starters only, and only where a projection was captured.
+    sp = D.starter_projections(season, week)
+    if sp:
+        def _pline(x):
+            return "%s scored %.1f on a projection of %.1f" % (x["player"], x["score"], x["proj"])
+        booms = sorted(sp, key=lambda x: -(x["score"] - x["proj"]))
+        busts = sorted(sp, key=lambda x: -(x["proj"] - x["score"]))
+        for i, x in enumerate(booms[:3], 1):
+            F("f.week.boom_%d" % i, "No. %d starter OVER his projection this week, for %s" % (i, who(x["fid"])),
+              x["score"] - x["proj"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(x))
+        for i, x in enumerate(busts[:3], 1):
+            F("f.week.bust_%d" % i, "No. %d starter UNDER his projection this week, for %s" % (i, who(x["fid"])),
+              x["proj"] - x["score"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(x))
+        for fid in sorted(set(x["fid"] for x in sp)):
+            mine = [x for x in sp if x["fid"] == fid]
+            up = max(mine, key=lambda x: x["score"] - x["proj"])
+            dn = max(mine, key=lambda x: x["proj"] - x["score"])
+            if up["score"] - up["proj"] >= 10:
+                F("f.team.%s.boom" % fid, "%s -- starter furthest OVER projection" % who(fid),
+                  up["score"] - up["proj"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(up))
+            if dn["proj"] - dn["score"] >= 10:
+                F("f.team.%s.bust" % fid, "%s -- starter furthest UNDER projection" % who(fid),
+                  dn["proj"] - dn["score"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(dn))
+        pack.table("t.projections", "Furthest from the projection",
+                   [{"key": "player", "label": "Player", "type": "text"},
+                    {"key": "owner", "label": "Started by", "type": "text"},
+                    {"key": "proj", "label": "Projected", "type": "points", "align": "right"},
+                    {"key": "pts", "label": "Scored", "type": "points", "align": "right"},
+                    {"key": "diff", "label": "Diff", "type": "text"}],
+                   [[x["player"], who(x["fid"]), x["proj"], x["score"], "%+.1f" % (x["score"] - x["proj"])]
+                    for x in booms[:5] + busts[:5]],
+                   note="Starters only, against the projection captured before kickoff. Five furthest "
+                        "over, then five furthest under.")
+
     # -------------------------------------------------------- bench burns
     burns = D.bench_burns(season, week)
     if burns:
@@ -311,15 +703,39 @@ def build(pack_id):
           "src_weekly", "wk%d" % week, fmt=b["started"])
         F("f.burn.started_score", "What the starter scored",
           b["started_score"], "points", "src_weekly", "wk%d" % week)
-        F("f.burn.verdict", "Was that a bad DECISION or a bad result?",
-          b["verdict"], "text", "derived", "wk%d" % week,
-          fmt=("the wrong man started -- %s had been the better player all year" % b["benched"]
-               if b["verdict"] == "process" else
-               "the right man started and had a bad day"))
-        if not proc:
+        F("f.burn.verdict", "Was that a bad DECISION or a bad result? (%s)"
+          % (("judged on " + b["basis"]) if b.get("basis") else "no basis to judge"),
+          b["verdict"], "text", "derived", "wk%d" % week, fmt=_verdict_phrase(b))
+        if b.get("basis") == "projection":
+            F("f.burn.benched_proj", "What the benched player was projected for this week",
+              b["benched_proj"], "points", "ups_player_projections", "wk%d" % week)
+            F("f.burn.started_proj", "What the starter was projected for this week",
+              b["started_proj"], "points", "ups_player_projections", "wk%d" % week)
+        # "Not one of them was wrong" is a claim about EVERY burn, so an
+        # unjudgeable one blocks it. It used to print whenever none was
+        # `process`, which counted "we cannot tell" as "he got it right".
+        if not proc and not any(burns[f]["verdict"] == "unknown" for f in burns):
             F("f.week.no_process_burns", "Bench calls that were actually wrong",
               0, "count", "derived", "wk%d" % week,
               fmt="not one of them")
+
+    # Every burn, per team -- a pot page needs its own owners' bench calls, not
+    # just the league's single biggest one. f.burn.* above is bound to ONE owner,
+    # and borrowing it for another owner's game printed Kittle as Whitman's miss.
+    for bf in sorted(burns or {}):
+        b = burns[bf]
+        F("f.team.%s.bench_miss" % bf, "%s -- biggest bench miss (%s)" % (who(bf), b["pos"]),
+          b["diff"], "points", "src_weekly", "wk%d" % week,
+          fmt="%s (%.1f) sat while %s started for %.1f" % (b["benched"], b["benched_score"],
+                                                          b["started"], b["started_score"]))
+        F("f.team.%s.bench_verdict" % bf, "%s -- was that bench miss a bad decision?" % who(bf),
+          b["verdict"], "text", "derived", "wk%d" % week, fmt=_verdict_phrase(b))
+        if b.get("basis") == "projection":
+            F("f.team.%s.bench_proj" % bf, "%s -- projections for that bench miss" % who(bf),
+              b["benched_proj"] - b["started_proj"], "points", "ups_player_projections",
+              "wk%d" % week,
+              fmt="%s projected %.1f, %s projected %.1f" % (b["benched"], b["benched_proj"],
+                                                         b["started"], b["started_proj"]))
 
     # ------------------------------------------------- starters who never played
     # The one genuinely rippable start. Everything else on a lineup card is a
@@ -551,7 +967,9 @@ def build(pack_id):
                         {"key": "how", "label": "How", "type": "text"},
                         {"key": "pts", "label": "Points", "type": "points", "align": "right"},
                         {"key": "started", "label": "Started?", "type": "text"}],
-                       [[p["player"], who(p["fid"]), p.get("method") or "",
+                       [[p["player"], who(p["fid"]),
+                         {"BBID": "Blind bid", "FREE_AGENT": "Free agent", "WAIVER": "Waiver"}.get(
+                             p.get("method") or "", p.get("method") or ""),
                          p["score"], "yes" if p["started"] else "no"]
                         for p in hits[:10]])
 
@@ -665,9 +1083,43 @@ def build(pack_id):
     quote_pool = list(quote_ids)
     quote_by_id = dict((q, pack._quotes[q]) for q in quote_pool)
 
-    def _claim_quotes(fid_a, fid_b, limit=2):
+    def make_card(star, boxes, forms):
+        if not star:
+            return None
+        cid = "pc.%s" % _slug(star["player_name"])
+        if cid not in pack._playcards:
+            pbox = boxes.get(str(star["player_id"]))
+            pfm = forms.get(str(star["player_id"]))
+            cnote = None
+            if pfm and pfm["games"] >= 3 and float(star["score"]) > pfm["best"]:
+                cnote = "Season high -- previous best %.1f" % pfm["best"]
+            # A verified clip if one clears every conviction test (official
+            # channel, surname in title, "highlights", published inside the
+            # game's own window) -- never a guess. See wire_video.find_highlight.
+            # Live lookup only happens here, at BUILD time, and only when a
+            # YOUTUBE_API_KEY is present (env var or macOS keychain) -- its
+            # absence is normal, not an error, and just means no clip. The
+            # result (hit or miss) is cached to highlight_cache.json so the
+            # later `render` stage stays deterministic and key-free, and a
+            # miss falls through to the watch_url search link below.
+            video = wire_video.find_highlight(
+                season, week, star["player_id"], star["player_name"],
+                nfl_team=star.get("nfl_team"),
+                position=star.get("position") or star.get("pos_group") or "",
+                cache=video_cache)
+            pack.playcard(
+                cid, player=star["player_name"],
+                position=star.get("position") or star.get("pos_group") or "",
+                nfl_matchup=(pbox or {}).get("matchup") or (star.get("nfl_team") or ""),
+                score=float(star["score"]), box_line=_box_phrase(pbox),
+                owner=who(star["fid"]), note=cnote, video=video,
+                watch_url="https://www.youtube.com/results?search_query=" + "+".join(
+                    (star["player_name"] + " week %d %d highlights" % (week, season)).split()))
+        return cid
+
+    def _claim_quotes(*fids, limit=2):
         want = []
-        for f in (fid_a, fid_b):
+        for f in fids:
             nm = owners.get(f, {})
             for token in (nm.get("owner_name") or "", nm.get("team_name") or ""):
                 if token:
@@ -696,14 +1148,24 @@ def build(pack_id):
     margin_rank = {}
     for r, gg in enumerate(sorted(distinct_games, key=lambda x: -x["margin"]), 1):
         margin_rank[tuple(sorted((gg["a"], gg["b"])))] = r
-    loser_ceilings = []
+    # ONE ENTRY PER LOSER, not per loss. In a double- or triple-header a team
+    # that lost twice was ranked twice, so the count said "12 losers" in a week
+    # with eight, and his rank was whichever of his two slots came last.
+    ceilings = {}
     for gg in distinct_games:
-        lo = gg["b"] if gg["a_score"] >= gg["b_score"] else gg["a"]
+        if gg["a_score"] == gg["b_score"]:
+            continue
+        lo = gg["b"] if gg["a_score"] > gg["b_score"] else gg["a"]
         o = opt_by_fid.get(lo)
         if o:
-            loser_ceilings.append((lo, float(o["team_opt_pts"])))
-    loser_ceilings.sort(key=lambda t: -t[1])
-    ceiling_rank = dict((fid, i) for i, (fid, _) in enumerate(loser_ceilings, 1))
+            ceilings[lo] = float(o["team_opt_pts"])
+    n_losers = len(ceilings)
+    ceiling_rk = _comp_rank(ceilings)
+    ceiling_rank = dict((f, rk[0]) for f, rk in ceiling_rk.items())
+    ceiling_fmt = dict((f, _rank_words(rk, "the highest of any loser this week",
+                                       "the lowest of the %d losers" % n_losers,
+                                       "%%s highest of the %d losers" % n_losers))
+                       for f, rk in ceiling_rk.items())
     n_games = len(distinct_games)
 
     def _nth(r, n, noun):
@@ -713,7 +1175,284 @@ def build(pack_id):
             return "2nd largest of %d" % n
         return "%s largest of %d" % (_ordinal(r), n)
 
-    for i, g in enumerate(ordered, 1):
+    # Where this week's score ranks league-wide -- the week-one answer to "did the
+    # preseason No. 1 look like one", which season_pf_rank only says by accident.
+    week_rk = _comp_rank(fws)
+    for fid in sorted(fws):
+        F("f.team.%s.week_points_rank" % fid, "%s -- where this week's score ranks in the league"
+          % who(fid), week_rk[fid][0], "rank", "src_franchise_weekly_score", "wk%d" % week,
+          fmt=_rank_words(week_rk[fid], "the most points in the league",
+                          "the fewest points in the league", "the %s-most points in the league"))
+
+    # ---------------------------------------------------------------- pots
+    # Keith 2026-09-15: "18 games is too much. Treat each Divisional Matchup as
+    # one big pot. So it's either interdivisional or intra." A pot is every game
+    # between one division and itself, or one division and another, on one page.
+    # 2025 and playoff weeks keep the per-game deck below, untouched.
+    use_pots = season >= 2026 and not is_playoff
+    pot_ids, pending_pots = [], []
+    won_on_defense, upsets = [], []
+    if use_pots:
+        def _divname(fid):
+            d = divs.get(fid)
+            if not d or re.fullmatch(r"\d+", str(d)):
+                raise D.DataError("division name for %s is %r -- a pot page is headlined by the "
+                                  "league's real division names" % (fid, d))
+            return d
+
+        groups = {}
+        for g in distinct_games:
+            da, db = _divname(g["a"]), _divname(g["b"])
+            kind = "intra" if da == db else "inter"
+            if (kind == "intra") != bool(g["divisional"]):
+                raise D.DataError("src_schedule flags %s v %s is_divisional=%s, but their divisions "
+                                  "are %s and %s" % (g["a"], g["b"], g["divisional"], da, db))
+            key = (da,) if kind == "intra" else tuple(sorted((da, db)))
+            groups.setdefault(key, {"kind": kind, "games": []})["games"].append(g)
+
+        def _pot_fids(key):
+            return sorted(set(x for gg in groups[key]["games"] for x in (gg["a"], gg["b"])))
+
+        def _billing(key):
+            fs = _pot_fids(key)
+            if week == 1 and pre:
+                vals = [float(pre["teams"][f]["sim_exp_allplay"]["value"]) for f in fs
+                        if "sim_exp_allplay" in pre["teams"].get(f, {})]
+                return (sum(vals) / len(vals) if vals else 0.0), "preseason projected all-play"
+            vals = []
+            for f in fs:
+                pf_ = prior_form.get(f)
+                if pf_ and pf_["w"] + pf_["l"]:
+                    vals.append(pf_["w"] / float(pf_["w"] + pf_["l"] + pf_.get("t", 0)))
+            return (sum(vals) / len(vals) if vals else 0.0), "incoming all-play"
+
+        seen_in = {}
+        for k in groups:
+            for f in _pot_fids(k):
+                if f in seen_in:
+                    raise D.DataError("%s plays in two pots this week (%s and %s); per-team pot facts "
+                                      "assume one pot per franchise" % (f, " v ".join(seen_in[f]), " v ".join(k)))
+                seen_in[f] = k
+        pot_order = sorted(groups, key=lambda k: (-_billing(k)[0], " v ".join(k)))
+        n_pots = len(pot_order)
+        same_size = len(set(len(_pot_fids(k)) for k in pot_order)) == 1
+        pot_points = dict((k, sum(fws.get(f, 0.0) for f in _pot_fids(k))) for k in pot_order)
+        pot_rk = _comp_rank(pot_points)
+        pre_strength = {}
+        if pre:
+            div_ap = dict((c, float(v["allplay"]["value"])) for c, v in pre["divs"].items() if "allplay" in v)
+            for r, c in enumerate(sorted(div_ap, key=lambda c: -div_ap[c]), 1):
+                pre_strength[c] = (r, len(div_ap))
+        gi = 0
+        for pi, key in enumerate(pot_order, 1):
+            info, pid = groups[key], "p.%d" % pi
+            kind = info["kind"]
+            tag = key[0] if kind == "intra" else "%s v %s" % key
+            slug = _slug(" v ".join(key))
+            fs = _pot_fids(key)
+            rec = dict((f, [0, 0, 0]) for f in fs)
+            against = dict((f, 0.0) for f in fs)
+            pfacts, lines = [], []
+
+            for g in sorted(info["games"], key=lambda gg: -max(gg["a_score"], gg["b_score"])):
+                gi += 1
+                hi, lo = (g["a"], g["b"]) if g["a_score"] >= g["b_score"] else (g["b"], g["a"])
+                hi_s, lo_s = max(g["a_score"], g["b_score"]), min(g["a_score"], g["b_score"])
+                if hi_s == lo_s:
+                    rec[hi][2] += 1
+                    rec[lo][2] += 1
+                else:
+                    rec[hi][0] += 1
+                    rec[lo][1] += 1
+                against[hi] += lo_s
+                against[lo] += hi_s
+                mr = margin_rank.get(tuple(sorted((g["a"], g["b"]))), 0)
+                gk = "f.game.%02d" % gi
+                pair = ("%s and %s tied" if hi_s == lo_s else "%s over %s") % (who(hi), who(lo))
+                F(gk + ".margin", "%s (%s pot) -- margin, %s this week"
+                  % (pair, tag, _nth(mr, n_games, "margin")),
+                  g["margin"], "points", "src_franchise_weekly_score", "wk%d" % week)
+                pfacts.append(gk + ".margin")
+                if hi_s != lo_s:
+                    F(gk + ".margin_rank", "%s -- where that margin ranks among this week's %d games"
+                      % (pair, n_games), mr, "rank", "derived", "wk%d" % week,
+                      fmt=_nth(mr, n_games, "margin"))
+                    pfacts.append(gk + ".margin_rank")
+                cr = ceiling_rank.get(lo)
+                if cr and "f.team.%s.ceiling_rank" % lo not in pack._facts:
+                    F("f.team.%s.ceiling_rank" % lo, "%s -- where his best available lineup ranks among "
+                      "this week's %d losers" % (who(lo), n_losers), cr, "rank",
+                      "derived", "wk%d" % week, fmt=ceiling_fmt[lo])
+                o = opt_by_fid.get(lo)
+                if o and hi_s != lo_s:
+                    wins = float(o["team_opt_pts"]) > hi_s
+                    F(gk + ".ceiling", "%s -- could his best lineup have beaten %s's score?" % (who(lo), who(hi)),
+                      "yes" if wins else "no", "text", "src_franchise_weekly_score", "wk%d" % week,
+                      fmt=("a perfect lineup wins it for %s" % who(lo) if wins
+                           else "even a perfect lineup loses it for %s" % who(lo)))
+                    pfacts.append(gk + ".ceiling")
+                if hi in pre_rank and lo in pre_rank and pre_rank[hi] > pre_rank[lo] and hi_s != lo_s:
+                    F(gk + ".upset", "%s over %s -- preseason ranks" % (who(hi), who(lo)),
+                      pre_rank[hi] - pre_rank[lo], "count", pre["forecast_id"], "preseason",
+                      fmt="the preseason No. %d beat the preseason No. %d" % (pre_rank[hi], pre_rank[lo]))
+                    pfacts.append(gk + ".upset")
+                    upsets.append("%s over %s" % (who(hi), who(lo)))
+                if split and hi_s != lo_s and split[hi]["off"] < split[lo]["off"]:
+                    won_on_defense.append("%s over %s" % (who(hi), who(lo)))
+                wf, lf = form_in.get(hi), form_in.get(lo)
+                for fid_, form_, sc_ in ((hi, wf, hi_s), (lo, lf, lo_s)):
+                    if form_:
+                        k_ = "f.team.%s.vs_avg" % fid_
+                        if k_ not in pack._facts:
+                            F(k_, "%s -- this week against his own season average" % who(fid_),
+                              sc_ - form_["avg"], "points", "derived", "wk%d" % week,
+                              fmt=_signed(sc_ - form_["avg"]))
+                lines.append({"winner": who(hi), "loser": who(lo), "winnerScore": hi_s,
+                              "loserScore": lo_s, "margin": g["margin"], "tie": hi_s == lo_s,
+                              "factPrefix": gk})
+
+            def _rec(f):
+                w_, l_, t_ = rec[f]
+                return ("%d-%d-%d" % (w_, l_, t_)) if t_ else ("%d-%d" % (w_, l_))
+
+            for f in fs:
+                F("f.team.%s.pot_record" % f, "%s -- record inside the %s pot this week" % (who(f), tag),
+                  rec[f][0], "count", "src_schedule", "wk%d" % week, fmt=_rec(f))
+                F("f.team.%s.pot_against" % f, "%s -- points scored against him across the %s pot"
+                  % (who(f), tag), round(against[f], 2), "points", "src_franchise_weekly_score", "wk%d" % week)
+
+            pk = "f.pot.%s" % slug
+            F(pk + ".points", "%s pot -- combined points this week" % tag, round(pot_points[key], 2), "points",
+              "src_franchise_weekly_score", "wk%d" % week)
+            pfacts.append(pk + ".points")
+            if same_size and n_pots > 1:
+                nw = _WORD.get(n_pots, str(n_pots))
+                F(pk + ".points_rank", "%s pot -- where its combined points rank among this week's pots" % tag,
+                  pot_rk[key][0], "rank", "derived", "wk%d" % week,
+                  fmt=_rank_words(pot_rk[key], "the most points of the %s pots" % nw,
+                                  "the fewest points of the %s pots" % nw,
+                                  "the %%s-most points of the %s pots" % nw))
+                pfacts.append(pk + ".points_rank")
+            if split:
+                for bk, noun in (("off", "offensive"), ("idp", "IDP")):
+                    F(pk + ".%s_pts" % bk, "%s pot -- combined %s points" % (tag, noun),
+                      round(sum(split[f][bk] for f in fs), 2), "points", "src_weekly", "wk%d" % week)
+                    pfacts.append(pk + ".%s_pts" % bk)
+            n_played = dict((f, sum(rec[f])) for f in fs)
+            sweep = [f for f in fs if n_played[f] and rec[f][0] == n_played[f]]
+            shut = [f for f in fs if n_played[f] and rec[f][0] == 0 and rec[f][2] == 0]
+            if sweep:
+                F(pk + ".sweeper", "%s pot -- won every game he played in it" % tag, len(sweep), "count",
+                  "src_schedule", "wk%d" % week,
+                  fmt=" and ".join("%s (%s)" % (who(f), _rec(f)) for f in sweep))
+                pfacts.append(pk + ".sweeper")
+            if shut:
+                F(pk + ".winless", "%s pot -- did not win a game in it" % tag, len(shut), "count",
+                  "src_schedule", "wk%d" % week,
+                  fmt=" and ".join("%s (%s)" % (who(f), _rec(f)) for f in shut))
+                pfacts.append(pk + ".winless")
+            ranked_pre = sorted((f for f in fs if f in pre_rank), key=lambda f: pre_rank[f])
+            if len(ranked_pre) >= 2:
+                for label_, f in (("favorite", ranked_pre[0]), ("longshot", ranked_pre[-1])):
+                    F(pk + "." + label_, "%s pot -- preseason %s" % (tag, label_), pre_rank[f], "rank",
+                      pre["forecast_id"], "preseason",
+                      fmt="%s, the preseason No. %d" % (who(f), pre_rank[f]))
+                    res = ("won every game in the pot" if n_played[f] and rec[f][0] == n_played[f] else
+                           "did not win a game in the pot" if rec[f][0] == 0 and rec[f][2] == 0 else
+                           "went %s in the pot" % _rec(f))
+                    F(pk + "." + label_ + "_result", "%s pot -- how the preseason %s did (%s)"
+                      % (tag, label_, who(f)), rec[f][0], "count", "src_schedule", "wk%d" % week, fmt=res)
+                    pfacts += [pk + "." + label_, pk + "." + label_ + "_result"]
+            if kind == "intra" and pre and _compact(tag) in pre["divs"]:
+                pd = pre["divs"][_compact(tag)]
+                if "title" in pd:
+                    F(pk + ".pre_title_odds", "PRESEASON -- %s combined title odds" % tag,
+                      pd["title"]["value"], pd["title"]["unit"], pre["forecast_id"], "preseason",
+                      fmt=pd["title"]["fmt"])
+                    pfacts.append(pk + ".pre_title_odds")
+                if _compact(tag) in pre_strength:
+                    r, n = pre_strength[_compact(tag)]
+                    F(pk + ".pre_strength", "PRESEASON -- where the forecast ranked %s among divisions" % tag,
+                      r, "rank", pre["forecast_id"], "preseason",
+                      fmt=("picked as the strongest division" if r == 1 else
+                           "picked as the weakest division" if r == n else
+                           "picked as the %s-strongest division" % _ordinal(r)))
+                    pfacts.append(pk + ".pre_strength")
+
+            pot_perfs = [p for p in perfs if str(p["fid"] or "").zfill(4) in fs]
+            rows_ = []
+            if pot_perfs:
+                bp = pot_perfs[0]
+                F(pk + ".best_player", "%s pot -- best starter, for %s" % (tag, who(bp["fid"])),
+                  float(bp["score"]), "points", "src_weekly", "wk%d" % week,
+                  fmt="%s (%.1f)" % (bp["player_name"], float(bp["score"])))
+                pfacts.append(pk + ".best_player")
+                rows_.append(["Best player", "%s (%.1f), %s" % (bp["player_name"], float(bp["score"]),
+                                                               who(bp["fid"]))])
+            pot_idp = [p for p in pot_perfs if (p.get("pos_group") or "") in D.IDP_GROUPS]
+            if pot_idp:
+                bi = pot_idp[0]
+                F(pk + ".best_idp", "%s pot -- best IDP starter, for %s" % (tag, who(bi["fid"])),
+                  float(bi["score"]), "points", "src_weekly", "wk%d" % week,
+                  fmt="%s (%s, %.1f)" % (bi["player_name"], bi["pos_group"], float(bi["score"])))
+                pfacts.append(pk + ".best_idp")
+                rows_.append(["Best IDP", "%s (%s, %.1f), %s" % (bi["player_name"], bi["pos_group"],
+                                                                float(bi["score"]), who(bi["fid"]))])
+            for f in fs:
+                if f in (burns or {}):
+                    b = burns[f]
+                    rows_.append(["%s left on the bench" % who(f),
+                                  "%s (%.1f) while %s started for %.1f -- %s"
+                                  % (b["benched"], b["benched_score"], b["started"], b["started_score"],
+                                     _verdict_cell(b))])
+
+            cols = [{"key": "owner", "label": "Owner", "type": "text"},
+                    {"key": "rec", "label": "Pot", "type": "text"},
+                    {"key": "pts", "label": "Points", "type": "points", "align": "right"},
+                    {"key": "pa", "label": "Against", "type": "points", "align": "right"}]
+            if split:
+                cols += [{"key": "off", "label": "Off", "type": "points", "align": "right"},
+                         {"key": "idp", "label": "IDP", "type": "points", "align": "right"},
+                         {"key": "kp", "label": "K/P", "type": "points", "align": "right"}]
+            if kind == "inter":
+                cols.insert(1, {"key": "div", "label": "Division", "type": "text"})
+            if pre_rank:
+                cols.append({"key": "pre", "label": "Preseason", "type": "text"})
+            trows = []
+            for f in sorted(fs, key=lambda f: (-(rec[f][0] + 0.5 * rec[f][2]), -fws.get(f, 0.0))):
+                row = [who(f)] + ([divs.get(f)] if kind == "inter" else []) + \
+                      [_rec(f), fws.get(f, 0.0), round(against[f], 2)]
+                if split:
+                    row += [split[f]["off"], split[f]["idp"], split[f]["kp"]]
+                if pre_rank:
+                    row.append(("No. %d" % pre_rank[f]) if f in pre_rank else "")
+                trows.append(row)
+            tid = "t.pot.%s" % slug
+            pack.table(tid, "%s pot" % tag, cols, trows,
+                       note=("Points is each owner's one weekly score, counted once however many "
+                             "games he played in the pot; Against adds up every opponent he faced."))
+
+            billing, basis = _billing(key)
+            star_ids = [p["player_id"] for p in pot_perfs[:1]]
+            card = make_card(pot_perfs[0] if pot_perfs else None,
+                             D.nfl_box_lines(season, week, star_ids) if star_ids else {},
+                             D.players_prior_form(season, week, star_ids) if star_ids else {})
+            # Registered at the END of the build: several team facts a pot page
+            # needs (record, season points rank, own-week rank) are created below.
+            pending_pots.append(dict(pid=pid, kind=kind, tag=tag, key=key, lines=lines, tid=tid,
+                                     headline="Pot of the week" if pi == 1 else None,
+                                     billing=round(billing, 4), basis=basis, card=card, fs=fs,
+                                     pfacts=pfacts, rows=rows_))
+            pot_ids.append(pid)
+
+        if upsets:
+            F("f.week.upsets", "Games this week won by the lower preseason rank", len(upsets), "count",
+              pre["forecast_id"], "wk%d" % week, fmt="; ".join(upsets))
+        if won_on_defense:
+            F("f.week.won_on_defense", "Winners who were OUTSCORED on offense and won anyway",
+              len(won_on_defense), "count", "src_weekly", "wk%d" % week, fmt="; ".join(won_on_defense))
+
+    for i, g in enumerate([] if use_pots else ordered, 1):
         gid = "g.%d" % i
         hi_fid, lo_fid = ((g["a"], g["b"]) if g["a_score"] >= g["b_score"]
                           else (g["b"], g["a"]))
@@ -804,10 +1543,8 @@ def build(pack_id):
             key = "f.team.%s.ceiling_rank" % lo_fid
             if key not in pack._facts:
                 F(key, "%s -- where his best available lineup ranks among this week's "
-                       "%d losers" % (who(lo_fid), len(loser_ceilings)), cr, "rank",
-                  "derived", "wk%d" % week,
-                  fmt=("the highest of any loser this week" if cr == 1
-                       else "%s highest of the %d losers" % (_ordinal(cr), len(loser_ceilings))))
+                       "%d losers" % (who(lo_fid), n_losers), cr, "rank",
+                  "derived", "wk%d" % week, fmt=ceiling_fmt[lo_fid])
             gfacts.append(key)
         for fid in (hi_fid, lo_fid):
             for suffix in ("score", "week_allplay", "left_on_bench", "best_player",
@@ -817,40 +1554,7 @@ def build(pack_id):
                     gfacts.append(key)
 
         # The card for THIS game, built from this game's best starter.
-        card_id = None
-        star = game_star.get(gid)
-        if star:
-            slug = _slug(star["player_name"])
-            cid = "pc.%s" % slug
-            if cid not in pack._playcards:
-                pbox = star_boxes.get(str(star["player_id"]))
-                pfm = star_forms.get(str(star["player_id"]))
-                cnote = None
-                if pfm and pfm["games"] >= 3 and float(star["score"]) > pfm["best"]:
-                    cnote = "Season high -- previous best %.1f" % pfm["best"]
-                # A verified clip if one clears every conviction test (official
-                # channel, surname in title, "highlights", published inside the
-                # game's own window) -- never a guess. See wire_video.find_highlight.
-                # Live lookup only happens here, at BUILD time, and only when a
-                # YOUTUBE_API_KEY is present (env var or macOS keychain) -- its
-                # absence is normal, not an error, and just means no clip. The
-                # result (hit or miss) is cached to highlight_cache.json so the
-                # later `render` stage stays deterministic and key-free, and a
-                # miss falls through to the watch_url search link below.
-                video = wire_video.find_highlight(
-                    season, week, star["player_id"], star["player_name"],
-                    nfl_team=star.get("nfl_team"),
-                    position=star.get("position") or star.get("pos_group") or "",
-                    cache=video_cache)
-                pack.playcard(
-                    cid, player=star["player_name"],
-                    position=star.get("position") or star.get("pos_group") or "",
-                    nfl_matchup=(pbox or {}).get("matchup") or (star.get("nfl_team") or ""),
-                    score=float(star["score"]), box_line=_box_phrase(pbox),
-                    owner=who(star["fid"]), note=cnote, video=video,
-                    watch_url="https://www.youtube.com/results?search_query=" + "+".join(
-                        (star["player_name"] + " week %d %d highlights" % (week, season)).split()))
-            card_id = cid
+        card_id = make_card(game_star.get(gid), star_boxes, star_forms)
 
         billing = ((wp or {}).get("w", 0) + (lp or {}).get("w", 0))
         headline = "Game of the week" if i == 1 else None
@@ -1000,11 +1704,9 @@ def build(pack_id):
                     {"key": "verdict", "label": "Verdict", "type": "text"}],
                    [[who(f), burns[f]["benched"], burns[f]["benched_score"],
                      burns[f]["started"], burns[f]["started_score"],
-                     {"process": "wrong call", "variance": "right call, bad day"}.get(
-                         burns[f]["verdict"], "unclear")]
+                     _verdict_cell(burns[f])]
                     for f in sorted(burns, key=lambda f: -burns[f]["diff"])],
-                   note="\"Right call, bad day\" means the man who started had the better "
-                        "season average going in. That is not a mistake.")
+                   note=_burns_note(burns))
 
     # ONE standings table, not an all-play table plus a divisions table. The
     # league is seeded on all-play but WON by division, so a reader needs both
@@ -1038,8 +1740,8 @@ def build(pack_id):
 
     pack.table("t.standings", "Where everyone stands",
                std_cols, [_std_row(f) for f in ap_order],
-               note=("Seeding is by all-play percentage, with the four division winners in "
-                     "automatically -- so the Record column is not the seeding order."))
+               note=("Division winners get in and take the top two seeds; every other seed goes by "
+                     "all-play percentage. Neither the Record column nor this order is the seeding order."))
 
     if is_season_finale and final_place:
         pack.table("t.final", "Final standings",
@@ -1047,6 +1749,24 @@ def build(pack_id):
                     {"key": "owner", "label": "Owner", "type": "text"}],
                    [[_ordinal(final_place[f]), who(f)]
                     for f in sorted(final_place, key=lambda f: final_place[f])])
+
+    for pp in pending_pots:
+        pfacts = list(pp["pfacts"])
+        for f in pp["fs"]:
+            for suffix in ("score", "week_allplay", "left_on_bench", "best_player", "best_available",
+                           "could_have_won", "ceiling_rank", "vs_avg", "week_points_rank",
+                           "season_pf_rank", "week_rank_own", "pot_record", "pot_against",
+                           "off_pts", "idp_pts", "kp_pts", "off_rank", "idp_rank", "kp_rank",
+                           "bench_miss", "bench_verdict", "bench_proj", "record", "div_record",
+                           "boom", "bust"):
+                k_ = "f.team.%s.%s" % (f, suffix)
+                if k_ in pack._facts:
+                    pfacts.append(k_)
+            pfacts += [k_ for k_ in pack._facts if k_.startswith("f.pre.%s." % f)]
+        pack.pot(pp["pid"], pp["kind"], pp["tag"], list(pp["key"]), pp["lines"], table_id=pp["tid"],
+                 headline=pp["headline"], billing=pp["billing"], billing_basis=pp["basis"],
+                 card_id=pp["card"], quote_ids=_claim_quotes(*pp["fs"], limit=2),
+                 fact_ids=sorted(set(pfacts)), rows=pp["rows"])
 
     # -------------------------------------------------------------- outline
     star_facts = [k for k in pack._facts if k.startswith("f.star.")]
@@ -1065,6 +1785,116 @@ def build(pack_id):
     # THREE sections. The earlier five fragmented the week into topic silos --
     # a whole section just for benches -- so nothing built. Now: what happened,
     # the games themselves, and where the league stands.
+    pre_facts = sorted(k for k in pack._facts if k.startswith("f.pre."))
+    split_facts = sorted(k for k in pack._facts if re.match(r"^f\.team\.\d{4}\.(off|idp|kp)_(pts|rank)$", k))
+    week_rank_facts = sorted(k for k in pack._facts if k.endswith(".week_points_rank"))
+    if pre_rank:
+        cols = [{"key": "pre", "label": "Preseason", "type": "text"},
+                {"key": "owner", "label": "Owner", "type": "text"},
+                {"key": "pretitle", "label": "Preseason title", "type": "text"},
+                {"key": "pts", "label": "Week score", "type": "points", "align": "right"},
+                {"key": "wkrank", "label": "Week rank", "type": "text"},
+                {"key": "wkap", "label": "Week AP", "type": "text"}]
+        if live:
+            cols += [{"key": "curap", "label": "Current AP", "type": "text"},
+                     {"key": "projap", "label": "Proj. ending AP", "type": "text"},
+                     {"key": "po", "label": "Current playoff odds", "type": "text"},
+                     {"key": "title", "label": "Current title odds", "type": "text"},
+                     {"key": "chg", "label": "Title odds chg", "type": "text"},
+                     {"key": "signal", "label": "Signal", "type": "text"}]
+
+        def _row(f):
+            row = ["No. %d" % pre_rank[f], who(f), pre["teams"][f].get("sim_p_title", {}).get("fmt", ""),
+                   fws.get(f, 0.0),
+                   (("T-" if week_rk[f][1] else "") + _ordinal(week_rk[f][0])) if f in fws else "",
+                   ("%d-%d" % (wap[f]["w"], wap[f]["l"])) if f in wap else ""]
+            if live:
+                t = live["teams"].get(f) or {}
+                chg = t.get("titleOddsChange")
+                sig = forecast_signal(chg, repeat.get(f, {}).get("repeatable_index"),
+                                      live["through_week"], f == top_mover)
+                note = best_cause_note(t)
+                row += [
+                    ("%.1f%%" % (t["currentApPct"] * 100)) if "currentApPct" in t else "",
+                    ("%.1f%%" % (t["projectedEndingApPct"] * 100)) if "projectedEndingApPct" in t else "",
+                    ("%.1f%%" % (t["currentPlayoffOdds"] * 100)) if "currentPlayoffOdds" in t else "",
+                    ("%.1f%%" % (t["currentTitleOdds"] * 100)) if "currentTitleOdds" in t else "",
+                    ("%+.1f pts" % (chg * 100)) if chg is not None else "",
+                    ("%s -- %s" % (sig, note)) if note else sig,
+                ]
+            return row
+
+        pack.table("t.preseason", ("The preseason forecast, one week in" if week == 1 else
+                                   "The preseason forecast, %s weeks in" % _WORD.get(week, str(week))),
+                   cols, [_row(f) for f in sorted(pre_rank, key=lambda f: pre_rank[f])],
+                   note=("Preseason rank and title odds are the %d Season Forecast's own numbers (%s "
+                         "simulated seasons), never overwritten. Current/projected columns are that same "
+                         "model updated through week %d -- see the method panel for how. A big rank or "
+                         "odds move is usually about MFL's own player projections changing since the "
+                         "preseason snapshot, not one week's score alone -- see the Signal column for the "
+                         "named cause when one cleared the bar." %
+                         (season, format(int(pre["runs"]), ",d"), live["through_week"])) if live else
+                        ("Preseason rank and title odds are the %d Season Forecast's own numbers, from "
+                         "%s simulated seasons. This week's columns are this week only."
+                         % (season, format(int(pre["runs"]), ",d"))))
+
+    if use_pots:
+        pack.section(
+            "s1", "The Lead",
+            "The show opens here. Two anchors trade the week back and forth -- the desk format. Open on "
+            "the loudest thing that happened, measured against what the preseason rankings said would "
+            "happen. Name who tore it up and who fell apart, with real box lines. Break the scoring into "
+            "offense and IDP where it tells a story. Fold in the waiver adds that paid off.",
+            fact_ids=sorted(set(star_facts + wire_facts + dnp_facts + split_facts + week_rank_facts
+                + [k for k in pack._facts if k.startswith("f.player.")]
+                + [k for k in pack._facts if k.endswith(".week_rank_own")]
+                + [k for k in pre_facts if k.endswith(".power_rank") or k.endswith(".sim_p_title")]
+                + [k for k in ("f.week.perfect", "f.week.winless", "f.week.self_inflicted",
+                               "f.week.outgunned", "f.week.upsets", "f.week.won_on_defense")
+                   if k in pack._facts]
+                + [k for k in pack._facts if k.startswith("f.week.boom_") or k.startswith("f.week.bust_")]
+                + [k for k in odds_facts if k in ("f.odds.biggest_riser", "f.odds.biggest_faller")])),
+            table_ids=[t for t in ("t.performers", "t.pickups", "t.offidp", "t.projections")
+                       if t in pack._tables],
+            quote_ids=spare[:2])
+        pack.section(
+            "s2", "The Pots",
+            "One page per pot -- every game one division played against itself (intra) or another "
+            "division (inter) this week. Write the desk exchange for EVERY pot in potNotes: who won the "
+            "pot, whether the preseason favorite held, the offense vs IDP story, and any bench call worth "
+            "roasting (read the verdict first -- roast the decision, never the result). The page already "
+            "prints the standings, every score line, the best player and each bench miss, so do not "
+            "recite them. Open the section with a short desk toss about how the pots broke.",
+            fact_ids=sorted(set(burn_facts + dnp_facts
+                + [k for k in ("f.week.no_process_burns", "f.week.upsets", "f.week.won_on_defense")
+                   if k in pack._facts]
+                + [k for k in pack._facts if k.startswith("f.pot.") or k.startswith("f.game.")])),
+            table_ids=[t for t in ("t.burns",) if t in pack._tables],
+            pot_ids=pot_ids, quote_ids=spare[2:4])
+        if week == 1:
+            s3_brief = ("Week one of a long season. Set the actual results against the preseason rankings: "
+                        "who already looks like his forecast, who looks nothing like it, and which division "
+                        "race the first week changed. Name each division's leader. One week is a data "
+                        "point, not a verdict, and the desk should say so while still having fun with it.")
+        else:
+            s3_brief = ("The race, through the two things that decide it: the DIVISIONS, whose winners get "
+                        "in and take the top two seeds, and ALL-PLAY, which orders every other seed. Name "
+                        "each division's leader and who is close. Check the preseason rankings against the "
+                        "season so far. %s Keep the TIME OF YEAR in mind." % (
+                            "Then the playoff odds -- who is safe, who is cooked, and whose week moved the "
+                            "number furthest." if odds_facts else ""))
+        pack.section(
+            "s3", "The Landscape", s3_brief,
+            fact_ids=sorted(set(pre_facts + div_facts + week_rank_facts + odds_facts
+                + [k for k in pack._facts if k.startswith("f.live.")]
+                + [k for k in ("f.mo.hot", "f.mo.cold") if k in pack._facts]
+                + [k for k in team_facts if k.endswith(".season_pf_rank") or k.endswith(".record")
+                   or k.endswith(".div_record")])),
+            table_ids=[t for t in ("t.preseason", "t.standings") if t in pack._tables],
+            quote_ids=spare[4:])
+        wire_video.save_cache(video_cache)
+        return pack
+
     pack.section(
         "s1", "The Lead",
         "Open on the state of the league this week, through the people in it. Who tore it up "

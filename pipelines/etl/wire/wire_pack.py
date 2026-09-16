@@ -67,6 +67,7 @@ class Pack(object):
         self._quotes = {}
         self._playcards = {}
         self._games = {}
+        self._pots = {}
         self._sections = []
         self._owners = {}
         self._franchises = []
@@ -236,6 +237,31 @@ class Pack(object):
         }
         return game_id
 
+    def pot(self, pot_id, kind, tag, divisions, games, table_id=None, headline=None,
+            billing=None, billing_basis=None, card_id=None, quote_ids=(), fact_ids=(), rows=()):
+        """Every game one division played against one division this week, as one page.
+
+        Keith 2026-09-15: "Treat each Divisional Matchup as one big pot. So it's
+        either interdivisional or intra." A pot replaces a page per game: an
+        intra pot is a division's round robin, an inter pot is every game between
+        two divisions. `games` are compact generated score lines; `table_id` is
+        the pot's own standings, registered through table() like any other.
+        """
+        if pot_id in self._pots:
+            raise PackError("duplicate pot id %r" % pot_id)
+        if kind not in ("intra", "inter"):
+            raise PackError("pot %s has unknown kind %r" % (pot_id, kind))
+        self._pots[pot_id] = {
+            "id": pot_id, "kind": kind, "tag": tag, "divisions": list(divisions),
+            "games": list(games), "tableId": table_id, "headline": headline,
+            "billing": billing, "billingBasis": billing_basis, "cardId": card_id,
+            "quoteIds": sorted(quote_ids), "factIds": sorted(fact_ids),
+            # [label, text] generated rows under the standings: best player, best
+            # IDP, each owner's bench miss with its verdict. Never writer text.
+            "rows": [list(r) for r in rows],
+        }
+        return pot_id
+
     def chart(self, chart_id, kind, title, series, axis=None, alt_text=None):
         if chart_id in self._charts:
             raise PackError("duplicate chart id %r" % chart_id)
@@ -251,18 +277,21 @@ class Pack(object):
     # ------------------------------------------------------------ sections
 
     def section(self, section_id, title, brief, fact_ids=(), table_ids=(),
-                chart_ids=(), quote_ids=(), card_ids=(), game_ids=()):
-        self._sections.append({
+                chart_ids=(), quote_ids=(), card_ids=(), game_ids=(), pot_ids=()):
+        sec = {
             "id": section_id, "title": title, "brief": brief,
             "factIds": sorted(fact_ids), "tableIds": sorted(table_ids),
             "chartIds": sorted(chart_ids), "quoteIds": sorted(quote_ids),
             "cardIds": sorted(card_ids), "gameIds": sorted(game_ids),
-        })
+        }
+        if pot_ids:
+            sec["potIds"] = list(pot_ids)
+        self._sections.append(sec)
 
     # ------------------------------------------------------------ assemble
 
     def to_dict(self, generated_at):
-        return {
+        out = {
             "schema": SCHEMA,
             "packId": self.pack_id,
             "title": self.title,
@@ -286,6 +315,9 @@ class Pack(object):
             "games": [self._games[k] for k in sorted(self._games)],
             "sections": self._sections,
         }
+        if self._pots:
+            out["pots"] = [self._pots[k] for k in sorted(self._pots)]
+        return out
 
     def to_json(self, generated_at):
         return json.dumps(self.to_dict(generated_at), indent=2,
@@ -323,6 +355,7 @@ def validate(pack):
     quote_ids = set(q["id"] for q in pack.get("quotes", []))
     card_ids = set(c["id"] for c in pack.get("playcards", []))
     game_ids = set(g["id"] for g in pack.get("games", []))
+    pot_ids = set(p["id"] for p in pack.get("pots", []))
 
     for t in pack["tables"]:
         width = len(t["columns"])
@@ -370,6 +403,9 @@ def validate(pack):
         for gid in s.get("gameIds", []):
             if gid not in game_ids:
                 problems.append("section %s references unknown game %s" % (s["id"], gid))
+        for pid in s.get("potIds", []):
+            if pid not in pot_ids:
+                problems.append("section %s references unknown pot %s" % (s["id"], pid))
 
     # A game page owns its own card, quotes and facts -- that is the whole point
     # of the rebuild -- so the same referential check has to apply there.
@@ -383,8 +419,41 @@ def validate(pack):
             if fid not in fact_ids:
                 problems.append("game %s references unknown fact %s" % (g["id"], fid))
 
+    placed_pots = set(pid for s in pack["sections"] for pid in s.get("potIds", []))
+    if len(pot_ids) != len(pack.get("pots", [])):
+        problems.append("duplicate pot id in pots[]")
+    for p in pack.get("pots", []):
+        # Shape, so a broken pot fails check-pack in CI instead of crashing render.
+        if p.get("kind") not in ("intra", "inter"):
+            problems.append("pot %s has kind %r" % (p.get("id"), p.get("kind")))
+        if not p.get("tag"):
+            problems.append("pot %s has no tag" % p.get("id"))
+        if p.get("id") not in placed_pots:
+            problems.append("pot %s is not placed by any section" % p.get("id"))
+        for i, g in enumerate(p.get("games") or []):
+            for k in ("winner", "loser"):
+                if not g.get(k):
+                    problems.append("pot %s game %d is missing %s" % (p["id"], i, k))
+            for k in ("winnerScore", "loserScore", "margin"):
+                if not isinstance(g.get(k), (int, float)):
+                    problems.append("pot %s game %d has non-numeric %s" % (p["id"], i, k))
+        for i, r in enumerate(p.get("rows") or []):
+            if not (isinstance(r, list) and len(r) == 2):
+                problems.append("pot %s row %d is not a [label, text] pair" % (p["id"], i))
+        if p.get("cardId") and p["cardId"] not in card_ids:
+            problems.append("pot %s references unknown playcard %s" % (p["id"], p["cardId"]))
+        if p.get("tableId") and p["tableId"] not in table_ids:
+            problems.append("pot %s references unknown table %s" % (p["id"], p["tableId"]))
+        for qid in p.get("quoteIds", []):
+            if qid not in quote_ids:
+                problems.append("pot %s references unknown quote %s" % (p["id"], qid))
+        for fid in p.get("factIds", []):
+            if fid not in fact_ids:
+                problems.append("pot %s references unknown fact %s" % (p["id"], fid))
+
     reached = set(f for s in pack["sections"] for f in s["factIds"])
     reached |= set(f for g in pack.get("games", []) for f in g.get("factIds", []))
+    reached |= set(f for p in pack.get("pots", []) for f in p.get("factIds", []))
     orphans = fact_ids - reached
     if orphans:
         # Not fatal: a fact can exist for the model to reach for. Surfaced so a

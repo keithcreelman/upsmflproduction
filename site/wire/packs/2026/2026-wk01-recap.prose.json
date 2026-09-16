@@ -1,0 +1,247 @@
+{
+  "meta": {
+    "engine": "claude-opus-5",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "packId": "2026-wk01-recap",
+    "packGeneratedAtUtc": "2026-09-15T22:09:53Z"
+  },
+  "prose": {
+    "kicker": "Week one, from the desk",
+    "title": "The Champ Won on Offense. Eric Martel Won the Game. Boo-yah.",
+    "dek": "The forecast's favorite scored ninth, the man who paid the auction's top price for Josh Allen did not win a game, and the guy who runs this website swept his division while starting a quarterback who went backwards.",
+    "sections": [
+      {
+        "id": "s1",
+        "lead": "",
+        "desk": [
+          {
+            "speaker": "stuart",
+            "text": "Welcome to the Wire, everybody. Week one is in the books, and before anybody gets comfortable I have to drop some knowledge. The preseason forecast told you Bear Dunn was {{f.pre.0009.power_rank}}. Then the games started, and Bear Dunn posted {{f.team.0009.week_points_rank}}. Rich?"
+          },
+          {
+            "speaker": "rich",
+            "text": "Thanks, Stu. Meanwhile the man ranked {{f.pre.0005.power_rank}}, the team the preview called stacked everywhere but quarterback, went {{f.team.0005.week_allplay}} against the field. Eric Martel, {{f.team.0005.score}}, {{f.team.0005.week_points_rank}}. He GOT it."
+          },
+          {
+            "speaker": "stuart",
+            "text": "And his best receiver barely showed up! {{f.week.bust_1}}. Did not matter one bit. {{f.team.0005.boom}}. Cool as the other side of the pillow."
+          },
+          {
+            "speaker": "rich",
+            "text": "But look where the rest of it came from, Stu. {{f.team.0005.idp_pts}} points from his defenders, {{f.team.0005.idp_rank}}. T.J. Watt alone: {{f.star.idp.line}}, good for {{f.star.idp.score}}. Did you know? Brian Cutting, the defending champion, put up {{f.team.0004.off_rank}} and still lost to him."
+          },
+          {
+            "speaker": "stuart",
+            "text": "The champ won the offense and lost the game, and Martel's defenders more than doubled his. Quentin Lake chipped in {{f.player.quentin-lake.score}} from the secondary. See, what had happened was, the other team brought defenders. Rich!"
+          },
+          {
+            "speaker": "rich",
+            "text": "Let's check the rest of the forecast's homework. Bear Dunn came in with {{f.pre.0009.sim_p_title}} title odds, the best in the league. He went {{f.team.0009.week_allplay}} against the field. And the best pickup of the week, {{f.wire.best_add}}, was Bear Dunn's. He scored every one of those points on Bear's bench."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Now, the projections backed his lineup calls, so this is not a bad call, this is a bad Sunday. He still left {{f.team.0009.left_on_bench}} points on that bench, and he {{f.team.0009.could_have_won}}. Rich, you have to do the next one. I cannot."
+          },
+          {
+            "speaker": "rich",
+            "text": "In the interest of full disclosure, Stu: the man who runs this website. Keith Creelman spent more than anyone at the auction, and one of the things he bought was Kyler Murray. Week one: {{f.team.0008.bust}}."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Negative! The man went backwards! And on the bench, the insurance policy he bought at that same auction. {{f.team.0008.bench_miss}}. The projections going in: {{f.team.0008.bench_proj}}. That is not bad luck, that is a bad call. Can I get a witness from the congregation?"
+          },
+          {
+            "speaker": "rich",
+            "text": "Witness here, and the congregation says guilty. He won both games anyway, and against Josh Martel he can thank a receiver: {{f.team.0008.boom}}. The site owner leaned on Christian Watson, and yes, Keith, it is in the recap. It is in the recap right now."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Now the best line in the league. Caleb Williams: {{f.star.line}}. {{f.star.score}} points for Josh Martel. He must be the bus driver, because he was taking the Carolina defense to school."
+          },
+          {
+            "speaker": "rich",
+            "text": "And the biggest surprise belonged to a man who lost twice. {{f.week.boom_1}}, for Ryan Bousquet, who got Coker from Matt Gerardi in the Amon-Ra St. Brown trade along with Sam Darnold. {{f.team.0001.bust}}. Same trade, Stu. Let's go to the pots."
+          }
+        ],
+        "bullets": [],
+        "place": [
+          "t.offidp",
+          "t.pickups",
+          "t.performers",
+          "t.projections"
+        ],
+        "placeAt": {
+          "t.offidp": 4,
+          "t.pickups": 6,
+          "t.performers": 10,
+          "t.projections": 11
+        },
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.offidp": "The defending champion scored the most on offense. The league's best score came from the man who scored the most on defense.",
+          "t.pickups": "The two best adds of the week never made a lineup. Four of the five adds that did belong to the owner who benched his own insurance.",
+          "t.performers": "Two quarterbacks up top in a superflex league, and a Kansas City running back crashing the party.",
+          "t.projections": "Five starters who blew past their projection and five who never got close. Ryan Bousquet and Eric Martel each put a starter on both lists."
+        }
+      },
+      {
+        "id": "s2",
+        "lead": "",
+        "desk": [
+          {
+            "speaker": "stuart",
+            "text": "Four divisions, four pots, every game a division game. In every pot, somebody went two-and-oh and somebody went oh-and-two. The pot of the week is Outlast PG Time, {{f.pot.outlast-pg-time.pre_strength}}, and it delivered {{f.pot.outlast-pg-time.points_rank}}. Rich?"
+          },
+          {
+            "speaker": "rich",
+            "text": "And here is the stat of the week, Stu. Of the four preseason division favorites, exactly one won both of his games. He runs this website. The other three went a combined two-and-four."
+          }
+        ],
+        "bullets": [],
+        "place": [
+          "t.burns"
+        ],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "pots": [
+          "p.1",
+          "p.2",
+          "p.3",
+          "p.4"
+        ],
+        "potNotes": {
+          "p.1": [
+            {
+              "speaker": "stuart",
+              "text": "Outlast PG Time came in {{f.pot.outlast-pg-time.pre_strength}}, with {{f.pot.outlast-pg-time.pre_title_odds}} of the title odds between three teams. Eric Martel went {{f.team.0005.pot_record}} in here and it was not close. Doing it, doing it, doing it well."
+            },
+            {
+              "speaker": "rich",
+              "text": "Against the defending champ it was {{f.game.02.margin}}, and {{f.game.02.ceiling}}. For the record, {{f.game.02.upset}}. Cutting won on offense and lost the game. Martel busted out the whuppin' stick on defense."
+            },
+            {
+              "speaker": "stuart",
+              "text": "Cutting did get one back, Brian Cross by {{f.game.03.margin}}, and {{f.team.0004.boom}}. Ashton Jeanty breaks off something proper."
+            },
+            {
+              "speaker": "rich",
+              "text": "Which leaves Brian Cross, Stu. Got paid to take a quarterback, spent the summer on defense, and the forecast gave him {{f.pre.0006.idp_proj_rank}}. That defense posted {{f.team.0006.idp_rank}}. His quarterbacks were fine, {{f.team.0006.boom}}. He went {{f.team.0006.pot_record}} anyway, and he {{f.team.0006.could_have_won}} in either game."
+            }
+          ],
+          "p.2": [
+            {
+              "speaker": "rich",
+              "text": "The forecast came back with Bear Dunn's name on top, Stu. {{f.pre.0009.power_rank}}, with {{f.pre.0009.off_proj_rank}} and {{f.pre.0009.idp_proj_rank}}. Eric Mannila, {{f.pre.0011.power_rank}}, beat him by {{f.game.05.margin}}. For the record, {{f.game.05.upset}}."
+            },
+            {
+              "speaker": "stuart",
+              "text": "The forecast called Mannila the one that looks wrong: the third-most valuable offense in the league, ranked {{f.pre.0011.power_rank}}. Week one leaned his way: {{f.team.0011.pot_record}} in the pot, and Jaxson Dart put up {{f.player.jaxson-dart.score}}. He did it with {{f.team.0011.week_points_rank}}, which is how you sweep the pot with {{f.pot.dog-pound-4-life.points_rank}}. Holla at a playa when you see him in the street!"
+            },
+            {
+              "speaker": "rich",
+              "text": "And against Mannila, {{f.game.05.ceiling}}. The projections backed Dunn's lineup, the points just landed on the bench, {{f.team.0009.left_on_bench}} of them, and the best pickup of the week was one of the men sitting there. He did take the other game, over Chris Klingenberg by {{f.game.06.margin}}."
+            },
+            {
+              "speaker": "stuart",
+              "text": "Which brings us to Chris Klingenberg, with {{f.team.0012.week_points_rank}}. Also the fewest on offense. Also the fewest on defense. {{f.team.0012.week_allplay}} against the field. It was one week, Chris."
+            }
+          ],
+          "p.3": [
+            {
+              "speaker": "stuart",
+              "text": "Maddie Mondays, the division the forecast called the tightest in the league. The preview said Keith Creelman led it on paper. Week one he went {{f.team.0008.pot_record}} and leads it on the field. Rich, I am contractually obligated to say something nice."
+            },
+            {
+              "speaker": "rich",
+              "text": "Nice is not the word, Stu. He started Kyler Murray over his own insurance policy and beat Josh Martel by {{f.game.08.margin}} anyway. Christian Watson covered for him with {{f.player.christian-watson.score}}, and Watson gets the first fruit cup."
+            },
+            {
+              "speaker": "stuart",
+              "text": "Josh Martel had the best player in the entire league, Caleb Williams, {{f.player.caleb-williams.score}}, and his defense posted {{f.team.0007.idp_rank}}. He still went {{f.team.0007.pot_record}}, and against Creelman {{f.game.08.ceiling}}."
+            },
+            {
+              "speaker": "rich",
+              "text": "And Ryan Bousquet, {{f.pre.0001.power_rank}} coming in. Jalen Coker handed him the biggest surprise of the week, and his quarterbacks handed a lot of it back. He went {{f.team.0001.pot_record}}, and his best possible lineup was {{f.team.0001.ceiling_rank}}. No perfect card was saving this one, Stu."
+            }
+          ],
+          "p.4": [
+            {
+              "speaker": "stuart",
+              "text": "LEGION OF BOOM! The forecast had it {{f.pot.legion-of-boom.pre_strength}}. Derrick Whitman built this division as a captain, and in July he picked Shawn Blake to win it. Week one, Whitman went {{f.team.0002.pot_record}}, and one of those wins came over Shawn Blake. Boo-yah!"
+            },
+            {
+              "speaker": "rich",
+              "text": "Blake paid the auction's top price for Josh Allen, Stu, and Allen delivered: {{f.team.0010.boom}}. Blake went {{f.team.0010.pot_record}} anyway. {{f.team.0010.bust}}, and Blake {{f.team.0010.could_have_won}}. Allen did his job. The receivers did not get the memo."
+            },
+            {
+              "speaker": "stuart",
+              "text": "And here comes {{f.pre.0003.power_rank}} Matt Gerardi. For the record, {{f.game.12.upset}}. The team the forecast gave {{f.pre.0003.off_proj_rank}} posted {{f.team.0003.off_rank}}. Can I get a witness?"
+            },
+            {
+              "speaker": "rich",
+              "text": "Hold the witness, Stu, because he made the same mistake as the man who runs this site. {{f.team.0003.bench_miss}}. The projections going in: {{f.team.0003.bench_proj}}. And against Whitman, {{f.burn.covers_margin}}. His top starter was {{f.team.0003.best_player}}, the receiver who came over in the trade that sent Darnold and Coker to Bousquet."
+            }
+          ]
+        },
+        "captions": {
+          "t.burns": "The two biggest same-position bench swings of the week. Both owners started the lower-projected quarterback, and only one of them runs this website."
+        }
+      },
+      {
+        "id": "s3",
+        "lead": "",
+        "desk": [
+          {
+            "speaker": "stuart",
+            "text": "Four divisions, four leaders, every one of them two-and-oh: {{f.div.outlast-pg-time.leader}}, {{f.div.dog-pound-4-life.leader}}, {{f.div.maddie-mondays.leader}} and {{f.div.legion-of-boom.leader}}. Rich, check the forecast."
+          },
+          {
+            "speaker": "rich",
+            "text": "The top three in the preseason rankings were Bear Dunn, Brian Cutting and Shawn Blake. None of them won both games. Blake did not win one. The owners ranked fourth, fifth, seventh and eighth all went two-and-oh."
+          },
+          {
+            "speaker": "stuart",
+            "text": "And the bottom of the board? {{f.pre.0003.power_rank}} Matt Gerardi posted {{f.team.0003.week_points_rank}}. The forecast gave him {{f.pre.0003.sim_p_title}} to win the whole thing, and he just beat Shawn Blake. Better recognize."
+          },
+          {
+            "speaker": "rich",
+            "text": "Easy, Stu. It is one week of a long season, and one week is a data point, not a verdict. Bear Dunn had a winning lineup on his bench, and nobody in this league should be writing him off after one Sunday."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Fair. But Eric Martel went {{f.team.0005.week_allplay}} against the field. It's your world, kid. The rest of us are still paying rent. Rich, take us home."
+          },
+          {
+            "speaker": "rich",
+            "text": "That is the show. Chris Klingenberg, week two is a fresh card. Keith, bench the negative quarterback. For Stu, I'm Rich. See you after week two."
+          }
+        ],
+        "bullets": [
+          "The desk is written in tribute to Stuart Scott and Rich Eisen and their years together on the SportsCenter set. The catchphrases are theirs; everything else on the desk is ours."
+        ],
+        "place": [
+          "t.preseason",
+          "t.standings"
+        ],
+        "placeAt": {
+          "t.standings": 0,
+          "t.preseason": 1
+        },
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {
+          "t.preseason": "The preseason order against one week of football. Read it for fun, not for betting.",
+          "t.standings": "Eric Mannila is two-and-oh with a losing all-play record. Division winners take the top two seeds; all-play orders everybody else."
+        }
+      }
+    ]
+  }
+}

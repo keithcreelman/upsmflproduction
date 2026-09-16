@@ -28,9 +28,19 @@ KNOWN GAP: `pwr` (power ranking) has no source anywhere in this repo or in
 MFL's export API (checked TYPE=leagueStandings' full field list; grepped
 this repo for any pwr formula -- none exists, it was always a raw pass-through
 from the legacy local `standings` table, whose own origin is outside this
-repo). Left NULL here rather than invented. Same for
-`src_weekly_franchise_summary` / `src_weekly` (per-player granularity) --
-out of scope, not needed by /api/standings.
+repo). Left NULL here rather than invented.
+
+PER-PLAYER TABLES (added 2026-09-15 for the Wire's weekly recap): src_players,
+src_weekly, src_adddrop and src_trades for the season, from TYPE=players,
+the weeklyResults payloads already fetched above, and TYPE=transactions.
+src_weekly carries the ACTIVE roster only (starter/nonstarter) -- weeklyResults
+does not list taxi-squad or injured-reserve players, and free-agent rows,
+pos_rank, overall_rank and win_chunks came from the legacy fetcher's APIKEY
+playerScores pull. So 2026 "nonstarter" means active bench, not every rostered
+man, and anything counting nonstarter games sees fewer rows than 2025 did.
+Every franchise-week's starters must match MFL's own starters list and sum to
+MFL's team score, or none of the per-player tables is written. A per-player
+problem never blocks the four standings tables above.
 
 Usage:
   python3 sync_live_season_from_mfl_to_d1.py --season 2026 --dry-run
@@ -296,6 +306,178 @@ def build_standings(season, franchise_ids, schedule_rows, weekly_score, fmeta, o
     return rows
 
 
+IDP_POS_GROUP = {"CB": "DB", "S": "DB", "DE": "DL", "DT": "DL"}
+PLAYERS_COLS = ["season", "player_id", "name", "position", "nfl_team", "status", "raw_json", "updated_at_utc"]
+WEEKLY_COLS = ["season", "week", "player_id", "pos_group", "status", "score", "is_reg",
+               "roster_franchise_id", "roster_franchise_name", "pos_rank", "overall_rank"]
+ADDDROP_COLS = ["season", "txn_index", "player_id", "move_type", "franchise_id", "franchise_name",
+                "method", "salary", "unix_timestamp", "datetime_et"]
+TRADES_COLS = ["transactionid", "season", "txn_index", "trade_group_id", "franchise_id", "franchise_name",
+               "asset_role", "asset_type", "player_id", "player_name", "comments", "unix_timestamp", "datetime_et"]
+ADDDROP_METHOD = {"FREE_AGENT": "FREE_AGENT", "BBID_WAIVER": "BBID", "WAIVER": "WAIVER"}
+
+
+def build_player_rows(season, payload):
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    rows = {}
+    for p in as_list((payload.get("players") or {}).get("player")):
+        pid = safe_str(p.get("id"))
+        if not pid:
+            continue
+        rows[pid] = {
+            "season": season, "player_id": pid, "name": safe_str(p.get("name")) or None,
+            "position": safe_str(p.get("position")) or None, "nfl_team": safe_str(p.get("team")) or None,
+            "status": safe_str(p.get("status")) or None,
+            "raw_json": json.dumps(p, ensure_ascii=False, sort_keys=True), "updated_at_utc": now,
+        }
+    return rows
+
+
+def build_weekly_rows(season, played_weeks, fmeta, weekly_score, players):
+    """One src_weekly row per (week, player) for every rostered player.
+
+    Refuses (returns problems) when a player's two copies in a multi-matchup
+    week disagree, when a rostered player has no position, or when a
+    franchise's starter scores do not add up to MFL's own team score."""
+    rows, problems = {}, []
+    for wk, matchups in played_weeks:
+        starter_sum = {}
+        for m in matchups:
+            reg = 1 if safe_int(m.get("regularSeason"), 1) == 1 else 0
+            for fr in as_list(m.get("franchise")):
+                fid = pad4(fr.get("id"))
+                seen_here = set()
+                listed_starters = set(x for x in safe_str(fr.get("starters")).split(",") if x)
+                for pl in as_list(fr.get("player")):
+                    pid = safe_str(pl.get("id"))
+                    if not pid or pid in seen_here:
+                        continue
+                    seen_here.add(pid)
+                    status = safe_str(pl.get("status")).lower()
+                    if status not in ("starter", "nonstarter"):
+                        problems.append(f"week {wk} {fid}: player {pid} has status {pl.get('status')!r}")
+                        continue
+                    if (status == "starter") != (pid in listed_starters):
+                        problems.append(f"week {wk} {fid}: player {pid} status {status} disagrees with "
+                                        f"the franchise's starters list")
+                    score = safe_float(pl.get("score"), None) if safe_str(pl.get("score")) else None
+                    pos = (players.get(pid) or {}).get("position")
+                    if not pos:
+                        problems.append(f"week {wk} {fid}: rostered player {pid} has no position in TYPE=players")
+                    row = {
+                        "season": season, "week": wk, "player_id": pid,
+                        "pos_group": IDP_POS_GROUP.get(pos, pos), "status": status, "score": score,
+                        "is_reg": reg, "roster_franchise_id": fid,
+                        "roster_franchise_name": fmeta.get(fid, {}).get("name"),
+                        "pos_rank": None, "overall_rank": None,
+                    }
+                    prev = rows.get((wk, pid))
+                    if prev is not None:
+                        if (prev["status"], prev["score"], prev["roster_franchise_id"]) != (status, score, fid):
+                            problems.append(f"week {wk} player {pid}: copies disagree {prev['roster_franchise_id']}/"
+                                            f"{prev['status']}/{prev['score']} vs {fid}/{status}/{score}")
+                        continue
+                    rows[(wk, pid)] = row
+                    if status == "starter":
+                        starter_sum[fid] = starter_sum.get(fid, 0.0) + (score or 0.0)
+        for (w, fid), v in weekly_score.items():
+            if w != wk:
+                continue
+            got = round(starter_sum.get(fid, 0.0), 2)
+            if abs(got - v["score"]) > 0.05:
+                problems.append(f"week {wk} {fid}: starter scores sum to {got}, MFL team score {v['score']}")
+    return list(rows.values()), problems
+
+
+def _et(ts):
+    from zoneinfo import ZoneInfo
+    return datetime.fromtimestamp(ts, ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _ids(field):
+    return [x for x in (s.strip() for s in safe_str(field).split(",")) if x]
+
+
+def build_transaction_rows(season, payload, fmeta, players):
+    """src_adddrop and src_trades rows. txn_index is the 0-based chronological
+    position among ALL of the season's transactions, as the legacy loader
+    numbered them; MFL lists newest first, so same-second rows are reversed to
+    run oldest first. It is synthesized here, not issued by MFL, so it is not a
+    stable id across a re-sync that picks up new transactions.
+
+    FREE_AGENT adds carry salary 1000, as every legacy row did: UPS free-agent
+    pickups sign at the league minimum and MFL's transaction row omits it."""
+    txns = as_list((payload.get("transactions") or {}).get("transaction"))
+    ordered = sorted(enumerate(txns), key=lambda it: (safe_int(it[1].get("timestamp")), -it[0]))
+    adddrop, trades, problems, trade_n = [], [], [], 0
+    for idx, (_orig, t) in enumerate(ordered):
+        ttype = safe_str(t.get("type"))
+        ts = safe_int(t.get("timestamp"))
+        fid = pad4(t.get("franchise"))
+        if ttype in ADDDROP_METHOD:
+            parts = safe_str(t.get("transaction")).split("|")
+            adds = _ids(parts[0]) if parts else []
+            drops = _ids(parts[-1]) if len(parts) > 1 else []
+            salary = None
+            if ttype == "BBID_WAIVER":
+                if len(parts) != 3:
+                    problems.append(f"txn {ts} {fid}: unexpected BBID shape {t.get('transaction')!r}")
+                    continue
+                salary = safe_int(parts[1], None) if safe_str(parts[1]) else None
+            elif ttype == "FREE_AGENT" and adds:
+                salary = 1000
+            for move, pids in (("ADD", adds), ("DROP", drops)):
+                for pid in pids:
+                    adddrop.append({
+                        "season": season, "txn_index": idx, "player_id": pid, "move_type": move,
+                        "franchise_id": fid, "franchise_name": fmeta.get(fid, {}).get("name"),
+                        "method": ADDDROP_METHOD[ttype], "salary": salary if move == "ADD" else None,
+                        "unix_timestamp": ts, "datetime_et": _et(ts),
+                    })
+        elif ttype == "TRADE":
+            trade_n += 1
+            group = f"trade{season}_{trade_n}"
+            f1, f2 = fid, pad4(t.get("franchise2"))
+            assets = [(f1, f2, a) for a in _ids(t.get("franchise1_gave_up"))] + \
+                     [(f2, f1, a) for a in _ids(t.get("franchise2_gave_up"))]
+            for i, (giver, receiver, asset) in enumerate(assets, start=1):
+                if asset.isdigit():
+                    atype, pid, pname = "PLAYER", asset, (players.get(asset) or {}).get("name")
+                elif asset.startswith("DP_"):
+                    atype, pid, pname = "DRAFTPICK_CURRENT", None, None
+                elif asset.startswith("FP_"):
+                    atype, pid, pname = "DRAFTPICK_FUTURE", None, None
+                elif asset.startswith("BB_"):
+                    atype, pid, pname = "CAP", None, None
+                else:
+                    problems.append(f"{group}: unknown asset token {asset!r}")
+                    continue
+                for suffix, role, owner in (("a", "RELINQUISH", giver), ("b", "ACQUIRE", receiver)):
+                    trades.append({
+                        "transactionid": f"{group}.{i}{suffix}", "season": season, "txn_index": idx,
+                        "trade_group_id": group, "franchise_id": owner,
+                        "franchise_name": fmeta.get(owner, {}).get("name"),
+                        "asset_role": role, "asset_type": atype, "player_id": pid, "player_name": pname,
+                        "comments": safe_str(t.get("comments")) or None,
+                        "unix_timestamp": ts, "datetime_et": _et(ts),
+                    })
+    return adddrop, trades, problems
+
+
+def build_insert_sql(table, cols, rows, season=None):
+    """DELETE the season, then plain INSERTs -- for tables whose only key is a
+    surrogate row_id, where ON CONFLICT has nothing to conflict on. With
+    `season` given, the DELETE is emitted even for zero rows, so a season whose
+    rows all went away does not keep the stale ones."""
+    if not rows and season is None:
+        return ""
+    parts = [f"DELETE FROM {table} WHERE season = {season if season is not None else rows[0]['season']};"]
+    for r in rows:
+        parts.append(f"INSERT INTO {table} ({', '.join(cols)}) VALUES "
+                     f"({', '.join(sql_quote(r.get(c)) for c in cols)});")
+    return "\n".join(parts) + "\n"
+
+
 SCHEDULE_COLS = [
     "season", "week", "franchise_id", "opponent_franchise_id",
     "franchise_name", "opponent_franchise_name", "franchise_owner", "opponent_owner",
@@ -443,10 +625,33 @@ def main():
 
     print("\nSample standings row:", json.dumps(standings_rows[0], indent=2))
 
+    print("\nFetching players + transactions for the per-player tables...")
+    players = build_player_rows(args.season, fetch_mfl(args.season, args.league_id, args.server, "players"))
+    weekly_rows, problems = build_weekly_rows(args.season, played_weeks, fmeta, weekly_score, players)
+    adddrop_rows, trade_rows, tx_problems = build_transaction_rows(
+        args.season, fetch_mfl(args.season, args.league_id, args.server, "transactions"), fmeta, players)
+    problems += tx_problems
+    rostered = {r["player_id"] for r in weekly_rows}
+    player_rows = [players[pid] for pid in sorted(players)]
+    from collections import Counter
+    print(f"  {len(player_rows)} players ({len(rostered)} rostered in played weeks), "
+          f"{len(weekly_rows)} src_weekly, {len(adddrop_rows)} src_adddrop, {len(trade_rows)} src_trades rows")
+    print("  pos_group counts (rostered):", dict(Counter(r["pos_group"] for r in weekly_rows)))
+    print("  status counts:", dict(Counter(r["status"] for r in weekly_rows)),
+          "| NULL scores:", sum(1 for r in weekly_rows if r["score"] is None))
+    if problems:
+        print(f"\n!! {len(problems)} per-player problem(s) -- the per-player tables will NOT be written:")
+        for p in problems[:40]:
+            print("   " + p)
+    else:
+        print("  Verified: every franchise-week's starters match MFL's list and sum to MFL's team score.")
+
     if args.dry_run:
         print(f"\nDRY RUN -- would write: {len(franchises_rows)} src_franchises, "
               f"{len(schedule_rows)} src_schedule, {len(weekly_score_rows)} src_franchise_weekly_score, "
-              f"{len(standings_rows)} src_standings rows for season {args.season}.")
+              f"{len(standings_rows)} src_standings, {len(player_rows)} src_players, "
+              f"{len(weekly_rows)} src_weekly, {len(adddrop_rows)} src_adddrop, "
+              f"{len(trade_rows)} src_trades rows for season {args.season}.")
         print("NOTE: pwr left NULL for every row -- no source exists for it (see module docstring).")
         print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
         return 0
@@ -456,9 +661,22 @@ def main():
     d1_execute_file(build_sql("src_schedule", SCHEDULE_COLS, schedule_rows, ["season", "week", "franchise_id", "opponent_franchise_id"]), "src_schedule")
     d1_execute_file(build_sql("src_franchise_weekly_score", WEEKLY_SCORE_COLS, weekly_score_rows, ["season", "week", "franchise_id"]), "src_franchise_weekly_score")
     d1_execute_file(build_sql("src_standings", STANDINGS_COLS, standings_rows, ["season", "franchise_id"]), "src_standings")
+    if problems:
+        print(f"\nStandings tables written; per-player tables skipped ({len(problems)} problem(s) above).")
+        print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
+        return 1
+    # Players before src_weekly: every per-player reader joins src_players on season.
+    d1_execute_file(build_sql("src_players", PLAYERS_COLS, player_rows, ["season", "player_id"]), "src_players")
+    d1_execute_file(build_sql("src_weekly", WEEKLY_COLS, weekly_rows, ["season", "week", "player_id"]), "src_weekly")
+    d1_execute_file(build_sql("src_adddrop", ADDDROP_COLS, adddrop_rows,
+                              ["season", "txn_index", "player_id", "move_type"])
+                    or f"DELETE FROM src_adddrop WHERE season = {args.season};\n", "src_adddrop")
+    d1_execute_file(build_insert_sql("src_trades", TRADES_COLS, trade_rows, season=args.season), "src_trades")
     print(f"\nD1 sync complete for season {args.season}: "
           f"{len(franchises_rows)} franchises, {len(schedule_rows)} schedule rows, "
-          f"{len(weekly_score_rows)} weekly-score rows, {len(standings_rows)} standings rows.")
+          f"{len(weekly_score_rows)} weekly-score rows, {len(standings_rows)} standings rows, "
+          f"{len(player_rows)} players, {len(weekly_rows)} weekly player rows, "
+          f"{len(adddrop_rows)} add/drop rows, {len(trade_rows)} trade rows.")
     print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
     return 0
 

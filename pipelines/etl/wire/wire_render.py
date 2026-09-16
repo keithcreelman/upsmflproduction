@@ -198,7 +198,7 @@ DIVISION_CLAIM_RE = re.compile(
     # so demands the 'a'. Plain "division game" never matched.
     r'\b(?:intra-)?division(?:al)?\s+'
     r'(?:game|matchup|meeting|clash|rivalry|tilt|showdown|battle|opponent|series|'
-    r'rival|rivals|foe|test|date|fixture)\b'
+    r'rival|rivals|foe|test|date|fixture|pot)\b'
     r'|\bshares?\s+a\s+division\b'
     r'|\bsame\s+division\b', re.I)
 
@@ -208,6 +208,16 @@ DIVISION_CLAIM_RE = re.compile(
 FUTURE_CUE_RE = re.compile(
     r'\bnext\b|\bupcoming\b|\bstill\s+to\s+(?:come|play)\b|\bleft\s+on\s+the\s+schedule\b'
     r'|\brest\s+of\s+the\s+way\b|\bfrom\s+here\b|\bahead\s+of\s+(?:him|them)\b', re.I)
+
+
+def _sentence_around(text, start, end):
+    """The sentence holding text[start:end], split on . ! and ? -- ignoring the
+    dots inside {{fact.ids}}. The desk tosses on '?' and '!', and splitting on
+    periods alone let a cue in the previous line excuse a claim in this one."""
+    masked = re.sub(r"\{\{[^}]*\}\}", lambda m: "x" * len(m.group(0)), text)
+    left = max(masked.rfind(c, 0, start) for c in ".!?") + 1
+    rights = [i for i in (masked.find(c, end) for c in ".!?") if i != -1]
+    return text[left:min(rights) if rights else len(text)]
 
 
 def audit_game_note(text, where, game):
@@ -240,16 +250,66 @@ def audit_game_note(text, where, game):
         # A division game the owner has NEXT is not a claim about this one.
         # "Dunn's next opponent is a division rival" is true, checkable elsewhere,
         # and failed the build until this carve-out existed.
-        start = text.rfind(".", 0, hit.start()) + 1
-        end = text.find(".", hit.end())
-        sentence = text[start:end if end != -1 else len(text)]
-        if FUTURE_CUE_RE.search(sentence):
+        if FUTURE_CUE_RE.search(_sentence_around(text, hit.start(), hit.end())):
             continue
         raise RenderError(
             "%s calls this a division game (\"%s\") but %s v %s is not one -- src_schedule "
             "flags it is_divisional=0.\n    Say what the matchup actually was; the page "
             "already prints both divisions."
             % (where, hit.group(0), game.get("winner"), game.get("loser")))
+
+
+# The inverse claim, for a DIVISION pot: every game on the page is a division
+# game, so calling one of them interdivisional is the same kind of false.
+INTERDIVISION_CLAIM_RE = re.compile(
+    r'\binter-?division(?:al)?\b|\bcross-division\b|\bnon-?division(?:al)?\b'
+    r'|\boutside\s+(?:the|his|their)\s+(?:own\s+)?division\b', re.I)
+
+
+def audit_pot_note(text, where, pot):
+    """The division audit for a pot page, which cuts both ways.
+
+    An inter pot holds no division game, so it gets exactly the game-note rule.
+    An intra pot holds nothing BUT division games, so division language is
+    correct there and the opposite claim is the one that fails.
+    """
+    if pot.get("kind") == "inter":
+        audit_game_note(text, where, {"divisional": False, "winner": pot.get("tag"), "loser": "its opponent"})
+        return
+    for hit in INTERDIVISION_CLAIM_RE.finditer(text):
+        if FUTURE_CUE_RE.search(_sentence_around(text, hit.start(), hit.end())):
+            continue
+        raise RenderError("%s calls part of the %s pot interdivisional (\"%s\"), but every game in "
+                          "it is a division game" % (where, pot.get("tag"), hit.group(0)))
+
+
+# The desk. Keith 2026-09-15: "Stuart: line passes it to Rich." The speaker is
+# a whitelisted KEY, never typed text, so a typo cannot invent a third voice and
+# the label never passes through the digit or typed-quote audits.
+ANCHORS = {"stuart": "Stuart", "rich": "Rich"}
+
+
+def desk_lines(lines, where):
+    """[(speaker_key, raw_text)] from a desk list, or raise on anything malformed."""
+    out = []
+    if not isinstance(lines, list) or not lines:
+        raise RenderError("%s: a desk must be a non-empty list of {speaker, text}" % where)
+    for i, ln in enumerate(lines):
+        if not isinstance(ln, dict) or set(ln) - {"speaker", "text"}:
+            raise RenderError("%s line %d: a desk line is exactly {speaker, text}" % (where, i))
+        who = str(ln.get("speaker") or "").lower()
+        if who not in ANCHORS:
+            raise RenderError("%s line %d: unknown anchor %r (the desk is %s)"
+                              % (where, i, ln.get("speaker"), ", ".join(sorted(ANCHORS))))
+        if not isinstance(ln.get("text"), str) or not ln["text"].strip():
+            raise RenderError("%s line %d: a desk line's text must be a non-empty string" % (where, i))
+        out.append((who, ln["text"]))
+    return out
+
+
+def desk_html(speaker, text_html):
+    return ('<p class="wire-desk-line wire-desk-%s"><span class="wire-desk-who">%s:</span> %s</p>'
+            % (speaker, ANCHORS[speaker], text_html))
 
 
 # A tier label ("Elite WR1", "Mid RB2") carries a digit, so the digit audit
@@ -476,6 +536,10 @@ def render_quote(q):
 # not required to match the opening one.
 _Q = '"\u201c\u201d\u201e\u201f\u00ab\u00bb'
 TYPED_QUOTE_RE = re.compile(r'[%s][^%s]{25,}[%s]' % (_Q, _Q, _Q))
+# Single curly quotes too -- the desk is dialogue, and a quotation in ‘...’
+# publishes as verbatim just the same. An opening ‘ never appears in a
+# contraction, so apostrophes do not trip it.
+TYPED_SINGLE_QUOTE_RE = re.compile('\u2018[^\u2018\u2019]{25,}\u2019')
 
 
 def audit_no_typed_quotes(text, where):
@@ -486,7 +550,7 @@ def audit_no_typed_quotes(text, where):
     message -- and a misquote attributed to a real owner is worse than a wrong
     number, because it reads as a receipt.
     """
-    hit = TYPED_QUOTE_RE.search(text)
+    hit = TYPED_QUOTE_RE.search(text) or TYPED_SINGLE_QUOTE_RE.search(text)
     if hit:
         raise RenderError(
             "%s contains a typed quotation: %s\n    Quotes must be placed by id in the "
@@ -639,6 +703,59 @@ def render_game(g, blurb_html=None, card=None, quotes=()):
     return "".join(parts)
 
 
+def render_pot(p, table, note_lines_html=(), card=None, quotes=()):
+    """One pot as a full page in the flip-through deck.
+
+    Same container and pager as a game page, so the runtime needs no change.
+    Top to bottom: kicker and tag, the pot's combined line, the desk exchange
+    for this pot, its standings table, every score line, the play card, the
+    generated rows (best player, best IDP, each bench miss with its verdict).
+    """
+    parts = ['<article class="wire-gamepage wire-potpage" id="%s" data-title="%s">'
+             % (esc_attr(p["id"]), esc_attr(p["tag"]))]
+    parts.append('<div class="wire-gamepage-head">')
+    tags = []
+    if p.get("headline"):
+        tags.append('<span class="wire-gamepage-kicker">%s</span>' % esc(p["headline"]))
+    tags.append('<span class="wire-game-tag%s">%s</span>'
+                % (" wire-game-tag-div" if p["kind"] == "intra" else "",
+                   "Division pot" if p["kind"] == "intra" else "Interdivision pot"))
+    parts.append('<div class="wire-gamepage-tags">%s</div>' % "".join(tags))
+    parts.append('<div class="wire-pot-banner"><span class="wire-gp-team">%s</span></div>' % esc(p["tag"]))
+    parts.append("</div>")
+    if note_lines_html:
+        parts.append('<div class="wire-game-blurb wire-pot-desk">%s</div>' % "".join(note_lines_html))
+    if table:
+        # Stacked on a phone once it is too wide to read across.
+        parts.append(render_table(table, None, (table["columns"], table["rows"], "", True,
+                                                len(table["columns"]) >= 5)))
+    if p.get("games"):
+        parts.append('<div class="wire-pot-lines">')
+        for g in p["games"]:
+            tie = bool(g.get("tie"))
+            parts.append('<div class="wire-pot-line"><span class="wire-pot-w">%s</span>'
+                         '<span class="wire-gp-num">%s</span><span class="wire-gp-dash">&ndash;</span>'
+                         '<span class="wire-gp-num%s">%s</span>'
+                         '<span class="wire-pot-l">%s</span>'
+                         '<span class="wire-pot-margin">%s</span></div>'
+                         % (esc(g["winner"]), esc("%.1f" % float(g["winnerScore"])),
+                            "" if tie else " wire-gp-lose", esc("%.1f" % float(g["loserScore"])),
+                            esc(g["loser"]), "tie" if tie else esc("by %.1f" % float(g["margin"]))))
+        parts.append("</div>")
+    if card:
+        parts.append(render_playcard(card))
+    if p.get("rows"):
+        parts.append('<div class="wire-gamepage-body">')
+        for k, v in p["rows"]:
+            parts.append('<div class="wire-game-row"><span>%s</span><span>%s</span></div>'
+                         % (esc(k), esc(v)))
+        parts.append("</div>")
+    for q in quotes or []:
+        parts.append(render_quote(q))
+    parts.append("</article>")
+    return "".join(parts)
+
+
 def render_sections(pack, prose):
     facts = dict((f["id"], f) for f in pack["facts"])
     tables = dict((t["id"], t) for t in pack["tables"])
@@ -646,6 +763,7 @@ def render_sections(pack, prose):
     quotes = dict((q["id"], q) for q in pack.get("quotes", []))
     cards = dict((c["id"], c) for c in pack.get("playcards", []))
     games = dict((g["id"], g) for g in pack.get("games", []))
+    pots = dict((p["id"], p) for p in pack.get("pots", []))
 
     # The league's own proper nouns, for the digit audit. Divisions especially:
     # "DOG POUND 4 LIFE" is a name, not a quantity, and the first run of the
@@ -664,6 +782,7 @@ def render_sections(pack, prose):
                           % ", ".join(missing))
 
     out = []
+    decks = 0
     for spec in pack["sections"]:
         sid = spec["id"]
         s = written[sid]
@@ -686,7 +805,14 @@ def render_sections(pack, prose):
         if stray:
             raise RenderError("%s has a view or placeAt for id(s) it does not place: %s"
                               % (where, ", ".join(stray)))
-        paras = [audit_and_substitute(p, where, facts, proper) for p in s.get("paragraphs") or []]
+        if s.get("desk") and s.get("paragraphs"):
+            raise RenderError("%s has both a desk and paragraphs -- a section is one or the other" % where)
+        if s.get("desk"):
+            paras = [desk_html(who, audit_and_substitute(t, "%s desk line %d" % (where, i), facts, proper))
+                     for i, (who, t) in enumerate(desk_lines(s["desk"], "%s desk" % where))]
+        else:
+            paras = ["<p>%s</p>" % audit_and_substitute(p, where, facts, proper)
+                     for p in s.get("paragraphs") or []]
         captions = s.get("captions") or {}
         after, tail = {}, []
         for pid in placed:
@@ -740,7 +866,7 @@ def render_sections(pack, prose):
             placed_quotes.add(qid)
 
         for i, para in enumerate(paras):
-            body.append("<p>%s</p>" % para)
+            body.append(para)
             body.extend(quotes_after.get(i, []))
             body.extend(after.get(i, []))
 
@@ -784,6 +910,64 @@ def render_sections(pack, prose):
             body.append('<div class="wire-gamedeck" data-wire-gamedeck>'
                         '<nav class="wire-gamedeck-rail" data-wire-gamerail></nav>'
                         '%s</div>' % "".join(blocks))
+            decks += 1
+
+        pids = s.get("pots") or []
+        if pids and gids:
+            raise RenderError("%s places both games and pots -- the page has one deck" % where)
+        want = spec.get("potIds") or []
+        if list(pids) != list(want):
+            raise RenderError("%s must place exactly the pack's pots, in order: %s (prose has %s)"
+                              % (where, ", ".join(want) or "none", ", ".join(pids) or "none"))
+        if len(set(pids)) != len(pids):
+            raise RenderError("%s places the same pot twice" % where)
+        pot_notes = s.get("potNotes") or {}
+        unknown = sorted(k for k in pot_notes if k not in pids)
+        if unknown:
+            raise RenderError("%s writes a pot note for a pot it does not place: %s"
+                              % (where, ", ".join(unknown)))
+        if pids:
+            blocks = []
+            for pid in pids:
+                if pid not in pots:
+                    raise RenderError("%s places unknown pot id %s" % (where, pid))
+                p = pots[pid]
+                raw = pot_notes.get(pid)
+                if not raw:
+                    raise RenderError("%s places pot %s without a potNote -- every pot page gets the desk"
+                                      % (where, pid))
+                lines_html = []
+                if isinstance(raw, str) and raw.strip():
+                    pw = "%s pot note %s" % (where, pid)
+                    audit_pot_note(raw, pw, p)
+                    lines_html = ["<p>%s</p>" % audit_and_substitute(raw, pw, facts, proper)]
+                elif raw:
+                    for i, (who, t) in enumerate(desk_lines(raw, "%s pot note %s" % (where, pid))):
+                        pw = "%s pot note %s line %d" % (where, pid, i)
+                        audit_pot_note(t, pw, p)
+                        lines_html.append(desk_html(who, audit_and_substitute(t, pw, facts, proper)))
+                if p.get("tableId") and p["tableId"] not in tables:
+                    raise RenderError("pot %s carries unknown table %s" % (pid, p["tableId"]))
+                card = cards.get(p.get("cardId")) if p.get("cardId") else None
+                if p.get("cardId") and not card:
+                    raise RenderError("pot %s carries unknown playcard %s" % (pid, p["cardId"]))
+                pq = []
+                for qid in p.get("quoteIds") or []:
+                    if qid not in quotes:
+                        raise RenderError("pot %s carries unknown quote %s" % (pid, qid))
+                    pq.append(quotes[qid])
+                blocks.append(render_pot(p, tables.get(p.get("tableId")), lines_html, card, pq))
+            body.append('<div class="wire-gamedeck" data-wire-gamedeck>'
+                        '<nav class="wire-gamedeck-rail" data-wire-gamerail></nav>'
+                        '%s</div>' % "".join(blocks))
+            decks += 1
+            # The section's own desk introduces the pots, so its lines carry the
+            # same division rule as the pot pages when every pot is one kind.
+            kinds = set(pots[x]["kind"] for x in pids)
+            if s.get("desk") and len(kinds) == 1:
+                probe = {"kind": kinds.pop(), "tag": "this week's pots"}
+                for i, (_who, t) in enumerate(desk_lines(s["desk"], "%s desk" % where)):
+                    audit_pot_note(t, "%s desk line %d" % (where, i), probe)
 
         for cid in s.get("cards") or []:
             if cid not in cards:
@@ -803,6 +987,10 @@ def render_sections(pack, prose):
             '<section class="wire-sec" id="%s" data-title="%s">\n'
             '    <h2 class="wire-sechead">%s</h2>\n    %s\n  </section>'
             % (esc(sid), esc(spec["title"]), esc(spec["title"]), "\n    ".join(body)))
+    # article_runtime.js pages the FIRST deck it finds; a second would render as
+    # a flat stack of pages with no pager.
+    if decks > 1:
+        raise RenderError("more than one section places a deck -- the runtime pages only the first")
     return "\n\n  ".join(out)
 
 
