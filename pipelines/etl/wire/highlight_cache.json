@@ -18,8 +18,24 @@
   "2025:7:16185": {},
   "2025:7:16582": {},
   "2025:7:9064": {},
-  "2026:1:13589": {},
-  "2026:1:15711": {},
-  "2026:1:16579": {},
-  "2026:1:17032": {}
+  "2026:1:13589": {
+    "channel": "NFL",
+    "title": "Josh Allen's best plays from 357-yard, 4-TD game vs. Texans | Week 1",
+    "videoId": "ZeJwLzd2I4E"
+  },
+  "2026:1:15711": {
+    "channel": "NFL",
+    "title": "Kenneth Walker III's best plays from 191-yard, 2-TD game | Week 1",
+    "videoId": "_yz0NQjxctA"
+  },
+  "2026:1:16579": {
+    "channel": "NFL",
+    "title": "Caleb Williams best plays from 4-TD game vs. Panthers | Week 1",
+    "videoId": "mJtL4VBd6Dk"
+  },
+  "2026:1:17032": {
+    "channel": "NFL",
+    "title": "Jaxson Dart's best plays from 230-yard game vs. Cowboys | Week 1",
+    "videoId": "WJ7oegbNF1M"
+  }
 }

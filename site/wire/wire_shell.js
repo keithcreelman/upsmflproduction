@@ -279,11 +279,11 @@
     if (route.kind === "home" && data && data.heroImage) {
       var hero = el("img", "wire-mast-hero");
       hero.src = data.heroImage;
-      hero.alt = "UPS Wire";
+      hero.alt = "UPS Center";
       mast.appendChild(hero);
     } else {
       var wm = el("h1", "wire-wordmark", "UPS ");
-      wm.appendChild(el("span", null, "Wire"));
+      wm.appendChild(el("span", null, "Center"));
       mast.appendChild(wm);
       mast.appendChild(el("p", "wire-tagline",
         "The league paper. Season reviews, weekly recaps and previews, and every trade the bot had something to say about."));
@@ -455,7 +455,7 @@
 
   function errorCard(msg, url, retry) {
     var box = el("div", "wire-error");
-    box.appendChild(el("h2", null, "The Wire could not load"));
+    box.appendChild(el("h2", null, "UPS Center could not load"));
     box.appendChild(el("p", null, msg));
     if (url) box.appendChild(el("code", null, url));
     if (retry) {

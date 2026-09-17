@@ -30,7 +30,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026-09-10.1";
+  var BUILD = "2026-09-17.2";
   if (window.__ups_wire_loader === BUILD) return;
   window.__ups_wire_loader = BUILD;
 
@@ -153,8 +153,8 @@
     // its own sandbox. allow-popups pair is needed for target="_blank" links.
     frame.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
     frame.style.cssText = "width:100%;min-height:" + HEIGHT_SEED +
-      "px;border:0;background:#0C1310;display:block;border-radius:8px;overflow:hidden";
-    frame.title = "UPS Wire";
+      "px;border:0;background:#DAC2A6;display:block;border-radius:8px;overflow:hidden";
+    frame.title = "UPS Center";
     mount.appendChild(frame);
     return frame;
   }
@@ -256,15 +256,15 @@
     var f = makeFrame();
     var doc =
       '<!doctype html><html><head><meta charset="utf-8">' +
-      '<style>body{margin:0;background:#0C1310;color:#A3AFA8;' +
+      '<style>body{margin:0;background:#DAC2A6;color:#3E3438;' +
       'font:16px Georgia,serif;padding:2rem}h1{font:700 0.7rem/1 ui-sans-serif,system-ui;' +
-      'letter-spacing:.14em;text-transform:uppercase;color:#C4574A;margin:0 0 .6rem}' +
-      'code{font:12px ui-monospace,Menlo,monospace;color:#75837B;word-break:break-all;display:block;margin:.8rem 0}' +
+      'letter-spacing:.14em;text-transform:uppercase;color:#922B25;margin:0 0 .6rem}' +
+      'code{font:12px ui-monospace,Menlo,monospace;color:#54474C;word-break:break-all;display:block;margin:.8rem 0}' +
       'button{font:700 0.64rem/1 ui-sans-serif,system-ui;letter-spacing:.12em;text-transform:uppercase;' +
-      'color:#D6A24A;background:none;border:1px solid #8A6A31;padding:.45rem .8rem;cursor:pointer}' +
+      'color:#5F3F7A;background:#FAF4EC;border:1px solid #9D7FB5;padding:.45rem .8rem;cursor:pointer;border-radius:5px}' +
       '</style></head><body>' +
-      '<div style="border-left:3px solid #C4574A;background:#141C18;padding:1.5rem">' +
-      '<h1>The Wire could not load</h1><div>' + escHtml(message) + '</div>' +
+      '<div style="border-left:3px solid #922B25;background:#FAF4EC;padding:1.5rem;border-radius:0 10px 10px 0">' +
+      '<h1>UPS Center could not load</h1><div>' + escHtml(message) + '</div>' +
       (url ? '<code>' + escHtml(url) + '</code>' : '') +
       '<button id="r" type="button">Try again</button></div>' +
       '<script>document.getElementById("r").addEventListener("click",function(){' +

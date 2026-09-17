@@ -1,8 +1,11 @@
-/* UPS Wire — design tokens. SINGLE SOURCE OF TRUTH for the almanac look.
+/* UPS Wire — design tokens. SINGLE SOURCE OF TRUTH for the Wire's look.
  *
- * Ported from docs/design/ups_nfl_comps_reference.html (lines 4-49) — the
- * piece Keith signed off on. Deliberately NOT the standard hub palette
- * (#0b0f18 / #5b8dff) that auction/gameday/commish use.
+ * THE UPS CENTER SET (Keith 2026-09-17: "I'd rather everything the Wire match
+ * UPS Center"), taken from a photo of Stuart Scott and Rich Eisen at the 1990s
+ * SportsCenter desk: sand-tan walls washed with purple light at the edges, a
+ * charcoal logo panel, a brushed-steel desk, Stuart in a dark suit and Rich in
+ * tan. One committed look -- it replaced the dark green/gold almanac palette
+ * ported from docs/design/ups_nfl_comps_reference.html.
  *
  * This file + wire_article.css are INLINED into every article at build time
  * so an article stays self-contained (it renders inside MFL, at its own Pages
@@ -12,64 +15,71 @@
  * RULES (see site/wire/README.md):
  *   - No vh/svh/dvh units. Inside an auto-sized iframe 100vh equals the height
  *     we just set, so the frame grows on every beacon tick, forever. vw is fine.
- *   - No webfonts. System stack only.
+ *   - No webfonts. System stack only -- the display stack reaches for a
+ *     condensed face first (Avenir Next Condensed on Apple devices).
  *
- * Both the prefers-color-scheme media query AND the [data-theme] overrides are
- * load-bearing: standalone honors the OS, but embedded in MFL we force dark via
- * data-theme (a cream article inside a dark MFL page looks broken).
+ * ONE THEME ON PURPOSE. The loader still stamps data-theme="dark" and some
+ * readers' systems prefer dark; the set is a lit studio, so every block below
+ * resolves to the same palette rather than inverting it.
+ *
+ * CONTRAST (measured, WCAG): --gold text on --surface 7.8:1, on --ground 4.9:1;
+ * --on-gold (white) on --gold 8.5:1; --ink-mute on --ground 5.1:1; --cool on
+ * --ground 4.9:1; --brick on --ground 4.7:1; --up on --ground 5.2:1.
  */
 
 :root {
-  --ground: #0C1310;
-  --surface: #141C18;
-  --surface-2: #1B241F;
-  --line: #2A352E;
-  --ink: #E8EDE9;
-  --ink-dim: #A3AFA8;
-  /* ink-mute and brick were raised 2026-09-10: small labels in these colours
-     measured 4.40:1 and 3.98:1 on --surface, under the 4.5:1 AA floor. */
-  --ink-mute: #86938B;
-  --gold: #D6A24A;
-  --gold-dim: #8A6A31;
-  --brick: #D66A5C;
-  --cool: #6E9C8A;
+  --ground: #DAC2A6;        /* the set wall */
+  --edge: #B793C9;          /* purple light at the wall's edges */
+  --surface: #FAF4EC;       /* lit panels */
+  --surface-2: #EFE3D3;
+  --line: #DCCAB4;
+  --line-2: #C6AD92;
+  --ink: #211A1D;
+  --ink-dim: #3E3438;
+  --ink-mute: #54474C;
+  --gold: #5F3F7A;          /* the accent: purple, for text AND fills */
+  --gold-dim: #9D7FB5;      /* rules, borders, hover edges */
+  --gold-deep: #56396F;
+  --on-gold: #FFFFFF;       /* text on an accent fill -- never --ground (3.8:1) */
+  --brick: #922B25;         /* down / bad */
+  --up: #1B5432;            /* up / good */
+  --cool: #5E4A3C;          /* bronze: the secondary accent */
+  --charcoal: #332C2E;      /* the logo panel */
+  --charcoal-edge: #5B4F52;
+  --on-charcoal: #F6EFE6;   /* 11.9:1 */
+  --on-charcoal-accent: #D2B3E3;  /* lavender on the panel, 7.3:1 */
+  --on-suit-tan: #1F1A1C;   /* Rich's chip, 5.6:1 */
+  --suit-dark: #26252E;     /* Stuart */
+  --suit-tan: #A88E78;      /* Rich */
+  --steel-hi: #F1F3F5;      /* the desk */
+  --steel: #C3C8CE;
+  --steel-lo: #8E959D;
 
-  --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
-  --body: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --display: "Avenir Next Condensed", "Bahnschrift SemiCondensed", "Roboto Condensed", "Arial Narrow",
+             "Helvetica Neue", Arial, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  --maxw: 62rem;
-  /* Article reading column: about 75 characters of 18px Georgia per line
-     (measured; 42rem at 17px was 88). */
-  --measure: 38rem;
+  --maxw: 68rem;
+  /* Article reading column: about 75 characters of 17px sans per line. */
+  --measure: 40rem;
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: light) {
+/* The same palette, re-stated at the specificity the loader's data-theme stamp
+   and a dark OS preference would otherwise win at. */
+@media (prefers-color-scheme: dark) {
   :root {
-    --ground: #F2F1EC;
-    --surface: #FFFFFF;
-    --surface-2: #F7F6F1;
-    --line: #DCDAD1;
-    --ink: #16201A;
-    --ink-dim: #4A5750;
-    --ink-mute: #5E6A63;
-    --gold: #8A6212;
-    --gold-dim: #C6A66A;
-    --brick: #9E3A2E;
-    --cool: #3D6B58;
+    --ground: #DAC2A6; --surface: #FAF4EC; --surface-2: #EFE3D3; --line: #DCCAB4;
+    --ink: #211A1D; --ink-dim: #3E3438; --ink-mute: #54474C;
+    --gold: #5F3F7A; --gold-dim: #9D7FB5; --brick: #922B25; --cool: #5E4A3C;
   }
 }
-
-:root[data-theme="dark"] {
-  --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
-  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #86938B;
-  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #D66A5C; --cool: #6E9C8A;
-}
-
-:root[data-theme="light"] {
-  --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
-  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #5E6A63;
-  --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
+:root[data-theme="dark"], :root[data-theme="light"] {
+  --ground: #DAC2A6; --surface: #FAF4EC; --surface-2: #EFE3D3; --line: #DCCAB4;
+  --ink: #211A1D; --ink-dim: #3E3438; --ink-mute: #54474C;
+  --gold: #5F3F7A; --gold-dim: #9D7FB5; --brick: #922B25; --cool: #5E4A3C;
+  color-scheme: light;
 }
 
 /* The reference put min-height:100vh on .page. Dropped deliberately (see the

@@ -1,0 +1,4507 @@
+{
+ "schema": 1,
+ "season": 2026,
+ "week": 2,
+ "throughWeek": 1,
+ "generatedAtUtc": "2026-09-17T00:01:02Z",
+ "provisional": true,
+ "runs": 8000,
+ "seed": 20260911,
+ "model": {
+  "regress": 0.7,
+  "sigmaWeekly": 30.08,
+  "sigmaSeason": 12.25,
+  "teamWeekSd": 32.48,
+  "assumptions": [
+   "each team starts its best legal lineup by its week projection (replacement-level free agents fill empty slots)",
+   "players MFL lists Out/IR/Suspended, plus season_sim REPORTED_ABSENCES, are removed; Questionable and Doubtful players are assumed to play",
+   "a team's week score = regressed projection + a season-long shock + a weekly swing, the two calibrated to UPS 2021-2025",
+   "team scores are drawn independently of each other -- no shared NFL-game correlation",
+   "played weeks are fixed to MFL's actual results; no trades or waiver moves after the cutoff",
+   "offense is projected from RotoWire's projected stats (via Sleeper) scored with UPS rules -- a 40% chance at a touchdown counts as 40% of six points -- with MFL deciding who plays; defenders, kickers and punters use MFL's projections",
+   "single-game win chances and weekly ranges have not been tested against past seasons game by game"
+  ],
+  "cutoffs": {
+   "rostersProjectionsInjuries": "2026-09-17T00:01:02Z",
+   "injuryFeedWeek": "2",
+   "sleeperProjectionsUpdated": "2026-09-16T23:50:25Z",
+   "preseasonInputs": "2026-09-12T18:57:32Z",
+   "afterWeekSnapshot": "2026-09-17T02:04:13Z"
+  },
+  "preseasonReproductionMaxPlayoffGap": 0.0059,
+  "evCoverage": {
+   "source": "Sleeper weekly projections (RotoWire stat lines) scored with UPS rules; MFL decides availability",
+   "rotowirePoints": 13876,
+   "keptMfl": 112,
+   "nameMatchedPlayers": 153,
+   "mflSaysOut": 65,
+   "mflSaysPlays": 95,
+   "availabilityDisagreements": [
+    {
+     "pid": "17593",
+     "player": "Klein, Marlin",
+     "rotowireAverageWhenPlaying": 3.5,
+     "mflSaysOut": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16678",
+     "player": "Vaki, Sione",
+     "rotowireAverageWhenPlaying": 3.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      1,
+      3,
+      4,
+      5,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "10700",
+     "player": "Cousins, Kirk",
+     "rotowireAverageWhenPlaying": 17.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17462",
+     "player": "Mendoza, Fernando",
+     "rotowireAverageWhenPlaying": 16.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      14,
+      15,
+      16,
+      17
+     ]
+    },
+    {
+     "pid": "14073",
+     "player": "Jacobs, Josh",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16604",
+     "player": "Lloyd, MarShawn",
+     "rotowireAverageWhenPlaying": 11.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ]
+    },
+    {
+     "pid": "15788",
+     "player": "Tolbert, Jalen",
+     "rotowireAverageWhenPlaying": 1.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2,
+      3,
+      4,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      15,
+      16,
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16757",
+     "player": "Vidal, Kimani",
+     "rotowireAverageWhenPlaying": 1.4,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2,
+      3,
+      6,
+      8,
+      10,
+      11,
+      12,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17498",
+     "player": "Tyson, Jordyn",
+     "rotowireAverageWhenPlaying": 11.3,
+     "mflSaysOut": [
+      6,
+      7,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14840",
+     "player": "Aiyuk, Brandon",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      1,
+      3,
+      6,
+      7,
+      10,
+      14,
+      15
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17566",
+     "player": "Royer, Joe",
+     "rotowireAverageWhenPlaying": 3.0,
+     "mflSaysOut": [
+      5,
+      6,
+      7,
+      9,
+      13,
+      16,
+      17
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13113",
+     "player": "Watson, Deshaun",
+     "rotowireAverageWhenPlaying": 13.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflBackup": []
+    },
+    {
+     "pid": "17031",
+     "player": "Sanders, Shedeur",
+     "rotowireAverageWhenPlaying": 15.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ]
+    },
+    {
+     "pid": "17514",
+     "player": "Stribling, De'Zhaun",
+     "rotowireAverageWhenPlaying": 7.6,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      6,
+      7,
+      10,
+      14,
+      15
+     ]
+    },
+    {
+     "pid": "14104",
+     "player": "Brown, A.J.",
+     "rotowireAverageWhenPlaying": 16.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4,
+      5,
+      6,
+      7
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17567",
+     "player": "Delp, Oscar",
+     "rotowireAverageWhenPlaying": 3.0,
+     "mflSaysOut": [
+      11,
+      12,
+      13,
+      15
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17062",
+     "player": "Sanders, Raheim",
+     "rotowireAverageWhenPlaying": 5.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      3,
+      5
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17051",
+     "player": "Judkins, Quinshon",
+     "rotowireAverageWhenPlaying": 12.8,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      3,
+      5
+     ]
+    },
+    {
+     "pid": "16643",
+     "player": "Sanders, Ja'Tavion",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      7,
+      12
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "12263",
+     "player": "Waller, Darren",
+     "rotowireAverageWhenPlaying": 9.4,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      7,
+      12
+     ]
+    },
+    {
+     "pid": "17543",
+     "player": "Sadiq, Kenyon",
+     "rotowireAverageWhenPlaying": 6.2,
+     "mflSaysOut": [
+      1
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17106",
+     "player": "Taylor, Mason",
+     "rotowireAverageWhenPlaying": 6.0,
+     "mflSaysOut": [
+      1
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15800",
+     "player": "Heyward, Connor",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      1
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16212",
+     "player": "Mayer, Michael",
+     "rotowireAverageWhenPlaying": 5.3,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      1
+     ]
+    },
+    {
+     "pid": "14778",
+     "player": "Tagovailoa, Tua",
+     "rotowireAverageWhenPlaying": 19.6,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13124",
+     "player": "Rush, Cooper",
+     "rotowireAverageWhenPlaying": 12.4,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      2
+     ]
+    },
+    {
+     "pid": "12610",
+     "player": "Wentz, Carson",
+     "rotowireAverageWhenPlaying": 19.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      2
+     ]
+    },
+    {
+     "pid": "14056",
+     "player": "Murray, Kyler",
+     "rotowireAverageWhenPlaying": 21.6,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13592",
+     "player": "Darnold, Sam",
+     "rotowireAverageWhenPlaying": 20.3,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14057",
+     "player": "Lock, Drew",
+     "rotowireAverageWhenPlaying": 15.3,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      2
+     ]
+    },
+    {
+     "pid": "15972",
+     "player": "Mason, Jordan",
+     "rotowireAverageWhenPlaying": 9.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14815",
+     "player": "Dallas, DeeJay",
+     "rotowireAverageWhenPlaying": 5.5,
+     "mflSaysOut": [
+      2
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13319",
+     "player": "Jones, Aaron",
+     "rotowireAverageWhenPlaying": 9.8,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      2
+     ]
+    },
+    {
+     "pid": "17047",
+     "player": "Sampson, Dylan",
+     "rotowireAverageWhenPlaying": 6.6,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17648",
+     "player": "Nowakowski, Riley",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      6
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16169",
+     "player": "Charbonnet, Zach",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    }
+   ],
+   "sleeperUpdatedAt": "2026-09-16T23:50:25Z"
+  }
+ },
+ "games": [
+  {
+   "a": "0008",
+   "b": "0011",
+   "division": false,
+   "pA": 0.4818,
+   "pAClosedForm": 0.4779,
+   "aPoWin": 0.616,
+   "aPoLoss": 0.3973,
+   "bPoWin": 0.6146,
+   "bPoLoss": 0.4043,
+   "aDivWin": 0.465,
+   "aDivLoss": 0.2979,
+   "bDivWin": 0.3003,
+   "bDivLoss": 0.1725,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7308,
+      "runs": 1872
+     },
+     "middle": {
+      "playoffOdds": 0.5396,
+      "runs": 2789
+     },
+     "bottomFour": {
+      "playoffOdds": 0.3438,
+      "runs": 3339
+     }
+    },
+    "sameScoreEffect": 0.0551,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.6517,
+     "runs": 178,
+     "shareOfLosses": 0.0429
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7233,
+      "runs": 2100
+     },
+     "middle": {
+      "playoffOdds": 0.5376,
+      "runs": 2803
+     },
+     "bottomFour": {
+      "playoffOdds": 0.3487,
+      "runs": 3097
+     }
+    },
+    "sameScoreEffect": 0.0481,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.6875,
+     "runs": 176,
+     "shareOfLosses": 0.0457
+    }
+   },
+   "stakes": 0.429,
+   "favorite": "0011",
+   "underdog": "0008",
+   "favoriteP": 0.5182,
+   "sides": {
+    "favorite": {
+     "O": 153.2,
+     "D": 52.5,
+     "K": 11.5
+    },
+    "underdog": {
+     "O": 150.7,
+     "D": 50.5,
+     "K": 12.4
+    }
+   },
+   "underdogAhead": [
+    "K"
+   ],
+   "flip": {
+    "pid": "14056",
+    "player": "Kyler Murray",
+    "nflTeam": "MIN",
+    "owner": "0008",
+    "status": "Questionable",
+    "proj": 21.6,
+    "lineupLoss": 7.5,
+    "favPBase": 0.5221,
+    "favPWithout": 0.5677,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0008": {
+     "proj": 213.8,
+     "p10": 172.1,
+     "p90": 255.1
+    },
+    "0011": {
+     "proj": 216.3,
+     "p10": 174.7,
+     "p90": 257.5
+    }
+   }
+  },
+  {
+   "a": "0007",
+   "b": "0011",
+   "division": false,
+   "pA": 0.4735,
+   "pAClosedForm": 0.4736,
+   "aPoWin": 0.6893,
+   "aPoLoss": 0.4922,
+   "bPoWin": 0.6102,
+   "bPoLoss": 0.4055,
+   "aDivWin": 0.5272,
+   "aDivLoss": 0.3699,
+   "bDivWin": 0.2996,
+   "bDivLoss": 0.1711,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7852,
+      "runs": 1848
+     },
+     "middle": {
+      "playoffOdds": 0.6373,
+      "runs": 2721
+     },
+     "bottomFour": {
+      "playoffOdds": 0.4369,
+      "runs": 3431
+     }
+    },
+    "sameScoreEffect": 0.066,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.72,
+     "runs": 175,
+     "shareOfLosses": 0.0415
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7233,
+      "runs": 2100
+     },
+     "middle": {
+      "playoffOdds": 0.5376,
+      "runs": 2803
+     },
+     "bottomFour": {
+      "playoffOdds": 0.3487,
+      "runs": 3097
+     }
+    },
+    "sameScoreEffect": 0.0277,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.6845,
+     "runs": 168,
+     "shareOfLosses": 0.0444
+    }
+   },
+   "stakes": 0.4018,
+   "favorite": "0011",
+   "underdog": "0007",
+   "favoriteP": 0.5265,
+   "sides": {
+    "favorite": {
+     "O": 153.2,
+     "D": 52.5,
+     "K": 11.5
+    },
+    "underdog": {
+     "O": 140.6,
+     "D": 60.6,
+     "K": 11.7
+    }
+   },
+   "underdogAhead": [
+    "D",
+    "K"
+   ],
+   "flip": {
+    "pid": "14249",
+    "player": "Andrew Van Ginkel",
+    "nflTeam": "MIN",
+    "owner": "0007",
+    "status": "Questionable",
+    "proj": 8.3,
+    "lineupLoss": 2.3,
+    "favPBase": 0.5264,
+    "favPWithout": 0.5403,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0007": {
+     "proj": 213.3,
+     "p10": 172.0,
+     "p90": 254.1
+    },
+    "0011": {
+     "proj": 216.3,
+     "p10": 174.7,
+     "p90": 257.5
+    }
+   }
+  },
+  {
+   "a": "0001",
+   "b": "0011",
+   "division": false,
+   "pA": 0.421,
+   "pAClosedForm": 0.4183,
+   "aPoWin": 0.3857,
+   "aPoLoss": 0.2062,
+   "bPoWin": 0.6045,
+   "bPoLoss": 0.3878,
+   "aDivWin": 0.2381,
+   "aDivLoss": 0.133,
+   "bDivWin": 0.2899,
+   "bDivLoss": 0.1683,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.5007,
+      "runs": 1476
+     },
+     "middle": {
+      "playoffOdds": 0.3345,
+      "runs": 2544
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1668,
+      "runs": 3980
+     }
+    },
+    "sameScoreEffect": 0.046,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.3875,
+     "runs": 160,
+     "shareOfLosses": 0.0345
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7233,
+      "runs": 2100
+     },
+     "middle": {
+      "playoffOdds": 0.5376,
+      "runs": 2803
+     },
+     "bottomFour": {
+      "playoffOdds": 0.3487,
+      "runs": 3097
+     }
+    },
+    "sameScoreEffect": 0.0552,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.6333,
+     "runs": 120,
+     "shareOfLosses": 0.0356
+    }
+   },
+   "stakes": 0.3962,
+   "favorite": "0011",
+   "underdog": "0001",
+   "favoriteP": 0.579,
+   "sides": {
+    "favorite": {
+     "O": 153.2,
+     "D": 52.5,
+     "K": 11.5
+    },
+    "underdog": {
+     "O": 132.6,
+     "D": 58.7,
+     "K": 12.4
+    }
+   },
+   "underdogAhead": [
+    "D",
+    "K"
+   ],
+   "flip": {
+    "pid": "16809",
+    "player": "Jalen Coker",
+    "nflTeam": "CAR",
+    "owner": "0001",
+    "status": "Questionable",
+    "proj": 13.8,
+    "lineupLoss": 3.6,
+    "favPBase": 0.5817,
+    "favPWithout": 0.603,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0001": {
+     "proj": 206.8,
+     "p10": 165.7,
+     "p90": 250.0
+    },
+    "0011": {
+     "proj": 216.3,
+     "p10": 174.7,
+     "p90": 257.5
+    }
+   }
+  },
+  {
+   "a": "0010",
+   "b": "0005",
+   "division": false,
+   "pA": 0.3927,
+   "pAClosedForm": 0.4031,
+   "aPoWin": 0.5748,
+   "aPoLoss": 0.358,
+   "bPoWin": 0.8394,
+   "bPoLoss": 0.6735,
+   "aDivWin": 0.4376,
+   "aDivLoss": 0.2643,
+   "bDivWin": 0.5251,
+   "bDivLoss": 0.3727,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.662,
+      "runs": 1870
+     },
+     "middle": {
+      "playoffOdds": 0.4971,
+      "runs": 2716
+     },
+     "bottomFour": {
+      "playoffOdds": 0.2803,
+      "runs": 3414
+     }
+    },
+    "sameScoreEffect": 0.0489,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.5966,
+     "runs": 290,
+     "shareOfLosses": 0.0597
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.896,
+      "runs": 2941
+     },
+     "middle": {
+      "playoffOdds": 0.7879,
+      "runs": 2824
+     },
+     "bottomFour": {
+      "playoffOdds": 0.5969,
+      "runs": 2235
+     }
+    },
+    "sameScoreEffect": 0.0379,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.8619,
+     "runs": 210,
+     "shareOfLosses": 0.0668
+    }
+   },
+   "stakes": 0.3827,
+   "favorite": "0005",
+   "underdog": "0010",
+   "favoriteP": 0.6073,
+   "sides": {
+    "favorite": {
+     "O": 157.7,
+     "D": 60.2,
+     "K": 12.8
+    },
+    "underdog": {
+     "O": 148.2,
+     "D": 54.3,
+     "K": 12.1
+    }
+   },
+   "underdogAhead": [],
+   "flip": {
+    "pid": "16627",
+    "player": "Ladd McConkey",
+    "nflTeam": "LAC",
+    "owner": "0005",
+    "status": "Questionable",
+    "proj": 14.0,
+    "lineupLoss": 2.0,
+    "favPBase": 0.5969,
+    "favPWithout": 0.5852,
+    "kickoff": 1789934700
+   },
+   "scoreRange": {
+    "0010": {
+     "proj": 214.5,
+     "p10": 172.2,
+     "p90": 255.5
+    },
+    "0005": {
+     "proj": 225.7,
+     "p10": 183.5,
+     "p90": 267.8
+    }
+   }
+  },
+  {
+   "a": "0008",
+   "b": "0012",
+   "division": false,
+   "pA": 0.5697,
+   "pAClosedForm": 0.5693,
+   "aPoWin": 0.597,
+   "aPoLoss": 0.3777,
+   "bPoWin": 0.2705,
+   "bPoLoss": 0.1213,
+   "aDivWin": 0.4502,
+   "aDivLoss": 0.2833,
+   "bDivWin": 0.0752,
+   "bDivLoss": 0.0333,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7308,
+      "runs": 1872
+     },
+     "middle": {
+      "playoffOdds": 0.5396,
+      "runs": 2789
+     },
+     "bottomFour": {
+      "playoffOdds": 0.3438,
+      "runs": 3339
+     }
+    },
+    "sameScoreEffect": 0.0527,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.6633,
+     "runs": 98,
+     "shareOfLosses": 0.0285
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.3983,
+      "runs": 1328
+     },
+     "middle": {
+      "playoffOdds": 0.2302,
+      "runs": 2589
+     },
+     "bottomFour": {
+      "playoffOdds": 0.0879,
+      "runs": 4083
+     }
+    },
+    "sameScoreEffect": 0.0447,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.3016,
+     "runs": 126,
+     "shareOfLosses": 0.0276
+    }
+   },
+   "stakes": 0.3685,
+   "favorite": "0008",
+   "underdog": "0012",
+   "favoriteP": 0.5697,
+   "sides": {
+    "favorite": {
+     "O": 150.7,
+     "D": 50.5,
+     "K": 12.4
+    },
+    "underdog": {
+     "O": 134.8,
+     "D": 55.2,
+     "K": 12.1
+    }
+   },
+   "underdogAhead": [
+    "D"
+   ],
+   "flip": {
+    "pid": "14056",
+    "player": "Kyler Murray",
+    "nflTeam": "MIN",
+    "owner": "0008",
+    "status": "Questionable",
+    "proj": 21.6,
+    "lineupLoss": 7.5,
+    "favPBase": 0.5693,
+    "favPWithout": 0.5238,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0008": {
+     "proj": 213.8,
+     "p10": 172.1,
+     "p90": 255.1
+    },
+    "0012": {
+     "proj": 205.7,
+     "p10": 162.8,
+     "p90": 247.4
+    }
+   }
+  },
+  {
+   "a": "0002",
+   "b": "0005",
+   "division": false,
+   "pA": 0.3901,
+   "pAClosedForm": 0.3858,
+   "aPoWin": 0.7184,
+   "aPoLoss": 0.5251,
+   "bPoWin": 0.836,
+   "bPoLoss": 0.6777,
+   "aDivWin": 0.6097,
+   "aDivLoss": 0.4513,
+   "bDivWin": 0.5208,
+   "bDivLoss": 0.3784,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.8116,
+      "runs": 1794
+     },
+     "middle": {
+      "playoffOdds": 0.6514,
+      "runs": 2777
+     },
+     "bottomFour": {
+      "playoffOdds": 0.4488,
+      "runs": 3429
+     }
+    },
+    "sameScoreEffect": 0.0207,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.7937,
+     "runs": 252,
+     "shareOfLosses": 0.0516
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.896,
+      "runs": 2941
+     },
+     "middle": {
+      "playoffOdds": 0.7879,
+      "runs": 2824
+     },
+     "bottomFour": {
+      "playoffOdds": 0.5969,
+      "runs": 2235
+     }
+    },
+    "sameScoreEffect": 0.0266,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.872,
+     "runs": 211,
+     "shareOfLosses": 0.0676
+    }
+   },
+   "stakes": 0.3516,
+   "favorite": "0005",
+   "underdog": "0002",
+   "favoriteP": 0.6099,
+   "sides": {
+    "favorite": {
+     "O": 157.7,
+     "D": 60.2,
+     "K": 12.8
+    },
+    "underdog": {
+     "O": 146.7,
+     "D": 53.0,
+     "K": 12.0
+    }
+   },
+   "underdogAhead": [],
+   "flip": {
+    "pid": "14797",
+    "player": "D'Andre Swift",
+    "nflTeam": "CHI",
+    "owner": "0002",
+    "status": "Questionable",
+    "proj": 12.1,
+    "lineupLoss": 2.8,
+    "favPBase": 0.6142,
+    "favPWithout": 0.6305,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0002": {
+     "proj": 212.4,
+     "p10": 171.2,
+     "p90": 253.7
+    },
+    "0005": {
+     "proj": 225.7,
+     "p10": 183.5,
+     "p90": 267.8
+    }
+   }
+  },
+  {
+   "a": "0010",
+   "b": "0006",
+   "division": false,
+   "pA": 0.6172,
+   "pAClosedForm": 0.6275,
+   "aPoWin": 0.5194,
+   "aPoLoss": 0.3201,
+   "bPoWin": 0.2773,
+   "bPoLoss": 0.1262,
+   "aDivWin": 0.3868,
+   "aDivLoss": 0.2446,
+   "bDivWin": 0.0728,
+   "bDivLoss": 0.0286,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.662,
+      "runs": 1870
+     },
+     "middle": {
+      "playoffOdds": 0.4971,
+      "runs": 2716
+     },
+     "bottomFour": {
+      "playoffOdds": 0.2803,
+      "runs": 3414
+     }
+    },
+    "sameScoreEffect": 0.0287,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.589,
+     "runs": 73,
+     "shareOfLosses": 0.0238
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.428,
+      "runs": 979
+     },
+     "middle": {
+      "playoffOdds": 0.2522,
+      "runs": 2228
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1024,
+      "runs": 4793
+     }
+    },
+    "sameScoreEffect": 0.0203,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.3875,
+     "runs": 80,
+     "shareOfLosses": 0.0162
+    }
+   },
+   "stakes": 0.3504,
+   "favorite": "0010",
+   "underdog": "0006",
+   "favoriteP": 0.6172,
+   "sides": {
+    "favorite": {
+     "O": 148.2,
+     "D": 54.3,
+     "K": 12.1
+    },
+    "underdog": {
+     "O": 122.1,
+     "D": 58.1,
+     "K": 13.1
+    }
+   },
+   "underdogAhead": [
+    "D",
+    "K"
+   ],
+   "flip": {
+    "pid": "14783",
+    "player": "Jalen Hurts",
+    "nflTeam": "PHI",
+    "owner": "0006",
+    "status": "",
+    "proj": 24.6,
+    "lineupLoss": 16.0,
+    "favPBase": 0.6275,
+    "favPWithout": 0.7152,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0010": {
+     "proj": 214.5,
+     "p10": 172.2,
+     "p90": 255.5
+    },
+    "0006": {
+     "proj": 199.5,
+     "p10": 157.6,
+     "p90": 240.8
+    }
+   }
+  },
+  {
+   "a": "0002",
+   "b": "0006",
+   "division": false,
+   "pA": 0.6152,
+   "pAClosedForm": 0.6104,
+   "aPoWin": 0.6755,
+   "aPoLoss": 0.4805,
+   "bPoWin": 0.2791,
+   "bPoLoss": 0.1245,
+   "aDivWin": 0.5798,
+   "aDivLoss": 0.4064,
+   "bDivWin": 0.0715,
+   "bDivLoss": 0.0293,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.8116,
+      "runs": 1794
+     },
+     "middle": {
+      "playoffOdds": 0.6514,
+      "runs": 2777
+     },
+     "bottomFour": {
+      "playoffOdds": 0.4488,
+      "runs": 3429
+     }
+    },
+    "sameScoreEffect": 0.0327,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.7887,
+     "runs": 71,
+     "shareOfLosses": 0.0231
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.428,
+      "runs": 979
+     },
+     "middle": {
+      "playoffOdds": 0.2522,
+      "runs": 2228
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1024,
+      "runs": 4793
+     }
+    },
+    "sameScoreEffect": 0.0217,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.5067,
+     "runs": 75,
+     "shareOfLosses": 0.0152
+    }
+   },
+   "stakes": 0.3496,
+   "favorite": "0002",
+   "underdog": "0006",
+   "favoriteP": 0.6152,
+   "sides": {
+    "favorite": {
+     "O": 146.7,
+     "D": 53.0,
+     "K": 12.0
+    },
+    "underdog": {
+     "O": 122.1,
+     "D": 58.1,
+     "K": 13.1
+    }
+   },
+   "underdogAhead": [
+    "D",
+    "K"
+   ],
+   "flip": {
+    "pid": "14797",
+    "player": "D'Andre Swift",
+    "nflTeam": "CHI",
+    "owner": "0002",
+    "status": "Questionable",
+    "proj": 12.1,
+    "lineupLoss": 2.8,
+    "favPBase": 0.6104,
+    "favPWithout": 0.5938,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0002": {
+     "proj": 212.4,
+     "p10": 171.2,
+     "p90": 253.7
+    },
+    "0006": {
+     "proj": 199.5,
+     "p10": 157.6,
+     "p90": 240.8
+    }
+   }
+  },
+  {
+   "a": "0010",
+   "b": "0004",
+   "division": false,
+   "pA": 0.379,
+   "pAClosedForm": 0.391,
+   "aPoWin": 0.5646,
+   "aPoLoss": 0.369,
+   "bPoWin": 0.8808,
+   "bPoLoss": 0.7365,
+   "aDivWin": 0.4225,
+   "aDivLoss": 0.2774,
+   "bDivWin": 0.5507,
+   "bDivLoss": 0.3885,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.662,
+      "runs": 1870
+     },
+     "middle": {
+      "playoffOdds": 0.4971,
+      "runs": 2716
+     },
+     "bottomFour": {
+      "playoffOdds": 0.2803,
+      "runs": 3414
+     }
+    },
+    "sameScoreEffect": 0.0216,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.6122,
+     "runs": 312,
+     "shareOfLosses": 0.0628
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.9286,
+      "runs": 3125
+     },
+     "middle": {
+      "playoffOdds": 0.8285,
+      "runs": 2799
+     },
+     "bottomFour": {
+      "playoffOdds": 0.6686,
+      "runs": 2076
+     }
+    },
+    "sameScoreEffect": 0.0294,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.9163,
+     "runs": 251,
+     "shareOfLosses": 0.0828
+    }
+   },
+   "stakes": 0.3399,
+   "favorite": "0004",
+   "underdog": "0010",
+   "favoriteP": 0.621,
+   "sides": {
+    "favorite": {
+     "O": 165.0,
+     "D": 55.1,
+     "K": 12.6
+    },
+    "underdog": {
+     "O": 148.2,
+     "D": 54.3,
+     "K": 12.1
+    }
+   },
+   "underdogAhead": [],
+   "flip": {
+    "pid": "16190",
+    "player": "Zay Flowers",
+    "nflTeam": "BAL",
+    "owner": "0004",
+    "status": "Questionable",
+    "proj": 15.2,
+    "lineupLoss": 2.1,
+    "favPBase": 0.609,
+    "favPWithout": 0.5964,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0010": {
+     "proj": 214.5,
+     "p10": 172.2,
+     "p90": 255.5
+    },
+    "0004": {
+     "proj": 227.2,
+     "p10": 185.4,
+     "p90": 269.3
+    }
+   }
+  },
+  {
+   "a": "0002",
+   "b": "0004",
+   "division": false,
+   "pA": 0.3709,
+   "pAClosedForm": 0.3739,
+   "aPoWin": 0.7189,
+   "aPoLoss": 0.5307,
+   "bPoWin": 0.8774,
+   "bPoLoss": 0.7391,
+   "aDivWin": 0.6107,
+   "aDivLoss": 0.4556,
+   "bDivWin": 0.5591,
+   "bDivLoss": 0.3707,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.8116,
+      "runs": 1794
+     },
+     "middle": {
+      "playoffOdds": 0.6514,
+      "runs": 2777
+     },
+     "bottomFour": {
+      "playoffOdds": 0.4488,
+      "runs": 3429
+     }
+    },
+    "sameScoreEffect": 0.0138,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.8212,
+     "runs": 330,
+     "shareOfLosses": 0.0656
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.9286,
+      "runs": 3125
+     },
+     "middle": {
+      "playoffOdds": 0.8285,
+      "runs": 2799
+     },
+     "bottomFour": {
+      "playoffOdds": 0.6686,
+      "runs": 2076
+     }
+    },
+    "sameScoreEffect": 0.0199,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.9186,
+     "runs": 221,
+     "shareOfLosses": 0.0745
+    }
+   },
+   "stakes": 0.3265,
+   "favorite": "0004",
+   "underdog": "0002",
+   "favoriteP": 0.6291,
+   "sides": {
+    "favorite": {
+     "O": 165.0,
+     "D": 55.1,
+     "K": 12.6
+    },
+    "underdog": {
+     "O": 146.7,
+     "D": 53.0,
+     "K": 12.0
+    }
+   },
+   "underdogAhead": [],
+   "flip": {
+    "pid": "14797",
+    "player": "D'Andre Swift",
+    "nflTeam": "CHI",
+    "owner": "0002",
+    "status": "Questionable",
+    "proj": 12.1,
+    "lineupLoss": 2.8,
+    "favPBase": 0.6261,
+    "favPWithout": 0.6423,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0002": {
+     "proj": 212.4,
+     "p10": 171.2,
+     "p90": 253.7
+    },
+    "0004": {
+     "proj": 227.2,
+     "p10": 185.4,
+     "p90": 269.3
+    }
+   }
+  },
+  {
+   "a": "0008",
+   "b": "0009",
+   "division": false,
+   "pA": 0.359,
+   "pAClosedForm": 0.3598,
+   "aPoWin": 0.6368,
+   "aPoLoss": 0.4275,
+   "bPoWin": 0.9208,
+   "bPoLoss": 0.8054,
+   "aDivWin": 0.484,
+   "aDivLoss": 0.3192,
+   "bDivWin": 0.7633,
+   "bDivLoss": 0.6146,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7308,
+      "runs": 1872
+     },
+     "middle": {
+      "playoffOdds": 0.5396,
+      "runs": 2789
+     },
+     "bottomFour": {
+      "playoffOdds": 0.3438,
+      "runs": 3339
+     }
+    },
+    "sameScoreEffect": 0.0265,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.7052,
+     "runs": 346,
+     "shareOfLosses": 0.0675
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.9588,
+      "runs": 3395
+     },
+     "middle": {
+      "playoffOdds": 0.8792,
+      "runs": 2698
+     },
+     "bottomFour": {
+      "playoffOdds": 0.7383,
+      "runs": 1907
+     }
+    },
+    "sameScoreEffect": 0.0186,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.9416,
+     "runs": 257,
+     "shareOfLosses": 0.0895
+    }
+   },
+   "stakes": 0.3247,
+   "favorite": "0009",
+   "underdog": "0008",
+   "favoriteP": 0.641,
+   "sides": {
+    "favorite": {
+     "O": 166.9,
+     "D": 57.8,
+     "K": 12.4
+    },
+    "underdog": {
+     "O": 150.7,
+     "D": 50.5,
+     "K": 12.4
+    }
+   },
+   "underdogAhead": [],
+   "flip": {
+    "pid": "14056",
+    "player": "Kyler Murray",
+    "nflTeam": "MIN",
+    "owner": "0008",
+    "status": "Questionable",
+    "proj": 21.6,
+    "lineupLoss": 7.5,
+    "favPBase": 0.6402,
+    "favPWithout": 0.6823,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0008": {
+     "proj": 213.8,
+     "p10": 172.1,
+     "p90": 255.1
+    },
+    "0009": {
+     "proj": 230.3,
+     "p10": 189.3,
+     "p90": 272.2
+    }
+   }
+  },
+  {
+   "a": "0007",
+   "b": "0012",
+   "division": false,
+   "pA": 0.5625,
+   "pAClosedForm": 0.5652,
+   "aPoWin": 0.6649,
+   "aPoLoss": 0.4834,
+   "bPoWin": 0.2654,
+   "bPoLoss": 0.1233,
+   "aDivWin": 0.5104,
+   "aDivLoss": 0.3594,
+   "bDivWin": 0.0734,
+   "bDivLoss": 0.0342,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7852,
+      "runs": 1848
+     },
+     "middle": {
+      "playoffOdds": 0.6373,
+      "runs": 2721
+     },
+     "bottomFour": {
+      "playoffOdds": 0.4369,
+      "runs": 3431
+     }
+    },
+    "sameScoreEffect": 0.033,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.699,
+     "runs": 103,
+     "shareOfLosses": 0.0294
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.3983,
+      "runs": 1328
+     },
+     "middle": {
+      "playoffOdds": 0.2302,
+      "runs": 2589
+     },
+     "bottomFour": {
+      "playoffOdds": 0.0879,
+      "runs": 4083
+     }
+    },
+    "sameScoreEffect": 0.0278,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.434,
+     "runs": 106,
+     "shareOfLosses": 0.0236
+    }
+   },
+   "stakes": 0.3236,
+   "favorite": "0007",
+   "underdog": "0012",
+   "favoriteP": 0.5625,
+   "sides": {
+    "favorite": {
+     "O": 140.6,
+     "D": 60.6,
+     "K": 11.7
+    },
+    "underdog": {
+     "O": 134.8,
+     "D": 55.2,
+     "K": 12.1
+    }
+   },
+   "underdogAhead": [
+    "K"
+   ],
+   "flip": {
+    "pid": "14249",
+    "player": "Andrew Van Ginkel",
+    "nflTeam": "MIN",
+    "owner": "0007",
+    "status": "Questionable",
+    "proj": 8.3,
+    "lineupLoss": 2.3,
+    "favPBase": 0.5652,
+    "favPWithout": 0.5513,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0007": {
+     "proj": 213.3,
+     "p10": 172.0,
+     "p90": 254.1
+    },
+    "0012": {
+     "proj": 205.7,
+     "p10": 162.8,
+     "p90": 247.4
+    }
+   }
+  },
+  {
+   "a": "0003",
+   "b": "0005",
+   "division": false,
+   "pA": 0.329,
+   "pAClosedForm": 0.3254,
+   "aPoWin": 0.3279,
+   "aPoLoss": 0.1731,
+   "bPoWin": 0.826,
+   "bPoLoss": 0.6687,
+   "aDivWin": 0.2207,
+   "aDivLoss": 0.122,
+   "bDivWin": 0.5125,
+   "bDivLoss": 0.3689,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.4434,
+      "runs": 1272
+     },
+     "middle": {
+      "playoffOdds": 0.2727,
+      "runs": 2512
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1288,
+      "runs": 4216
+     }
+    },
+    "sameScoreEffect": 0.0209,
+    "sameScoreCoverage": 0.8,
+    "lossTopThree": {
+     "playoffOdds": 0.441,
+     "runs": 195,
+     "shareOfLosses": 0.0363
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.896,
+      "runs": 2941
+     },
+     "middle": {
+      "playoffOdds": 0.7879,
+      "runs": 2824
+     },
+     "bottomFour": {
+      "playoffOdds": 0.5969,
+      "runs": 2235
+     }
+    },
+    "sameScoreEffect": 0.0212,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.869,
+     "runs": 145,
+     "shareOfLosses": 0.0551
+    }
+   },
+   "stakes": 0.3121,
+   "favorite": "0005",
+   "underdog": "0003",
+   "favoriteP": 0.671,
+   "sides": {
+    "favorite": {
+     "O": 157.7,
+     "D": 60.2,
+     "K": 12.8
+    },
+    "underdog": {
+     "O": 134.8,
+     "D": 54.7,
+     "K": 11.5
+    }
+   },
+   "underdogAhead": [],
+   "flip": {
+    "pid": "16627",
+    "player": "Ladd McConkey",
+    "nflTeam": "LAC",
+    "owner": "0005",
+    "status": "Questionable",
+    "proj": 14.0,
+    "lineupLoss": 2.0,
+    "favPBase": 0.6746,
+    "favPWithout": 0.6636,
+    "kickoff": 1789934700
+   },
+   "scoreRange": {
+    "0003": {
+     "proj": 205.0,
+     "p10": 163.6,
+     "p90": 246.6
+    },
+    "0005": {
+     "proj": 225.7,
+     "p10": 183.5,
+     "p90": 267.8
+    }
+   }
+  },
+  {
+   "a": "0003",
+   "b": "0004",
+   "division": false,
+   "pA": 0.3119,
+   "pAClosedForm": 0.3142,
+   "aPoWin": 0.3375,
+   "aPoLoss": 0.1726,
+   "bPoWin": 0.8718,
+   "bPoLoss": 0.7255,
+   "aDivWin": 0.2289,
+   "aDivLoss": 0.1208,
+   "bDivWin": 0.548,
+   "bDivLoss": 0.3595,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.4434,
+      "runs": 1272
+     },
+     "middle": {
+      "playoffOdds": 0.2727,
+      "runs": 2512
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1288,
+      "runs": 4216
+     }
+    },
+    "sameScoreEffect": 0.0328,
+    "sameScoreCoverage": 0.8,
+    "lossTopThree": {
+     "playoffOdds": 0.4215,
+     "runs": 223,
+     "shareOfLosses": 0.0405
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.9286,
+      "runs": 3125
+     },
+     "middle": {
+      "playoffOdds": 0.8285,
+      "runs": 2799
+     },
+     "bottomFour": {
+      "playoffOdds": 0.6686,
+      "runs": 2076
+     }
+    },
+    "sameScoreEffect": 0.0269,
+    "sameScoreCoverage": 0.8,
+    "lossTopThree": {
+     "playoffOdds": 0.965,
+     "runs": 143,
+     "shareOfLosses": 0.0573
+    }
+   },
+   "stakes": 0.3112,
+   "favorite": "0004",
+   "underdog": "0003",
+   "favoriteP": 0.6881,
+   "sides": {
+    "favorite": {
+     "O": 165.0,
+     "D": 55.1,
+     "K": 12.6
+    },
+    "underdog": {
+     "O": 134.8,
+     "D": 54.7,
+     "K": 11.5
+    }
+   },
+   "underdogAhead": [],
+   "flip": {
+    "pid": "16190",
+    "player": "Zay Flowers",
+    "nflTeam": "BAL",
+    "owner": "0004",
+    "status": "Questionable",
+    "proj": 15.2,
+    "lineupLoss": 2.1,
+    "favPBase": 0.6858,
+    "favPWithout": 0.6741,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0003": {
+     "proj": 205.0,
+     "p10": 163.6,
+     "p90": 246.6
+    },
+    "0004": {
+     "proj": 227.2,
+     "p10": 185.4,
+     "p90": 269.3
+    }
+   }
+  },
+  {
+   "a": "0003",
+   "b": "0006",
+   "division": false,
+   "pA": 0.546,
+   "pAClosedForm": 0.547,
+   "aPoWin": 0.2935,
+   "aPoLoss": 0.1404,
+   "bPoWin": 0.2684,
+   "bPoLoss": 0.1138,
+   "aDivWin": 0.1996,
+   "aDivLoss": 0.1002,
+   "bDivWin": 0.0697,
+   "bDivLoss": 0.0254,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.4434,
+      "runs": 1272
+     },
+     "middle": {
+      "playoffOdds": 0.2727,
+      "runs": 2512
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1288,
+      "runs": 4216
+     }
+    },
+    "sameScoreEffect": 0.0422,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.3538,
+     "runs": 65,
+     "shareOfLosses": 0.0179
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.428,
+      "runs": 979
+     },
+     "middle": {
+      "playoffOdds": 0.2522,
+      "runs": 2228
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1024,
+      "runs": 4793
+     }
+    },
+    "sameScoreEffect": 0.0308,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.4694,
+     "runs": 49,
+     "shareOfLosses": 0.0112
+    }
+   },
+   "stakes": 0.3077,
+   "favorite": "0003",
+   "underdog": "0006",
+   "favoriteP": 0.546,
+   "sides": {
+    "favorite": {
+     "O": 134.8,
+     "D": 54.7,
+     "K": 11.5
+    },
+    "underdog": {
+     "O": 122.1,
+     "D": 58.1,
+     "K": 13.1
+    }
+   },
+   "underdogAhead": [
+    "D",
+    "K"
+   ],
+   "flip": {
+    "pid": "14783",
+    "player": "Jalen Hurts",
+    "nflTeam": "PHI",
+    "owner": "0006",
+    "status": "",
+    "proj": 24.6,
+    "lineupLoss": 16.0,
+    "favPBase": 0.547,
+    "favPWithout": 0.6412,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0003": {
+     "proj": 205.0,
+     "p10": 163.6,
+     "p90": 246.6
+    },
+    "0006": {
+     "proj": 199.5,
+     "p10": 157.6,
+     "p90": 240.8
+    }
+   }
+  },
+  {
+   "a": "0001",
+   "b": "0009",
+   "division": false,
+   "pA": 0.3134,
+   "pAClosedForm": 0.3051,
+   "aPoWin": 0.4017,
+   "aPoLoss": 0.227,
+   "bPoWin": 0.9195,
+   "bPoLoss": 0.7914,
+   "aDivWin": 0.2589,
+   "aDivLoss": 0.14,
+   "bDivWin": 0.7612,
+   "bDivLoss": 0.5975,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.5007,
+      "runs": 1476
+     },
+     "middle": {
+      "playoffOdds": 0.3345,
+      "runs": 2544
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1668,
+      "runs": 3980
+     }
+    },
+    "sameScoreEffect": 0.0233,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.4472,
+     "runs": 284,
+     "shareOfLosses": 0.0517
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.9588,
+      "runs": 3395
+     },
+     "middle": {
+      "playoffOdds": 0.8792,
+      "runs": 2698
+     },
+     "bottomFour": {
+      "playoffOdds": 0.7383,
+      "runs": 1907
+     }
+    },
+    "sameScoreEffect": 0.0322,
+    "sameScoreCoverage": 0.8,
+    "lossTopThree": {
+     "playoffOdds": 0.95,
+     "runs": 180,
+     "shareOfLosses": 0.0718
+    }
+   },
+   "stakes": 0.3028,
+   "favorite": "0009",
+   "underdog": "0001",
+   "favoriteP": 0.6866,
+   "sides": {
+    "favorite": {
+     "O": 166.9,
+     "D": 57.8,
+     "K": 12.4
+    },
+    "underdog": {
+     "O": 132.6,
+     "D": 58.7,
+     "K": 12.4
+    }
+   },
+   "underdogAhead": [
+    "D"
+   ],
+   "flip": {
+    "pid": "16809",
+    "player": "Jalen Coker",
+    "nflTeam": "CAR",
+    "owner": "0001",
+    "status": "Questionable",
+    "proj": 13.8,
+    "lineupLoss": 3.6,
+    "favPBase": 0.6949,
+    "favPWithout": 0.7139,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0001": {
+     "proj": 206.8,
+     "p10": 165.7,
+     "p90": 250.0
+    },
+    "0009": {
+     "proj": 230.3,
+     "p10": 189.3,
+     "p90": 272.2
+    }
+   }
+  },
+  {
+   "a": "0001",
+   "b": "0012",
+   "division": false,
+   "pA": 0.5128,
+   "pAClosedForm": 0.5096,
+   "aPoWin": 0.3618,
+   "aPoLoss": 0.1975,
+   "bPoWin": 0.2555,
+   "bPoLoss": 0.119,
+   "aDivWin": 0.2292,
+   "aDivLoss": 0.1226,
+   "bDivWin": 0.0713,
+   "bDivLoss": 0.0324,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.5007,
+      "runs": 1476
+     },
+     "middle": {
+      "playoffOdds": 0.3345,
+      "runs": 2544
+     },
+     "bottomFour": {
+      "playoffOdds": 0.1668,
+      "runs": 3980
+     }
+    },
+    "sameScoreEffect": 0.0194,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.475,
+     "runs": 80,
+     "shareOfLosses": 0.0205
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.3983,
+      "runs": 1328
+     },
+     "middle": {
+      "playoffOdds": 0.2302,
+      "runs": 2589
+     },
+     "bottomFour": {
+      "playoffOdds": 0.0879,
+      "runs": 4083
+     }
+    },
+    "sameScoreEffect": 0.0288,
+    "sameScoreCoverage": 1.0,
+    "lossTopThree": {
+     "playoffOdds": 0.3182,
+     "runs": 88,
+     "shareOfLosses": 0.0215
+    }
+   },
+   "stakes": 0.3008,
+   "favorite": "0001",
+   "underdog": "0012",
+   "favoriteP": 0.5128,
+   "sides": {
+    "favorite": {
+     "O": 132.6,
+     "D": 58.7,
+     "K": 12.4
+    },
+    "underdog": {
+     "O": 134.8,
+     "D": 55.2,
+     "K": 12.1
+    }
+   },
+   "underdogAhead": [
+    "O"
+   ],
+   "flip": {
+    "pid": "16809",
+    "player": "Jalen Coker",
+    "nflTeam": "CAR",
+    "owner": "0001",
+    "status": "Questionable",
+    "proj": 13.8,
+    "lineupLoss": 3.6,
+    "favPBase": 0.5096,
+    "favPWithout": 0.4876,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0001": {
+     "proj": 206.8,
+     "p10": 165.7,
+     "p90": 250.0
+    },
+    "0012": {
+     "proj": 205.7,
+     "p10": 162.8,
+     "p90": 247.4
+    }
+   }
+  },
+  {
+   "a": "0007",
+   "b": "0009",
+   "division": false,
+   "pA": 0.3579,
+   "pAClosedForm": 0.3558,
+   "aPoWin": 0.7045,
+   "aPoLoss": 0.5192,
+   "bPoWin": 0.9177,
+   "bPoLoss": 0.8107,
+   "aDivWin": 0.5417,
+   "aDivLoss": 0.3901,
+   "bDivWin": 0.7574,
+   "bDivLoss": 0.6245,
+   "aSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.7852,
+      "runs": 1848
+     },
+     "middle": {
+      "playoffOdds": 0.6373,
+      "runs": 2721
+     },
+     "bottomFour": {
+      "playoffOdds": 0.4369,
+      "runs": 3431
+     }
+    },
+    "sameScoreEffect": 0.0319,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.7666,
+     "runs": 347,
+     "shareOfLosses": 0.0675
+    }
+   },
+   "bSplit": {
+    "runs": 8000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.9588,
+      "runs": 3395
+     },
+     "middle": {
+      "playoffOdds": 0.8792,
+      "runs": 2698
+     },
+     "bottomFour": {
+      "playoffOdds": 0.7383,
+      "runs": 1907
+     }
+    },
+    "sameScoreEffect": 0.0112,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.963,
+     "runs": 270,
+     "shareOfLosses": 0.0943
+    }
+   },
+   "stakes": 0.2923,
+   "favorite": "0009",
+   "underdog": "0007",
+   "favoriteP": 0.6421,
+   "sides": {
+    "favorite": {
+     "O": 166.9,
+     "D": 57.8,
+     "K": 12.4
+    },
+    "underdog": {
+     "O": 140.6,
+     "D": 60.6,
+     "K": 11.7
+    }
+   },
+   "underdogAhead": [
+    "D"
+   ],
+   "flip": {
+    "pid": "14251",
+    "player": "Blake Cashman",
+    "nflTeam": "MIN",
+    "owner": "0009",
+    "status": "Questionable",
+    "proj": 10.1,
+    "lineupLoss": 3.3,
+    "favPBase": 0.6442,
+    "favPWithout": 0.6253,
+    "kickoff": 1789923600
+   },
+   "scoreRange": {
+    "0007": {
+     "proj": 213.3,
+     "p10": 172.0,
+     "p90": 254.1
+    },
+    "0009": {
+     "proj": 230.3,
+     "p10": 189.3,
+     "p90": 272.2
+    }
+   }
+  }
+ ],
+ "injuryWatch": [
+  {
+   "pid": "14056",
+   "player": "Kyler Murray",
+   "nflTeam": "MIN",
+   "owner": "0008",
+   "status": "Questionable",
+   "details": "Concussion",
+   "proj": 21.6,
+   "lineupLoss": 7.5,
+   "kickoff": 1789923600
+  },
+  {
+   "pid": "16809",
+   "player": "Jalen Coker",
+   "nflTeam": "CAR",
+   "owner": "0001",
+   "status": "Questionable",
+   "details": "Ankle",
+   "proj": 13.8,
+   "lineupLoss": 3.6,
+   "kickoff": 1789923600
+  },
+  {
+   "pid": "14251",
+   "player": "Blake Cashman",
+   "nflTeam": "MIN",
+   "owner": "0009",
+   "status": "Questionable",
+   "details": "Wrist",
+   "proj": 10.1,
+   "lineupLoss": 3.3,
+   "kickoff": 1789923600
+  },
+  {
+   "pid": "16641",
+   "player": "Brock Bowers",
+   "nflTeam": "LVR",
+   "owner": "0009",
+   "status": "Questionable",
+   "details": "Knee - Meniscus",
+   "proj": 16.8,
+   "lineupLoss": 2.9,
+   "kickoff": 1789934700
+  },
+  {
+   "pid": "14797",
+   "player": "D'Andre Swift",
+   "nflTeam": "CHI",
+   "owner": "0002",
+   "status": "Questionable",
+   "details": "Ankle",
+   "proj": 12.1,
+   "lineupLoss": 2.8,
+   "kickoff": 1789923600
+  },
+  {
+   "pid": "14249",
+   "player": "Andrew Van Ginkel",
+   "nflTeam": "MIN",
+   "owner": "0007",
+   "status": "Questionable",
+   "details": "Chest",
+   "proj": 8.3,
+   "lineupLoss": 2.3,
+   "kickoff": 1789923600
+  },
+  {
+   "pid": "14777",
+   "player": "Joe Burrow",
+   "nflTeam": "CIN",
+   "owner": "0009",
+   "status": "Questionable",
+   "details": "Back",
+   "proj": 22.0,
+   "lineupLoss": 2.3,
+   "kickoff": 1789923600
+  },
+  {
+   "pid": "13813",
+   "player": "Foyesade Oluokun",
+   "nflTeam": "JAC",
+   "owner": "0002",
+   "status": "Questionable",
+   "details": "Wrist",
+   "proj": 8.7,
+   "lineupLoss": 2.1,
+   "kickoff": 1789934700
+  },
+  {
+   "pid": "16190",
+   "player": "Zay Flowers",
+   "nflTeam": "BAL",
+   "owner": "0004",
+   "status": "Questionable",
+   "details": "Hamstring",
+   "proj": 15.2,
+   "lineupLoss": 2.1,
+   "kickoff": 1789923600
+  },
+  {
+   "pid": "16627",
+   "player": "Ladd McConkey",
+   "nflTeam": "LAC",
+   "owner": "0005",
+   "status": "Questionable",
+   "details": "Ribs",
+   "proj": 14.0,
+   "lineupLoss": 2.0,
+   "kickoff": 1789934700
+  },
+  {
+   "pid": "16013",
+   "player": "Nate Landman",
+   "nflTeam": "LAR",
+   "owner": "0010",
+   "status": "Questionable",
+   "details": "Shoulder",
+   "proj": 8.1,
+   "lineupLoss": 1.0,
+   "kickoff": 1790036100
+  },
+  {
+   "pid": "14842",
+   "player": "Michael Pittman",
+   "nflTeam": "PIT",
+   "owner": "0002",
+   "status": "Questionable",
+   "details": "Foot",
+   "proj": 12.3,
+   "lineupLoss": 0.9,
+   "kickoff": 1789923600
+  }
+ ],
+ "movement": [
+  {
+   "fid": "0001",
+   "owner": "Ryan Bousquet",
+   "preseasonPlayoff": 0.3401,
+   "preseasonTitle": 0.0284,
+   "bankedPlayoff": 0.2722,
+   "bankedTitle": 0.0251,
+   "afterWeekPlayoff": 0.2818,
+   "enteringPlayoff": 0.2818,
+   "enteringTitle": 0.0295,
+   "enteringDivision": 0.1772,
+   "resultEffect": -0.0679,
+   "strengthEffect": 0.0095,
+   "enteringPlayoffMflOffense": 0.276,
+   "mflUpdateEffect": 0.0038,
+   "switchEffect": 0.0057,
+   "mflWhy": {
+    "lineupPerWeekBefore": 192.5,
+    "lineupPerWeekNow": 178.2,
+    "sidesBefore": {
+     "O": 123.1,
+     "D": 56.5,
+     "K": 12.8
+    },
+    "sidesNow": {
+     "O": 109.0,
+     "D": 57.2,
+     "K": 12.1
+    },
+    "players": [
+     {
+      "pid": "13630",
+      "player": "Courtland Sutton",
+      "perWeekBefore": 12.5,
+      "perWeekNow": 9.2,
+      "lineupImpactPerWeek": -3.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15762",
+      "player": "George Pickens",
+      "perWeekBefore": 13.2,
+      "perWeekNow": 10.3,
+      "lineupImpactPerWeek": -2.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15799",
+      "player": "Jake Ferguson",
+      "perWeekBefore": 11.2,
+      "perWeekNow": 8.6,
+      "lineupImpactPerWeek": -2.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13592",
+      "player": "Sam Darnold",
+      "perWeekBefore": 14.0,
+      "perWeekNow": 9.7,
+      "lineupImpactPerWeek": -2.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16582",
+      "player": "Bo Nix",
+      "perWeekBefore": 16.7,
+      "perWeekNow": 14.6,
+      "lineupImpactPerWeek": -2.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "11757",
+      "player": "Aaron Donald",
+      "perWeekBefore": 5.9,
+      "perWeekNow": 8.3,
+      "lineupImpactPerWeek": 1.7,
+      "note": "back from the preseason injury list (was Out)"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 178.2,
+    "lineupPerWeekNow": 203.5,
+    "sidesBefore": {
+     "O": 109.0,
+     "D": 57.2,
+     "K": 12.1
+    },
+    "sidesNow": {
+     "O": 134.3,
+     "D": 57.2,
+     "K": 12.1
+    },
+    "players": [
+     {
+      "pid": "15762",
+      "player": "George Pickens",
+      "perWeekBefore": 10.3,
+      "perWeekNow": 15.4,
+      "lineupImpactPerWeek": 5.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16181",
+      "player": "Chase Brown",
+      "perWeekBefore": 11.8,
+      "perWeekNow": 15.6,
+      "lineupImpactPerWeek": 3.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13592",
+      "player": "Sam Darnold",
+      "perWeekBefore": 9.7,
+      "perWeekNow": 17.3,
+      "lineupImpactPerWeek": 3.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15768",
+      "player": "Alec Pierce",
+      "perWeekBefore": 14.7,
+      "perWeekNow": 11.1,
+      "lineupImpactPerWeek": -3.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16582",
+      "player": "Bo Nix",
+      "perWeekBefore": 14.6,
+      "perWeekNow": 18.9,
+      "lineupImpactPerWeek": 3.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16809",
+      "player": "Jalen Coker",
+      "perWeekBefore": 7.6,
+      "perWeekNow": 12.2,
+      "lineupImpactPerWeek": 3.1,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0002",
+   "owner": "Derrick Whitman",
+   "preseasonPlayoff": 0.5149,
+   "preseasonTitle": 0.0736,
+   "bankedPlayoff": 0.604,
+   "bankedTitle": 0.0799,
+   "afterWeekPlayoff": 0.6005,
+   "enteringPlayoff": 0.6005,
+   "enteringTitle": 0.0645,
+   "enteringDivision": 0.5131,
+   "resultEffect": 0.0891,
+   "strengthEffect": -0.0035,
+   "enteringPlayoffMflOffense": 0.5766,
+   "mflUpdateEffect": -0.0274,
+   "switchEffect": 0.0239,
+   "mflWhy": {
+    "lineupPerWeekBefore": 202.1,
+    "lineupPerWeekNow": 184.4,
+    "sidesBefore": {
+     "O": 138.7,
+     "D": 51.1,
+     "K": 12.2
+    },
+    "sidesNow": {
+     "O": 120.2,
+     "D": 52.1,
+     "K": 12.1
+    },
+    "players": [
+     {
+      "pid": "17081",
+      "player": "Emeka Egbuka",
+      "perWeekBefore": 16.3,
+      "perWeekNow": 10.5,
+      "lineupImpactPerWeek": -5.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15753",
+      "player": "Garrett Wilson",
+      "perWeekBefore": 16.8,
+      "perWeekNow": 12.0,
+      "lineupImpactPerWeek": -4.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15329",
+      "player": "Kyle Pitts",
+      "perWeekBefore": 12.4,
+      "perWeekNow": 9.3,
+      "lineupImpactPerWeek": -3.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14782",
+      "player": "Jordan Love",
+      "perWeekBefore": 16.3,
+      "perWeekNow": 14.4,
+      "lineupImpactPerWeek": -2.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17039",
+      "player": "Tyler Shough",
+      "perWeekBefore": 16.0,
+      "perWeekNow": 14.6,
+      "lineupImpactPerWeek": -1.4,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 184.4,
+    "lineupPerWeekNow": 208.9,
+    "sidesBefore": {
+     "O": 120.2,
+     "D": 52.1,
+     "K": 12.1
+    },
+    "sidesNow": {
+     "O": 144.7,
+     "D": 52.1,
+     "K": 12.1
+    },
+    "players": [
+     {
+      "pid": "14782",
+      "player": "Jordan Love",
+      "perWeekBefore": 14.4,
+      "perWeekNow": 20.7,
+      "lineupImpactPerWeek": 6.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15290",
+      "player": "Nico Collins",
+      "perWeekBefore": 13.3,
+      "perWeekNow": 17.5,
+      "lineupImpactPerWeek": 4.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17039",
+      "player": "Tyler Shough",
+      "perWeekBefore": 14.6,
+      "perWeekNow": 18.5,
+      "lineupImpactPerWeek": 3.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14797",
+      "player": "D'Andre Swift",
+      "perWeekBefore": 14.9,
+      "perWeekNow": 11.6,
+      "lineupImpactPerWeek": -3.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16184",
+      "player": "Jayden Reed",
+      "perWeekBefore": 6.8,
+      "perWeekNow": 12.7,
+      "lineupImpactPerWeek": 3.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15329",
+      "player": "Kyle Pitts",
+      "perWeekBefore": 9.3,
+      "perWeekNow": 11.9,
+      "lineupImpactPerWeek": 2.6,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0003",
+   "owner": "Matt Gerardi",
+   "preseasonPlayoff": 0.2039,
+   "preseasonTitle": 0.0171,
+   "bankedPlayoff": 0.2117,
+   "bankedTitle": 0.0173,
+   "afterWeekPlayoff": 0.224,
+   "enteringPlayoff": 0.224,
+   "enteringTitle": 0.013,
+   "enteringDivision": 0.1545,
+   "resultEffect": 0.0078,
+   "strengthEffect": 0.0123,
+   "enteringPlayoffMflOffense": 0.3721,
+   "mflUpdateEffect": 0.1604,
+   "switchEffect": -0.1481,
+   "mflWhy": {
+    "lineupPerWeekBefore": 182.7,
+    "lineupPerWeekNow": 177.6,
+    "sidesBefore": {
+     "O": 120.6,
+     "D": 51.2,
+     "K": 10.9
+    },
+    "sidesNow": {
+     "O": 114.1,
+     "D": 52.2,
+     "K": 11.3
+    },
+    "players": [
+     {
+      "pid": "16036",
+      "player": "Jake Tonges",
+      "perWeekBefore": 9.5,
+      "perWeekNow": 0.0,
+      "lineupImpactPerWeek": -2.9,
+      "note": "now out (IR, Knee - MCL)"
+     },
+     {
+      "pid": "17045",
+      "player": "Cam Skattebo",
+      "perWeekBefore": 10.2,
+      "perWeekNow": 12.4,
+      "lineupImpactPerWeek": 2.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "12676",
+      "player": "Hunter Henry",
+      "perWeekBefore": 9.8,
+      "perWeekNow": 8.3,
+      "lineupImpactPerWeek": -1.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17066",
+      "player": "Kyle Monangai",
+      "perWeekBefore": 8.0,
+      "perWeekNow": 6.3,
+      "lineupImpactPerWeek": -1.4,
+      "note": "added since the preseason"
+     },
+     {
+      "pid": "15694",
+      "player": "Malik Willis",
+      "perWeekBefore": 14.8,
+      "perWeekNow": 12.9,
+      "lineupImpactPerWeek": -1.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13322",
+      "player": "Chuck Clark",
+      "perWeekBefore": 10.2,
+      "perWeekNow": 9.0,
+      "lineupImpactPerWeek": -1.2,
+      "note": "added since the preseason"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 177.6,
+    "lineupPerWeekNow": 192.7,
+    "sidesBefore": {
+     "O": 114.1,
+     "D": 52.2,
+     "K": 11.3
+    },
+    "sidesNow": {
+     "O": 129.1,
+     "D": 52.2,
+     "K": 11.3
+    },
+    "players": [
+     {
+      "pid": "13116",
+      "player": "Patrick Mahomes",
+      "perWeekBefore": 15.5,
+      "perWeekNow": 20.5,
+      "lineupImpactPerWeek": 3.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17473",
+      "player": "Jadarian Price",
+      "perWeekBefore": 14.2,
+      "perWeekNow": 10.8,
+      "lineupImpactPerWeek": -3.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "12676",
+      "player": "Hunter Henry",
+      "perWeekBefore": 8.3,
+      "perWeekNow": 11.4,
+      "lineupImpactPerWeek": 3.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15694",
+      "player": "Malik Willis",
+      "perWeekBefore": 12.9,
+      "perWeekNow": 18.6,
+      "lineupImpactPerWeek": 2.5,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13635",
+      "player": "D.J. Moore",
+      "perWeekBefore": 10.4,
+      "perWeekNow": 12.1,
+      "lineupImpactPerWeek": 1.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14136",
+      "player": "Deebo Samuel",
+      "perWeekBefore": 8.0,
+      "perWeekNow": 9.5,
+      "lineupImpactPerWeek": 1.4,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0004",
+   "owner": "Brian Cutting",
+   "preseasonPlayoff": 0.696,
+   "preseasonTitle": 0.1501,
+   "bankedPlayoff": 0.7535,
+   "bankedTitle": 0.1541,
+   "afterWeekPlayoff": 0.8261,
+   "enteringPlayoff": 0.8261,
+   "enteringTitle": 0.2055,
+   "enteringDivision": 0.4893,
+   "resultEffect": 0.0575,
+   "strengthEffect": 0.0726,
+   "enteringPlayoffMflOffense": 0.7281,
+   "mflUpdateEffect": -0.0254,
+   "switchEffect": 0.098,
+   "mflWhy": {
+    "lineupPerWeekBefore": 215.6,
+    "lineupPerWeekNow": 198.2,
+    "sidesBefore": {
+     "O": 144.0,
+     "D": 58.4,
+     "K": 13.2
+    },
+    "sidesNow": {
+     "O": 129.0,
+     "D": 56.7,
+     "K": 12.6
+    },
+    "players": [
+     {
+      "pid": "15754",
+      "player": "Chris Olave",
+      "perWeekBefore": 15.7,
+      "perWeekNow": 12.5,
+      "lineupImpactPerWeek": -3.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16580",
+      "player": "Drake Maye",
+      "perWeekBefore": 18.1,
+      "perWeekNow": 14.9,
+      "lineupImpactPerWeek": -3.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14836",
+      "player": "Justin Jefferson",
+      "perWeekBefore": 13.7,
+      "perWeekNow": 11.6,
+      "lineupImpactPerWeek": -2.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13590",
+      "player": "Baker Mayfield",
+      "perWeekBefore": 16.6,
+      "perWeekNow": 14.7,
+      "lineupImpactPerWeek": -1.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13671",
+      "player": "Mark Andrews",
+      "perWeekBefore": 10.5,
+      "perWeekNow": 7.7,
+      "lineupImpactPerWeek": -1.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "11675",
+      "player": "Davante Adams",
+      "perWeekBefore": 15.1,
+      "perWeekNow": 13.5,
+      "lineupImpactPerWeek": -1.6,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 198.2,
+    "lineupPerWeekNow": 229.3,
+    "sidesBefore": {
+     "O": 129.0,
+     "D": 56.7,
+     "K": 12.6
+    },
+    "sidesNow": {
+     "O": 160.0,
+     "D": 56.7,
+     "K": 12.6
+    },
+    "players": [
+     {
+      "pid": "16580",
+      "player": "Drake Maye",
+      "perWeekBefore": 14.9,
+      "perWeekNow": 21.4,
+      "lineupImpactPerWeek": 4.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14836",
+      "player": "Justin Jefferson",
+      "perWeekBefore": 11.6,
+      "perWeekNow": 16.9,
+      "lineupImpactPerWeek": 4.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16162",
+      "player": "Jahmyr Gibbs",
+      "perWeekBefore": 19.2,
+      "perWeekNow": 23.8,
+      "lineupImpactPerWeek": 4.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15754",
+      "player": "Chris Olave",
+      "perWeekBefore": 12.5,
+      "perWeekNow": 15.9,
+      "lineupImpactPerWeek": 3.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16190",
+      "player": "Zay Flowers",
+      "perWeekBefore": 10.6,
+      "perWeekNow": 15.2,
+      "lineupImpactPerWeek": 3.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13590",
+      "player": "Baker Mayfield",
+      "perWeekBefore": 14.7,
+      "perWeekNow": 18.4,
+      "lineupImpactPerWeek": 1.9,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0005",
+   "owner": "Eric Martel",
+   "preseasonPlayoff": 0.5929,
+   "preseasonTitle": 0.1163,
+   "bankedPlayoff": 0.6901,
+   "bankedTitle": 0.1414,
+   "afterWeekPlayoff": 0.7742,
+   "enteringPlayoff": 0.7742,
+   "enteringTitle": 0.139,
+   "enteringDivision": 0.4652,
+   "resultEffect": 0.0972,
+   "strengthEffect": 0.0841,
+   "enteringPlayoffMflOffense": 0.7754,
+   "mflUpdateEffect": 0.0853,
+   "switchEffect": -0.0011,
+   "mflWhy": {
+    "lineupPerWeekBefore": 209.3,
+    "lineupPerWeekNow": 199.6,
+    "sidesBefore": {
+     "O": 138.5,
+     "D": 58.6,
+     "K": 12.2
+    },
+    "sidesNow": {
+     "O": 126.8,
+     "D": 59.9,
+     "K": 12.8
+    },
+    "players": [
+     {
+      "pid": "14071",
+      "player": "David Montgomery",
+      "perWeekBefore": 8.5,
+      "perWeekNow": 12.4,
+      "lineupImpactPerWeek": 3.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16627",
+      "player": "Ladd McConkey",
+      "perWeekBefore": 11.3,
+      "perWeekNow": 8.6,
+      "lineupImpactPerWeek": -2.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15281",
+      "player": "Ja'Marr Chase",
+      "perWeekBefore": 22.6,
+      "perWeekNow": 20.0,
+      "lineupImpactPerWeek": -2.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17070",
+      "player": "Luther Burden",
+      "perWeekBefore": 10.7,
+      "perWeekNow": 7.3,
+      "lineupImpactPerWeek": -2.5,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "11150",
+      "player": "Geno Smith",
+      "perWeekBefore": 12.5,
+      "perWeekNow": 10.3,
+      "lineupImpactPerWeek": -2.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14073",
+      "player": "Josh Jacobs",
+      "perWeekBefore": 13.2,
+      "perWeekNow": 11.3,
+      "lineupImpactPerWeek": -1.9,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 199.6,
+    "lineupPerWeekNow": 223.4,
+    "sidesBefore": {
+     "O": 126.8,
+     "D": 59.9,
+     "K": 12.8
+    },
+    "sidesNow": {
+     "O": 150.6,
+     "D": 59.9,
+     "K": 12.8
+    },
+    "players": [
+     {
+      "pid": "11150",
+      "player": "Geno Smith",
+      "perWeekBefore": 10.3,
+      "perWeekNow": 16.0,
+      "lineupImpactPerWeek": 4.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16150",
+      "player": "C.J. Stroud",
+      "perWeekBefore": 13.7,
+      "perWeekNow": 18.2,
+      "lineupImpactPerWeek": 4.5,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14071",
+      "player": "David Montgomery",
+      "perWeekBefore": 12.4,
+      "perWeekNow": 15.1,
+      "lineupImpactPerWeek": 2.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15711",
+      "player": "Kenneth Walker III",
+      "perWeekBefore": 10.8,
+      "perWeekNow": 14.7,
+      "lineupImpactPerWeek": 2.5,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16627",
+      "player": "Ladd McConkey",
+      "perWeekBefore": 8.6,
+      "perWeekNow": 13.0,
+      "lineupImpactPerWeek": 2.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17070",
+      "player": "Luther Burden",
+      "perWeekBefore": 7.3,
+      "perWeekNow": 12.4,
+      "lineupImpactPerWeek": 1.5,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0006",
+   "owner": "Brian Cross",
+   "preseasonPlayoff": 0.3797,
+   "preseasonTitle": 0.0544,
+   "bankedPlayoff": 0.3364,
+   "bankedTitle": 0.0461,
+   "afterWeekPlayoff": 0.184,
+   "enteringPlayoff": 0.184,
+   "enteringTitle": 0.0194,
+   "enteringDivision": 0.0455,
+   "resultEffect": -0.0433,
+   "strengthEffect": -0.1524,
+   "enteringPlayoffMflOffense": 0.2278,
+   "mflUpdateEffect": -0.1086,
+   "switchEffect": -0.0438,
+   "mflWhy": {
+    "lineupPerWeekBefore": 196.8,
+    "lineupPerWeekNow": 174.1,
+    "sidesBefore": {
+     "O": 124.5,
+     "D": 59.7,
+     "K": 12.6
+    },
+    "sidesNow": {
+     "O": 103.3,
+     "D": 57.8,
+     "K": 12.9
+    },
+    "players": [
+     {
+      "pid": "15237",
+      "player": "Trevor Lawrence",
+      "perWeekBefore": 19.7,
+      "perWeekNow": 14.9,
+      "lineupImpactPerWeek": -4.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14104",
+      "player": "A.J. Brown",
+      "perWeekBefore": 9.9,
+      "perWeekNow": 4.0,
+      "lineupImpactPerWeek": -4.2,
+      "note": "now out longer: 6 of these weeks, up from 3 (IR)"
+     },
+     {
+      "pid": "17102",
+      "player": "Tyler Warren",
+      "perWeekBefore": 11.5,
+      "perWeekNow": 8.4,
+      "lineupImpactPerWeek": -3.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14783",
+      "player": "Jalen Hurts",
+      "perWeekBefore": 21.8,
+      "perWeekNow": 19.2,
+      "lineupImpactPerWeek": -2.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16188",
+      "player": "Quentin Johnston",
+      "perWeekBefore": 9.7,
+      "perWeekNow": 7.2,
+      "lineupImpactPerWeek": -2.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16165",
+      "player": "Tyjae Spears",
+      "perWeekBefore": 7.5,
+      "perWeekNow": 5.8,
+      "lineupImpactPerWeek": -1.5,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 174.1,
+    "lineupPerWeekNow": 197.3,
+    "sidesBefore": {
+     "O": 103.3,
+     "D": 57.8,
+     "K": 12.9
+    },
+    "sidesNow": {
+     "O": 126.6,
+     "D": 57.8,
+     "K": 12.9
+    },
+    "players": [
+     {
+      "pid": "15237",
+      "player": "Trevor Lawrence",
+      "perWeekBefore": 14.9,
+      "perWeekNow": 20.7,
+      "lineupImpactPerWeek": 5.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17102",
+      "player": "Tyler Warren",
+      "perWeekBefore": 8.4,
+      "perWeekNow": 13.2,
+      "lineupImpactPerWeek": 4.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14104",
+      "player": "A.J. Brown",
+      "perWeekBefore": 4.0,
+      "perWeekNow": 7.6,
+      "lineupImpactPerWeek": 3.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16187",
+      "player": "Josh Downs",
+      "perWeekBefore": 8.1,
+      "perWeekNow": 10.6,
+      "lineupImpactPerWeek": 2.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14783",
+      "player": "Jalen Hurts",
+      "perWeekBefore": 19.2,
+      "perWeekNow": 21.3,
+      "lineupImpactPerWeek": 2.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "12626",
+      "player": "Derrick Henry",
+      "perWeekBefore": 17.3,
+      "perWeekNow": 15.6,
+      "lineupImpactPerWeek": -1.7,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "preseasonPlayoff": 0.5221,
+   "preseasonTitle": 0.0775,
+   "bankedPlayoff": 0.5356,
+   "bankedTitle": 0.0833,
+   "afterWeekPlayoff": 0.5855,
+   "enteringPlayoff": 0.5855,
+   "enteringTitle": 0.0951,
+   "enteringDivision": 0.4444,
+   "resultEffect": 0.0135,
+   "strengthEffect": 0.0499,
+   "enteringPlayoffMflOffense": 0.4381,
+   "mflUpdateEffect": -0.0975,
+   "switchEffect": 0.1474,
+   "mflWhy": {
+    "lineupPerWeekBefore": 203.1,
+    "lineupPerWeekNow": 183.5,
+    "sidesBefore": {
+     "O": 132.7,
+     "D": 59.5,
+     "K": 11.0
+    },
+    "sidesNow": {
+     "O": 111.8,
+     "D": 59.8,
+     "K": 11.9
+    },
+    "players": [
+     {
+      "pid": "16616",
+      "player": "Rome Odunze",
+      "perWeekBefore": 14.9,
+      "perWeekNow": 8.5,
+      "lineupImpactPerWeek": -6.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15284",
+      "player": "Jaylen Waddle",
+      "perWeekBefore": 10.8,
+      "perWeekNow": 6.9,
+      "lineupImpactPerWeek": -3.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15756",
+      "player": "Jameson Williams",
+      "perWeekBefore": 12.4,
+      "perWeekNow": 9.7,
+      "lineupImpactPerWeek": -2.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13593",
+      "player": "Lamar Jackson",
+      "perWeekBefore": 17.9,
+      "perWeekNow": 15.9,
+      "lineupImpactPerWeek": -2.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17099",
+      "player": "Oronde Gadsden",
+      "perWeekBefore": 9.1,
+      "perWeekNow": 6.9,
+      "lineupImpactPerWeek": -1.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16597",
+      "player": "Jonathon Brooks",
+      "perWeekBefore": 9.0,
+      "perWeekNow": 3.8,
+      "lineupImpactPerWeek": -1.6,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 183.5,
+    "lineupPerWeekNow": 214.9,
+    "sidesBefore": {
+     "O": 111.8,
+     "D": 59.8,
+     "K": 11.9
+    },
+    "sidesNow": {
+     "O": 143.2,
+     "D": 59.8,
+     "K": 11.9
+    },
+    "players": [
+     {
+      "pid": "13593",
+      "player": "Lamar Jackson",
+      "perWeekBefore": 15.9,
+      "perWeekNow": 22.8,
+      "lineupImpactPerWeek": 6.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15284",
+      "player": "Jaylen Waddle",
+      "perWeekBefore": 6.9,
+      "perWeekNow": 14.1,
+      "lineupImpactPerWeek": 6.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16579",
+      "player": "Caleb Williams",
+      "perWeekBefore": 15.9,
+      "perWeekNow": 21.0,
+      "lineupImpactPerWeek": 5.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16167",
+      "player": "De'Von Achane",
+      "perWeekBefore": 12.2,
+      "perWeekNow": 16.7,
+      "lineupImpactPerWeek": 4.5,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15756",
+      "player": "Jameson Williams",
+      "perWeekBefore": 9.7,
+      "perWeekNow": 13.9,
+      "lineupImpactPerWeek": 4.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17103",
+      "player": "Harold Fannin",
+      "perWeekBefore": 9.1,
+      "perWeekNow": 12.5,
+      "lineupImpactPerWeek": 3.4,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0008",
+   "owner": "Keith Creelman",
+   "preseasonPlayoff": 0.5444,
+   "preseasonTitle": 0.1011,
+   "bankedPlayoff": 0.59,
+   "bankedTitle": 0.1074,
+   "afterWeekPlayoff": 0.5026,
+   "enteringPlayoff": 0.5026,
+   "enteringTitle": 0.0558,
+   "enteringDivision": 0.3784,
+   "resultEffect": 0.0456,
+   "strengthEffect": -0.0874,
+   "enteringPlayoffMflOffense": 0.7014,
+   "mflUpdateEffect": 0.1114,
+   "switchEffect": -0.1987,
+   "mflWhy": {
+    "lineupPerWeekBefore": 203.1,
+    "lineupPerWeekNow": 194.7,
+    "sidesBefore": {
+     "O": 139.3,
+     "D": 51.1,
+     "K": 12.6
+    },
+    "sidesNow": {
+     "O": 131.6,
+     "D": 50.8,
+     "K": 12.4
+    },
+    "players": [
+     {
+      "pid": "12620",
+      "player": "Dak Prescott",
+      "perWeekBefore": 18.0,
+      "perWeekNow": 14.9,
+      "lineupImpactPerWeek": -3.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15789",
+      "player": "Christian Watson",
+      "perWeekBefore": 14.9,
+      "perWeekNow": 17.0,
+      "lineupImpactPerWeek": 2.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16192",
+      "player": "Parker Washington",
+      "perWeekBefore": 13.8,
+      "perWeekNow": 12.3,
+      "lineupImpactPerWeek": -1.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16211",
+      "player": "Puka Nacua",
+      "perWeekBefore": 18.5,
+      "perWeekNow": 16.9,
+      "lineupImpactPerWeek": -1.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15253",
+      "player": "Travis Etienne",
+      "perWeekBefore": 10.5,
+      "perWeekNow": 9.0,
+      "lineupImpactPerWeek": -1.5,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15889",
+      "player": "Chigoziem Okonkwo",
+      "perWeekBefore": 9.7,
+      "perWeekNow": 6.7,
+      "lineupImpactPerWeek": -1.2,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 194.7,
+    "lineupPerWeekNow": 207.8,
+    "sidesBefore": {
+     "O": 131.6,
+     "D": 50.8,
+     "K": 12.4
+    },
+    "sidesNow": {
+     "O": 144.7,
+     "D": 50.8,
+     "K": 12.4
+    },
+    "players": [
+     {
+      "pid": "12620",
+      "player": "Dak Prescott",
+      "perWeekBefore": 14.9,
+      "perWeekNow": 21.2,
+      "lineupImpactPerWeek": 4.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14056",
+      "player": "Kyler Murray",
+      "perWeekBefore": 10.3,
+      "perWeekNow": 19.6,
+      "lineupImpactPerWeek": 3.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16211",
+      "player": "Puka Nacua",
+      "perWeekBefore": 16.9,
+      "perWeekNow": 20.8,
+      "lineupImpactPerWeek": 3.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13674",
+      "player": "Dallas Goedert",
+      "perWeekBefore": 14.4,
+      "perWeekNow": 11.2,
+      "lineupImpactPerWeek": -3.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15789",
+      "player": "Christian Watson",
+      "perWeekBefore": 17.0,
+      "perWeekNow": 14.3,
+      "lineupImpactPerWeek": -2.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13604",
+      "player": "Saquon Barkley",
+      "perWeekBefore": 17.4,
+      "perWeekNow": 15.0,
+      "lineupImpactPerWeek": -2.4,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0009",
+   "owner": "Bear Dunn",
+   "preseasonPlayoff": 0.7433,
+   "preseasonTitle": 0.1806,
+   "bankedPlayoff": 0.7073,
+   "bankedTitle": 0.1686,
+   "afterWeekPlayoff": 0.8794,
+   "enteringPlayoff": 0.8794,
+   "enteringTitle": 0.2299,
+   "enteringDivision": 0.7099,
+   "resultEffect": -0.036,
+   "strengthEffect": 0.1721,
+   "enteringPlayoffMflOffense": 0.7641,
+   "mflUpdateEffect": 0.0569,
+   "switchEffect": 0.1152,
+   "mflWhy": {
+    "lineupPerWeekBefore": 216.6,
+    "lineupPerWeekNow": 205.5,
+    "sidesBefore": {
+     "O": 143.8,
+     "D": 60.5,
+     "K": 12.3
+    },
+    "sidesNow": {
+     "O": 134.8,
+     "D": 58.1,
+     "K": 12.5
+    },
+    "players": [
+     {
+      "pid": "17071",
+      "player": "Tetairoa McMillan",
+      "perWeekBefore": 12.0,
+      "perWeekNow": 9.2,
+      "lineupImpactPerWeek": -2.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16581",
+      "player": "Jayden Daniels",
+      "perWeekBefore": 18.2,
+      "perWeekNow": 15.6,
+      "lineupImpactPerWeek": -2.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16641",
+      "player": "Brock Bowers",
+      "perWeekBefore": 10.1,
+      "perWeekNow": 12.6,
+      "lineupImpactPerWeek": 2.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14777",
+      "player": "Joe Burrow",
+      "perWeekBefore": 16.8,
+      "perWeekNow": 14.8,
+      "lineupImpactPerWeek": -1.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13130",
+      "player": "Christian McCaffrey",
+      "perWeekBefore": 14.9,
+      "perWeekNow": 13.5,
+      "lineupImpactPerWeek": -1.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15715",
+      "player": "James Cook",
+      "perWeekBefore": 17.1,
+      "perWeekNow": 15.9,
+      "lineupImpactPerWeek": -1.2,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 205.5,
+    "lineupPerWeekNow": 239.9,
+    "sidesBefore": {
+     "O": 134.8,
+     "D": 58.1,
+     "K": 12.5
+    },
+    "sidesNow": {
+     "O": 169.3,
+     "D": 58.1,
+     "K": 12.5
+    },
+    "players": [
+     {
+      "pid": "14777",
+      "player": "Joe Burrow",
+      "perWeekBefore": 14.8,
+      "perWeekNow": 22.7,
+      "lineupImpactPerWeek": 5.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13130",
+      "player": "Christian McCaffrey",
+      "perWeekBefore": 13.5,
+      "perWeekNow": 17.7,
+      "lineupImpactPerWeek": 4.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16641",
+      "player": "Brock Bowers",
+      "perWeekBefore": 12.6,
+      "perWeekNow": 16.7,
+      "lineupImpactPerWeek": 3.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16581",
+      "player": "Jayden Daniels",
+      "perWeekBefore": 15.6,
+      "perWeekNow": 20.1,
+      "lineupImpactPerWeek": 3.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17071",
+      "player": "Tetairoa McMillan",
+      "perWeekBefore": 9.2,
+      "perWeekNow": 14.1,
+      "lineupImpactPerWeek": 2.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15708",
+      "player": "Breece Hall",
+      "perWeekBefore": 10.0,
+      "perWeekNow": 13.7,
+      "lineupImpactPerWeek": 1.8,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0010",
+   "owner": "Shawn Blake",
+   "preseasonPlayoff": 0.6649,
+   "preseasonTitle": 0.1023,
+   "bankedPlayoff": 0.5643,
+   "bankedTitle": 0.0875,
+   "afterWeekPlayoff": 0.4431,
+   "enteringPlayoff": 0.4431,
+   "enteringTitle": 0.0447,
+   "enteringDivision": 0.3324,
+   "resultEffect": -0.1007,
+   "strengthEffect": -0.1211,
+   "enteringPlayoffMflOffense": 0.4095,
+   "mflUpdateEffect": -0.1548,
+   "switchEffect": 0.0336,
+   "mflWhy": {
+    "lineupPerWeekBefore": 209.1,
+    "lineupPerWeekNow": 185.0,
+    "sidesBefore": {
+     "O": 140.0,
+     "D": 56.3,
+     "K": 12.7
+    },
+    "sidesNow": {
+     "O": 119.3,
+     "D": 54.0,
+     "K": 11.7
+    },
+    "players": [
+     {
+      "pid": "15751",
+      "player": "Drake London",
+      "perWeekBefore": 17.5,
+      "perWeekNow": 11.9,
+      "lineupImpactPerWeek": -5.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17044",
+      "player": "Omarion Hampton",
+      "perWeekBefore": 15.9,
+      "perWeekNow": 11.2,
+      "lineupImpactPerWeek": -4.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14109",
+      "player": "Terry McLaurin",
+      "perWeekBefore": 16.0,
+      "perWeekNow": 13.1,
+      "lineupImpactPerWeek": -2.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17051",
+      "player": "Quinshon Judkins",
+      "perWeekBefore": 9.8,
+      "perWeekNow": 7.4,
+      "lineupImpactPerWeek": -2.2,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13163",
+      "player": "Chris Godwin",
+      "perWeekBefore": 10.0,
+      "perWeekNow": 7.4,
+      "lineupImpactPerWeek": -1.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16269",
+      "player": "Brenton Strange",
+      "perWeekBefore": 9.7,
+      "perWeekNow": 8.2,
+      "lineupImpactPerWeek": -1.5,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 185.0,
+    "lineupPerWeekNow": 210.8,
+    "sidesBefore": {
+     "O": 119.3,
+     "D": 54.0,
+     "K": 11.7
+    },
+    "sidesNow": {
+     "O": 145.1,
+     "D": 54.0,
+     "K": 11.7
+    },
+    "players": [
+     {
+      "pid": "15698",
+      "player": "Brock Purdy",
+      "perWeekBefore": 14.3,
+      "perWeekNow": 21.0,
+      "lineupImpactPerWeek": 5.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15282",
+      "player": "DeVonta Smith",
+      "perWeekBefore": 11.4,
+      "perWeekNow": 14.8,
+      "lineupImpactPerWeek": 3.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15751",
+      "player": "Drake London",
+      "perWeekBefore": 11.9,
+      "perWeekNow": 14.9,
+      "lineupImpactPerWeek": 2.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17051",
+      "player": "Quinshon Judkins",
+      "perWeekBefore": 7.4,
+      "perWeekNow": 11.1,
+      "lineupImpactPerWeek": 1.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17044",
+      "player": "Omarion Hampton",
+      "perWeekBefore": 11.2,
+      "perWeekNow": 13.2,
+      "lineupImpactPerWeek": 1.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14823",
+      "player": "Rico Dowdle",
+      "perWeekBefore": 7.6,
+      "perWeekNow": 10.8,
+      "lineupImpactPerWeek": 1.2,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0011",
+   "owner": "Eric Mannila",
+   "preseasonPlayoff": 0.4339,
+   "preseasonTitle": 0.0552,
+   "bankedPlayoff": 0.4544,
+   "bankedTitle": 0.0522,
+   "afterWeekPlayoff": 0.5132,
+   "enteringPlayoff": 0.5132,
+   "enteringTitle": 0.085,
+   "enteringDivision": 0.2387,
+   "resultEffect": 0.0205,
+   "strengthEffect": 0.0589,
+   "enteringPlayoffMflOffense": 0.5062,
+   "mflUpdateEffect": 0.0519,
+   "switchEffect": 0.007,
+   "mflWhy": {
+    "lineupPerWeekBefore": 199.6,
+    "lineupPerWeekNow": 188.1,
+    "sidesBefore": {
+     "O": 137.2,
+     "D": 51.1,
+     "K": 11.4
+    },
+    "sidesNow": {
+     "O": 124.6,
+     "D": 51.6,
+     "K": 11.8
+    },
+    "players": [
+     {
+      "pid": "17032",
+      "player": "Jaxson Dart",
+      "perWeekBefore": 21.5,
+      "perWeekNow": 18.5,
+      "lineupImpactPerWeek": -3.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17104",
+      "player": "Colston Loveland",
+      "perWeekBefore": 11.9,
+      "perWeekNow": 8.9,
+      "lineupImpactPerWeek": -2.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14779",
+      "player": "Justin Herbert",
+      "perWeekBefore": 17.8,
+      "perWeekNow": 15.5,
+      "lineupImpactPerWeek": -2.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14832",
+      "player": "CeeDee Lamb",
+      "perWeekBefore": 14.6,
+      "perWeekNow": 12.8,
+      "lineupImpactPerWeek": -1.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16222",
+      "player": "Tucker Kraft",
+      "perWeekBefore": 10.2,
+      "perWeekNow": 8.3,
+      "lineupImpactPerWeek": -1.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14882",
+      "player": "Jonathan Greenard",
+      "perWeekBefore": 4.8,
+      "perWeekNow": 5.9,
+      "lineupImpactPerWeek": 0.7,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 188.1,
+    "lineupPerWeekNow": 214.7,
+    "sidesBefore": {
+     "O": 124.6,
+     "D": 51.6,
+     "K": 11.8
+    },
+    "sidesNow": {
+     "O": 151.2,
+     "D": 51.6,
+     "K": 11.8
+    },
+    "players": [
+     {
+      "pid": "17104",
+      "player": "Colston Loveland",
+      "perWeekBefore": 8.9,
+      "perWeekNow": 15.3,
+      "lineupImpactPerWeek": 6.1,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16222",
+      "player": "Tucker Kraft",
+      "perWeekBefore": 8.3,
+      "perWeekNow": 14.5,
+      "lineupImpactPerWeek": 5.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14832",
+      "player": "CeeDee Lamb",
+      "perWeekBefore": 12.8,
+      "perWeekNow": 17.3,
+      "lineupImpactPerWeek": 4.6,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14779",
+      "player": "Justin Herbert",
+      "perWeekBefore": 15.5,
+      "perWeekNow": 18.9,
+      "lineupImpactPerWeek": 2.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17472",
+      "player": "Jeremiyah Love",
+      "perWeekBefore": 11.3,
+      "perWeekNow": 14.0,
+      "lineupImpactPerWeek": 2.7,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16615",
+      "player": "Malik Nabers",
+      "perWeekBefore": 12.2,
+      "perWeekNow": 13.7,
+      "lineupImpactPerWeek": 1.5,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  },
+  {
+   "fid": "0012",
+   "owner": "Chris Klingenberg",
+   "preseasonPlayoff": 0.3638,
+   "preseasonTitle": 0.0435,
+   "bankedPlayoff": 0.2805,
+   "bankedTitle": 0.0371,
+   "afterWeekPlayoff": 0.1855,
+   "enteringPlayoff": 0.1855,
+   "enteringTitle": 0.0186,
+   "enteringDivision": 0.0514,
+   "resultEffect": -0.0833,
+   "strengthEffect": -0.095,
+   "enteringPlayoffMflOffense": 0.2246,
+   "mflUpdateEffect": -0.0559,
+   "switchEffect": -0.0391,
+   "mflWhy": {
+    "lineupPerWeekBefore": 195.3,
+    "lineupPerWeekNow": 176.7,
+    "sidesBefore": {
+     "O": 127.1,
+     "D": 55.4,
+     "K": 12.8
+    },
+    "sidesNow": {
+     "O": 110.6,
+     "D": 53.9,
+     "K": 12.2
+    },
+    "players": [
+     {
+      "pid": "15259",
+      "player": "Rhamondre Stevenson",
+      "perWeekBefore": 11.8,
+      "perWeekNow": 8.8,
+      "lineupImpactPerWeek": -3.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "11671",
+      "player": "Mike Evans",
+      "perWeekBefore": 15.0,
+      "perWeekNow": 12.0,
+      "lineupImpactPerWeek": -2.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17497",
+      "player": "Carnell Tate",
+      "perWeekBefore": 11.3,
+      "perWeekNow": 8.9,
+      "lineupImpactPerWeek": -2.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "12611",
+      "player": "Jared Goff",
+      "perWeekBefore": 17.9,
+      "perWeekNow": 15.6,
+      "lineupImpactPerWeek": -2.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "9431",
+      "player": "Matthew Stafford",
+      "perWeekBefore": 17.1,
+      "perWeekNow": 15.2,
+      "lineupImpactPerWeek": -1.9,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16206",
+      "player": "Michael Wilson",
+      "perWeekBefore": 10.3,
+      "perWeekNow": 8.6,
+      "lineupImpactPerWeek": -1.6,
+      "note": "MFL projection changed"
+     }
+    ]
+   },
+   "switchWhy": {
+    "lineupPerWeekBefore": 176.7,
+    "lineupPerWeekNow": 201.1,
+    "sidesBefore": {
+     "O": 110.6,
+     "D": 53.9,
+     "K": 12.2
+    },
+    "sidesNow": {
+     "O": 135.0,
+     "D": 53.9,
+     "K": 12.2
+    },
+    "players": [
+     {
+      "pid": "12611",
+      "player": "Jared Goff",
+      "perWeekBefore": 15.6,
+      "perWeekNow": 21.1,
+      "lineupImpactPerWeek": 5.5,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "9431",
+      "player": "Matthew Stafford",
+      "perWeekBefore": 15.2,
+      "perWeekNow": 19.5,
+      "lineupImpactPerWeek": 4.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "15259",
+      "player": "Rhamondre Stevenson",
+      "perWeekBefore": 8.8,
+      "perWeekNow": 12.7,
+      "lineupImpactPerWeek": 3.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16213",
+      "player": "Dalton Kincaid",
+      "perWeekBefore": 8.7,
+      "perWeekNow": 12.5,
+      "lineupImpactPerWeek": 2.8,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "11244",
+      "player": "Travis Kelce",
+      "perWeekBefore": 11.5,
+      "perWeekNow": 13.4,
+      "lineupImpactPerWeek": 2.0,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "16206",
+      "player": "Michael Wilson",
+      "perWeekBefore": 8.6,
+      "perWeekNow": 10.9,
+      "lineupImpactPerWeek": 1.2,
+      "note": "MFL projection changed"
+     }
+    ]
+   }
+  }
+ ],
+ "divisionWatch": [
+  {
+   "division": "00",
+   "name": "Outlast PG Time",
+   "teams": [
+    {
+     "fid": "0004",
+     "owner": "Brian Cutting",
+     "record": "1-1",
+     "divisionOdds": 0.4893
+    },
+    {
+     "fid": "0005",
+     "owner": "Eric Martel",
+     "record": "2-0",
+     "divisionOdds": 0.4652
+    },
+    {
+     "fid": "0006",
+     "owner": "Brian Cross",
+     "record": "0-2",
+     "divisionOdds": 0.0455
+    }
+   ],
+   "gamesThisWeek": []
+  },
+  {
+   "division": "01",
+   "name": "LEGION OF BOOM",
+   "teams": [
+    {
+     "fid": "0002",
+     "owner": "Derrick Whitman",
+     "record": "2-0",
+     "divisionOdds": 0.5131
+    },
+    {
+     "fid": "0010",
+     "owner": "Shawn Blake",
+     "record": "0-2",
+     "divisionOdds": 0.3324
+    },
+    {
+     "fid": "0003",
+     "owner": "Matt Gerardi",
+     "record": "1-1",
+     "divisionOdds": 0.1545
+    }
+   ],
+   "gamesThisWeek": []
+  },
+  {
+   "division": "02",
+   "name": "Maddie Mondays",
+   "teams": [
+    {
+     "fid": "0007",
+     "owner": "Josh Martel",
+     "record": "1-1",
+     "divisionOdds": 0.4444
+    },
+    {
+     "fid": "0008",
+     "owner": "Keith Creelman",
+     "record": "2-0",
+     "divisionOdds": 0.3784
+    },
+    {
+     "fid": "0001",
+     "owner": "Ryan Bousquet",
+     "record": "0-2",
+     "divisionOdds": 0.1772
+    }
+   ],
+   "gamesThisWeek": []
+  },
+  {
+   "division": "03",
+   "name": "DOG POUND 4 LIFE",
+   "teams": [
+    {
+     "fid": "0009",
+     "owner": "Bear Dunn",
+     "record": "1-1",
+     "divisionOdds": 0.7099
+    },
+    {
+     "fid": "0011",
+     "owner": "Eric Mannila",
+     "record": "2-0",
+     "divisionOdds": 0.2387
+    },
+    {
+     "fid": "0012",
+     "owner": "Chris Klingenberg",
+     "record": "0-2",
+     "divisionOdds": 0.0514
+    }
+   ],
+   "gamesThisWeek": []
+  }
+ ],
+ "leagueLineupPerWeek": {
+  "before": 202.1,
+  "now": 187.1,
+  "rotowireNow": 212.0,
+  "weeks": [
+   2,
+   14
+  ],
+  "sideChange": {
+   "O": -14.5,
+   "D": -0.4,
+   "K": -0.0
+  }
+ },
+ "mflProjectionChange": {
+  "weeks": [
+   2,
+   14
+  ],
+  "allPlayersPct": -7.1,
+  "byGroup": {
+   "IDP": {
+    "players": 227,
+    "pct": -2.0
+   },
+   "WR": {
+    "players": 84,
+    "pct": -13.1
+   },
+   "TE": {
+    "players": 42,
+    "pct": -12.9
+   },
+   "QB": {
+    "players": 39,
+    "pct": -10.1
+   },
+   "K/P": {
+    "players": 44,
+    "pct": 0.3
+   },
+   "RB": {
+    "players": 51,
+    "pct": -9.2
+   }
+  }
+ }
+}

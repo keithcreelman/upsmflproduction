@@ -810,6 +810,36 @@ def player_prior_form(season, week, player_id):
             "best": float(r["best"] or 0)}
 
 
+_ROSTER_STATUS = {}
+
+
+def week_roster_status(season, week):
+    """{(franchise_id, player_id): "ROSTER" | "TAXI_SQUAD" | "INJURED_RESERVE"} from MFL's
+    rosters export for that week. Raises DataError rather than guessing: callers use it
+    to decide who could legally have been started."""
+    import urllib.request
+    key = (int(season), int(week))
+    if key not in _ROSTER_STATUS:
+        url = ("https://www48.myfantasyleague.com/%d/export?TYPE=rosters&L=74598&W=%d&JSON=1" % key)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "ups-wire"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                doc = json.loads(resp.read().decode("utf-8"))
+        except Exception as exc:                                   # noqa: BLE001
+            raise DataError("MFL rosters for %d week %d unavailable: %s" % (key[0], key[1], exc))
+        franchises = (doc.get("rosters") or {}).get("franchise") or []
+        franchises = franchises if isinstance(franchises, list) else [franchises]
+        if not franchises:
+            raise DataError("MFL rosters for %d week %d came back empty" % key)
+        out = {}
+        for f in franchises:
+            players = f.get("player") or []
+            for p in (players if isinstance(players, list) else [players]):
+                out[(str(f["id"]).zfill(4), str(p["id"]))] = p.get("status")
+        _ROSTER_STATUS[key] = out
+    return _ROSTER_STATUS[key]
+
+
 def bench_burns(season, week, min_diff=15.0):
     """Benched players who outscored a starter at the same position group.
 
@@ -832,9 +862,17 @@ def bench_burns(season, week, min_diff=15.0):
         "WHERE w.season = %d AND w.week = %d AND w.status IN ('starter','nonstarter') "
         "AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
 
+    # STARTABLE BENCH ONLY. src_weekly's "nonstarter" rows can include TAXI-SQUAD
+    # players (the legacy loader's format), and a taxi player cannot be started:
+    # the 2026 week 1 recap listed Josiah Trotter (Cutting's taxi squad, 24.5) as a
+    # benched player who "could legally have taken the starter's slot". MFL's own
+    # roster for that week decides who was on the active roster.
+    status = week_roster_status(season, week)
     by = {}
     for r in rows:
         fid = str(r["fid"]).zfill(4)
+        if r["status"] != "starter" and status.get((fid, str(r["player_id"]))) != "ROSTER":
+            continue
         by.setdefault((fid, r["pos_group"]), {"starter": [], "bench": []})
         slot = "starter" if r["status"] == "starter" else "bench"
         by[(fid, r["pos_group"])][slot].append(
@@ -889,20 +927,17 @@ def bench_burns(season, week, min_diff=15.0):
     # THIS WEEK'S PROJECTION is the second judge, used only when recent form
     # cannot say -- week 1 always, and any week a player has no recent games.
     # It is the information the manager actually had when he set the lineup.
-    proj = {}
+    # Kickoff-strict: see pregame_projections().
     ids = sorted(set([v["benched_id"] for v in out.values()] + [v["started_id"] for v in out.values()]))
-    if ids:
-        for r in d1("SELECT player_id, projected_score, updated_at FROM ups_player_projections "
-                    "WHERE season = %d AND week = %d AND player_id IN (%s)"
-                    % (int(season), int(week), _quoted(ids))):
-            if r.get("projected_score") is not None and projection_in_time(season, week, r.get("updated_at")):
-                proj[str(r["player_id"])] = float(r["projected_score"])
+    proj, missing = pregame_projections(season, week, ids) if ids else ({}, {})
 
     for v in out.values():
         v["benched_avg"] = _form(v["benched_id"])
         v["started_avg"] = _form(v["started_id"])
-        v["benched_proj"] = proj.get(str(v["benched_id"]))
-        v["started_proj"] = proj.get(str(v["started_id"]))
+        bp, sp = proj.get(str(v["benched_id"])), proj.get(str(v["started_id"]))
+        v["benched_proj"] = bp["value"] if bp else None
+        v["started_proj"] = sp["value"] if sp else None
+        v["proj_evidence"] = {"benched": bp, "started": sp}
         if v["benched_avg"] is not None and v["started_avg"] is not None:
             v["basis"] = "form"
             a, b = v["benched_avg"], v["started_avg"]
@@ -911,6 +946,12 @@ def bench_burns(season, week, min_diff=15.0):
             a, b = v["benched_proj"], v["started_proj"]
         else:
             v["basis"], v["verdict"] = None, "unknown"
+            why = []
+            for role, pid, name in (("benched", v["benched_id"], v["benched"]),
+                                    ("started", v["started_id"], v["started"])):
+                if str(pid) in missing:
+                    why.append("%s: %s" % (name, missing[str(pid)]))
+            v["ungraded_reason"] = "; ".join(why) or "no recent form and no pregame projection for both players"
             continue
         # A projection is the number the manager was actually shown, so a one-
         # point edge counts; recent form is noisier and keeps its two-point
@@ -923,43 +964,336 @@ def bench_burns(season, week, min_diff=15.0):
     return out
 
 
-def projection_in_time(season, week, updated_at):
-    """Whether a captured projection can stand in for what the manager saw.
+def pregame_projections(season, week, player_ids):
+    """({pid: {"value", "captured", "kickoff", "team"}}, {pid: reason}) -- the
+    LATEST MFL projection captured before each player's own NFL kickoff.
 
-    MFL does not revise a projection from a game's result -- Sam Darnold, hurt
-    on the first drive of the 2026 Thursday opener, still showed 13.7 on
-    Sunday -- so a capture taken while the Sunday slate is under way is the
-    pre-game number. A capture taken more than a day after the main Sunday
-    kickoff is a backfill, and a verdict must not rest on it.
+    PREGAME MEANS BEFORE *HIS* KICKOFF (Keith 2026-09-16: "Do not call a result
+    'wrong call (projections)' unless you can retrieve the pregame, timestamped
+    projection for both players"). ups_player_projections keeps only the newest
+    capture, so a capture taken after a player's game started proves nothing
+    about what the manager saw at lineup lock -- Bryce Young's last 2026 week 1
+    capture landed 53 minutes after CAR kicked off. A capture counts only if
+    updated_at <= that player's NFL kickoff; anything else is recorded as the
+    specific reason there is no number. No kickoff table, no number.
+    A whole MFL export saved before the games (frozen "exports") is pregame
+    evidence in its own right -- Keith 2026-09-16 on Young going ungraded: "you
+    should be able to access this information" -- so it is checked too.
+
+    Shared by the bench verdicts and the bust/bargain lists so both stand on
+    exactly the same evidence.
     """
-    if updated_at is None:
-        return False
-    thursday, _ = week_window(season, week)
-    cutoff = thursday + 3 * 86400 + 17 * 3600 + 86400
-    return int(updated_at) <= cutoff
+    ids = sorted(set(str(p) for p in player_ids))
+    proj, missing = {}, {}
+    if not ids:
+        return proj, missing
+    try:
+        kick = nfl_kickoffs(season, week)
+    except DataError as exc:
+        kick, kick_err = {}, str(exc)
+    else:
+        kick_err = None
+    teams = dict((str(r["player_id"]), r.get("nfl_team") or "")
+                 for r in d1("SELECT player_id, nfl_team FROM src_players WHERE season = %d "
+                             "AND player_id IN (%s)" % (int(season), _quoted(ids))))
+    rows = dict((str(r["player_id"]), r)
+                for r in d1("SELECT player_id, projected_score, updated_at FROM ups_player_projections "
+                            "WHERE season = %d AND week = %d AND player_id IN (%s)"
+                            % (int(season), int(week), _quoted(ids))))
+    frozen = frozen_projection_evidence(season, week)
+    for pid in ids:
+        r, team = rows.get(pid), teams.get(pid, "")
+        k = kick.get(team)
+        cap = (frozen or {}).get("captures", {}).get(pid)
+        if r is not None and cap and r.get("projected_score") is not None \
+                and float(r["projected_score"]) == cap[0]:
+            # The stored value is unchanged; its pregame timestamp survives only
+            # in the frozen record (see frozen_projection_evidence).
+            r = dict(r, updated_at=cap[1])
+        if kick_err:
+            missing[pid] = "NFL kickoff times were unavailable (%s)" % kick_err
+            continue
+        if k is None:
+            missing[pid] = "no NFL kickoff time found for his team (%s)" % (team or "unknown")
+            continue
+        # Every pregame number we hold for him; the LATEST one before his
+        # kickoff is the closest thing to what the manager saw at lock.
+        found = []
+        if r is None or r.get("projected_score") is None:
+            why = "no pregame projection was archived for him"
+        elif frozen and abs(int(r["updated_at"]) - frozen["overwriteAt"]) <= 120:
+            why = ("his pregame capture time was lost when a post-game re-capture on %s "
+                   "overwrote it" % et_clock(frozen["overwriteAt"]))
+        elif int(r["updated_at"]) > k:
+            why = ("his last archived projection was captured %s, after his %s game kicked "
+                   "off %s" % (et_clock(r["updated_at"]), team, et_clock(k)))
+        else:
+            why = None
+            found.append((int(r["updated_at"]), float(r["projected_score"])))
+        exports = [(at, values) for at, values in (frozen or {}).get("exports", []) if at <= k]
+        for at, values in exports:
+            if pid in values:
+                found.append((at, values[pid]))
+        # A frozen export is MFL's WHOLE projection list at that moment (the same
+        # projectedScores export the ingest reads), so a player missing from a
+        # pregame export taken after his last capture had no projection by then.
+        # Malachi Moore's last capture was Sep 2 (7.5); the Sep 12 export no longer
+        # listed him, and 7.5 was not what anyone saw entering week 1.
+        later = [at for at, values in exports if pid not in values and (not found or at > max(found)[0])]
+        if found and later:
+            missing[pid] = ("MFL's full projection list at %s, before his kickoff, no longer listed him "
+                            "(his last capture, %s, is older)" % (et_clock(max(later)), et_clock(max(found)[0])))
+        elif found:
+            at, value = max(found)
+            proj[pid] = {"value": value, "captured": at, "kickoff": k, "team": team}
+        else:
+            missing[pid] = why
+    return proj, missing
 
+
+def et_clock(ts):
+    """'Sun Sep 13, 1:53 PM ET' -- the league's own clock, DST-aware."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    d = datetime.fromtimestamp(int(ts), ZoneInfo("America/New_York"))
+    return "%s %s %d, %d:%02d %s ET" % (d.strftime("%a"), d.strftime("%b"), d.day,
+                                        (d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
+
+
+def nfl_kickoffs(season, week):
+    """{nfl_team_code: kickoff_unix} straight from MFL's nflSchedule export (MFL
+    is the source of truth for the live season). Raises DataError, never
+    returns a partial guess: a verdict that needs a kickoff must not get one
+    silently."""
+    import urllib.request
+    url = "https://api.myfantasyleague.com/%d/export?TYPE=nflSchedule&W=%d&JSON=1" % (int(season), int(week))
+    try:
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        out = {}
+        for m in data["nflSchedule"]["matchup"]:
+            for t in m["team"]:
+                out[t["id"]] = int(m["kickoff"])
+    except Exception as exc:                                   # noqa: BLE001
+        raise DataError("MFL nflSchedule %d wk%d unreadable: %s" % (season, week, exc))
+    if len(out) < 20:
+        raise DataError("MFL nflSchedule %d wk%d lists only %d teams" % (season, week, len(out)))
+    return out
+
+
+def frozen_projection_evidence(season, week):
+    """Pregame projection evidence preserved from before a post-game recapture,
+    or None. See site/wire/data/projection_evidence_<season>_wk<NN>.json's own
+    "why": on 2026-09-16 a Wednesday ingest re-captured week 1 after the games
+    and reset every row's updated_at, destroying the proof that a value was
+    pregame. Callers use an entry ONLY while D1's current value still equals
+    the frozen one -- a changed value means the frozen record no longer
+    describes what is stored, and nothing is graded on it.
+
+    Returns {"overwriteAt": unix, "inTime": {pid: value}, "captures": {pid:
+    (value, captured_unix)}, "exports": [(captured_unix, {pid: value})]}.
+    `exports` are whole MFL projectedScores responses saved before the games
+    (see the file's "pregameExports.why"); unlike `captures` they ARE the
+    pregame number and need no match against D1.
+    """
+    rel = "site/wire/data/projection_evidence_%d_wk%02d.json" % (int(season), int(week))
+    if not os.path.exists(os.path.join(REPO, rel)):
+        return None
+    doc = json.load(io.open(os.path.join(REPO, rel), encoding="utf-8"))
+    if int(doc["season"]) != int(season) or int(doc["week"]) != int(week):
+        raise DataError("%s is for %s week %s" % (rel, doc["season"], doc["week"]))
+    from datetime import datetime, timezone
+    ts = lambda x: int(datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp())
+    return {"overwriteAt": ts(doc["overwrite"]["at"]), "path": rel,
+            "inTime": dict((p["player_id"], float(p["projected_score"]))
+                           for p in doc["starterProjectionsInTime"]["players"]),
+            "captures": dict((p["player_id"], (float(p["projected_score"]), ts(p["captured_at"])))
+                             for p in doc["captures"]["players"]),
+            "exports": [(ts(e["capturedAt"]), dict((pid, float(v)) for pid, v in e["players"].items()))
+                        for e in (doc.get("pregameExports") or {}).get("exports", [])]}
 
 
 def starter_projections(season, week):
-    """Every starter with a captured projection: [{fid, player, pos_group, score, proj}].
+    """(ranked, unranked) for every starter this week.
 
-    Starters with no score (MFL blank) are left out rather than counted as zero:
-    a blank is not a bust, and calling it one would be the fail-open mistake the
-    did-not-play check exists to avoid.
+    ranked:   [{fid, player_id, player, pos_group, nfl_team, score, proj, captured, kickoff}]
+              -- starters with a score AND a projection captured before their own
+              NFL kickoff (pregame_projections).
+    unranked: [{fid, player_id, player, pos_group, nfl_team, score, reason}] -- the rest,
+              each with the specific reason, so a list that leaves someone out can say so.
+
+    KICKOFF-STRICT, like the bench verdicts. The old rule accepted any capture up to a
+    day after the main Sunday kickoff on the belief that MFL never revises a projection
+    once games are played. That belief is false: between the 2026-09-12 and
+    2026-09-16 exports, MFL changed the week-1 projection of 4 of 127 players whose
+    games were already over (Terrance Ferguson 14.1 -> 4.9, Colby Parkinson 7.2 ->
+    15.1). A post-game capture can therefore be a different number from the one owners
+    saw. Starters with no score (MFL blank) are unranked rather than counted as zero:
+    a blank is not a bust.
     """
     rows = d1(
-        "SELECT w.roster_franchise_id AS fid, w.pos_group, w.score, p.name AS player_name, "
-        "pr.projected_score AS proj, pr.updated_at FROM src_weekly w "
-        "JOIN ups_player_projections pr ON pr.season = w.season AND pr.week = w.week "
-        "AND pr.player_id = w.player_id "
-        "LEFT JOIN src_players p ON p.season = w.season AND p.player_id = w.player_id "
-        "WHERE w.season = %d AND w.week = %d AND w.status = 'starter' AND w.score IS NOT NULL "
-        "AND pr.projected_score IS NOT NULL AND w.roster_franchise_id IS NOT NULL"
-        % (int(season), int(week)))
-    return [{"fid": str(r["fid"]).zfill(4), "player": display_name(r["player_name"]),
-             "pos_group": r.get("pos_group") or "", "score": float(r["score"]),
-             "proj": float(r["proj"])} for r in rows
-            if projection_in_time(season, week, r.get("updated_at"))]
+        "SELECT w.roster_franchise_id AS fid, w.player_id, w.pos_group, w.score, p.name AS player_name, "
+        "p.nfl_team FROM src_weekly w LEFT JOIN src_players p ON p.season = w.season "
+        "AND p.player_id = w.player_id WHERE w.season = %d AND w.week = %d AND w.status = 'starter' "
+        "AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
+    proj, missing = pregame_projections(season, week, [r["player_id"] for r in rows])
+    ranked, unranked = [], []
+    for r in rows:
+        pid = str(r["player_id"])
+        base = {"fid": str(r["fid"]).zfill(4), "player_id": pid,
+                "player": display_name(r["player_name"]) or ("player %s" % pid),
+                "pos_group": r.get("pos_group") or "", "nfl_team": r.get("nfl_team") or "",
+                "score": None if r["score"] is None else float(r["score"])}
+        if base["score"] is None:
+            unranked.append(dict(base, reason="MFL has no score for him"))
+        elif pid not in proj:
+            unranked.append(dict(base, reason=missing.get(pid) or "no pregame projection"))
+        else:
+            ranked.append(dict(base, proj=proj[pid]["value"], captured=proj[pid]["captured"],
+                               kickoff=proj[pid]["kickoff"]))
+    return ranked, unranked
+
+
+def bust_bargain(season, week, n=5):
+    """Keith 2026-09-16: "Top 5 Bust = player with the most projected points entering
+    the week scoring the least. Top 5 Bargain = player with lowest projected points
+    scoring the most. Do this for offense and defense."
+
+    Read as the size of the miss, which is what both halves describe: a bust is ranked
+    by projected minus scored (a 23-point projection that scores 3 outranks a 10 that
+    scores 0), a bargain by scored minus projected. Ties go to the bigger projection
+    for a bust and the smaller one for a bargain. Started players only -- the points
+    that counted -- on kickoff-strict projections (starter_projections).
+
+    Returns {"off": {"bust": [...], "bargain": [...]}, "idp": {...}, "unranked": [...],
+    "captured": (earliest, latest) or None}. Unranked keeps only offense and IDP starters.
+    """
+    ranked, unranked = starter_projections(season, week)
+    out = {"unranked": [u for u in unranked if u["pos_group"] in OFFENSE_GROUPS + IDP_GROUPS]}
+    for unit, groups in (("off", OFFENSE_GROUPS), ("idp", IDP_GROUPS)):
+        pool = [x for x in ranked if x["pos_group"] in groups]
+        out[unit] = {
+            "bust": sorted(pool, key=lambda x: (-(x["proj"] - x["score"]), -x["proj"]))[:n],
+            "bargain": sorted(pool, key=lambda x: (-(x["score"] - x["proj"]), x["proj"]))[:n],
+            "pool": len(pool)}
+    caps = [x["captured"] for x in ranked if x["pos_group"] in OFFENSE_GROUPS + IDP_GROUPS]
+    out["captured"] = (min(caps), max(caps)) if caps else None
+    return out
+
+
+def franchise_logos(season):
+    """{franchise_id: logo_url}, straight from MFL's own franchise export
+    (src_franchises.logo) -- a real, hosted asset, not a guess. Verified
+    live 2026-09-16 (HTTP 200) for a sample franchise before this was wired
+    into a highlight card."""
+    rows = d1("SELECT franchise_id, logo FROM src_franchises WHERE season = %d AND logo IS NOT NULL "
+             "AND logo != ''" % season)
+    return dict((r["franchise_id"], r["logo"]) for r in rows)
+
+
+def mfl_photo_url(mfl_player_id):
+    """MFL's own player-photo archive -- the same URL pattern already used
+    by build_rookie_draft_hub.py and roster_workbench.js's photo chain.
+    Directory name is a historical artifact (MFL has kept new players' photos
+    under player_photos_2014/ since long after 2014); not every player has
+    one, so callers must still handle a 404 (an onerror fallback client-side,
+    same pattern roster_workbench.js already uses)."""
+    return "https://www48.myfantasyleague.com/player_photos_2014/%s_thumb.jpg" % mfl_player_id
+
+
+ESPN_ATHLETE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/%s"
+ESPN_HEADSHOT = "https://a.espncdn.com/i/headshots/nfl/players/full/%s.png"
+ESPN_HEADSHOT_SIZED = ("https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/%s.png"
+                       "&w=350&h=254")
+
+
+def player_photo(mfl_player_id, player_name):
+    """{"url", "fallbackUrl", "source", "note"} for a player's card photo.
+
+    ESPN FIRST (Keith 2026-09-16, item 5): MFL's archive is stale -- Kenneth
+    Walker III's MFL photo still shows a Seahawks uniform in his first Chiefs
+    week -- while ESPN updates headshots with the roster. The ESPN id comes from
+    player_id_crosswalk (confidence 'exact' only), and is used ONLY after two
+    live checks at build time: ESPN's athlete record for that id carries this
+    player's name, and the headshot file exists. Either check failing leaves
+    the MFL photo in place and says why in `note`, so a wrong face can never be
+    published on a crosswalk mistake. MFL's photo is always the fallbackUrl.
+    """
+    import re
+    import urllib.request
+    mfl = mfl_photo_url(mfl_player_id)
+    base = {"url": mfl, "fallbackUrl": None, "source": "MFL", "note": None}
+    rows = d1("SELECT espn_id FROM player_id_crosswalk WHERE mfl_player_id = %d AND confidence = 'exact' "
+              "AND espn_id IS NOT NULL" % int(mfl_player_id))
+    if not rows:
+        return dict(base, note="no exact ESPN id in player_id_crosswalk")
+    try:
+        espn = str(int(float(rows[0]["espn_id"])))
+    except (TypeError, ValueError):
+        return dict(base, note="unreadable ESPN id %r in player_id_crosswalk" % rows[0]["espn_id"])
+
+    def _get(url, head=False):
+        req = urllib.request.Request(url, method="HEAD" if head else "GET",
+                                     headers={"User-Agent": "ups-wire"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return resp.status, (b"" if head else resp.read())
+
+    def squash(n):
+        return re.sub(r"[^a-z]", "", re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", str(n or "").lower()))
+    try:
+        _, body = _get(ESPN_ATHLETE % espn)
+        espn_name = json.loads(body.decode("utf-8")).get("displayName") or ""
+    except Exception as exc:                                  # noqa: BLE001
+        return dict(base, note="ESPN athlete %s could not be checked (%s)" % (espn, str(exc)[:80]))
+    if squash(espn_name) != squash(player_name):
+        return dict(base, note="ESPN athlete %s is %r, not %r" % (espn, espn_name, player_name))
+    try:
+        status, _ = _get(ESPN_HEADSHOT % espn, head=True)
+    except Exception as exc:                                  # noqa: BLE001
+        return dict(base, note="ESPN has no headshot for athlete %s (%s)" % (espn, str(exc)[:60]))
+    if status != 200:
+        return dict(base, note="ESPN headshot for athlete %s returned HTTP %s" % (espn, status))
+    return {"url": ESPN_HEADSHOT_SIZED % espn, "fallbackUrl": mfl, "source": "ESPN", "note": None}
+
+
+def record_book(season, week):
+    """Real, sourced UPS all-time record checks for this week -- whether
+    this week's top team score, or its top combined-game total, cracks the
+    top 10 in league history. Keith 2026-09-16: "Look up the UPS/MFL
+    franchise records and reconcile... Do not guess a record holder or
+    year." Regular-season weekly scores only (src_franchise_weekly_score,
+    2010-present, is_playoff = 0) -- a playoff week's higher stakes and
+    lineup optimization make it a different population, excluded rather
+    than silently blended in. Returns {"teamScores": [...], "combinedGames":
+    [...]}, each entry only for a row that actually falls in this
+    (season, week) -- empty lists if nothing this week cracks the top 10."""
+    top = d1("SELECT season, week, franchise_id, team_score FROM src_franchise_weekly_score "
+             "WHERE is_playoff = 0 ORDER BY team_score DESC LIMIT 10")
+    team_scores = [{"rank": i, "of": 10, "score": r["team_score"], "franchiseId": r["franchise_id"],
+                    "priorBest": top[0]["team_score"], "priorBestSeason": top[0]["season"],
+                    "priorBestWeek": top[0]["week"],
+                    "higher": [(float(x["team_score"]), int(x["season"])) for x in top[:i - 1]]}
+                   for i, r in enumerate(top, 1) if r["season"] == season and r["week"] == week and i > 1]
+    if top and top[0]["season"] == season and top[0]["week"] == week:
+        team_scores.insert(0, {"rank": 1, "of": 10, "score": top[0]["team_score"],
+                               "franchiseId": top[0]["franchise_id"], "priorBest": None,
+                               "priorBestSeason": None, "priorBestWeek": None})
+    games = d1(
+        "SELECT season, week, franchise_id, opponent_franchise_id, team_score, opponent_score, "
+        "(team_score + opponent_score) as combined FROM src_schedule "
+        "WHERE team_score IS NOT NULL AND opponent_score IS NOT NULL AND franchise_id < opponent_franchise_id "
+        "AND is_playoff = 0 ORDER BY combined DESC LIMIT 10")
+    combined_games = [{"rank": i, "of": 10, "combined": r["combined"], "franchiseId": r["franchise_id"],
+                       "opponentId": r["opponent_franchise_id"], "priorBest": games[0]["combined"],
+                       "priorBestSeason": games[0]["season"], "priorBestWeek": games[0]["week"],
+                       "higher": [(float(x["combined"]), int(x["season"])) for x in games[:i - 1]]}
+                      for i, r in enumerate(games, 1) if r["season"] == season and r["week"] == week and i > 1]
+    if games and games[0]["season"] == season and games[0]["week"] == week:
+        combined_games.insert(0, {"rank": 1, "of": 10, "combined": games[0]["combined"],
+                                  "franchiseId": games[0]["franchise_id"],
+                                  "opponentId": games[0]["opponent_franchise_id"],
+                                  "priorBest": None, "priorBestSeason": None, "priorBestWeek": None})
+    return {"teamScores": team_scores, "combinedGames": combined_games}
 
 
 def offense_repeatability(season, week):
@@ -1218,6 +1552,24 @@ def score_quote_relevance(text, names):
     return score
 
 
+DISCORD_GUILD_ID = "1057655884475531324"
+
+
+def discord_messages_by_id(message_ids):
+    """{message_id: row} from ups_discord_messages, for editor-picked quotes.
+
+    The text is read back verbatim; an id that is not archived simply is not in
+    the result, and the caller fails the build on it rather than skipping.
+    """
+    ids = [str(int(m)) for m in message_ids]
+    if not ids:
+        return {}
+    rows = d1("SELECT message_id, channel_id, channel_name, owner_name, franchise_id, is_bot, "
+              "season, week, content, posted_at_unix FROM ups_discord_messages "
+              "WHERE message_id IN (%s)" % _quoted(ids))
+    return dict((str(r["message_id"]), r) for r in rows)
+
+
 def week_quotes(season, week, limit=40, min_len=25):
     """League chat for a week, owner-attributed, oldest first.
 
@@ -1329,6 +1681,91 @@ def h2h_records(season, through_week):
         d["rec"] = "%d-%d" % (d["w"], d["l"]) + ("-%d" % d["t"] if d["t"] else "")
         d["div_rec"] = "%d-%d" % (d["dw"], d["dl"]) + ("-%d" % d["dt"] if d["dt"] else "")
     return out
+
+
+def _season_span(seasons):
+    """[2012, 2020, 2021, 2022] -> '2012 and 2020-2022'."""
+    seasons = sorted(set(int(x) for x in seasons))
+    runs, start, prev = [], None, None
+    for y in seasons:
+        if start is None:
+            start = prev = y
+        elif y == prev + 1:
+            prev = y
+        else:
+            runs.append((start, prev))
+            start = prev = y
+    if start is not None:
+        runs.append((start, prev))
+    parts = ["%d" % a if a == b else "%d-%d" % (a, b) for a, b in runs]
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def regular_season_h2h_seasons(through_season):
+    """Seasons that had REGULAR-SEASON head-to-head games, per src_schedule.
+
+    Not every UPS season did. MFL's own schedule exports (checked 2026-09-16
+    with each season's real league id, docs/MFL_API.md) carry regular-season
+    matchups only for 2012 and 2020 onward; 2010-2011 and 2013-2019 were
+    all-play seasons with head-to-head games only in the postseason weeks.
+    src_schedule matched MFL on all 3,284 rows for 2010-2025 (results
+    identical; three 2025 week-17 games differ by under a point after stat
+    corrections). So "all-time" for a series or a game record means these
+    seasons, and the copy has to say so.
+    """
+    return [int(r["season"]) for r in d1(
+        "SELECT DISTINCT season FROM src_schedule WHERE is_playoff = 0 AND season <= %d ORDER BY season"
+        % int(through_season))]
+
+
+class HeadToHead(object):
+    """Owner-vs-owner series from src_schedule, credited season by season.
+
+    Credited to OWNERS, not franchises: owners have moved (Keith Creelman ran
+    0007 in 2010 and 0008 since 2011) and franchises have changed hands (0002
+    was AJ Balderelli's 2018-2022). Each game's owners come from src_franchises
+    for that season -- the attribution path verified against /api/standings on
+    every mid-season takeover (owner_map, ATTRIBUTION_FIXTURES). Only games
+    strictly BEFORE (season, week) count, so a preview never includes the game
+    it is previewing.
+    """
+
+    def __init__(self, season, before_week):
+        self.season, self.before_week = int(season), int(before_week)
+        self.owner = dict(((int(r["season"]), str(r["franchise_id"]).zfill(4)), r["owner_name"])
+                          for r in d1("SELECT season, franchise_id, owner_name FROM src_franchises"))
+        self.rows = d1(
+            "SELECT season, week, franchise_id, opponent_franchise_id, result, team_score, opponent_score, "
+            "is_playoff FROM src_schedule WHERE team_score IS NOT NULL AND opponent_score IS NOT NULL "
+            "AND (season < %d OR (season = %d AND week < %d))"
+            % (self.season, self.season, self.before_week))
+        self.reg_seasons = regular_season_h2h_seasons(self.season)
+
+    def series(self, owner_a, owner_b):
+        """{"a", "b", "reg": {"a", "b", "t", "aPts", "bPts", "seasons"}, "post": {"a", "b", "t"},
+        "last": {...} or None, "games": n}"""
+        games = sorted([r for r in self.rows
+                        if self.owner.get((int(r["season"]), str(r["franchise_id"]).zfill(4))) == owner_a
+                        and self.owner.get((int(r["season"]), str(r["opponent_franchise_id"]).zfill(4))) == owner_b],
+                       key=lambda r: (int(r["season"]), int(r["week"])))
+        out = {"a": owner_a, "b": owner_b, "games": len(games), "last": None,
+               "reg": {"a": 0, "b": 0, "t": 0, "aPts": 0.0, "bPts": 0.0, "seasons": []},
+               "post": {"a": 0, "b": 0, "t": 0}}
+        for r in games:
+            bucket = out["post"] if r["is_playoff"] else out["reg"]
+            res = (r["result"] or "").upper()
+            bucket["a" if res == "W" else "b" if res == "L" else "t"] += 1
+            if not r["is_playoff"]:
+                bucket["aPts"] += float(r["team_score"])
+                bucket["bPts"] += float(r["opponent_score"])
+                if int(r["season"]) not in bucket["seasons"]:
+                    bucket["seasons"].append(int(r["season"]))
+        if games:
+            r = games[-1]
+            out["last"] = {"season": int(r["season"]), "week": int(r["week"]), "playoff": bool(r["is_playoff"]),
+                           "aScore": float(r["team_score"]), "bScore": float(r["opponent_score"]),
+                           "result": (r["result"] or "").upper()}
+        return out
 
 
 def season_form(season, through_week, exclude_week=None):

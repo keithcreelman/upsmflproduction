@@ -1,0 +1,19 @@
+{
+  "note": "Editor-picked league chat for 2026 week 1. Message ids only -- the build reads each message's text verbatim from ups_discord_messages and fails if an id is missing, from another week, or not from a league owner. place: s1/s2/s3 = section, pot:<division tag> = that division's page.",
+  "picks": [
+    {"messageId": "1548862144529825923", "place": "s1",
+     "why": "Shawn Blake on Eric Martel's defense -- Martel's defenders scored the most IDP points in the league"},
+    {"messageId": "1547547491845673011", "place": "pot:Outlast PG Time",
+     "why": "Brian Cross the morning after the opener, on the throw A.J. Brown was hurt on"},
+    {"messageId": "1548819150309167155", "place": "pot:DOG POUND 4 LIFE",
+     "why": "Ryan Bousquet on the preseason forecast's odds for Bear Dunn's C-Town Chivalry"},
+    {"messageId": "1548828492303704145", "place": "pot:Maddie Mondays",
+     "why": "Ryan Bousquet on Sunday evening, on his way to oh-and-two in the division"},
+    {"messageId": "1549402370637561987", "place": "pot:Maddie Mondays",
+     "why": "Josh Martel on his running backs and receivers, the week Caleb Williams was the league's best player"},
+    {"messageId": "1548762063411613797", "place": "pot:LEGION OF BOOM",
+     "why": "Josh Martel mid-game, while Bryce Young was scoring on Matt Gerardi's bench"},
+    {"messageId": "1548865716256509973", "place": "pot:LEGION OF BOOM",
+     "why": "Shawn Blake after his oh-and-two week"}
+  ]
+}

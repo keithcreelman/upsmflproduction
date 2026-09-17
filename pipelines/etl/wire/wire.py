@@ -200,8 +200,9 @@ def build_entry(path, html):
     words = len(text_of(METHOD_RE.sub(" ", html)).split())
 
     title = first(TITLE_RE, html)
-    # Strip the " - UPS Wire" suffix the <title> carries for the standalone tab.
-    title = re.sub(r'\s*[-—]\s*UPS Wire\s*$', '', title)
+    # Strip the " - UPS Center" suffix the <title> carries for the standalone tab ("UPS Wire"
+    # before the 2026-09-17 rename).
+    title = re.sub(r'\s*[-—]\s*UPS (?:Wire|Center)\s*$', '', title)
 
     entry = {
         "id": os.path.basename(path)[:-5],
@@ -710,6 +711,42 @@ def cmd_render(args):
     return 0
 
 
+def cmd_clip(args):
+    """Attach a hand-picked highlight clip to a player's card, or clear one."""
+    import wire_data as D
+    import wire_video as V
+    rows = D.d1("SELECT player_id, name, nfl_team FROM src_players WHERE season = %d" % args.season)
+    if args.player_id:
+        hits = [r for r in rows if str(r["player_id"]) == str(args.player_id)]
+    else:
+        want = " ".join(str(args.player or "").lower().split())
+        hits = [r for r in rows if D.display_name(r["name"]).lower() == want]
+    if len(hits) != 1:
+        print("clip: %s matched %d players%s" % (args.player or args.player_id, len(hits),
+              (" -- use --player-id: " + ", ".join("%s %s (%s)" % (r["player_id"], D.display_name(r["name"]),
+                                                                   r["nfl_team"]) for r in hits[:8]))
+              if hits else ""), file=sys.stderr)
+        return 1
+    p = hits[0]
+    ck = "%d:%d:%s" % (args.season, args.week, p["player_id"])
+    cache = V.load_cache()
+    if args.clear:
+        cache.pop(ck, None)
+        V.save_cache(cache)
+        print("clip: cleared %s (%s) -- the next build may look it up again" % (ck, D.display_name(p["name"])))
+        return 0
+    try:
+        e = V.set_clip(args.season, args.week, p["player_id"], D.display_name(p["name"]), p["nfl_team"],
+                       args.url, game_clip=args.game_clip, cache=cache)
+    except V.VideoError as exc:
+        print("clip REFUSED: %s" % exc, file=sys.stderr)
+        return 1
+    print("clip: %s (%s) -> %s" % (D.display_name(p["name"]), ck, e["title"]))
+    print("      channel %s; published: %s" % (e["channel"], e["checks"]["publishedInWindow"]))
+    print("      next: build, render, restyle, index, verify for the pack that carries this card")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="UPS Wire authoring toolchain")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -725,10 +762,19 @@ def main():
     w.add_argument("--model", default="claude-opus-5")
     r = sub.add_parser("render", help="pack + prose -> article HTML (deterministic, no key)")
     r.add_argument("--pack", required=True)
+    k = sub.add_parser("clip", help="attach a hand-picked YouTube highlight to a player's card")
+    k.add_argument("--season", type=int, required=True)
+    k.add_argument("--week", type=int, required=True)
+    k.add_argument("--player", help='display name, e.g. "Kenneth Walker III"')
+    k.add_argument("--player-id")
+    k.add_argument("--url", help="YouTube watch, youtu.be or shorts URL")
+    k.add_argument("--game-clip", action="store_true",
+                   help="allow an official game-highlights video whose title does not name the player")
+    k.add_argument("--clear", action="store_true", help="remove the cached entry instead")
     args = ap.parse_args()
     return {"restyle": cmd_restyle, "index": cmd_index, "verify": cmd_verify,
             "build": cmd_build, "check-pack": cmd_check_pack,
-            "write": cmd_write, "render": cmd_render}[args.cmd](args)
+            "write": cmd_write, "render": cmd_render, "clip": cmd_clip}[args.cmd](args)
 
 
 if __name__ == "__main__":
