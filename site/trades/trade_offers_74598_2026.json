@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-09-17T18:00:22.470Z",
+    "updated_at": "2026-09-17T18:11:06.455Z",
     "row_count": 63,
     "source": "worker-trade-offers"
   },
@@ -4859,7 +4859,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-05-22T19:28:44.100Z",
-      "updated_at": "2026-09-16T14:05:26.264Z",
+      "updated_at": "2026-09-17T18:11:06.455Z",
       "from_franchise_id": "0010",
       "to_franchise_id": "0006",
       "from_franchise_name": "Blake Bombers",
@@ -4868,19 +4868,19 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "14109,17051,16622,FP_0010_2027_4,FP_0002_2027_4",
-      "will_receive": "12626,BB_18000",
+      "will_give_up": "13163,17051,16622",
+      "will_receive": "12626,BB_22000",
       "source": "trade-workbench-ui",
       "summary": {
-        "from_asset_count": 5,
+        "from_asset_count": 3,
         "to_asset_count": 1,
         "from_trade_salary_k": 0,
-        "to_trade_salary_k": 18,
+        "to_trade_salary_k": 22,
         "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-09-16T14:05:24.640Z",
+        "generated_at": "2026-09-17T18:11:03.967Z",
         "source": "ups-mobile-trade-builder",
         "league_id": "74598",
         "season": "2026",
@@ -4891,17 +4891,17 @@
             "franchise_name": "Blake Bombers",
             "selected_assets": [
               {
-                "asset_id": "P_14109",
+                "asset_id": "P_13163",
                 "type": "PLAYER",
-                "player_id": "14109",
-                "player_name": "Terry McLaurin",
+                "player_id": "13163",
+                "player_name": "Chris Godwin",
                 "description": null,
                 "position": "WR",
-                "nfl_team": "WAS",
-                "salary": 8000,
-                "years": 2,
-                "contract_type": "Vet-FAA-BL",
-                "contract_info": "CL 2| TCV 38K| AAV 19K| Y1-8K, Y2-30K| GTD: 28.5K| Restructured 2026",
+                "nfl_team": "TBB",
+                "salary": 10000,
+                "years": 1,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 2| TCV 20K| AAV 10K| Y1-10K, Y2-10K| GTD: 15K",
                 "contract_length": 2,
                 "already_extended_by_this_franchise": false,
                 "taxi": false,
@@ -4949,48 +4949,12 @@
                 "pick_season": null,
                 "pick_round": null,
                 "pick_slot": null
-              },
-              {
-                "asset_id": "FP_0010_2027_4",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2027 R4",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": null,
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "FP_0010_2027_4",
-                "pick_season": 2027,
-                "pick_round": 4,
-                "pick_slot": null
-              },
-              {
-                "asset_id": "FP_0002_2027_4",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2027 R4  (via CBP)",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": null,
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "FP_0002_2027_4",
-                "pick_season": 2027,
-                "pick_round": 4,
-                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
             "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 21000
+            "selected_non_taxi_salary_dollars": 23000
           },
           {
             "role": "right",
@@ -5018,8 +4982,8 @@
                 "pick_slot": null
               }
             ],
-            "traded_salary_adjustment_dollars": 18000,
-            "traded_salary_adjustment_k": 18,
+            "traded_salary_adjustment_dollars": 22000,
+            "traded_salary_adjustment_k": 22,
             "traded_salary_adjustment_max_k": 999,
             "selected_non_taxi_salary_dollars": 44000
           }
@@ -5034,8 +4998,8 @@
         }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1190",
-      "trade_id": "1190",
+      "mfl_trade_id": "1194",
+      "trade_id": "1194",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
