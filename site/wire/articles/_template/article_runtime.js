@@ -105,8 +105,16 @@
   nextBtn.setAttribute("aria-label", "Next section");
 
   rail.appendChild(prevBtn);
+  // A rail marked data-wire-rail-named shows each title beside its number
+  // (UPS Center's segment buttons); every other rail stays one row of numbers.
+  var named = rail.hasAttribute("data-wire-rail-named");
+  if (named) rail.classList.add("wire-rail-named");
   secs.forEach(function (sec, i) {
-    var pill = mk("button", "wire-rail-pill", String(i + 1));
+    var pill = mk("button", "wire-rail-pill", named ? null : String(i + 1));
+    if (named) {
+      pill.appendChild(mk("b", "", String(i + 1)));
+      pill.appendChild(document.createTextNode(titleOf(i)));
+    }
     pill.setAttribute("type", "button");
     pill.setAttribute("title", titleOf(i));
     pill.setAttribute("aria-label", (i + 1) + ". " + titleOf(i));
@@ -209,82 +217,81 @@
   // The games section carries a page per matchup, ordered so the biggest
   // billing leads. Showing them all at once is a wall; this pages them the same
   // way the section rail pages the article.
+  //
+  // MULTIPLE RAILS -- Keith 2026-09-16, twice: "having the divisional click
+  // links the bottom of the article as well as the top." The deck can carry
+  // more than one [data-wire-gamerail] (the renderer puts one before the
+  // pages and one after); every rail found gets its own full set of
+  // pills/prev/next/count, and showGame() keeps them ALL in sync so either
+  // end works identically. A rail change also scrolls the newly-shown page
+  // to the top of the viewport -- jumping from the bottom rail should not
+  // leave the reader staring at content that just changed above them.
   function initGameDeck() {
     var deck = document.querySelector("[data-wire-gamedeck]");
     if (!deck) return;
     var pages = [].slice.call(deck.querySelectorAll(".wire-gamepage"));
-    var rail = deck.querySelector("[data-wire-gamerail]");
-    if (pages.length < 2 || !rail) return;
+    var rails = [].slice.call(deck.querySelectorAll("[data-wire-gamerail]"));
+    if (pages.length < 2 || !rails.length) return;
 
-    var gi = 0, pills = [];
-    var prev = mk("button", "wire-rail-nav", "\u2039");
-    var next = mk("button", "wire-rail-nav", "\u203A");
-    var count = mk("span", "wire-rail-count", "");
-    [prev, next].forEach(function (b) { b.setAttribute("type", "button"); });
-
-    rail.appendChild(prev);
-    pages.forEach(function (pg, i) {
-      var p = mk("button", "wire-gamepill", pg.getAttribute("data-title") || ("Game " + (i + 1)));
-      p.setAttribute("type", "button");
-      p.addEventListener("click", function () { showGame(i); });
-      pills.push(p);
-      rail.appendChild(p);
+    var gi = 0;
+    var railSets = rails.map(function (rail) {
+      var pills = [];
+      var prev = mk("button", "wire-rail-nav", "\u2039");
+      var next = mk("button", "wire-rail-nav", "\u203A");
+      var count = mk("span", "wire-rail-count", "");
+      [prev, next].forEach(function (b) { b.setAttribute("type", "button"); });
+      rail.appendChild(prev);
+      pages.forEach(function (pg, i) {
+        var p = mk("button", "wire-gamepill", pg.getAttribute("data-title") || ("Game " + (i + 1)));
+        p.setAttribute("type", "button");
+        p.addEventListener("click", function () { showGame(i, true); });
+        pills.push(p);
+        rail.appendChild(p);
+      });
+      rail.appendChild(next);
+      rail.appendChild(count);
+      prev.addEventListener("click", function () { showGame(gi - 1, true); });
+      next.addEventListener("click", function () { showGame(gi + 1, true); });
+      return { prev: prev, next: next, pills: pills, count: count };
     });
-    rail.appendChild(next);
-    rail.appendChild(count);
 
-    prev.addEventListener("click", function () { showGame(gi - 1); });
-    next.addEventListener("click", function () { showGame(gi + 1); });
-
-    function showGame(i) {
+    function showGame(i, userInitiated) {
       if (i < 0 || i >= pages.length) return;
       gi = i;
       pages.forEach(function (pg, n) { pg.classList.toggle("wire-on", n === i); });
-      pills.forEach(function (p, n) {
-        if (n === i) p.setAttribute("aria-current", "true");
-        else p.removeAttribute("aria-current");
+      railSets.forEach(function (rs) {
+        rs.pills.forEach(function (p, n) {
+          if (n === i) p.setAttribute("aria-current", "true");
+          else p.removeAttribute("aria-current");
+        });
+        rs.count.textContent = (i + 1) + " / " + pages.length;
+        rs.prev.disabled = i === 0;
+        rs.next.disabled = i === pages.length - 1;
       });
-      count.textContent = (i + 1) + " / " + pages.length;
-      prev.disabled = i === 0;
-      next.disabled = i === pages.length - 1;
+      if (userInitiated && pages[i].scrollIntoView) {
+        pages[i].scrollIntoView({ block: "start" });
+      }
     }
     deck.classList.add("wire-deck-on");
-    showGame(0);
+    showGame(0, false);
   }
 
-  // ---- video: upgrade a verified link into a real player, where one runs ----
-  // STANDALONE ONLY, and that is the whole design. An article renders in three
-  // places. In a Claude Artifact the CSP blocks every external host. In the MFL
-  // hub the article is sandboxed WITHOUT allow-same-origin -- the thing that
-  // stops model-written HTML running with MFL-origin privileges -- and a
-  // YouTube player cannot function inside that. Both of those keep the named
-  // link, which works. Only the standalone page, which is a real origin with no
-  // such constraint, gets the iframe. Nothing is weakened to make video happen.
-  function initVideos() {
-    if (embedded) return;
-    var slots = [].slice.call(document.querySelectorAll("[data-wire-video]"));
-    for (var i = 0; i < slots.length; i++) {
-      var slot = slots[i];
-      var id = slot.getAttribute("data-wire-video") || "";
-      if (!/^[A-Za-z0-9_-]{6,20}$/.test(id)) continue;   // never interpolate junk
-      var frame = document.createElement("iframe");
-      frame.className = "wire-video-frame";
-      frame.setAttribute("src", "https://www.youtube-nocookie.com/embed/" + id);
-      frame.setAttribute("title", "Highlights");
-      frame.setAttribute("loading", "lazy");
-      frame.setAttribute("allowfullscreen", "");
-      frame.setAttribute(
-        "allow", "accelerometer; encrypted-media; gyroscope; picture-in-picture");
-      frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-      slot.insertBefore(frame, slot.firstChild);
-      slot.classList.add("wire-video-live");
-    }
-  }
+  // ---- video: the named link IS the player ----
+  // There is deliberately no inline player anywhere. An article renders in
+  // three places -- a Claude Artifact (CSP blocks every external host), the MFL
+  // hub (sandboxed without allow-same-origin, and sandbox flags pass down to a
+  // player frame) and the standalone page -- and the clips we accept (the NFL's
+  // channel or a team's) are NFL footage that YouTube will not play off
+  // YouTube. Tested 2026-09-16 when Keith asked to play clips in the page: on
+  // www48.myfantasyleague.com, keithcreelman.github.io and localhost, every
+  // NFL-channel and team-channel highlight showed "This video contains content
+  // from NFL, who has blocked it from display on this website or application"
+  // (a non-NFL video played fine in the same frames). An embed would only put a
+  // broken box above a link that works, so the link stays and nothing else.
 
   docEl.classList.add("wire-js");
   docEl.classList.add("wire-paged");
   initGameDeck();
-  initVideos();
 
   // Initial section: the loader's choice when embedded, the URL hash when
   // standalone, first section otherwise. One resolution path, no special cases.

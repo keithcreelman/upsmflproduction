@@ -52,16 +52,16 @@ const CLASSIFY_MODEL = "claude-sonnet-4-6";
 export const CLAPBACK_MODEL = "claude-opus-4-8";
 export const CLAPBACK_FALLBACK_MODEL = "claude-sonnet-5";
 
-const CLASSIFY_SYSTEM = `Classify this Discord reply to a UPS Wire post (a league newsletter article, which sometimes roasts owners by name) into exactly one category.
+const CLASSIFY_SYSTEM = `Classify this Discord reply to a UPS Center post (a league newsletter article, which sometimes roasts owners by name) into exactly one category.
 
 Return ONLY valid JSON with these fields:
 {"category": "FAIR_POINT" | "DATA_ERROR" | "COPE", "details": "brief explanation", "clap_back_warranted": true | false}
 
-FAIR_POINT: person disagrees with something the Wire wrote, with actual reasoning.
+FAIR_POINT: person disagrees with something UPS Center wrote, with actual reasoning.
 DATA_ERROR: person claims a factual error in the article (a stat, a record, a quote, a ranking).
 COPE: person is salty, deflecting, or offering no substance about a roast line that named them. Clap back warranted.`;
 
-const CLAPBACK_SYSTEM = `You are UPS Wire -- the same voice that writes the season forecast and its roast lines. Someone just challenged your post on Discord. Your job: classify the reply and respond.
+const CLAPBACK_SYSTEM = `You are UPS Center -- the same voice that writes the season forecast and its roast lines. Someone just challenged your post on Discord. Your job: classify the reply and respond.
 
 If they're mad about a roast line that named them, own it -- the line was accurate when you wrote it, so defend it with what's actually true, not by escalating past what you already said.
 
@@ -162,7 +162,7 @@ export async function handleWireReplyComponent(interaction, env, _ctx) {
     type: INTERACTION_RESPONSE.MODAL,
     data: {
       custom_id: `${MODAL_PREFIX}${wireMsgId}`,
-      title: "💬 Challenge the Wire",
+      title: "💬 Challenge UPS Center",
       components: [
         {
           type: COMPONENT_TYPE.ACTION_ROW,
@@ -174,7 +174,7 @@ export async function handleWireReplyComponent(interaction, env, _ctx) {
               style: TEXT_INPUT_STYLE.PARAGRAPH,
               min_length: 1,
               max_length: 1900,
-              placeholder: "Tell the Wire it's wrong. Defend yourself. Whatever.",
+              placeholder: "Tell UPS Center it's wrong. Defend yourself. Whatever.",
               required: true,
             },
           ],
@@ -390,7 +390,7 @@ async function classifyReply(env, replyText, contextText) {
       maxTokens: 256,
       system: CLASSIFY_SYSTEM,
       userText:
-        `Wire article context:\n${contextText.slice(0, 1000)}\n\n` +
+        `UPS Center article context:\n${contextText.slice(0, 1000)}\n\n` +
         `Discord reply:\n${replyText}`,
     });
     try {
@@ -410,7 +410,7 @@ export async function generateWireClapBack(env, replyText, contextText, replierC
     (ident.replierFid ? ` (franchise ${ident.replierFid})` : "") + `.\n`;
   const userText =
     identityBlock + `\n` +
-    `ARTICLE CONTEXT (the Wire post being challenged -- includes any roast lines):\n${contextText.slice(0, 12000)}\n\n` +
+    `ARTICLE CONTEXT (the UPS Center post being challenged -- includes any roast lines):\n${contextText.slice(0, 12000)}\n\n` +
     `Replier's franchise history:\n${replierContext}\n\n` +
     `Their reply: "${replyText}"\n\n` +
     `Destroy them.`;

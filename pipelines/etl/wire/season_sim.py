@@ -367,8 +367,11 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         shock = ({f: rng.gauss(*posterior[f]) for f in fids} if posterior
                  else {f: rng.gauss(0, sigma_s) for f in fids})
         rec = {f: {"w": 0, "l": 0, "t": 0, "dw": 0, "dl": 0, "apw": 0, "apl": 0, "pf": 0.0} for f in fids}
+        drawn = {}
         for wk in range(1, reg_end + 1):
             score = actual[wk] if wk in actual else {f: wp[f][wk] + shock[f] + rng.gauss(0, sigma_w) for f in fids}
+            if hook is not None:
+                drawn[wk] = score
             order = sorted(fids, key=lambda f: score[f])
             for i, f in enumerate(order):
                 rec[f]["apw"] += i
@@ -438,8 +441,11 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         # caller can ask what the CHAMPION's realized all-play looks like rather
         # than what a team's mean is. Keith 2026-09-12: ".598 for a league
         # champion feels low ... which might make sense since this is the mean".
+        # `scores` ({week: {fid: score}}) lets a caller condition on one week's
+        # games inside the SAME simulated seasons -- week_preview.py uses it for
+        # "playoff odds with a win vs with a loss" in next week's matchups.
         if hook is not None:
-            hook(st, champ, runner, seeds)
+            hook(st, champ, runner, seeds, drawn)
     for f in fids:
         agg[f]["ap_samples"].sort()
     agg["_shape"] = {"byFinish": [x / runs for x in shape_by_finish],
@@ -521,7 +527,179 @@ def absences(season, cache_dir, end):
     return out
 
 
-def prepare(season, cache_dir=None, roster_week=None, projections="weekly", injuries=False):
+OFFENSE_GROUPS = (LE.QB, LE.RB, LE.WR, LE.TE)
+
+
+def apply_ev_offense(season, proj, pos, end, cache_dir=None):
+    """Replace MFL's offensive projections with EXPECTED-VALUE ones, in place.
+
+    Keith 2026-09-16: MFL's projectedScores move in whole-touchdown steps (a
+    0.49 touchdown counts as 0, a 0.51 as a full 6), so one small nudge after
+    week 1 flipped whole seasons of future weeks by ~7.5 points. "Multiply the
+    ratio by the points it would generate, so a TD that's 0.49 = .49 * 6."
+    ev_projections scores Sleeper's fractional stat lines with UPS rules.
+    Backtested on 2025 (weeks 1-17, offense): weekly MAE 6.33 vs MFL 6.64,
+    correlation .51 vs .43; rest-of-season per-game MAE 1.88 vs 3.32; weeks
+    jumping 6+ points 0.6%% vs 7.3%%.
+
+    QB/RB/WR/TE only -- defenders, kickers and punters stay on MFL. Whether a
+    player PLAYS is MFL's call (see below); how much he scores is RotoWire's. A
+    player MFL projects but Sleeper does not keeps his MFL number (counted);
+    a week whose Sleeper feed is empty or unreadable FAILS, never "scores zero".
+    Returns coverage stats for the output file.
+    """
+    import ev_projections as EV
+    import wire_data as WD
+    xw = {}
+    for r in WD.d1("SELECT sleeper_id, mfl_player_id FROM player_id_crosswalk "
+                   "WHERE sleeper_id IS NOT NULL AND mfl_player_id IS NOT NULL"):
+        xw[str(r["sleeper_id"]).split(".")[0]] = str(r["mfl_player_id"]).split(".")[0]
+    # NAME FALLBACK for players the crosswalk has no Sleeper id for -- 54 rostered
+    # offensive players on 2026-09-16, nearly all 2026 rookies (Carnell Tate,
+    # Kenyon Sadiq, Jeremiyah Love, Jadarian Price...). Left on MFL numbers they
+    # would sit on a lower, rounded scale than everyone else. Matched only on a
+    # UNIQUE normalized name + position whose NFL team agrees; anything
+    # ambiguous stays unmatched and is counted.
+    mfl_players = dict((p["id"], p) for p in fetch(MFL_PLAYERS % season, cache_dir)["players"]["player"])
+    have = set(xw.values())
+    cov = {"source": "Sleeper weekly projections (RotoWire stat lines) scored with UPS rules; MFL decides availability",
+           "rotowirePoints": 0, "keptMfl": 0, "nameMatchedPlayers": 0,
+           "mflSaysOut": 0, "mflSaysPlays": 0, "availabilityDisagreements": [],
+           "sleeperUpdatedAt": None}
+    newest = 0
+    name_matched = set()
+    rw = {}                                     # {week: {mfl pid: RotoWire expected points}}
+    for wk in range(1, end + 1):
+        evw = EV.fetch_week(season, wk, lambda url: fetch(url, cache_dir))
+        by_name = {}
+        for sid, v in evw.items():
+            by_name.setdefault((EV.norm_name(v["name"]), v["pos"]), []).append((sid, v))
+        pts = {}
+        for sid, v in evw.items():
+            pid = xw.get(sid)
+            if pid:
+                pts[pid] = v["points"]
+                newest = max(newest, int(v.get("updatedAt") or 0))
+        for pid, p in mfl_players.items():
+            if pid in have or pid in pts or LE.pos_group(p.get("position", "")) not in OFFENSE_GROUPS:
+                continue
+            hits = by_name.get((EV.norm_name(p.get("name")), (p.get("position") or "").upper()), [])
+            team = EV.MFL_TO_NFL_TEAM.get(p.get("team") or "", p.get("team") or "")
+            if len(hits) == 1 and (not hits[0][1]["team"] or not team or team == "FA" or hits[0][1]["team"] == team):
+                pts[pid] = hits[0][1]["points"]
+                name_matched.add(pid)
+        rw[wk] = pts
+
+    # MFL DECIDES WHO PLAYS, ROTOWIRE DECIDES HOW MUCH (Keith 2026-09-16: "switch
+    # but let MFL decide availability"). MFL's own availability signals are its
+    # injury feed (Out/IR/Suspended + return dates, applied later by absences())
+    # and its depth order -- MFL projects BACKUPS too (Spencer Rattler 9 a week,
+    # Michael Penix 8), so "MFL projects him" is not "MFL says he plays".
+    #   QB: per NFL team per week, MFL's starter is its highest-projected QB. If
+    #       RotoWire names a different starter, MFL's starter gets RotoWire's QB1
+    #       line and RotoWire's pick gets the backup line (Kirk Cousins over
+    #       Fernando Mendoza). If MFL's starter has no RotoWire line that week
+    #       (Kyler Murray, week 2), he plays at RotoWire's own average for him.
+    #   RB/WR/TE: MFL at 5+ while RotoWire is ~0 -> he plays, at RotoWire's
+    #       average for him when it has one, else MFL's number (Josh Jacobs back
+    #       from suspension in week 3); a same-team, same-position teammate whose
+    #       RotoWire role assumed him out drops to MFL's number that week
+    #       (MarShawn Lloyd). MFL ~0 while RotoWire projects 3+ -> he does not
+    #       play (Jordyn Tyson after IR).
+    #   otherwise: RotoWire's expected points.
+    PLAYS, ROLE = 1.0, 5.0
+    ref = {}
+    for wk, pts in rw.items():
+        for pid, v in pts.items():
+            if v >= PLAYS:
+                ref.setdefault(pid, []).append(v)
+    ref = dict((pid, sum(v) / len(v)) for pid, v in ref.items())
+    team_of = lambda pid: (mfl_players.get(pid) or {}).get("team") or ""
+    disagree = {}
+
+    def note(pid, kind, wk):
+        disagree.setdefault(pid, {"mflSaysOut": [], "mflSaysPlays": [], "mflStarter": [], "mflBackup": []})[kind].append(wk)
+    for wk in range(1, end + 1):
+        pts = rw[wk]
+        mfl_now = dict(proj[wk])
+        final = {}
+        ids = [pid for pid in set(mfl_now) | set(pts) if LE.pos_group(pos.get(pid, "")) in OFFENSE_GROUPS]
+        # quarterbacks, team by team
+        by_team = {}
+        for pid in ids:
+            if LE.pos_group(pos.get(pid, "")) == LE.QB:
+                by_team.setdefault(team_of(pid), []).append(pid)
+        for team, qbs in by_team.items():
+            m_s = max((q for q in qbs if (mfl_now.get(q) or 0) >= PLAYS), key=lambda q: mfl_now[q], default=None)
+            r_s = max((q for q in qbs if (pts.get(q) or 0) >= PLAYS), key=lambda q: pts[q], default=None)
+            for q in qbs:
+                m, r = mfl_now.get(q), pts.get(q)
+                if r is None:
+                    if m is not None:
+                        final[q] = m; cov["keptMfl"] += 1
+                    continue
+                if q == m_s and team not in ("", "FA"):
+                    if r >= PLAYS and (r_s is None or r_s == q):
+                        final[q] = r; cov["rotowirePoints"] += 1
+                    elif r_s is not None and r_s != q and pts.get(q, 0) < PLAYS and q in ref:
+                        final[q] = ref[q]; cov["mflSaysPlays"] += 1; note(q, "mflSaysPlays", wk)
+                    elif r_s is not None and r_s != q:
+                        final[q] = pts[r_s]; cov["mflSaysPlays"] += 1; note(q, "mflStarter", wk)
+                    else:
+                        final[q] = ref.get(q, m); cov["mflSaysPlays"] += 1; note(q, "mflSaysPlays", wk)
+                elif q == r_s and m_s is not None and m_s != q:
+                    final[q] = pts.get(m_s, 0.0) if pts.get(m_s, 0.0) < PLAYS else 0.0
+                    cov["mflSaysOut"] += 1; note(q, "mflBackup", wk)
+                elif m is None or m < PLAYS:
+                    final[q] = 0.0 if r >= 3.0 else r
+                    if r >= 3.0:
+                        cov["mflSaysOut"] += 1; note(q, "mflSaysOut", wk)
+                else:
+                    final[q] = r; cov["rotowirePoints"] += 1
+        # everyone else
+        overridden = set()
+        for pid in ids:
+            if pid in final:
+                continue
+            m, r = mfl_now.get(pid), pts.get(pid)
+            if r is None:
+                if m is not None:
+                    final[pid] = m; cov["keptMfl"] += 1
+                continue
+            if m is not None and m >= ROLE and r < PLAYS:
+                final[pid] = ref.get(pid, m); cov["mflSaysPlays"] += 1; note(pid, "mflSaysPlays", wk)
+                if final[pid] >= ROLE:                # a real return, not a fringe player
+                    overridden.add((team_of(pid), LE.pos_group(pos.get(pid, ""))))
+            elif (m is None or m < PLAYS) and r >= 3.0:
+                final[pid] = 0.0; cov["mflSaysOut"] += 1; note(pid, "mflSaysOut", wk)
+            else:
+                final[pid] = r; cov["rotowirePoints"] += 1
+        for pid in ids:
+            key = (team_of(pid), LE.pos_group(pos.get(pid, "")))
+            if key not in overridden or key[1] == LE.QB:
+                continue
+            if wk in (disagree.get(pid) or {}).get("mflSaysPlays", []):
+                continue                              # he is the player MFL put back
+            m, r = mfl_now.get(pid), pts.get(pid)
+            if r is not None and m is not None and r >= ROLE and m < r - 4.0:
+                final[pid] = m
+                note(pid, "mflBackup", wk)
+        for pid, v in final.items():
+            if v <= 0 and pid not in mfl_now:
+                proj[wk].pop(pid, None)
+            else:
+                proj[wk][pid] = v
+    cov["availabilityDisagreements"] = sorted(
+        (dict({"pid": pid, "player": (mfl_players.get(pid) or {}).get("name"),
+               "rotowireAverageWhenPlaying": round(ref[pid], 1) if pid in ref else None}, **d)
+         for pid, d in disagree.items()), key=lambda x: -sum(len(x[k]) for k in ("mflSaysOut", "mflSaysPlays", "mflStarter", "mflBackup")))
+    cov["nameMatchedPlayers"] = len(name_matched)
+    if newest:
+        cov["sleeperUpdatedAt"] = datetime.fromtimestamp(newest / 1000.0, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return cov
+
+
+def prepare(season, cache_dir=None, roster_week=None, projections="weekly", injuries=False, ev_offense=False):
     """Everything that does not depend on the regression dial."""
     league, teams, rosters, sched, proj, reg_end, end, pos, rostered, ir_pids = load_inputs(
         season, cache_dir, roster_week, include_ir=injuries)
@@ -533,6 +711,7 @@ def prepare(season, cache_dir=None, roster_week=None, projections="weekly", inju
         raise SystemExit("season_sim: expected 37 regular-season games per team, got %s" % sorted(set(games.values())))
     if projections == "preseason":
         proj = preseason_view(proj, season, cache_dir, end)
+    ev_coverage = apply_ev_offense(season, proj, pos, end, cache_dir) if ev_offense else None
     # Only the live forecast takes injuries: a backtest must see what MFL said
     # at the time, and the feed only knows today.
     absent = absences(season, cache_dir, end) if injuries else {}
@@ -552,6 +731,7 @@ def prepare(season, cache_dir=None, roster_week=None, projections="weekly", inju
     rep = replacement_levels(proj, pos, rostered, end, reg_end)
     wp_raw, fills, parts = weekly_projections(rosters, proj, end, rep, reg_end=reg_end)
     return {"league": league, "teams": teams, "sched": sched, "reg_end": reg_end, "end": end,
+            "evCoverage": ev_coverage,
             "games": games, "wp_raw": wp_raw, "fills": fills, "parts": parts, "proj": proj, "pos": pos,
             "rosters": rosters, "rep": rep, "rostered": rostered,
             "absent": dict((p, a) for p, a in absent.items() if p in rostered)}
@@ -847,7 +1027,7 @@ def biggest_decliners(prep, cache_dir=None, min_points=8.0, min_ratio=1.3, min_r
 
 
 def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT,
-             preseason_path=None):
+             preseason_path=None, ev_offense=True):
     """The in-season update: same roster/projection/injury pipeline as run(),
     the same fit() (regression + calibration) an ordinary preseason run uses,
     but weeks 1..through_week are FIXED to what actually happened and every
@@ -871,7 +1051,7 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
     preseason = json.load(open(pre_path, encoding="utf-8"))
     pre_by_fid = dict((t["franchiseId"], t) for t in preseason["teams"])
 
-    prep = prepare(season, cache_dir, injuries=True)
+    prep = prepare(season, cache_dir, injuries=True, ev_offense=ev_offense)
     teams, games = prep["teams"], prep["games"]
     reg_end, end = prep["reg_end"], prep["end"]
     if through_week < 1 or through_week > reg_end:
@@ -897,7 +1077,10 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
     agg_shadow, _ = simulate(teams, prep["sched"], wp, reg_end, end, runs, sigma_w, sigma_s,
                              random.Random(seed), collect=True, actual=actual, posterior=posterior)
     injury_by_fid = biggest_absences(prep, cache_dir)
-    decline_by_fid = biggest_decliners(prep, cache_dir)
+    # biggest_decliners() reads MFL's own week-1 projection history, which moves
+    # in whole-touchdown steps -- Quentin Johnston's 13.7 -> 7.7 is one step. On
+    # expected-value offense it would name rounding flips as causes, so it is off.
+    decline_by_fid = {} if ev_offense else biggest_decliners(prep, cache_dir)
 
     def _pctl(xs, p):
         return xs[min(len(xs) - 1, int(p * len(xs)))] if xs else 0.0
@@ -968,6 +1151,8 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
         "preseasonGeneratedAtUtc": preseason.get("generatedAtUtc"),
         "model": {"regress": k, "sigmaWeekly": round(sigma_w, 2), "sigmaSeason": round(sigma_s, 2),
                   "regularSeasonWeeks": reg_end, "endWeek": end,
+                  "offenseProjections": ("expected value" if ev_offense else "MFL projectedScores"),
+                  "evCoverage": prep.get("evCoverage"),
                   "official": "refresh-only: played weeks are fixed to actual results; every "
                               "remaining week uses this run's live rosters and MFL projections with "
                               "the shared, un-updated prior N(0, sigma_s^2) -- the same form as a "
@@ -1153,6 +1338,9 @@ def main():
     ap.add_argument("--through-week", type=int, default=None,
                     help="live update: blend the preseason forecast with actual results through this "
                          "week instead of running a fresh preseason forecast")
+    ap.add_argument("--mfl-offense", action="store_true",
+                    help="live update only: use MFL's own (touchdown-rounded) offensive projections instead of "
+                         "expected-value ones (ev_projections.py)")
     ap.add_argument("--preseason-file", default=None,
                     help="live update only: path to the preseason JSON (default site/wire/data/"
                          "season_sim_<season>.json), read as the immutable prior")
@@ -1161,7 +1349,7 @@ def main():
         if not a.season:
             ap.error("--season is required with --through-week")
         out = run_live(a.season, a.through_week, a.runs, a.seed, a.cache_dir, a.out, k=a.regress,
-                       preseason_path=a.preseason_file)
+                       preseason_path=a.preseason_file, ev_offense=not a.mfl_offense)
         print("live update: season %d through week %d, %d runs" % (a.season, a.through_week, a.runs))
         print("OFFICIAL = refresh-only (no persistent shock). shadow cols = permanent Bayesian shock "
               "model, internal diagnostic only -- not published.")

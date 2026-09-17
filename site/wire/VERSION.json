@@ -2,7 +2,7 @@
   "version": "0.4.0",
   "released": "2026-08-01",
   "label": "V0.4.0 - Phase 3: first real report. Two-stage generation (deterministic pack -> model prose -> deterministic render), a numeric contract that makes fabricated numbers impossible, inline SVG charts, and the 2026 Pre-Season Review as a draft.",
-  "description": "UPS Wire is the league's published-content hub: season reviews, weekly recaps and previews, one-off features, and the trade-bot archive. Each article is a self-contained HTML file that renders in three places from one source -- embedded in MFL, at its own public GitHub Pages URL, and pasted into a Claude Artifact.",
+  "description": "UPS Center (the UPS Wire hub, renamed 2026-09-17) is the league's published-content hub: season reviews, weekly recaps and previews, one-off features, and the trade-bot archive. Each article is a self-contained HTML file that renders in three places from one source -- embedded in MFL, at its own public GitHub Pages URL, and pasted into a Claude Artifact.",
   "architecture": {
     "frame_model": "One sandboxed iframe. The loader owns the route and swaps the frame between index.html and an article. Sandbox is 'allow-scripts allow-popups allow-popups-to-escape-sandbox' with no allow-same-origin, so model-generated article HTML never runs with MFL-origin privileges.",
     "routing": "Top-level URL hash when embedded (#/a/<id>/<sectionId>) because the hash never reaches MFL's server; real file paths when standalone. ?wire=<route> is accepted as secondary input but never written.",

@@ -167,7 +167,8 @@ class Pack(object):
         return quote_id
 
     def playcard(self, card_id, player, position, nfl_matchup, score, box_line=None,
-                 owner=None, note=None, watch_url=None, video=None):
+                 owner=None, note=None, watch_url=None, video=None,
+                 player_photo_url=None, team_logo_url=None, player_photo_fallback_url=None):
         """A visual callout for a big performance. Placed by id, like a table.
 
         This is the "call out the big plays" surface. It states what the box
@@ -191,6 +192,14 @@ class Pack(object):
             # {"videoId", "title", "channel"} or None -- a VERIFIED clip, never
             # a guess. See wire_video.find_highlight for what verified means.
             "video": video or None,
+            # Real, hosted assets -- a verified ESPN headshot or MFL's own
+            # player-photo archive, and MFL's franchise-logo export (see
+            # wire_data.player_photo / franchise_logos). A photo that fails to
+            # load swaps to the fallback, then to a plain placeholder, same
+            # pattern roster_workbench.js already uses.
+            "playerPhotoUrl": player_photo_url or None,
+            "playerPhotoFallbackUrl": player_photo_fallback_url or None,
+            "teamLogoUrl": team_logo_url or None,
         }
         return card_id
 

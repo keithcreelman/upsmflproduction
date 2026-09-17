@@ -20,27 +20,33 @@
 #wireBody > .wire-railhead + .wire-nav { margin-top: -1.35rem; }
 
 /* ---------- masthead ---------- */
-.wire-mast { display: flex; flex-direction: column; gap: 0.75rem; }
+.wire-mast { display: flex; flex-direction: column; gap: 0.75rem; position: relative; }
+/* The UPS Center set: the wordmark on the charcoal logo panel. */
 .wire-wordmark {
+  align-self: flex-start;
   font-family: var(--display); font-weight: 800;
   font-size: clamp(2.2rem, 8vw, 4rem);
-  line-height: 0.9; letter-spacing: -0.03em; text-transform: uppercase;
-  margin: 0; color: var(--ink);
+  line-height: 0.95; letter-spacing: 0.01em; text-transform: uppercase;
+  margin: 0; color: var(--on-charcoal); background: var(--charcoal);
+  padding: 0.1rem 0.55rem 0.2rem; border-radius: 4px;
+  box-shadow: inset 0 0 0 2px var(--charcoal-edge), 0 2px 0 rgba(0, 0, 0, 0.18);
 }
-.wire-wordmark span { color: var(--gold); }
+.wire-wordmark span { color: var(--on-charcoal-accent); }
 .wire-tagline { color: var(--ink-dim); font-size: 0.98rem; margin: 0; max-width: 52ch; }
 .wire-mast-hero { display: block; width: 100%; height: auto; border-radius: 14px; }
+.wire-mast::after { content: ""; display: block; height: 0.6rem; border-radius: 3px;
+  background: linear-gradient(var(--steel-hi), var(--steel) 55%, var(--steel-lo)); }
 
 .wire-nav { display: flex; flex-wrap: wrap; gap: 0.4rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }
 .wire-navbtn {
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--surface);
-  border: 1px solid var(--line); padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line-2); padding: 0.45rem 0.75rem; border-radius: 5px;
   cursor: pointer; line-height: 1;
 }
 .wire-navbtn:hover { color: var(--ink); border-color: var(--gold-dim); }
-.wire-navbtn[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
+.wire-navbtn[aria-current="true"] { color: var(--on-gold); background: var(--gold); border-color: var(--gold); }
 
 /* ---------- index cards ---------- */
 /* Cards are <button>, never <a href="#...">. Rule 1: inside a srcdoc document
@@ -48,8 +54,8 @@
    turns into a wall of source text. */
 .wire-icard {
   display: block; width: 100%; text-align: left;
-  background: var(--surface); border: 1px solid var(--line);
-  border-top: 2px solid var(--line);
+  background: var(--surface); border: 1px solid var(--line-2);
+  border-top: 3px solid var(--line-2); border-radius: 10px;
   padding: 1.1rem clamp(1rem, 3vw, 1.4rem) 1.2rem;
   cursor: pointer; font: inherit; color: inherit;
 }
@@ -83,7 +89,7 @@
 .wire-draft { color: var(--brick); }
 
 /* Lead card: the almanac cover story. */
-.wire-lead { border-top: 2px solid var(--gold); }
+.wire-lead { border-top: 3px solid var(--gold); }
 .wire-lead .wire-icard-title { font-size: clamp(1.5rem, 4.6vw, 2.3rem); line-height: 1.08; }
 .wire-lead .wire-icard-dek { font-size: 1.05rem; max-width: 60ch; -webkit-line-clamp: 4; }
 .wire-lead-hero {
@@ -99,7 +105,7 @@
 /* The cover story's own table, drawn under its card as one block. */
 .wire-leadbox { display: block; }
 .wire-lead-table {
-  background: var(--surface); border: 1px solid var(--line); border-top: 0;
+  background: var(--surface); border: 1px solid var(--line-2); border-top: 0; border-radius: 0 0 10px 10px;
   padding: 0.2rem clamp(1rem, 3vw, 1.4rem) 1.1rem;
 }
 .wire-lead-table-title {
@@ -137,7 +143,7 @@
   width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line);
   padding: 0.95rem 0.4rem 0.95rem 0; cursor: pointer; font: inherit; color: inherit;
 }
-.wire-rrow:hover { background: var(--surface); }
+.wire-rrow:hover { background: var(--surface); border-radius: 6px; }
 .wire-rrow:hover .wire-rrow-title { color: var(--gold); }
 .wire-rrow:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .wire-rrow-rank {
@@ -179,7 +185,7 @@
   font-family: var(--display); font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--surface);
-  border: 1px solid var(--line); padding: 0.4rem 0.75rem; cursor: pointer; line-height: 1;
+  border: 1px solid var(--line-2); padding: 0.4rem 0.75rem; cursor: pointer; line-height: 1; border-radius: 5px;
 }
 .wire-pagebtn:hover:not([disabled]) { color: var(--ink); border-color: var(--gold-dim); }
 .wire-pagebtn[disabled] { opacity: 0.35; cursor: default; }
@@ -198,7 +204,7 @@
 
 /* ---------- empty + error ---------- */
 .wire-empty, .wire-error {
-  border: 1px solid var(--line); background: var(--surface);
+  border: 1px solid var(--line-2); background: var(--surface); border-radius: 10px;
   padding: 1.5rem; color: var(--ink-dim); font-size: 0.93rem;
 }
 .wire-error { border-left: 3px solid var(--brick); }
@@ -214,4 +220,4 @@
   color: var(--gold); background: none; border: 1px solid var(--gold-dim);
   padding: 0.4rem 0.75rem; cursor: pointer;
 }
-.wire-retry:hover { color: var(--ground); background: var(--gold); }
+.wire-retry:hover { color: var(--on-gold); background: var(--gold); }

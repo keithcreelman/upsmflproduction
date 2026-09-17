@@ -17,7 +17,7 @@
         "desk": [
           {
             "speaker": "stuart",
-            "text": "Welcome to the Wire, everybody. Week one is in the books, and before anybody gets comfortable I have to drop some knowledge. The preseason forecast told you Bear Dunn was {{f.pre.0009.power_rank}}. Then the games started, and Bear Dunn posted {{f.team.0009.week_points_rank}}. Rich?"
+            "text": "Welcome to UPS Center, everybody. Week one is in the books, and before anybody gets comfortable I have to drop some knowledge. The preseason forecast told you Bear Dunn was {{f.pre.0009.power_rank}}. Then the games started, and Bear Dunn posted {{f.team.0009.week_points_rank}}. Rich?"
           },
           {
             "speaker": "rich",
@@ -25,15 +25,15 @@
           },
           {
             "speaker": "stuart",
-            "text": "And his best receiver barely showed up! {{f.week.bust_1}}. Did not matter one bit. {{f.team.0005.boom}}. Cool as the other side of the pillow."
+            "text": "And check the record book, Rich: that's {{f.wire.record_team_score}}. The game itself, against Cutting, is {{f.wire.record_combined_game}}. And his best receiver barely showed up! {{f.week.bust_1}}. Did not matter one bit. {{f.team.0005.boom}}. Cool as the other side of the pillow."
           },
           {
             "speaker": "rich",
-            "text": "But look where the rest of it came from, Stu. {{f.team.0005.idp_pts}} points from his defenders, {{f.team.0005.idp_rank}}. T.J. Watt alone: {{f.star.idp.line}}, good for {{f.star.idp.score}}. Did you know? Brian Cutting, the defending champion, put up {{f.team.0004.off_rank}} and still lost to him."
+            "text": "But look where the rest of it came from, Stu. {{f.team.0005.idp_pts}} points from his defenders, {{f.team.0005.idp_rank}}. T.J. Watt alone: {{f.star.idp.line}}, good for {{f.star.idp.score}}. Did you know? Brian Cutting, the defending champion, put up {{f.team.0004.off_rank}} and still lost to him. Shawn Blake had a scouting report on that defense Sunday night."
           },
           {
             "speaker": "stuart",
-            "text": "The champ won the offense and lost the game, and Martel's defenders more than doubled his. Quentin Lake chipped in {{f.player.quentin-lake.score}} from the secondary. See, what had happened was, the other team brought defenders. Rich!"
+            "text": "Fluky, Shawn? The champ won the offense and lost the game, and Martel's defenders more than doubled his. Quentin Lake chipped in {{f.player.quentin-lake.score}} from the secondary. See, what had happened was, the other team brought defenders. Rich!"
           },
           {
             "speaker": "rich",
@@ -61,7 +61,27 @@
           },
           {
             "speaker": "rich",
-            "text": "And the biggest surprise belonged to a man who lost twice. {{f.week.boom_1}}, for Ryan Bousquet, who got Coker from Matt Gerardi in the Amon-Ra St. Brown trade along with Sam Darnold. {{f.team.0001.bust}}. Same trade, Stu. Let's go to the pots."
+            "text": "And the biggest bargain belonged to a man who lost twice. {{f.bb.off.bargain.1}}. Bousquet got Coker from Matt Gerardi in the Amon-Ra St. Brown trade."
+          },
+          {
+            "speaker": "stuart",
+            "text": "And the bust list starts right where we started, Rich: {{f.bb.off.bust.1}}. Next up, {{f.bb.off.bust.2}}. On defense, the bargain: {{f.bb.idp.bargain.1}}. The bust: {{f.bb.idp.bust.1}}."
+          },
+          {
+            "speaker": "rich",
+            "text": "Five of each, offense and defense, every one measured against MFL's last projection before that player's kickoff."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Now separate bad luck from bad usage, Rich. Expected fantasy points take every target, carry and throw, where it happened on the field, and ask what that usage normally scores in our league. Ja'Marr Chase had {{f.bb.off.bust.1.xfp}}. Drake London: {{f.bb.off.bust.2.xfp}}. That is not a cold day. That is no looks."
+          },
+          {
+            "speaker": "rich",
+            "text": "And Kenneth Walker III went the other way, Stu. MFL had him in the bargain bin, and his usage was {{f.bb.off.bargain.2.xfp}}. The role was real. Furthest over expected in the league: {{f.xfp.over.1}}. Furthest under: {{f.xfp.under.1}}."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Burrow had the volume and Bear Dunn got the leftovers. That is a bad beat, not a bad call. Let's go to the divisions."
           }
         ],
         "bullets": [],
@@ -69,23 +89,63 @@
           "t.offidp",
           "t.pickups",
           "t.performers",
-          "t.projections"
+          "t.bb.off.bust",
+          "t.bb.off.bargain",
+          "t.bb.idp.bust",
+          "t.bb.idp.bargain",
+          "t.xfp.over",
+          "t.xfp.under"
         ],
         "placeAt": {
-          "t.offidp": 4,
-          "t.pickups": 6,
-          "t.performers": 10,
-          "t.projections": 11
+          "t.offidp": 3,
+          "t.pickups": 5,
+          "t.performers": 9,
+          "t.bb.off.bust": 12,
+          "t.bb.off.bargain": 12,
+          "t.bb.idp.bust": 12,
+          "t.bb.idp.bargain": 12,
+          "t.xfp.over": 15,
+          "t.xfp.under": 15
         },
-        "quotes": [],
+        "quotes": [
+          "q.825923"
+        ],
         "cards": [],
         "games": [],
         "gameNotes": {},
         "captions": {
           "t.offidp": "The defending champion scored the most on offense. The league's best score came from the man who scored the most on defense.",
           "t.pickups": "The two best adds of the week never made a lineup. Four of the five adds that did belong to the owner who benched his own insurance.",
-          "t.performers": "Two quarterbacks up top in a superflex league, and a Kansas City running back crashing the party.",
-          "t.projections": "Five starters who blew past their projection and five who never got close. Ryan Bousquet and Eric Martel each put a starter on both lists."
+          "t.performers": "Two quarterbacks up top in a superflex league, and a Kansas City running back crashing the party."
+        },
+        "quoteAt": {
+          "q.825923": 3
+        },
+        "views": {
+          "t.bb.off.bust": {
+            "stack": true,
+            "note": false
+          },
+          "t.bb.off.bargain": {
+            "stack": true,
+            "note": false
+          },
+          "t.bb.idp.bust": {
+            "stack": true,
+            "note": false
+          },
+          "t.bb.idp.bargain": {
+            "stack": true,
+            "note": true
+          },
+          "t.xfp.over": {
+            "stack": true,
+            "note": false
+          },
+          "t.xfp.under": {
+            "stack": true,
+            "note": true
+          }
         }
       },
       {
@@ -94,17 +154,15 @@
         "desk": [
           {
             "speaker": "stuart",
-            "text": "Four divisions, four pots, every game a division game. In every pot, somebody went two-and-oh and somebody went oh-and-two. The pot of the week is Outlast PG Time, {{f.pot.outlast-pg-time.pre_strength}}, and it delivered {{f.pot.outlast-pg-time.points_rank}}. Rich?"
+            "text": "Four divisions, every game a division game this week. In every division, somebody went two-and-oh and somebody went oh-and-two. The division of the week is Outlast PG Time, {{f.pot.outlast-pg-time.pre_strength}}, and it delivered {{f.pot.outlast-pg-time.points_rank}}. Rich?"
           },
           {
             "speaker": "rich",
-            "text": "And here is the stat of the week, Stu. Of the four preseason division favorites, exactly one won both of his games. He runs this website. The other three went a combined two-and-four."
+            "text": "And here is the stat of the week, Stu. Of the four preseason division favorites, exactly one won both of his games, and he plays in Maddie Mondays. The other three went a combined two-and-four."
           }
         ],
         "bullets": [],
-        "place": [
-          "t.burns"
-        ],
+        "place": [],
         "quotes": [],
         "cards": [],
         "games": [],
@@ -123,7 +181,7 @@
             },
             {
               "speaker": "rich",
-              "text": "Against the defending champ it was {{f.game.02.margin}}, and {{f.game.02.ceiling}}. For the record, {{f.game.02.upset}}. Cutting won on offense and lost the game. Martel busted out the whuppin' stick on defense."
+              "text": "Eric Martel beat the defending champ, Brian Cutting, by {{f.game.02.margin}} -- and it wasn't close enough for lineup decisions to matter, {{f.game.02.ceiling}}. For the record, {{f.game.02.upset}}. Cutting actually won the offensive scoreboard; Martel's defense is what buried him."
             },
             {
               "speaker": "stuart",
@@ -131,7 +189,15 @@
             },
             {
               "speaker": "rich",
-              "text": "Which leaves Brian Cross, Stu. Got paid to take a quarterback, spent the summer on defense, and the forecast gave him {{f.pre.0006.idp_proj_rank}}. That defense posted {{f.team.0006.idp_rank}}. His quarterbacks were fine, {{f.team.0006.boom}}. He went {{f.team.0006.pot_record}} anyway, and he {{f.team.0006.could_have_won}} in either game."
+              "text": "Which leaves Brian Cross, Stu. Got paid to take a quarterback, spent the summer on defense, and the forecast gave him {{f.pre.0006.idp_proj_rank}}. That defense posted {{f.team.0006.idp_rank}}. His quarterbacks were fine, {{f.team.0006.boom}}. Didn't matter: Eric Martel beat him by {{f.game.01.margin}} -- the largest margin in the league this week -- and Brian Cutting beat him by {{f.game.03.margin}}. Same verdict both times: {{f.team.0006.could_have_won}}."
+            },
+            {
+              "speaker": "stuart",
+              "text": "And Cross was antsy one game into the season, Rich. A.J. Brown went down in the NFL opener on Wednesday night, and first thing Thursday morning Cross was in the Coffee Shop."
+            },
+            {
+              "speaker": "rich",
+              "text": "He had reason to sweat, Stu. The forecast took note -- {{f.live.0006.injury_note}}. His playoff odds are down to {{f.live.0006.current_playoff_odds}}, from {{f.pre.0006.sim_p_playoffs}} before the season."
             }
           ],
           "p.2": [
@@ -141,7 +207,15 @@
             },
             {
               "speaker": "stuart",
-              "text": "The forecast called Mannila the one that looks wrong: the third-most valuable offense in the league, ranked {{f.pre.0011.power_rank}}. Week one leaned his way: {{f.team.0011.pot_record}} in the pot, and Jaxson Dart put up {{f.player.jaxson-dart.score}}. He did it with {{f.team.0011.week_points_rank}}, which is how you sweep the pot with {{f.pot.dog-pound-4-life.points_rank}}. Holla at a playa when you see him in the street!"
+              "text": "Not everybody bought that forecast, Rich. The preview gave Bear Dunn a {{f.pre.0009.sim_p_last}} chance to finish last, and on Sunday night Ryan Bousquet quoted it back to the Coffee Shop with a review of his own."
+            },
+            {
+              "speaker": "rich",
+              "text": "Poppycock, he says. One week in, the model is not backing down: Bear Dunn's playoff odds are {{f.live.0009.current_playoff_odds}}, the best in the league."
+            },
+            {
+              "speaker": "stuart",
+              "text": "The forecast called Mannila the one that looks wrong: the third-most valuable offense in the league, ranked {{f.pre.0011.power_rank}}. Week one leaned his way: {{f.team.0011.pot_record}} in the division, and Jaxson Dart put up {{f.player.jaxson-dart.score}}. He did it with {{f.team.0011.week_points_rank}}, which is how you sweep the division with {{f.pot.dog-pound-4-life.points_rank}}. Holla at a playa when you see him in the street!"
             },
             {
               "speaker": "rich",
@@ -167,7 +241,19 @@
             },
             {
               "speaker": "rich",
-              "text": "And Ryan Bousquet, {{f.pre.0001.power_rank}} coming in. Jalen Coker handed him the biggest surprise of the week, and his quarterbacks handed a lot of it back. He went {{f.team.0001.pot_record}}, and his best possible lineup was {{f.team.0001.ceiling_rank}}. No perfect card was saving this one, Stu."
+              "text": "And the rest of that offense, Stu? Josh Martel did the math himself on Tuesday morning."
+            },
+            {
+              "speaker": "stuart",
+              "text": "He does not wanna talk about it, Rich. Unfortunately for Josh, this is a recap show."
+            },
+            {
+              "speaker": "rich",
+              "text": "And Ryan Bousquet, {{f.pre.0001.power_rank}} coming in. Jalen Coker handed him the biggest surprise of the week, and his quarterbacks handed a lot of it back. He went {{f.team.0001.pot_record}}, and his best possible lineup was {{f.team.0001.ceiling_rank}}. No perfect card was saving this one, Stu. And he saw it coming before the late games were over on Sunday."
+            },
+            {
+              "speaker": "stuart",
+              "text": "Called his shot, Rich. Not the shot you want to call, but he called it."
             }
           ],
           "p.4": [
@@ -181,16 +267,48 @@
             },
             {
               "speaker": "stuart",
+              "text": "And Blake knew it by Sunday night, Rich. Oh-and-two, and he opened for business."
+            },
+            {
+              "speaker": "rich",
+              "text": "One week into a fourteen-week season, Stu. Brian Cross told him it was only week one a minute earlier. Blake was not hearing it."
+            },
+            {
+              "speaker": "stuart",
               "text": "And here comes {{f.pre.0003.power_rank}} Matt Gerardi. For the record, {{f.game.12.upset}}. The team the forecast gave {{f.pre.0003.off_proj_rank}} posted {{f.team.0003.off_rank}}. Can I get a witness?"
             },
             {
               "speaker": "rich",
-              "text": "Hold the witness, Stu, because he made the same mistake as the man who runs this site. {{f.team.0003.bench_miss}}. The projections going in: {{f.team.0003.bench_proj}}. And against Whitman, {{f.burn.covers_margin}}. His top starter was {{f.team.0003.best_player}}, the receiver who came over in the trade that sent Darnold and Coker to Bousquet."
+              "text": "Hold the witness, Stu. {{f.team.0003.bench_miss}}, and against Whitman {{f.team.0003.bench_flip}}. The Coffee Shop noticed while it was happening. Josh Martel, Sunday afternoon."
+            },
+            {
+              "speaker": "stuart",
+              "text": "Sprung! But was it the wrong call? On the evidence we have, {{f.team.0003.bench_verdict}}."
+            },
+            {
+              "speaker": "rich",
+              "text": "His top starter was {{f.team.0003.best_player}}, the receiver who came over in the trade that sent Darnold and Coker to Bousquet."
             }
           ]
         },
         "captions": {
           "t.burns": "The two biggest same-position bench swings of the week. Both owners started the lower-projected quarterback, and only one of them runs this website."
+        },
+        "potQuoteAt": {
+          "p.1": {
+            "q.673011": 4
+          },
+          "p.2": {
+            "q.167155": 1
+          },
+          "p.3": {
+            "q.561987": 3,
+            "q.704145": 5
+          },
+          "p.4": {
+            "q.509973": 2,
+            "q.613797": 5
+          }
         }
       },
       {
@@ -215,11 +333,27 @@
           },
           {
             "speaker": "stuart",
-            "text": "Fair. But Eric Martel went {{f.team.0005.week_allplay}} against the field. It's your world, kid. The rest of us are still paying rent. Rich, take us home."
+            "text": "Then explain Bear Dunn to me, Rich. {{f.team.0009.week_allplay}} against the field, and his playoff odds went up."
           },
           {
             "speaker": "rich",
-            "text": "That is the show. Chris Klingenberg, week two is a fresh card. Keith, bench the negative quarterback. For Stu, I'm Rich. See you after week two."
+            "text": "One week is one week, Stu. Since the preseason the projections changed, injuries hit, and the whole league shifted around him -- and Dunn's roster came out of it projecting better than anybody's. He sits at {{f.pv.sit.0009}}."
+          },
+          {
+            "speaker": "stuart",
+            "text": "So here is where everybody sits, Rich. Up top: {{f.pv.sit.top}}. At the bottom: {{f.pv.sit.bottom}}."
+          },
+          {
+            "speaker": "rich",
+            "text": "Biggest climbers since the preseason: {{f.pv.sit.risers}}. Biggest drops: {{f.pv.sit.fallers}}."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Nobody climbed more than Eric Martel, and he went {{f.team.0005.week_allplay}} against the field. It's your world, kid. The rest of us are still paying rent. Rich, take us home."
+          },
+          {
+            "speaker": "rich",
+            "text": "Chris Klingenberg, week two is a fresh card. Keith, bench the negative quarterback. Stu, take us to week two."
           }
         ],
         "bullets": [
@@ -227,11 +361,14 @@
         ],
         "place": [
           "t.preseason",
-          "t.standings"
+          "t.standings",
+          "t.burns",
+          "t.pv.movement"
         ],
         "placeAt": {
           "t.standings": 0,
-          "t.preseason": 1
+          "t.preseason": 1,
+          "t.pv.movement": 6
         },
         "quotes": [],
         "cards": [],
@@ -240,8 +377,140 @@
         "captions": {
           "t.preseason": "The preseason order against one week of football. Read it for fun, not for betting.",
           "t.standings": "Eric Mannila is two-and-oh with a losing all-play record. Division winners take the top two seeds; all-play orders everybody else."
+        },
+        "views": {
+          "t.burns": {
+            "stack": "always",
+            "note": true
+          },
+          "t.pv.movement": {
+            "stack": true,
+            "note": true
+          }
+        }
+      },
+      {
+        "id": "elias",
+        "lead": "",
+        "bullets": [],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "desk": [
+          {
+            "speaker": "stuart",
+            "text": "Thursday means Elias, Rich. The official stat changes for week one were published {{f.elias.published}}: {{f.elias.summary}}."
+          },
+          {
+            "speaker": "rich",
+            "text": "The scoreboard moved a little, Stu: {{f.elias.teams}}. The biggest single change: {{f.elias.biggest}}. Every result stands, and so does every all-play record. The rest of the show keeps the numbers as we first published them; the corrected scores are right here."
+          }
+        ],
+        "place": [
+          "t.elias.players",
+          "t.elias.teams"
+        ],
+        "placeAt": {
+          "t.elias.players": 1,
+          "t.elias.teams": 1
+        },
+        "captions": {},
+        "views": {
+          "t.elias.players": {
+            "stack": true,
+            "note": true
+          },
+          "t.elias.teams": {
+            "stack": true,
+            "note": true
+          }
+        }
+      },
+      {
+        "id": "s4",
+        "lead": "",
+        "bullets": [],
+        "quotes": [],
+        "cards": [],
+        "games": [],
+        "gameNotes": {},
+        "captions": {},
+        "desk": [
+          {
+            "speaker": "stuart",
+            "text": "Now week two, Rich. Every number in this segment is as of {{f.pv.cutoff}}, and injury news will move them before Sunday. And {{f.pv.division_games}}, so every result this week crosses a division line."
+          },
+          {
+            "speaker": "rich",
+            "text": "The biggest swing on the board is {{f.pv.g1.matchup}}. The model makes {{f.pv.g1.favorite}} a {{f.pv.g1.fav_chance}} favorite, which is a coin flip in a nice suit. {{f.pv.g1.fav_stakes}}; {{f.pv.g1.dog_stakes}}. But it is not that black and white, Stu: {{f.pv.g1.fav_nuance}}. The upset path: {{f.pv.g1.upset_path}}. The flip factor: {{f.pv.g1.flip}}. And the history: {{f.pv.g1.h2h}}."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Then {{f.pv.g2.matchup}}. {{f.pv.g2.favorite}} is {{f.pv.g2.fav_chance}} to win it. {{f.pv.g2.fav_stakes}}; {{f.pv.g2.dog_stakes}}. And {{f.pv.g2.fav_same_score}}, {{f.pv.g2.dog_same_score}}. The upset path? {{f.pv.g2.upset_path}}. The flip factor: {{f.pv.g2.flip}}. The history: {{f.pv.g2.h2h}}."
+          },
+          {
+            "speaker": "rich",
+            "text": "And {{f.pv.g3.matchup}}, with Brian Cross already oh-and-two. {{f.pv.g3.favorite}} is {{f.pv.g3.fav_chance}} to win it. {{f.pv.g3.fav_stakes}}; {{f.pv.g3.dog_stakes}}. And {{f.pv.g3.fav_same_score}}, {{f.pv.g3.dog_same_score}}. The upset path: {{f.pv.g3.upset_path}}. The flip factor: {{f.pv.g3.flip}}. The history: {{f.pv.g3.h2h}}."
+          },
+          {
+            "speaker": "stuart",
+            "text": "Division watch, Rich. {{f.pv.div.outlast-pg-time.line}}."
+          },
+          {
+            "speaker": "rich",
+            "text": "{{f.pv.div.dog-pound-4-life.line}}. Yes, the man at one-and-one is the favorite over the man at two-and-oh. The projections still like Bear Dunn."
+          },
+          {
+            "speaker": "stuart",
+            "text": "{{f.pv.div.maddie-mondays.line}}. And {{f.pv.div.legion-of-boom.line}}."
+          },
+          {
+            "speaker": "rich",
+            "text": "Injury watch. {{f.pv.inj.count}} carry a Questionable or Doubtful tag on MFL as of the cutoff. The one that costs the most if he sits: {{f.pv.inj.top}}."
+          },
+          {
+            "speaker": "stuart",
+            "text": "And remember, Rich: a Questionable tag can turn into a start or a scratch, and every number here moves with it. We check how these calls did after week two."
+          },
+          {
+            "speaker": "rich",
+            "text": "That is the show. For Stu, I'm Rich, and this was UPS Center. Catch you all next week."
+          }
+        ],
+        "place": [
+          "t.pv.games",
+          "t.pv.ranges",
+          "t.pv.injuries"
+        ],
+        "placeAt": {
+          "t.pv.games": 3,
+          "t.pv.ranges": 3,
+          "t.pv.injuries": 7
+        },
+        "views": {
+          "t.pv.games": {
+            "stack": true,
+            "note": true,
+            "rows": 6,
+            "title": "The six week-two matchups with the most at stake"
+          },
+          "t.pv.ranges": {
+            "stack": false,
+            "note": true,
+            "cols": [
+              "owner",
+              "proj",
+              "range"
+            ]
+          },
+          "t.pv.injuries": {
+            "stack": true,
+            "note": true
+          }
         }
       }
-    ]
+    ],
+    "heroImage": "images/hero_2026_forecast.jpg"
   }
 }

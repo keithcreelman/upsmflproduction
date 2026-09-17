@@ -399,7 +399,8 @@ def table_view(table, view, where, facts, proper):
     title = view.get("title")
     title_html = (audit_and_substitute(title, "%s title of %s" % (where, table["id"]), facts, proper)
                   if title else esc(table.get("title") or ""))
-    stack = bool(view.get("stack", len(out_cols) >= 5))
+    stack = view.get("stack", len(out_cols) >= 5)
+    stack = "always" if stack == "always" else bool(stack)
     return out_cols, out_rows, title_html, bool(view.get("note")), stack
 
 
@@ -451,21 +452,46 @@ def render_table(table, caption_html=None, view=None):
     if view:
         cols, rows, title_html, show_note, stack = view
     else:
-        cols, rows, title_html, show_note, stack = table["columns"], table["rows"], "", True, False
-    head = "".join('<th%s>%s</th>' % (' class="wire-num"' if c.get("align") == "right" else "",
-                                      esc(c["label"])) for c in cols)
+        # A table placed with no explicit view (the common case) must still
+        # show its own title before the table -- Keith 2026-09-16: readers
+        # should not hit a bare table with no sense of what question it
+        # answers. table_view() already does this for the explicit-view path
+        # (title_html defaults to the table's own title); this mirrors it so
+        # the two paths do not silently diverge.
+        cols, rows, title_html, show_note, stack = (table["columns"], table["rows"],
+                                                     esc(table.get("title") or ""), True, False)
+    # LONG TEXT COLUMNS get a floor width. With none, a browser squeezes a
+    # sentence-length column (the bench table's Evidence, the forecast table's
+    # Signal) to one word per line inside the article's narrow measure, and
+    # every row of the table turns into a tall blank block -- the 2026 week 1
+    # recap shipped exactly that on desktop. The table scrolls sideways instead.
+    longest = dict((i, max([len(cell_text(c, r[i])[0]) for r in rows] or [0]))
+                   for i, c in enumerate(cols) if c.get("align") != "right")
+    idx_long = set(i for i, n in longest.items() if n > 40)
+    idx_longer = set(i for i, n in longest.items() if n > 120)
+    head = "".join('<th%s>%s</th>' % (
+        (' class="%s"' % " ".join(x for x in ("wire-num" if c.get("align") == "right" else "",
+                                               "wire-long" if i in idx_long else "",
+                                               "wire-longer" if i in idx_longer else "") if x))
+        if (c.get("align") == "right" or i in idx_long) else "",
+        esc(c["label"])) for i, c in enumerate(cols))
     body = []
     for row in rows:
         cells = []
-        for c, v in zip(cols, row):
+        for i, (c, v) in enumerate(zip(cols, row)):
             txt, cls = cell_text(c, v)
+            if i in idx_long:
+                cls = ((cls or "") + " wire-long" + (" wire-longer" if i in idx_longer else "")).strip()
             # data-label feeds the stacked phone layout (td::before), which
             # needs each cell to carry its own column name.
             cells.append('<td%s data-label="%s">%s</td>'
                          % ((' class="%s"' % cls) if cls else "", esc_attr(c["label"]), esc(txt)))
         body.append("<tr>%s</tr>" % "".join(cells))
 
-    parts = ['<figure class="wire-fig%s">' % (" wire-stack" if stack else "")]
+    # stack="always" folds into label/value cards at every width -- for a short
+    # table whose cells are sentences, cards read better than a sideways scroll.
+    parts = ['<figure class="wire-fig%s">' % (" wire-stack wire-stack-all" if stack == "always" else
+                                               " wire-stack" if stack else "")]
     if title_html:
         parts.append('<div class="wire-fig-title">%s</div>' % title_html)
     parts.append('<div class="wire-tablewrap"><table><thead><tr>%s</tr></thead><tbody>%s</tbody>'
@@ -518,12 +544,21 @@ def render_kpis(items, facts, proper):
 
 
 def render_quote(q):
-    """A verbatim blockquote. The text comes from the pack, never from the model."""
+    """A verbatim blockquote. The text comes from the pack, never from the model.
+
+    Line breaks the owner typed are kept (a two-line Discord message read as one
+    run-on sentence otherwise), and a stored permalink links the attribution
+    back to the message itself so anyone in the league can check the context.
+    """
     who = esc(q["author"])
     when = esc(q.get("when") or "")
     attribution = who + ((" &middot; " + when) if when else "")
-    return ('<blockquote>%s<span>&mdash; %s</span></blockquote>'
-            % (esc(q["text"]), attribution))
+    link = q.get("permalink") or ""
+    if link.startswith("https://discord.com/channels/"):
+        attribution += (' &middot; <a class="wire-quote-src" href="%s" target="_blank" '
+                        'rel="noopener">open in Discord</a>' % esc(link))
+    text = "<br>".join(esc(ln) for ln in str(q["text"]).split("\n") if ln.strip())
+    return ('<blockquote>%s<span>&mdash; %s</span></blockquote>' % (text, attribution))
 
 
 # A run of words inside double quotes, long enough to be a real quotation rather
@@ -571,11 +606,38 @@ def render_playcard(c):
     Artifact's CSP blocks every external host, and the MFL embed sandboxes
     articles WITHOUT allow-same-origin -- which is what stops model-written HTML
     from running with MFL-origin privileges, and is not worth trading for a
-    video player. So the default markup is network-free everywhere, and the
-    standalone page upgrades itself. Degrading to a named link is fine;
-    weakening the sandbox is not.
+    video player. So the markup is network-free everywhere. The standalone page
+    used to upgrade itself to a player, but NFL footage refuses to play embedded
+    off YouTube (tested 2026-09-16), so the named link is the player on every
+    surface. Weakening the sandbox would not change that.
     """
+    has_media = bool(c.get("playerPhotoUrl") or c.get("teamLogoUrl"))
     parts = ['<aside class="wire-play">']
+    if has_media:
+        # Real, hosted assets (MFL's own player-photo archive + franchise-logo
+        # export) -- not a guess, not a placeholder pretending to be a photo.
+        # onerror swaps a missing player photo for a plain placeholder rather
+        # than a broken-image icon; a team logo that 404s just disappears
+        # (no placeholder needed for a small corner badge).
+        parts.append('<div class="wire-play-media">')
+        if c.get("playerPhotoUrl"):
+            # ESPN headshot first, MFL's archive photo if that fails to load,
+            # then a plain placeholder -- never a broken-image icon.
+            fb = c.get("playerPhotoFallbackUrl")
+            parts.append(
+                '<img class="wire-play-photo" src="%s" alt="%s" loading="lazy"%s '
+                'onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;delete this.dataset.fallback;}'
+                'else{this.replaceWith(Object.assign(document.createElement(\'div\'),'
+                '{className:\'wire-play-photo wire-play-photo-placeholder\'}))}">'
+                % (esc_attr(c["playerPhotoUrl"]), esc_attr(c["player"]),
+                   (' data-fallback="%s"' % esc_attr(fb)) if fb else ""))
+        if c.get("teamLogoUrl"):
+            parts.append('<img class="wire-play-logo" src="%s" alt="%s" loading="lazy" '
+                         'onerror="this.remove()">'
+                         % (esc_attr(c["teamLogoUrl"]), esc_attr("%s logo" % (c.get("owner") or ""))))
+        parts.append("</div>")
+    if has_media:
+        parts.append('<div class="wire-play-body">')
     parts.append('<div class="wire-play-head">')
     parts.append('<span class="wire-play-name">%s</span>' % esc(c["player"]))
     meta = " &middot; ".join(esc(x) for x in (c.get("position"), c.get("nflMatchup")) if x)
@@ -591,16 +653,16 @@ def render_playcard(c):
         parts.append('<div class="wire-play-note">%s</div>' % esc(c["note"]))
     vid = c.get("video") or {}
     if vid.get("videoId"):
-        # A specific, verified clip. data-* carries the id so the runtime can
-        # build a player; the anchor works with scripting off, in an Artifact,
-        # and in the sandboxed MFL frame.
+        # A specific, verified clip, as a link: NFL footage will not play
+        # embedded off YouTube (tested 2026-09-16 on MFL, GitHub Pages and
+        # localhost -- see article_runtime.js), so the link is the player.
         parts.append('<div class="wire-play-video" data-wire-video="%s">'
                      '<a class="wire-play-watch" href="https://www.youtube.com/watch?v=%s" '
                      'target="_blank" rel="noopener">&#9654;&#65039; %s</a>'
-                     '<span class="wire-play-vsrc">%s</span></div>'
+                     '<span class="wire-play-vsrc">%s on YouTube &middot; opens in a new tab</span></div>'
                      % (esc(vid["videoId"]), esc(vid["videoId"]),
                         esc(vid.get("title") or "Watch the highlights"),
-                        esc(vid.get("channel") or "")))
+                        esc(vid.get("channel") or "YouTube")))
     elif c.get("watchUrl"):
         # No clip cleared the bar. A search link is an honest "go look"; naming
         # a video we are not sure of would be a claim.
@@ -608,6 +670,8 @@ def render_playcard(c):
         # sandbox carries the allow-popups pair so this actually opens.
         parts.append('<a class="wire-play-watch" href="%s" target="_blank" '
                      'rel="noopener">Find the highlights &#8599;</a>' % esc(c["watchUrl"]))
+    if has_media:
+        parts.append("</div>")
     parts.append("</aside>")
     return "\n".join(parts)
 
@@ -719,7 +783,7 @@ def render_pot(p, table, note_lines_html=(), card=None, quotes=()):
         tags.append('<span class="wire-gamepage-kicker">%s</span>' % esc(p["headline"]))
     tags.append('<span class="wire-game-tag%s">%s</span>'
                 % (" wire-game-tag-div" if p["kind"] == "intra" else "",
-                   "Division pot" if p["kind"] == "intra" else "Interdivision pot"))
+                   "Divisional matchup" if p["kind"] == "intra" else "Interdivision matchup"))
     parts.append('<div class="wire-gamepage-tags">%s</div>' % "".join(tags))
     parts.append('<div class="wire-pot-banner"><span class="wire-gp-team">%s</span></div>' % esc(p["tag"]))
     parts.append("</div>")
@@ -922,6 +986,13 @@ def render_sections(pack, prose):
         if len(set(pids)) != len(pids):
             raise RenderError("%s places the same pot twice" % where)
         pot_notes = s.get("potNotes") or {}
+        # A league-chat quote on a division page is PART OF THE DESK EXCHANGE:
+        # an anchor sets it up, the message runs, an anchor reacts. Keith
+        # 2026-09-16: "Don't just throw the message out there without
+        # incorporating into the dialogue." potQuoteAt = {pot id: {quote id:
+        # desk line it follows}}, and a pot quote with no position fails the
+        # render instead of dropping to the bottom of the page.
+        pot_quote_at = s.get("potQuoteAt") or {}
         unknown = sorted(k for k in pot_notes if k not in pids)
         if unknown:
             raise RenderError("%s writes a pot note for a pot it does not place: %s"
@@ -937,6 +1008,9 @@ def render_sections(pack, prose):
                     raise RenderError("%s places pot %s without a potNote -- every pot page gets the desk"
                                       % (where, pid))
                 lines_html = []
+                q_at = pot_quote_at.get(pid) or {}
+                if isinstance(raw, str) and q_at:
+                    raise RenderError("%s pot %s places quotes but its note is not desk lines" % (where, pid))
                 if isinstance(raw, str) and raw.strip():
                     pw = "%s pot note %s" % (where, pid)
                     audit_pot_note(raw, pw, p)
@@ -952,14 +1026,38 @@ def render_sections(pack, prose):
                 if p.get("cardId") and not card:
                     raise RenderError("pot %s carries unknown playcard %s" % (pid, p["cardId"]))
                 pq = []
-                for qid in p.get("quoteIds") or []:
+                carried = list(p.get("quoteIds") or [])
+                stray = sorted(set(q_at) - set(carried))
+                if stray:
+                    raise RenderError("%s pot %s places quote(s) the pot does not carry: %s"
+                                      % (where, pid, ", ".join(stray)))
+                for qid in carried:
                     if qid not in quotes:
                         raise RenderError("pot %s carries unknown quote %s" % (pid, qid))
-                    pq.append(quotes[qid])
-                blocks.append(render_pot(p, tables.get(p.get("tableId")), lines_html, card, pq))
+                    if qid not in q_at:
+                        raise RenderError("%s pot %s carries quote %s but no desk line sets it up -- "
+                                          "place it with potQuoteAt" % (where, pid, qid))
+                woven = []
+                for i, line in enumerate(lines_html):
+                    woven.append(line)
+                    woven.extend(render_quote(quotes[q]) for q in carried if int(q_at[q]) == i)
+                bad = [q for q in carried if not 0 <= int(q_at[q]) < len(lines_html)]
+                if bad:
+                    raise RenderError("%s pot %s places %s after a desk line that does not exist (it has %d)"
+                                      % (where, pid, ", ".join(bad), len(lines_html)))
+                blocks.append(render_pot(p, tables.get(p.get("tableId")), woven, card, pq))
+            # Division navigation at BOTH ends -- Keith 2026-09-16, twice now:
+            # "having the divisional click links the bottom of the article as
+            # well as the top... The lower set belongs after the last division
+            # and before the league-wide landscape." Two [data-wire-gamerail]
+            # elements in one deck; the runtime (initGameDeck) keeps every
+            # rail it finds in sync, so a reader can jump divisions from
+            # either end without scrolling back to the top.
             body.append('<div class="wire-gamedeck" data-wire-gamedeck>'
                         '<nav class="wire-gamedeck-rail" data-wire-gamerail></nav>'
-                        '%s</div>' % "".join(blocks))
+                        '%s'
+                        '<nav class="wire-gamedeck-rail wire-gamedeck-rail-bottom" data-wire-gamerail></nav>'
+                        '</div>' % "".join(blocks))
             decks += 1
             # The section's own desk introduces the pots, so its lines carry the
             # same division rule as the pot pages when every pot is one kind.
@@ -1061,14 +1159,14 @@ def render_article(pack, prose, meta, hero_image_data_uri=None):
         when = "%s %d, %d" % (when.strftime("%B"), when.day, when.year)
     except ValueError:
         when = ""
-    footer = " &middot; ".join(esc(x) for x in ("UPS Wire", meta.get("familyTitle") or "", when) if x)
+    footer = " &middot; ".join(esc(x) for x in ("UPS Center", meta.get("familyTitle") or "", when) if x)
 
     return """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>%(doc_title)s &mdash; UPS Wire</title>
+<title>%(doc_title)s &mdash; UPS Center</title>
 <!--wire-meta
   Generated by pipelines/etl/wire/wire.py render. Rebuild the index with:
   python pipelines/etl/wire/wire.py index
@@ -1093,7 +1191,7 @@ def render_article(pack, prose, meta, hero_image_data_uri=None):
       <button class="wire-navlink" data-wire-goto="/f/season-review" type="button">Previews</button>
       <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
     </nav>
-    <span class="wire-topbar-title">UPS Wire</span>
+    <span class="wire-topbar-title">UPS Center</span>
   </div>
 
   <header class="wire-hero">
