@@ -3477,9 +3477,26 @@
   // Reuses the Cap tab's canonical math: currentCapHit (taxi $0, IR×0.5),
   // CAP_CEILING $300K, per-team adj_cut/trade/other. Reflects the selected team,
   // or SUMS across the league on "All Teams" (limits scale by team count).
-  // Roster limits per league_context §B1: active 27 min – 35 max (auction
-  // window); taxi 10; IR 15.
-  var ACTIVE_MAX = 35, ACTIVE_MIN = 27, TAXI_MAX = 10, LOADED_MAX = 5, THREEYR_MAX = 6;
+  // Roster limits per league_context §B1: active 27 min, and an active MAX of
+  // 35 through the September contract deadline, then 30; taxi 10; IR 15.
+  //
+  // The max used to be a flat 35 here, so after the deadline every team read
+  // "30 of 35" (Keith 2026-09-17: "we only have 30 players max not 35").
+  // activeMaxFO() is the same rule as team_operations.js rosterCaps() and
+  // mobile's rosterCapMax(): the deadline from league_events when it has
+  // loaded, otherwise the fixed Sep 6 boundary those two clients fall back to.
+  var ACTIVE_MAX_PRESEASON = 35, ACTIVE_MAX_INSEASON = 30;
+  var ACTIVE_MIN = 27, TAXI_MAX = 10, LOADED_MAX = 5, THREEYR_MAX = 6;
+  function activeMaxFO() {
+    var past;
+    if (STATE.contractDeadline) {
+      past = isPastContractDeadlineFO();
+    } else {
+      var now = new Date();
+      past = now.getMonth() > 8 || (now.getMonth() === 8 && now.getDate() >= 6);
+    }
+    return past ? ACTIVE_MAX_INSEASON : ACTIVE_MAX_PRESEASON;
+  }
   function isLoadedRow(p) {
     // Loaded = an EXPLICIT front/back-loaded contract — the -FL / -BL suffix on
     // the canonical contractStatus (Vet-FAA-FL, Vet-Ext2-BL, …). A merely
@@ -3573,7 +3590,7 @@
       ? '<a class="fo-ir-alert" href="' + irLink + '" target="_blank" rel="noopener noreferrer" title="Manage IR on MFL">⚠ ' + irEligible.length + " IR-eligible &rarr; manage</a>"
       : "";
     el.innerHTML =
-      card(activeN + ' <span class="fo-sum-of">of ' + (ACTIVE_MAX * nTeams) + "</span>", "Active Roster",
+      card(activeN + ' <span class="fo-sum-of">of ' + (activeMaxFO() * nTeams) + "</span>", "Active Roster",
         escapeHtml("min " + (ACTIVE_MIN * nTeams) + " · taxi " + taxiN + "/" + (TAXI_MAX * nTeams)), "") +
       card(fmtUSD(capAlloc), "Cap Allocation",
         "Sal " + escapeHtml(fmtUSD(salaryCap)) + " · Adj " + escapeHtml(fmtUSD(adjTotal)) +
@@ -7322,6 +7339,9 @@
     // buys a year shows up as a body in that year, and a drop empties all three.
     const yearsHtml = [0, 1, 2].map(function (off) {
       const c = capYearRosterCounts(team, off);
+      // This season: today's max (30 once the contract deadline has passed).
+      // A future season is judged at its own auction, where the max is 35.
+      const ACTIVE_MAX = off === 0 ? activeMaxFO() : ACTIVE_MAX_PRESEASON;
       const aCls = capLimitCls(c.active, ACTIVE_MAX, ACTIVE_MIN);
       const tCls = capLimitCls(c.taxi, TAXI_MAX);
       const flags = [];
@@ -8440,7 +8460,7 @@
         (safeInt(p.salary, 0) > 0
           ? " — cap hit goes " + fmtUSD(p.salary) + " → " + fmtUSD(irHalf)
           : "") +
-        "\n  • does NOT count against the active roster max (" + ACTIVE_MAX + ")" +
+        "\n  • does NOT count against the active roster max (" + activeMaxFO() + ")" +
         "\n  • REVERSIBLE — use IR Activate to bring the player back" +
         "\n\n" + IR_ELIGIBLE_DESIGNATIONS_NOTE +
         "\n" + (irElig.state === "eligible"
