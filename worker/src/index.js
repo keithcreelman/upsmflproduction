@@ -556,6 +556,46 @@ async function dmCommish(env, content) {
   return sent;
 }
 
+// A tripped circuit breaker trips again on every cron tick until a human acts,
+// so a plain dmCommish sent the same alert every 5 minutes (2026-09-17: the
+// Thursday waiver run's 15 awards, all morning). DM once per distinct batch --
+// the sorted player ids -- plus one reminder a day while that same batch stays
+// blocked. ups_bot_heartbeat is the shared clock (bot = alertKey, status = the
+// batch). A dedupe read that fails sends the DM anyway, and the batch is only
+// recorded once a DM lands: a MISSED alert is how 2026-08-02 went unnoticed,
+// so this may repeat an alert but must never swallow a new one.
+async function dmCommishOncePerBatch(env, alertKey, pids, content) {
+  const db = env.UPS_MFL_DB;
+  const batch = [...new Set((pids || []).map((p) => String(p)))].sort().join(",");
+  const now = Math.floor(Date.now() / 1000);
+  if (db) {
+    try {
+      const seen = await db.prepare(
+        `SELECT last_ts, status FROM ups_bot_heartbeat WHERE bot = ?`
+      ).bind(alertKey).first();
+      if (seen && String(seen.status || "") === batch && now - Number(seen.last_ts || 0) < 86400) {
+        console.log(`[commish-dm] ${alertKey}: same batch already alerted, not re-sending`);
+        return 0;
+      }
+    } catch (e) {
+      console.log(`[commish-dm] ${alertKey}: dedupe read failed, alerting anyway: ${e?.message || e}`);
+    }
+  }
+  const sent = await dmCommish(env, content);
+  if (db && sent) {
+    try {
+      await db.prepare(
+        `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+         VALUES (?, ?, ?, '')
+         ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = excluded.status`
+      ).bind(alertKey, now, batch).run();
+    } catch (e) {
+      console.log(`[commish-dm] ${alertKey}: could not record the alerted batch: ${e?.message || e}`);
+    }
+  }
+  return sent;
+}
+
 async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey) {
   const eventKey = "tag_deadline_six_am_dm";
   const db = env.UPS_MFL_DB;
@@ -3210,7 +3250,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
       `Nothing changed in MFL. Inspect first:\n` +
       `\`POST /admin/auction/finalize-faa-contracts?L=${leagueId}&dry_run=1&APIKEY=…\`\n` +
       `If the list is legitimate, run it without \`dry_run\` (the admin route is uncapped).`;
-    try { await dmCommish(env, msg); } catch (_) { /* alerting must never mask the trip */ }
+    try { await dmCommishOncePerBatch(env, "faa_finalize_breaker_alert", rowsToWrite.map((r) => r.id), msg); } catch (_) { /* alerting must never mask the trip */ }
     console.error(`[finalize-faa] CIRCUIT BREAKER: refused ${rowsToWrite.length} writes (cap ${maxWrites})`);
     return {
       status: 200,
@@ -3723,8 +3763,9 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
       `An unattended sweep wanted to stamp **${rowsToWrite.length}** waiver contracts in one run (cap ${maxWrites}).\n` +
       `Player ids: ${idList}${rowsToWrite.length > 8 ? ` … +${rowsToWrite.length - 8} more` : ""}\n` +
       `Nothing changed in MFL. Inspect first:\n` +
-      `\`POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1&APIKEY=…\``;
-    try { await dmCommish(env, msg); } catch (_) { /* alerting must never mask the trip */ }
+      `\`POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1&APIKEY=…\`\n` +
+      `If the list is legitimate, run it without \`dry_run\` (the admin route is uncapped). This alert is sent once per batch.`;
+    try { await dmCommishOncePerBatch(env, "ww_stamp_breaker_alert", rowsToWrite.map((r) => r.id), msg); } catch (_) { /* alerting must never mask the trip */ }
     console.error(`[finalize-ww] CIRCUIT BREAKER: refused ${rowsToWrite.length} writes (cap ${maxWrites})`);
     return {
       status: 200,
@@ -6302,16 +6343,24 @@ export default {
               // stamp is here to fill). Running them the other way round means
               // the annotator declines every new award, forever.
               //
-              // maxWrites: the unattended circuit breaker. A waiver run awards a
-              // handful of players; anything past 8 in one tick is a bug, and a
-              // bug that writes contracts is the one we have already paid for
-              // twice. The admin route stays uncapped — a human is watching it.
+              // maxWrites: the unattended circuit breaker. The admin route stays
+              // uncapped — a human is watching it.
+              //
+              // 36 = three per franchise. The first cap, 8, came from the
+              // PRESEASON runs (5-7 awards) and tripped on the first real
+              // in-season Thursday (2026-09-17: 15 awards to 8 teams). In-season
+              // 9 AM runs award far more: the biggest single runs were 19 (2023),
+              // 25 (2024) and 22 (2025), from MFL's BBID_WAIVER log. Each run is
+              // stamped within one tick, so a batch is one run's awards. 36
+              // clears every real run with room, and still refuses what a bug
+              // looks like — a sweep treating described contracts as blank is
+              // hundreds of rows, not dozens.
               let addsStamped = 0;
               if (addStamp) {
                 try {
                   const stRes = await env.SELF.fetch(
                     `${origin}/admin/adds/stamp-ww-contracts?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
-                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, days: 7, max_writes: 8 }) }
+                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, days: 7, max_writes: 36 }) }
                   );
                   const stData = await stRes.json().catch(() => ({}));
                   addsStamped = Number(stData?.verified_count) || 0;
