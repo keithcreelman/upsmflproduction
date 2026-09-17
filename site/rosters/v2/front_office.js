@@ -3986,6 +3986,34 @@
     var slot = "Rd " + rh.round + (rh.pick ? ", Pick " + rh.pick : "");
     return (rh.season ? rh.season + " · " : "") + slot;
   }
+  // Taxi eligibility (canon §B2): 3 call-ups, one per completed NFL week on the
+  // active roster; the 4th makes the promotion permanent. Counts come from the
+  // worker's weekly count off MFL's weekly results (syncTaxiCallupWeeks), so a
+  // week shows here once it is over. Keith 2026-09-17: "We need to add Taxi
+  // Eligibility" (Kyle Monangai, promoted 9/13, was showing nothing).
+  function bioTaxiEligibility(p) {
+    if (p.taxiPermanentPromotion) {
+      return { text: "Not eligible · permanently promoted", note: "Used 4 call-ups, or was on an active roster at the end of a past season." };
+    }
+    if (!p.taxiEligible) {
+      var round = safeInt(p.upsDraftRound, 0), year = safeInt(p.upsDraftYear, 0);
+      var why = !round ? "not a UPS Rookie Draft pick"
+        : round === 1 ? "Round 1 picks stay on the active roster"
+        : year && safeInt(SEASON, 0) - year >= 3 ? "3-year taxi window has ended"
+        : !/^rookie-draft$/i.test(safeStr(p.type)) ? "no longer on his rookie-draft contract"
+        : "";
+      return { text: "Not eligible" + (why ? " · " + why : ""), note: "" };
+    }
+    var max = safeInt(p.taxiCallupsMax, 3) || 3;
+    var used = safeInt(p.taxiCallupsUsed, 0);
+    var left = Math.max(0, max - used);
+    var where = p.isTaxi ? "on taxi" : (p.isIr ? "on IR" : "on the active roster");
+    return {
+      text: left + " of " + max + " call-ups left · " + where,
+      note: "Each completed week on the active roster uses one; the 4th makes the promotion permanent." +
+        (!p.isTaxi && !p.isIr ? " This week counts once it is over." : "")
+    };
+  }
   function bioLastAcquired(p) {
     var head = [safeStr(p.acquisitionTypeLabel), safeStr(p.acquisitionDetail)].filter(Boolean).join(" · ") || safeStr(p.acquisitionText) || "—";
     var date = safeStr(p.acquisitionDate);
@@ -4035,6 +4063,7 @@
         ? '<div class="small" style="color:var(--muted);margin:4px 0 2px 14px;">Yearly breakdown</div>' + bdRows +
           '<div class="fo-form-row" style="padding-left:14px;border-top:1px dashed var(--border);"><span class="lbl">TCV</span><span class="val">' + escapeHtml(fmtUSD(tcv)) + '</span></div>'
         : '<div class="fo-form-row" style="padding-left:14px;"><span class="lbl small" style="color:var(--muted);">Expired / no remaining years</span><span class="val"></span></div>');
+    var taxiBio = bioTaxiEligibility(p);
     return `
       <div class="fo-bio">
         <div class="fo-bio-head">
@@ -4053,6 +4082,7 @@
           <div class="fo-form-row"><span class="lbl">College</span><span class="val">${escapeHtml(d.college || "—")}</span></div>
           <div class="fo-form-row"><span class="lbl">NFL Draft</span><span class="val">${escapeHtml(bioDraft(d))}</span></div>
           <div class="fo-form-row"><span class="lbl">UPS Draft</span><span class="val">${escapeHtml(bioUpsDraft(p))}</span></div>
+          <div class="fo-form-row"><span class="lbl">Taxi Eligibility</span><span class="val">${escapeHtml(taxiBio.text)}${taxiBio.note ? '<div class="small" style="color:var(--muted);">' + escapeHtml(taxiBio.note) + '</div>' : ""}</span></div>
           <div class="fo-form-row"><span class="lbl">Last Acquired</span><span class="val" id="fo-bio-lastacq">${escapeHtml(bioLastAcquired(p))}</span></div>
           ${contractSection}
         </div>

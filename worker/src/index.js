@@ -160,6 +160,195 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
   return out;
 }
 
+// ── Taxi call-up WEEKS, counted from MFL's own weekly rosters (canon §B2) ────
+//
+// WHY (Keith 2026-09-17): no 2026 call-up ever counted. The promote flow saves
+// its row with no NFL week, /api/taxi-callups/confirm skips any row without
+// one, and a promotion made on MFL's own site never produced a row at all. Kyle
+// Monangai was promoted 9/13, spent Week 1 on Gerardi's active roster, and the
+// Front Office still said 0 of 3 used.
+//
+// THE RULE, as Keith ruled it that day: every COMPLETED NFL week a taxi-eligible
+// player spends on his team's active roster uses one of his 3 call-ups -- a
+// promotion off taxi or simply active since the draft, alike -- and the 4th
+// makes the promotion permanent. Players already permanently promoted (4+
+// call-ups, or on an active roster at the end of a prior season) are not
+// counted. "We shouldn't count anyone that was active during 2025": verified
+// the same day that every rookie active at any point in 2025 was already
+// permanent, so that exclusion needs no separate test.
+//
+// SOURCE: MFL weeklyResults for each completed week (every game's clock at 0).
+// A player listed under a franchise there was on that team's active roster;
+// taxi and IR players are not listed. 2024-2025 came from the backfill, so this
+// only counts 2026 on.
+//
+// Taxi-eligible = UPS Rookie Draft Round 2+, inside the 3-league-year window,
+// still on the Rookie-Draft contract: the /roster-workbench taxi_eligible test.
+//
+// Idempotent: one confirmed row per (player, season, week). Promote-click rows
+// (pending=1) from before the end of the last completed week are marked
+// pending=2, "superseded by the weekly count", instead of deleted, so the
+// record of who clicked promote survives; every counter ignores pending=2.
+//
+// FAILS CLOSED. An export that does not answer stops the count at the last week
+// that did, and an unreadable contract or draft list counts nothing: a week is
+// never guessed, and nobody is charged a call-up on a guess.
+async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
+  opts = opts || {};
+  const dryRun = !!opts.dryRun;
+  const db = env && env.UPS_MFL_DB;
+  const yr = parseInt(season, 10);
+  const lg = String(leagueId || "74598").replace(/\D/g, "") || "74598";
+  if (!db) return { ok: false, error: "d1_unbound" };
+  if (!(yr >= 2026)) {
+    return { ok: false, error: "season_not_weekly_counted", message: "Call-up weeks are counted from 2026 on; earlier seasons came from the backfill." };
+  }
+  const UA = { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" } };
+  const arr = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+  const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
+  const getJson = async (url) => {
+    try {
+      const r = await fetch(url, UA);
+      if (!r.ok) return null;
+      return await r.json().catch(() => null);
+    } catch (_) {
+      return null;
+    }
+  };
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+
+  // 1. Completed weeks, in order, stopping at the first that is not over (or
+  //    whose schedule does not answer).
+  const nowSec = Math.floor(Date.now() / 1000);
+  const completed = [];
+  let lastKickoff = 0;
+  let stoppedAt = null;
+  for (let w = 1; w <= 17; w++) {
+    const s = await getJson(`https://api.myfantasyleague.com/${yr}/export?TYPE=nflSchedule&W=${w}&JSON=1`);
+    const games = arr(s && s.nflSchedule && s.nflSchedule.matchup);
+    if (!games.length) { stoppedAt = { week: w, reason: s ? "no_games_listed" : "schedule_unreadable" }; break; }
+    let weekLast = 0;
+    const over = games.every((g) => {
+      const ko = parseInt(g && g.kickoff, 10) || 0;
+      if (ko > weekLast) weekLast = ko;
+      return ko > 0 && ko < nowSec && String(g && g.gameSecondsRemaining) === "0";
+    });
+    if (!over) { stoppedAt = { week: w, reason: "week_not_complete" }; break; }
+    completed.push(w);
+    lastKickoff = weekLast;
+  }
+  if (!completed.length) {
+    return { ok: true, dry_run: dryRun, season: yr, completed_weeks: [], inserts: [], superseded: [], stopped_at: stoppedAt, message: "No completed week yet." };
+  }
+
+  // 2. Who can use a call-up: R2+ UPS draftees in the 3-year window, on the
+  //    Rookie-Draft contract, not already permanent.
+  const picksRes = await db.prepare(
+    "SELECT player_id FROM ups_draft_picks WHERE season BETWEEN ? AND ? AND round >= 2"
+  ).bind(yr - 2, yr).all();
+  const drafted = new Set(arr(picksRes && picksRes.results).map((r) => String(r.player_id)));
+  if (!drafted.size) return { ok: false, error: "draft_picks_unreadable", message: "ups_draft_picks has no Round 2+ picks for the window; nothing was counted." };
+  const sal = await getJson(`https://www48.myfantasyleague.com/${yr}/export?TYPE=salaries&L=${lg}&JSON=1${apiQs}`);
+  const salRows = sal && sal.salaries && sal.salaries.leagueUnit ? sal.salaries.leagueUnit.player : undefined;
+  if (salRows === undefined) return { ok: false, error: "salaries_unreadable", message: "Could not read MFL contracts; nothing was counted." };
+  const onEntryContract = new Set(arr(salRows)
+    .filter((p) => /^rookie-draft$/i.test(String((p && p.contractStatus) || "").trim()))
+    .map((p) => String(p.id)));
+  const counts = await db.prepare(
+    `SELECT player_id,
+            SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
+            MAX(CASE WHEN pending = 0 THEN callup_index ELSE 0 END) AS max_idx
+       FROM ups_taxi_callups GROUP BY player_id`
+  ).all();
+  const usedBy = new Map();
+  for (const r of arr(counts && counts.results)) {
+    usedBy.set(String(r.player_id), Math.max(Number(r.used) || 0, Number(r.max_idx) || 0));
+  }
+  const priorActive = await taxiPriorActivePids(env, "", lg, String(yr));
+  const universe = new Set();
+  let excludedPermanent = 0;
+  for (const pid of drafted) {
+    if (!onEntryContract.has(pid)) continue;
+    if ((usedBy.get(pid) || 0) >= 4 || priorActive.has(pid)) { excludedPermanent++; continue; }
+    universe.add(pid);
+  }
+
+  // 3. Weeks already counted this season.
+  const haveRes = await db.prepare(
+    "SELECT player_id, nfl_week FROM ups_taxi_callups WHERE season = ? AND pending = 0 AND nfl_week IS NOT NULL"
+  ).bind(String(yr)).all();
+  const have = new Set(arr(haveRes && haveRes.results).map((r) => `${r.player_id}|${r.nfl_week}`));
+
+  // 4. Walk the completed weeks.
+  const inserts = [];
+  const running = new Map();
+  const countedThrough = [];
+  for (const w of completed) {
+    const wr = await getJson(`https://api.myfantasyleague.com/${yr}/export?TYPE=weeklyResults&L=${lg}&W=${w}&JSON=1${apiQs}`);
+    const root = wr && wr.weeklyResults;
+    const franchises = root
+      ? arr(root.matchup).flatMap((m) => arr(m && m.franchise)).concat(arr(root.franchise))
+      : [];
+    if (!franchises.length) { stoppedAt = { week: w, reason: "weekly_results_unreadable" }; break; }
+    const seen = new Set();
+    for (const fr of franchises) {
+      const fid = pad4(fr && fr.id);
+      for (const p of arr(fr && fr.player)) {
+        const pid = String((p && p.id) || "").replace(/\D/g, "");
+        if (!pid || !universe.has(pid) || seen.has(pid)) continue;
+        seen.add(pid);
+        if (have.has(`${pid}|${w}`)) continue;
+        const base = running.has(pid) ? running.get(pid) : (usedBy.get(pid) || 0);
+        if (base >= 4) continue;
+        const idx = base + 1;
+        running.set(pid, idx);
+        inserts.push({ player_id: pid, franchise_id: fid, week: w, callup_index: idx, became_permanent: idx >= 4 });
+      }
+    }
+    countedThrough.push(w);
+  }
+  if (!countedThrough.length) {
+    return { ok: false, error: "weekly_results_unreadable", stopped_at: stoppedAt, message: "Could not read MFL weekly results; nothing was counted." };
+  }
+
+  // 5. Promote clicks the weekly count now covers.
+  let boundaryIso = "";
+  if (countedThrough.length === completed.length && lastKickoff > 0) {
+    boundaryIso = new Date(lastKickoff * 1000).toISOString().replace("T", " ").slice(0, 19);
+  }
+  const lastWeek = countedThrough[countedThrough.length - 1];
+  const pendRes = await db.prepare(
+    "SELECT id, player_id, nfl_week, called_up_at FROM ups_taxi_callups WHERE season = ? AND pending = 1"
+  ).bind(String(yr)).all();
+  const superseded = [];
+  for (const r of arr(pendRes && pendRes.results)) {
+    const wk = Number(r.nfl_week) || 0;
+    const byWeek = wk > 0 && wk <= lastWeek;
+    const byTime = !wk && boundaryIso && String(r.called_up_at || "") < boundaryIso;
+    if (byWeek || byTime) superseded.push({ id: r.id, player_id: String(r.player_id), called_up_at: r.called_up_at });
+  }
+
+  if (!dryRun && (inserts.length || superseded.length)) {
+    const stmts = inserts.map((x) => db.prepare(
+      `INSERT INTO ups_taxi_callups
+         (league_id, season, franchise_id, player_id, nfl_week, callup_index, became_permanent, pending, source, raw_payload_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'mfl-weekly-sync', ?)`
+    ).bind(lg, String(yr), x.franchise_id, x.player_id, x.week, x.callup_index, x.became_permanent ? 1 : 0,
+      JSON.stringify({ basis: "weeklyResults active roster", week: x.week })));
+    for (const s of superseded) {
+      stmts.push(db.prepare("UPDATE ups_taxi_callups SET pending = 2 WHERE id = ? AND pending = 1").bind(s.id));
+    }
+    await db.batch(stmts);
+  }
+  return {
+    ok: true, dry_run: dryRun, season: yr,
+    completed_weeks: completed, counted_through_week: lastWeek, stopped_at: stoppedAt,
+    eligible_players: universe.size, excluded_permanent: excludedPermanent,
+    inserts, superseded,
+  };
+}
+
 // Positional leverage coefficients (β per pos_group) from
 // pipelines/etl/config/positional_leverage_2026.json. Win Chunks × β =
 // Win Chunks Normalized — the "how many AP wins did this E+P week
@@ -7042,6 +7231,20 @@ export default {
             if (!env.SELF) {
               console.error("[scheduled hourly] taxi-callups confirm SKIPPED: env.SELF service binding missing");
               return;
+            }
+            // Count completed call-up WEEKS first (flag-gated real write), so any
+            // promote click the weekly count covers is already superseded
+            // before the confirm pass below looks at pending rows.
+            if (await getFeatureFlag(env, "TAXI_CALLUP_WEEKLY_SYNC_ENABLED")) {
+              try {
+                const ws = await syncTaxiCallupWeeks(env, season, leagueId, { dryRun: false });
+                if (!ws.ok) console.error(`[scheduled hourly] taxi-callup weeks: ${ws.error} ${ws.message || ""}`);
+                else if (ws.inserts.length || ws.superseded.length) {
+                  console.log(`[scheduled hourly] taxi-callup weeks: +${ws.inserts.length} weeks, ${ws.superseded.length} promote clicks superseded, through W${ws.counted_through_week}`);
+                }
+              } catch (e) {
+                console.error(`[scheduled hourly] taxi-callup weeks failed: ${e && e.message}`);
+              }
             }
             const internalUrl = `https://self.invalid/api/taxi-callups/confirm`;
             // Just call our own endpoint to keep the logic in one place.
@@ -14849,6 +15052,25 @@ export default {
                 }
               }
               out.cleared.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "not_active_for_week" });
+              continue;
+            }
+            // The weekly count (syncTaxiCallupWeeks) may already hold this
+            // player-week. Confirming too would charge the same week twice, so
+            // the click is marked superseded instead.
+            const dupWeek = await env.UPS_MFL_DB.prepare(
+              `SELECT id FROM ups_taxi_callups
+                WHERE player_id = ? AND season = ? AND nfl_week = ? AND pending = 0 LIMIT 1`
+            ).bind(rPlayerId, String(row.season), weekToCheck).first();
+            if (dupWeek) {
+              if (!dryRun) {
+                try {
+                  await env.UPS_MFL_DB.prepare(`UPDATE ups_taxi_callups SET pending = 2 WHERE id = ?`).bind(rid).run();
+                } catch (e) {
+                  out.errors.push({ id: rid, reason: "supersede_failed", detail: e?.message || String(e) });
+                  continue;
+                }
+              }
+              out.cleared.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "week_already_counted" });
               continue;
             }
             // Player was active for the week — confirm. callup_index =
@@ -42565,6 +42787,27 @@ const mflToSleeper = {};
       // ALWAYS run dry_run=1 first and read `needs_input` — a row there is a
       // waiver award whose price we could not establish from MFL, and it wants
       // a human, not a default.
+      // POST /admin/taxi-callups/sync-weeks?L=..&YEAR=..&APIKEY=..[&dry_run=1]
+      // Commish-gated. Counts taxi call-up WEEKS from MFL's weekly rosters -- see
+      // syncTaxiCallupWeeks for the rule and every guard. Flag
+      // TAXI_CALLUP_WEEKLY_SYNC_ENABLED gates the WRITE only; dry_run always
+      // previews, like the WW stamp.
+      if (path === "/admin/taxi-callups/sync-weeks" && request.method === "POST") {
+        let tbody = {};
+        try { tbody = (await request.json()) || {}; } catch (_) { tbody = {}; }
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const tSeason = safeStr(tbody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const tLeague = safeStr(tbody?.league_id || url.searchParams.get("L") || L || "74598");
+        const tDry = !!tbody?.dry_run || safeStr(url.searchParams.get("dry_run")) === "1";
+        if (!tDry && !(await getFeatureFlag(env, "TAXI_CALLUP_WEEKLY_SYNC_ENABLED"))) {
+          return jsonOut(503, { ok: false, error: "taxi_callup_weekly_sync_disabled" });
+        }
+        const tRes = await syncTaxiCallupWeeks(env, tSeason, tLeague, { dryRun: tDry });
+        return jsonOut(tRes.ok ? 200 : 502, tRes);
+      }
+
       if (path === "/admin/adds/stamp-ww-contracts" && request.method === "POST") {
         let sbody = {};
         try { sbody = (await request.json()) || {}; } catch (_) { sbody = {}; }
