@@ -38,6 +38,21 @@
       }
     } catch (e) {}
     var on = fromUrl !== null ? fromUrl === "1" : stored === "1";
+    // UPS Center (MESSAGE19&hub=wire) has no stock-MFL version, so in Lite Mode
+    // its page is blank. Opening it switches a stored Lite Mode preference OFF
+    // (Keith 2026-09-17), the same exit the player modal's "Open in Front
+    // Office (full site)" link takes. An explicit ?ups_barebones=1 still wins.
+    if (on && fromUrl === null) {
+      try {
+        var cu = new URL(window.location.href);
+        if (String(cu.searchParams.get("MODULE") || "").toUpperCase() === "MESSAGE19" &&
+            String(cu.searchParams.get("hub") || "").toLowerCase() === "wire") {
+          on = false;
+          try { window.localStorage.setItem(KEY, "0"); } catch (e) {}
+          try { console.log("[UPS][barebones] Lite Mode switched off: UPS Center needs the full site"); } catch (e) {}
+        }
+      } catch (e) {}
+    }
     window.UPS_BAREBONES = on;
 
     // Shared setter — the pill, the subnav link, and the mobile drawer row all
