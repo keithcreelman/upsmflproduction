@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.15.1",
-  "label": "Lineup: fixed the current-week check so Submit Lineup stops showing Week 1 opponents after Week 1 is already over."
+  "build": "2026.09.17.1",
+  "label": "Live Scoring: \"Current\" now follows the league's week, so the board stops showing last week's final after the week ends."
 }
