@@ -46,6 +46,27 @@
   // ---- year/week filter + data load ----
   function sbYear() { return M.state.sbYear || ctx().year; }
   function sbWeekSel() { return M.state.sbWeek || ""; }
+  // "Current week" means the week the LEAGUE is in, not MFL's liveScoring week.
+  // liveScoring stays pinned on week N until week N+1's games start producing
+  // scores, so from Tuesday through Thursday kickoff an unfiltered board still
+  // showed last week's finals (Keith 2026-09-17: "the live scoring shows current
+  // and it's showing Week 1 still even though it's week 2"). The worker's
+  // resolveCurrentLineupWeek already decides this for the lineup panel and for
+  // POST /api/submit-lineup, so the board asks the same source instead of
+  // letting MFL pick. Past seasons, and an unresolved answer, fall back to ""
+  // -- MFL's own default, exactly the old behaviour.
+  function sbCurrentWeekPromise() {
+    if (String(sbYear()) !== String(ctx().year)) return Promise.resolve("");
+    if (M.state.lineupWeek > 0) return Promise.resolve(String(M.state.lineupWeek));
+    if (!M.state._cwPromise) {
+      M.state._cwPromise = fetchJson(API.workerUrl("/api/current-lineup-week")).then(function (j) {
+        var w = parseInt((j && j.week) || 0, 10) || 0;
+        if (w) M.state.lineupWeek = w;
+        return w ? String(w) : "";
+      }).catch(function () { return ""; });
+    }
+    return M.state._cwPromise;
+  }
   // Per-season MFL league_id + shard from D1 (/api/league-years). 74598 is 2017+;
   // pre-2017 seasons live on older shards under distinct ids + are cookie-gated
   // (the worker injects the cookie + the &SERVER= shard for those).
@@ -81,8 +102,8 @@
   function loadScoreboard(force) {
     if (M.state.sb && M.state.sb.loaded && !force) { scheduleSbPoll(); return; }
     if (!M.state.sb) M.state.sb = { loaded: false };
-    loadLeagueYears().then(function () {   // resolve per-year league_id/shard first
-    var wk = sbWeekSel();
+    Promise.all([loadLeagueYears(), sbWeekSel() ? Promise.resolve("") : sbCurrentWeekPromise()]).then(function (pre) {
+    var wk = sbWeekSel() || pre[1];
     Promise.all([
       fetchJson(sbExportUrl("liveScoring", wk)),
       fetchJson(sbExportUrl("weeklyResults", wk)),
