@@ -2443,7 +2443,7 @@ The failure being caught is not an owner submitting a short lineup; MFL already 
 | Doubtful at the deadline, **plays** | Clean |
 | **IR** | Same as Out. Keith: *"even more egregious unless it's a late IR submission"* — and a late IR is already excused by the anchor |
 | On a **bye** | Violation. Published months ahead, so no notice question arises |
-| **No eligible replacement** on your roster | **No penalty.** Keith: *"if you don't have a player on your roster you can sub out."* A rule that fines the impossible is not a rule about conduct |
+| **No eligible replacement** on your roster | **Violation** — same as any other Out/Doubtful-and-didn't-play case. Corrected 2026-09-19 (Keith: *"it doesn't matter if there's nobody eligible it would be a violation"*), reversing the 2026-08-17 ruling below, which read *"if you don't have a player on your roster you can sub out"* as an excuse. The notice is what the rule measures, not the roster |
 | Fewer than 18 starters | Violation, but judged at **end of week** — see below |
 | You **win** anyway | Still a violation. Keith: *"doesn't matter if you break the alltime scoring record it's the priciple"* |
 
