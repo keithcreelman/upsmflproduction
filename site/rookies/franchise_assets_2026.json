@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-18T13:50:15.584367+00:00",
+    "generated_at_utc": "2026-09-19T13:24:07.616374+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -177,6 +177,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16387",
+          "display": "Chris Brooks",
+          "player_id": "16387",
+          "position": "RB",
+          "nfl_team": "GBP",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_12221",
           "display": "Danielle Hunter",
           "player_id": "12221",
@@ -314,18 +326,6 @@
           "player_id": "11757",
           "position": "DT",
           "nfl_team": "LAR",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_13132",
-          "display": "Alvin Kamara",
-          "player_id": "13132",
-          "position": "RB",
-          "nfl_team": "NOS",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -1953,6 +1953,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16233",
+          "display": "Jalen Carter",
+          "player_id": "16233",
+          "position": "DT",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16166",
           "display": "Sean Tucker",
           "player_id": "16166",
@@ -1985,18 +1997,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_14153",
-          "display": "Zach Allen",
-          "player_id": "14153",
-          "position": "DT",
-          "nfl_team": "DEN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3607,6 +3607,18 @@
           "display": "Tyler Huntley",
           "player_id": "14789",
           "position": "QB",
+          "nfl_team": "BAL",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17222",
+          "display": "Tyler Loop",
+          "player_id": "17222",
+          "position": "PK",
           "nfl_team": "BAL",
           "salary": 1000,
           "contract_year": 1,
