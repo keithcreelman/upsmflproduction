@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.17.1",
-  "label": "Live Scoring: \"Current\" now follows the league's week, so the board stops showing last week's final after the week ends."
+  "build": "2026.09.19.1",
+  "label": "Lineup: a player's slot locks once his NFL game kicks off, matching canon \u00a7B4; projected points no longer showed next week's numbers next to this week's \u201cOut\u201d tag."
 }
