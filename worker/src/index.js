@@ -42832,10 +42832,15 @@ const mflToSleeper = {};
         if (!pWeek) pWeek = await _injuryPollWeek(pSeason);
         if (!pWeek) return jsonOut(400, { ok: false, error: "Could not resolve a week to preview -- pass ?week=N explicitly." });
         const pChannel = safeStr(pbody?.channel_id || url.searchParams.get("channel_id") || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "");
-        if (!pChannel) return jsonOut(400, { ok: false, error: "No channel to post to (DISCORD_DRAFT_TEST_CHANNEL_ID unset and no channel_id given)." });
+        // dry_run: true computes the body/chunks and returns them WITHOUT
+        // posting anywhere -- was silently ignored (always posted) until
+        // 2026-09-19, when a Henderson-fix verification call meant to be
+        // silent posted to the test channel instead.
+        const pDry = !!pbody?.dry_run || safeStr(url.searchParams.get("dry_run")) === "1";
+        if (!pDry && !pChannel) return jsonOut(400, { ok: false, error: "No channel to post to (DISCORD_DRAFT_TEST_CHANNEL_ID unset and no channel_id given)." });
         const pRes = await runLineupSaturdayAnnounce(env, {
           season: pSeason, leagueId: pLeague, week: pWeek,
-          channelId: pChannel, dryRun: false, skipLog: true,
+          channelId: pChannel, dryRun: pDry, skipLog: true,
           resolveMentions: resolveFranchiseMentions,
         });
         return jsonOut(200, pRes);
