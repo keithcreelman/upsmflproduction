@@ -1,7 +1,7 @@
 // §H delivery layer for §G3 lineup compliance — the plumbing around
 // lineup_compliance.js's evaluator.
 //
-// Four jobs, all driven off the hourly cron:
+// Three jobs, all driven off the hourly cron:
 //
 //   1. runLineupDmSweep()       — 1.5h before each game window, DM every
 //                                 owner their status. Keith's §H spec.
@@ -13,10 +13,16 @@
 //                                 current lineup risk off the injury report
 //                                 (Keith 2026-09-13: "a Sat AM Post that's
 //                                 supposed to be based off the injury
-//                                 reports not just DMs").
-//   4. resolveReplacements      — "did you have anyone to sub in?", which
-//                                 decides whether a bad starter is a
-//                                 violation at all (Keith 2026-08-17).
+//                                 reports not just DMs"), plus a league-wide
+//                                 Out/Doubtful-by-game report (Keith
+//                                 2026-09-19).
+//
+// A fourth job, resolveReplacements ("did you have anyone to sub in?"),
+// existed here through 2026-09-19 -- it downgraded a bad starter to an
+// advisory when nothing on the bench could have replaced him. Keith removed
+// that exception live that day: "it doesn't matter if there's nobody
+// eligible it would be a violation." See evaluateStarter in
+// lineup_compliance.js for where the rule itself lives now.
 //
 // THE RULE IT SERVES lives in lineup_compliance.js. Nothing here decides
 // whether something is a violation; this module only gathers inputs, delivers
@@ -31,7 +37,7 @@
 
 import {
   evaluateLineup, composeLineupDm, bookLineupViolation,
-  injuryHistoryForWeek, injuryObservedFrom, normalizeInjuryStatus,
+  injuryHistoryForWeek, injuryObservedFrom, statusAsOf,
   lineupLadderRung, REQUIRED_STARTERS,
 } from "./lineup_compliance.js";
 // Discord helpers are imported LAZILY, inside the send path only. Statically
@@ -85,7 +91,10 @@ async function _json(url) {
   } catch (_) { return null; }
 }
 
-// Every kickoff in a week, plus which NFL teams play in each.
+// Every kickoff in a week, plus which NFL teams play in each, plus the game
+// pairings themselves (added 2026-09-19 for the per-game Out/Doubtful report
+// -- home/away, so a game can be labeled "AWAY @ HOME" rather than just
+// listing two team codes).
 // Returns null (NOT an empty schedule) when it cannot be read.
 export async function weekSchedule(season, week) {
   const d = await _json(`${MFL_API}/${season}/export?TYPE=nflSchedule&W=${week}&JSON=1`);
@@ -93,16 +102,24 @@ export async function weekSchedule(season, week) {
   if (!ms || !ms.length) return null;
   const kickoffByTeam = {};
   const kickoffs = new Set();
+  const games = [];
   for (const m of ms) {
     const ko = parseInt(m && m.kickoff, 10);
     if (!(ko > 0)) continue;
     kickoffs.add(ko);
-    for (const t of _arr(m.team)) {
+    const teamsRaw = _arr(m.team);
+    for (const t of teamsRaw) {
       const id = _s(t && t.id).toUpperCase();
       if (id) kickoffByTeam[id] = ko;
     }
+    if (teamsRaw.length === 2) {
+      const home = teamsRaw.find((t) => String(t && t.isHome) === "1") || teamsRaw[0];
+      const away = teamsRaw.find((t) => t !== home) || teamsRaw[1];
+      const homeId = _s(home && home.id).toUpperCase(), awayId = _s(away && away.id).toUpperCase();
+      if (homeId && awayId) games.push({ home: homeId, away: awayId, kickoff: ko });
+    }
   }
-  return { kickoffByTeam, kickoffs: [...kickoffs].sort((a, b) => a - b) };
+  return { kickoffByTeam, kickoffs: [...kickoffs].sort((a, b) => a - b), games: games.sort((a, b) => a.kickoff - b.kickoff) };
 }
 
 // NFL teams on bye this week. null when unreadable — a failed read must not
@@ -191,36 +208,21 @@ export async function submittedStarters(season, leagueId, fid, playerIds, cookie
   return { known: true, state: "submitted", starters };
 }
 
-// Could this owner have started somebody else in his place?
-//
-// Keith 2026-08-17: "if you don't have a player on your roster you can sub out"
-// there is no penalty. Conservative on purpose — same position only, and the
-// candidate must himself be startable. Getting this WRONG in the lenient
-// direction excuses a real violation; getting it wrong in the strict direction
-// FINES SOMEBODY FOR A MOVE THEY COULD NOT MAKE, which is what Keith ruled out.
-// So anything uncertain resolves to "a replacement existed = false".
-export function replacementAvailable(pid, { roster, starting, players, byes, injuryAt }) {
-  const me = players && players[pid];
-  if (!me || !me.position) return false;            // unknown position -> excuse
-  for (const r of (roster || [])) {
-    const cid = r.id;
-    if (!cid || cid === pid) continue;
-    if (starting.has(cid)) continue;                 // already in the lineup
-    if (r.status === "TAXI_SQUAD" || r.status === "INJURED_RESERVE") continue;
-    const c = players[cid];
-    if (!c || c.position !== me.position) continue;  // same position only
-    if (byes && byes.has(c.team)) continue;          // a bye player is no help
-    const st = injuryAt ? injuryAt(cid) : null;
-    if (st === "OUT" || st === "IR") continue;       // nor is another Out player
-    return true;
-  }
-  return false;
-}
+// REMOVED 2026-09-19. Used to answer "could this owner have started somebody
+// else in his place?" so a bad starter with no eligible bench replacement
+// downgraded to an advisory (Keith 2026-08-17). Keith corrected that same
+// ruling live: "it doesn't matter if there's nobody eligible it would be a
+// violation" -- so the question this function answered no longer changes
+// anything, and it's gone along with its one call site in ctxFor below.
 
 // Assemble everything one franchise-week needs and hand it to the evaluator.
 // `final` false = a pre-kickoff advisory pass; true = the end-of-week booking.
+// `nowUnix` (optional) lets evaluateStarter tell a still-ahead kickoff from a
+// finished one -- pass the caller's own `now` for a preview/DM pass; omit it
+// for the booking pass, which never runs until every kickoff in the week is
+// hours in the past anyway (see WEEK_SETTLE_SEC).
 export async function evaluateFranchiseWeek(env, {
-  season, leagueId, fid, week, roster, players, sched, byes, history, observedFrom, final,
+  season, leagueId, fid, week, roster, players, sched, byes, history, observedFrom, final, nowUnix,
 }) {
   const st = await submittedStarters(season, leagueId, fid, roster, env && env.MFL_COOKIE);
   if (!st.known) {
@@ -229,13 +231,6 @@ export async function evaluateFranchiseWeek(env, {
     // process (explain by Tuesday, league vote), not something to book here.
     return { skipped: true, reason: st.state, detail: st.reason };
   }
-  const starting = new Set(st.starters);
-  const injuryAt = (pid) => {
-    const h = history[pid] || [];
-    let best = null;
-    for (const e of h) if (!best || e.first_seen_unix > best.first_seen_unix) best = e;
-    return best ? normalizeInjuryStatus(best.status) : null;
-  };
   const starters = st.starters.map((id) => ({
     id, name: (players[id] && players[id].name) || id, nfl_team: players[id] && players[id].team,
   }));
@@ -246,7 +241,7 @@ export async function evaluateFranchiseWeek(env, {
       onBye: byes ? byes.has(info.team) : false,
       history: history[p.id] || [],
       observedFromUnix: observedFrom,
-      replacementAvailable: replacementAvailable(p.id, { roster, starting, players, byes, injuryAt }),
+      nowUnix,
     };
   };
   return { skipped: false, result: evaluateLineup(starters, ctxFor, { final, requiredStarters: REQUIRED_STARTERS }) };
@@ -296,7 +291,7 @@ export async function runLineupDmSweep(env, { season, leagueId, week, nowUnix, d
     if (already) continue;
 
     const ev = await evaluateFranchiseWeek(env, {
-      season, leagueId, fid, week, roster, players, sched, byes, history, observedFrom, final: false,
+      season, leagueId, fid, week, roster, players, sched, byes, history, observedFrom, final: false, nowUnix: now,
     });
     if (ev.skipped) continue;
 
@@ -355,7 +350,7 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
     if (already) { skipped.push({ fid, reason: "already_booked" }); continue; }
 
     const ev = await evaluateFranchiseWeek(env, {
-      season, leagueId, fid, week, roster: rosters[fid], players, sched, byes, history, observedFrom, final: true,
+      season, leagueId, fid, week, roster: rosters[fid], players, sched, byes, history, observedFrom, final: true, nowUnix: now,
     });
     if (ev.skipped) { skipped.push({ fid, reason: ev.reason }); continue; }
     if (ev.result.verdict !== "violation") { clean.push(fid); continue; }
@@ -401,6 +396,44 @@ const SAT_ANNOUNCE_HOUR_ET = 8; // 8am ET Saturday — ahead of the Saturday-8pm
 // summarizing what the injury report says about everyone's CURRENT lineup —
 // "based off the injury reports, not just DMs." Uses the same evaluator,
 // final:false (advisory view — the week isn't over, nothing is booked here).
+
+// Every ROSTERED player (any franchise, whether he's started or not) who is
+// CURRENTLY Out or Doubtful, grouped by his NFL game (Keith 2026-09-19:
+// "please post a list of players per game that are rostered and either Out
+// or Doubtful"). Separate from the per-team violation list above: this is
+// informational for the whole league, not a judgment about anyone's lineup
+// choices. "Currently" = statusAsOf as of `nowUnix`, the same first-seen
+// ledger the violation check reads, so the two sections can never disagree
+// about what a player's status is RIGHT NOW.
+function rosteredOutDoubtfulByGame({ rosters, players, history, sched, names, nowUnix }) {
+  const ownerOf = {};
+  for (const fid of Object.keys(rosters || {})) {
+    for (const r of (rosters[fid] || [])) ownerOf[r.id] = fid;
+  }
+  const gameByTeam = new Map();
+  for (const g of (sched && sched.games) || []) {
+    gameByTeam.set(g.home, g);
+    gameByTeam.set(g.away, g);
+  }
+  const byGame = new Map();
+  for (const pid of Object.keys(ownerOf)) {
+    const info = players[pid];
+    if (!info) continue;
+    const status = statusAsOf(history[pid] || [], nowUnix);
+    if (status !== "OUT" && status !== "DOUBTFUL") continue;
+    const game = gameByTeam.get(info.team);
+    if (!game) continue;   // on a bye, or a team not in this week's schedule
+    const key = `${game.away}@${game.home}`;
+    if (!byGame.has(key)) byGame.set(key, { ...game, rows: [] });
+    const fid = ownerOf[pid];
+    byGame.get(key).rows.push({
+      name: info.name || pid, pos: info.position || "", team: info.team,
+      status, owner: (names && names[fid]) || `Team ${fid}`,
+    });
+  }
+  return [...byGame.values()].sort((a, b) => a.kickoff - b.kickoff);
+}
+
 // skipLog (Keith 2026-09-19: "can you show me a preview in the test
 // channel?") bypasses the Sat-8am window check, the once-per-week dedup
 // read AND the dedup write/heartbeat stamp -- everything except the actual
@@ -410,7 +443,12 @@ const SAT_ANNOUNCE_HOUR_ET = 8; // 8am ET Saturday — ahead of the Saturday-8pm
 // real week (permanently blocking the production post) or, with dryRun
 // instead, never actually post anything to look at. skipLog=true, dryRun=
 // false is the preview combination -- a real Discord message, no bookkeeping.
-export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, nowUnix, channelId, dryRun = false, skipLog = false }) {
+// resolveMentions (optional) — async (env, fids[]) => Map<fid, userId[]>,
+// e.g. index.js's resolveFranchiseMentions. Batched ONE call for every team
+// with an issue, after they're known, rather than per-team -- same "one
+// batched SELECT" discipline that function's own header documents. Without
+// it every team renders by name only, exactly like before 2026-09-19.
+export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, nowUnix, channelId, dryRun = false, skipLog = false, resolveMentions }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
@@ -446,7 +484,7 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
   for (const fid of Object.keys(rosters).sort()) {
     const name = (names && names[fid]) || `Team ${fid}`;
     const ev = await evaluateFranchiseWeek(env, {
-      season, leagueId, fid, week, roster: rosters[fid], players, sched, byes, history, observedFrom, final: false,
+      season, leagueId, fid, week, roster: rosters[fid], players, sched, byes, history, observedFrom, final: false, nowUnix: now,
     });
     if (ev.skipped) { issues.push({ fid, name, verdict: "unchecked", lines: [`Lineup not readable yet (${ev.reason}).`] }); continue; }
     if (ev.result.verdict === "clean") { clean.push({ fid, name }); continue; }
@@ -454,8 +492,23 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
     issues.push({ fid, name, verdict: ev.result.verdict, lines });
   }
 
+  // One batched mention lookup for every team that has something to fix
+  // (Keith 2026-09-19: tag the owner so a 🚨/⚠️ line actually reaches them,
+  // not just the team name). Best-effort -- a lookup failure falls back to
+  // the bold team name exactly like before mentions existed.
+  let mentionsByFid = new Map();
+  if (typeof resolveMentions === "function" && issues.length) {
+    try { mentionsByFid = await resolveMentions(env, issues.map((it) => it.fid)); } catch (_) { /* fall back to names */ }
+  }
+  const mentionFor = (fid) => {
+    const ids = (mentionsByFid && mentionsByFid.get && mentionsByFid.get(fid)) || [];
+    return ids.length ? ids.map((id) => `<@${id}>`).join(" ") : "";
+  };
+
+  const dateLabel = new Date(now * 1000).toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "long", month: "short", day: "numeric" });
   const L = [];
-  L.push(`📋 **Week ${week} lineup check-in — as of this morning's injury report**`);
+  L.push(`📋 **Week ${week} lineup check-in**`);
+  L.push(`It's ${dateLabel} — here's where every lineup stands off this morning's injury report.`);
   L.push("");
   if (!issues.length) {
     L.push(`✅ All ${clean.length} teams clean — nobody starting an Out/Doubtful/bye player right now.`);
@@ -464,11 +517,30 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
     L.push("");
     for (const it of issues) {
       const tag = it.verdict === "violation" ? "🚨" : it.verdict === "advisory" ? "⚠️" : "❔";
-      L.push(`${tag} **${it.name}**`);
+      const mention = mentionFor(it.fid);
+      L.push(`${tag} **${it.name}**${mention ? " " + mention : ""}`);
       for (const line of it.lines) L.push(`   • ${line}`);
     }
     L.push("");
     L.push("_Violations are only counted at end of week — plenty of time to fix a bench before kickoff._");
+  }
+
+  // Out/Doubtful, by game -- every rostered player, not just this week's
+  // issues above (Keith 2026-09-19).
+  const gameRows = rosteredOutDoubtfulByGame({ rosters, players, history, sched, names, nowUnix: now });
+  L.push("");
+  L.push(`🩹 **Rostered players Out/Doubtful, by game**`);
+  if (!gameRows.length) {
+    L.push("Nobody rostered is currently listed Out or Doubtful.");
+  } else {
+    for (const g of gameRows) {
+      const when = new Date(g.kickoff * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" });
+      L.push(`${when} ET — ${g.away} @ ${g.home}`);
+      for (const r of g.rows) {
+        const badge = r.status === "OUT" ? "🚨" : "⚠️";
+        L.push(`   ${badge} ${r.name}${r.pos ? " (" + r.pos + ")" : ""} — ${r.status === "OUT" ? "Out" : "Doubtful"} · ${r.owner}`);
+      }
+    }
   }
   const body = L.join("\n");
 
@@ -483,7 +555,10 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
           method: "POST",
           headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json",
                      "User-Agent": "upsmflproduction-worker" },
-          body: JSON.stringify({ content: body.slice(0, 1900), allowed_mentions: { parse: [] } }),
+          // allowed_mentions now permits user pings (Keith 2026-09-19 added
+          // owner @mentions to this post so the 🚨/⚠️ lines actually reach
+          // them); every other Discord post this module sends stays silent.
+          body: JSON.stringify({ content: body.slice(0, 1900), allowed_mentions: { parse: ["users"] } }),
         });
         const j = await res.json().catch(() => null);
         if (res.ok) messageId = _s(j && j.id);

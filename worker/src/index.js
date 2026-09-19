@@ -7083,7 +7083,7 @@ export default {
             }
           } catch (e) { console.error(`[scheduled hourly] lineup booking failed: ${e && e.message}`); }
           try {
-            const sat = await runLineupSaturdayAnnounce(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek });
+            const sat = await runLineupSaturdayAnnounce(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek, resolveMentions: resolveFranchiseMentions });
             if (sat && !sat.skipped) console.log(`[scheduled hourly] lineup Sat-AM post: wk${lcWeek} -> clean=${sat.clean} issues=${sat.issues} msg=${sat.message_id}`);
           } catch (e) { console.error(`[scheduled hourly] lineup Sat-AM announce failed: ${e && e.message}`); }
         })());
@@ -42836,6 +42836,7 @@ const mflToSleeper = {};
         const pRes = await runLineupSaturdayAnnounce(env, {
           season: pSeason, leagueId: pLeague, week: pWeek,
           channelId: pChannel, dryRun: false, skipLog: true,
+          resolveMentions: resolveFranchiseMentions,
         });
         return jsonOut(200, pRes);
       }
