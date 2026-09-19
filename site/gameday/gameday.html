@@ -71,6 +71,11 @@
   .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; }
   .gd-inj-badge.tier-out { color: #fff; background: var(--danger); }
   .gd-inj-badge.tier-q { color: #1a1206; background: var(--warn); }
+  /* Locked = his NFL game has kicked off; canon §B4 says he can't be
+     substituted in or out from that moment. Neutral color on purpose (unlike
+     the injury badges above) -- a lock is often GOOD news (he already went
+     off for you), it's just no longer editable. */
+  .gd-lock-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; color: var(--fg); background: var(--line-soft); }
   .gd-slot-mu { font-size: 11px; color: var(--muted); padding: 1px 14px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.3; cursor: pointer; display: flex; align-items: center; gap: 5px; }
   .gd-slot-mu:hover { color: var(--fg); }
   .gd-mu-exp { color: var(--muted); font-size: 10px; margin-left: auto; }
@@ -110,6 +115,7 @@
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238a97ad"><path d="M7 10l5 5 5-5z"/></svg>');
     background-repeat: no-repeat; background-position: right 8px center; }
   .gd-slot-sel.empty { color: var(--muted); border-color: var(--line-soft); border-style: dashed; }
+  .gd-slot-sel:disabled { opacity: 0.8; cursor: not-allowed; background-color: var(--panel2); }
 
   .gd-submit-row { margin-top: 16px; }
   .gd-submit { width: 100%; padding: 14px; background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
@@ -406,6 +412,41 @@
       // wins; the projection week is only the fallback for when that call
       // cannot be read (and in the offseason both are absent, which stays 0).
       STATE.lineupWeek = STATE.liveWeek || STATE.projWeek;
+      // MFL's KEYLESS projectedScores (fetched above with no &W=) rolls
+      // forward to the NEXT week once the CURRENT week's early games are
+      // underway -- even though liveWeek/injuries correctly stay on the week
+      // actually being played (Keith 2026-09-19: Kyler Murray and Chigoziem
+      // Okonkwo showed a live "Out" tag sitting right next to a real point
+      // projection -- they're projected to be BACK next week per MFL, and the
+      // fetch above had already silently pulled NEXT week's numbers while the
+      // injury tag stayed on THIS week). Whenever the two disagree and the
+      // real week is known, re-fetch ONCE, pinned explicitly to liveWeek, and
+      // replace the map -- same fix as the #1112 scoreboard bug, one level
+      // up the stack.
+      if (STATE.liveWeek && STATE.projWeek && STATE.projWeek !== STATE.liveWeek) {
+        fetchJson(mflExportUrl("projectedScores", { W: STATE.liveWeek })).then(function (pj) {
+          if (!pj || !pj.projectedScores) return;
+          STATE.proj = parseProj(pj);
+          STATE.projWeek = parseInt((pj.projectedScores && pj.projectedScores.week) || 0, 10) || 0;
+          render();
+        });
+      }
+      // Per-player kickoff times for THIS week, so the lineup editor can lock
+      // a slot the moment its player's own game starts (canon §B4, added
+      // 2026-08-15: "Locks are per player, at his own NFL kickoff. Once his
+      // game begins he cannot be substituted in or out." -- never actually
+      // built; Keith caught it live 2026-09-19 with Greg Rousseau still
+      // freely swappable a full day after his game went final). Needs
+      // STATE.liveWeek, so it fires here rather than in the main Promise.all
+      // above. LS.parseKickoffs() is the same parser the Live tab already
+      // trusts for "Sun 1:00 PM" labels; isKickedOff()/buildRows() below read
+      // STATE.kickoffs once it lands.
+      if (STATE.liveWeek) {
+        fetchJson(mflExportUrl("nflSchedule", { W: STATE.liveWeek })).then(function (schedJson) {
+          STATE.kickoffs = LS.parseKickoffs(schedJson);
+          render();
+        });
+      }
       parseLeague(); resolveViewer();
     });
   }
@@ -521,6 +562,17 @@
   var TOTAL = 18, OFF = 11, DEF = 7;
   function slotAccepts(slot, g) { return slot.accepts.indexOf(g) !== -1; }
   function eligibleRow(r) { if (!r) return false; if (r.isTaxi || r.isIr || r.isExpired) return false; return posGroup(r.pos) !== "OTH"; }
+  // Locked = his NFL team's kickoff for STATE.liveWeek has passed. A bye-week
+  // player (no kickoff entry at all this week) is never locked by this rule --
+  // he never "begins", he's just a bad start, already flagged separately by
+  // the §G3 compliance checker. STATE.kickoffs is undefined until its fetch
+  // lands (loadData()'s .then()), so every row reads unlocked on first paint
+  // and the lock appears a beat later -- same progressive-enhancement pattern
+  // as STATE.proj/STATE.injuries elsewhere on this page.
+  function isKickedOff(team) {
+    var ko = STATE.kickoffs && STATE.kickoffs[String(team || "").toUpperCase()];
+    return !!(ko && Date.now() / 1000 >= ko);
+  }
   // A player MFL's injuries export has NO entry for is not in this map at
   // all (the export lists only players WITH a designation) — so any
   // non-empty injStatus is itself the signal, never a healthy/blank case
@@ -550,23 +602,43 @@
         isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0,
         injStatus: LS.withInjuryOverride(window.UPS_INJURY_OVERRIDES, r.id, (STATE.injuries && STATE.injuries[String(r.id)]) || "") };
       row.eligible = eligibleRow(row);
+      row.locked = isKickedOff(row.team);
       return row;
     });
   }
   // Optimal lineup by projection (no-projection sorts last).
   function optScore(r) { var p = projFor(r.id); return p == null ? -1 : p; }
-  function autoFill(rows) {
+  // A slot's own draft entry, filtered to the ones LOCKED right now. Shared by
+  // Optimal (which must never move a locked player) and Clear (which must
+  // never blank one out from under him).
+  function lockedDraftEntries(draft, byId) {
+    var out = {};
+    SLOTS.forEach(function (sl) {
+      var pid = draft && draft[sl.id];
+      if (pid && byId[pid] && byId[pid].locked) out[sl.id] = pid;
+    });
+    return out;
+  }
+  // currentDraft/byId let Optimal see who is LOCKED and where: those slots are
+  // seeded first and never touched, and locked players are dropped from every
+  // candidate pool so a locked bench player can't be "optimal-filled" into a
+  // still-open slot either (Keith 2026-09-19: Greg Rousseau, kicked off a full
+  // day earlier, was still freely movable).
+  function autoFill(rows, currentDraft, byId) {
+    currentDraft = currentDraft || {}; byId = byId || {};
     var byG = {};
-    rows.forEach(function (r) { if (eligibleRow(r)) { var g = posGroup(r.pos); (byG[g] = byG[g] || []).push(r); } });
+    rows.forEach(function (r) { if (eligibleRow(r) && !r.locked) { var g = posGroup(r.pos); (byG[g] = byG[g] || []).push(r); } });
     Object.keys(byG).forEach(function (g) { byG[g].sort(function (a, b) { return optScore(b) - optScore(a); }); });
     var used = {}, draft = {};
+    var locked = lockedDraftEntries(currentDraft, byId);
+    SLOTS.forEach(function (sl) { if (locked[sl.id]) { draft[sl.id] = locked[sl.id]; used[locked[sl.id]] = 1; } });
     function take(accepts) {
       var best = null;
       accepts.forEach(function (g) { (byG[g] || []).forEach(function (r) { if (!used[r.id] && (!best || optScore(r) > optScore(best))) best = r; }); });
       if (best) { used[best.id] = 1; return best.id; } return "";
     }
-    SLOTS.forEach(function (sl) { if (!sl.flex) draft[sl.id] = take(sl.accepts); });
-    SLOTS.forEach(function (sl) { if (sl.flex) draft[sl.id] = take(sl.accepts); });
+    SLOTS.forEach(function (sl) { if (!sl.flex && !draft[sl.id]) draft[sl.id] = take(sl.accepts); });
+    SLOTS.forEach(function (sl) { if (sl.flex && !draft[sl.id]) draft[sl.id] = take(sl.accepts); });
     return draft;
   }
   function validate(draft, byId) {
@@ -639,8 +711,16 @@
   }
   function slotHtml(slot, rows, draft, used) {
     var current = draft[slot.id] || "";
+    var currentRow = current ? rows.filter(function (r) { return r.id === current; })[0] : null;
+    // Locked (his game has started): stays exactly where he is, visible and
+    // selected, but the slot itself goes read-only -- canon §B4, "once his
+    // game begins he cannot be substituted in or out." A locked player is
+    // ALSO dropped from every OTHER slot's candidate list a few lines down,
+    // so he can't be swapped in elsewhere either.
+    var isLocked = !!(currentRow && currentRow.locked);
     var cands = rows.filter(function (r) {
       if (!r.eligible || !slotAccepts(slot, r.group)) return false;
+      if (r.locked && r.id !== current) return false;
       return !used[r.id] || r.id === current;
     }).sort(function (a, b) {
       // Highest projected first (no-projection sorts last), tie → salary.
@@ -653,12 +733,15 @@
     cands.forEach(function (r) { opts += '<option value="' + esc(r.id) + '"' + (r.id === current ? " selected" : "") + '>' + esc(optText(r)) + '</option>'; });
     var note = slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "";
     var cur = current ? projFor(current) : null;
-    return '<div class="gd-slot' + (current ? " filled" : "") + '">' +
+    return '<div class="gd-slot' + (current ? " filled" : "") + (isLocked ? " locked" : "") + '">' +
       '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
-      '<select class="gd-slot-sel' + (current ? "" : " empty") + '" data-slot="' + esc(slot.id) + '">' + opts + '</select>' +
+      '<select class="gd-slot-sel' + (current ? "" : " empty") + '" data-slot="' + esc(slot.id) + '"' +
+        (isLocked ? ' disabled title="Locked — his game has started; league rule says he can’t be swapped once kickoff passes."' : "") +
+        '>' + opts + '</select>' +
       '<div class="gd-slot-proj' + (cur != null ? "" : " none") + '" title="Projected points">' + esc(fmtProj(cur)) + '</div>' +
     '</div>' +
-    (current ? injBadgeHtml(rows.filter(function (r) { return r.id === current; })[0]) : "") +
+    (isLocked ? '<div class="gd-slot-inj-row"><span class="gd-lock-badge">🔒 Locked — kickoff passed</span></div>' : "") +
+    (current ? injBadgeHtml(currentRow) : "") +
     (current ? slotMatchupHtml(current) : "");
   }
   // ── Submit Lineup matchup intel (Phase 1) — opponent · home/away · kickoff ·
@@ -958,7 +1041,11 @@
         var badge = injBadgeInfo(r.injStatus);
         return '<div class="gd-bench-row"><div class="gd-bench-id"><span class="nm">' + esc(r.name) + '</span>' +
           '<span class="meta">' + esc(r.pos || "—") + ' · ' + esc(r.team || "—") + '</span>' +
-          (badge ? ' <span class="gd-inj-badge tier-' + badge.tier + '">' + esc(badge.label) + '</span>' : '') + '</div>' +
+          (badge ? ' <span class="gd-inj-badge tier-' + badge.tier + '">' + esc(badge.label) + '</span>' : '') +
+          // A benched player already kicked off can never be started now --
+          // say so here too, since he's simply absent from every slot's
+          // dropdown (no other cue would explain why he doesn't show up there).
+          (r.locked ? ' <span class="gd-lock-badge">🔒 Locked</span>' : '') + '</div>' +
           '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
       }).join("") : '<div class="gd-bench-empty">No bench players.</div>') + '</div>' : '');
 
@@ -1014,9 +1101,12 @@
       });
     });
     var af = document.getElementById("gd-autofill");
-    if (af) af.addEventListener("click", function () { STATE.slots = autoFill(rows); STATE.message = null; rerender(); });
+    if (af) af.addEventListener("click", function () { STATE.slots = autoFill(rows, draft, byId); STATE.message = null; rerender(); });
     var clr = document.getElementById("gd-clear");
-    if (clr) clr.addEventListener("click", function () { STATE.slots = {}; STATE.message = null; rerender(); });
+    // Clear keeps only the LOCKED slots -- wiping one out from under an
+    // already-kicked-off player would leave his slot empty with no legal way
+    // to refill it (canon §B4: he can't come back OR be replaced).
+    if (clr) clr.addEventListener("click", function () { STATE.slots = lockedDraftEntries(draft, byId); STATE.message = null; rerender(); });
     var sub = document.getElementById("gd-submit");
     if (sub) sub.addEventListener("click", submitLineup);
   }

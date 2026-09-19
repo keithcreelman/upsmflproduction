@@ -15,6 +15,7 @@
   var DATA = M.data;
   var API = M.api;
   var FO = window.UPS_FRONT_OFFICE_LINEUP;
+  var LS = window.UPSLive;
   var SLOTS = FO.LINEUP_SLOTS;
   var TOTAL = FO.TOTAL_STARTERS;
 
@@ -75,6 +76,39 @@
   // resolveCurrentLineupWeek() is the one place that decides this now, so the
   // screen and the POST /api/submit-lineup write (which calls the very same
   // function) can never disagree again.
+  // MFL's KEYLESS projectedScores rolls forward to the NEXT week once the
+  // current week's early games are underway, even though loadLiveWeek's
+  // resolveCurrentLineupWeek correctly stays on the week actually being
+  // played (Keith 2026-09-19: Kyler Murray and Chigoziem Okonkwo showed a
+  // live "Out" tag sitting right next to a real point projection -- they're
+  // projected to be BACK next week per MFL, and the keyless fetch below had
+  // already rolled to next week's numbers while everything else -- the week
+  // label, the injury tag -- correctly stayed on this week). Whenever the
+  // resolved week (lineupWeek) and the keyless response's own week
+  // (lineupProjWeek) disagree, re-fetch ONCE, pinned explicitly to
+  // lineupWeek, and replace the map. lineupProjWeekFixedFor guards against
+  // looping on a persistent mismatch or a failed refetch; either fetch may
+  // land first (see loadLiveWeek's comment), so both call sites call this.
+  function reconcileProjWeek() {
+    var wk = M.state.lineupWeek;
+    if (!wk || !M.state.lineupProj || !M.state.lineupProj.loaded) return;
+    if (!M.state.lineupProjWeek || M.state.lineupProjWeek === wk) return;
+    if (M.state.lineupProjWeekFixedFor === wk) return;
+    M.state.lineupProjWeekFixedFor = wk;
+    fetch(API.mflExportUrl("projectedScores", { W: wk }), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var map = {}, ps = j && j.projectedScores && j.projectedScores.playerScore;
+        (Array.isArray(ps) ? ps : (ps ? [ps] : [])).forEach(function (p) {
+          if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; }
+        });
+        M.state.lineupProj = { loaded: true, map: map };
+        M.state.lineupProjWeek = wk;
+        M.state.lineupProjRank = null;
+        renderRoute();
+      })
+      .catch(function () { /* keep the mismatched map rather than show nothing */ });
+  }
   function loadLiveWeek() {
     if (M.state.lineupLiveWeekLoading) return;
     M.state.lineupLiveWeekLoading = true;
@@ -82,7 +116,7 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var w = parseInt((j && j.week) || 0, 10) || 0;
-        if (w) { M.state.lineupWeek = w; renderRoute(); }
+        if (w) { M.state.lineupWeek = w; reconcileProjWeek(); renderRoute(); }
       })
       .catch(function () { /* projectedScores.week remains the fallback */ });
   }
@@ -109,6 +143,7 @@
         M.state.lineupProjRank = null;  // rebuild ranks against fresh projections
         // Upgrade an un-edited salary seed to the Optimal (projection) lineup.
         if (M.state.lineupSeed === "salary") { M.state.lineupSlots = null; M.state.lineupSeed = null; }
+        reconcileProjWeek();
         renderRoute();
       })
       .catch(function () { M.state.lineupProj = { loaded: true, map: {} }; renderRoute(); });
@@ -246,6 +281,29 @@
     return raw;
   }
 
+  // Per-player kickoff times for M.state.lineupWeek, mirroring Game Day's
+  // identical fetch -- the same LS.parseKickoffs() the Live Scoring tab
+  // already trusts, so a team's kickoff can never read differently on the
+  // two surfaces. Fetches once per resolved week; every row reads unlocked
+  // until it lands (buildRows() re-runs on the next render either way).
+  function loadKickoffs() {
+    var wk = M.state.lineupWeek;
+    if (!wk || M.state.lineupKickoffsFor === wk) return;
+    M.state.lineupKickoffsFor = wk;
+    fetch(API.mflExportUrl("nflSchedule", { W: wk }), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { M.state.lineupKickoffs = (LS && LS.parseKickoffs(j)) || {}; renderRoute(); })
+      .catch(function () { /* leave undefined -- rows stay unlocked, not wrongly locked */ });
+  }
+  // Locked = his NFL team's kickoff for this week has passed. See Game Day's
+  // isKickedOff() for the full rationale (canon §B4, added 2026-08-15; Keith
+  // caught it live 2026-09-19 with a played-out Greg Rousseau still freely
+  // swappable). A bye-week player (no kickoff entry this week) is never
+  // locked by this rule -- he never "begins".
+  function isKickedOff(team) {
+    var ko = M.state.lineupKickoffs && M.state.lineupKickoffs[U.safeStr(team).toUpperCase()];
+    return !!(ko && Date.now() / 1000 >= ko);
+  }
   function buildRows() {
     var fid = M.state.viewerFranchiseId;
     if (!fid) return [];
@@ -264,6 +322,7 @@
         isExpired: cy === 0
       };
       row.eligible = FO.lineupEligibleRow(row);
+      row.locked = isKickedOff(team);
       return row;
     });
   }
@@ -424,11 +483,17 @@
   // One slot = a label tag + a <select> of eligible, not-yet-used players.
   function renderSlot(slot, rows, draft, used) {
     var current = draft[slot.id] || "";
+    var currentRow = current ? rows.filter(function (r) { return r.id === current; })[0] : null;
+    // Locked (his game has started): stays visible and selected, but the slot
+    // itself goes read-only -- canon §B4. He's also excluded below from every
+    // OTHER slot's candidates, so he can't be swapped in elsewhere either.
+    var isLocked = !!(currentRow && currentRow.locked);
     // Candidates: eligible, group accepted, and either unused elsewhere or
     // the player already in THIS slot (so the select can show them).
     var cands = rows.filter(function (r) {
       if (!r.eligible) return false;
       if (!FO.slotAccepts(slot, r.group)) return false;
+      if (r.locked && r.id !== current) return false;
       return !used[r.id] || r.id === current;
     });
     // Highest projected first (players with no projection sort last), tie → salary.
@@ -453,14 +518,20 @@
     var emptyHint = cands.length ? "" : ' data-none="1"';
     var cur = current ? projFor(current) : null;
     var projCell = '<div class="ups-m-slot-proj' + (cur != null ? "" : " none") + '" title="Projected points">' + U.escapeHtml(fmtProj(cur)) + '</div>';
+    var lockAttr = isLocked
+      ? ' disabled title="Locked — his game has started; league rule says he can’t be swapped once kickoff passes."'
+      : "";
+    var lockBadge = isLocked
+      ? '<div class="ups-m-slot-lock-row"><span class="ups-m-lock-badge">🔒 Locked — kickoff passed</span></div>'
+      : "";
 
-    return '<div class="ups-m-slot' + (filled ? " filled" : "") + '" data-slot="' + slot.id + '"' + emptyHint + '>' +
+    return '<div class="ups-m-slot' + (filled ? " filled" : "") + (isLocked ? " locked" : "") + '" data-slot="' + slot.id + '"' + emptyHint + '>' +
       '<div class="ups-m-slot-tag">' +
         '<span class="' + labelCls + '">' + U.escapeHtml(slot.label) + '</span>' + note +
       '</div>' +
-      '<select class="' + selCls + '" data-slot="' + U.escapeHtml(slot.id) + '">' + opts + '</select>' +
+      '<select class="' + selCls + '" data-slot="' + U.escapeHtml(slot.id) + '"' + lockAttr + '>' + opts + '</select>' +
       projCell +
-    '</div>' + (current ? slotMatchupHtml(current) : "");
+    '</div>' + lockBadge + (current ? slotMatchupHtml(current) : "");
   }
 
   function renderSection(side, title, count, rows, draft, used) {
@@ -501,14 +572,17 @@
     }
     var af = document.getElementById("ups-m-lu-autofill");
     if (af) af.addEventListener("click", function () {
-      M.state.lineupSlots = FO.autoFillSlots(rows, projLoaded() ? projScore : null);
+      M.state.lineupSlots = FO.autoFillSlots(rows, projLoaded() ? projScore : null, draft, rowsById(rows));
       M.state.lineupSeed = projLoaded() ? "proj" : "user";
       M.state.lineupMessage = null;
       renderRoute();
     });
     var clr = document.getElementById("ups-m-lu-clear");
+    // Clear keeps only the LOCKED slots -- wiping one out from under an
+    // already-kicked-off player would leave his slot empty with no legal way
+    // to refill it (canon §B4).
     if (clr) clr.addEventListener("click", function () {
-      M.state.lineupSlots = {};
+      M.state.lineupSlots = FO.lockedDraftEntries(draft, rowsById(rows));
       M.state.lineupSeed = "user";
       M.state.lineupMessage = null;
       renderRoute();
@@ -623,20 +697,25 @@
     if (r.isIr) return { cls: "ir", label: "IR" };
     if (r.isExpired) return { cls: "exp", label: "EXPIRED" };
     if (!r.eligible) return { cls: "exp", label: "INELIGIBLE" };
+    // Kicked off already: he's real and eligible, just no longer startable
+    // this week (canon §B4) -- same reason he's absent from every slot's
+    // dropdown a few lines down.
+    if (r.locked) return { cls: "locked", label: "🔒 LOCKED" };
     return null;
   }
   function renderBench(rows, used) {
     var bench = rows.filter(function (r) { return !used[r.id]; }).sort(function (a, b) {
-      // Unstartable players sink below the real options — a taxi player must
-      // never outrank a player you can actually put in the lineup.
-      var ba = a.eligible ? 0 : 1, bb = b.eligible ? 0 : 1;
+      // Unstartable players sink below the real options — a taxi player (or
+      // a locked one) must never outrank a player you can actually put in
+      // the lineup.
+      var ba = (a.eligible && !a.locked) ? 0 : 1, bb = (b.eligible && !b.locked) ? 0 : 1;
       if (ba !== bb) return ba - bb;
       var ga = BENCH_ORDER[a.group] == null ? 9 : BENCH_ORDER[a.group], gb = BENCH_ORDER[b.group] == null ? 9 : BENCH_ORDER[b.group];
       if (ga !== gb) return ga - gb;
       var pa = projFor(a.id), pb = projFor(b.id); pa = pa == null ? -1 : pa; pb = pb == null ? -1 : pb;
       return pb - pa;
     });
-    var nBlocked = bench.filter(function (r) { return !r.eligible; }).length;
+    var nBlocked = bench.filter(function (r) { return !r.eligible || r.locked; }).length;
     var count = nBlocked ? (bench.length - nBlocked) + " + " + nBlocked + " unavailable" : String(bench.length);
     var show = !!M.state.lineupShowBench;
     var head = '<div class="ups-m-bench-head"><button type="button" class="ups-m-bench-toggle" id="ups-m-bench-toggle">' + (show ? "▾" : "▸") + ' Bench &amp; matchups (' + U.escapeHtml(count) + ')</button></div>';
@@ -659,6 +738,7 @@
     }
     loadProjections();   // lazy fetch; re-renders when projections arrive
     loadMatchups();      // lazy: opponent/kickoff/spread + adjusted def rank
+    loadKickoffs();       // lazy: per-player kickoff -> locks a started slot
     if (!M.state.lineupSlots) {
       if (!projSettled()) {
         // Wait for the projections fetch to SETTLE (success or failure)

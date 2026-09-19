@@ -897,6 +897,7 @@ button.ups-m-busy::before,
 .ups-m-bench-tag.taxi { background: rgba(91, 141, 255, 0.16); color: var(--accent); }
 .ups-m-bench-tag.ir   { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
 .ups-m-bench-tag.exp  { background: rgba(138, 151, 173, 0.16); color: var(--fg-muted); }
+.ups-m-bench-tag.locked { background: rgba(138, 151, 173, 0.16); color: var(--fg-muted); }
 .ups-m-bench-row.blocked .ups-m-bench-id .nm { color: var(--fg-muted); }
 .ups-m-bench-row.blocked .ups-m-bench-proj { opacity: 0.45; }
 .ups-m-mu-form { font-weight: 700; color: var(--fg); }
@@ -955,6 +956,12 @@ button.ups-m-busy::before,
   border-style: dashed;
 }
 .ups-m-slot[data-none] .ups-m-slot-sel { opacity: 0.6; }
+.ups-m-slot-sel:disabled { opacity: 0.8; cursor: not-allowed; background-color: var(--bg-elev2); }
+/* Locked = his NFL game has started; canon §B4 says he can't move now.
+   Neutral color on purpose (unlike an injury tag) -- a lock is often GOOD
+   news (he already went off for you), it's just no longer editable. */
+.ups-m-slot-lock-row { padding: 0 12px 7px 11px; border-left: 3px solid var(--accent); }
+.ups-m-lock-badge { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.02em; padding: 2px 8px; border-radius: 5px; color: var(--fg); background: var(--line-soft); }
 
 .ups-m-lineup-footer {
   position: sticky;

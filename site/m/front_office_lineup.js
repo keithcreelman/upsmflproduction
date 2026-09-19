@@ -79,15 +79,35 @@
     return posGroup(r.pos) !== "OTH";
   }
 
+  // A draft's entries whose CURRENT occupant is locked (his NFL game has
+  // started -- canon §B4, "once his game begins he cannot be substituted in
+  // or out"). Shared by autoFillSlots below (which must never move one) and
+  // by each view's "Clear all" (which must never blank one out from under
+  // him -- an emptied slot could then never legally be refilled).
+  function lockedDraftEntries(draft, rowsByPid) {
+    var out = {};
+    LINEUP_SLOTS.forEach(function (s) {
+      var pid = draft && draft[s.id];
+      if (pid && rowsByPid[pid] && rowsByPid[pid].locked) out[s.id] = pid;
+    });
+    return out;
+  }
+
   // Greedy seed — fill the fixed slots first (best by `scoreFn`), then the
   // flex slots from the best remaining eligible player. Returns { slotId: pid }.
   // scoreFn(row) ranks candidates (default: salary). Pass a projection-based
   // scoreFn for the "Optimal" lineup.
-  function autoFillSlots(rows, scoreFn) {
+  //
+  // currentDraft/rowsByPid (optional) let a LOCKED player survive an Optimal
+  // re-fill unmoved: his slot is seeded first and never re-decided, and he's
+  // dropped from every candidate pool so he can't be "optimal-filled" into a
+  // DIFFERENT still-open slot either (Keith 2026-09-19: a kicked-off Greg
+  // Rousseau was still freely movable by Optimal, not just by hand).
+  function autoFillSlots(rows, scoreFn, currentDraft, rowsByPid) {
     var score = (typeof scoreFn === "function") ? scoreFn : function (r) { return r.salary || 0; };
     var byGroup = {};
     rows.forEach(function (r) {
-      if (!lineupEligibleRow(r)) return;
+      if (!lineupEligibleRow(r) || r.locked) return;
       var g = posGroup(r.pos);
       (byGroup[g] = byGroup[g] || []).push(r);
     });
@@ -95,6 +115,8 @@
       byGroup[g].sort(function (a, b) { return score(b) - score(a); });
     });
     var used = {}, draft = {};
+    var locked = lockedDraftEntries(currentDraft || {}, rowsByPid || {});
+    LINEUP_SLOTS.forEach(function (s) { if (locked[s.id]) { draft[s.id] = locked[s.id]; used[locked[s.id]] = 1; } });
     function take(accepts) {
       var best = null;
       accepts.forEach(function (g) {
@@ -107,8 +129,8 @@
     }
     // Fixed slots first so a flex slot doesn't grab a scarce fixed-position
     // player (e.g. the only TE) before the TE slot can claim it.
-    LINEUP_SLOTS.forEach(function (s) { if (!s.flex) draft[s.id] = take(s.accepts); });
-    LINEUP_SLOTS.forEach(function (s) { if (s.flex)  draft[s.id] = take(s.accepts); });
+    LINEUP_SLOTS.forEach(function (s) { if (!s.flex && !draft[s.id]) draft[s.id] = take(s.accepts); });
+    LINEUP_SLOTS.forEach(function (s) { if (s.flex && !draft[s.id])  draft[s.id] = take(s.accepts); });
     return draft;
   }
 
@@ -186,6 +208,7 @@
     posGroup: posGroup,
     slotAccepts: slotAccepts,
     lineupEligibleRow: lineupEligibleRow,
+    lockedDraftEntries: lockedDraftEntries,
     autoFillSlots: autoFillSlots,
     slotsFromStarters: slotsFromStarters,
     validateSlots: validateSlots
