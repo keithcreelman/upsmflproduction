@@ -76,6 +76,17 @@ const MFL_API = "https://api.myfantasyleague.com";
 const MFL_WWW = "https://www48.myfantasyleague.com";
 const UA = { "User-Agent": "upsmflproduction-worker" };
 
+// HARD BLOCK, not a default that can be overridden (Keith 2026-09-19: the
+// Saturday post's own dedup lost a race with its window check earlier the
+// same day and one real post reached the Coffee Shop before a manual D1
+// block could land. Config alone -- DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID now
+// points elsewhere -- is a default, not a guarantee: an explicit channelId
+// override, on the cron path or the admin preview route, could still name
+// it. "DELETE THIS ENTIRELY...NEVER POST TO COFFEE SHOP only to the
+// injury report page" -- enforced in code, not just config, so a bad
+// override refuses instead of posting.
+const COFFEE_SHOP_CHANNEL_ID = "1087157907419840644";
+
 // DM 1.5h out. The hourly cron cannot hit that to the minute, so the window is
 // "kickoff is 1–2.5h away" — wide enough that an hourly tick always lands in it
 // exactly once, and ups_lineup_dm_log makes a second landing a no-op anyway.
@@ -580,6 +591,10 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
     try {
       const botToken = _s(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
       const chId = _s(channelId || env.DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID || "");
+      if (chId === COFFEE_SHOP_CHANNEL_ID) {
+        console.log("[lineup-sat-announce] REFUSED: resolved channel is the Coffee Shop -- this post never goes there, by design.");
+        return { ok: false, error: "coffee_shop_blocked", message: "This post is permanently blocked from the Coffee Shop. Nothing was sent." };
+      }
       if (botToken && chId) {
         const threadRes = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(chId)}/threads`, {
           method: "POST",
