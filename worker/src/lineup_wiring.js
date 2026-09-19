@@ -397,41 +397,55 @@ const SAT_ANNOUNCE_HOUR_ET = 8; // 8am ET Saturday — ahead of the Saturday-8pm
 // "based off the injury reports, not just DMs." Uses the same evaluator,
 // final:false (advisory view — the week isn't over, nothing is booked here).
 
-// Every ROSTERED player (any franchise, whether he's started or not) who is
-// CURRENTLY Out or Doubtful, grouped by his NFL game (Keith 2026-09-19:
-// "please post a list of players per game that are rostered and either Out
-// or Doubtful"). Separate from the per-team violation list above: this is
-// informational for the whole league, not a judgment about anyone's lineup
-// choices. "Currently" = statusAsOf as of `nowUnix`, the same first-seen
-// ledger the violation check reads, so the two sections can never disagree
-// about what a player's status is RIGHT NOW.
-function rosteredOutDoubtfulByGame({ rosters, players, history, sched, names, nowUnix }) {
-  const ownerOf = {};
+// "Sun 1PM ET" / "Sun 4:05PM ET" -- compact, no ":00" on the hour, no space
+// before AM/PM (Keith 2026-09-19's own example: "Sun 1PM ET").
+function fmtKickCompact(unix) {
+  if (!unix) return "";
+  const d = new Date(unix * 1000);
+  const wd = d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short" });
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true,
+  }).formatToParts(d);
+  let hour = "", minute = "", ampm = "";
+  for (const p of parts) {
+    if (p.type === "hour") hour = p.value;
+    else if (p.type === "minute") minute = p.value;
+    else if (p.type === "dayPeriod") ampm = p.value.toUpperCase();
+  }
+  const time = minute === "00" ? `${hour}${ampm}` : `${hour}:${minute}${ampm}`;
+  return `${wd} ${time} ET`;
+}
+
+// Every ACTIVE-ROSTER player (any franchise, whether he's started or not)
+// who is CURRENTLY Out or Doubtful, grouped by TEAM (Keith 2026-09-19,
+// revising the original by-game ask: "rather than by game list each player
+// per team that are out or doubtful. EXCLUDE TAXI & IR Players" -- a taxi
+// or IR player was never going to start regardless of his injury tag, so
+// listing him here is just noise). "Currently" = statusAsOf as of
+// `nowUnix`, the same first-seen ledger the violation check reads, so this
+// section and Part 1 can never disagree about what a player's status is
+// RIGHT NOW.
+function rosteredOutDoubtfulByTeam({ rosters, players, history, sched, names, nowUnix }) {
+  const byFid = new Map();
   for (const fid of Object.keys(rosters || {})) {
-    for (const r of (rosters[fid] || [])) ownerOf[r.id] = fid;
+    for (const r of (rosters[fid] || [])) {
+      const st = _s(r && r.status);
+      if (/taxi/i.test(st) || /ir|injured/i.test(st)) continue;
+      const info = players[r.id];
+      if (!info) continue;
+      const status = statusAsOf(history[r.id] || [], nowUnix);
+      if (status !== "OUT" && status !== "DOUBTFUL") continue;
+      if (!byFid.has(fid)) byFid.set(fid, { fid, name: (names && names[fid]) || `Team ${fid}`, rows: [] });
+      byFid.get(fid).rows.push({
+        name: info.name || r.id, pos: info.position || "", team: info.team,
+        status, kickoff: (sched && sched.kickoffByTeam || {})[info.team] || 0,
+      });
+    }
   }
-  const gameByTeam = new Map();
-  for (const g of (sched && sched.games) || []) {
-    gameByTeam.set(g.home, g);
-    gameByTeam.set(g.away, g);
-  }
-  const byGame = new Map();
-  for (const pid of Object.keys(ownerOf)) {
-    const info = players[pid];
-    if (!info) continue;
-    const status = statusAsOf(history[pid] || [], nowUnix);
-    if (status !== "OUT" && status !== "DOUBTFUL") continue;
-    const game = gameByTeam.get(info.team);
-    if (!game) continue;   // on a bye, or a team not in this week's schedule
-    const key = `${game.away}@${game.home}`;
-    if (!byGame.has(key)) byGame.set(key, { ...game, rows: [] });
-    const fid = ownerOf[pid];
-    byGame.get(key).rows.push({
-      name: info.name || pid, pos: info.position || "", team: info.team,
-      status, owner: (names && names[fid]) || `Team ${fid}`,
-    });
-  }
-  return [...byGame.values()].sort((a, b) => a.kickoff - b.kickoff);
+  const teams = [...byFid.values()];
+  teams.forEach((t) => t.rows.sort((a, b) => (a.kickoff - b.kickoff) || a.name.localeCompare(b.name)));
+  teams.sort((a, b) => a.name.localeCompare(b.name));
+  return teams;
 }
 
 // skipLog (Keith 2026-09-19: "can you show me a preview in the test
@@ -525,33 +539,28 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
     L.push("_Violations are only counted at end of week — plenty of time to fix a bench before kickoff._");
   }
 
-  const mainBody = L.join("\n");
+  const part1 = L.join("\n");
 
-  // Out/Doubtful, by game -- every rostered player, not just this week's
-  // issues above (Keith 2026-09-19). This runs long (every game, every
-  // rostered Out/Doubtful body, not just starters) -- long enough to blow
-  // past Discord's 2000-char limit most weeks. A 2026-09-19 test post
-  // proved it: 2877 chars built, 1872 posted, the back half of the league
-  // silently missing with no error anywhere. So this section is CHUNKED by
-  // whole games (never splitting one game's rows across messages) and
-  // posted as however many follow-up messages it takes, instead of the
-  // single `.slice(0, 1900)` the rest of this function still uses for the
-  // short, bounded main section above.
-  const gameRows = rosteredOutDoubtfulByGame({ rosters, players, history, sched, names, nowUnix: now });
-  const gameChunks = [];
+  // Part 2 -- Out/Doubtful, by TEAM, active roster only (Keith 2026-09-19,
+  // revising the original by-game ask). Chunked the same way and for the
+  // same reason as the by-game version this replaced: a 2026-09-19 test
+  // post proved the un-chunked version silently truncates mid-league at
+  // Discord's ~1900-char practical limit.
+  const teamRows = rosteredOutDoubtfulByTeam({ rosters, players, history, sched, names, nowUnix: now });
+  const part2Chunks = [];
   {
-    const header = `🩹 **Rostered players Out/Doubtful, by game**`;
+    const header = `🩹 **Week ${week} Saturday Injury Report: rostered players declared Out or Doubtful, by team**`;
     let cur = [header];
     let curLen = header.length;
-    const flush = () => { if (cur.length) gameChunks.push(cur.join("\n")); cur = []; curLen = 0; };
-    if (!gameRows.length) {
-      cur.push("Nobody rostered is currently listed Out or Doubtful.");
+    const flush = () => { if (cur.length) part2Chunks.push(cur.join("\n")); cur = []; curLen = 0; };
+    if (!teamRows.length) {
+      cur.push("Nobody on an active roster is currently listed Out or Doubtful.");
     }
-    for (const g of gameRows) {
-      const when = new Date(g.kickoff * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" });
-      const block = [`${when} ET — ${g.away} @ ${g.home}`, ...g.rows.map((r) => {
+    for (const t of teamRows) {
+      const block = [`${t.name}:`, ...t.rows.map((r) => {
         const badge = r.status === "OUT" ? "🚨" : "⚠️";
-        return `   ${badge} ${r.name}${r.pos ? " (" + r.pos + ")" : ""} — ${r.status === "OUT" ? "Out" : "Doubtful"} · ${r.owner}`;
+        const when = r.kickoff ? fmtKickCompact(r.kickoff) : "kickoff unresolved";
+        return `   ${badge} ${r.name}${r.team ? " - " + r.team : ""}${r.pos ? " (" + r.pos + ")" : ""} — ${when} (${r.status === "OUT" ? "OUT" : "DOUBTFUL"})`;
       })].join("\n");
       if (curLen && curLen + 1 + block.length > 1850) flush();
       cur.push(block);
@@ -560,27 +569,48 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
     flush();
   }
 
+  // Threaded (Keith 2026-09-19: "Can we make it a threaded message? Thread
+  // 'Week X Injury Report'"). One thread per week, Part 1 then Part 2
+  // (however many chunks it takes) posted as messages inside it -- not a
+  // thread spun off a single starter message, a standalone thread created
+  // directly in the target channel.
   const messageIds = [];
-  let messageId = "";
+  let messageId = "";     // the THREAD id -- what gets logged/returned as "the post"
   if (!dryRun) {
     try {
       const botToken = _s(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
       const chId = _s(channelId || env.DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID || "");
       if (botToken && chId) {
-        for (const chunk of [mainBody, ...gameChunks]) {
-          const res = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(chId)}/messages`, {
-            method: "POST",
-            headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json",
-                       "User-Agent": "upsmflproduction-worker" },
-            // allowed_mentions now permits user pings (Keith 2026-09-19 added
-            // owner @mentions to this post so the 🚨/⚠️ lines actually reach
-            // them); every other Discord post this module sends stays silent.
-            body: JSON.stringify({ content: chunk.slice(0, 1900), allowed_mentions: { parse: ["users"] } }),
-          });
-          const j = await res.json().catch(() => null);
-          if (res.ok && j && j.id) messageIds.push(_s(j.id));
+        const threadRes = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(chId)}/threads`, {
+          method: "POST",
+          headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json",
+                     "User-Agent": "upsmflproduction-worker" },
+          // type 11 = GUILD_PUBLIC_THREAD, standalone (no parent message) --
+          // valid directly in a normal text channel. 10080 min = 7 days
+          // before it auto-archives, so it's still open mid-week.
+          body: JSON.stringify({ name: `Week ${week} Injury Report`.slice(0, 100), type: 11, auto_archive_duration: 10080 }),
+        });
+        const thread = await threadRes.json().catch(() => null);
+        const threadId = threadRes.ok ? _s(thread && thread.id) : "";
+        if (threadId) {
+          messageId = threadId;
+          for (const chunk of [part1, ...part2Chunks]) {
+            const res = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(threadId)}/messages`, {
+              method: "POST",
+              headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json",
+                         "User-Agent": "upsmflproduction-worker" },
+              // allowed_mentions now permits user pings (Keith 2026-09-19
+              // added owner @mentions to Part 1 so the 🚨/⚠️ lines actually
+              // reach them); every other Discord post this module sends
+              // stays silent.
+              body: JSON.stringify({ content: chunk.slice(0, 1900), allowed_mentions: { parse: ["users"] } }),
+            });
+            const j = await res.json().catch(() => null);
+            if (res.ok && j && j.id) messageIds.push(_s(j.id));
+          }
+        } else {
+          console.log(`[lineup-sat-announce] thread creation failed: ${JSON.stringify(thread)}`);
         }
-        messageId = messageIds[0] || "";
       }
     } catch (e) { console.log(`[lineup-sat-announce] post failed: ${e && e.message}`); }
     if (!skipLog) {
@@ -597,7 +627,7 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
   }
   return {
     ok: true, week, clean: clean.length, issues: issues.length,
-    message_id: messageId, message_ids: messageIds, message_count: [mainBody, ...gameChunks].length,
-    body: mainBody, game_report_chunks: gameChunks, preview: skipLog,
+    thread_id: messageId, message_id: messageId, message_ids: messageIds, message_count: [part1, ...part2Chunks].length,
+    body: part1, part2_chunks: part2Chunks, preview: skipLog,
   };
 }
