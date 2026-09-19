@@ -525,43 +525,62 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
     L.push("_Violations are only counted at end of week — plenty of time to fix a bench before kickoff._");
   }
 
+  const mainBody = L.join("\n");
+
   // Out/Doubtful, by game -- every rostered player, not just this week's
-  // issues above (Keith 2026-09-19).
+  // issues above (Keith 2026-09-19). This runs long (every game, every
+  // rostered Out/Doubtful body, not just starters) -- long enough to blow
+  // past Discord's 2000-char limit most weeks. A 2026-09-19 test post
+  // proved it: 2877 chars built, 1872 posted, the back half of the league
+  // silently missing with no error anywhere. So this section is CHUNKED by
+  // whole games (never splitting one game's rows across messages) and
+  // posted as however many follow-up messages it takes, instead of the
+  // single `.slice(0, 1900)` the rest of this function still uses for the
+  // short, bounded main section above.
   const gameRows = rosteredOutDoubtfulByGame({ rosters, players, history, sched, names, nowUnix: now });
-  L.push("");
-  L.push(`🩹 **Rostered players Out/Doubtful, by game**`);
-  if (!gameRows.length) {
-    L.push("Nobody rostered is currently listed Out or Doubtful.");
-  } else {
+  const gameChunks = [];
+  {
+    const header = `🩹 **Rostered players Out/Doubtful, by game**`;
+    let cur = [header];
+    let curLen = header.length;
+    const flush = () => { if (cur.length) gameChunks.push(cur.join("\n")); cur = []; curLen = 0; };
+    if (!gameRows.length) {
+      cur.push("Nobody rostered is currently listed Out or Doubtful.");
+    }
     for (const g of gameRows) {
       const when = new Date(g.kickoff * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" });
-      L.push(`${when} ET — ${g.away} @ ${g.home}`);
-      for (const r of g.rows) {
+      const block = [`${when} ET — ${g.away} @ ${g.home}`, ...g.rows.map((r) => {
         const badge = r.status === "OUT" ? "🚨" : "⚠️";
-        L.push(`   ${badge} ${r.name}${r.pos ? " (" + r.pos + ")" : ""} — ${r.status === "OUT" ? "Out" : "Doubtful"} · ${r.owner}`);
-      }
+        return `   ${badge} ${r.name}${r.pos ? " (" + r.pos + ")" : ""} — ${r.status === "OUT" ? "Out" : "Doubtful"} · ${r.owner}`;
+      })].join("\n");
+      if (curLen && curLen + 1 + block.length > 1850) flush();
+      cur.push(block);
+      curLen += (curLen ? 1 : 0) + block.length;
     }
+    flush();
   }
-  const body = L.join("\n");
 
+  const messageIds = [];
   let messageId = "";
   if (!dryRun) {
     try {
-      const { postToDiscordChannel } = await import("./discord_roast_reply.js");
       const botToken = _s(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
       const chId = _s(channelId || env.DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID || "");
       if (botToken && chId) {
-        const res = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(chId)}/messages`, {
-          method: "POST",
-          headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json",
-                     "User-Agent": "upsmflproduction-worker" },
-          // allowed_mentions now permits user pings (Keith 2026-09-19 added
-          // owner @mentions to this post so the 🚨/⚠️ lines actually reach
-          // them); every other Discord post this module sends stays silent.
-          body: JSON.stringify({ content: body.slice(0, 1900), allowed_mentions: { parse: ["users"] } }),
-        });
-        const j = await res.json().catch(() => null);
-        if (res.ok) messageId = _s(j && j.id);
+        for (const chunk of [mainBody, ...gameChunks]) {
+          const res = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(chId)}/messages`, {
+            method: "POST",
+            headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json",
+                       "User-Agent": "upsmflproduction-worker" },
+            // allowed_mentions now permits user pings (Keith 2026-09-19 added
+            // owner @mentions to this post so the 🚨/⚠️ lines actually reach
+            // them); every other Discord post this module sends stays silent.
+            body: JSON.stringify({ content: chunk.slice(0, 1900), allowed_mentions: { parse: ["users"] } }),
+          });
+          const j = await res.json().catch(() => null);
+          if (res.ok && j && j.id) messageIds.push(_s(j.id));
+        }
+        messageId = messageIds[0] || "";
       }
     } catch (e) { console.log(`[lineup-sat-announce] post failed: ${e && e.message}`); }
     if (!skipLog) {
@@ -576,5 +595,9 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
   if (!skipLog) {
     await _stampLineupHeartbeat(db, "lineup_sat_announce", `ok:clean=${clean.length} issues=${issues.length}`);
   }
-  return { ok: true, week, clean: clean.length, issues: issues.length, message_id: messageId, body, preview: skipLog };
+  return {
+    ok: true, week, clean: clean.length, issues: issues.length,
+    message_id: messageId, message_ids: messageIds, message_count: [mainBody, ...gameChunks].length,
+    body: mainBody, game_report_chunks: gameChunks, preview: skipLog,
+  };
 }
