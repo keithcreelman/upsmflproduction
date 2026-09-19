@@ -413,9 +413,29 @@ export async function injuryObservedFrom(env, { season, week }) {
 // may still be stamping week W-1 before its own internal week counter
 // rolls) without letting an unrelated same-named status from last week
 // outrank this week's own, more relevant sighting.
+//
+// SECOND BUG FOUND THE SAME DAY (Keith: "Treveon Henderson is ACTIVE not
+// out"). Henderson has NO week-2 row at all -- he was ruled OUT during week
+// 1 (last confirmed Sep 15), and by the time week 2's own polling started
+// (Sep 18 -- a 70-HOUR gap) MFL had simply stopped listing him, which is how
+// "healthy" looks in this feed (TYPE=injuries lists only players WITH a
+// designation; there is no explicit ACTIVE row to compete with the stale
+// one). The fix above still pulled his week-1 OUT row into week 2's history
+// because week 2 had no OUT row to suppress it with -- a real absence of any
+// week-2 designation isn't the same as an early-week-2 Wednesday poll that
+// just hasn't been re-labeled yet, and the query couldn't tell them apart.
+//
+// Distinguished now by whether the week-1 row was STILL being reconfirmed
+// (last_seen_unix) once week W's own polling began: still current at that
+// moment (the Wednesday-game case) carries forward; gone stale before week W
+// started being watched (Henderson: last seen Sep 15, week 2 tracking began
+// Sep 18) does not. weekObservedFrom=0 (week W never polled yet) skips the
+// check entirely -- evaluateStarter's own observedFrom guard already refuses
+// to judge an unpolled window, so there is nothing this filter needs to add.
 export async function injuryHistoryForWeek(env, { season, week }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return {};
+  const weekObservedFrom = await injuryObservedFrom(env, { season, week });
   const { results } = await db.prepare(
     `SELECT player_id, status, first_seen_unix FROM ups_injury_status WHERE season=? AND week=?
      UNION ALL
@@ -425,8 +445,13 @@ export async function injuryHistoryForWeek(env, { season, week }) {
         AND NOT EXISTS (
           SELECT 1 FROM ups_injury_status cur
            WHERE cur.season=prev.season AND cur.week=? AND cur.player_id=prev.player_id AND cur.status=prev.status
-        )`
-  ).bind(Number(season), Number(week), Number(season), Number(week) - 1, Number(week)).all();
+        )
+        AND (? = 0 OR prev.last_seen_unix >= ?)`
+  ).bind(
+    Number(season), Number(week),
+    Number(season), Number(week) - 1, Number(week),
+    weekObservedFrom, weekObservedFrom
+  ).all();
   const out = {};
   for (const r of (results || [])) {
     const pid = _s(r.player_id);
