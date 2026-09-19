@@ -173,17 +173,18 @@ export function statusAsOf(history, atUnix) {
 // One starter's verdict.
 //
 // `player`   { id, name, nfl_team }
-// `ctx`      { kickoffUnix, onBye, history, observedFromUnix, replacementAvailable }
+// `ctx`      { kickoffUnix, onBye, history, observedFromUnix, nowUnix }
 //
 // observedFromUnix is the earliest injury poll we have for this week. If the
 // notice mark falls before it, we never watched the window that decides the
 // verdict and must not judge it — see the header note on refusing to guess.
 //
-// replacementAvailable must be supplied by the caller when known. `false`
-// downgrades a violation to an advisory (Keith 2026-08-17 — no eligible bench
-// player means nothing could have been done). Leaving it undefined means "not
-// checked" and does NOT excuse; the wiring is responsible for resolving it, and
-// the commissioner's void path is the backstop until it does.
+// nowUnix is optional. Supplied (the Saturday preview, the pre-kickoff DM
+// sweep) it lets a still-ahead kickoff get a forward-looking, present-tense
+// verdict instead of a resolved one -- see "STILL AHEAD OF KICKOFF" below.
+// Omitted (the end-of-week booking pass, which never runs until every kickoff
+// in the week is hours in the past -- see WEEK_SETTLE_SEC) it falls back to
+// today's always-resolved behavior, unchanged.
 export function evaluateStarter(player, ctx) {
   const name = _s(player && player.name) || _s(player && player.id);
   const base = { player_id: _s(player && player.id), name };
@@ -203,6 +204,7 @@ export function evaluateStarter(player, ctx) {
   const capped = saturdayCapUnix(kickoff) != null && saturdayCapUnix(kickoff) < kickoff - INJURY_NOTICE_SECONDS;
   const observedFrom = Number(ctx && ctx.observedFromUnix) || 0;
   const status = statusAsOf(ctx && ctx.history, mark);
+  const window = capped ? "notice deadline (Sat 8pm ET)" : "24-hour mark";
 
   // Did we actually watch the window? A missing status could mean "healthy" or
   // "we weren't looking". Only judge when polling demonstrably covered the mark.
@@ -215,6 +217,24 @@ export function evaluateStarter(player, ctx) {
     }
   }
 
+  // STILL AHEAD OF KICKOFF (Keith 2026-09-19, the Saturday preview post: "It
+  // is Saturday ... still time to fix"). The notice mark has already passed
+  // -- that part is fully decided -- but THIS PLAYER's own game has not
+  // started, so "did he play" is not a fact yet and must not be asserted as
+  // one. A bad-status player already past his notice mark is reported as
+  // heading for a violation, present tense, with the door still open: a real
+  // substitution remains possible right up to his own kickoff (a separate
+  // moment from the notice mark). No "upgraded and played" / "no eligible
+  // bench" softening here — those both depend on facts (what actually
+  // happened, who else was available at that instant) that only exist once
+  // his game is underway; the resolved verdict below applies them once it is.
+  const nowUnix = Number(ctx && ctx.nowUnix) || 0;
+  const kickoffPassed = nowUnix > 0 ? nowUnix >= kickoff : true;
+  if (!kickoffPassed && (status === "OUT" || status === "IR" || status === "DOUBTFUL")) {
+    return { ...base, verdict: "violation", reason: status === "DOUBTFUL" ? "doubtful_at_risk" : "out_at_risk",
+             detail: `${name} is listed ${status} inside your ${window} — still time to fix before kickoff.` };
+  }
+
   // "Did he play?" is decided by NFL INJURY STATUS AND NOTHING ELSE (Keith
   // 2026-08-17: "do not worry about playing time or performance"). A player
   // still listed Out or IR at kickoff did not play; anyone else did.
@@ -224,16 +244,12 @@ export function evaluateStarter(player, ctx) {
   // nothing" — both are 0.0. Status can.
   const atKickoff = statusAsOf(ctx && ctx.history, kickoff);
   const played = !(atKickoff === "OUT" || atKickoff === "IR");
-  const window = capped ? "notice deadline (Sat 8pm ET)" : "24-hour mark";
 
-  // NO REPLACEMENT, NO PENALTY (Keith 2026-08-17). "if you don't have a player
-  // on your roster you can sub out" there is nothing the owner could have done,
-  // and a rule that fines the impossible is not a rule about conduct.
-  //
-  // Must be supplied explicitly by the caller — the evaluator will not infer it.
-  // Undefined means "not checked", which is deliberately NOT the same as "there
-  // was one": see the wiring note in the header.
-  const noReplacement = ctx && ctx.replacementAvailable === false;
+  // REMOVED 2026-09-19 (Keith, correcting the 2026-08-17 "no replacement, no
+  // penalty" ruling: "it doesn't matter if there's nobody eligible it would
+  // be a violation"). A bad-status starter past his notice mark is a
+  // violation regardless of who else was on the bench -- the notice, not the
+  // roster, is what the rule is measuring.
 
   if (status === "OUT" || status === "IR") {
     // Ruled out with notice, then upgraded and played. Keith 2026-08-17: "no
@@ -243,10 +259,6 @@ export function evaluateStarter(player, ctx) {
     if (played) {
       return { ...base, verdict: "clean", reason: "upgraded_and_played",
                detail: `${name} was listed ${status} but was upgraded before kickoff and played.` };
-    }
-    if (noReplacement) {
-      return { ...base, verdict: "advisory", reason: "no_replacement",
-               detail: `${name} was listed ${status}, but you had nobody eligible to start in his place. Not a violation.` };
     }
     // A late IR designation is not a violation for the same reason a late Out
     // is not — the anchor already handles it, because a status first seen after
@@ -258,10 +270,6 @@ export function evaluateStarter(player, ctx) {
 
   if (status === "DOUBTFUL") {
     if (played) return { ...base, verdict: "clean", reason: "doubtful_played", detail: `${name} was Doubtful and played.` };
-    if (noReplacement) {
-      return { ...base, verdict: "advisory", reason: "no_replacement",
-               detail: `${name} was Doubtful and did not play, but you had nobody eligible to start in his place. Not a violation.` };
-    }
     // Doubtful at the mark and ruled out by kickoff. The Doubtful branch
     // governs, not the late Out — you were on notice (Keith 2026-08-17).
     return { ...base, verdict: "violation", reason: "doubtful_did_not_play",
@@ -384,15 +392,41 @@ export async function injuryObservedFrom(env, { season, week }) {
 // both buckets collapses to the earlier sighting, which is the true one — a
 // status carried across a week boundary gets a fresh first_seen in the new
 // bucket, and taking that later value would be the same re-dating bug.
+// BUG FOUND 2026-09-19 (Keith: "you need to be looking at the correct injury
+// report" -- Cedric Gray showed OUT in the Saturday post when MFL had him
+// Questionable). The original query GROUPed week W and week W-1 together by
+// (player_id, status) and kept MIN(first_seen_unix) -- meaning a status
+// string that happened to recur in BOTH weeks collapsed to the OLDER week's
+// timestamp, even when the two occurrences were unrelated episodes. Gray was
+// Questionable in week 1 (first seen Sep 8), then actually ruled OUT later in
+// week 1 (first seen Sep 11, a real week-1 absence), then freshly
+// Questionable again in week 2 (first seen Sep 18) -- a new, unrelated
+// episode. The GROUP BY merged the two Questionable rows into one dated
+// Sep 8, which lost the "latest first_seen wins" race in statusAsOf() to
+// week 1's Sep-11 OUT row -- so week 2's evaluation used a stale week-1
+// designation as if it were current.
+//
+// Fixed to keep week W's OWN row for a status whenever week W has one at
+// all, and fall back to week W-1's row for a status ONLY when week W never
+// recorded that status itself. That still serves the original purpose (a
+// Thursday-kickoff game's 24-hour mark lands on Wednesday, which the poller
+// may still be stamping week W-1 before its own internal week counter
+// rolls) without letting an unrelated same-named status from last week
+// outrank this week's own, more relevant sighting.
 export async function injuryHistoryForWeek(env, { season, week }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return {};
   const { results } = await db.prepare(
-    `SELECT player_id, status, MIN(first_seen_unix) AS first_seen_unix
-       FROM ups_injury_status
-      WHERE season=? AND week IN (?, ?)
-      GROUP BY player_id, status`
-  ).bind(Number(season), Number(week) - 1, Number(week)).all();
+    `SELECT player_id, status, first_seen_unix FROM ups_injury_status WHERE season=? AND week=?
+     UNION ALL
+     SELECT prev.player_id, prev.status, prev.first_seen_unix
+       FROM ups_injury_status prev
+      WHERE prev.season=? AND prev.week=?
+        AND NOT EXISTS (
+          SELECT 1 FROM ups_injury_status cur
+           WHERE cur.season=prev.season AND cur.week=? AND cur.player_id=prev.player_id AND cur.status=prev.status
+        )`
+  ).bind(Number(season), Number(week), Number(season), Number(week) - 1, Number(week)).all();
   const out = {};
   for (const r of (results || [])) {
     const pid = _s(r.player_id);
