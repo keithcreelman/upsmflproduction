@@ -42838,6 +42838,12 @@ const mflToSleeper = {};
         // silent posted to the test channel instead.
         const pDry = !!pbody?.dry_run || safeStr(url.searchParams.get("dry_run")) === "1";
         if (!pDry && !pChannel) return jsonOut(400, { ok: false, error: "No channel to post to (DISCORD_DRAFT_TEST_CHANNEL_ID unset and no channel_id given)." });
+        // Same hard block as runLineupSaturdayAnnounce itself, caught here
+        // too so a bad channel_id never even reaches it (Keith 2026-09-19:
+        // "NEVER POST TO COFFEE SHOP only to the injury report page").
+        if (pChannel === "1087157907419840644") {
+          return jsonOut(400, { ok: false, error: "coffee_shop_blocked", message: "Refused -- this route never posts to the Coffee Shop." });
+        }
         const pRes = await runLineupSaturdayAnnounce(env, {
           season: pSeason, leagueId: pLeague, week: pWeek,
           channelId: pChannel, dryRun: pDry, skipLog: true,
