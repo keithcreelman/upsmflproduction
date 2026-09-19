@@ -42808,6 +42808,38 @@ const mflToSleeper = {};
         return jsonOut(tRes.ok ? 200 : 502, tRes);
       }
 
+      // POST /admin/lineup/preview-announce?L=..&YEAR=..&APIKEY=..[&week=N][&channel_id=...]
+      // Commish-gated. On-demand preview of the §G3/§H Saturday-AM "lineup
+      // check-in" post (Keith 2026-09-19: "can you show me a preview in the
+      // test channel?") -- runLineupSaturdayAnnounce does the real compute,
+      // exactly as the Saturday cron will, and posts a REAL Discord message.
+      //
+      // Defaults to the bot-test channel (DISCORD_DRAFT_TEST_CHANNEL_ID --
+      // reused rather than adding a new env var for a one-off; pass
+      // &channel_id= to post somewhere else). skipLog:true bypasses the
+      // Sat-8am window AND the once-per-week dedup log/heartbeat, so this can
+      // never cannibalize -- or be blocked by -- the real production post.
+      if (path === "/admin/lineup/preview-announce" && request.method === "POST") {
+        let pbody = {};
+        try { pbody = (await request.json()) || {}; } catch (_) { pbody = {}; }
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const pSeason = safeStr(pbody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const pLeague = safeStr(pbody?.league_id || url.searchParams.get("L") || L || "74598");
+        let pWeek = parseInt(pbody?.week || url.searchParams.get("week"), 10) || 0;
+        if (!pWeek) pWeek = await _injuryPollWeek(pSeason);
+        if (!pWeek) return jsonOut(400, { ok: false, error: "Could not resolve a week to preview -- pass ?week=N explicitly." });
+        const pChannel = safeStr(pbody?.channel_id || url.searchParams.get("channel_id") || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "");
+        if (!pChannel) return jsonOut(400, { ok: false, error: "No channel to post to (DISCORD_DRAFT_TEST_CHANNEL_ID unset and no channel_id given)." });
+        const pRes = await runLineupSaturdayAnnounce(env, {
+          season: pSeason, leagueId: pLeague, week: pWeek,
+          channelId: pChannel, dryRun: false, skipLog: true,
+        });
+        return jsonOut(200, pRes);
+      }
+
       if (path === "/admin/adds/stamp-ww-contracts" && request.method === "POST") {
         let sbody = {};
         try { sbody = (await request.json()) || {}; } catch (_) { sbody = {}; }
