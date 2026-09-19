@@ -401,20 +401,31 @@ const SAT_ANNOUNCE_HOUR_ET = 8; // 8am ET Saturday — ahead of the Saturday-8pm
 // summarizing what the injury report says about everyone's CURRENT lineup —
 // "based off the injury reports, not just DMs." Uses the same evaluator,
 // final:false (advisory view — the week isn't over, nothing is booked here).
-export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, nowUnix, channelId, dryRun = false }) {
+// skipLog (Keith 2026-09-19: "can you show me a preview in the test
+// channel?") bypasses the Sat-8am window check, the once-per-week dedup
+// read AND the dedup write/heartbeat stamp -- everything except the actual
+// compute-and-post. It exists so a preview (posted to a DIFFERENT channel
+// via `channelId`) can never cannibalize the real weekly slot: without it,
+// posting a preview would either poison ups_lineup_sat_announce_log for the
+// real week (permanently blocking the production post) or, with dryRun
+// instead, never actually post anything to look at. skipLog=true, dryRun=
+// false is the preview combination -- a real Discord message, no bookkeeping.
+export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, nowUnix, channelId, dryRun = false, skipLog = false }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
 
-  const { weekday, hour } = _etWeekdayHour(now);
-  if (weekday !== "Sat" || hour !== SAT_ANNOUNCE_HOUR_ET) {
-    return { ok: true, skipped: "not_sat_am_window" };
-  }
+  if (!skipLog) {
+    const { weekday, hour } = _etWeekdayHour(now);
+    if (weekday !== "Sat" || hour !== SAT_ANNOUNCE_HOUR_ET) {
+      return { ok: true, skipped: "not_sat_am_window" };
+    }
 
-  const already = await db.prepare(
-    `SELECT 1 FROM ups_lineup_sat_announce_log WHERE season=? AND league_id=? AND week=?`
-  ).bind(Number(season), String(leagueId), Number(week)).first();
-  if (already) return { ok: true, skipped: "already_posted" };
+    const already = await db.prepare(
+      `SELECT 1 FROM ups_lineup_sat_announce_log WHERE season=? AND league_id=? AND week=?`
+    ).bind(Number(season), String(leagueId), Number(week)).first();
+    if (already) return { ok: true, skipped: "already_posted" };
+  }
 
   const [players, rosters, byes, sched, names] = await Promise.all([
     playerIndex(season, leagueId),
@@ -478,13 +489,17 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
         if (res.ok) messageId = _s(j && j.id);
       }
     } catch (e) { console.log(`[lineup-sat-announce] post failed: ${e && e.message}`); }
-    await db.prepare(
-      `INSERT OR IGNORE INTO ups_lineup_sat_announce_log
-         (season, league_id, week, message_id, clean_count, issue_count, posted_unix)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).bind(Number(season), String(leagueId), Number(week), messageId, clean.length, issues.length, now).run();
+    if (!skipLog) {
+      await db.prepare(
+        `INSERT OR IGNORE INTO ups_lineup_sat_announce_log
+           (season, league_id, week, message_id, clean_count, issue_count, posted_unix)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(Number(season), String(leagueId), Number(week), messageId, clean.length, issues.length, now).run();
+    }
   }
 
-  await _stampLineupHeartbeat(db, "lineup_sat_announce", `ok:clean=${clean.length} issues=${issues.length}`);
-  return { ok: true, week, clean: clean.length, issues: issues.length, message_id: messageId, body };
+  if (!skipLog) {
+    await _stampLineupHeartbeat(db, "lineup_sat_announce", `ok:clean=${clean.length} issues=${issues.length}`);
+  }
+  return { ok: true, week, clean: clean.length, issues: issues.length, message_id: messageId, body, preview: skipLog };
 }
