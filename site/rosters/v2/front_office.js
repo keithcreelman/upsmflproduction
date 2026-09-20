@@ -2102,6 +2102,70 @@
     return Date.now() < startMs ? "yes" : "unknown";
   }
 
+  // Is THIS player on the ladder via the OTHER path onto it — a fresh
+  // ERA/FA-Auction/FAA win still on its 1-year default (isPreseasonWwPickupFO
+  // covers the pre-season-WAIVER population; this covers the AUCTION
+  // population). Same three conditions rosterContractEligibility used to
+  // compute inline for myacEligible alone — factored out so
+  // extensionDeadlineForPlayer can gate the Extension rung on the exact same
+  // "is this an auction win still on the ladder" test instead of re-deriving
+  // it, which is how the two functions drifted (myacEligible correctly
+  // stopped offering MYAC past the Sept contract deadline via
+  // !isPastContractDeadlineFO(), but nothing routed that player into the MYM
+  // rung afterward — the ladder's rung-2/3 handling only ever checked
+  // wwClass === "yes". A fresh-auction win like a Vet-FAA pickup lost MYAC
+  // eligibility at the September deadline and never gained MYM, so the
+  // contract-action panel went blank for it from the deadline through Week 3
+  // kickoff — reported by Keith 2026-09-20 re: Gregory Rousseau).
+  //
+  // isEra — CL===1 gate (Keith 2026-09-02): used to carry none at all, which
+  // would hand a MYAC to an already-converted multi-year ERA deal the moment
+  // it reached its final year — mobile's parallel isEra already carries this
+  // gate (site/m/front_office_actions.js ~388), and isFreshFaaStatus below
+  // already carries the identical gate for the FAA arm; this file's ERA arm
+  // was the one left behind.
+  //
+  // isFreshAuction — FAA read straight off contractStatus, exactly like ERA.
+  // Canon (§A3, line 174) created Vet-FAA "so a fresh auction win is never
+  // treated as a held final-year veteran, and the MYAC path stays available" —
+  // but only ERA ever got a contractStatus test. FAA rode entirely on
+  // acquisitionTypeLabel, which is stamped from the COMMISH-MAINTAINED static
+  // site/rosters/player_acquisition_lookup_<yr>.json (last regenerated
+  // 2026-03-10). A player won minutes ago is not in that file, so acqLabel
+  // was "" -> isFreshAuction false -> MYAC hidden and Extension wrongly
+  // offered instead. Verified against all 7 finalized 2026 FAA winners.
+  //
+  // isFreshFaaStatus — CL is the ORIGINAL contract length and never decays (a
+  // converted MYAC writes "CL 2"/"CL 3" and keeps status Vet-FAA), so CL===1
+  // is canon C2's "currently on 1-year default". FAILS CLOSED on an
+  // unreadable CL: a hidden button is recoverable, an irreversible multi-year
+  // MFL write is not. NOTE: this used to read `!rookieLikeContractStatus(status)`,
+  // which excluded ANY status containing "rookie" — including **Rookie-FAA**,
+  // a rookie WON IN THE FA AUCTION. Canon line 394 puts every auction win (FA
+  // or Expired Rookie) at "1, 2, or 3 years", so those players are entitled to
+  // a multi-year auction contract and were being offered Extension as their
+  // only option (8 players across 5 teams on 2026-08-23; reported by an owner
+  // about Cyrus Allen). The status vocabulary fix that started writing
+  // "Rookie-FAA" instead of "Vet-FAA" is what walked them into this clause.
+  // The clause's real intent is "don't offer MYAC to someone whose path is
+  // the ROOKIE OPTION" — so test that directly. A drafted rookie carries
+  // Rookie-Draft and never matches `-faa` anyway.
+  function isPreseasonAuctionLadderEntryFO(p) {
+    var status = safeStr(p && p.type).toLowerCase();
+    var acqLabel = safeStr(p && p.acquisitionTypeLabel).toLowerCase();
+    var acqYr = safeStr(p && p.acquisitionDate).slice(0, 4);
+    var years = Math.max(0, safeInt(p && p.years, 0));
+    var isEra = status.indexOf("-era") !== -1 && parseContractLengthValue(p && p.special) === 1;
+    var isFreshAuction = !isEra && /auction|faa/.test(acqLabel) &&
+                         acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
+                         acqYr === String(SEASON) && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
+    var isFreshFaaStatus = status.indexOf("-faa") !== -1 &&
+                           parseContractLengthValue(p && p.special) === 1 &&
+                           !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
+                           inAuctionMyacMonthWindowFO("faa");
+    return (isEra || isFreshAuction || isFreshFaaStatus) && years === 1;
+  }
+
   function rosterContractEligibility(p) {
     var years = Math.max(0, safeInt(p && p.years, 0));
     var salary = safeInt(p && p.salary, 0);
@@ -2114,51 +2178,13 @@
     // MYAC (Multi-Year Auction Contract, §C2): a 1-year DEFAULT from a fresh
     // acquisition can be set to 2 or 3 years until the September contract
     // deadline. Two entry paths (§C1): (1) ERA win → Vet-ERA; (2) FA Auction →
-    // 1-yr Veteran THIS season. The acquisition-date + auction label separate a
-    // fresh FA-auction Veteran from a HELD final-year Veteran (which gets a normal
-    // Extension, not MYAC). Match the ERA token specifically (not "vetERAn").
+    // 1-yr Veteran THIS season. acqLabel/acqYr are also read by isInSeasonPickup
+    // below; the isEra/isFreshAuction/isFreshFaaStatus derivation itself (incl.
+    // the CL===1 gate, the FAA acquisitionTypeLabel-staleness fix, and the
+    // Rookie-FAA/Cyrus-Allen history) now lives in isPreseasonAuctionLadderEntryFO
+    // — see that function's header for the full rationale.
     var acqLabel = safeStr(p && p.acquisitionTypeLabel).toLowerCase();
     var acqYr = safeStr(p && p.acquisitionDate).slice(0, 4);
-    // CL===1 gate (Keith 2026-09-02): isEra used to carry none at all, which
-    // would hand a MYAC to an already-converted multi-year ERA deal the
-    // moment it reached its final year — mobile's parallel isEra already
-    // carries this gate (site/m/front_office_actions.js ~388), and
-    // isFreshFaaStatus below already carries the identical gate for the FAA
-    // arm; this file's ERA arm was the one left behind.
-    var isEra = status.indexOf("-era") !== -1 && parseContractLengthValue(p && p.special) === 1;
-    var isFreshAuction = !isEra && /auction|faa/.test(acqLabel) &&
-                         acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
-                         acqYr === String(SEASON) && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
-    // FAA read straight off contractStatus, exactly like ERA one line up.
-    // Canon (§A3, line 174) created Vet-FAA "so a fresh auction win is never
-    // treated as a held final-year veteran, and the MYAC path stays available" —
-    // but only ERA ever got a contractStatus test. FAA rode entirely on
-    // acquisitionTypeLabel, which is stamped from the COMMISH-MAINTAINED static
-    // site/rosters/player_acquisition_lookup_<yr>.json (last regenerated
-    // 2026-03-10). A player won minutes ago is not in that file, so acqLabel
-    // was "" -> isFreshAuction false -> MYAC hidden and Extension wrongly
-    // offered instead. Verified against all 7 finalized 2026 FAA winners.
-    //
-    // CL is the ORIGINAL contract length and never decays (a converted MYAC
-    // writes "CL 2"/"CL 3" and keeps status Vet-FAA), so CL===1 is canon C2's
-    // "currently on 1-year default". FAILS CLOSED on an unreadable CL: a hidden
-    // button is recoverable, an irreversible multi-year MFL write is not.
-    // NOTE: this used to read `!rookieLikeContractStatus(status)`, which excluded
-    // ANY status containing "rookie" — including **Rookie-FAA**, a rookie WON IN
-    // THE FA AUCTION. Canon line 394 puts every auction win (FA or Expired
-    // Rookie) at "1, 2, or 3 years", so those players are entitled to a
-    // multi-year auction contract and were being offered Extension as their only
-    // option (8 players across 5 teams on 2026-08-23; reported by an owner about
-    // Cyrus Allen). The status vocabulary fix that started writing "Rookie-FAA"
-    // instead of "Vet-FAA" is what walked them into this clause.
-    //
-    // The clause's real intent is "don't offer MYAC to someone whose path is the
-    // ROOKIE OPTION" — so test that directly. A drafted rookie carries
-    // Rookie-Draft and never matches `-faa` anyway.
-    var isFreshFaaStatus = status.indexOf("-faa") !== -1 &&
-                           parseContractLengthValue(p && p.special) === 1 &&
-                           !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
-                           inAuctionMyacMonthWindowFO("faa");
 
     // ── Pre-season acquisition ladder (canon ~379/~785) ─────────────────
     // A PRE-SEASON WW/FCFS/waiver pickup (Malik Davis, picked up 2026-08-09 —
@@ -2167,12 +2193,20 @@
     // clock below. wwClass "unknown" gets no ladder action at all — an
     // unresolvable window is not an open one. See isPreseasonWwPickupFO /
     // contractLadderStageFO_desktop for the boundary math.
+    //
+    // auctionLadderEntry (isPreseasonAuctionLadderEntryFO — isEra ||
+    // isFreshAuction || isFreshFaaStatus, computed above) is the OTHER
+    // population on this same ladder. It used to be excluded from `ladder`
+    // entirely and gated on !isPastContractDeadlineFO() alone, which correctly
+    // closed MYAC at the September deadline but never opened MYM for these
+    // players afterward (mobile's parallel rosterContractEligibility already
+    // included it — see that file's auctionLadderEntry). Fixed 2026-09-20.
     var wwClass = isPreseasonWwPickupFO(p);
-    var ladder = wwClass === "yes" ? contractLadderStageFO_desktop(p) : null;
+    var auctionLadderEntry = isPreseasonAuctionLadderEntryFO(p);
+    var ladder = (wwClass === "yes" || auctionLadderEntry) ? contractLadderStageFO_desktop(p) : null;
 
-    var myacEligible = (isEra || isFreshAuction || isFreshFaaStatus ||
-                        (wwClass === "yes" && !!ladder && ladder.stage === "myac")) &&
-                       years === 1 && !isPastContractDeadlineFO();
+    var myacEligible = (auctionLadderEntry || wwClass === "yes") &&
+                       !!ladder && ladder.stage === "myac";
     // MYM (Mid-Year Multi, §C3): an in-season WW/FCFS/waiver pickup can convert
     // to a FLAT 2- or 3-year deal within 14 days of acquisition. Distinct from
     // MYAC (auction wins) and Extension. Best-effort from the acquisition
@@ -2217,22 +2251,33 @@
     // wwClass !== "yes", so "unknown" falls through here rather than
     // suppressing eligibility on a fetch that this rule never used to
     // depend on).
-    var mymEligible = wwClass === "yes"
-      ? (!!ladder && ladder.stage === "mym" && !myacEligible &&
-         status.indexOf("tag") === -1 && !rookieOptionActionEligible(p))
-      : (isInSeasonPickup && mymDays != null && mymDays >= 0 && mymDays <= 14 &&
-         years <= 1 && status.indexOf("tag") === -1 && !myacEligible &&
-         !rookieOptionActionEligible(p));
+    // Ladder rung 2 (auctionLadderEntry OR wwClass "yes" — contract deadline →
+    // Week 3 kickoff) is checked FIRST and, unlike the myacEligible OR-branch
+    // above, is additive with the in-season day clock rather than replacing
+    // it: the two populations (ladder players vs. genuine in-season WW/FCFS
+    // pickups) are disjoint by construction (isInSeasonPickup requires
+    // wwClass !== "yes", and an auctionLadderEntry's acqLabel always fails
+    // isInSeasonPickup's "not auction" test), so an OR here is byte-equivalent
+    // to a per-population ternary while adding the missing auction arm.
+    var mymEligible = (!!ladder && ladder.stage === "mym" && !myacEligible &&
+                       status.indexOf("tag") === -1 && !rookieOptionActionEligible(p)) ||
+                      (isInSeasonPickup && mymDays != null && mymDays >= 0 && mymDays <= 14 &&
+                       years <= 1 && status.indexOf("tag") === -1 && !myacEligible &&
+                       !rookieOptionActionEligible(p));
     var extCandidate = !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
                        !noFurther && !myacEligible && (years === 1 || expiredRookie);
     return {
       myacEligible: myacEligible,
       mymEligible: mymEligible,
-      // Ladder players (wwClass "yes") carry NO day-count — their window is a
-      // calendar boundary (Week 3 kickoff), not a clock started by their
-      // pickup, so "Day N of 14" would misreport it. Mirrors mobile's
-      // rosterContractEligibility exactly.
-      mymDaysSinceAcq: wwClass === "yes" ? null : mymDays,
+      // Ladder players (wwClass "yes" OR auctionLadderEntry) carry NO
+      // day-count — their window is a calendar boundary (Week 3 kickoff), not
+      // a clock started by their pickup, so "Day N of 14" would misreport it.
+      // `ladder` is non-null for exactly this population (see above) — mirrors
+      // mobile's rosterContractEligibility exactly (`ladder ? null : mymDays`).
+      // This was still keyed on wwClass alone until 2026-09-20, so an auction
+      // win's real MYAC/MYM acquisition date (months old by the ladder's MYM
+      // rung) rendered as a bogus "Day 40 of 14" instead of no day-count.
+      mymDaysSinceAcq: ladder ? null : mymDays,
       // Base candidate: final year (cy=1) or expired rookie, not tag/option/MYAC.
       // extensionEligible additionally requires being inside the §C4 deadline
       // WINDOW (rookie → May of expiry year, veteran → September, WW → days 15–28,
@@ -2255,6 +2300,12 @@
   // §C2 MYAC window closes at the September contract deadline (D1 league_events
   // `ups_contract_deadline`, e.g. 2026-09-06). Unknown → treat as within window
   // (show MYAC) so a load failure never blocks the option.
+  //
+  // No longer called: myacEligible now gates on the server-resolved ladder
+  // stage (ladder.stage === "myac") instead of this fail-open local
+  // recomputation — see rosterContractEligibility. Left in place; nothing
+  // else in this file depends on it, but it documents the exact deadline
+  // instant the ladder itself is built from (loadContractDeadline).
   function isPastContractDeadlineFO() {
     var d = STATE.contractDeadline;
     if (!d) return false;
@@ -2315,13 +2366,23 @@
     var DAY = 86400000;
 
     // ── Pre-season acquisition ladder split (canon ~379/~785) ────────────
-    // A WW/FCFS pickup made BEFORE Week 1 kickoff runs the MYAC→MYM→Extension
+    // A WW/FCFS pickup made BEFORE Week 1 kickoff, OR a fresh ERA/FA-Auction/
+    // FAA win still on its 1-year default, runs the SAME MYAC→MYM→Extension
     // ladder (rung 3 = Extension, Week 3 → Week 5 kickoff), NOT the in-season
     // days-15-28 clock below — see isPreseasonWwPickupFO /
-    // rosterContractEligibility. wwClass "no" leaves the isWW block below
-    // COMPLETELY untouched for a genuine in-season pickup (byte-identical).
+    // isPreseasonAuctionLadderEntryFO / rosterContractEligibility. wwClass
+    // "no" AND !auctionLadderEntry leaves the isWW block below COMPLETELY
+    // untouched for a genuine in-season pickup (byte-identical).
+    //
+    // auctionLadderEntry used to be absent here entirely, so an auction win
+    // fell through to the `else` branch below ("Veteran — September contract
+    // deadline") once it left the WW checks — a deadline already in the past
+    // by the time MYM or Extension would matter, permanently reporting
+    // in_window:false for both. Fixed alongside the same gap in
+    // rosterContractEligibility (Keith 2026-09-20, Gregory Rousseau).
     var wwClass = isPreseasonWwPickupFO(p);
-    if (wwClass === "yes") {
+    var auctionLadderEntry = isPreseasonAuctionLadderEntryFO(p);
+    if (wwClass === "yes" || auctionLadderEntry) {
       var ladder = contractLadderStageFO_desktop(p);
       var extEndMs = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[5]);
       var mymEndMs = finiteMsOrNullFO(STATE.weekKickoffs && STATE.weekKickoffs[3]);
@@ -2334,7 +2395,7 @@
       return {
         date: extDate,
         start: extStart,
-        basis: "Pre-season WW/FCFS pickup — extension window (post-MYM)",
+        basis: (wwClass === "yes" ? "Pre-season WW/FCFS pickup" : "Auction win") + " — extension window (post-MYM)",
         days_until: extDate ? Math.ceil((extDate.getTime() - nowLadder) / DAY) : null,
         in_window: ladder.stage === "extension"
       };
@@ -3501,9 +3562,9 @@
       // The deadline as a real instant, matching isPastContractDeadlineFO's
       // 23:59:59 ET boundary -- NOT contractDeadlineDateFO's 9pm-ET display
       // convention (used elsewhere for extension countdown copy, a different
-      // purpose). isPastContractDeadlineFO is the boundary ALREADY governing
-      // MYAC eligibility for every existing arm (ERA/auction/FAA) via the
-      // `!isPastContractDeadlineFO()` gate on myacEligible below; feeding the
+      // purpose). This 23:59:59 ET instant is what the SERVER's own ladder
+      // stage (STATE.contractLadderServer, read below) is built from for
+      // every arm (ERA/auction/FAA/pre-season-WW alike); feeding the client
       // ladder a different, earlier instant for the SAME calendar day would
       // make the new WW-pickup arm flip to MYM up to ~3 hours before the
       // other arms flip, on deadline day itself -- caught in review.
