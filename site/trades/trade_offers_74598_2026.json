@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-09-22T00:37:31.860Z",
+    "updated_at": "2026-09-22T10:43:59.085Z",
     "row_count": 64,
     "source": "worker-trade-offers"
   },
@@ -2012,7 +2012,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-27T14:56:10.030Z",
-      "updated_at": "2026-08-04T12:02:59.589Z",
+      "updated_at": "2026-09-22T10:43:59.085Z",
       "from_franchise_id": "0007",
       "to_franchise_id": "0011",
       "from_franchise_name": "Sex Manther",
@@ -2021,22 +2021,22 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "17134",
-      "will_receive": "FP_0011_2027_2",
+      "will_give_up": "13593,BB_19000",
+      "will_receive": "17104,FP_0011_2027_1,FP_0011_2027_2",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
-        "to_asset_count": 1,
-        "from_trade_salary_k": 0,
+        "to_asset_count": 3,
+        "from_trade_salary_k": 19,
         "to_trade_salary_k": 0,
         "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-08-04T12:02:54.631Z",
-        "source": "ups-trade-workbench",
+        "generated_at": "2026-09-22T10:43:57.794Z",
+        "source": "ups-mobile-trade-builder",
         "league_id": "74598",
-        "season": 2026,
+        "season": "2026",
         "teams": [
           {
             "role": "left",
@@ -2044,17 +2044,19 @@
             "franchise_name": "Sex Manther",
             "selected_assets": [
               {
-                "asset_id": "player:17134",
+                "asset_id": "P_13593",
                 "type": "PLAYER",
-                "player_id": "17134",
-                "player_name": "Williams, Kyle",
+                "player_id": "13593",
+                "player_name": "Lamar Jackson",
                 "description": null,
-                "position": "WR",
-                "nfl_team": "NEP",
-                "salary": 5000,
-                "years": 2,
-                "contract_type": "Rookie-Draft",
-                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+                "position": "QB",
+                "nfl_team": "BAL",
+                "salary": 38000,
+                "years": 3,
+                "contract_type": "Vet-FAA-BL",
+                "contract_info": "CL 3|TCV 186K|AAV 62K|Y1-38K, Y2-62K, Y3-86K|GTD: 139.5K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
                 "taxi": false,
                 "pick_key": null,
                 "pick_season": null,
@@ -2062,10 +2064,10 @@
                 "pick_slot": null
               }
             ],
-            "traded_salary_adjustment_dollars": 0,
-            "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 2,
-            "selected_non_taxi_salary_dollars": 5000
+            "traded_salary_adjustment_dollars": 19000,
+            "traded_salary_adjustment_k": 19,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 38000
           },
           {
             "role": "right",
@@ -2073,16 +2075,54 @@
             "franchise_name": "Cleon Ca$h",
             "selected_assets": [
               {
-                "asset_id": "pick:FP_0011_2027_2",
+                "asset_id": "P_17104",
+                "type": "PLAYER",
+                "player_id": "17104",
+                "player_name": "Colston Loveland",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "CHI",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0011_2027_1",
                 "type": "PICK",
                 "player_id": null,
                 "player_name": null,
-                "description": "2027 2nd",
+                "description": "2027 R1",
                 "position": null,
                 "nfl_team": null,
                 "salary": 0,
                 "years": null,
-                "contract_type": "Pick",
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0011_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0011_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R2",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
                 "contract_info": null,
                 "taxi": false,
                 "pick_key": "FP_0011_2027_2",
@@ -2093,8 +2133,8 @@
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 0,
-            "selected_non_taxi_salary_dollars": 0
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 5000
           }
         ],
         "extension_requests": [],
@@ -2104,91 +2144,11 @@
         "ui": {
           "left_team_id": "0007",
           "right_team_id": "0011"
-        },
-        "salary_reconciliation": {
-          "left": {
-            "franchise_id": "0007",
-            "franchise_name": "Sex Manther",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 229000,
-            "salary_adjustment_total_dollars": 8250,
-            "outgoing_dollars": 5000,
-            "incoming_dollars": 0,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": -5000,
-            "new_salary_dollars": 224000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 2,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 5000,
-            "available_salary_before_dollars": 62750,
-            "available_salary_after_dollars": 67750,
-            "over_cap_dollars": 0
-          },
-          "right": {
-            "franchise_id": "0011",
-            "franchise_name": "Cleon Ca$h",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 287000,
-            "salary_adjustment_total_dollars": 2100,
-            "outgoing_dollars": 0,
-            "incoming_dollars": 5000,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 5000,
-            "new_salary_dollars": 292000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 0,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": -5000,
-            "available_salary_before_dollars": 10900,
-            "available_salary_after_dollars": 5900,
-            "over_cap_dollars": 0
-          },
-          "has_over_cap": false
-        },
-        "multi_year_salary_impact": {
-          "current_season": 2026,
-          "left_franchise_name": "Sex Manther",
-          "right_franchise_name": "Cleon Ca$h",
-          "rows": [
-            {
-              "season": 2026,
-              "left_before_dollars": 229000,
-              "left_after_dollars": 224000,
-              "left_change_dollars": -5000,
-              "right_before_dollars": 287000,
-              "right_after_dollars": 292000,
-              "right_change_dollars": 5000
-            },
-            {
-              "season": 2027,
-              "left_before_dollars": 237000,
-              "left_after_dollars": 232000,
-              "left_change_dollars": -5000,
-              "right_before_dollars": 299000,
-              "right_after_dollars": 304000,
-              "right_change_dollars": 5000
-            },
-            {
-              "season": 2028,
-              "left_before_dollars": 143000,
-              "left_after_dollars": 138000,
-              "left_change_dollars": -5000,
-              "right_before_dollars": 108000,
-              "right_after_dollars": 113000,
-              "right_change_dollars": 5000
-            }
-          ]
-        },
-        "validation": {
-          "status": "ready",
-          "issues": []
-        },
-        "comment": ""
+        }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1143",
-      "trade_id": "1143",
+      "mfl_trade_id": "1207",
+      "trade_id": "1207",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
