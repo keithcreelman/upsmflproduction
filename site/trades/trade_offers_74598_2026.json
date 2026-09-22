@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-09-22T10:43:59.085Z",
+    "updated_at": "2026-09-22T10:49:33.561Z",
     "row_count": 64,
     "source": "worker-trade-offers"
   },
@@ -504,24 +504,26 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-02-28T04:18:59.103Z",
-      "updated_at": "2026-02-28T04:18:59.103Z",
+      "updated_at": "2026-09-22T10:49:33.561Z",
       "from_franchise_id": "0010",
       "to_franchise_id": "0009",
       "from_franchise_name": "Blake Bombers",
       "to_franchise_name": "C-Town Chivalry",
-      "message": "debug submit",
-      "source": "codex-debug",
+      "message": "",
+      "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
         "to_asset_count": 1,
-        "from_trade_salary_k": 0,
+        "from_trade_salary_k": 3,
         "to_trade_salary_k": 0,
         "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
+        "generated_at": "2026-09-22T10:49:32.036Z",
+        "source": "ups-mobile-trade-builder",
         "league_id": "74598",
-        "season": 2026,
+        "season": "2026",
         "teams": [
           {
             "role": "left",
@@ -529,23 +531,30 @@
             "franchise_name": "Blake Bombers",
             "selected_assets": [
               {
-                "asset_id": "player:16211",
+                "asset_id": "P_13163",
                 "type": "PLAYER",
-                "player_id": "16211",
-                "player_name": "Nacua, Puka",
+                "player_id": "13163",
+                "player_name": "Chris Godwin",
                 "description": null,
                 "position": "WR",
-                "nfl_team": "LAR",
-                "salary": 2000,
-                "years": 2,
-                "contract_type": "Rookie",
-                "contract_info": "CL 3| TCV 6K| AAV 2K",
-                "taxi": false
+                "nfl_team": "TBB",
+                "salary": 10000,
+                "years": 1,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 2| TCV 20K| AAV 10K| Y1-10K, Y2-10K| GTD: 15K",
+                "contract_length": 2,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
               }
             ],
-            "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 1,
-            "selected_non_taxi_salary_dollars": 2000
+            "traded_salary_adjustment_dollars": 3000,
+            "traded_salary_adjustment_k": 3,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 10000
           },
           {
             "role": "right",
@@ -553,44 +562,49 @@
             "franchise_name": "C-Town Chivalry",
             "selected_assets": [
               {
-                "asset_id": "player:16581",
-                "type": "PLAYER",
-                "player_id": "16581",
-                "player_name": "Daniels, Jayden",
-                "description": null,
-                "position": "QB",
-                "nfl_team": "WAS",
-                "salary": 12000,
-                "years": 1,
-                "contract_type": "Rookie",
-                "contract_info": "CL 3| TCV 36K| AAV 12K",
-                "taxi": false
+                "asset_id": "FP_0009_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R3",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
               }
             ],
+            "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 6,
-            "selected_non_taxi_salary_dollars": 12000
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
           }
         ],
         "extension_requests": [],
         "filters": {
-          "search": "",
-          "activeContractTypes": {},
-          "yearsMin": "",
-          "yearsMax": "",
-          "showTaxi": true,
-          "showPicks": true,
-          "onlyExtensionEligible": false
+          "search": ""
         },
         "ui": {
           "left_team_id": "0010",
           "right_team_id": "0009"
-        },
-        "validation": {
-          "status": "ready",
-          "issues": []
         }
-      }
+      },
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "13163,BB_3000",
+      "will_receive": "FP_0009_2027_3",
+      "twb_meta": null,
+      "mfl_trade_id": "1208",
+      "trade_id": "1208",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
     },
     {
       "id": "TWB-d58196b1-ea4f-4792-bf23-413f18106904",
