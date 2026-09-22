@@ -1,0 +1,50 @@
+name: Discord chat ingest (UPS Wire)
+
+# Keeps ups_discord_messages -- the table UPS Wire/UPS Center actually reads
+# for quotes -- from going stale. Before this workflow existed, the only way
+# to populate it was running pipelines/etl/scripts/ingest_discord_chat.py by
+# hand (Keith, 2026-09-22: found stale since 2026-09-16 while checking on the
+# Week 2 UPS Center report, which needs real chat colour to write a recap
+# that isn't just team totals -- see that script's own docstring).
+#
+# NOT the same table/workflow as discord-reconcile.yml. That one archives
+# into discord_messages_raw (migration 0158) for a different purpose and is
+# currently disabled after a 401 -- fixing it does not fix this gap, because
+# Wire's recap builder (pipelines/etl/wire/packs/weekly_recap.py) reads
+# ups_discord_messages, not discord_messages_raw.
+#
+# Cadence: Tuesday mornings, safely after Monday Night Football ends and
+# ahead of each week's UPS Center build (recap needs the week's chat; the
+# Wednesday projections ingest is the other input that build waits on).
+#
+# Needs DISCORD_BOT_TOKEN (already a repo secret, shared with the worker and
+# discord-reconcile.yml) and CLOUDFLARE_API_TOKEN (D1 write -- same secret
+# every other D1-writing workflow uses).
+
+on:
+  schedule:
+    - cron: "0 11 * * 2" # Tuesday 11:00 UTC / 7am ET
+  workflow_dispatch:
+
+concurrency:
+  group: discord-chat-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Ingest new Discord chat → D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: python3 pipelines/etl/scripts/ingest_discord_chat.py --incremental
