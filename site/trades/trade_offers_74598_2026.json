@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-09-22T13:30:09.295Z",
+    "updated_at": "2026-09-22T17:51:50.279Z",
     "row_count": 64,
     "source": "worker-trade-offers"
   },
@@ -11239,7 +11239,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-09-17T13:23:49.872Z",
-      "updated_at": "2026-09-17T13:23:49.872Z",
+      "updated_at": "2026-09-22T17:51:50.279Z",
       "from_franchise_id": "0010",
       "to_franchise_id": "0003",
       "from_franchise_name": "Blake Bombers",
@@ -11248,8 +11248,8 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "13163",
-      "will_receive": "FP_0003_2027_3",
+      "will_give_up": "16723",
+      "will_receive": "FP_0003_2027_4",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
@@ -11260,7 +11260,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-09-17T13:23:48.252Z",
+        "generated_at": "2026-09-22T17:51:47.405Z",
         "source": "ups-mobile-trade-builder",
         "league_id": "74598",
         "season": "2026",
@@ -11271,17 +11271,17 @@
             "franchise_name": "Blake Bombers",
             "selected_assets": [
               {
-                "asset_id": "P_13163",
+                "asset_id": "P_16723",
                 "type": "PLAYER",
-                "player_id": "13163",
-                "player_name": "Chris Godwin",
+                "player_id": "16723",
+                "player_name": "AJ Barner",
                 "description": null,
-                "position": "WR",
-                "nfl_team": "TBB",
-                "salary": 10000,
-                "years": 1,
-                "contract_type": "Vet-FAA",
-                "contract_info": "CL 2| TCV 20K| AAV 10K| Y1-10K, Y2-10K| GTD: 15K",
+                "position": "TE",
+                "nfl_team": "SEA",
+                "salary": 1000,
+                "years": 2,
+                "contract_type": "Vet-Ext1",
+                "contract_info": "CL 2|TCV 12K|AAV 1K, 11K|Y1-1K, Y2-11K|Ext: Bomb|GTD: 9K",
                 "contract_length": 2,
                 "already_extended_by_this_franchise": false,
                 "taxi": false,
@@ -11294,7 +11294,7 @@
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
             "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 10000
+            "selected_non_taxi_salary_dollars": 1000
           },
           {
             "role": "right",
@@ -11302,11 +11302,11 @@
             "franchise_name": "Gride",
             "selected_assets": [
               {
-                "asset_id": "FP_0003_2027_3",
+                "asset_id": "FP_0003_2027_4",
                 "type": "PICK",
                 "player_id": null,
                 "player_name": null,
-                "description": "2027 R3",
+                "description": "2027 R4",
                 "position": null,
                 "nfl_team": null,
                 "salary": 0,
@@ -11314,9 +11314,9 @@
                 "contract_type": null,
                 "contract_info": null,
                 "taxi": false,
-                "pick_key": "FP_0003_2027_3",
+                "pick_key": "FP_0003_2027_4",
                 "pick_season": 2027,
-                "pick_round": 3,
+                "pick_round": 4,
                 "pick_slot": null
               }
             ],
@@ -11336,8 +11336,8 @@
         }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1191",
-      "trade_id": "1191",
+      "mfl_trade_id": "1211",
+      "trade_id": "1211",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
