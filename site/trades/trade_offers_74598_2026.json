@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-09-22T10:49:33.561Z",
+    "updated_at": "2026-09-22T12:40:47.390Z",
     "row_count": 64,
     "source": "worker-trade-offers"
   },
@@ -1843,7 +1843,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-27T14:55:09.092Z",
-      "updated_at": "2026-09-21T19:02:32.393Z",
+      "updated_at": "2026-09-22T12:40:47.390Z",
       "from_franchise_id": "0007",
       "to_franchise_id": "0009",
       "from_franchise_name": "Sex Manther",
@@ -1852,19 +1852,19 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "13593,BB_10000",
-      "will_receive": "14778,16641,FP_0009_2027_1,FP_0009_2027_2",
+      "will_give_up": "13593,BB_19000",
+      "will_receive": "16641,FP_0009_2027_2,FP_0009_2027_3",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
-        "to_asset_count": 4,
-        "from_trade_salary_k": 10,
+        "to_asset_count": 3,
+        "from_trade_salary_k": 19,
         "to_trade_salary_k": 0,
         "extension_request_count": 1
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-09-21T19:02:30.220Z",
+        "generated_at": "2026-09-22T12:40:45.598Z",
         "source": "ups-mobile-trade-builder",
         "league_id": "74598",
         "season": "2026",
@@ -1895,8 +1895,8 @@
                 "pick_slot": null
               }
             ],
-            "traded_salary_adjustment_dollars": 10000,
-            "traded_salary_adjustment_k": 10,
+            "traded_salary_adjustment_dollars": 19000,
+            "traded_salary_adjustment_k": 19,
             "traded_salary_adjustment_max_k": 999,
             "selected_non_taxi_salary_dollars": 38000
           },
@@ -1905,26 +1905,6 @@
             "franchise_id": "0009",
             "franchise_name": "C-Town Chivalry",
             "selected_assets": [
-              {
-                "asset_id": "P_14778",
-                "type": "PLAYER",
-                "player_id": "14778",
-                "player_name": "Tua Tagovailoa",
-                "description": null,
-                "position": "QB",
-                "nfl_team": "ATL",
-                "salary": 15000,
-                "years": 1,
-                "contract_type": "Vet-Ext2-FL",
-                "contract_info": "CL 3| TCV 116K| AAV 49K| Y1-86 Y2-15 Y3-15| GTD: 87K| Ext: C-Town",
-                "contract_length": 3,
-                "already_extended_by_this_franchise": false,
-                "taxi": false,
-                "pick_key": null,
-                "pick_season": null,
-                "pick_round": null,
-                "pick_slot": null
-              },
               {
                 "asset_id": "P_16641",
                 "type": "PLAYER",
@@ -1946,24 +1926,6 @@
                 "pick_slot": null
               },
               {
-                "asset_id": "FP_0009_2027_1",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2027 R1",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": null,
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "FP_0009_2027_1",
-                "pick_season": 2027,
-                "pick_round": 1,
-                "pick_slot": null
-              },
-              {
                 "asset_id": "FP_0009_2027_2",
                 "type": "PICK",
                 "player_id": null,
@@ -1980,12 +1942,30 @@
                 "pick_season": 2027,
                 "pick_round": 2,
                 "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0009_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R3",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
             "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 24000
+            "selected_non_taxi_salary_dollars": 9000
           }
         ],
         "extension_requests": [
@@ -2015,8 +1995,8 @@
         }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1201",
-      "trade_id": "1201",
+      "mfl_trade_id": "1209",
+      "trade_id": "1209",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
