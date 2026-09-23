@@ -3,50 +3,21 @@
 // (Keith 2026-10-09, Phase II port decision 1). Seasons with recorded final standings make no ladder claim (decision 2).
 //   node tests/standings_seed_reason.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
-import { makeWorkerEnv, makeMfl, callWorker, quiet } from "./fixtures/worker_harness.mjs";
-import { SCHEMA } from "./fixtures/standings_d1.mjs";
+import { makeMfl, callWorker, quiet } from "./fixtures/worker_harness.mjs";
+import { makeLadderSeason as makeSeason } from "./fixtures/standings_d1.mjs";
 import { seedLadder, seedLadderSteps, SEED_STEPS } from "../worker/src/seeding.js";
+import { LADDER_TEAMS } from "./fixtures/standings_d1.mjs";
 
 const restore = quiet();
 const mfl = makeMfl();
 mfl.install();
 
-// 8 teams, 4 divisions of 2. Division winners (by Overall within the division): 0001, 0003, 0005, 0007.
-//   bye pool:   0001 vs 0003 — tied All-Play .700, 0001 ahead on Overall (.800 v .700)
-//   seeds 3-6:  0004 v 0002 — tied All-Play, Overall AND Points For; 0004 beat 0002 → head-to-head
-//               0002 v 0007 — All-Play .650 v .550
-//               0007 v 0005 — tied All-Play and Overall; Points For 950 v 900
-//   outside:    0006, 0008 — behind the last wild card (0002) on All-Play
-const TEAMS = [
-  ["0001", "A", 0.700, 0.800, 1000], ["0002", "A", 0.650, 0.500, 1100],
-  ["0003", "B", 0.700, 0.700, 1200], ["0004", "B", 0.650, 0.500, 1100],
-  ["0005", "C", 0.550, 0.600, 900],  ["0006", "C", 0.400, 0.400, 800],
-  ["0007", "D", 0.550, 0.600, 950],  ["0008", "D", 0.400, 0.400, 800],
-];
-function makeSeason({ recorded = false, failGames = false } = {}) {
-  const env = makeWorkerEnv({});
-  const db = env.UPS_MFL_DB.raw;
-  db.exec(SCHEMA);
-  db.prepare("INSERT INTO src_league_season_meta (season, league_id, mfl_server) VALUES (2026, '74598', 'www48')").run();
-  for (const [fid, div, ap, ov, pf] of TEAMS) {
-    db.prepare("INSERT INTO src_franchises (season, franchise_id, team_name, division) VALUES (2026, ?, ?, ?)").run(fid, "Team " + fid, div);
-    db.prepare("INSERT INTO src_standings (season, franchise_id, h2h_w, h2h_l, h2h_t, h2h_pct, allplay_pct, pf) VALUES (2026, ?, 1, 1, 0, ?, ?, ?)").run(fid, ov, ap, pf);
-    if (recorded) db.prepare("INSERT INTO src_final_standings (season, franchise_id, final_finish) VALUES (2026, ?, 1)").run(fid);
-  }
-  const g = db.prepare("INSERT INTO src_schedule (season, week, franchise_id, opponent_franchise_id, team_score, opponent_score, is_divisional, is_playoff) VALUES (2026, 1, ?, ?, ?, ?, 0, 0)");
-  g.run("0004", "0002", 120, 100); g.run("0002", "0004", 100, 120);
-  if (failGames) {
-    const prep = env.UPS_MFL_DB.prepare.bind(env.UPS_MFL_DB);
-    env.UPS_MFL_DB.prepare = (sql) => { if (sql.includes("WHERE season = ? AND COALESCE(is_playoff, 0) = 0")) throw new Error("D1_ERROR: simulated games failure"); return prep(sql); };
-  }
-  return env;
-}
 const standings = async (env) => { const r = await callWorker(env, "GET", "/api/standings?year=2026"); t.equal(r.status, 200, r.text.slice(0, 200)); return r.json; };
 const byFid = (j) => Object.fromEntries(j.rows.map((r) => [r.franchise_id, r]));
 const brief = (r) => [r.playoff_seed, r.seed_reason.pool, r.seed_reason.step, r.seed_reason.position, r.seed_reason.rival_franchise_id];
 
 test("seedLadderSteps: the comparator is identical to seedLadder, and names the step that decided each pair", () => {
-  const rows = TEAMS.map(([fid, , ap, ov, pf]) => ({ franchise_id: fid, franchise_name: "Team " + fid, allplay_pct: ap, h2h_pct: ov, pf_total: pf }));
+  const rows = LADDER_TEAMS.map(([fid, , ap, ov, pf]) => ({ franchise_id: fid, franchise_name: "Team " + fid, allplay_pct: ap, h2h_pct: ov, pf_total: pf }));
   const games = [{ franchise_id: "0004", opponent_franchise_id: "0002", team_score: 120, opponent_score: 100 }, { franchise_id: "0002", opponent_franchise_id: "0004", team_score: 100, opponent_score: 120 }];
   const L = seedLadderSteps(rows, games), old = seedLadder(rows, games);
   for (const a of rows) for (const b of rows) t.equal(Math.sign(L.cmp(a, b)), Math.sign(old(a, b)));

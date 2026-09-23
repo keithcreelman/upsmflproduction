@@ -555,6 +555,24 @@
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   }
 
+  // Phase II-A1 — status chip + last-3 form chips. Mirrors the desktop
+  // versions in site/standings/mfl_hpm_standings_v2.html (same wording,
+  // same data source — site/shared/standings_race.js — kept as small
+  // independent formatters per surface since formatting is presentation,
+  // not "race calculation").
+  var STATUS_LABEL = { BYE: "Bye", DIV: "Division winner", WC: "Wild card" };
+  // projected (Keith 2026-10-09, port decision 3): until the season ends the chip is where the team stands now.
+  function statusChipHtml(status, projected) {
+    if (!status) return "";
+    return ' <span class="ups-m-status-chip ' + status.toLowerCase() + (projected ? ' projected' : '') + '" aria-label="' + (projected ? 'Projected playoff status: ' : 'Playoff status: ') + STATUS_LABEL[status] + '">' + status + (projected ? '<small>proj</small>' : '') + '</span>';
+  }
+  function formChipsHtml(form3) {
+    if (!form3 || !form3.length) return "";
+    return form3.map(function (r) {
+      return '<span class="ups-m-form-chip ' + r + '">' + r + '</span>';
+    }).join("");
+  }
+
   function renderStandings(mount) {
     // Lazy-load champion panels (trophy badges).
     if (!state.championsByYear && !state._championsLoading) loadChampions();
@@ -602,7 +620,7 @@
         renderStandingsModeToggle("divisions") +
         renderDivisionBlocks(rows, state.standingsByYear[y], year) +
         '<div class="ups-m-standings-legend">👑 division leader · DIV = record inside the division<br>' +
-        'Divisional opponents are played twice each — this is the race that sets a playoff seed.</div>';
+        'Each division rival is played five times — this is the race that sets a playoff seed.</div>';
       bindYearPicker(mount);
       bindStandingsModeToggle(mount);
       return;
@@ -615,37 +633,60 @@
     // bowl champion). This IS the next-season draft order.
     //
     // FALLBACK: when final_finish is unavailable (current season pre-
-    // playoffs, or any year missing from the table), sort by div-winner
-    // then h2h% → pf so the table still reads correctly.
+    // playoffs, or any year missing from the table), keep the WORKER's order:
+    // /api/standings sends rows in playoff-seed order, then the league's
+    // ladder (worker/src/seeding.js). Re-sorting here would be a second,
+    // different ladder (it was division winners → H2H% → PF).
     var finishMap = (state.finalFinishByYear || {})[y] || {};
     var hasFinishData = Object.keys(finishMap).length > 0;
     rows.forEach(function (r) {
       r._finalFinish = finishMap[U.pad4(r.franchise_id)] || 0;
     });
-    rows.sort(function (a, b) {
-      if (hasFinishData) {
+    if (hasFinishData) {
+      rows.forEach(function (r, i) { r._workerOrder = i; });
+      rows.sort(function (a, b) {
         // Both have final_finish → straight ascending. Zero/missing
-        // values go to the bottom.
+        // values go to the bottom, in the worker's order.
         var af = a._finalFinish || 999;
         var bf = b._finalFinish || 999;
-        if (af !== bf) return af - bf;
-      }
-      // Fallback ordering when finish data isn't present.
-      var aw = isDivWinner(a) ? 0 : 1;
-      var bw = isDivWinner(b) ? 0 : 1;
-      if (aw !== bw) return aw - bw;
-      var d = Number(b.h2h_pct || 0) - Number(a.h2h_pct || 0);
-      if (d !== 0) return d;
-      return Number(b.pf || 0) - Number(a.pf || 0);
-    });
+        return (af - bf) || (a._workerOrder - b._workerOrder);
+      });
+    }
 
-    var trs = rows.map(function (r, i) {
+    // Phase II-A1 — standings race (status chips, AP GB, last-3 form, and
+    // the data the team sheet's Luck/seed-explanation/division-race blocks
+    // need). Reads the SAME /api/standings response already cached on
+    // state.standingsByYear[y] — rows/weekly/weeklyScores were fetched
+    // already, just unused by this view until now.
+    var raceData = window.UPS_STANDINGS_RACE
+      ? window.UPS_STANDINGS_RACE.race({
+          rows: state.standingsByYear[y].rows || [],
+          // a failed query arrives as null and stays null — the race module then says "unavailable", never 0-0
+          weekly: state.standingsByYear[y].weekly,
+          weeklyScores: state.standingsByYear[y].weeklyScores,
+          preseason: state.standingsByYear[y].preseason,
+          season_complete: state.standingsByYear[y].season_complete
+        })
+      : null;
+    // Divider lines only mean something when the table's own display order
+    // IS playoff-seed order — that's only the in-season fallback path.
+    // Once final_finish exists, rows are sorted by END-OF-SEASON placement
+    // (a different ordering entirely — finish 1 is the champion, not
+    // necessarily seed 1), so drawing a seed-boundary divider there would
+    // be actively misleading.
+    var canonicalSeedOrder = !hasFinishData && !!raceData;
+
+    var trParts = [];
+    rows.forEach(function (r, i) {
       var name = U.safeStr(r.franchise_name) || ("F" + r.franchise_id);
       var winner = isDivWinner(r);
       var champ = isChampion(r, year);
+      var fid = U.pad4(r.franchise_id);
+      var isYou = M.state.viewerFranchiseId && fid === M.state.viewerFranchiseId;
+      var rr = raceData ? raceData.byFranchise[fid] : null;
       // Champion's row gets a gold-tinted class on top of the div-winner
       // class so styling layers cleanly.
-      var rowClass = (champ ? "champion" : "") + (winner ? " div-winner" : "");
+      var rowClass = (champ ? "champion" : "") + (winner ? " div-winner" : "") + (isYou ? " you-row" : "") + (rr ? " race-row" : "");
       var badges = "";
       if (champ) {
         // Title count shown after the trophy: "🏆 3rd title" etc. Pulled
@@ -659,19 +700,49 @@
       // (1-12, where 1 = champion). Falls back to display order when
       // finish data isn't present (current season pre-playoffs).
       var rankDisplay = r._finalFinish > 0 ? r._finalFinish : (i + 1);
-      return '<tr class="' + rowClass + '">' +
-        '<td class="rank">' + rankDisplay + '</td>' +
-        '<td class="team">' + badges + U.escapeHtml(name) + '</td>' +
+      var projected = !!(raceData && raceData.projected && !raceData.preseason);
+      var seedIcon = (!hasFinishData && r.playoff_seed)
+        ? '<span class="seed-chip ' + (r.playoff_seed <= 6 ? "champ" : "hawk") + '" title="' +
+          (r.playoff_seed <= 6 ? "UPS Championship seed" : "Hawktuah Bowl seed") + (projected ? " (projected)" : "") + '">' +
+          (r.playoff_seed <= 6 ? "🏆" : "🦅") + '</span>'
+        : '';
+      var statusChip = statusChipHtml(rr && rr.status, projected);
+      var gbCell = rr ? '<td class="num">' + (rr.apGB == null ? "—" : rr.apGB.toFixed(1)) + '</td>' : '<td class="num">—</td>';
+      var formCell = rr ? '<span class="ups-m-form3">' + formChipsHtml(rr.form3) + '</span>' : '';
+      trParts.push('<tr class="' + rowClass + '"' + (rr ? ' data-fid="' + fid + '" tabindex="0" role="button" aria-label="' + U.escapeHtml(name) + ' details"' : '') + '>' +
+        '<td class="rank">' + rankDisplay + seedIcon + '</td>' +
+        '<td class="team">' + badges + U.escapeHtml(name) + statusChip + '<br>' + formCell + '</td>' +
         '<td>' + (r.h2h_w || 0) + '-' + (r.h2h_l || 0) + (r.h2h_t ? "-" + r.h2h_t : "") + '</td>' +
         '<td>' + fmtPct(r.h2h_pct) + '</td>' +
         '<td>' + fmtPct(r.allplay_pct) + '</td>' +
+        gbCell +
         '<td>' + fmtPts(r.pf) + '</td>' +
-      '</tr>';
-    }).join("");
+      '</tr>');
+      if (canonicalSeedOrder) {
+        if (Number(r.playoff_seed) === 2) trParts.push('<tr class="seed-divider"><td colspan="7"></td></tr>');
+        if (Number(r.playoff_seed) === 6) trParts.push('<tr class="seed-divider hawk-divider"><td colspan="7">Hawktuah Bowl · seeds 7–12</td></tr>');
+      }
+    });
+    var trs = trParts.join("");
 
+    var recordedSeeds = rows.some(function (r) { return r.seed_reason && r.seed_reason.basis === "recorded_final_standings"; });
     var orderingNote = hasFinishData
       ? 'Ordered by end-of-season finish (next-season draft order).'
-      : 'Ordered by H2H% then PF — playoff results not in yet.';
+      : recordedSeeds
+        ? 'Ordered by the recorded final standings.'
+        : 'Ordered by playoff seed — All-Play % → Overall → season PF → head-to-head (league rule).' +
+          (raceData && raceData.projected && !raceData.preseason ? ' Seeds and BYE / DIV / WC are projected until the season ends.' : '');
+    var weekNote = "";
+    if (!hasFinishData) {
+      var wkRows = state.standingsByYear[y].weekly;
+      if (!Array.isArray(wkRows) || !Array.isArray(state.standingsByYear[y].weeklyScores)) {
+        weekNote = 'Weekly results couldn\u2019t be read — GB, form and luck show —. ';
+      } else {
+        var maxWk = 0;
+        wkRows.forEach(function (m) { if (m.w > maxWk) maxWk = m.w; });
+        if (maxWk > 0) weekNote = 'Through Week ' + maxWk + '. ';
+      }
+    }
 
     var html = subTabs("standings") +
       renderYearPicker(year) +
@@ -679,14 +750,27 @@
       '<div class="ups-m-card">' +
         '<div class="ups-m-card-title">' + U.escapeHtml(y) + (hasFinishData ? ' · Final Standings' : ' · Standings') + '</div>' +
         '<table class="ups-m-standings-table">' +
-          '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>H2H%</th><th>AP%</th><th>PF</th></tr></thead>' +
+          '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>H2H%</th><th>AP%</th><th>GB</th><th>PF</th></tr></thead>' +
           '<tbody>' + trs + '</tbody>' +
         '</table>' +
-        '<div class="ups-m-standings-legend">🏆 league champion · 👑 division winner · AP% = All-Play %<br>' + U.escapeHtml(orderingNote) + '</div>' +
+        '<div class="ups-m-standings-legend">🏆 league champion · 👑 division winner · AP% = All-Play % · GB = AP games back of the 6-seed' + (raceData ? ' · tap a team for details' : '') + '<br>' + U.escapeHtml(weekNote + orderingNote) + '</div>' +
       '</div>';
     mount.innerHTML = html;
     bindYearPicker(mount);
     bindStandingsModeToggle(mount);
+    if (raceData) {
+      Array.prototype.forEach.call(mount.querySelectorAll("tr.race-row[data-fid]"), function (tr) {
+        var openSheet = function () {
+          var fid = tr.getAttribute("data-fid");
+          var srcRow = rows.filter(function (r) { return U.pad4(r.franchise_id) === fid; })[0];
+          if (M.teamSheet) M.teamSheet.open(fid, { row: srcRow, raceRow: raceData.byFranchise[fid], year: year, trigger: tr });
+        };
+        tr.addEventListener("click", openSheet);
+        tr.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); openSheet(); }
+        });
+      });
+    }
   }
 
   // MFL's own tiebreaker chain, per season, from the standings response.
@@ -911,6 +995,17 @@
     }
     return renderStandings(mount);
   }
+
+  // Lets the team sheet's "View roster" link (site/m/team_sheet.js) land on
+  // a specific franchise instead of whatever renderRosters() would default
+  // to. No such preset mechanism existed before Phase II-A4 — rosters
+  // navigation was always "go to #league/rosters, see your own team."
+  M.leagueView = {
+    presetRoster: function (fid) {
+      state.selectedFid = U.pad4(fid);
+      state.rostersMode = "team";
+    }
+  };
 
   M.route.registerView("league", render);
 })();
