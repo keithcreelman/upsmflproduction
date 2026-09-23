@@ -2370,6 +2370,45 @@ async function resolveCurrentLineupWeek(season, leagueId) {
   return { week: 0, source: "unresolved" };
 }
 
+// Derives the latest COMPLETED league week from a resolveCurrentLineupWeek()
+// result — a PURE function, no I/O, so it is unit-testable without mocking
+// fetch. This is deliberately the ONLY place that interprets "current lineup
+// week" as "latest completed week"; nothing else in the app should invent a
+// second definition (2026-09-23 correction pass, stats-leaderboard staleness).
+//
+//   source "live_scoring_week_complete": resolved.week is liveWeek+1 (the
+//     NEXT week to set a lineup for, because liveWeek's grace period has
+//     passed) -> liveWeek itself, i.e. resolved.week - 1, is complete.
+//   source "live_scoring": resolved.week is the CURRENTLY live week, still
+//     inside its grace period -> that week is NOT yet complete, but the one
+//     before it is -> resolved.week - 1 again.
+//   source "projected_scores_fallback": projectedScores.week is documented
+//     (see resolveCurrentLineupWeek above) to roll over the moment a week's
+//     FIRST game kicks off — too EARLY relative to "complete". Trusting it
+//     here would report an in-progress week as done, so it is treated as
+//     unresolved instead of guessed.
+//   source "unresolved": nothing to derive.
+// Returns null (never a guess) whenever the input cannot prove a week is
+// complete — callers must fail closed on null, not treat it as "no news,
+// assume fresh".
+function deriveCompletedWeekFromLineupResolution(resolved) {
+  if (!resolved) return null;
+  if (resolved.source !== "live_scoring_week_complete" && resolved.source !== "live_scoring") return null;
+  const wk = Number(resolved.week);
+  if (!Number.isFinite(wk)) return null;
+  const completed = wk - 1;
+  return completed >= 0 ? completed : null;
+}
+
+// Thin async wrapper: resolveCurrentLineupWeek() (the one resolver
+// /api/current-lineup-week already uses) + the pure derivation above. Any
+// error from the live MFL fetch propagates to the caller rather than being
+// swallowed here — callers decide how to fail closed.
+async function resolveAuthoritativeCompletedWeek(season, leagueId) {
+  const resolved = await resolveCurrentLineupWeek(season, leagueId);
+  return deriveCompletedWeekFromLineupResolution(resolved);
+}
+
 // Week-1 boundary DATE (YYYY-MM-DD, ET) taken from MFL's real schedule, for the
 // cut-penalty math to use as `opts.week1ThursdayIso`.
 //
@@ -11613,6 +11652,7 @@ export default {
               // (verified with EXPLAIN QUERY PLAN on prod, rows_read 1).
               let lbPreStale = false;
               let lbPreLiveWeek = 0;
+              let lbPreAuthWeek = null; // exposed to callers, not used elsewhere
               if (lbPreIsCurrent) {
                 const lw = await db.prepare(
                   "SELECT MAX(week) AS mw FROM nfl_player_weekly WHERE season = ? AND week <= 17"
@@ -11625,6 +11665,36 @@ export default {
                 const builtWeek = (meta.data_max_week === null || meta.data_max_week === undefined)
                   ? -1 : _preNum(meta.data_max_week);
                 lbPreStale = builtWeek < 0 || builtWeek !== lbPreLiveWeek;
+
+                // AUTHORITATIVE check (2026-09-23 correction pass). The D1-only
+                // comparison above is self-referential: it only proves the
+                // precompute matches nfl_player_weekly, never that
+                // nfl_player_weekly itself has caught up to the real world. On
+                // 2026-09-23 the nflverse ETL cron ran hours late; nfl_player_weekly
+                // AND the precompute agreed on week 1 while MFL had already
+                // finished week 2, so this block reported stale:false while
+                // genuinely a week behind. Ask the SAME resolver
+                // /api/current-lineup-week already uses (resolveCurrentLineupWeek,
+                // via resolveAuthoritativeCompletedWeek — one definition of
+                // "completed week" for the whole app, never a second one here)
+                // whether a MORE RECENT week is provably complete. This can only
+                // ADD staleness, never clear a stale flag the D1 check already
+                // set — and an unresolvable/errored check fails CLOSED (stale),
+                // never claims freshness on a maybe (no fail-open guards; see
+                // memory rule_no_fail_open_guards). Capped at 17 to match the
+                // window this stored board always covers (see the MAX(week)
+                // query above) — the same reason that query itself is capped.
+                if (!lbPreStale) {
+                  try {
+                    const authWeekRaw = await resolveAuthoritativeCompletedWeek(lbPreSeason, String(env.LEAGUE_ID || "74598"));
+                    lbPreAuthWeek = authWeekRaw === null ? null : Math.min(authWeekRaw, 17);
+                    if (lbPreAuthWeek === null || lbPreAuthWeek > builtWeek) lbPreStale = true;
+                  } catch (_) {
+                    lbPreStale = true;
+                  }
+                } else {
+                  lbPreAuthWeek = null; // already known stale from the D1 check; not resolved
+                }
               }
               // `AND games >= ?` is OMITTED when it cannot filter, which is
               // almost always. It looks free and is not: idx_lbpre_season_pos_games
@@ -11700,7 +11770,8 @@ export default {
                     stale: lbPreStale,
                     built_for_week: (meta.data_max_week === null || meta.data_max_week === undefined)
                       ? null : _preNum(meta.data_max_week),
-                    current_week: lbPreLiveWeek,
+                    current_week: lbPreLiveWeek, // D1's own nfl_player_weekly coverage — NOT necessarily the real world (see stale/authoritative_week)
+                    authoritative_week: lbPreAuthWeek, // resolveAuthoritativeCompletedWeek() result; null = unresolved (forced stale above)
                   } : {}),
                   rows: preRows,
                 });
