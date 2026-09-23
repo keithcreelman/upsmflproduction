@@ -1,8 +1,8 @@
 name: Leaderboard precompute — rebuild the CURRENT season
 
 # The current season's leaderboard changes every time the nflverse ETL lands a
-# week (nflverse-stats-refresh.yml, cron "0 11 * * 3" = Wednesday 11:00 UTC), so
-# unlike a completed season it has to be rebuilt rather than frozen once.
+# week (nflverse-stats-refresh.yml), so unlike a completed season it has to be
+# rebuilt rather than frozen once.
 #
 # ALL FIVE ALIASES, ONE RUN. That was not possible until 2026-08-27: the query
 # compared src_players.player_id (TEXT) to player_id_crosswalk.mfl_player_id
@@ -27,13 +27,35 @@ name: Leaderboard precompute — rebuild the CURRENT season
 # If a future change pushes this back over budget, the mechanism to spread it
 # still exists: only_pos accepts one alias, and this workflow's `pos` input
 # takes a comma-separated list.
-
+#
+# TRIGGER (2026-09-23 correction pass — replaces a fixed 90-minute-later cron):
+# fires on `workflow_run` completion of nflverse-stats-refresh.yml — the ONLY
+# thing that changes the answer during a season — rather than guessing how
+# long that refresh takes. The fixed offset was measured wrong at least twice
+# (Sep 2 and Sep 9 refresh failures both left a stale board with no
+# error, because the rebuild ran on schedule regardless of whether the refresh
+# it depended on had actually finished or even succeeded), and again on
+# 2026-09-23, when the refresh's OWN cron fired 4h19m late the week before and
+# was still running long into the day the incident that prompted this file was
+# noticed — a 90-minute-later guess cannot track that. `workflow_run` instead
+# fires exactly when the upstream job's run actually completes, success or
+# not; the job-level `if` below refuses to build on anything but success.
+#
+# NO SCHEDULED FALLBACK, DELIBERATELY. A time-based cron alongside workflow_run
+# would reintroduce exactly the two failure modes this change removes: fire
+# BEFORE the refresh finishes (a premature rebuild reading data that has not
+# landed yet — indistinguishable from the old bug) or fire redundantly AFTER
+# (wasted D1 read budget, and a second build racing the concurrency group
+# below). If nflverse-stats-refresh.yml's own schedule is ever disabled or
+# stops firing, this workflow correctly does nothing either — there is nothing
+# new to build — and that condition is already visible at
+# /api/data-freshness (etl_runs.last_run_utc going stale) and via the new
+# post-build validation step below, rather than needing a second cron to
+# paper over it.
 on:
-  schedule:
-    # Wednesday, 90 minutes after the 11:00 UTC nflverse stats refresh
-    # (nflverse-stats-refresh.yml), which is the only thing that changes the
-    # answer during a season.
-    - cron: "30 12 * * 3"
+  workflow_run:
+    workflows: ["nflverse stats refresh (Player Stats / FPA / Pace / EPA / SoS / ADP crosswalk)"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       season:
@@ -50,8 +72,28 @@ on:
 permissions:
   contents: read
 
+# Prevents overlapping/duplicate rebuilds — a workflow_run trigger and a
+# manual workflow_dispatch landing close together (or two refresh runs
+# completing in quick succession) would otherwise race the same D1 rows.
+# cancel-in-progress: false, matching nflverse-stats-refresh.yml's own
+# group: a rebuild already writing D1 is left to finish; a second trigger
+# queues behind it rather than cancelling and losing partial progress.
+concurrency:
+  group: leaderboard-current-season-rebuild
+  cancel-in-progress: false
+
 jobs:
   rebuild:
+    # Never build on a failed or cancelled refresh. workflow_run fires on
+    # EVERY completion of the watched workflow regardless of outcome — this
+    # is the one gate that keeps a broken refresh from silently "rebuilding"
+    # a board over unchanged (or worse, partially-written) source data.
+    # workflow_dispatch carries no workflow_run conclusion at all, so it is
+    # allowed unconditionally — manual runs are an explicit human decision,
+    # not something this gate should second-guess.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     env:
       KEY: ${{ secrets.COMMISH_API_KEY }}
@@ -67,11 +109,12 @@ jobs:
           [ -n "$SEASON" ] || SEASON="$(date -u +%Y)"
           echo "SEASON=$SEASON" >> "$GITHUB_ENV"
 
-          # A cron sends no inputs, so it lands here empty and means "everything".
+          # workflow_run and a cron-less dispatch both send no pos input, so
+          # it lands here empty and means "everything".
           POS="${IN_POS}"
           [ -n "$POS" ] || POS="all"
           echo "POS=$POS" >> "$GITHUB_ENV"
-          echo "rebuilding season=$SEASON aliases=$POS"
+          echo "rebuilding season=$SEASON aliases=$POS (trigger: ${{ github.event_name }}${{ github.event_name == 'workflow_run' && format(', upstream conclusion: {0}', github.event.workflow_run.conclusion) || '' }})"
 
       - name: Build
         run: |
@@ -114,3 +157,48 @@ jobs:
           echo "Verify with:"
           echo "  npx wrangler d1 execute ups-mfl-db --remote --command \\"
           echo "    \"SELECT season,pos_alias,row_count,data_max_week,built_at_utc FROM nfl_leaderboard_precompute_meta WHERE season=${SEASON}\""
+
+      # 2026-09-23 correction pass: the step above only ever printed a command
+      # to run BY HAND — it asserted nothing, so a rebuild that quietly failed
+      # to move the stamp (or a refresh that itself landed behind the real
+      # world, the 2026-09-23 incident) reported success regardless. This step
+      # actually calls the read route and fails the job honestly when the
+      # board it just built is still behind the AUTHORITATIVE completed week
+      # — reusing the exact same resolveAuthoritativeCompletedWeek() logic
+      # the read route itself now applies (NO_CACHE=1 bypasses the edge cache
+      # so this sees the just-written D1 state, not a pre-rebuild cached
+      # response). This is a validation of the read path's OWN verdict, not a
+      # second/competing definition of "complete."
+      - name: Verify the leaderboard is not behind the authoritative week
+        run: |
+          RC=0
+          if [ "$POS" = "all" ]; then
+            ALIASES_TO_CHECK=(skill qb kicker punter idp)
+          else
+            IFS=',' read -ra ALIASES_TO_CHECK <<< "$POS"
+          fi
+          for P in "${ALIASES_TO_CHECK[@]}"; do
+            echo "--- verifying $P"
+            curl -sS "https://upsmflproduction.keith-creelman.workers.dev/api/advanced-stats-leaderboard?seasons=${SEASON}&pos=${P}&week_min=1&week_max=17&min_games=1&limit=1&NO_CACHE=1" \
+              -o "/tmp/verify-$P.json" || { echo "::error::verify curl failed for $P"; RC=1; continue; }
+            python3 - "/tmp/verify-$P.json" "$P" <<'PY' || RC=1
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          pos = sys.argv[2]
+          stale = d.get("stale")
+          built = d.get("built_for_week")
+          auth = d.get("authoritative_week")
+          cur = d.get("current_week")
+          print(f"  {pos}: stale={stale} built_for_week={built} authoritative_week={auth} current_week(D1)={cur}")
+          if stale is None:
+              # Not a current-season precompute response at all (season key
+              # absent, or served the live/fail-open path) -- nothing to
+              # verify here; the Build step above already checked ok/rows.
+              print(f"  {pos}: no stale flag on the response -- skipping (not the current-season precompute path)")
+          elif stale:
+              print(f"::error::leaderboard for pos={pos} is still stale after rebuild "
+                    f"(built_for_week={built}, authoritative_week={auth}, D1 current_week={cur})")
+              sys.exit(1)
+          PY
+          done
+          exit $RC
