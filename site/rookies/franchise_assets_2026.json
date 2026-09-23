@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-22T14:10:51.613533+00:00",
+    "generated_at_utc": "2026-09-23T14:26:03.494958+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3371,7 +3371,7 @@
           "salary": 7000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -3479,18 +3479,6 @@
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15797",
-          "display": "Greg Dulcich",
-          "player_id": "15797",
-          "position": "TE",
-          "nfl_team": "MIA",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5046,18 +5034,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17518",
-          "display": "Cyrus Allen",
-          "player_id": "17518",
-          "position": "WR",
-          "nfl_team": "KCC",
-          "salary": 2000,
-          "contract_year": 3,
-          "contract_status": "Rookie-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16013",
           "display": "Nate Landman",
           "player_id": "16013",
@@ -5336,13 +5312,13 @@
           "original_owner_name": "Derrick Whitman"
         },
         {
-          "asset_id": "FP_2027_5_0010",
-          "display": "2027 R5",
+          "asset_id": "FP_2027_4_0011",
+          "display": "2027 R4  (via Cleon Ca$h \u00b7 Eric Mannila)",
           "year": "2027",
-          "round": "5",
-          "original_fid": "0010",
-          "original_team_name": "Blake Bombers",
-          "original_owner_name": "Shawn Blake"
+          "round": "4",
+          "original_fid": "0011",
+          "original_team_name": "Cleon Ca$h",
+          "original_owner_name": "Eric Mannila"
         }
       ],
       "current_picks": []
@@ -5538,6 +5514,18 @@
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17518",
+          "display": "Cyrus Allen",
+          "player_id": "17518",
+          "position": "WR",
+          "nfl_team": "KCC",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "Rookie-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5847,13 +5835,13 @@
           "original_owner_name": "Eric Mannila"
         },
         {
-          "asset_id": "FP_2027_4_0011",
-          "display": "2027 R4",
+          "asset_id": "FP_2027_5_0010",
+          "display": "2027 R5  (via Blake Bombers \u00b7 Shawn Blake)",
           "year": "2027",
-          "round": "4",
-          "original_fid": "0011",
-          "original_team_name": "Cleon Ca$h",
-          "original_owner_name": "Eric Mannila"
+          "round": "5",
+          "original_fid": "0010",
+          "original_team_name": "Blake Bombers",
+          "original_owner_name": "Shawn Blake"
         }
       ],
       "current_picks": []
