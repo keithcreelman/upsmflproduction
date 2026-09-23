@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-21 22:18:11",
+    "generated_at": "2026-09-23 21:59:45",
     "source": "contract-activity-log",
-    "count": 154,
+    "count": 155,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "fb794391b28498d22d5097a7",
+      "submission_id": "fb794391b28498d22d5097a7",
+      "activity_scope": "contract_mutation",
+      "activity_type": "MYM",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0002",
+      "franchise_name": "CBP",
+      "player_id": "14797",
+      "player_name": "Swift, D'Andre",
+      "position": "RB",
+      "salary": 26000,
+      "contract_year": 2,
+      "contract_status": "Vet-MYM",
+      "contract_info": "CL 2| TCV 52K| AAV 26K| Y1-26K, Y2-26K| GTD: 39K",
+      "tcv": 52000,
+      "aav": 26000,
+      "guaranteed": 39000,
+      "submitted_at_utc": "2026-09-23T21:59:28.871Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1552439297284644876",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "70625be79b86ab8964fffe80",
       "submission_id": "70625be79b86ab8964fffe80",
