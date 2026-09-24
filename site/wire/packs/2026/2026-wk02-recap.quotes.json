@@ -1,33 +1,33 @@
 {
-  "_note": "Documentation of the 6 verbatim #the-coffee-shop quotes used in the hand-built 2026-wk02-ups-center.html, matching the schema weekly_recap.py's editor-picks path expects (site/wire/packs/<season>/<pack_id>.quotes.json). This UPS Center page was hand-authored directly from the pack (same approach as Week 1's page), not run through wire.py write, so this file is not currently read by an automated build -- it exists so the exact quote selection is reviewable and reproducible, and so a future automated build reads the same picks rather than the fallback ranker's different top-8. Every entry below was independently re-verified against ups_discord_messages via wire_data.discord_messages_by_id before use: verbatim text, owner attribution, channel, and timestamp all confirmed.",
+  "_note": "Documentation of the 6 verbatim #the-coffee-shop quotes used in the hand-built 2026-wk02-ups-center.html, matching the schema weekly_recap.py's editor-picks path expects (site/wire/packs/<season>/<pack_id>.quotes.json): s1/s2/s3 = section, pot:<exact division tag as the pack stores it> = that pot's page -- same schema 2026-wk01-recap.quotes.json already uses. An earlier pass invented 'open:dart' and a slugified 'pot:dog-pound-4-life-v-maddie-mondays' that don't match this schema and made wire.py build fail closed (quote pick(s) placed nowhere); corrected here to the real placements, confirmed against the committed pack's own sections[] ids and pots[].tag strings. Every entry below was independently re-verified against ups_discord_messages via wire_data.discord_messages_by_id before use: verbatim text, owner attribution, channel, and timestamp all confirmed.",
   "picks": [
     {
       "messageId": "1552029854021718148",
-      "place": "open:dart",
+      "place": "s1",
       "why": "Reaction to Jaxson Dart's reported injury the day after his Monday-night bust; sets up the Dart/Mannila paragraph.",
       "verified": {"author": "Eric Martel", "channel": "the-coffee-shop", "postedAtEt": "Tue Sep 22, 2:52 PM ET", "text": "Not looking good for dart... worse than expected... could have season ending surgery Eric Mannila"}
     },
     {
       "messageId": "1552039965611790467",
-      "place": "open:dart",
+      "place": "s1",
       "why": "Same reaction thread, follow-up.",
       "verified": {"author": "Ryan Bousquet", "channel": "the-coffee-shop", "postedAtEt": "Tue Sep 22, 3:32 PM ET", "text": "This dude Dart is starcrossed. Maybe Harbaugh is too."}
     },
     {
       "messageId": "1551352387070074913",
-      "place": "pot:dog-pound-4-life-v-maddie-mondays",
+      "place": "pot:DOG POUND 4 LIFE v Maddie Mondays",
       "why": "Directly about Jaxon Smith-Njigba (\"JSN\"), Bear Dunn's featured performer this pot.",
       "verified": {"author": "Ryan Bousquet", "channel": "the-coffee-shop", "postedAtEt": "Sun Sep 20, 6:00 PM ET", "text": "Just ask JSN to score enough for 4 people. He loves you."}
     },
     {
       "messageId": "1551724841625845832",
-      "place": "pot:dog-pound-4-life-v-maddie-mondays",
+      "place": "pot:DOG POUND 4 LIFE v Maddie Mondays",
       "why": "Directly names the Maddie Mondays 3-way race (Manther = Josh Martel's team vs Keith Creelman) this pot covers.",
       "verified": {"author": "Shawn Blake", "channel": "the-coffee-shop", "postedAtEt": "Mon Sep 21, 6:40 PM ET", "text": "I don’t want him dealing Lamar. I need Manther to win division and hold Keith Creelman off for division"}
     },
     {
       "messageId": "1551918189321920575",
-      "place": "pot:dog-pound-4-life-v-maddie-mondays",
+      "place": "pot:DOG POUND 4 LIFE v Maddie Mondays",
       "why": "Directly about Ryan Bousquet's Maddie Mondays standing, discussed in the same paragraph.",
       "verified": {"author": "Shawn Blake", "channel": "the-coffee-shop", "postedAtEt": "Tue Sep 22, 7:28 AM ET", "text": "Some are saying Ryan Bousquet is dragging the division down"}
     }

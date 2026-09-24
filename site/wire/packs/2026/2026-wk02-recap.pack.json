@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-wk02-recap",
   "title": "2026 Week 2",
-  "generatedAtUtc": "2026-09-23T14:34:23Z",
+  "generatedAtUtc": "2026-09-24T14:37:11Z",
   "season": 2026,
   "week": 2,
   "sources": [
@@ -11,6 +11,12 @@
       "asof": "preseason",
       "rows": 12,
       "note": "preseason power rank and simulated odds, re-registered verbatim from site/wire/packs/2026/2026-season-forecast.pack.json (working copy (identical to origin/main)) -- never recomputed"
+    },
+    {
+      "name": "elias.py check --week 2",
+      "asof": "2026-09-24T09:49:49Z",
+      "rows": 17,
+      "note": "MFL Official Statistics Changes (Thu Sep 24, 12:10 AM ET) and weeklyResults, against site/wire/data/scores_published_2026_wk02.json"
     },
     {
       "name": "nfl_player_weekly",
@@ -85,21 +91,28 @@
       "note": "offense = QB/RB/WR/TE, IDP = DL/LB/DB, K/P = PK/PN; every franchise's three buckets verified to add back to its team score"
     },
     {
-      "name": "ups_discord_messages",
+      "name": "ups_discord_messages (editor picks)",
       "asof": "2026 wk2",
-      "rows": 153,
-      "note": "league chat, archived from Discord; quotes render verbatim"
+      "rows": 5,
+      "note": "message ids chosen by an editor, text resolved verbatim at build"
     },
     {
       "name": "ups_player_projections",
       "asof": "2026 wk2",
       "rows": 12,
       "note": "projected starter totals, captured live during the week"
+    },
+    {
+      "name": "ups_player_projections (first-capture fallback)",
+      "asof": "2026 wk2",
+      "rows": null,
+      "note": "Week 2 Bust & Bargain used each player's earliest preserved pregame capture, not the normal last-before-kickoff one, because a later ingest run overwrote the last-capture evidence for this week. Intermediate capture history between the first and latest stored value is not retained."
     }
   ],
   "coverage": {},
   "warnings": [
     "Signal labelling does not attempt \"Schedule-assisted\" yet -- that needs the move traced to opponent strength, not just its size. The largest real, sourced cause IS now named per row (an absence, or a still-rostered player whose own projection genuinely fell) when it clears biggest_absences()/biggest_decliners()'s materiality bar, netted against the team's own bench/replacement value -- not the player's raw number, which overstates it. A smaller or unpriced cause still reads as plain Strong/Moderate/Neutral.",
+    "Week 2 Bust & Bargain and boom/bust facts use the earliest preserved pregame projection, not the usual last-before-kickoff one: 194 starters graded, 4 more excluded from grading for injury context (raw evidence kept, shown separately), 15 excluded entirely for want of valid pre-kickoff evidence (15 whose first capture landed after their own kickoff, 0 with no capture at all) -- 213 offense/IDP starters were relevant in total.",
     "Double/triple-header week -- an owner plays two or three opponents at once, so the same name appears on more than one game page.",
     "No week_preview_2026_wk03.json, so this recap carries no next-week preview."
   ],
@@ -250,7 +263,25 @@
   "facts": [
     {
       "id": "f.bb.idp.bargain.1",
-      "label": "No. 1 defense bargain of week 2 (started by Bear Dunn)",
+      "label": "No. 1 defense bargain of week 2 (started by Shawn Blake)",
+      "value": 24.9,
+      "unit": "points",
+      "fmt": "Devin Lloyd (LB, Shawn Blake) scored 32.0 on a projection of 7.1",
+      "source": "ups_player_projections",
+      "asof": "wk2, captured before kickoff"
+    },
+    {
+      "id": "f.bb.idp.bargain.2",
+      "label": "No. 2 defense bargain of week 2 (started by Shawn Blake)",
+      "value": 11.2,
+      "unit": "points",
+      "fmt": "Will Anderson (DL, Shawn Blake) scored 18.0 on a projection of 6.8",
+      "source": "ups_player_projections",
+      "asof": "wk2, captured before kickoff"
+    },
+    {
+      "id": "f.bb.idp.bargain.3",
+      "label": "No. 3 defense bargain of week 2 (started by Bear Dunn)",
       "value": 9.5,
       "unit": "points",
       "fmt": "Budda Baker (DB, Bear Dunn) scored 18.8 on a projection of 9.3",
@@ -258,38 +289,20 @@
       "asof": "wk2, captured before kickoff"
     },
     {
-      "id": "f.bb.idp.bargain.2",
-      "label": "No. 2 defense bargain of week 2 (started by Eric Martel)",
-      "value": 8.8,
-      "unit": "points",
-      "fmt": "Quentin Lake (DB, Eric Martel) scored 15.1 on a projection of 6.3",
-      "source": "ups_player_projections",
-      "asof": "wk2, captured before kickoff"
-    },
-    {
-      "id": "f.bb.idp.bargain.3",
-      "label": "No. 3 defense bargain of week 2 (started by Derrick Whitman)",
-      "value": 8.7,
-      "unit": "points",
-      "fmt": "Leonard Williams (DL, Derrick Whitman) scored 13.5 on a projection of 4.8",
-      "source": "ups_player_projections",
-      "asof": "wk2, captured before kickoff"
-    },
-    {
       "id": "f.bb.idp.bargain.4",
-      "label": "No. 4 defense bargain of week 2 (started by Keith Creelman)",
-      "value": 7.1,
+      "label": "No. 4 defense bargain of week 2 (started by Chris Klingenberg)",
+      "value": 9.4,
       "unit": "points",
-      "fmt": "Akeem Davis-Gaither (LB, Keith Creelman) scored 11.5 on a projection of 4.4",
+      "fmt": "Javon Bullard (DB, Chris Klingenberg) scored 14.1 on a projection of 4.7",
       "source": "ups_player_projections",
       "asof": "wk2, captured before kickoff"
     },
     {
       "id": "f.bb.idp.bargain.5",
-      "label": "No. 5 defense bargain of week 2 (started by Brian Cutting)",
-      "value": 6.7,
+      "label": "No. 5 defense bargain of week 2 (started by Derrick Whitman)",
+      "value": 8.7,
       "unit": "points",
-      "fmt": "Nakobe Dean (LB, Brian Cutting) scored 13.0 on a projection of 6.3",
+      "fmt": "Leonard Williams (DL, Derrick Whitman) scored 13.5 on a projection of 4.8",
       "source": "ups_player_projections",
       "asof": "wk2, captured before kickoff"
     },
@@ -331,12 +344,48 @@
     },
     {
       "id": "f.bb.idp.bust.5",
-      "label": "No. 5 defense bust of week 2 (started by Brian Cutting)",
-      "value": 5.5,
+      "label": "No. 5 defense bust of week 2 (started by Matt Gerardi)",
+      "value": 5.6,
       "unit": "points",
-      "fmt": "Nick Bosa (DL, Brian Cutting) scored 1.5 on a projection of 7.0",
+      "fmt": "Myles Murphy (DL, Matt Gerardi) scored 1.5 on a projection of 7.1",
       "source": "ups_player_projections",
       "asof": "wk2, captured before kickoff"
+    },
+    {
+      "id": "f.bb.notgraded.13604",
+      "label": "Saquon Barkley (RB, Keith Creelman) -- INJURY CONTEXT -- NOT GRADED",
+      "value": 14.6,
+      "unit": "points",
+      "fmt": "Saquon Barkley scored 3.0 on a projection of 17.6. The Eagles announced Barkley (neck/shoulder) as questionable to return during their Week 2 game against the Titans (Sunday, September 20) due to a stinger. His 4-carry, 2-target, 3.0-point line is consistent with a game cut short by that injury, not a clean-opportunity miss.",
+      "source": "ups_player_projections",
+      "asof": "wk2, raw gap not graded"
+    },
+    {
+      "id": "f.bb.notgraded.13674",
+      "label": "Dallas Goedert (TE, Keith Creelman) -- INJURY CONTEXT -- NOT GRADED",
+      "value": 14.6,
+      "unit": "points",
+      "fmt": "Dallas Goedert scored 1.9 on a projection of 16.5. Diagnosed the Monday after Week 2 (September 21) with a sprained MCL, expected to miss several weeks. His 2-target, 4-air-yard, 1.9-point Week 2 line is consistent with the knee injury already affecting that game, not a clean-opportunity miss.",
+      "source": "ups_player_projections",
+      "asof": "wk2, raw gap not graded"
+    },
+    {
+      "id": "f.bb.notgraded.16615",
+      "label": "Malik Nabers (WR, Eric Mannila) -- INJURY CONTEXT -- NOT GRADED",
+      "value": 13.8,
+      "unit": "points",
+      "fmt": "Malik Nabers scored 1.1 on a projection of 14.9. Briefly left the game with a right-shoulder injury, returned, and finished with 43 snaps. Dart's early exit also changed his quarterback context for the rest of the game. Because the effects of the injury and the quarterback change cannot be cleanly separated from his performance, he is excluded from the ranked bust list rather than graded as a clean miss.",
+      "source": "ups_player_projections",
+      "asof": "wk2, raw gap not graded"
+    },
+    {
+      "id": "f.bb.notgraded.17032",
+      "label": "Jaxson Dart (QB, Eric Mannila) -- INJURY -- NOT GRADED",
+      "value": 21.3,
+      "unit": "points",
+      "fmt": "Jaxson Dart scored 1.2 on a projection of 22.5. Left the game on the Giants' 7th offensive snap (7 snaps, 12% of offensive plays) with a season-ending left-knee injury. His 1.2-point actual score reflects an injury-shortened appearance, not a full-opportunity performance miss.",
+      "source": "ups_player_projections",
+      "asof": "wk2, raw gap not graded"
     },
     {
       "id": "f.bb.off.bargain.1",
@@ -431,42 +480,24 @@
     {
       "id": "f.bb.off.bust.1",
       "label": "No. 1 offense bust of week 2 (started by Eric Mannila)",
-      "value": 21.3,
+      "value": 13.7,
       "unit": "points",
-      "fmt": "Jaxson Dart (QB, Eric Mannila) scored 1.2 on a projection of 22.5",
+      "fmt": "Bijan Robinson (RB, Eric Mannila) scored 10.9 on a projection of 24.6",
       "source": "ups_player_projections",
       "asof": "wk2, captured before kickoff"
     },
     {
       "id": "f.bb.off.bust.1.xfp",
-      "label": "Expected fantasy points from Jaxson Dart's week 2 usage",
-      "value": 2.16,
+      "label": "Expected fantasy points from Bijan Robinson's week 2 usage",
+      "value": 13.57,
       "unit": "points",
-      "fmt": "5 passes, 47 air yards, worth 2.2 expected points",
+      "fmt": "16 carries, 4 targets, worth 13.6 expected points",
       "source": "nflverse ffopportunity (UPS-scored)",
       "asof": "wk2"
     },
     {
       "id": "f.bb.off.bust.2",
-      "label": "No. 2 offense bust of week 2 (started by Eric Mannila)",
-      "value": 13.8,
-      "unit": "points",
-      "fmt": "Malik Nabers (WR, Eric Mannila) scored 1.1 on a projection of 14.9",
-      "source": "ups_player_projections",
-      "asof": "wk2, captured before kickoff"
-    },
-    {
-      "id": "f.bb.off.bust.2.xfp",
-      "label": "Expected fantasy points from Malik Nabers's week 2 usage",
-      "value": 7.91,
-      "unit": "points",
-      "fmt": "4 targets, 77 air yards, worth 7.9 expected points",
-      "source": "nflverse ffopportunity (UPS-scored)",
-      "asof": "wk2"
-    },
-    {
-      "id": "f.bb.off.bust.3",
-      "label": "No. 3 offense bust of week 2 (started by Matt Gerardi)",
+      "label": "No. 2 offense bust of week 2 (started by Matt Gerardi)",
       "value": 11.0,
       "unit": "points",
       "fmt": "Jadarian Price (RB, Matt Gerardi) scored 5.4 on a projection of 16.4",
@@ -474,11 +505,29 @@
       "asof": "wk2, captured before kickoff"
     },
     {
-      "id": "f.bb.off.bust.3.xfp",
+      "id": "f.bb.off.bust.2.xfp",
       "label": "Expected fantasy points from Jadarian Price's week 2 usage",
       "value": 13.36,
       "unit": "points",
       "fmt": "13 carries, 2 targets, worth 13.4 expected points",
+      "source": "nflverse ffopportunity (UPS-scored)",
+      "asof": "wk2"
+    },
+    {
+      "id": "f.bb.off.bust.3",
+      "label": "No. 3 offense bust of week 2 (started by Josh Martel)",
+      "value": 10.4,
+      "unit": "points",
+      "fmt": "Caleb Williams (QB, Josh Martel) scored 7.3 on a projection of 17.7",
+      "source": "ups_player_projections",
+      "asof": "wk2, captured before kickoff"
+    },
+    {
+      "id": "f.bb.off.bust.3.xfp",
+      "label": "Expected fantasy points from Caleb Williams's week 2 usage",
+      "value": 17.33,
+      "unit": "points",
+      "fmt": "26 passes, 118 air yards, 5 carries, worth 17.3 expected points",
       "source": "nflverse ffopportunity (UPS-scored)",
       "asof": "wk2"
     },
@@ -521,9 +570,9 @@
     {
       "id": "f.bb.unranked",
       "label": "Starters left off the bust/bargain lists for want of a provable pregame projection",
-      "value": 109,
+      "value": 15,
       "unit": "count",
-      "fmt": "109 starters from the Thursday and Sunday games whose pregame capture times did not survive, including D.J. Moore (-0.1), Myles Murphy (1.5), Colston Loveland (1.8), Dallas Goedert (1.9), Divine Deablo (2.0), Saquon Barkley (3.0)",
+      "fmt": "15 starters from the Thursday games whose pregame capture times did not survive, including D.J. Moore (-0.1), Jack Campbell (4.5), Jameson Williams (5.7), Terrel Bernard (6.5), Khalil Shakir (7.5), Chuck Clark (10.8)",
       "source": "ups_player_projections",
       "asof": "wk2"
     },
@@ -586,7 +635,7 @@
       "label": "Was that a bad DECISION or a bad result? (no basis to judge)",
       "value": "unknown",
       "unit": "text",
-      "fmt": "the decision is not graded -- Justin Jefferson: his last archived projection was captured Sun Sep 20, 1:55 PM ET, after his MIN game kicked off Sun Sep 20, 1:00 PM ET",
+      "fmt": "the decision is not graded -- Davante Adams: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his LAR game kicked off Mon Sep 21, 8:15 PM ET; Justin Jefferson: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his MIN game kicked off Sun Sep 20, 1:00 PM ET",
       "source": "derived",
       "asof": "wk2"
     },
@@ -627,6 +676,42 @@
       "asof": "wk2"
     },
     {
+      "id": "f.elias.biggest",
+      "label": "Biggest single player change in week 2's stat corrections",
+      "value": 1.5,
+      "unit": "points",
+      "fmt": "Jeffery Simmons (Ryan Bousquet, started) went from 12.0 to 13.5 -- passes defended from 0 to 1",
+      "source": "elias.py check (MFL Official Statistics Changes + weeklyResults vs scores_published)",
+      "asof": "checked 2026-09-24T09:49:49Z"
+    },
+    {
+      "id": "f.elias.published",
+      "label": "When Elias's week 2 stat changes were published",
+      "value": 1,
+      "unit": "count",
+      "fmt": "Thu Sep 24, 12:10 AM ET",
+      "source": "elias.py check (MFL Official Statistics Changes + weeklyResults vs scores_published)",
+      "asof": "checked 2026-09-24T09:49:49Z"
+    },
+    {
+      "id": "f.elias.summary",
+      "label": "Week 2 official stat changes and what they moved",
+      "value": 17,
+      "unit": "count",
+      "fmt": "17 stat changes league-wide; 5 rostered players' scores moved, 5 team scores changed, 1 result flipped, and 4 owners' all-play records changed",
+      "source": "elias.py check (MFL Official Statistics Changes + weeklyResults vs scores_published)",
+      "asof": "checked 2026-09-24T09:49:49Z"
+    },
+    {
+      "id": "f.elias.teams",
+      "label": "Team scores the week 2 stat changes moved",
+      "value": 5,
+      "unit": "count",
+      "fmt": "Ryan Bousquet 177.7 to 179.2, Brian Cutting 200.6 to 199.6, Bear Dunn 281.0 to 281.8, Matt Gerardi 209.1 to 208.6, Shawn Blake 303.9 to 303.4",
+      "source": "elias.py check (MFL Official Statistics Changes + weeklyResults vs scores_published)",
+      "asof": "checked 2026-09-24T09:49:49Z"
+    },
+    {
       "id": "f.game.01.ceiling",
       "label": "Brian Cross -- could his best lineup have beaten Shawn Blake's score?",
       "value": "no",
@@ -638,9 +723,9 @@
     {
       "id": "f.game.01.margin",
       "label": "Shawn Blake over Brian Cross (LEGION OF BOOM v Outlast PG Time pot) -- margin, the largest of 18 this week",
-      "value": 125.89999999999998,
+      "value": 125.39999999999998,
       "unit": "points",
-      "fmt": "125.9",
+      "fmt": "125.4",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -664,19 +749,19 @@
     },
     {
       "id": "f.game.02.margin",
-      "label": "Shawn Blake over Brian Cutting (LEGION OF BOOM v Outlast PG Time pot) -- margin, 4th largest of 18 this week",
-      "value": 103.29999999999998,
+      "label": "Shawn Blake over Brian Cutting (LEGION OF BOOM v Outlast PG Time pot) -- margin, 3rd largest of 18 this week",
+      "value": 103.79999999999998,
       "unit": "points",
-      "fmt": "103.3",
+      "fmt": "103.8",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
       "id": "f.game.02.margin_rank",
       "label": "Shawn Blake over Brian Cutting -- where that margin ranks among this week's 18 games",
-      "value": 4,
+      "value": 3,
       "unit": "rank",
-      "fmt": "4th largest of 18",
+      "fmt": "3rd largest of 18",
       "source": "derived",
       "asof": "wk2"
     },
@@ -701,9 +786,9 @@
     {
       "id": "f.game.03.margin",
       "label": "Shawn Blake over Eric Martel (LEGION OF BOOM v Outlast PG Time pot) -- margin, 5th largest of 18 this week",
-      "value": 95.19999999999999,
+      "value": 94.69999999999999,
       "unit": "points",
-      "fmt": "95.2",
+      "fmt": "94.7",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -755,9 +840,9 @@
     {
       "id": "f.game.05.margin",
       "label": "Derrick Whitman over Brian Cutting (LEGION OF BOOM v Outlast PG Time pot) -- margin, 15th largest of 18 this week",
-      "value": 14.700000000000017,
+      "value": 15.700000000000017,
       "unit": "points",
-      "fmt": "14.7",
+      "fmt": "15.7",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -817,6 +902,33 @@
     },
     {
       "id": "f.game.07.ceiling",
+      "label": "Matt Gerardi -- could his best lineup have beaten Eric Martel's score?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "a perfect lineup wins it for Matt Gerardi",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk2"
+    },
+    {
+      "id": "f.game.07.margin",
+      "label": "Eric Martel over Matt Gerardi (LEGION OF BOOM v Outlast PG Time pot) -- margin, 18th largest of 18 this week",
+      "value": 0.09999999999999432,
+      "unit": "points",
+      "fmt": "0.1",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk2"
+    },
+    {
+      "id": "f.game.07.margin_rank",
+      "label": "Eric Martel over Matt Gerardi -- where that margin ranks among this week's 18 games",
+      "value": 18,
+      "unit": "rank",
+      "fmt": "18th largest of 18",
+      "source": "derived",
+      "asof": "wk2"
+    },
+    {
+      "id": "f.game.08.ceiling",
       "label": "Brian Cross -- could his best lineup have beaten Matt Gerardi's score?",
       "value": "yes",
       "unit": "text",
@@ -825,16 +937,16 @@
       "asof": "wk2"
     },
     {
-      "id": "f.game.07.margin",
+      "id": "f.game.08.margin",
       "label": "Matt Gerardi over Brian Cross (LEGION OF BOOM v Outlast PG Time pot) -- margin, 13th largest of 18 this week",
-      "value": 31.099999999999994,
+      "value": 30.599999999999994,
       "unit": "points",
-      "fmt": "31.1",
+      "fmt": "30.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
-      "id": "f.game.07.margin_rank",
+      "id": "f.game.08.margin_rank",
       "label": "Matt Gerardi over Brian Cross -- where that margin ranks among this week's 18 games",
       "value": 13,
       "unit": "rank",
@@ -843,7 +955,7 @@
       "asof": "wk2"
     },
     {
-      "id": "f.game.07.upset",
+      "id": "f.game.08.upset",
       "label": "Matt Gerardi over Brian Cross -- preseason ranks",
       "value": 3,
       "unit": "count",
@@ -852,7 +964,7 @@
       "asof": "preseason"
     },
     {
-      "id": "f.game.08.ceiling",
+      "id": "f.game.09.ceiling",
       "label": "Brian Cutting -- could his best lineup have beaten Matt Gerardi's score?",
       "value": "yes",
       "unit": "text",
@@ -861,16 +973,16 @@
       "asof": "wk2"
     },
     {
-      "id": "f.game.08.margin",
+      "id": "f.game.09.margin",
       "label": "Matt Gerardi over Brian Cutting (LEGION OF BOOM v Outlast PG Time pot) -- margin, 16th largest of 18 this week",
-      "value": 8.5,
+      "value": 9.0,
       "unit": "points",
-      "fmt": "8.5",
+      "fmt": "9.0",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
-      "id": "f.game.08.margin_rank",
+      "id": "f.game.09.margin_rank",
       "label": "Matt Gerardi over Brian Cutting -- where that margin ranks among this week's 18 games",
       "value": 16,
       "unit": "rank",
@@ -879,47 +991,11 @@
       "asof": "wk2"
     },
     {
-      "id": "f.game.08.upset",
+      "id": "f.game.09.upset",
       "label": "Matt Gerardi over Brian Cutting -- preseason ranks",
       "value": 10,
       "unit": "count",
       "fmt": "the preseason No. 12 beat the preseason No. 2",
-      "source": "2026-season-forecast",
-      "asof": "preseason"
-    },
-    {
-      "id": "f.game.09.ceiling",
-      "label": "Eric Martel -- could his best lineup have beaten Matt Gerardi's score?",
-      "value": "yes",
-      "unit": "text",
-      "fmt": "a perfect lineup wins it for Eric Martel",
-      "source": "src_franchise_weekly_score",
-      "asof": "wk2"
-    },
-    {
-      "id": "f.game.09.margin",
-      "label": "Matt Gerardi over Eric Martel (LEGION OF BOOM v Outlast PG Time pot) -- margin, 18th largest of 18 this week",
-      "value": 0.4000000000000057,
-      "unit": "points",
-      "fmt": "0.4",
-      "source": "src_franchise_weekly_score",
-      "asof": "wk2"
-    },
-    {
-      "id": "f.game.09.margin_rank",
-      "label": "Matt Gerardi over Eric Martel -- where that margin ranks among this week's 18 games",
-      "value": 18,
-      "unit": "rank",
-      "fmt": "18th largest of 18",
-      "source": "derived",
-      "asof": "wk2"
-    },
-    {
-      "id": "f.game.09.upset",
-      "label": "Matt Gerardi over Eric Martel -- preseason ranks",
-      "value": 8,
-      "unit": "count",
-      "fmt": "the preseason No. 12 beat the preseason No. 4",
       "source": "2026-season-forecast",
       "asof": "preseason"
     },
@@ -935,9 +1011,9 @@
     {
       "id": "f.game.10.margin",
       "label": "Bear Dunn over Josh Martel (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 2nd largest of 18 this week",
-      "value": 108.80000000000001,
+      "value": 109.60000000000002,
       "unit": "points",
-      "fmt": "108.8",
+      "fmt": "109.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -961,19 +1037,19 @@
     },
     {
       "id": "f.game.11.margin",
-      "label": "Bear Dunn over Ryan Bousquet (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 3rd largest of 18 this week",
-      "value": 103.30000000000001,
+      "label": "Bear Dunn over Ryan Bousquet (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 4th largest of 18 this week",
+      "value": 102.60000000000002,
       "unit": "points",
-      "fmt": "103.3",
+      "fmt": "102.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
       "id": "f.game.11.margin_rank",
       "label": "Bear Dunn over Ryan Bousquet -- where that margin ranks among this week's 18 games",
-      "value": 3,
+      "value": 4,
       "unit": "rank",
-      "fmt": "3rd largest of 18",
+      "fmt": "4th largest of 18",
       "source": "derived",
       "asof": "wk2"
     },
@@ -989,9 +1065,9 @@
     {
       "id": "f.game.12.margin",
       "label": "Bear Dunn over Keith Creelman (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 6th largest of 18 this week",
-      "value": 79.80000000000001,
+      "value": 80.60000000000002,
       "unit": "points",
-      "fmt": "79.8",
+      "fmt": "80.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -1051,19 +1127,19 @@
     },
     {
       "id": "f.game.14.margin",
-      "label": "Chris Klingenberg over Ryan Bousquet (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 8th largest of 18 this week",
-      "value": 58.400000000000006,
+      "label": "Chris Klingenberg over Ryan Bousquet (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 9th largest of 18 this week",
+      "value": 56.900000000000006,
       "unit": "points",
-      "fmt": "58.4",
+      "fmt": "56.9",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
       "id": "f.game.14.margin_rank",
       "label": "Chris Klingenberg over Ryan Bousquet -- where that margin ranks among this week's 18 games",
-      "value": 8,
+      "value": 9,
       "unit": "rank",
-      "fmt": "8th largest of 18",
+      "fmt": "9th largest of 18",
       "source": "derived",
       "asof": "wk2"
     },
@@ -1078,7 +1154,7 @@
     },
     {
       "id": "f.game.15.margin",
-      "label": "Chris Klingenberg over Keith Creelman (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 11th largest of 18 this week",
+      "label": "Chris Klingenberg over Keith Creelman (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 12th largest of 18 this week",
       "value": 34.900000000000006,
       "unit": "points",
       "fmt": "34.9",
@@ -1088,9 +1164,9 @@
     {
       "id": "f.game.15.margin_rank",
       "label": "Chris Klingenberg over Keith Creelman -- where that margin ranks among this week's 18 games",
-      "value": 11,
+      "value": 12,
       "unit": "rank",
-      "fmt": "11th largest of 18",
+      "fmt": "12th largest of 18",
       "source": "derived",
       "asof": "wk2"
     },
@@ -1114,7 +1190,7 @@
     },
     {
       "id": "f.game.16.margin",
-      "label": "Keith Creelman over Eric Mannila (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 9th largest of 18 this week",
+      "label": "Keith Creelman over Eric Mannila (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 8th largest of 18 this week",
       "value": 57.0,
       "unit": "points",
       "fmt": "57.0",
@@ -1124,9 +1200,9 @@
     {
       "id": "f.game.16.margin_rank",
       "label": "Keith Creelman over Eric Mannila -- where that margin ranks among this week's 18 games",
-      "value": 9,
+      "value": 8,
       "unit": "rank",
-      "fmt": "9th largest of 18",
+      "fmt": "8th largest of 18",
       "source": "derived",
       "asof": "wk2"
     },
@@ -1141,19 +1217,19 @@
     },
     {
       "id": "f.game.17.margin",
-      "label": "Ryan Bousquet over Eric Mannila (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 12th largest of 18 this week",
-      "value": 33.5,
+      "label": "Ryan Bousquet over Eric Mannila (DOG POUND 4 LIFE v Maddie Mondays pot) -- margin, 11th largest of 18 this week",
+      "value": 35.0,
       "unit": "points",
-      "fmt": "33.5",
+      "fmt": "35.0",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
       "id": "f.game.17.margin_rank",
       "label": "Ryan Bousquet over Eric Mannila -- where that margin ranks among this week's 18 games",
-      "value": 12,
+      "value": 11,
       "unit": "rank",
-      "fmt": "12th largest of 18",
+      "fmt": "11th largest of 18",
       "source": "derived",
       "asof": "wk2"
     },
@@ -1198,25 +1274,25 @@
       "label": "Week 2 preview favorites by confidence band",
       "value": 18,
       "unit": "count",
-      "fmt": "coin flips (50-55%) 1-3; leans (55-65%) 4-7; favorites (65%+) 1-2",
+      "fmt": "coin flips (50-55%) 1-3; leans (55-65%) 4-7; favorites (65%+) 2-1",
       "source": "preview_grade.py (site/wire/data/week_preview_2026_wk02.json)",
       "asof": "preview cutoff 2026-09-17T00:01:02Z"
     },
     {
       "id": "f.grade.brier",
       "label": "Week 2 preview Brier score (0.25 = calling every game a coin flip; lower is better)",
-      "value": 0.2826,
+      "value": 0.2636,
       "unit": "ratio",
-      "fmt": "a Brier score of 0.283, worse than the 0.25 you get calling every game a coin flip",
+      "fmt": "a Brier score of 0.264, worse than the 0.25 you get calling every game a coin flip",
       "source": "preview_grade.py (site/wire/data/week_preview_2026_wk02.json)",
       "asof": "preview cutoff 2026-09-17T00:01:02Z"
     },
     {
       "id": "f.grade.favorites",
       "label": "Week 2 preview favorites' record",
-      "value": 6,
+      "value": 7,
       "unit": "count",
-      "fmt": "the favorites went 6-12, and the model expected about 10.8 wins",
+      "fmt": "the favorites went 7-11, and the model expected about 10.8 wins",
       "source": "preview_grade.py (site/wire/data/week_preview_2026_wk02.json)",
       "asof": "preview cutoff 2026-09-17T00:01:02Z"
     },
@@ -1252,7 +1328,7 @@
       "label": "Featured game 2: the call and the result",
       "value": 60.7,
       "unit": "percent",
-      "fmt": "Eric Martel was a 61% favorite over Shawn Blake and lost 303.9-208.7",
+      "fmt": "Eric Martel was a 61% favorite over Shawn Blake and lost 303.4-208.7",
       "source": "preview_grade.py (site/wire/data/week_preview_2026_wk02.json)",
       "asof": "preview cutoff 2026-09-17T00:01:02Z"
     },
@@ -2231,9 +2307,9 @@
     {
       "id": "f.pot.dog-pound-4-life-v-maddie-mondays.idp_pts",
       "label": "DOG POUND 4 LIFE v Maddie Mondays pot -- combined IDP points",
-      "value": 309.1,
+      "value": 311.4,
       "unit": "points",
-      "fmt": "309.1",
+      "fmt": "311.4",
       "source": "src_weekly",
       "asof": "wk2"
     },
@@ -2267,9 +2343,9 @@
     {
       "id": "f.pot.dog-pound-4-life-v-maddie-mondays.points",
       "label": "DOG POUND 4 LIFE v Maddie Mondays pot -- combined points this week",
-      "value": 1212.4,
+      "value": 1214.7,
       "unit": "points",
-      "fmt": "1212.4",
+      "fmt": "1214.7",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -2339,9 +2415,9 @@
     {
       "id": "f.pot.legion-of-boom-v-outlast-pg-time.idp_pts",
       "label": "LEGION OF BOOM v Outlast PG Time pot -- combined IDP points",
-      "value": 332.1,
+      "value": 330.1,
       "unit": "points",
-      "fmt": "332.1",
+      "fmt": "330.1",
       "source": "src_weekly",
       "asof": "wk2"
     },
@@ -2357,9 +2433,9 @@
     {
       "id": "f.pot.legion-of-boom-v-outlast-pg-time.longshot_result",
       "label": "LEGION OF BOOM v Outlast PG Time pot -- how the preseason longshot did (Matt Gerardi)",
-      "value": 3,
+      "value": 2,
       "unit": "count",
-      "fmt": "won every game in the division",
+      "fmt": "went 2-1 in the division",
       "source": "src_schedule",
       "asof": "wk2"
     },
@@ -2375,9 +2451,9 @@
     {
       "id": "f.pot.legion-of-boom-v-outlast-pg-time.points",
       "label": "LEGION OF BOOM v Outlast PG Time pot -- combined points this week",
-      "value": 1315.6,
+      "value": 1313.6,
       "unit": "points",
-      "fmt": "1315.6",
+      "fmt": "1313.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -2393,18 +2469,18 @@
     {
       "id": "f.pot.legion-of-boom-v-outlast-pg-time.sweeper",
       "label": "LEGION OF BOOM v Outlast PG Time pot -- won every game he played in it",
-      "value": 3,
+      "value": 2,
       "unit": "count",
-      "fmt": "Derrick Whitman (3-0) and Matt Gerardi (3-0) and Shawn Blake (3-0)",
+      "fmt": "Derrick Whitman (3-0) and Shawn Blake (3-0)",
       "source": "src_schedule",
       "asof": "wk2"
     },
     {
       "id": "f.pot.legion-of-boom-v-outlast-pg-time.winless",
       "label": "LEGION OF BOOM v Outlast PG Time pot -- did not win a game in it",
-      "value": 3,
+      "value": 2,
       "unit": "count",
-      "fmt": "Brian Cutting (0-3) and Eric Martel (0-3) and Brian Cross (0-3)",
+      "fmt": "Brian Cutting (0-3) and Brian Cross (0-3)",
       "source": "src_schedule",
       "asof": "wk2"
     },
@@ -3472,7 +3548,7 @@
     },
     {
       "id": "f.team.0001.boom",
-      "label": "Ryan Bousquet -- starter furthest OVER projection",
+      "label": "Ryan Bousquet -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 12.399999999999999,
       "unit": "points",
       "fmt": "Jake Ferguson scored 22.9 on a projection of 10.5",
@@ -3481,10 +3557,10 @@
     },
     {
       "id": "f.team.0001.ceiling_rank",
-      "label": "Ryan Bousquet -- where his best available lineup ranks among this week's 7 losers",
-      "value": 5,
+      "label": "Ryan Bousquet -- where his best available lineup ranks among this week's 8 losers",
+      "value": 6,
       "unit": "rank",
-      "fmt": "5th highest of the 7 losers",
+      "fmt": "6th highest of the 8 losers",
       "source": "derived",
       "asof": "wk2"
     },
@@ -3509,18 +3585,18 @@
     {
       "id": "f.team.0001.idp_pts",
       "label": "Ryan Bousquet -- IDP points from starters",
-      "value": 45.2,
+      "value": 46.7,
       "unit": "points",
-      "fmt": "45.2",
+      "fmt": "46.7",
       "source": "src_weekly",
       "asof": "wk2"
     },
     {
       "id": "f.team.0001.idp_rank",
       "label": "Ryan Bousquet -- where his IDP points rank this week",
-      "value": 8,
+      "value": 7,
       "unit": "rank",
-      "fmt": "the 8th-most IDP points in the league",
+      "fmt": "the 7th-most IDP points in the league",
       "source": "src_weekly",
       "asof": "wk2"
     },
@@ -3545,9 +3621,9 @@
     {
       "id": "f.team.0001.left_on_bench",
       "label": "Ryan Bousquet -- points left on the bench",
-      "value": 17.0,
+      "value": 15.5,
       "unit": "points",
-      "fmt": "17.0",
+      "fmt": "15.5",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -3572,9 +3648,9 @@
     {
       "id": "f.team.0001.pot_against",
       "label": "Ryan Bousquet -- points scored against him across the DOG POUND 4 LIFE v Maddie Mondays pot",
-      "value": 661.3,
+      "value": 662.1,
       "unit": "points",
-      "fmt": "661.3",
+      "fmt": "662.1",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -3599,9 +3675,9 @@
     {
       "id": "f.team.0001.score",
       "label": "Ryan Bousquet -- score",
-      "value": 177.7,
+      "value": 179.2,
       "unit": "points",
-      "fmt": "177.7",
+      "fmt": "179.2",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -3617,9 +3693,9 @@
     {
       "id": "f.team.0001.vs_avg",
       "label": "Ryan Bousquet -- this week against his own season average",
-      "value": 11.099999999999994,
+      "value": 12.599999999999994,
       "unit": "points",
-      "fmt": "+11.1",
+      "fmt": "+12.6",
       "source": "derived",
       "asof": "wk2"
     },
@@ -3635,9 +3711,9 @@
     {
       "id": "f.team.0001.week_points_rank",
       "label": "Ryan Bousquet -- where this week's score ranks in the league",
-      "value": 10,
+      "value": 9,
       "unit": "rank",
-      "fmt": "the 10th-most points in the league",
+      "fmt": "the 9th-most points in the league",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -3661,7 +3737,7 @@
     },
     {
       "id": "f.team.0002.boom",
-      "label": "Derrick Whitman -- starter furthest OVER projection",
+      "label": "Derrick Whitman -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 12.0,
       "unit": "points",
       "fmt": "Jonathan Taylor scored 30.2 on a projection of 18.2",
@@ -3743,9 +3819,9 @@
     {
       "id": "f.team.0002.pot_against",
       "label": "Derrick Whitman -- points scored against him across the LEGION OF BOOM v Outlast PG Time pot",
-      "value": 587.3,
+      "value": 586.3,
       "unit": "points",
-      "fmt": "587.3",
+      "fmt": "586.3",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -3822,6 +3898,15 @@
       "asof": "wk2"
     },
     {
+      "id": "f.team.0003.best_available",
+      "label": "Matt Gerardi -- best lineup available",
+      "value": 225.7,
+      "unit": "points",
+      "fmt": "225.7",
+      "source": "src_franchise_weekly_score",
+      "asof": "wk2"
+    },
+    {
       "id": "f.team.0003.best_player",
       "label": "Matt Gerardi -- best starter",
       "value": "Patrick Mahomes",
@@ -3832,7 +3917,7 @@
     },
     {
       "id": "f.team.0003.boom",
-      "label": "Matt Gerardi -- starter furthest OVER projection",
+      "label": "Matt Gerardi -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 22.5,
       "unit": "points",
       "fmt": "Patrick Mahomes scored 39.9 on a projection of 17.4",
@@ -3841,11 +3926,29 @@
     },
     {
       "id": "f.team.0003.bust",
-      "label": "Matt Gerardi -- starter furthest UNDER projection",
+      "label": "Matt Gerardi -- starter furthest UNDER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 10.999999999999998,
       "unit": "points",
       "fmt": "Jadarian Price scored 5.4 on a projection of 16.4",
       "source": "ups_player_projections",
+      "asof": "wk2"
+    },
+    {
+      "id": "f.team.0003.ceiling_rank",
+      "label": "Matt Gerardi -- where his best available lineup ranks among this week's 8 losers",
+      "value": 3,
+      "unit": "rank",
+      "fmt": "3rd highest of the 8 losers",
+      "source": "derived",
+      "asof": "wk2"
+    },
+    {
+      "id": "f.team.0003.could_have_won",
+      "label": "Matt Gerardi -- could his best lineup have won a game he lost?",
+      "value": "yes",
+      "unit": "text",
+      "fmt": "had a winning lineup on his bench",
+      "source": "derived",
       "asof": "wk2"
     },
     {
@@ -3860,9 +3963,9 @@
     {
       "id": "f.team.0003.idp_pts",
       "label": "Matt Gerardi -- IDP points from starters",
-      "value": 43.3,
+      "value": 42.8,
       "unit": "points",
-      "fmt": "43.3",
+      "fmt": "42.8",
       "source": "src_weekly",
       "asof": "wk2"
     },
@@ -3896,9 +3999,9 @@
     {
       "id": "f.team.0003.left_on_bench",
       "label": "Matt Gerardi -- points left on the bench",
-      "value": 16.599999999999994,
+      "value": 17.099999999999994,
       "unit": "points",
-      "fmt": "16.6",
+      "fmt": "17.1",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -3923,18 +4026,18 @@
     {
       "id": "f.team.0003.pot_against",
       "label": "Matt Gerardi -- points scored against him across the LEGION OF BOOM v Outlast PG Time pot",
-      "value": 587.3,
+      "value": 586.3,
       "unit": "points",
-      "fmt": "587.3",
+      "fmt": "586.3",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
       "id": "f.team.0003.pot_record",
       "label": "Matt Gerardi -- record inside the LEGION OF BOOM v Outlast PG Time pot this week",
-      "value": 3,
+      "value": 2,
       "unit": "count",
-      "fmt": "3-0",
+      "fmt": "2-1",
       "source": "src_schedule",
       "asof": "wk2"
     },
@@ -3950,9 +4053,9 @@
     {
       "id": "f.team.0003.score",
       "label": "Matt Gerardi -- score",
-      "value": 209.1,
+      "value": 208.6,
       "unit": "points",
-      "fmt": "209.1",
+      "fmt": "208.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -3968,9 +4071,9 @@
     {
       "id": "f.team.0003.vs_avg",
       "label": "Matt Gerardi -- this week against his own season average",
-      "value": -21.0,
+      "value": -21.5,
       "unit": "points",
-      "fmt": "-21.0",
+      "fmt": "-21.5",
       "source": "derived",
       "asof": "wk2"
     },
@@ -3986,9 +4089,9 @@
     {
       "id": "f.team.0003.week_points_rank",
       "label": "Matt Gerardi -- where this week's score ranks in the league",
-      "value": 5,
+      "value": 6,
       "unit": "rank",
-      "fmt": "the 5th-most points in the league",
+      "fmt": "the 6th-most points in the league",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4024,7 +4127,7 @@
       "label": "Brian Cutting -- was that bench miss a bad decision?",
       "value": "unknown",
       "unit": "text",
-      "fmt": "the decision is not graded -- Justin Jefferson: his last archived projection was captured Sun Sep 20, 1:55 PM ET, after his MIN game kicked off Sun Sep 20, 1:00 PM ET",
+      "fmt": "the decision is not graded -- Davante Adams: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his LAR game kicked off Mon Sep 21, 8:15 PM ET; Justin Jefferson: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his MIN game kicked off Sun Sep 20, 1:00 PM ET",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4047,8 +4150,17 @@
       "asof": "wk2"
     },
     {
+      "id": "f.team.0004.boom",
+      "label": "Brian Cutting -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 10.100000000000001,
+      "unit": "points",
+      "fmt": "Chris Olave scored 23.8 on a projection of 13.7",
+      "source": "ups_player_projections",
+      "asof": "wk2"
+    },
+    {
       "id": "f.team.0004.ceiling_rank",
-      "label": "Brian Cutting -- where his best available lineup ranks among this week's 7 losers",
+      "label": "Brian Cutting -- where his best available lineup ranks among this week's 8 losers",
       "value": 1,
       "unit": "rank",
       "fmt": "the highest of any loser this week",
@@ -4076,18 +4188,18 @@
     {
       "id": "f.team.0004.idp_pts",
       "label": "Brian Cutting -- IDP points from starters",
-      "value": 46.1,
+      "value": 45.1,
       "unit": "points",
-      "fmt": "46.1",
+      "fmt": "45.1",
       "source": "src_weekly",
       "asof": "wk2"
     },
     {
       "id": "f.team.0004.idp_rank",
       "label": "Brian Cutting -- where his IDP points rank this week",
-      "value": 7,
+      "value": 8,
       "unit": "rank",
-      "fmt": "the 7th-most IDP points in the league",
+      "fmt": "the 8th-most IDP points in the league",
       "source": "src_weekly",
       "asof": "wk2"
     },
@@ -4112,9 +4224,9 @@
     {
       "id": "f.team.0004.left_on_bench",
       "label": "Brian Cutting -- points left on the bench",
-      "value": 85.9,
+      "value": 86.9,
       "unit": "points",
-      "fmt": "85.9",
+      "fmt": "86.9",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4139,9 +4251,9 @@
     {
       "id": "f.team.0004.pot_against",
       "label": "Brian Cutting -- points scored against him across the LEGION OF BOOM v Outlast PG Time pot",
-      "value": 728.3,
+      "value": 727.3,
       "unit": "points",
-      "fmt": "728.3",
+      "fmt": "727.3",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4166,9 +4278,9 @@
     {
       "id": "f.team.0004.score",
       "label": "Brian Cutting -- score",
-      "value": 200.6,
+      "value": 199.6,
       "unit": "points",
-      "fmt": "200.6",
+      "fmt": "199.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4184,9 +4296,9 @@
     {
       "id": "f.team.0004.vs_avg",
       "label": "Brian Cutting -- this week against his own season average",
-      "value": -57.900000000000006,
+      "value": -58.900000000000006,
       "unit": "points",
-      "fmt": "-57.9",
+      "fmt": "-58.9",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4220,7 +4332,7 @@
     {
       "id": "f.team.0005.bench_flip",
       "label": "Eric Martel -- would swapping in his bench miss have flipped a loss?",
-      "value": 2,
+      "value": 1,
       "unit": "count",
       "fmt": "that swap alone turns a loss into a win",
       "source": "derived",
@@ -4240,7 +4352,7 @@
       "label": "Eric Martel -- was that bench miss a bad decision?",
       "value": "unknown",
       "unit": "text",
-      "fmt": "the decision is not graded -- Rashod Bateman: his last archived projection was captured Sun Sep 20, 1:55 PM ET, after his BAL game kicked off Sun Sep 20, 1:00 PM ET; Luther Burden: his last archived projection was captured Sun Sep 20, 1:55 PM ET, after his CHI game kicked off Sun Sep 20, 1:00 PM ET",
+      "fmt": "the decision is not graded -- Rashod Bateman: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his BAL game kicked off Sun Sep 20, 1:00 PM ET; Luther Burden: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his CHI game kicked off Sun Sep 20, 1:00 PM ET",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4264,10 +4376,10 @@
     },
     {
       "id": "f.team.0005.ceiling_rank",
-      "label": "Eric Martel -- where his best available lineup ranks among this week's 7 losers",
+      "label": "Eric Martel -- where his best available lineup ranks among this week's 8 losers",
       "value": 2,
       "unit": "rank",
-      "fmt": "2nd highest of the 7 losers",
+      "fmt": "2nd highest of the 8 losers",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4355,18 +4467,18 @@
     {
       "id": "f.team.0005.pot_against",
       "label": "Eric Martel -- points scored against him across the LEGION OF BOOM v Outlast PG Time pot",
-      "value": 728.3,
+      "value": 727.3,
       "unit": "points",
-      "fmt": "728.3",
+      "fmt": "727.3",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
     {
       "id": "f.team.0005.pot_record",
       "label": "Eric Martel -- record inside the LEGION OF BOOM v Outlast PG Time pot this week",
-      "value": 0,
+      "value": 1,
       "unit": "count",
-      "fmt": "0-3",
+      "fmt": "1-2",
       "source": "src_schedule",
       "asof": "wk2"
     },
@@ -4418,9 +4530,9 @@
     {
       "id": "f.team.0005.week_points_rank",
       "label": "Eric Martel -- where this week's score ranks in the league",
-      "value": 6,
+      "value": 5,
       "unit": "rank",
-      "fmt": "the 6th-most points in the league",
+      "fmt": "the 5th-most points in the league",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4452,20 +4564,11 @@
       "asof": "wk2"
     },
     {
-      "id": "f.team.0006.bench_proj",
-      "label": "Brian Cross -- projections for that bench miss",
-      "value": -1.8000000000000007,
-      "unit": "points",
-      "fmt": "Drew Lock projected 14.5, Trevor Lawrence projected 16.3",
-      "source": "ups_player_projections",
-      "asof": "wk2"
-    },
-    {
       "id": "f.team.0006.bench_verdict",
       "label": "Brian Cross -- was that bench miss a bad decision?",
-      "value": "variance",
+      "value": "unknown",
       "unit": "text",
-      "fmt": "the projections backed the man he started",
+      "fmt": "the decision is not graded -- Drew Lock: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his SEA game kicked off Sun Sep 20, 4:25 PM ET; Trevor Lawrence: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his JAC game kicked off Sun Sep 20, 4:05 PM ET",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4489,7 +4592,7 @@
     },
     {
       "id": "f.team.0006.boom",
-      "label": "Brian Cross -- starter furthest OVER projection",
+      "label": "Brian Cross -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 18.5,
       "unit": "points",
       "fmt": "Tre Tucker scored 25.7 on a projection of 7.2",
@@ -4498,10 +4601,10 @@
     },
     {
       "id": "f.team.0006.ceiling_rank",
-      "label": "Brian Cross -- where his best available lineup ranks among this week's 7 losers",
-      "value": 4,
+      "label": "Brian Cross -- where his best available lineup ranks among this week's 8 losers",
+      "value": 5,
       "unit": "rank",
-      "fmt": "4th highest of the 7 losers",
+      "fmt": "5th highest of the 8 losers",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4589,9 +4692,9 @@
     {
       "id": "f.team.0006.pot_against",
       "label": "Brian Cross -- points scored against him across the LEGION OF BOOM v Outlast PG Time pot",
-      "value": 728.3,
+      "value": 727.3,
       "unit": "points",
-      "fmt": "728.3",
+      "fmt": "727.3",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4652,9 +4755,9 @@
     {
       "id": "f.team.0006.week_points_rank",
       "label": "Brian Cross -- where this week's score ranks in the league",
-      "value": 9,
+      "value": 10,
       "unit": "rank",
-      "fmt": "the 9th-most points in the league",
+      "fmt": "the 10th-most points in the league",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4687,7 +4790,7 @@
     },
     {
       "id": "f.team.0007.boom",
-      "label": "Josh Martel -- starter furthest OVER projection",
+      "label": "Josh Martel -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 17.8,
       "unit": "points",
       "fmt": "Jaylen Waddle scored 25.0 on a projection of 7.2",
@@ -4695,11 +4798,20 @@
       "asof": "wk2"
     },
     {
+      "id": "f.team.0007.bust",
+      "label": "Josh Martel -- starter furthest UNDER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 10.399999999999999,
+      "unit": "points",
+      "fmt": "Caleb Williams scored 7.3 on a projection of 17.7",
+      "source": "ups_player_projections",
+      "asof": "wk2"
+    },
+    {
       "id": "f.team.0007.ceiling_rank",
-      "label": "Josh Martel -- where his best available lineup ranks among this week's 7 losers",
-      "value": 7,
+      "label": "Josh Martel -- where his best available lineup ranks among this week's 8 losers",
+      "value": 8,
       "unit": "rank",
-      "fmt": "the lowest of the 7 losers",
+      "fmt": "the lowest of the 8 losers",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4787,9 +4899,9 @@
     {
       "id": "f.team.0007.pot_against",
       "label": "Josh Martel -- points scored against him across the DOG POUND 4 LIFE v Maddie Mondays pot",
-      "value": 661.3,
+      "value": 662.1,
       "unit": "points",
-      "fmt": "661.3",
+      "fmt": "662.1",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -4885,7 +4997,7 @@
     },
     {
       "id": "f.team.0008.boom",
-      "label": "Keith Creelman -- starter furthest OVER projection",
+      "label": "Keith Creelman -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 23.3,
       "unit": "points",
       "fmt": "Dak Prescott scored 40.1 on a projection of 16.8",
@@ -4894,10 +5006,10 @@
     },
     {
       "id": "f.team.0008.ceiling_rank",
-      "label": "Keith Creelman -- where his best available lineup ranks among this week's 7 losers",
-      "value": 3,
+      "label": "Keith Creelman -- where his best available lineup ranks among this week's 8 losers",
+      "value": 4,
       "unit": "rank",
-      "fmt": "3rd highest of the 7 losers",
+      "fmt": "4th highest of the 8 losers",
       "source": "derived",
       "asof": "wk2"
     },
@@ -4985,9 +5097,9 @@
     {
       "id": "f.team.0008.pot_against",
       "label": "Keith Creelman -- points scored against him across the DOG POUND 4 LIFE v Maddie Mondays pot",
-      "value": 661.3,
+      "value": 662.1,
       "unit": "points",
-      "fmt": "661.3",
+      "fmt": "662.1",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5074,7 +5186,7 @@
     },
     {
       "id": "f.team.0009.boom",
-      "label": "Bear Dunn -- starter furthest OVER projection",
+      "label": "Bear Dunn -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 25.6,
       "unit": "points",
       "fmt": "Jaxon Smith-Njigba scored 48.1 on a projection of 22.5",
@@ -5093,9 +5205,9 @@
     {
       "id": "f.team.0009.idp_pts",
       "label": "Bear Dunn -- IDP points from starters",
-      "value": 65.8,
+      "value": 66.6,
       "unit": "points",
-      "fmt": "65.8",
+      "fmt": "66.6",
       "source": "src_weekly",
       "asof": "wk2"
     },
@@ -5129,9 +5241,9 @@
     {
       "id": "f.team.0009.left_on_bench",
       "label": "Bear Dunn -- points left on the bench",
-      "value": 5.800000000000011,
+      "value": 5.0,
       "unit": "points",
-      "fmt": "5.8",
+      "fmt": "5.0",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5156,9 +5268,9 @@
     {
       "id": "f.team.0009.pot_against",
       "label": "Bear Dunn -- points scored against him across the DOG POUND 4 LIFE v Maddie Mondays pot",
-      "value": 551.1,
+      "value": 552.6,
       "unit": "points",
-      "fmt": "551.1",
+      "fmt": "552.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5183,9 +5295,9 @@
     {
       "id": "f.team.0009.score",
       "label": "Bear Dunn -- score",
-      "value": 281.0,
+      "value": 281.8,
       "unit": "points",
-      "fmt": "281.0",
+      "fmt": "281.8",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5201,9 +5313,9 @@
     {
       "id": "f.team.0009.vs_avg",
       "label": "Bear Dunn -- this week against his own season average",
-      "value": 90.69999999999999,
+      "value": 91.5,
       "unit": "points",
-      "fmt": "+90.7",
+      "fmt": "+91.5",
       "source": "derived",
       "asof": "wk2"
     },
@@ -5245,16 +5357,16 @@
     },
     {
       "id": "f.team.0010.boom",
-      "label": "Shawn Blake -- starter furthest OVER projection",
-      "value": 20.599999999999998,
+      "label": "Shawn Blake -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 24.9,
       "unit": "points",
-      "fmt": "Brock Purdy scored 36.3 on a projection of 15.7",
+      "fmt": "Devin Lloyd scored 32.0 on a projection of 7.1",
       "source": "ups_player_projections",
       "asof": "wk2"
     },
     {
       "id": "f.team.0010.bust",
-      "label": "Shawn Blake -- starter furthest UNDER projection",
+      "label": "Shawn Blake -- starter furthest UNDER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 10.200000000000001,
       "unit": "points",
       "fmt": "Terry McLaurin scored 7.4 on a projection of 17.6",
@@ -5273,9 +5385,9 @@
     {
       "id": "f.team.0010.idp_pts",
       "label": "Shawn Blake -- IDP points from starters",
-      "value": 85.0,
+      "value": 84.5,
       "unit": "points",
-      "fmt": "85.0",
+      "fmt": "84.5",
       "source": "src_weekly",
       "asof": "wk2"
     },
@@ -5309,9 +5421,9 @@
     {
       "id": "f.team.0010.left_on_bench",
       "label": "Shawn Blake -- points left on the bench",
-      "value": 24.100000000000023,
+      "value": 24.600000000000023,
       "unit": "points",
-      "fmt": "24.1",
+      "fmt": "24.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5336,9 +5448,9 @@
     {
       "id": "f.team.0010.pot_against",
       "label": "Shawn Blake -- points scored against him across the LEGION OF BOOM v Outlast PG Time pot",
-      "value": 587.3,
+      "value": 586.3,
       "unit": "points",
-      "fmt": "587.3",
+      "fmt": "586.3",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5363,9 +5475,9 @@
     {
       "id": "f.team.0010.score",
       "label": "Shawn Blake -- score",
-      "value": 303.9,
+      "value": 303.4,
       "unit": "points",
-      "fmt": "303.9",
+      "fmt": "303.4",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5381,9 +5493,9 @@
     {
       "id": "f.team.0010.vs_avg",
       "label": "Shawn Blake -- this week against his own season average",
-      "value": 123.09999999999997,
+      "value": 122.59999999999997,
       "unit": "points",
-      "fmt": "+123.1",
+      "fmt": "+122.6",
       "source": "derived",
       "asof": "wk2"
     },
@@ -5433,20 +5545,11 @@
       "asof": "wk2"
     },
     {
-      "id": "f.team.0011.bench_proj",
-      "label": "Eric Mannila -- projections for that bench miss",
-      "value": -11.3,
-      "unit": "points",
-      "fmt": "Kirk Cousins projected 11.2, Jaxson Dart projected 22.5",
-      "source": "ups_player_projections",
-      "asof": "wk2"
-    },
-    {
       "id": "f.team.0011.bench_verdict",
       "label": "Eric Mannila -- was that bench miss a bad decision?",
-      "value": "variance",
+      "value": "unknown",
       "unit": "text",
-      "fmt": "the projections backed the man he started",
+      "fmt": "the decision is not graded -- Kirk Cousins: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his LVR game kicked off Sun Sep 20, 4:05 PM ET; Jaxson Dart: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his NYG game kicked off Mon Sep 21, 8:15 PM ET",
       "source": "derived",
       "asof": "wk2"
     },
@@ -5470,7 +5573,7 @@
     },
     {
       "id": "f.team.0011.boom",
-      "label": "Eric Mannila -- starter furthest OVER projection",
+      "label": "Eric Mannila -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 25.700000000000003,
       "unit": "points",
       "fmt": "CeeDee Lamb scored 39.7 on a projection of 14.0",
@@ -5479,19 +5582,19 @@
     },
     {
       "id": "f.team.0011.bust",
-      "label": "Eric Mannila -- starter furthest UNDER projection",
-      "value": 21.3,
+      "label": "Eric Mannila -- starter furthest UNDER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 13.700000000000001,
       "unit": "points",
-      "fmt": "Jaxson Dart scored 1.2 on a projection of 22.5",
+      "fmt": "Bijan Robinson scored 10.9 on a projection of 24.6",
       "source": "ups_player_projections",
       "asof": "wk2"
     },
     {
       "id": "f.team.0011.ceiling_rank",
-      "label": "Eric Mannila -- where his best available lineup ranks among this week's 7 losers",
-      "value": 6,
+      "label": "Eric Mannila -- where his best available lineup ranks among this week's 8 losers",
+      "value": 7,
       "unit": "rank",
-      "fmt": "6th highest of the 7 losers",
+      "fmt": "7th highest of the 8 losers",
       "source": "derived",
       "asof": "wk2"
     },
@@ -5579,9 +5682,9 @@
     {
       "id": "f.team.0011.pot_against",
       "label": "Eric Mannila -- points scored against him across the DOG POUND 4 LIFE v Maddie Mondays pot",
-      "value": 551.1,
+      "value": 552.6,
       "unit": "points",
-      "fmt": "551.1",
+      "fmt": "552.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5668,7 +5771,7 @@
     },
     {
       "id": "f.team.0012.boom",
-      "label": "Chris Klingenberg -- starter furthest OVER projection",
+      "label": "Chris Klingenberg -- starter furthest OVER projection (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 22.0,
       "unit": "points",
       "fmt": "Matthew Stafford scored 38.1 on a projection of 16.1",
@@ -5750,9 +5853,9 @@
     {
       "id": "f.team.0012.pot_against",
       "label": "Chris Klingenberg -- points scored against him across the DOG POUND 4 LIFE v Maddie Mondays pot",
-      "value": 551.1,
+      "value": 552.6,
       "unit": "points",
-      "fmt": "551.1",
+      "fmt": "552.6",
       "source": "src_franchise_weekly_score",
       "asof": "wk2"
     },
@@ -5830,7 +5933,7 @@
     },
     {
       "id": "f.week.boom_1",
-      "label": "No. 1 starter OVER his projection this week, for Eric Mannila",
+      "label": "No. 1 starter OVER his projection this week, for Eric Mannila (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 25.700000000000003,
       "unit": "points",
       "fmt": "CeeDee Lamb scored 39.7 on a projection of 14.0",
@@ -5839,7 +5942,7 @@
     },
     {
       "id": "f.week.boom_2",
-      "label": "No. 2 starter OVER his projection this week, for Bear Dunn",
+      "label": "No. 2 starter OVER his projection this week, for Bear Dunn (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
       "value": 25.6,
       "unit": "points",
       "fmt": "Jaxon Smith-Njigba scored 48.1 on a projection of 22.5",
@@ -5848,37 +5951,37 @@
     },
     {
       "id": "f.week.boom_3",
-      "label": "No. 3 starter OVER his projection this week, for Keith Creelman",
-      "value": 23.3,
+      "label": "No. 3 starter OVER his projection this week, for Shawn Blake (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 24.9,
       "unit": "points",
-      "fmt": "Dak Prescott scored 40.1 on a projection of 16.8",
+      "fmt": "Devin Lloyd scored 32.0 on a projection of 7.1",
       "source": "ups_player_projections",
       "asof": "wk2"
     },
     {
       "id": "f.week.bust_1",
-      "label": "No. 1 starter UNDER his projection this week, for Eric Mannila",
-      "value": 21.3,
+      "label": "No. 1 starter UNDER his projection this week, for Eric Mannila (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 13.700000000000001,
       "unit": "points",
-      "fmt": "Jaxson Dart scored 1.2 on a projection of 22.5",
+      "fmt": "Bijan Robinson scored 10.9 on a projection of 24.6",
       "source": "ups_player_projections",
       "asof": "wk2"
     },
     {
       "id": "f.week.bust_2",
-      "label": "No. 2 starter UNDER his projection this week, for Eric Mannila",
-      "value": 13.8,
+      "label": "No. 2 starter UNDER his projection this week, for Matt Gerardi (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 10.999999999999998,
       "unit": "points",
-      "fmt": "Malik Nabers scored 1.1 on a projection of 14.9",
+      "fmt": "Jadarian Price scored 5.4 on a projection of 16.4",
       "source": "ups_player_projections",
       "asof": "wk2"
     },
     {
       "id": "f.week.bust_3",
-      "label": "No. 3 starter UNDER his projection this week, for Matt Gerardi",
-      "value": 10.999999999999998,
+      "label": "No. 3 starter UNDER his projection this week, for Josh Martel (largest miss among 194 evidence-qualified starters -- see the Bust & Bargain methodology note)",
+      "value": 10.399999999999999,
       "unit": "points",
-      "fmt": "Jadarian Price scored 5.4 on a projection of 16.4",
+      "fmt": "Caleb Williams scored 7.3 on a projection of 17.7",
       "source": "ups_player_projections",
       "asof": "wk2"
     },
@@ -5903,18 +6006,18 @@
     {
       "id": "f.week.self_inflicted",
       "label": "Losers who had a winning lineup on the bench",
-      "value": 4,
+      "value": 5,
       "unit": "count",
-      "fmt": "four",
+      "fmt": "five",
       "source": "derived",
       "asof": "wk2"
     },
     {
       "id": "f.week.upsets",
       "label": "Games this week won by the lower preseason rank",
-      "value": 9,
+      "value": 8,
       "unit": "count",
-      "fmt": "Shawn Blake over Brian Cutting; Derrick Whitman over Brian Cutting; Derrick Whitman over Eric Martel; Matt Gerardi over Brian Cross; Matt Gerardi over Brian Cutting; Matt Gerardi over Eric Martel; Chris Klingenberg over Josh Martel; Chris Klingenberg over Keith Creelman; Ryan Bousquet over Eric Mannila",
+      "fmt": "Shawn Blake over Brian Cutting; Derrick Whitman over Brian Cutting; Derrick Whitman over Eric Martel; Matt Gerardi over Brian Cross; Matt Gerardi over Brian Cutting; Chris Klingenberg over Josh Martel; Chris Klingenberg over Keith Creelman; Ryan Bousquet over Eric Mannila",
       "source": "2026-season-forecast",
       "asof": "wk2"
     },
@@ -5930,16 +6033,16 @@
     {
       "id": "f.week.won_on_defense",
       "label": "Winners who were OUTSCORED on offense and won anyway",
-      "value": 1,
+      "value": 2,
       "unit": "count",
-      "fmt": "Derrick Whitman over Brian Cutting",
+      "fmt": "Derrick Whitman over Brian Cutting; Eric Martel over Matt Gerardi",
       "source": "src_weekly",
       "asof": "wk2"
     },
     {
       "id": "f.wire.record_team_score",
       "label": "Shawn Blake -- this week's score against the all-time weekly record book",
-      "value": 303.9,
+      "value": 303.4,
       "unit": "points",
       "fmt": "the 7th-highest regular-season weekly score in UPS history (2010-2026) -- the higher ones were 325.5 in 2021, 320.6 in 2025, 312.8 in 2026, 311.9 in 2022, 310.7 in 2022 and 306.8 in 2023",
       "source": "src_franchise_weekly_score",
@@ -6039,7 +6142,7 @@
   "tables": [
     {
       "id": "t.bb.idp.bargain",
-      "title": "Defense: the five biggest bargains",
+      "title": "Defense: the five biggest bargains among evidence-qualified starters",
       "columns": [
         {
           "key": "player",
@@ -6071,6 +6174,20 @@
       ],
       "rows": [
         [
+          "Devin Lloyd (LB, CAR)",
+          "Shawn Blake",
+          7.1,
+          32.0,
+          "+24.9"
+        ],
+        [
+          "Will Anderson (DL, HOU)",
+          "Shawn Blake",
+          6.8,
+          18.0,
+          "+11.2"
+        ],
+        [
           "Budda Baker (DB, ARI)",
           "Bear Dunn",
           9.3,
@@ -6078,11 +6195,11 @@
           "+9.5"
         ],
         [
-          "Quentin Lake (DB, LAR)",
-          "Eric Martel",
-          6.3,
-          15.1,
-          "+8.8"
+          "Javon Bullard (DB, GBP)",
+          "Chris Klingenberg",
+          4.7,
+          14.1,
+          "+9.4"
         ],
         [
           "Leonard Williams (DL, SEA)",
@@ -6090,27 +6207,13 @@
           4.8,
           13.5,
           "+8.7"
-        ],
-        [
-          "Akeem Davis-Gaither (LB, IND)",
-          "Keith Creelman",
-          4.4,
-          11.5,
-          "+7.1"
-        ],
-        [
-          "Nakobe Dean (LB, LVR)",
-          "Brian Cutting",
-          6.3,
-          13.0,
-          "+6.7"
         ]
       ],
-      "note": "Started players only, offense (QB, RB, WR, TE) and defense (DL, LB, DB) ranked apart. A bust is ranked by how far he scored UNDER his projection, a bargain by how far he scored OVER it. Every projection is MFL's last one captured before that player's own kickoff (captures from Sun Sep 20, 1:55 PM ET to Sun Sep 20, 1:55 PM ET), because MFL sometimes changes a projection after the game is played. Not ranked, because no projection from before their kickoff can be proven: 109 starters from the Thursday and Sunday games whose pregame capture times did not survive, including D.J. Moore (-0.1), Myles Murphy (1.5), Colston Loveland (1.8), Dallas Goedert (1.9), Divine Deablo (2.0), Saquon Barkley (3.0)."
+      "note": "Started players only, offense (QB, RB, WR, TE) and defense (DL, LB, DB) ranked apart. A bust is ranked by how far he scored UNDER his projection, a bargain by how far he scored OVER it. Week 2 rankings use the earliest preserved MFL projection captured before each player's kickoff. 194 starters are graded here; 4 more have verified pregame evidence but are held out for injury context (see below); 15 starters are excluded entirely because no valid pre-kickoff first capture could be established -- these are the largest gaps among the graded pool, not a claim about every starter league-wide. Not ranked, because no projection from before their kickoff can be proven: 15 starters from the Thursday games whose pregame capture times did not survive, including D.J. Moore (-0.1), Jack Campbell (4.5), Jameson Williams (5.7), Terrel Bernard (6.5), Khalil Shakir (7.5), Chuck Clark (10.8)."
     },
     {
       "id": "t.bb.idp.bust",
-      "title": "Defense: the five biggest busts",
+      "title": "Defense: the five biggest busts among evidence-qualified starters",
       "columns": [
         {
           "key": "player",
@@ -6170,18 +6273,18 @@
           "-6.8"
         ],
         [
-          "Nick Bosa (DL, SFO)",
-          "Brian Cutting",
-          7.0,
+          "Myles Murphy (DL, CIN)",
+          "Matt Gerardi",
+          7.1,
           1.5,
-          "-5.5"
+          "-5.6"
         ]
       ],
       "note": null
     },
     {
       "id": "t.bb.off.bargain",
-      "title": "Offense: the five biggest bargains",
+      "title": "Offense: the five biggest bargains among evidence-qualified starters",
       "columns": [
         {
           "key": "player",
@@ -6262,7 +6365,7 @@
     },
     {
       "id": "t.bb.off.bust",
-      "title": "Offense: the five biggest busts",
+      "title": "Offense: the five biggest busts among evidence-qualified starters",
       "columns": [
         {
           "key": "player",
@@ -6299,20 +6402,12 @@
       ],
       "rows": [
         [
-          "Jaxson Dart (QB, NYG)",
+          "Bijan Robinson (RB, ATL)",
           "Eric Mannila",
-          22.5,
-          1.2,
-          "-21.3",
-          "5 passes, 47 air yards (2.2)"
-        ],
-        [
-          "Malik Nabers (WR, NYG)",
-          "Eric Mannila",
-          14.9,
-          1.1,
-          "-13.8",
-          "4 targets, 77 air yards (7.9)"
+          24.6,
+          10.9,
+          "-13.7",
+          "16 carries, 4 targets (13.6)"
         ],
         [
           "Jadarian Price (RB, SEA)",
@@ -6321,6 +6416,14 @@
           5.4,
           "-11.0",
           "13 carries, 2 targets (13.4)"
+        ],
+        [
+          "Caleb Williams (QB, CHI)",
+          "Josh Martel",
+          17.7,
+          7.3,
+          "-10.4",
+          "26 passes, 118 air yards, 5 carries (17.3)"
         ],
         [
           "Terry McLaurin (WR, WAS)",
@@ -6390,7 +6493,7 @@
           36.0,
           "yes -- turns a loss into a win",
           "not graded",
-          "Justin Jefferson: his last archived projection was captured Sun Sep 20, 1:55 PM ET, after his MIN game kicked off Sun Sep 20, 1:00 PM ET"
+          "Davante Adams: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his LAR game kicked off Mon Sep 21, 8:15 PM ET; Justin Jefferson: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his MIN game kicked off Sun Sep 20, 1:00 PM ET"
         ],
         [
           "Eric Mannila",
@@ -6398,8 +6501,8 @@
           "Jaxson Dart (1.2)",
           26.7,
           "no -- still loses",
-          "right call, bad day (projections)",
-          "MFL projections captured before kickoff -- Kirk Cousins 11.2 (captured Sun Sep 20, 1:55 PM ET; his game kicked off Sun Sep 20, 4:05 PM ET), Jaxson Dart 22.5 (captured Sun Sep 20, 1:55 PM ET; kicked off Mon Sep 21, 8:15 PM ET)"
+          "not graded",
+          "Kirk Cousins: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his LVR game kicked off Sun Sep 20, 4:05 PM ET; Jaxson Dart: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his NYG game kicked off Mon Sep 21, 8:15 PM ET"
         ],
         [
           "Brian Cross",
@@ -6407,8 +6510,8 @@
           "Trevor Lawrence (6.4)",
           22.799999999999997,
           "no -- still loses",
-          "right call, bad day (projections)",
-          "MFL projections captured before kickoff -- Drew Lock 14.5 (captured Sun Sep 20, 1:55 PM ET; his game kicked off Sun Sep 20, 4:25 PM ET), Trevor Lawrence 16.3 (captured Sun Sep 20, 1:55 PM ET; kicked off Sun Sep 20, 4:05 PM ET)"
+          "not graded",
+          "Drew Lock: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his SEA game kicked off Sun Sep 20, 4:25 PM ET; Trevor Lawrence: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his JAC game kicked off Sun Sep 20, 4:05 PM ET"
         ],
         [
           "Eric Martel",
@@ -6417,10 +6520,162 @@
           17.0,
           "yes -- turns a loss into a win",
           "not graded",
-          "Rashod Bateman: his last archived projection was captured Sun Sep 20, 1:55 PM ET, after his BAL game kicked off Sun Sep 20, 1:00 PM ET; Luther Burden: his last archived projection was captured Sun Sep 20, 1:55 PM ET, after his CHI game kicked off Sun Sep 20, 1:00 PM ET"
+          "Rashod Bateman: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his BAL game kicked off Sun Sep 20, 1:00 PM ET; Luther Burden: his last archived projection was captured Wed Sep 23, 11:50 AM ET, after his CHI game kicked off Sun Sep 20, 1:00 PM ET"
         ]
       ],
-      "note": "Points left is hindsight -- what the bench player outscored the starter by, after the fact. The verdict is the separate question of whether the call was wrong with what the manager could see at lineup lock. Every swap listed is same-position, so the bench player could legally have taken the starter's slot. \"Right call, bad day (projections)\" means the man who started was projected higher before kickoff -- not a mistake. \"Not graded\" means the pregame evidence needed to judge the call does not exist in the archive; the Evidence column names exactly what is missing."
+      "note": "Points left is hindsight -- what the bench player outscored the starter by, after the fact. The verdict is the separate question of whether the call was wrong with what the manager could see at lineup lock. Every swap listed is same-position, so the bench player could legally have taken the starter's slot. \"Not graded\" means the pregame evidence needed to judge the call does not exist in the archive; the Evidence column names exactly what is missing."
+    },
+    {
+      "id": "t.elias.players",
+      "title": "Elias stat changes that moved a UPS player's score, week 2",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player (owner)",
+          "type": "text"
+        },
+        {
+          "key": "lineup",
+          "label": "Lineup",
+          "type": "text"
+        },
+        {
+          "key": "change",
+          "label": "Official change",
+          "type": "text"
+        },
+        {
+          "key": "before",
+          "label": "Published",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "after",
+          "label": "Corrected",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "delta",
+          "label": "Change",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Jeffery Simmons (Ryan Bousquet)",
+          "started",
+          "Passes Defended 0 to 1",
+          12.0,
+          13.5,
+          "+1.5"
+        ],
+        [
+          "Nakobe Dean (Brian Cutting)",
+          "started",
+          "Tackles 7 to 6",
+          13.0,
+          12.0,
+          "-1.0"
+        ],
+        [
+          "Jessie Bates (Bear Dunn)",
+          "started",
+          "Assists 2 to 3",
+          6.8,
+          7.6,
+          "+0.8"
+        ],
+        [
+          "Anthony Hill Jr. (Matt Gerardi)",
+          "started",
+          "Tackles 6 to 5; Assists 4 to 5",
+          8.0,
+          7.5,
+          "-0.5"
+        ],
+        [
+          "Xavier Watts (Shawn Blake)",
+          "started",
+          "Tackles 6 to 5; Assists 1 to 2",
+          10.6,
+          10.1,
+          "-0.5"
+        ]
+      ],
+      "note": "MFL's \"Official Statistics Changes\" post (Thu Sep 24, 12:10 AM ET), matched to UPS rosters by name, with each player's score as the recap published it and as MFL scores it now. Only changes that moved a rostered player's UPS score are listed; 17 stat changes were published in all."
+    },
+    {
+      "id": "t.elias.teams",
+      "title": "Team scores after the stat changes, week 2",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "before",
+          "label": "Published",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "after",
+          "label": "Corrected",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "delta",
+          "label": "Change",
+          "type": "text"
+        },
+        {
+          "key": "games",
+          "label": "Results",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Ryan Bousquet",
+          177.7,
+          179.2,
+          "+1.5",
+          "unchanged vs Bear Dunn, Chris Klingenberg, Eric Mannila"
+        ],
+        [
+          "Brian Cutting",
+          200.6,
+          199.6,
+          "-1.0",
+          "unchanged vs Matt Gerardi, Derrick Whitman, Shawn Blake"
+        ],
+        [
+          "Bear Dunn",
+          281.0,
+          281.8,
+          "+0.8",
+          "unchanged vs Keith Creelman, Josh Martel, Ryan Bousquet"
+        ],
+        [
+          "Matt Gerardi",
+          209.1,
+          208.6,
+          "-0.5",
+          "FLIPPED vs Eric Martel; unchanged vs Brian Cutting, Brian Cross"
+        ],
+        [
+          "Shawn Blake",
+          303.9,
+          303.4,
+          "-0.5",
+          "unchanged vs Eric Martel, Brian Cutting, Brian Cross"
+        ]
+      ],
+      "note": "Every other number in this recap is as published before the stat changes; these are MFL's corrected team scores. All-play is re-counted from all twelve corrected scores."
     },
     {
       "id": "t.grade.games",
@@ -6451,49 +6706,49 @@
         [
           "Brian Cutting vs Matt Gerardi",
           "Brian Cutting (69%)",
-          "200.6-209.1",
+          "199.6-208.6",
           "no"
         ],
         [
           "Bear Dunn vs Ryan Bousquet",
           "Bear Dunn (69%)",
-          "281.0-177.7",
+          "281.8-179.2",
           "yes"
         ],
         [
           "Eric Martel vs Matt Gerardi",
           "Eric Martel (67%)",
-          "208.7-209.1",
-          "no"
+          "208.7-208.6",
+          "yes"
         ],
         [
           "Bear Dunn vs Josh Martel",
           "Bear Dunn (64%)",
-          "281.0-172.2",
+          "281.8-172.2",
           "yes"
         ],
         [
           "Bear Dunn vs Keith Creelman",
           "Bear Dunn (64%)",
-          "281.0-201.2",
+          "281.8-201.2",
           "yes"
         ],
         [
           "Brian Cutting vs Derrick Whitman",
           "Brian Cutting (63%)",
-          "200.6-215.3",
+          "199.6-215.3",
           "no"
         ],
         [
           "Brian Cutting vs Shawn Blake",
           "Brian Cutting (62%)",
-          "200.6-303.9",
+          "199.6-303.4",
           "no"
         ],
         [
           "Shawn Blake vs Brian Cross",
           "Shawn Blake (62%)",
-          "303.9-178.0",
+          "303.4-178.0",
           "yes"
         ],
         [
@@ -6511,13 +6766,13 @@
         [
           "Eric Martel vs Shawn Blake",
           "Eric Martel (61%)",
-          "208.7-303.9",
+          "208.7-303.4",
           "no"
         ],
         [
           "Eric Mannila vs Ryan Bousquet",
           "Eric Mannila (58%)",
-          "144.2-177.7",
+          "144.2-179.2",
           "no"
         ],
         [
@@ -6535,7 +6790,7 @@
         [
           "Matt Gerardi vs Brian Cross",
           "Matt Gerardi (55%)",
-          "209.1-178.0",
+          "208.6-178.0",
           "yes"
         ],
         [
@@ -6553,11 +6808,11 @@
         [
           "Ryan Bousquet vs Chris Klingenberg",
           "Ryan Bousquet (51%)",
-          "177.7-236.1",
+          "179.2-236.1",
           "no"
         ]
       ],
-      "note": "The week 2 preview as published (data cutoff Wed Sep 16, 8:01 PM ET), graded after the games. \"Final\" is the favorite's score first. Favorites went 6-12; the chances added up to about 10.8 expected wins. The Brier score (0.283) is the average squared miss of the favorite's chance: 0.25 is what calling every game a coin flip scores, lower is better, and one week is a small sample."
+      "note": "The week 2 preview as published (data cutoff Wed Sep 16, 8:01 PM ET), graded after the games. \"Final\" is the favorite's score first. Favorites went 7-11; the chances added up to about 10.8 expected wins. The Brier score (0.264) is the average squared miss of the favorite's chance: 0.25 is what calling every game a coin flip scores, lower is better, and one week is a small sample."
     },
     {
       "id": "t.grade.injuries",
@@ -6714,14 +6969,14 @@
           "Shawn Blake",
           214.5,
           "172 to 256",
-          303.9,
+          303.4,
           "above"
         ],
         [
           "Bear Dunn",
           230.3,
           "189 to 272",
-          281.0,
+          281.8,
           "above"
         ],
         [
@@ -6739,17 +6994,17 @@
           "inside"
         ],
         [
-          "Matt Gerardi",
-          205.0,
-          "164 to 247",
-          209.1,
-          "inside"
-        ],
-        [
           "Eric Martel",
           225.7,
           "184 to 268",
           208.7,
+          "inside"
+        ],
+        [
+          "Matt Gerardi",
+          205.0,
+          "164 to 247",
+          208.6,
           "inside"
         ],
         [
@@ -6763,7 +7018,14 @@
           "Brian Cutting",
           227.2,
           "185 to 269",
-          200.6,
+          199.6,
+          "inside"
+        ],
+        [
+          "Ryan Bousquet",
+          206.8,
+          "166 to 250",
+          179.2,
           "inside"
         ],
         [
@@ -6771,13 +7033,6 @@
           199.5,
           "158 to 241",
           178.0,
-          "inside"
-        ],
-        [
-          "Ryan Bousquet",
-          206.8,
-          "166 to 250",
-          177.7,
           "inside"
         ],
         [
@@ -6835,16 +7090,16 @@
         [
           "Shawn Blake",
           198.0,
-          85.0,
+          84.5,
           20.9,
-          303.9
+          303.4
         ],
         [
           "Bear Dunn",
           200.6,
-          65.8,
+          66.6,
           14.6,
-          281.0
+          281.8
         ],
         [
           "Chris Klingenberg",
@@ -6861,18 +7116,18 @@
           215.3
         ],
         [
-          "Matt Gerardi",
-          146.8,
-          43.3,
-          19.0,
-          209.1
-        ],
-        [
           "Eric Martel",
           130.2,
           60.3,
           18.2,
           208.7
+        ],
+        [
+          "Matt Gerardi",
+          146.8,
+          42.8,
+          19.0,
+          208.6
         ],
         [
           "Keith Creelman",
@@ -6884,9 +7139,16 @@
         [
           "Brian Cutting",
           132.7,
-          46.1,
+          45.1,
           21.8,
-          200.6
+          199.6
+        ],
+        [
+          "Ryan Bousquet",
+          114.6,
+          46.7,
+          17.9,
+          179.2
         ],
         [
           "Brian Cross",
@@ -6894,13 +7156,6 @@
           38.6,
           8.3,
           178.0
-        ],
-        [
-          "Ryan Bousquet",
-          114.6,
-          45.2,
-          17.9,
-          177.7
         ],
         [
           "Josh Martel",
@@ -7069,10 +7324,10 @@
           "Bear Dunn",
           "DOG POUND 4 LIFE",
           "3-0",
-          281.0,
-          551.1,
+          281.8,
+          552.6,
           200.6,
-          65.8,
+          66.6,
           14.6,
           "No. 1"
         ],
@@ -7081,7 +7336,7 @@
           "DOG POUND 4 LIFE",
           "3-0",
           236.1,
-          551.1,
+          552.6,
           175.9,
           37.7,
           22.5,
@@ -7092,7 +7347,7 @@
           "Maddie Mondays",
           "1-2",
           201.2,
-          661.3,
+          662.1,
           122.7,
           63.8,
           14.7,
@@ -7102,10 +7357,10 @@
           "Ryan Bousquet",
           "Maddie Mondays",
           "1-2",
-          177.7,
-          661.3,
+          179.2,
+          662.1,
           114.6,
-          45.2,
+          46.7,
           17.9,
           "No. 11"
         ],
@@ -7114,7 +7369,7 @@
           "Maddie Mondays",
           "1-2",
           172.2,
-          661.3,
+          662.1,
           107.5,
           56.8,
           7.9,
@@ -7125,7 +7380,7 @@
           "DOG POUND 4 LIFE",
           "0-3",
           144.2,
-          551.1,
+          552.6,
           85.4,
           39.8,
           19.0,
@@ -7194,10 +7449,10 @@
           "Shawn Blake",
           "LEGION OF BOOM",
           "3-0",
-          303.9,
-          587.3,
+          303.4,
+          586.3,
           198.0,
-          85.0,
+          84.5,
           20.9,
           "No. 3"
         ],
@@ -7206,7 +7461,7 @@
           "LEGION OF BOOM",
           "3-0",
           215.3,
-          587.3,
+          586.3,
           131.2,
           58.8,
           25.3,
@@ -7215,20 +7470,20 @@
         [
           "Matt Gerardi",
           "LEGION OF BOOM",
-          "3-0",
-          209.1,
-          587.3,
+          "2-1",
+          208.6,
+          586.3,
           146.8,
-          43.3,
+          42.8,
           19.0,
           "No. 12"
         ],
         [
           "Eric Martel",
           "Outlast PG Time",
-          "0-3",
+          "1-2",
           208.7,
-          728.3,
+          727.3,
           130.2,
           60.3,
           18.2,
@@ -7238,10 +7493,10 @@
           "Brian Cutting",
           "Outlast PG Time",
           "0-3",
-          200.6,
-          728.3,
+          199.6,
+          727.3,
           132.7,
-          46.1,
+          45.1,
           21.8,
           "No. 2"
         ],
@@ -7250,7 +7505,7 @@
           "Outlast PG Time",
           "0-3",
           178.0,
-          728.3,
+          727.3,
           131.1,
           38.6,
           8.3,
@@ -7335,7 +7590,7 @@
           "No. 1",
           "Bear Dunn",
           "18.1%",
-          281.0,
+          281.8,
           "2nd",
           "10-1",
           "59.1%",
@@ -7350,7 +7605,7 @@
           "No. 2",
           "Brian Cutting",
           "15.0%",
-          200.6,
+          199.6,
           "8th",
           "4-7",
           "63.6%",
@@ -7365,7 +7620,7 @@
           "No. 3",
           "Shawn Blake",
           "10.2%",
-          303.9,
+          303.4,
           "1st",
           "11-0",
           "59.1%",
@@ -7381,7 +7636,7 @@
           "Eric Martel",
           "11.6%",
           208.7,
-          "6th",
+          "5th",
           "6-5",
           "77.3%",
           "62.7%",
@@ -7456,7 +7711,7 @@
           "Brian Cross",
           "5.4%",
           178.0,
-          "9th",
+          "10th",
           "3-8",
           "31.8%",
           "39.1%",
@@ -7485,8 +7740,8 @@
           "No. 11",
           "Ryan Bousquet",
           "2.8%",
-          177.7,
-          "10th",
+          179.2,
+          "9th",
           "2-9",
           "13.6%",
           "37.7%",
@@ -7500,8 +7755,8 @@
           "No. 12",
           "Matt Gerardi",
           "1.7%",
-          209.1,
-          "5th",
+          208.6,
+          "6th",
           "7-4",
           "63.6%",
           "43.5%",
@@ -7557,15 +7812,6 @@
       ],
       "rows": [
         [
-          "Eric Martel",
-          "Outlast PG Time",
-          "2-3",
-          "2-0",
-          "6-5",
-          "17-5",
-          521.5
-        ],
-        [
           "Derrick Whitman",
           "LEGION OF BOOM",
           "5-0",
@@ -7582,15 +7828,6 @@
           "4-7",
           "14-8",
           459.1
-        ],
-        [
-          "Matt Gerardi",
-          "LEGION OF BOOM",
-          "4-1",
-          "1-1",
-          "7-4",
-          "14-8",
-          439.2
         ],
         [
           "Shawn Blake",
@@ -7629,6 +7866,15 @@
           389.79999999999995
         ],
         [
+          "Eric Martel",
+          "Outlast PG Time",
+          "2-3",
+          "2-0",
+          "6-5",
+          "7-4",
+          521.5
+        ],
+        [
           "Josh Martel",
           "Maddie Mondays",
           "2-3",
@@ -7638,13 +7884,13 @@
           400.5
         ],
         [
-          "Brian Cross",
-          "Outlast PG Time",
-          "0-5",
-          "0-2",
-          "3-8",
-          "7-15",
-          398.0
+          "Matt Gerardi",
+          "LEGION OF BOOM",
+          "4-1",
+          "1-1",
+          "7-4",
+          "6-5",
+          439.2
         ],
         [
           "Eric Mannila",
@@ -7661,8 +7907,17 @@
           "1-4",
           "0-2",
           "2-9",
-          "3-19",
+          "3-8",
           344.29999999999995
+        ],
+        [
+          "Brian Cross",
+          "Outlast PG Time",
+          "0-5",
+          "0-2",
+          "3-8",
+          "2-9",
+          398.0
         ]
       ],
       "note": "Division winners get in and take the top two seeds; every other seed goes by all-play percentage. Neither the Record column nor this order is the seeding order."
@@ -7833,84 +8088,54 @@
   "charts": [],
   "quotes": [
     {
-      "id": "q1",
-      "text": "yea, no room for that here. Friends outside the lines, bitter enemies in between them. Martel, would bail you out of jail and give you a roof over your head, but he's not bailing you out on a bet.",
-      "author": "Keith Creelman",
-      "when": "Mon Sep 21",
-      "ownerKey": "owner:keith-creelman",
-      "context": "#the-coffee-shop",
+      "id": "q.074913",
+      "text": "Just ask JSN to score enough for 4 people. He loves you.",
+      "author": "Ryan Bousquet",
+      "when": "#the-coffee-shop, Sun Sep 20, 6:00 PM ET",
+      "ownerKey": "owner:ryan-bousquet",
+      "context": "Directly about Jaxon Smith-Njigba (\"JSN\"), Bear Dunn's featured performer this pot.",
       "source": "discord",
-      "permalink": null
+      "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1551352387070074913"
     },
     {
-      "id": "q2",
-      "text": "Seemed like would be a stud coming out. Got hit with the top 5 pick curse",
-      "author": "Shawn Blake",
-      "when": "Mon Sep 21",
-      "ownerKey": "owner:shawn-blake",
-      "context": "#the-coffee-shop",
-      "source": "discord",
-      "permalink": null
-    },
-    {
-      "id": "q3",
-      "text": "I’ll take him half price when you’re destined for the TB. Josh Martel isn’t giving you your pick back so might as well go for 1.6",
-      "author": "Keith Creelman",
-      "when": "Fri Sep 18",
-      "ownerKey": "owner:keith-creelman",
-      "context": "#the-coffee-shop",
-      "source": "discord",
-      "permalink": null
-    },
-    {
-      "id": "q4",
-      "text": "Also, if added before season started... we have until 2 weeks after the 1st game started?",
+      "id": "q.718148",
+      "text": "Not looking good for dart... worse than expected... could have season ending surgery Eric Mannila",
       "author": "Eric Martel",
-      "when": "Sun Sep 20",
+      "when": "#the-coffee-shop, Tue Sep 22, 2:52 PM ET",
       "ownerKey": "owner:eric-martel",
-      "context": "#the-coffee-shop",
+      "context": "Reaction to Jaxson Dart's reported injury the day after his Monday-night bust; sets up the Dart/Mannila paragraph.",
       "source": "discord",
-      "permalink": null
+      "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1552029854021718148"
     },
     {
-      "id": "q5",
-      "text": "Brian Cross looks like you win $50",
-      "author": "Josh Martel",
-      "when": "Sun Sep 20",
-      "ownerKey": "owner:josh-martel",
-      "context": "#the-coffee-shop",
+      "id": "q.790467",
+      "text": "This dude Dart is starcrossed. Maybe Harbaugh is too.",
+      "author": "Ryan Bousquet",
+      "when": "#the-coffee-shop, Tue Sep 22, 3:32 PM ET",
+      "ownerKey": "owner:ryan-bousquet",
+      "context": "Same reaction thread, follow-up.",
       "source": "discord",
-      "permalink": null
+      "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1552039965611790467"
     },
     {
-      "id": "q6",
-      "text": "I assume surhoff league that I finished 2nd in 4 straight years and was renamed Blake’s Bills.",
+      "id": "q.845832",
+      "text": "I don’t want him dealing Lamar. I need Manther to win division and hold Keith Creelman off for division",
       "author": "Shawn Blake",
-      "when": "Mon Sep 21",
+      "when": "#the-coffee-shop, Mon Sep 21, 6:40 PM ET",
       "ownerKey": "owner:shawn-blake",
-      "context": "#the-coffee-shop",
+      "context": "Directly names the Maddie Mondays 3-way race (Manther = Josh Martel's team vs Keith Creelman) this pot covers.",
       "source": "discord",
-      "permalink": null
+      "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1551724841625845832"
     },
     {
-      "id": "q7",
-      "text": "@everyone - This was a misstatement, you have until kickoff of Week 3...so until Thursday. Not the individual team's kickoff. Eric Martel this should be fixed for you.",
-      "author": "Keith Creelman",
-      "when": "Mon Sep 21",
-      "ownerKey": "owner:keith-creelman",
-      "context": "#the-coffee-shop",
+      "id": "q.920575",
+      "text": "Some are saying Ryan Bousquet is dragging the division down",
+      "author": "Shawn Blake",
+      "when": "#the-coffee-shop, Tue Sep 22, 7:28 AM ET",
+      "ownerKey": "owner:shawn-blake",
+      "context": "Directly about Ryan Bousquet's Maddie Mondays standing, discussed in the same paragraph.",
       "source": "discord",
-      "permalink": null
-    },
-    {
-      "id": "q8",
-      "text": "Ok , got it here on the Long Haulers end .",
-      "author": "Brian Cross",
-      "when": "Mon Sep 21",
-      "ownerKey": "owner:brian-cross",
-      "context": "#the-coffee-shop",
-      "source": "discord",
-      "permalink": null
+      "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1551918189321920575"
     }
   ],
   "playcards": [
@@ -7966,6 +8191,10 @@
         "f.bb.idp.bust.3",
         "f.bb.idp.bust.4",
         "f.bb.idp.bust.5",
+        "f.bb.notgraded.13604",
+        "f.bb.notgraded.13674",
+        "f.bb.notgraded.16615",
+        "f.bb.notgraded.17032",
         "f.bb.off.bargain.1",
         "f.bb.off.bargain.1.xfp",
         "f.bb.off.bargain.2",
@@ -8166,8 +8395,8 @@
       ],
       "chartIds": [],
       "quoteIds": [
-        "q4",
-        "q6"
+        "q.718148",
+        "q.790467"
       ],
       "cardIds": [],
       "gameIds": []
@@ -8208,7 +8437,6 @@
         "f.game.07.ceiling",
         "f.game.07.margin",
         "f.game.07.margin_rank",
-        "f.game.07.upset",
         "f.game.08.ceiling",
         "f.game.08.margin",
         "f.game.08.margin_rank",
@@ -8276,10 +8504,7 @@
       ],
       "tableIds": [],
       "chartIds": [],
-      "quoteIds": [
-        "q7",
-        "q8"
-      ],
+      "quoteIds": [],
       "cardIds": [],
       "gameIds": [],
       "potIds": [
@@ -8561,6 +8786,25 @@
       "quoteIds": [],
       "cardIds": [],
       "gameIds": []
+    },
+    {
+      "id": "elias",
+      "title": "Elias: Official Stat Changes",
+      "brief": "Thursday's update. Elias Sports Bureau's official stat changes for this week, against the numbers this recap published: which UPS players' scores moved and why (f.elias.*, t.elias.*), which team scores changed, and whether any result or all-play record moved. Say plainly that the rest of the recap keeps the published numbers. Never invent a stat change MFL did not publish.",
+      "factIds": [
+        "f.elias.biggest",
+        "f.elias.published",
+        "f.elias.summary",
+        "f.elias.teams"
+      ],
+      "tableIds": [
+        "t.elias.players",
+        "t.elias.teams"
+      ],
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
     }
   ],
   "pots": [
@@ -8576,27 +8820,27 @@
         {
           "winner": "Shawn Blake",
           "loser": "Brian Cross",
-          "winnerScore": 303.9,
+          "winnerScore": 303.4,
           "loserScore": 178.0,
-          "margin": 125.89999999999998,
+          "margin": 125.39999999999998,
           "tie": false,
           "factPrefix": "f.game.01"
         },
         {
           "winner": "Shawn Blake",
           "loser": "Brian Cutting",
-          "winnerScore": 303.9,
-          "loserScore": 200.6,
-          "margin": 103.29999999999998,
+          "winnerScore": 303.4,
+          "loserScore": 199.6,
+          "margin": 103.79999999999998,
           "tie": false,
           "factPrefix": "f.game.02"
         },
         {
           "winner": "Shawn Blake",
           "loser": "Eric Martel",
-          "winnerScore": 303.9,
+          "winnerScore": 303.4,
           "loserScore": 208.7,
-          "margin": 95.19999999999999,
+          "margin": 94.69999999999999,
           "tie": false,
           "factPrefix": "f.game.03"
         },
@@ -8613,8 +8857,8 @@
           "winner": "Derrick Whitman",
           "loser": "Brian Cutting",
           "winnerScore": 215.3,
-          "loserScore": 200.6,
-          "margin": 14.700000000000017,
+          "loserScore": 199.6,
+          "margin": 15.700000000000017,
           "tie": false,
           "factPrefix": "f.game.05"
         },
@@ -8628,29 +8872,29 @@
           "factPrefix": "f.game.06"
         },
         {
-          "winner": "Matt Gerardi",
-          "loser": "Brian Cross",
-          "winnerScore": 209.1,
-          "loserScore": 178.0,
-          "margin": 31.099999999999994,
+          "winner": "Eric Martel",
+          "loser": "Matt Gerardi",
+          "winnerScore": 208.7,
+          "loserScore": 208.6,
+          "margin": 0.09999999999999432,
           "tie": false,
           "factPrefix": "f.game.07"
         },
         {
           "winner": "Matt Gerardi",
-          "loser": "Brian Cutting",
-          "winnerScore": 209.1,
-          "loserScore": 200.6,
-          "margin": 8.5,
+          "loser": "Brian Cross",
+          "winnerScore": 208.6,
+          "loserScore": 178.0,
+          "margin": 30.599999999999994,
           "tie": false,
           "factPrefix": "f.game.08"
         },
         {
           "winner": "Matt Gerardi",
-          "loser": "Eric Martel",
-          "winnerScore": 209.1,
-          "loserScore": 208.7,
-          "margin": 0.4000000000000057,
+          "loser": "Brian Cutting",
+          "winnerScore": 208.6,
+          "loserScore": 199.6,
+          "margin": 9.0,
           "tie": false,
           "factPrefix": "f.game.09"
         }
@@ -8660,10 +8904,7 @@
       "billing": 0.6515,
       "billingBasis": "incoming all-play",
       "cardId": "pc.josh-allen",
-      "quoteIds": [
-        "q1",
-        "q2"
-      ],
+      "quoteIds": [],
       "factIds": [
         "f.game.01.ceiling",
         "f.game.01.margin",
@@ -8689,7 +8930,6 @@
         "f.game.07.ceiling",
         "f.game.07.margin",
         "f.game.07.margin_rank",
-        "f.game.07.upset",
         "f.game.08.ceiling",
         "f.game.08.margin",
         "f.game.08.margin_rank",
@@ -8783,9 +9023,12 @@
         "f.team.0002.week_allplay",
         "f.team.0002.week_points_rank",
         "f.team.0002.week_rank_own",
+        "f.team.0003.best_available",
         "f.team.0003.best_player",
         "f.team.0003.boom",
         "f.team.0003.bust",
+        "f.team.0003.ceiling_rank",
+        "f.team.0003.could_have_won",
         "f.team.0003.div_record",
         "f.team.0003.idp_pts",
         "f.team.0003.idp_rank",
@@ -8808,6 +9051,7 @@
         "f.team.0004.bench_verdict",
         "f.team.0004.best_available",
         "f.team.0004.best_player",
+        "f.team.0004.boom",
         "f.team.0004.ceiling_rank",
         "f.team.0004.could_have_won",
         "f.team.0004.div_record",
@@ -8853,7 +9097,6 @@
         "f.team.0005.week_rank_own",
         "f.team.0006.bench_flip",
         "f.team.0006.bench_miss",
-        "f.team.0006.bench_proj",
         "f.team.0006.bench_verdict",
         "f.team.0006.best_available",
         "f.team.0006.best_player",
@@ -8921,27 +9164,27 @@
         {
           "winner": "Bear Dunn",
           "loser": "Josh Martel",
-          "winnerScore": 281.0,
+          "winnerScore": 281.8,
           "loserScore": 172.2,
-          "margin": 108.80000000000001,
+          "margin": 109.60000000000002,
           "tie": false,
           "factPrefix": "f.game.10"
         },
         {
           "winner": "Bear Dunn",
           "loser": "Ryan Bousquet",
-          "winnerScore": 281.0,
-          "loserScore": 177.7,
-          "margin": 103.30000000000001,
+          "winnerScore": 281.8,
+          "loserScore": 179.2,
+          "margin": 102.60000000000002,
           "tie": false,
           "factPrefix": "f.game.11"
         },
         {
           "winner": "Bear Dunn",
           "loser": "Keith Creelman",
-          "winnerScore": 281.0,
+          "winnerScore": 281.8,
           "loserScore": 201.2,
-          "margin": 79.80000000000001,
+          "margin": 80.60000000000002,
           "tie": false,
           "factPrefix": "f.game.12"
         },
@@ -8958,8 +9201,8 @@
           "winner": "Chris Klingenberg",
           "loser": "Ryan Bousquet",
           "winnerScore": 236.1,
-          "loserScore": 177.7,
-          "margin": 58.400000000000006,
+          "loserScore": 179.2,
+          "margin": 56.900000000000006,
           "tie": false,
           "factPrefix": "f.game.14"
         },
@@ -8984,9 +9227,9 @@
         {
           "winner": "Ryan Bousquet",
           "loser": "Eric Mannila",
-          "winnerScore": 177.7,
+          "winnerScore": 179.2,
           "loserScore": 144.2,
-          "margin": 33.5,
+          "margin": 35.0,
           "tie": false,
           "factPrefix": "f.game.17"
         },
@@ -9006,8 +9249,9 @@
       "billingBasis": "incoming all-play",
       "cardId": "pc.jaxon-smith-njigba",
       "quoteIds": [
-        "q3",
-        "q5"
+        "q.074913",
+        "q.845832",
+        "q.920575"
       ],
       "factIds": [
         "f.game.10.ceiling",
@@ -9131,6 +9375,7 @@
         "f.team.0007.best_available",
         "f.team.0007.best_player",
         "f.team.0007.boom",
+        "f.team.0007.bust",
         "f.team.0007.ceiling_rank",
         "f.team.0007.could_have_won",
         "f.team.0007.div_record",
@@ -9193,7 +9438,6 @@
         "f.team.0009.week_rank_own",
         "f.team.0011.bench_flip",
         "f.team.0011.bench_miss",
-        "f.team.0011.bench_proj",
         "f.team.0011.bench_verdict",
         "f.team.0011.best_available",
         "f.team.0011.best_player",

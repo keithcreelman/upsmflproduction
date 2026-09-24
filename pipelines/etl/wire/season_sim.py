@@ -1101,6 +1101,16 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
         b = agg_shadow[f]
         cur_wk = actual[through_week]
         week_rank = 1 + sum(1 for g in fids if cur_wk[g] > cur_wk[f])
+        # weekApWins/weekApLosses are THIS WEEK's all-play record only (at most
+        # len(fids)-1 games, losses never negative) -- previously aliased to
+        # the season-CUMULATIVE win count with losses computed as if that
+        # cumulative count were a single week's, which goes negative once
+        # cumulative wins exceed len(fids)-1 (e.g. 17 wins over 5 weeks reports
+        # as weekApLosses = 11 - 17 = -6). currentApWins/Losses/Ties below
+        # remain the correct season-cumulative total this bug never affected.
+        week_ap_w = sum(1 for g in fids if g != f and cur_wk[f] > cur_wk[g])
+        week_ap_l = sum(1 for g in fids if g != f and cur_wk[f] < cur_wk[g])
+        week_ap_t = sum(1 for g in fids if g != f and cur_wk[f] == cur_wk[g])
         cur_ap_w = sum(1 for wk in actual for g in fids if g != f and actual[wk][f] > actual[wk][g])
         cur_ap_l = sum(1 for wk in actual for g in fids if g != f and actual[wk][f] < actual[wk][g])
         cur_ap_t = sum(1 for wk in actual for g in fids if g != f and actual[wk][f] == actual[wk][g])
@@ -1108,7 +1118,7 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
         rows.append({
             "franchiseId": f, "team": teams[f]["name"], "division": teams[f]["division"],
             "weekScore": round(cur_wk[f], 1), "weekRank": week_rank,
-            "weekApWins": cur_ap_w, "weekApLosses": (len(fids) - 1) - cur_ap_w,
+            "weekApWins": week_ap_w, "weekApLosses": week_ap_l, "weekApTies": week_ap_t,
             "currentApWins": cur_ap_w, "currentApLosses": cur_ap_l, "currentApTies": cur_ap_t,
             "currentApPct": round((cur_ap_w + 0.5 * cur_ap_t) / (cur_ap_w + cur_ap_l + cur_ap_t), 4),
             "gamesPlayed": played_games.get(f, 0), "gamesTotal": games.get(f, 0),
