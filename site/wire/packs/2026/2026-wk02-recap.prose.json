@@ -1,0 +1,288 @@
+{
+ "meta": {
+  "engine": "claude-sonnet-5",
+  "inputTokens": 0,
+  "outputTokens": 0,
+  "packId": "2026-wk02-recap",
+  "packGeneratedAtUtc": "2026-09-23T14:34:23Z"
+ },
+ "prose": {
+  "kicker": "Week two, from the desk",
+  "title": "Shawn Blake Beat the Entire Field. The Preseason {{f.pre.0004.power_rank}} Beat No One.",
+  "dek": "Bear Dunn and Derrick Whitman lead their divisions, both preseason top-two picks are already searching for answers, and Eric Mannila's whole lineup no-showed on the same Sunday.",
+  "heroImage": "images/hero_2026_forecast.jpg",
+  "sections": [
+   {
+    "id": "s1",
+    "lead": "",
+    "bullets": [],
+    "desk": [
+     {
+      "speaker": "stuart",
+      "text": "Welcome back to UPS Center. Week two, and we have to start with the only man who beat the entire field: {{f.week.perfect}}. That is {{f.wire.record_team_score}}. Rich?"
+     },
+     {
+      "speaker": "rich",
+      "text": "Thanks, Stu. And it was not a fluke off one big offensive week either. Blake's defense put up {{f.team.0010.idp_pts}} -- {{f.team.0010.idp_rank}}. Devin Lloyd alone: {{f.star.idp.line}}, good for {{f.star.idp.score}} points."
+     },
+     {
+      "speaker": "stuart",
+      "text": "And on offense, {{f.star.name}}. {{f.star.line}}. {{f.star.score}} points for {{f.star.owner}}. By expected points: {{f.xfp.over.4}}. That is a complete team, top to bottom."
+     },
+     {
+      "speaker": "rich",
+      "text": "Now go to the other end of the same Sunday, Stu. {{f.week.winless}} lost to the entire field. {{f.week.bust_1}}. Backup work, in real time."
+     },
+     {
+      "speaker": "stuart",
+      "text": "{{f.week.bust_2}}. Same owner, same day. Mannila's whole bench call is in the burn column too, further down this recap. Bad Sunday, not a bad Saturday-night call."
+     },
+     {
+      "speaker": "rich",
+      "text": "But somebody's usage WAS the real thing, Stu. {{f.bb.off.bargain.1}}. Look at the workload: {{f.bb.off.bargain.1.xfp}}. That is volume, not luck."
+     },
+     {
+      "speaker": "stuart",
+      "text": "Furthest over expected in the whole league: {{f.xfp.over.1}}. Furthest under: {{f.xfp.under.1}}. That is a bargain and a bust on the same expected-points ruler, Rich."
+     },
+     {
+      "speaker": "rich",
+      "text": "On defense, the bargain was {{f.bb.idp.bargain.1}}. The bust: {{f.bb.idp.bust.1}}. Five of each, offense and defense, every one measured against MFL's own last projection."
+     },
+     {
+      "speaker": "stuart",
+      "text": "And a word of warning before anybody trusts a bust-bargain list too far, Rich: {{f.bb.unranked}}. If a name is missing from these tables, that is why -- not because the week did not happen for him."
+     },
+     {
+      "speaker": "rich",
+      "text": "Now the podium. Top scorer in the league: {{f.star.name}}, {{f.star.owner}}. Right behind him by expected points: {{f.xfp.over.1}}."
+     },
+     {
+      "speaker": "stuart",
+      "text": "Two quarterbacks and a receiver round out the top five this week. Whatever you drafted your roster around, week two did not care."
+     }
+    ],
+    "place": [
+     "t.offidp",
+     "t.performers",
+     "t.bb.off.bust",
+     "t.bb.off.bargain",
+     "t.bb.idp.bust",
+     "t.bb.idp.bargain",
+     "t.xfp.over",
+     "t.xfp.under"
+    ],
+    "placeAt": {
+     "t.offidp": 2,
+     "t.performers": 9,
+     "t.bb.off.bust": 7,
+     "t.bb.off.bargain": 7,
+     "t.bb.idp.bust": 7,
+     "t.bb.idp.bargain": 7,
+     "t.xfp.over": 6,
+     "t.xfp.under": 6
+    },
+    "quotes": [
+     "q4",
+     "q6"
+    ],
+    "cards": [],
+    "games": [],
+    "gameNotes": {},
+    "captions": {
+     "t.offidp": "Shawn Blake's week, broken down: the most IDP points in the league sitting on top of a five-touchdown quarterback game.",
+     "t.performers": "Two quarterbacks and a Seattle receiver at the top of the board."
+    },
+    "quoteAt": {
+     "q4": 4,
+     "q6": 8
+    },
+    "views": {
+     "t.bb.off.bust": {
+      "stack": true,
+      "note": false
+     },
+     "t.bb.off.bargain": {
+      "stack": true,
+      "note": false
+     },
+     "t.bb.idp.bust": {
+      "stack": true,
+      "note": false
+     },
+     "t.bb.idp.bargain": {
+      "stack": true,
+      "note": true
+     },
+     "t.xfp.over": {
+      "stack": true,
+      "note": false
+     },
+     "t.xfp.under": {
+      "stack": true,
+      "note": true
+     }
+    }
+   },
+   {
+    "id": "s2",
+    "lead": "",
+    "bullets": [],
+    "desk": [
+     {
+      "speaker": "stuart",
+      "text": "Two divisions crossed over against each other this week, Rich -- every owner in one division played all three in the other. Nine games apiece. Let's go division by division, because both of them broke completely differently."
+     },
+     {
+      "speaker": "rich",
+      "text": "They did, Stu. One preseason favorite swept his crossover. The other preseason favorite did not win a single game in it."
+     }
+    ],
+    "place": [],
+    "quotes": [],
+    "cards": [],
+    "games": [],
+    "gameNotes": {},
+    "pots": [
+     "p.1",
+     "p.2"
+    ],
+    "potNotes": {
+     "p.1": [
+      {
+       "speaker": "stuart",
+       "text": "Legion of Boom against Outlast PG Time, and the headline is {{f.week.perfect}}, who beat the entire field. Nine wins in nine games would have been the whole story if the other side of this crossover had not also collapsed."
+      },
+      {
+       "speaker": "rich",
+       "text": "Because the preseason favorite here was {{f.pot.legion-of-boom-v-outlast-pg-time.favorite}}, and {{f.pot.legion-of-boom-v-outlast-pg-time.favorite_result}}. Zero wins against three different opponents."
+      },
+      {
+       "speaker": "stuart",
+       "text": "And the reason is sitting right there in the burn column, Rich. {{f.burn.owner}} benched {{f.burn.benched}} for {{f.burn.started}}, and {{f.burn.covers_margin}}. That is on tape, before either game kicked off."
+      },
+      {
+       "speaker": "rich",
+       "text": "On the flip side of this same crossover: {{f.week.won_on_defense}} -- outscored on offense, and it did not matter, because {{f.pot.legion-of-boom-v-outlast-pg-time.idp_pts}} points came out of that defense across the whole crossover."
+      },
+      {
+       "speaker": "stuart",
+       "text": "And the preseason longshot on this side of the bracket: {{f.pot.legion-of-boom-v-outlast-pg-time.longshot}}, and {{f.pot.legion-of-boom-v-outlast-pg-time.longshot_result}}. Nine games, three winners, and the man ranked last of the four beat every single one of them."
+      },
+      {
+       "speaker": "rich",
+       "text": "Book-ended by a perfect week and a shutout, and the preseason order had it exactly backwards. That is week two for you."
+      }
+     ],
+     "p.2": [
+      {
+       "speaker": "stuart",
+       "text": "DOG POUND 4 LIFE against Maddie Mondays, and the favorite held. {{f.pot.dog-pound-4-life-v-maddie-mondays.favorite}}, and {{f.pot.dog-pound-4-life-v-maddie-mondays.favorite_result}} -- every game, across the whole crossover."
+      },
+      {
+       "speaker": "rich",
+       "text": "His best player: {{f.pot.dog-pound-4-life-v-maddie-mondays.best_player}}. His best defender: {{f.pot.dog-pound-4-life-v-maddie-mondays.best_idp}}. That is a complete week from the top of the preseason board, no surprises."
+      },
+      {
+       "speaker": "stuart",
+       "text": "Except he was not alone at the top, Rich. {{f.pot.dog-pound-4-life-v-maddie-mondays.sweeper}} both went through this crossover unbeaten -- one of them the preseason {{f.pre.0009.power_rank}}, the other the preseason {{f.pre.0012.power_rank}}."
+      },
+      {
+       "speaker": "rich",
+       "text": "And the preseason longshot in this crossover, {{f.pot.dog-pound-4-life-v-maddie-mondays.longshot}}, {{f.pot.dog-pound-4-life-v-maddie-mondays.longshot_result}} -- one better than his preseason number would have called for, and nowhere near the trouble at the very bottom of this same crossover."
+      },
+      {
+       "speaker": "stuart",
+       "text": "Because at the very bottom, {{f.pot.dog-pound-4-life-v-maddie-mondays.winless}}. Same owner we already talked about with the backup quarterback -- the whole week fell apart at once, and this is where it shows up on the ledger."
+      },
+      {
+       "speaker": "rich",
+       "text": "Between the two crossovers, this one put up {{f.pot.dog-pound-4-life-v-maddie-mondays.points_rank}}. Fewer fireworks, same story underneath: the team on top looked the part, and everybody else scrapped for the other spots."
+      },
+      {
+       "speaker": "stuart",
+       "text": "Two crossovers, two different shapes -- one blown wide open at the top, one that went almost exactly to the preseason script. Rich Eisen, Stuart Scott, back after this."
+      }
+     ]
+    },
+    "captions": {},
+    "potQuoteAt": {
+     "p.1": {
+      "q1": 2,
+      "q2": 5
+     },
+     "p.2": {
+      "q3": 3,
+      "q5": 4
+     }
+    }
+   },
+   {
+    "id": "s3",
+    "lead": "",
+    "bullets": [],
+    "desk": [
+     {
+      "speaker": "stuart",
+      "text": "Four divisions, four leaders: {{f.div.outlast-pg-time.leader}}, {{f.div.dog-pound-4-life.leader}}, {{f.div.maddie-mondays.leader}} and {{f.div.legion-of-boom.leader}}. Two games into the season, and Derrick Whitman is the only one of the four without a loss."
+     },
+     {
+      "speaker": "rich",
+      "text": "He came in {{f.pre.0002.power_rank}} in the preseason, Stu. Now he owns the best record in the league, and the week's own preview graded him a favorite and got it right: {{f.grade.g3.result}}."
+     },
+     {
+      "speaker": "stuart",
+      "text": "Speaking of the preview grade, Rich, the model has some explaining to do: {{f.grade.favorites}}, and {{f.grade.brier}}."
+     },
+     {
+      "speaker": "rich",
+      "text": "Rough week for the model, Stu, but look at WHY before you pile on. {{f.grade.g2.result}}, and the injury report flipped on him after the cutoff: {{f.grade.g2.flip}}. That is not the model's fault -- that is Sunday football."
+     },
+     {
+      "speaker": "stuart",
+      "text": "Fair, Rich. And overall, {{f.grade.injuries}} on the injury watch. {{f.grade.ranges}} -- so most of the board landed right where it was supposed to, one week did not."
+     },
+     {
+      "speaker": "rich",
+      "text": "Now the one that will not go away, Stu -- the bench call. {{f.burn.owner}} sat {{f.burn.benched}} for {{f.burn.started}}, and {{f.burn.covers_margin}}. Neither player's decision is on the record either way -- {{f.burn.verdict}}."
+     },
+     {
+      "speaker": "stuart",
+      "text": "That one will follow him into next week's Coffee Shop no matter what the record book says about it, Rich."
+     },
+     {
+      "speaker": "rich",
+      "text": "It is week two of fourteen. Nobody's playoff picture is written in ink -- ask Bear Dunn, ranked first all preseason and still finding his footing, or Matt Gerardi, ranked last and sweeping a division. Rich Eisen, Stuart Scott, that is UPS Center."
+     }
+    ],
+    "place": [
+     "t.standings",
+     "t.preseason",
+     "t.burns",
+     "t.grade.ranges"
+    ],
+    "placeAt": {
+     "t.standings": 0,
+     "t.preseason": 1,
+     "t.burns": 5,
+     "t.grade.ranges": 4
+    },
+    "quotes": [],
+    "cards": [],
+    "games": [],
+    "gameNotes": {},
+    "captions": {
+     "t.standings": "Division winners take the top two seeds; all-play orders everybody else.",
+     "t.preseason": "The preseason order against two weeks of football. Read it for fun, not for betting.",
+     "t.burns": "The week's headline bench call -- neither player's decision is graded; see the note."
+    },
+    "views": {
+     "t.burns": {
+      "stack": "always",
+      "note": true
+     }
+    }
+   }
+  ]
+ }
+}

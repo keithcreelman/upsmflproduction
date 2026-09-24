@@ -33,6 +33,8 @@ import os
 import subprocess
 import time
 
+import elias_overlay
+
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 SNAPSHOT_DIR = os.path.join(REPO, "data", "mfl-snapshots")
 WORKER_DIR = os.path.join(REPO, "worker")
@@ -91,7 +93,8 @@ def d1(sql, retries=1):
         if proc.returncode == 0 and out:
             try:
                 payload = json.loads(out)
-                return [dict((k, _demojibake(v)) for k, v in row.items()) for row in payload[0]["results"]]
+                rows = [dict((k, _demojibake(v)) for k, v in row.items()) for row in payload[0]["results"]]
+                return elias_overlay.apply(sql, rows)
             except Exception as exc:          # noqa: BLE001 - report the raw text
                 last = "unparseable wrangler output: %s / %s" % (exc, out[:200])
         else:
@@ -1154,6 +1157,123 @@ def starter_projections(season, week):
     return ranked, unranked
 
 
+def first_pregame_fallback_projections(season, week):
+    """(ranked, unranked) using each player's EARLIEST preserved MFL projection
+    (first_captured_at/first_projected) instead of the normal last-verified-
+    before-kickoff evidence (pregame_projections/starter_projections).
+
+    A DIFFERENT, weaker evidentiary basis, used ONLY as an explicit fallback
+    when the normal kickoff-strict evidence is unavailable (e.g. a later
+    ingest run overwrote updated_at for a week whose games already finished
+    -- see ingest_projections.py's `resolve()`, which keeps re-targeting the
+    just-finished week for ~a day past its games because the fantasy week
+    boundary is Thursday-to-Thursday, not games-complete-gated. Unlike
+    updated_at/projected_score, first_captured_at/first_projected are NEVER
+    touched by that upsert once set -- see ingest_projections.py's INSERT ...
+    ON CONFLICT, which deliberately omits them from its UPDATE SET). Never
+    reads projected_score, even for a row where it happens to equal
+    first_projected -- only first_projected is ever used as the ranking value.
+
+    Every ranked entry carries basis="first_pregame_fallback" and is honest
+    about being the EARLIEST verified pregame number, not necessarily the
+    LAST one before kickoff -- a real, later, still-pregame revision this
+    row's own history does not preserve is possible and not claimed away.
+    ups_player_projections stores only the first value, the latest value, and
+    a capture count -- NOT every intermediate capture -- so
+    first_projected == the row's current stored value proves only that those
+    two stored fields match, never that every capture in between was
+    unchanged; that claim is never made here or anywhere downstream.
+
+    unranked reasons: "first capture missing", "first capture after his own
+    kickoff" (this player never had ANY provably-pregame capture, even the
+    earliest one), "no NFL kickoff time found", "no first projection value".
+    An unranked player's gap is UNKNOWN, not small or zero -- nothing here or
+    downstream may describe an excluded player as having a smaller miss than
+    a ranked one.
+    """
+    rows = d1(
+        "SELECT w.roster_franchise_id AS fid, w.player_id, w.pos_group, w.score, p.name AS player_name, "
+        "p.nfl_team, pp.first_captured_at, pp.first_projected FROM src_weekly w "
+        "LEFT JOIN src_players p ON p.season = w.season AND p.player_id = w.player_id "
+        "LEFT JOIN ups_player_projections pp ON pp.season = w.season AND pp.week = w.week "
+        "AND pp.player_id = w.player_id "
+        "WHERE w.season = %d AND w.week = %d AND w.status = 'starter' "
+        "AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
+    try:
+        kick = nfl_kickoffs(season, week)
+    except DataError:
+        kick = {}
+    ranked, unranked = [], []
+    for r in rows:
+        pid = str(r["player_id"])
+        base = {"fid": str(r["fid"]).zfill(4), "player_id": pid,
+                "player": display_name(r["player_name"]) or ("player %s" % pid),
+                "pos_group": r.get("pos_group") or "", "nfl_team": r.get("nfl_team") or "",
+                "score": None if r["score"] is None else float(r["score"])}
+        fca, fp = r.get("first_captured_at"), r.get("first_projected")
+        team = base["nfl_team"]
+        k = kick.get(team)
+        if base["score"] is None:
+            unranked.append(dict(base, reason="MFL has no score for him"))
+        elif fca is None:
+            unranked.append(dict(base, reason="first capture missing"))
+        elif k is None:
+            unranked.append(dict(base, reason="no NFL kickoff time found for his team (%s)" % (team or "unknown")))
+        elif fca >= k:
+            unranked.append(dict(base, reason="first capture after his own kickoff -- no capture of "
+                                                "this row was ever provably pregame"))
+        elif fp is None:
+            unranked.append(dict(base, reason="no first projection value"))
+        else:
+            ranked.append(dict(base, proj=float(fp), captured=fca, kickoff=k, basis="first_pregame_fallback"))
+    return ranked, unranked
+
+
+_INJURY_STATUSES = ("injury_not_graded", "injury_context_not_graded")
+
+
+def injury_context_exclusions(season, week):
+    """Editor-reviewed season/week-scoped injury-context exclusions for graded
+    weekly rankings (site/wire/data/injury_context_<season>_wk<NN>.json), or
+    {} if no such file exists this week -- a normal, expected state most
+    weeks. Keyed by player_id, NEVER by player or owner name.
+
+    Every record's (player_id, franchise_id) pair is validated against that
+    week's own src_weekly before use; fails closed (DataError) on a record
+    that does not resolve to exactly one matching row, a duplicate
+    player_id, or a status outside the two recognized values. A caller
+    receiving a record for a player removes him from any RANKED table,
+    keeps his raw statistical-gap evidence, and emits it as a separate
+    not-graded fact/row instead -- this function only loads and validates;
+    it does not itself rank or render anything.
+    """
+    path = os.path.join(REPO, "site", "wire", "data", "injury_context_%d_wk%02d.json" % (int(season), int(week)))
+    if not os.path.exists(path):
+        return {}
+    doc = json.load(io.open(path, encoding="utf-8"))
+    if int(doc.get("season", 0)) != int(season) or int(doc.get("week", 0)) != int(week):
+        raise DataError("%s is for season %s week %s, not %s wk%s"
+                        % (path, doc.get("season"), doc.get("week"), season, week))
+    rows = d1("SELECT player_id, roster_franchise_id AS fid FROM src_weekly "
+             "WHERE season = %d AND week = %d" % (int(season), int(week)))
+    valid_pairs = set((str(r["player_id"]), str(r["fid"]).zfill(4)) for r in rows)
+    out = {}
+    for rec in doc.get("records", []):
+        pid, fid = str(rec.get("playerId") or ""), str(rec.get("franchiseId") or "").zfill(4)
+        if not pid or not fid:
+            raise DataError("%s: malformed record (missing playerId/franchiseId): %r" % (path, rec))
+        if pid in out:
+            raise DataError("%s: duplicate playerId %r -- refusing an ambiguous injury-context record" % (path, pid))
+        if (pid, fid) not in valid_pairs:
+            raise DataError("%s: player_id %r / franchise_id %r does not resolve to a src_weekly row for "
+                            "season %d week %d -- refusing an unresolved injury-context record" % (path, pid, fid, season, week))
+        if rec.get("status") not in _INJURY_STATUSES:
+            raise DataError("%s: player_id %r has unrecognized status %r (must be one of %s)"
+                            % (path, pid, rec.get("status"), _INJURY_STATUSES))
+        out[pid] = rec
+    return out
+
+
 def bust_bargain(season, week, n=5):
     """Keith 2026-09-16: "Top 5 Bust = player with the most projected points entering
     the week scoring the least. Top 5 Bargain = player with lowest projected points
@@ -1165,17 +1285,67 @@ def bust_bargain(season, week, n=5):
     for a bust and the smaller one for a bargain. Started players only -- the points
     that counted -- on kickoff-strict projections (starter_projections).
 
-    Returns {"off": {"bust": [...], "bargain": [...]}, "idp": {...}, "unranked": [...],
-    "captured": (earliest, latest) or None}. Unranked keeps only offense and IDP starters.
+    Returns {"off": {"bust": [...], "bargain": [...], "pool": n}, "idp": {...},
+    "unranked": [...], "captured": (earliest, latest) or None, "basis": "last_pregame" |
+    "first_pregame_fallback", "eligibleCount": n, "excludedCount": n}.
+
+    Falls back to first_pregame_fallback_projections() ONLY when the normal
+    kickoff-strict path returns nothing at all (Keith 2026-09-24, correcting
+    an earlier, invalid version of this fallback: a player excluded for want
+    of pregame evidence has an UNKNOWN gap, not a boundable one -- the
+    league's own observed projection range this week is real data about the
+    198 RANKED players, but proves nothing about a projection that was never
+    captured for the other 17, so it cannot certify any table "complete" or
+    rule an excluded player in or out of a cutoff). Under the fallback basis,
+    ALL FOUR tables are built and populated directly from the 198-player
+    eligible pool -- this is the established "rank only the evidence-
+    qualified pool, disclose who's excluded" model the page already uses
+    elsewhere (starter_projections/bust_bargain's own normal-week behavior),
+    not a new standard. They are the five largest gaps AMONG THE ELIGIBLE
+    POOL, not proven to be the five largest gaps league-wide, and every
+    caller must present them that way -- never as "the league's biggest
+    bust" unqualified, and never as "final" or "last" projections at
+    kickoff. The 17 excluded rows are never assigned an invented projection
+    and never enter a ranked table; their gaps are unknown, not small.
     """
     ranked, unranked = starter_projections(season, week)
-    out = {"unranked": [u for u in unranked if u["pos_group"] in OFFENSE_GROUPS + IDP_GROUPS]}
+    basis = "last_pregame"
+    if not ranked:
+        ranked, fb_unranked = first_pregame_fallback_projections(season, week)
+        if ranked:
+            basis = "first_pregame_fallback"
+            unranked = fb_unranked
+
+    # Injury-context exclusions (Keith 2026-09-24): a player with an
+    # established, materially injury-shortened or injury-confounded
+    # performance is not a clean projection miss and must not be graded as
+    # one. He keeps his raw proj/score/gap in notGraded, is removed from the
+    # pool BEFORE ranking (so the next eligible player is promoted
+    # naturally, not left as a gap), and never re-enters a ranked table.
+    injury = injury_context_exclusions(season, week)
+    not_graded = []
+    if injury:
+        kept = []
+        for x in ranked:
+            rec = injury.get(x["player_id"])
+            if rec and rec.get("franchiseId") == x["fid"]:
+                not_graded.append(dict(x, injuryStatus=rec["status"], injuryReason=rec.get("reason"),
+                                       snaps=rec.get("snaps"), snapShare=rec.get("snapShare")))
+            else:
+                kept.append(x)
+        ranked = kept
+
+    relevant_unranked = [u for u in unranked if u["pos_group"] in OFFENSE_GROUPS + IDP_GROUPS]
+    out = {"unranked": relevant_unranked, "basis": basis,
+           "eligibleCount": len(ranked), "excludedCount": len(relevant_unranked),
+           "notGraded": not_graded}
     for unit, groups in (("off", OFFENSE_GROUPS), ("idp", IDP_GROUPS)):
         pool = [x for x in ranked if x["pos_group"] in groups]
         out[unit] = {
             "bust": sorted(pool, key=lambda x: (-(x["proj"] - x["score"]), -x["proj"]))[:n],
             "bargain": sorted(pool, key=lambda x: (-(x["score"] - x["proj"]), x["proj"]))[:n],
-            "pool": len(pool)}
+            "pool": len(pool),
+            "notGraded": [x for x in not_graded if x["pos_group"] in groups]}
     caps = [x["captured"] for x in ranked if x["pos_group"] in OFFENSE_GROUPS + IDP_GROUPS]
     out["captured"] = (min(caps), max(caps)) if caps else None
     return out

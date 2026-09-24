@@ -1,0 +1,530 @@
+{
+ "allplayChanged": true,
+ "allplayChanges": [
+  {
+   "after": {
+    "l": 8,
+    "t": 0,
+    "w": 3
+   },
+   "before": {
+    "l": 9,
+    "t": 0,
+    "w": 2
+   },
+   "fid": "0001"
+  },
+  {
+   "after": {
+    "l": 5,
+    "t": 0,
+    "w": 6
+   },
+   "before": {
+    "l": 4,
+    "t": 0,
+    "w": 7
+   },
+   "fid": "0003"
+  },
+  {
+   "after": {
+    "l": 4,
+    "t": 0,
+    "w": 7
+   },
+   "before": {
+    "l": 5,
+    "t": 0,
+    "w": 6
+   },
+   "fid": "0005"
+  },
+  {
+   "after": {
+    "l": 9,
+    "t": 0,
+    "w": 2
+   },
+   "before": {
+    "l": 8,
+    "t": 0,
+    "w": 3
+   },
+   "fid": "0006"
+  }
+ ],
+ "checkedAtUtc": "2026-09-24T09:49:49Z",
+ "games": [
+  {
+   "a": "0003",
+   "after": [
+    208.6,
+    208.7
+   ],
+   "b": "0005",
+   "before": [
+    209.1,
+    208.7
+   ],
+   "flipped": true,
+   "resultAfter": "L",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0003",
+   "after": [
+    208.6,
+    199.6
+   ],
+   "b": "0004",
+   "before": [
+    209.1,
+    200.6
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0003",
+   "after": [
+    208.6,
+    178.0
+   ],
+   "b": "0006",
+   "before": [
+    209.1,
+    178.0
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0002",
+   "after": [
+    215.3,
+    199.6
+   ],
+   "b": "0004",
+   "before": [
+    215.3,
+    200.6
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0005",
+   "after": [
+    208.7,
+    303.4
+   ],
+   "b": "0010",
+   "before": [
+    208.7,
+    303.9
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0004",
+   "after": [
+    199.6,
+    303.4
+   ],
+   "b": "0010",
+   "before": [
+    200.6,
+    303.9
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0006",
+   "after": [
+    178.0,
+    303.4
+   ],
+   "b": "0010",
+   "before": [
+    178.0,
+    303.9
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0008",
+   "after": [
+    201.2,
+    281.8
+   ],
+   "b": "0009",
+   "before": [
+    201.2,
+    281.0
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0007",
+   "after": [
+    172.2,
+    281.8
+   ],
+   "b": "0009",
+   "before": [
+    172.2,
+    281.0
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0001",
+   "after": [
+    179.2,
+    281.8
+   ],
+   "b": "0009",
+   "before": [
+    177.7,
+    281.0
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0001",
+   "after": [
+    179.2,
+    236.1
+   ],
+   "b": "0012",
+   "before": [
+    177.7,
+    236.1
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0001",
+   "after": [
+    179.2,
+    144.2
+   ],
+   "b": "0011",
+   "before": [
+    177.7,
+    144.2
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  }
+ ],
+ "officialChanges": [
+  {
+   "from": 6.0,
+   "game": "Carolina Panthers at Atlanta Falcons",
+   "player": "Xavier Watts",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Tackles",
+   "to": 5.0
+  },
+  {
+   "from": 1.0,
+   "game": "Carolina Panthers at Atlanta Falcons",
+   "player": "Xavier Watts",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Assists",
+   "to": 2.0
+  },
+  {
+   "from": 2.0,
+   "game": "Carolina Panthers at Atlanta Falcons",
+   "player": "Jessie Bates",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 1.0,
+   "game": "Carolina Panthers at Atlanta Falcons",
+   "player": "A.J. Terrell",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 0.0
+  },
+  {
+   "from": 5.0,
+   "game": "Minnesota Vikings at Chicago Bears",
+   "player": "D'Andre Swift",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Pass Targets",
+   "to": 6.0
+  },
+  {
+   "from": 1.0,
+   "game": "Cincinnati Bengals at Houston Texans",
+   "player": "Reed Blankenship",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 0.0
+  },
+  {
+   "from": 2.0,
+   "game": "Philadelphia Eagles at Tennessee Titans",
+   "player": "Dallas Goedert",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Pass Targets",
+   "to": 3.0
+  },
+  {
+   "from": 6.0,
+   "game": "Philadelphia Eagles at Tennessee Titans",
+   "player": "Anthony Hill Jr.",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Tackles",
+   "to": 5.0
+  },
+  {
+   "from": 4.0,
+   "game": "Philadelphia Eagles at Tennessee Titans",
+   "player": "Anthony Hill Jr.",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Assists",
+   "to": 5.0
+  },
+  {
+   "from": 0.0,
+   "game": "Philadelphia Eagles at Tennessee Titans",
+   "player": "Jeffery Simmons",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 1.0
+  },
+  {
+   "from": 2.0,
+   "game": "Philadelphia Eagles at Tennessee Titans",
+   "player": "Solomon Thomas",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 8.0,
+   "game": "Jacksonville Jaguars at Denver Broncos",
+   "player": "Brian Thomas Jr.",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Pass Targets",
+   "to": 9.0
+  },
+  {
+   "from": 29.0,
+   "game": "Las Vegas Raiders at Los Angeles Chargers",
+   "player": "Hezekiah Masses",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Interception Return Yards",
+   "to": 32.0
+  },
+  {
+   "from": 7.0,
+   "game": "Las Vegas Raiders at Los Angeles Chargers",
+   "player": "Nakobe Dean",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Tackles",
+   "to": 6.0
+  },
+  {
+   "from": 1.0,
+   "game": "Las Vegas Raiders at Los Angeles Chargers",
+   "player": "Jermod McCoy",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 3.0,
+   "game": "Miami Dolphins at San Francisco 49ers",
+   "player": "Josh Uche",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 1.0,
+   "game": "Miami Dolphins at San Francisco 49ers",
+   "player": "Julius Brents",
+   "publishedText": "Thu Sep 24 12:10:10 a.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  }
+ ],
+ "players": [
+  {
+   "after": 13.5,
+   "before": 12.0,
+   "delta": 1.5,
+   "elias": [
+    {
+     "from": 0.0,
+     "stat": "Passes Defended",
+     "to": 1.0
+    }
+   ],
+   "fid": "0001",
+   "pid": "14163",
+   "player": "Jeffery Simmons",
+   "status": "starter"
+  },
+  {
+   "after": 7.5,
+   "before": 8.0,
+   "delta": -0.5,
+   "elias": [
+    {
+     "from": 6.0,
+     "stat": "Tackles",
+     "to": 5.0
+    },
+    {
+     "from": 4.0,
+     "stat": "Assists",
+     "to": 5.0
+    }
+   ],
+   "fid": "0003",
+   "pid": "17560",
+   "player": "Anthony Hill Jr.",
+   "status": "starter"
+  },
+  {
+   "after": 12.0,
+   "before": 13.0,
+   "delta": -1.0,
+   "elias": [
+    {
+     "from": 7.0,
+     "stat": "Tackles",
+     "to": 6.0
+    }
+   ],
+   "fid": "0004",
+   "pid": "15821",
+   "player": "Nakobe Dean",
+   "status": "starter"
+  },
+  {
+   "after": 7.6,
+   "before": 6.8,
+   "delta": 0.8,
+   "elias": [
+    {
+     "from": 2.0,
+     "stat": "Assists",
+     "to": 3.0
+    }
+   ],
+   "fid": "0009",
+   "pid": "13737",
+   "player": "Jessie Bates",
+   "status": "starter"
+  },
+  {
+   "after": 10.1,
+   "before": 10.6,
+   "delta": -0.5,
+   "elias": [
+    {
+     "from": 6.0,
+     "stat": "Tackles",
+     "to": 5.0
+    },
+    {
+     "from": 1.0,
+     "stat": "Assists",
+     "to": 2.0
+    }
+   ],
+   "fid": "0010",
+   "pid": "17131",
+   "player": "Xavier Watts",
+   "status": "starter"
+  }
+ ],
+ "published": [
+  "Thu Sep 24, 12:10 AM ET"
+ ],
+ "rankChanges": [
+  {
+   "after": 9,
+   "before": 10,
+   "fid": "0001"
+  },
+  {
+   "after": 6,
+   "before": 5,
+   "fid": "0003"
+  },
+  {
+   "after": 5,
+   "before": 6,
+   "fid": "0005"
+  },
+  {
+   "after": 10,
+   "before": 9,
+   "fid": "0006"
+  }
+ ],
+ "resultsFlipped": 1,
+ "season": 2026,
+ "teams": [
+  {
+   "after": 179.2,
+   "before": 177.7,
+   "delta": 1.5,
+   "fid": "0001"
+  },
+  {
+   "after": 208.6,
+   "before": 209.1,
+   "delta": -0.5,
+   "fid": "0003"
+  },
+  {
+   "after": 199.6,
+   "before": 200.6,
+   "delta": -1.0,
+   "fid": "0004"
+  },
+  {
+   "after": 281.8,
+   "before": 281.0,
+   "delta": 0.8,
+   "fid": "0009"
+  },
+  {
+   "after": 303.4,
+   "before": 303.9,
+   "delta": -0.5,
+   "fid": "0010"
+  }
+ ],
+ "week": 2
+}

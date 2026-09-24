@@ -1,0 +1,60 @@
+{
+  "schema": "injury_context.v1",
+  "season": 2026,
+  "week": 2,
+  "note": "Editor-reviewed injury-context exclusions for graded weekly rankings (Bust & Bargain, boom/bust, xFP). Keyed by player_id + franchise_id, validated against that season/week's own src_weekly before use. Never keyed by name. A player listed here keeps his raw statistical-gap evidence but is removed from any RANKED table and shown instead as a separate not-graded row.",
+  "records": [
+    {
+      "playerId": "17032",
+      "franchiseId": "0011",
+      "player": "Jaxson Dart",
+      "status": "injury_not_graded",
+      "reason": "Left the game on the Giants' 7th offensive snap (7 snaps, 12% of offensive plays) with a season-ending left-knee injury. His 1.2-point actual score reflects an injury-shortened appearance, not a full-opportunity performance miss.",
+      "snaps": 7,
+      "snapShare": 0.12,
+      "sourceName": "approved editorial review, this session",
+      "sourceUrl": null,
+      "sourcePublishedAt": null,
+      "reviewedAt": "2026-09-24T00:00:00Z"
+    },
+    {
+      "playerId": "16615",
+      "franchiseId": "0011",
+      "player": "Malik Nabers",
+      "status": "injury_context_not_graded",
+      "reason": "Briefly left the game with a right-shoulder injury, returned, and finished with 43 snaps. Dart's early exit also changed his quarterback context for the rest of the game. Because the effects of the injury and the quarterback change cannot be cleanly separated from his performance, he is excluded from the ranked bust list rather than graded as a clean miss.",
+      "snaps": 43,
+      "snapShare": null,
+      "sourceName": "approved editorial review, this session",
+      "sourceUrl": null,
+      "sourcePublishedAt": null,
+      "reviewedAt": "2026-09-24T00:00:00Z"
+    },
+    {
+      "playerId": "13604",
+      "franchiseId": "0008",
+      "player": "Saquon Barkley",
+      "status": "injury_context_not_graded",
+      "reason": "The Eagles announced Barkley (neck/shoulder) as questionable to return during their Week 2 game against the Titans (Sunday, September 20) due to a stinger. His 4-carry, 2-target, 3.0-point line is consistent with a game cut short by that injury, not a clean-opportunity miss.",
+      "snaps": null,
+      "snapShare": null,
+      "sourceName": "ESPN NFL Injuries",
+      "sourceUrl": "https://www.espn.com/nfl/injuries",
+      "sourcePublishedAt": "2026-09-20T00:00:00Z",
+      "reviewedAt": "2026-09-24T00:00:00Z"
+    },
+    {
+      "playerId": "13674",
+      "franchiseId": "0008",
+      "player": "Dallas Goedert",
+      "status": "injury_context_not_graded",
+      "reason": "Diagnosed the Monday after Week 2 (September 21) with a sprained MCL, expected to miss several weeks. His 2-target, 4-air-yard, 1.9-point Week 2 line is consistent with the knee injury already affecting that game, not a clean-opportunity miss.",
+      "snaps": null,
+      "snapShare": null,
+      "sourceName": "ESPN NFL Injuries (Ian Rapoport/Adam Schefter)",
+      "sourceUrl": "https://www.espn.com/nfl/injuries",
+      "sourcePublishedAt": "2026-09-21T00:00:00Z",
+      "reviewedAt": "2026-09-24T00:00:00Z"
+    }
+  ]
+}

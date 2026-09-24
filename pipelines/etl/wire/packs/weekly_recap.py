@@ -895,31 +895,68 @@ def build(pack_id):
     # that player's own kickoff (wire_data.starter_projections -- kickoff-strict,
     # because MFL does revise projections after games).
     sp, sp_unranked = D.starter_projections(season, week)
+    _week_team_basis = "last_pregame"
+    if not sp:
+        # Falls back to the same first-preserved-capture evidence Bust &
+        # Bargain uses below, rather than silently losing these facts (a
+        # 2026-09-24 rebuild lost 56 facts across f.week/f.team/f.bb/f.xfp
+        # with no warning at all before this fallback existed). Every fact
+        # built from this pool is explicitly scoped to "the evidence-
+        # qualified starters", never presented as a league-wide superlative.
+        sp, sp_unranked = D.first_pregame_fallback_projections(season, week)
+        if sp:
+            _week_team_basis = "first_pregame_fallback"
+    # Same injury-context exclusion Bust & Bargain applies below -- a
+    # materially injury-shortened/-confounded performance is not a clean
+    # projection miss and must not surface as a "league's biggest bust" or
+    # "franchise's biggest bust" fact either.
+    _injury = D.injury_context_exclusions(season, week)
+    if _injury:
+        sp = [x for x in sp if not (_injury.get(x["player_id"]) and _injury[x["player_id"]].get("franchiseId") == x["fid"])]
     if sp:
         def _pline(x):
             return "%s scored %.1f on a projection of %.1f" % (x["player"], x["score"], x["proj"])
+        _scope = (" (largest miss among %d evidence-qualified starters -- see the Bust & Bargain "
+                  "methodology note)" % len(sp)) if _week_team_basis == "first_pregame_fallback" else ""
         booms = sorted(sp, key=lambda x: -(x["score"] - x["proj"]))
         busts = sorted(sp, key=lambda x: -(x["proj"] - x["score"]))
         for i, x in enumerate(booms[:3], 1):
-            F("f.week.boom_%d" % i, "No. %d starter OVER his projection this week, for %s" % (i, who(x["fid"])),
+            F("f.week.boom_%d" % i, "No. %d starter OVER his projection this week, for %s%s"
+              % (i, who(x["fid"]), _scope),
               x["score"] - x["proj"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(x))
         for i, x in enumerate(busts[:3], 1):
-            F("f.week.bust_%d" % i, "No. %d starter UNDER his projection this week, for %s" % (i, who(x["fid"])),
+            F("f.week.bust_%d" % i, "No. %d starter UNDER his projection this week, for %s%s"
+              % (i, who(x["fid"]), _scope),
               x["proj"] - x["score"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(x))
         for fid in sorted(set(x["fid"] for x in sp)):
             mine = [x for x in sp if x["fid"] == fid]
             up = max(mine, key=lambda x: x["score"] - x["proj"])
             dn = max(mine, key=lambda x: x["proj"] - x["score"])
             if up["score"] - up["proj"] >= 10:
-                F("f.team.%s.boom" % fid, "%s -- starter furthest OVER projection" % who(fid),
+                F("f.team.%s.boom" % fid, "%s -- starter furthest OVER projection%s" % (who(fid), _scope),
                   up["score"] - up["proj"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(up))
             if dn["proj"] - dn["score"] >= 10:
-                F("f.team.%s.bust" % fid, "%s -- starter furthest UNDER projection" % who(fid),
+                F("f.team.%s.bust" % fid, "%s -- starter furthest UNDER projection%s" % (who(fid), _scope),
                   dn["proj"] - dn["score"], "points", "ups_player_projections", "wk%d" % week, fmt=_pline(dn))
+    elif sp_unranked:
+        _no_evidence = [u for u in sp_unranked
+                        if "after his own kickoff" in (u.get("reason") or "") or "capture missing" in (u.get("reason") or "")]
+        if _no_evidence:
+            pack.warn("League-wide and franchise-level boom/bust facts were omitted for week %d: no starter "
+                      "has any provable pregame projection, first-capture or last-capture -- projection "
+                      "evidence could not be established at all this week." % week)
 
     # BUSTS AND BARGAINS (Keith 2026-09-16, replacing "Furthest from the projection"):
-    # top 5 of each, offense and defense apart. See wire_data.bust_bargain.
-    bb = D.bust_bargain(season, week) if sp else None
+    # top 5 of each, offense and defense apart. See wire_data.bust_bargain. Always
+    # called (not gated on sp) -- bust_bargain() manages its own fallback to
+    # first_pregame_fallback_projections() when the normal kickoff-strict path
+    # comes back empty. Under that fallback ALL FOUR tables are built directly
+    # from the eligible pool (Keith 2026-09-24: an earlier version tried to
+    # bound and selectively invalidate individual tables using the observed
+    # projection range among the ranked players -- that range says nothing
+    # about a player whose projection was never captured at all, so it could
+    # not actually prove a table safe or unsafe; removed).
+    bb = D.bust_bargain(season, week)
     # EXPECTED FANTASY POINTS (Keith 2026-09-17): what each offensive starter's usage --
     # targets, carries, throws, and where on the field they came -- normally scores in
     # UPS scoring, from nflverse's ffopportunity model (wire_xfp). None until the week's
@@ -928,6 +965,40 @@ def build(pack_id):
     if int(season) >= 2026 and xv is None:
         pack.warn("No xFP pull for week %d (site/wire/data/xfp_%d_wk%02d.json) -- run wire_xfp.py fetch; "
                   "the expected-points tables are left out." % (week, season, week))
+    # xFP (nflverse ffopportunity, re-scored UPS) is a SEPARATE input from MFL's
+    # pregame projections -- it does not depend on sp/bb, and must not be gated
+    # behind whether Bust & Bargain's own MFL-projection evidence is available
+    # this week (Keith 2026-09-24: xFP disappearing alongside a Bust & Bargain
+    # outage was a control-flow bug, not missing xFP data -- the two inputs are
+    # independent and must fail independently).
+    if xv is not None and xv["all"]:
+        for kind, rows_ in (("over", xv["over"]), ("under", xv["under"])):
+            for i, x in enumerate(rows_, 1):
+                F("f.xfp.%s.%d" % (kind, i), "No. %d offensive starter %s his expected fantasy points, week %d"
+                  % (i, "OVER" if kind == "over" else "UNDER", week), x["oe"], "points",
+                  "nflverse ffopportunity (UPS-scored) + MFL", "wk%d" % week,
+                  fmt="%s (%s, %s) scored %.1f on %.1f expected points -- %s" % (
+                      x["player"], x["pos"], who(x["fid"]), x["score"], x["xfp"], x["usage"]))
+            pack.table("t.xfp.%s" % kind, "Offense: the five furthest %s expected points"
+                       % ("over" if kind == "over" else "under"),
+                       [{"key": "player", "label": "Player", "type": "text"},
+                        {"key": "owner", "label": "Started by", "type": "text"},
+                        {"key": "usage", "label": "Usage", "type": "text"},
+                        {"key": "xfp", "label": "Expected", "type": "points", "align": "right"},
+                        {"key": "pts", "label": "Scored", "type": "points", "align": "right"},
+                        {"key": "oe", "label": "Over/under", "type": "text"}],
+                       [["%s (%s, %s)" % (x["player"], x["pos"], x["team"]), who(x["fid"]), x["usage"],
+                         x["xfp"], x["score"], "%+.1f" % x["oe"]] for x in rows_],
+                       note=None if kind == "over" else (
+                           "Expected fantasy points (xFP) price each offensive starter's usage -- every "
+                           "target, carry and throw, from how far downfield it went, where on the field it "
+                           "happened, and the down and distance -- at what that usage normally scores in UPS "
+                           "scoring (nflverse's ffopportunity model, re-scored with UPS rules; pulled %s). "
+                           "Over/under is his MFL score minus xFP, so it also carries what the model does not "
+                           "price: fumbles, sacks and the 50-yard touchdown bonus. Offense only -- there is no "
+                           "expected-points model for defenders. %d offensive starters rated."
+                           % (D.et_clock(int(datetime.strptime(xv["doc"]["fetchedAtUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                             .replace(tzinfo=timezone.utc).timestamp())), len(xv["all"]))))
     if bb and (bb["off"]["pool"] or bb["idp"]["pool"]):
         unit_word = {"off": "offense", "idp": "defense"}
         early, late = bb["captured"]
@@ -962,6 +1033,7 @@ def build(pack_id):
         if other:
             parts.append("%s (%s)" % (", ".join(u["player"] for u in other[:4]), other[0]["reason"]))
         unranked_text = "; ".join(parts)
+        is_fallback = bb["basis"] == "first_pregame_fallback"
         for unit in ("off", "idp"):
             for kind, sign in (("bust", -1), ("bargain", 1)):
                 rows_ = bb[unit][kind]
@@ -978,8 +1050,9 @@ def build(pack_id):
                       "wk%d, captured before kickoff" % week,
                       fmt="%s (%s, %s) scored %.1f on a projection of %.1f" % (
                           x["player"], x["pos_group"], who(x["fid"]), x["score"], x["proj"]))
-                title = "%s: the five biggest %s" % (unit_word[unit].capitalize(),
-                                                     "busts" if kind == "bust" else "bargains")
+                title = "%s: the five biggest %s%s" % (
+                    unit_word[unit].capitalize(), "busts" if kind == "bust" else "bargains",
+                    " among evidence-qualified starters" if is_fallback else "")
                 last = unit == "idp" and kind == "bargain"
                 with_x = unit == "off" and xv is not None
                 cols = [{"key": "player", "label": "Player", "type": "text"},
@@ -997,49 +1070,62 @@ def build(pack_id):
                         xr = xv["byMfl"].get(x["player_id"])
                         row.append("%s (%.1f)" % (xr["usage"], xr["xfp"]) if xr else "not in nflverse's data")
                     return row
+                basis_sentence = (
+                    "Week %d rankings use the earliest preserved MFL projection captured before each "
+                    "player's kickoff. %d starters are graded here; %d more have verified pregame "
+                    "evidence but are held out for injury context (see below); %d starters are excluded "
+                    "entirely because no valid pre-kickoff first capture could be established -- these "
+                    "are the largest gaps among the graded pool, not a claim about every starter "
+                    "league-wide."
+                    % (week, bb["eligibleCount"], len(bb["notGraded"]), bb["excludedCount"])
+                    if is_fallback else
+                    "Every projection is MFL's last one captured before that player's own kickoff "
+                    "(captures from %s to %s), because MFL sometimes changes a projection after the "
+                    "game is played." % (D.et_clock(early), D.et_clock(late)))
                 pack.table("t.bb.%s.%s" % (unit, kind), title, cols,
                            [_bb_row(x) for x in rows_],
                            note=None if not last else (
                                "Started players only, offense (QB, RB, WR, TE) and defense (DL, LB, DB) ranked "
                                "apart. A bust is ranked by how far he scored UNDER his projection, a bargain by "
-                               "how far he scored OVER it. Every projection is MFL's last one captured before "
-                               "that player's own kickoff (captures from %s to %s), because MFL sometimes "
-                               "changes a projection after the game is played. %s"
-                               % (D.et_clock(early), D.et_clock(late),
+                               "how far he scored OVER it. %s %s"
+                               % (basis_sentence,
                                   ("Not ranked, because no projection from before their kickoff can be "
                                    "proven: %s." % unranked_text) if unranked else
                                   "Every offensive and defensive starter is ranked.")))
-        if xv is not None and xv["all"]:
-            for kind, rows_ in (("over", xv["over"]), ("under", xv["under"])):
-                for i, x in enumerate(rows_, 1):
-                    F("f.xfp.%s.%d" % (kind, i), "No. %d offensive starter %s his expected fantasy points, week %d"
-                      % (i, "OVER" if kind == "over" else "UNDER", week), x["oe"], "points",
-                      "nflverse ffopportunity (UPS-scored) + MFL", "wk%d" % week,
-                      fmt="%s (%s, %s) scored %.1f on %.1f expected points -- %s" % (
-                          x["player"], x["pos"], who(x["fid"]), x["score"], x["xfp"], x["usage"]))
-                pack.table("t.xfp.%s" % kind, "Offense: the five furthest %s expected points"
-                           % ("over" if kind == "over" else "under"),
-                           [{"key": "player", "label": "Player", "type": "text"},
-                            {"key": "owner", "label": "Started by", "type": "text"},
-                            {"key": "usage", "label": "Usage", "type": "text"},
-                            {"key": "xfp", "label": "Expected", "type": "points", "align": "right"},
-                            {"key": "pts", "label": "Scored", "type": "points", "align": "right"},
-                            {"key": "oe", "label": "Over/under", "type": "text"}],
-                           [["%s (%s, %s)" % (x["player"], x["pos"], x["team"]), who(x["fid"]), x["usage"],
-                             x["xfp"], x["score"], "%+.1f" % x["oe"]] for x in rows_],
-                           note=None if kind == "over" else (
-                               "Expected fantasy points (xFP) price each offensive starter's usage -- every "
-                               "target, carry and throw, from how far downfield it went, where on the field it "
-                               "happened, and the down and distance -- at what that usage normally scores in UPS "
-                               "scoring (nflverse's ffopportunity model, re-scored with UPS rules; pulled %s). "
-                               "Over/under is his MFL score minus xFP, so it also carries what the model does not "
-                               "price: fumbles, sacks and the 50-yard touchdown bonus. Offense only -- there is no "
-                               "expected-points model for defenders. %d offensive starters rated."
-                               % (D.et_clock(int(datetime.strptime(xv["doc"]["fetchedAtUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                                 .replace(tzinfo=timezone.utc).timestamp())), len(xv["all"]))))
         if unranked:
             F("f.bb.unranked", "Starters left off the bust/bargain lists for want of a provable pregame projection",
               len(unranked), "count", "ups_player_projections", "wk%d" % week, fmt=unranked_text)
+        # Injury-context exclusions: keeps the raw statistical-gap evidence
+        # visible (never silently dropped) while structurally guaranteeing
+        # these players cannot appear in a ranked bust/bargain table -- they
+        # were removed from the pool bust_bargain() ranks BEFORE sorting, not
+        # filtered out of an already-ranked list.
+        _status_label = {"injury_not_graded": "INJURY -- NOT GRADED",
+                         "injury_context_not_graded": "INJURY CONTEXT -- NOT GRADED"}
+        for x in bb["notGraded"]:
+            label = _status_label.get(x["injuryStatus"], x["injuryStatus"].upper())
+            F("f.bb.notgraded.%s" % x["player_id"],
+              "%s (%s, %s) -- %s" % (x["player"], x["pos_group"], who(x["fid"]), label),
+              round(x["proj"] - x["score"], 1), "points", "ups_player_projections",
+              "wk%d, raw gap not graded" % week,
+              fmt="%s scored %.1f on a projection of %.1f. %s" % (x["player"], x["score"], x["proj"], x["injuryReason"]))
+        if is_fallback:
+            _after_kickoff = len([u for u in bb["unranked"] if "after his own kickoff" in (u.get("reason") or "")])
+            _missing_capture = len([u for u in bb["unranked"] if "capture missing" in (u.get("reason") or "")])
+            pack.source("ups_player_projections (first-capture fallback)", asof="%d wk%d" % (season, week),
+                        note="Week %d Bust & Bargain used each player's earliest preserved pregame capture, "
+                             "not the normal last-before-kickoff one, because a later ingest run overwrote "
+                             "the last-capture evidence for this week. Intermediate capture history between "
+                             "the first and latest stored value is not retained." % week)
+            pack.warn("Week %d Bust & Bargain and boom/bust facts use the earliest preserved pregame "
+                      "projection, not the usual last-before-kickoff one: %d starters graded, %d more "
+                      "excluded from grading for injury context (raw evidence kept, shown separately), "
+                      "%d excluded entirely for want of valid pre-kickoff evidence (%d whose first capture "
+                      "landed after their own kickoff, %d with no capture at all) -- %d offense/IDP "
+                      "starters were relevant in total."
+                      % (week, bb["eligibleCount"], len(bb["notGraded"]), bb["excludedCount"],
+                         _after_kickoff, _missing_capture,
+                         bb["eligibleCount"] + len(bb["notGraded"]) + bb["excludedCount"]))
 
     # -------------------------------------------------------- bench burns
     burns = D.bench_burns(season, week)
