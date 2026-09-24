@@ -17,7 +17,7 @@ function grab(startMarker, endMarker){
   if (j < 0) throw new Error('end not found for '+startMarker);
   return src.slice(i, j+endMarker.length);
 }
-const parseFn = grab('const _parseContractData =', 'return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned };\n        };');
+const parseFn = grab('const _parseContractData =', 'return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved };\n        };');
 const compFn  = grab('const _computeDropPenalty =', 'return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };\n        };');
 
 const prelude = `
@@ -62,9 +62,14 @@ t('1-year sub-$5K deal is cap-free',
 
 console.log('\n-- FIX: flat $1K must NOT drift with in-season earning --');
 // same contract, mid-season drop date. Pre-fix this netted to ~$412.
+// completedPayableWeeks now required alongside dropDateIso (post week-authority
+// fix) — 2026 Week 1 opens 2026-09-09; floor((Nov 15 − Sep 9)/7) = 9 completed
+// weeks. Without this the request now fails closed (basis
+// "week_authority_unresolved") rather than silently guessing — see the new
+// resolveCompletedPayableWeeks tests below for that behavior.
 const mid = _computeDropPenalty({contractStatus:'Veteran',salary:1000,
   contractInfo:'CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K',contractYear:'2'},
-  {dropDateIso:'2026-11-15T00:00:00Z', season:'2026'});
+  {dropDateIso:'2026-11-15T00:00:00Z', season:'2026', completedPayableWeeks:9, week1ThursdayIso:'2026-09-09'});
 t('CL3 $1K/yr yr2, mid-season drop', mid.penalty, 1000);
 
 console.log('\n-- FIX: taxi cap-free cut survives a temporary call-up --');

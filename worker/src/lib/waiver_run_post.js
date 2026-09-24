@@ -74,6 +74,7 @@ const BASIS_LABELS = {
   no_penalty_zero: "Earned already exceeds guarantee",
   no_pre_drop_contract: "Pre-drop contract not found",
   contract_unstamped_needs_review: "MFL has not stamped a contract for this player yet — unpriced, not cap-free",
+  week_authority_unresolved: "Completed-payable-week authority could not be resolved — unpriced, not cap-free",
 };
 export function humanizeDropBasis(basis) {
   const key = _s(basis);

@@ -1217,18 +1217,18 @@ The UPS league year is a 12-month cycle anchored to the NFL season. **Dates belo
 | **2026-05-21** | **Thu** | **UPS rookie extension deadline** | `event_window_matrix.csv` |
 | 2026-05-24 | Sun | UPS Rookie Draft (Memorial Day Sunday — inferred from rule) | rule + Memorial Day = May 25 |
 | **2026-09-06** | **Sun** | **UPS contract deadline** (last Sun before NFL Week 1) | `event_window_matrix.csv` |
-| **2026-09-10** | **Thu** | **NFL Week 1 kickoff** | `event_window_matrix.csv` |
+| **2026-09-09** | **Wed** | **NFL Week 1 kickoff** (corrected from the `event_window_matrix.csv` placeholder — real schedule confirmed live, earliest kickoff unix 1788999600 = 2026-09-09 20:20 ET; Keith 2026-08-07) | `TYPE=nflSchedule&W=1` (live) |
 | **2026-09-24** | **Thu** | **UPS preseason MYM deadline** (= Week 3 kickoff Thu) | `event_window_matrix.csv` |
 | **2026-10-07** | **Wed** | **UPS preseason extension deadline** (day before Week 5 kickoff) | `event_window_matrix.csv` |
 | **2026-11-26** | **Thu** | **UPS trade deadline** (Thanksgiving kickoff) | `event_window_matrix.csv` |
 
 ### NFL Week kickoffs (decoded from `ups_options_widget_schedule_2026.json`)
 
-> **NOTE on times (Keith 2026-04-28):** the precise times below are PLACEHOLDER — they auto-update once the NFL releases the official 2026 schedule. The DAYS-OF-WEEK are correct (Thursdays); the precise kickoff times are not authoritative until NFL schedule release.
+> **NOTE on times (Keith 2026-04-28):** the precise times below are PLACEHOLDER — they auto-update once the NFL releases the official 2026 schedule. The DAYS-OF-WEEK are correct (Thursdays) for Weeks 2+; the precise kickoff times are not authoritative until NFL schedule release. **CORRECTED (2026-09-24, real schedule confirmed live):** Week 1 alone opens WEDNESDAY 2026-09-09, not Thursday — the season's one-time early opener. Weeks 2+ revert to the normal Thursday cadence shown below (live-verified for Weeks 1-3 against MFL's own `TYPE=nflSchedule` export).
 
 | Week | Day | Date |
 |---|---|---|
-| 1 | Thu | 2026-09-10 |
+| 1 | **Wed** | **2026-09-09** |
 | 2 | Thu | 2026-09-17 |
 | 3 | Thu | 2026-09-24 |
 | 4 | Thu | 2026-10-01 |
@@ -1379,7 +1379,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
   - Restructure window closes
   - Roster max drops from 35 → 30
 - **Cap floor compliance check:** $260K must be hit by this date (or during FA Auction, whichever applies).
-- **2026-09-10 (Thu):** **NFL Week 1 kickoff.** Fantasy season starts.
+- **2026-09-09 (Wed):** **NFL Week 1 kickoff.** Fantasy season starts. (Corrected 2026-09-24 from the placeholder "2026-09-10 Thu" — real schedule confirmed live; 2026 opens Wednesday.)
   - **Waivers run at 9 AM Eastern Thu/Fri/Sat/Sun.** FCFS opens immediately after each Sun waiver run, until each player's NFL kickoff.
 
 ### Late September 2026 → Pre-season MYM Deadline
@@ -2021,7 +2021,7 @@ The bid sheet's math depends on getting cap mechanics right. This section enumer
 > **Penalty for non compliance:** Immediate Cap Hit applied to the current season in the amount necessary to bring your team in compliance. Ex. You end auction with $250K and fail to get your salary to the floor, you'll receive a $10K cap hit for current season. **Additionally, you'll receive the same $10K cap hit for next season.**
 
 - **Soft floor.** Must be hit by **end of the FA Auction window OR by the Roster Contract Deadline (September contract deadline), whichever comes later** (Keith, 2026-05-16 review session). Touch-and-go during the auction also counts — once the floor is touched at any timestamp in the window, compliance is satisfied.
-- **"Roster Cut down day" = the September contract deadline** — the day the active-roster ceiling drops 35 → 30. This is canon's existing reading (Keith, 2026-05-16) and it is consistent with "does not apply during the season": the 2026 contract deadline is **Sun 2026-09-06**, the last Sunday *before* NFL Week 1 (Thu 2026-09-10). The cure window closes before the season starts.
+- **"Roster Cut down day" = the September contract deadline** — the day the active-roster ceiling drops 35 → 30. This is canon's existing reading (Keith, 2026-05-16) and it is consistent with "does not apply during the season": the 2026 contract deadline is **Sun 2026-09-06**, the last Sunday *before* NFL Week 1 (Wed 2026-09-09). The cure window closes before the season starts.
 - **Penalty = the shortfall, twice.** A team that ends the window $10K light takes **$10K against the current season and $10K against the next**. Not a flat fine — it scales to exactly how far short you were, so a $1K miss costs $1K/$1K and a $30K miss costs $30K/$30K.
   - **The doubling is the deterrent.** Paying the shortfall once would be a no-op: you'd owe the same cap dollars you declined to commit, and sleeping through the auction would be free. The second year is what makes it a penalty rather than a settlement.
   - Structurally identical to the §F RULE 2 nomination fines (current + next season), which is the shared shape across every auction-period penalty — see §T4.3a.
@@ -2375,7 +2375,7 @@ Rules the league actually operates by that had never been written into canon. Re
 
   *Caveat, stated rather than buried:* the 2018 document is truncated at the end (its tag-compensation section stops mid-sentence). But the voting section sits early and reads complete — 51%, then dues 75%, then straight into League Setup — so the omission is structural, not lost text.
 
-  **Nothing was ever passed under the wrong bar.** An earlier draft of this line claimed the July 2026 round passed three rules in-season at 7 YES and might be invalid. That was wrong: every 2026 round ran 2026-05-08/11 and 2026-07-21/24, and NFL Week 1 is 2026-09-10, so all were offseason votes where 51% is correct. Recorded here because the error reached canon before it was caught.
+  **Nothing was ever passed under the wrong bar.** An earlier draft of this line claimed the July 2026 round passed three rules in-season at 7 YES and might be invalid. That was wrong: every 2026 round ran 2026-05-08/11 and 2026-07-21/24, and NFL Week 1 is 2026-09-09, so all were offseason votes where 51% is correct. Recorded here because the error reached canon before it was caught.
 
 ### G2. Commissioner authority
 
