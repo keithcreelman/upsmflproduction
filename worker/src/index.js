@@ -2219,10 +2219,30 @@ const _dropPidsFromTx = (type, blob) => {
   return _s(field).match(/\d{3,6}/g) || [];
 };
 
-// NFL Week-1 kickoff = Thursday after Labor Day (first Monday of Sept + 3 days).
+// NFL Week-1 kickoff, LAST-RESORT approximation = Thursday after Labor Day
+// (first Monday of Sept + 3 days). Only reached when the live schedule path
+// (_week1BoundaryIsoET / nflWeekFirstKickoffUnix, the real MFL-schedule-
+// backed source every caller prefers) is unreachable — see
+// resolveCompletedPayableWeeks's historical-mode comment.
+//
+// _NFL_WEEK1_OVERRIDE_ISO below corrects years where the real NFL schedule
+// diverges from that formula, so the fallback never regresses to a wrong
+// calendar date even when it's the only thing available. 2026 is such a
+// year: the real season opens WEDNESDAY 2026-09-09 (confirmed live against
+// MFL's own TYPE=nflSchedule&W=1 export — earliest kickoff unix 1788999600 =
+// 2026-09-09 20:20 ET = 2026-09-10T00:20:00Z UTC), one day before what this
+// formula derives ("Thursday after Labor Day" = 2026-09-10). Keith ruled on
+// this directly 2026-08-07: "earliest game of the week, typically that's
+// thursday but this yr it's wednesday." Without this override, a fallback
+// invocation for 2026 would price every in-season contract exactly one day
+// (up to a full week's share of salary, at a boundary instant) off from the
+// live-schedule answer — the same class of bug the completed-payable-week
+// off-by-one fix (2026-09-24) closed for the primary path.
+const _NFL_WEEK1_OVERRIDE_ISO = { 2026: "2026-09-09" };
 const _nflWeek1Iso = (year) => {
   const y = Number(year) || 0;
   if (!y) return "";
+  if (_NFL_WEEK1_OVERRIDE_ISO[y]) return _NFL_WEEK1_OVERRIDE_ISO[y];
   const sept1 = new Date(Date.UTC(y, 8, 1));
   const firstMonday = 1 + ((8 - sept1.getUTCDay()) % 7);
   const kickoff = new Date(Date.UTC(y, 8, firstMonday + 3));
@@ -2407,6 +2427,166 @@ function deriveCompletedWeekFromLineupResolution(resolved) {
 async function resolveAuthoritativeCompletedWeek(season, leagueId) {
   const resolved = await resolveCurrentLineupWeek(season, leagueId);
   return deriveCompletedWeekFromLineupResolution(resolved);
+}
+
+// SINGLE AUTHORITATIVE resolver for "how many regular-season weeks have
+// fully COMPLETED (and are therefore payable) as of a given instant" — used
+// by every in-season earned-salary / drop-penalty calculation
+// (_parseContractData's currentYearEarned block). Two modes:
+//
+//  - "now" mode (no dropDateIso, or dropDateIso is today's UTC calendar
+//    date): defers FIRST to resolveAuthoritativeCompletedWeek(season,
+//    leagueId) -- the SAME liveScoring-plus-grace-period authority
+//    GET /api/current-lineup-week uses. current_lineup_week = N means "an
+//    owner is setting a lineup for week N right now" (N may still be in
+//    progress), so N-1 is the latest genuinely COMPLETE week -- exactly
+//    what deriveCompletedWeekFromLineupResolution already returns. THIS is
+//    why current_lineup_week must never be passed directly into earned-
+//    salary math: it is "which week is active", not "how many are done".
+//  - "historical" mode (an explicit PAST dropDateIso, e.g. reconciling a
+//    real drop that already happened), OR "now" mode when the live
+//    resolver can't answer (preseason -- no liveScoring data yet -- or MFL
+//    unreachable): falls back to whole 7-day increments from the real
+//    Week-1 kickoff boundary (opts.week1ThursdayIso, or the
+//    Thursday-after-Labor-Day approximation _nflWeek1Iso as a last
+//    resort). THIS is the exact spot the historical off-by-one bug lived:
+//    the old inline formula in _parseContractData computed
+//    `Math.floor((drop - w1) / (7*86400000)) + 1` and used that AS the
+//    completed-week count directly -- the "+ 1" counted the week the drop
+//    date falls INSIDE as already complete. The fix below drops the "+ 1":
+//    a week is complete only once a FULL 7-day period since kickoff has
+//    elapsed, so `Math.floor(...)` with NO "+ 1" is the completed-week
+//    count, and the calendar week the date falls inside (what the old code
+//    conflated with "completed") is `Math.floor(...) + 1` -- kept
+//    available below as `calendarWeek` for any caller that genuinely wants
+//    "which week is this", never for earned-salary math.
+//
+// Returns { weeks, source } where weeks is an integer in [0, regularSeasonWeeks]
+// or null (NEVER a guess) when nothing can resolve, plus `source` naming
+// which path answered (for logging / the preview response's resolver
+// metadata) — one of: "live_scoring_authority", "preseason_certain",
+// "kickoff_schedule_walk", "unresolved", "unresolved_live".
+//
+// Callers computing a REAL CHARGE (not just previewing) must fail closed on
+// weeks === null: refuse to price, do not fall back to 0 or to
+// current_lineup_week.
+//
+// `opts.resolvedLineup` lets a caller that already called
+// resolveCurrentLineupWeek() (e.g. the preview endpoint, which also needs
+// current_lineup_week in its response) hand in that result directly instead
+// of firing a second live MFL fetch.
+// Two distinct modes, deliberately kept separate:
+//
+// "NOW" mode (no dropDateIso, or one that resolves to today's UTC day): this
+// answers a LIVE/current calculation -- a real charge or a preview happening
+// right now. For "now", ONLY the live-scoring authority (resolveAuthoritative
+// CompletedWeek / deriveCompletedWeekFromLineupResolution) may answer. There
+// is exactly one carved-out exception: genuine pre-kickoff preseason is not
+// an estimate, it's a certain fact directly derivable from the real NFL
+// Week-1 kickoff instant (nflWeekFirstKickoffUnix) -- if "now" is provably
+// before that instant, zero games have been played, full stop, so `weeks: 0`
+// is safe to return without the live-scoring authority. Outside that
+// carve-out, if the live-scoring authority fails or returns null, this
+// function fails CLOSED (`weeks: null, source: "unresolved_live"`) -- it must
+// NOT fall through to calendar date-math. Silently substituting calendar
+// arithmetic for a live/current answer is exactly the "silent fallback to a
+// lesser formula" bug pattern this project exists to eliminate; a live
+// number must be authoritative or absent, never guessed.
+//
+// "HISTORICAL" mode (an explicit dropDateIso that is a different UTC day
+// than today): walks the REAL per-week kickoff timestamps
+// (nflWeekFirstKickoffUnix) rather than assuming a fixed 7-day cadence from
+// Week 1 -- see the detailed comment at this branch's implementation below
+// for why the uniform-7-day assumption was retired (2026-09-25).
+async function resolveCompletedPayableWeeks(season, leagueId, opts) {
+  opts = opts || {};
+  const rsw = Number(opts.regularSeasonWeeks) || 17;
+  const dropDateIso = opts.dropDateIso;
+  const nowDay = new Date().toISOString().slice(0, 10);
+  const isNow = !dropDateIso || String(dropDateIso).slice(0, 10) === nowDay;
+
+  if (isNow) {
+    // Genuine pre-kickoff preseason is a KNOWN FACT (zero games played), not
+    // an estimate -- safe to answer without the live-scoring authority. Uses
+    // the real kickoff instant (nflWeekFirstKickoffUnix), not calendar
+    // arithmetic, so this is NOT the banned "date-math fallback" below.
+    try {
+      const wk1Unix = await nflWeekFirstKickoffUnix(season, 1);
+      if (wk1Unix > 0 && Math.floor(Date.now() / 1000) < wk1Unix) {
+        return { weeks: 0, source: "preseason_certain" };
+      }
+    } catch (_) { /* fall through to live-scoring attempt below */ }
+
+    // In-season "now": ONLY the live-scoring authority may answer. No
+    // calendar-arithmetic fallback for a live/current calculation -- a real
+    // charge or preview happening right now must fail closed, not estimate.
+    try {
+      let completed;
+      if (opts.resolvedLineup) {
+        completed = deriveCompletedWeekFromLineupResolution(opts.resolvedLineup);
+      } else {
+        completed = await resolveAuthoritativeCompletedWeek(season, leagueId);
+      }
+      if (completed != null) {
+        return { weeks: Math.max(0, Math.min(rsw, completed)), source: "live_scoring_authority" };
+      }
+    } catch (_) { /* fails closed below, does NOT fall through to date-math */ }
+    return { weeks: null, source: "unresolved_live" };
+  }
+
+  // HISTORICAL mode only (explicit PAST dropDateIso, a different UTC day than
+  // today) reaches here.
+  //
+  // RETIRED (2026-09-25 correction pass): the previous "Week1 + 7n" uniform
+  // date-math is BANNED. 2026's real per-week kickoffs are NOT uniformly 7
+  // days apart -- Week 1 -> Week 2 is an 8-day gap (Wed 2026-09-09 -> Thu
+  // 2026-09-17, live-verified against MFL's own TYPE=nflSchedule export for
+  // each week), because Week 1 alone opens a day early. The uniform formula
+  // computed Week 2's boundary as Sept 9 + 7 = Sept 16 -- one day EARLY --
+  // so a historical drop dated 2026-09-16 (still genuinely inside Week 1's
+  // real 8-day span) was priced as if Week 1 were already earned. That is
+  // exactly the fail-open direction this whole project exists to close, and
+  // it lands on the ADMIN RECOMPUTE path, which can write real financial
+  // values (ups_drop_events.penalty_amount).
+  //
+  // Canon (docs/league_context_v1.md:2946, "kickoff to kickoff") is still
+  // honored -- just against the REAL per-week boundaries instead of an
+  // assumed fixed cadence. Walks nflWeekFirstKickoffUnix (the same
+  // cached/memoized MFL-schedule lookup every other kickoff-boundary
+  // consumer in this file already uses) week by week until the first week
+  // whose kickoff has not yet happened as of the drop instant -- that week
+  // is "current" at that instant, and completed = current - 1 (an
+  // in-progress week never counts as completed, same rule as every other
+  // mode of this function).
+  //
+  // Week rsw (17) is NOT special-cased at its own kickoff (2026-09-26
+  // correction): Week 17 kicking off means Week 17 is now IN PROGRESS, not
+  // complete -- exactly the same "in-progress week never counts" rule that
+  // already governs every earlier week. The walk therefore continues one
+  // week PAST the payable cap, to the real NFL Week 18 (the league's regular
+  // season is 18 real weeks long even though only 17 are payable here --
+  // memo mfl_nfl_regular_season_is_18_weeks), so Week 18's real kickoff is
+  // what bounds Week 17's completion, the same way Week 3's kickoff bounds
+  // Week 2's. `Math.min(rsw, ...)` below is what actually caps the payable
+  // total at 17 once Week 18 (or later) has kicked off -- the walk itself
+  // does not stop early at week rsw.
+  //
+  // Fails CLOSED -- weeks: null -- the moment ANY week's kickoff up to the
+  // answer can't be resolved live, INCLUDING Week 18's when the drop instant
+  // is late enough to need it (at/after Week 17's own kickoff). No path
+  // falls back to the retired uniform-7-day formula or to "started = done";
+  // `_nflWeek1Iso` is no longer consulted here.
+  const asOfUnix = Math.floor(new Date(dropDateIso).getTime() / 1000);
+  if (!(asOfUnix > 0)) return { weeks: null, source: "unresolved" };
+  let currentWeek = 0;
+  for (let w = 1; w <= rsw + 1; w += 1) {
+    let ko;
+    try { ko = await nflWeekFirstKickoffUnix(season, w); } catch (_) { ko = 0; }
+    if (!(ko > 0)) return { weeks: null, source: "unresolved" };
+    if (ko > asOfUnix) break;
+    currentWeek = w;
+  }
+  return { weeks: Math.max(0, Math.min(rsw, currentWeek - 1)), source: "kickoff_schedule_walk" };
 }
 
 // Week-1 boundary DATE (YYYY-MM-DD, ET) taken from MFL's real schedule, for the
@@ -2613,28 +2793,25 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           // Week 1 → $0 (offseason), after Week 17 → fully earned. Without a
           // drop date the result is the legacy completed-years-only earned.
           let currentYearEarned = 0;
-          if (opts.dropDateIso && cl != null && yearsRemaining > 0) {
+          let weekAuthorityUnresolved = false;
+          if (cl != null && yearsRemaining > 0 && opts.dropDateIso) {
             const curYrSalary = (yearSalaries[yearsPlayed + 1] != null) ? yearSalaries[yearsPlayed + 1] : (Number(salary) || 0);
             const rsw = Number(opts.regularSeasonWeeks) || 17;
-            const wk1 = opts.week1ThursdayIso || _nflWeek1Iso(opts.season);
-            const dropYmd = String(opts.dropDateIso).slice(0, 10);
-            if (wk1 && dropYmd >= wk1) {
-              const drop = new Date(dropYmd + "T00:00:00Z");
-              const w1 = new Date(wk1 + "T00:00:00Z");
-              const wk = Math.floor((drop - w1) / (7 * 86400000)) + 1;
-              if (wk > rsw) {
-                currentYearEarned = curYrSalary;
-              } else {
-                const acqWk = (Number(opts.acquisitionWeek) >= 1) ? Number(opts.acquisitionWeek) : 1;
-                const eligible = Math.max(1, rsw - acqWk + 1);
-                let frac = (wk - acqWk + 1) / eligible;
-                frac = Math.max(0, Math.min(1, frac));
-                currentYearEarned = Math.round(frac * curYrSalary);
-              }
+            if (Number.isFinite(opts.completedPayableWeeks)) {
+              const acqWk = (Number(opts.acquisitionWeek) >= 1) ? Number(opts.acquisitionWeek) : 1;
+              const eligible = Math.max(1, rsw - acqWk + 1);
+              const completedEligible = Math.max(0, Math.min(eligible, opts.completedPayableWeeks - (acqWk - 1)));
+              currentYearEarned = Math.round((completedEligible / eligible) * curYrSalary);
+            } else {
+              // Caller explicitly wants in-season earned math (passed dropDateIso)
+              // but could not supply a resolved completed-week count — FAIL CLOSED,
+              // do not silently price this as $0 earned (that would look identical
+              // to "genuinely just started" instead of "unknown").
+              weekAuthorityUnresolved = true;
             }
           }
           const earned = priorEarned + currentYearEarned;
-          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned };
+          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved };
         };
 
         const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
@@ -2706,6 +2883,30 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
                 + "contractInfo are all empty), so a drop penalty cannot be computed. This is "
                 + "NOT a cap-free cut — it is an unpriced one. Stamp the contract in MFL and "
                 + "rescan, or price it by hand.",
+            };
+          }
+          // 1.6 Week-authority could not be resolved for an in-season pricing
+          // request — refuse to emit a confident penalty/earned number. Mirrors
+          // the "contract_unstamped_needs_review" shape (basis + needs_review +
+          // review_reason) so every existing caller of _computeDropPenalty
+          // already knows how to store/display a "needs review" row instead of
+          // crashing. Placed AFTER taxi/unstamped-contract checks (those are
+          // legitimate $0/exempt outcomes that don't depend on earned salary)
+          // but BEFORE the WW≤$4K / sub-$5K TCV / standard-formula branches
+          // (those DO depend on ctx.earned).
+          if (ctx.weekAuthorityUnresolved) {
+            return {
+              ...ctx,
+              penalty: null,
+              guaranteed: null,
+              basis: "week_authority_unresolved",
+              exempt: false,
+              needs_review: true,
+              exempt_reason: "",
+              review_reason:
+                "The completed-payable-week authority could not be resolved for this in-season "
+                + "calculation (live scoring unavailable and no Week-1 boundary date), so earned "
+                + "salary and drop penalty cannot be priced. This is NOT a $0 — it is unpriced.",
             };
           }
           // 1.5 TAGGED player — cap-FREE to drop until the FA Auction drop
@@ -43790,6 +43991,10 @@ const mflToSleeper = {};
           return ko > 0 ? apFmtEtStamp(new Date(ko * 1000)) : "";
         };
         const apWeek1Kickoff = await apWeekKickoffUnix(1);
+        // ET-aware Week-1 boundary DATE (not the raw unix kickoff above) for
+        // resolveCompletedPayableWeeks' date-math fallback — see that
+        // function's header for why ET matters here.
+        const apWeek1BoundaryIso = await _week1BoundaryIsoET(apSeason);
         const apWeek3Label = await apKickoffLabel(3);
         const apWeek5Label = await apKickoffLabel(5);
         const apDeadlineLabel = apFmtEtStamp(apContractDeadline);
@@ -43849,6 +44054,12 @@ const mflToSleeper = {};
               };
               const preDrop = await apResolvePreDrop(dpid, ts);
               if (preDrop) {
+                const dropDateIso = new Date(ts * 1000).toISOString();
+                const weekAuthority = await resolveCompletedPayableWeeks(apSeason, apLeagueId, {
+                  dropDateIso,
+                  week1ThursdayIso: apWeek1BoundaryIso,
+                  regularSeasonWeeks: 17,
+                });
                 const calc = _computeDropPenalty({
                   contractStatus: preDrop.contract_status,
                   salary: preDrop.salary,
@@ -43857,32 +44068,51 @@ const mflToSleeper = {};
                   isTaxi: preDrop.is_taxi,
                 }, {
                   season: apSeason,
-                  dropDateIso: new Date(ts * 1000).toISOString(),
+                  dropDateIso,
                   acquisitionWeek: apAcqWeekMap[dpid],
+                  completedPayableWeeks: weekAuthority.weeks,
                 });
-                side.penalty = {
-                  known: true,
-                  penalty: Number(calc.penalty) || 0,
-                  exempt: !!calc.exempt,
-                  basis: safeStr(calc.basis),
-                  basis_label: humanizeDropBasis(calc.basis),
-                  // Carried through so explainPenalty (waiver_run_post.js) can
-                  // print the actual subtraction instead of a vague label —
-                  // both real-penalty bases (guarantee_minus_earned,
-                  // tcv_under_5k_guarantee) always set these.
-                  guaranteed: calc.guaranteed != null ? (Number(calc.guaranteed) || 0) : null,
-                  earned: calc.earned != null ? (Number(calc.earned) || 0) : null,
-                  contract_source: preDrop.contract_source,
-                  pre_drop_contract_info: preDrop.contract_info,
-                };
-                // Which cap year (canon §6) — read for capYearNote. A penalty
-                // > 0 with cap_year_ok:false still posts; it just carries a
-                // visible "could not resolve" caveat instead of no comment.
-                const capYear = _dropPenaltyCapSeason({
-                  season: apSeason, dropUnix: ts, auctionStartUnix: apAuctionStart.unix,
-                });
-                side.penalty.cap_year_ok = !!capYear.ok;
-                side.penalty.applies_to_season = capYear.ok ? capYear.applies_to_season : null;
+                if (calc.basis === "week_authority_unresolved") {
+                  // Historical completed-payable-week authority could not be
+                  // resolved (a real per-week kickoff couldn't be looked up
+                  // live) — this is a DISPLAY path, so per the requirement
+                  // that preview/display paths return unavailable rather than
+                  // a guessed number, reuse the SAME `known: false` shape this
+                  // function already uses for "pre-drop contract not found"
+                  // (below) rather than inventing a second "unknown" concept.
+                  // waiver_run_post.js already excludes known:false rows from
+                  // penalty sums and prints unknown_reason instead of a
+                  // number — no change needed there.
+                  side.penalty = {
+                    known: false,
+                    unknown_reason: calc.review_reason
+                      || "Completed-payable-week authority could not be resolved for this drop — not priced.",
+                  };
+                } else {
+                  side.penalty = {
+                    known: true,
+                    penalty: Number(calc.penalty) || 0,
+                    exempt: !!calc.exempt,
+                    basis: safeStr(calc.basis),
+                    basis_label: humanizeDropBasis(calc.basis),
+                    // Carried through so explainPenalty (waiver_run_post.js) can
+                    // print the actual subtraction instead of a vague label —
+                    // both real-penalty bases (guarantee_minus_earned,
+                    // tcv_under_5k_guarantee) always set these.
+                    guaranteed: calc.guaranteed != null ? (Number(calc.guaranteed) || 0) : null,
+                    earned: calc.earned != null ? (Number(calc.earned) || 0) : null,
+                    contract_source: preDrop.contract_source,
+                    pre_drop_contract_info: preDrop.contract_info,
+                  };
+                  // Which cap year (canon §6) — read for capYearNote. A penalty
+                  // > 0 with cap_year_ok:false still posts; it just carries a
+                  // visible "could not resolve" caveat instead of no comment.
+                  const capYear = _dropPenaltyCapSeason({
+                    season: apSeason, dropUnix: ts, auctionStartUnix: apAuctionStart.unix,
+                  });
+                  side.penalty.cap_year_ok = !!capYear.ok;
+                  side.penalty.applies_to_season = capYear.ok ? capYear.applies_to_season : null;
+                }
               } else {
                 side.penalty = {
                   known: false,
@@ -47040,6 +47270,11 @@ const mflToSleeper = {};
         // visible line; the ordinary case (applies to targetSeason) stays
         // silent. See the FA-Auction-open Sanders discussion, 2026-08-16.
         const dropsAuctionStart = await _faaAuctionStartUnix(env, targetSeason);
+        // Historical-drop week-1 boundary, resolved once for this batch — every
+        // recompute below is a PAST dropped_at_iso, so this feeds
+        // resolveCompletedPayableWeeks' cheap synchronous date-math branch (no
+        // extra network call per row).
+        const recomputeWeek1Iso = recompute ? await _week1BoundaryIsoET(targetSeason) : null;
 
         const results = [];
         for (const r of rows) {
@@ -47047,23 +47282,43 @@ const mflToSleeper = {};
           // CURRENT calc, and persist the correction, before building the embed.
           if (recompute) {
             try {
+              const rcWeekAuthority = await resolveCompletedPayableWeeks(targetSeason, leagueId, {
+                dropDateIso: r.dropped_at_iso,
+                week1ThursdayIso: recomputeWeek1Iso,
+                regularSeasonWeeks: 17,
+              });
               const rc = _computeDropPenalty({
                 contractStatus: r.pre_drop_contract_status,
                 salary: r.pre_drop_salary,
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
-              }, { season: targetSeason, dropDateIso: r.dropped_at_iso });
-              r.penalty_amount = Number(rc.penalty) || 0;
-              r.penalty_exempt = rc.exempt ? 1 : 0;
-              r.penalty_exempt_reason = safeStr(rc.exempt_reason);
-              r.penalty_basis = safeStr(rc.basis);
-              r.guaranteed_amount = Number(rc.guaranteed) || Number(r.guaranteed_amount) || 0;
-              r.earned_to_date = Number(rc.earned) != null ? (Number(rc.earned) || 0) : (Number(r.earned_to_date) || 0);
-              if (!dryRun) {
-                await env.UPS_MFL_DB.prepare(
-                  `UPDATE ups_drop_events SET penalty_amount=?, penalty_exempt=?, penalty_exempt_reason=?, penalty_basis=?, guaranteed_amount=? WHERE id=?`
-                ).bind(r.penalty_amount, r.penalty_exempt, r.penalty_exempt_reason, r.penalty_basis, r.guaranteed_amount, r.id).run();
+              }, { season: targetSeason, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks });
+              // FAIL CLOSED: `Number(rc.penalty) || 0` (and the matching
+              // guaranteed/earned lines below) used to silently turn a null
+              // "week_authority_unresolved" result into a confident $0 and
+              // WRITE it to ups_drop_events — masquerading an unpriced row as
+              // a legitimate cap-free cut, the exact fail-open pattern this
+              // whole pass exists to close (rule_no_fail_open_guards). When
+              // the week authority could not be resolved, skip the UPDATE
+              // entirely and leave the row's existing stored values alone
+              // rather than overwriting them with a fabricated number; the
+              // scanner path (below, /admin/drops/scan-and-record) already
+              // does the null-preserving version of this correctly.
+              if (rc.basis === "week_authority_unresolved") {
+                console.error(`[drops recompute] id=${r.id}: week authority unresolved (source=${rcWeekAuthority.source}) — skipped, row left unchanged`);
+              } else {
+                r.penalty_amount = Number(rc.penalty) || 0;
+                r.penalty_exempt = rc.exempt ? 1 : 0;
+                r.penalty_exempt_reason = safeStr(rc.exempt_reason);
+                r.penalty_basis = safeStr(rc.basis);
+                r.guaranteed_amount = rc.guaranteed != null ? Number(rc.guaranteed) || 0 : (Number(r.guaranteed_amount) || 0);
+                r.earned_to_date = rc.earned != null ? Number(rc.earned) || 0 : (Number(r.earned_to_date) || 0);
+                if (!dryRun) {
+                  await env.UPS_MFL_DB.prepare(
+                    `UPDATE ups_drop_events SET penalty_amount=?, penalty_exempt=?, penalty_exempt_reason=?, penalty_basis=?, guaranteed_amount=? WHERE id=?`
+                  ).bind(r.penalty_amount, r.penalty_exempt, r.penalty_exempt_reason, r.penalty_basis, r.guaranteed_amount, r.id).run();
+                }
               }
             } catch (e) { console.error(`[drops recompute] id=${r.id}: ${e?.message || e}`); }
           }
@@ -47145,7 +47400,7 @@ const mflToSleeper = {};
           // showing nothing for them would silently relabel an unpriced drop
           // as a clean one, exactly what rule_no_fail_open_guards exists to
           // catch. They keep their own visible line instead of going quiet.
-          const UNPRICED_BASES = new Set(["no_pre_drop_contract", "contract_unstamped_needs_review"]);
+          const UNPRICED_BASES = new Set(["no_pre_drop_contract", "contract_unstamped_needs_review", "week_authority_unresolved"]);
           let penaltyLine = null;
           if (UNPRICED_BASES.has(safeStr(r.penalty_basis))) {
             penaltyLine = `⚠️ **Unpriced** — ${humanizeDropBasis(r.penalty_basis)}`;
@@ -49849,6 +50104,24 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // after Labor Day" is a day late). Resolved once for the whole scan.
         const scanWeek1Iso = await _week1BoundaryIsoET(targetSeason);
 
+        // Completed-payable-week authority for this scan tick, resolved ONCE
+        // (not per-row): every drop in this batch is being priced as of "now",
+        // so this is "now" mode — ONLY the live-scoring authority (or the
+        // certain-fact pre-kickoff-preseason carve-out) may answer; there is
+        // NO date-math fallback for a live/current calculation (see the
+        // function's header comment). THIS IS A REAL-CHARGE PATH — if the
+        // authority cannot resolve, weeks stays null (source
+        // "unresolved_live") and every in-season pricing below fails closed
+        // via _computeDropPenalty's week_authority_unresolved branch rather
+        // than guessing $0.
+        const scanWeekAuthority = await resolveCompletedPayableWeeks(targetSeason, leagueId, {
+          week1ThursdayIso: scanWeek1Iso || undefined,
+          regularSeasonWeeks: 17,
+        });
+        if (scanWeekAuthority.weeks === null) {
+          console.error(`[drop-penalty scan] week authority unresolved — pricing refused for this batch, source=${scanWeekAuthority.source}`);
+        }
+
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
         const skipped = [];
@@ -49880,7 +50153,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 isTaxi: preDrop.is_taxi,
                 taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)] === true,
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid],
-                   week1ThursdayIso: scanWeek1Iso || undefined });
+                   week1ThursdayIso: scanWeek1Iso || undefined,
+                   completedPayableWeeks: scanWeekAuthority.weeks });
             }
 
             // Which cap year this penalty belongs to (canon §6 penalty timing).
@@ -50796,7 +51070,29 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // the "Thursday after Labor Day" derivation is a day late). null →
           // _parseContractData falls back to that derivation.
           const pvWeek1Iso = await _week1BoundaryIsoET(pvSeason);
-          const pvOpts = { season: pvSeason, dropDateIso: pvDropIso, week1ThursdayIso: pvWeek1Iso || undefined };
+          // Resolve the live-lineup authority ONCE for this request and derive
+          // BOTH current_lineup_week (response metadata) and the completed-week
+          // count from it, so a preview never fires the live liveScoring/
+          // projectedScores fetch twice. When pvDropIso is "now" (the default),
+          // resolveCompletedPayableWeeks uses ONLY the live-scoring authority
+          // (or the certain pre-kickoff-preseason carve-out) — it fails closed
+          // to weeks:null, source:"unresolved_live" if MFL is unreachable, it
+          // does NOT fall back to date-math. Only when pvDropIso is an explicit
+          // historical what-if date (?drop_date= in the past) does it use the
+          // date-math branch, per canon (docs/league_context_v1.md:2946).
+          let pvResolvedLineup = null;
+          try {
+            pvResolvedLineup = await resolveCurrentLineupWeek(pvSeason, pvLeague);
+          } catch (_) { pvResolvedLineup = null; }
+          const pvCurrentLineupWeek = (pvResolvedLineup && pvResolvedLineup.week > 0) ? pvResolvedLineup.week : null;
+          const pvWeekAuthority = await resolveCompletedPayableWeeks(pvSeason, pvLeague, {
+            dropDateIso: pvDropIso,
+            week1ThursdayIso: pvWeek1Iso || undefined,
+            regularSeasonWeeks: 17,
+            resolvedLineup: pvResolvedLineup,
+          });
+          const pvOpts = { season: pvSeason, dropDateIso: pvDropIso, week1ThursdayIso: pvWeek1Iso || undefined,
+                            completedPayableWeeks: pvWeekAuthority.weeks };
           // In-season only: derive each player's mid-season pickup week so the
           // eligible-weeks denominator is 18−W (canon §D1). Offseason or an explicit
           // ?acquisition_week= skips the extra transactions fetch (irrelevant then).
@@ -50836,7 +51132,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                      prior_earned: r.priorEarned, current_year_earned: r.currentYearEarned, tcv: r.tcv,
                      cl: r.cl, years_remaining: r.yearsRemaining, years_played: r.yearsPlayed,
                      acquisition_week: acqWk || null,
-                     basis: r.basis, exempt: !!r.exempt, exempt_reason: r.exempt_reason || "" };
+                     basis: r.basis, exempt: !!r.exempt, exempt_reason: r.exempt_reason || "",
+                     needs_review: !!r.needs_review, review_reason: r.review_reason || "" };
           };
 
           if (pvPid) {
@@ -50856,7 +51153,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             if (o("contractStatus") != null) wf.contractStatus = o("contractStatus");
             if (o("contractInfo") != null) wf.contractInfo = o("contractInfo");
             if (o("contractYear") != null) wf.contractYear = o("contractYear");
-            return jsonOut(200, { ok: true, player_id: pvPid, franchise_id: foundFid, season: pvSeason, ...penaltyFor(wf) });
+            return jsonOut(200, { ok: true, player_id: pvPid, franchise_id: foundFid, season: pvSeason,
+              current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
+              week_authority_source: pvWeekAuthority.source, calculated_at: new Date().toISOString(),
+              ...penaltyFor(wf) });
           }
 
           // BATCH
@@ -50870,7 +51170,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               players[pid] = { franchise_id: fid, ...penaltyFor(pl) };
             }
           }
-          return jsonOut(200, { ok: true, season: pvSeason, league_id: pvLeague, count: Object.keys(players).length, players });
+          return jsonOut(200, { ok: true, season: pvSeason, league_id: pvLeague,
+            current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
+            week_authority_source: pvWeekAuthority.source, calculated_at: new Date().toISOString(),
+            count: Object.keys(players).length, players });
         } catch (pvErr) {
           return jsonOut(500, { ok: false, error: safeStr(pvErr && pvErr.message ? pvErr.message : String(pvErr)) });
         }

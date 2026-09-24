@@ -59,6 +59,19 @@ header.fo-header .meta { font-size: 11px; color: var(--muted); margin-top: 4px; 
 }
 .fo-dryrun-banner strong { color: var(--dryrun); }
 .fo-dryrun-banner code { background: var(--panel-alt); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+/* Cap-penalty authority unavailable — the SAME /api/cap-penalty/preview call
+   that drives EARNED / Drop Pen failed, so those columns fell back to "—"
+   instead of a silently wrong local estimate. See front_office.js
+   loadCapPenaltyPreview / dropPenaltyEstimate. */
+.fo-cap-warning-banner {
+  margin-top: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--err, #ef4444);
+  color: var(--text);
+  padding: 8px 12px; border-radius: 6px;
+  font-size: 12px;
+}
+.fo-cap-warning-banner strong { color: var(--err, #ef4444); }
 
 /* ── Tabs ───────────────────────────────────────────────────────── */
 nav.fo-tabs {

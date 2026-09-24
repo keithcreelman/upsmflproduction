@@ -260,6 +260,33 @@
     // wins as the secondary key inside each position group.
     sort: { key: "salary", dir: -1, userChosen: false },
     groupByPosition: true,   // Roster defaults to By Position (Keith 2026-06-06)
+    // ── Cap-penalty SSOT (single fetch, joined by player id) ────────────
+    // pid -> { penalty, guaranteed, earned, prior_earned, current_year_earned,
+    //          tcv, cl, years_remaining, years_played, basis, exempt,
+    //          exempt_reason, franchise_id } straight off the worker's
+    // /api/cap-penalty/preview BATCH response — the SAME _computeDropPenalty
+    // the hourly drop-penalty cron uses for real charges. This is the ONLY
+    // source dropPenaltyEstimate() reads for EARNED / drop-penalty display;
+    // no local calendar-milestone formula is used as a fallback.
+    capPenaltyByPid: null,
+    // "pending" (fetch in flight / not yet started) | "ok" (batch landed) |
+    // "error" (fetch failed or returned ok:false) — NO FAIL-OPEN: "error"
+    // must never be silently treated as "ok, everyone is $0".
+    capPenaltyFeed: "pending",
+    // Season the cache above was fetched for, so a ?YEAR= change doesn't
+    // reuse a stale batch.
+    capPenaltySeason: null,
+    // Both sourced from the SAME /api/cap-penalty/preview response as
+    // capPenaltyByPid above (payload.current_lineup_week /
+    // payload.earned_through_week / payload.week_authority_source) — no
+    // separate /api/current-lineup-week fetch anymore. earnedThroughWeek IS
+    // the completed-payable-week count (what the "Through Week N" label
+    // shows directly); currentLineupWeek is the week an owner is actively
+    // setting a lineup for (may still be in progress). Both null until
+    // resolved; the label is left blank rather than guessed.
+    currentLineupWeek: null,
+    earnedThroughWeek: null,
+    weekAuthoritySource: "",
     capSubview: "summary",
     miscSubview: "log",   // Misc tab: "log" (Contract Log) | "glossary"
     capFocusedTeamFid: null,
@@ -784,52 +811,83 @@
     return now < new Date(yr, 7, 1, 0, 0, 0, 0);
   }
 
-  // dropPenaltyEstimate — mirrors roster_workbench.js:1903. Returns the
-  // §D1 (TCV × 75% − Earned) cut cost, plus tax-pickup short-circuits.
+  // dropPenaltyEstimate — SINGLE CALCULATION AUTHORITY. Reads ONLY the
+  // worker's /api/cap-penalty/preview batch (STATE.capPenaltyByPid, loaded
+  // once per page load by loadCapPenaltyPreview and joined by player id —
+  // never by name). This used to re-derive earned/penalty locally via
+  // earnedToDateBreakdownForPlayer's calendar-monthly approximation, which
+  // could (and did) disagree with the real charge the hourly cron posts
+  // using the SAME _computeDropPenalty this endpoint calls. That local path
+  // is retired for display; the helpers below it (earnedBeforeCurrentContractYear,
+  // proratedEarnedForDrop, earnedToDateBreakdownForPlayer, guaranteedContractValueForPlayer)
+  // are kept only because other call sites still reference them (see file
+  // header) and are NOT used by this function any more.
+  //
+  // Returns:
+  //   { amount, earned, guaranteed, tcv, earnedState: "ok"|"pending"|"unavailable",
+  //     note, authoritative: true, exempt, basis }
+  // `amount`/`earned` are NaN (not null/0) when earnedState is "pending" or
+  // "unavailable" — fmtUSD(NaN) renders "—" and safeInt(NaN, 0) falls back to
+  // 0 in every summed total, so no caller has to special-case this, but a
+  // genuine $0 (earnedState "ok", amount 0) still renders "$0", never "—".
   function dropPenaltyEstimate(player) {
-    var years = Math.max(0, safeInt(player && player.years, 0));
-    var season = safeInt(SEASON, 0);
-    var now = new Date();
-    var tcv = totalContractValueForPlayer(player);
-    var br = earnedToDateBreakdownForPlayer(player, season, now);
-    var guaranteed = guaranteedContractValueForPlayer(player);
-    var contractLength = Math.max(0, contractLengthForPlayer(player));
+    var pid = safeStr(player && player.id).replace(/\D/g, "");
+    var tcvLocal = totalContractValueForPlayer(player);
+    var guaranteedLocal = guaranteedContractValueForPlayer(player);
 
-    if (years <= 0) return { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-      note: "Expired contracts do not carry a projected cap penalty." };
-    if (player && player.isTaxi) return { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-      note: "Taxi players carry no current cap penalty (§6.E)." };
-    if (isTagCutPreAuctionAssumption(player, season, now)) return { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-      note: "Pre-auction tag cut: penalty $0. Standard earned-salary rules apply once auction opens." };
-
-    // Sub-$5K TCV rule (canon §D1, Keith 2026-05-22): for ANY deal with TCV ≤ $4K,
-    // the standard guaranteed-minus-earned formula is OVERRIDDEN — 2+ years
-    // remaining → fixed $1K, final year (≤1) → $0. Catches small multi-year MYACs
-    // (e.g. a 3-yr Vet-ERA $1K/yr / TCV $3K) the generic formula would mis-price.
-    // The 1-yr $4K–$5K band stays with the §D2.1 check below (threshold is salary
-    // < $5K, not TCV ≤ $4K).
-    if (tcv <= 4000) {
-      return years >= 2
-        ? { amount: 1000, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-            note: "Sub-$5K TCV, 2+ yrs remaining → fixed $1K cap penalty (§D1)." }
-        : { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-            note: "Sub-$5K TCV, final year → cap-free cut (§D1)." };
+    if (STATE.capPenaltyFeed === "ok" && STATE.capPenaltyByPid) {
+      var cap = pid ? STATE.capPenaltyByPid[pid] : null;
+      if (cap && (cap.basis === "week_authority_unresolved" || cap.penalty == null)) {
+        // The worker could not resolve how many weeks have completed for this
+        // in-season pricing request — unpriced, NOT a $0. Same visual/tooltip
+        // treatment as a player missing from the batch.
+        return {
+          amount: NaN, earned: NaN, earnedState: "unavailable",
+          guaranteed: guaranteedLocal, tcv: safeInt(cap.tcv, 0) || tcvLocal, authoritative: false,
+          note: cap.review_reason || "Earned/drop-penalty could not be resolved for this player this request."
+        };
+      }
+      if (cap) {
+        var earnedC = safeInt(cap.earned, 0);
+        var penaltyC = safeInt(cap.penalty, 0);
+        return {
+          amount: penaltyC,
+          earned: earnedC,
+          earnedState: "ok",
+          guaranteed: safeInt(cap.guaranteed, 0),
+          tcv: safeInt(cap.tcv, 0) || tcvLocal,
+          exempt: !!cap.exempt,
+          basis: cap.basis || "",
+          authoritative: true,
+          note: cap.exempt
+            ? (cap.exempt_reason || "Cap-free cut.")
+            : (penaltyC === 0
+                ? "Guarantee fully earned — no penalty. GTD " + money(safeInt(cap.guaranteed, 0)) + " − Earned " + money(earnedC) + "."
+                : "GTD " + money(safeInt(cap.guaranteed, 0)) + " − Earned " + money(earnedC) + " = " + money(penaltyC) + ".")
+        };
+      }
+      // Feed loaded successfully but this player id is missing from the
+      // batch (e.g. not currently rostered at fetch time) — unavailable,
+      // NOT a guessed $0.
+      return {
+        amount: NaN, earned: NaN, earnedState: "unavailable",
+        guaranteed: guaranteedLocal, tcv: tcvLocal, authoritative: false,
+        note: "No authoritative cap-penalty row for this player — not found in the worker's /api/cap-penalty/preview batch."
+      };
     }
-
-    var type = safeStr(player && player.type).toUpperCase();
-    if (contractLength === 1 && br.currentYearSalary < 5000 && (type === "VETERAN" || type === "WW")) {
-      return { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-        note: "1-yr veteran/waiver under $5K is cap-free cut (§D2.1)." };
+    if (STATE.capPenaltyFeed === "error") {
+      return {
+        amount: NaN, earned: NaN, earnedState: "unavailable",
+        guaranteed: guaranteedLocal, tcv: tcvLocal, authoritative: false,
+        note: "Authoritative cap-penalty data unavailable (worker request failed). Reload to retry — no local estimate is shown in its place."
+      };
     }
-    if (isLikelyWaiverPickup(player) && contractLength === 1 && br.currentYearSalary >= 5000) {
-      return { amount: Math.round(br.currentYearSalary * 0.35), tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-        note: "Waiver pickup rule: 35% of current-year salary." };
-    }
-    var penalty = Math.max(0, guaranteed - br.earned);
-    return { amount: penalty, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
-      note: penalty === 0
-        ? "Guarantee fully earned — no penalty."
-        : "GTD " + money(guaranteed) + " − Earned " + money(br.earned) + " = " + money(penalty) + "." };
+    // "pending" — the batch fetch is still in flight.
+    return {
+      amount: NaN, earned: NaN, earnedState: "pending",
+      guaranteed: guaranteedLocal, tcv: tcvLocal, authoritative: false,
+      note: "Loading authoritative earned/penalty…"
+    };
   }
 
   // Per-Week Earning = current-year salary spread over the 17-week earning window.
@@ -2446,7 +2504,7 @@
       .then(function (v) { STATE.version = v; renderVersionBadge(); })
       .catch(function () { renderVersionBadge(); });
 
-    await Promise.all([loadMe(), loadRosterData()]);
+    await Promise.all([loadMe(), loadRosterData(), loadCapPenaltyPreview()]);
     // Commish Settings moved to its own hub page (MESSAGE19&hub=commish-settings).
     renderHeaderMeta();
     populateTeamSelect();
@@ -3101,7 +3159,7 @@
     return rows.slice().sort(function (a, b) {
       let va, vb;
       if (key === "drop_pen")      { va = dropPenaltyEstimate(a).amount; vb = dropPenaltyEstimate(b).amount; }
-      else if (key === "gtd")      { va = parseContractGuaranteeValue(a.special); vb = parseContractGuaranteeValue(b.special); }
+      else if (key === "gtd")      { va = dropPenaltyEstimate(a).guaranteed; vb = dropPenaltyEstimate(b).guaranteed; }
       else if (key === "earned")   { va = dropPenaltyEstimate(a).earned; vb = dropPenaltyEstimate(b).earned; }
       else if (key === "per_week") { va = perWeekEarningValue(a); vb = perWeekEarningValue(b); }
       else if (key === "tcv")      { va = totalContractValueForPlayer(a); vb = totalContractValueForPlayer(b); }
@@ -3115,6 +3173,17 @@
       else                         { va = a[key]; vb = b[key]; }
       if (numeric.includes(key)) {
         va = Number(va); vb = Number(vb);
+        // "earned" / "drop_pen" can be NaN when the authoritative batch is
+        // still loading or unavailable for that player — those always sort
+        // LAST regardless of sort direction (never conflated with a
+        // legitimate $0, which sorts normally).
+        if (key === "earned" || key === "drop_pen") {
+          var aBad = !Number.isFinite(va), bBad = !Number.isFinite(vb);
+          if (aBad && bBad) return 0;
+          if (aBad) return 1;
+          if (bBad) return -1;
+          return (va - vb) * dir;
+        }
         if (!Number.isFinite(va)) va = -Infinity;
         if (!Number.isFinite(vb)) vb = -Infinity;
         return (va - vb) * dir;
@@ -3378,6 +3447,71 @@
     var title = f === "injury" ? "Injury / status news — click to open News" : "News headline — click to open News";
     return ' <span class="fo-news-flag fo-news-flag-' + f + '" data-news-pid="' + escapeHtml(String(pid)) + '" title="' + title + '">' + icon + "</span>";
   }
+  // ── Cap-penalty SSOT fetch ──────────────────────────────────────────
+  // ONE batched request per page load — /api/cap-penalty/preview with no
+  // player_id returns every rostered player's authoritative
+  // {penalty, guaranteed, earned, ...} in a single response, keyed by
+  // player id (never by name). Desktop FO used to reproduce this formula
+  // locally (proratedEarnedForDrop / earnedBeforeCurrentContractYear /
+  // earnedToDateBreakdownForPlayer — a flat "$/17-weeks calendar milestone"
+  // approximation) and could silently disagree with the real charge the
+  // hourly cron posts. dropPenaltyEstimate() below now reads ONLY this
+  // cache; on failure it reports "unavailable", never a guessed number.
+  async function loadCapPenaltyPreview() {
+    STATE.capPenaltyFeed = "pending";
+    const banner = $("#fo-cap-warning-banner");
+    if (banner) banner.hidden = true;
+    const qs = "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+    // ONE request now carries both the dollar figures AND the effective week
+    // they were computed through (earned_through_week / current_lineup_week /
+    // week_authority_source) — this REPLACES the prior separate
+    // /api/current-lineup-week fetch, which raced against this one and could
+    // in principle disagree about which week was "current". Both fields now
+    // come from the SAME server-side resolution
+    // (resolveCompletedPayableWeeks), computed once per preview request.
+    try {
+      const payload = await fetchJSON(apiUrl("/api/cap-penalty/preview") + qs);
+      if (!payload || payload.ok !== true || !payload.players) {
+        throw new Error(payload && payload.error ? payload.error : "cap-penalty/preview returned non-OK payload");
+      }
+      STATE.capPenaltyByPid = payload.players;
+      STATE.capPenaltySeason = SEASON;
+      STATE.capPenaltyFeed = "ok";
+      STATE.earnedThroughWeek = (payload.earned_through_week != null) ? safeInt(payload.earned_through_week, null) : null;
+      STATE.currentLineupWeek = (payload.current_lineup_week != null) ? safeInt(payload.current_lineup_week, null) : null;
+      STATE.weekAuthoritySource = payload.week_authority_source || "";
+    } catch (e) {
+      // NO FAIL-OPEN: leave capPenaltyByPid as whatever it was (null on
+      // first load) and mark the feed "error" so dropPenaltyEstimate()
+      // fails closed instead of falling back to a local reproduction.
+      STATE.capPenaltyFeed = "error";
+      STATE.earnedThroughWeek = null;
+      console.error("[FO] /api/cap-penalty/preview failed — EARNED/Drop Pen will show unavailable, not a guess.", e);
+    }
+    if (banner) banner.hidden = STATE.capPenaltyFeed !== "error";
+    renderEarnedThroughWeekLabel();
+    try { renderRosterTable(); } catch (_) {}
+  }
+
+  function renderEarnedThroughWeekLabel() {
+    const el = $("#fo-earned-through");
+    if (!el) return;
+    // Sourced from the SAME /api/cap-penalty/preview response as the dollar
+    // figures (STATE.earnedThroughWeek === payload.earned_through_week) — no
+    // second authority, no timing race. Blank when unresolved, exactly as
+    // the prior currentLineupWeek-based version left it blank rather than
+    // guess.
+    const wk = STATE.earnedThroughWeek;
+    // Number.isFinite(null) is false, unlike the bare `wk >= 0` comparison
+    // this replaced — `null >= 0` coerces null to 0 and evaluates true, so
+    // that guard let an unresolved (null) week authority fall through to
+    // `"Through Week " + String(null)` = the literal text "Through Week
+    // null" in the column header. Caught live in the browser forced-failure
+    // check (2026-09-24).
+    if (!Number.isFinite(wk) || wk < 0) { el.textContent = ""; return; }
+    el.textContent = "Through Week " + String(wk);
+  }
+
   async function loadRosterIndicators() {
     var pids = allVisiblePlayers().map(function (p) { return p.id; }).filter(Boolean);
     if (!pids.length) return;
@@ -3799,10 +3933,38 @@
     const cl  = unknownContract ? 0 : contractLengthForPlayer(p);
     const yrs = unknownContract ? 0 : safeInt(p.years, 0);
     const drop = dropPenaltyEstimate(p);
-    const gtd = unknownContract ? 0 : parseContractGuaranteeValue(p.special);
+    // GTD now reads the SAME worker-authoritative source as EARNED/Drop Pen
+    // (STATE.capPenaltyByPid via dropPenaltyEstimate's `guaranteed`), not a
+    // local re-parse of the contractInfo string's "GTD:" token. A one-off
+    // comparison against the live /api/cap-penalty/preview batch (482
+    // rostered players) found 231 mismatches between the two sources — see
+    // the worktree report for examples — so the two are NOT
+    // interchangeable and showing a GTD/Earned/Drop-Penalty triple built
+    // from mixed authorities would be actively misleading. GTD shares
+    // drop.earnedState's ok/pending/unavailable handling below.
+    const gtd = unknownContract ? 0 : safeInt(drop.guaranteed, 0);
     // One tooltip, said once, on the cells that would otherwise read "—" and
     // look like a zero.
     const pendingCell = `<span class="fo-tt" data-tip="MFL has not recorded a contract for this player yet — only the salary. Nothing here is known until the 1-year WW contract is stamped.">pending</span>`;
+    // EARNED / Drop Pen render off drop.earnedState — "ok" (numeric, incl.
+    // legitimate $0) vs "pending" (batch still loading — same visual language
+    // as pendingCell, different meaning) vs "unavailable" (fetch failed or
+    // this player was missing from the batch — "—" plus the page-level
+    // warning banner, never a silently-computed guess).
+    const loadingCell = `<span class="fo-tt" data-tip="Loading authoritative earned/penalty from the worker…">…</span>`;
+    const unavailableCell = `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">—</span>`;
+    const earnedCell = unknownContract ? pendingCell
+      : drop.earnedState === "ok" ? fmtUSD(drop.earned)
+      : drop.earnedState === "pending" ? loadingCell
+      : unavailableCell;
+    const gtdCell = unknownContract ? pendingCell
+      : drop.earnedState === "ok" ? (gtd > 0 ? fmtUSD(gtd) : "—")
+      : drop.earnedState === "pending" ? loadingCell
+      : unavailableCell;
+    const dropPenCell = unknownContract ? pendingCell
+      : drop.earnedState === "ok" ? `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">${fmtUSD(drop.amount)}</span>`
+      : drop.earnedState === "pending" ? loadingCell
+      : unavailableCell;
     const perWeekCell = unknownContract ? pendingCell : perWeekEarningCell(p);
 
     // Salary / AAV combined cell — show "/AAV" only when AAV differs from
@@ -3835,10 +3997,10 @@
         <td class="num col-lo">${unknownContract ? pendingCell : (yrs > 0 ? yrs : "—")}</td>
         <td class="num">${salaryCell}</td>
         <td class="num col-lo">${rankCell}</td>
-        <td class="num col-md">${unknownContract ? pendingCell : (gtd > 0 ? fmtUSD(gtd) : "—")}</td>
-        <td class="num col-md">${unknownContract ? pendingCell : (drop.earned > 0 ? fmtUSD(drop.earned) : "—")}</td>
+        <td class="num col-md">${gtdCell}</td>
+        <td class="num col-md">${earnedCell}</td>
         <td class="num col-lo">${perWeekCell}</td>
-        <td class="num">${unknownContract ? pendingCell : `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">${fmtUSD(drop.amount)}</span>`}</td>
+        <td class="num">${dropPenCell}</td>
         <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span></td>
       </tr>`;
   }
@@ -7752,9 +7914,12 @@
     };
 
     // Y+0 cell annotation when dropping — "(penalty)" makes the cap charge
-    // unmistakable vs a salary.
+    // unmistakable vs a salary. NOTE: uses fmtUSD directly on the raw amount
+    // (NOT safeInt(...,0)) so an unavailable/pending authoritative penalty
+    // renders "—", not a silently-wrong "+$0 dead cap".
+    const y0Drop = active === "drop" ? dropPenaltyEstimate(p) : null;
     const y0Cell = active === "drop"
-      ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(safeInt(dropPenaltyEstimate(p).amount, 0))} dead cap → ${dropPenaltyLandsNextSeason() ? String(safeInt(SEASON, 0) + 1) + " adj" : "adj"})</span>`
+      ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(y0Drop.amount)} dead cap → ${dropPenaltyLandsNextSeason() ? String(safeInt(SEASON, 0) + 1) + " adj" : "adj"})</span>`
       : draftMoneyCell(0, cy);
 
     const statusKls = active === "drop" ? "drop-preview"

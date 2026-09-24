@@ -23,6 +23,9 @@
   <div id="fo-dryrun-banner" class="fo-dryrun-banner" hidden>
     🧪 <strong>DRY-RUN MODE</strong> — submissions hit the worker with <code>dry_run: 1</code>; no MFL writes, Discord routes to test channel, D1 audit rows flagged.
   </div>
+  <div id="fo-cap-warning-banner" class="fo-cap-warning-banner" hidden>
+    ⚠️ <strong>Earned / Drop Pen unavailable</strong> — could not reach the worker's authoritative <code>/api/cap-penalty/preview</code>. Those columns show <code>—</code> rather than a guessed number. Reload to retry.
+  </div>
 </header>
 
 <nav class="fo-tabs" id="fo-tabs">
@@ -144,10 +147,10 @@
             <th data-sort="years" class="num col-lo">Yrs Rem</th>
             <th data-sort="salary" class="num">Salary <span class="small" style="color:var(--muted);">/ AAV</span></th>
             <th class="num col-lo" title="Salary &amp; AAV rank within position (league-wide)">Pos Rank</th>
-            <th data-sort="gtd" class="num col-md">GTD</th>
-            <th data-sort="earned" class="num col-md">Earned</th>
+            <th data-sort="gtd" class="num col-md" title="GTD = guaranteed salary — the floor a drop penalty is measured against. This is NOT earned salary.">GTD</th>
+            <th data-sort="earned" class="num col-md" id="fo-th-earned" title="EARNED = salary paid out through completed payable NFL weeks (prior contract years fully, plus this year's salary × completed weeks ÷ total weeks). The week in progress does not count until it finishes. Sourced from the worker's authoritative /api/cap-penalty/preview — the same calculation used for real drop charges.">Earned<span id="fo-earned-through" class="small" style="color:var(--muted); display:block; font-weight:normal;"></span></th>
             <th data-sort="per_week" class="num col-lo">Per&nbsp;Wk</th>
-            <th data-sort="drop_pen" class="num">Drop Pen</th>
+            <th data-sort="drop_pen" class="num" title="Drop penalty = max(0, GTD − Earned), computed by the same worker formula that would apply if this player were actually cut right now.">Drop Pen</th>
             <th data-sort="roster_status" class="col-lo">Status</th>
           </tr>
         </thead>
@@ -279,6 +282,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.08.16.v1.35.0"></script>
+<script src="front_office.js?v=2026.09.24.v1.36.0"></script>
 </body>
 </html>
