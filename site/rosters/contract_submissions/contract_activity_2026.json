@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-23 21:59:45",
+    "generated_at": "2026-09-24 11:11:19",
     "source": "contract-activity-log",
-    "count": 155,
+    "count": 156,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "6ace7f07a6bdbe468540336a",
+      "submission_id": "6ace7f07a6bdbe468540336a",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0001",
+      "franchise_name": "",
+      "player_id": "16809",
+      "player_name": "Coker, Jalen",
+      "position": "WR",
+      "salary": 1000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1",
+      "contract_info": "CL 2|TCV 12K|AAV 1K, 11K|Y1-1K, Y2-11K|Ext: L.A.|GTD: 9K",
+      "tcv": 12000,
+      "aav": 0,
+      "guaranteed": 9000,
+      "submitted_at_utc": "2026-09-24T11:11:00.690Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1552638489999183934",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "fb794391b28498d22d5097a7",
       "submission_id": "fb794391b28498d22d5097a7",
