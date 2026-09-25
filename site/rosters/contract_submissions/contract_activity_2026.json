@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-24 11:11:19",
+    "generated_at": "2026-09-25 16:15:27",
     "source": "contract-activity-log",
-    "count": 156,
+    "count": 157,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "fdc6a5782ea0e4b1e7bcec4c",
+      "submission_id": "fdc6a5782ea0e4b1e7bcec4c",
+      "activity_scope": "contract_mutation",
+      "activity_type": "MYM",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0011",
+      "franchise_name": "Cleon Ca$h",
+      "player_id": "17640",
+      "player_name": "Taaffe, Michael",
+      "position": "DB",
+      "salary": 1000,
+      "contract_year": 3,
+      "contract_status": "Rookie-MYM",
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 1K",
+      "tcv": 3000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-25T16:15:09.670Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1553077421190938835",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "6ace7f07a6bdbe468540336a",
       "submission_id": "6ace7f07a6bdbe468540336a",
