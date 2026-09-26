@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-25 16:15:27",
+    "generated_at": "2026-09-26 13:18:48",
     "source": "contract-activity-log",
-    "count": 157,
+    "count": 158,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "225e3bee0ec499705acf1eed",
+      "submission_id": "225e3bee0ec499705acf1eed",
+      "activity_scope": "contract_mutation",
+      "activity_type": "MYM",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0006",
+      "franchise_name": "The Long Haulers",
+      "player_id": "15241",
+      "player_name": "Jones, Mac",
+      "position": "QB",
+      "salary": 1000,
+      "contract_year": 3,
+      "contract_status": "Vet-MYM",
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 1K",
+      "tcv": 3000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-09-26T13:18:30.045Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1553395354119053323",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "fdc6a5782ea0e4b1e7bcec4c",
       "submission_id": "fdc6a5782ea0e4b1e7bcec4c",
