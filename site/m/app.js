@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.09.19.1";
+  var BUILD = "2026.09.26.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -878,12 +878,16 @@
       // A payload with no `injuries` node at all is equally unreadable — MFL
       // error envelopes look like that — so it is UNKNOWN, not empty.
       if (!j || !j.injuries) return { byPid: {}, ok: false, rows: 0 };
-      var map = {};
       var rows = asArray(j.injuries.injury);
-      rows.forEach(function (it) {
-        if (it && it.id != null) map[String(it.id)] = safeStr(it.status).toUpperCase();
-      });
-      return { byPid: map, ok: true, rows: rows.length };
+      // ONE parser for desktop and mobile (site/shared/live_scoring.js): the same
+      // status normalization, so the two surfaces can never disagree about what
+      // a designation "is". The raw payload rides along so the season+week
+      // store below can bucket it by the week MFL wrote it for.
+      var LS = window.UPSLive;
+      var map = {};
+      if (LS && LS.parseInjuries) map = LS.parseInjuries(j);
+      else rows.forEach(function (it) { if (it && it.id != null && safeStr(it.status)) map[String(it.id)] = safeStr(it.status).toUpperCase(); });
+      return { byPid: map, ok: true, rows: rows.length, payload: j };
     }).catch(function () { return { byPid: {}, ok: false, rows: 0 }; });
   }
 
@@ -1226,6 +1230,16 @@
       state.injuriesByPid = injuriesResp.byPid || {};
       state.injuriesFeedOk = injuriesResp.ok === true;
       state.injuriesRowCount = safeInt(injuriesResp.rows, 0);
+      // The week-keyed injury model the SCORES view reads (see
+      // UPSLive.createInjuryStore): bucketed by season + the payload's own week,
+      // queried by season + week + player. injuriesByPid above stays the
+      // "current designation" map the IR / contracts views already use.
+      try {
+        if (window.UPSLive && window.UPSLive.createInjuryStore) {
+          if (!state.injuryStore) state.injuryStore = window.UPSLive.createInjuryStore();
+          if (injuriesResp.payload) state.injuryStore.put(injuriesResp.payload, { season: state.ctx.year });
+        }
+      } catch (_) { /* a store failure must never break boot; the scoreboard then shows no designation */ }
       state.capPenaltyByPid = results[20] || {};
       // Repaint anything already on screen that was showing a fallback
       // penalty estimate before the authoritative batch landed.

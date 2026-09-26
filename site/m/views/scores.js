@@ -112,9 +112,18 @@
       fetchJson(sbExportUrl("projectedScores", wk)),
       fetchJson(sbExportUrl("playerScores", wk)),   // every player's actual points → positional rank
       // Kickoff times ("Sun 1:00 PM" instead of "Yet"). LAST: read by position below.
-      fetchJson(sbExportUrl("nflSchedule", wk))
+      fetchJson(sbExportUrl("nflSchedule", wk)),
+      // The injury feed, refreshed WITH the scoreboard (the app-global copy is
+      // read once at boot). Also LAST: read by position below.
+      fetchJson(sbExportUrl("injuries"))
     ]).then(function (r) {
       var live = r[0], weekly = r[1];
+      try {
+        if (LS.createInjuryStore) {
+          if (!M.state.injuryStore) M.state.injuryStore = LS.createInjuryStore();
+          M.state.injuryStore.put(r[7], { season: sbYear() });   // bucketed by the payload's own week; an older payload never replaces a newer one
+        }
+      } catch (e) { /* the scoreboard just shows no designation */ }
       // SOURCE SELECTION -- the same two facts that broke the desktop board.
       // MFL returns a normal week's teams inside matchup[].franchise[] and omits
       // the top-level franchise[] entirely, so counting only franchise[] was
@@ -208,9 +217,12 @@
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
     var ls = sbLive(); return ls ? String(ls.week || "") : (sbWeekSel() || "");
   }
+  // The designation for a player, read for the season and week the board is
+  // SHOWING -- from the same season+week store the desktop Game Day reads, never
+  // from "whatever the app-global feed last said" (a phone left open across a
+  // week boundary used to keep showing last week's Out).
   function injStatusFor(pid) {
-    var mfl = (M.state.injuriesByPid || {})[String(pid)] || "";
-    return LS.withInjuryOverride(window.UPS_INJURY_OVERRIDES, pid, mfl);
+    return LS.injuryStatusFor({ store: M.state.injuryStore, overrides: window.UPS_INJURY_OVERRIDES, season: sbYear(), week: sbWeek() }, pid);
   }
   function anyGameLive() {
     if (sbSource() !== "live") return false;

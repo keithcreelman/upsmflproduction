@@ -406,7 +406,11 @@
       STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
       STATE.proj = parseProj(r[4]);
       STATE.projWeek = parseInt((r[4] && r[4].projectedScores && r[4].projectedScores.week) || 0, 10) || 0;
-      STATE.injuries = parseInjuries(r[5]);
+      // The injury feed goes into the shared store KEYED BY ITS OWN SEASON+WEEK
+      // (the week MFL wrote the payload for), and every read below asks for a
+      // specific season+week -- so a designation from another week cannot answer
+      // for this one. See LS.createInjuryStore().
+      injStore().put(r[5], { season: CTX.year });
       STATE.liveWeek = parseInt((r[6] && r[6].week) || 0, 10) || 0;
       // The week an owner is SETTING A LINEUP for. The worker's resolved week
       // wins; the projection week is only the fallback for when that call
@@ -582,7 +586,7 @@
   // vs Questionable (uncertain, still probably plays). Keith: "Players need
   // to show OUT, Questionable etc. Big and Bold."
   function injBadgeInfo(status) {
-    var st = String(status || "").toUpperCase();
+    var st = LS.injuryToken(status);   // one normalizer for every surface: no stray edge punctuation, "" when absent
     if (!st) return null;
     if (/^(OUT|IR|SUSPENDED|RETIRED|HOLDOUT|DOUBTFUL)/.test(st)) return { label: st, tier: "out" };
     if (/^QUESTIONABLE/.test(st)) return { label: st, tier: "q" };
@@ -590,7 +594,14 @@
   }
   function injBadgeHtml(row) {
     var b = row ? injBadgeInfo(row.injStatus) : null;
-    return b ? '<div class="gd-slot-inj-row"><span class="gd-inj-badge tier-' + b.tier + '">' + esc(b.label) + '</span></div>' : '';
+    return b ? '<div class="gd-slot-inj-row"><span class="gd-inj-badge tier-' + b.tier + '" title="' + esc(row.injLabel || b.label) + '">' + esc(b.label) + '</span></div>' : '';
+  }
+  // The injury feed the page reads, as the shared client model (see
+  // LS.createInjuryStore): one store, bucketed by season+week, queried by
+  // season+week+player. What week the LINEUP is for decides what a slot shows.
+  function injStore() { return STATE.injuryStore || (STATE.injuryStore = LS.createInjuryStore()); }
+  function lineupInjOpts() {
+    return { store: injStore(), overrides: window.UPS_INJURY_OVERRIDES, season: CTX.year, week: STATE.lineupWeek };
   }
 
   function buildRows() {
@@ -600,7 +611,7 @@
       var row = { id: r.id, name: nameFromMfl(p.name) || ("Player " + r.id), pos: s(p.position).toUpperCase(),
         team: s(p.team), salary: r.salary, group: posGroup(p.position),
         isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0,
-        injStatus: LS.withInjuryOverride(window.UPS_INJURY_OVERRIDES, r.id, (STATE.injuries && STATE.injuries[String(r.id)]) || "") };
+        injStatus: LS.injuryStatusFor(lineupInjOpts(), r.id), injLabel: LS.injuryLabelFor(lineupInjOpts(), r.id) };
       row.eligible = eligibleRow(row);
       row.locked = isKickedOff(row.team);
       return row;
@@ -1041,7 +1052,7 @@
         var badge = injBadgeInfo(r.injStatus);
         return '<div class="gd-bench-row"><div class="gd-bench-id"><span class="nm">' + esc(r.name) + '</span>' +
           '<span class="meta">' + esc(r.pos || "—") + ' · ' + esc(r.team || "—") + '</span>' +
-          (badge ? ' <span class="gd-inj-badge tier-' + badge.tier + '">' + esc(badge.label) + '</span>' : '') +
+          (badge ? ' <span class="gd-inj-badge tier-' + badge.tier + '" title="' + esc(r.injLabel || badge.label) + '">' + esc(badge.label) + '</span>' : '') +
           // A benched player already kicked off can never be started now --
           // say so here too, since he's simply absent from every slot's
           // dropdown (no other cue would explain why he doesn't show up there).
@@ -1442,8 +1453,10 @@
       var scores = {};
       try { asArray(r[6].playerScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) scores[String(p.id)] = n; } }); } catch (e) {}
       var kick = LS.parseKickoffs(r[7]);
-      STATE.sb = { loaded: true, kick: kick, source: source, live: live, weekly: weekly, schedule: r[2], injuries: parseInjuries(r[3]),
+      STATE.sb = { loaded: true, kick: kick, source: source, live: live, weekly: weekly, schedule: r[2],
         franchises: franchises.length ? franchises : STATE.franchises, proj: proj, scores: scores };
+      // Same shared store the lineup tab reads (bucketed by season + the payload's own week).
+      injStore().put(r[3], { season: sbYear() });
       try { STATE.sbAt = new Date(); } catch (e) {}
       // proj/playerScores were fetched with the SELECTED week; when that's ""
       // (Current) on a PAST season MFL returns an empty placeholder → re-fetch
@@ -1517,9 +1530,10 @@
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
     var ls = sbLive(); return ls ? String(ls.week || "") : (sbWeekSel() || "");
   }
+  // The live scoreboard's designation for a player: read for the season and
+  // week the board is SHOWING (sbWeek), never "whatever the feed last said".
   function injStatusFor(pid) {
-    var mfl = (STATE.sb && STATE.sb.injuries && STATE.sb.injuries[String(pid)]) || "";
-    return LS.withInjuryOverride(window.UPS_INJURY_OVERRIDES, pid, mfl);
+    return LS.injuryStatusFor({ store: injStore(), overrides: window.UPS_INJURY_OVERRIDES, season: sbYear(), week: sbWeek() }, pid);
   }
   function anyGameLive() {
     if (sbSource() !== "live") return false;
@@ -2043,8 +2057,8 @@
   // ---------- boot ----------
   // Without the shared core every tab throws a bare "undefined is not an
   // object (evaluating 'LS.parseInjuries')". Say what's actually missing.
-  if (!LS) {
-    root.innerHTML = '<div class="gd-wrap"><div class="gd-err">Game Day failed to load: its shared scoring script (site/shared/live_scoring.js) did not load. Reload the page; if it keeps happening, tell the commish.</div></div>';
+  if (!LS || typeof LS.createInjuryStore !== "function") {
+    root.innerHTML = '<div class="gd-wrap"><div class="gd-err">Game Day failed to load: its shared scoring script (site/shared/live_scoring.js) did not load or is out of date. Reload the page; if it keeps happening, tell the commish.</div></div>';
     return;
   }
   loadData().then(function () {
