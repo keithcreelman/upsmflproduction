@@ -1,0 +1,135 @@
+{
+  "_comment": [
+    "REAL FIELD NAMES/TYPES/NESTING — most of this fixture is transcribed",
+    "directly from a LIVE mTransactions2 response captured 2026-08-12 against",
+    "Keith's real league (176898, 2025, week 1/3/5/8), with team/player ids",
+    "swapped to the existing fixtures' synthetic league_id=999001/team 1-3.",
+    "Confirmed live: type='WAIVER' with status EXECUTED, PENDING,",
+    "FAILED_PLAYERALREADYDROPPED, FAILED_INVALIDPLAYERSOURCE, and CANCELED",
+    "all appear for the SAME type — losing/failed bids ARE exposed by this",
+    "view, contradicting an earlier draft's assumption to the contrary. Also",
+    "confirmed live: bidAmount=0 on an uncontested claim (a real, meaningful",
+    "zero, not absence); fromTeamId/toTeamId=0 means the waiver/FA pool, not",
+    "a real team id 0; processDate/proposedDate are UNIX MILLISECONDS.",
+    "Models (structurally consistent with WAIVER's item-list shape, per",
+    "espn_api's TRANSACTION_TYPES, but not directly captured live in this",
+    "session): the FREEAGENT-type entry below.",
+    "Endpoint: GET /apis/v3/games/ffl/seasons/2025/segments/0/leagues/999001",
+    "  ?view=mTransactions2&scoringPeriodId=3",
+    "  header x-fantasy-filter: {\"transactions\":{\"filterType\":{\"value\":",
+    "  [\"WAIVER\",\"FREEAGENT\",\"WAIVER_ERROR\"]}}}"
+  ],
+  "gameId": 1,
+  "id": 999001,
+  "scoringPeriodId": 3,
+  "seasonId": 2025,
+  "segmentId": 0,
+  "status": {"currentMatchupPeriod": 3, "latestScoringPeriod": 3},
+  "transactions": [
+    {
+      "id": "aaaa1111-0000-0000-0000-000000000001",
+      "type": "WAIVER",
+      "status": "EXECUTED",
+      "teamId": 2,
+      "scoringPeriodId": 3,
+      "bidAmount": 7,
+      "processDate": 1756915215576,
+      "proposedDate": 1756310412470,
+      "isLeagueManager": false,
+      "isActingAsTeamOwner": false,
+      "isPending": false,
+      "memberId": "WaiverTaskProcessor",
+      "rating": 0,
+      "executionType": "PROCESS",
+      "items": [
+        {"type": "ADD", "playerId": 5001, "fromTeamId": 0, "toTeamId": 2,
+         "fromLineupSlotId": -1, "toLineupSlotId": 20, "isKeeper": false, "overallPickNumber": 0},
+        {"type": "DROP", "playerId": 5002, "fromTeamId": 2, "toTeamId": 0,
+         "fromLineupSlotId": 20, "toLineupSlotId": -1, "isKeeper": false, "overallPickNumber": 0}
+      ]
+    },
+    {
+      "id": "aaaa1111-0000-0000-0000-000000000002",
+      "type": "WAIVER",
+      "status": "FAILED_INVALIDPLAYERSOURCE",
+      "teamId": 3,
+      "scoringPeriodId": 3,
+      "bidAmount": 4,
+      "processDate": null,
+      "proposedDate": 1756310300000,
+      "isLeagueManager": false,
+      "isActingAsTeamOwner": false,
+      "isPending": false,
+      "memberId": "{3D1D81CB-90ED-4F4C-9FA1-6D4188C7E706}",
+      "rating": 0,
+      "executionType": "EXECUTE",
+      "items": [
+        {"type": "ADD", "playerId": 5001, "fromTeamId": 0, "toTeamId": 3,
+         "fromLineupSlotId": -1, "toLineupSlotId": -1, "isKeeper": false, "overallPickNumber": 0}
+      ]
+    },
+    {
+      "id": "aaaa1111-0000-0000-0000-000000000003",
+      "type": "WAIVER",
+      "status": "EXECUTED",
+      "teamId": 1,
+      "scoringPeriodId": 3,
+      "bidAmount": 0,
+      "processDate": 1756915000000,
+      "proposedDate": 1756900000000,
+      "isLeagueManager": false,
+      "isActingAsTeamOwner": false,
+      "isPending": false,
+      "memberId": "WaiverTaskProcessor",
+      "rating": 0,
+      "executionType": "PROCESS",
+      "items": [
+        {"type": "ADD", "playerId": 5003, "fromTeamId": 0, "toTeamId": 1,
+         "fromLineupSlotId": -1, "toLineupSlotId": 20, "isKeeper": false, "overallPickNumber": 0}
+      ]
+    },
+    {
+      "id": "aaaa1111-0000-0000-0000-000000000004",
+      "type": "WAIVER",
+      "status": "CANCELED",
+      "teamId": 2,
+      "scoringPeriodId": 3,
+      "bidAmount": 3,
+      "processDate": null,
+      "proposedDate": 1756310412470,
+      "isLeagueManager": false,
+      "isActingAsTeamOwner": false,
+      "isPending": true,
+      "memberId": "{3D1D81CB-90ED-4F4C-9FA1-6D4188C7E706}",
+      "rating": 0,
+      "executionType": "EXECUTE",
+      "relatedTransactionId": "aaaa1111-0000-0000-0000-000000000001",
+      "items": [
+        {"type": "ADD", "playerId": 5004, "fromTeamId": 0, "toTeamId": 2,
+         "fromLineupSlotId": -1, "toLineupSlotId": -1, "isKeeper": false, "overallPickNumber": 0},
+        {"type": "DROP", "playerId": 5001, "fromTeamId": 2, "toTeamId": 0,
+         "fromLineupSlotId": 20, "toLineupSlotId": -1, "isKeeper": false, "overallPickNumber": 0}
+      ]
+    },
+    {
+      "id": "aaaa1111-0000-0000-0000-000000000005",
+      "type": "FREEAGENT",
+      "status": "EXECUTED",
+      "teamId": 3,
+      "scoringPeriodId": 3,
+      "bidAmount": 0,
+      "processDate": 1756916000000,
+      "proposedDate": 1756916000000,
+      "isLeagueManager": true,
+      "isActingAsTeamOwner": false,
+      "isPending": false,
+      "memberId": "{9A1B2C3D-90ED-4F4C-9FA1-6D4188C7E706}",
+      "rating": 0,
+      "executionType": "EXECUTE",
+      "items": [
+        {"type": "ADD", "playerId": 5005, "fromTeamId": 0, "toTeamId": 3,
+         "fromLineupSlotId": -1, "toLineupSlotId": -1, "isKeeper": false, "overallPickNumber": 0}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,543 @@
+<title>Raining Bullets Draft Board</title>
+<style>
+:root{
+  --ground:#F5F4F1; --panel:#FFFFFF; --ink:#191E25; --ink-2:#4A5560; --ink-3:#77828E;
+  --rule:#DFDDD7; --rule-2:#EAE8E3; --brass:#B8862B; --brass-soft:#F0E4C6;
+  --qb:#6B5B95; --rb:#2E7D5B; --wr:#2A6FA8; --te:#A34E7B; --k:#6E7681; --dst:#7A5C3E;
+  --good:#2E7D5B; --warn:#B8862B; --crit:#A8412F;
+  --shadow:0 1px 2px rgba(25,30,37,.06),0 8px 24px rgba(25,30,37,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ground:#12171D; --panel:#181F27; --ink:#E4E8ED; --ink-2:#A6B0BB; --ink-3:#7A858F;
+  --rule:#2A333D; --rule-2:#212933; --brass:#D9A94A; --brass-soft:#3A2F16;
+  --qb:#9C8BC6; --rb:#4FAF85; --wr:#5A9BD4; --te:#CE7BA4; --k:#939CA6; --dst:#A8835E;
+  --good:#5CB88F; --warn:#D9A94A; --crit:#D9705C;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font:400 15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1300px;margin:0 auto;padding:0 20px 64px}
+
+/* -- command bar ------------------------------------------- */
+.bar{position:sticky;top:0;z-index:20;background:var(--ground);border-bottom:1px solid var(--rule);padding:14px 0 12px}
+.bar-in{max-width:1300px;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:baseline}
+h1{
+  margin:0; font-size:clamp(19px,2.4vw,25px); font-weight:800; letter-spacing:-.02em;
+  text-wrap:balance;
+}
+.sub{color:var(--ink-3);font-size:13px;letter-spacing:.02em}
+.spacer{flex:1 1 auto}
+.ctl{display:flex;gap:6px;align-items:center}
+button{
+  font:inherit;font-size:12.5px;font-weight:600;letter-spacing:.02em;
+  background:var(--panel);color:var(--ink-2);border:1px solid var(--rule);
+  border-radius:6px;padding:5px 10px;cursor:pointer;
+}
+button:hover{border-color:var(--ink-3);color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+/* -- pick rail --------------------------------------------- */
+.rail{display:flex;gap:5px;flex-wrap:wrap;margin:18px 0 6px}
+.pk{
+  font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11.5px;padding:4px 7px;border-radius:5px;border:1px solid var(--rule);
+  color:var(--ink-3);background:var(--panel);white-space:nowrap;
+}
+.pk.next{border-color:var(--brass);color:var(--brass);background:var(--brass-soft);font-weight:700}
+.pk.done{opacity:.4;text-decoration:line-through}
+.rail-note{font-size:12px;color:var(--ink-3);margin:2px 0 22px}
+
+/* -- layout ------------------------------------------------ */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 252px;gap:18px;align-items:start}
+@media (max-width:960px){.cols{grid-template-columns:minmax(0,1fr)}}
+
+/* -- board ------------------------------------------------- */
+.board{background:var(--panel);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.board-hd{display:flex;gap:10px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.eyebrow{font-size:10.5px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
+.scroll{overflow-x:auto;max-height:70vh;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+thead th{
+  position:sticky;top:0;background:var(--panel);z-index:2;
+  text-align:left;font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);padding:8px 8px;border-bottom:1px solid var(--rule);white-space:nowrap;
+}
+tbody td{padding:7px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--rule-2)}
+tbody tr.gone td{opacity:.32;text-decoration:line-through}
+tbody tr.mine{background:var(--brass-soft)}
+.num{text-align:right;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.rk{color:var(--ink-3);font-size:12px}
+.nm{font-weight:600}
+.chip{
+  display:inline-block;min-width:34px;text-align:center;font-size:10.5px;font-weight:750;
+  letter-spacing:.05em;padding:2px 6px;border-radius:4px;color:#fff;
+}
+.QB{background:var(--qb)} .RB{background:var(--rb)} .WR{background:var(--wr)}
+.TE{background:var(--te)} .K{background:var(--k)} .DST{background:var(--dst)}
+.flag{font-size:11px;color:var(--brass);font-weight:650}
+.rk-pill{
+  display:inline-block;font-size:9.5px;font-weight:750;letter-spacing:.07em;
+  padding:1px 4px;border-radius:3px;border:1px solid var(--ink-3);color:var(--ink-3);
+  margin-left:6px;vertical-align:1px;
+}
+tr.rookie .nm{font-style:italic}
+.vor{font-weight:700}
+.dim{color:var(--ink-3)}
+
+/* -- analyst overlay --------------------------------------- */
+td.an{white-space:nowrap}
+.jj{
+  display:inline-block;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11px;font-weight:700;padding:1px 4px;border-radius:4px;
+  border:1px solid var(--rule);color:var(--ink-2);background:var(--rule-2);
+}
+.jj.gap{border-color:var(--brass);color:var(--brass);background:transparent}
+.jj.none{border-style:dashed;color:var(--ink-3);background:transparent;font-weight:500}
+.stn{
+  display:inline-block;font-size:10px;font-weight:750;letter-spacing:.03em;
+  padding:1px 4px;border-radius:4px;margin-left:3px;border:1px solid transparent;
+}
+.stn.like{color:var(--good);border-color:var(--good)}
+.stn.fade{color:var(--crit);border-color:var(--crit)}
+.stn.neutral{color:var(--ink-3);border-color:var(--rule)}
+.stn.hedge{border-style:dashed}
+.stn.gd{border-color:transparent;background:var(--rule-2);margin-left:3px}
+.stn.more{color:var(--ink-3);border-color:var(--rule);font-weight:600}
+.cav{margin-top:6px;font-size:11.5px;line-height:1.5;color:var(--ink-3);font-style:italic}
+.cav b{color:var(--ink-3);font-style:normal;font-weight:700}
+.dv{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:750;color:var(--brass);margin-left:3px}
+.clashes{display:flex;flex-direction:column;gap:7px}
+.cl{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;font-size:12.5px}
+.cl b{font-weight:640;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl .g{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--brass);font-weight:700}
+.cnote{margin:11px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-3)}
+.posn{display:flex;flex-direction:column;gap:11px}
+.posn .q{padding-left:11px;border-left:2px solid var(--rule);font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.clh{font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--brass);margin:6px 0 1px}
+.clh:first-child{margin-top:0}
+.legend{margin:14px 0 0;font-size:11.5px;line-height:1.6;color:var(--ink-3)}
+.tk{
+  font:inherit;font-size:10.5px;font-weight:750;line-height:1;margin-left:5px;
+  padding:2px 5px;border-radius:4px;border:1px solid var(--brass);
+  background:transparent;color:var(--brass);cursor:pointer;vertical-align:1px;
+}
+tr.det td{white-space:normal;background:var(--rule-2);padding:11px 14px 13px}
+tr.det{cursor:default}
+.det-in{display:flex;flex-direction:column;gap:9px;max-width:78ch}
+.q{font-size:12.5px;line-height:1.5;color:var(--ink-2);padding-left:11px;border-left:2px solid var(--rule)}
+.q.like{border-left-color:var(--good)} .q.fade{border-left-color:var(--crit)}
+.q b{color:var(--ink);font-weight:700}
+.q a{color:var(--ink-3);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+.q a:hover{color:var(--brass);border-bottom-color:var(--brass)}
+.q .unv{color:var(--ink-3);font-style:italic}
+
+/* -- side panels ------------------------------------------- */
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{margin:0 0 10px;font-size:11px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
+.scar{display:flex;flex-direction:column;gap:9px}
+.scar-row{display:grid;grid-template-columns:38px 1fr 46px;gap:9px;align-items:center;font-size:13px}
+.meter{height:6px;border-radius:3px;background:var(--rule-2);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:3px}
+.rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.rules li{font-size:13px;line-height:1.45;padding-left:13px;border-left:2px solid var(--brass);color:var(--ink-2)}
+.rules b{color:var(--ink);font-weight:680}
+.foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-3);line-height:1.6}
+.foot b{color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="bar"><div class="bar-in">
+  <h1>Raining Bullets Draft Board</h1>
+  <span class="sub mono">TUE 8 SEP &middot; 7:30 PM ET &middot; SNAKE &middot; 18 RD &middot; SLOT NOT DRAWN</span>
+  <span class="spacer"></span>
+  <span class="ctl">
+    <span class="eyebrow">Passing TD</span>
+    <button id="r4" aria-pressed="true">4</button>
+    <button id="r6" aria-pressed="false">6</button>
+  </span>
+  <span class="ctl" id="posf"></span>
+  <span class="ctl" id="slotf"></span>
+  <button id="clash" aria-pressed="false" hidden>Clashes only</button>
+  <button id="reset">Reset drafted</button>
+</div></div>
+
+<div class="wrap">
+  <div class="rail" id="rail"></div>
+  <p class="rail-note">Click any player to mark them gone. Your next pick is highlighted &mdash; set your slot above once the order is drawn.</p>
+
+  <div class="cols">
+    <div class="board">
+      <div class="board-hd">
+        <span class="eyebrow">Best available</span>
+        <span class="spacer"></span>
+        <span class="eyebrow" id="count"></span>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr>
+          <th>#</th><th>Player</th><th>Pos</th><th>Tm</th><th class="num">Bye</th>
+          <th class="num">Pts</th><th class="num">VOR</th>
+          <th id="anh" hidden>Analyst</th><th class="num">ADP</th><th>Note</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Startable left</h2>
+        <div class="scar" id="scar"></div>
+      </div>
+      <div class="card" id="ancard" hidden>
+        <h2>Positional disagreements</h2>
+        <div class="clashes" id="clashes"></div>
+        <p class="cnote">
+          Places apart <em>within the position</em> &mdash; &#9650; JJ has him
+          higher, &#9660; lower. Overall rank is deliberately not compared: his
+          list encodes his own scoring and his stated QB devaluation. The gap is
+          the reason to look, not the answer.
+        </p>
+      </div>
+      <div class="card" id="poscard" hidden>
+        <h2>Takes about a round, not a player</h2>
+        <div class="posn" id="posn"></div>
+      </div>
+      <div class="card">
+        <h2>Your guardrails</h2>
+        <ul class="rules">
+          <li><b>Two WRs by the end of round 3.</b> You took 4 in the first three rounds across five seasons; the league's best drafter took 9, at +60 a pick. It is a floor on the count, <em>not</em> a reason to pass on the best player alive &mdash; at 1.01 you take Gibbs.</li>
+          <li><b>No QB before round 7.</b> Your early QBs run &minus;76 a pick. QB1 beats QB12 by 132; RB1 beats RB28 by 209.</li>
+          <li><b>TE in rounds 5&ndash;6.</b> Worth +34 to top-4 teams, and you're &minus;165 there.</li>
+          <li><b>Rushing QB late.</b> You pick them better than anyone in the league &mdash; you just pay full price. Take one round 7&ndash;12.</li>
+          <li><b>Handcuff RBs, don't stockpile them.</b> Backs inherit workload twice as often as receivers, but late RB darts convert to startable 16% vs WR's 33%.</li>
+          <li><b>Don't chase WR depth after round 8.</b> Every WR past ADP 106 has negative VOR.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    <b>How the points are built.</b> ESPN's 2026 stat-level projections, scored under this league's own rulebook read from D1 &mdash; out-of-position TDs at double, TE receptions at 1.5, passing yards at 0.04. Each projection is spread across 17 games using that player's real game-to-game shape, because the per-game milestones (+3 at 100 rushing yards) depend on the shape of a season, not its total. Touchdown-distance bonuses come from MFL's per-TD lengths. The engine reproduces CBS's own published points to a median 0.10%.<br><br>
+    <b>Rookies and other unproven players are IN.</b> 29 of the 215 carry <span class="rk-pill">NO TRACK RECORD</span> &mdash; ESPN projects them, but they have no NFL games of their own, so their season is spread using a positional template instead of their own game-to-game shape. Their totals are sound; their <em>milestone bonuses</em> are the league average for the position rather than a read on how lumpy they actually are. Treat the VOR as having a wider error bar, not as wrong. Jeremiyah Love is the highest at #14 overall.<br><br>
+    <b>What it genuinely can't see.</b> K and DST are unranked &mdash; take one of each in rounds 17&ndash;18. Picks 202 and 207 fall past the ADP universe entirely.
+  </p>
+  <p class="foot" id="anfoot" hidden></p>
+</div>
+
+<script>
+const DATA = {"p4":[["Jahmyr Gibbs","RB","DET",6,414,209,1.5,2,0],["Puka Nacua","WR","LAR",11,394,187,3.1,0,0],["Christian McCaffrey","RB","SF",8,392,186,6.6,2,0],["Bijan Robinson","RB","ATL",11,392,186,2.0,2,0],["Jaxon Smith-Njigba","WR","SEA",11,363,156,5.4,0,0],["Ja'Marr Chase","WR","CIN",6,363,156,3.8,0,0],["Jonathan Taylor","RB","IND",13,350,144,7.4,0,0],["Amon-Ra St. Brown","WR","DET",6,349,142,6.3,0,0],["Josh Allen","QB","BUF",7,475,132,33.8,1,0],["De'Von Achane","RB","MIA",6,335,130,10.4,2,0],["CeeDee Lamb","WR","DAL",14,325,118,10.7,0,0],["James Cook III","RB","BUF",7,317,111,12.7,0,0],["Derrick Henry","RB","BAL",13,317,111,17.7,0,0],["Jeremiyah Love","RB","ARI",14,316,111,27.9,0,1],["Justin Jefferson","WR","MIN",6,315,108,11.6,0,0],["Chase Brown","RB","CIN",6,308,103,13.4,2,0],["Ashton Jeanty","RB","LV",13,308,103,15.0,2,0],["Saquon Barkley","RB","PHI",10,307,102,19.7,2,0],["Breece Hall","RB","NYJ",13,306,101,35.0,0,0],["Trey McBride","TE","ARI",14,304,98,28.9,0,0],["Kenneth Walker III","RB","KC",5,303,98,22.1,0,0],["Omarion Hampton","RB","LAC",7,301,96,23.3,2,0],["Brock Bowers","TE","LV",13,300,94,35.3,0,0],["Rashee Rice","WR","KC",5,301,94,14.6,0,0],["Javonte Williams","RB","DAL",14,298,93,36.8,0,0],["Josh Jacobs","RB","GB",11,285,80,30.8,0,0],["Drake London","WR","ATL",11,285,78,9.9,0,0],["A.J. Brown","WR","NE",11,272,65,18.1,0,0],["Jalen Hurts","QB","PHI",10,408,65,79.0,1,0],["Travis Etienne Jr.","RB","NO",8,270,65,40.1,2,0],["Chris Olave","WR","NO",8,271,64,20.1,0,0],["Cam Skattebo","RB","NYG",8,266,60,36.6,2,0],["Garrett Wilson","WR","NYJ",13,267,60,25.8,0,0],["Nico Collins","WR","HOU",8,267,60,21.0,0,0],["Zay Flowers","WR","BAL",13,265,58,25.6,0,0],["Tyler Warren","TE","IND",13,261,55,65.1,0,0],["Malik Nabers","WR","NYG",8,262,55,27.3,0,0],["George Pickens","WR","DAL",14,261,54,20.3,0,0],["Colston Loveland","TE","CHI",10,258,52,56.8,0,0],["Quinshon Judkins","RB","CLE",11,253,47,50.9,0,0],["DeVonta Smith","WR","PHI",10,253,46,29.6,0,0],["Kyren Williams","RB","LAR",11,250,45,31.6,2,0],["Tetairoa McMillan","WR","CAR",5,251,44,32.6,0,0],["Jaxson Dart","QB","NYG",8,386,43,117.3,1,0],["Davante Adams","WR","LAR",11,250,43,41.9,0,0],["Emeka Egbuka","WR","TB",10,247,40,35.0,0,0],["Harold Fannin Jr.","TE","CLE",11,236,30,78.5,0,0],["Lamar Jackson","QB","BAL",13,372,29,57.0,0,0],["Ladd McConkey","WR","LAC",7,235,28,37.7,0,0],["Tee Higgins","WR","CIN",6,235,28,36.3,0,0],["Sam LaPorta","TE","DET",6,233,28,99.8,0,0],["Drake Maye","QB","NE",11,370,27,51.6,0,0],["Kyle Pitts Sr.","TE","ATL",11,233,27,75.9,0,0],["Bhayshul Tuten","RB","JAX",7,232,26,52.7,2,0],["Terry McLaurin","WR","WAS",7,232,26,46.8,0,0],["Jayden Daniels","QB","WAS",7,368,25,72.2,1,0],["Bucky Irving","RB","TB",10,227,22,45.2,0,0],["Rome Odunze","WR","CHI",10,228,21,51.9,0,0],["D'Andre Swift","RB","CHI",10,227,21,45.8,0,0],["Jaylen Waddle","WR","DEN",10,228,21,45.9,0,0],["Rhamondre Stevenson","RB","NE",11,225,19,67.8,2,0],["Jameson Williams","WR","DET",6,226,19,44.2,0,0],["Tucker Kraft","TE","GB",11,222,17,100.5,0,0],["DJ Moore","WR","BUF",7,223,16,48.9,0,0],["Carnell Tate","WR","TEN",9,222,15,76.1,0,1],["Luther Burden III","WR","CHI",10,221,14,58.5,0,0],["Jadarian Price","RB","SEA",11,220,14,78.0,0,1],["Brock Purdy","QB","SF",8,357,14,87.8,0,0],["Dallas Goedert","TE","PHI",10,218,12,105.0,0,0],["George Kittle","TE","SF",8,217,11,117.5,0,0],["TreVeyon Henderson","RB","NE",11,216,11,61.5,0,0],["Travis Kelce","TE","KC",5,217,11,107.0,0,0],["Joe Burrow","QB","CIN",6,350,7,57.6,0,0],["Courtland Sutton","WR","DEN",10,213,6,60.2,0,0],["Matthew Stafford","QB","LAR",11,349,6,77.3,0,0],["Tyler Shough","QB","NO",8,348,6,134.2,1,0],["Jaylen Warren","RB","PIT",9,210,4,58.4,2,0],["Bo Nix","QB","DEN",10,347,4,112.4,0,0],["Jake Ferguson","TE","DAL",14,206,1,133.0,0,0],["Marvin Harrison Jr.","WR","ARI",14,207,0,65.9,0,0],["Michael Pittman Jr.","WR","PIT",9,207,0,74.8,0,0],["Rico Dowdle","RB","PIT",9,206,0,74.6,0,0],["Mark Andrews","TE","BAL",13,206,0,127.4,0,0],["Daniel Jones","QB","IND",13,343,0,160.5,1,0],["David Montgomery","RB","HOU",8,203,-2,58.2,0,0],["Matthew Golden","WR","GB",11,204,-2,106.0,0,0],["DK Metcalf","WR","PIT",9,204,-3,64.8,0,0],["Trevor Lawrence","QB","JAX",7,340,-3,91.9,1,0],["Patrick Mahomes","QB","KC",5,338,-5,102.5,0,0],["Kenny Gainwell","RB","TB",10,200,-6,91.6,2,0],["Christian Watson","WR","GB",11,201,-6,58.8,0,0],["Tony Pollard","RB","TEN",9,199,-7,68.9,0,0],["Alec Pierce","WR","IND",13,200,-7,64.5,0,0],["T.J. Hockenson","TE","MIN",6,198,-7,165.2,0,0],["Parker Washington","WR","JAX",7,197,-10,64.6,0,1],["Isaiah Likely","TE","NYG",8,196,-10,136.7,0,0],["Kyle Monangai","RB","CHI",10,193,-12,110.2,0,0],["Aaron Jones Sr.","RB","MIN",6,193,-13,102.1,0,0],["Kenyon Sadiq","TE","NYJ",13,193,-13,159.6,0,1],["Dak Prescott","QB","DAL",14,330,-13,65.3,0,0],["J.K. Dobbins","RB","DEN",10,192,-14,90.7,0,0],["Mike Evans","WR","SF",8,193,-14,53.7,0,0],["Caleb Williams","QB","CHI",10,325,-18,89.8,0,0],["Jonathon Brooks","RB","CAR",5,187,-18,99.8,0,1],["Michael Wilson","WR","ARI",14,188,-19,76.0,0,0],["Jakobi Meyers","WR","JAX",7,188,-19,88.2,0,0],["Dalton Kincaid","TE","BUF",7,187,-19,148.6,0,0],["Justin Herbert","QB","LAC",7,323,-20,105.8,0,0],["Chuba Hubbard","RB","CAR",5,184,-22,78.8,0,0],["Jayden Reed","WR","GB",11,183,-24,94.3,0,0],["Brian Thomas Jr.","WR","JAX",7,181,-26,72.2,0,0],["Jordan Addison","WR","MIN",6,181,-26,97.5,0,0],["Hunter Henry","TE","NE",11,180,-26,155.6,0,0],["Xavier Worthy","WR","KC",5,180,-27,106.3,0,0],["Rachaad White","RB","WAS",7,179,-27,110.3,0,0],["Quentin Johnston","WR","LAC",7,180,-27,95.4,0,0],["Jacory Croskey-Merritt","RB","WAS",7,178,-28,116.6,0,0],["Brenton Strange","TE","JAX",7,177,-29,164.6,0,0],["Juwan Johnson","TE","NO",8,177,-29,142.3,0,0],["Wan'Dale Robinson","WR","TEN",9,178,-29,85.9,0,0],["Khalil Shakir","WR","BUF",7,177,-30,100.9,0,0],["Chris Godwin Jr.","WR","TB",10,173,-34,80.2,0,0],["Blake Corum","RB","LAR",11,170,-36,120.9,0,0],["Deebo Samuel Sr.","WR","SF",8,171,-36,110.8,0,0],["Stefon Diggs","WR","WAS",7,170,-37,91.4,0,0],["Jared Goff","QB","DET",6,305,-38,99.8,0,0],["Pat Freiermuth","TE","PIT",9,168,-38,183.0,0,0],["RJ Harvey","RB","DEN",10,167,-38,87.2,2,0],["Terrance Ferguson","TE","LAR",11,167,-38,163.1,0,0],["Jordan Love","QB","GB",11,304,-39,146.2,0,0],["Tyjae Spears","RB","TEN",9,166,-39,131.0,0,0],["Dalton Schultz","TE","HOU",8,164,-41,161.9,0,0],["Makai Lemon","WR","PHI",10,164,-43,115.9,0,1],["Jordan Mason","RB","MIN",6,162,-43,118.2,0,0],["KC Concepcion","WR","CLE",11,164,-43,121.0,0,1],["Tank Dell","WR","HOU",8,163,-44,157.3,0,0],["Josh Downs","WR","IND",13,160,-47,84.8,0,1],["Baker Mayfield","QB","TB",10,296,-47,128.7,0,0],["Gunnar Helm","TE","",0,158,-48,0,0,0],["Malik Willis","QB","MIA",6,293,-50,162.6,1,1],["Jalen Coker","WR","CAR",5,156,-51,121.3,0,0],["Romeo Doubs","WR","NE",11,154,-52,114.0,0,0],["Greg Dulcich","TE","MIA",6,149,-57,182.9,0,0],["Chig Okonkwo","TE","WAS",7,148,-58,154.4,0,0],["Denzel Boston","WR","CLE",11,149,-58,139.5,0,1],["Rashid Shaheed","WR","SEA",11,148,-58,128.9,0,0],["Kyler Murray","QB","MIN",6,283,-60,133.2,0,0],["Tre Tucker","WR","LV",13,146,-61,132.3,0,0],["Zach Charbonnet","RB","SEA",11,143,-63,135.8,0,0],["Bryce Young","QB","CAR",5,280,-63,163.8,0,0],["Jerry Jeudy","WR","CLE",11,143,-64,125.6,0,0],["AJ Barner","TE","SEA",11,141,-65,156.8,0,0],["C.J. Stroud","QB","HOU",8,277,-66,157.6,0,0],["Calvin Ridley","WR","TEN",9,140,-67,143.7,0,0],["Sam Darnold","QB","SEA",11,276,-67,142.0,0,0],["De'Zhaun Stribling","WR","SF",8,139,-68,137.4,0,1],["Woody Marks","RB","HOU",8,137,-68,142.7,2,0],["Jalen McMillan","WR","TB",10,137,-70,136.1,0,0],["Adonai Mitchell","WR","NYJ",13,133,-74,162.4,0,0],["Isiah Pacheco","RB","DET",6,130,-75,154.8,0,0],["Jalen Nailor","WR","LV",13,130,-77,155.1,0,0],["David Njoku","TE","LAC",7,126,-80,136.0,0,0],["Keenan Allen","WR","IND",13,127,-80,131.3,0,0],["Justice Hill","RB","BAL",13,125,-80,170.1,0,0],["Devaughn Vele","WR","NO",8,126,-81,163.8,0,0],["Rashod Bateman","WR","BAL",13,125,-82,150.8,0,0],["Alvin Kamara","RB","NO",8,123,-82,144.3,0,0],["Cam Ward","QB","TEN",9,260,-83,170.2,0,0],["Caleb Douglas","WR","MIA",6,120,-87,176.8,0,1],["Jaylin Noel","WR","HOU",8,120,-87,163.3,0,0],["Travis Hunter","WR","JAX",7,118,-89,167.6,0,1],["Malik Washington","WR","MIA",6,117,-90,148.5,0,0],["Jauan Jennings","WR","MIN",6,117,-90,148.9,0,0],["Germie Bernard","WR","PIT",9,114,-93,167.2,0,1],["Dontayvion Wicks","WR","PHI",10,110,-96,167.3,0,0],["Aaron Rodgers","QB","PIT",9,242,-101,168.3,0,0],["Ja'Kobi Lane","WR","BAL",13,106,-101,157.9,0,1],["Jordyn Tyson","WR","NO",8,105,-102,126.9,0,1],["Cooper Kupp","WR","SEA",11,104,-103,150.5,0,0],["Keaton Mitchell","RB","LAC",7,99,-107,159.6,0,0],["Brian Robinson Jr.","RB","ATL",11,96,-109,163.5,0,0],["Xavier Legette","WR","CAR",5,96,-111,177.4,0,0],["Tyler Allgeier","RB","ARI",14,94,-112,154.4,0,0],["Dylan Sampson","RB","CLE",11,93,-112,156.9,0,0],["Oronde Gadsden","TE","LAC",7,94,-112,146.7,0,0],["Ty Johnson","RB","BUF",7,93,-113,181.9,2,0],["Jacoby Brissett","QB","ARI",14,230,-113,169.3,0,0],["MarShawn Lloyd","RB","GB",11,91,-114,156.2,0,1],["Ryan Flournoy","WR","DAL",14,92,-115,159.0,0,0],["Tre' Harris","WR","LAC",7,92,-115,171.9,0,0],["Darius Slayton","WR","NYG",8,91,-116,183.2,0,0],["Kayshon Boutte","WR","NE",11,89,-118,168.3,0,0],["Jonah Coleman","RB","DEN",10,79,-126,155.4,0,1],["Braelon Allen","RB","NYJ",13,79,-126,156.9,0,0],["Antonio Williams","WR","WAS",7,80,-127,161.0,0,1],["Fernando Mendoza","QB","LV",13,215,-128,162.0,0,1],["Keon Coleman","WR","BUF",7,77,-130,96.2,0,0],["Isaac TeSlaa","WR","DET",6,75,-132,167.7,0,0],["Pat Bryant","WR","DEN",10,74,-133,151.1,0,0],["Chris Rodriguez Jr.","RB","JAX",7,72,-133,156.0,0,0],["Tyrone Tracy Jr.","RB","NYG",8,69,-137,153.8,0,0],["Omar Cooper Jr.","WR","NYJ",13,69,-138,166.3,0,1],["Emari Demercado","RB","KC",5,67,-139,144.4,0,0],["Mike Washington Jr.","RB","LV",13,66,-139,148.5,0,1],["Xavier Hutchinson","WR","HOU",8,67,-140,167.8,0,0],["Tank Bigsby","RB","PHI",10,65,-140,157.9,0,0],["Kaelon Black","RB","SF",8,62,-143,160.4,0,1],["Malachi Fields","WR","NYG",8,61,-146,156.0,0,1],["Jaydon Blue","RB","DAL",14,56,-149,168.9,0,1],["Troy Franklin","WR","DEN",10,52,-155,175.0,0,0],["Najee Harris","RB","NYG",8,50,-155,163.6,0,0],["Emmett Johnson","RB","KC",5,48,-158,162.8,0,1],["Cyrus Allen","WR","KC",5,44,-162,150.6,0,1],["Ray Davis","RB","BUF",7,37,-169,158.3,0,0],["Jordan James","RB","SF",8,28,-177,143.8,0,1]],"p6":[["Jahmyr Gibbs","RB","DET",6,414,209,1.5,2,0],["Puka Nacua","WR","LAR",11,394,187,3.1,0,0],["Christian McCaffrey","RB","SF",8,392,186,6.6,2,0],["Bijan Robinson","RB","ATL",11,392,186,2.0,2,0],["Jaxon Smith-Njigba","WR","SEA",11,363,156,5.4,0,0],["Ja'Marr Chase","WR","CIN",6,363,156,3.8,0,0],["Jonathan Taylor","RB","IND",13,350,144,7.4,0,0],["Amon-Ra St. Brown","WR","DET",6,349,142,6.3,0,0],["Josh Allen","QB","BUF",7,528,138,33.8,1,0],["De'Von Achane","RB","MIA",6,335,130,10.4,2,0],["CeeDee Lamb","WR","DAL",14,325,118,10.7,0,0],["James Cook III","RB","BUF",7,317,111,12.7,0,0],["Derrick Henry","RB","BAL",13,317,111,17.7,0,0],["Jeremiyah Love","RB","ARI",14,316,111,27.9,0,1],["Justin Jefferson","WR","MIN",6,315,108,11.6,0,0],["Chase Brown","RB","CIN",6,308,103,13.4,2,0],["Ashton Jeanty","RB","LV",13,308,103,15.0,2,0],["Saquon Barkley","RB","PHI",10,307,102,19.7,2,0],["Breece Hall","RB","NYJ",13,306,101,35.0,0,0],["Trey McBride","TE","ARI",14,304,98,28.9,0,0],["Kenneth Walker III","RB","KC",5,303,98,22.1,0,0],["Omarion Hampton","RB","LAC",7,301,96,23.3,2,0],["Brock Bowers","TE","LV",13,300,94,35.3,0,0],["Rashee Rice","WR","KC",5,301,94,14.6,0,0],["Javonte Williams","RB","DAL",14,298,93,36.8,0,0],["Josh Jacobs","RB","GB",11,285,80,30.8,0,0],["Drake London","WR","ATL",11,285,78,9.9,0,0],["A.J. Brown","WR","NE",11,272,65,18.1,0,0],["Jalen Hurts","QB","PHI",10,455,65,79.0,1,0],["Travis Etienne Jr.","RB","NO",8,270,65,40.1,2,0],["Chris Olave","WR","NO",8,271,64,20.1,0,0],["Cam Skattebo","RB","NYG",8,266,60,36.6,2,0],["Garrett Wilson","WR","NYJ",13,267,60,25.8,0,0],["Nico Collins","WR","HOU",8,267,60,21.0,0,0],["Zay Flowers","WR","BAL",13,265,58,25.6,0,0],["Tyler Warren","TE","IND",13,261,55,65.1,0,0],["Malik Nabers","WR","NYG",8,262,55,27.3,0,0],["George Pickens","WR","DAL",14,261,54,20.3,0,0],["Colston Loveland","TE","CHI",10,258,52,56.8,0,0],["Quinshon Judkins","RB","CLE",11,253,47,50.9,0,0],["DeVonta Smith","WR","PHI",10,253,46,29.6,0,0],["Kyren Williams","RB","LAR",11,250,45,31.6,2,0],["Tetairoa McMillan","WR","CAR",5,251,44,32.6,0,0],["Davante Adams","WR","LAR",11,250,43,41.9,0,0],["Emeka Egbuka","WR","TB",10,247,40,35.0,0,0],["Jaxson Dart","QB","NYG",8,428,38,117.3,1,0],["Lamar Jackson","QB","BAL",13,424,35,57.0,0,0],["Drake Maye","QB","NE",11,424,34,51.6,0,0],["Harold Fannin Jr.","TE","CLE",11,236,30,78.5,0,0],["Matthew Stafford","QB","LAR",11,419,30,77.3,0,0],["Ladd McConkey","WR","LAC",7,235,28,37.7,0,0],["Tee Higgins","WR","CIN",6,235,28,36.3,0,0],["Sam LaPorta","TE","DET",6,233,28,99.8,0,0],["Kyle Pitts Sr.","TE","ATL",11,233,27,75.9,0,0],["Joe Burrow","QB","CIN",6,416,27,57.6,0,0],["Bhayshul Tuten","RB","JAX",7,232,26,52.7,2,0],["Terry McLaurin","WR","WAS",7,232,26,46.8,0,0],["Jayden Daniels","QB","WAS",7,412,23,72.2,1,0],["Bucky Irving","RB","TB",10,227,22,45.2,0,0],["Brock Purdy","QB","SF",8,411,22,87.8,0,0],["Rome Odunze","WR","CHI",10,228,21,51.9,0,0],["D'Andre Swift","RB","CHI",10,227,21,45.8,0,0],["Jaylen Waddle","WR","DEN",10,228,21,45.9,0,0],["Rhamondre Stevenson","RB","NE",11,225,19,67.8,2,0],["Jameson Williams","WR","DET",6,226,19,44.2,0,0],["Tucker Kraft","TE","GB",11,222,17,100.5,0,0],["DJ Moore","WR","BUF",7,223,16,48.9,0,0],["Carnell Tate","WR","TEN",9,222,15,76.1,0,1],["Luther Burden III","WR","CHI",10,221,14,58.5,0,0],["Jadarian Price","RB","SEA",11,220,14,78.0,0,1],["Dallas Goedert","TE","PHI",10,218,12,105.0,0,0],["George Kittle","TE","SF",8,217,11,117.5,0,0],["TreVeyon Henderson","RB","NE",11,216,11,61.5,0,0],["Travis Kelce","TE","KC",5,217,11,107.0,0,0],["Bo Nix","QB","DEN",10,400,10,112.4,0,0],["Courtland Sutton","WR","DEN",10,213,6,60.2,0,0],["Jaylen Warren","RB","PIT",9,210,4,58.4,2,0],["Patrick Mahomes","QB","KC",5,391,1,102.5,0,0],["Jake Ferguson","TE","DAL",14,206,1,133.0,0,0],["Marvin Harrison Jr.","WR","ARI",14,207,0,65.9,0,0],["Michael Pittman Jr.","WR","PIT",9,207,0,74.8,0,0],["Dak Prescott","QB","DAL",14,390,0,65.3,0,0],["Rico Dowdle","RB","PIT",9,206,0,74.6,0,0],["Mark Andrews","TE","BAL",13,206,0,127.4,0,0],["Tyler Shough","QB","NO",8,390,0,134.2,1,0],["Trevor Lawrence","QB","JAX",7,389,0,91.9,1,0],["David Montgomery","RB","HOU",8,203,-2,58.2,0,0],["Matthew Golden","WR","GB",11,204,-2,106.0,0,0],["DK Metcalf","WR","PIT",9,204,-3,64.8,0,0],["Kenny Gainwell","RB","TB",10,200,-6,91.6,2,0],["Christian Watson","WR","GB",11,201,-6,58.8,0,0],["Tony Pollard","RB","TEN",9,199,-7,68.9,0,0],["Alec Pierce","WR","IND",13,200,-7,64.5,0,0],["Daniel Jones","QB","IND",13,382,-7,160.5,1,0],["T.J. Hockenson","TE","MIN",6,198,-7,165.2,0,0],["Parker Washington","WR","JAX",7,197,-10,64.6,0,1],["Isaiah Likely","TE","NYG",8,196,-10,136.7,0,0],["Kyle Monangai","RB","CHI",10,193,-12,110.2,0,0],["Aaron Jones Sr.","RB","MIN",6,193,-13,102.1,0,0],["Kenyon Sadiq","TE","NYJ",13,193,-13,159.6,0,1],["J.K. Dobbins","RB","DEN",10,192,-14,90.7,0,0],["Mike Evans","WR","SF",8,193,-14,53.7,0,0],["Caleb Williams","QB","CHI",10,376,-14,89.8,0,0],["Justin Herbert","QB","LAC",7,374,-15,105.8,0,0],["Jonathon Brooks","RB","CAR",5,187,-18,99.8,0,1],["Michael Wilson","WR","ARI",14,188,-19,76.0,0,0],["Jakobi Meyers","WR","JAX",7,188,-19,88.2,0,0],["Dalton Kincaid","TE","BUF",7,187,-19,148.6,0,0],["Chuba Hubbard","RB","CAR",5,184,-22,78.8,0,0],["Jayden Reed","WR","GB",11,183,-24,94.3,0,0],["Brian Thomas Jr.","WR","JAX",7,181,-26,72.2,0,0],["Jordan Addison","WR","MIN",6,181,-26,97.5,0,0],["Hunter Henry","TE","NE",11,180,-26,155.6,0,0],["Jared Goff","QB","DET",6,364,-26,99.8,0,0],["Xavier Worthy","WR","KC",5,180,-27,106.3,0,0],["Rachaad White","RB","WAS",7,179,-27,110.3,0,0],["Quentin Johnston","WR","LAC",7,180,-27,95.4,0,0],["Jacory Croskey-Merritt","RB","WAS",7,178,-28,116.6,0,0],["Brenton Strange","TE","JAX",7,177,-29,164.6,0,0],["Juwan Johnson","TE","NO",8,177,-29,142.3,0,0],["Wan'Dale Robinson","WR","TEN",9,178,-29,85.9,0,0],["Khalil Shakir","WR","BUF",7,177,-30,100.9,0,0],["Chris Godwin Jr.","WR","TB",10,173,-34,80.2,0,0],["Jordan Love","QB","GB",11,354,-35,146.2,0,0],["Blake Corum","RB","LAR",11,170,-36,120.9,0,0],["Deebo Samuel Sr.","WR","SF",8,171,-36,110.8,0,0],["Stefon Diggs","WR","WAS",7,170,-37,91.4,0,0],["Pat Freiermuth","TE","PIT",9,168,-38,183.0,0,0],["RJ Harvey","RB","DEN",10,167,-38,87.2,2,0],["Terrance Ferguson","TE","LAR",11,167,-38,163.1,0,0],["Tyjae Spears","RB","TEN",9,166,-39,131.0,0,0],["Dalton Schultz","TE","HOU",8,164,-41,161.9,0,0],["Makai Lemon","WR","PHI",10,164,-43,115.9,0,1],["Jordan Mason","RB","MIN",6,162,-43,118.2,0,0],["KC Concepcion","WR","CLE",11,164,-43,121.0,0,1],["Tank Dell","WR","HOU",8,163,-44,157.3,0,0],["Baker Mayfield","QB","TB",10,345,-45,128.7,0,0],["Josh Downs","WR","IND",13,160,-47,84.8,0,1],["Gunnar Helm","TE","",0,158,-48,0,0,0],["Jalen Coker","WR","CAR",5,156,-51,121.3,0,0],["Romeo Doubs","WR","NE",11,154,-52,114.0,0,0],["Greg Dulcich","TE","MIA",6,149,-57,182.9,0,0],["Chig Okonkwo","TE","WAS",7,148,-58,154.4,0,0],["Denzel Boston","WR","CLE",11,149,-58,139.5,0,1],["Rashid Shaheed","WR","SEA",11,148,-58,128.9,0,0],["Tre Tucker","WR","LV",13,146,-61,132.3,0,0],["Zach Charbonnet","RB","SEA",11,143,-63,135.8,0,0],["Jerry Jeudy","WR","CLE",11,143,-64,125.6,0,0],["AJ Barner","TE","SEA",11,141,-65,156.8,0,0],["Sam Darnold","QB","SEA",11,324,-66,142.0,0,0],["Calvin Ridley","WR","TEN",9,140,-67,143.7,0,0],["Kyler Murray","QB","MIN",6,322,-68,133.2,0,0],["De'Zhaun Stribling","WR","SF",8,139,-68,137.4,0,1],["Woody Marks","RB","HOU",8,137,-68,142.7,2,0],["Bryce Young","QB","CAR",5,321,-69,163.8,0,0],["Malik Willis","QB","MIA",6,320,-70,162.6,1,1],["C.J. Stroud","QB","HOU",8,320,-70,157.6,0,0],["Jalen McMillan","WR","TB",10,137,-70,136.1,0,0],["Adonai Mitchell","WR","NYJ",13,133,-74,162.4,0,0],["Isiah Pacheco","RB","DET",6,130,-75,154.8,0,0],["Jalen Nailor","WR","LV",13,130,-77,155.1,0,0],["David Njoku","TE","LAC",7,126,-80,136.0,0,0],["Keenan Allen","WR","IND",13,127,-80,131.3,0,0],["Justice Hill","RB","BAL",13,125,-80,170.1,0,0],["Devaughn Vele","WR","NO",8,126,-81,163.8,0,0],["Rashod Bateman","WR","BAL",13,125,-82,150.8,0,0],["Alvin Kamara","RB","NO",8,123,-82,144.3,0,0],["Caleb Douglas","WR","MIA",6,120,-87,176.8,0,1],["Jaylin Noel","WR","HOU",8,120,-87,163.3,0,0],["Travis Hunter","WR","JAX",7,118,-89,167.6,0,1],["Malik Washington","WR","MIA",6,117,-90,148.5,0,0],["Jauan Jennings","WR","MIN",6,117,-90,148.9,0,0],["Germie Bernard","WR","PIT",9,114,-93,167.2,0,1],["Dontayvion Wicks","WR","PHI",10,110,-96,167.3,0,0],["Cam Ward","QB","TEN",9,293,-96,170.2,0,0],["Ja'Kobi Lane","WR","BAL",13,106,-101,157.9,0,1],["Jordyn Tyson","WR","NO",8,105,-102,126.9,0,1],["Cooper Kupp","WR","SEA",11,104,-103,150.5,0,0],["Keaton Mitchell","RB","LAC",7,99,-107,159.6,0,0],["Aaron Rodgers","QB","PIT",9,282,-107,168.3,0,0],["Brian Robinson Jr.","RB","ATL",11,96,-109,163.5,0,0],["Xavier Legette","WR","CAR",5,96,-111,177.4,0,0],["Tyler Allgeier","RB","ARI",14,94,-112,154.4,0,0],["Dylan Sampson","RB","CLE",11,93,-112,156.9,0,0],["Oronde Gadsden","TE","LAC",7,94,-112,146.7,0,0],["Ty Johnson","RB","BUF",7,93,-113,181.9,2,0],["MarShawn Lloyd","RB","GB",11,91,-114,156.2,0,1],["Ryan Flournoy","WR","DAL",14,92,-115,159.0,0,0],["Tre' Harris","WR","LAC",7,92,-115,171.9,0,0],["Darius Slayton","WR","NYG",8,91,-116,183.2,0,0],["Kayshon Boutte","WR","NE",11,89,-118,168.3,0,0],["Jonah Coleman","RB","DEN",10,79,-126,155.4,0,1],["Braelon Allen","RB","NYJ",13,79,-126,156.9,0,0],["Antonio Williams","WR","WAS",7,80,-127,161.0,0,1],["Jacoby Brissett","QB","ARI",14,259,-130,169.3,0,0],["Keon Coleman","WR","BUF",7,77,-130,96.2,0,0],["Isaac TeSlaa","WR","DET",6,75,-132,167.7,0,0],["Pat Bryant","WR","DEN",10,74,-133,151.1,0,0],["Chris Rodriguez Jr.","RB","JAX",7,72,-133,156.0,0,0],["Tyrone Tracy Jr.","RB","NYG",8,69,-137,153.8,0,0],["Omar Cooper Jr.","WR","NYJ",13,69,-138,166.3,0,1],["Emari Demercado","RB","KC",5,67,-139,144.4,0,0],["Mike Washington Jr.","RB","LV",13,66,-139,148.5,0,1],["Xavier Hutchinson","WR","HOU",8,67,-140,167.8,0,0],["Tank Bigsby","RB","PHI",10,65,-140,157.9,0,0],["Kaelon Black","RB","SF",8,62,-143,160.4,0,1],["Fernando Mendoza","QB","LV",13,243,-146,162.0,0,1],["Malachi Fields","WR","NYG",8,61,-146,156.0,0,1],["Jaydon Blue","RB","DAL",14,56,-149,168.9,0,1],["Troy Franklin","WR","DEN",10,52,-155,175.0,0,0],["Najee Harris","RB","NYG",8,50,-155,163.6,0,0],["Emmett Johnson","RB","KC",5,48,-158,162.8,0,1],["Cyrus Allen","WR","KC",5,44,-162,150.6,0,1],["Ray Davis","RB","BUF",7,37,-169,158.3,0,0],["Jordan James","RB","SF",8,28,-177,143.8,0,1]],"repl4":{"QB":342.9,"RB":205.5,"WR":206.9,"TE":205.8},"repl6":{"QB":389.5,"RB":205.5,"WR":206.9,"TE":205.8},"starters":{"QB":12,"RB":28,"WR":31,"TE":13},"picks":{"1":[1,24,25,48,49,72,73,96,97,120,121,144,145,168,169,192,193,216],"2":[2,23,26,47,50,71,74,95,98,119,122,143,146,167,170,191,194,215],"3":[3,22,27,46,51,70,75,94,99,118,123,142,147,166,171,190,195,214],"4":[4,21,28,45,52,69,76,93,100,117,124,141,148,165,172,189,196,213],"5":[5,20,29,44,53,68,77,92,101,116,125,140,149,164,173,188,197,212],"6":[6,19,30,43,54,67,78,91,102,115,126,139,150,163,174,187,198,211],"7":[7,18,31,42,55,66,79,90,103,114,127,138,151,162,175,186,199,210],"8":[8,17,32,41,56,65,80,89,104,113,128,137,152,161,176,185,200,209],"9":[9,16,33,40,57,64,81,88,105,112,129,136,153,160,177,184,201,208],"10":[10,15,34,39,58,63,82,87,106,111,130,135,154,159,178,183,202,207],"11":[11,14,35,38,59,62,83,86,107,110,131,134,155,158,179,182,203,206],"12":[12,13,36,37,60,61,84,85,108,109,132,133,156,157,180,181,204,205]}};
+const POS = ["QB","RB","WR","TE"];
+const PICKS = DATA.picks || {};
+let mySlot = 10;
+const MY = () => PICKS[String(mySlot)] || [];
+const TEAMS = 12;
+// The analyst overlay is optional: the committed board ships without it, so
+// every reference below has to survive AN being null rather than assume it.
+const AN = DATA.an || null;
+// Measured in POSITIONAL places, not overall picks. Eight spots at a position
+// is roughly a tier, and a tier is the unit that changes when you draft someone.
+const CLASH = 8;
+//: Stance chips shown inline before the cell starts crowding out ADP.
+const CHIPS = 2;
+let rule = "p4", filter = "ALL", hideNew = false, clashOnly = false;
+let gone = new Set(JSON.parse(localStorage.getItem("grffl_gone") || "[]"));
+let open = new Set();
+
+const el = id => document.getElementById(id);
+const save = () => localStorage.setItem("grffl_gone", JSON.stringify([...gone]));
+
+// position filter buttons
+if (Object.keys(PICKS).length) {
+  el("slotf").innerHTML = `<span class="eyebrow">Slot</span>`
+    + `<select id="slotsel" style="font:inherit;font-size:12.5px;padding:4px 6px;`
+    + `border-radius:6px;border:1px solid var(--rule);background:var(--panel);color:var(--ink-2)">`
+    + Object.keys(PICKS).map(Number).sort((a,b)=>a-b).map(s =>
+        `<option value="${s}"${s === mySlot ? " selected" : ""}>${s}</option>`).join("")
+    + `</select>`;
+  document.addEventListener("change", e => {
+    if (e.target.id === "slotsel") { mySlot = Number(e.target.value); render(); }
+  });
+}
+
+el("posf").innerHTML = ["ALL", ...POS].map(p =>
+  `<button data-p="${p}" aria-pressed="${p === "ALL"}">${p}</button>`).join("")
+  + `<button id="hidenew" aria-pressed="false">Hide unproven</button>`;
+
+if (AN) { el("anh").hidden = false; el("clash").hidden = false; }
+
+
+function board() { return DATA[rule]; }
+function repl() { return rule === "p4" ? DATA.repl4 : DATA.repl6; }
+
+// Overall board rank, recomputed per rulebook \u2014 the same player sits in a
+// different place at PaTD 6, so the divergence has to move with the toggle.
+let RANK = {};
+const ESC = t => String(t == null ? "" : t)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const STANCE = { target: "like", avoid: "fade", dart: "neutral", neutral: "neutral",
+                 like: "like", fade: "fade" };
+const WHO = { "JJ Zachariason": "JJ", "Scott Barrett": "Barrett", "Evan Silva": "Silva" };
+const shortName = a => WHO[a] || (a || "?").split(" ").pop();
+
+// Positional rank on THIS board, recomputed per rulebook.
+let PRANK = {};
+function ranks() {
+  RANK = {}; PRANK = {};
+  const seen = {};
+  board().forEach((r, i) => {
+    RANK[r[0]] = i + 1;
+    seen[r[1]] = (seen[r[1]] || 0) + 1;
+    PRANK[r[0]] = seen[r[1]];
+  });
+}
+
+// !! POSITIONAL ONLY. The overall-rank delta that used to live here compared
+// two different questions: his overall list encodes his own scoring and his
+// stated QB devaluation, so "he has him 64th, this board has him 52nd" is not
+// a disagreement about the player. Within a position both are ranking the
+// same pool, and the scoring adjustment is already inside VOR.
+function delta(nm) {
+  const a = AN && AN[nm];
+  if (!a || a.jp == null) return null;
+  return PRANK[nm] - a.jp;              // >0 : JJ ranks him higher at his position
+}
+
+function anCell(nm) {
+  if (!AN) return "";
+  const a = AN[nm];
+  // !! absent != disliked. A player JJ never wrote about gets a dashed marker,
+  // not a silent blank that reads as "no opinion worth showing".
+  if (!a) return `<td class="an"><span class="jj none">JJ &ndash;</span></td>`;
+  let h = "";
+  if (a.jp != null) {
+    const d = delta(nm);
+    const cls = Math.abs(d) >= CLASH ? "gap" : "";
+    h += `<span class="jj ${cls}" title="JJ has him ${a.jpos}${a.jp}`
+       + `${a.jt != null ? `, tier ${a.jt}` : ""}${a.jv != null ? `, $${a.jv}` : ""}`
+       + ` \u00b7 this board has him ${a.jpos}${PRANK[nm]}">JJ ${a.jpos}${a.jp}</span>`;
+    if (Math.abs(d) >= CLASH) {
+      h += `<span class="dv">${d > 0 ? "\u25b2" : "\u25bc"}${Math.abs(d)}</span>`;
+    }
+  } else {
+    h += `<span class="jj none">JJ &ndash;</span>`;
+  }
+  if (a.v && a.v !== "neutral") {
+    // Sits right beside the JJ pill, so it reads as part of that group rather
+    // than needing to repeat his name.
+    h += `<span class="stn gd ${STANCE[a.v] || "neutral"}" title="JJ's written guide">`
+       + `${a.v}</span>`;
+  }
+  // Cap the chips: some players carry five verified takes, and a cell that wide
+  // shoves ADP off the right edge on a phone. The rest are one tap away.
+  const pods = a.p || [];
+  for (const t of pods.slice(0, CHIPS)) {
+    const who = shortName(t.a);
+    h += `<span class="stn ${STANCE[t.s] || "neutral"}${t.q ? " hedge" : ""}" `
+       + `title="${t.q ? "verified on the page, but the speaker may be a guest rather than "
+                        + ESC(t.a) : "verified on the source page"}">`
+       + `${ESC(who)}${t.q ? "?" : ""} ${t.s === "like" ? "\u25b2" : t.s === "fade" ? "\u25bc" : "\u2022"}</span>`;
+  }
+  if (pods.length > CHIPS) h += `<span class="stn more">+${pods.length - CHIPS}</span>`;
+  if (a.t || (a.p || []).length) h += `<button class="tk" data-tk="${ESC(nm)}">${open.has(nm) ? "\u2212" : "+"}</button>`;
+  return `<td class="an">${h}</td>`;
+}
+
+function detRow(nm, cols) {
+  const a = AN && AN[nm];
+  if (!a) return "";
+  let body = "";
+  if (a.t) {
+    const d = delta(nm);
+    const gap = (d == null || d === 0) ? "" :
+      ` <span class="unv">&mdash; he has him ${a.jpos}${a.jp}, ${Math.abs(d)} `
+      + `place${Math.abs(d) === 1 ? "" : "s"} ${d > 0 ? "higher" : "lower"} than this board`
+      + `${a.jt != null ? `, his tier ${a.jt}` : ""}${a.jv != null ? ` at $${a.jv}` : ""}.</span>`;
+    body += `<div class="q ${STANCE[a.v] || "neutral"}"><b>JJ Zachariason</b> &middot; `
+          + `Late-Round Draft Guide 2026 &mdash; ${ESC(a.t)}${gap}</div>`;
+  }
+  for (const t of (a.p || [])) {
+    const yr = t.y && t.y !== "2026" ? ` <span class="unv">[${ESC(t.y)} take]</span>` : "";
+    const who = t.q ? `${ESC(t.a)}'s show` : ESC(t.a);
+    body += `<div class="q ${STANCE[t.s] || "neutral"}"><b>${who}</b>${yr} &mdash; ${ESC(t.t)}`
+          + (t.u ? ` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>` : "")
+          + (t.c ? `<div class="cav"><b>Who said it:</b> ${ESC(t.c)}</div>` : "")
+          + `</div>`;
+  }
+  return `<tr class="det"><td colspan="${cols}"><div class="det-in">${body}</div></td></tr>`;
+}
+
+function render() {
+  ranks();
+  const cols = AN ? 10 : 9;
+  const rows = board().filter(r =>
+    (filter === "ALL" || r[1] === filter) && !(hideNew && r[8] === 1)
+    && !(clashOnly && Math.abs(delta(r[0]) ?? 0) < CLASH));
+  el("rows").innerHTML = rows.map((r, i) => {
+    const [nm, pos, tm, bye, pts, vor, adp, flag] = r;
+    const g = gone.has(nm);
+    const note = flag === 1 ? "rush QB" : flag === 2 ? "rec RB" : "";
+    const rook = r[8] === 1;
+    return `<tr class="${g ? "gone" : ""} ${rook ? "rookie" : ""}" data-n="${nm.replace(/"/g, "&quot;")}">
+      <td class="rk mono">${i + 1}</td>
+      <td class="nm">${nm}${rook ? '<span class="rk-pill">NO TRACK RECORD</span>' : ""}</td>
+      <td><span class="chip ${pos}">${pos}</span></td>
+      <td class="dim mono">${tm}</td>
+      <td class="num dim">${bye || "\u2013"}</td>
+      <td class="num">${pts}</td>
+      <td class="num vor">${vor > 0 ? "+" + vor : vor}</td>
+      ${anCell(nm)}
+      <td class="num dim">${adp ? adp.toFixed(1) : "\u2013"}</td>
+      <td class="flag">${note}</td></tr>`
+      + (open.has(nm) ? detRow(nm, cols) : "");
+  }).join("");
+  const left = rows.filter(r => !gone.has(r[0])).length;
+  const nr = rows.filter(r => r[8] === 1).length;
+  el("count").textContent =
+    `${left} available of ${rows.length}` + (nr ? ` \u00b7 ${nr} unproven` : "")
+    + (clashOnly ? ` \u00b7 \u2265${CLASH} picks apart from JJ` : "");
+  scarcity();
+  clashes();
+  rail();
+}
+
+function clashes() {
+  if (!AN) return;
+  el("ancard").hidden = false;
+  // Only players still on the board \u2014 a disagreement about someone already
+  // drafted is trivia, and this card is meant to be read between picks.
+  const all = board()
+    .filter(r => !gone.has(r[0]) && AN[r[0]] && AN[r[0]].jp != null)
+    .map(r => ({ nm: r[0], pos: r[1], d: delta(r[0]) }))
+    .filter(x => Math.abs(x.d) >= CLASH);
+  // Both directions are actionable, and one of them usually dominates the raw
+  // top-N, so each gets its own short list rather than competing for slots.
+  const grp = (sign, label) => {
+    const rows = all.filter(x => Math.sign(x.d) === sign)
+                    .sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 5);
+    if (!rows.length) return "";
+    return `<div class="clh">${label}</div>` + rows.map(x =>
+      `<div class="cl"><b><span class="chip ${x.pos}">${x.pos}</span> ${x.nm}</b>`
+      + `<span class="g">${x.d > 0 ? "\u25b2" : "\u25bc"}${Math.abs(x.d)}</span></div>`).join("");
+  };
+  const html = grp(1, "\u25b2 JJ ranks them higher") + grp(-1, "\u25bc JJ ranks them lower");
+  el("clashes").innerHTML = html
+    || `<p class="cnote" style="margin:0">No unresolved gaps of ${CLASH}+ picks left on the board.</p>`;
+}
+
+function scarcity() {
+  const R = repl();
+  el("scar").innerHTML = POS.map(p => {
+    // "startable" = projected above this position's replacement level
+    const all = DATA[rule].filter(r => r[1] === p && r[4] > R[p]);
+    const left = all.filter(r => !gone.has(r[0])).length;
+    const pct = all.length ? Math.round(100 * left / all.length) : 0;
+    const col = pct > 60 ? "var(--good)" : pct > 30 ? "var(--warn)" : "var(--crit)";
+    return `<div class="scar-row">
+      <span class="chip ${p}">${p}</span>
+      <span class="meter"><i style="width:${pct}%;background:${col}"></i></span>
+      <span class="mono dim" style="text-align:right">${left}/${all.length}</span></div>`;
+  }).join("");
+}
+
+function rail() {
+  const taken = gone.size;
+  el("rail").innerHTML = MY().map(p => {
+    const rd = Math.floor((p - 1) / TEAMS) + 1, inr = ((p - 1) % TEAMS) + 1;
+    const done = taken >= p;
+    const next = !done && MY().filter(x => taken < x)[0] === p;
+    return `<span class="pk ${done ? "done" : ""} ${next ? "next" : ""}">${rd}.${String(inr).padStart(2, "0")}
+      <span class="dim">#${p}</span></span>`;
+  }).join("");
+}
+
+document.addEventListener("click", e => {
+  // The expand button lives inside a row whose click marks a player drafted,
+  // so it has to be claimed BEFORE the row handler ever sees the event.
+  const tk = e.target.closest("button.tk");
+  if (tk) {
+    const n = tk.dataset.tk;
+    open.has(n) ? open.delete(n) : open.add(n);
+    render(); return;
+  }
+  if (e.target.closest("tr.det")) return;      // reading a take is not a draft pick
+  const tr = e.target.closest("tbody tr");
+  if (tr) { const n = tr.dataset.n; gone.has(n) ? gone.delete(n) : gone.add(n); save(); render(); return; }
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "reset") { gone.clear(); save(); render(); return; }
+  if (b.id === "clash") {
+    clashOnly = !clashOnly; b.setAttribute("aria-pressed", clashOnly); render(); return;
+  }
+  if (b.id === "hidenew") {
+    hideNew = !hideNew; b.setAttribute("aria-pressed", hideNew); render(); return;
+  }
+  if (b.id === "r4" || b.id === "r6") {
+    rule = b.id === "r4" ? "p4" : "p6";
+    el("r4").setAttribute("aria-pressed", rule === "p4");
+    el("r6").setAttribute("aria-pressed", rule === "p6");
+    render(); return;
+  }
+  if (b.dataset.p) {
+    filter = b.dataset.p;
+    [...el("posf").children].forEach(x => x.setAttribute("aria-pressed", x.dataset.p === filter));
+    render();
+  }
+});
+// Verified takes that are about a position rather than a person. They fail a
+// player join by construction, and dropping them would lose the takes most
+// relevant to how you spend a whole round.
+if (DATA.an_pos && DATA.an_pos.length) {
+  el("poscard").hidden = false;
+  el("posn").innerHTML = DATA.an_pos.map(t =>
+    `<div class="q ${STANCE[t.s] || "neutral"}"><b>${ESC(t.a)}</b>`
+    + `${t.p ? ` &middot; ${ESC(t.p)}` : ""} &mdash; ${ESC(t.t)}`
+    + (t.u ? ` <a href="${ESC(t.u)}" target="_blank" rel="noopener">source</a>` : "")
+    + `</div>`).join("");
+}
+
+// -- provenance for the analyst column ----------------------
+// Says plainly how many takes were re-fetched and confirmed, and how many are
+// merely unchecked. "Unverified" is NOT "false" \u2014 but it is not evidence either,
+// and the page should never let the two look the same.
+if (AN) {
+  const names = Object.keys(AN);
+  const pods = names.reduce((a, n) => a + (AN[n].p || []).length, 0);
+  const total = board().length;
+  const covered = board().filter(r => AN[r[0]] && AN[r[0]].jp != null).length;
+  el("anfoot").hidden = false;
+  el("anfoot").innerHTML =
+    `<b>The analyst column.</b> <span class="jj">JJ WR5</span> is JJ Zachariason's `
+    + `rank <em>at that position</em> from the Late-Round Draft Guide 2026. His overall `
+    + `rank is deliberately not shown: an overall list encodes the analyst's own scoring `
+    + `and positional weighting \u2014 he says on the record that he devalues quarterbacks `
+    + `against ADP \u2014 so "he has him 64th and this board has him 52nd" compares two `
+    + `different questions. Within a position both are ranking the same pool, and this `
+    + `league's scoring is already inside VOR. ${covered} of the ${total} players here carry `
+    + `one. The arrow appears when the two are ${CLASH}+ places apart at the position; a `
+    + `dashed <span class="jj none">JJ &ndash;</span> means he never wrote about that player, `
+    + `which is not the same as a fade \u2014 ${total - covered} are in that position. Tap `
+    + `<b>+</b> to read what he actually said.<br><br>`
+    + `<b>Every podcast take here was re-fetched and confirmed.</b> ${pods} take`
+    + `${pods === 1 ? "" : "s"} from Evan Silva, Scott Barrett and JJ survived a second pass `
+    + `in which a fresh reader was handed only the URL and asked whether the page's own text `
+    + `supports the claim, defaulting to <em>no</em>. Takes that failed that check were dropped `
+    + `rather than softened &mdash; one widely-repeated summary attributed a specific list to an `
+    + `analyst that his own episode contradicts. Anything he said that is not on this page is `
+    + `<em>unchecked</em>, not disproved.`;
+}
+
+render();
+</script>

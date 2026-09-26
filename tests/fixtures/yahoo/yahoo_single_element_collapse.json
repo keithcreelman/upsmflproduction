@@ -1,0 +1,155 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/461.l.590044/teams?format=json for a league",
+    "        with exactly ONE team in it (a league mid-fill, which is the natural",
+    "        way to produce a one-element collection).",
+    "",
+    "REDACTION: all identifiers invented; the manager guid is FAKEGUID...0001.",
+    "",
+    "WHY THIS IS COMMITTED — THE SINGLE-ELEMENT COLLAPSE. A Yahoo collection of N",
+    "things is an OBJECT keyed \"0\",\"1\",... with a sibling \"count\":",
+    "",
+    "    \"teams\": {\"0\": {\"team\": [...]}, \"count\": 1}      ← the normal one-item form",
+    "",
+    "but a collection with exactly ONE element sometimes collapses to the bare",
+    "object instead, with NO numeric key and NO count at all:",
+    "",
+    "    \"teams\": {\"team\": [...]}                          ← what this file has",
+    "",
+    "Code that walks node[\"0\"] finds nothing and reports an empty league. Code",
+    "that iterates the object's keys hits the string \"team\" where it expected a",
+    "numeric index. Either way the result is ZERO ROWS AND NO EXCEPTION, which is",
+    "the failure mode this whole pipeline is built to refuse. iter_collection()",
+    "handles it by detecting a non-numeric key and yielding the object itself as",
+    "the sole element.",
+    "",
+    "THREE COLLAPSES, NESTED, IN ONE PAYLOAD — this is not a contrived stack; it",
+    "is what a one-team league genuinely looks like:",
+    "  1. teams       → collapsed to {\"team\": [...]}          (1 team)",
+    "  2. team_logos  → collapsed to {\"team_logo\": {...}}      (1 logo)",
+    "  3. managers    → collapsed to {\"manager\": {...}}        (1 manager)",
+    "Correct parsing yields exactly 1 team, 1 team-season-state row, 1 manager and",
+    "1 team↔manager link. Any of the three mishandled yields 0 for that table",
+    "while the others still populate — a partial result that looks like data.",
+    "",
+    "⚠️ THE COUNT KEY IS ABSENT, and its absence is the tell. Anything that",
+    "trusts 'count' to size a collection must cope with it not being there;",
+    "collection_count() returns None rather than 0, because 'the provider did not",
+    "declare a count' is not 'the provider declared zero'.",
+    "",
+    "OTHER PLACES THIS SAME COLLAPSE SHOWS UP (all reachable from this fixture",
+    "set): eligible_positions and bye_weeks on a player — see the kicker and the",
+    "team defense in yahoo_roster_week.json and yahoo_players_page1.json — and",
+    "transaction_data on a trade, which is the reverse trap: there the",
+    "SINGLE-ELEMENT case is the LIST form. Every plural thing goes through",
+    "as_list(); none of them may be indexed directly.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT BEYOND THE COLLAPSE:",
+    "  1. 'team' is an ARRAY whose element 0 is an ARRAY of single-key dicts.",
+    "  2. waiver_priority is a bare INT while number_of_moves is the STRING \"0\"",
+    "     and number_of_trades is the INT 0 — three ways to say a small number in",
+    "     one object.",
+    "  3. roster_adds is a sub-object whose 'coverage_value' is the week number",
+    "     and whose 'value' is the count — two different meanings, similar names.",
+    "  4. The manager is the authenticating user (is_owned_by_current_login 1,",
+    "     is_commissioner \"1\"), which is exactly the case where a real capture",
+    "     would also contain an EMAIL. The parser deliberately never reads it and",
+    "     there is none here.",
+    "  5. draft_grade / has_draft_grade are absent (predraft league) rather than",
+    "     empty.",
+    "",
+    "NOT TRUNCATED: a one-team league is one team. The collapse IS the fixture —",
+    "adding a second team would destroy it."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.590044/teams",
+    "league": [
+      {
+        "league_key": "461.l.590044",
+        "league_id": "590044",
+        "name": "Brand New League",
+        "url": "https://football.fantasysports.yahoo.com/f1/590044",
+        "draft_status": "predraft",
+        "num_teams": 1,
+        "scoring_type": "head",
+        "league_type": "private",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2025"
+      },
+      {
+        "teams": {
+          "team": [
+            [
+              {
+                "team_key": "461.l.590044.t.1"
+              },
+              {
+                "team_id": "1"
+              },
+              {
+                "name": "Lake Effect Snow"
+              },
+              {
+                "url": "https://football.fantasysports.yahoo.com/f1/590044/1"
+              },
+              {
+                "team_logos": {
+                  "team_logo": {
+                    "size": "large",
+                    "url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_9_l.png"
+                  }
+                }
+              },
+              {
+                "waiver_priority": 1
+              },
+              {
+                "number_of_moves": "0"
+              },
+              {
+                "number_of_trades": 0
+              },
+              {
+                "roster_adds": {
+                  "coverage_type": "week",
+                  "coverage_value": "1",
+                  "value": "0"
+                }
+              },
+              {
+                "league_scoring_type": "head"
+              },
+              {
+                "is_owned_by_current_login": 1
+              },
+              {
+                "managers": {
+                  "manager": {
+                    "manager_id": "1",
+                    "nickname": "owner_alpha",
+                    "guid": "FAKEGUID00000000000001",
+                    "is_commissioner": "1",
+                    "image_url": "https://s.yimg.com/cv/apiv2/default/profile_FAKE_64.png"
+                  }
+                }
+              }
+            ]
+          ]
+        }
+      }
+    ],
+    "time": "51.28ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

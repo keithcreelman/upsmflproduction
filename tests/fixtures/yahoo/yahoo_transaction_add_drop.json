@@ -1,0 +1,175 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/461.l.576919/transactions?format=json",
+    "        (one add/drop transaction extracted from that collection)",
+    "",
+    "REDACTION: all identifiers invented — team keys, team names and transaction",
+    "ids are fake. Player names are real NFL players with PLAUSIBLE BUT UNVERIFIED",
+    "numeric ids. No token, email, real GUID or real league key appears here.",
+    "",
+    "WHY THIS IS COMMITTED: this is the BARE-DICT half of the transaction_data",
+    "shape trap. For an add/drop, Yahoo sends transaction_data as a plain object;",
+    "for a trade it sends a LIST OF ONE OBJECT (see",
+    "yahoo_transaction_trade_multi.json). Code written against either shape alone",
+    "silently drops one hundred percent of the other kind — no exception, no",
+    "warning, just a transaction log missing every trade or every waiver move.",
+    "parse_transactions() runs both through as_list(), and this fixture is the",
+    "half that proves the collapsed-object branch of iter_collection() is live.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. transaction_data is a BARE DICT here. iter_collection() must hit its",
+    "     'non-numeric key → this is a single collapsed element' branch and yield",
+    "     the object itself.",
+    "  2. 'transaction' is a heterogeneous ARRAY: [ {metadata}, {players: {...}} ].",
+    "  3. Inside each player, the metadata is a LIST NESTED INSIDE THE RESOURCE",
+    "     ARRAY — 'player': [ [ {k:v}, {k:v}, ... ], { transaction_data } ] — with",
+    "     ONE SINGLE-KEY DICT PER FIELD. flatten_resource() has to descend one",
+    "     extra level for that. This is the shape that breaks naive [0]/[1]",
+    "     indexing, and it is Yahoo's normal player serialization, not an edge",
+    "     case.",
+    "  4. The two legs have OPPOSITE movement types on the SAME transaction: leg 0",
+    "     type 'add' (source_type 'freeagents', so NO source_team_key exists), leg",
+    "     1 type 'drop' (source_type 'team' WITH a source_team_key, destination",
+    "     'waivers' with no destination_team_key). Absent is not empty: a leg with",
+    "     source_team_key = '' would be a different claim about the world, and",
+    "     filling the absence with '' destroys the ability to tell a waiver claim",
+    "     from a free-agent pickup.",
+    "  5. NO faab_bid key on this transaction. This is a first-come free-agent",
+    "     add, so 'not exposed' — NULL — not a zero bid. The zero-vs-null contrast",
+    "     is in yahoo_transaction_faab_waiver.json.",
+    "  6. Yahoo's own transaction_id is a bare string '142' while transaction_key",
+    "     is fully qualified; only the key is unique across leagues.",
+    "",
+    "NOT TRUNCATED: this is one complete transaction, deliberately isolated from",
+    "the surrounding collection so a failure here is unambiguous."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.576919/transactions",
+    "league": [
+      {
+        "league_key": "461.l.576919",
+        "league_id": "576919",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/576919",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2025"
+      },
+      {
+        "transactions": {
+          "0": {
+            "transaction": [
+              {
+                "transaction_key": "461.l.576919.tr.142",
+                "transaction_id": "142",
+                "type": "add/drop",
+                "status": "successful",
+                "timestamp": "1728946800"
+              },
+              {
+                "players": {
+                  "0": {
+                    "player": [
+                      [
+                        {
+                          "player_key": "461.p.33947"
+                        },
+                        {
+                          "player_id": "33947"
+                        },
+                        {
+                          "name": {
+                            "full": "Rico Dowdle",
+                            "first": "Rico",
+                            "last": "Dowdle",
+                            "ascii_first": "Rico",
+                            "ascii_last": "Dowdle"
+                          }
+                        },
+                        {
+                          "editorial_team_abbr": "Car"
+                        },
+                        {
+                          "display_position": "RB"
+                        },
+                        {
+                          "position_type": "O"
+                        }
+                      ],
+                      {
+                        "transaction_data": {
+                          "type": "add",
+                          "source_type": "freeagents",
+                          "destination_type": "team",
+                          "destination_team_key": "461.l.576919.t.6",
+                          "destination_team_name": "Brotherly Shove"
+                        }
+                      }
+                    ]
+                  },
+                  "1": {
+                    "player": [
+                      [
+                        {
+                          "player_key": "461.p.34181"
+                        },
+                        {
+                          "player_id": "34181"
+                        },
+                        {
+                          "name": {
+                            "full": "Tank Bigsby",
+                            "first": "Tank",
+                            "last": "Bigsby",
+                            "ascii_first": "Tank",
+                            "ascii_last": "Bigsby"
+                          }
+                        },
+                        {
+                          "editorial_team_abbr": "Phi"
+                        },
+                        {
+                          "display_position": "RB"
+                        },
+                        {
+                          "position_type": "O"
+                        }
+                      ],
+                      {
+                        "transaction_data": {
+                          "type": "drop",
+                          "source_type": "team",
+                          "source_team_key": "461.l.576919.t.6",
+                          "source_team_name": "Brotherly Shove",
+                          "destination_type": "waivers"
+                        }
+                      }
+                    ]
+                  },
+                  "count": 2
+                }
+              }
+            ]
+          },
+          "count": 1
+        }
+      }
+    ],
+    "time": "63.18ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

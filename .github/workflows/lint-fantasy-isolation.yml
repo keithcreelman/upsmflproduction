@@ -1,0 +1,81 @@
+name: Lint fantasy isolation
+
+# The Yahoo/fantasy pipeline shares one D1 database with the ledgers that run a
+# real 12-team money league. That database has already been damaged four ways by
+# code that had no intention of damaging it:
+#
+#   2026-08-02  a FAA finalize sweep whose guard failed OPEN flattened 18 owner
+#               contracts in a single pass.
+#   2026-08-06  an ERA auto-drop cron unloaded 3 live contracts through MFL's
+#               commish web form — grepping for `import?TYPE=rosters` found
+#               NOTHING, because the write did not look like a write.
+#   2026-08-07  a contractInfo-only salaries import BLANKED salary/status/year on
+#               3 live contracts, because MFL's import replaces rather than
+#               patches.
+#   ongoing     `wrangler d1 migrations apply` is ~47 entries behind and corrupts
+#               contracts if anyone ever runs it.
+#
+# Migration 0127 states the separation rule in prose: "Nothing in the fantasy_*
+# family may read or write ups_* / src_* / mfl_* / nfl_* rows." Every one of the
+# incidents above was written by somebody who knew the rules. A header comment is
+# not a control; a job that fails the pull request is.
+#
+# So this gate reads the whole fantasy surface — the pipeline Python, the Worker
+# OAuth module, migrations 0127-0132, and the hand-applied analytical views — and
+# fails on a write against the UPS/MFL side, a committed credential, a
+# `wrangler d1 migrations apply`, or a `--remote` that would send a backfill at
+# production implicitly.
+#
+# It REFUSES rather than passes when a scan target is missing or unreadable. A
+# green check here means "I read all of it and found nothing", never "I found
+# nothing to read" — that distinction is the one this repo keeps paying for.
+#
+# The check lives in a .py file, not in a `run:` heredoc. Python nested inside a
+# YAML run block inside a shell heredoc broke three separate workflows on
+# 2026-08-08. Stop doing that.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
+      - "worker/src/yahoo_oauth.js"
+      # Matched by NAME, not by number — same fix, same reason, as SCAN_KINDS'
+      # "fantasy migrations" entry in check_fantasy_isolation.py. This was an
+      # explicit 0127*-0132* list; the fantasy migrations shipped as 0132-0139
+      # after a renumbering, so only one of the six real files matched, and the
+      # stale numbers ALSO collided with two real, unrelated already-shipped
+      # UPS migrations (0130_ups_transactions_type_index.sql,
+      # 0131_league_events_2024_2025_deadlines.sql) — an ordinary UPS PR
+      # touching either would spuriously trip the fantasy-isolation scan.
+      # Verified 2026-08-28: 6 of 8 real fantasy migrations never triggered
+      # this job at all.
+      - "worker/migrations/*_fantasy_*.sql"
+      - "worker/migrations/manual/2026-08-11_fantasy_analytical_views.sql"
+      - "scripts/check_fantasy_isolation.py"
+      # The gate's own definition, so weakening the gate re-runs the gate.
+      - ".github/workflows/lint-fantasy-isolation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
+      - "worker/src/yahoo_oauth.js"
+      - "worker/migrations/*_fantasy_*.sql"
+      - "worker/migrations/manual/2026-08-11_fantasy_analytical_views.sql"
+      - "scripts/check_fantasy_isolation.py"
+      - ".github/workflows/lint-fantasy-isolation.yml"
+
+jobs:
+  fantasy-isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Assert the fantasy pipeline cannot write UPS/MFL tables
+        run: python3 scripts/check_fantasy_isolation.py

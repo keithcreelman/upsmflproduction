@@ -1,0 +1,400 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/461.l.576919/standings?format=json",
+    "        (a FINISHED season — is_finished 1, current_week == end_week)",
+    "",
+    "REDACTION: all identifiers invented — team keys, team names and manager",
+    "GUIDs (FAKEGUID...) are fake.",
+    "",
+    "WHY THIS IS COMMITTED — THE LEADING DOT. Team t.6 has an outcome percentage",
+    "of \".571\". Not \"0.571\". Yahoo strips the leading zero, and that single",
+    "character is a parser-breaker: JavaScript's parseInt('.571') is NaN,",
+    "int('.571') raises, and a Number-vs-null coalesce turns it into 0 — a team",
+    "that went 8-6 recorded as having won nothing. to_float() handles it, and",
+    "this fixture is the only thing that proves it still does.",
+    "",
+    "SECOND VALUE THAT BREAKS NAIVE PARSING: games_back is the literal string",
+    "'-' for the first-place team. Not 0, not empty, not null — a dash. to_float()",
+    "returns None for it, which is right: the leader is not zero games back in the",
+    "same sense that a 2.0 is a number; Yahoo is drawing a table, not reporting a",
+    "measurement. Anything that coerces '-' to 0 will look correct and be wrong.",
+    "",
+    "THIRD THING THIS FILE ENCODES — a limit, not a feature. ⚠️ THIS IS THE ONLY",
+    "STANDINGS STATE YAHOO WILL EVER GIVE YOU. There is no standings;week=N. For a",
+    "completed season you get the final table and nothing else; for a live one you",
+    "get today's. Every intermediate week has to be RECONSTRUCTED from the",
+    "scoreboards, and every reconstructed row is written with is_inferred=1 and a",
+    "basis. The rows parsed from this payload are the only ones entitled to",
+    "is_inferred=0.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. 'standings' is a one-element ARRAY wrapping the teams collection —",
+    "     [ {\"teams\": {...}} ] — while 'teams' inside it is a numeric-key",
+    "     COLLECTION with a sibling 'count'. Two different container conventions,",
+    "     one nested inside the other, in the same payload.",
+    "  2. 'team' is an ARRAY whose element 0 is an ARRAY of single-key dicts.",
+    "  3. wins/losses arrive as bare INTs on some teams and STRINGS on others.",
+    "  4. A team with a TIE is present (t.9, 7-6-1). Ties are rare enough that",
+    "     code paths silently assume wins+losses == games played.",
+    "  5. points_for appears BOTH as team_standings.points_for AND as",
+    "     team_points.total on t.4 only. The parser prefers team_standings and",
+    "     falls back — and the two agree here, deliberately, so the fallback can",
+    "     be tested without also testing a disagreement.",
+    "  6. clinched_playoffs is present on the top four teams and ABSENT on the",
+    "     rest. Absent is not 0 — for an eliminated team Yahoo simply stops",
+    "     mentioning it.",
+    "  7. streak is a sub-object {type, value}; 'value' is a string.",
+    "",
+    "TRUNCATED to 6 of 12 teams. Reason: the remaining six are the same code path",
+    "and would add 300 lines. The six kept cover: the leader (games_back '-',",
+    "clinched), the leading-dot percentage, a tie record, a losing streak, both",
+    "divisions, and a team with no clinched_playoffs key at all."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.576919/standings",
+    "league": [
+      {
+        "league_key": "461.l.576919",
+        "league_id": "576919",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/576919",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2025",
+        "is_finished": 1
+      },
+      {
+        "standings": [
+          {
+            "teams": {
+              "0": {
+                "team": [
+                  [
+                    {
+                      "team_key": "461.l.576919.t.4"
+                    },
+                    {
+                      "team_id": "4"
+                    },
+                    {
+                      "name": "Third Down Thunder"
+                    },
+                    {
+                      "division_id": "1"
+                    },
+                    {
+                      "clinched_playoffs": 1
+                    },
+                    {
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "4",
+                            "nickname": "owner_delta",
+                            "guid": "FAKEGUID00000000000004"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  {
+                    "team_points": {
+                      "coverage_type": "season",
+                      "season": "2025",
+                      "total": "1781.44"
+                    }
+                  },
+                  {
+                    "team_standings": {
+                      "rank": 1,
+                      "playoff_seed": "1",
+                      "outcome_totals": {
+                        "wins": 11,
+                        "losses": 3,
+                        "ties": 0,
+                        "percentage": ".786"
+                      },
+                      "streak": {
+                        "type": "win",
+                        "value": "4"
+                      },
+                      "points_for": 1781.44,
+                      "points_against": 1502.18,
+                      "games_back": "-"
+                    }
+                  }
+                ]
+              },
+              "1": {
+                "team": [
+                  [
+                    {
+                      "team_key": "461.l.576919.t.11"
+                    },
+                    {
+                      "team_id": "11"
+                    },
+                    {
+                      "name": "Two Minute Warning"
+                    },
+                    {
+                      "division_id": "2"
+                    },
+                    {
+                      "clinched_playoffs": 1
+                    },
+                    {
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "11",
+                            "nickname": "--hidden--",
+                            "guid": "FAKEGUID00000000000011"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  {
+                    "team_standings": {
+                      "rank": 2,
+                      "playoff_seed": "2",
+                      "outcome_totals": {
+                        "wins": "10",
+                        "losses": "4",
+                        "ties": "0",
+                        "percentage": ".714"
+                      },
+                      "streak": {
+                        "type": "win",
+                        "value": "2"
+                      },
+                      "points_for": 1744.02,
+                      "points_against": 1588.76,
+                      "games_back": "1.0"
+                    }
+                  }
+                ]
+              },
+              "2": {
+                "team": [
+                  [
+                    {
+                      "team_key": "461.l.576919.t.2"
+                    },
+                    {
+                      "team_id": "2"
+                    },
+                    {
+                      "name": "River City Rollers"
+                    },
+                    {
+                      "division_id": "1"
+                    },
+                    {
+                      "clinched_playoffs": 1
+                    },
+                    {
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "2",
+                            "nickname": "owner_bravo",
+                            "guid": "FAKEGUID00000000000002"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  {
+                    "team_standings": {
+                      "rank": 3,
+                      "playoff_seed": "3",
+                      "outcome_totals": {
+                        "wins": 9,
+                        "losses": 5,
+                        "ties": 0,
+                        "percentage": ".643"
+                      },
+                      "streak": {
+                        "type": "loss",
+                        "value": "1"
+                      },
+                      "points_for": 1698.55,
+                      "points_against": 1601.30,
+                      "games_back": "2.0"
+                    }
+                  }
+                ]
+              },
+              "3": {
+                "team": [
+                  [
+                    {
+                      "team_key": "461.l.576919.t.6"
+                    },
+                    {
+                      "team_id": "6"
+                    },
+                    {
+                      "name": "Brotherly Shove"
+                    },
+                    {
+                      "division_id": "2"
+                    },
+                    {
+                      "clinched_playoffs": 1
+                    },
+                    {
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "6",
+                            "nickname": "owner_foxtrot",
+                            "guid": "FAKEGUID00000000000006"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  {
+                    "team_standings": {
+                      "rank": 4,
+                      "playoff_seed": "4",
+                      "outcome_totals": {
+                        "wins": 8,
+                        "losses": 6,
+                        "ties": 0,
+                        "percentage": ".571"
+                      },
+                      "streak": {
+                        "type": "win",
+                        "value": "1"
+                      },
+                      "points_for": 1655.91,
+                      "points_against": 1620.44,
+                      "games_back": "3.0"
+                    }
+                  }
+                ]
+              },
+              "4": {
+                "team": [
+                  [
+                    {
+                      "team_key": "461.l.576919.t.9"
+                    },
+                    {
+                      "team_id": "9"
+                    },
+                    {
+                      "name": "Sunday Scaries"
+                    },
+                    {
+                      "division_id": "1"
+                    },
+                    {
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "9",
+                            "nickname": "owner_india",
+                            "guid": "FAKEGUID00000000000009"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  {
+                    "team_standings": {
+                      "rank": 5,
+                      "playoff_seed": "5",
+                      "outcome_totals": {
+                        "wins": 7,
+                        "losses": 6,
+                        "ties": 1,
+                        "percentage": ".536"
+                      },
+                      "streak": {
+                        "type": "loss",
+                        "value": "2"
+                      },
+                      "points_for": 1611.08,
+                      "points_against": 1644.77,
+                      "games_back": "3.5"
+                    }
+                  }
+                ]
+              },
+              "5": {
+                "team": [
+                  [
+                    {
+                      "team_key": "461.l.576919.t.12"
+                    },
+                    {
+                      "team_id": "12"
+                    },
+                    {
+                      "name": "Pylon Patrol"
+                    },
+                    {
+                      "division_id": "2"
+                    },
+                    {
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "12",
+                            "nickname": "owner_lima",
+                            "guid": "FAKEGUID00000000000012"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  {
+                    "team_standings": {
+                      "rank": 6,
+                      "playoff_seed": "6",
+                      "outcome_totals": {
+                        "wins": 6,
+                        "losses": 8,
+                        "ties": 0,
+                        "percentage": ".429"
+                      },
+                      "streak": {
+                        "type": "loss",
+                        "value": "3"
+                      },
+                      "points_for": 1547.62,
+                      "points_against": 1699.03,
+                      "games_back": "5.0"
+                    }
+                  }
+                ]
+              },
+              "count": 6
+            }
+          }
+        ]
+      }
+    ],
+    "time": "133.90ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}

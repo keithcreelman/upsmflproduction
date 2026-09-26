@@ -1,0 +1,228 @@
+{
+ "body": {
+  "teams": [
+   {
+    "abbr": "T04",
+    "division": "East",
+    "id": "4",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team04",
+    "name": "Team 04",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Manager 01",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 0"
+   },
+   {
+    "abbr": "T06",
+    "division": "Central",
+    "id": "6",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team06",
+    "name": "Team 06",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Manager 02",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 0"
+   },
+   {
+    "abbr": "T15",
+    "division": "Central",
+    "id": "15",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team15",
+    "name": "Team 15",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Manager 03",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 1"
+   },
+   {
+    "abbr": "T07",
+    "division": "West",
+    "id": "7",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team07",
+    "name": "Team 07",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Manager 04",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 0"
+   },
+   {
+    "abbr": "T02",
+    "division": "West",
+    "id": "2",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team02",
+    "name": "Team 02",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000005",
+      "name": "Manager 05",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 0"
+   },
+   {
+    "abbr": "T08",
+    "division": "West",
+    "id": "8",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team08",
+    "name": "Team 08",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000006",
+      "name": "Manager 06",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 0"
+   },
+   {
+    "abbr": "T11",
+    "division": "East",
+    "id": "11",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team11",
+    "name": "Team 11",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000007",
+      "name": "Manager 07",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 1"
+   },
+   {
+    "abbr": "T03",
+    "division": "East",
+    "id": "3",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team03",
+    "name": "Team 03",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000008",
+      "name": "Manager 08",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 0"
+   },
+   {
+    "abbr": "T13",
+    "division": "Central",
+    "id": "13",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team13",
+    "name": "Team 13",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000009",
+      "name": "Manager 09",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 1"
+   },
+   {
+    "abbr": "T01",
+    "division": "Central",
+    "id": "1",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team01",
+    "name": "Team 01",
+    "owners": [
+     {
+      "commissioner": 1,
+      "id": "00000000-0000-4000-8000-000000000010",
+      "name": "Manager 10",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 0"
+   },
+   {
+    "abbr": "T10",
+    "division": "East",
+    "id": "10",
+    "is_vacant": 0,
+    "logged_in_team": 1,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team10",
+    "name": "Team 10",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000011",
+      "logged_in_owner": 1,
+      "name": "Manager 11",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 1"
+   },
+   {
+    "abbr": "T16",
+    "division": "West",
+    "id": "16",
+    "is_vacant": 0,
+    "logo": "https://example.invalid/logo.png",
+    "long_abbr": "Team16",
+    "name": "Team 16",
+    "owners": [
+     {
+      "commissioner": 0,
+      "id": "00000000-0000-4000-8000-000000000012",
+      "name": "Manager 12",
+      "playoff_add_drops_disabled": 0
+     }
+    ],
+    "short_name": "Team 1"
+   }
+  ]
+ },
+ "statusCode": 200,
+ "statusMessage": "OK",
+ "uri": "/league/teams",
+ "uriAlias": "/league/teams"
+}
