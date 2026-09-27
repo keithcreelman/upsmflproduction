@@ -46,7 +46,7 @@ export const QUERIES = Object.freeze({
 export const APPROVED = Object.freeze({
   excluded_ids: Object.freeze([]),                                                     // rows the reviewer keeps out of the plan (the CLI's --exclude adds to this)
   legacy_guarantee_ids: Object.freeze([32, 33, 40]),                                 // KeAndre Lambert-Smith, Konata Mumpfield, Ja'Tavion Sanders — `tcv_under_5k_guarantee`
-  ww_earned_na_ids: Object.freeze([116, 117, 122, 131, 136, 140]),                    // Wilson, Nailor, Brooks, C. Johnson, Ezeiruaku, Wentz — canon §C3
+  ww_earned_na_ids: Object.freeze([116, 117, 122, 131, 136, 140, 152]),               // Wilson, Nailor, Brooks, C. Johnson, Ezeiruaku, Wentz, Ertz (2026-09-27) — canon §C3
 });
 export const REPAIR_KINDS = Object.freeze(Object.keys(EARNED_REPAIR_COLUMNS));
 
@@ -120,11 +120,16 @@ export function analyzeRow(r, fcfsAdds, adjustments, approved = APPROVED) {
   };
 }
 
-export function buildAnalysis(ds, { approved = APPROVED } = {}) {
+export function buildAnalysis(ds, { approved = APPROVED, asOfUnix = null } = {}) {
   const fcfsAdds = ds.fcfsAdds || [];
   // (the TCV ≤ $4K filter only SCOPES the candidates — it classifies nothing: every row below is proven into a class or held)
   const tokenClass = (r) => { const tk = parseContractTokens(r.pre_drop_contract_info, r.pre_drop_salary); return classifyFullYearRule({ salary: num(r.pre_drop_salary), tcv: tk.tcv, cl: tk.cl, aav: tk.aav, aavTiers: tk.aavTiers, yearSalaries: tk.yearSalaries }).member; };
-  const universe = ds.drops.filter((r) => r.earned_to_date != null && ((num(r.pre_drop_tcv) > 0 && num(r.pre_drop_tcv) <= 4000) || tokenClass(r)));
+  const isCandidate = (r) => r.earned_to_date != null && ((num(r.pre_drop_tcv) > 0 && num(r.pre_drop_tcv) <= 4000) || tokenClass(r));
+  // an --as-of cutoff scopes the HISTORICAL repair to drops that happened at or before it (Keith 2026-09-27: a cutoff bound to one
+  // explicit UTC timestamp, recorded before the final dry run, so continuing live waiver activity can never move a bound plan —
+  // a row dropped AFTER the cutoff is reported here, then left for the deployed worker's own future-write path, never repaired by this tool).
+  const afterCutoff = asOfUnix == null ? [] : ds.drops.filter((r) => isCandidate(r) && num(r.dropped_at_unix) > asOfUnix);
+  const universe = (asOfUnix == null ? ds.drops : ds.drops.filter((r) => num(r.dropped_at_unix) <= asOfUnix)).filter(isCandidate);
   const rows = universe.map((r) => analyzeRow(r, fcfsAdds, ds.adjustments, approved));
   const by = (f) => rows.reduce((m, r) => { const k = f(r); m[k] = (m[k] || 0) + 1; return m; }, {});
   const members = rows.filter((r) => r.in_full_year_class), held = rows.filter((r) => /^hold/.test(r.action));   // (hold_for_ruling · hold_conflict · hold_not_approved · hold_excluded)
@@ -135,6 +140,8 @@ export function buildAnalysis(ds, { approved = APPROVED } = {}) {
   return {
     rows, plan,
     summary: {
+      as_of_unix: asOfUnix, as_of_utc: asOfUnix == null ? null : new Date(asOfUnix * 1000).toISOString(),
+      excluded_by_cutoff: { total: afterCutoff.length, ids: afterCutoff.map((r) => r.id), dropped_at: Object.fromEntries(afterCutoff.map((r) => [r.id, r.dropped_at_iso])) },
       candidates: rows.length, in_full_year_class: members.length, held_for_ruling: held.length,
       by_action: by((r) => r.action), planned_by_kind: by((r) => r.repair_kind || "(none)"),
       by_class: by((r) => r.class), by_penalty_basis: by((r) => r.penalty_basis),
@@ -241,14 +248,22 @@ export function toCsv(rows) {
 }
 
 export function parseArgs(argv) {
-  const o = { apply: false, yes: false, verify: false, offline: false, serverDryRun: false, season: "", plan: "", exclude: [] };
+  const o = { apply: false, yes: false, verify: false, offline: false, serverDryRun: false, season: "", plan: "", exclude: [], asOf: "" };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i], nx = () => argv[++i];
     if (a === "--apply") o.apply = true; else if (a === "--yes") o.yes = true; else if (a === "--verify") o.verify = true; else if (a === "--offline") o.offline = true; else if (a === "--server-dry-run") o.serverDryRun = true;
     else if (a === "--season") o.season = nx(); else if (a === "--out") o.out = nx(); else if (a === "--cache") o.cache = nx(); else if (a === "--base") o.base = nx(); else if (a === "--against") o.against = nx(); else if (a === "--plan") o.plan = nx(); else if (a === "--exclude") o.exclude = nx().split(",").map((x) => Number(x.trim())).filter((n) => Number.isSafeInteger(n) && n > 0);
+    else if (a === "--as-of") o.asOf = nx();
     else throw new Error(`unknown argument ${a}`);
   }
   return o;
+}
+/** --as-of <ISO-8601 UTC> → unix seconds. Throws on anything unparsable — a silently-ignored cutoff would repair rows past it. */
+export function parseAsOf(v) {
+  if (!v) return null;
+  const t = Date.parse(/Z$|[+-]\d\d:?\d\d$/.test(v) ? v : v + "Z");
+  if (!Number.isFinite(t)) throw new Error(`--as-of "${v}" is not a parseable UTC timestamp (use e.g. 2026-09-27T15:10:00Z)`);
+  return Math.floor(t / 1000);
 }
 
 export async function run(argv, { io: ioIn, log = console.log, env = process.env, approved = APPROVED } = {}) {
@@ -258,13 +273,14 @@ export async function run(argv, { io: ioIn, log = console.log, env = process.env
   if (o.apply && num(o.season) !== CURRENT_SEASON) throw new Error(`--apply is only permitted for the current season (${CURRENT_SEASON})`);
   if (o.apply && !o.plan) throw new Error("--apply needs --plan <plan.json from the reviewed dry run> (write mode only sends what was reviewed)");
   approved = { ...approved, excluded_ids: [...(approved.excluded_ids || []), ...o.exclude] };
+  const asOfUnix = parseAsOf(o.asOf);
   const io = ioIn || productionIo({ base: o.base || DEFAULT_BASE });
   const dir = o.out || path.join(process.cwd(), "full_year_earned_out", new Date().toISOString().replace(/[:.]/g, "-"));
   if (!o.offline && !o.cache && fs.existsSync(path.join(dir, "dataset_before_state"))) throw new Error(`the output directory ${dir} already holds a before-state dataset — use a NEW --out (a reused directory would silently reuse stale data), or --offline to deliberately reuse it`);
   fs.mkdirSync(dir, { recursive: true });
   const ds = await loadDataset(io, { cacheDir: o.cache || path.join(dir, "dataset_before_state"), offline: o.offline });
-  const analysis = buildAnalysis(ds, { approved });
-  const report = { mode: o.apply ? "apply" : o.serverDryRun ? "server_dry_run" : o.verify ? "verify" : "dry_run", summary: analysis.summary };
+  const analysis = buildAnalysis(ds, { approved, asOfUnix });
+  const report = { mode: o.apply ? "apply" : o.serverDryRun ? "server_dry_run" : o.verify ? "verify" : "dry_run", as_of: o.asOf || null, summary: analysis.summary };
   fs.writeFileSync(path.join(dir, "earned_rows_dryrun.json"), JSON.stringify(analysis.rows, null, 1));
   fs.writeFileSync(path.join(dir, "earned_rows_dryrun.csv"), toCsv(analysis.rows));
   fs.writeFileSync(path.join(dir, "plan.json"), JSON.stringify(analysis.plan, null, 1));
