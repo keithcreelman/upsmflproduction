@@ -72,6 +72,7 @@ const nflWeek1IsoFn = grab(
 // nflWeekFirstKickoffUnix's real network calls. Module-level variables so
 // individual tests can swap behavior without re-extracting the file.
 const prelude = `
+import { applyFullYearRule, classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS } from "${new URL('../worker/src/fcfs_contract.js', import.meta.url).href}";
 const safeStr = (v) => v == null ? "" : String(v);
 const safeInt = (v, d) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : (d || 0); };
 const _s = (v) => String(v == null ? "" : v).trim();
@@ -735,11 +736,11 @@ console.log('\n-- 21. Jack Strand (real rostered player, franchise 0008 "Real De
     { dropDateIso: '2026-09-24T00:00:00Z', season: '2026', completedPayableWeeks: 2 }
   );
   t('21a. Strand annual (Y1) salary parsed = $1,000', strand.yearSalaries[1], 1000);
-  t('21b. Strand earned = round(1000*2/17) = $118 (NOT $1,000 — reflects the corrected week-math, same 2/17 fraction as Brissett/Murray/Prescott)', strand.earned, Math.round(1000 * 2 / 17));
+  t('21b. Strand (sub-$5K, TCV 3K): NO weekly earned amount — the dedicated full-year rule (was $118 = round(1000*2/17))', { earned: strand.earned, rule: strand.earned_rule }, { earned: null, rule: 'full_year_sub_5k' });
   t('21c. Strand guaranteed = flat $1,000 (tcv_under_5k_flat override, years_remaining=3 >= 2)', strand.guaranteed, 1000);
-  t('21d. Strand penalty = flat $1,000, basis tcv_under_5k_flat', { penalty: strand.penalty, basis: strand.basis }, { penalty: 1000, basis: 'tcv_under_5k_flat' });
-  check('21e. penalty is the FLAT override, NOT netted against earned (guaranteed - earned = 1000-118 = 882, but penalty stays 1000)', () => {
-    assert.notStrictEqual(strand.penalty, strand.guaranteed - strand.earned, 'tcv_under_5k_flat must NOT net penalty against earned');
+  t('21d. Strand penalty = flat $1,000; a $1K-a-year contract carries the explicit full-year basis (the same flat rule, named for the class)', { penalty: strand.penalty, basis: strand.basis }, { penalty: 1000, basis: 'full_year_1k_contract' });
+  check('21e. penalty is the FLAT override — no earned figure exists to net against', () => {
+    assert.strictEqual(strand.earned, null);
     assert.strictEqual(strand.penalty, 1000);
   });
 }

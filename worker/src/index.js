@@ -38,6 +38,8 @@ import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
+import { planFcfsStamp, verifyFcfsWrite, canonicalFcfsContract, applyFullYearRule, classifyFcfsContract, planUnstampedFcfsDropRepair, REPRICE_COLUMNS, FCFS_OUTCOME, FCFS_RULE_VERSION, FCFS_SALARY,
+  classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS, EARNED_REPAIR_COLUMNS, planFullYearClearRepair, planWwEarnedNaRepair, planLegacyGuaranteeRepair, planFcfsAddEventClosure } from "./fcfs_contract.js";
 
 const acquisitionLiveMemoryCache = new Map();
 // Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
@@ -783,6 +785,68 @@ async function dmCommishOncePerBatch(env, alertKey, pids, content) {
     }
   }
   return sent;
+}
+
+// The FCFS / waiver stamp's OWN health, judged from one call of /admin/adds/stamp-ww-contracts (the */5 cron passes what it got back).
+//   • the CALL failing (it threw, or answered without an outcome list — an unreadable MFL export, a missing cookie, a bad key) is silent by nature:
+//     nothing was stamped and nothing says so. A failure that persists ~15 minutes DMs the commissioner once, then at most hourly.
+//   • blank contracts a rule could not decide (needs_input) DM once per distinct batch (24 h reminder) — a blank contract is never a success.
+//   • an FCFS row that keeps coming back retryable (the write did not land / verify) escalates ONCE after ~10 minutes; the marker is written only after
+//     the DM landed (a missed alert must never be recorded as sent) and is cleared as soon as the player leaves the retry loop by ANY route.
+async function stampHealthAlerts(env, { leagueId, status, data, thrown }) {
+  const db = env.UPS_MFL_DB;
+  if (!db) return;
+  const nowTs = Math.floor(Date.now() / 1000);
+  const getHb = (bot) => db.prepare(`SELECT last_ts, status FROM ups_bot_heartbeat WHERE bot = ?`).bind(bot).first();
+  const setHb = (bot, ts, st) => db.prepare(
+    `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES (?, ?, ?, '') ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = excluded.status`
+  ).bind(bot, ts, st).run();
+  const outs = data && Array.isArray(data.fcfs_outcomes) ? data.fcfs_outcomes : null;
+  const usable = !thrown && data && (outs !== null || data.ok === true || data.error === "circuit_breaker_tripped");   // (the breaker DMs on its own)
+  try {
+    if (!usable) {
+      const first = await getHb("ww_stamp_error_first");
+      if (!first) { await setHb("ww_stamp_error_first", nowTs, "seen"); return; }
+      if (nowTs - Number(first.last_ts || 0) < 900) return;
+      const last = await getHb("ww_stamp_error_alerted");
+      if (last && nowTs - Number(last.last_ts || 0) < 3600) return;
+      const why = thrown ? String(thrown).slice(0, 160) : `HTTP ${Number(status) || "?"} ${String((data && (data.error || data.message)) || "no outcome list").slice(0, 160)}`;
+      const sent = await dmCommish(env, `🚨 **WW / FCFS contract stamp is FAILING** — the */5 stamp has not completed for ~15+ minutes (${why}). Blank contracts are NOT being written and nothing else will say so. Check \`POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1&APIKEY=…\` and the MFL exports.`);
+      if (sent) await setHb("ww_stamp_error_alerted", nowTs, "alerted");
+      return;
+    }
+    await db.prepare(`DELETE FROM ups_bot_heartbeat WHERE bot IN ('ww_stamp_error_first', 'ww_stamp_error_alerted')`).run();
+  } catch (_) { return; /* alert bookkeeping must never break the tick */ }
+  // blank contracts a rule could not decide
+  try {
+    const needRows = Array.isArray(data.needs_input) ? data.needs_input : [];
+    const needPids = needRows.map((n) => n && n.player_id).filter(Boolean);
+    if (needPids.length) {
+      await dmCommishOncePerBatch(env, "fcfs_contract_needs_review_alert", needPids,
+        `🚨 **Blank contract needs review** — ${needPids.length} rostered player(s) have no contract in MFL and the stamp could not decide by rule.\n` +
+        needRows.slice(0, 8).map((n) => `• ${n.player_name || n.player_id} (${n.player_id}) — ${n.outcome ? n.outcome + ": " : ""}${n.reason || "needs_input"}${n.franchise_id ? ` — franchise ${n.franchise_id}` : ""}`).join("\n") +
+        `\nNothing was written. Preview: \`POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1&APIKEY=…\`. This alert is sent once per batch (24h reminder).`);
+    }
+  } catch (_) { /* alerting must never break the tick */ }
+  // FCFS rows stuck in the retry loop
+  if (outs === null) return;
+  try {
+    const retry = outs.filter((o) => o && o.outcome === FCFS_OUTCOME.RETRYABLE);
+    const retryPids = new Set(retry.map((o) => String(o.player_id || "")));
+    const markers = await db.prepare(`SELECT bot FROM ups_bot_heartbeat WHERE bot LIKE 'fcfs_unresolved:%'`).all();
+    for (const m of (markers && markers.results) || []) {
+      const pid = String(m.bot).slice("fcfs_unresolved:".length);
+      if (!retryPids.has(pid)) await db.prepare(`DELETE FROM ups_bot_heartbeat WHERE bot = ?`).bind(m.bot).run();      // verified, dropped, fixed by hand — it left the loop
+    }
+    for (const o of retry) {
+      const bot = `fcfs_unresolved:${String(o.player_id || "")}`;
+      const seen = await getHb(bot);
+      if (!seen) { await setHb(bot, nowTs, "retryable"); continue; }
+      if (seen.status !== "retryable" || nowTs - Number(seen.last_ts || 0) < 600) continue;
+      const sent = await dmCommish(env, `🚨 **FCFS contract still unresolved (fcfs_contract_retryable)** — player ${o.player_id} (franchise ${o.franchise_id || "?"}) has been retried for 10+ minutes without a verified contract in MFL. Check \`POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1\`.`);
+      if (sent) await setHb(bot, Number(seen.last_ts || nowTs), "escalated");       // only AFTER the DM landed
+    }
+  } catch (_) { /* bookkeeping must never break the tick */ }
 }
 
 async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey) {
@@ -2814,7 +2878,12 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved };
         };
 
-        const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
+        // A "$1K Per Yr" contract (every contract year exactly $1,000, TCV <= $4K — fcfs_contract.js `classifyFullYearRule`) priced by the dedicated
+        // sub-$5K rule (canon §D1) has NO weekly or cumulative "earned". `earned` comes back null with earned_rule "full_year_sub_5k" — never the
+        // $59 / $118 / $1,118 the per-week arithmetic used to hang on it. A TCV-under-$5K contract that pays more than $1,000 in any year is NOT in
+        // the class and keeps its earned figure.
+        const _computeDropPenalty = (args, opts) => applyFullYearRule(_computeDropPenaltyRaw(args, opts), args);
+        const _computeDropPenaltyRaw = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
           const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
           // Exemption checks (priority order):
           // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
@@ -2931,7 +3000,14 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           //    (Tanner McKee: CL 3 / TCV $3K / 2 yr) wrongly showed $0 instead
           //    of the correct $1K.
           if (/(^|-)WW($|-)/i.test(_s(contractStatus)) && Number(salary) <= 4000 && ctx.yearsRemaining <= 1) {
-            return { ...ctx, penalty: 0, basis: "ww_under_5k_exempt", exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2)." };
+            // canon §C3 "WW under $4K, any time — earned n/a — $0 (cap-free)": a one-year ORIGINAL pure-WW deal that is not the $1,000-a-year class gets its own
+            // basis, and `earned` comes back null (applyFullYearRule) — the same cap-free $0 as before. A $1,000 WW deal stays on ww_under_5k_exempt (it is the
+            // full-year class); a WW-MYM or a multi-year WW in its last year keeps its existing arithmetic until Keith rules on it.
+            // (a blank / 0 contractYear is UNKNOWN — the pre-existing cap-free $0 above stands, but the class label is only given to a contract whose final year is KNOWN;
+            //  the $1,000-a-year contract is excluded by classifyWwEarnedNa itself, from the contract text, not by a salary literal)
+            const wwNa = classifyWwEarnedNa({ status: contractStatus, salary: Number(salary), tcv: ctx.tcv, cl: ctx.cl, yearsRemaining: ctx.cy >= 1 ? ctx.yearsRemaining : NaN, taxi: false, contractInfo });
+            const basis = wwNa.member ? WW_EARNED_NA_BASIS : "ww_under_5k_exempt";
+            return { ...ctx, penalty: 0, basis, exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2)." };
           }
           // 3. 1-year original-length contract with TCV ≤ $4K — cap-free (§D2).
           if (ctx.cl === 1 && ctx.tcv > 0 && ctx.tcv <= 4000) {
@@ -2967,7 +3043,7 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
             //   yr 2 cut (cl 3, remaining 2): remaining > 1 → $1K   (Tanner McKee)
             //   yr 3 cut (cl 3, remaining 1): final year      → $0
             //   1-year deal (cl 1):           cl not > 1      → $0  (§D2 cap-free)
-            const subMulti = (ctx.cl || 1) > 1 && ctx.yearsRemaining > 1;
+            const subMulti = isSubFiveKMultiYearFlat({ cl: ctx.cl, yearsRemaining: ctx.yearsRemaining });   // ONE implementation (fcfs_contract.js): the repairs prove against the same rule
             if (!subMulti) {
               return { ...ctx, guaranteed: 0, penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: "Sub-5K TCV in its final year (or a 1-year deal) — cap-free (§D2)." };
             }
@@ -3868,9 +3944,17 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
 //     and is reported as needs_input, never guessed at.
 //   • NO FAIL-OPEN anywhere. An unreadable transactions log, players export, or
 //     salaries export means we write NOTHING and let the next tick retry.
-//   • A bid we cannot establish is needs_input, never a default. MFL's $1K is
-//     not a fallback — it is a real number when MFL says it and an invention
-//     when it doesn't.
+//   • A BBID bid we cannot establish is needs_input, never a default. MFL's
+//     $1K is not a fallback for a bid — it is a real number when MFL says it and
+//     an invention when it doesn't.
+//   • FCFS IS NOT A BID. Canon §A5 fixes an FCFS acquisition at $1,000 / one
+//     year / Vet-WW (Rookie-WW) / "CL 1| TCV 1K| AAV 1K", so there is nothing to
+//     establish and nothing for a human to decide (fcfs_contract.js). Before
+//     2026-09-26 this path refused every FCFS add as `no_bid_establishable` and
+//     only logged it — Franklin (16619), Bourne (13418) and Al-Shaair (14590)
+//     sat blank from Sep 20 (and Al-Shaair was dropped unpriced). A blank FCFS
+//     contract is never a successful acquisition: every FCFS row now ends in
+//     fcfs_contract_verified | fcfs_contract_retryable | fcfs_contract_needs_review.
 //   • FULL-attribute import (all four fields on every row). MFL BLANKS every
 //     attribute you omit — that is what wiped three live contracts on
 //     2026-08-07. Never send a partial row.
@@ -3966,9 +4050,36 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
     if (!isBlankContractField(cur.contractInfo)) continue;
     blanks.push({ pid, fid, salary: String(cur.salary || "").trim() });
   }
-  if (!blanks.length) {
-    return { status: 200, body: { ok: true, message: "No blank waiver contracts to stamp", count: 0, needs_input: [] } };
+  // RECONCILE — the D1 side of a write that LANDED: an FCFS add event still open ("refused" / pending) while MFL already holds EXACTLY the canonical
+  // contract for the acquiring franchise's rostered player (a verification read that lagged or threw, an earlier tick, a hand stamp) is closed with
+  // the contract we can SEE. Nothing is written to MFL; a contract that is not exactly canonical is never closed.
+  let fcfsReconciled = 0;
+  if (!dryRun && !onlyPid) {
+    try {
+      const reconNow = Math.floor(Date.now() / 1000);
+      const evs = await db.prepare(
+        `SELECT id, player_id, franchise_id FROM ups_add_events
+          WHERE season = ? AND league_id = ? AND source = 'fcfs' AND contract_annotated IN (0, 3) AND acquired_at_unix >= ?`
+      ).bind(String(year), String(leagueId), reconNow - days * 86400).all();
+      for (const e of (evs && evs.results) || []) {
+        const pid = String(e.player_id || "").replace(/\D/g, "");
+        const cur = mflMap[pid];
+        if (!cur || rosterFidByPid.get(pid) !== pad4(e.franchise_id)) continue;
+        const cls = classifyFcfsContract({ salary: cur.salary, contractStatus: cur.contractStatus, contractYear: cur.contractYear, contractInfo: cur.contractInfo }, { season: Number(year) });
+        if (cls.state !== "correct") continue;
+        await db.prepare(
+          `UPDATE ups_add_events SET contract_annotated = 1, annotated_at_utc = ?, notes = 'fcfs_contract_verified: the canonical contract is on MFL (observed; canon §A5)' WHERE id = ? AND contract_annotated IN (0, 3)`
+        ).bind(new Date().toISOString(), e.id).run();
+        fcfsReconciled += 1;
+      }
+    } catch (e) {
+      console.warn("[finalize-ww] FCFS add-event reconcile failed:", e?.message || String(e));
+    }
   }
+  if (!blanks.length) {
+    return { status: 200, body: { ok: true, message: "No blank waiver contracts to stamp", count: 0, fcfs_outcomes: [], fcfs_reconciled: fcfsReconciled, needs_input: [] } };
+  }
+  const fcfsOutcomes = [];   // one terminal outcome per FCFS row this call touched
 
   // ── MFL truth #3: the waiver/FA transaction log — the ONLY thing that turns
   // a blank row into "this was a waiver award for $N". FAIL CLOSED on either
@@ -4104,6 +4215,34 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
       });
       continue;
     }
+    // FCFS — canon §A5 is the price, so there is no bid to establish. Decide with the one shared rule.
+    if (award.source === "fcfs") {
+      const plan = planFcfsStamp({
+        award: { ...award, pid },
+        holderFid: b.fid,
+        current: { salary: b.salary, contractStatus: "", contractYear: "", contractInfo: "" },
+        rostered: true,
+        rookie: rookiePids.has(pid),
+      });
+      if (!plan.ok || !plan.write) {
+        needsInput.push({
+          player_id: pid, player_name: name, franchise_id: b.fid, source: "fcfs",
+          outcome: plan.outcome || FCFS_OUTCOME.NEEDS_REVIEW,
+          reason: plan.reason || "fcfs_unplannable",
+          detail: `FCFS add (${award.fid}) could not be stamped by rule (${plan.reason || "unplannable"}). Nothing was written; a person must decide.`,
+          award_franchise_id: award.fid, mfl_salary: b.salary || null,
+        });
+        continue;
+      }
+      rowsToWrite.push({
+        id: pid, player_name: name, franchise_id: b.fid, source: "fcfs", awarded_at_unix: award.ts,
+        bid_dollars: FCFS_SALARY, salary: plan.write.salary,
+        contractStatus: plan.write.contractStatus, contractYear: plan.write.contractYear, contractInfo: plan.write.contractInfo,
+        bid_k: FCFS_SALARY / 1000, rule: "fcfs_canon_a5",
+        before: { salary: b.salary || "", contractStatus: "", contractYear: "", contractInfo: "" },
+      });
+      continue;
+    }
     // The award must belong to the franchise that holds him NOW. If he moved
     // since (trade, another claim), the transaction's bid is not this
     // contract's price.
@@ -4174,6 +4313,7 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
       body: {
         ok: true, dry_run: dryRun, season: String(year), league_id: leagueId,
         count: 0, message: "No blank waiver contracts could be stamped",
+        fcfs_outcomes: needsInput.filter((n) => n.source === "fcfs").map((n) => ({ player_id: n.player_id, franchise_id: n.franchise_id, outcome: n.outcome, verified: false, reason: n.reason })),
         needs_input_count: needsInput.length, needs_input: needsInput,
       },
     };
@@ -4255,22 +4395,31 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
         error: errMatch ? errMatch[1] : "MFL import did not return <status>OK</status>",
         upstreamPreview: importText.slice(0, 1500),
         attempted: rowsToWrite,
+        fcfs_outcomes: [
+          ...rowsToWrite.filter((r) => r.source === "fcfs").map((r) => ({ player_id: r.id, franchise_id: r.franchise_id, outcome: FCFS_OUTCOME.RETRYABLE, verified: false })),
+          ...needsInput.filter((n) => n.source === "fcfs").map((n) => ({ player_id: n.player_id, franchise_id: n.franchise_id, outcome: n.outcome, verified: false, reason: n.reason })),
+        ],
+        needs_input_count: needsInput.length,
+        needs_input: needsInput,
       },
     };
   }
 
-  // Verify by re-reading. "Accepted" is not "landed".
-  const verRes = await fetchBounded(
-    `${host}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
-    { cf: { cacheTtl: 0, cacheEverything: false } }
-  );
-  const verJson = await verRes.json().catch(() => ({}));
-  const verMap = {};
-  for (const p of asArr(verJson?.salaries?.leagueUnit?.player)) {
-    const pid = String(p?.id || "").replace(/\D/g, "");
-    if (pid) verMap[pid] = p;
-  }
-  const verification = rowsToWrite.map((r) => {
+  // Verify by re-reading. "Accepted" is not "landed". A lagging export gets one more read before the row is called unverified.
+  const readVerMap = async () => {
+    const verRes = await fetchBounded(
+      `${host}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }
+    );
+    const verJson = await verRes.json().catch(() => ({}));
+    const m = {};
+    for (const p of asArr(verJson?.salaries?.leagueUnit?.player)) {
+      const pid = String(p?.id || "").replace(/\D/g, "");
+      if (pid) m[pid] = p;
+    }
+    return m;
+  };
+  const verifyRows = (verMap) => rowsToWrite.map((r) => {
     const a = verMap[r.id] || {};
     return {
       player_id: r.id,
@@ -4288,6 +4437,16 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
       before: r.before,
     };
   });
+  let verification = verifyRows(await readVerMap());
+  if (verification.some((v) => !v.ok)) {
+    try { await new Promise((res) => setTimeout(res, 1500)); verification = verifyRows(await readVerMap()); } catch (_) { /* keep the first read */ }
+  }
+  for (const r of rowsToWrite) {
+    if (r.source !== "fcfs") continue;
+    const v = verification.find((x) => x.player_id === r.id) || {};
+    const vr = verifyFcfsWrite(v.after, { salary: r.salary, contractStatus: r.contractStatus, contractYear: r.contractYear, contractInfo: r.contractInfo });
+    fcfsOutcomes.push({ player_id: r.id, franchise_id: r.franchise_id, outcome: vr.outcome, verified: vr.ok });
+  }
 
   // D1 audit — Keith's rule: EVERYTHING contract-related lands in D1. Reuses
   // ups_auction_contract_finalizations with source='ww' (its PK is
@@ -4306,7 +4465,7 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
         `INSERT INTO ups_auction_contract_finalizations
            (player_id, season, league_id, winner_fid, source, won_bid_k, salary,
             contract_year, contract_status, contract_info, finalized_at_unix)
-         VALUES (?, ?, ?, ?, 'ww', ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(player_id, season, league_id, source) DO UPDATE SET
            winner_fid        = excluded.winner_fid,
            won_bid_k         = excluded.won_bid_k,
@@ -4317,11 +4476,31 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
            finalized_at_unix = excluded.finalized_at_unix`
       ).bind(
         v.player_id, String(year), String(leagueId), String(w.franchise_id || ""),
-        Number(w.bid_k || 0), Number(w.salary || 0), String(w.contractYear || "1"),
+        w.source === "fcfs" ? "fcfs" : "ww",          // an FCFS acquisition has its OWN ledger key — it must never overwrite a BBID record of the same player/season
+        w.source === "fcfs" ? null : Number(w.bid_k || 0),   // and it has no bid
+        Number(w.salary || 0), String(w.contractYear || "1"),
         String(w.contractStatus || ""), String(w.contractInfo || ""), nowUnix
       ).run();
     } catch (e) {
       console.warn(`[finalize-ww] D1 audit write failed pid=${v.player_id}:`, e?.message || String(e));
+    }
+  }
+
+  // The FCFS acquisition is COMPLETE only now — after MFL was re-read and holds exactly the canonical contract. The add event that the
+  // annotator would otherwise have refused ("no salary/contractYear", contract_annotated = 3) is closed with the verified contract.
+  for (const v of verification) {
+    if (!v.ok) continue;
+    const w = rowsToWrite.find((r) => r.id === v.player_id) || {};
+    if (w.source !== "fcfs") continue;
+    try {
+      await db.prepare(
+        `UPDATE ups_add_events
+            SET contract_annotated = 1, annotated_at_utc = ?, pre_annotate_contract_info = COALESCE(pre_annotate_contract_info, ''),
+                notes = 'fcfs_contract_verified: canonical $1,000 one-year Vet-WW contract written and re-read (canon §A5)'
+          WHERE season = ? AND league_id = ? AND player_id = ? AND franchise_id = ? AND source = 'fcfs' AND acquired_at_unix = ?`
+      ).bind(new Date().toISOString(), String(year), String(leagueId), v.player_id, String(w.franchise_id || ""), Number(w.awarded_at_unix) || 0).run();
+    } catch (e) {
+      console.warn(`[finalize-ww] add-event completion write failed pid=${v.player_id}:`, e?.message || String(e));
     }
   }
 
@@ -4334,6 +4513,8 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
       count: rowsToWrite.length,
       verified_count: verification.filter((v) => v.ok).length,
       verification,
+      fcfs_reconciled: fcfsReconciled,
+      fcfs_outcomes: [...fcfsOutcomes, ...needsInput.filter((n) => n.source === "fcfs").map((n) => ({ player_id: n.player_id, franchise_id: n.franchise_id, outcome: n.outcome, verified: false, reason: n.reason }))],
       needs_input_count: needsInput.length,
       needs_input: needsInput,
     },
@@ -6786,30 +6967,32 @@ export default {
               // hundreds of rows, not dozens.
               let addsStamped = 0;
               if (addStamp) {
+                let stampStatus = 0, stampData = {}, stampThrown = "";
                 try {
                   const stRes = await env.SELF.fetch(
                     `${origin}/admin/adds/stamp-ww-contracts?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, days: 7, max_writes: 36 }) }
                   );
-                  const stData = await stRes.json().catch(() => ({}));
-                  addsStamped = Number(stData?.verified_count) || 0;
-                  const stNeeds = Number(stData?.needs_input_count) || 0;
+                  stampStatus = stRes.status;
+                  stampData = await stRes.json().catch(() => ({}));
+                  addsStamped = Number(stampData?.verified_count) || 0;
+                  const stNeeds = Number(stampData?.needs_input_count) || 0;
                   if (stNeeds) {
-                    // Never a DM and never a default — just a durable log line.
-                    // A needs-input row is a waiver award whose PRICE MFL did
-                    // not tell us; the correct handling is a human reading the
-                    // dry run, not the cron picking a number.
                     console.warn(
-                      `[scheduled */5] ww-stamp: ${stNeeds} blank waiver contract(s) need input (no bid establishable / no waiver evidence). ` +
+                      `[scheduled */5] ww-stamp: ${stNeeds} blank waiver contract(s) need input (no bid establishable / no waiver evidence / needs review). ` +
                       `Preview: POST /admin/adds/stamp-ww-contracts?L=${leagueId}&dry_run=1&APIKEY=…`
                     );
                   }
-                  if (stData?.ok === false) {
-                    console.error(`[scheduled */5] ww-stamp returned ok:false (${String(stData?.error || "")}) — nothing was written this tick.`);
+                  if (stampData?.ok === false) {
+                    console.error(`[scheduled */5] ww-stamp returned ok:false (${String(stampData?.error || "")}) — nothing was written this tick.`);
                   }
                 } catch (e) {
-                  console.error(`[scheduled */5] ww-stamp failed: ${e?.message || String(e)}`);
+                  stampThrown = e?.message || String(e);
+                  console.error(`[scheduled */5] ww-stamp failed: ${stampThrown}`);
                 }
+                // A blank contract is not a successful acquisition (2026-09-26): the log lines above alone let three FCFS pickups sit blank from Sep 20.
+                // Never a default — but ALWAYS an alert (see stampHealthAlerts).
+                await stampHealthAlerts(env, { leagueId, status: stampStatus, data: stampData, thrown: stampThrown });
               }
               let addsAnnotated = 0;
               if (addAnnotate) {
@@ -43151,19 +43334,25 @@ const mflToSleeper = {};
           onlyPid: stampPid || null,
           ...(stampMaxWrites != null ? { maxWrites: stampMaxWrites } : {}),
         });
-        return jsonOut(stampRes.status || 200, stampRes.body);
+        return jsonOut(stampRes.status || 200, { fcfs_rule: FCFS_RULE_VERSION, ...stampRes.body });
       }
 
       // POST /admin/adds/annotate-contracts
       // Commish-gated, flag WW_CONTRACT_ANNOTATE_ENABLED, dry_run supported.
       //
       // ⚠️ COSMETIC ONLY — THIS ROUTE MUST NEVER CHANGE SALARY. ⚠️
-      // MFL already sets salary = the winning bid natively, and its league
-      // default row makes an FCFS add a $1K / 1-year "WW" contract with zero
-      // work from us. The ONLY thing missing is the "TCV nK| AAV nK" tokens the
-      // rest of the app renders, and their absence is verified NOT to affect
-      // penalty math (_parseContractData falls back to salary as TCV). So this
-      // is presentation, not money.
+      // (CORRECTED 2026-09-26. This header used to claim that MFL's league
+      // default row makes an FCFS add a $1K / 1-year "WW" contract with zero work
+      // from us. That is FALSE on this league: the default row is entirely blank,
+      // so an FCFS add lands with NO contract at all — that belief is why three
+      // FCFS pickups sat blank from Sep 20. The contract is written by
+      // finalizeWaiverContracts (canon §A5, fcfs_contract.js); this route only
+      // decorates a contract that already exists, and refuses a row that has none.)
+      // MFL sets salary = the winning bid on a BBID award natively. The ONLY thing
+      // this route adds is the "TCV nK| AAV nK" tokens the rest of the app
+      // renders, and their absence is verified NOT to affect penalty math
+      // (_parseContractData falls back to salary as TCV). So this is
+      // presentation, not money.
       //
       // HOW IT AVOIDS TOUCHING MONEY (rewritten 2026-07-30):
       //   1. The import emits contractInfo and NOTHING else
@@ -47052,6 +47241,191 @@ const mflToSleeper = {};
       // payload is now the spec GET /api/lineup is written and tested against —
       // and was removed on 2026-08-10 along with its CI caller.)
 
+      // ── POST /admin/drops/full-year-repair — the ONE audited, idempotent repair path for the FCFS / "$1K Per Yr" earned correction ─────────
+      // ACTION KINDS (below). Each is applied to ONE named drop event, guarded by an EXPECTED before-state (a row that no longer looks as the dry run saw
+      // it is `precondition_failed`, never written), and audited (before + after + proof) to ups_contract_gate_audit IN THE SAME D1 TRANSACTION as the
+      // change — the audit row exists if and only if the change landed. DRY RUN BY DEFAULT: only a boolean `dry_run:false` writes; a real write also
+      // REQUIRES the `expect` block the dry run produced. Idempotent: a second call is a no-op. Never touches MFL or salary adjustments.
+      //   clear_full_year_earned        a "$1K Per Yr" drop row (fcfs_contract.js `classifyFullYearRule`, re-proven HERE from the stored pre-drop contract,
+      //                                 basis one of the dedicated sub-$5K bases, not taxi) that stored a weekly / cumulative earned_to_date ($59 / $118 /
+      //                                 $1,118) → NULL. Changes ONE column: earned_to_date. Every other column is asserted byte-identical after the write
+      //                                 (a violation restores the pre-image and aborts).
+      //   clear_ww_earned_na            canon §C3 "WW under $4K — earned n/a": a one-year pure-WW drop row of $4K or less (not the $1K-a-year class) on basis ww_under_5k_exempt → earned NULL,
+      //                                 basis ww_under_5k_earned_na. The penalty ($0, cap-free), dead money and cap effect are PROVEN unchanged (else refused).
+      //   reconcile_legacy_guarantee_basis  a class row on the legacy tcv_under_5k_guarantee basis (its penalty was guarantee − earned) → earned NULL, basis full_year_1k_contract,
+      //                                 ONLY when canon §D1's flat rule ($1,000 while > 1 year remains) gives EXACTLY the stored penalty; otherwise HELD (earned not cleared).
+      //   close_fcfs_add_event          (`id` = an ups_add_events id) an FCFS add event left open/refused (contract_annotated 0 or 3) that the stamper's roster re-read can never close.
+      //                                 Path A — the player was DROPPED before the canonical contract was written: closed (1, note names the drop repair) ONLY when the drop's stored pre-drop
+      //                                 contract is canonical AND an audit row of reprice_unstamped_fcfs_drop names that drop. Path B — the canonical contract WAS stamped (landed salary_change_log
+      //                                 row) and the owner then converted it (a later landed row whose BEFORE state is that canonical contract, e.g. /offer-mym): closed as 2 (a described contract
+      //                                 is never reverted). NOT a roster / MFL verification.
+      //   reprice_unstamped_fcfs_drop   a drop of an FCFS acquisition that was recorded `contract_unstamped_needs_review` because the canonical contract was
+      //                                 never written before the drop → the stored pre-drop contract becomes the canonical $1,000 one-year Vet-WW contract (Rookie-WW
+      //                                 when `rookie:true`) and earned becomes NULL. BLANK-ONLY (a described stored contract is never overwritten), FCFS-only (the
+      //                                 LATEST add before the drop must be an FCFS add), and REFUSED (`conflict_penalty_would_change`) unless the canonical
+      //                                 calculation gives EXACTLY the penalty already stored and nothing was posted to MFL with another amount.
+      if (path === "/admin/drops/full-year-repair" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let fbody = null;
+        try { fbody = await request.json(); } catch (_) { fbody = null; }
+        if (!fbody || typeof fbody !== "object") return jsonOut(400, { ok: false, error: "A JSON body is required." });
+        const fSeason = safeStr(fbody.season || url.searchParams.get("YEAR") || "");
+        const fLeague = safeStr(fbody.league_id || url.searchParams.get("L") || "74598");
+        const fDry = fbody.dry_run !== false;
+        const acts = Array.isArray(fbody.actions) ? fbody.actions : [];
+        if (!fSeason || !acts.length) return jsonOut(400, { ok: false, error: "season and actions[] are required." });
+        if (acts.length > 200) return jsonOut(400, { ok: false, error: "too_many_actions", message: "At most 200 actions per request." });
+        const ROW_COLS = ["id", "season", "league_id", "player_id", "franchise_id", "dropped_at_unix", "pre_drop_contract_status", "pre_drop_salary", "pre_drop_contract_year", "pre_drop_contract_length",
+          "pre_drop_contract_info", "pre_drop_tcv", "pre_drop_aav", "pre_drop_years_remaining", "pre_drop_taxi", "earned_to_date", "guaranteed_amount", "penalty_amount", "penalty_basis", "penalty_exempt",
+          "penalty_exempt_reason", "posted_to_mfl", "posted_amount", "applies_to_season", "discord_posted", "notes"];
+        const loadRow = async (id) => env.UPS_MFL_DB.prepare(`SELECT ${ROW_COLS.join(", ")} FROM ups_drop_events WHERE id = ? AND season = ? AND league_id = ?`).bind(id, fSeason, fLeague).first();
+        const diffCols = (x, y) => ROW_COLS.filter((c) => String(x[c] == null ? "" : x[c]) !== String(y[c] == null ? "" : y[c]) || (x[c] == null) !== (y[c] == null));
+        const canon = canonicalFcfsContract({ rookie: false });
+        const nowIso = () => new Date().toISOString();
+        const exp0 = (act) => (act && typeof act.expect === "object" && act.expect ? act.expect : {});
+        const auditStmt = (field, beforeV, afterV, note, onlyIfChanged) => env.UPS_MFL_DB.prepare(
+          `INSERT INTO ups_contract_gate_audit (at_utc, season, field, before_val, after_val, actor, note) SELECT ?, ?, ?, ?, ?, 'full_year_repair:admin', ?` + (onlyIfChanged ? " WHERE changes() = 1" : "")
+        ).bind(nowIso(), fSeason, field, beforeV, afterV, note);
+        if (!fDry) await env.UPS_MFL_DB.prepare(`CREATE TABLE IF NOT EXISTS ups_contract_gate_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, season TEXT, field TEXT NOT NULL, before_val TEXT, after_val TEXT, actor TEXT, note TEXT)`).run();
+        const out = [];
+        const seenIds = new Set();
+        for (const a of acts) {
+          const kind = safeStr(a && a.kind);
+          const rawId = a && a.id;
+          const id = typeof rawId === "number" && Number.isSafeInteger(rawId) && rawId > 0 ? rawId : 0;
+          const res = { kind, id: id || rawId, result: "" };
+          try {
+            if (!id) { res.result = "bad_id"; out.push(res); continue; }
+            if (seenIds.has(id)) { res.result = "duplicate_in_request"; out.push(res); continue; }
+            seenIds.add(id);
+            if (kind === "close_fcfs_add_event") {
+              // `id` is an ups_add_events id here. Closes an FCFS add event whose player was DROPPED before the canonical contract was written — ONLY after the drop's own
+              // audited repair (reprice_unstamped_fcfs_drop) landed. Not a verification of MFL: a dropped player is on no roster. See planFcfsAddEventClosure.
+              const ev = await env.UPS_MFL_DB.prepare(`SELECT id, season, league_id, player_id, franchise_id, acquired_at_unix, source, contract_annotated, annotated_at_utc, notes FROM ups_add_events WHERE id = ? AND season = ? AND league_id = ?`).bind(id, fSeason, fLeague).first();
+              if (!ev) { res.result = "not_found"; out.push(res); continue; }
+              const dr = await env.UPS_MFL_DB.prepare(`SELECT id, player_id, franchise_id, dropped_at_unix, pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_info FROM ups_drop_events
+                                                        WHERE season = ? AND league_id = ? AND player_id = ? AND franchise_id = ? AND dropped_at_unix >= ? ORDER BY dropped_at_unix ASC LIMIT 1`).bind(fSeason, fLeague, ev.player_id, ev.franchise_id, ev.acquired_at_unix).first();
+              let audits = [], chg = [];
+              if (dr) { try { audits = ((await env.UPS_MFL_DB.prepare(`SELECT id, note FROM ups_contract_gate_audit WHERE field = 'fcfs_reprice_unstamped_drop' AND season = ? AND note LIKE ?`).bind(fSeason, `drop_event_id=${dr.id} %`).all()).results) || []; } catch (_) { audits = []; } }
+              else { try { chg = ((await env.UPS_MFL_DB.prepare(`SELECT id, created_ts, player_id, endpoint, dry_run, landed, before_salary, before_contract_status, before_contract_year, before_contract_info, after_salary, after_contract_status, after_contract_year, after_contract_info
+                                                                   FROM salary_change_log WHERE season = ? AND league_id = ? AND dry_run = 0 AND landed = 1 AND player_id = ? ORDER BY id`).bind(fSeason, fLeague, ev.player_id).all()).results) || []; } catch (_) { chg = []; } }
+              let plan = planFcfsAddEventClosure({ addEvent: ev, dropRow: dr, auditRows: audits, changeLog: chg });
+              if (plan.ok && plan.path === "owner_conversion") {
+                // the chain must belong to THIS acquisition: no later acquisition of the player, and no trade of him, between this add and the owner's conversion — anything unreadable refuses
+                try {
+                  const convUnix = Math.floor(Date.parse(String(plan.evidence.change_at).replace(" ", "T") + (/Z$/.test(String(plan.evidence.change_at)) ? "" : "Z")) / 1000);
+                  const later = await env.UPS_MFL_DB.prepare(`SELECT COUNT(*) n FROM ups_add_events WHERE season = ? AND league_id = ? AND player_id = ? AND id <> ? AND acquired_at_unix > ? AND acquired_at_unix <= ?`).bind(fSeason, fLeague, ev.player_id, ev.id, ev.acquired_at_unix, convUnix).first();
+                  const trd = await env.UPS_MFL_DB.prepare(`SELECT COUNT(*) n FROM ups_transactions WHERE season = ? AND type = 'TRADE' AND unix_timestamp > ? AND unix_timestamp <= ? AND raw_json LIKE ?`).bind(fSeason, ev.acquired_at_unix, convUnix, `%${ev.player_id}%`).first();
+                  if (!Number.isFinite(convUnix) || !later || !trd) plan = { ok: false, result: "chain_not_attributable", detail: "the conversion time or the acquisition / trade history could not be read" };
+                  else if (Number(later.n) > 0) plan = { ok: false, result: "chain_may_belong_to_a_later_acquisition", detail: `${later.n} later ups_add_events row(s) for this player before the conversion` };
+                  else if (Number(trd.n) > 0) plan = { ok: false, result: "chain_may_belong_to_another_owner", detail: `${trd.n} trade(s) that may involve this player before the conversion` };
+                } catch (e) { plan = { ok: false, result: "chain_not_attributable", detail: "the acquisition / trade history could not be read" }; }
+              }
+              if (!plan.ok) { res.result = plan.result; if (plan.detail) res.detail = plan.detail; out.push(res); continue; }
+              res.evidence = plan.evidence;
+              if (!fDry && exp0(a).contract_annotated === undefined) { res.result = "expectation_required"; out.push(res); continue; }
+              if (exp0(a).contract_annotated !== undefined && String(exp0(a).contract_annotated) !== String(ev.contract_annotated)) { res.result = "precondition_failed"; res.detail = `changed since the dry run: contract_annotated is ${ev.contract_annotated}`; out.push(res); continue; }
+              res.path = plan.path; res.before = plan.before; res.after = { ...plan.after, annotated_at_utc: "(set when applied)" };
+              if (fDry) { res.result = "would_apply"; out.push(res); continue; }
+              const [upd] = await env.UPS_MFL_DB.batch([
+                env.UPS_MFL_DB.prepare(`UPDATE ups_add_events SET contract_annotated = ?, annotated_at_utc = ?, notes = ? WHERE id = ? AND contract_annotated = ?`).bind(plan.after.contract_annotated, nowIso(), plan.after.notes, id, ev.contract_annotated),
+                auditStmt(plan.path === "owner_conversion" ? "fcfs_add_event_closed_by_owner_conversion" : "fcfs_add_event_closed_by_drop_repair", JSON.stringify({ ...plan.before, annotated_at_utc: ev.annotated_at_utc == null ? null : ev.annotated_at_utc }), JSON.stringify(plan.after),
+                  plan.path === "owner_conversion" ? `add_event_id=${id} stamp_log=${plan.evidence.stamp_log_id} change_log=${plan.evidence.change_log_id} endpoint=${plan.evidence.change_endpoint} player=${safeStr(ev.player_id)} roster_verified=false`
+                    : `add_event_id=${id} drop_event_id=${plan.evidence.drop_event_id} audit_row=${plan.evidence.audit_row_id} player=${safeStr(ev.player_id)} roster_verified=false`, true),
+              ]);
+              if (!upd || !upd.meta || upd.meta.changes !== 1) { res.result = "noop_changed_concurrently"; out.push(res); continue; }
+              res.result = "applied"; out.push(res); continue;
+            }
+            const row = await loadRow(id);
+            if (!row) { res.result = "not_found"; out.push(res); continue; }
+            const exp = a && typeof a.expect === "object" && a.expect ? a.expect : {};
+            const need = (keys) => !fDry && keys.some((k) => exp[k] === undefined);
+            if (Object.prototype.hasOwnProperty.call(EARNED_REPAIR_COLUMNS, kind)) {
+              // The three earned repairs share ONE application path. A plan is a pure decision (fcfs_contract.js): the columns it sets, the before/after of
+              // those columns, and the financial columns it PROVES unchanged (penalty, dead money, cap effect). Anything the plan refuses is never written.
+              const plan = kind === "clear_full_year_earned" ? planFullYearClearRepair(row) : kind === "clear_ww_earned_na" ? planWwEarnedNaRepair(row) : planLegacyGuaranteeRepair(row);
+              if (!plan.ok) { res.result = plan.result; if (plan.detail) res.detail = plan.detail; if (plan.proof) res.proof = plan.proof; out.push(res); continue; }
+              const setCols = Object.keys(plan.set).filter((c) => EARNED_REPAIR_COLUMNS[kind].includes(c));    // the columns THIS plan sets (a subset of the kind's columns) — never a default
+              res.proof = plan.proof; res.derivation = plan.derivation;
+              if (need(["earned_to_date", "penalty_amount", "penalty_basis"])) { res.result = "expectation_required"; out.push(res); continue; }
+              const bad = ["earned_to_date", "penalty_amount", "penalty_basis"].filter((k) => exp[k] !== undefined && String(exp[k]) !== String(row[k]));
+              if (bad.length) { res.result = "precondition_failed"; res.detail = `changed since the dry run: ${bad.join(", ")}`; out.push(res); continue; }
+              res.before = plan.before; res.after = plan.after; res.unchanged = plan.unchanged;
+              if (fDry) { res.result = "would_apply"; out.push(res); continue; }
+              const auditField = kind === "clear_full_year_earned" ? "full_year_clear_earned" : kind === "clear_ww_earned_na" ? "ww_earned_na_clear" : "legacy_guarantee_reconcile";
+              const setSql = setCols.map((c) => `${c} = ?`).join(", ");
+              const setBinds = setCols.map((c) => (plan.set[c] === undefined ? null : plan.set[c]));
+              // the UPDATE re-asserts EVERY value the plan proved (a concurrent writer that moved the penalty, the exempt flag, the basis or the posted charge makes it change 0 rows → no audit row, no write)
+              const proven = ["penalty_amount", "penalty_exempt", "penalty_basis", "posted_to_mfl", "posted_amount", "applies_to_season", "guaranteed_amount"];
+              const [upd] = await env.UPS_MFL_DB.batch([
+                env.UPS_MFL_DB.prepare(`UPDATE ups_drop_events SET ${setSql} WHERE id = ? AND earned_to_date IS NOT NULL AND ${proven.map((c) => `${c} IS ?`).join(" AND ")}`).bind(...setBinds, id, ...proven.map((c) => (row[c] === undefined ? null : row[c]))),
+                auditStmt(auditField, JSON.stringify(res.before), JSON.stringify(res.after), `drop_event_id=${id} player=${safeStr(row.player_id)} proof=${JSON.stringify(plan.proof)} unchanged=${JSON.stringify(plan.unchanged)}${plan.derivation ? " derivation=" + JSON.stringify(plan.derivation) : ""}`, true),
+              ]);
+              if (!upd || !upd.meta || upd.meta.changes !== 1) { res.result = "noop_changed_concurrently"; out.push(res); continue; }
+              const after = await loadRow(id);
+              const changed = diffCols(row, after);
+              if (!changed.includes("earned_to_date") || changed.some((c) => !setCols.includes(c))) {
+                // defensive: restore the pre-image, record it, and refuse — the repair must change exactly the columns it names
+                await env.UPS_MFL_DB.batch([
+                  // restore ONLY the columns this repair set, and only while they still hold the repair's own values (never another writer's)
+                  env.UPS_MFL_DB.prepare(`UPDATE ups_drop_events SET ${setCols.map((c) => `${c} = ?`).join(", ")} WHERE id = ? AND ${setCols.map((c) => `${c} IS ?`).join(" AND ")}`).bind(...setCols.map((c) => (row[c] === undefined ? null : row[c])), id, ...setCols.map((c) => (plan.set[c] === undefined ? null : plan.set[c]))),
+                  auditStmt(`${auditField}_ABORTED`, JSON.stringify(res.after), JSON.stringify(res.before), `drop_event_id=${id} unexpected columns changed: ${changed.join(",")} — pre-image restored`, false),
+                ]);
+                res.result = "aborted_unexpected_change"; res.detail = changed.join(","); out.push(res); continue;
+              }
+              res.result = "applied"; out.push(res); continue;
+            }
+            if (kind === "reprice_unstamped_fcfs_drop") {
+              if (safeStr(row.penalty_basis) !== "contract_unstamped_needs_review") { res.result = safeStr(row.penalty_basis) === "ww_under_5k_exempt" ? "noop_already_repriced" : "precondition_failed"; out.push(res); continue; }
+              // FCFS-only: the LATEST add of this player by this franchise at or before the drop must be an FCFS add (a later BBID / auction re-acquisition is another contract)
+              const lastAdd = await env.UPS_MFL_DB.prepare(
+                `SELECT source FROM ups_add_events WHERE season = ? AND league_id = ? AND player_id = ? AND franchise_id = ? AND acquired_at_unix <= ? ORDER BY acquired_at_unix DESC LIMIT 1`
+              ).bind(fSeason, fLeague, safeStr(row.player_id), safeStr(row.franchise_id), Number(row.dropped_at_unix) || 0).first();
+              if (!lastAdd || lastAdd.source !== "fcfs") { res.result = "not_an_fcfs_period"; out.push(res); continue; }
+              if (need(["penalty_basis", "penalty_amount"])) { res.result = "expectation_required"; out.push(res); continue; }
+              const bad = ["penalty_basis", "penalty_amount", "earned_to_date"].filter((k) => exp[k] !== undefined && String(exp[k]) !== String(row[k]));
+              if (bad.length) { res.result = "precondition_failed"; res.detail = `changed since the dry run: ${bad.join(", ")}`; out.push(res); continue; }
+              const rookie = a.rookie === true;
+              const cc = canonicalFcfsContract({ rookie });
+              // the canonical drop calculation, run by the REAL calculator — and the ruling: it must give exactly the penalty already stored
+              const calc = _computeDropPenalty({ contractStatus: cc.contractStatus, salary: Number(cc.salary), contractInfo: cc.contractInfo, contractYear: cc.contractYear, isTaxi: false }, { season: fSeason });
+              const plan = planUnstampedFcfsDropRepair(row, calc, { rookie });
+              if (!plan.ok) { res.result = plan.result; if (plan.detail) res.detail = plan.detail; out.push(res); continue; }
+              res.before = plan.before; res.after = plan.after; res.unchanged = plan.unchanged;
+              if (fDry) { res.result = "would_apply"; out.push(res); continue; }
+              const s2 = plan.set;
+              const [upd] = await env.UPS_MFL_DB.batch([
+                env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_drop_events SET pre_drop_contract_status=?, pre_drop_salary=?, pre_drop_contract_year=?, pre_drop_contract_length=?, pre_drop_contract_info=?, pre_drop_tcv=?, pre_drop_aav=?,
+                          pre_drop_years_remaining=?, earned_to_date=NULL, penalty_basis=?, penalty_exempt=?, penalty_exempt_reason=?, notes=?
+                    WHERE id=? AND penalty_basis='contract_unstamped_needs_review'`
+                ).bind(s2.pre_drop_contract_status, s2.pre_drop_salary, s2.pre_drop_contract_year, s2.pre_drop_contract_length, s2.pre_drop_contract_info, s2.pre_drop_tcv, s2.pre_drop_aav,
+                  s2.pre_drop_years_remaining, s2.penalty_basis, s2.penalty_exempt, s2.penalty_exempt_reason, s2.notes, id),
+                auditStmt("fcfs_reprice_unstamped_drop", JSON.stringify(res.before), JSON.stringify(res.after), `drop_event_id=${id} player=${safeStr(row.player_id)} unchanged=${JSON.stringify(res.unchanged)}`, true),
+              ]);
+              if (!upd || !upd.meta || upd.meta.changes !== 1) { res.result = "noop_changed_concurrently"; out.push(res); continue; }
+              const afterRow = await loadRow(id);
+              const moved = diffCols(row, afterRow).filter((c) => !REPRICE_COLUMNS.includes(c));
+              if (moved.length || ["penalty_amount", "guaranteed_amount", "posted_to_mfl", "posted_amount", "applies_to_season"].some((c) => String(row[c]) !== String(afterRow[c]))) {
+                await env.UPS_MFL_DB.batch([
+                  env.UPS_MFL_DB.prepare(
+                    `UPDATE ups_drop_events SET pre_drop_contract_status=?, pre_drop_salary=?, pre_drop_contract_year=?, pre_drop_contract_length=?, pre_drop_contract_info=?, pre_drop_tcv=?, pre_drop_aav=?,
+                            pre_drop_years_remaining=?, earned_to_date=?, penalty_basis=?, penalty_exempt=?, penalty_exempt_reason=?, notes=? WHERE id=? AND penalty_basis=?`
+                  ).bind(row.pre_drop_contract_status, row.pre_drop_salary, row.pre_drop_contract_year, row.pre_drop_contract_length, row.pre_drop_contract_info, row.pre_drop_tcv, row.pre_drop_aav,
+                    row.pre_drop_years_remaining, row.earned_to_date, row.penalty_basis, row.penalty_exempt, row.penalty_exempt_reason, row.notes, id, s2.penalty_basis),
+                  auditStmt("fcfs_reprice_unstamped_drop_ABORTED", JSON.stringify(res.after), JSON.stringify(res.before), `drop_event_id=${id} unexpected columns changed: ${moved.join(",")} — pre-image restored`, false),
+                ]);
+                res.result = "aborted_unexpected_change"; res.detail = moved.join(","); out.push(res); continue;
+              }
+              res.result = "applied"; out.push(res); continue;
+            }
+            res.result = "unknown_kind"; out.push(res);
+          } catch (e) { res.result = "error"; res.detail = String(e && e.message || e).slice(0, 200); out.push(res); }
+        }
+        return jsonOut(200, { ok: true, dry_run: fDry, season: fSeason, league_id: fLeague, applied: out.filter((r) => r.result === "applied").length, would_apply: out.filter((r) => r.result === "would_apply").length, results: out });
+      }
+
       // Commish inspect — recent drop events (id, name, season, penalty, posted
       // message id) so a correction can target the exact row.
       if (path === "/admin/drops/inspect" && request.method === "GET") {
@@ -47313,7 +47687,8 @@ const mflToSleeper = {};
                 r.penalty_exempt_reason = safeStr(rc.exempt_reason);
                 r.penalty_basis = safeStr(rc.basis);
                 r.guaranteed_amount = rc.guaranteed != null ? Number(rc.guaranteed) || 0 : (Number(r.guaranteed_amount) || 0);
-                r.earned_to_date = rc.earned != null ? Number(rc.earned) || 0 : (Number(r.earned_to_date) || 0);
+                // a NULL earned (the full-year rule, or a stored NULL) stays NULL — never coerced to a fake "$0 Earned"
+                r.earned_to_date = rc.earned != null ? Number(rc.earned) || 0 : ((rc.earned_rule || r.earned_to_date == null) ? null : (Number(r.earned_to_date) || 0));
                 if (!dryRun) {
                   await env.UPS_MFL_DB.prepare(
                     `UPDATE ups_drop_events SET penalty_amount=?, penalty_exempt=?, penalty_exempt_reason=?, penalty_basis=?, guaranteed_amount=? WHERE id=?`
@@ -47337,7 +47712,7 @@ const mflToSleeper = {};
           const tcv = Number(r.pre_drop_tcv) || 0;
           const cl = Number(r.pre_drop_contract_length) || null;
           const cy = Number(r.pre_drop_contract_year) || null;
-          const earned = Number(r.earned_to_date) || 0;
+          const earned = r.earned_to_date == null ? null : (Number(r.earned_to_date) || 0);   // NULL = full-year rule: never a fake "GTD − $0 Earned"
           const guaranteed = Number(r.guaranteed_amount) || 0;
           const fmtK = (v) => {
             const n = Number(v) || 0;
@@ -47632,7 +48007,12 @@ const mflToSleeper = {};
         const aav = safeInt(row && row.pre_drop_aav, 0);
         const cl = safeInt(row && row.pre_drop_contract_length, 0);
         const cy = safeInt(row && row.pre_drop_contract_year, 0);
-        const paidToDate = safeInt(row && row.earned_to_date, 0);
+        let paidToDate = safeInt(row && row.earned_to_date, 0);
+        if (row && row.earned_to_date == null) {
+          // A "$1K Per Yr" drop row stores earned NULL (full-year rule). What the owner ACTUALLY PAID is still the completed prior years' salaries,
+          // and that is in the stored schedule — read it from there instead of calling the row unparsed.
+          try { paidToDate = safeInt(_parseContractData({ contractInfo: row.pre_drop_contract_info, salary: row.pre_drop_salary, contractYear: row.pre_drop_contract_year }, {}).priorEarned, 0); } catch (_) { /* stays 0 → known:false below */ }
+        }
         if (aav <= 0) {
           return { known: false, reason: "no pre_drop_aav on the row — cannot value a year of the deal" };
         }
@@ -51133,6 +51513,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                      cl: r.cl, years_remaining: r.yearsRemaining, years_played: r.yearsPlayed,
                      acquisition_week: acqWk || null,
                      basis: r.basis, exempt: !!r.exempt, exempt_reason: r.exempt_reason || "",
+                     earned_rule: r.earned_rule || null,   // "full_year_sub_5k": earned is null by design — clients show "Full-year rule", never a number
                      needs_review: !!r.needs_review, review_reason: r.review_reason || "" };
           };
 

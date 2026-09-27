@@ -21,6 +21,7 @@ const parseFn = grab('const _parseContractData =', 'return { tcv, cl, aav, cy, y
 const compFn  = grab('const _computeDropPenalty =', 'return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };\n        };');
 
 const prelude = `
+import { applyFullYearRule, classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS } from "${new URL('../worker/src/fcfs_contract.js', import.meta.url).href}";
 const safeStr=(v)=>v==null?"":String(v);
 const safeInt=(v,d)=>{const n=Number(v);return Number.isFinite(n)?Math.trunc(n):(d||0);};
 const _nflWeekForUnix=()=>0;
