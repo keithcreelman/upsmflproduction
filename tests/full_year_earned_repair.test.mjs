@@ -226,7 +226,7 @@ test("APPROVALS: a proven WW / legacy row is planned ONLY when it is on Keith's 
   // with the PRODUCTION approvals baked in (ids 32/33/40 and 116/117/122/131/136/140), none of these test rows is planned
   const prod = await E.run(["--out", tmp()], { io: w.io, log: () => {} });
   t.equal(prod.summary.planned_by_kind.clear_ww_earned_na, undefined); t.equal(prod.summary.by_action.hold_not_approved >= 1, true);
-  t.deepEqual({ legacy: [...E.APPROVED.legacy_guarantee_ids], ww: [...E.APPROVED.ww_earned_na_ids] }, { legacy: [32, 33, 40], ww: [116, 117, 122, 131, 136, 140] });
+  t.deepEqual({ legacy: [...E.APPROVED.legacy_guarantee_ids], ww: [...E.APPROVED.ww_earned_na_ids] }, { legacy: [32, 33, 40], ww: [116, 117, 122, 131, 136, 140, 152] });
 });
 test("FINANCIAL RECONCILIATION: for every planned repair penalty, dead money and the posted cap effect are identical before and after, the stored penalty equals the canonical computation, and no MFL financial write is proposed", async () => {
   const w = worldPlus();
@@ -317,4 +317,65 @@ test("REVIEW FIXES (tool): the plan is bound to KIND and AFTER-state too; a clas
 });
 
 restore();
+
+// ═════════════════════════════════════ --as-of (Keith 2026-09-27: a repair cutoff continuing waiver activity can never move) ═════════════════════════════════════
+function worldAsOf() {
+  const env = makeWorkerEnv(); const mfl = makeMfl(); mfl.install();
+  const db = env.UPS_MFL_DB.raw; db.exec(DDL);
+  const CUTOFF = TS;                                     // the recorded cutoff, in unix seconds
+  const drop = (pid, tsOffset, over) => {
+    const o = { status: "Vet-WW", salary: 1000, cy: 1, cl: 1, info: "CL 1| TCV 1K| AAV 1K", tcv: 1000, aav: 1000, yrs: 1, taxi: 0,
+      earned: 63, guaranteed: null, penalty: 0, basis: "ww_under_5k_exempt", exempt: 1, exemptReason: "x", posted: 0, postedAmount: null, applies: 2027, discord: 1, notes: "n", ...(over || {}) };
+    const ts = CUTOFF + tsOffset;
+    return Number(db.prepare(INS).run(pid, "Player " + pid, "0004", ts, new Date(ts * 1000).toISOString(), o.status, o.salary, o.cy, o.cl, o.info, o.tcv, o.aav, o.yrs, o.taxi, o.earned, o.guaranteed, o.penalty, o.basis, o.exempt, o.exemptReason, o.posted, o.postedAmount, o.applies, o.discord, o.notes).lastInsertRowid);
+  };
+  const before1 = drop("201", -7200);                    // two hours before the cutoff
+  const before2 = drop("202", -60);                       // one minute before
+  const after1 = drop("203", 60);                         // one minute AFTER — must never enter the historical repair
+  const io = { async d1(sql) { if (!/^\s*SELECT\b/i.test(sql)) throw new Error("write attempted through the read channel"); return db.prepare(sql).all(); },
+    async mfl() { return { salaryAdjustments: { salaryAdjustment: [] } }; },
+    async post(p, body, key) { const r = await callWorker(env, "POST", `${p}&APIKEY=${key}`, { body }); return { status: r.status, body: r.json }; } };
+  return { env, db, io, CUTOFF, ids: { before1, before2, after1 } };
+}
+test("--as-of CUTOFF: a drop after the cutoff never enters the historical repair — reported, not silently dropped; before-cutoff rows are unaffected", async () => {
+  const { db, io, CUTOFF, ids } = worldAsOf();
+  const asOfIso = new Date(CUTOFF * 1000).toISOString();
+  const out = await E.run(["--out", tmp(), "--as-of", asOfIso], { io, log: () => {} });
+  t.equal(out.report.as_of, asOfIso); t.equal(out.summary.as_of_unix, CUTOFF); t.equal(out.summary.as_of_utc, asOfIso);
+  t.equal(out.rows.length, 2, "only the two before-cutoff rows are candidates at all — the after-cutoff row is not in `rows`");
+  t.deepEqual(out.rows.map((r) => r.drop_event_id).sort((a, b) => a - b), [ids.before1, ids.before2].sort((a, b) => a - b));
+  t.deepEqual({ total: out.summary.excluded_by_cutoff.total, ids: out.summary.excluded_by_cutoff.ids }, { total: 1, ids: [ids.after1] }, "the excluded row is REPORTED, never silently capped");
+  t.equal(out.summary.excluded_by_cutoff.dropped_at[ids.after1] != null, true);
+  t.equal(out.summary.planned_actions, 2, "both before-cutoff $1K/yr rows still plan by class proof");
+  // WITHOUT a cutoff, all three are candidates — proves the filter is the cutoff, not some other change
+  const noCutoff = await E.run(["--out", tmp()], { io, log: () => {} });
+  t.equal(noCutoff.rows.length, 3); t.equal(noCutoff.summary.excluded_by_cutoff.total, 0); t.equal(noCutoff.summary.as_of_unix, null);
+});
+test("--as-of BINDS the apply: a plan built with a cutoff stays identical when MORE post-cutoff rows appear before --apply runs; a NEW pre-cutoff row still trips drift", async () => {
+  const { db, io, CUTOFF, ids } = worldAsOf();
+  const asOfIso = new Date(CUTOFF * 1000).toISOString();
+  const dir = tmp();
+  const dry = await E.run(["--out", dir, "--as-of", asOfIso], { io, log: () => {} });
+  t.equal(dry.summary.planned_actions, 2);
+  // more waiver activity happens AFTER the cutoff before the apply call — must not move the bound plan
+  const late = CUTOFF + 3600; db.prepare(INS).run("204", "Player 204", "0004", late, new Date(late * 1000).toISOString(), "Vet-WW", 1000, 1, 1, "CL 1| TCV 1K| AAV 1K", 1000, 1000, 1, 0, 63, null, 0, "ww_under_5k_exempt", 1, "x", 0, null, 2027, 1, "n");
+  const applied = await E.run(["--apply", "--yes", "--season", "2026", "--plan", path.join(dir, "plan.json"), "--as-of", asOfIso, "--out", tmp()], { io, log: () => {}, env: A() });
+  t.equal(applied.report.success, true, JSON.stringify(applied.report.applied)); t.equal(applied.report.applied.length, 2, "still exactly the two bound rows — the new post-cutoff row never entered the plan");
+  t.deepEqual(applied.report.applied.map((a) => a.id).sort((a, b) => a - b), [ids.before1, ids.before2].sort((a, b) => a - b));
+  t.equal(db.prepare("SELECT earned_to_date e FROM ups_drop_events WHERE id = ?").get(ids.after1).e, 63, "the after-cutoff row this apply never touched keeps its stored earned — the deployed worker's future path owns it");
+  // a NEW row BEFORE the cutoff, discovered only after the plan was reviewed, DOES change the bound plan and IS refused
+  const { db: db2, io: io2, CUTOFF: CUTOFF2 } = worldAsOf(); const asOfIso2 = new Date(CUTOFF2 * 1000).toISOString(); const dir2 = tmp();
+  await E.run(["--out", dir2, "--as-of", asOfIso2], { io: io2, log: () => {} });
+  const early = CUTOFF2 - 30; db2.prepare(INS).run("205", "Player 205", "0004", early, new Date(early * 1000).toISOString(), "Vet-WW", 1000, 1, 1, "CL 1| TCV 1K| AAV 1K", 1000, 1000, 1, 0, 63, null, 0, "ww_under_5k_exempt", 1, "x", 0, null, 2027, 1, "n");
+  let e = null; try { await E.run(["--apply", "--yes", "--season", "2026", "--plan", path.join(dir2, "plan.json"), "--as-of", asOfIso2, "--out", tmp()], { io: io2, log: () => {}, env: A() }); } catch (x) { e = x; }
+  t.ok(e && /the plan changed since it was reviewed/.test(e.message), "a new PRE-cutoff row is drift, exactly like today — the cutoff never lowers this guard");
+});
+test("--as-of parsing: a bad timestamp is refused before anything is read; a bare date and an explicit offset both parse to the right instant", () => {
+  t.equal(E.parseAsOf(""), null); t.equal(E.parseAsOf(undefined), null);
+  t.equal(E.parseAsOf("2026-09-27T15:10:00Z"), Math.floor(Date.parse("2026-09-27T15:10:00Z") / 1000));
+  t.equal(E.parseAsOf("2026-09-27T15:10:00"), Math.floor(Date.parse("2026-09-27T15:10:00Z") / 1000), "a bare instant is read as UTC, never local time");
+  t.equal(E.parseAsOf("2026-09-27T11:10:00-04:00"), Math.floor(Date.parse("2026-09-27T15:10:00Z") / 1000), "an explicit offset is honoured");
+  for (const bad of ["not-a-date", "2026-13-99T00:00:00Z", "tomorrow"]) { let e = null; try { E.parseAsOf(bad); } catch (x) { e = x; } t.ok(e && /not a parseable UTC timestamp/.test(e.message), bad); }
+});
+
 await run("full_year_earned_repair");
