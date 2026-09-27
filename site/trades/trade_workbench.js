@@ -380,53 +380,52 @@
   }
 
   function buildSyntheticExtensionOptions(asset) {
+    // THE BROWSER'S PREVIEW OF THE PRICE — for display only. The worker (worker/src/extension_pricing.js) prices every extension itself from the
+    // player's CURRENT contract, refuses to store an offer whose terms differ (`extension_terms_stale`), and imports ITS price, never this one.
+    // This function therefore mirrors the canonical rule exactly (canon §C4 / §C5.1), and offers nothing the worker would refuse:
+    //   • a FINAL-YEAR contract only (years remaining = 1). Expired rookies are not priced (their base salary needs the draft-slot schedule);
+    //   • the current year is NOT repriced: Y1 = the live current-year salary;
+    //   • the escalator applies to the AAV of the extension years: future AAV = CURRENT AAV + raise (Schedule 1 QB/RB/WR/TE +10K/+20K,
+    //     Schedule 2 DL/LB/DB/PK/PN +3K/+5K), rounded to $1K, never below $1K;
+    //   • the current AAV is the contract's AAV TOKEN — its current (first) tier, verbatim (canon §C5.1: never recompute it, never average
+    //     TCV ÷ CL when the token exists). No token: TCV ÷ CL. Neither: nothing is offered (fail closed, like the worker);
+    //   • TCV = current salary + future AAV × years (forward-looking only); CL = 1 + years.
     if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return [];
     var metrics = resolveAssetDisplayContractMetrics(asset);
     if (!assetAllowsSyntheticExtension(asset, metrics)) return [];
 
-    // Per docs/league_context_v1.md C4: expired rookies (0 years remaining,
-    // before rookie-extension deadline) get a FRESH contract — every year
-    // is at the extension salary, no current-year carry-over. Players with
-    // 1+ years remaining keep the current year and tack the extension years
-    // forward.
     var currentYears = Math.max(0, safeInt(metrics && metrics.years_remaining, 0));
+    if (currentYears !== 1) return [];
+    if (tradePositionGroupKey(asset && asset.position) === "OTHER") return [];
     var currentSalary = Math.max(1000, roundToNearestK(asset.salary));
-    if (currentSalary <= 0) return [];
+    if (safeInt(asset.salary, 0) <= 0) return [];
 
-    // Escalator base = the contract's TRUE AAV (TCV ÷ CL), NOT the loaded
-    // current-year salary. This is the PR #780 fix — it shipped in the shared
-    // site/shared/pretrade_extension.js but this desktop duplicate never got it,
-    // so a back-loaded deal escalated off its high loaded year. Drake London
-    // (TCV 66K / CL 2 = $33K true AAV, loaded $52K current year): a +1yr
-    // extension is 33+10 = $43K, NOT the wrong 52+10 = $62K. The current YEARS
-    // still carry currentSalary; only the extension years use aavBase+raise.
     var extSummary = parseContractInfoSummary(asset && asset.contract_info);
-    var extCl = safeInt(asset && asset.contract_length, 0) || safeInt(extSummary.contract_length, 0) || Math.max(1, currentYears);
-    var extTcv = 0;
-    var extYByYear = (extSummary && extSummary.y_by_year_dollars) || {};
-    for (var _yk in extYByYear) {
-      if (Object.prototype.hasOwnProperty.call(extYByYear, _yk)) extTcv += safeInt(extYByYear[_yk], 0);
+    var aavBase = 0;
+    if (extSummary.aav_values_dollars && extSummary.aav_values_dollars.length) {
+      aavBase = roundToNearestK(extSummary.aav_values_dollars[0]);
+    } else {
+      var extCl = safeInt(asset && asset.contract_length, 0) || safeInt(extSummary.contract_length, 0);
+      var extTcv = 0;
+      var extYByYear = extSummary.y_by_year_dollars || {};
+      for (var _yk in extYByYear) {
+        if (Object.prototype.hasOwnProperty.call(extYByYear, _yk)) extTcv += safeInt(extYByYear[_yk], 0);
+      }
+      if (extCl > 0 && extTcv > 0) aavBase = roundToNearestK(extTcv / extCl);
     }
-    var aavBase = (extCl > 0 && extTcv > 0) ? roundToNearestK(extTcv / extCl) : currentSalary;
+    if (!(aavBase > 0)) return [];
 
     var out = [];
     for (var yearsToAdd = 1; yearsToAdd <= 2; yearsToAdd += 1) {
       var futureSalary = Math.max(1000, roundToNearestK(aavBase + tradeExtensionRaiseForAsset(asset, yearsToAdd)));
-      var totalLength = currentYears + yearsToAdd;
-      var yearParts = [];
-      for (var yearIdx = 1; yearIdx <= totalLength; yearIdx += 1) {
-        yearParts.push(
-          "Y" + yearIdx + "-" + formatContractKToken(yearIdx <= currentYears ? currentSalary : futureSalary)
-        );
-      }
-      var tcv = currentSalary * currentYears + futureSalary * yearsToAdd;
-      var aavLabel = currentYears === 0
-        ? "AAV " + formatContractKToken(futureSalary)
-        : "AAV " + formatContractKToken(currentSalary) + ", " + formatContractKToken(futureSalary);
+      var totalLength = 1 + yearsToAdd;
+      var yearParts = ["Y1-" + formatContractKToken(currentSalary)];
+      for (var yearIdx = 2; yearIdx <= totalLength; yearIdx += 1) yearParts.push("Y" + yearIdx + "-" + formatContractKToken(futureSalary));
+      var tcv = currentSalary + futureSalary * yearsToAdd;
       var previewInfo = [
         "CL " + totalLength,
         "TCV " + formatContractKToken(tcv),
-        aavLabel,
+        "AAV " + formatContractKToken(aavBase) + ", " + formatContractKToken(futureSalary),
         yearParts.join(", ")
       ].join("| ");
       out.push({
@@ -438,7 +437,7 @@
         new_contract_status: yearsToAdd === 1 ? "EXT1" : "EXT2",
         new_contract_length: totalLength,
         new_TCV: tcv,
-        new_aav_current: currentSalary,
+        new_aav_current: aavBase,
         new_aav_future: futureSalary,
         synthesized: true
       });
@@ -459,58 +458,8 @@
     return ("0000" + digits).slice(-4);
   }
 
-  // Re-anchor a PREVIEW-sourced pre-trade extension option to the LIVE
-  // current-year salary. The ups_extension_previews snapshot goes stale when a
-  // contract rolls a year forward (Quentin Johnston: snapshot Y1-$8K vs live
-  // $18K), and the desktop Trade War Room prefers preview rows over the live
-  // synthetic builder for eligible players. For a player who still has a year
-  // remaining (case A), the current year (Y1) must equal the live roster salary;
-  // the per-year escalation is canon, so shift EVERY salary in the option (year
-  // tokens + AAV + y1/y2/y3 + AAV fields) by delta = liveCurrent − snapshotCurrent.
-  // A uniform shift re-anchors Y1, preserves the escalation AND any FL/BL shape;
-  // TCV/GTD recompute. No-op for synthetic options (their current already == live)
-  // and for expired rookies (years<=0, a fresh deal). Mirrors the re-anchor in the
-  // FO surfaces. Keith 2026-06-27.
-  function reanchorPreviewExtOption(asset, opt) {
-    if (!opt) return opt;
-    var curYears = asset && asset.years != null ? safeInt(asset.years, 0) : 0;
-    if (curYears < 1) return opt;
-    var liveCur = Math.max(1000, roundToNearestK(safeInt(asset && asset.salary, 0)));
-    var staleCur = safeInt(opt.new_aav_current, 0);
-    if (!(liveCur > 0) || !(staleCur > 0) || liveCur === staleCur) return opt;
-    var delta = liveCur - staleCur;
-    var info = safeStr(opt.preview_contract_info_string);
-    var numYears = (info.match(/Y\d+\s*-/gi) || []).length;
-    var shift = function (m, n) {
-      var token = m.replace(/^Y\d+\s*-\s*/i, "");
-      var d = parseContractMoneyTokenToDollars(token);
-      return d > 0 ? "Y" + n + "-" + formatContractKToken(Math.max(1000, roundToNearestK(d + delta))) : m;
-    };
-    var newTcv = safeInt(opt.new_TCV, 0) + delta * numYears;
-    if (!(newTcv > 0)) newTcv = safeInt(opt.new_TCV, 0);
-    var newGtd = newTcv > 4000 ? Math.round(newTcv * 0.75) : 0;
-    var newInfo = info
-      .replace(/Y(\d+)\s*-\s*[0-9.]+\s*K?/gi, shift)
-      .replace(/AAV\s+[0-9.]+\s*K?(?:\s*,\s*[0-9.]+\s*K?)*/i, function (m) {
-        return m.replace(/[0-9.]+\s*K?/g, function (tok) {
-          var d = parseContractMoneyTokenToDollars(tok);
-          return d > 0 ? formatContractKToken(Math.max(1000, roundToNearestK(d + delta))) : tok;
-        });
-      })
-      .replace(/TCV\s+[0-9.]+\s*K?/i, "TCV " + formatContractKToken(newTcv))
-      .replace(/GTD:\s*[0-9.]+\s*K?/i, "GTD: " + formatContractKToken(newGtd));
-    var shiftYr = function (v) { return v == null ? null : Math.max(1000, roundToNearestK(safeInt(v, 0) + delta)); };
-    var out = clone(opt);
-    out.preview_contract_info_string = newInfo;
-    out.new_aav_current = liveCur;
-    out.new_aav_future = Math.max(1000, roundToNearestK(safeInt(opt.new_aav_future, 0) + delta));
-    out.new_TCV = newTcv;
-    out.y1_salary = shiftYr(opt.y1_salary);
-    out.y2_salary = shiftYr(opt.y2_salary);
-    out.y3_salary = shiftYr(opt.y3_salary);
-    out.reanchored = true;
-    return out;
-  }
+  // (The browser NEVER reprices an extension: the worker prices it — worker/src/extension_pricing.js — and imports its own price. A former
+  // client-side "re-anchor" of preview rows to the live salary was dead code and is gone.)
 
   function clone(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -3136,6 +3085,12 @@
       }
     }
     if (!loadKey) return;
+    // A 3-way trade is not an MFL offer (MFL only does 2-party trades): route its
+    // id to the 3-way loader instead of failing with "no longer available in MFL".
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(loadKey)) {
+      await open3WayDetail(loadKey);
+      return;
+    }
     var mode = safeStr(getUrlParam("twb_mode")).toLowerCase();
     if (!mode) {
       try {
@@ -3344,6 +3299,69 @@
     if (loaded) setSubmitStatus("Counter Offer Draft loaded.", "");
   }
 
+  // ── Accept review: salary cap (HARD rule) + roster counts (advisory), shown BEFORE the accept ──
+  // The worker recomputes the post-trade cap from live MFL data (POST …/action, action PREVIEW — read-only) and this
+  // dialog only presents it (shared renderer: site/shared/trade_3way_view.js). The Accept button exists only when the
+  // server says the cap is fine; the accept itself is re-checked server-side, so this is a courtesy, not the guard.
+  function fetchAcceptPreview(actionUrl, body) {
+    return fetch(actionUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (res) {
+        return res.text().then(function (txt) {
+          var parsed = null;
+          try { parsed = txt ? JSON.parse(txt) : null; } catch (e) { parsed = null; }
+          return { ok: res.ok, status: res.status, body: parsed };
+        });
+      })
+      .catch(function () { return { networkError: true }; });
+  }
+
+  function reviewBeforeAccept(actionUrl, previewBody) {
+    var T = window.UPS_TRADE_3WAY;
+    if (!T || !T.renderAcceptReview || typeof document === "undefined") return Promise.resolve(true);
+    T.ensureStyles();
+    var dlg = document.getElementById("twbAcceptReview");
+    if (!dlg) {
+      dlg = document.createElement("dialog");
+      dlg.id = "twbAcceptReview";
+      dlg.className = "twb-feedback-modal-dialog";
+      dlg.setAttribute("aria-labelledby", "twbAcceptReviewTitle");
+      dlg.style.width = "min(560px, calc(100vw - 1.5rem))";
+      // (the page's stylesheet paints the stock feedback shell light on some builds, so this dialog carries its own dark theme)
+      dlg.innerHTML = '<div class="twb-feedback-modal-shell" style="background:#0a172d;color:#eaf3ff;border:1px solid rgba(121,153,195,.34);border-radius:14px;padding:.78rem;' +
+        '--t3w-bg:#0a172d;--t3w-fg:#eaf3ff;--t3w-mut:#9fb4d6;--t3w-line:rgba(121,153,195,.34)"><header class="twb-feedback-modal-head"><h3 id="twbAcceptReviewTitle">Accept this trade?</h3></header>' +
+        '<div class="twb-feedback-modal-body" id="twbAcceptReviewBody"></div></div>';
+      document.body.appendChild(dlg);
+    }
+    if (dlg.hasAttribute("open")) return Promise.resolve(false);   // a review is already on screen
+    var body = document.getElementById("twbAcceptReviewBody");
+    return new Promise(function (resolve) {
+      var settled = false;
+      var token = 0;
+      function done(v) {
+        if (settled) return;
+        settled = true;
+        try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); }
+        resolve(v);
+      }
+      function paint(review) { body.innerHTML = T.renderAcceptReview(review, {}); }
+      function load() {
+        var mine = ++token;
+        paint(null);
+        fetchAcceptPreview(actionUrl, previewBody).then(function (res) {
+          if (settled || mine !== token) return;
+          paint(T.interpretPreview(res));
+        });
+      }
+      T.bind(dlg, { "accept-close": function () { done(false); }, "accept-retry": load, "accept-confirm": function () { done(true); } });
+      dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(false); };
+      load();
+      if (typeof dlg.showModal === "function") {
+        try { dlg.showModal(); return; } catch (e) { /* fall through */ }
+      }
+      dlg.setAttribute("open", "open");
+    });
+  }
+
   async function performOfferAction(action, meta) {
     var normalizedAction = normalizeOfferStatus(action);
     if (!normalizedAction || state.offers.actionBusy) return;
@@ -3369,6 +3387,14 @@
       setSubmitStatus("Offer action failed: missing trade routing fields.", "bad");
       renderSummary();
       return;
+    }
+
+    if (normalizedAction === "ACCEPT") {
+      var proceed = await reviewBeforeAccept(resolveTradeOffersActionApiUrl(), {
+        league_id: leagueId, season: season, trade_id: tradeId, action: "PREVIEW",
+        acting_franchise_id: actingFranchiseId, offer_id: safeStr(offer.id)
+      });
+      if (!proceed) return;
     }
 
     state.offers.actionBusy = true;
@@ -3536,8 +3562,18 @@
         }
         var postSummary = summarizePostAcceptResult(res);
         if (postSummary.text) okText += " " + postSummary.text + ".";
-        setSubmitStatus(okText, postSummary.tone || "good");
-        showFeedbackModal("Offer Accepted", okText, postSummary.tone || "good");
+        var acceptTitle = "Offer Accepted", acceptTone = postSummary.tone || "good";
+        // MFL executed it, but the contract/extension step did not finish: say exactly that (never "failed", never plain success).
+        if (res && (res.needs_review || res.execution_state === "executed_needs_review")) {
+          acceptTitle = "Trade Executed \u2014 Needs Commissioner Review";
+          okText = safeStr(res.message) || "Your trade WAS executed in MFL. Its contract/extension processing did not finish and needs commissioner review (no action needed from you).";
+          acceptTone = "warn";
+        } else if (res && res.already && res.executed) {
+          acceptTitle = "Already Accepted";
+          okText = "This trade was already executed in MFL.";
+        }
+        setSubmitStatus(okText, acceptTone);
+        showFeedbackModal(acceptTitle, okText, acceptTone);
         setAcceptDebug(res && res.accept_debug ? res.accept_debug : null);
         if (res && res.accept_debug) {
           try {
@@ -3599,13 +3635,21 @@
       } catch (e) {
         // noop
       }
-      setSubmitStatus(friendlyOfferError("Offer action failed", err), "bad");
-      if (normalizedAction === "ACCEPT") {
-        showFeedbackModal(
-          "Trade Failed",
-          friendlyOfferError("Offer action failed", err),
-          "bad"
-        );
+      var errCode = safeStr(err && err.data && err.data.code);
+      if (normalizedAction === "ACCEPT" && (errCode === "execution_unconfirmed" || errCode === "execution_in_progress")) {
+        // We could not confirm what MFL did — and the accept was NOT sent again. Not "failed", not "accepted".
+        var unconfirmedMsg = safeStr(err.data.message || err.data.error) || "We couldn't confirm whether MFL processed that accept, and it has NOT been sent again. Ask the commissioner to check it.";
+        setSubmitStatus(unconfirmedMsg, "warn");
+        showFeedbackModal("Trade Not Confirmed", unconfirmedMsg, "warn");
+      } else {
+        setSubmitStatus(friendlyOfferError("Offer action failed", err), "bad");
+        if (normalizedAction === "ACCEPT") {
+          showFeedbackModal(
+            "Trade Failed",
+            friendlyOfferError("Offer action failed", err),
+            "bad"
+          );
+        }
       }
     } finally {
       state.offers.actionBusy = false;
@@ -3630,8 +3674,20 @@
     if (state.offers.error) {
       var err = document.createElement("div");
       err.className = "twb-banner-offers-empty";
-      err.textContent = state.offers.error;
+      err.setAttribute("data-inbox-state", state.offers.errorKind === "signed_out" ? "signed_out" : "error");
+      err.textContent = state.offers.errorKind === "signed_out"
+        ? "Sign in to view trades. Your trades live in MFL — open this from inside the MFL site (or sign in to MFL)."
+        : state.offers.error;
       listEl.appendChild(err);
+      if (state.offers.errorKind !== "signed_out") {
+        var retry = document.createElement("button");
+        retry.type = "button";
+        retry.className = "twb-banner-offer-main";
+        retry.setAttribute("data-action", "retry-offers");
+        retry.textContent = "Try again";
+        retry.addEventListener("click", function () { refreshBannerOffers(true); });
+        listEl.appendChild(retry);
+      }
       return;
     }
 
@@ -3707,8 +3763,10 @@
   }
 
   function renderBannerOffers() {
-    if (els.offeredCount) els.offeredCount.textContent = String((state.offers.offered || []).length);
-    if (els.receivedCount) els.receivedCount.textContent = String((state.offers.received || []).length);
+    // A dash — never "0" — while the inbox is unavailable (signed out / failed): 0 means "the worker said none".
+    var unavailable = !!state.offers.error;
+    if (els.offeredCount) els.offeredCount.textContent = unavailable ? "–" : String((state.offers.offered || []).length);
+    if (els.receivedCount) els.receivedCount.textContent = unavailable ? "–" : String((state.offers.received || []).length);
     renderBannerOfferList(els.offeredList, state.offers.offered || [], "offered");
     renderBannerOfferList(els.receivedList, state.offers.received || [], "received");
   }
@@ -3724,15 +3782,28 @@
       (err && err.message) ||
       ""
     );
-    if (!raw) return "Offer feed unavailable";
-    if (
-      /logged in user/i.test(raw) ||
-      /impersonate another franchise/i.test(raw) ||
-      /missing mfl owner session/i.test(raw)
-    ) {
-      return "Offer feed needs your owner session. Refresh the page and try again.";
+    if (!raw) return "Couldn't load your trades";
+    if (offerFeedErrorIsSignedOut(err)) return "Sign in to view trades";
+    // Never show a raw server body / status line to an owner ("HTTP 503: {…}", HTML, stack text).
+    if (/failed to fetch|networkerror|load failed|fetch failed|network request failed/i.test(raw)) {
+      return "Couldn't reach the server to load your trades. Try again in a moment.";
+    }
+    if ((err && err.status >= 500) || /^HTTP \d+/i.test(raw) || /^[\[{<]/.test(raw) || /\b(SQLITE|D1_ERROR|stack|at Object)\b/i.test(raw)) {
+      return "Couldn't load your trades. Try again in a moment.";
     }
     return raw.length > 140 ? (raw.slice(0, 137) + "...") : raw;
+  }
+
+  // Signed-out / expired / wrong-session is NOT the same thing as "the feed broke", and neither is an
+  // empty inbox: the banner says "Sign in to view trades" for the first, "Couldn't load your trades" +
+  // Try again for the second, and "No pending trades" ONLY when the worker answered with real, empty lists.
+  function offerFeedErrorIsSignedOut(err) {
+    var data = err && err.data && typeof err.data === "object" ? err.data : null;
+    var status = err && err.status;
+    var upstream = Number(data && data.pending_lookup && data.pending_lookup.upstream_status);   // older worker: 502 carrying MFL's own 401
+    var raw = safeStr((data && (data.code || data.reason || data.error)) || (err && err.message) || "");
+    return status === 401 || status === 403 || upstream === 401 || upstream === 403 ||
+      /unauthenticated|session_expired|missing_owner_session|owner session|logged in user|impersonate another franchise|missing mfl owner session/i.test(raw);
   }
 
   async function refreshBannerOffers(force) {
@@ -3742,9 +3813,12 @@
     var season = safeStr(meta.season) || leagueCtx.season;
     var franchiseId = getActiveFranchiseId();
     if (!leagueId || !season || !franchiseId) {
+      // We can't say whose trades to show — that is "unavailable", not "none".
       state.offers.offered = [];
       state.offers.received = [];
-      state.offers.error = "";
+      var hasSession = !!safeStr(getBrowserSessionParams().MFL_USER_ID);
+      state.offers.errorKind = hasSession ? "error" : "signed_out";
+      state.offers.error = hasSession ? "Couldn't tell which team is yours yet" : "Sign in to view trades";
       state.offers.key = "";
       renderBannerOffers();
       return;
@@ -3758,7 +3832,9 @@
 
     state.offers.busy = true;
     state.offers.error = "";
+    state.offers.errorKind = "";
     renderBannerOffers();
+    refresh3WayList();   // 3-way outbox rides the same triggers (boot, team switch, post-action)
 
     try {
       var offerUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
@@ -3770,12 +3846,17 @@
       offerUrl.searchParams.set("include_payload", "1");
       offerUrl.searchParams.set("limit", "300");
       var res = await fetchJsonRequest(offerUrl.toString());
-      state.offers.offered = normalizeOffersForBanner(res && res.outgoing);
-      state.offers.received = normalizeOffersForBanner(res && res.incoming);
+      // A body that doesn't carry both lists is a bad answer, not an empty inbox.
+      if (!res || !Array.isArray(res.outgoing) || !Array.isArray(res.incoming)) {
+        throw new Error("Couldn't load your trades");
+      }
+      state.offers.offered = normalizeOffersForBanner(res.outgoing);
+      state.offers.received = normalizeOffersForBanner(res.incoming);
       state.offers.key = key;
     } catch (err) {
       state.offers.offered = [];
       state.offers.received = [];
+      state.offers.errorKind = offerFeedErrorIsSignedOut(err) ? "signed_out" : "error";
       state.offers.error = summarizeOfferFeedError(err);
       state.offers.key = "";
     } finally {
@@ -6953,6 +7034,8 @@
     els.receivedCount = q("twbReceivedCount");
     els.offeredList = q("twbOfferedList");
     els.receivedList = q("twbReceivedList");
+    els.tw3List = q("twb3wList");
+    els.tw3Count = q("twb3wCount");
     els.board = q("twbBoard");
     els.partnerBoard = q("twbPartnerBoard");
     els.yourAssetsPanel = q("twbYourAssetsPanel");
@@ -7559,6 +7642,7 @@
       if (resp.ok && resp.body && resp.body.ok !== false) {
         tw3SetStatus("3-way sent — both partners have been DM'd to Accept or Decline. ✓", "good");
         render3WayPanel();
+        refresh3WayList();
         setTimeout(function () { if (tw3 && !tw3.submitting) close3WayBuilder(); }, 1600);
       } else {
         tw3SetStatus("Couldn't send: " + ((resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status)), "bad");
@@ -7570,7 +7654,187 @@
       render3WayPanel();
     });
   }
+  // ════════════ 3-WAY TRADES: outbox list + canonical detail + cancel ════════════
+  // Same canonical server object + same renderer as the mobile app
+  // (site/shared/trade_3way_view.js), so the two surfaces cannot drift. Identity is
+  // proven server-side from the MFL session; acting_franchise_id is only an
+  // "acting as" request that the worker honors for the commissioner alone.
+  var T3 = window.UPS_TRADE_3WAY || null;
+  var twx = { listStatus: "idle", list: [], listProblem: null, seq: 0, openSeq: 0,
+              detail: null, detailStatus: "idle", detailProblem: null, detailId: "", cancel: {} };
+
+  function twxUrl(suffix, params) {
+    var u = new URL(resolve3WayApiUrl(), window.location.href);
+    if (suffix) u.pathname = String(u.pathname || "").replace(/\/$/, "") + suffix;
+    var fid = getActiveFranchiseId();
+    if (fid) u.searchParams.set("acting_franchise_id", fid);
+    Object.keys(params || {}).forEach(function (k) { if (params[k]) u.searchParams.set(k, params[k]); });
+    return u.toString();
+  }
+  // Always resolves to { status, ok, body } or { networkError: true } — a failed
+  // request can never masquerade as an empty result.
+  function twxFetch(url, init) {
+    return fetch(url, init || {}).then(function (r) {
+      return r.text().then(function (txt) {
+        var body = null; try { body = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { status: r.status, ok: r.ok, body: body };
+      });
+    }).catch(function () { return { networkError: true }; });
+  }
+
+  function render3WayList() {
+    if (!els.tw3List) return;
+    if (els.tw3Count) els.tw3Count.textContent = String((twx.list || []).length);
+    if (!T3) { els.tw3List.innerHTML = '<div class="twb-banner-offers-empty">3-way view failed to load.</div>'; return; }
+    T3.ensureStyles();
+    var html;
+    if (twx.listStatus === "loading" && !twx.list.length) html = '<div class="twb-banner-offers-empty" role="status">Loading…</div>';
+    else if (twx.listStatus === "error" && twx.listProblem) html = T3.renderProblem(twx.listProblem, { title: "Couldn't load your 3-way trades" });
+    else if (!twx.list.length) html = '<div class="twb-banner-offers-empty">No active 3-way trades</div>';
+    else html = twx.list.map(T3.renderCard).join("");
+    els.tw3List.innerHTML = html;
+    T3.bind(els.tw3List, {
+      open: function (id) { open3WayDetail(id); },
+      "open-cancel": function (id) { open3WayDetail(id, { confirm: true }); },
+      retry: function () { refresh3WayList(); }
+    });
+    tw3Reflow();
+  }
+
+  async function refresh3WayList() {
+    if (!T3 || !els.tw3List) return;
+    var fid = getActiveFranchiseId();
+    if (!fid) { twx.list = []; twx.listStatus = "ok"; twx.listProblem = null; render3WayList(); return; }
+    var mine = ++twx.seq;
+    twx.listStatus = "loading";
+    render3WayList();
+    var out = T3.interpretList(await twxFetch(twxUrl("", { franchise_id: fid })));
+    if (mine !== twx.seq) return;                       // superseded by a newer refresh
+    if (out.kind === "ok") { twx.list = out.trades; twx.listProblem = null; twx.listStatus = "ok"; }
+    else { twx.listProblem = out; twx.listStatus = "error"; }   // keep the last good list; do NOT assert "none"
+    render3WayList();
+  }
+
+  function tw3dSetVisible(show) {
+    var panel = document.getElementById("twb3wDetailPanel");
+    var main = document.querySelector(".twb-main");
+    var toolbar = document.querySelector(".twb-toolbar");
+    var tabs = document.getElementById("twbMobileTabs");
+    var tray = document.getElementById("twbOfferCartMobileTray");
+    if (panel) { panel.hidden = !show; panel.style.display = show ? "" : "none"; }
+    if (main) main.style.display = show ? "none" : "";
+    if (toolbar) toolbar.style.display = show ? "none" : "";
+    if (tabs) tabs.style.display = show ? "none" : "";
+    if (tray) tray.style.display = show ? "none" : "";
+    tw3Reflow();
+  }
+  function tw3dSetUrl(id) {
+    try {
+      var u = new URL(window.location.href);
+      if (id) u.searchParams.set("twb_3w", id); else u.searchParams.delete("twb_3w");
+      u.searchParams.delete("twb_load_offer");
+      window.history.replaceState({}, "", u.toString());
+    } catch (e) { /* embedded frames may forbid history writes; deep-link is best-effort */ }
+  }
+  function render3WayDetail() {
+    var body = document.getElementById("twb3wDetailBody");
+    if (!body || !T3) return;
+    T3.ensureStyles();
+    var html;
+    if (twx.detailStatus === "loading" && !twx.detail) html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
+    else if (twx.detailStatus === "error" && twx.detailProblem) html = T3.renderProblem(twx.detailProblem);
+    else if (twx.detail) html = T3.renderDetail(twx.detail, { cancel: twx.cancel, recheck: twx.recheck || {} });
+    else html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
+    body.innerHTML = html;
+    T3.bind(body, {
+      cancel: function () { twx.cancel = { confirming: true }; render3WayDetail(); },
+      keep: function () { twx.cancel = {}; render3WayDetail(); },
+      "confirm-cancel": function () { doCancel3Way(twx.detailId); },
+      recheck: function () { doRecheck3Way(twx.detailId); },
+      retry: function () { open3WayDetail(twx.detailId); }
+    });
+    if (twx.detail && twx.cancel.confirming && !twx.cancel.busy) T3.revealConfirm(body);
+    tw3Reflow();
+  }
+
+  // Loads the trade from the server EVERY time (deep link, refresh, re-open) — a
+  // previously shown copy only stays on screen while the request is in flight.
+  async function open3WayDetail(id, opts) {
+    if (!T3 || !id) return;
+    opts = opts || {};
+    var my = ++twx.openSeq;
+    if (twx.detailId !== id) twx.detail = null;
+    twx.detailId = id; twx.detailStatus = "loading"; twx.detailProblem = null; twx.cancel = {};
+    tw3dSetVisible(true);
+    var t = document.getElementById("twb3wDetailTitle"); if (t) t.textContent = "3-Way Trade";
+    render3WayDetail();
+    tw3dSetUrl(id);
+    try { window.scrollTo(0, 0); } catch (e) {}
+    var out = T3.interpretLoad(await twxFetch(twxUrl("", { id: id })));
+    if (my !== twx.openSeq || twx.detailId !== id) return;   // a newer open / a close superseded this response
+    if (out.kind === "ok") {
+      twx.detail = out.trade; twx.detailStatus = "ok";       // on (re)open the SERVER always wins
+      if (opts.confirm && twx.detail.permissions && twx.detail.permissions.can_cancel) twx.cancel = { confirming: true };
+    } else { twx.detail = null; twx.detailProblem = out; twx.detailStatus = "error"; }
+    render3WayDetail();
+  }
+  function close3WayDetail() {
+    twx.detailId = ""; twx.detail = null; twx.cancel = {};
+    tw3dSetVisible(false);
+    tw3dSetUrl("");
+    refresh3WayList();
+  }
+
+  // Re-check a trade both partners accepted that the salary cap is holding (the server recomputes the cap from scratch).
+  async function doRecheck3Way(id) {
+    if (!id || (twx.recheck && twx.recheck.busy)) return;
+    twx.recheck = { busy: true };
+    render3WayDetail();
+    var body = { id: id };
+    var fid = getActiveFranchiseId();
+    if (fid) body.acting_franchise_id = fid;
+    var out = T3.interpretRecheck(await twxFetch(twxUrl("/recheck", {}), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }));
+    if (twx.detailId !== id) return;
+    twx.recheck = { ok: out.ok, message: out.message };
+    await open3WayDetail(id);
+    twx.recheck = { ok: out.ok, message: out.message };     // (open3WayDetail resets per-open state; keep the answer visible)
+    render3WayDetail();
+    refresh3WayList();
+  }
+
+  async function doCancel3Way(id) {
+    if (!id || twx.cancel.busy) return;
+    twx.cancel = { busy: true, confirming: true };
+    render3WayDetail();
+    var body = { id: id };
+    var fid = getActiveFranchiseId();
+    if (fid) body.acting_franchise_id = fid;
+    var out = T3.interpretCancel(await twxFetch(twxUrl("/cancel", {}), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }));
+    if (twx.detailId !== id) return;
+    if (out.applied) {                                    // server-confirmed ONLY
+      twx.detail = T3.preferNewer(twx.detail, out.trade);
+      twx.cancel = { success: out.message };
+    } else if (out.kind === "unconfirmed") {
+      twx.cancel = { error: out.message };
+      render3WayDetail();
+      return open3WayDetail(id);
+    } else {
+      if (out.trade) twx.detail = T3.preferNewer(twx.detail, out.trade);   // e.g. it moved on to 'executing'
+      twx.cancel = { error: out.message };
+    }
+    render3WayDetail();
+    refresh3WayList();
+  }
+
   function init3WayTrade() {
+    var closeDetail = document.getElementById("twb3wDetailCloseBtn");
+    if (closeDetail && !closeDetail.__tw3Wired) { closeDetail.__tw3Wired = true; closeDetail.addEventListener("click", close3WayDetail); }
+    var dl = safeStr(getUrlParam("twb_3w"));
+    if (dl) open3WayDetail(dl);
     var openBtn = document.getElementById("twb3wOpenBtn");
     if (openBtn && !openBtn.__tw3Wired) { openBtn.__tw3Wired = true; openBtn.addEventListener("click", open3WayBuilder); }
     var closeBtn = document.getElementById("twb3wCloseBtn");

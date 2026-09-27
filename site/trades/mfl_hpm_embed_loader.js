@@ -327,6 +327,7 @@
       var pageHash = new URLSearchParams(safeStr(pageUrl.hash).replace(/^#/, ""));
       var passthroughKeys = [
         "twb_load_offer",
+        "twb_3w",
         "twb_mode",
         "twb_player_id",
         "twb_team_id",

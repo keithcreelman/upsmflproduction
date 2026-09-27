@@ -17,7 +17,16 @@
   var M = window.UPS_MOBILE;
   var U = M.util;
 
-  var state = { offers: null, loading: false, error: null, threeWays: null, loadingThreeWays: false };
+  var state = { offers: null, loading: false, error: null };
+  // 3-way trades: rendered by the SHARED module (site/shared/trade_3way_view.js) from
+  // the canonical server object, identically to the desktop War Room.
+  var T = window.UPS_TRADE_3WAY;
+  var tw = {
+    listStatus: "idle", list: [], listProblem: null,           // idle | loading | ok | error
+    wantConfirm: "", openSeq: 0,
+    detailStatus: "idle", detail: null, detailProblem: null, detailId: "",
+    lastRoute: "list", cancel: {}, seq: 0
+  };
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -40,9 +49,16 @@
     return f ? f.name : ("Team " + fid);
   }
 
+  // The inbox is ALWAYS one of three honest states (see app.js fetchTradeOffers): "ok" (a real list —
+  // an empty one really means 0 offers), "signed_out" (no/invalid session → "Sign in to view trades"),
+  // "error" (couldn't load → explicit error + Try again). An unavailable inbox is never shown as "0 offers".
+  function unavailable(status, message) { return { incoming: [], outgoing: [], status: status, error: message || "" }; }
+
   function loadOffers() {
     if (state.loading) return Promise.resolve();
-    if (!M.state.viewerFranchiseId) return Promise.resolve();
+    var storedTok = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (!storedTok) { state.offers = unavailable("signed_out", "Sign in to view trades"); return Promise.resolve(); }
+    if (!M.state.viewerFranchiseId) { state.offers = unavailable("error", "Couldn't tell which team is yours yet"); return Promise.resolve(); }
     state.loading = true; state.error = null;
     // Listing offers reads MFL's pendingTrades AS THE OWNER — forward
     // MFL_USER_ID + YEAR or the worker returns 401/empty (the just-created
@@ -72,26 +88,43 @@
         var body = res.body;
         var failed = !res.ok || (body && body.ok === false);
         if (failed) {
-          var isAuth = res.status === 401 || res.status === 403 ||
+          var upLookup = Number(body && body.pending_lookup && body.pending_lookup.upstream_status);
+          var isAuth = res.status === 401 || res.status === 403 || upLookup === 401 || upLookup === 403 ||
             /MFL_USER_ID|owner session|missing_owner_session/i.test(
               (body && (body.error || body.reason)) || "");
-          state.error = isAuth
-            ? "Signed out of MFL — re-open this from inside the MFL site to see your trade offers."
-            : "Couldn't load trade offers" +
-              ((body && (body.error || body.reason)) ? ": " + (body.error || body.reason) : " (HTTP " + res.status + ")");
-          // Keep whatever we last had rather than asserting an empty inbox.
-          if (!state.offers) state.offers = { incoming: [], outgoing: [] };
+          state.error = null;
+          state.offers = isAuth
+            ? unavailable("signed_out", "Sign in to view trades")
+            : unavailable("error", "Couldn't load trade offers" + (res.status >= 500 || !(body && (body.error || body.reason)) ? " (HTTP " + res.status + ")" : ""));
           state.loading = false;
           return;
         }
         state.error = null;
-        state.offers = body || { incoming: [], outgoing: [] };
+        // A body without both lists is a bad answer, not an empty inbox.
+        state.offers = (body && Array.isArray(body.incoming) && Array.isArray(body.outgoing))
+          ? { incoming: body.incoming, outgoing: body.outgoing, status: "ok" }
+          : unavailable("error", "Couldn't load trade offers");
         state.loading = false;
       })
-      .catch(function (err) {
-        state.error = (err && err.message) || String(err);
+      .catch(function () {
+        state.error = null;
+        state.offers = unavailable("error", "Couldn't reach the server to load trade offers");
         state.loading = false;
       });
+  }
+
+  function renderInboxUnavailable(offers) {
+    if (offers.status === "signed_out") {
+      return '<div class="ups-m-card" data-inbox-state="signed_out">' +
+        '<div class="ups-m-card-title">Sign in to view trades</div>' +
+        '<div style="font-size:13px;color:var(--fg-muted);line-height:1.45">Your trades live in MFL, so you have to be signed in to see them. Open this page from inside the MFL site (or sign in to MFL) and they\'ll load here.</div>' +
+      '</div>';
+    }
+    return '<div class="ups-m-card" data-inbox-state="error">' +
+      '<div class="ups-m-card-title">Couldn\'t load your trades</div>' +
+      '<div style="font-size:13px;color:var(--fg-muted);line-height:1.45;margin-bottom:10px">' + U.escapeHtml(offers.error || "Something went wrong loading your trade offers.") + ' Nothing has been changed.</div>' +
+      '<button class="btn-act otb on" id="ups-m-trade-retry" style="width:100%">Try again</button>' +
+    '</div>';
   }
 
   // Render a list of offer rows.
@@ -832,8 +865,15 @@
   function runTradeAction(action, tradeId, message) {
     M.ui.showToast(action[0].toUpperCase() + action.slice(1) + "ing…", "info");
     return postTradeAction(action, tradeId, message).then(function (resp) {
+      // ONE reading of what actually happened (never a bare "Done"): executed / executed-but-needs-review / unconfirmed / not accepted.
+      var out = T && T.interpretAction ? T.interpretAction(action, resp) : null;
+      if (out && (out.kind === "executed_needs_review" || out.kind === "unconfirmed")) {
+        M.ui.showToast(out.message, "warn");
+        state.offers = null;
+        return loadOffers().then(function () { M.route.renderRoute(); });
+      }
       if (resp.ok) {
-        M.ui.showToast("Done ✓", "ok");
+        M.ui.showToast(out && out.kind === "already" ? out.message : "Done ✓", "ok");
         state.offers = null;
         // Reload everything: trade actions can mutate roster + cap, and we
         // need fresh trade offers + nav badge count.
@@ -892,11 +932,47 @@
     });
   }
 
+  // Accept = a REVIEW first. The worker recomputes the post-trade salary cap (a hard rule: a trade that would put
+  // any team over the cap can't be accepted) and the roster counts (advisory) from live MFL data and returns them
+  // (POST …/proposals/action, action "preview" — read-only). Nothing is computed here; the sheet only presents it.
+  // The Accept button exists ONLY when the server says the cap is fine, and the accept is re-checked server-side.
+  function previewAccept(tradeId) {
+    return postTradeAction("preview", tradeId, "").then(function (resp) {
+      return T.interpretPreview({ ok: resp.ok, status: resp.status, body: resp.body });
+    }).catch(function () { return T.interpretPreview({ networkError: true }); });
+  }
+  function openAcceptReview(tradeId) {
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return;
+    var old = document.getElementById("ups-m-accept-overlay");
+    if (old) old.remove();
+    T.ensureStyles();
+    mount.insertAdjacentHTML("beforeend",
+      '<div class="ups-m-drop-overlay" id="ups-m-accept-overlay"><div class="ups-m-drop-sheet" role="dialog" aria-modal="true" aria-label="Review before accepting">' +
+        '<div class="ups-m-drop-head"><button class="ups-m-drop-close" data-t3w-act="accept-close" aria-label="Close">×</button>' +
+          '<div class="title">Accept this trade?</div><div class="sub">Checked against the salary cap right now. Accepting writes to MFL.</div></div>' +
+        '<div class="ups-m-drop-body" id="ups-m-accept-body" style="padding:12px 14px"></div></div></div>');
+    document.body.style.overflow = "hidden";
+    var body = document.getElementById("ups-m-accept-body");
+    var overlay = document.getElementById("ups-m-accept-overlay");
+    function close() { var ov = document.getElementById("ups-m-accept-overlay"); if (ov) ov.remove(); document.body.style.overflow = ""; }
+    function paint(review, busy) { body.innerHTML = T.renderAcceptReview(review, { busy: busy }); }
+    function load() {
+      paint(null);
+      previewAccept(tradeId).then(function (review) { if (document.getElementById("ups-m-accept-overlay") === overlay) paint(review); });
+    }
+    T.bind(overlay, {
+      "accept-close": close,
+      "accept-retry": load,
+      "accept-confirm": function () { close(); runTradeAction("accept", tradeId, ""); }
+    });
+    load();
+  }
+
   function handleAction(action, tradeId) {
     if (action === "decline") { openDeclineSheet(tradeId); return; }
-    var prompt = action === "accept" ? "Accept this trade?\n\nWrites to MFL." :
-                 "Cancel this outgoing offer?";
-    if (!window.confirm(prompt)) return;
+    if (action === "accept") { openAcceptReview(tradeId); return; }
+    if (!window.confirm("Cancel this outgoing offer?")) return;
     runTradeAction(action, tradeId, "");
   }
 
@@ -1385,7 +1461,7 @@
       if (resp.ok && resp.body && resp.body.ok !== false) {
         M.ui.showToast("3-way sent — partners notified ✓", "ok");
         close3Way();
-        state.threeWays = null; // refresh the outbox so the new 3-way shows
+        tw.listStatus = "idle"; // refresh the outbox so the new 3-way shows
         loadThreeWays().then(function () { M.route.renderRoute(); });
       } else {
         b3.error = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
@@ -1398,72 +1474,160 @@
     });
   }
 
-  // ── 3-way outbox: list the viewer's active 3-way trades (initiator or partner) ──
-  function loadThreeWays() {
-    if (state.loadingThreeWays) return Promise.resolve();
-    if (!M.state.viewerFranchiseId) { state.threeWays = []; return Promise.resolve(); }
-    state.loadingThreeWays = true;
-    var url = M.api.workerUrl("/api/trades/3way?L=" + encodeURIComponent(M.state.ctx.leagueId) +
-      "&franchise_id=" + encodeURIComponent(M.state.viewerFranchiseId));
+  // ── 3-way trades (canonical server object; see worker/src/trade_3way_model.js) ──
+  // Every request forwards the MFL session (?MFL_USER_ID=) and the league (?L=). The
+  // server PROVES identity from that session; franchise ids we send are only an
+  // "acting as" request, honored for the commissioner alone.
+  function tw3Url(pathAndQuery) {
+    var ctx = M.state.ctx;
+    var url = M.api.workerUrl(pathAndQuery + (pathAndQuery.indexOf("?") >= 0 ? "&" : "?") +
+      "L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
+    var fid = U.pad4(M.state.viewerFranchiseId);
+    if (fid) url += "&acting_franchise_id=" + encodeURIComponent(fid);
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
     if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
-    return fetch(url, { mode: "cors", credentials: "omit" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) { state.threeWays = (data && data.three_way) || []; state.loadingThreeWays = false; })
-      .catch(function () { state.threeWays = []; state.loadingThreeWays = false; });
+    return url;
   }
-  function statusLabel3w(t) {
-    if (t.status === "executing") return "Processing…";
-    if (t.status === "collecting") {
-      return (t.waiting_on && t.waiting_on.length) ? "Waiting on " + t.waiting_on.join(" & ") : "Both accepted";
+  // Wraps fetch so callers always get { status, ok, body } or { networkError:true } —
+  // a failed request can never masquerade as an empty result.
+  function tw3Fetch(url, init) {
+    init = init || {};
+    init.mode = "cors"; init.credentials = "omit";
+    return fetch(url, init).then(function (r) {
+      return r.text().then(function (txt) {
+        var body = null; try { body = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { status: r.status, ok: r.ok, body: body };
+      });
+    }).catch(function () { return { networkError: true }; });
+  }
+  function loadThreeWays() {
+    if (tw.listStatus === "loading") return Promise.resolve();
+    if (!T || !M.state.viewerFranchiseId) { tw.listStatus = "ok"; tw.list = []; return Promise.resolve(); }
+    tw.listStatus = "loading";
+    var mySeq = ++tw.seq;
+    var url = tw3Url("/api/trades/3way?franchise_id=" + encodeURIComponent(U.pad4(M.state.viewerFranchiseId)));
+    return tw3Fetch(url).then(function (res) {
+      if (mySeq !== tw.seq) return;                               // superseded by a newer request
+      var out = T.interpretList(res);
+      if (out.kind === "ok") { tw.list = out.trades; tw.listProblem = null; tw.listStatus = "ok"; }
+      else { tw.listProblem = out; tw.listStatus = "error"; }   // keep the last good list; do NOT assert "none"
+    });
+  }
+  function loadThreeWayDetail(id) {
+    var my = ++tw.openSeq;
+    tw.detailStatus = "loading"; tw.detailId = id; tw.detailProblem = null;
+    return tw3Fetch(tw3Url("/api/trades/3way?id=" + encodeURIComponent(id))).then(function (res) {
+      if (my !== tw.openSeq) return;                              // a newer open superseded this response
+      var out = T.interpretLoad(res);
+      // On (re)entry the SERVER always wins: whatever was cached is only shown while this request is in flight.
+      if (out.kind === "ok") { tw.detail = out.trade; tw.detailStatus = "ok"; }
+      else { tw.detail = null; tw.detailProblem = out; tw.detailStatus = "error"; }
+    });
+  }
+  function renderThreeWaySection() {
+    if (!T) return "";
+    var h = "";
+    if (tw.listStatus === "error" && tw.listProblem) {
+      h += '<div class="ups-m-pos-group">3-Way Trades</div><div style="padding:0 12px">' + T.renderProblem(tw.listProblem, { title: "Couldn't load your 3-way trades" }) + '</div>';
     }
-    return t.status;
+    if (tw.list.length) {
+      h += '<div class="ups-m-pos-group">3-Way Trades · ' + tw.list.length + '</div><div style="padding:0 12px">' + tw.list.map(T.renderCard).join("") + '</div>';
+    }
+    return h;
   }
-  function render3WayCards(list) {
-    return list.map(function (t) {
-      var movs = (t.movements || []).map(function (m) {
-        return '<div class="ups-m-3wc-mov"><span class="rt">' + U.escapeHtml(m.from_name) + ' → ' + U.escapeHtml(m.to_name) + '</span>' +
-          '<span class="as">' + U.escapeHtml(m.summary) + '</span></div>';
-      }).join("");
-      var note = t.notes ? '<div class="ups-m-3wc-note">💬 ' + U.escapeHtml(t.notes) + '</div>' : '';
-      var actions = t.can_cancel ? '<div class="ups-m-3wc-actions"><button class="btn-act" data-3w-cancel="' + U.escapeHtml(t.id) + '">Cancel</button></div>' : '';
-      var roleTag = t.role === "initiator" ? "You started this" : "You're a partner";
-      return '<div class="ups-m-card ups-m-3wc">' +
-        '<div class="ups-m-3wc-head"><span class="st">' + U.escapeHtml(statusLabel3w(t)) + '</span>' +
-          '<span class="rl">' + U.escapeHtml(roleTag) + '</span></div>' +
-        '<div class="ups-m-3wc-movs">' + movs + '</div>' + note + actions +
-      '</div>';
-    }).join("");
-  }
-  function cancel3WayTrade(id) {
-    if (!window.confirm("Call off this 3-way trade? The other two teams will be told it's off.")) return;
-    var url = M.api.workerUrl("/api/trades/3way/cancel");
-    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
-    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
-    fetch(url, {
-      method: "POST", mode: "cors", credentials: "omit",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: id, franchise_id: U.pad4(M.state.viewerFranchiseId), league_id: M.state.ctx.leagueId })
-    }).then(function (r) { return r.json().catch(function () { return null; }); })
-      .then(function (resp) {
-        if (resp && resp.ok) {
-          M.ui.showToast("3-way called off ✓", "ok");
-          state.threeWays = null;
-          loadThreeWays().then(function () { M.route.renderRoute(); });
-        } else {
-          M.ui.showToast((resp && (resp.error || resp.message)) || "Couldn't cancel.", "err");
-        }
-      }).catch(function () { M.ui.showToast("Couldn't cancel.", "err"); });
+  function refreshThreeWayList() { tw.listStatus = "idle"; tw.seq++; return loadThreeWays().then(function () { M.route.renderRoute(); }); }
+
+  // Re-check a trade both partners accepted that the salary cap is holding. The server recomputes the cap from scratch and runs it if it's fine.
+  function doRecheckThreeWay(id) {
+    if (tw.recheck && tw.recheck.busy) return;
+    tw.recheck = { busy: true };
+    M.route.renderRoute();
+    var body = { id: id };
+    var fid = U.pad4(M.state.viewerFranchiseId);
+    if (fid) body.acting_franchise_id = fid;
+    tw3Fetch(tw3Url("/api/trades/3way/recheck"), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }).then(function (res) {
+      var out = T.interpretRecheck(res);
+      tw.recheck = { ok: out.ok, message: out.message };
+      tw.listStatus = "idle";
+      M.ui.showToast(out.message, out.ok ? "ok" : "err");
+      return loadThreeWayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
   }
 
-  function render(mount) {
+  function doCancelThreeWay(id) {
+    if (tw.cancel.busy) return;
+    tw.cancel = { busy: true, confirming: true };
+    M.route.renderRoute();
+    var body = { id: id };
+    var fid = U.pad4(M.state.viewerFranchiseId);
+    if (fid) body.acting_franchise_id = fid;
+    tw3Fetch(tw3Url("/api/trades/3way/cancel"), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }).then(function (res) {
+      var out = T.interpretCancel(res);
+      if (out.applied) {                                            // server-confirmed ONLY
+        tw.detail = T.preferNewer(tw.detail, out.trade);
+        tw.cancel = { success: out.message };
+        tw.listStatus = "idle";
+        M.ui.showToast(out.message, "ok");
+      } else if (out.kind === "unconfirmed") {
+        tw.cancel = { error: out.message };
+        return loadThreeWayDetail(id);
+      } else {
+        if (out.trade) tw.detail = T.preferNewer(tw.detail, out.trade);   // e.g. it moved on to 'executing'
+        tw.cancel = { error: out.message };
+        M.ui.showToast(out.message, "err");
+      }
+    }).then(function () { M.route.renderRoute(); });
+  }
+
+  function renderThreeWayDetail(mount, id) {
+    var head = subTabs("trade") + '<a class="ups-m-subtab" href="#league/trade" style="display:inline-block;margin:0 0 10px">← All trades</a>';
+    if (!T) { mount.innerHTML = head + '<div class="ups-m-error">3-way view failed to load. Reload the app.</div>'; return; }
+    // Entering the detail route (fresh navigation, Back/Forward, or refresh) always
+    // asks the server; a cached copy is only shown while that request is in flight.
+    if (tw.lastRoute !== "detail" || tw.detailId !== id) {
+      tw.lastRoute = "detail";
+      if (tw.detailId !== id) tw.detail = null;
+      var wantConfirm = tw.wantConfirm === id; tw.wantConfirm = "";
+      tw.cancel = {};
+      loadThreeWayDetail(id).then(function () {
+        // Card "Cancel" opens straight to the confirmation — but only if the SERVER says it's allowed.
+        if (wantConfirm && tw.detail && tw.detail.permissions && tw.detail.permissions.can_cancel) tw.cancel = { confirming: true };
+        M.route.renderRoute();
+      });
+    }
+    var body;
+    if (tw.detailStatus === "loading" && !tw.detail) body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
+    else if (tw.detailStatus === "error" && tw.detailProblem) body = T.renderProblem(tw.detailProblem);
+    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {} });
+    else body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
+    mount.innerHTML = head + '<div style="padding:0 12px">' + body + '</div>';
+    T.ensureStyles();
+    T.bind(mount, {
+      cancel: function () { tw.cancel = { confirming: true }; M.route.renderRoute(); },
+      keep: function () { tw.cancel = {}; M.route.renderRoute(); },
+      "confirm-cancel": function () { doCancelThreeWay(id); },
+      recheck: function () { doRecheckThreeWay(id); },
+      retry: function () { tw.lastRoute = "list"; M.route.renderRoute(); }
+    });
+    if (tw.detail && tw.cancel.confirming && !tw.cancel.busy) T.revealConfirm(mount);
+  }
+
+  function render(mount, parts) {
+    // #league/trade/3w/<id> — a single 3-way trade, deep-linkable and refresh-safe.
+    if (parts && parts[0] === "3w" && parts[1]) return renderThreeWayDetail(mount, parts[1]);
+    // Back on the list: any earlier detail is stale by definition; refetch the outbox.
+    if (tw.lastRoute === "detail") { tw.lastRoute = "list"; tw.listStatus = "idle"; }
     // Pre-load: loadAllData fetches trade offers as part of its
     // post-franchise-resolve step, so the badge on the League nav can
     // appear before the user navigates here. Always prefer the global
     // M.state.tradeOffers copy so reloadData() bust-invalidates the cache.
     // Kick off the 3-way load in parallel (independent of the offers fetch);
     // it re-renders when done so the outbox section appears.
-    if (state.threeWays === null && !state.loadingThreeWays) {
+    if (tw.listStatus === "idle") {
       loadThreeWays().then(function () { M.route.renderRoute(); });
     }
     if (M.state.tradeOffers) {
@@ -1483,6 +1647,18 @@
       return;
     }
     var data = state.offers || {};
+    // Unavailable is not empty: signed-out → "Sign in to view trades"; a failed load → an explicit error
+    // with Try again. Only status "ok" (or a legacy list from an older worker cache) renders "0 offers".
+    if (data.status === "signed_out" || data.status === "error") {
+      mount.innerHTML = subTabs("trade") + renderInboxUnavailable(data);
+      var retryBtn = mount.querySelector("#ups-m-trade-retry");
+      if (retryBtn) retryBtn.addEventListener("click", function () {
+        state.offers = null; state.error = null;
+        if (M.actions && M.actions.reloadData) M.actions.reloadData().then(function () { M.route.renderRoute(); });
+        else loadOffers().then(function () { M.route.renderRoute(); });
+      });
+      return;
+    }
     var incoming = data.incoming || [];
     var outgoing = data.outgoing || [];
 
@@ -1506,11 +1682,7 @@
     '</div>';
 
     // Active 3-way trades the viewer is part of (initiator or partner).
-    var threeWays = state.threeWays || [];
-    if (threeWays.length) {
-      html += '<div class="ups-m-pos-group">3-Way Trades · ' + threeWays.length + '</div>';
-      html += render3WayCards(threeWays);
-    }
+    html += renderThreeWaySection();
 
     html += '<div class="ups-m-pos-group" style="margin-top:18px">Incoming · ' + incoming.length + '</div>';
     html += renderOffersList(incoming, "incoming");
@@ -1523,9 +1695,13 @@
     if (openBtn) openBtn.addEventListener("click", openBuilder);
     var open3Btn = mount.querySelector("#ups-m-3w-open");
     if (open3Btn) open3Btn.addEventListener("click", open3WayBuilder);
-    var cancel3wBtns = mount.querySelectorAll("[data-3w-cancel]");
-    for (var c3 = 0; c3 < cancel3wBtns.length; c3++) {
-      cancel3wBtns[c3].addEventListener("click", function () { cancel3WayTrade(this.getAttribute("data-3w-cancel")); });
+    if (T) {
+      T.ensureStyles();
+      T.bind(mount, {
+        open: function (id) { M.route.navigate("#league/trade/3w/" + encodeURIComponent(id)); },
+        "open-cancel": function (id) { tw.wantConfirm = id; M.route.navigate("#league/trade/3w/" + encodeURIComponent(id)); },
+        retry: function () { refreshThreeWayList(); }
+      });
     }
 
     var btns = mount.querySelectorAll(".btn-act[data-act]");

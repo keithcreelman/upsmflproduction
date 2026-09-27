@@ -367,6 +367,13 @@
       }
     } catch (e) {}
   })();
+  // The viewer's own MFL session, forwarded by the loader (outer MFL page) or set by the cookie-paste
+  // login. Trade WRITES and the offer inbox need it: the worker no longer accepts an unauthenticated
+  // request as an owner, nor substitutes the commissioner's cookie.
+  function withHubSession(url) {
+    const tok = (typeof window.UPS_DRAFT_HUB_MFL_USER_ID === "string" && window.UPS_DRAFT_HUB_MFL_USER_ID) || "";
+    return tok ? url + (url.includes("?") ? "&" : "?") + "MFL_USER_ID=" + encodeURIComponent(tok) : url;
+  }
   function apiUrl(path) {
     const base = (typeof window.UPS_DRAFT_HUB_API_BASE === "string" && window.UPS_DRAFT_HUB_API_BASE) || "";
     if (!base) return path;
@@ -4254,6 +4261,7 @@
             return;
           }
           STATE.me = { configured: true, franchise_id: data.franchise_id, franchise_name: data.franchise_name };
+          window.UPS_DRAFT_HUB_MFL_USER_ID = cookie;   // in memory only — used for this tab's trade calls
           res.style.color = "var(--ok)";
           res.textContent = `Logged in as ${data.franchise_name}. Re-opening trade dialog…`;
           setTimeout(() => openTradeModal(), 600);
@@ -4860,7 +4868,7 @@
       try {
         let r, data;
         try {
-          r = await fetch(apiUrl(endpoint) + "?L=74598", {
+          r = await fetch(withHubSession(apiUrl(endpoint) + "?L=74598"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -6201,7 +6209,7 @@
 
     // LIVE — call the existing trade-workbench worker endpoint.
     try {
-      const url = apiUrl("/api/trades/proposals/action") + "?L=74598";
+      const url = withHubSession(apiUrl("/api/trades/proposals/action") + "?L=74598");
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -6234,7 +6242,7 @@
     const myFid = STATE.me && STATE.me.franchise_id;
     if (!myFid) return;
     try {
-      const r = await fetch(apiUrl("/api/trades/proposals") + `?L=74598&to_fid=${encodeURIComponent(myFid)}`);
+      const r = await fetch(withHubSession(apiUrl("/api/trades/proposals") + `?L=74598&to_fid=${encodeURIComponent(myFid)}`));
       const ct = r.headers.get("content-type") || "";
       if (!r.ok || !ct.includes("json")) return;
       const data = await r.json();

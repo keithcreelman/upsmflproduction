@@ -65,6 +65,22 @@
     return false;
   }
   const IS_COMMISH = detectIsCommish();
+  // ── Proven owner session for the hub's TRADE calls ──
+  // The worker no longer lets an unauthenticated request stand in for an owner (or fall back to
+  // the commissioner's cookie), so trade writes need the viewer's own MFL_USER_ID. It is only
+  // readable here, on the OUTER MFL page; the hub runs in a srcdoc iframe. Held in memory only.
+  function readMflSession(u) {
+    let v = "";
+    if (u) v = safeStr(u.searchParams.get("MFL_USER_ID") || u.searchParams.get("MFLUSERID"));
+    if (!v) {
+      try {
+        const m = /(?:^|;\s*)MFL_USER_ID=([^;]*)/.exec(String(document.cookie || ""));
+        if (m) { try { v = decodeURIComponent(m[1]); } catch (e) { v = m[1]; } }
+      } catch (e) {}
+    }
+    return safeStr(v);
+  }
+  const MFL_USER_ID = readMflSession(u);
 
   const SHA = safeStr(window.UPS_DRAFT_HUB_RELEASE_SHA || window.UPS_RELEASE_SHA) || "main";
   // jsDelivr serves .html with Content-Type: text/plain (+ nosniff), so an iframe
@@ -120,6 +136,7 @@
       'window.UPS_DRAFT_HUB_FRANCHISE_ID=' + JSON.stringify(ctx.franchiseId) + ';' +
       'window.UPS_DRAFT_HUB_IS_COMMISH=' + JSON.stringify(!!ctx.isCommish) + ';' +
       'window.UPS_DRAFT_HUB_RELEASE_SHA=' + JSON.stringify(ctx.sha) + ';' +
+      'window.UPS_DRAFT_HUB_MFL_USER_ID=' + JSON.stringify(ctx.mflUserId || "").replace(/</g, "\\u003c") + ';' +
       'window.UPS_DRAFT_HUB_API_BASE=' + JSON.stringify(ctx.apiBase) + ';' +
       // Parent URL — the iframe runs as srcdoc which makes window.location
       // resolve to about:srcdoc. Anywhere we want a "click here to open the
@@ -162,7 +179,7 @@
       return r.text();
     })
     .then(function (html) {
-      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, isCommish: IS_COMMISH, sha: SHA, apiBase: API_BASE, parentUrl: safeStr(window.location && window.location.href) });
+      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, isCommish: IS_COMMISH, sha: SHA, mflUserId: MFL_USER_ID, apiBase: API_BASE, parentUrl: safeStr(window.location && window.location.href) });
       if (/<head[^>]*>/i.test(html)) {
         html = html.replace(/<head([^>]*)>/i, '<head$1>' + headInject);
       } else {

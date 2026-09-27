@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.27.1",
-  "label": "Game Day: an injury designation belongs to one game week — last week’s “Out” can no longer show up next to this week’s player. Drop-penalty model: a contract that pays $1,000 a year, and a one-year waiver deal of $4K or less, no longer carries a weekly or cumulative earned amount (penalties are unchanged)."
+  "build": "2026.09.27.2",
+  "label": "Trade War Room: two-team and three-team trades go through an authenticated owner session, a review before accepting (cap block shown up front, roster counts as a heads-up), and the app says exactly what happened after — executed, executed but needs the commissioner, or not confirmed, never sent twice. A held three-team trade keeps its accepts and offers a Re-check. Signed-out or failed trade loads say “Sign in to view trades”, never “0 offers”. Game Day: an injury designation belongs to one game week — last week’s “Out” can no longer show up next to this week’s player. Drop-penalty model: a contract that pays $1,000 a year, and a one-year waiver deal of $4K or less, no longer carries a weekly or cumulative earned amount (penalties are unchanged)."
 }

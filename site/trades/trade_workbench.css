@@ -94,7 +94,10 @@ summary:focus-visible {
 .twb-hero {
   display: grid;
   gap: 1rem;
-  grid-template-columns: 1.3fr auto;
+  /* minmax(0, auto): the actions column may shrink and wrap its buttons instead of
+     forcing max-content width, which squeezed the title column once a 4th control
+     (3-Way Trades) joined Offered/Received (997px embed regression). */
+  grid-template-columns: minmax(220px, 1.3fr) minmax(0, auto);
   align-items: start;
   padding: 1rem 1.1rem;
   border-radius: var(--twb-radius-xl);

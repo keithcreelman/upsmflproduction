@@ -108,7 +108,10 @@ summary:focus-visible {
 .twb-hero {
   display: grid;
   gap: 1rem;
-  grid-template-columns: 1.3fr auto;
+  /* minmax(0, auto): the actions column may shrink and wrap its buttons instead of
+     forcing max-content width, which squeezed the title column once a 4th control
+     (3-Way Trades) joined Offered/Received (997px embed regression). */
+  grid-template-columns: minmax(220px, 1.3fr) minmax(0, auto);
   align-items: start;
   padding: 1rem 1.1rem;
   border-radius: var(--twb-radius-xl);
@@ -2407,6 +2410,12 @@ summary:focus-visible {
           </summary>
           <div id="twbReceivedList" class="twb-banner-offers-list"></div>
         </details>
+        <details class="twb-banner-offers" id="twb3wDropdown">
+          <summary class="twb-banner-offers-summary">
+            3-Way Trades <span id="twb3wCount" class="twb-banner-offers-count">0</span>
+          </summary>
+          <div id="twb3wList" class="twb-banner-offers-list"></div>
+        </details>
       </div>
     </header>
 
@@ -2537,6 +2546,17 @@ summary:focus-visible {
       <div class="twb-3w-body" id="twb3wBody"></div>
     </section>
 
+    <section id="twb3wDetailPanel" class="twb-3w-panel" aria-label="3-way trade details" hidden>
+      <header class="twb-3w-head">
+        <div class="twb-3w-head-copy">
+          <h2 id="twb3wDetailTitle">3-Way Trade</h2>
+          <p class="twb-3w-sub">Live from the server &mdash; the same view you see in the mobile app.</p>
+        </div>
+        <button type="button" class="twb-3w-close" id="twb3wDetailCloseBtn" aria-label="Close 3-way trade details">&times;</button>
+      </header>
+      <div class="twb-3w-body" id="twb3wDetailBody"></div>
+    </section>
+
     <button type="button" id="twbOfferCartMobileTray" class="twb-offer-cart-mobile-tray" hidden>
       Review Offer
     </button>
@@ -2640,6 +2660,7 @@ summary:focus-visible {
     </form>
   </dialog>
 
-  <script src="./trade_workbench.js?v=20260615a" defer></script>
+  <script src="../shared/trade_3way_view.js?v=20260925d"></script>
+  <script src="./trade_workbench.js?v=20260925d" defer></script>
 </body>
 </html>

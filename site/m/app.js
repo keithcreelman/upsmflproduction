@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.09.27.1";
+  var BUILD = "2026.09.27.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1081,10 +1081,21 @@
 
   // Trade offers (incoming + outgoing) — used both by views/trade.js for
   // the offer list and by the bottom-nav badge counter on the League tab.
-  // Returns { incoming: [], outgoing: [] } even on error so the count is
-  // safe to read unconditionally.
+  //
+  // Always resolves to { incoming, outgoing, status } where status is one of
+  //   "ok"         — the worker answered: the lists are REAL (an empty list is a true "0 offers")
+  //   "signed_out" — no/invalid/expired MFL session: the answer is "sign in", NOT an empty inbox
+  //   "error"      — the request failed or came back malformed: an explicit load error, NOT an empty inbox
+  // The arrays stay present (empty) on the two failure statuses so a count read is safe, but every
+  // surface that SHOWS offers must look at `status` first — an unavailable inbox is never displayed as
+  // "0 offers" (Keith 2026-09-25).
+  function tradeOffersUnavailable(status, message) {
+    return { incoming: [], outgoing: [], status: status, error: message || "" };
+  }
   function fetchTradeOffers(fid) {
-    if (!fid) return Promise.resolve({ incoming: [], outgoing: [] });
+    var stored = getStoredMflUserId && getStoredMflUserId();
+    if (!stored) return Promise.resolve(tradeOffersUnavailable("signed_out", "Sign in to view trades"));
+    if (!fid) return Promise.resolve(tradeOffersUnavailable("error", "Couldn't tell which team is yours yet"));
     // Listing offers pulls MFL's pendingTrades export AS THE OWNER — the
     // worker returns 401 "missing_owner_session_mfl_user_id" (empty in/out)
     // without it. Forward MFL_USER_ID + YEAR, same as the write/action paths.
@@ -1095,17 +1106,33 @@
       // include_payload=1 → offers carry payload.extension_requests so the trade
       // cards can show pre-trade extensions (the comment-tag isn't written in prod).
       "&include_payload=1");
-    var stored = getStoredMflUserId && getStoredMflUserId();
-    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    url += "&MFL_USER_ID=" + encodeURIComponent(stored);
     return fetch(url, { mode: "cors", credentials: "omit" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        return {
-          incoming: (j && Array.isArray(j.incoming)) ? j.incoming : [],
-          outgoing: (j && Array.isArray(j.outgoing)) ? j.outgoing : []
-        };
+      .then(function (r) {
+        if (r.status === 401 || r.status === 403) return tradeOffersUnavailable("signed_out", "Sign in to view trades");
+        if (!r.ok) {
+          // An older worker answered an expired session as 502 with MFL's own 401 inside; treat that as
+          // "sign in" too (it IS a signed-out owner, not a broken feed).
+          return r.json().catch(function () { return null; }).then(function (b) {
+            var up = Number(b && b.pending_lookup && b.pending_lookup.upstream_status);
+            return up === 401 || up === 403
+              ? tradeOffersUnavailable("signed_out", "Sign in to view trades")
+              : tradeOffersUnavailable("error", "Couldn't load trade offers (HTTP " + r.status + ")");
+          });
+        }
+        return r.json().then(function (j) {
+          var why = (j && (j.error || j.reason || j.code)) || "";
+          if (j && j.ok === false) {
+            return /MFL_USER_ID|owner session|missing_owner_session|unauthenticated|session_expired/i.test(why)
+              ? tradeOffersUnavailable("signed_out", "Sign in to view trades")
+              : tradeOffersUnavailable("error", "Couldn't load trade offers");
+          }
+          // A body that doesn't carry both lists is not an empty inbox — it is a bad answer.
+          if (!j || !Array.isArray(j.incoming) || !Array.isArray(j.outgoing)) return tradeOffersUnavailable("error", "Couldn't load trade offers");
+          return { incoming: j.incoming, outgoing: j.outgoing, status: "ok" };
+        });
       })
-      .catch(function () { return { incoming: [], outgoing: [] }; });
+      .catch(function () { return tradeOffersUnavailable("error", "Couldn't reach the server to load trade offers"); });
   }
 
   function loadAllData() {
@@ -1269,7 +1296,7 @@
         // discard the responses — a fresh reload is or will be running.
         if (state.viewerFranchiseId === notesFid) {
           state.tradeBaitNotes = pair[0] || {};
-          state.tradeOffers = pair[1] || { incoming: [], outgoing: [] };
+          state.tradeOffers = pair[1] || tradeOffersUnavailable("error", "Couldn't load trade offers");
         }
         state.loaded = true;
         return state;
@@ -2876,7 +2903,7 @@
     clearTimeout(showToast._t);
     showToast._t = setTimeout(function () {
       el.className = "ups-m-toast " + (kind || "");
-    }, 2400);
+    }, kind === "warn" ? 9000 : 2400);   // a warning carries a sentence the owner has to read (e.g. "executed, needs commissioner review")
     // Haptic on success/error so submits feel grounded on Android.
     // (iOS Safari ignores vibrate by Apple policy — no-op there.)
     if (window.navigator && navigator.vibrate) {
@@ -2894,7 +2921,7 @@
       setSubmitButtonsBusy(true);
       clearTimeout(showToast._busyTimer);
       showToast._busyTimer = setTimeout(function () { setSubmitButtonsBusy(false); }, 8000);
-    } else if (kind === "ok" || kind === "err") {
+    } else if (kind === "ok" || kind === "err" || kind === "warn") {
       clearTimeout(showToast._busyTimer);
       setSubmitButtonsBusy(false);
     }

@@ -741,6 +741,7 @@ button.ups-m-busy::before,
 }
 .ups-m-toast.err { border-color: var(--danger); color: var(--danger); }
 .ups-m-toast.ok { border-color: var(--ok); color: var(--ok); }
+.ups-m-toast.warn { border-color: var(--warn, #f4c369); color: var(--warn, #f4c369); }
 
 /* ----- Load-error banner (surfaces silent fetch failures) ----- */
 .ups-m-load-err-banner {

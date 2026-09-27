@@ -234,53 +234,52 @@
   }
 
   function buildSyntheticExtensionOptions(asset) {
+    // THE BROWSER'S PREVIEW OF THE PRICE — for display only. The worker (worker/src/extension_pricing.js) prices every extension itself from the
+    // player's CURRENT contract, refuses to store an offer whose terms differ (`extension_terms_stale`), and imports ITS price, never this one.
+    // This function therefore mirrors the canonical rule exactly (canon §C4 / §C5.1), and offers nothing the worker would refuse:
+    //   • a FINAL-YEAR contract only (years remaining = 1). Expired rookies are not priced (their base salary needs the draft-slot schedule);
+    //   • the current year is NOT repriced: Y1 = the live current-year salary;
+    //   • the escalator applies to the AAV of the extension years: future AAV = CURRENT AAV + raise (Schedule 1 QB/RB/WR/TE +10K/+20K,
+    //     Schedule 2 DL/LB/DB/PK/PN +3K/+5K), rounded to $1K, never below $1K;
+    //   • the current AAV is the contract's AAV TOKEN — its current (first) tier, verbatim (canon §C5.1: never recompute it, never average
+    //     TCV ÷ CL when the token exists). No token: TCV ÷ CL. Neither: nothing is offered (fail closed, like the worker);
+    //   • TCV = current salary + future AAV × years (forward-looking only); CL = 1 + years.
     if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return [];
     var metrics = resolveAssetDisplayContractMetrics(asset);
     if (!assetAllowsSyntheticExtension(asset, metrics)) return [];
 
-    // Per docs/league_context_v1.md C4: expired rookies (0 years remaining,
-    // before the rookie-extension deadline) get a FRESH contract — every year
-    // is at the extension salary, no current-year carry-over. Players with 1+
-    // years remaining keep the current year and tack the extension years on.
     var currentYears = Math.max(0, safeInt(metrics && metrics.years_remaining, 0));
+    if (currentYears !== 1) return [];
+    if (tradePositionGroupKey(asset && asset.position) === "OTHER") return [];
     var currentSalary = Math.max(1000, roundToNearestK(asset.salary));
-    if (currentSalary <= 0) return [];
+    if (safeInt(asset.salary, 0) <= 0) return [];
 
-    // Escalator base = the contract's TRUE AAV (TCV ÷ CL), NOT the current-year
-    // salary. For a LOADED contract (front- or back-loaded) the current-year
-    // salary is not the AAV, so escalating off it inflates the extension. Canon
-    // §C4.3: the AAV escalator applies to the AAV. Flat contracts have
-    // salary == AAV, so this leaves them unchanged. (Keith 2026-07-20: Drake
-    // London, backloaded [14K,52K], was extending off his loaded $52K instead of
-    // his $33K AAV → +1yr read $62K when it should be $43K.) Falls back to the
-    // current salary when no year schedule is parseable (pre-2020 shapes).
     var extSummary = parseContractInfoSummary(asset && asset.contract_info);
-    var extCl = safeInt(asset && asset.contract_length, 0) || safeInt(extSummary.contract_length, 0) || Math.max(1, currentYears);
-    var extTcv = 0;
-    var extYByYear = extSummary.y_by_year_dollars || {};
-    for (var _yk in extYByYear) {
-      if (Object.prototype.hasOwnProperty.call(extYByYear, _yk)) extTcv += safeInt(extYByYear[_yk], 0);
+    var aavBase = 0;
+    if (extSummary.aav_values_dollars && extSummary.aav_values_dollars.length) {
+      aavBase = roundToNearestK(extSummary.aav_values_dollars[0]);
+    } else {
+      var extCl = safeInt(asset && asset.contract_length, 0) || safeInt(extSummary.contract_length, 0);
+      var extTcv = 0;
+      var extYByYear = extSummary.y_by_year_dollars || {};
+      for (var _yk in extYByYear) {
+        if (Object.prototype.hasOwnProperty.call(extYByYear, _yk)) extTcv += safeInt(extYByYear[_yk], 0);
+      }
+      if (extCl > 0 && extTcv > 0) aavBase = roundToNearestK(extTcv / extCl);
     }
-    var aavBase = (extCl > 0 && extTcv > 0) ? roundToNearestK(extTcv / extCl) : currentSalary;
+    if (!(aavBase > 0)) return [];
 
     var out = [];
     for (var yearsToAdd = 1; yearsToAdd <= 2; yearsToAdd += 1) {
       var futureSalary = Math.max(1000, roundToNearestK(aavBase + tradeExtensionRaiseForAsset(asset, yearsToAdd)));
-      var totalLength = currentYears + yearsToAdd;
-      var yearParts = [];
-      for (var yearIdx = 1; yearIdx <= totalLength; yearIdx += 1) {
-        yearParts.push(
-          "Y" + yearIdx + "-" + formatContractKToken(yearIdx <= currentYears ? currentSalary : futureSalary)
-        );
-      }
-      var tcv = currentSalary * currentYears + futureSalary * yearsToAdd;
-      var aavLabel = currentYears === 0
-        ? "AAV " + formatContractKToken(futureSalary)
-        : "AAV " + formatContractKToken(currentSalary) + ", " + formatContractKToken(futureSalary);
+      var totalLength = 1 + yearsToAdd;
+      var yearParts = ["Y1-" + formatContractKToken(currentSalary)];
+      for (var yearIdx = 2; yearIdx <= totalLength; yearIdx += 1) yearParts.push("Y" + yearIdx + "-" + formatContractKToken(futureSalary));
+      var tcv = currentSalary + futureSalary * yearsToAdd;
       var previewInfo = [
         "CL " + totalLength,
         "TCV " + formatContractKToken(tcv),
-        aavLabel,
+        "AAV " + formatContractKToken(aavBase) + ", " + formatContractKToken(futureSalary),
         yearParts.join(", ")
       ].join("| ");
       out.push({
@@ -292,7 +291,7 @@
         new_contract_status: yearsToAdd === 1 ? "EXT1" : "EXT2",
         new_contract_length: totalLength,
         new_TCV: tcv,
-        new_aav_current: currentSalary,
+        new_aav_current: aavBase,
         new_aav_future: futureSalary,
         synthesized: true
       });

@@ -46,6 +46,40 @@ Each entry follows this structure:
      point. New entries push older ones further down so reverse-chronological
      order is preserved. -->
 
+## 2026-09-25 — Trades: the salary cap is a hard stop at the accept; roster counts are a heads-up (COMMISSIONER RULING)
+
+**Ruling:** Keith, 2026-09-25 (final pre-release gate). **Sections affected:** `A6 Trade Acquisition` (new bullet "Salary cap and roster counts at the moment of an accept"; the "Roster compliance" bullet cross-references it) · `docs/rulebook_topics.json` (trades) · regenerated `site/m/data/rules.json` / `rules_data.js`.
+
+- A two-team or three-team trade does not execute if a live, authoritative post-trade calculation shows any team **over** the salary cap. Exactly at the cap is allowed; one dollar over is refused, naming the team and amount. Unverifiable numbers fail closed (nothing executes). No owner or commissioner override.
+- The calculation is the league's real cap math (current-year salaries with IR at half and taxi at zero, every salary adjustment incl. dead money, the trade's own players and cap money, a pre-trade extension's new current-year salary) and never uses client-sent or creation-time totals.
+- Roster counts stay **advisory**: projected active counts are shown before confirmation and flagged when over/under a limit; the flag is not a legality ruling; MFL's own refusals are passed through.
+- Implemented in `worker/src/trade_cap_authority.js` (one calculation shared by the 2-way accept/preview and the 3-way accept + execute gates); tests `tests/trade_cap_gate.test.mjs`, `tests/trade_extension_integrity.test.mjs`, `tests/trade_cap_clients.test.mjs`.
+
+## 2026-09-25 — Three-team trades: who may cancel, and the commissioner's administrative cancel (COMMISSIONER RULING)
+
+**Round:** n/a — commissioner ruling (Keith), not a Discord vote · **Integration:** this branch
+**Recorded because:** canon was silent on three-team trades entirely and on trade cancellation generally; the app had been letting the commissioner cancel any 3-way with no rule behind it.
+
+### Ruling
+> The commissioner may administratively cancel a three-team trade while it is still `collecting`. This must be a distinct
+> administrative action — not commissioner-cookie substitution, not acting as the initiator, and not owner impersonation.
+> Owner cancellation remains limited to the initiator. Other participants and unrelated franchises cannot cancel.
+> Administrative cancellation needs explicit commissioner authority and a non-empty reason, is recorded as the commissioner
+> (never the initiator) with a timestamp and the reason, notifies all three participants once, is idempotent, cannot cancel a
+> trade that is executing, completed, failed, expired or already cancelled, never calls MFL trade execution, and preserves the
+> complete trade history.
+
+### Sections affected
+- `A6. Trade Acquisition` — added the two-team withdrawal rule, the three-team trade rules above, and the "what you accept is what was offered" system rule
+
+### Before
+> Silent on three-team trades and on who may cancel a trade.
+
+### After
+> See `A6`: initiator-only owner cancel; commissioner administrative cancel with a required reason; final once all three accept.
+
+---
+
 ## 2026-07-24 — Mid-Year Multi (2B): no cheap multi-year reset after the trade deadline (REJECTED)
 
 **Round:** July2026 · **Integration:** backfilled 2026-08-15 from the Discord record
