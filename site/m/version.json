@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.26.2",
-  "label": "Game Day: an injury designation belongs to one game week — last week’s “Out” can no longer show up next to this week’s player."
+  "build": "2026.09.27.1",
+  "label": "Game Day: an injury designation belongs to one game week — last week’s “Out” can no longer show up next to this week’s player. Drop-penalty model: a contract that pays $1,000 a year, and a one-year waiver deal of $4K or less, no longer carries a weekly or cumulative earned amount (penalties are unchanged)."
 }

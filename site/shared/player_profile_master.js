@@ -686,6 +686,11 @@
         }
         return sum;
       })();
+      // A "$1K Per Yr" contract has no weekly / cumulative earned (full-year rule). Only DRAFT-SLOT rookie contracts ("Rookie" / "Rookie-Draft") are left numeric — Rookie-WW (the canonical NFL-rookie FCFS contract), Rookie-FAA and Rookie-MYM are ordinary contracts: a taxi rookie's earned is read by
+      // the §D2a retirement settlement, and this legacy modal cannot tell taxi from active.
+      var fullYearRule = !!(capMath() && capMath().isOneKPerYear && capMath().isOneKPerYear(sal, contractInfo) && !/^rookie(-draft)?$/i.test(String(sal.contractStatus || "").trim()));
+      // canon §C3: a one-year pure-WW deal of $4K or less has earned NOT APPLICABLE (a status check — not a TCV proxy; a $1K-a-year deal is the full-year class above)
+      var wwEarnedNa = !fullYearRule && !!(capMath() && capMath().isWwEarnedNa && capMath().isWwEarnedNa(sal, contractInfo));
       var penalty = dropPenalty(sal, contractInfo, ctx.year);
       var acq = findAcquisition(pid, ctx.transactions, ctx.viewerFranchise && ctx.viewerFranchise.id);
       var acqDate = acq && acq.ts ? new Date(acq.ts * 1000).toLocaleDateString() : "—";
@@ -696,7 +701,7 @@
         + '<div class="upm-salary-card"><span class="lbl">AAV</span><span class="val">' + (aav > 0 ? fmtUsdFull(aav) : "—") + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Salary</span><span class="val">' + (salary > 0 ? fmtUsdFull(salary) : "—") + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Yrs Remain</span><span class="val">' + (yrsRem > 0 ? yrsRem : "—") + '</span></div>'
-        + '<div class="upm-salary-card"><span class="lbl">Earned</span><span class="val">' + (earned > 0 ? fmtUsdFull(earned) : "$0") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">Earned</span><span class="val">' + (fullYearRule ? "Full-year rule" : (wwEarnedNa ? "Not applicable" : (earned > 0 ? fmtUsdFull(earned) : "$0"))) + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Cap Penalty</span><span class="val">' + (penalty == null ? "—" : (penalty > 0 ? fmtUsdFull(penalty) : "$0")) + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Acquire Date</span><span class="val" style="font-size:13px;">' + escapeHtml(acqDate) + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">How Acquired</span><span class="val" style="font-size:13px;">' + escapeHtml(acqMethod) + '</span></div>'

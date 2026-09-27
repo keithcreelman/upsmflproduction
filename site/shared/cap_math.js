@@ -101,6 +101,34 @@
     return 0;
   }
 
+  // The "$1K Per Yr" class (worker/src/fcfs_contract.js `classifyFullYearRule`; Keith's ruling): a contract that pays exactly $1,000 in EVERY contract
+  // year has no weekly and no cumulative earned salary. TCV under $5K alone is NOT the class. `sal` is the MFL salaries row (salary + contractInfo).
+  function isOneKPerYear(sal, info) {
+    var raw = String((sal && sal.contractInfo) || '');
+    info = info || parseContractInfo(raw);
+    var len = info.length || 0;
+    var salary = parseInt(sal && sal.salary, 10) || 0;
+    if (len < 1 || len > 4 || salary !== 1000 || info.tcv !== 1000 * len) return false;
+    var m = raw.match(/(?:^|\|)\s*AAV\s+([^|]+)/i);
+    if (m) { var tiers = m[1].split(','); for (var i = 0; i < tiers.length; i++) if (parseContractMoneyToken(tiers[i]) !== 1000) return false; }
+    var n = 0;
+    for (var k in info.yearVals) { n += 1; if (info.yearVals[k] !== 1000) return false; }
+    return !n || n === len;
+  }
+
+  // canon §C3 "WW under $4K — earned n/a" (worker/src/fcfs_contract.js `classifyWwEarnedNa`): a ONE-YEAR ORIGINAL pure-WW contract (WW / Vet-WW / Rookie-WW — not a
+  // WW-MYM) of $4,000 or less, TCV = salary, in its final year, not taxi. A $1,000-a-year deal is the full-year class, which wins. Unknown years remaining (a blank
+  // contractYear) is UNKNOWN, never "final year": a claim MFL has not made is not shown.
+  function isWwEarnedNa(sal, info) {
+    if (!sal || isOneKPerYear(sal, info)) return false;
+    if (sal.isTaxi || /taxi/i.test(String(sal.status || ''))) return false;
+    if (!/^(Vet-|Rookie-)?WW$/i.test(String(sal.contractStatus || sal.type || '').trim())) return false;
+    info = info || parseContractInfo(String(sal.contractInfo || ''));
+    var salary = parseInt(sal.salary, 10) || 0;
+    var cyRaw = String(sal.contractYear == null ? '' : sal.contractYear).trim();
+    return salary > 0 && salary <= 4000 && info.length === 1 && info.tcv === salary && cyRaw !== '' && parseInt(cyRaw, 10) === 1;
+  }
+
   // Authoritative cap penalty = the worker's /api/cap-penalty/preview (the SAME
   // _computeDropPenalty the cron charges with — taxi/WW/sub-$5K exemptions +
   // in-season per-week earning this client can't derive). Batch-fetched once per
@@ -153,7 +181,7 @@
     var cy = parseInt(sal && sal.contractYear, 10) || 0; // years remaining
     var isTaxi = !!(sal && (sal.isTaxi || /taxi/i.test(String(sal.status || ''))));
     if (isTaxi) return 0;                                              // §D2 taxi
-    if (/(^|-)WW($|-)/i.test(status) && salary <= 4000) return 0;      // §D2 WW ≤ $4K
+    if (/(^|-)WW($|-)/i.test(status) && salary <= 4000 && cy <= 1) return 0;      // §D2 WW ≤ $4K in its final year (a multi-year WW falls through to the flat sub-$5K rule, exactly like the worker)
     if (cl === 1 && tcv <= 4000) return 0;                            // §D2 1-yr orig < $5K
     if (tcv <= 4000) return (cy >= 2 ? 1000 : 0);                     // §D2 sub-$5K override
     var earned = earnedToDate(sal, info);
@@ -164,6 +192,8 @@
     parseContractMoneyToken: parseContractMoneyToken,
     parseContractInfo: parseContractInfo,
     earnedToDate: earnedToDate,
+    isOneKPerYear: isOneKPerYear,
+    isWwEarnedNa: isWwEarnedNa,
     dropPenalty: dropPenalty
   };
 })(typeof window !== 'undefined' ? window : this);

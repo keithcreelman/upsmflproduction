@@ -377,12 +377,48 @@
       .then(function () { __mCapLoading = false; });
   }
 
+  // The "$1K Per Yr" class (canon §A5 / §D1, Keith's 2026-09-26 ruling — worker/src/fcfs_contract.js `classifyFullYearRule`): a contract that pays exactly
+  // $1,000 in EVERY contract year. TCV under $5K alone is NOT the class (a $4K one-year waiver deal is not "$1K a year").
+  function isOneKPerYearPlayer(player) {
+    var cl = contractLengthForPlayer(player), t = totalContractValueForPlayer(player);
+    return safeInt(player && player.salary, 0) === 1000 && cl > 0 && cl <= 4 && t === 1000 * cl;
+  }
+  // Full-year rule: a "$1K Per Yr" contract has no weekly / cumulative earned amount, even in the pre-batch local estimate.
   function dropPenaltyEstimate(player, season) {
+    var r = dropPenaltyEstimateRaw(player, season);
+    // Only the PRE-BATCH local estimate is ever adjusted here: once the worker's authoritative row is loaded IT decides (a taxi $1K-per-year rookie keeps
+    // its numeric earned there, and so it must here).
+    if (r && !r.authoritative && !r.earnedRule && isOneKPerYearPlayer(player) && !(player && player.isTaxi)) {
+      r = Object.assign({}, r, { earned: 0, priorEarned: 0, accrued: 0, earnedRule: "full_year", note: "Full-year rule: a $1K-per-year contract has no weekly or cumulative earned amount." });
+    }
+    return r;
+  }
+  function dropPenaltyEstimateRaw(player, season) {
     // SSOT: prefer the worker's authoritative penalty (cached batch).
     var __mPid = safeStr(player && player.id).replace(/\D/g, "");
     var __mAuth = authoritativeCapRow(__mPid);
     if (__mAuth) {
       var __mc = __mAuth;
+      if (__mc.earned_rule === "full_year_sub_5k") {
+        // "$1K Per Yr" contract: dedicated full-year rule (canon §D1 + Keith's ruling) — no weekly / cumulative earned amount.
+        return {
+          amount: safeInt(__mc.penalty, 0),
+          note: (__mc.exempt ? (__mc.exempt_reason || "Cap-free cut.") : "Flat $1K (multi-year sub-$5K).") + " Sub-$5K contract: the dedicated full-year rule applies — no weekly or cumulative earnings.",
+          tcv: safeInt(__mc.tcv, 0), guaranteed: safeInt(__mc.guaranteed, 0),
+          currentYearSalary: safeInt(player && player.salary, 0),
+          priorEarned: 0, accrued: 0, earned: 0, earnedRule: "full_year", authoritative: true
+        };
+      }
+      if (__mc.earned_rule === "ww_earned_na") {
+        // canon §C3 "WW under $4K — earned n/a": the worker priced it cap-free and says earned is NOT APPLICABLE (not a weekly fraction, not $0).
+        return {
+          amount: safeInt(__mc.penalty, 0),
+          note: (__mc.exempt_reason || "Cap-free cut.") + " Earned salary is not applicable to a WW pickup of $4K or less.",
+          tcv: safeInt(__mc.tcv, 0), guaranteed: safeInt(__mc.guaranteed, 0),
+          currentYearSalary: safeInt(player && player.salary, 0),
+          priorEarned: 0, accrued: 0, earned: 0, earnedRule: "ww_na", authoritative: true
+        };
+      }
       var __me = safeInt(__mc.earned, 0);
       return {
         amount: safeInt(__mc.penalty, 0),
