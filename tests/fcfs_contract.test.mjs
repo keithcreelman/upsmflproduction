@@ -411,8 +411,8 @@ test("REPAIR (earned): NOT in the class ⇒ refused — a $4K one-year WW, a $2K
   t.equal((await repair(env, [{ kind: "clear_full_year_earned", id: stale, expect: { ...EXP_EARNED(rowOf2(db, stale)), penalty_amount: 7 } }], false)).json.results[0].result, "precondition_failed");
   for (const [id, e] of [[ww4, 471], [faa2, 235], [henley, 2000], [taxi, 1000], [stale, 118]]) t.equal(rowOf2(db, id).earned_to_date, e, `row ${id} untouched`);
   t.equal(db.prepare("SELECT COUNT(*) n FROM ups_contract_gate_audit").get().n, 0);
-  // the route is closed without the commissioner key
-  t.equal((await callWorker(env, "POST", "/admin/drops/full-year-repair?L=74598&YEAR=2026", { body: { season: "2026", actions: [{ kind: "clear_full_year_earned", id: stale }], dry_run: false } })).status, 403);
+  // the route is closed without the commissioner key — no credentials at all is 401 (never authenticated), a WRONG key is 403 (Trade War Room's unified admin authority model, worker/src/admin_authority.js — every /admin/* route shares it after the 2026-09-27 release)
+  t.equal((await callWorker(env, "POST", "/admin/drops/full-year-repair?L=74598&YEAR=2026", { body: { season: "2026", actions: [{ kind: "clear_full_year_earned", id: stale }], dry_run: false } })).status, 401);
   t.equal(rowOf2(db, stale).earned_to_date, 118);
 });
 
