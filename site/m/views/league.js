@@ -898,7 +898,7 @@
     if (sub === "rosters") return renderRosters(mount);
     if (sub === "otb") return renderOtb(mount);
     if (sub === "trade" && M.tradeView && M.tradeView.render) {
-      return M.tradeView.render(mount);
+      return M.tradeView.render(mount, subParts.slice(1));
     }
     if (sub === "draft" && M.draftView && M.draftView.render) {
       return M.draftView.render(mount);

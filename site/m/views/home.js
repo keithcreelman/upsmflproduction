@@ -111,6 +111,7 @@
       cap: cap,
       incoming: (offers.incoming || []).length,
       outgoing: (offers.outgoing || []).length,
+      tradeStatus: M.state.tradeOffers ? (M.state.tradeOffers.status || "ok") : "",
       contractOpen: eligCount(fid, "myac") + eligCount(fid, "extend") + eligCount(fid, "mym") + eligCount(fid, "restructure"),
       next: upcomingEvents()[0] || null
     };
@@ -234,9 +235,14 @@
     var rosterMax = DATA.rosterCapMax ? DATA.rosterCapMax() : 30;
     var rosterSub = cap ? (cap.activeCount + "/" + rosterMax + (cap.taxiCount ? " · " + cap.taxiCount + " taxi" : "")) : "—";
     var contractsSub = ctx.contractOpen > 0 ? (ctx.contractOpen + " open") : "Up to date";
-    var tradesSub = ctx.incoming > 0
-      ? (ctx.incoming + " received" + (ctx.outgoing ? " · " + ctx.outgoing + " out" : ""))
-      : (ctx.outgoing ? (ctx.outgoing + " out") : "No offers");
+    // "No offers" only when the worker actually answered with empty lists. A signed-out or failed load is
+    // NOT an empty inbox (Keith 2026-09-25).
+    var tradesSub = ctx.tradeStatus === "" ? "—"                      // not loaded yet — unknown, not empty
+      : ctx.tradeStatus === "signed_out" ? "Sign in"
+      : ctx.tradeStatus === "error" ? "Couldn't load"
+      : ctx.incoming > 0
+        ? (ctx.incoming + " received" + (ctx.outgoing ? " · " + ctx.outgoing + " out" : ""))
+        : (ctx.outgoing ? (ctx.outgoing + " out") : "No offers");
     var taxiIrSub = cap ? ((cap.taxiCount || 0) + " taxi · " + (cap.irCount || 0) + " IR") : "Moves";
     var eventsSub = ctx.next ? (eventMeta(ctx.next).label + " " + whenLabel(ctx.next.date)) : "No windows";
     var wv = waiverTileInfo();

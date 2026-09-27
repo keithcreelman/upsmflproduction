@@ -606,7 +606,11 @@
         "Cap money is measured against your own outgoing salary, not out of a shared pot, so the two sides of a deal routinely have very different ceilings on how much cash they can move. Work out your own number before you promise anybody anything.",
         "Cash on its own isn't a trade. Each side has to send a real asset, and no amount of money changes that.",
         "When a player moves, every dollar and year still on his deal moves with him. The team sending him out is clean the moment it processes: no residual salary, no dead money, nothing owed later.",
-        "Trades go through immediately and nobody votes on them. Both teams need to be compliant straight away, or inside 24 hours. The commissioner only steps in for blatant collusion or a cap violation you could see from space."
+        "Trades go through immediately and nobody votes on them. Both teams need to be compliant straight away, or inside 24 hours. The commissioner only steps in for blatant collusion or a cap violation you could see from space.",
+        "A three-team trade is proposed by one owner, the initiator, and both partners have to accept it in their Discord DM before anything moves. While it's still waiting, only the initiator can call it off (a partner just declines). The commissioner can also call it off, but has to give a reason, and all three teams are told. Once all three have accepted, it can't be cancelled.",
+        "When you accept a two-team offer, you accept exactly what was offered. Everything is re-checked at that moment: if a player or pick has moved, or cap money or an extension no longer fits the rules, the accept is refused instead of being adjusted.",
+        "The salary cap is a hard stop when a trade is accepted, two-team or three-team. If the numbers, worked out right then, would leave any team over the cap, the trade doesn't happen and you're told which team and by how much. Exactly at the cap is fine; a dollar over isn't. Nobody can override it, the commissioner included.",
+        "Roster counts are only a heads-up. Before you confirm, you'll see each team's roster count after the trade, with a flag on any team over or under its limit. That flag isn't a ruling that the trade is legal, and MFL can still say no on its own."
       ],
       "numbers": [
         {
@@ -684,7 +688,8 @@
         "A tagged player can never be extended by the team that acquires him. The tag beats the extension right.",
         "The team trading him away can extend him first and then trade him, if that team actually holds the extension right.",
         "The 14-day window to add years to an in-season waiver pickup does not reset when he is traded.",
-        "Cap money shows up as a paired adjustment: minus for the sender, plus for the receiver. It is cap space, not cash."
+        "Cap money shows up as a paired adjustment: minus for the sender, plus for the receiver. It is cap space, not cash.",
+        "On a two-team offer, only the team that made it can withdraw it. The other team accepts or declines."
       ],
       "open_questions": [
         "Canon contradicts itself on packages: one line says each side satisfies the asset requirement with a player or a pick, another says money plus a draft pick is not enough.",

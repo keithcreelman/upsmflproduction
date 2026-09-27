@@ -2,6 +2,11 @@
 
 Static custom trade UI for UPS salary-cap trades.
 
+> **Current, end-to-end documentation lives in [`docs/TRADE_WAR_ROOM.md`](../../docs/TRADE_WAR_ROOM.md)**
+> (architecture, canonical 3-way trade object, state machine, API/auth, parity matrix, troubleshooting).
+> This README is the original MVP note and is partly stale — e.g. offers are now always submitted
+> directly to MFL (`direct_mfl` is no longer optional), and 3-way trades have their own list/detail/cancel.
+
 ## Files
 - `trade_workbench.html` — page shell
 - `trade_workbench.css` — UI styles (desktop + mobile)
