@@ -17,6 +17,21 @@ Modes:
   --player <id>   Restrict --pair output to a specific player (debugging).
   --season <yr>   Restrict to a single season.
   --apply         Write cycles to D1 (only valid with --pair). Default: dry-run.
+  --fcfs-acquisition-fields
+                  SCOPED regeneration (2026-09-26): set salary_at_acquisition_usd = 1000 and contract_years_at_acquisition = 1 on the FCFS cycles
+                  that a FREE_AGENT transaction proves (canon §A5). UPDATEs two columns on existing rows — never a DELETE/INSERT, never a cycle
+                  created, never a non-FCFS row or a drop-time column. Dry-run by default (before/after export + updates.sql); `--apply --yes` writes.
+                  `--simulate` applies the plan to the exported cycles LOCALLY and re-plans (the second-run-is-identical proof).
+                  Why not `--pair --apply`? That DELETEs `backfill_pass2%` rows and re-INSERTs every cycle — but passes 3/4 have since enriched the table in
+                  place, so a full re-run would duplicate cycles next to the enriched rows. See pipelines/etl/lib/fcfs_cycles.py.
+
+  --fcfs-create-missing
+                  INSERT-ONLY creation (2026-09-26) of the FCFS cycles a transaction PROVES and no cycle carries (seasons 2011-2025; 2026 is the live tool's). Built through
+                  `cycle_to_row`; each INSERT is one row, guarded by NOT EXISTS on the natural key; the end of a period is set only from a later same-season DROP of the
+                  same player by the same franchise; nothing is ever deleted, updated or re-inserted. Dry-run by default (before/after export, inserts.sql, rollback.sql,
+                  second-run proof); `--apply --yes --reviewed-inserts <inserts.sql>` writes exactly what was reviewed.
+  Both FCFS commands also write the KEY-LEVEL RECONCILIATION (reconciliation.json/.md/.csv): every period and every cycle in exactly one bucket, with the identities
+  periods = matched + without_cycle and cycles = matched + orphans. The UPDATE plan is only approvable when they balance.
 
 Default: --pull then --pair, no --apply (full dry-run pipeline).
 """
@@ -29,13 +44,14 @@ import sqlite3
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "pipelines" / "etl" / "lib"))
 
 import cap_penalty as cp                                        # noqa: E402
+import fcfs_cycles                                              # noqa: E402
 from mfl_transactions import (                                  # noqa: E402
     load_seasons, fetch_year_transactions, parse_year,
 )
@@ -413,7 +429,7 @@ def _sql_lit(v) -> str:
     return f"'{s}'"
 
 
-def cycle_to_row(cy: dict) -> dict:
+def cycle_to_row(cy: dict, source: str = "backfill_pass2_2026_05_09", stamp: str | None = None) -> dict:
     """Map a Pass 2 cycle dict → player_acquisition_cycles row.
     Computes era + acquisition_week + total_eligible_weeks. Leaves financial
     columns NULL where data isn't available (Pass 3 fills these in)."""
@@ -454,15 +470,21 @@ def cycle_to_row(cy: dict) -> dict:
                     else "contract_expired_naturally"
                 )
 
+    # FCFS is a fixed $1,000 one-year contract (canon §A5): the generation rule carries it, so a FUTURE pair run never emits a NULL-salary FCFS cycle.
+    acq_salary, acq_years, fcfs_salary_differs = fcfs_cycles.canonical_acquisition_fields(cy["acquisition_path"], cy.get("salary_at_acquisition_usd"))
+
     notes = []
     if cy.get("_inferred"):
         notes.append("inferred_close")
     if cy.get("_data_gap"):
         notes.append(f"data_gap: {cy.get('_gap_reason','overlap')}")
-    if not cy.get("salary_at_acquisition_usd"):
+    if fcfs_salary_differs:
+        notes.append("fcfs_salary_not_canonical")
+    # an FCFS cycle now carries its acquisition salary, but every DROP-side financial column is still NULL — pass 3/4 enrichment is still owed
+    if not acq_salary or cy["acquisition_path"] == "fcfs":
         notes.append("needs_pass3_enrichment")
 
-    now_utc = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_utc = stamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     return {
         "player_id": cy["player_id"],
@@ -473,8 +495,8 @@ def cycle_to_row(cy: dict) -> dict:
         "acquisition_week": acq_week,
         "contract_type_at_acquisition": cy.get("acquisition_path"),
         "contract_was_grandfathered_at_acq": 0,
-        "salary_at_acquisition_usd": cy.get("salary_at_acquisition_usd"),
-        "contract_years_at_acquisition": None,
+        "salary_at_acquisition_usd": acq_salary,
+        "contract_years_at_acquisition": acq_years,
         "total_eligible_weeks": total_weeks,
         "weeks_active": 0,
         "drop_date": drop_date,
@@ -497,7 +519,7 @@ def cycle_to_row(cy: dict) -> dict:
         "status": cy.get("status", "open"),
         "created_at_utc": now_utc,
         "updated_at_utc": now_utc,
-        "source": "backfill_pass2_2026_05_09",
+        "source": source,
         "notes": "; ".join(notes) if notes else None,
     }
 
@@ -559,6 +581,197 @@ def _run_wrangler_sql(sql_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# --fcfs-acquisition-fields  (scoped, UPDATE-only regeneration of two columns on FCFS cycles)
+# ---------------------------------------------------------------------------
+
+FCFS_SQL = {
+    "cycles": "SELECT cycle_id, player_id, franchise_id, season, acquisition_path, acquisition_date, salary_at_acquisition_usd, "
+              "contract_years_at_acquisition, source, notes, status, drop_date, updated_at_utc FROM player_acquisition_cycles "
+              "WHERE acquisition_path = 'fcfs' ORDER BY cycle_id",
+    "adddrop": "SELECT season, player_id, franchise_id, move_type, method, salary, unix_timestamp FROM src_adddrop "
+               "WHERE method = 'FREE_AGENT' AND move_type = 'ADD' AND season < 2026",
+    "hist": "SELECT season, player_in_id, franchise_id, type, salary, ts_unix FROM mfl_historical_transactions "
+            "WHERE type = 'FREE_AGENT' AND season < 2026",
+}
+# read-only extras: `moves` (every ADD / DROP of an FCFS player — the NEXT move by the franchise must be a DROP to end a period) and `tx2026` (the 2026 FCFS adds — REPORTED as out of scope, never counted or created)
+FCFS_SQL_OPTIONAL = {
+    "moves": "SELECT season, player_id, franchise_id, move_type, method, unix_timestamp FROM src_adddrop WHERE season BETWEEN 2011 AND 2025 "
+             "AND (season, player_id) IN (SELECT season, player_id FROM src_adddrop WHERE method = 'FREE_AGENT' AND move_type = 'ADD' AND season < 2026)",
+    "tx2026": "SELECT season, mfl_txn_id, unix_timestamp, franchise_id, added_players FROM ups_transactions WHERE season = '2026' AND type = 'FREE_AGENT' "
+              "AND added_players IS NOT NULL AND added_players <> ''",
+}
+
+
+def _load_fcfs_inputs(out: Path, input_dir: str | None) -> dict:
+    """The cycles / ledgers (required) and the optional moves / 2026 transactions — from a directory of JSON (offline / tests) or live read-only D1."""
+    data: dict = {}
+    if input_dir:
+        src = Path(input_dir)
+        for k in FCFS_SQL:
+            data[k] = json.loads((src / f"{k}.json").read_text())
+        for k in FCFS_SQL_OPTIONAL:
+            p = src / f"{k}.json"
+            data[k] = json.loads(p.read_text()) if p.exists() else []
+    else:
+        for k, q in {**FCFS_SQL, **FCFS_SQL_OPTIONAL}.items():
+            data[k] = _d1_select(q)
+            (out / f"source_{k}.json").write_text(json.dumps(data[k], indent=1, default=str))
+    return data
+
+
+def _out_of_scope_2026(tx_rows: list[dict]) -> list[dict]:
+    """One report-only period per FCFS add in the 2026 transactions (never evidence for creation)."""
+    out = []
+    for r in tx_rows or []:
+        for pid in str(r.get("added_players") or "").split(","):
+            pid = "".join(ch for ch in pid if ch.isdigit())
+            if pid:
+                out.append({"season": int(r.get("season") or 2026), "pid": pid, "fid": fcfs_cycles._norm_fid(r.get("franchise_id")), "ts": int(r.get("unix_timestamp") or 0), "salary": None, "sources": ["ups_transactions"]})
+    return out
+
+
+def _write_reconciliation(out: Path, rec: dict) -> None:
+    (out / "reconciliation.json").write_text(json.dumps(rec, indent=1, default=str))
+    (out / "reconciliation.md").write_text(fcfs_cycles.reconciliation_markdown(rec))
+    (out / "reconciliation.csv").write_text(fcfs_cycles.reconciliation_csv(rec))
+
+
+def _d1_select(sql: str) -> list[dict]:
+    """READ-ONLY D1 query through wrangler (refuses anything but a SELECT)."""
+    import subprocess
+    if not sql.lstrip().upper().startswith("SELECT"):
+        raise ValueError("read-only helper: refusing a non-SELECT statement")
+    r = subprocess.run(["npx", "--yes", "wrangler", "d1", "execute", "ups-mfl-db", "--remote", "--json", "--command", sql],
+                       cwd=str(REPO_ROOT / "worker"), capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"wrangler failed: {r.stderr[:300]}")
+    return json.loads(r.stdout)[0].get("results", [])
+
+
+def _refuse(msg: str) -> None:
+    print(f"REFUSED: {msg}", file=sys.stderr)
+    sys.exit(2)
+
+
+def _preflight_apply(apply_to_d1: bool, confirmed: bool, input_dir: str | None, reviewed: str | None, out: Path, own_file: str, flag: str) -> str | None:
+    """Every --apply refusal that needs no data — BEFORE any live read and BEFORE any output file is written — and the REVIEWED plan's text, read before this run writes anything: a reused
+    --out can never overwrite the reviewed file with the fresh plan and then "match" it."""
+    if not apply_to_d1:
+        return None
+    if not confirmed:
+        _refuse("--apply needs --yes (write mode is never implicit).")
+    if input_dir:
+        _refuse("--apply reads the plan from LIVE D1 — it cannot be combined with --input-dir (an offline snapshot).")
+    if not reviewed:
+        _refuse(f"--apply needs {flag} <the {own_file} from the dry run you reviewed> (write mode only sends what was reviewed).")
+    rp = Path(reviewed)
+    if not rp.is_file():
+        _refuse(f"the reviewed plan {reviewed} does not exist.")
+    if rp.resolve() == (out / own_file).resolve():
+        _refuse(f"the reviewed plan is this run's OWN output ({out / own_file}) — use a NEW --out (a reused directory would overwrite the reviewed plan with the fresh one).")
+    return rp.read_text()
+
+
+def cmd_fcfs_fields(out_dir: str | None, input_dir: str | None, simulate: bool, apply_to_d1: bool, confirmed: bool, stamp: str | None, reviewed_updates: str | None = None) -> dict:
+    out = Path(out_dir) if out_dir else STAGE_DIR / "fcfs_cycle_fields"
+    reviewed_text = _preflight_apply(apply_to_d1, confirmed, input_dir, reviewed_updates, out, "updates.sql", "--reviewed-updates")
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = stamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    data = _load_fcfs_inputs(out, input_dir)
+    cycles, evidence = data["cycles"], fcfs_cycles.evidence_from_rows(data["adddrop"], data["hist"])
+    plan = fcfs_cycles.plan_fcfs_cycle_updates(cycles, evidence, stamp)
+    rec = fcfs_cycles.reconcile(cycles, evidence, out_of_scope=_out_of_scope_2026(data.get("tx2026")))
+    _write_reconciliation(out, rec)
+    (out / "cycles_before.json").write_text(json.dumps(cycles, indent=1, default=str))
+    (out / "plan_rows.json").write_text(json.dumps(plan["rows"], indent=1, default=str))
+    (out / "periods_without_cycle.json").write_text(json.dumps(plan["periods_without_cycle"], indent=1, default=str))
+    (out / "updates.sql").write_text("\n".join(u["sql"] for u in plan["updates"]) + ("\n" if plan["updates"] else ""))
+    (out / "rollback.sql").write_text(fcfs_cycles.rollback_sql(cycles, plan["updates"]))
+    result = {"summary": plan["summary"], "updates": len(plan["updates"]),
+              "reconciliation": {"balanced": rec["balanced"], "updates_approvable": rec["updates_approvable"], "unique_periods": rec["unique_periods"], "exactly_one_match": rec["exactly_one_match"],
+                                 "periods_without_cycle": rec["periods_without_cycle"]["total"], "cycles": rec["cycles_total"], "orphan_cycles": rec["orphan_cycles"]["total"], "ambiguous": rec["ambiguous"]["total"],
+                                 "identity": {k: v["holds"] for k, v in rec["identity"].items()}, "bridge_holds": rec["bridge"]["holds"]}}
+    after = fcfs_cycles.apply_updates(cycles, plan["updates"], stamp)
+    (out / "cycles_after.json").write_text(json.dumps(after, indent=1, default=str))
+    if simulate:
+        # the second run, on the state the first run would leave: must plan NOTHING and leave every row identical
+        second = fcfs_cycles.plan_fcfs_cycle_updates(after, evidence, stamp)
+        again = fcfs_cycles.apply_updates(after, second["updates"], stamp)
+        result["second_run"] = {"updates": len(second["updates"]), "identical": again == after}
+        (out / "second_run_summary.json").write_text(json.dumps(result["second_run"], indent=1))
+    (out / "summary.json").write_text(json.dumps(result, indent=1, default=str))
+    print(json.dumps(result, indent=1, default=str))
+    if simulate and not (result["second_run"]["updates"] == 0 and result["second_run"]["identical"]):
+        print("FAILED: the second run is not a no-op.", file=sys.stderr)
+        sys.exit(1)
+    if apply_to_d1:
+        if not rec["updates_approvable"]:
+            print(f"REFUSED: the cycle counts do not balance ({rec['not_approvable_reason']}) — the UPDATE plan is not approvable; see reconciliation.md.", file=sys.stderr)
+            sys.exit(2)
+        drift = fcfs_cycles.plan_drift(plan["updates"], reviewed_text)
+        if not drift["ok"]:
+            print(f"REFUSED: the plan changed since it was reviewed (+{drift['added']} / -{drift['removed']} statements) — re-run the dry run and review again.", file=sys.stderr)
+            sys.exit(2)
+        if not plan["updates"]:
+            print("Nothing to apply (already canonical).")
+            return result
+        sql_path = out / "updates.sql"
+        print(f"Applying {len(plan['updates'])} guarded UPDATEs to D1 …")
+        _run_wrangler_sql(sql_path)
+        print("✓ applied")
+    else:
+        print("[DRY-RUN] No D1 writes.")
+    return result
+
+
+def cmd_fcfs_create_missing(out_dir: str | None, input_dir: str | None, apply_to_d1: bool, confirmed: bool, stamp: str | None, reviewed_inserts: str | None = None) -> dict:
+    """INSERT-ONLY creation of the missing FCFS cycles (see the module doc). Dry run by default."""
+    out = Path(out_dir) if out_dir else STAGE_DIR / "fcfs_cycle_create"
+    reviewed_text = _preflight_apply(apply_to_d1, confirmed, input_dir, reviewed_inserts, out, "inserts.sql", "--reviewed-inserts")
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = stamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    data = _load_fcfs_inputs(out, input_dir)
+    cycles, evidence, moves = data["cycles"], fcfs_cycles.evidence_from_rows(data["adddrop"], data["hist"]), data.get("moves") or []
+    oos = _out_of_scope_2026(data.get("tx2026"))
+    plan = fcfs_cycles.plan_fcfs_cycle_inserts(cycles, evidence, moves, lambda cy: cycle_to_row(cy, source=fcfs_cycles.CREATE_SOURCE, stamp=stamp), COL_ORDER, stamp, out_of_scope=oos)
+    _write_reconciliation(out, plan["reconciliation"])
+    after = fcfs_cycles.apply_inserts(cycles, plan["inserts"])
+    (out / "cycles_before.json").write_text(json.dumps(cycles, indent=1, default=str))
+    (out / "cycles_after.json").write_text(json.dumps(after, indent=1, default=str))
+    (out / "insert_rows.json").write_text(json.dumps(plan["rows"], indent=1, default=str))
+    (out / "inserts.sql").write_text(fcfs_cycles.inserts_sql_text(plan["inserts"]))
+    (out / "rollback.sql").write_text(fcfs_cycles.rollback_inserts_text(plan["inserts"]))
+    # the second run, on the state the first run would leave: nothing to insert, nothing changes, and the existing rows are byte-identical to before
+    second = fcfs_cycles.plan_fcfs_cycle_inserts(after, evidence, moves, lambda cy: cycle_to_row(cy, source=fcfs_cycles.CREATE_SOURCE, stamp=stamp), COL_ORDER, stamp, out_of_scope=oos)
+    again = fcfs_cycles.apply_inserts(after, second["inserts"])
+    untouched = all(after_row == dict(before_row) for before_row, after_row in zip(cycles, after[:len(cycles)]))
+    result = {"summary": plan["summary"], "reconciliation_balanced": plan["reconciliation"]["balanced"], "existing_rows_untouched": untouched,
+              "second_run": {"inserts": len(second["inserts"]), "identical": again == after, "periods_without_cycle_after": second["reconciliation"]["periods_without_cycle"]["total"]}}
+    (out / "summary.json").write_text(json.dumps(result, indent=1, default=str))
+    print(json.dumps(result, indent=1, default=str))
+    if not (untouched and result["second_run"]["inserts"] == 0 and result["second_run"]["identical"]):
+        print("FAILED: the plan touches an existing row, or the second run is not a no-op.", file=sys.stderr)
+        sys.exit(1)
+    if apply_to_d1:
+        if not plan["summary"]["approvable"]:
+            print(f"REFUSED: the creation plan is not approvable ({plan['summary']['not_approvable_reason']}) — see reconciliation.md.", file=sys.stderr)
+            sys.exit(2)
+        drift = fcfs_cycles.plan_inserts_drift(plan["inserts"], reviewed_text)
+        if not drift["ok"]:
+            print(f"REFUSED: the plan changed since it was reviewed (+{drift['added']} / -{drift['removed']} statements) — re-run the dry run and review again.", file=sys.stderr)
+            sys.exit(2)
+        if not plan["inserts"]:
+            print("Nothing to insert (every proven period already has a cycle).")
+            return result
+        print(f"Applying {len(plan['inserts'])} guarded single-row INSERTs to D1 …")
+        _run_wrangler_sql(out / "inserts.sql")
+        print("✓ applied")
+    else:
+        print("[DRY-RUN] No D1 writes.")
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -570,7 +783,35 @@ def main():
     ap.add_argument("--season", type=int, help="Restrict to one season")
     ap.add_argument("--apply", action="store_true", help="Write to D1 (only with --pair)")
     ap.add_argument("--api-key", help="MFL APIKEY (defaults to env MFL_APIKEY)")
+    ap.add_argument("--fcfs-acquisition-fields", action="store_true", help="Scoped FCFS regeneration (see module doc)")
+    ap.add_argument("--out", help="output directory for --fcfs-acquisition-fields")
+    ap.add_argument("--input-dir", help="read cycles/adddrop/hist JSON from a directory instead of D1 (offline / tests)")
+    ap.add_argument("--simulate", action="store_true", help="also prove the second run plans nothing")
+    ap.add_argument("--yes", action="store_true", help="confirm --apply")
+    ap.add_argument("--stamp", help="updated_at_utc value (fixed in tests)")
+    ap.add_argument("--reviewed-updates", help="the updates.sql of the reviewed dry run — --apply refuses unless the fresh plan is identical")
+    ap.add_argument("--fcfs-create-missing", action="store_true", help="INSERT-only creation of the FCFS cycles a transaction proves and no cycle carries (see the module doc)")
+    ap.add_argument("--reviewed-inserts", help="the inserts.sql of the reviewed dry run — --apply refuses unless the fresh plan is identical")
+    ap.add_argument("--full-pair-delete-and-reinsert", action="store_true", help="REQUIRED for `--pair --apply`: that path DELETEs every backfill_pass2%% cycle and re-INSERTs it — never use it on the enriched table")
     args = ap.parse_args()
+
+    scoped = args.fcfs_acquisition_fields or args.fcfs_create_missing
+    if args.fcfs_acquisition_fields and args.fcfs_create_missing:
+        ap.error("choose ONE of --fcfs-acquisition-fields / --fcfs-create-missing")
+    if not scoped and (args.yes or args.reviewed_updates or args.reviewed_inserts or args.input_dir or args.simulate or args.stamp or args.out):
+        ap.error("--yes / --reviewed-updates / --reviewed-inserts / --input-dir / --simulate / --stamp / --out only apply to --fcfs-acquisition-fields or --fcfs-create-missing (they would be silently ignored here)")
+    if args.apply and not scoped and not args.full_pair_delete_and_reinsert:
+        print("REFUSED: `--apply` without --fcfs-acquisition-fields / --fcfs-create-missing is the FULL pair path: it DELETEs every backfill_pass2% cycle and re-INSERTs them all, "
+              "duplicating the cycles passes 3 / 4 enriched in place. If you really mean it, pass --full-pair-delete-and-reinsert.", file=sys.stderr)
+        sys.exit(2)
+
+    if args.fcfs_create_missing:
+        cmd_fcfs_create_missing(args.out, args.input_dir, args.apply, args.yes, args.stamp, args.reviewed_inserts)
+        return
+
+    if args.fcfs_acquisition_fields:
+        cmd_fcfs_fields(args.out, args.input_dir, args.simulate, args.apply, args.yes, args.stamp, args.reviewed_updates)
+        return
 
     api_key = args.api_key
     if not api_key:

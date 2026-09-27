@@ -126,6 +126,7 @@ const compFn = grab(
   'return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };\n        };'
 );
 const prelude = `
+import { applyFullYearRule, classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS } from "${new URL('../worker/src/fcfs_contract.js', import.meta.url).href}";
 const safeStr = (v) => v == null ? "" : String(v);
 const safeInt = (v, d) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : (d || 0); };
 const _s = (v) => String(v == null ? "" : v).trim();
@@ -217,7 +218,10 @@ console.log('\n-- B1. resolveCompletedPayableWeeks is awaited before building an
   t('B1c. week_authority_source reaches the top-level response', batch.week_authority_source, 'live_scoring_authority');
   check('B1d. every player row was built using the SAME resolved week count (not independently re-resolved)', () => {
     assert.strictEqual(batch.players['1'].currentYearEarned, Math.round(13000 * 3 / 17));
-    assert.strictEqual(batch.players['2'].currentYearEarned, Math.round(1000 * 3 / 17));
+    // pid 2 is a sub-$5K ($1K) contract: the dedicated full-year rule applies — NO weekly earned amount (fcfs_contract.js applyFullYearRule)
+    assert.strictEqual(batch.players['2'].currentYearEarned, null);
+    assert.strictEqual(batch.players['2'].earned, null);
+    assert.strictEqual(batch.players['2'].earned_rule, 'full_year_sub_5k');
   });
 }
 
