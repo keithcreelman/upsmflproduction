@@ -42,7 +42,7 @@
   // "reTIRed" contains "IR"; the OUT test is a SUBSTRING because an equality
   // test paid a Holdout in full.
   function injuryFactor(status) {
-    var st = String(status == null ? "" : status).toUpperCase();
+    var st = injuryToken(status);
     if (!st) return 1;
     if (st.indexOf("OUT") >= 0 ||
         st.indexOf("IR") >= 0 ||
@@ -57,7 +57,7 @@
   }
 
   function injuryShort(status) {
-    var st = String(status == null ? "" : status).toUpperCase();
+    var st = injuryToken(status);
     if (!st) return "";
     if (st.indexOf("DOUB") >= 0) return "D";
     if (st.indexOf("QUES") >= 0) return "Q";
@@ -69,24 +69,142 @@
     return st.slice(0, 3);
   }
 
+  // The ONE normalizer for an injury status token, used by every parser and
+  // renderer on desktop AND mobile so they can never disagree about what a
+  // status "is". Whitespace collapses, the case folds to upper, and stray
+  // separators at either EDGE are dropped -- a status is a word ("OUT",
+  // "IR-PUP"), and a leading ":" / "-" / quote is never part of it (an
+  // interior hyphen, as in IR-PUP, is kept). Missing / null / blank / all
+  // punctuation is "" -- UNAVAILABLE -- and never any other status: nothing
+  // here can turn an absent value into "OUT".
+  function injuryToken(raw) {
+    var st = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+    st = st.replace(/^[\s:;,.\-–—|"'`()\[\]]+|[\s:;,.\-–—|"'`()\[\]]+$/g, "");
+    return st.toUpperCase();
+  }
+  // MFL's free-text injury description ("Concussion", "Hamstring"): trimmed,
+  // whitespace collapsed, and the same stray edge punctuation dropped so a
+  // description that arrives as ": Concussion" or "Concussion:" joins cleanly.
+  function injuryDetail(raw) {
+    var d = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+    return d.replace(/^[\s:;,.\-–—|"'`()\[\]]+|[\s:;,.\-–—|"'`()\[\]]+$/g, "");
+  }
+  // The label for a status and (optionally) its description, punctuation
+  // rendered EXACTLY once: "OUT", or "OUT: Concussion". A missing status is ""
+  // whatever the description says (a description alone is not a designation),
+  // and an empty description never leaves a dangling or LEADING separator.
+  function injuryLabel(status, description) {
+    var st = injuryToken(status);
+    if (!st) return "";
+    var d = injuryDetail(description);
+    return d ? st + ": " + d : st;
+  }
+
+  // MFL's TYPE=injuries payload: { injuries: { week, timestamp, injury: [...] } }.
+  // It reports the CURRENT designation only and carries the week it was written
+  // for, so the week and timestamp travel with the rows -- a status without its
+  // week is exactly how a prior-week "Out" leaks into the next one.
+  function parseInjuriesMeta(payload) {
+    var node = payload && payload.injuries;
+    var week = parseInt(node && node.week, 10), ts = parseInt(node && node.timestamp, 10);
+    return { ok: !!node, week: week > 0 ? week : 0, timestamp: ts > 0 ? ts : 0 };
+  }
   function parseInjuries(payload) {
     var map = {}, inj = payload && payload.injuries && payload.injuries.injury;
-    asArray(inj).forEach(function (i) { if (i && i.id) map[String(i.id)] = String(i.status || ""); });
+    asArray(inj).forEach(function (i) {
+      if (!i || i.id == null) return;
+      var tok = injuryToken(i.status);
+      if (tok) map[String(i.id)] = tok;      // an entry with no status is no designation
+    });
+    return map;
+  }
+  function parseInjuryDetails(payload) {
+    var map = {}, inj = payload && payload.injuries && payload.injuries.injury;
+    asArray(inj).forEach(function (i) {
+      if (!i || i.id == null || !injuryToken(i.status)) return;
+      var d = injuryDetail(i.details);
+      if (d) map[String(i.id)] = d;
+    });
     return map;
   }
 
-  // MFL's own injuries export can lag real, widely-reported news by a wide
-  // margin -- verified 2026-09-13: over an hour after Kyler Murray (id 14056)
-  // was ruled out live, mid-game, with a concussion, MFL's export still had
-  // NO entry for him at all (an entry-less player reads as healthy, per
-  // parseInjuries above). site/shared/injury_overrides.js is the standing
-  // patch list for exactly this gap: a real player id, a real status, and a
-  // real source, confirmed by hand against actual reporting before it's
-  // added. This always wins over MFL's own export when present, since it
-  // only ever gets added for a status MFL is already behind on.
-  function withInjuryOverride(overrides, pid, mflStatus) {
+  // The injury feed as the shared client model: ONE store per page, KEYED BY
+  // SEASON AND THE WEEK THE PAYLOAD WAS WRITTEN FOR, and queried by
+  // (season, week, player). Nothing in one week's bucket can answer a query for
+  // another week, so a designation held over from an earlier week simply is not
+  // there to be found. put() refuses a payload it cannot attribute to a week,
+  // and never lets an older payload replace a newer one for the same
+  // season+week (a slow, cached or replayed response can't roll a status back).
+  // Player ids are keyed as strings, so 14056 and "14056" are the same player.
+  function createInjuryStore() {
+    var buckets = {};   // "season:week" -> { ts, byPid, detail }
+    function key(season, week) {
+      return String(parseInt(season, 10) || 0) + ":" + String(parseInt(week, 10) || 0);
+    }
+    var api = {
+      put: function (payload, ctx) {
+        var meta = parseInjuriesMeta(payload);
+        if (!meta.ok) return { accepted: false, reason: "unreadable" };
+        var season = ctx && ctx.season;
+        if (!(parseInt(season, 10) > 0)) return { accepted: false, reason: "season_unknown" };
+        if (!meta.week) return { accepted: false, reason: "week_unknown" };
+        var k = key(season, meta.week), prev = buckets[k];
+        if (prev && meta.timestamp && prev.ts && meta.timestamp < prev.ts) return { accepted: false, reason: "stale", week: meta.week };
+        buckets[k] = { ts: meta.timestamp, byPid: parseInjuries(payload), detail: parseInjuryDetails(payload) };
+        return { accepted: true, reason: "", week: meta.week };
+      },
+      // Was an authoritative payload for THIS season+week ever accepted? (An
+      // empty bucket that was READ means "nobody has a designation"; a missing
+      // bucket means "unknown" -- callers must not treat the two alike.)
+      known: function (season, week) { return !!buckets[key(season, week)]; },
+      status: function (season, week, pid) {
+        var b = buckets[key(season, week)];
+        return (b && b.byPid[String(pid)]) || "";
+      },
+      detail: function (season, week, pid) {
+        var b = buckets[key(season, week)];
+        return (b && b.detail[String(pid)]) || "";
+      },
+      label: function (season, week, pid) { return injuryLabel(api.status(season, week, pid), api.detail(season, week, pid)); }
+    };
+    return api;
+  }
+
+  // MFL's own injuries export can lag real, widely-reported news, so
+  // site/shared/injury_overrides.js is the standing patch list for that gap: a
+  // real player id, a real status, a real source, confirmed by hand. An entry
+  // is a statement about ONE game week -- it must name the season and week it
+  // applies to, and it applies to exactly that week: the moment the calendar
+  // moves on it stops applying, so a designation made for one week can never
+  // outlive it and show up in the next. An entry with no season/week (the old
+  // shape), or a caller that cannot say what week it is showing, gets NO
+  // override -- the export's own value stands, or the status is simply blank.
+  function overrideApplies(o, ctx) {
+    if (!o || !injuryToken(o.status)) return false;
+    var os = parseInt(o.season, 10), ow = parseInt(o.week, 10);
+    var cs = parseInt(ctx && ctx.season, 10), cw = parseInt(ctx && ctx.week, 10);
+    return os > 0 && ow > 0 && cs > 0 && cw > 0 && os === cs && ow === cw;
+  }
+  // ctx = { season, week } -- the season/week the caller is displaying.
+  function withInjuryOverride(overrides, pid, mflStatus, ctx) {
     var o = overrides && overrides[String(pid)];
-    return (o && o.status) ? String(o.status) : (mflStatus || "");
+    return overrideApplies(o, ctx) ? injuryToken(o.status) : injuryToken(mflStatus);
+  }
+  // The designation to SHOW for a player: an in-week override, else the store's
+  // value for exactly this season+week, else "" (unavailable, never "OUT").
+  // opts = { store, overrides, season, week }.
+  function injuryStatusFor(opts, pid) {
+    var o = opts || {};
+    var mfl = o.store ? o.store.status(o.season, o.week, pid) : "";
+    return withInjuryOverride(o.overrides, pid, mfl, { season: o.season, week: o.week });
+  }
+  function injuryLabelFor(opts, pid) {
+    var o = opts || {};
+    var st = injuryStatusFor(o, pid);
+    var mfl = o.store ? o.store.status(o.season, o.week, pid) : "";
+    // The description belongs to MFL's designation; when an override supplied
+    // a DIFFERENT status the description is not about that status, so omit it.
+    return injuryLabel(st, (o.store && st === mfl) ? o.store.detail(o.season, o.week, pid) : "");
   }
 
   /* ---- which payload are we reading? ---------------------------------- */
@@ -364,6 +482,10 @@
   root.UPSLive = {
     asArray: asArray, pad4: pad4,
     injuryFactor: injuryFactor, injuryShort: injuryShort, parseInjuries: parseInjuries,
+    injuryToken: injuryToken, injuryDetail: injuryDetail, injuryLabel: injuryLabel,
+    parseInjuriesMeta: parseInjuriesMeta, parseInjuryDetails: parseInjuryDetails,
+    createInjuryStore: createInjuryStore, overrideApplies: overrideApplies,
+    injuryStatusFor: injuryStatusFor, injuryLabelFor: injuryLabelFor,
     withInjuryOverride: withInjuryOverride,
     countLiveFranchises: countLiveFranchises, pickSource: pickSource,
     franchiseRaw: franchiseRaw, starterRows: starterRows,
