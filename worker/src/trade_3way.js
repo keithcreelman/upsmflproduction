@@ -29,6 +29,8 @@
 
 import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
+import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS, canView } from "./trade_3way_model.js";
+import { makeLedger, EXEC, findExecutedTrade, isMflExecuted } from "./trade_execution.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -254,6 +256,95 @@ function movementCapMaxK(movement, salaryByFp, taxiByFp) {
   return Math.floor(sum / 2000);
 }
 
+// ─────────────── post-trade salary cap (HARD) + roster counts (advisory) ───────────────
+// RULING (Keith, 2026-09-25): a trade must not execute if the authoritative post-trade calculation proves a
+// participating franchise would exceed the salary cap; an unavailable calculation fails closed. Roster counts are
+// projected and flagged, never a block. The calculation is the SAME one the 2-way accept uses
+// (worker/src/trade_cap_authority.js), reached through the worker's own /admin/3way/compliance route so this engine
+// (which runs from Discord buttons and waitUntil, with no request closures) shares it instead of copying it.
+const UNAVAILABLE_MSG = "We couldn't verify the salary cap for this trade right now.";
+function unavailableCompliance(reason) {
+  return {
+    participants: [],
+    cap: { status: "unavailable", reason, cap_dollars: null, rows: [], violations: [], message: UNAVAILABLE_MSG },
+    roster: { status: "unavailable", advisory: true, rows: [], warnings: [], message: "We couldn't check the roster counts for this trade right now." },
+    extension_skipped: [],
+  };
+}
+async function complianceViaSelf(env, row) {
+  if (!env.SELF) return unavailableCompliance("no_self_binding");
+  const apiKey = safeStr(env.COMMISH_API_KEY);
+  if (!apiKey) return unavailableCompliance("no_commish_key");
+  try {
+    const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
+    const u = `https://self.invalid/admin/3way/compliance?L=${encodeURIComponent(safeStr(row.league_id))}&YEAR=${encodeURIComponent(safeStr(row.season))}&APIKEY=${encodeURIComponent(apiKey)}`;
+    const r = await env.SELF.fetch(u, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), movements, extension_requests: parseExtReqs(row), offer_created_at_utc: safeStr(row.created_at_utc) }),
+    });
+    const j = await r.json().catch(() => null);
+    const c = j && j.ok && j.compliance;
+    if (!r.ok || !c || !c.cap || !c.roster) return unavailableCompliance("bad_response");
+    return c;
+  } catch (e) {
+    console.error(`[3way] ${row.id}: compliance call failed: ${e?.message || e}`);
+    return unavailableCompliance("call_failed");
+  }
+}
+// The execution ledger (worker/src/trade_execution.js) — one row per 3-way, keyed by the trade id.
+function ledgerFor(env) {
+  const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+  if (!db) throw new Error("no D1 binding for the execution ledger");
+  return makeLedger(db);
+}
+const lkey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(row.season), execKey: safeStr(row.id) });
+const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
+
+/** A cap gate that refused BEFORE any MFL write: recoverable, never `failed`. Approvals stay; the row goes back to `collecting`. */
+async function enterBlockedCap(env, row, gate, dmAllThree) {
+  const violations = ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
+  const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
+  let prev = null;
+  try {
+    const r = await ledgerFor(env).block(lkey(row), { kind: "three_way", actorFid: padFid(row.initiator_fid), participants: [row.initiator_fid, row.team_b_fid, row.team_c_fid].map(padFid).join(","), blockInfo: info });
+    prev = r.prev;
+  } catch (e) { console.error(`[3way] ${row.id}: couldn't record the cap block on the ledger: ${e?.message || e}`); }
+  // back to `collecting` (conditional: only from `executing`) — the trade never goes `failed` for a cap block
+  await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='collecting', failure_reason=NULL, updated_at_utc=? WHERE id=? AND status='executing'`).bind(nowIso(), row.id).run();
+  const same = prev && prev.state === EXEC.BLOCKED_CAP && prev.block && prev.block.signature === info.signature;
+  if (!same && dmAllThree) {
+    await dmAllThree(String(gate.kind).startsWith("extension")
+      ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
+      : `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved and everyone's accept is saved. It will go through once that's fixed (use “Re-check” on the trade).`);
+  }
+  return info;
+}
+
+/** { ok:true, compliance } | { ok:false, kind:"blocked"|"unavailable"|"extension"|"extension_stale", message, compliance } */
+async function capGate(env, row) {
+  const compliance = await complianceViaSelf(env, row);
+  if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: `${UNAVAILABLE_MSG} Try again in a moment.`, compliance };
+  const skipped = Array.isArray(compliance.extension_skipped) ? compliance.extension_skipped : [];
+  if (skipped.length) {
+    const reasons = skipped.map((x) => safeStr(x && x.reason));
+    const unavailable = (r) => r === "extension_pricing_unavailable" || r === "failed_to_load_salaries_export" || r.startsWith("authority_unavailable");
+    // a stale PRICE: the contract moved since the trade was built, so the promised extension is no longer the canonical price — it must be rebuilt
+    if (reasons.includes("extension_terms_stale")) return { ok: false, kind: "extension_stale", message: "The price of a pre-trade extension in this trade no longer matches the player's current contract, so it can't go through as built. Ask the initiator to build it again.", compliance };
+    // an authority we could not READ is not a verdict on the extension: recoverable (the accept is kept; a re-check retries)
+    if (reasons.every(unavailable)) return { ok: false, kind: "unavailable", message: "We couldn't verify a pre-trade extension in this trade right now. Try again in a moment.", compliance };
+    return { ok: false, kind: "extension", message: "A pre-trade extension in this trade is no longer allowed, so it can't go through. Ask the initiator to build it again.", compliance };
+  }
+  if (compliance.cap.status === "blocked") return { ok: false, kind: "blocked", message: safeStr(compliance.cap.message), compliance };
+  return { ok: true, compliance };
+}
+function rosterNote(compliance) {
+  const r = compliance && compliance.roster;
+  if (!r) return "";
+  if (r.status === "warn") return `\n⚠️ Heads-up: ${r.warnings.map((w) => w.message).join(" ")} (Advisory only — MFL decides when the trade is processed.)`;
+  if (r.status === "unavailable") return "\nℹ️ We couldn't check roster counts right now.";
+  return "";
+}
+
 // ─────────────────────────── message builders ──────────────────────────────
 // What a team gives + gets across the free-form movements, each line naming the
 // other team involved (so "MHJ → LA Looks", "Caleb Williams ← Sex Manther").
@@ -468,58 +559,199 @@ export async function create3WayTrade(env, ctx, spec) {
   }
 }
 
-// ──────────────── list a franchise's active 3-way trades (outbox) ────────────
-// Shape one row for the mobile outbox: the viewer's role, the per-team accept
-// states, the movements (from→to + summary), and whether the viewer can cancel.
-function shape3WayForView(row, viewerFid) {
-  const A = padFid(row.initiator_fid), B = padFid(row.team_b_fid), C = padFid(row.team_c_fid);
-  const me = padFid(viewerFid);
-  const status = safeStr(row.status);
-  const movements = parseLegs(row)
-    .filter((m) => m && Array.isArray(m.asset_tokens) && m.asset_tokens.length)
-    .map((m) => ({ from: padFid(m.from), to: padFid(m.to), from_name: teamLabel(row, m.from), to_name: teamLabel(row, m.to), summary: safeStr(m.summary), cap_k: safeInt(m.cap_k, 0) }));
-  const bState = safeStr(row.team_b_state), cState = safeStr(row.team_c_state);
-  const waiting = [];
-  if (bState !== "accepted") waiting.push(teamLabel(row, B));
-  if (cState !== "accepted") waiting.push(teamLabel(row, C));
-  return {
-    id: row.id, status, role: me === A ? "initiator" : "partner",
-    initiator_name: teamLabel(row, A), team_b_name: teamLabel(row, B), team_c_name: teamLabel(row, C),
-    team_b_state: bState, team_c_state: cState, waiting_on: waiting,
-    movements, notes: safeStr(row.notes),
-    can_cancel: me === A && status === "collecting",
-    created_at_utc: safeStr(row.created_at_utc),
-  };
+// ──────────────── read: canonical trade + outbox list ─────────────────────────
+// Every surface (mobile, desktop) renders the SAME canonical object built by
+// trade_3way_model.js#buildCanonical3Way. `viewer` is the server-resolved actor
+// ({ fid, isCommish, sessionFid }) — the engine never trusts a caller-supplied
+// franchise id. `deps` are optional, fail-soft enrichers supplied by the HTTP
+// layer: franchiseNames({leagueId, season}) and playersByIds({leagueId, season, ids}).
+const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
+// A trade from another league OR another season is indistinguishable from a missing one:
+// the caller's identity was proven for exactly one (league, season).
+function inScope(row, viewer) {
+  if (!viewer) return false;
+  return safeStr(row.league_id) === safeStr(viewer.leagueId) && safeStr(row.season) === safeStr(viewer.season);
 }
-export async function list3WayForFranchise(env, leagueId, fid) {
-  if (!env.UPS_MFL_DB) return [];
+async function getRowStrict(env, id) {
+  // Unlike getRow() this THROWS on a D1 failure so callers can tell "not found"
+  // (404) from "database unavailable" (503) instead of collapsing both to null.
+  return await env.UPS_MFL_DB.prepare(`SELECT * FROM ups_3way_trades WHERE id=?`).bind(safeStr(id)).first();
+}
+async function enrich(deps, rows) {
+  let names = null, players = null;
+  if (!deps || !rows.length) return { names, players };
+  const leagueId = safeStr(rows[0].league_id), season = safeStr(rows[0].season);
+  try { if (deps.franchiseNames) names = await deps.franchiseNames({ leagueId, season }); }
+  catch (e) { console.warn(`[3way] franchise name lookup failed (using stored names): ${e?.message || e}`); }
+  try {
+    if (deps.playersByIds) {
+      const ids = new Set();
+      for (const r of rows) for (const m of parseLegs(r)) for (const t of (m && m.asset_tokens) || []) { const x = /^P_(\d+)$/.exec(safeStr(t)); if (x) ids.add(x[1]); }
+      if (ids.size) players = await deps.playersByIds({ leagueId, season, ids: [...ids] });
+    }
+  } catch (e) { console.warn(`[3way] player lookup failed (labels fall back to ids): ${e?.message || e}`); }
+  return { names, players };
+}
+const dbDown = (e) => { console.error(`[3way] db error: ${e?.message || e}`); return { ok: false, http: 503, code: "unavailable", message: "Trades are temporarily unavailable. Try again in a moment." }; };
+
+export async function get3WayTrade(env, id, viewer, deps) {
+  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
+  const tid = safeStr(id);
+  if (!ID_RE.test(tid)) return { ok: false, http: 400, code: "bad_request", message: "That isn't a valid trade id." };
+  let row;
+  try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  // A row from another league is indistinguishable from a missing one.
+  if (!row || !inScope(row, viewer)) {
+    return { ok: false, http: 404, code: "not_found", message: "This 3-way trade doesn't exist." };
+  }
+  if (!canView(row, viewer)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
+  const { names, players } = await enrich(deps, [row]);
+  let execution = null; try { execution = await ledgerFor(env).read(lkey(row)); } catch (_) { execution = null; }
+  const trade = buildCanonical3Way(row, { names, players, viewer, execution });
+  // A live trade also carries its projected salary-cap (hard rule) and roster-count (advisory) picture so every
+  // surface can show it BEFORE the partners accept. Fail-soft: an unavailable calculation is shown as unavailable.
+  if (deps && typeof deps.compliance === "function" && ["collecting", "executing"].includes(safeStr(row.status))) {
+    try {
+      const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
+      trade.compliance = await deps.compliance({ leagueId: safeStr(row.league_id), season: safeStr(row.season), movements: movements.map((m) => ({ ...m, tokens: m.tokens.map((t) => safeStr(t).replace(/^P_/, "")) })), extensionRequests: parseExtReqs(row), offerCreatedAtUtc: safeStr(row.created_at_utc) });
+    } catch (e) {
+      console.warn(`[3way] compliance lookup failed: ${e?.message || e}`);
+      trade.compliance = unavailableCompliance("lookup_failed");
+    }
+  }
+  return { ok: true, trade };
+}
+
+export async function list3WayForFranchise(env, leagueId, fid, opts) {
+  opts = opts || {};
+  if (!env.UPS_MFL_DB) return { ok: false, http: 503, code: "unavailable", message: "Trades are temporarily unavailable. Try again in a moment." };
   const f = padFid(fid);
-  if (!f) return [];
+  if (!f) return { ok: false, http: 400, code: "bad_request", message: "Missing franchise." };
+  const statusClause = opts.includeTerminal ? "" : "AND status IN ('collecting','executing')";
+  let rows;
   try {
     const { results } = await env.UPS_MFL_DB.prepare(
       `SELECT * FROM ups_3way_trades
-       WHERE league_id = ? AND status IN ('collecting','executing')
+       WHERE league_id = ? AND season = ? ${statusClause}
          AND (initiator_fid = ? OR team_b_fid = ? OR team_c_fid = ?)
        ORDER BY created_at_utc DESC LIMIT 25`
-    ).bind(safeStr(leagueId), f, f, f).all();
-    return (results || []).map((row) => shape3WayForView(row, f));
-  } catch (e) { console.error(`[3way] list failed: ${e?.message || e}`); return []; }
+    ).bind(safeStr(leagueId), safeStr(opts.season || (opts.viewer && opts.viewer.season)), f, f, f).all();
+    rows = results || [];
+  } catch (e) { return dbDown(e); }
+  const { names, players } = await enrich(opts.deps, rows);
+  const viewer = opts.viewer || null;
+  let exec = {}; try { exec = await ledgerFor(env).readMany(safeStr(leagueId), safeStr(opts.season || (opts.viewer && opts.viewer.season)), rows.map((r) => r.id)); } catch (_) { exec = {}; }
+  return { ok: true, trades: rows.map((row) => buildCanonical3Way(row, { names, players, viewer, execution: exec[row.id] || null })) };
 }
 
-// ──────────────── cancel a pending 3-way (initiator only) ────────────────────
-export async function cancel3WayTrade(env, ctx, id, byFid) {
-  if (!env.UPS_MFL_DB) return { ok: false, error: "no_db" };
-  const row = await getRow(env, id);
-  if (!row) return { ok: false, error: "not_found" };
-  if (padFid(row.initiator_fid) !== padFid(byFid)) return { ok: false, error: "only_initiator_can_cancel" };
-  if (safeStr(row.status) !== "collecting") return { ok: false, error: `cannot_cancel_${safeStr(row.status)}` };
-  await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='cancelled', failure_reason='cancelled_by_initiator', updated_at_utc=? WHERE id=?`).bind(nowIso(), id).run();
-  const who = teamLabel(row, row.initiator_fid);
+// ──────────────── cancel a pending 3-way (initiator or commissioner) ─────────────
+// Server-authoritative: the actor comes from the proven MFL session (see
+// trade_3way_http.js), never from the request body. Atomic (conditional UPDATE),
+// idempotent, and returns the canonical post-cancel trade. Notifies partners
+// exactly once — only the request whose UPDATE actually changed the row.
+export async function cancel3WayTrade(env, ctx, id, viewer, deps) {
+  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
+  const tid = safeStr(id);
+  if (!ID_RE.test(tid)) return { ok: false, http: 400, code: "bad_request", message: "That isn't a valid trade id." };
+  let row;
+  try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  if (!row || !inScope(row, viewer)) {
+    return { ok: false, http: 404, code: "not_found", message: "This 3-way trade doesn't exist." };
+  }
+  const decision = decideCancel(row, viewer);
+  const respond = async (extra) => {
+    // Never echo a trade back to someone who isn't allowed to see it (a failed
+    // cancel by a non-participant must not double as a read of the deal).
+    if (!canView(row, viewer)) return { ...extra };
+    const { names, players } = await enrich(deps, [row]);
+    return { ...extra, trade: buildCanonical3Way(row, { names, players, viewer }) };
+  };
+  if (!decision.ok) return await respond({ ok: false, http: decision.http, code: decision.code, message: decision.message });
+  if (decision.idempotent) return await respond({ ok: true, http: 200, code: "already_cancelled", already: true });
+
+  const actorFid = padFid(viewer.fid);
+  // Only the initiator, through their OWN session, can reach here (decideCancel). A commissioner's
+  // cancel is the separate administrative action (adminCancel3WayTrade).
+  const reason = "cancelled_by_initiator";
+  let res;
+  try {
+    res = await env.UPS_MFL_DB.prepare(
+      `UPDATE ups_3way_trades SET status='cancelled', failure_reason=?, updated_at_utc=? WHERE id=? AND status='collecting'`
+    ).bind(reason, nowIso(), tid).run();
+  } catch (e) { return dbDown(e); }
+  const changed = Number(res?.meta?.changes ?? res?.changes ?? 0);
+  try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  if (!changed) {
+    // Lost a race (accepted/cancelled between our read and write). Report truthfully.
+    if (safeStr(row.status) === "cancelled") return await respond({ ok: true, http: 200, code: "already_cancelled", already: true });
+    return await respond({ ok: false, http: 409, code: `cannot_cancel_${safeStr(row.status)}`, message: decideCancel(row, viewer).message || "This trade can't be called off in its current state." });
+  }
+  const who = teamLabel(row, row.initiator_fid) || "The initiator";
   const alert = { content: `❌ **${who}** called off the 3-way trade.`.slice(0, 1990) };
-  const fire = async () => { await dmAll(env, row.team_b_discord_ids, alert); await dmAll(env, row.team_c_discord_ids, alert); };
+  const fire = async () => {
+    await dmAll(env, row.team_b_discord_ids, alert);
+    await dmAll(env, row.team_c_discord_ids, alert);
+  };
   if (ctx?.waitUntil) ctx.waitUntil(fire()); else await fire();
-  console.log(`[3way] ${id} cancelled by initiator ${padFid(byFid)}`);
-  return { ok: true, id };
+  console.log(`[3way] ${tid} cancelled by initiator ${actorFid}`);
+  return await respond({ ok: true, http: 200, code: "cancelled" });
+}
+
+// ──────────────── commissioner ADMINISTRATIVE cancel (RULING, Keith 2026-09-25) ─────────────────
+// A distinct action — not owner impersonation, not "acting as" the initiator. The caller (index.js
+// /admin/3way/cancel) has already proven the explicit COMMISH_API_KEY; this enforces the STATE rules
+// (decideAdminCancel), writes the audit trail atomically with the state change, tells all three teams
+// exactly once, and NEVER touches MFL (no trade proposal, accept, or execution of any kind).
+export async function adminCancel3WayTrade(env, ctx, { id, leagueId, reason }, deps) {
+  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
+  const tid = safeStr(id);
+  if (!ID_RE.test(tid)) return { ok: false, http: 400, code: "bad_request", message: "That isn't a valid trade id." };
+  let row;
+  try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  if (!row || safeStr(row.league_id) !== safeStr(leagueId)) {
+    return { ok: false, http: 404, code: "not_found", message: "This 3-way trade doesn't exist." };
+  }
+  const viewer = { fid: "", sessionFid: "", isCommish: true, via: "apikey", leagueId: safeStr(row.league_id), season: safeStr(row.season) };
+  const show = async (extra) => {
+    const { names, players } = await enrich(deps, [row]);
+    return { ...extra, basis: ADMIN_CANCEL_BASIS, trade: buildCanonical3Way(row, { names, players, viewer }) };
+  };
+  const audit = () => ({ cancelled_by: safeStr(row.cancelled_by) || "commissioner_admin", cancelled_at_utc: safeStr(row.cancelled_at_utc), reason: safeStr(row.cancel_reason) });
+  const decision = decideAdminCancel(row, reason);
+  if (!decision.ok) return { ok: false, http: decision.http, code: decision.code, message: decision.message, ...(safeStr(row.status) !== "" && decision.http === 409 ? { status: safeStr(row.status) } : {}) };
+  if (decision.idempotent) return await show({ ok: true, http: 200, code: "already_cancelled", already: true, ...audit() });
+
+  const at = nowIso();
+  let res;
+  try {
+    res = await env.UPS_MFL_DB.prepare(
+      `UPDATE ups_3way_trades
+          SET status='cancelled', failure_reason=?, cancel_basis=?, cancelled_by=?, cancel_reason=?, cancelled_at_utc=?, updated_at_utc=?
+        WHERE id=? AND status='collecting'`
+    ).bind(ADMIN_CANCEL_BASIS, ADMIN_CANCEL_BASIS, "commissioner_admin", decision.reason, at, at, tid).run();
+  } catch (e) {
+    if (/no such column/i.test(safeStr(e && e.message))) {
+      console.error(`[3way] admin cancel needs migration 0159: ${e.message}`);
+      return { ok: false, http: 503, code: "migration_required", message: "The administrative cancel needs the latest database update (migration 0159) before it can record who cancelled and why. Nothing was changed." };
+    }
+    return dbDown(e);
+  }
+  const changed = Number(res?.meta?.changes ?? res?.changes ?? 0);
+  try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  if (!changed) {
+    // Lost a race (accepted / cancelled between our read and write). Report what is true now.
+    const again = decideAdminCancel(row, decision.reason);
+    if (again.ok && again.idempotent) return await show({ ok: true, http: 200, code: "already_cancelled", already: true, ...audit() });
+    return { ok: false, http: again.http || 409, code: again.code || `cannot_cancel_${safeStr(row.status)}`, message: again.message || "This trade can't be called off in its current state." };
+  }
+  // Tell ALL THREE teams, once — only the request whose UPDATE changed the row gets here.
+  const alert = { content: `❌ The commissioner called off the 3-way trade. Reason: ${decision.reason}`.slice(0, 1990) };
+  const fire = async () => {
+    for (const csv of [row.initiator_discord_ids, row.team_b_discord_ids, row.team_c_discord_ids]) await dmAll(env, csv, alert);
+  };
+  if (ctx?.waitUntil) ctx.waitUntil(fire()); else await fire();
+  console.log(`[3way] ${tid} cancelled ADMINISTRATIVELY by the commissioner (reason on file)`);
+  return await show({ ok: true, http: 200, code: "cancelled", already: false, ...audit() });
 }
 
 // ─────────────────── accept / decline (in-Discord button) ───────────────────
@@ -541,7 +773,13 @@ export async function handle3WayButton(interaction, env, ctx) {
   const myState = safeStr(isB ? row.team_b_state : row.team_c_state);
 
   if (action === "decline") {
-    await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='declined', status='cancelled', failure_reason='declined_by_${myFid}', updated_at_utc=? WHERE id=?`).bind(nowIso(), id).run();
+    // Guarded on status='collecting' so a decline can't overwrite a trade that
+    // was cancelled/accepted a moment ago (read-then-write race).
+    const dres = await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='declined', status='cancelled', failure_reason=?, updated_at_utc=? WHERE id=? AND status='collecting'`).bind(`declined_by_${myFid}`, nowIso(), id).run();
+    if (!Number(dres?.meta?.changes ?? dres?.changes ?? 0)) {
+      const cur = await getRow(env, id);
+      return ephemeral(`This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
+    }
     const who = teamLabel(row, myFid);
     const alert = { content: `❌ **${who}** declined the 3-way trade — it's off.`.slice(0, 1990) };
     const others = [row.initiator_discord_ids, row.team_b_discord_ids, row.team_c_discord_ids].filter((c, i) => {
@@ -556,7 +794,19 @@ export async function handle3WayButton(interaction, env, ctx) {
   if (action !== "accept") return ephemeral("Button not recognized.");
   if (myState === "accepted") return ephemeral("You're already in — waiting on the other team.");
 
-  await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='accepted', updated_at_utc=? WHERE id=?`).bind(nowIso(), id).run();
+  // Salary cap: recomputed NOW from live MFL data, and REPORTED. Consent is recorded either way (a partner's accept is preserved, never
+  // discarded because someone else is over the cap); what the cap blocks is EXECUTION — enforced again, freshly, when everyone is in.
+  const gate = await capGate(env, row);
+  // A stale pre-trade EXTENSION is not a wait-it-out problem (the contract moved on / the window closed): a partner is never asked to consent to
+  // a trade that can no longer run as built. (If it goes stale AFTER both accepted, execution blocks recoverably — see enterBlockedCap.)
+  if (!gate.ok && String(gate.kind).startsWith("extension")) return ephemeral(`${gate.message} Your accept wasn't recorded and nothing was changed.`);
+  const heads = gate.ok ? rosterNote(gate.compliance) : `\n⚠️ ${gate.message} This can't run until that's resolved — your accept is saved and nothing has moved.`;
+
+  const ares =await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='accepted', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), id).run();
+  if (!Number(ares?.meta?.changes ?? ares?.changes ?? 0)) {
+    const cur = await getRow(env, id);
+    return ephemeral(`This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
+  }
   const fresh = await getRow(env, id);
   const bothIn = safeStr(fresh.team_b_state) === "accepted" && safeStr(fresh.team_c_state) === "accepted";
 
@@ -574,11 +824,94 @@ export async function handle3WayButton(interaction, env, ctx) {
   if (ctx?.waitUntil) ctx.waitUntil(fire()); else await fire();
 
   if (bothIn) {
-    await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='executing', updated_at_utc=? WHERE id=?`).bind(nowIso(), id).run();
+    // Only the request whose conditional UPDATE actually flips collecting ->
+    // executing runs the legs. Two partners accepting in the same instant, or
+    // an initiator cancel racing the second accept, can no longer double-execute
+    // live MFL trades or resurrect a cancelled one.
+    const eres = await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), id).run();
+    if (!Number(eres?.meta?.changes ?? eres?.changes ?? 0)) {
+      const cur = await getRow(env, id);
+      return ephemeral(cur && safeStr(cur.status) === "executing"
+        ? "You're in — that's everyone! The trade is already being processed."
+        : `This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
+    }
     if (ctx?.waitUntil) ctx.waitUntil(execute3Way(env, id)); else await execute3Way(env, id);
-    return ephemeral("You're in — that's everyone! I'm processing the trade now; you'll get a confirmation shortly.");
+    return ephemeral(gate.ok
+      ? `You're in — that's everyone! I'm processing the trade now; you'll get a confirmation shortly.${heads}`
+      : `You're in — that's everyone.${heads}`);
   }
-  return ephemeral(`You're in. Waiting on ${teamLabel(fresh, waitingFid)} to accept.`);
+  return ephemeral(`You're in. Waiting on ${teamLabel(fresh, waitingFid)} to accept.${heads}`);
+}
+
+// Did this leg (a commissioner-run 2-party trade) actually execute in MFL? Read from MFL's trade ledger — never assumed from a response.
+async function legExecuted(env, leagueId, year, leg, row) {
+  try {
+    const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=transactions&L=${leagueId}&TRANS_TYPE=TRADE&APIKEY=${encodeURIComponent(safeStr(env.MFL_APIKEY))}&JSON=1`;
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const j = await r.json().catch(() => null);
+    if (!j) return null;
+    const since = Math.floor(Date.parse(safeStr(row.updated_at_utc) || safeStr(row.created_at_utc)) / 1000) - 3600;
+    return findExecutedTrade(j, { from: leg.fromFid, to: leg.toFid, give: (leg.give || []).map((x) => toMflAsset(x)), receive: (leg.receive || []).map((x) => toMflAsset(x)), sinceUnix: since });
+  } catch (_) { return null; }
+}
+
+/**
+ * ADMIN: retry ONLY the post-processing (pre-trade extensions) of a 3-way MFL has already executed. Never touches the trade legs.
+ * Refused when: the trade did not execute; a LEG failed (a partly executed trade needs a human, not a retry); or an earlier extension attempt's
+ * import request reached MFL but could not be verified (re-applying could extend the contract twice) unless the commissioner passes `force`
+ * after checking the contract by hand.
+ */
+export async function retry3WayPostProcessing(env, id, { force } = {}) {
+  if (!env.UPS_MFL_DB) return { ok: false, http: 503, code: "no_db", message: "D1 not bound." };
+  const row = await getRow(env, id);
+  if (!row) return { ok: false, http: 404, code: "not_found", message: "No such 3-way trade." };
+  const ledger = ledgerFor(env), key = lkey(row);
+  const led = await ledger.read(key);
+  if (!led || !isMflExecuted(led.state)) return { ok: false, http: 409, code: "not_executed", message: "MFL has not executed this trade; there is nothing to retry (use recheck/reconcile).", state: led ? led.state : null };
+  if (led.state === EXEC.COMPLETED) return { ok: true, http: 200, code: "already_completed", message: "Nothing to retry — post-processing is complete.", state: led.state };
+  if (led.failed_step && led.failed_step !== "extensions") return { ok: false, http: 409, code: "legs_need_manual_fix", message: `This trade only partly executed (${led.failed_step}). It needs a manual fix in MFL; post-processing cannot be retried.`, state: led.state };
+  const prev = (led.steps && led.steps.extensions) || {};
+  if (prev.request_ok && !prev.ok && !force) return { ok: false, http: 409, code: "manual_verification_required", message: "An earlier extension attempt reached MFL but could not be verified. Check the player's contract in MFL first; retrying blind could extend it twice. Pass force=1 only after confirming it did NOT apply.", state: led.state };
+  const claim = await ledger.claimResume(key, new Date(Date.now() - 120000).toISOString());
+  if (!claim.claimed) return { ok: false, http: 409, code: "in_progress", message: "Post-processing is already running for this trade.", state: claim.row ? claim.row.state : null };
+  const ids = safeStr(row.mfl_trade_ids).split(",").map((x) => x.trim()).filter(Boolean);
+  const extOut = await applyExtensionsViaSelf(env, row, ids);
+  const ok = !!(extOut && extOut.ok);
+  const detail = ok ? "" : safeStr(extOut && (extOut.error || extOut.reason)).slice(0, 300) || "extension import failed";
+  await ledger.recordStep(key, "extensions", { ok, request_ok: !!(extOut && extOut.request_ok), ...(ok ? {} : { detail }) });
+  await ledger.move(key, ok
+    ? { from: [EXEC.POSTPROCESSING], to: EXEC.COMPLETED, token: claim.token, set: { completed_at_utc: nowIso(), failed_step: null, failure_detail: null } }
+    : { from: [EXEC.POSTPROCESSING], to: EXEC.NEEDS_REVIEW, token: claim.token, set: { failed_step: "extensions", failure_detail: detail } });
+  await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET failure_reason=?, updated_at_utc=? WHERE id=?`).bind(ok ? null : `executed_needs_review:extensions: ${detail}`.slice(0, 250), nowIso(), row.id).run();
+  return { ok, http: 200, code: ok ? "completed" : "still_needs_review", message: ok ? "Extensions applied; the trade is complete." : `Extensions still failing: ${detail}`, state: ok ? EXEC.COMPLETED : EXEC.NEEDS_REVIEW };
+}
+
+/**
+ * RE-CHECK a trade that is waiting only on the salary cap (both partners already accepted; ledger `blocked_cap`). Recomputes the cap from
+ * scratch; if it is fine now, flips `collecting → executing` with a conditional UPDATE (so two re-checks cannot both start it) and executes.
+ * Anyone in the trade may ask; the trade that runs is exactly what all three accepted.
+ */
+export async function recheck3WayExecution(env, ctx, id, viewer) {
+  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
+  const tid = safeStr(id);
+  if (!ID_RE.test(tid)) return { ok: false, http: 400, code: "bad_request", message: "That isn't a valid trade id." };
+  let row; try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  if (!row || !inScope(row, viewer)) return { ok: false, http: 404, code: "not_found", message: "This 3-way trade doesn't exist." };
+  if (!canView(row, viewer)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
+  const both = safeStr(row.team_b_state) === "accepted" && safeStr(row.team_c_state) === "accepted";
+  let led = null; try { led = await ledgerFor(env).read(lkey(row)); } catch (_) { led = null; }
+  if (safeStr(row.status) !== "collecting" || !both || !led || led.state !== EXEC.BLOCKED_CAP) {
+    return { ok: false, http: 409, code: "not_blocked", message: safeStr(row.status) === "collecting" ? "This trade isn't waiting on the salary cap." : "This trade isn't waiting on anything to re-check." };
+  }
+  const gate = await capGate(env, row);
+  if (!gate.ok) {
+    await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
+    return { ok: false, http: 409, code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : "cap_exceeded", message: gate.message, compliance: gate.compliance };
+  }
+  const flip = await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting' AND team_b_state='accepted' AND team_c_state='accepted'`).bind(nowIso(), tid).run();
+  if (!Number(flip?.meta?.changes ?? flip?.changes ?? 0)) return { ok: false, http: 409, code: "not_blocked", message: "This trade is already being processed." };
+  if (ctx && ctx.waitUntil) ctx.waitUntil(execute3Way(env, tid)); else await execute3Way(env, tid);
+  return { ok: true, code: "rechecking", message: "The salary cap is fine now — the trade is being processed." };
 }
 
 // ───────────────────── execute the chained 2-party trades ───────────────────
@@ -632,6 +965,16 @@ export async function execute3Way(env, id) {
 
   const extReqs = parseExtReqs(row);
 
+  // SALARY CAP GATE (before ANY MFL call and before any completed-state write): recompute the post-trade cap from live MFL data.
+  // A proven violation — or a cap we cannot verify — BLOCKS EXECUTION but is RECOVERABLE: the trade returns to `collecting` with a current
+  // validation block, every approval is kept, and a re-check recomputes from scratch. It is never marked `failed`.
+  const gate = await capGate(env, row);
+  if (!gate.ok) {
+    console.warn(`[3way] ${id} blocked by the cap gate (${gate.kind}): ${gate.message}`);
+    await enterBlockedCap(env, row, gate, dmAllThree);
+    return { ok: false, blocked: true, error: "cap_gate", kind: gate.kind, message: gate.message, compliance: gate.compliance };
+  }
+
   // DRY-RUN: log the plan + tell everyone it's "approved" without moving rosters.
   if (!(await liveExecute(env))) {
     const planStr = plan.map((p) => `  ${p.label}: ${p.fromFid} gives [${p.give.join(",")}]  <->  ${p.toFid} gives [${p.receive.join(",")}]`).join("\n");
@@ -640,6 +983,26 @@ export async function execute3Way(env, id) {
     await dmAllThree(`✅ All three accepted the 3-way trade.${extReqs.length ? ` (${extReqs.length} pre-trade extension(s) included.)` : ""} _(Dry-run: not yet wired to MFL — the commish will finalize.)_`);
     return { ok: true, dry_run: true, mode, legs: plan.length };
   }
+
+  // EXECUTION LOCK — recorded BEFORE the first MFL call. A conditional ledger write: an already-executing / executed trade can never be
+  // sent to MFL again. If the ledger is unavailable we fail closed (recoverable: back to `collecting`), because we could not make the
+  // "executed" fact durable.
+  const ledger = (() => { try { return ledgerFor(env); } catch (_) { return null; } })();
+  const key = lkey(row);
+  let lock = null;
+  try {
+    if (!ledger) throw new Error("no ledger");
+    lock = await ledger.acquire(key, { kind: "three_way", actorFid: A, participants: [A, B, C].join(","), payload: { legs: movements, extension_requests: extReqs } });
+  } catch (e) {
+    console.error(`[3way] ${id}: execution ledger unavailable — nothing sent to MFL: ${e?.message || e}`);
+    await enterBlockedCap(env, row, { kind: "ledger_unavailable", message: "We couldn't safely start this trade right now.", compliance: null }, dmAllThree);
+    return { ok: false, blocked: true, error: "ledger_unavailable" };
+  }
+  if (!lock.acquired) {
+    console.warn(`[3way] ${id}: not executing — ledger state is ${lock.row && lock.row.state}`);
+    return { skipped: "execution_not_acquirable", state: lock.row && lock.row.state };
+  }
+  const token = lock.token;
 
   // LIVE — run each leg in order, all-or-nothing.
   const done = [];
@@ -652,24 +1015,34 @@ export async function execute3Way(env, id) {
       if (!owns) {
         console.error(`[3way] ${id} ${leg.label}: pass-through unverified after ${done.join(",")} — ABORT.`);
         await finish("failed", { ...progressFields(done), failure_reason: `passthrough_unverified_after_${done.join("+") || "leg1"}` });
+        await ledger.move(key, { from: EXEC.EXECUTING, to: done.length ? EXEC.NEEDS_REVIEW : EXEC.NOT_EXECUTED, token, set: done.length ? { failed_step: `leg_${i + 1}`, failure_detail: "pass-through unverified", mfl_evidence_json: { trade_ids: done }, mfl_executed_at_utc: nowIso() } : {} }).catch(() => {});
         await dmAllThree(`⚠️ The first leg of the 3-way went through but the next couldn't verify. **Commish: manual fix needed** (trades ${done.join(", ") || "?"}).`);
         return { ok: false, leg: i + 1, error: "passthrough_unverified", partial: done.length > 0 };
       }
     }
     const r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid: leg.fromFid, toFid: leg.toFid, give: leg.give, receive: leg.receive, comments: `3-way ${id} ${leg.label} (${mode})` });
+    // A leg's accept can succeed at MFL and still come back as an error (timeout, lost response). Ask MFL before calling it a failure; a leg found
+    // in MFL's trade ledger HAS executed and is never sent again.
+    if (!r.ok && r.tradeId) {
+      const hit = await legExecuted(env, leagueId, year, leg, row);
+      if (hit) { done.push(r.tradeId); await finish("executing", progressFields(done)); continue; }
+    }
     if (!r.ok) {
       const partial = done.length > 0;
       if (partial) {
         console.error(`[3way] ${id} ${leg.label} FAILED — PARTIAL (already landed: ${done.join(",")}): ${r.step}/${r.error}`);
         await finish("failed", { ...progressFields(done), failure_reason: `PARTIAL_${leg.label}_${r.step}: ${safeStr(r.error).slice(0, 150)} (done=${done.join(",")})` });
+        await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.NEEDS_REVIEW, token, set: { failed_step: leg.label, failure_detail: `${r.step}: ${safeStr(r.error).slice(0, 200)}`, mfl_evidence_json: { trade_ids: done }, mfl_executed_at_utc: nowIso() } }).catch(() => {});
         await dmAllThree(`🚨 The 3-way is **partially done** — ${done.length} leg(s) processed, the next failed. **Commish: manual intervention needed** (done: ${done.join(", ")}).`);
       } else if (r.step === "lockout") {
         console.error(`[3way] ${id} ${leg.label} BLOCKED by MFL commissioner lockout — nothing moved.`);
         await finish("failed", { failure_reason: `lockout_${leg.label}: MFL commissioner lockout on` });
+        await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.NOT_EXECUTED, token }).catch(() => {});
         await dmAllThree(`⏸️ The 3-way is approved by all three, but MFL's commissioner lockout is on, so the bot can't process it yet. **Commish: toggle lockout off and re-run** — nothing has moved.`);
       } else {
         console.error(`[3way] ${id} ${leg.label} FAILED (safe — nothing moved): ${r.step}/${r.error}`);
         await finish("failed", { failure_reason: `${leg.label}_${r.step}: ${safeStr(r.error).slice(0, 200)}` });
+        await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.NOT_EXECUTED, token }).catch(() => {});
         await dmAllThree(`⚠️ The 3-way trade couldn't be processed (it failed before anything moved). The commish will take a look.`);
       }
       return { ok: false, leg: i + 1, error: r.error, partial };
@@ -678,22 +1051,39 @@ export async function execute3Way(env, id) {
     await finish("executing", progressFields(done)); // checkpoint after each landed leg
   }
 
-  // All legs landed — apply any pre-trade extensions now (post-move, so each new
-  // contract lands on the acquiring franchise). The trade itself is already done,
-  // so this is best-effort: on failure we still complete + alert the commish.
-  let extOut = null;
+  // ALL LEGS LANDED — MFL has executed the trade. Make that permanent FIRST (a D1 fault here is recoverable by reconciliation, never by re-execution).
+  let persisted = true;
+  try {
+    persisted = await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.MFL_EXECUTED, token, set: { mfl_evidence_json: { source: "mfl_legs", trade_ids: done, mode }, mfl_executed_at_utc: nowIso() } });
+    if (persisted) await ledger.move(key, { from: EXEC.MFL_EXECUTED, to: EXEC.POSTPROCESSING, token });
+  } catch (e) { persisted = false; console.error(`[3way] ${id}: CRITICAL — MFL executed (${done.join(",")}) but the ledger write failed: ${e?.message || e}`); }
+
+  // Post-processing (pre-trade extensions) runs only now, after the base trade is known to have executed. A failure here NEVER un-executes the
+  // trade: it is recorded as executed_needs_review with the exact failed step, and only that step can be retried.
+  let extOut = null, extFailed = false, extDetail = "";
   if (extReqs.length) {
     extOut = await applyExtensionsViaSelf(env, row, done);
     if (extOut && extOut.ok) {
       console.log(`[3way] ${id} extensions applied: ${safeInt(extOut.applied, 0)}/${extReqs.length}`);
     } else {
-      console.error(`[3way] ${id} extension apply FAILED: ${extOut && (extOut.error || extOut.reason)}`);
-      await dmAllThree(`⚠️ The 3-way trade went through, but ${extReqs.length} pre-trade extension(s) couldn't be applied automatically. **Commish: apply the contract(s) manually.**`);
+      extFailed = true; extDetail = safeStr(extOut && (extOut.error || extOut.reason)).slice(0, 300) || "extension import failed";
+      console.error(`[3way] ${id} extension apply FAILED: ${extDetail}`);
     }
   }
+  try {
+    await ledger.recordStep(key, "extensions", extReqs.length ? { ok: !extFailed, request_ok: !!(extOut && extOut.request_ok), ...(extFailed ? { detail: extDetail } : {}) } : { ok: true, skipped: true });
+    await ledger.move(key, extFailed
+      ? { from: [EXEC.POSTPROCESSING, EXEC.MFL_EXECUTED], to: EXEC.NEEDS_REVIEW, token, set: { failed_step: "extensions", failure_detail: extDetail } }
+      : { from: [EXEC.POSTPROCESSING, EXEC.MFL_EXECUTED], to: EXEC.COMPLETED, token, set: { completed_at_utc: nowIso() } });
+  } catch (e) { console.error(`[3way] ${id}: ledger settle failed (the trade DID execute): ${e?.message || e}`); }
 
-  await finish("completed", { ...progressFields(done), executed_at_utc: nowIso() });
-  console.log(`[3way] ${id} COMPLETE (${mode}): trades=${done.join(",")}${extReqs.length ? ` ext=${extOut && extOut.ok ? "ok" : "FAILED"}` : ""}`);
+  // `completed` here means "MFL executed it" — the review flag lives on the ledger and in failure_reason, never a return to a pending state.
+  await finish("completed", { ...progressFields(done), executed_at_utc: nowIso(), ...(extFailed ? { failure_reason: `executed_needs_review:extensions: ${extDetail}`.slice(0, 250) } : {}) });
+  if (extFailed) {
+    await dmAllThree(`⚠️ The 3-way trade WAS executed in MFL (trades ${done.join(", ")}), but ${extReqs.length} pre-trade extension(s) couldn't be applied. **Commish: retry just the extensions** (the trade itself must not be re-run).`);
+    return { ok: true, executed: true, needs_review: true, failed_step: "extensions", mode, trades: done, extensions: extOut };
+  }
+  console.log(`[3way] ${id} COMPLETE (${mode}): trades=${done.join(",")}${extReqs.length ? " ext=ok" : ""}`);
   await dmAllThree(`✅ **3-way trade complete!** Rosters are updated in MFL.${extReqs.length && extOut && extOut.ok ? ` ${safeInt(extOut.applied, 0)} extension(s) applied.` : ""} (The Roast bot will have the play-by-play.)`);
   return { ok: true, mode, trades: done, extensions: extOut };
 }
