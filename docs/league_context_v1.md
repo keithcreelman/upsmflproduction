@@ -256,7 +256,9 @@ Critical: most contract concepts in this canon are **UPS layer constructs** that
 
 - **Trigger:** after the Sunday morning waiver run, FA opens FCFS until each player's NFL kickoff. **Sunday only** — Thu/Fri/Sat runs always immediately re-lock, never opening FCFS (Keith 2026-08-13). This window itself only starts at **NFL Week 1**; the pre-season Sundays right after FA Auction close (while rosters are still settling) also immediately re-lock, same as Thu/Fri/Sat.
 - **Salary:** $1K flat for current season.
-- **Contract:** 1-year WW. NFL rookies picked up via FCFS are tagged WW during season; Keith manually converts WW → Rookie at year-end so they hit ERA path next May.
+- **Contract (Keith 2026-09-26 — the exact form):** every FCFS acquisition is ONE contract and no bid is involved: **$1,000 · one year · `Vet-WW`** (`Rookie-WW` for an NFL rookie picked up via FCFS) · `contractYear 1` · `contractInfo` **`CL 1| TCV 1K| AAV 1K`**. MFL leaves an FCFS add's contract row completely blank (salary, status, year and info), so the worker's WW-contract stamper writes the canonical contract as soon as it sees the add — never a blank contract, never a bid, never MFL's award default — and verifies it by re-reading MFL. NFL rookies picked up via FCFS stay `Rookie-WW` during the season; Keith manually converts WW → Rookie at year-end so they hit ERA path next May.
+- **Earned salary on a $1,000-a-year contract (Keith 2026-09-26):** a contract that pays **exactly $1,000 in EVERY contract year** (an FCFS contract, and any other $1K-a-year deal of up to four years) has **no weekly and no cumulative earned amount**. Front Office (desktop), Roster Workbench, the player profile, Team Operations and the drop preview show **"Full-year rule"** for Earned and **"1K Per Yr"** for the per-week column (the phone app's drop-penalty model carries the same rule but shows only the penalty). The label belongs to the CONTRACT — every year exactly $1,000 — and is never inferred from "TCV under $5K", which a $4K one-year waiver deal also satisfies. Nothing about the penalty changes: it stays the sub-$5K rule in §D1 ($1,000 flat while more than one year remains, else $0). Stored earned on those drop records is NULL (never a weekly or cumulative fraction).
+- **Other sub-$5K waiver contracts have their own treatment (§C3):** a one-year original pure-WW deal of $2K–$4K has earned "not applicable" and is cap-free ($0), labelled "nK Per Yr" / "Not applicable"; a non-WW $2K–$4K deal shows its actual contract rate and its normal earned figure.
 
 ### A6. Trade Acquisition
 
@@ -590,7 +592,7 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
 - **Cap penalty formula:** `(TCV × 75%) − Salary Earned`
 - **Earning schedule (per-week pro-rated, effective 2026-05-08):** Each completed NFL regular-season week earns one share of that year's salary. The denominator is the player's **eligible weeks remaining at acquisition**.
   - **Auction + Week-1 acquisitions:** 17 weeks total. After Week 1 → **1/17 earned**, Week 2 → 2/17, Week 3 → 3/17, … Week 17 → 17/17 = 100%.
-  - **Mid-season pickups (Waiver Wire / FCFS):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+  - **Mid-season pickups (Waiver Wire / FCFS):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window. *(Exception, Keith 2026-09-26: a contract that pays exactly $1,000 in every year — every FCFS contract — and a one-year pure-WW deal of $4K or less carry no earned amount at all; §A5 / §C3. Their penalty is the sub-$5K rule below.)*
     - **The window is the length of the CONTRACT, not the length of your ownership.** A Week-9 pickup gets a 9-week denominator because his contract *begins* in Week 9 — its TCV only ever covered Weeks 9–17, and nobody paid him for Weeks 1–8 under it.
     - **A trade therefore does NOT re-window anything (Keith 2026-08-16).** The deal has been running since Week 1, its TCV covers the whole season, and the earning clock runs straight through the trade. The acquiring owner inherits the earned salary along with everything else — the direct consequence of §G7.6, *"you inherit the contract as you received it."* Keith: *"the 1st 9 weeks were paid and therefore the new owner wouldn't owe. So it's essentially the same."* This line **used to list "trade"** beside WW/FCFS; that word was never implemented in 16 years of running penalties and never matched practice. Corrected, not changed. See the correction note below.
     - Example A — picked up in Week 9 (9 weeks remaining: Weeks 9–17): Week 9 → 1/9, Week 10 → 2/9, … Week 17 → 9/9 = 100%.
@@ -606,6 +608,7 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
     - **`years_remaining ≤ 1` (final year drop) → $0** — cap-free, regardless of what the standard `(TCV × 75%) − earned` formula would have produced.
     - This **overrides** the standard guaranteed-minus-earned formula entirely for sub-$5K-TCV deals. (Replaces prior reading where the $1K was a "floor" on top of the formula. Worked example: Tyler Higbee, CL 3 / TCV $3K / cy=1 dropped 2026-05-22 → final-year sub-5K → $0 penalty.)
     - Worker enforcement: `computeDropPenalty()` in `worker/src/index.js`. D1 audit: `ups_drop_events` table, `penalty_basis` field.
+    - **The `$1K Per Yr` class inside this rule (Keith 2026-09-26):** a sub-$5K contract that pays exactly $1,000 in every contract year carries **no earned amount at all** (§A5) — its multi-year flat penalty is recorded on the explicit basis **`full_year_1k_contract`** (this replaces the legacy `tcv_under_5k_guarantee` basis, whose penalty had been derived from earned salary; a legacy row is re-based only when the flat rule reproduces its stored penalty exactly — otherwise it is held for review and its earned is not cleared). Penalty, dead money and the posted cap charge are unchanged by any of this.
   - All cap penalties are **rounded to the nearest $1,000 (half-up) on the SUM of penalties accrued**, not per-penalty. Individual cuts post exact all season; a single per-franchise true-up posts at the **FA Auction Cut Deadline**. Increment stated by Keith 2026-08-16; implemented as `RULE-CAP-002`. Full mechanics under "Penalty rounding rule" in the Bot Grounding Clarifications appendix.
 - **Penalty timing (3 buckets — unchanged):**
   - Penalty incurred **before Roster Lock Date** (i.e., offseason early) → applies to **current season** cap.
@@ -818,7 +821,7 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
 - **Initiator:** Owner (any time after the Sunday morning waiver run and before the player's NFL kickoff — and only from NFL Week 1 onward; pre-season Sundays re-lock immediately, same as Thu/Fri/Sat. Keith 2026-08-13.)
 - **Eligibility:** Player on free-agent list, not waiver-locked, owner has roster headroom.
 - **Cap effect:** **$1K flat** salary, counts immediately.
-- **Contract impact:** Creates **WW** 1-year contract.
+- **Contract impact:** Creates the canonical FCFS contract (§A5): **$1,000 · 1 year · `Vet-WW`** (`Rookie-WW` for an NFL rookie), `CL 1| TCV 1K| AAV 1K`, written by the worker's WW-contract stamper and verified by re-read (Keith 2026-09-26).
 
 ### T1.7 Trade (`TRADE`)
 - **Source:** MFL `TYPE=transactions&TRANS_TYPE=TRADE`. Stored in `transactions_trades`. Each trade produces multiple rows (one per asset, with `asset_role` ∈ {ACQUIRE, RELEASE}).
@@ -2067,7 +2070,7 @@ Salary Earned (year's actual salary basis)
 **Key clarifications:**
 - Earning ticks up at the **end of each completed NFL regular-season week** (Tuesday after Monday Night Football kicks off the next NFL week, or per the league_events week-boundary convention — see Section 3.A and the NFL calendar reference in the Bot Grounding appendix).
 - "Active for the week" follows the same definition as the taxi-squad rule: rosters and lineups locked, player appears in weekly results.
-- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts — same 75% guarantee, same per-week math. What differs between them is only the **denominator**, and a trade doesn't change it. The flat 35% WW rule is RETIRED.
+- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts — same 75% guarantee, same per-week math. What differs between them is only the **denominator**, and a trade doesn't change it. The flat 35% WW rule is RETIRED. *(Exception, Keith 2026-09-26: the $1,000-a-year contract and the one-year pure-WW deal of $4K or less carry no earned amount — §A5 / §C3; the sub-$5K penalty rule of §D1 prices them.)*
 
 ### B2. ⚠️ Code follow-up (transition note)
 
@@ -2133,6 +2136,8 @@ where Salary Earned = (completed_weeks_active / total_eligible_weeks) × salary
 | WW $50K, Week 1 pickup | Week 8 (7 weeks active) | 7 | 17 | (7/17) × $50K = $20.59K | ($50K × 75%) − $20.59K = **$16.91K** |
 | WW any $, post-season cut | end of Week 17 | full | full | 100% × salary | $0 (full earning achieved) |
 | WW under $4K, any time | any | n/a | n/a | n/a | **$0 (cap-free, preserved)** |
+
+**The class behind that last row (Keith 2026-09-26):** a ONE-YEAR ORIGINAL pure-WW contract (`WW` / `Vet-WW` / `Rookie-WW` — not a WW-MYM), salary ≤ $4,000, TCV = salary, in its final year, not on taxi, and not itself the $1,000-a-year contract of §A5. The drop calculator prices it cap-free ($0) on the basis **`ww_under_5k_earned_na`**; **earned is "not applicable"** (stored NULL; shown as "Not applicable"; the per-week column reads "nK Per Yr"). A multi-year WW, a WW-MYM and any non-WW deal are not in this class and keep their own earned figure. The $1,000-a-year contract is the separate full-year class of §A5 and keeps its `ww_under_5k_exempt` basis when it is a one-year WW.
 
 **Note for code maintainers:** any callers that hard-coded the old `35% × salary` formula need to be updated to the per-week pro-rated math. Tracker: included in the "Per-game prorated earning calculator" follow-up (Section 7.A4 #17).
 

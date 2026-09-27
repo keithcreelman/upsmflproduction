@@ -830,6 +830,11 @@
   // "unavailable" — fmtUSD(NaN) renders "—" and safeInt(NaN, 0) falls back to
   // 0 in every summed total, so no caller has to special-case this, but a
   // genuine $0 (earnedState "ok", amount 0) still renders "$0", never "—".
+  // The "$1K Per Yr" class (worker/src/fcfs_contract.js `classifyFullYearRule`): exactly $1,000 in EVERY contract year. TCV under $5K alone is not the class.
+  function isOneKPerYearPlayer(player) {
+    var cl = contractLengthForPlayer(player), t = totalContractValueForPlayer(player);
+    return safeInt(player && player.salary, 0) === 1000 && cl > 0 && cl <= 4 && t === 1000 * cl;
+  }
   function dropPenaltyEstimate(player) {
     var pid = safeStr(player && player.id).replace(/\D/g, "");
     var tcvLocal = totalContractValueForPlayer(player);
@@ -845,6 +850,39 @@
           amount: NaN, earned: NaN, earnedState: "unavailable",
           guaranteed: guaranteedLocal, tcv: safeInt(cap.tcv, 0) || tcvLocal, authoritative: false,
           note: cap.review_reason || "Earned/drop-penalty could not be resolved for this player this request."
+        };
+      }
+      if (cap && cap.earned_rule === "full_year_sub_5k") {
+        // "$1K Per Yr" contract (every year exactly $1,000; canon §D1 + Keith's ruling): priced by the dedicated full-year rule. There is NO weekly and NO cumulative earned
+        // amount, so earned is NaN (never a number) and the EARNED cell says "Full-year rule" — not the $59 / $118 / $1,118 the per-week
+        // arithmetic used to invent.
+        return {
+          amount: safeInt(cap.penalty, 0),
+          earned: NaN,
+          earnedRule: "full_year",
+          earnedState: "ok",
+          guaranteed: safeInt(cap.guaranteed, 0),
+          tcv: safeInt(cap.tcv, 0) || tcvLocal,
+          exempt: !!cap.exempt,
+          basis: cap.basis || "",
+          authoritative: true,
+          note: (cap.exempt ? (cap.exempt_reason || "Cap-free cut.") : "Flat $1K (multi-year sub-$5K).") + " Sub-$5K contract: the dedicated full-year rule applies — no weekly or cumulative earnings."
+        };
+      }
+      if (cap && cap.earned_rule === "ww_earned_na") {
+        // canon §C3 "WW under $4K — earned n/a" (a one-year pure-WW deal of $4K or less): priced cap-free by the worker, earned is NOT APPLICABLE — never a weekly
+        // fraction and never a number.
+        return {
+          amount: safeInt(cap.penalty, 0),
+          earned: NaN,
+          earnedRule: "ww_na",
+          earnedState: "ok",
+          guaranteed: safeInt(cap.guaranteed, 0),
+          tcv: safeInt(cap.tcv, 0) || tcvLocal,
+          exempt: !!cap.exempt,
+          basis: cap.basis || "",
+          authoritative: true,
+          note: (cap.exempt_reason || "Cap-free cut.") + " Earned salary is not applicable to a WW pickup of $4K or less (canon §C3)."
         };
       }
       if (cap) {
@@ -891,14 +929,32 @@
   }
 
   // Per-Week Earning = current-year salary spread over the 17-week earning window.
-  // Sub-$5K (flat-$1K penalty) deals show "1K Per Yr"; taxi players with TCV > $4K
+  // The $1K-a-year class shows "1K Per Yr" and a one-year pure-WW deal of $2K–$4K shows "nK Per Yr" (the class, not a TCV cutoff); taxi players with TCV > $4K
   // DO get the per-week calc (Keith 2026-06-01); only expired / $0 show "—".
+  // "Per Yr" is a CLASS label, never a TCV proxy: "1K Per Yr" only when the contract pays exactly $1,000 in EVERY year (the worker's proof `full_year_sub_5k`, or
+  // the exact local check while the batch loads); "nK Per Yr" only for the canon §C3 one-year pure-WW class ($2K–$4K, earned n/a — the worker's `ww_earned_na`).
+  // Every other contract — including a $2K–$4K non-WW deal — shows its ACTUAL per-week rate.
+  // canon §C3 class, LOCAL check for the moments before the worker's batch lands — a STATUS check (one-year pure-WW, $4K or less, TCV = salary, final year, not taxi),
+  // never a TCV cutoff. The worker's `earned_rule` replaces it the moment it is loaded. A $1K-a-year deal is the full-year class, which is tested first.
+  function isWwEarnedNaPlayer(player) {
+    var sal = safeInt(player && player.salary, 0);
+    return /^(Vet-|Rookie-)?WW$/i.test(safeStr(player && player.type).trim()) && !(player && player.isTaxi) && sal > 0 && sal <= 4000 &&
+           contractLengthForPlayer(player) === 1 && totalContractValueForPlayer(player) === sal && safeInt(player && player.years, 0) === 1;
+  }
+  function capRowForPlayer(p) {
+    var pid = safeStr(p && p.id).replace(/\D/g, "");
+    return STATE.capPenaltyFeed === "ok" && STATE.capPenaltyByPid && pid ? (STATE.capPenaltyByPid[pid] || null) : null;
+  }
   function perWeekEarningInfo(p) {
-    var tcv = totalContractValueForPlayer(p);
-    var yrs = safeInt(p && p.years, 0);
-    if (tcv > 0 && tcv <= 4000) return { label: "1K Per Yr", sort: 0 };
-    if (yrs <= 0 || safeInt(p && p.salary, 0) <= 0) return { label: "—", sort: -1 };
-    var v = Math.round(safeInt(p.salary, 0) / 17);
+    var yrs = safeInt(p && p.years, 0), sal = safeInt(p && p.salary, 0);
+    var cap = capRowForPlayer(p), rule = cap && cap.earned_rule ? String(cap.earned_rule) : "";
+    // "1K Per Yr" describes the SCHEDULE (every year exactly $1,000): the worker's proof (`earned_rule`) OR the exact local schedule check — the worker's row carries no rule for a
+    // taxi rookie (whose earned the §D2a settlement reads), yet its contract still IS $1,000 a year
+    if (rule === "full_year_sub_5k" || isOneKPerYearPlayer(p)) return { label: "1K Per Yr", sort: 0 };
+    // the WW class is the WORKER's call once its row is loaded; the local status check only bridges the moments before
+    if (rule === "ww_earned_na" || (!cap && isWwEarnedNaPlayer(p))) return { label: (sal / 1000) + "K Per Yr", sort: 0 };
+    if (yrs <= 0 || sal <= 0) return { label: "—", sort: -1 };
+    var v = Math.round(sal / 17);
     return { label: fmtUSD(v), sort: v };
   }
   function perWeekEarningValue(p) { return perWeekEarningInfo(p).sort; }
@@ -3954,6 +4010,8 @@
     const loadingCell = `<span class="fo-tt" data-tip="Loading authoritative earned/penalty from the worker…">…</span>`;
     const unavailableCell = `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">—</span>`;
     const earnedCell = unknownContract ? pendingCell
+      : drop.earnedRule === "full_year" ? `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">Full-year rule</span>`
+      : drop.earnedRule === "ww_na" ? `<span class="fo-tt" data-tip="${escapeHtml(drop.note)}">Not applicable</span>`
       : drop.earnedState === "ok" ? fmtUSD(drop.earned)
       : drop.earnedState === "pending" ? loadingCell
       : unavailableCell;
@@ -6664,7 +6722,8 @@
           pid: safeStr(p.id), fid: safeStr(t.fid),
           name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
           type: safeStr(p.type), years: safeInt(p.years, 0), tcv: _rtcv,
-          remaining: Math.max(0, _rtcv - safeInt(_rbr && _rbr.earned, 0)),
+          // A "$1K Per Yr" contract has no in-season accrual (full-year rule): only completed prior years count as paid.
+          remaining: Math.max(0, _rtcv - safeInt(_rbr && (isOneKPerYearPlayer(p) ? _rbr.priorEarned : _rbr.earned), 0)),
           sched: _sched,
           used: restructureUsedForFid(t.fid),
         });

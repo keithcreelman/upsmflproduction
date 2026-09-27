@@ -2059,12 +2059,52 @@
     }).catch(function () {}).then(function () { __capPenaltyLoading = false; });
   }
 
+  // The "$1K Per Yr" class (canon §A5 / §D1, Keith's 2026-09-26 ruling — worker/src/fcfs_contract.js `classifyFullYearRule`): a contract that pays exactly
+  // $1,000 in EVERY contract year. TCV under $5K alone is NOT the class (a $4K one-year waiver deal is not "$1K a year").
+  function isOneKPerYearPlayer(player) {
+    var cl = contractLengthForPlayer(player), t = totalContractValueForPlayer(player);
+    return safeInt(player && player.salary, 0) === 1000 && cl > 0 && cl <= 4 && t === 1000 * cl;
+  }
+  // Full-year rule: a "$1K Per Yr" contract has no weekly / cumulative earned amount, even in the pre-batch local estimate.
   function dropPenaltyEstimate(player) {
+    var r = dropPenaltyEstimateRaw(player);
+    // Only the PRE-BATCH local estimate is ever adjusted here: once the worker's authoritative row is loaded IT decides (a taxi $1K-per-year rookie keeps
+    // its numeric earned there, and so it must here).
+    if (r && !r.authoritative && !r.earnedRule && isOneKPerYearPlayer(player) && !(player && player.isTaxi)) {
+      r = Object.assign({}, r, { earned: 0, priorEarned: 0, accrued: 0, earnedRule: "full_year", note: "Full-year rule: a $1K-per-year contract has no weekly or cumulative earned amount." });
+    }
+    return r;
+  }
+  function dropPenaltyEstimateRaw(player) {
     // SSOT: prefer the worker's authoritative penalty (cached batch) over the
     // inline estimate. Falls through to the legacy estimate until it loads.
     var __capPid = safeStr(player && player.id).replace(/\D/g, "");
     if (__capPenaltyCache && __capPid && __capPenaltyCache[__capPid]) {
       var __cap = __capPenaltyCache[__capPid];
+      if (__cap.earned_rule === "full_year_sub_5k") {
+        // "$1K Per Yr" contract: dedicated full-year rule (canon §D1 + Keith's ruling) — no weekly / cumulative earned amount.
+        return {
+          amount: safeInt(__cap.penalty, 0),
+          note: (__cap.exempt ? (__cap.exempt_reason || "Cap-free cut.") : "Flat $1K (multi-year sub-$5K).") + " Sub-$5K contract: the dedicated full-year rule applies — no weekly or cumulative earnings.",
+          tcv: safeInt(__cap.tcv, 0),
+          guaranteed: safeInt(__cap.guaranteed, 0),
+          currentYearSalary: safeInt(player && player.salary, 0),
+          priorEarned: 0, accrued: 0, earned: 0, earnedRule: "full_year",
+          authoritative: true
+        };
+      }
+      if (__cap.earned_rule === "ww_earned_na") {
+        // canon §C3 "WW under $4K — earned n/a": the worker priced it cap-free and says earned is NOT APPLICABLE (not a weekly fraction, not $0).
+        return {
+          amount: safeInt(__cap.penalty, 0),
+          note: (__cap.exempt_reason || "Cap-free cut.") + " Earned salary is not applicable to a WW pickup of $4K or less.",
+          tcv: safeInt(__cap.tcv, 0),
+          guaranteed: safeInt(__cap.guaranteed, 0),
+          currentYearSalary: safeInt(player && player.salary, 0),
+          priorEarned: 0, accrued: 0, earned: 0, earnedRule: "ww_na",
+          authoritative: true
+        };
+      }
       var __earnedC = safeInt(__cap.earned, 0);
       return {
         amount: safeInt(__cap.penalty, 0),
@@ -7855,6 +7895,7 @@
         ? 0
         : Math.max(0, safeInt(penalty.tcv, totalContractValueForPlayer(player)));
       var modalEarned = modalUnknownContract ? 0 : Math.max(0, safeInt(penalty.earned, 0));
+      var modalEarnedText = penalty.earnedRule === "full_year" ? "Full-year rule" : penalty.earnedRule === "ww_na" ? "Not applicable" : (modalEarned > 0 ? money(modalEarned) : "$0");
       var extensionOptions = playerExtensionOptions(player);
       var extensionBlockReason = extensionBlockedReason(player);
       var contractEligibility = rosterContractEligibility(player);
@@ -8028,7 +8069,7 @@
             '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Remaining AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarnedText) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Contract Length</span><strong>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
@@ -8159,7 +8200,7 @@
               '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : (modalAav > 0 ? money(modalAav) : "—")) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : String(player.years)) + '</strong></div>' +
-              '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : (modalEarned > 0 ? money(modalEarned) : "$0")) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : modalEarnedText) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : money(penalty.amount)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +

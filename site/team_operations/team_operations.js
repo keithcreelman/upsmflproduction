@@ -3480,6 +3480,10 @@
     var salary = Number(sal.salary || 0);
     var yrsRemain = tops_yearsRemain(sal);
     var earned = tops_earnedToDate(sal);
+    // "$1K Per Yr" contract ⇒ no weekly / cumulative earned (full-year rule); only DRAFT-SLOT rookie contracts ("Rookie" / "Rookie-Draft") stay numeric (taxi earned feeds the D2a settlement) — Rookie-WW / -FAA / -MYM are ordinary contracts
+    var topsFullYear = !!(tops_capMath() && tops_capMath().isOneKPerYear && tops_capMath().isOneKPerYear(sal) && !/^rookie(-draft)?$/i.test(String(sal.contractStatus || '').trim()));
+    // canon §C3: a one-year pure-WW deal of $4K or less has earned NOT APPLICABLE (a status check — not a TCV proxy; a $1K-a-year deal is the full-year class above)
+    var topsWwNa = !topsFullYear && !!(tops_capMath() && tops_capMath().isWwEarnedNa && tops_capMath().isWwEarnedNa(sal));
     var penalty = tops_dropPenalty(sal);
     var acq = tops_findAcquisition(pid);
     var acqDate = acq && acq.ts ? new Date(acq.ts * 1000).toLocaleDateString() : "—";
@@ -3495,7 +3499,7 @@
       '  <div class="tops-profile-metric"><span>AAV</span><strong>' + (aav > 0 ? fmtUsd(aav) : '—') + '</strong></div>',
       '  <div class="tops-profile-metric"><span>Salary</span><strong>' + (salary > 0 ? fmtUsd(salary) : '—') + '</strong></div>',
       '  <div class="tops-profile-metric"><span>Yrs Remain</span><strong>' + (yrsRemain > 0 ? String(yrsRemain) : '—') + '</strong></div>',
-      '  <div class="tops-profile-metric"><span>Earned to Date</span><strong>' + (earned > 0 ? fmtUsd(earned) : '$0') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>Earned to Date</span><strong>' + (topsFullYear ? 'Full-year rule' : (topsWwNa ? 'Not applicable' : (earned > 0 ? fmtUsd(earned) : '$0'))) + '</strong></div>',
       '  <div class="tops-profile-metric"><span>Cap Penalty</span><strong>' + (penalty > 0 ? fmtUsd(penalty) : '$0') + '</strong></div>',
       '  <div class="tops-profile-metric"><span>Acquire Date</span><strong>' + escapeHtml(acqDate) + '</strong></div>',
       '  <div class="tops-profile-metric"><span>How Acquired</span><strong>' + escapeHtml(acqMethod) + '</strong></div>',
