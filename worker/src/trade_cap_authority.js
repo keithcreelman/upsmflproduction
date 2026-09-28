@@ -1,10 +1,20 @@
-// trade_cap_authority.js — the ONE post-trade cap / roster calculation, shared by the 2-way accept path,
-// the 2-way preview, the 3-way accept + execute gates and the 3-way detail view.
+// trade_cap_authority.js — the ONE post-trade cap / roster / loaded-contract / lineup
+// calculation, shared by the 2-way accept path, the 2-way preview, the 3-way accept +
+// execute gates and the 3-way detail view.
 //
 // RULING (Keith, 2026-09-25): a trade must not execute if the authoritative post-trade calculation PROVES a
 // participating franchise would exceed the salary cap; an unavailable or unresolved calculation fails closed.
 // Roster counts stay ADVISORY: they are projected and flagged, never a block (MFL itself refuses a trade it
 // won't take, and that refusal is passed through untouched).
+//
+// RULING (2026-09-28): the SAME fail-closed philosophy extends to a second HARD block --
+// a trade must not execute if it would leave any participant with more than 5 loaded
+// (front-loaded + back-loaded combined) contracts (canon §2.G/§6.G). Lineup feasibility
+// (can every participant still field one complete legal 18-man lineup after the trade) is
+// a THIRD, ADVISORY-only sibling check, same vocabulary and same never-blocks contract as
+// roster counts -- see worker/src/trade_lineup_feasibility.js's header for why it is a
+// separate module and what is explicitly out of scope (current-week bye/injury/Out/
+// Doubtful availability, a distinct courtesy warning, is NOT built here).
 //
 // AUTHORITY = the SAME code the Front Office roster workbench runs (worker/src/cap_math.js: currentCapHit, derivePlayerCapFields,
 // parseCapDollars, readSalaryOverlay — imported by both, no second copy) computed from LIVE MFL exports read at the moment of the action:
@@ -29,8 +39,11 @@
 // Pure functions only.
 
 import { currentCapHit, derivePlayerCapFields, parseCapDollars, readSalaryOverlay } from "./cap_math.js";
+import { classifyLoaded } from "./contract_classification.js";
+import { evaluateLineupFeasibility, posGroup } from "./trade_lineup_feasibility.js";
 
 export const ROSTER_MIN = 27;   // canon B1: MFL-enforced minimum (not exposed by the API)
+export const LOADED_CONTRACT_MAX = 5;   // canon §2.G/§6.G: max 5 loaded (FL+BL combined) contracts per roster
 
 const s = (v) => String(v == null ? "" : v).trim();
 const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
@@ -113,20 +126,46 @@ function readRosters(res, overlay, wanted) {
 
 const tokenKind = (t) => (/^\d+$/.test(t) ? "player" : /^BB_/i.test(t) ? "cap" : "pick");
 
+/** MFL 'players' export -> { pid -> raw position string } or null (unavailable -- the
+ * lineup check is advisory and reports "unavailable" honestly rather than assuming
+ * compliance; it never blocks, so this never triggers the whole-calculation empty()). */
+function readPlayerPositions(res) {
+  if (!res || !res.ok || !isObj(res.data) || !isObj(res.data.players)) return null;
+  const rows = arr(res.data.players.player);
+  if (!rows.length) return null;
+  const out = {};
+  for (const row of rows) {
+    if (!isObj(row)) continue;
+    const pid = s(row.id).replace(/\D/g, "");
+    if (pid) out[pid] = s(row.position);
+  }
+  return out;
+}
+
 /**
- * @param league,rosters,adjustments  raw export results {ok, data}
+ * @param league,rosters,adjustments,players  raw export results {ok, data} (`players` is optional --
+ *                   its absence only degrades the ADVISORY lineup check to "unavailable", never the
+ *                   HARD cap/loaded-contract blocks, which never touch position data at all)
  * @param movements  [{from, to, tokens:[…MFL tokens: player id | FP_ | DP_ | BB_<dollars>], capDollars?}]
  *                   (cap money is read from BB_ tokens; `capDollars` adds to it, used by builders that carry cap apart)
  * @param extensionSalary  { playerId → current-year salary (dollars) AFTER an accepted pre-trade extension }
  * @param taxiFlags        { playerId → true } for players the offer says stay on taxi after the trade
+ * @param extensionRequests  [{player_id, to_franchise_id, loaded_indicator:"FL"|"BL"|"NONE"}] -- pre-trade
+ *                   extensions in THIS deal (canon §C4); a player being extended lands on the acquiring
+ *                   franchise (to_franchise_id) with the EXTENSION's loaded status, never their
+ *                   about-to-be-replaced current one -- see the movements loop below.
  */
-export function evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags }) {
+export function evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests }) {
   const empty = (why) => ({
     participants: [],
     cap: { status: "unavailable", reason: why.reason, cap_dollars: null, rows: [], violations: [],
       message: "We couldn't verify the salary cap for this trade right now." },
     roster: { status: "unavailable", advisory: true, rows: [], warnings: [],
       message: "We couldn't check the roster counts for this trade right now." },
+    loaded_contracts: { status: "unavailable", max: LOADED_CONTRACT_MAX, rows: [], violations: [],
+      message: "We couldn't verify the loaded-contract count for this trade right now." },
+    lineup: { status: "unavailable", advisory: true, rows: [], warnings: [],
+      message: "We couldn't check lineup feasibility for this trade right now." },
   });
   const L = readLeague(league); if (!L.ok) return empty(L);
   const A = readAdjustments(adjustments); if (!A.ok) return empty(A);
@@ -137,16 +176,41 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
   const R = readRosters(rosters, O, parts); if (!R.ok) return empty(R);
 
   const ext = isObj(extensionSalary) ? extensionSalary : {}, taxi = isObj(taxiFlags) ? taxiFlags : {};
+  // Extension requests: pid -> acquiring franchise / pid -> "FL"|"BL"|"" (post-extension).
+  // A malformed/absent entry is simply not an extension for that pid -- extension WELL-
+  // FORMEDNESS is already enforced upstream (trade_3way.js's extReqs filter) before this
+  // data ever reaches here; this layer only reads loaded_indicator/to_franchise_id.
+  const extReqs = arr(extensionRequests).filter(isObj);
+  const extendedPidToFid = {}, extendedPidLoaded = {};
+  for (const e of extReqs) {
+    const pid = s(e.player_id).replace(/\D/g, "");
+    const to = pad4(e.to_franchise_id);
+    if (!pid || !parts.has(to)) continue;
+    extendedPidToFid[pid] = to;
+    const ind = s(e.loaded_indicator).toUpperCase();
+    extendedPidLoaded[pid] = ind === "FL" || ind === "BL" ? ind : "";
+  }
+
+  const positions = readPlayerPositions(players); // null = lineup check degrades to "unavailable" only
+  const postTradeRoster = {};
+  for (const fid of parts) postTradeRoster[fid] = [];
+
   const state = {};
   for (const fid of parts) {
-    let used = A.byFranchise[fid] || 0, active = 0;
-    for (const p of Object.values(R.byFranchise[fid])) {
+    let used = A.byFranchise[fid] || 0, active = 0, loadedBefore = 0;
+    for (const [pid, p] of Object.entries(R.byFranchise[fid])) {
       if (!p.taxi && !p.salaryResolved) return empty(unavailable("roster_salary_unresolved", fid));   // MFL blank ≠ $0
+      // Loaded-contract classification runs BEFORE the taxi skip below -- a loaded
+      // contract on taxi must still count (canon: max 5 loaded per roster, no taxi
+      // carve-out; never fail OPEN by silently excluding a taxi player from the count).
+      if (classifyLoaded(p.contractStatus)) loadedBefore += 1;
+      const expired = (p.years | 0) <= 0 && !p.unknown;
+      postTradeRoster[fid].push({ id: pid, group: positions ? posGroup(positions[pid]) : "", excluded: p.taxi || p.ir || expired });
       if (p.taxi) continue;
       used += currentCapHit(p);
       if (!p.ir) active += 1;
     }
-    state[fid] = { before: used, after: used, activeBefore: active, activeAfter: active, sends: 0, receives: 0, capOut: 0, capIn: 0 };
+    state[fid] = { before: used, after: used, activeBefore: active, activeAfter: active, sends: 0, receives: 0, capOut: 0, capIn: 0, loadedBefore, loadedAfter: loadedBefore };
   }
   for (const m of mv) {
     let capDollars = m.extraCap;
@@ -161,15 +225,38 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         if (!p) return empty(unavailable("asset_not_on_sender", tok));
         const send = state[m.from];
         send.after -= currentCapHit(p); if (!p.taxi && !p.ir) send.activeAfter -= 1; send.sends += 1;
+        // The sender always loses whatever contract they CURRENTLY hold -- extended or
+        // not, they're giving that contract up, full stop.
+        const sentLoaded = classifyLoaded(p.contractStatus);
+        if (sentLoaded) send.loadedAfter -= 1;
+        postTradeRoster[m.from] = postTradeRoster[m.from].filter((r) => r.id !== tok);
+
         const carriesTaxi = p.taxi && taxi[tok] === true;
         const recvSalary = Number.isFinite(num(ext[tok])) ? Math.round(num(ext[tok])) : p.salary;
         if (!Number.isFinite(recvSalary)) return empty(unavailable("roster_salary_unresolved", m.from));
         const land = { ...p, salary: recvSalary, ir: false, taxi: carriesTaxi };
         const recv = state[m.to];
         recv.after += currentCapHit(land); if (!carriesTaxi) recv.activeAfter += 1; recv.receives += 1;
+        // Loaded-contract landing: if this token is ALSO being extended in this same
+        // deal (to this exact receiver), the extension's own loaded_indicator decides
+        // what lands -- never the pre-extension status (avoids double counting the same
+        // contract slot). Otherwise the receiver simply inherits the sender's contract
+        // unchanged, loaded status included.
+        if (extendedPidToFid[tok] === m.to) { if (extendedPidLoaded[tok]) recv.loadedAfter += 1; }
+        else if (sentLoaded) recv.loadedAfter += 1;
+        const expiredLanded = (land.years | 0) <= 0 && !land.unknown;
+        postTradeRoster[m.to].push({ id: tok, group: positions ? posGroup(positions[tok]) : "", excluded: land.taxi || land.ir || expiredLanded });
       }
     }
     if (capDollars > 0) { state[m.from].after += capDollars; state[m.from].capOut += capDollars; state[m.to].after -= capDollars; state[m.to].capIn += capDollars; }
+  }
+  // Defensive fallback only: an extension whose player somehow isn't ALSO a movement
+  // token (not the documented shape -- extensions accompany the exact asset they extend
+  // -- but handled rather than silently ignored) still lands its new loaded status.
+  for (const pid of Object.keys(extendedPidToFid)) {
+    const to = extendedPidToFid[pid];
+    const alreadyHandled = mv.some((m) => m.to === to && m.tokens.includes(pid));
+    if (!alreadyHandled && extendedPidLoaded[pid]) state[to].loadedAfter += 1;
   }
 
   const name = (fid) => L.names[fid] || fid;
@@ -193,6 +280,22 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     if (status === "below_min") warnings.push({ ...row, message: `${name(fid)} would have ${st.activeAfter} active players after this trade (minimum ${ROSTER_MIN}), so an add may be needed afterward.` });
   }
   const rosterStatus = !maxKnown ? "unavailable" : warnings.length ? "warn" : "ok";
+
+  const loadedRows = [], loadedViolations = [];
+  for (const fid of [...parts].sort()) {
+    const st = state[fid];
+    const over = st.loadedAfter > LOADED_CONTRACT_MAX;
+    const row = { franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, loaded_after: st.loadedAfter, max: LOADED_CONTRACT_MAX };
+    loadedRows.push(row);
+    if (over) loadedViolations.push({ franchise_id: fid, franchise_name: name(fid), projected: st.loadedAfter, max: LOADED_CONTRACT_MAX,
+      message: `${name(fid)} would move from ${st.loadedBefore} to ${st.loadedAfter} loaded contracts. The maximum is ${LOADED_CONTRACT_MAX}. Revise the trade or open a loaded-contract slot before continuing.` });
+  }
+
+  const lineup = evaluateLineupFeasibility({
+    franchises: Object.fromEntries([...parts].map((fid) => [fid, { name: name(fid), roster: positions ? postTradeRoster[fid] : null }])),
+    expectedFids: [...parts],
+  });
+
   return {
     participants: [...parts].sort(),
     cap: violations.length
@@ -204,5 +307,9 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         : warnings.length ? warnings.map((w) => w.message).join(" ") + " This is a heads-up, not a ruling on whether the trade is allowed — MFL decides when it processes the trade."
         : "Every team stays within its roster limits.",
     },
+    loaded_contracts: loadedViolations.length
+      ? { status: "blocked", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: loadedViolations, message: loadedViolations.map((v) => v.message).join(" ") }
+      : { status: "ok", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], message: "Every team stays at or under the 5 loaded-contract limit." },
+    lineup,
   };
 }

@@ -244,6 +244,43 @@
       (ro.status !== "ok" ? '<p>' + esc(ro.message) + '</p>' : '') +
       (ro.status !== "unavailable" && roRows ? '<ul class="t3w-crows" aria-label="Active roster counts after the trade">' + roRows + '</ul>' : '') +
       (ro.status === "warn" ? '<p class="t3w-small">Advisory only \u2014 this doesn\'t block the trade and isn\'t a ruling on whether it\'s allowed. MFL decides when the trade is processed.</p>' : '') + '</div>';
+    // ── loaded-contract limit (HARD, canon §2.G/§6.G: max 5) — same severity tier as the
+    // salary cap, so it reuses the identical .t3w-cap classes rather than inventing a new
+    // visual language. Optional on `c` so an older cached compliance object (cap+roster
+    // only) still renders correctly without this section.
+    var lc = c.loaded_contracts;
+    if (lc) {
+      var lcTitle = lc.status === "blocked" ? "Can\'t be accepted \u2014 too many loaded contracts" : lc.status === "ok" ? "Loaded contracts \u2014 every team stays at or under 5" : "Loaded contracts \u2014 couldn\'t be verified";
+      var lcMsg = lc.status === "unavailable"
+        ? "We couldn\'t verify the loaded-contract count for this trade right now." + (opts.gate ? " It can\'t be accepted until we can \u2014 try again in a moment." : "")
+        : lc.status === "blocked" ? str(lc.message) : "";
+      var lcRows = (lc.rows || []).map(function (r) {
+        var over = r.loaded_after > (lc.max || 5);
+        return '<li class="' + (over ? "t3w-over" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span>' +
+          '<span class="t3w-cr-num">' + esc(r.loaded_before) + ' \u2192 ' + esc(r.loaded_after) + '</span>' +
+          (over ? '<span class="t3w-cr-flag">max ' + esc(lc.max || 5) + '</span>' : '<span class="t3w-cr-room">of ' + esc(lc.max || 5) + ' max</span>') + '</li>';
+      }).join("");
+      h = h.replace('data-t3w-roster="' + esc(ro.status) + '">', 'data-t3w-roster="' + esc(ro.status) + '" data-t3w-loaded-contracts="' + esc(lc.status) + '">');
+      h += '<div class="t3w-cap t3w-cap-' + esc(lc.status) + '" role="' + (lc.status === "ok" ? "status" : "alert") + '"><b>' + lcTitle + '</b>' +
+        (lcMsg ? '<p>' + esc(lcMsg) + '</p>' : '') + (lcRows ? '<ul class="t3w-crows" aria-label="Loaded contracts after the trade">' + lcRows + '</ul>' : '') + '</div>';
+    }
+    // ── lineup feasibility (ADVISORY, never blocks) — reuses the .t3w-rost visual tier,
+    // exactly the same "never a block" contract the active-roster-count row already has.
+    var lu = c.lineup;
+    if (lu) {
+      var luTitle = lu.status === "warn" ? "Lineup coverage \u2014 heads-up" : lu.status === "ok" ? "Lineup coverage \u2014 every team can field one" : "Lineup coverage \u2014 couldn\'t be checked";
+      var luRows = (lu.rows || []).map(function (r) {
+        var label = r.status === "unavailable" ? "unavailable" : (r.missing || []).map(function (m) { return m.count + " " + m.slot + (m.count > 1 ? "s" : ""); }).join(", ") || "complete";
+        return '<li class="' + (r.status === "warn" ? "t3w-flag" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span>' +
+          '<span class="t3w-cr-num">' + esc(r.status === "unavailable" ? "\u2014" : (r.filled + " of " + r.total)) + '</span>' +
+          '<span class="' + (r.status === "warn" ? "t3w-cr-flag" : "t3w-cr-room") + '">' + esc(label) + '</span></li>';
+      }).join("");
+      h = h.replace('<section class="t3w-comp" data-t3w-cap="' + esc(cap.status) + '"', '<section class="t3w-comp" data-t3w-lineup="' + esc(lu.status) + '" data-t3w-cap="' + esc(cap.status) + '"');
+      h += '<div class="t3w-rost t3w-rost-' + esc(lu.status) + '" role="status"><b>' + luTitle + '</b>' +
+        (lu.status !== "ok" ? '<p>' + esc(lu.message) + '</p>' : '') +
+        (lu.status !== "unavailable" && luRows ? '<ul class="t3w-crows" aria-label="Lineup feasibility after the trade">' + luRows + '</ul>' : '') +
+        (lu.status === "warn" ? '<p class="t3w-small">Advisory only \u2014 this doesn\'t block the trade. The roster must be corrected under the league\'s lineup-compliance rules. Current-week bye/injury/Out/Doubtful availability is a separate, later check.</p>' : '') + '</div>';
+    }
     return h + '</section>';
   };
 

@@ -432,6 +432,31 @@ test("DESKTOP: mobile and desktop render byte-identical trade markup for the sam
   await d.api.open3WayDetail(TRADE_ID); await m.go("#league/trade/3w/" + TRADE_ID);
   t.equal(sectionOf(d.detail().innerHTML), sectionOf(m.mount.innerHTML));
 });
+test("SHARED CARD: the loaded-contracts (hard) and lineup (advisory) rows render from the ONE renderCompliance() -- same markup regardless of caller, matching the required checklist's pass/warn/blocked/unavailable states", () => {
+  const html = T.renderCompliance({
+    cap: { status: "ok", rows: [], message: "x" },
+    roster: { status: "ok", rows: [], message: "x" },
+    loaded_contracts: { status: "blocked", max: 5, rows: [{ franchise_id: "0001", franchise_name: "L.A. Looks", loaded_before: 5, loaded_after: 6 }], violations: [{ message: "x" }], message: "L.A. Looks would move from 5 to 6 loaded contracts. The maximum is 5." },
+    lineup: { status: "warn", advisory: true, rows: [{ franchise_id: "0005", franchise_name: "HammerTime", status: "warn", filled: 16, total: 18, missing: [{ slot: "Punter", count: 1 }, { slot: "Defensive Back", count: 1 }] }], message: "HammerTime could not field a complete legal lineup after this trade. Missing: 1 Punter and 1 Defensive Back." },
+  }, {});
+  t.match(html, /data-t3w-loaded-contracts="blocked"/);
+  t.match(html, /data-t3w-lineup="warn"/);
+  t.match(html, /Can't be accepted.*too many loaded contracts/);
+  t.match(html, /Missing: 1 Punter and 1 Defensive Back/);
+  // loaded_contracts (hard tier) uses the SAME red/blocked class as the salary cap -- not a new visual language.
+  t.match(html, /t3w-cap t3w-cap-blocked/);
+  // lineup (advisory tier) uses the SAME class the roster-count advisory row already uses.
+  t.match(html, /t3w-rost t3w-rost-warn/);
+});
+test("SHARED CARD: an older compliance object with only cap+roster (no loaded_contracts/lineup) still renders cleanly -- backward compatible, never throws", () => {
+  const html = T.renderCompliance({ cap: { status: "ok", rows: [], message: "x" }, roster: { status: "ok", rows: [], message: "x" } }, {});
+  t.doesNotMatch(html, /undefined|\[object Object\]/);
+});
+test("NO CLIENT MATH: neither client computes its own loaded-contract count or lineup slot assignment -- the shared renderer only presents the server's verdict", () => {
+  const forbidden = /loaded_after\s*[-+]|loaded_before\s*[-+]|LINEUP_SLOTS|maxBipartiteMatch|posGroup\s*\(|SuperFlex.*eligible|classifyLoaded/;
+  t.doesNotMatch(MOBILE_SRC, forbidden, "mobile view must not duplicate the loaded-contract/lineup calculation");
+  t.doesNotMatch(DESK_SRC, forbidden, "desktop workbench must not duplicate the loaded-contract/lineup calculation");
+});
 
 test("DESKTOP: cancel needs a confirmation, sends L and no body franchise authority, and only a server-confirmed result changes the UI", async () => {
   const env = fresh(); const d = loadDesktop(env);

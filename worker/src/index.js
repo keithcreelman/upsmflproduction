@@ -37419,16 +37419,21 @@ const mflToSleeper = {};
       // 2-way preview, the 3-way accept/execute gates and the 3-way detail view. Reads live MFL exports
       // (rosters, salaryAdjustments, league); any failure comes back as status "unavailable" (fail closed).
       // Client-supplied cap totals are never an input. See worker/src/trade_cap_authority.js.
-      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes }) => {
+      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests }) => {
         try {
           const opts = { includeApiKey: true, useCookie: true };
-          const [rosters, league, adjustments, salaries] = await Promise.all([
+          const [rosters, league, adjustments, salaries, players] = await Promise.all([
             rostersRes || mflExportJson(season, leagueId, "rosters", {}, opts),
             mflExportJson(season, leagueId, "league", {}, opts),
             mflExportJson(season, leagueId, "salaryAdjustments", {}, opts),
             mflExportJson(season, leagueId, "salaries", {}, opts),
+            // For the lineup-feasibility ADVISORY check only (position data). A failed/
+            // missing fetch here degrades ONLY that advisory block to "unavailable" --
+            // evaluateTradeCompliance never lets a bad `players` export fail cap/roster/
+            // loaded_contracts closed, since none of those read position at all.
+            mflExportJson(season, leagueId, "players", { DETAILS: 1 }, opts),
           ]);
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags });
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -37778,7 +37783,7 @@ const mflToSleeper = {};
         // Live cap/roster projection for a 3-way row (used by the accept + execute gates and the detail view).
         compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc }) => {
           const ext = await planExtensionSalaries(season, leagueId, extensionRequests, { offerCreatedAtUtc });
-          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary });
+          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests });
           out.extension_skipped = (ext.skipped || []).map((x) => ({ player_id: safeStr(x && x.player_id), reason: safeStr(x && x.reason) }));
           if (!ext.ok && out.cap.status !== "unavailable") { out.cap = { ...out.cap, status: "unavailable", reason: "extension_salaries_unavailable", message: "We couldn't verify the salary cap for this trade right now." }; }
           return out;
@@ -39427,6 +39432,15 @@ const mflToSleeper = {};
               acceptCompliance = await computeTradeComplianceLive({
                 season, leagueId, rostersRes: acceptRostersRes, extensionSalary: acceptExtSalary, taxiFlags,
                 movements: capFids.map((f) => ({ from: f, to: capFids.find((x) => x !== f), tokens: byFranchise[f] })),
+                // loaded_indicator here is read from the SAME extension_requests field the
+                // existing 3-way extension preview/DM code already reads at this identical
+                // stage (worker/src/trade_3way.js) -- not independently re-derived from raw
+                // priced contract terms in this pass (documented scope limitation; the
+                // current-roster and moved-player loaded-contract math above it IS fully
+                // server-authoritative from live MFL contractStatus and never trusts the
+                // client). Execution still re-derives the extension's real terms from
+                // preview_contract_info_string before anything is applied to MFL.
+                extensionRequests: authExtRows,
               });
               if (acceptCompliance.cap.status === "unavailable") {
                 return integrityFail(503, "cap_check_unavailable", "We couldn't verify the salary cap for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
@@ -39434,6 +39448,13 @@ const mflToSleeper = {};
               if (acceptCompliance.cap.status === "blocked" && action === "ACCEPT") {
                 console.warn("[trade-accept] blocked by the salary cap:", JSON.stringify({ trade_id: mflTradeId, violations: acceptCompliance.cap.violations.map((v) => ({ franchise_id: v.franchise_id, amount_over: v.amount_over })) }));
                 return integrityFail(409, "cap_exceeded", acceptCompliance.cap.message + " Nothing was changed.", { compliance: acceptCompliance, cap_violations: acceptCompliance.cap.violations });
+              }
+              if (acceptCompliance.loaded_contracts.status === "unavailable") {
+                return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
+              }
+              if (acceptCompliance.loaded_contracts.status === "blocked" && action === "ACCEPT") {
+                console.warn("[trade-accept] blocked by the loaded-contract limit:", JSON.stringify({ trade_id: mflTradeId, violations: acceptCompliance.loaded_contracts.violations.map((v) => ({ franchise_id: v.franchise_id, projected: v.projected })) }));
+                return integrityFail(409, "loaded_contract_limit", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_violations: acceptCompliance.loaded_contracts.violations });
               }
             }
             if (action === "PREVIEW") {
