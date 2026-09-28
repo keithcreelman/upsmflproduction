@@ -3,53 +3,68 @@
 // §6.G: "Loaded contracts on roster ≤ 5 at all times (front + back combined)"; "Loaded...
 // can never attach to a 1-year deal, a MYM, or a taxi contract").
 //
-// RULING (2026-09-28, revised again after a second review pass found 6 real fail-open
-// cases in the FIRST revision of this file -- a schedule that LOOKS parseable is not
-// automatically authoritative, and "a nonblank status" is not automatically a RECOGNIZED
-// one). Loaded/flat is resolved with this priority:
-//   1. An authoritative, PARSEABLE year-by-year salary schedule (Y-token "Y1-21 Y2-38" or
-//      bracket "[14K, 14K, 15K]" format inside contractInfo) is the most trustworthy
-//      signal there is -- but ONLY when it is actually authoritative:
-//        a. COMPLETE: it must cover the contract's own stated length (the "CL <n>" prefix)
-//           exactly once per year, 1..CL. A schedule with a year silently missing (e.g.
-//           "Y1-2K, Y3-2K" for a 3-year deal -- Y2 is missing, not "equal to Y1 and Y3") is
-//           NOT a valid 2-entry schedule; it is an INCOMPLETE 3-entry one and proves
-//           nothing. Without a known CL at all, completeness can't be verified, so no
-//           schedule is trusted -- this is deliberately stricter than "trust whatever
-//           tokens happen to parse".
-//        b. RECONCILED: its total must equal the contract's own stated TCV (the "TCV <n>K"
-//           prefix), within $1 of rounding slack. A schedule that sums to something else
-//           is not proof of THIS contract's shape -- it's evidence something else is wrong
+// RULING (2026-09-28, THIRD revision -- a second review pass on the first fix found 6 MORE
+// fail-open cases, all of the same shape: an explicitly PRESENT schedule that is incomplete,
+// duplicated, unreconciled, nonpositive, or irregular was falling through to a plausible-
+// looking contractStatus and getting classified flat anyway, instead of being reported
+// unresolved). Loaded/flat is resolved with this priority:
+//   1. contractInfo actually contains a parseable year-by-year schedule (Y-token
+//      "Y1-21 Y2-38" or bracket "[14K, 14K, 15K]" format): this is the MOST SPECIFIC signal
+//      available, so once it is present at all, contractStatus is NEVER consulted --
+//      either the schedule itself cleanly proves flat/FL/BL, or the whole result is
+//      unresolved. A schedule only proves anything when it is AUTHORITATIVE:
+//        a. NO DUPLICATE year tokens (e.g. "Y1-2K, Y1-2K, Y2-2K" -- a repeated Y1, even
+//           with a matching value, is malformed data, not a harmless repeat).
+//        b. EVERY year's amount is POSITIVE (a $0 or negative year, e.g. "Y1-0K, Y2-4K",
+//           is not a real salary and proves nothing about load shape).
+//        c. COMPLETE: the distinct years found must cover the contract's own stated length
+//           (the "CL <n>" prefix) exactly once, 1..CL. A schedule with a year silently
+//           missing (e.g. "Y1-2K, Y3-2K" for a 3-year deal -- Y2 is missing, not "equal to
+//           Y1 and Y3") is NOT a valid 2-entry schedule; it is an INCOMPLETE 3-entry one.
+//           Without a known CL at all, completeness can't be verified, so the schedule is
+//           never trusted -- deliberately stricter than "trust whatever tokens parse".
+//        d. RECONCILED: its total must equal the contract's own stated TCV (the "TCV <n>K"
+//           prefix), within $1 of rounding slack. A schedule that sums to something else is
+//           not proof of THIS contract's shape -- it's evidence something else is wrong
 //           with the data, and this module refuses to guess which.
-//      A schedule that clears both bars is classified by canon's Y1-vs-AAV rule (equal
+//      A schedule that clears all four bars is classified by canon's Y1-vs-AAV rule (equal
 //      every year -> FLAT, proven; Y1 above the contract's own AAV -> FL; Y1 below -> BL).
-//      This OVERRIDES a stale stored suffix, the same way index.js's structureOf() already
-//      does for the contract-history builder. A schedule where Y1 exactly EQUALS the AAV
-//      but the years are NOT all identical (e.g. [2K, 3K, 1K] against a 2K AAV) is a real,
-//      irregular shape canon's simple front/back taxonomy cannot classify -- it is NOT the
-//      same thing as "FLAT" (which means every year pays the same amount), so this falls
-//      through rather than being silently called flat.
-//   2. A contract whose TOTAL length (CL) is exactly 1 year is flat BY DEFINITION (canon:
-//      loaded can never attach to a 1-year deal) -- independent of contractStatus, never
-//      ambiguous.
-//   3. A present, non-blank contractStatus is a real signal ONLY when it is a RECOGNIZED
-//      status family (the documented 2025 legacy tokens -- Rookie, Veteran, WW, Tag, bare
-//      FL/BL -- and the 2026 compound Vet-/Rookie- scheme -- Vet-FAA, Rookie-Draft,
-//      Vet-Ext<n>, Vet-ERA, Vet-WW, any *-MYM compound, etc. -- with or without a trailing
-//      -FL/-BL suffix). A status that matches NONE of these known families is NOT treated
-//      as proof of anything, flat or loaded -- we cannot even confirm the string is a real
-//      MFL status token, let alone what it means. (Previously: any nonblank status without
-//      an explicit -FL/-BL suffix was assumed flat by default. That silently trusted
-//      garbled, unexpected, or future-vocabulary values this module has never seen.)
-//   4. Anything left -- contractStatus is blank/unrecognized AND no authoritative schedule
-//      AND the contract's length isn't provably 1 year -- is genuinely UNRESOLVED. The
-//      caller (trade_cap_authority.js) must treat this as `loaded_contracts: unavailable`
-//      for the WHOLE loaded-contract block (never guessed either way), while leaving
+//      A schedule where Y1 exactly EQUALS the AAV but the years are NOT all identical (e.g.
+//      [2K, 3K, 1K] against a 2K AAV) is a real, irregular shape canon's simple front/back
+//      taxonomy cannot classify -- it is NOT "FLAT" (which means every year pays the same
+//      amount). EITHER an authoritative-but-irregular schedule OR a schedule that fails any
+//      of (a)-(d) produces the SAME outcome: unresolved. It never falls back to step 3 --
+//      a present but broken schedule is not the same thing as no schedule at all, and
+//      silently trusting a plausible-looking contractStatus over it is exactly the
+//      fail-open pattern this ruling exists to close.
+//   2. NO schedule was found in contractInfo at all: a contract whose TOTAL length (CL) is
+//      exactly 1 year is flat BY DEFINITION (canon: loaded can never attach to a 1-year
+//      deal) -- independent of contractStatus, never ambiguous.
+//   3. STILL no schedule, and not a known 1-year deal: a present, non-blank contractStatus
+//      is a real signal ONLY when it is a RECOGNIZED status family (the documented 2025
+//      legacy tokens -- Rookie, Veteran, WW, Tag, bare FL/BL -- and the 2026 compound
+//      Vet-/Rookie- scheme -- Vet-FAA, Rookie-Draft, Vet-Ext<n>, Vet-ERA, Vet-WW -- with or
+//      without a trailing -FL/-BL suffix). A RECOGNIZED MYM form specifically (Vet-MYM,
+//      Rookie-MYM, Vet-WW-MYM, or any other <prefix>-MYM built from a real prefix) is flat
+//      by canon (a MYM contract can never be loaded) -- but this recognition is restricted
+//      to that actual shape; a status merely CONTAINING the substring "mym" inside an
+//      otherwise-unrecognized string (e.g. "Gibberish-MYM") is NOT treated as a real MYM
+//      form and is not proof of anything. A status that matches none of these known
+//      families is likewise NOT treated as proof of anything, flat or loaded -- we cannot
+//      even confirm the string is a real MFL status token, let alone what it means.
+//   4. Anything left -- no schedule, contractStatus blank/unrecognized, and the contract's
+//      length isn't provably 1 year -- is genuinely UNRESOLVED. The caller
+//      (trade_cap_authority.js) must treat this as `loaded_contracts: unavailable` for the
+//      WHOLE loaded-contract block (never guessed either way), while leaving
 //      cap/roster/lineup completely unaffected. This explicitly includes a contract whose
 //      status, length, AND schedule are ALL blank -- MFL's own "silence isn't proof of
 //      expiry" cap-math convention does NOT extend to "silence is proof of flat"; a fully
 //      silent contract is unresolved here, full stop, unless some OTHER authoritative
 //      source (a schedule, a length) resolves it via priorities 1-2 above.
+//
+// The SAME schedule-authority bar (duplicate/nonpositive/complete/reconciled) applies to a
+// pre-trade EXTENSION's priced terms too (resolveExtensionLoadedStatus) -- a partial or
+// contradictory extension schedule must not fall back to being treated as flat either.
 //
 // This is intentionally NOT a full port of index.js's parser: it implements exactly the
 // two most reliable, directly-in-contractInfo schedule formats (Y-token, bracket) plus the
@@ -85,21 +100,26 @@ const KNOWN_STATUS_FAMILY_RE = new RegExp(
   "i"
 );
 
+// A RECOGNIZED MYM form specifically: a real Vet-/Rookie- prefix (optionally with one or
+// more known-shaped middle segments, e.g. "Vet-WW-MYM"), ending in "-MYM". Deliberately
+// narrower than "the string contains mym anywhere" -- a status like "Gibberish-MYM" does
+// NOT start with a real prefix and must NOT be treated as a recognized, canon-flat MYM
+// contract (2026-09-28 review, second pass).
+const MYM_FAMILY_RE = /^(vet|rookie)(-[a-z0-9]+)*-mym$/i;
+
 /** contractStatus alone -> "FL" | "BL" | "" | null (null = blank, unreadable, OR simply not
  * a status family this module recognizes -- none of those are proof of anything. "" =
  * present, recognized, and flat). Priority 3 in the module header. */
 function classifyStatusOnly(contractStatus) {
   const status = s(contractStatus);
   if (!status) return null;
-  // Canon: a MYM contract can never be loaded, true regardless of which Vet-/Rookie- prefix
-  // precedes "-MYM" in the 2026 compound scheme (Vet-MYM, Rookie-MYM, Vet-WW-MYM, ...) --
-  // checked directly so every MYM compound doesn't need separate enumeration below. A
-  // status that pairs "MYM" with an FL/BL suffix (which canon says should never happen)
-  // still goes through the normal recognized-family check instead of this shortcut, since
-  // that combination is itself a data anomaly worth surfacing rather than silently trusting.
-  if (/mym/i.test(status) && !LOADED_SUFFIX_RE.test(status)) return "";
   const suffixMatch = LOADED_SUFFIX_RE.exec(status);
   const base = suffixMatch ? status.slice(0, status.length - suffixMatch[0].length).trim() : status;
+  // Canon: a MYM contract can never be loaded -- but only for an actually RECOGNIZED MYM
+  // form (see MYM_FAMILY_RE), not any string that merely contains "mym". A MYM base paired
+  // with an explicit -FL/-BL suffix is itself a data anomaly (canon says this combination
+  // should never exist) and is surfaced as unresolved, never silently trusted as "loaded".
+  if (MYM_FAMILY_RE.test(base)) return suffixMatch ? null : "";
   const recognized = LOADED_BARE_RE.test(status) || (base !== "" && KNOWN_STATUS_FAMILY_RE.test(base));
   if (!recognized) return null;   // present but not a status we recognize -- not proof
   if (suffixMatch) return suffixMatch[1].toUpperCase();
@@ -127,44 +147,55 @@ export function parseTCV(contractInfo) {
 
 /**
  * An authoritative-CANDIDATE per-year salary schedule from contractInfo text, together with
- * which year-numbers were actually found -- needed to tell a real, complete schedule apart
- * from one with a year silently missing (see scheduleIsAuthoritative). NOT exported: a
- * caller that only wants the values (no completeness/reconciliation check) should use
- * parseYearSchedule below.
- * @returns { years: number[], values: number[] } (years sorted ascending, values in the
- *          SAME order -- index i is year `years[i]`, not necessarily "Year i+1" until
- *          completeness is separately confirmed) or null when nothing parseable was found.
+ * which year-numbers were actually found and whether any year number was seen more than
+ * once -- needed to tell a real, complete, well-formed schedule apart from one with a gap
+ * or a duplicate (see scheduleIsAuthoritative). NOT exported: a caller that only wants the
+ * values (no completeness/reconciliation check) should use parseYearSchedule below.
+ * "Present" is judged on the RAW token count, not the distinct-year count, specifically so
+ * a duplicated year token (which collapses to fewer distinct years) still registers as "a
+ * schedule was found here" rather than silently vanishing below the presence threshold.
+ * @returns { years: number[], values: number[], duplicate: boolean } (years sorted
+ *          ascending, values in the SAME order -- index i is year `years[i]`, not
+ *          necessarily "Year i+1" until completeness is separately confirmed) or null when
+ *          nothing parseable was found at all.
  */
 function parseYearScheduleRaw(contractInfo) {
   const info = s(contractInfo);
   if (!info) return null;
   // 1. Y-token format: "Y1-21K Y2-38K Y3-38K" (also accepts "Y1-2K, Y2-2K" with commas).
   const re = /Y(\d+)\s*-\s*([0-9.]+)\s*K?/gi;
-  let m; const map = {};
-  while ((m = re.exec(info))) map[parseInt(m[1], 10)] = Math.round(parseFloat(m[2]) * 1000);
-  const years = Object.keys(map).map(Number).sort((a, b) => a - b);
-  if (years.length >= 2) return { years, values: years.map((y) => map[y]) };
+  let m; const map = {}; let rawCount = 0; let duplicate = false;
+  while ((m = re.exec(info))) {
+    rawCount++;
+    const y = parseInt(m[1], 10);
+    if (Object.prototype.hasOwnProperty.call(map, y)) duplicate = true;
+    map[y] = Math.round(parseFloat(m[2]) * 1000);
+  }
+  if (rawCount >= 2) {
+    const years = Object.keys(map).map(Number).sort((a, b) => a - b);
+    return { years, values: years.map((y) => map[y]), duplicate };
+  }
   // 2. Bracket format: "[14K, 14K, 15K]" -- position IS the year (1-indexed); no year can
-  //    be "missing" from a bracket list the way a Y-token can be, so it is complete by
-  //    construction relative to its own length.
+  //    be "missing" or "duplicated" the way a Y-token can be, so it is complete and
+  //    duplicate-free by construction relative to its own length.
   const bm = info.match(/\[([^\]]+)\]/);
   if (bm) {
     const arr = bm[1].split(",").map((t) => {
       const n = parseFloat(String(t).replace(/[^0-9.]/g, ""));
       return Number.isFinite(n) ? Math.round(n * 1000) : NaN;
     });
-    if (arr.length >= 2 && arr.every(Number.isFinite)) return { years: arr.map((_, i) => i + 1), values: arr };
+    if (arr.length >= 2 && arr.every(Number.isFinite)) return { years: arr.map((_, i) => i + 1), values: arr, duplicate: false };
   }
   return null;
 }
 
 /**
  * Kept for any external caller that only wants the parsed VALUES with no
- * completeness/reconciliation check (e.g. resolveExtensionLoadedStatus below, which has its
- * own, separately-justified handling of a partial schedule -- see its own doc comment).
- * NOT used by resolveLoadedStatus's authoritative-schedule path -- that calls
+ * completeness/reconciliation check. NOT used by resolveLoadedStatus's or
+ * resolveExtensionLoadedStatus's authoritative-schedule path -- both call
  * parseYearScheduleRaw + scheduleIsAuthoritative instead, specifically because this
- * values-only shape can't distinguish a complete schedule from one with a gap in it.
+ * values-only shape can't distinguish a complete, well-formed schedule from one with a gap
+ * or a duplicate in it.
  * @returns number[] (length >= 2) when a real schedule was found, or null.
  */
 export function parseYearSchedule(contractInfo) {
@@ -174,18 +205,22 @@ export function parseYearSchedule(contractInfo) {
 
 /**
  * Is this parsed schedule AUTHORITATIVE evidence of the contract's true shape? A schedule
- * only proves flat/FL/BL when it (a) covers every year of the contract's own stated length
- * EXACTLY once -- no gaps, no extras -- and (b) its total reconciles with the contract's
- * own stated TCV. A partial schedule (a year silently missing) or one that doesn't add up
- * to the stated TCV is NOT proof of anything -- exactly the fail-open risk the 2026-09-28
- * review flagged: a Y1/Y3 schedule with Y2 missing was being silently read as a complete,
+ * only proves flat/FL/BL when it has NO duplicate year token, every year's amount is
+ * POSITIVE, it covers every year of the contract's own stated length EXACTLY once (no gaps,
+ * no extras), and its total reconciles with the contract's own stated TCV. Any one of these
+ * failing is NOT proof of anything -- exactly the fail-open risk the 2026-09-28 review (both
+ * passes) flagged: a Y1/Y3 schedule with Y2 missing was being silently read as a complete,
  * flat 2-year contract; a schedule summing to $5K under a stated $6K TCV was silently
- * trusted as-is. A $1 tolerance absorbs K-string rounding, never a real mismatch. Neither
- * CL nor TCV being known is treated as "not authoritative" -- without both, there is
+ * trusted as-is; a repeated "Y1-2K, Y1-2K, Y2-2K" token was silently collapsed to a normal
+ * 2-year schedule; a $0 year ("Y1-0K, Y2-4K") was silently read as a real back-loaded salary
+ * curve. A $1 tolerance on the TCV check absorbs K-string rounding, never a real mismatch.
+ * Neither CL nor TCV being known is treated as "not authoritative" -- without both, there is
  * nothing to verify the schedule AGAINST, so it is never blindly trusted on its own say-so.
  */
-function scheduleIsAuthoritative(years, values, cl, tcv) {
+function scheduleIsAuthoritative(years, values, cl, tcv, duplicate) {
+  if (duplicate) return false;
   if (!years || years.length < 2) return false;
+  if (values.some((v) => !(v > 0))) return false;   // every year must be a real positive salary
   if (!(Number.isFinite(cl) && cl > 0)) return false;
   if (years.length !== cl) return false;
   for (let i = 0; i < cl; i++) if (years[i] !== i + 1) return false;   // exactly {1..CL}, no gaps
@@ -241,31 +276,38 @@ export function structureOf(years, tcv, cl) {
 export function resolveLoadedStatus(contractStatus, contractInfo) {
   const cl = parseContractLength(contractInfo);
   const tcv = parseTCV(contractInfo);
-  // Priority 1: a real, AUTHORITATIVE schedule (complete against CL, reconciled against
-  // TCV -- see scheduleIsAuthoritative) overrides everything, including a stale status --
-  // classified by canon's own Y1-vs-AAV rule (see structureOf), not a monotonicity guess.
-  // An incomplete, unreconciled, or otherwise-unverifiable schedule is never trusted; it
-  // simply falls through to the next priority rather than being guessed at.
   const raw = parseYearScheduleRaw(contractInfo);
-  if (raw && scheduleIsAuthoritative(raw.years, raw.values, cl, tcv)) {
-    const struct = structureOf(raw.values, tcv, cl);
-    if (struct === "FLAT") return { loaded: "", resolved: true };
-    if (struct === "FL" || struct === "BL") return { loaded: struct, resolved: true };
-    // Y1 exactly equals the AAV but the schedule isn't uniform -- an irregular shape this
-    // module can't classify as FL/BL/FLAT; fall through rather than guess.
+  if (raw) {
+    // Priority 1: an EXPLICITLY PRESENT schedule is the most specific signal there is.
+    // Once contractInfo actually contains a Y-token/bracket schedule, contractStatus is
+    // NEVER consulted -- the schedule either cleanly proves flat/FL/BL, or the WHOLE
+    // result is unresolved. A present but incomplete, duplicated, unreconciled,
+    // nonpositive, or irregular schedule must NEVER fall through to trusting
+    // contractStatus instead (2026-09-28 review, second pass): that schedule is itself
+    // evidence something is wrong with this contract's data, and a plausible-looking
+    // status is not permitted to override or paper over it.
+    if (scheduleIsAuthoritative(raw.years, raw.values, cl, tcv, raw.duplicate)) {
+      const struct = structureOf(raw.values, tcv, cl);
+      if (struct === "FLAT") return { loaded: "", resolved: true };
+      if (struct === "FL" || struct === "BL") return { loaded: struct, resolved: true };
+      // struct === "" -- Y1 equals the AAV but the schedule isn't uniform: irregular,
+      // unclassifiable. Falls through to the SAME unresolved return below.
+    }
+    return { loaded: "", resolved: false };
   }
-  // Priority 2: a 1-year contract is flat by canon, independent of contractStatus.
+  // Priority 2: no schedule at all -- a 1-year contract is flat by canon, independent of
+  // contractStatus.
   if (cl === 1) return { loaded: "", resolved: true };
-  // Priority 3: a present, RECOGNIZED contractStatus is a real signal (see
-  // classifyStatusOnly -- an unrecognized nonblank status is treated the same as blank).
+  // Priority 3: still no schedule -- a present, RECOGNIZED contractStatus is a real signal
+  // (see classifyStatusOnly -- an unrecognized nonblank status is treated the same as blank).
   const fromStatus = classifyStatusOnly(contractStatus);
   if (fromStatus !== null) return { loaded: fromStatus, resolved: true };
-  // Priority 4: blank/unrecognized status, no authoritative schedule, and the contract's
-  // length isn't provably 1 year -- genuinely unresolved. This is the correct outcome even
-  // when contractStatus, contractInfo, AND the parsed length/schedule are ALL blank --
-  // silence is not proof of flat, the same way it is not proof of expiry in cap math, but
-  // that "don't guess" principle points the OPPOSITE direction here: cap math's silence
-  // rule falls back to counting the FULL salary (the safe, conservative default for a cap
+  // Priority 4: blank/unrecognized status, no schedule at all, and the contract's length
+  // isn't provably 1 year -- genuinely unresolved. This is the correct outcome even when
+  // contractStatus, contractInfo, AND the parsed length/schedule are ALL blank -- silence
+  // is not proof of flat, the same way it is not proof of expiry in cap math, but that
+  // "don't guess" principle points the OPPOSITE direction here: cap math's silence rule
+  // falls back to counting the FULL salary (the safe, conservative default for a cap
   // total), while a loaded-contract verdict has no safe default to fall back to -- so
   // silence here means unresolved, not flat.
   return { loaded: "", resolved: false };
@@ -291,6 +333,13 @@ export function isLoaded(contractStatus, contractInfo) {
  * no shape to compare and is flat, the same "no shape with < 2 points" rule
  * resolveLoadedStatus applies to a genuine 1-year contract.
  *
+ * Before any of that: the WHOLE priced schedule (frozen Y1 included) must clear the SAME
+ * authority bar as an ordinary contract's schedule -- no duplicate year token, every year
+ * positive, complete against the extension's own stated CL, and reconciled against its own
+ * stated TCV (2026-09-28 review, second pass: "apply the same completeness check to
+ * extension schedules"). A partial extension schedule (e.g. "CL 3|TCV 6K|Y1-2K, Y3-4K" --
+ * Y2 silently missing) must never be treated as if it were a valid shorter schedule.
+ *
  * @param previewContractInfoString  the extension's own priced terms (e.g. from
  *                                   e.preview_contract_info_string).
  * @param newAavFuture               the extension's own future-years AAV, when already
@@ -300,10 +349,14 @@ export function isLoaded(contractStatus, contractInfo) {
  * @returns { loaded: "FL"|"BL"|"", resolved: boolean }
  */
 export function resolveExtensionLoadedStatus(previewContractInfoString, newAavFuture) {
-  const schedule = parseYearSchedule(previewContractInfoString);
-  if (!schedule) return { loaded: "", resolved: false };
+  const cl = parseContractLength(previewContractInfoString);
+  const tcv = parseTCV(previewContractInfoString);
+  const raw = parseYearScheduleRaw(previewContractInfoString);
+  if (!raw) return { loaded: "", resolved: false };   // no schedule at all
+  if (!scheduleIsAuthoritative(raw.years, raw.values, cl, tcv, raw.duplicate)) return { loaded: "", resolved: false };
+  const schedule = raw.values;
   const future = schedule.slice(1);   // exclude Y1 -- frozen at the pre-extension salary
-  if (future.length < 1) return { loaded: "", resolved: false };   // no future years parsed at all
+  if (future.length < 1) return { loaded: "", resolved: false };   // no future years at all
   if (future.length === 1) return { loaded: "", resolved: true };  // a single future year has no shape
   if (future.every((v) => v === future[0])) return { loaded: "", resolved: true };
   const aavFuture = Number.isFinite(newAavFuture) && newAavFuture > 0
@@ -313,7 +366,10 @@ export function resolveExtensionLoadedStatus(previewContractInfoString, newAavFu
   const y2 = future[0];
   if (y2 > aavFuture) return { loaded: "FL", resolved: true };
   if (y2 < aavFuture) return { loaded: "BL", resolved: true };
-  return { loaded: "", resolved: true };
+  // y2 === aavFuture but the future years are NOT all equal (already ruled out above):
+  // the same irregular, unclassifiable shape as structureOf's final branch -- unresolved,
+  // not silently flat.
+  return { loaded: "", resolved: false };
 }
 
 // Kept for any external caller that only has a contractStatus string and no contractInfo

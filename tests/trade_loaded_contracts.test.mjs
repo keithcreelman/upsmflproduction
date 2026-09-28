@@ -508,5 +508,116 @@ test("LC 3-WAY (review row 6, execution proof): loaded_contracts unavailable -- 
   t.equal(mfl.writes().length, 0, "zero MFL writes when the loaded-contract classification can't be verified");
 });
 
+// ───────────── Part 5 — second review pass, round 2 (2026-09-28): contradictory/partial data must not fall back to a status that makes it flat ─────────────
+// A schedule that is explicitly PRESENT in contractInfo -- even a broken one -- is a more
+// specific signal than contractStatus, and must never be silently overridden by a
+// plausible-looking status. Each test below reproduces Keith's exact reported input.
+
+test("LC 28 (review round 2, case 1): a RECOGNIZED flat status (Vet-FAA) does NOT rescue an incomplete schedule -- Y2 missing from a stated 3-year deal is still unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|Y1-2K,Y3-2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "the present-but-incomplete schedule must win over the recognized 'Vet-FAA' status, not be silently overridden by it");
+  t.equal(c.cap.status, "ok", "cap stays independently valid");
+});
+
+test("LC 29 (review round 2, case 2): a RECOGNIZED flat status does NOT rescue an unreconciled schedule -- $5K summed under a stated $6K TCV is still unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|Y1-3K,Y2-1K,Y3-1K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 30 (review round 2, case 3): a RECOGNIZED flat status does NOT rescue an AUTHORITATIVE-but-irregular schedule (Y1 == AAV, years unequal) -- still unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|Y1-2K,Y2-3K,Y3-1K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "the schedule IS complete and reconciled here, but its shape (2K,3K,1K against a 2K AAV) is irregular, not flat -- and being AUTHORITATIVE makes it MORE binding against the status, not less");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 31 (review round 2, case 4): an UNRECOGNIZED status that merely CONTAINS 'mym' is not a real MYM form -- the MYM canon exception is restricted to an actual recognized prefix", () => {
+  t.equal(classifyLoaded("Gibberish-MYM"), "", "classifyLoaded's null->'' convenience mapping still reports '' for an unresolved status; isLoaded is the one that must read this as NOT loaded");
+  t.equal(isLoaded("Gibberish-MYM"), false, "unresolved is never reported as loaded");
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Gibberish-MYM" }] }), // blank contractInfo
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "'Gibberish-MYM' does not start with a real Vet-/Rookie- prefix -- it is not a recognized MYM form and must not be assumed flat by the MYM canon exception");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 31b: a REAL recognized MYM form is still correctly flat by canon (the restriction in LC 31 narrows the exception, it does not remove it)", () => {
+  for (const status of ["Vet-MYM", "Rookie-MYM", "Vet-WW-MYM"]) {
+    t.equal(classifyLoaded(status), "", `${status}: a real MYM compound is flat by canon`);
+    t.equal(isLoaded(status), false, `${status}: never loaded`);
+  }
+});
+
+test("LC 32 (review round 2, case 5): a DUPLICATE year token (Y1 appearing twice, even with a matching value) makes the whole schedule unavailable, never silently collapsed to a normal 2-entry schedule", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-2K,Y1-2K,Y2-2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "a repeated Y1 token is malformed data, not a harmless repeat -- it must not silently collapse to a valid, provably-flat 2-year schedule");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 33: a NONPOSITIVE yearly value (Y1-0K) is not a real salary and cannot prove a back-loaded shape -- previously resolved BL, now unavailable", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-0K,Y2-4K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "Y1-0K is not a real positive salary -- the schedule must not be trusted as proof of a back-loaded curve");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 34 (review round 2, case 6, extension): the SAME completeness bar applies to an extension's priced schedule -- Y2 missing (CL 3|TCV 6K|Y1-2K,Y3-4K) is unavailable, not silently trusted off a plausible future AAV", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }), // 200 is currently flat
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", new_aav_future: 2000, preview_contract_info_string: "CL 3|TCV 6K|Y1-2K,Y3-4K" }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "Year 2 is missing from the extension's own stated 3-year schedule -- the same completeness bar as an ordinary contract must apply here too");
+  t.equal(c.cap.status, "ok", "an unresolved extension schedule must not affect the cap verdict");
+});
+
+test("LC 35: a DUPLICATE year token in an extension's priced schedule is equally unavailable (the same authority bar, not a separate weaker one)", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", preview_contract_info_string: "CL 3|TCV 9K|Y1-1K,Y2-4K,Y2-4K,Y3-4K" }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "a duplicated Y2 token in the extension schedule must not be silently collapsed to a normal 3-year schedule");
+});
+
+test("LC 2-WAY (review round 2): an AUTHORITATIVE-but-irregular schedule (case 3) blocks the accept exactly like a proven violation -- 503, zero MFL writes, offer stays pending", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|Y1-2K,Y2-3K,Y3-1K" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  const r = await act(env, mobileBody(id));
+  t.equal(r.status, 503);
+  t.equal(r.json.code, "loaded_contract_check_unavailable");
+  t.equal(r.json.compliance.cap.status, "ok", "the cap result stays independently valid in the same response");
+  t.equal(mfl.writes("tradeResponse").length, 0, "zero MFL writes");
+  t.equal(mfl.st.pending.length, 1, "the offer stays pending");
+});
+
+test("LC 3-WAY (review round 2): an AUTHORITATIVE-but-irregular schedule (case 3) blocks execution recoverably -- zero MFL writes, ledger blocked_cap, never failed, cap independently intact", async () => {
+  const { env, mfl } = threeWayWorld({ row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0008"][0] = { id: "16614", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|Y1-2K,Y2-3K,Y3-1K" };
+  const r1 = await execute3Way(env, F.TRADE_ID);
+  t.equal(r1.blocked, true); t.equal(r1.kind, "unavailable");
+  t.equal(r1.compliance.cap.status, "ok", "the cap result stays independently valid on the same gate response");
+  t.equal(F.readRow(env).status, "collecting", "recoverable -- never failed");
+  t.equal(ledgerRow(env).state, "blocked_cap");
+  t.equal(mfl.writes().length, 0, "zero MFL writes");
+});
+
 await run("trade_loaded_contracts");
 restore();
