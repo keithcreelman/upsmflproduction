@@ -115,6 +115,36 @@ test("PROPOSE: the explicit administrative path (admin key) must name the team i
   t.equal(mfl.writes("tradeProposal").length, 1);
 });
 
+test("PROPOSE: a foreign/wrong APIKEY alongside a valid owner session is ignored — the request authenticates as the owner (never admin), using the proven MFL session, not the commissioner cookie; a false franchise claim is still refused", async () => {
+  // Root cause 2026-09-28: the MFL embed forwards its OWN page APIKEY on every
+  // request alongside the owner's real MFL_USER_ID. That unrelated key must
+  // never be treated as a bad admin attempt when a proven owner session sits
+  // right next to it — see worker/src/trade_authz.js resolveTradeCaller.
+  const { env, mfl } = fresh();
+  // Row 5 of the authority matrix: wrong/foreign APIKEY + valid owner session -> ignore the key, authenticate the owner.
+  const ok = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B&APIKEY=wrong-key`, { body: proposal("0001", "0002") });
+  t.ok(ok.status < 300, ok.text.slice(0, 200));
+  const w = mfl.writes("tradeProposal");
+  t.equal(w.length, 1);
+  t.equal(w[0].cookie, "MFL_USER_ID=tok-B", "the write must carry the proven owner's OWN session, never an admin/commissioner identity");
+  t.equal(w[0].asCommish, false);
+  noCommishCookie(mfl);
+  // Row 7: same collision, but claiming a franchise that ISN'T tok-B's own — normal owner authorization still refuses it.
+  const falseClaim = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B&APIKEY=wrong-key`, { body: proposal("0002", "0003") });
+  t.equal(falseClaim.status, 403);
+  t.match(falseClaim.json.error, /your own team/);
+  t.equal(mfl.writes("tradeProposal").length, 1, "the false-claim attempt must not have written a second proposal");
+});
+
+test("PROPOSE: a foreign/wrong APIKEY alongside an INVALID/expired owner session still fails owner authentication — it must never fall through to become an admin caller", async () => {
+  // Row 6 of the authority matrix.
+  const { env, mfl } = fresh();
+  const r = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-bogus&APIKEY=wrong-key`, { body: proposal("0001", "0002") });
+  t.equal(r.status, 401);
+  t.equal(r.json.code, "session_expired");
+  t.equal(mfl.writes("tradeProposal").length, 0, "an invalid session plus a foreign key must never write as if it were an admin");
+});
+
 test("PROPOSE: a failed MFL write is reported as a failure, not as success", async () => {
   const { env, mfl } = fresh();
   mfl.st.failNext = { type: "tradeProposal", status: 500 };
