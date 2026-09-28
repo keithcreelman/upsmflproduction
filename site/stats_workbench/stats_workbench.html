@@ -2924,18 +2924,59 @@ table.asw-table{font-size:13px}
     var coverage = maxSeason ? (" · data through " + maxSeason) : "";
     if (state.lastApiCount === 500) {
       coverage += " · top 500 by yardage — deep bench may be cut off";
+    } else if (maxSeason === nowY && state.lastPending) {
+      // The current season's board has never been built at all yet (no
+      // precompute row) — distinct from "0 rows because the season hasn't
+      // started": this is "not built yet", not "nothing to show". Never a
+      // live multi-million-row fallback for this case; see worker/src/
+      // index.js's pending_reason: current_season_precompute_not_built.
+      coverage += " · " + nowY + " board not built yet — check back soon";
     } else if (maxSeason === nowY && state.lastApiCount === 0) {
       coverage += " · " + nowY + " hasn’t started — showing no rows yet";
     } else if (maxSeason === nowY && state.lastBuiltForWeek != null) {
-      // Current-season freshness (2026-09-28): show what's actually finalized
-      // rather than let a silent "data through 2026" imply the season-to-date
-      // is complete. authoritative_week (live MFL scoring) is the real-world
-      // answer; built_for_week (D1's precompute) can lag it by one refresh
-      // cycle — surface BOTH only when they disagree, so a normal "just
-      // finished its regular Wednesday refresh" state stays a single number.
+      // Current-season freshness (2026-09-28, revised for provisional weeks).
+      // Four DISTINCT signals, never collapsed into one another:
+      //   built_for_week         — latest week the board has ANY data for.
+      //   finalized_through_week — the one week safe to call DONE (source
+      //                            coverage complete AND the schedule agrees
+      //                            it's over). Can be one behind built_for_week.
+      //   source_coverage        — the "30/32 teams reported" fact for
+      //                            built_for_week specifically.
+      //   stale                  — unrelated: the precompute failing to match
+      //                            what D1 currently has. A fresh, correctly
+      //                            PROVISIONAL board is NOT stale — that
+      //                            conflation was the bug this fixes.
+      var builtWk = state.lastBuiltForWeek;
+      var finalWk = state.lastFinalizedThroughWeek;
+      var cov = state.lastSourceCoverage;
       var authWk = state.lastAuthoritativeWeek;
-      coverage += " · finalized through Week " + state.lastBuiltForWeek;
-      if (authWk != null && authWk !== state.lastBuiltForWeek) {
+      if (finalWk != null && finalWk === builtWk) {
+        // Fully finalized — the case that existed before 2026-09-28.
+        coverage += " · finalized through Week " + builtWk;
+      } else if (cov && cov.week === builtWk && cov.teams_reported != null && cov.teams_expected != null) {
+        // PROVISIONAL: some but not all teams have reported builtWk. Never
+        // implies builtWk itself is done — that requires cov.complete AND
+        // authoritative_week to agree, i.e. finalized_through_week === builtWk.
+        coverage += " · Week " + builtWk + " provisional — " +
+          cov.teams_reported + "/" + cov.teams_expected + " teams reported";
+        coverage += finalWk != null
+          ? " · finalized through Week " + finalWk
+          : " · last finalized week unknown";
+      } else if (finalWk == null && cov == null && authWk != null && authWk === builtWk) {
+        // BACKWARD COMPAT ONLY: a worker response with no finalized_through_week/
+        // source_coverage at all (pre-2026-09-28 deploy) — fall back to the
+        // original "authoritative_week matches built_for_week" signal so a
+        // brief worker/site deploy-order skew never regresses an ACTUALLY
+        // finalized week into an "unknown" message.
+        coverage += " · finalized through Week " + builtWk;
+      } else {
+        // finalized_through_week unresolved (authoritative check failed/
+        // unavailable) or coverage unavailable — say what we DO know
+        // (built_for_week) without claiming either "finalized" or a specific
+        // provisional fraction we can't back up.
+        coverage += " · data through Week " + builtWk + " (finalized week unknown)";
+      }
+      if (authWk != null && authWk > builtWk) {
         coverage += " (Week " + authWk + " complete upstream — next refresh will pick it up)";
       } else if (state.lastStale) {
         coverage += " (refresh pending)";
@@ -3617,6 +3658,16 @@ table.asw-table{font-size:13px}
       state.lastBuiltForWeek = (j && typeof j.built_for_week === "number") ? j.built_for_week : null;
       state.lastAuthoritativeWeek = (j && typeof j.authoritative_week === "number") ? j.authoritative_week : null;
       state.lastStale = !!(j && j.stale);
+      // Provisional-week support (2026-09-28). finalized_through_week is the
+      // ONE week number safe to call done — distinct from built_for_week,
+      // which just means "the board has SOME data through here, complete or
+      // not." source_coverage carries the "30/32 teams reported" fact for
+      // built_for_week specifically. All independent of `stale`, which keeps
+      // its own, unrelated meaning (the precompute failing to match what D1
+      // currently has) — a fresh, correctly-provisional board is NOT stale.
+      state.lastFinalizedThroughWeek = (j && typeof j.finalized_through_week === "number") ? j.finalized_through_week : null;
+      state.lastSourceCoverage = (j && j.source_coverage && typeof j.source_coverage === "object") ? j.source_coverage : null;
+      state.lastPending = !!(j && j.pending);
       rows = applyLiveOwnership(rows);
       // Team filter (post-ownership-overlay)
       // Special values:

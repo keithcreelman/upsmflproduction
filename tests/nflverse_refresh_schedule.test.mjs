@@ -1,11 +1,21 @@
-// nflverse stats refresh — widened schedule (2026-09-28).
+// nflverse stats refresh — widened schedule (2026-09-28, revised same day for
+// provisional weekly data).
 //   node tests/nflverse_refresh_schedule.test.mjs
 //
-// THE DEFECT: a single Wednesday-11:00-UTC cron meant Monday-morning site
-// visitors saw the prior week's numbers even in weeks nflverse had already
-// published by Tuesday. Widened to Monday/Tuesday/Wednesday checks, relying
-// on the EXISTING idempotent/exit-code-3 "not published yet" handling in the
-// same job (unchanged by this pass) so an early run is always safe.
+// THE ORIGINAL DEFECT: a single Wednesday-11:00-UTC cron meant Monday-morning
+// site visitors saw the prior week's numbers even in weeks nflverse had
+// already published by Tuesday.
+//
+// REVISED SAME DAY: Keith's follow-up made explicit that "wait for all 32
+// teams" only ever governed calling a week FINALIZED, not loading it at all —
+// Sunday's games should show up Sunday night/Monday morning as PROVISIONAL,
+// not wait for Monday Night Football. So the schedule grew two more runs:
+// a Sunday-night pickup and a post-Monday-Night-Football run that's normally
+// what actually finalizes the week. All six runs share the SAME idempotent
+// refresh + exit-code-3 "not published yet" handling (unchanged by this
+// pass), and the downstream leaderboard rebuild is itself idempotent (skips
+// when source coverage hasn't changed — see the no_change guard in
+// /admin/leaderboard-precompute/build), so an early run is always safe.
 import fs from "fs";
 import assert from "assert";
 
@@ -25,19 +35,25 @@ check("YAML parses", () => {
   assert.match(SRC, /^on:\s*$/m);
   assert.match(SRC, /^jobs:\s*$/m);
 });
-check("Monday check exists (early — most weeks too soon, and that's fine, see exit-code-3 handling)", () => {
-  assert.match(SRC, /cron:\s*"0 15 \* \* 1"/);
+check("Sunday-night provisional pickup exists (Monday 05:00 UTC ~1am ET)", () => {
+  assert.match(SRC, /cron:\s*"0 5 \* \* 1"/);
 });
-check("two Tuesday checks exist (nflverse's typical publish window)", () => {
+check("Monday-morning catch-up exists (13:00 UTC ~9am ET)", () => {
+  assert.match(SRC, /cron:\s*"0 13 \* \* 1"/);
+});
+check("post-Monday-Night-Football run exists (Tuesday 05:00 UTC ~1am ET) — normally what finalizes the week", () => {
+  assert.match(SRC, /cron:\s*"0 5 \* \* 2"/);
+});
+check("both original Tuesday correction checks are UNCHANGED (nflverse's typical publish window)", () => {
   assert.match(SRC, /cron:\s*"0 12 \* \* 2"/);
   assert.match(SRC, /cron:\s*"0 20 \* \* 2"/);
 });
-check("Wednesday backstop is preserved (was the ONLY run before this pass)", () => {
+check("Wednesday backstop is preserved (was the ONLY run before the first widening)", () => {
   assert.match(SRC, /cron:\s*"0 11 \* \* 3"/);
 });
-check("no more than 4 scheduled runs/week — checking often is fine, checking hourly would not be", () => {
+check("exactly 6 scheduled runs/week — widen deliberately, not by accident, and not hourly", () => {
   const crons = [...SRC.matchAll(/- cron:/g)];
-  assert.ok(crons.length <= 4, `found ${crons.length} cron entries — widen deliberately, not by accident`);
+  assert.strictEqual(crons.length, 6, `found ${crons.length} cron entries`);
 });
 
 console.log("\nsafety: every added run must be a genuine no-op when data isn't ready");
