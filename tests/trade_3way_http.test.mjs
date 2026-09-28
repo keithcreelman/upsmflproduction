@@ -196,6 +196,25 @@ test("CANCEL: the admin key does not turn the OWNER route into a commissioner ca
   t.equal(readRow(env).status, "collecting");
 });
 
+test("CANCEL: a VALID admin key alongside a valid owner session still resolves as the administrative caller -- explicit worker authority is never demoted by a co-present owner session (authority matrix row 2)", async () => {
+  const env = fresh(); env.COMMISH_API_KEY = "admin-key-secret";
+  const r = await call(env, "POST", "/api/trades/3way/cancel?APIKEY=admin-key-secret&MFL_USER_ID=tok-A", { token: 1, body: { id: TRADE_ID } });
+  // Same outcome as the admin-key-alone case above: the OWNER cancel route refuses an admin
+  // caller outright, regardless of a valid owner session also riding along -- proving the
+  // valid key still won the authority decision rather than being ignored or demoted.
+  t.equal(r.status, 403);
+  t.equal(r.json.code, "commissioner_use_admin_action");
+  t.equal(readRow(env).status, "collecting");
+});
+
+test("CANCEL: an ordinary owner cannot use the foreign-APIKEY collision fix to reach administrative authority -- a partner with a wrong key still gets the normal owner refusal, never the admin path", async () => {
+  const env = fresh(); env.COMMISH_API_KEY = "admin-key-secret";
+  const r = await call(env, "POST", "/api/trades/3way/cancel?APIKEY=wrong-key&MFL_USER_ID=tok-B", { token: 1, body: { id: TRADE_ID } });
+  t.equal(r.status, 403);
+  t.equal(r.json.code, "only_initiator_can_cancel", "must resolve as the ordinary owner path, never as admin or the administrative-cancel code");
+  t.equal(readRow(env).status, "collecting");
+});
+
 test("CANCEL: repeated, in-flight and finished trades return clear conflicts, never a generic failure", async () => {
   const env = fresh();
   const first = await call(env, "POST", "/api/trades/3way/cancel?MFL_USER_ID=tok-A", { token: 1, body: { id: TRADE_ID } });
@@ -227,6 +246,32 @@ test("LOAD: detail returns the canonical trade to every participant and to the c
     t.equal(r.json.trade.participants.length, 3);
     t.equal(r.json.trade.sides.length, 3);
   }
+});
+
+test("LOAD: a foreign/wrong MFL-page APIKEY alongside a valid owner session is ignored -- the owner still lists and loads their 3-way trades with the correct role, and no state changes", async () => {
+  // Root cause 2026-09-28: the MFL embed forwards its OWN page APIKEY on every
+  // request alongside the owner's real MFL_USER_ID. That unrelated key must
+  // never be treated as a bad admin attempt when a proven owner session sits
+  // right next to it -- see worker/src/trade_authz.js resolveTradeCaller.
+  const env = fresh();
+  const before = readRow(env);
+  // Row 5 of the authority matrix, LIST: initiator (tok-A) + a foreign APIKEY.
+  const list = await call(env, "GET", "/api/trades/3way?L=74598&MFL_USER_ID=tok-A&APIKEY=wrong-key", { token: 1 });
+  t.equal(list.status, 200);
+  t.equal(list.json.trades.length, 1);
+  t.equal(list.json.trades[0].viewer.role, "initiator", "the initiator must receive the initiator role, never a 403");
+  // Row 5, DETAIL: a partner (tok-B) + a foreign APIKEY loads the canonical detail with the partner role.
+  const detail = await call(env, "GET", `/api/trades/3way?id=${TRADE_ID}&MFL_USER_ID=tok-B&APIKEY=wrong-key`, { token: 1 });
+  t.equal(detail.status, 200);
+  t.equal(detail.json.trade.viewer.role, "partner");
+  t.equal(detail.json.trade.status, "collecting");
+  // Row 3: the same foreign key with NO owner session at all remains a 403 -- the collision fix must not weaken this.
+  const noSession = await call(env, "GET", "/api/trades/3way?L=74598&APIKEY=wrong-key", {});
+  t.equal(noSession.status, 403);
+  t.equal(noSession.json.code, "forbidden");
+  t.match(noSession.json.error, /administrative key/);
+  // None of these reads may have changed anything.
+  t.deepEqual(readRow(env), before);
 });
 
 test("LOAD: refresh / deep-link returns the identical body every time", async () => {

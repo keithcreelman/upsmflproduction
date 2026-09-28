@@ -57,15 +57,33 @@ export async function resolveTradeCaller(a) {
   const declared = padFid(a.declaredFid);
 
   // ── explicit administrative authority ─────────────────────────────────────
+  // The owner token is read FIRST because a supplied APIKEY that fails to
+  // match COMMISH_API_KEY is not, by itself, ever an error -- the MFL embed
+  // forwards its OWN page APIKEY on every request alongside the owner's real
+  // MFL_USER_ID, and that unrelated key must never be treated as a bad admin
+  // attempt when a proven owner session is sitting right next to it
+  // (2026-09-28: this exact collision produced a false "That administrative
+  // key isn't valid." for every owner using the Trade War Room from inside
+  // MFL). An APIKEY only ever means something when it EXACTLY matches
+  // COMMISH_API_KEY; otherwise it is simply not present as far as authority
+  // is concerned, and the request falls through to normal owner verification
+  // below.
   const apiKey = safeStr(url.searchParams.get("APIKEY"));
+  const token = safeStr(a.queryToken) || (a.allowCookieToken ? safeStr(a.cookieToken) : "");
   if (apiKey && a.allowAdminKey !== false) {
     const expected = safeStr(a.env && a.env.COMMISH_API_KEY);
-    if (!expected || !safeEqual(apiKey, expected)) return fail(403, "forbidden", "That administrative key isn't valid.");
-    return { ok: true, caller: { kind: "admin", via: "apikey", sessionFid: "", fid: declared, isCommish: true, actingAs: !!declared, token: "", leagueId, season } };
+    if (expected && safeEqual(apiKey, expected)) {
+      // explicit, valid worker authority always wins, even alongside an owner session
+      return { ok: true, caller: { kind: "admin", via: "apikey", sessionFid: "", fid: declared, isCommish: true, actingAs: !!declared, token: "", leagueId, season } };
+    }
+    // Invalid/foreign key: only an error when there is no owner session to
+    // fall back to. With one, ignore the key entirely and authenticate the
+    // owner normally (never upgraded to admin, never silently accepted as
+    // an admin attempt).
+    if (!token) return fail(403, "forbidden", "That administrative key isn't valid.");
   }
 
   // ── owner authority: a PROVEN MFL session ─────────────────────────────────
-  const token = safeStr(a.queryToken) || (a.allowCookieToken ? safeStr(a.cookieToken) : "");
   if (!token) return fail(401, "unauthenticated", "Sign in to MFL to do that.");
   let det;
   try { det = await a.deps.detectFranchise(token, leagueId); } catch (e) { det = { error: String((e && e.message) || e) }; }
