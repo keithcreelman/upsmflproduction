@@ -5,6 +5,7 @@
 //   POST /api/trades/3way                                 create (initiator must be the proven viewer)
 //   POST /api/trades/3way/cancel                          { id }  cancel (initiator only — see trade_3way_model.decideCancel)
 //   POST /api/trades/3way/recheck                         { id }  re-check a trade that both partners accepted but the salary cap is holding
+//   POST /api/trades/3way/ack-cap                          { id }  acknowledge the CALLER's own currently-projected cap overage on this trade (never writes to MFL, never itself re-checks)
 //
 // Identity comes from trade_authz.js (the SAME caller model the two-team routes use): a proven
 // MFL session, or the admin key. A franchise id in a body/query is only an "acting as"
@@ -12,7 +13,7 @@
 // worker's configured league) and MUST agree with any league_id in the body; every trade is
 // scoped to that (league, season).
 
-import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution } from "./trade_3way.js";
+import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage } from "./trade_3way.js";
 import { padFid } from "./trade_3way_model.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
 
@@ -46,16 +47,17 @@ export function legacyAliases(trade) {
 }
 
 // The route family this module owns — exact matches only (the global L-guard exempts exactly these).
-export const THREE_WAY_ROUTES = ["/api/trades/3way", "/api/trades/3way/cancel", "/api/trades/3way/recheck"];
+export const THREE_WAY_ROUTES = ["/api/trades/3way", "/api/trades/3way/cancel", "/api/trades/3way/recheck", "/api/trades/3way/ack-cap"];
 
 export async function handle3WayHttp(a) {
   const { request, url, path, env, ctx, deps, corsHeaders } = a;
   const isBase = path === "/api/trades/3way";
   const isCancel = path === "/api/trades/3way/cancel";
   const isRecheck = path === "/api/trades/3way/recheck";
-  if (!isBase && !isCancel && !isRecheck) return null;
+  const isAckCap = path === "/api/trades/3way/ack-cap";
+  if (!isBase && !isCancel && !isRecheck && !isAckCap) return null;
   const method = request.method;
-  if (!((isBase && (method === "GET" || method === "POST")) || ((isCancel || isRecheck) && method === "POST"))) return null;
+  if (!((isBase && (method === "GET" || method === "POST")) || ((isCancel || isRecheck || isAckCap) && method === "POST"))) return null;
 
   const out = (status, payload) => new Response(JSON.stringify(payload), {
     status, headers: { "content-type": "application/json", ...(corsHeaders || {}) },
@@ -108,6 +110,19 @@ export async function handle3WayHttp(a) {
     const x = await recheck3WayExecution(env, ctx, body.id, viewer);
     if (x.ok) return out(200, { ok: true, code: x.code, message: x.message, id: safeStr(body.id) });
     return fail(x.http || 409, x.code || "recheck_failed", x.message || "Couldn't re-check.", x.compliance ? { compliance: x.compliance } : undefined);
+  }
+
+  // ── POST ack-cap ───────────────────────────────────────────────────────────
+  // Explicit acknowledgment of the CALLER's own currently-projected cap overage (Keith's
+  // ruling, 2026-09-28, separate PR: "a proven post-trade salary-cap overage should be
+  // displayed and explicitly acknowledged, but should not itself block the trade"). Never
+  // writes to MFL, never itself flips the trade out of collecting/blocked_cap -- follow with
+  // recheck once acknowledged. `viewer.fid` is the caller's own proven identity, never a body
+  // claim, so this can only acknowledge for the caller's own franchise.
+  if (isAckCap) {
+    const x = await ack3WayCapOverage(env, body.id, viewer);
+    if (x.ok) return out(200, { ok: true, code: x.code, message: x.message, id: safeStr(body.id), cap_ack: x.cap_ack || null });
+    return fail(x.http || 409, x.code || "ack_failed", x.message || "Couldn't record that acknowledgment.", x.compliance ? { compliance: x.compliance } : undefined);
   }
 
   // ── POST cancel ────────────────────────────────────────────────────────────
