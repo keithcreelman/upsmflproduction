@@ -7684,7 +7684,13 @@
 
   function render3WayList() {
     if (!els.tw3List) return;
-    if (els.tw3Count) els.tw3Count.textContent = String((twx.list || []).length);
+    // A dash — never "0" — while the list is unavailable (signed out / failed),
+    // same rule as the 2-way offered/received badges above: 0 means "the
+    // worker said none", not "we don't know yet".
+    if (els.tw3Count) {
+      var tw3Unavailable = twx.listStatus === "error" && !twx.list.length;
+      els.tw3Count.textContent = tw3Unavailable ? "–" : String((twx.list || []).length);
+    }
     if (!T3) { els.tw3List.innerHTML = '<div class="twb-banner-offers-empty">3-way view failed to load.</div>'; return; }
     T3.ensureStyles();
     var html;
