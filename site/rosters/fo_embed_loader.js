@@ -223,12 +223,14 @@
     // window.UPS_CAP_MATH where present). Load order: cap_math → master → FO.
     var masterCandidates = [];
     var capMathCandidates = [];
+    var contractWindowsCandidates = [];
 
     if (base) {
       cssCandidates.push(base + "v2/front_office.css?v=" + cacheKey);
       jsCandidates.push(base + "v2/front_office.js?v=" + cacheKey);
       masterCandidates.push(base + "../shared/player_profile_master.js?v=" + cacheKey);
       capMathCandidates.push(base + "../shared/cap_math.js?v=" + cacheKey);
+      contractWindowsCandidates.push(base + "../shared/contract_windows.js?v=" + cacheKey);
     }
 
     // GitHub Pages is the canonical CDN (see #88).
@@ -236,16 +238,20 @@
     jsCandidates.push(PAGES_V2 + "front_office.js?v=" + cacheKey);
     masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
     capMathCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=" + cacheKey);
+    contractWindowsCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/contract_windows.js?v=" + cacheKey);
 
     injectCssCandidates(cssCandidates);
 
-    // cap_math (window.UPS_CAP_MATH) → master modal (window.UPS_openPlayerProfile)
-    // → front_office.js. FO self-boots on load (it detects the #ups-front-office
+    // cap_math (window.UPS_CAP_MATH) → contract_windows (window.UPS_CONTRACT_WINDOWS,
+    // §B3/§C4/§C5 eligibility) → master modal (window.UPS_openPlayerProfile) →
+    // front_office.js. FO self-boots on load (it detects the #ups-front-office
     // mount); we also call UPS_FO_INIT() in onload to cover the cached-build path.
     injectScript(capMathCandidates, function () {
-      injectScript(masterCandidates, function () {
-        injectScript(jsCandidates, function () {
-          if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
+      injectScript(contractWindowsCandidates, function () {
+        injectScript(masterCandidates, function () {
+          injectScript(jsCandidates, function () {
+            if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
+          });
         });
       });
     });
