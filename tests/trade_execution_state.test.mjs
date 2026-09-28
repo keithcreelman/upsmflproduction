@@ -21,7 +21,7 @@ const restore = quiet();
 const Q = "L=74598&YEAR=2026";
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const player = (pid, salary = 5000) => ({ asset_id: `P_${pid}`, type: "PLAYER", player_id: String(pid), player_name: `P${pid}`, salary, taxi: false, contract_info: "" });
-const LIVE = () => [{ id: "14056", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
+const LIVE = () => [{ id: "14056", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }, { id: "13100", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];   // 13100 is the OTHER leg's incidental roster player (not itself under test) -- a resolvable, flat, non-loaded contract keeps loaded_contracts "ok" instead of "unavailable" now that a fully blank contract anywhere on a participating roster refuses the whole compliance calc (2026-09-28 review)
 const EXT = () => [{
   player_id: "14056", player_name: "P14056", from_franchise_id: "0001", to_franchise_id: "0002", extension_term: "2YR", option_key: "2YR|NONE",
   new_contract_status: "Vet-Ext2", new_TCV: 55000, new_aav_future: 25000, new_contract_length: 3, preview_contract_info_string: "CL 3| TCV 55K| AAV 5K, 25K| Y1-5K, Y2-25K, Y3-25K",
@@ -228,7 +228,7 @@ function threeWay(o) {
     new_contract_status: "Vet-Ext2", new_contract_length: 3, new_TCV: 55000, new_aav_future: 25000, preview_contract_info_string: "CL 3| TCV 55K| AAV 5K, 25K| Y1-5K, Y2-25K, Y3-25K" }];
   F.seedTrade(env, { legs_json: JSON.stringify(legs), status: "executing", team_b_state: "accepted", team_c_state: "accepted", ...(o.ext ? { extension_requests_json: JSON.stringify(ext3) } : {}) });
   mfl.st.rosters = { "0008": [{ id: "16614", salary: 5000 }], "0001": [{ id: "16181", salary: 5000 }], "0012": [{ id: "16650", salary: 5000 }] };
-  mfl.st.salaries = [{ id: "16614", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
+  mfl.st.salaries = [{ id: "16614", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }, { id: "16181", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }, { id: "16650", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];   // 16181/16650 are the OTHER two legs' incidental roster players -- resolvable, flat contracts, same reason as LIVE() above
   return { env, mfl };
 }
 const tradesDone = (mfl) => mfl.st.done.filter((d) => d.response === "accept").length;

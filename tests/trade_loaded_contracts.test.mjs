@@ -424,5 +424,89 @@ test("LC 3-WAY: recheck recomputes from FRESH authority -- fixing the roster let
   const row = F.readRow(env); t.equal(row.status, "completed"); t.equal(row.failure_reason, "dry_run");
 });
 
+// ───────────── Part 4 — second review pass (2026-09-28): schedule authority + status whitelist ─────────────
+// Six real fail-open cases a hand review of the FIRST revision found: a schedule that
+// LOOKS parseable was being trusted without checking it was actually COMPLETE or
+// RECONCILED, and "a nonblank status" was being trusted without checking it was actually a
+// RECOGNIZED one. Each test below reproduces the review's exact input and required result.
+
+test("LC 22 (review row 1): an INCOMPLETE schedule -- Y2 silently missing from a stated 3-year contract -- is never trusted as a complete 2-entry flat schedule; unavailable, not flat", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 3|TCV 6K|Y1-2K, Y3-2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "Y1 and Y3 both parse to $2K, but Year 2 -- one of the contract's own stated 3 years -- is missing entirely; that is an incomplete schedule, not a complete, provably-flat one");
+  t.equal(c.cap.status, "ok", "the unresolvable loaded-contract classification must not poison the cap result");
+});
+
+test("LC 23 (review row 2): an INCOMPLETE schedule -- Y3 silently missing from a stated 3-year contract -- is never trusted; unavailable, not flat", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 3|TCV 6K|Y1-2K, Y2-2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "Y1 and Y2 both parse to $2K, but Year 3 -- the contract's own stated final year -- is missing entirely");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 24 (review row 3): a COMPLETE schedule that does NOT RECONCILE with the stated TCV is never trusted; unavailable, not FL", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 3|TCV 6K|Y1-3K, Y2-1K, Y3-1K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "the schedule covers all 3 stated years but sums to $5K, not the stated $6K TCV -- that mismatch is a real inconsistency in the data, not proof this contract is front-loaded");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 25 (review row 4): Year 1 exactly equaling the AAV is NOT the same thing as a flat contract -- an irregular, non-uniform schedule is unavailable, never silently called FLAT", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 3|TCV 6K|Y1-2K, Y2-3K, Y3-1K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "Y1 ($2K) equals the AAV ($6K / 3 = $2K) exactly, but Y2/Y3 are $3K/$1K -- the years are NOT all equal, so this is not FLAT (which means every year pays the same amount); canon's simple front/back taxonomy can't classify an irregular shape like this");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 26 (review row 5): an UNRECOGNIZED, nonblank contractStatus -- not a real MFL status family, no FL/BL proof -- is never assumed flat; unavailable", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Zzz-Bogus-Status" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "a status string that matches no known MFL contractStatus family is not proof of anything, flat or loaded -- previously, absence of an explicit -FL/-BL suffix was silently read as 'flat by default' for ANY nonblank status, recognized or not");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 27 (review row 6): a TRULY blank contract -- contractYear, contractStatus, AND contractInfo all absent, the exact cap-math `unknown` shape -- is unresolved, never silently assumed flat; cap and roster stay intact", () => {
+  const rosters = ok({ rosters: { franchise: [
+    { id: "0001", player: loadedIds(100, 4).map((p) => ({ id: p.id, salary: "1000", status: "ROSTER", contractYear: "2", contractStatus: p.contractStatus })) },
+    { id: "0002", player: [{ id: "200", salary: "1000", status: "ROSTER" }] },   // NO contractYear, NO contractStatus, NO contractInfo -- MFL said nothing at all about this contract
+  ] } });
+  const c = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adjOf([]), rosters, movements: [{ from: "0002", to: "0001", tokens: ["200"] }] });
+  t.equal(c.loaded_contracts.status, "unavailable", "silence is not proof of flat -- even though it IS treated as 'not expired' for the cap-math dollar total (currentCapHit's `unknown` handling), those are different questions with different safe defaults: a dollar total has a safe conservative fallback (count the full salary); a loaded/flat verdict does not");
+  t.equal(c.cap.status, "ok", "the cap result -- which DOES use the 'unknown = count the full salary' convention -- must not be affected by the loaded-contract block being separately unresolved");
+  t.notEqual(c.roster.status, "unavailable", "nor the roster-count advisory");
+});
+
+test("LC 2-WAY (review row 6, execution proof): loaded_contracts unavailable -- a truly blank contract on the traded player -- blocks the accept the same way a proven violation does: 503, zero MFL writes, offer stays pending", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000 }];   // no contractStatus, no contractInfo, no contractYear
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  const r = await act(env, mobileBody(id));
+  t.equal(r.status, 503);
+  t.equal(r.json.code, "loaded_contract_check_unavailable");
+  t.equal(mfl.writes("tradeResponse").length, 0, "an unresolvable loaded-contract classification must make zero MFL writes, exactly like a proven block");
+  t.equal(mfl.st.pending.length, 1, "the offer stays pending, never silently dropped or auto-accepted");
+});
+
+test("LC 3-WAY (review row 6, execution proof): loaded_contracts unavailable -- a truly blank contract on one of the traded assets -- blocks execution recoverably: zero MFL writes, ledger blocked_cap, never failed", async () => {
+  const { env, mfl } = threeWayWorld({ row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0008"][0] = { id: "16614", salary: 5000 };   // no contractStatus, no contractInfo, no contractYear -- genuinely unresolvable
+  const r1 = await execute3Way(env, F.TRADE_ID);
+  t.equal(r1.blocked, true); t.equal(r1.kind, "unavailable");
+  t.equal(F.readRow(env).status, "collecting", "recoverable -- never failed");
+  t.equal(ledgerRow(env).state, "blocked_cap");
+  t.equal(mfl.writes().length, 0, "zero MFL writes when the loaded-contract classification can't be verified");
+});
+
 await run("trade_loaded_contracts");
 restore();

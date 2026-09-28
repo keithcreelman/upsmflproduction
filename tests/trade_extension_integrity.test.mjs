@@ -39,6 +39,7 @@ const payloadOf = (ext) => ({
 function fresh() {
   const env = makeWorkerEnv(); const mfl = makeMfl({ tokens: { "tok-H": "0012" } }); mfl.install();
   mfl.st.salaries = LIVE();
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA", contractYear: "1", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
   return { env, mfl };
 }
 async function sendOffer(env, mfl, payload) {
@@ -167,7 +168,7 @@ test("3-WAY: a pre-trade extension that is no longer eligible refuses the Discor
   const ext3 = [{ player_id: "16614", player_name: "P16614", from_franchise_id: "0008", to_franchise_id: "0001", applies_to_acquirer: true, option_key: "2YR|NONE", extension_term: "2YR", loaded_indicator: "NONE",
     new_contract_status: "EXT2", new_contract_length: 3, new_TCV: 55000, new_aav_future: 25000, preview_contract_info_string: "CL 3| TCV 55K| AAV 5K, 25K| Y1-5K, Y2-25K, Y3-25K" }];
   F.seedTrade(env, { legs_json: JSON.stringify([{ from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0 }, { from: "0001", to: "0012", asset_tokens: ["P_16181"], cap_k: 0 }, { from: "0012", to: "0008", asset_tokens: ["P_16650"], cap_k: 0 }]), extension_requests_json: JSON.stringify(ext3) });
-  mfl.st.rosters = { "0008": [{ id: "16614", salary: 5000 }], "0001": [{ id: "16181", salary: 5000 }], "0012": [{ id: "16650", salary: 5000 }] };
+  mfl.st.rosters = { "0008": [{ id: "16614", salary: 5000 }], "0001": [{ id: "16181", salary: 5000, contractStatus: "Vet-FAA", contractYear: "1", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }], "0012": [{ id: "16650", salary: 5000, contractStatus: "Vet-FAA", contractYear: "1", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }] };
   const press = (a, u) => ({ data: { custom_id: `tr3:${a}:${F.TRADE_ID}` }, member: { user: { id: u } } });
   const say = async (r) => (await r.json()).data.content;
   // (a) eligible → the accept is recorded

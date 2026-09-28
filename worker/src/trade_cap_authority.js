@@ -220,18 +220,18 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
       // Loaded-contract classification runs BEFORE the taxi skip below -- a loaded
       // contract on taxi must still count (canon: max 5 loaded per roster, no taxi
       // carve-out; never fail OPEN by silently excluding a taxi player from the count).
-      // p.unknown (years AND status AND info all blank -- MFL/the export said NOTHING
-      // about this contract at all) is treated as flat here, the same "silence is not a
-      // hidden truth" posture currentCapHit() already takes for the SAME flag ("MFL has
-      // recorded... silence is not expired") -- a real MFL player is never genuinely this
-      // blank in production; a PARTIALLY-known contract (e.g. years remaining is known
-      // but contractStatus/contractInfo are blank) is NOT `unknown` and gets the full,
-      // stricter resolveLoadedStatus treatment below, which can still report unresolved.
-      if (!p.unknown) {
-        const lstatus = resolveLoadedStatus(p.contractStatus, p.contractInfo);
-        if (!lstatus.resolved) loadedUnresolved = true;
-        else if (lstatus.loaded) loadedBefore += 1;
-      }
+      // A fully blank contract (years AND status AND info all blank -- p.unknown) goes
+      // through this SAME resolveLoadedStatus() call as every other player, with no
+      // shortcut to flat (2026-09-28 review, second pass): currentCapHit()'s "silence is
+      // not proof of expiry" posture for THIS SAME flag, just below, is a cap-math
+      // convention about the safe conservative default for a dollar total -- it does not
+      // extend to "silence is proof of flat" here, where there is no safe default. A
+      // genuinely blank contract naturally resolves as unresolved via priority 4 below
+      // (status, length, and schedule are all unreadable), which is the correct outcome:
+      // `loaded_contracts: unavailable`, never a silently assumed flat.
+      const lstatus = resolveLoadedStatus(p.contractStatus, p.contractInfo);
+      if (!lstatus.resolved) loadedUnresolved = true;
+      else if (lstatus.loaded) loadedBefore += 1;
       const expired = (p.years | 0) <= 0 && !p.unknown;
       postTradeRoster[fid].push({ id: pid, group: positions ? posGroup(positions[pid]) : "", excluded: p.taxi || p.ir || expired });
       if (p.taxi) continue;
@@ -256,8 +256,9 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         // The sender always loses whatever contract they CURRENTLY hold -- extended or
         // not, they're giving that contract up, full stop. (Already resolved/flagged in
         // the per-franchise scan above, since m.from is always a participant scanned
-        // there -- resolving again here just reuses the same deterministic function.)
-        const sentLoaded = p.unknown ? { resolved: true, loaded: "" } : resolveLoadedStatus(p.contractStatus, p.contractInfo);
+        // there -- resolving again here just reuses the same deterministic function, with
+        // no p.unknown shortcut, matching the scan above.)
+        const sentLoaded = resolveLoadedStatus(p.contractStatus, p.contractInfo);
         if (sentLoaded.resolved && sentLoaded.loaded) send.loadedAfter -= 1;
         postTradeRoster[m.from] = postTradeRoster[m.from].filter((r) => r.id !== tok);
 

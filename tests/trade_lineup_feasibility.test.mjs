@@ -192,8 +192,8 @@ const payloadOf = (from, to, give, recv) => ({
 
 test("LU 2-WAY: an unbalanced post-trade roster produces a warning but the accept still SUCCEEDS", async () => {
   const { env, mfl } = fresh2();
-  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000 }]; // sends its only real player away -> nothing left
-  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000 }];
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }]; // sends its only real player away -> nothing left
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
   const p1 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, {
     body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "", payload: payloadOf("0001", "0002", [player(14056)], [player(13100)]) },
   });
@@ -211,7 +211,7 @@ test("LU 3-WAY: the lineup block never blocks a 3-way accept either -- consent r
   for (const [fid, d] of [["0008", DISCORD.A], ["0001", DISCORD.B], ["0012", DISCORD.C]]) env.UPS_MFL_DB.raw.prepare("INSERT INTO discord_owners VALUES (?,?,?)").run(fid, "Y", d);
   const legs = [{ from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0, summary: "x" }, { from: "0001", to: "0012", asset_tokens: ["P_16181"], cap_k: 0, summary: "x" }, { from: "0012", to: "0008", asset_tokens: ["P_16650"], cap_k: 0, summary: "x" }];
   F.seedTrade(env, { legs_json: JSON.stringify(legs), team_b_state: "accepted" });
-  mfl.st.rosters = { "0008": [{ id: "16614", salary: 5000 }], "0001": [{ id: "16181", salary: 5000 }], "0012": [{ id: "16650", salary: 5000 }] };
+  mfl.st.rosters = { "0008": [{ id: "16614", salary: 5000, contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }], "0001": [{ id: "16181", salary: 5000, contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }], "0012": [{ id: "16650", salary: 5000, contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }] };
   const press = (action, userId) => ({ data: { custom_id: `tr3:${action}:${F.TRADE_ID}` }, member: { user: { id: userId } } });
   const say = async (resp) => (await resp.json()).data.content;
   const { handle3WayButton } = await import("../worker/src/trade_3way.js");
