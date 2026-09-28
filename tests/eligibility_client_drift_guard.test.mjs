@@ -75,14 +75,19 @@ check("desktop front_office.js: extensionDeadlineForPlayer delegates its off-lad
   assert.match(body, /UPS_CONTRACT_WINDOWS/);
   assert.match(body, /standardExtensionWindow\(/);
 });
-check("Roster Workbench: extensionEligible is no longer pure contract shape — gates on the shared window", () => {
+check("Roster Workbench: extensionEligible is no longer pure contract shape — gates on the shared window (off-ladder) or the server-resolved ladder stage (pre-season WW/FCFS pickups)", () => {
   const i = RWB.indexOf("function rosterContractEligibility(player)");
   assert.ok(i > 0);
-  const fieldIdx = RWB.indexOf("extensionEligible", i);
-  const around = RWB.slice(i, fieldIdx + 200);
-  assert.match(around, /UPS_CONTRACT_WINDOWS/,
+  const end = RWB.indexOf("\n  }", RWB.indexOf("restructureEligible:", i));
+  const body = RWB.slice(i, end);
+  assert.match(body, /UPS_CONTRACT_WINDOWS/,
     "Roster Workbench's extensionEligible used to be `years===1 || expiredRookie` with NO deadline check at all");
-  assert.match(around, /standardExtensionWindow\(/);
+  assert.match(body, /standardExtensionWindow\(/);
+  // 2026-09-28 review fix: a pre-season pickup must route through the ladder
+  // stage, not the off-ladder days-15-28 clock — see
+  // tests/roster_workbench_ladder_extension.test.mjs for the behavioral proof.
+  assert.match(body, /isPreseasonWwPickupRW\(/);
+  assert.match(body, /contractLadderStageRW\(\)/);
 });
 check('mobile: the off-ladder ("plain held veteran") branch now checks the shared window instead of skipping straight to true', () => {
   const i = MOB.indexOf("function rosterContractEligibility(player)");
