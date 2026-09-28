@@ -646,6 +646,17 @@ export async function get3WayTrade(env, id, viewer, deps) {
       console.warn(`[3way] compliance lookup failed: ${e?.message || e}`);
       trade.compliance = unavailableCompliance("lookup_failed");
     }
+    // A blocked-on-cap trade's `execution.block` is a SNAPSHOT from whenever it was recorded
+    // (worker/src/trade_3way.js's enterBlockedCap) -- it does not move as owners acknowledge.
+    // Fold in the CURRENT acknowledgment picture here so the detail view (and "Re-check") show
+    // who still needs to acknowledge without requiring a re-check to see it change.
+    if (trade.execution && trade.execution.blocked && trade.execution.block && trade.compliance && trade.compliance.cap && trade.compliance.cap.status === "blocked") {
+      try {
+        const acks = await capAckStoreFor(env).readAllForTrade(capAckKey(row));
+        const ackEval = evaluateCapAcknowledgment({ violations: trade.compliance.cap.violations, tradeKey: safeStr(row.id), acks });
+        trade.execution.block.cap_ack = ackEval.perFranchise;
+      } catch (e) { console.warn(`[3way] cap-ack lookup failed (block shown without it): ${e?.message || e}`); }
+    }
   }
   return { ok: true, trade };
 }

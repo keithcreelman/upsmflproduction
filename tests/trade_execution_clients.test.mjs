@@ -98,11 +98,11 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   const idx = read("site/m/index.html");
   const stampOf = (f) => (idx.match(new RegExp(f.replace(/[.\/]/g, "\\$&") + "\\?v=([0-9.]+)")) || [])[1];
   // shared/trade_3way_view.js and views/trade.js are pinned to the build THIS
-  // fix shipped in (2026.09.27.2), not the live `v` above — a per-file ?v=
-  // only needs to be >= that file's own last change, not equal to whatever a
-  // LATER, unrelated release bumped the overall build to (it was 2026.09.28.1
-  // for a contract-eligibility fix that never touched these two files).
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.27.2", "2026.09.27.2"],
+  // fix shipped in (2026.09.28.3, the cap-overage acknowledgment ruling), not
+  // the live `v` above — a per-file ?v= only needs to be >= that file's own
+  // last change, not equal to whatever a LATER, unrelated release bumps the
+  // overall build to.
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.28.3", "2026.09.28.3"],
     "the two unchanged-since scripts still carry the build they shipped in");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   t.ok(v.split(".").map(Number).join(".") >= "2026.9.25.2" && v.split(".").length === 4, "the build did not go backwards from the accepted 2026.09.25.2");

@@ -49,7 +49,7 @@ import {
   indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
 } from "./trade_accept_integrity.js";
 import { evaluateTradeCompliance } from "./trade_cap_authority.js";
-import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
+import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckAssetKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
@@ -38403,7 +38403,8 @@ const mflToSleeper = {};
             if (createCompliance.cap.status === "blocked") {
               const myViolation = (createCompliance.cap.violations || []).find((v) => safeStr(v.franchise_id) === fromFranchiseId);
               if (myViolation) {
-                const wantSig = capAckSignature({ tradeKey: intentBundle.payload_hash, franchiseId: fromFranchiseId, amountOver: myViolation.amount_over, usedAfter: myViolation.projected_used });
+                const createCapAckTradeKey = `${leagueId}|${season}|${fromFranchiseId}|${toFranchiseId}|${capAckAssetKey(tokensByFranchise(proposalAssets))}`;
+                const wantSig = capAckSignature({ tradeKey: createCapAckTradeKey, franchiseId: fromFranchiseId, amountOver: myViolation.amount_over, usedAfter: myViolation.projected_used });
                 const gotSig = safeStr(body?.cap_ack && body.cap_ack.signature);
                 if (gotSig !== wantSig) {
                   return jsonOut(409, {
@@ -38421,7 +38422,7 @@ const mflToSleeper = {};
                   const ackDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
                   if (ackDb) {
                     await makeCapAckStore(ackDb).record(
-                      { leagueId, season, tradeKey: intentBundle.payload_hash },
+                      { leagueId, season, tradeKey: createCapAckTradeKey },
                       { franchiseId: fromFranchiseId, acknowledgedByFid: fromFranchiseId, signature: wantSig, amountOverDollars: myViolation.amount_over, usedAfterDollars: myViolation.projected_used, capDollars: createCompliance.cap.cap_dollars, tradeKind: "two_way" }
                     );
                   }
@@ -39387,8 +39388,8 @@ const mflToSleeper = {};
             });
           }
 
-          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE"].includes(action)) {
-            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, or COUNTER in direct mode" });
+          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE", "ACK_CAP"].includes(action)) {
+            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, COUNTER, or ACK_CAP in direct mode" });
           }
           if (!mflTradeId) {
             return jsonOut(400, { ok: false, error: "trade_id is required for direct MFL actions" });
@@ -39565,7 +39566,7 @@ const mflToSleeper = {};
                 // the sender's behalf, and a stale (renumbered) prior acknowledgment does not
                 // count, so a cap picture that changed since creation still blocks until the
                 // sender acknowledges again.
-                const capAckTradeKey = safeStr(candidate && candidate.payload_hash) || mflTradeId;
+                const capAckTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckAssetKey(tokensByFranchise(authLists))}`;
                 const capAckDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
                 const capAcksStored = capAckDb ? await makeCapAckStore(capAckDb).readAllForTrade({ leagueId, season, tradeKey: capAckTradeKey }) : {};
                 const capAcksForEval = { ...capAcksStored };
@@ -39602,7 +39603,7 @@ const mflToSleeper = {};
               if (acceptCompliance.cap.status === "unavailable") {
                 return integrityFail(503, "cap_check_unavailable", "We couldn't verify the salary cap for this trade right now, so nothing was acknowledged. Try again in a moment.", { compliance: acceptCompliance });
               }
-              const ackCapTradeKey = safeStr(candidate && candidate.payload_hash) || mflTradeId;
+              const ackCapTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckAssetKey(tokensByFranchise(authLists))}`;
               const ackCapMyFid = actingFranchiseId;
               const ackCapMyViolation = (acceptCompliance.cap.violations || []).find((v) => safeStr(v.franchise_id) === ackCapMyFid);
               if (!ackCapMyViolation) {
@@ -39631,7 +39632,7 @@ const mflToSleeper = {};
               // to acknowledge, and what signature to send back, without guessing.
               let capAckPreview = null;
               if (acceptCompliance.cap.status === "blocked") {
-                const previewTradeKey = safeStr(candidate && candidate.payload_hash) || mflTradeId;
+                const previewTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckAssetKey(tokensByFranchise(authLists))}`;
                 const previewAckDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
                 const previewStoredAcks = previewAckDb ? await makeCapAckStore(previewAckDb).readAllForTrade({ leagueId, season, tradeKey: previewTradeKey }) : {};
                 const previewAckEval = evaluateCapAcknowledgment({ violations: acceptCompliance.cap.violations, tradeKey: previewTradeKey, acks: previewStoredAcks });

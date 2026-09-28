@@ -174,7 +174,7 @@
     h += '<div class="t3w-sides">' + (trade.sides || []).map(function (s, i) { return sideHtml(s, (trade.participants || [])[i], !!trade.terminal); }).join("") + '</div>';
     var ex = trade.execution || null;
     // Both partners accepted but the salary cap is holding the trade: say who and by how much, keep the accepts visible, offer a re-check.
-    if (ex && ex.blocked) h += api.renderBlock(ex, trade.permissions || {}, opts.recheck || {});
+    if (ex && ex.blocked) h += api.renderBlock(ex, trade.permissions || {}, opts.recheck || {}, { viewerFid: trade.viewer && trade.viewer.fid, ackBusy: opts.ackBusy, ackMessage: opts.ackMessage, ackOk: opts.ackOk });
     if (trade.compliance && !trade.terminal && !(ex && ex.blocked)) h += api.renderCompliance(trade.compliance, {});
     if ((trade.extensions || []).length) {
       h += '<div class="t3w-ext"><h5>Pre-trade extensions</h5><ul>' + trade.extensions.map(function (e) {
@@ -215,6 +215,37 @@
   //   roster.status "ok" | "warn"    | "unavailable"   → advisory only; never blocks, never a legal certification
   function money(n) { return "$" + Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
   api.money = money;
+
+  // ── salary-cap overage ACKNOWLEDGMENT (Keith's ruling, 2026-09-28, separate from the hard
+  // roster/cap block above): a proven overage no longer itself blocks the trade -- it just needs
+  // the AFFECTED franchise's own owner to say "yes, I see it" before an accept/execution can go
+  // through. `capAck` is the server's per-franchise picture ({satisfied, per_franchise:[{
+  // franchise_id, franchise_name, amount_over, status:"acknowledged"|"missing"|"stale", signature?}]});
+  // nothing here decides who is over or by how much -- that's still the cap section above.
+  function ackRow(f, viewerFid, opts) {
+    var mine = !!viewerFid && f.franchise_id === viewerFid;
+    var badge = f.status === "acknowledged" ? '<span class="t3w-ack-badge t3w-ack-badge-ok">Acknowledged</span>'
+      : mine ? '<span class="t3w-ack-badge t3w-ack-badge-you">Needs your OK</span>'
+      : '<span class="t3w-ack-badge t3w-ack-badge-wait">Waiting on ' + esc(f.franchise_name || f.franchise_id) + '</span>';
+    var h = '<li class="t3w-ack-row"><span class="t3w-cr-name">' + esc(f.franchise_name || f.franchise_id) + '</span>' +
+      '<span class="t3w-cr-num">' + esc(money(f.amount_over)) + ' over</span>' + badge;
+    if (mine && f.status !== "acknowledged") {
+      h += '<button type="button" class="t3w-btn t3w-btn-primary t3w-ack-btn" data-t3w-act="ack-cap" data-t3w-ack-fid="' + esc(f.franchise_id) +
+        '" data-t3w-ack-sig="' + esc(f.signature || "") + '"' + (opts.ackBusy ? " disabled" : "") + '>' +
+        (opts.ackBusy ? "Acknowledging\u2026" : "Acknowledge " + money(f.amount_over) + " over the cap") + '</button>';
+    }
+    return h + '</li>';
+  }
+  api.renderCapAck = function (capAck, viewerFid, opts) {
+    opts = opts || {};
+    if (!capAck || !Array.isArray(capAck.per_franchise) || !capAck.per_franchise.length) return "";
+    var rows = capAck.per_franchise.map(function (f) { return ackRow(f, viewerFid, opts); }).join("");
+    var h = '<div class="t3w-ack" role="status"><b>' + (capAck.satisfied ? "Acknowledged" : "Needs acknowledgment before this can go through") + '</b>' +
+      '<ul class="t3w-crows t3w-ack-list" aria-label="Salary cap overage acknowledgment">' + rows + '</ul>';
+    if (opts.ackMessage) h += '<p class="t3w-status t3w-status-' + (opts.ackOk ? "ok" : "bad") + '" role="status" aria-live="polite">' + esc(opts.ackMessage) + '</p>';
+    return h + '</div>';
+  };
+
   api.renderCompliance = function (c, opts) {
     opts = opts || {};
     if (!c || !c.cap || !c.roster) {
@@ -222,7 +253,9 @@
         '<p>We couldn\'t verify the salary cap for this trade right now.' + (opts.gate ? ' It can\'t be accepted until we can.' : '') + '</p></div></section>';
     }
     var cap = c.cap, ro = c.roster;
-    var capTitle = cap.status === "blocked" ? "Can\'t be accepted \u2014 over the salary cap" : cap.status === "ok" ? "Salary cap \u2014 every team stays under" : "Salary cap \u2014 couldn\'t be verified";
+    var acked = cap.status === "blocked" && opts.capAck && opts.capAck.satisfied;
+    var capTitle = cap.status === "blocked" ? (acked ? "Over the salary cap \u2014 acknowledged" : "Over the salary cap \u2014 needs acknowledgment")
+      : cap.status === "ok" ? "Salary cap \u2014 every team stays under" : "Salary cap \u2014 couldn\'t be verified";
     var capMsg = cap.status === "unavailable"
       ? "We couldn\'t verify the salary cap for this trade right now." + (opts.gate ? " It can\'t be accepted until we can \u2014 try again in a moment." : "")
       : cap.status === "blocked" ? str(cap.message) : "";
@@ -232,8 +265,9 @@
         (r.over_by > 0 ? '<span class="t3w-cr-flag">over by ' + esc(money(r.over_by)) + '</span>' : '<span class="t3w-cr-room">' + esc(money(r.room_after)) + ' room</span>') + '</li>';
     }).join("");
     var h = '<section class="t3w-comp" data-t3w-cap="' + esc(cap.status) + '" data-t3w-roster="' + esc(ro.status) + '">';
-    h += '<div class="t3w-cap t3w-cap-' + esc(cap.status) + '" role="' + (cap.status === "ok" ? "status" : "alert") + '"><b>' + capTitle + '</b>' +
-      (capMsg ? '<p>' + esc(capMsg) + '</p>' : '') + (capRows ? '<ul class="t3w-crows" aria-label="Salary cap after the trade">' + capRows + '</ul>' : '') + '</div>';
+    h += '<div class="t3w-cap t3w-cap-' + esc(acked ? "ok" : cap.status) + '" role="' + (cap.status === "ok" || acked ? "status" : "alert") + '"><b>' + capTitle + '</b>' +
+      (capMsg ? '<p>' + esc(capMsg) + '</p>' : '') + (capRows ? '<ul class="t3w-crows" aria-label="Salary cap after the trade">' + capRows + '</ul>' : '') +
+      (cap.status === "blocked" && opts.capAck ? api.renderCapAck(opts.capAck, opts.viewerFid, opts) : '') + '</div>';
     var roTitle = ro.status === "warn" ? "Roster counts \u2014 heads-up" : ro.status === "ok" ? "Roster counts \u2014 within limits" : "Roster counts \u2014 couldn\'t be checked";
     var roRows = (ro.rows || []).map(function (r) {
       var lim = r.max ? r.min + "\u2013" + r.max : "min " + r.min;
@@ -255,7 +289,8 @@
     var b = res && res.body;
     if (res && !res.networkError && res.ok && b && b.ok !== false && b.compliance && b.compliance.cap) {
       var cap = b.compliance.cap.status;
-      return { kind: "ok", compliance: b.compliance, canAccept: cap === "ok",
+      var capAck = b.cap_ack || null;
+      return { kind: "ok", compliance: b.compliance, capAck: capAck, canAccept: cap === "ok" || (cap === "blocked" && !!capAck && capAck.satisfied),
         message: cap === "blocked" ? b.compliance.cap.message : cap === "unavailable" ? "We couldn\'t verify the salary cap for this trade right now." : "" };
     }
     if (res && !res.networkError && b && b.code === "cap_check_unavailable") {
@@ -271,7 +306,7 @@
     opts = opts || {};
     if (!review) return '<div class="t3w-review"><p class="t3w-small" role="status">Checking the trade against the salary cap\u2026</p></div>';
     var h = '<div class="t3w-review" data-t3w-can-accept="' + (review.canAccept ? "1" : "0") + '">';
-    if (review.kind === "ok") h += api.renderCompliance(review.compliance, { gate: true });
+    if (review.kind === "ok") h += api.renderCompliance(review.compliance, { gate: true, capAck: review.capAck, viewerFid: opts.viewerFid, ackBusy: opts.ackBusy, ackMessage: opts.ackMessage, ackOk: opts.ackOk });
     else h += '<div class="t3w-cap t3w-cap-unavailable" role="alert"><b>Can\'t review this trade</b><p>' + esc(review.message) + '</p></div>';
     h += '<div class="t3w-btns">';
     h += '<button type="button" class="t3w-btn" data-t3w-act="accept-close">' + (review.canAccept ? "Not now" : "Close") + '</button>';
@@ -281,20 +316,35 @@
   };
 
   // ───────────── a trade waiting only on the salary cap (recoverable; every accept is kept) ─────────────
-  api.renderBlock = function (ex, perms, rc) {
+  api.renderBlock = function (ex, perms, rc, opts) {
+    opts = opts || {};
     var b = ex.block || {};
+    var isAck = b.kind === "cap_ack_required";
     var rows = (b.violations || []).map(function (v) {
       return '<li class="t3w-over"><span class="t3w-cr-name">' + esc(v.franchise_name || v.franchise_id) + '</span><span class="t3w-cr-flag">over by ' + esc(money(v.amount_over)) + '</span></li>';
     }).join("");
-    var h = '<section class="t3w-comp" data-t3w-cap="blocked" data-t3w-block="1"><div class="t3w-cap t3w-cap-blocked" role="alert"><b>Waiting on the salary cap</b>' +
+    var title = isAck ? "Waiting on an acknowledgment" : "Waiting on the salary cap";
+    var h = '<section class="t3w-comp" data-t3w-cap="blocked" data-t3w-block="1"><div class="t3w-cap t3w-cap-blocked" role="alert"><b>' + esc(title) + '</b>' +
       '<p>' + esc(b.message || "The salary cap can\'t be confirmed for this trade right now.") + '</p>' +
-      (rows ? '<ul class="t3w-crows" aria-label="Teams over the salary cap">' + rows + '</ul>' : '') +
-      '<p class="t3w-small">Everyone has already accepted and those accepts are saved. Nothing has moved. The cap is worked out again from scratch each time you re-check, and the trade goes through as soon as it allows.</p></div>';
+      (rows && !b.cap_ack ? '<ul class="t3w-crows" aria-label="Teams over the salary cap">' + rows + '</ul>' : '') +
+      (b.cap_ack ? api.renderCapAck(b.cap_ack, opts.viewerFid, opts) : '') +
+      '<p class="t3w-small">Everyone has already accepted and those accepts are saved. Nothing has moved.' +
+      (isAck ? ' Once every affected team has acknowledged, use \u201cRe-check\u201d to run it.' : ' The cap is worked out again from scratch each time you re-check, and the trade goes through as soon as it allows.') + '</p></div>';
     if (perms.can_recheck) {
       h += '<div class="t3w-btns"><button type="button" class="t3w-btn t3w-btn-primary" data-t3w-act="recheck"' + (rc.busy ? " disabled" : "") + '>' + (rc.busy ? "Checking\u2026" : "Re-check now") + '</button></div>';
     }
     if (rc.message) h += '<div class="t3w-status t3w-status-' + (rc.ok ? "ok" : "bad") + '" role="status" aria-live="polite">' + esc(rc.message) + '</div>';
     return h + '</section>';
+  };
+  api.interpretAckCap = function (res) {
+    var b = res && res.body;
+    if (res && !res.networkError && res.ok && b && b.ok === true) {
+      return { kind: b.code === "nothing_to_acknowledge" ? "nothing" : "acknowledged", ok: true, message: b.message || "Acknowledged.", capAck: b.cap_ack || null, compliance: b.compliance || null };
+    }
+    var f = failure(res);
+    var code = b && b.code;
+    var msg = (b && typeof code === "string" && res.status < 500 && (b.message || b.error)) ? (b.message || b.error) : f.message;
+    return { kind: f.kind, ok: false, code: code, message: msg, retryable: f.retryable };
   };
   api.interpretRecheck = function (res) {
     var b = res && res.body;
@@ -425,7 +475,12 @@
     '.t3w-crows{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}.t3w-crows li{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;justify-content:space-between}' +
     '.t3w-cr-name{font-weight:600}.t3w-cr-num{font-variant-numeric:tabular-nums}.t3w-cr-room{color:var(--c-mut);font-size:12px}.t3w-cr-flag{color:var(--c-bad);font-weight:700;font-size:12px}' +
     '.t3w-over .t3w-cr-num{color:var(--c-bad)}.t3w-flag .t3w-cr-num{color:var(--c-warn)}' +
-    '.t3w-review{display:grid;gap:10px}.t3w-btn-primary{background:#2f6fe4;border-color:#2f6fe4;color:#fff}.t3w-btn-primary:hover:not([disabled]){background:#4380f0;border-color:#4380f0}';
+    '.t3w-review{display:grid;gap:10px}.t3w-btn-primary{background:#2f6fe4;border-color:#2f6fe4;color:#fff}.t3w-btn-primary:hover:not([disabled]){background:#4380f0;border-color:#4380f0}' +
+    '.t3w-ack{margin-top:8px;padding-top:8px;border-top:1px dashed var(--c-line)}.t3w-ack>b{font-size:13px}' +
+    '.t3w-ack-list{margin-top:6px}.t3w-ack-row{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}' +
+    '.t3w-ack-badge{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}' +
+    '.t3w-ack-badge-ok{color:var(--c-ok)}.t3w-ack-badge-you{color:var(--c-warn)}.t3w-ack-badge-wait{color:var(--c-mut)}' +
+    '.t3w-ack-btn{min-height:36px;padding:6px 12px;font-size:13px;flex-basis:100%}';
   api.CSS = CSS;
   api.ensureStyles = function (doc) {
     doc = doc || (typeof document !== "undefined" ? document : null);

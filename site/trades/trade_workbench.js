@@ -3334,16 +3334,22 @@
     }
     if (dlg.hasAttribute("open")) return Promise.resolve(false);   // a review is already on screen
     var body = document.getElementById("twbAcceptReviewBody");
+    var viewerFid = String((previewBody && previewBody.acting_franchise_id) || "");   // (this section is extracted standalone in tests -- no outer safeStr in scope)
     return new Promise(function (resolve) {
       var settled = false;
       var token = 0;
+      var lastReview = null;
+      var ack = { busy: false, message: "", ok: false };
       function done(v) {
         if (settled) return;
         settled = true;
         try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); }
         resolve(v);
       }
-      function paint(review) { body.innerHTML = T.renderAcceptReview(review, {}); }
+      function paint(review) {
+        lastReview = review;
+        body.innerHTML = T.renderAcceptReview(review, { viewerFid: viewerFid, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok });
+      }
       function load() {
         var mine = ++token;
         paint(null);
@@ -3352,7 +3358,23 @@
           paint(T.interpretPreview(res));
         });
       }
-      T.bind(dlg, { "accept-close": function () { done(false); }, "accept-retry": load, "accept-confirm": function () { done(true); } });
+      // The cap-overage ACKNOWLEDGMENT (Keith's ruling, 2026-09-28): a proven overage no longer
+      // blocks the accept, but the affected owner must explicitly say so first. This records it
+      // (POST …/action, action ACK_CAP — the SAME worker route as PREVIEW/ACCEPT, just a
+      // different action) and re-loads the preview, which is what actually flips canAccept once
+      // satisfied — nothing is assumed client-side.
+      function acknowledgeCap() {
+        if (ack.busy) return;
+        ack.busy = true; ack.message = ""; paint(lastReview);
+        fetchAcceptPreview(actionUrl, { league_id: previewBody.league_id, season: previewBody.season, trade_id: previewBody.trade_id, action: "ACK_CAP", acting_franchise_id: previewBody.acting_franchise_id, offer_id: previewBody.offer_id })
+          .then(function (res) {
+            if (settled) return;
+            var out = T.interpretAckCap(res);
+            ack.busy = false; ack.message = out.message; ack.ok = !!out.ok;
+            load();
+          });
+      }
+      T.bind(dlg, { "accept-close": function () { done(false); }, "accept-retry": load, "accept-confirm": function () { done(true); }, "ack-cap": acknowledgeCap });
       dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(false); };
       load();
       if (typeof dlg.showModal === "function") {
@@ -4068,6 +4090,54 @@
     return lines.join("\n");
   }
 
+  // The INITIATOR's own overage, shown at offer CREATION (Keith's ruling, 2026-09-28): the
+  // worker refuses to create the offer (409 cap_overage_ack_required) until the sender explicitly
+  // acknowledges the exact projected figure it just computed. `errData` is that refusal's body
+  // ({error, cap_ack_needed:{franchise_id, amount_over, projected_used, cap_dollars, signature}}).
+  // Resolves true only when the owner confirms; the caller then retries the SAME create request
+  // with { cap_ack: { signature } } attached, which the worker verifies is the fresh signature
+  // (never a client-trusted claim) before letting the offer through.
+  function confirmOfferCapOverage(errData) {
+    var T = window.UPS_TRADE_3WAY;
+    var need = (errData && errData.cap_ack_needed) || {};
+    if (typeof document === "undefined") return Promise.resolve(false);
+    var money = T && T.money ? T.money : function (n) { return "$" + Math.round(Number(n) || 0).toLocaleString("en-US"); };
+    var esc = T && T.esc ? T.esc : function (s) { return String(s == null ? "" : s); };
+    if (T) T.ensureStyles();
+    var dlg = document.getElementById("twbCapAckDialog");
+    if (!dlg) {
+      dlg = document.createElement("dialog");
+      dlg.id = "twbCapAckDialog";
+      dlg.className = "twb-feedback-modal-dialog";
+      dlg.setAttribute("aria-labelledby", "twbCapAckDialogTitle");
+      dlg.style.width = "min(520px, calc(100vw - 1.5rem))";
+      dlg.innerHTML = '<div class="twb-feedback-modal-shell" style="background:#0a172d;color:#eaf3ff;border:1px solid rgba(121,153,195,.34);border-radius:14px;padding:.78rem">' +
+        '<header class="twb-feedback-modal-head"><h3 id="twbCapAckDialogTitle">Over the salary cap</h3></header>' +
+        '<div class="twb-feedback-modal-body" id="twbCapAckDialogBody"></div></div>';
+      document.body.appendChild(dlg);
+    }
+    var body = document.getElementById("twbCapAckDialogBody");
+    body.innerHTML = '<p>' + esc(errData && errData.error) + '</p>' +
+      '<p style="font-weight:700;font-size:15px">' + esc(money(need.amount_over)) + ' over the ' + esc(money(need.cap_dollars)) + ' salary cap' +
+      (need.projected_used != null ? ' (projected ' + esc(money(need.projected_used)) + ')' : '') + '</p>' +
+      '<p style="color:#9fb4d6;font-size:13px">This doesn\'t block the trade — MFL will still process it — but you\'re acknowledging you\'ll be over before it\'s sent.</p>' +
+      '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px">' +
+      '<button type="button" data-cap-ack="cancel" class="twb-btn">Cancel</button>' +
+      '<button type="button" data-cap-ack="confirm" class="twb-btn twb-btn-primary">Acknowledge and send</button></div>';
+    return new Promise(function (resolve) {
+      var settled = false;
+      function done(v) { if (settled) return; settled = true; try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); } resolve(v); }
+      body.onclick = function (ev) {
+        var el = ev.target && ev.target.closest ? ev.target.closest("[data-cap-ack]") : null;
+        if (!el) return;
+        done(el.getAttribute("data-cap-ack") === "confirm");
+      };
+      dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(false); };
+      if (typeof dlg.showModal === "function") { try { dlg.showModal(); return; } catch (e) { /* fall through */ } }
+      dlg.setAttribute("open", "open");
+    });
+  }
+
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
     setAcceptDebug(null);
@@ -4129,11 +4199,28 @@
         left_trade_salary_k: payload.teams && payload.teams[0] ? safeInt(payload.teams[0].traded_salary_adjustment_k, 0) : 0,
         right_trade_salary_k: payload.teams && payload.teams[1] ? safeInt(payload.teams[1].traded_salary_adjustment_k, 0) : 0
       });
-      var res = await fetchJsonRequest(apiUrl.toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+      var res;
+      try {
+        res = await fetchJsonRequest(apiUrl.toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+      } catch (createErr) {
+        var createData = createErr && createErr.data && typeof createErr.data === "object" ? createErr.data : null;
+        if (createErr && createErr.status === 409 && createData && createData.code === "cap_overage_ack_required" && createData.cap_ack_needed) {
+          var acknowledged = await confirmOfferCapOverage(createData);
+          if (!acknowledged) throw createErr;
+          var ackedBody = Object.assign({}, body, { cap_ack: { signature: createData.cap_ack_needed.signature } });
+          res = await fetchJsonRequest(apiUrl.toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ackedBody)
+          });
+        } else {
+          throw createErr;
+        }
+      }
       var echoedMessage = safeStr(
         (res && res.proposal && res.proposal.comments) ||
         (res && res.offer && res.offer.message) ||
@@ -7661,7 +7748,7 @@
   // "acting as" request that the worker honors for the commissioner alone.
   var T3 = window.UPS_TRADE_3WAY || null;
   var twx = { listStatus: "idle", list: [], listProblem: null, seq: 0, openSeq: 0,
-              detail: null, detailStatus: "idle", detailProblem: null, detailId: "", cancel: {} };
+              detail: null, detailStatus: "idle", detailProblem: null, detailId: "", cancel: {}, ack: {} };
 
   function twxUrl(suffix, params) {
     var u = new URL(resolve3WayApiUrl(), window.location.href);
@@ -7749,7 +7836,7 @@
     var html;
     if (twx.detailStatus === "loading" && !twx.detail) html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
     else if (twx.detailStatus === "error" && twx.detailProblem) html = T3.renderProblem(twx.detailProblem);
-    else if (twx.detail) html = T3.renderDetail(twx.detail, { cancel: twx.cancel, recheck: twx.recheck || {} });
+    else if (twx.detail) html = T3.renderDetail(twx.detail, { cancel: twx.cancel, recheck: twx.recheck || {}, ackBusy: twx.ack.busy, ackMessage: twx.ack.message, ackOk: twx.ack.ok });
     else html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
     body.innerHTML = html;
     T3.bind(body, {
@@ -7757,6 +7844,7 @@
       keep: function () { twx.cancel = {}; render3WayDetail(); },
       "confirm-cancel": function () { doCancel3Way(twx.detailId); },
       recheck: function () { doRecheck3Way(twx.detailId); },
+      "ack-cap": function () { doAckCap3Way(twx.detailId); },
       retry: function () { open3WayDetail(twx.detailId); }
     });
     if (twx.detail && twx.cancel.confirming && !twx.cancel.busy) T3.revealConfirm(body);
@@ -7789,6 +7877,27 @@
     tw3dSetVisible(false);
     tw3dSetUrl("");
     refresh3WayList();
+  }
+
+  // Acknowledge THIS caller's own currently-projected cap overage on a 3-way trade (Keith's
+  // ruling, 2026-09-28) — never writes to MFL, never itself re-checks; the owner (or commissioner,
+  // via "Re-check") still needs to trigger that separately once every affected franchise has
+  // acknowledged. Mirrors doRecheck3Way's exact shape.
+  async function doAckCap3Way(id) {
+    if (!id || (twx.ack && twx.ack.busy)) return;
+    twx.ack = { busy: true };
+    render3WayDetail();
+    var body = { id: id };
+    var fid = getActiveFranchiseId();
+    if (fid) body.acting_franchise_id = fid;
+    var out = T3.interpretAckCap(await twxFetch(twxUrl("/ack-cap", {}), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }));
+    if (twx.detailId !== id) return;
+    twx.ack = { ok: out.ok, message: out.message };
+    await open3WayDetail(id);
+    twx.ack = { ok: out.ok, message: out.message };          // (open3WayDetail resets per-open state; keep the answer visible)
+    render3WayDetail();
   }
 
   // Re-check a trade both partners accepted that the salary cap is holding (the server recomputes the cap from scratch).

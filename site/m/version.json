@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.28.2",
-  "label": "Contracts: Restructure and Extension now check the real deadline, not just contract shape — a held veteran past the September contract deadline (e.g. a final-year player traded in mid-season) no longer shows as eligible for either, and a pre-season WW/FCFS pickup still at MYAC or MYM on Roster Workbench no longer shows extension-eligible under the wrong (in-season) clock. IR: the eligibility alert on Front Office only counts a real IR-type NFL designation (IR / suspended / holdout / COVID) — a plain game-day \"Out\" or \"Doubtful\" no longer inflates the count."
+  "build": "2026.09.28.3",
+  "label": "Trades: a proven post-trade salary-cap overage no longer blocks a trade — it must be explicitly acknowledged by the affected team's own owner (the sender when offering, each receiving owner when accepting) before it can go through. The loaded-contract limit and roster-count heads-up are unchanged."
 }

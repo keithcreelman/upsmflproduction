@@ -64,6 +64,26 @@ const keyOf = (k) => [s(k.leagueId), s(k.season), s(k.tradeKey)];
  * amount, or simply time passing while other moves change what's on the roster -- changes the
  * signature, which is exactly what makes a stale acknowledgment stop matching.
  */
+/**
+ * A canonical, order-independent fingerprint of WHICH ASSETS are actually moving in a two-way
+ * trade -- the trade_key for the 2-way acknowledgment store. NOT the outbox's own payload_hash:
+ * that hash is computed from a narrower canonical form (index.js's buildTradeIntentBundleFromPayload
+ * -- league/season/franchises/action_type/extension+salary-adjustment XML) that does NOT vary with
+ * the traded players/picks themselves when a trade carries no extension or cap-money component --
+ * two DIFFERENT swaps between the same two franchises would otherwise collide on the identical
+ * payload_hash, letting a signature from one satisfy the other. This key is built from the SAME
+ * per-franchise token map trade_cap_authority.js's `movements` are built from, so it's naturally
+ * available, unchanged, at both offer creation and every later accept/preview of the SAME offer.
+ */
+export function capAckAssetKey(tokensByFranchise) {
+  const tokens = [];
+  for (const fid of Object.keys(tokensByFranchise || {})) {
+    for (const tok of tokensByFranchise[fid] || []) tokens.push(`${s(fid)}:${s(tok)}`);
+  }
+  tokens.sort();
+  return tokens.join(",");
+}
+
 export function capAckSignature({ tradeKey, franchiseId, amountOver, usedAfter }) {
   return `${s(tradeKey)}|${s(franchiseId)}|${Math.round(Number(amountOver) || 0)}|${Math.round(Number(usedAfter) || 0)}`;
 }

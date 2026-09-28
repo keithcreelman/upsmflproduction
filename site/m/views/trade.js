@@ -25,7 +25,7 @@
     listStatus: "idle", list: [], listProblem: null,           // idle | loading | ok | error
     wantConfirm: "", openSeq: 0,
     detailStatus: "idle", detail: null, detailProblem: null, detailId: "",
-    lastRoute: "list", cancel: {}, seq: 0
+    lastRoute: "list", cancel: {}, ack: {}, seq: 0
   };
 
   function subTabs(active) {
@@ -750,6 +750,54 @@
     };
   }
 
+  // The INITIATOR's own overage, shown at offer CREATION: the worker refuses to create the
+  // offer (409 cap_overage_ack_required) until the sender explicitly acknowledges the exact
+  // projected figure. `errData` is that refusal's body ({error, cap_ack_needed:{amount_over,
+  // cap_dollars, projected_used, signature}}). Resolves true only when the owner confirms; the
+  // caller then retries with { cap_ack: { signature } } attached.
+  function openCreateCapAckSheet(errData) {
+    var need = (errData && errData.cap_ack_needed) || {};
+    var money = T && T.money ? T.money : function (n) { return "$" + Math.round(Number(n) || 0).toLocaleString("en-US"); };
+    var existing = document.getElementById("ups-m-capack-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-capack-overlay">' +
+        '<div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-capack-close" aria-label="Close">\u00d7</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">Over the salary cap</div>' +
+            '<div class="sub">' + U.escapeHtml(errData && errData.error) + '</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body">' +
+            '<p style="font-weight:700;font-size:16px;margin:0 0 8px">' + U.escapeHtml(money(need.amount_over)) + ' over the ' + U.escapeHtml(money(need.cap_dollars)) + ' salary cap</p>' +
+            '<p style="color:var(--fg-muted,#8a97ad);font-size:13px;margin:0 0 12px">This doesn\'t block the trade \u2014 MFL will still process it \u2014 but you\'re acknowledging you\'ll be over before it\'s sent.</p>' +
+            '<div class="ups-m-tb-nav">' +
+              '<button class="btn-act" id="ups-m-capack-cancel">Cancel</button>' +
+              '<button class="btn-act otb on" id="ups-m-capack-go">Acknowledge and send</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return Promise.resolve(false);
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    return new Promise(function (resolve) {
+      var settled = false;
+      function close(v) {
+        if (settled) return; settled = true;
+        var ov = document.getElementById("ups-m-capack-overlay");
+        if (ov) ov.remove();
+        document.body.style.overflow = "";
+        resolve(v);
+      }
+      document.getElementById("ups-m-capack-close").addEventListener("click", function () { close(false); });
+      document.getElementById("ups-m-capack-cancel").addEventListener("click", function () { close(false); });
+      document.getElementById("ups-m-capack-go").addEventListener("click", function () { close(true); });
+    });
+  }
+
   function submitOffer() {
     builderState.submitting = true; builderState.error = ""; renderBuilder();
     var myFid = U.pad4(M.state.viewerFranchiseId);
@@ -801,6 +849,25 @@
         return { ok: r.ok, status: r.status, body: parsed };
       });
     }).then(function (resp) {
+      if (!builderState.counterMode && resp.status === 409 && resp.body && resp.body.code === "cap_overage_ack_required" && resp.body.cap_ack_needed) {
+        return openCreateCapAckSheet(resp.body).then(function (acknowledged) {
+          if (!acknowledged) { builderState.submitting = false; renderBuilder(); return null; }
+          var ackedBody = Object.assign({}, body, { cap_ack: { signature: resp.body.cap_ack_needed.signature } });
+          return fetch(url, {
+            method: "POST", mode: "cors", credentials: "omit",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ackedBody)
+          }).then(function (r2) {
+            return r2.text().then(function (txt2) {
+              var parsed2 = null; try { parsed2 = txt2 ? JSON.parse(txt2) : null; } catch (e) {}
+              return { ok: r2.ok, status: r2.status, body: parsed2 };
+            });
+          });
+        });
+      }
+      return resp;
+    }).then(function (resp) {
+      if (!resp) return;   // the owner declined to acknowledge -- already repainted above
       builderState.submitting = false;
       if (resp.ok && resp.body && resp.body.ok !== false) {
         M.ui.showToast(builderState.counterMode ? "Counter sent ✓" : "Offer sent ✓", "ok");
@@ -941,6 +1008,14 @@
       return T.interpretPreview({ ok: resp.ok, status: resp.status, body: resp.body });
     }).catch(function () { return T.interpretPreview({ networkError: true }); });
   }
+  // The caller's own overage acknowledgment (Keith's ruling, 2026-09-28): never writes to MFL,
+  // never itself accepts anything — it just records that this owner has seen the exact projected
+  // figure. Mirrors previewAccept's shape.
+  function ackCapAccept(tradeId) {
+    return postTradeAction("ack_cap", tradeId, "").then(function (resp) {
+      return T.interpretAckCap({ ok: resp.ok, status: resp.status, body: resp.body });
+    }).catch(function () { return T.interpretAckCap({ networkError: true }); });
+  }
   function openAcceptReview(tradeId) {
     var mount = document.getElementById("ups-m-app");
     if (!mount) return;
@@ -955,16 +1030,28 @@
     document.body.style.overflow = "hidden";
     var body = document.getElementById("ups-m-accept-body");
     var overlay = document.getElementById("ups-m-accept-overlay");
+    var ack = { busy: false, message: "", ok: false };
     function close() { var ov = document.getElementById("ups-m-accept-overlay"); if (ov) ov.remove(); document.body.style.overflow = ""; }
-    function paint(review, busy) { body.innerHTML = T.renderAcceptReview(review, { busy: busy }); }
+    function paint(review, busy) {
+      body.innerHTML = T.renderAcceptReview(review, { busy: busy, viewerFid: M.state.viewerFranchiseId, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok });
+    }
     function load() {
       paint(null);
       previewAccept(tradeId).then(function (review) { if (document.getElementById("ups-m-accept-overlay") === overlay) paint(review); });
     }
+    function acknowledgeCap() {
+      if (ack.busy) return;
+      ack.busy = true; ack.message = ""; paint(null, false);
+      ackCapAccept(tradeId).then(function (out) {
+        ack.busy = false; ack.message = out.message; ack.ok = !!out.ok;
+        load();
+      });
+    }
     T.bind(overlay, {
       "accept-close": close,
       "accept-retry": load,
-      "accept-confirm": function () { close(); runTradeAction("accept", tradeId, ""); }
+      "accept-confirm": function () { close(); runTradeAction("accept", tradeId, ""); },
+      "ack-cap": acknowledgeCap
     });
     load();
   }
@@ -1556,6 +1643,25 @@
     }).then(function () { M.route.renderRoute(); });
   }
 
+  // Acknowledge THIS caller's own currently-projected cap overage on a 3-way trade (Keith's
+  // ruling, 2026-09-28) — never writes to MFL, never itself re-checks; mirrors doRecheckThreeWay.
+  function doAckCapThreeWay(id) {
+    if (tw.ack && tw.ack.busy) return;
+    tw.ack = { busy: true };
+    M.route.renderRoute();
+    var body = { id: id };
+    var fid = U.pad4(M.state.viewerFranchiseId);
+    if (fid) body.acting_franchise_id = fid;
+    tw3Fetch(tw3Url("/api/trades/3way/ack-cap"), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }).then(function (res) {
+      var out = T.interpretAckCap(res);
+      tw.ack = { ok: out.ok, message: out.message };
+      M.ui.showToast(out.message, out.ok ? "ok" : "err");
+      return loadThreeWayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
+  }
+
   function doCancelThreeWay(id) {
     if (tw.cancel.busy) return;
     tw.cancel = { busy: true, confirming: true };
@@ -1602,7 +1708,7 @@
     var body;
     if (tw.detailStatus === "loading" && !tw.detail) body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     else if (tw.detailStatus === "error" && tw.detailProblem) body = T.renderProblem(tw.detailProblem);
-    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {} });
+    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {}, ackBusy: tw.ack && tw.ack.busy, ackMessage: tw.ack && tw.ack.message, ackOk: tw.ack && tw.ack.ok });
     else body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     mount.innerHTML = head + '<div style="padding:0 12px">' + body + '</div>';
     T.ensureStyles();
@@ -1611,6 +1717,7 @@
       keep: function () { tw.cancel = {}; M.route.renderRoute(); },
       "confirm-cancel": function () { doCancelThreeWay(id); },
       recheck: function () { doRecheckThreeWay(id); },
+      "ack-cap": function () { doAckCapThreeWay(id); },
       retry: function () { tw.lastRoute = "list"; M.route.renderRoute(); }
     });
     if (tw.detail && tw.cancel.confirming && !tw.cancel.busy) T.revealConfirm(mount);

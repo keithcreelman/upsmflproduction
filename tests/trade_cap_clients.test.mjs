@@ -36,7 +36,7 @@ test("SHARED: cap ok → the Accept button is offered; cap BLOCKED or UNAVAILABL
   const ok = view(OK); t.ok(has(ok, "accept-confirm")); t.match(ok, /Salary cap — every team stays under/);
   const bad = view(BLOCKED);
   t.ok(!has(bad, "accept-confirm"), "no Accept button when the cap is blocked"); t.ok(has(bad, "accept-close"));
-  t.match(bad, /Can't be accepted — over the salary cap/); t.match(bad, /L\.A\. Looks would be \$10,000 over the \$300,000 salary cap/); t.match(bad, /over by \$10,000/);
+  t.match(bad, /Over the salary cap — needs acknowledgment/); t.match(bad, /L\.A\. Looks would be \$10,000 over the \$300,000 salary cap/); t.match(bad, /over by \$10,000/);
   const un = view(UNAVAIL);
   t.ok(!has(un, "accept-confirm"), "no Accept button when the cap can't be verified"); t.match(un, /couldn(&#39;|')t verify the salary cap/); t.match(un, /can(&#39;|')t be accepted until we can/);
   t.doesNotMatch(un, /under the salary cap|within limits/i, "unavailable never reads as compliant");
@@ -68,7 +68,7 @@ test("SHARED: every server string reaches the DOM escaped", () => {
 });
 test("SHARED: a live 3-way's detail carries the same picture (cap + roster) and a terminal one does not", () => {
   const trade = { id: "abcdefgh12", version: "v", state_view: { code: "collecting", label: "Waiting" }, permissions: {}, sides: [], participants: [], compliance: BLOCKED, terminal: false };
-  t.match(T.renderDetail(trade), /Can't be accepted — over the salary cap/);
+  t.match(T.renderDetail(trade), /Over the salary cap — needs acknowledgment/);
   t.doesNotMatch(T.renderDetail({ ...trade, terminal: true, state_view: { code: "completed", label: "Done" } }), /salary cap/);
 });
 
@@ -165,7 +165,7 @@ test("MOBILE: a cap block is shown BEFORE anything is accepted — the teams and
   const app = liveMobile(env, id);
   await app.click("accept");
   const html = app.sheet().innerHTML;
-  t.match(html, /Can't be accepted — over the salary cap/); t.match(html, /CBP would be \$10,000 over the \$300,000 salary cap/);
+  t.match(html, /Over the salary cap — needs acknowledgment/); t.match(html, /CBP would be \$10,000 over the \$300,000 salary cap/);
   t.ok(!has(html, "accept-confirm")); t.ok(has(html, "accept-close"));
   app.sheet().click("accept-close"); await settle();
   t.deepEqual(actionsOf(app.log), ["PREVIEW"], "no accept was ever posted"); t.equal(mfl.st.done.length, 0); t.equal(mfl.writes("tradeResponse").length, 0);
