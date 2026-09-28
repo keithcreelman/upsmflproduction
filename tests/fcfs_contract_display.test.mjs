@@ -86,7 +86,14 @@ test("DISPLAY: roster workbench + mobile — the authoritative row AND the pre-b
   const idx = read("site/m/index.html"), build = JSON.parse(read("site/m/version.json")).build, esc = build.replace(/\./g, "\\.");
   t.match(build, /^\d{4}\.\d{2}\.\d{2}\.\d+$/); t.ok(build > "2026.09.19.1", "the isolated branch bumps the mobile build past main's 2026.09.19.1 (" + build + ")");
   t.equal((idx.match(new RegExp("app\\.js\\?v=" + esc, "g")) || []).length, 1, "index.html app.js?v= == version.json build");
-  t.equal((idx.match(new RegExp("front_office_penalty\\.js\\?v=" + esc, "g")) || []).length, 1, "the changed penalty script is cache-busted with the same build");
+  // Pinned to the stamp THIS test's own fix landed with (2026.09.27.2), not the
+  // live `build` variable above — front_office_penalty.js is only re-stamped
+  // when it changes again, per scripts/check_mobile_build.py's real per-file
+  // invariant. Coupling this to the CURRENT overall build broke the moment a
+  // later, unrelated mobile fix (2026-09-28, contract eligibility) bumped the
+  // build without touching this file — which is correct per-file hygiene, not
+  // a regression of the drop-penalty fix this test protects.
+  t.equal((idx.match(/front_office_penalty\.js\?v=2026\.09\.27\.2/g) || []).length, 1, "the changed penalty script is cache-busted with the build it shipped in");
   t.equal(read("site/m/app.js").match(/var BUILD = "([^"]+)";/)[1], build, "app.js BUILD == version.json build");
   t.match(read("site/rosters/v2/front_office.html"), /front_office\.js\?v=\d{4}\.\d{2}\.\d{2}\.v[\d.]+/);
 });

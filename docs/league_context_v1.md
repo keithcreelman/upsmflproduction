@@ -547,13 +547,40 @@ conflicts with anything below, **this section wins.**
     contract's life" governs a contract drifting **on its own**; it is not violated by a restructure,
     which is an explicit re-cut of the deal.
 
-#### C5.2 Enforcement posture (Keith, 2026-07-31)
+#### C5.2 Enforcement posture (updated 2026-09-28 — supersedes the 2026-07-31 posture below)
+
+**Both the window and the 3-per-season limit are now machine-enforced, worker-side.** The
+2026-07-31 posture ("allow the team to do as they please," no surface blocks an out-of-window or 4th
+restructure) held for three weeks: Keith reinstated the 3-per-season cap on 2026-08-23 after CBP hit 4
+restructures on one player (commit `2aa64d20`, #959), and reinstated the window in the same file four
+minutes later that same day (commit `7a102fc6`, #960 — `worker/src/restructure_cap.js`
+`checkRestructureWindow`). The rule itself is unchanged from C5 above (offseason → September contract
+deadline, 3 per team per season); what changed is who enforces it.
+- **Window** (`checkRestructureWindow`): reads the season's `ups_contract_deadline` from `league_events`,
+  fails closed (refuses, does not default to "open") if that row is missing or unreadable, and blocks an
+  ordinary owner's submission after the deadline. Verified live 2026-09-28: the 2026 deadline (2026-09-06)
+  has passed and the worker rejects a normal owner's restructure.
+- **Cap** (`checkRestructureCap`): counts non-dry-run, non-voided rows in `ups_restructure_submissions` per
+  franchise per season; fails closed on an unreadable count (never defaults to zero).
+- **Commissioner override remains available on both** (an admin-authenticated submission bypasses either
+  gate) — Restructure is still owner self-serve for the owner's own team on every surface (Roster Workbench,
+  Front Office v2, mobile PWA, Lite Mode); a commissioner override is server-side/admin-only and must not
+  make the ordinary owner UI present a closed window as open.
+- Client surfaces (Roster Workbench, Front Office v2, mobile) must reflect this: a structurally-eligible
+  contract is not enough to show "Restructure" — the window must also be open, per the shared eligibility
+  check in `site/shared/contract_windows.js`. Before 2026-09-28 the three clients computed eligibility from
+  contract shape alone (years/salary) with no deadline check at all, so an owner could see "Restructure"
+  offered on every surface even though the worker had already been rejecting it since 2026-08-23.
+
+<details><summary>Superseded posture (2026-07-31 — kept for history, no longer accurate)</summary>
 
 The **window** (C5, offseason → contract deadline) and the **3-per-season limit** are canon, but are
 **deliberately NOT machine-enforced** — "allow the team to do as they please." No surface blocks an
 out-of-window or 4th restructure; surfaces may inform, and the commissioner enforces by judgment.
 Restructure is **owner self-serve for the owner's own team** across every surface (Roster Workbench,
 Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
+
+</details>
 - **D1 audit trail intent (Keith, 2026-05-16 review session):** restructure submissions currently dispatch a `log-restructure-submission` event but lack a dedicated D1 audit table parallel to `ups_tag_history` and `ups_extension_history`. A new D1 table — suggested name `ups_restructure_submissions` (or `ups_restructure_history`) — should be added to capture every restructure submission's `franchise_id`, `player_id`, `original_year_salaries`, `restructured_year_salaries`, `source`, `submitted_at`. Wire the existing event handler to write into it. Tracker: see `AUDIT_FOLLOWUP_TRACKERS.md` (Q14 tracker).
 
 ### C6. 1st-Round Rookie Option (effective 2025+)

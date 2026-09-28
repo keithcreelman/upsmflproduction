@@ -327,8 +327,18 @@ check("the mobile release is stamped consistently and cache-busts every changed 
   const build = JSON.parse(read("site/m/version.json")).build, idx = read("site/m/index.html");
   assert.match(build, /^\d{4}\.\d{2}\.\d{2}\.\d+$/);
   assert.strictEqual(APP.match(/var BUILD = "([^"]+)";/)[1], build);
-  ["shared/live_scoring.js", "shared/injury_overrides.js", "app.js", "views/scores.js"].forEach((f) => {
-    assert.ok(idx.indexOf(f.replace(/^shared\//, "../shared/").replace(/^(app\.js|views\/)/, "./$1") + "?v=" + build) >= 0, f + " must carry ?v=" + build);
+  // app.js is the release identifier itself — its own ?v= always travels with
+  // the CURRENT build. The other three are pinned to the stamp THIS FIX
+  // shipped with (2026.09.27.2), not the live `build` above: per-file ?v=
+  // only needs to be >= that file's own last change (scripts/check_mobile_build.py's
+  // real rule), not equal to whatever a LATER, unrelated release bumped the
+  // overall build to. Coupling them to the live build broke the moment a
+  // later mobile fix (2026-09-28, contract eligibility) bumped it without
+  // touching these three files — correct per-file hygiene, not a regression
+  // of this fix.
+  assert.ok(idx.indexOf("./app.js?v=" + build) >= 0, "app.js must carry ?v=" + build);
+  ["../shared/live_scoring.js", "../shared/injury_overrides.js", "./views/scores.js"].forEach((f) => {
+    assert.ok(idx.indexOf(f + "?v=2026.09.27.2") >= 0, f + " must carry the build it shipped in (2026.09.27.2)");
   });
 });
 

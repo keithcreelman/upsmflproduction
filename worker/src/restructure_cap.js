@@ -4,8 +4,12 @@
 // please") along with the offseason-only window, so nothing enforced it on any
 // surface. On 2026-08-23 CBP restructured Nico Collins a THIRD time — taking Y1
 // from 19K back to 30K, exactly undoing their own 2026-07-29 restructure — which
-// put them at 4 for the season. Keith reinstated the cap. The window stays
-// suspended; only the count is enforced here.
+// put them at 4 for the season. Keith reinstated the cap (commit 2aa64d20,
+// #959) and the window (commit 7a102fc6, #960) as two commits four minutes
+// apart, same day — see checkRestructureWindow below, which IS enforced.
+// (This paragraph used to end "the window stays suspended; only the count is
+// enforced here" — true for the few minutes between #959 and #960 landing in
+// this same file, stale ever since. Verified live 2026-09-28: both active.)
 //
 // COUNTING RULE (Keith 2026-08-23): per TEAM, per SEASON. Not per player — a
 // team spending all three on one player is a legal, if odd, use of its budget.
