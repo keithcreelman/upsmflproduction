@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-09-28T17:35:07.522Z",
+    "updated_at": "2026-09-28T17:47:48.110Z",
     "row_count": 65,
     "source": "worker-trade-offers"
   },
@@ -7463,7 +7463,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-05-25T01:46:05.464Z",
-      "updated_at": "2026-09-28T17:35:07.522Z",
+      "updated_at": "2026-09-28T17:47:48.110Z",
       "from_franchise_id": "0005",
       "to_franchise_id": "0007",
       "from_franchise_name": "HammerTime 🔨 ⏰",
@@ -7472,7 +7472,7 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "11150,16186,FP_0006_2027_1,FP_0006_2027_2",
+      "will_give_up": "17070,11150,16186,FP_0006_2027_1",
       "will_receive": "13593,14789,16204,BB_19000",
       "source": "trade-workbench-ui",
       "summary": {
@@ -7484,7 +7484,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-09-28T17:35:04.753Z",
+        "generated_at": "2026-09-28T17:47:45.375Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -7494,6 +7494,24 @@
             "franchise_id": "0005",
             "franchise_name": "HammerTime 🔨 ⏰",
             "selected_assets": [
+              {
+                "asset_id": "player:17070",
+                "type": "PLAYER",
+                "player_id": "17070",
+                "player_name": "Burden, Luther",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "CHI",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K, Y4-10K Option| GTD: 11.3K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
               {
                 "asset_id": "player:11150",
                 "type": "PLAYER",
@@ -7547,30 +7565,12 @@
                 "pick_season": 2027,
                 "pick_round": 1,
                 "pick_slot": null
-              },
-              {
-                "asset_id": "pick:FP_0006_2027_2",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2027 2nd",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": "Pick",
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "FP_0006_2027_2",
-                "pick_season": 2027,
-                "pick_round": 2,
-                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 9,
-            "selected_non_taxi_salary_dollars": 18000
+            "traded_salary_adjustment_max_k": 11,
+            "selected_non_taxi_salary_dollars": 23000
           },
           {
             "role": "right",
@@ -7653,17 +7653,17 @@
             "salary_cap_dollars": 300000,
             "starting_salary_dollars": 250500,
             "salary_adjustment_total_dollars": 9050,
-            "outgoing_dollars": 18000,
+            "outgoing_dollars": 23000,
             "incoming_dollars": 39500,
             "salary_trade_adjustment_dollars": -19000,
-            "net_salary_adjustment_dollars": 2500,
-            "new_salary_dollars": 253000,
+            "net_salary_adjustment_dollars": -2500,
+            "new_salary_dollars": 248000,
             "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 9,
+            "trade_salary_adjustment_max_k": 11,
             "net_trade_salary_k": -19,
-            "net_cap_change_dollars": -2500,
+            "net_cap_change_dollars": 2500,
             "available_salary_before_dollars": 40450,
-            "available_salary_after_dollars": 37950,
+            "available_salary_after_dollars": 42950,
             "over_cap_dollars": 0
           },
           "right": {
@@ -7673,16 +7673,16 @@
             "starting_salary_dollars": 256500,
             "salary_adjustment_total_dollars": 8250,
             "outgoing_dollars": 39500,
-            "incoming_dollars": 18000,
+            "incoming_dollars": 23000,
             "salary_trade_adjustment_dollars": 19000,
-            "net_salary_adjustment_dollars": -2500,
-            "new_salary_dollars": 254000,
+            "net_salary_adjustment_dollars": 2500,
+            "new_salary_dollars": 259000,
             "trade_salary_adjustment_k": 19,
             "trade_salary_adjustment_max_k": 20,
             "net_trade_salary_k": 19,
-            "net_cap_change_dollars": 2500,
+            "net_cap_change_dollars": -2500,
             "available_salary_before_dollars": 35250,
-            "available_salary_after_dollars": 37750,
+            "available_salary_after_dollars": 32750,
             "over_cap_dollars": 0
           },
           "has_over_cap": false
@@ -7695,29 +7695,29 @@
             {
               "season": 2026,
               "left_before_dollars": 250500,
-              "left_after_dollars": 253000,
-              "left_change_dollars": 2500,
+              "left_after_dollars": 248000,
+              "left_change_dollars": -2500,
               "right_before_dollars": 256500,
-              "right_after_dollars": 254000,
-              "right_change_dollars": -2500
+              "right_after_dollars": 259000,
+              "right_change_dollars": 2500
             },
             {
               "season": 2027,
               "left_before_dollars": 349000,
-              "left_after_dollars": 394000,
-              "left_change_dollars": 45000,
+              "left_after_dollars": 389000,
+              "left_change_dollars": 40000,
               "right_before_dollars": 238000,
-              "right_after_dollars": 193000,
-              "right_change_dollars": -45000
+              "right_after_dollars": 198000,
+              "right_change_dollars": -40000
             },
             {
               "season": 2028,
               "left_before_dollars": 125000,
-              "left_after_dollars": 177000,
-              "left_change_dollars": 52000,
+              "left_after_dollars": 172000,
+              "left_change_dollars": 47000,
               "right_before_dollars": 169000,
-              "right_after_dollars": 117000,
-              "right_change_dollars": -52000
+              "right_after_dollars": 122000,
+              "right_change_dollars": -47000
             }
           ]
         },
@@ -7728,8 +7728,8 @@
         "comment": ""
       },
       "twb_meta": null,
-      "mfl_trade_id": "1231",
-      "trade_id": "1231",
+      "mfl_trade_id": "1232",
+      "trade_id": "1232",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
