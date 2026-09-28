@@ -39,7 +39,7 @@
 // Pure functions only.
 
 import { currentCapHit, derivePlayerCapFields, parseCapDollars, readSalaryOverlay } from "./cap_math.js";
-import { classifyLoaded } from "./contract_classification.js";
+import { resolveLoadedStatus, resolveExtensionLoadedStatus } from "./contract_classification.js";
 import { evaluateLineupFeasibility, posGroup } from "./trade_lineup_feasibility.js";
 
 export const ROSTER_MIN = 27;   // canon B1: MFL-enforced minimum (not exposed by the API)
@@ -176,10 +176,23 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
   const R = readRosters(rosters, O, parts); if (!R.ok) return empty(R);
 
   const ext = isObj(extensionSalary) ? extensionSalary : {}, taxi = isObj(taxiFlags) ? taxiFlags : {};
+  // Scoped to loaded_contracts ONLY -- see resolveLoadedStatus's header for the priority
+  // order; only a genuinely unresolvable contract (or, here, an unresolvable/mismatched
+  // extension) sets this.
+  let loadedUnresolved = false;
   // Extension requests: pid -> acquiring franchise / pid -> "FL"|"BL"|"" (post-extension).
   // A malformed/absent entry is simply not an extension for that pid -- extension WELL-
-  // FORMEDNESS is already enforced upstream (trade_3way.js's extReqs filter) before this
-  // data ever reaches here; this layer only reads loaded_indicator/to_franchise_id.
+  // FORMEDNESS (player/franchise membership) is already enforced upstream (trade_3way.js's
+  // extReqs filter) before this data ever reaches here.
+  //
+  // The extension's loaded status is DERIVED from its own authoritative priced terms
+  // (preview_contract_info_string -- the exact year-by-year schedule the price was built
+  // from), never trusted directly off e.loaded_indicator, which is a client-carried label
+  // on a stored offer/preview. A mismatch between the claimed indicator and what the
+  // priced terms actually show is treated as unresolved (fail closed) rather than
+  // silently preferring one side -- a caller lying about loaded_indicator can never make
+  // an actually-loaded extension look flat, and can never make an actually-flat one look
+  // falsely blocked either; either way the gate refuses to guess.
   const extReqs = arr(extensionRequests).filter(isObj);
   const extendedPidToFid = {}, extendedPidLoaded = {};
   for (const e of extReqs) {
@@ -187,8 +200,12 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     const to = pad4(e.to_franchise_id);
     if (!pid || !parts.has(to)) continue;
     extendedPidToFid[pid] = to;
-    const ind = s(e.loaded_indicator).toUpperCase();
-    extendedPidLoaded[pid] = ind === "FL" || ind === "BL" ? ind : "";
+    const claimed = s(e.loaded_indicator).toUpperCase();
+    const claimedLoaded = claimed === "FL" || claimed === "BL" ? claimed : "";
+    const derived = resolveExtensionLoadedStatus(s(e.preview_contract_info_string), Number(e.new_aav_future));
+    if (!derived.resolved) { loadedUnresolved = true; continue; }
+    if (derived.loaded !== claimedLoaded) { loadedUnresolved = true; continue; }   // claimed vs. priced terms disagree -- never guess which is right
+    extendedPidLoaded[pid] = derived.loaded;
   }
 
   const positions = readPlayerPositions(players); // null = lineup check degrades to "unavailable" only
@@ -203,7 +220,18 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
       // Loaded-contract classification runs BEFORE the taxi skip below -- a loaded
       // contract on taxi must still count (canon: max 5 loaded per roster, no taxi
       // carve-out; never fail OPEN by silently excluding a taxi player from the count).
-      if (classifyLoaded(p.contractStatus)) loadedBefore += 1;
+      // p.unknown (years AND status AND info all blank -- MFL/the export said NOTHING
+      // about this contract at all) is treated as flat here, the same "silence is not a
+      // hidden truth" posture currentCapHit() already takes for the SAME flag ("MFL has
+      // recorded... silence is not expired") -- a real MFL player is never genuinely this
+      // blank in production; a PARTIALLY-known contract (e.g. years remaining is known
+      // but contractStatus/contractInfo are blank) is NOT `unknown` and gets the full,
+      // stricter resolveLoadedStatus treatment below, which can still report unresolved.
+      if (!p.unknown) {
+        const lstatus = resolveLoadedStatus(p.contractStatus, p.contractInfo);
+        if (!lstatus.resolved) loadedUnresolved = true;
+        else if (lstatus.loaded) loadedBefore += 1;
+      }
       const expired = (p.years | 0) <= 0 && !p.unknown;
       postTradeRoster[fid].push({ id: pid, group: positions ? posGroup(positions[pid]) : "", excluded: p.taxi || p.ir || expired });
       if (p.taxi) continue;
@@ -226,9 +254,11 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         const send = state[m.from];
         send.after -= currentCapHit(p); if (!p.taxi && !p.ir) send.activeAfter -= 1; send.sends += 1;
         // The sender always loses whatever contract they CURRENTLY hold -- extended or
-        // not, they're giving that contract up, full stop.
-        const sentLoaded = classifyLoaded(p.contractStatus);
-        if (sentLoaded) send.loadedAfter -= 1;
+        // not, they're giving that contract up, full stop. (Already resolved/flagged in
+        // the per-franchise scan above, since m.from is always a participant scanned
+        // there -- resolving again here just reuses the same deterministic function.)
+        const sentLoaded = p.unknown ? { resolved: true, loaded: "" } : resolveLoadedStatus(p.contractStatus, p.contractInfo);
+        if (sentLoaded.resolved && sentLoaded.loaded) send.loadedAfter -= 1;
         postTradeRoster[m.from] = postTradeRoster[m.from].filter((r) => r.id !== tok);
 
         const carriesTaxi = p.taxi && taxi[tok] === true;
@@ -243,7 +273,7 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         // contract slot). Otherwise the receiver simply inherits the sender's contract
         // unchanged, loaded status included.
         if (extendedPidToFid[tok] === m.to) { if (extendedPidLoaded[tok]) recv.loadedAfter += 1; }
-        else if (sentLoaded) recv.loadedAfter += 1;
+        else if (sentLoaded.resolved && sentLoaded.loaded) recv.loadedAfter += 1;
         const expiredLanded = (land.years | 0) <= 0 && !land.unknown;
         postTradeRoster[m.to].push({ id: tok, group: positions ? posGroup(positions[tok]) : "", excluded: land.taxi || land.ir || expiredLanded });
       }
@@ -282,13 +312,15 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
   const rosterStatus = !maxKnown ? "unavailable" : warnings.length ? "warn" : "ok";
 
   const loadedRows = [], loadedViolations = [];
-  for (const fid of [...parts].sort()) {
-    const st = state[fid];
-    const over = st.loadedAfter > LOADED_CONTRACT_MAX;
-    const row = { franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, loaded_after: st.loadedAfter, max: LOADED_CONTRACT_MAX };
-    loadedRows.push(row);
-    if (over) loadedViolations.push({ franchise_id: fid, franchise_name: name(fid), projected: st.loadedAfter, max: LOADED_CONTRACT_MAX,
-      message: `${name(fid)} would move from ${st.loadedBefore} to ${st.loadedAfter} loaded contracts. The maximum is ${LOADED_CONTRACT_MAX}. Revise the trade or open a loaded-contract slot before continuing.` });
+  if (!loadedUnresolved) {
+    for (const fid of [...parts].sort()) {
+      const st = state[fid];
+      const over = st.loadedAfter > LOADED_CONTRACT_MAX;
+      const row = { franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, loaded_after: st.loadedAfter, max: LOADED_CONTRACT_MAX };
+      loadedRows.push(row);
+      if (over) loadedViolations.push({ franchise_id: fid, franchise_name: name(fid), projected: st.loadedAfter, max: LOADED_CONTRACT_MAX,
+        message: `${name(fid)} would move from ${st.loadedBefore} to ${st.loadedAfter} loaded contracts. The maximum is ${LOADED_CONTRACT_MAX}. Revise the trade or open a loaded-contract slot before continuing.` });
+    }
   }
 
   const lineup = evaluateLineupFeasibility({
@@ -307,7 +339,9 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         : warnings.length ? warnings.map((w) => w.message).join(" ") + " This is a heads-up, not a ruling on whether the trade is allowed — MFL decides when it processes the trade."
         : "Every team stays within its roster limits.",
     },
-    loaded_contracts: loadedViolations.length
+    loaded_contracts: loadedUnresolved
+      ? { status: "unavailable", max: LOADED_CONTRACT_MAX, rows: [], violations: [], message: "We couldn't verify the loaded-contract count for this trade right now (at least one contract's structure isn't resolvable from live data)." }
+      : loadedViolations.length
       ? { status: "blocked", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: loadedViolations, message: loadedViolations.map((v) => v.message).join(" ") }
       : { status: "ok", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], message: "Every team stays at or under the 5 loaded-contract limit." },
     lineup,

@@ -93,6 +93,7 @@ export function derivePlayerCapFields(rosterRow, overlay) {
     // trade_cap_authority.js + worker/src/contract_classification.js) -- NOT used by
     // currentCapHit()/franchiseCapUsed() above, which only need status/salary/years.
     contractStatus: typeRaw || null,
+    contractInfo: infoRaw || null,
   };
 }
 

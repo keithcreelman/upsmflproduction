@@ -448,6 +448,32 @@ test("SHARED CARD: the loaded-contracts (hard) and lineup (advisory) rows render
   // lineup (advisory tier) uses the SAME class the roster-count advisory row already uses.
   t.match(html, /t3w-rost t3w-rost-warn/);
 });
+test("SHARED CARD: interpretPreview disables Accept when ONLY loaded_contracts is blocked, even though cap.status is 'ok' -- the loaded-contract verdict is an INDEPENDENT hard block, not merely a display row", () => {
+  // Root cause 2026-09-28: interpretPreview()'s canAccept previously read cap.status
+  // alone; a proven loaded-contract overage with a passing cap would have silently left
+  // Accept enabled. This is the defect-sensitive proof: verified failing against the
+  // pre-fix decision (cap-only) before the fix landed.
+  const res = { ok: true, networkError: false, body: { ok: true, compliance: {
+    cap: { status: "ok", rows: [], message: "x" },
+    roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "x" },
+    loaded_contracts: { status: "blocked", max: 5, rows: [{ franchise_id: "0001", franchise_name: "L.A. Looks", loaded_before: 5, loaded_after: 6 }], violations: [{ message: "x" }], message: "L.A. Looks would move from 5 to 6 loaded contracts. The maximum is 5." },
+  } } };
+  const review = T.interpretPreview(res);
+  t.equal(review.kind, "ok");
+  t.equal(review.canAccept, false, "cap alone must never be sufficient to enable Accept -- a blocked loaded-contract verdict must independently disable it");
+  const html = T.renderAcceptReview(review, {});
+  t.match(html, /data-t3w-can-accept="0"/);
+  t.match(html, /L\.A\. Looks would move from 5 to 6 loaded contracts/, "the franchise and count must be visible in the same review the Accept button reads");
+  t.doesNotMatch(html, /Accept trade/, "the primary Accept button itself must not render at all when canAccept is false");
+});
+test("SHARED CARD: interpretPreview still enables Accept when BOTH cap and loaded_contracts are ok", () => {
+  const res = { ok: true, networkError: false, body: { ok: true, compliance: {
+    cap: { status: "ok", rows: [], message: "x" },
+    roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "x" },
+    loaded_contracts: { status: "ok", max: 5, rows: [], violations: [], message: "x" },
+  } } };
+  t.equal(T.interpretPreview(res).canAccept, true);
+});
 test("SHARED CARD: an older compliance object with only cap+roster (no loaded_contracts/lineup) still renders cleanly -- backward compatible, never throws", () => {
   const html = T.renderCompliance({ cap: { status: "ok", rows: [], message: "x" }, roster: { status: "ok", rows: [], message: "x" } }, {});
   t.doesNotMatch(html, /undefined|\[object Object\]/);

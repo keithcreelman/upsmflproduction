@@ -162,12 +162,12 @@ export function evaluateLineupFeasibility({ franchises, expectedFids }) {
     const row = { franchise_id: fid, franchise_name: fr.name || fid, status: rowStatus, filled: result.filled, total: result.total, missing: result.missing };
     rows.push(row);
     if (!result.complete) {
-      warnings.push({ ...row, message: `${row.franchise_name} could not field a complete legal lineup after this trade. Missing: ${formatMissing(result.missing)}. This does not block the trade, but the roster must be corrected under the league's lineup-compliance rules.` });
+      warnings.push({ ...row, message: `${row.franchise_name} could not STRUCTURALLY field a complete legal lineup after this trade (not enough rostered players at the required positions -- this does not account for this week's byes, injuries, Out/Doubtful designations, or kickoff locks). Missing: ${formatMissing(result.missing)}. This does not block the trade, but the roster must be corrected under the league's lineup-compliance rules.` });
     }
   }
   const status = anyUnavailable ? "unavailable" : (warnings.length ? "warn" : "ok");
   const message = anyUnavailable
     ? "Lineup feasibility couldn't be checked for every team (position/roster data unavailable) -- not evaluated, not assumed compliant."
-    : (warnings.length ? warnings.map((w) => w.message).join(" ") : "Every team can still field a complete legal lineup after this trade.");
+    : (warnings.length ? warnings.map((w) => w.message).join(" ") : "Every team stays structurally able to field a complete legal lineup after this trade (positions only -- this week's byes, injuries, Out/Doubtful designations, and kickoff locks are a separate check, not part of this).");
   return { status, advisory: true, rows, warnings, message };
 }

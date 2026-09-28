@@ -268,7 +268,10 @@
     // exactly the same "never a block" contract the active-roster-count row already has.
     var lu = c.lineup;
     if (lu) {
-      var luTitle = lu.status === "warn" ? "Lineup coverage \u2014 heads-up" : lu.status === "ok" ? "Lineup coverage \u2014 every team can field one" : "Lineup coverage \u2014 couldn\'t be checked";
+      // "Structural" is load-bearing in every state's title, not just the warning --
+      // this is a positions-only check (does the roster have enough players at each
+      // slot), never a certification that a legal lineup can be SUBMITTED this week.
+      var luTitle = lu.status === "warn" ? "Structural lineup feasibility \u2014 heads-up" : lu.status === "ok" ? "Structural lineup feasibility \u2014 every team can field one" : "Structural lineup feasibility \u2014 couldn\'t be checked";
       var luRows = (lu.rows || []).map(function (r) {
         var label = r.status === "unavailable" ? "unavailable" : (r.missing || []).map(function (m) { return m.count + " " + m.slot + (m.count > 1 ? "s" : ""); }).join(", ") || "complete";
         return '<li class="' + (r.status === "warn" ? "t3w-flag" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span>' +
@@ -276,23 +279,32 @@
           '<span class="' + (r.status === "warn" ? "t3w-cr-flag" : "t3w-cr-room") + '">' + esc(label) + '</span></li>';
       }).join("");
       h = h.replace('<section class="t3w-comp" data-t3w-cap="' + esc(cap.status) + '"', '<section class="t3w-comp" data-t3w-lineup="' + esc(lu.status) + '" data-t3w-cap="' + esc(cap.status) + '"');
+      // The current-week-limitation caveat is shown for EVERY reached status (ok and
+      // warn alike, not just warn) -- an "ok" verdict must never read as "certified
+      // startable this week" either; it only means positions are covered.
+      var luCaveat = '<p class="t3w-small">Advisory only \u2014 this doesn\'t block the trade. Positions only: this does NOT account for this week\'s byes, injuries, Out/Doubtful designations, or kickoff locks \u2014 that is a separate, later check. ' + (lu.status === "warn" ? 'The roster must be corrected under the league\'s lineup-compliance rules.' : 'A complete structural lineup here does not by itself mean every player is eligible to start THIS week.') + '</p>';
       h += '<div class="t3w-rost t3w-rost-' + esc(lu.status) + '" role="status"><b>' + luTitle + '</b>' +
         (lu.status !== "ok" ? '<p>' + esc(lu.message) + '</p>' : '') +
-        (lu.status !== "unavailable" && luRows ? '<ul class="t3w-crows" aria-label="Lineup feasibility after the trade">' + luRows + '</ul>' : '') +
-        (lu.status === "warn" ? '<p class="t3w-small">Advisory only \u2014 this doesn\'t block the trade. The roster must be corrected under the league\'s lineup-compliance rules. Current-week bye/injury/Out/Doubtful availability is a separate, later check.</p>' : '') + '</div>';
+        (lu.status !== "unavailable" && luRows ? '<ul class="t3w-crows" aria-label="Structural lineup feasibility after the trade">' + luRows + '</ul>' : '') +
+        (lu.status !== "unavailable" ? luCaveat : '') + '</div>';
     }
     return h + '</section>';
   };
 
   // The server's answer to a read-only accept review (action PREVIEW).
-  //   kind "ok"       → compliance present; canAccept only when the cap verdict is "ok"
+  //   kind "ok"       → compliance present; canAccept only when BOTH the cap AND the
+  //                     loaded-contract verdicts are "ok" -- two INDEPENDENT hard blocks,
+  //                     either one alone must disable Accept (loaded_contracts is optional
+  //                     on the compliance object for backward compat with an older cached
+  //                     response, in which case it simply doesn't add its own restriction).
   //   kind "refused"  → the trade itself can't be accepted (moved / no longer pending / …); message is owner-safe
   //   kind "unavailable"/"network"/… → couldn't load; retryable
   api.interpretPreview = function (res) {
     var b = res && res.body;
     if (res && !res.networkError && res.ok && b && b.ok !== false && b.compliance && b.compliance.cap) {
       var cap = b.compliance.cap.status;
-      return { kind: "ok", compliance: b.compliance, canAccept: cap === "ok",
+      var lc = b.compliance.loaded_contracts ? b.compliance.loaded_contracts.status : "ok";
+      return { kind: "ok", compliance: b.compliance, canAccept: cap === "ok" && lc === "ok",
         message: cap === "blocked" ? b.compliance.cap.message : cap === "unavailable" ? "We couldn\'t verify the salary cap for this trade right now." : "" };
     }
     if (res && !res.networkError && b && b.code === "cap_check_unavailable") {

@@ -26,7 +26,7 @@ const CAP = 300000;
 // ───────────────────────────────── Part 1 — the pure calculation ─────────────────────────────────
 const ok = (data) => ({ ok: true, status: 200, data });
 const league = (o) => ok({ league: { salaryCapAmount: String(CAP), rosterSize: "35", franchises: { franchise: [{ id: "0001", name: "L.A. Looks" }, { id: "0002", name: "CBP" }, { id: "0003", name: "Gride" }] }, ...(o || {}) } });
-const rosterOf = (map) => ok({ rosters: { franchise: Object.entries(map).map(([id, ps]) => ({ id, player: ps.map((p) => ({ id: p.id, salary: p.salary == null ? "1000" : String(p.salary), status: p.status || "ROSTER", contractYear: String(p.contractYear ?? 2), ...(p.contractStatus ? { contractStatus: p.contractStatus } : {}) })) })) } });
+const rosterOf = (map) => ok({ rosters: { franchise: Object.entries(map).map(([id, ps]) => ({ id, player: ps.map((p) => ({ id: p.id, salary: p.salary == null ? "1000" : String(p.salary), status: p.status || "ROSTER", contractYear: String(p.contractYear ?? 2), ...(p.contractStatus ? { contractStatus: p.contractStatus } : {}), ...(p.contractInfo ? { contractInfo: p.contractInfo } : {}) })) })) } });
 const adjOf = (rows) => ok({ salaryAdjustments: rows === undefined ? "" : { salaryAdjustment: rows } });
 const noSalaries = ok({ salaries: { leagueUnit: { player: [] } } });
 const calc = (o) => evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adjOf([]), ...o });
@@ -114,14 +114,18 @@ test("LC 9: a loaded contract on taxi still counts (no taxi carve-out)", () => {
   t.equal(c.loaded_contracts.status, "blocked", "5 (incl. taxi) -> 6 must block, never silently pass because one was on taxi");
 });
 
-test("LC 10: a pre-trade loaded extension is included, attributed to the acquiring franchise", () => {
+test("LC 10: a pre-trade extension is included, attributed to the acquiring franchise -- derived from its AUTHORITATIVE FUTURE-years priced terms (excluding the frozen Y1), matching the claimed indicator", () => {
+  // Y1 is always the pre-extension CURRENT salary, frozen, never repriced -- it is
+  // structurally irrelevant to loaded/flat and must be excluded from the comparison
+  // (see worker/src/contract_classification.js resolveExtensionLoadedStatus). Only the
+  // FUTURE years (Y2, Y3) determine the shape: increasing -> BL.
   const c = calc({
     rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }), // 200 is currently FLAT
     movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
-    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "BL" }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "BL", preview_contract_info_string: "CL 3|TCV 7K|Y1-1K, Y2-2K, Y3-4K" }],
   });
   const r1 = c.loaded_contracts.rows.find((r) => r.franchise_id === "0001");
-  t.equal(r1.loaded_before, 4); t.equal(r1.loaded_after, 5, "the extension's NEW loaded status (BL), not player 200's current flat status, must land on the receiver");
+  t.equal(r1.loaded_before, 4); t.equal(r1.loaded_after, 5, "the extension's NEW priced-terms loaded status (BL), not player 200's current flat status, must land on the receiver");
   t.equal(c.loaded_contracts.status, "ok");
 });
 
@@ -129,19 +133,58 @@ test("LC 10b: a pre-trade extension that pushes the receiver from 5 to 6 blocks"
   const c = calc({
     rosters: rosterOf({ "0001": loadedIds(100, 5), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
     movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
-    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "FL" }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "FL", preview_contract_info_string: "CL 3|TCV 7K|Y1-1K, Y2-4K, Y3-2K" }], // future years decreasing -> FL
   });
   t.equal(c.loaded_contracts.status, "blocked");
   t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 6);
 });
 
-test("LC 11: extension loaded_indicator NONE never adds to the count", () => {
+test("LC 11: an extension provably flat by its own FUTURE-years priced terms never adds to the count (Y1 excluded -- it differing from Y2/Y3 is normal, not loaded)", () => {
   const c = calc({
     rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-Ext2-BL" }] }), // currently loaded
     movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
-    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE" }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", preview_contract_info_string: "CL 3|TCV 5K|Y1-1K, Y2-2K, Y3-2K" }], // Y2==Y3 -> future is flat, regardless of Y1
   });
   t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 4, "the extension resets 200 to flat -- the acquirer does not inherit its pre-extension loaded status");
+  t.equal(c.loaded_contracts.status, "ok");
+});
+
+test("LC 11b: a 2-year extension (only ONE future year -- Y1 frozen + a single new year) has no shape to compare and is treated as flat", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-Ext2-BL" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", preview_contract_info_string: "CL 2|TCV 4K|Y1-1K, Y2-3K" }],
+  });
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 4);
+  t.equal(c.loaded_contracts.status, "ok");
+});
+
+test("LC 18: a MISMATCHED extension indicator (claims flat, priced future terms show loaded) is never trusted -- unresolved, fails closed", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", preview_contract_info_string: "CL 3|TCV 7K|Y1-1K, Y2-2K, Y3-4K" }], // claims flat, but the future terms are clearly BL
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "a claimed indicator that disagrees with the priced terms must never be silently trusted either way");
+  t.equal(c.cap.status, "ok", "an unresolved loaded-contract extension must not affect the cap verdict");
+});
+
+test("LC 19: a mismatched indicator the OTHER direction (claims loaded, priced future terms show flat) is equally untrusted", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "FL", preview_contract_info_string: "CL 3|TCV 5K|Y1-1K, Y2-2K, Y3-2K" }], // claims FL, but future terms are flat
+  });
+  t.equal(c.loaded_contracts.status, "unavailable");
+});
+
+test("LC 20: an extension with no parseable priced schedule at all is unresolved, not silently trusted off the bare indicator", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "BL", preview_contract_info_string: "" }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable");
 });
 
 test("LC 12: missing salary/contract export fails the WHOLE calculation closed (cap, roster, and loaded_contracts all unavailable)", () => {
@@ -161,6 +204,47 @@ test("LC 13: malformed contract authority (an unparseable rosters export) fails 
   t.equal(c.cap.status, "unavailable");
 });
 
+test("LC 15: blank contractStatus with a PROVABLY FLAT schedule (equal every year) resolves flat, not unresolved", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 3|TCV 6K|Y1-2K, Y2-2K, Y3-2K" }] }), // no contractStatus at all
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "ok");
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 4, "a provable flat schedule must resolve to flat, not add to the count");
+});
+
+test("LC 16: blank contractStatus, multi-year, with NO reliable status or schedule -> loaded_contracts unavailable; cap and roster are UNAFFECTED", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractYear: 3 }] }), // no contractStatus, no contractInfo -- genuinely unresolvable
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable");
+  t.equal(c.cap.status, "ok", "an unresolved loaded classification must not erase an otherwise-valid cap total");
+  t.notEqual(c.roster.status, "unavailable", "...nor the roster-count advisory (a small test roster naturally trips the below-min ADVISORY warning, which is fine -- it must simply not be 'unavailable' because of the unrelated loaded-contract gap)");
+});
+
+test("LC 16b: blank contractStatus but a KNOWN 1-year contract length is flat BY CANON, never unresolved", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 1|TCV 2K|AAV 2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "ok");
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 4, "canon: loaded can never attach to a 1-year deal -- this is definitive, not a guess");
+});
+
+test("LC 17: a STALE stored suffix is overridden by an authoritative, currently-priced year-by-year schedule (matches the existing index.js restructure precedent)", () => {
+  const c = calc({
+    // stored status still says flat Vet-FAA (a restructure was never re-stamped), but the
+    // REAL current priced schedule is clearly decreasing -> FL. At 5 already, this must
+    // push to 6 and BLOCK -- if the stale "flat" status were trusted instead, it would
+    // incorrectly stay at 5 (ok). The test result itself proves which one the code used.
+    rosters: rosterOf({ "0001": loadedIds(100, 5), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-3K, Y2-1K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "blocked", "the authoritative schedule (FL) must win over the stale stored status (flat) -- proves the override, not just a lucky pass");
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 6);
+});
+
 test("LC 14: a franchise NOT part of any movement never poisons the count (foreign franchise's contracts are irrelevant)", () => {
   const c = calc({
     rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA-FL" }], "0003": loadedIds(900, 20) }),
@@ -168,6 +252,31 @@ test("LC 14: a franchise NOT part of any movement never poisons the count (forei
   });
   t.equal(c.loaded_contracts.status, "ok", "franchise 0003 (20 loaded contracts) is not a participant and must not be scanned at all");
   t.equal(c.loaded_contracts.rows.length, 2);
+});
+
+test("LC 21: a player routed THROUGH an intermediate franchise in a 3-way (the real production \"via\" shape -- a single movement leg naming the ORIGINAL owner as `from` and the FINAL owner as `to`, exactly how legs_json already represents these deals) is counted once, by final ownership, never duplicated or double-counted at the pass-through team", () => {
+  // Real shape confirmed from the 2026-09-23 production trade's own legs_json: a pick
+  // "via HammerTime" is still ONE direct leg {from:"0008", to:"0012"} -- the
+  // intermediate franchise never appears as a from/to at all for that asset. The
+  // calculation only ever sees final-ownership legs; there is no separate "literal
+  // two-hop" representation to double-count.
+  const c = calc({
+    league: ok({ league: { salaryCapAmount: "300000", rosterSize: "35", franchises: { franchise: [{ id: "0008", name: "Real Deal Creel" }, { id: "0001", name: "L.A. Looks" }, { id: "0012", name: "Hawks" }] } } }),
+    rosters: rosterOf({
+      "0008": loadedIds(100, 5),                                    // initiator, already at 5
+      "0001": [],                                                    // pass-through franchise -- never gains or loses a count
+      "0012": [{ id: "200", contractStatus: "Vet-FAA-FL" }],          // final receiver currently has 0 loaded
+    }),
+    // 200 conceptually routes 0012 -> 0008 "via" 0001, but is represented as ONE direct
+    // leg naming the true original owner and the true final owner -- 0001 never appears
+    // as a from/to for this token at all.
+    movements: [{ from: "0012", to: "0008", tokens: ["200"] }, { from: "0001", to: "0008", tokens: [] }],
+  });
+  t.equal(c.loaded_contracts.status, "blocked", "0008: 5 -> 6");
+  const rows = Object.fromEntries(c.loaded_contracts.rows.map((r) => [r.franchise_id, r]));
+  t.equal(rows["0008"].loaded_before, 5); t.equal(rows["0008"].loaded_after, 6);
+  t.equal(rows["0012"].loaded_before, 1); t.equal(rows["0012"].loaded_after, 0, "the sender loses it exactly once");
+  t.equal(rows["0001"].loaded_before, 0); t.equal(rows["0001"].loaded_after, 0, "the pass-through franchise's count is completely untouched -- never incremented then decremented, never counted at all");
 });
 
 test("LC: 2-way and 3-way routes use the SAME calculation (identical inputs give identical loaded-contract numbers)", () => {
