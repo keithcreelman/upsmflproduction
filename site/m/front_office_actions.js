@@ -127,6 +127,35 @@
     return safeStr(s && s.ctx && s.ctx.year);
   }
 
+  // May rookie/tag deadline (midnight ET Thu→Fri before Memorial Day) for any
+  // year. Verbatim mirror of v2/front_office.js tagDeadlineDateFO and
+  // roster_workbench.js tagDeadlineDateForSeason's UTC formula — needed here
+  // as the ctx.tagDeadlineDate callback for
+  // UPS_CONTRACT_WINDOWS.standardExtensionWindow's rookie branch (see
+  // rosterContractEligibility below). Mobile carried no May-deadline
+  // calculator of its own before this; without it the shared window check
+  // would fail closed for every expired-rookie contract, which regresses a
+  // case Keith did not report as broken.
+  function tagDeadlineDateFOMobile(year) {
+    var yr = parseInt(year, 10);
+    if (!yr) return null;
+    var may31 = new Date(Date.UTC(yr, 4, 31));
+    var lastMon = 31 - ((may31.getUTCDay() + 6) % 7); // last Monday of May
+    var dl = new Date(Date.UTC(yr, 4, lastMon));
+    dl.setUTCDate(dl.getUTCDate() - 3);               // Thu→Fri boundary
+    dl.setUTCHours(4, 0, 0, 0);                        // 00:00 EDT
+    return dl;
+  }
+
+  // §C5 restructure window — shared with desktop + Roster Workbench via
+  // site/shared/contract_windows.js. FAILS CLOSED: no shared module or no
+  // resolvable deadline -> not open, never silently "open".
+  function restructureWindowOpenFOMobile() {
+    var W = window.UPS_CONTRACT_WINDOWS;
+    if (!W) return { open: false, reason: "window_unreadable", detail: "Restructure eligibility unavailable." };
+    return W.restructureWindowOpen(Date.now(), contractLadderDatesFO().contractDeadline);
+  }
+
   // Verbatim mirror of v2/front_office.js isPastContractDeadlineFO (1297),
   // kept for desktop parity and still exported.
   //
@@ -466,10 +495,28 @@
     var extensionEligible = !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) &&
                             status.indexOf("tag") === -1 && !noFurtherExt &&
                             !myacEligible && !mymEligible;
-    // On the ladder, Extension is rung 3 — Week 3 kickoff → Week 5 kickoff —
-    // and nothing after that. Off the ladder (held veterans, rookies, trades,
-    // in-season WW days 15-28) the existing rule stands untouched.
-    if (ladder) extensionEligible = extensionEligible && ladder.stage === "extension";
+    if (ladder) {
+      // On the ladder, Extension is rung 3 — Week 3 kickoff → Week 5 kickoff —
+      // and nothing after that.
+      extensionEligible = extensionEligible && ladder.stage === "extension";
+    } else if (extensionEligible) {
+      // Off the ladder (held veterans, rookies, in-season trades, in-season
+      // WW/FCFS days 15-28) — the §C4 deadline matrix that desktop
+      // front_office.js already applies, shared via
+      // site/shared/contract_windows.js. This branch used to be reached with
+      // NO deadline check at all: a plain held veteran in his final year
+      // (Dallas Goedert, traded to his current team 2025-11-27, September
+      // 2026 deadline long passed) showed as extension-eligible here even
+      // though desktop correctly withheld it. FAILS CLOSED if the shared
+      // module didn't load.
+      var CW = window.UPS_CONTRACT_WINDOWS;
+      extensionEligible = !!CW && CW.standardExtensionWindow(player, {
+        season: safeInt(currentSeasonFO(), 0),
+        contractDeadlineYmd: contractLadderDatesFO().contractDeadline,
+        isRookieLikeStatus: rookieLikeContractStatus,
+        tagDeadlineDate: tagDeadlineDateFOMobile
+      }).in_window;
+    }
 
     return {
       myacEligible: myacEligible,
@@ -489,6 +536,7 @@
       extensionEligible: extensionEligible,
       rookieOptionEligible: !!(rookieOption && rookieOption.eligible && !rookieOption.exercised),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
+                            && restructureWindowOpenFOMobile().open
     };
   }
 

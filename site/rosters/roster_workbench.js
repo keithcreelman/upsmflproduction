@@ -602,6 +602,22 @@
     return true;                              // pre-rule active rookie → grandfathered permanent
   }
 
+  // §C5 restructure window + §C4 off-ladder extension window — shared with
+  // front_office.js and mobile via site/shared/contract_windows.js
+  // (window.UPS_CONTRACT_WINDOWS). This file has no pre-season WW/FCFS/fresh-
+  // auction LADDER concept (it offers no MYAC/MYM actions at all), so the
+  // shared standardExtensionWindow matrix — held veteran -> September
+  // deadline, rookie -> May deadline, in-season WW/FCFS pickup -> days
+  // 15-28, in-season trade acquisition -> 4 weeks — applies unconditionally
+  // per player. FAILS CLOSED: no shared module, no resolvable deadline ->
+  // not eligible, never silently "open".
+  function restructureWindowOpenRW() {
+    var W = window.UPS_CONTRACT_WINDOWS;
+    var deadlineYmd = contractDeadlineYmdForSeason(currentYearInt());
+    if (!W) return { open: false, reason: "window_unreadable", detail: "Restructure eligibility unavailable." };
+    return W.restructureWindowOpen(Date.now(), deadlineYmd);
+  }
+
   function rosterContractEligibility(player) {
     var years = Math.max(0, safeInt(player && player.years, 0));
     var salary = safeInt(player && player.salary, 0);
@@ -614,11 +630,29 @@
     var expiredRookie =
       info.indexOf("expired rookie") !== -1 ||
       (rookieLikeContractStatus(status) && years <= 0);
+    var extensionCandidate = !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) &&
+                              status.indexOf("tag") === -1 && !noFurtherExt;
+    var extensionEligible = false;
+    if (extensionCandidate) {
+      var W = window.UPS_CONTRACT_WINDOWS;
+      if (W) {
+        var season = currentYearInt();
+        var win = W.standardExtensionWindow(player, {
+          season: season,
+          contractDeadlineYmd: contractDeadlineYmdForSeason(season),
+          isRookieLikeStatus: rookieLikeContractStatus,
+          tagDeadlineDate: tagDeadlineDateForSeason
+        });
+        extensionEligible = !!win.in_window;
+      }
+      // no W -> fail closed, extensionEligible stays false
+    }
 
     return {
-      extensionEligible: !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt,
+      extensionEligible: extensionEligible,
       rookieOptionEligible: !!(rookieOption && rookieOption.eligible && !rookieOption.exercised),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
+                            && restructureWindowOpenRW().open
     };
   }
 

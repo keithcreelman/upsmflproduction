@@ -2356,7 +2356,12 @@
       extensionCandidate: extCandidate,
       extensionEligible: extCandidate && extensionDeadlineForPlayer(p).in_window,
       rookieOptionEligible: rookieOptionActionEligible(p),
-      restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status),
+      // §C5: structurally eligible (2-3 yrs, salary, not rookie-like) is not
+      // enough — the offseason-until-contract-deadline WINDOW must also be
+      // open. restructureWindowOpenFO() fails closed (see below) so an
+      // unreadable deadline never reads as "open".
+      restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
+                            && restructureWindowOpenFO().open,
       untagEligible: status === "tag" && !isPastTagDeadlineFO(),
       // For the surfaces that print a human-readable acquisition/entry label
       // (renderMyacTab's "Auction Type" column, renderActionsTab's "Records
@@ -2408,6 +2413,18 @@
     if (!d) return null;
     try { return new Date(String(d).slice(0, 10) + "T21:00:00-04:00"); } catch (_) { return null; }
   }
+
+  // §C5 restructure window — shared with roster_workbench.js and mobile via
+  // site/shared/contract_windows.js (window.UPS_CONTRACT_WINDOWS), which
+  // mirrors worker/src/restructure_cap.js checkRestructureWindow's own
+  // instant parser exactly, so client and server can never disagree about
+  // which second the window shuts. FAILS CLOSED: {open:false} if the shared
+  // module hasn't loaded or the deadline can't be read.
+  function restructureWindowOpenFO() {
+    var W = window.UPS_CONTRACT_WINDOWS;
+    if (!W) return { open: false, reason: "window_unreadable", detail: "Restructure eligibility unavailable." };
+    return W.restructureWindowOpen(Date.now(), STATE.contractDeadline);
+  }
   // Per-player §C4 extension deadline. Returns { date, start, basis, days_until,
   // in_window }. Mirrors the worker lock:
   //   • In-season WW/FCFS pickup → extension window is days 15–28 from pickup.
@@ -2416,16 +2433,6 @@
   //   • Veteran final-year → September contract deadline of the season.
   function extensionDeadlineForPlayer(p) {
     var seasonInt = parseInt(SEASON, 10) || new Date().getUTCFullYear();
-    var cy = Math.max(0, safeInt(p && p.years, 0));
-    var statusLc = safeStr(p && p.type).toLowerCase();
-    var expiredRookie = safeStr(p && p.special).toLowerCase().indexOf("expired rookie") !== -1 ||
-                        (rookieLikeContractStatus(statusLc) && cy <= 0) || !!(p && p.isExpiredRookie);
-    var isRookieContract = rookieLikeContractStatus(statusLc) || expiredRookie;
-    var acqLabel = safeStr(p && p.acquisitionTypeLabel).toLowerCase();
-    var acqYr = safeStr(p && p.acquisitionDate).slice(0, 4);
-    var acquiredThisSeason = acqYr === String(SEASON);
-    var acqDate = null;
-    try { if (p && p.acquisitionDate) acqDate = new Date(safeStr(p.acquisitionDate).slice(0, 10) + "T12:00:00-04:00"); } catch (_) {}
     var DAY = 86400000;
 
     // ── Pre-season acquisition ladder split (canon ~379/~785) ────────────
@@ -2461,27 +2468,27 @@
       return { date: null, start: null, basis: "Pre-season/in-season WW pickup — window could not be resolved", days_until: null, in_window: false };
     }
 
-    var isWW = acquiredThisSeason && acqDate && /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) && acqLabel.indexOf("auction") === -1;
-    var isTradeAcq = acquiredThisSeason && acqDate && acqLabel.indexOf("trade") !== -1;
-    var date = null, start = null, basis = "";
-    if (isWW) {
-      start = new Date(acqDate.getTime() + 15 * DAY);  // days 1–14 = MYM
-      date  = new Date(acqDate.getTime() + 28 * DAY);  // days 15–28 = extension
-      basis = "WW/FCFS pickup — days 15–28";
-    } else if (isTradeAcq) {
-      date  = new Date(acqDate.getTime() + 28 * DAY);  // 4 weeks from acquisition
-      basis = "Trade-acquired — 4 weeks";
-    } else if (isRookieContract) {
-      date  = tagDeadlineDateFO(seasonInt + cy);       // May of the expiry year
-      basis = "Rookie — May " + (seasonInt + cy) + " (rookie-extension deadline)";
-    } else {
-      date  = contractDeadlineDateFO();                // September of the season
-      basis = "Veteran — September contract deadline";
+    // Off-ladder matrix (WW in-season / trade-acquired / rookie / veteran) —
+    // shared with roster_workbench.js and mobile via
+    // site/shared/contract_windows.js, so this file is not a second
+    // hand-copied version for those two surfaces to drift against.
+    var W = window.UPS_CONTRACT_WINDOWS;
+    if (!W) {
+      // Shared module failed to load — fail closed rather than silently
+      // falling back to a locally re-derived (and therefore driftable) copy.
+      return { date: null, start: null, basis: "", days_until: null, in_window: false, resolved: false };
     }
-    var now = Date.now();
-    var days_until = date ? Math.ceil((date.getTime() - now) / DAY) : null;
-    var in_window = !!date && now <= date.getTime() && (!start || now >= start.getTime());
-    return { date: date, start: start, basis: basis, days_until: days_until, in_window: in_window };
+    var result = W.standardExtensionWindow(p, {
+      season: seasonInt,
+      // Pass this file's OWN precomputed 21:00 ET deadline instant (matches
+      // the worker's getContractDeadlineUtc baseline exactly) rather than a
+      // bare YMD — preserves this function's pre-existing cutoff byte-for-
+      // byte instead of falling back to the shared module's own default.
+      contractDeadlineDate: contractDeadlineDateFO(),
+      isRookieLikeStatus: rookieLikeContractStatus,
+      tagDeadlineDate: tagDeadlineDateFO
+    });
+    return result;
   }
 
   function posBucket(p) {
@@ -3438,11 +3445,15 @@
   // across 339 rows: IR (32), IR-PUP (2), IR-NFI (1), Suspended (8),
   // Holdout (2), RETIRED (19), Questionable (234), Out (41).
   //
-  // Do NOT "simplify" these to equality tests. The predicate in
-  // site/m/views/contracts.js irEligible() does exactly that — `s === "PUP"` /
-  // `s === "NFI"` — and can therefore NEVER match, because MFL prefixes them:
-  // the real strings are "IR-PUP" and "IR-NFI". It also has no HOLDOUT branch
-  // though canon T2.1 lists holdouts explicitly. Prefix tests, not equality.
+  // Do NOT "simplify" these to equality tests or a broad substring match.
+  // renderContractSummary's "N IR-eligible" alert used to run its OWN inline
+  // copy (`st.indexOf("out")>=0 || st==="ir" || ... || st.indexOf("reserve")>=0`)
+  // instead of calling this function — a same-file drift that fired on plain
+  // "Out"/"Doubtful" game-day statuses (never IR-eligible) and overcounted
+  // Real Deal Creel at 4 when 0 of those 4 held an IR-type designation
+  // (2026-09-28). Fixed by calling this function directly; see its one call
+  // site below. mobile's app.js `irEligibilityFor` already matches this
+  // predicate byte-for-byte — no separate mobile bug remains here.
   //
   // RETIRED is deliberately NOT eligible: canon D2 handles retirees through the
   // cap-free-cut rule, a different mechanic from IR's 50% relief. Note it also
@@ -3757,8 +3768,10 @@
         else if (p.isIr) { irN += 1; irAlloc += hit; salaryCap += hit; }
         else {
           activeN += 1; salaryCap += hit;
-          const st = (STATE.nflStatus[String(p.id)] || "").toLowerCase();
-          if (st && (st.indexOf("out") >= 0 || st === "ir" || st.indexOf("doubt") >= 0 || st.indexOf("pup") >= 0 || st.indexOf("reserve") >= 0)) irEligible.push(p);
+          // Same predicate as the "Place on IR" button gate (foIrDesignationEligible,
+          // §B3 above) — this alert must never advertise more candidates than that
+          // button will actually accept. Do not reintroduce a separate copy here.
+          if (foIrDesignationEligible(STATE.nflStatus[String(p.id)])) irEligible.push(p);
         }
         if (isLoadedRow(p)) loadedN += 1;
         if (safeInt(p.years, 0) === 3 && ctypeClass(p.type).split(" ")[0] !== "rk") threeYrN += 1;
@@ -6790,7 +6803,9 @@
         '<th title="Per-year salary for the remaining contract years (hover for years)">Salary by Yr</th>' +
         '<th>Deadline</th><th style="text-align:right;">Days Left</th>' +
         "</tr></thead><tbody>" + trs + "</tbody></table></div>"
-      : '<div class="fo-table-loading">No players eligible to restructure' + (daysLeft < 0 ? " (window closed)" : "") + '.</div>';
+      : '<div class="fo-table-loading">' + (daysLeft < 0
+          ? "Restructuring closed after the September contract deadline."
+          : "No players eligible to restructure.") + '</div>';
     // "Used this season" summary (§C5 3/team limit) from the contract-activity log.
     const usage = STATE.restructureUsage || { byFid: {} };
     const usedFids = Object.keys(usage.byFid || {});
