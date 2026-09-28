@@ -822,15 +822,29 @@ function f3Suite(label, deriveTable, buildRow) {
     });
   });
   check(label + ': valid regular-season rows mixed with ONE malformed relevant row -> incomplete (not rescued by participation)', () => {
-    // Weeks 1-2 are perfectly complete and valid; week 3 has a malformed
-    // po for one relevant franchise. Requirement 4: must fail closed even
-    // though plenty of valid data exists, and must NOT rely on the
-    // participation check (which wouldn't even flag week 3, since both
-    // 0001 and 0002 DO have a row there -- just one with garbage po).
+    // Weeks 1-3 are perfectly complete, valid, and reciprocally consistent
+    // ON THEIR OWN. Week 3's malformed row is a genuine SECOND same-week
+    // entry for 0001 (a real shape -- the module's own header comments
+    // document multi-opponent weeks) *in addition to* 0001's own already-
+    // valid week-3 row, so participation/reciprocity for week 3 is fully
+    // satisfied without the malformed row's contribution at all -- proven
+    // by construction, not merely asserted. That means the ONLY thing that
+    // can flip this table to 'incomplete' is the unconditional po==null
+    // gate itself (Requirement 4): a version of the code that dropped that
+    // gate and relied solely on completeness/reciprocity would compute
+    // 'ok' here, not 'incomplete' by coincidence. (Verified by mutation
+    // testing 2026-09-28: with the independent gate removed, this exact
+    // fixture resolves to 'ok' for both AP and Overall -- the previous
+    // fixture's malformed row was the SOLE occupant of its week, so
+    // completeness caught it anyway for AP, and for Overall a hardcoded
+    // reciprocal-score shortcut in buildRow masked an unrelated week-2
+    // conflict that only stayed invisible because the gate short-circuited
+    // first -- neither actually isolated this requirement.)
     const rows = [
-      buildRow('0001', 100, false, '0002'), buildRow('0002', 90, false, '0001'),
-      buildRow('0001', 110, false, '0002', 2), buildRow('0002', 95, false, '0001', 2),
-      buildRow('0001', 120, 'garbage', '0002', 3), buildRow('0002', 100, false, '0001', 3)
+      buildRow('0001', 100, false, '0002', 1, 90), buildRow('0002', 90, false, '0001', 1, 100),
+      buildRow('0001', 110, false, '0002', 2, 95), buildRow('0002', 95, false, '0001', 2, 110),
+      buildRow('0001', 120, false, '0002', 3, 100), buildRow('0002', 100, false, '0001', 3, 120),
+      buildRow('0001', 999, 'garbage', '0002', 3, 999) // 0001's SECOND week-3 entry -- malformed, but week 3 is already complete without it
     ];
     const t = deriveTable(rows, ['0001', '0002']);
     assert.strictEqual(t.status, 'incomplete');
@@ -878,7 +892,11 @@ f3Suite(
 f3Suite(
   'F3 Overall',
   (rows, fids) => RACE.deriveRegSeasonOverallTable(rows, fids),
-  (fid, ts, po, opp, wk) => ({ w: wk || 1, fid: fid, ts: ts, opp: opp, os: fid === '0001' ? 90 : 100, po: po })
+  // os: explicit 6th arg when the caller needs a specific reciprocal score
+  // (e.g. a week where ts varies from the canonical 100/90 pair -- see the
+  // "mixed with ONE malformed relevant row" case); every other case still
+  // uses the same 100/90-pair default it always has.
+  (fid, ts, po, opp, wk, os) => ({ w: wk || 1, fid: fid, ts: ts, opp: opp, os: os != null ? os : (fid === '0001' ? 90 : 100), po: po })
 );
 
 for (const [name, fn] of checks) {
