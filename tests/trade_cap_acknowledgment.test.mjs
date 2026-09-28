@@ -24,7 +24,7 @@ import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, callWorker, bindSelf, quiet } from "./fixtures/worker_harness.mjs";
 import * as F from "./fixtures/trade_3way_fixture.mjs";
-import { capAckSignature, evaluateCapAcknowledgment } from "../worker/src/trade_cap_ack.js";
+import { capAckSignature, evaluateCapAcknowledgment, capAckAssetKey, capAckExtensionKey, capAckTermsKey } from "../worker/src/trade_cap_ack.js";
 await import("./fixtures/register_md_loader.mjs");
 const { handle3WayButton, execute3Way } = await import("../worker/src/trade_3way.js");
 
@@ -77,13 +77,13 @@ test("evaluateCapAcknowledgment: PURE — missing / stale / acknowledged, and a 
 
 // ───────────────────────────────── shared 2-way world (mirrors trade_cap_gate.test.mjs) ─────────────────────────────────
 const player = (pid, salary = 5000, extra) => ({ asset_id: `P_${pid}`, type: "PLAYER", player_id: String(pid), player_name: `P${pid}`, salary, taxi: false, contract_info: "", ...(extra || {}) });
-const payloadOf = (from, to, give, recv) => ({
+const payloadOf = (from, to, give, recv, o) => ({
   schema_version: 1, source: "test", league_id: "74598", season: "2026",
   teams: [
     { role: "left", franchise_id: from, selected_assets: give, traded_salary_adjustment_k: 0, traded_salary_adjustment_dollars: 0, selected_non_taxi_salary_dollars: 5000 },
     { role: "right", franchise_id: to, selected_assets: recv, traded_salary_adjustment_k: 0, traded_salary_adjustment_dollars: 0, selected_non_taxi_salary_dollars: 5000 },
   ],
-  extension_requests: [], ui: { left_team_id: from, right_team_id: to }, validation: { status: "ready" },
+  extension_requests: (o && o.ext) || [], ui: { left_team_id: from, right_team_id: to }, validation: { status: "ready" },
 });
 const SWAP = () => payloadOf("0001", "0002", [player(14056)], [player(13100)]);
 function world(mfl, o) {
@@ -379,6 +379,91 @@ test("FAIL-CLOSED (3-way): an unavailable cap calculation at execute is never tr
   t.equal(mfl.writes().length, 0);
   const stranger = await ackCap(env, "tok-A");
   t.equal(stranger.status, 503, "acknowledging is refused too -- there's no violation figure to acknowledge while unavailable"); t.equal(stranger.json.code, "cap_check_unavailable");
+});
+
+// ───────────────────────────────── Part 9 — bound to the OFFER, not just its assets (Keith's review, 2026-09-28) ─────────────────────────────────
+// Two offers can move the SAME assets and land on the SAME projected cap figures while being
+// genuinely DIFFERENT offers -- most concretely, a plain swap vs. the same swap with a pre-trade
+// extension attached to the traded player: an extension's current-year (Year 1) salary is the
+// player's LIVE salary regardless of the extension's own length/pricing, so the recipient's
+// projected cap total can be byte-identical either way. The trade_key must still tell them apart.
+test("capAckExtensionKey / capAckTermsKey: PURE — different extension terms on the SAME player change the key, even when the asset key alone would match", () => {
+  const tbf = { "0001": ["14056"], "0002": ["13100"] };
+  const noExt = capAckExtensionKey([]);
+  const ext2yr = capAckExtensionKey([{ player_id: "14056", from_franchise_id: "0001", to_franchise_id: "0002", extension_term: "2YR", option_key: "2YR|NONE", new_contract_status: "EXT2", new_TCV: 56000, new_aav_future: 26000, new_contract_length: 3, preview_contract_info_string: "CL 3| TCV 56K| AAV 6K, 26K| Y1-4K, Y2-26K, Y3-26K" }]);
+  const ext1yr = capAckExtensionKey([{ player_id: "14056", from_franchise_id: "0001", to_franchise_id: "0002", extension_term: "1YR", option_key: "1YR|NONE", new_contract_status: "EXT1", new_TCV: 30000, new_aav_future: 26000, new_contract_length: 2, preview_contract_info_string: "CL 2| TCV 30K| AAV 26K| Y1-4K, Y2-26K" }]);
+  t.notEqual(noExt, ext2yr, "no extension vs. a 2-year extension differ");
+  t.notEqual(ext2yr, ext1yr, "a 2-year vs. a 1-year extension on the SAME player differ");
+  t.equal(capAckExtensionKey([]), "", "no extension requests -> the empty key, deterministically");
+  const same = { "0001": ["1"], "0002": ["9"] };
+  t.equal(capAckTermsKey({ tokensByFranchise: same, extensionRequests: [] }), capAckTermsKey({ tokensByFranchise: same, extensionRequests: [] }), "identical inputs -> identical key");
+  t.notEqual(
+    capAckTermsKey({ tokensByFranchise: same, extensionRequests: [] }),
+    capAckTermsKey({ tokensByFranchise: same, extensionRequests: [{ player_id: "1", from_franchise_id: "0001", to_franchise_id: "0002", extension_term: "2YR", option_key: "2YR|NONE" }] }),
+    "the SAME assets with an extension attached is a DIFFERENT terms key than the same assets with none"
+  );
+  // capAckAssetKey is order-independent by construction (used directly inside capAckTermsKey)
+  t.equal(capAckAssetKey({ "0001": ["1", "2"], "0002": ["9"] }), capAckAssetKey({ "0001": ["2", "1"], "0002": ["9"] }));
+});
+test("2-WAY CREATE→ACCEPT: SAME assets and IDENTICAL projected cap figures, but a DIFFERENT extension attached, requires its OWN acknowledgment — trade A's signature must not satisfy trade B's", async () => {
+  // player 14056's live contract: $4K this year, unaffected by any extension's LENGTH -- so a
+  // plain swap and the SAME swap with a canonically-priced extension attached land on the
+  // IDENTICAL projected cap figures for the recipient. Exactly the collision this test closes.
+  const live = { id: "14056", salary: "4000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 12K|AAV 6K|Y1-4K, Y2-8K" };
+  const ext = [{ player_id: "14056", player_name: "P14056", from_franchise_id: "0001", to_franchise_id: "0002", extension_term: "2YR", option_key: "2YR|NONE", loaded_indicator: "NONE", new_contract_status: "EXT2",
+    new_TCV: 56000, new_aav_future: 26000, new_contract_length: 3, preview_contract_info_string: "CL 3| TCV 56K| AAV 6K, 26K| Y1-4K, Y2-26K, Y3-26K" }];
+
+  // Trade A: a PLAIN swap, no extension. 0002: 306000 + 4000(14056) − ... = $10,000 over.
+  const { env: eA, mfl: mA } = fresh(); world(mA, { s1: 4000, s2: 5000, fill1: 100000, fill2: 306000 });
+  const rA = await create(eA, createBody(payloadOf("0001", "0002", [player(14056, 4000)], [player(13100, 5000)])));
+  t.equal(rA.status, 201, rA.text.slice(0, 200)); const idA = mA.st.pending[0].trade_id;
+  const pA = await act(eA, mobileBody(idA, "PREVIEW"));
+  t.equal(pA.status, 200, pA.text.slice(0, 300));
+  t.equal(pA.json.compliance.cap.rows.find((x) => x.franchise_id === "0002").used_after, 310000, "over by $10,000, plain swap");
+  const sigA = pA.json.cap_ack.per_franchise.find((f) => f.franchise_id === "0002").signature;
+
+  // Trade B: the SAME assets, the SAME resulting cap figures — but a genuinely different offer.
+  const { env: eB, mfl: mB } = fresh(); world(mB, { s1: 4000, s2: 5000, fill1: 100000, fill2: 306000 });
+  mB.st.salaries = [live];
+  const rB = await create(eB, createBody(payloadOf("0001", "0002", [player(14056, 4000)], [player(13100, 5000)], { ext })));
+  t.equal(rB.status, 201, rB.text.slice(0, 200)); const idB = mB.st.pending[0].trade_id;
+  const pB = await act(eB, mobileBody(idB, "PREVIEW"));
+  t.equal(pB.status, 200, pB.text.slice(0, 300));
+  t.equal(pB.json.compliance.cap.rows.find((x) => x.franchise_id === "0002").used_after, 310000, "over by $10,000, WITH the extension — the SAME dollar figures as trade A");
+  const wantB = pB.json.cap_ack.per_franchise.find((f) => f.franchise_id === "0002");
+  t.notEqual(sigA, wantB.signature, "identical dollar figures, different offer terms — the signatures themselves must still differ");
+
+  // Trade A's own, genuinely-valid signature does NOT satisfy trade B's requirement.
+  const bad = await act(eB, { ...mobileBody(idB), cap_ack: { signature: sigA } });
+  t.equal(bad.status, 409, "trade A's acknowledgment does not carry over to trade B, despite identical assets and identical cap figures");
+  t.equal(bad.json.code, "cap_overage_ack_required");
+  t.equal(mB.st.done.length, 0);
+
+  // Trade B's OWN signature does satisfy it.
+  const good = await act(eB, { ...mobileBody(idB), cap_ack: { signature: wantB.signature } });
+  t.equal(good.status, 200, good.text.slice(0, 200)); t.equal(mB.st.done.length, 1);
+});
+
+// ───────────────────────────────── Part 10 — the initiator's acknowledgment record is REQUIRED, not best-effort (Keith's review, 2026-09-28) ─────────────────────────────────
+test("2-WAY CREATE: if the acknowledgment cannot be SAVED, the offer is refused before MFL — never silently sent unrecorded", async () => {
+  const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 20000, fill1: 290000, fill2: 100000 });   // sender (0001) $10,000 over
+  const r0 = await create(env, createBody(SWAP()));
+  t.equal(r0.status, 409); t.equal(r0.json.code, "cap_overage_ack_required");
+  // Break the acknowledgment store SPECIFICALLY: a schema-incompatible table already exists, so
+  // makeCapAckStore's `CREATE TABLE IF NOT EXISTS` silently no-ops and the INSERT itself throws.
+  // Nothing else about D1 is broken -- the offer's own outbox write would otherwise succeed fine.
+  env.UPS_MFL_DB.raw.prepare("DROP TABLE IF EXISTS ups_trade_cap_acknowledgments").run();
+  env.UPS_MFL_DB.raw.prepare("CREATE TABLE ups_trade_cap_acknowledgments (id INTEGER PRIMARY KEY)").run();
+  const r1 = await create(env, { ...createBody(SWAP()), cap_ack: { signature: r0.json.cap_ack_needed.signature } });
+  t.equal(r1.status, 503, r1.text.slice(0, 200));
+  t.equal(r1.json.code, "cap_ack_unavailable");
+  t.equal(mfl.st.pending.length, 0, "the offer was never sent to MFL");
+  t.equal(mfl.writes().length, 0, "zero MFL writes of any kind — never sent unrecorded");
+  // Heal the table -- the SAME signature now succeeds, proving this was the ack-store failure alone.
+  env.UPS_MFL_DB.raw.prepare("DROP TABLE ups_trade_cap_acknowledgments").run();
+  const r2 = await create(env, { ...createBody(SWAP()), cap_ack: { signature: r0.json.cap_ack_needed.signature } });
+  t.equal(r2.status, 201, r2.text.slice(0, 200));
+  t.equal(mfl.st.pending.length, 1);
 });
 
 // ───────────────────────────────── Part 8 — the underlying calculation is untouched ─────────────────────────────────

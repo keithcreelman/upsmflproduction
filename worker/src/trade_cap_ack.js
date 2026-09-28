@@ -35,6 +35,13 @@
 // worker/src/trade_execution.js's ledger and the outbox use) and also shipped as a migration, so
 // the worker does not depend on migration ordering.
 
+// The SAME normalization worker/src/extension_pricing.js's own pricing/compare logic uses for
+// "what does this extension request actually claim" -- field-name variants (option_key vs
+// optionKey, new_TCV vs new_tcv, etc.) and a preview-string-only request fingerprint identically
+// to their equivalent explicit-field form. Reused here (not re-derived) so the acknowledgment
+// key can never silently disagree with what the pricing code itself considers "the terms".
+import { storedTerms } from "./extension_pricing.js";
+
 export const CAP_ACK_DDL = `CREATE TABLE IF NOT EXISTS ups_trade_cap_acknowledgments (
   league_id             TEXT NOT NULL,
   season                TEXT NOT NULL,
@@ -55,25 +62,17 @@ const nowIso = () => new Date().toISOString();
 const keyOf = (k) => [s(k.leagueId), s(k.season), s(k.tradeKey)];
 
 /**
- * The deterministic fingerprint of "this is exactly what is being acknowledged": which trade,
- * which franchise, and the two dollar figures that fully determine the overage (the projected
- * post-trade total and the amount over). Built from the SAME violation-row fields
- * trade_cap_authority.js already returns (`franchise_id`, `amount_over`, `projected_used`) --
- * nothing here is re-derived independently, so this can never drift out of step with the actual
- * cap calculation. Any change to either figure -- a different trade shape, a different league cap
- * amount, or simply time passing while other moves change what's on the roster -- changes the
- * signature, which is exactly what makes a stale acknowledgment stop matching.
- */
-/**
  * A canonical, order-independent fingerprint of WHICH ASSETS are actually moving in a two-way
- * trade -- the trade_key for the 2-way acknowledgment store. NOT the outbox's own payload_hash:
- * that hash is computed from a narrower canonical form (index.js's buildTradeIntentBundleFromPayload
- * -- league/season/franchises/action_type/extension+salary-adjustment XML) that does NOT vary with
- * the traded players/picks themselves when a trade carries no extension or cap-money component --
- * two DIFFERENT swaps between the same two franchises would otherwise collide on the identical
- * payload_hash, letting a signature from one satisfy the other. This key is built from the SAME
- * per-franchise token map trade_cap_authority.js's `movements` are built from, so it's naturally
- * available, unchanged, at both offer creation and every later accept/preview of the SAME offer.
+ * trade (players, picks, and cap money -- cap money is already folded into these same tokens as
+ * BB_<dollars>, see worker/src/trade_accept_integrity.js#tokensByFranchise). NOT the outbox's own
+ * payload_hash: that hash is computed from a narrower canonical form (index.js's
+ * buildTradeIntentBundleFromPayload -- league/season/franchises/action_type/extension+salary-
+ * adjustment XML) that does NOT vary with the traded players/picks themselves when a trade
+ * carries no extension component -- two DIFFERENT swaps between the same two franchises would
+ * otherwise collide on the identical payload_hash, letting a signature from one satisfy the
+ * other. Built from the SAME per-franchise token map trade_cap_authority.js's `movements` are
+ * built from, so it's naturally available, unchanged, at both offer creation and every later
+ * accept/preview of the SAME offer.
  */
 export function capAckAssetKey(tokensByFranchise) {
   const tokens = [];
@@ -84,6 +83,51 @@ export function capAckAssetKey(tokensByFranchise) {
   return tokens.join(",");
 }
 
+/**
+ * A canonical, order-independent fingerprint of the EXTENSION terms requested in a trade --
+ * player, both franchises, and the full authoritative terms (storedTerms(), above), so a request
+ * expressed via option_key, via explicit new_TCV/new_aav_future/... fields, or via only a preview
+ * string fingerprints identically to any equivalent form of the SAME terms. Two offers moving the
+ * SAME assets for the SAME projected dollar figures, but with DIFFERENT extension terms attached
+ * to a traded player, must never collide on the same trade_key -- their cap figures can coincide
+ * (an extension's current-year salary can be identical across different lengths/pricings) even
+ * though the offer being agreed to is genuinely different.
+ */
+export function capAckExtensionKey(extensionRequests) {
+  const rows = Array.isArray(extensionRequests) ? extensionRequests : [];
+  const parts = rows.map((r) => {
+    const t = storedTerms(r || {});
+    return [
+      s(r && r.player_id), s(r && r.from_franchise_id), s(r && r.to_franchise_id),
+      s(t.term), s(t.loaded), s(t.status_years), s(t.contract_length), s(t.salary_year1),
+      JSON.stringify(t.salary_by_year || null), s(t.aav_current), s(t.aav_future), s(t.tcv),
+    ].join(":");
+  });
+  parts.sort();
+  return parts.join(";");
+}
+
+/**
+ * The COMPLETE authoritative-terms fingerprint for a two-way offer's trade_key: the moving
+ * assets (capAckAssetKey) AND the extension terms requested (capAckExtensionKey), together.
+ * This -- not capAckAssetKey alone -- is what every 2-way cap-acknowledgment call site should
+ * use, so an acknowledgment is bound to the SPECIFIC offer as agreed, not merely to which players
+ * moved.
+ */
+export function capAckTermsKey({ tokensByFranchise, extensionRequests }) {
+  return `${capAckAssetKey(tokensByFranchise)}||EXT:${capAckExtensionKey(extensionRequests)}`;
+}
+
+/**
+ * The deterministic fingerprint of "this is exactly what is being acknowledged": which trade
+ * (its complete authoritative terms -- see capAckTermsKey), which franchise, and the two dollar
+ * figures that fully determine the overage (the projected post-trade total and the amount over).
+ * The dollar figures are the SAME violation-row fields trade_cap_authority.js already returns
+ * (`franchise_id`, `amount_over`, `projected_used`) -- nothing here is re-derived independently,
+ * so this can never drift out of step with the actual cap calculation. Any change to the trade's
+ * terms OR either dollar figure changes the signature, which is exactly what makes a stale
+ * acknowledgment stop matching.
+ */
 export function capAckSignature({ tradeKey, franchiseId, amountOver, usedAfter }) {
   return `${s(tradeKey)}|${s(franchiseId)}|${Math.round(Number(amountOver) || 0)}|${Math.round(Number(usedAfter) || 0)}`;
 }
