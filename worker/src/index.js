@@ -42,6 +42,7 @@ import {
 import { runLineupDmSweep, runLineupBooking, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
+import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild } from "./leaderboard_coverage.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
@@ -12071,7 +12072,7 @@ export default {
         if (lbPreEligible) {
           try {
             const meta = await db.prepare(
-              "SELECT row_count, data_max_week FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
+              "SELECT row_count, data_max_week, teams_reported, teams_expected, week_complete FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
             ).bind(lbPreSeason, pos).first();
             if (meta && _preNum(meta.row_count) > 0) {
               // Freshness, current season only. Scoped to week <= 17 because
@@ -12196,16 +12197,51 @@ export default {
                     `Falling through to the live query instead would read millions of rows per request.`
                   );
                 }
+                // PROVISIONAL vs FINALIZED (2026-09-28) — four DISTINCT signals,
+                // deliberately never collapsed into one another:
+                //   built_for_week      — the latest week this board has ANY
+                //                         data for, complete or not.
+                //   authoritative_week  — the real-world completed week per the
+                //                         NFL schedule/live MFL scoring, with NO
+                //                         idea whether nflverse has published
+                //                         stats for it yet.
+                //   source_coverage     — how much of built_for_week has
+                //                         actually reported (teams_reported of
+                //                         teams_expected) — the "30/32" fact.
+                //   finalized_through_week — the one week number safe to call
+                //                         DONE: built_for_week's own data is
+                //                         complete (source_coverage.complete)
+                //                         AND the schedule agrees it's over
+                //                         (authoritative_week has reached it).
+                //                         Otherwise it's the week before, never
+                //                         a guess forward.
+                // `stale` keeps its EXISTING, unrelated meaning — the precompute
+                // failing to match what nfl_player_weekly currently has, or
+                // authoritative_week outrunning it. A precompute that correctly,
+                // freshly reflects a genuinely provisional source is NOT stale;
+                // conflating "provisional" with "stale" was exactly the bug this
+                // pass exists to fix.
+                const builtWk = (meta.data_max_week === null || meta.data_max_week === undefined) ? null : _preNum(meta.data_max_week);
+                const covTeamsRep = (meta.teams_reported === null || meta.teams_reported === undefined) ? null : _preNum(meta.teams_reported);
+                const covTeamsExp = (meta.teams_expected === null || meta.teams_expected === undefined) ? null : _preNum(meta.teams_expected);
+                const covComplete = (meta.week_complete === null || meta.week_complete === undefined) ? null : _preNum(meta.week_complete) === 1;
+                const finalizedThroughWeek = lbPreIsCurrent
+                  ? computeFinalizedThroughWeek({ builtWeek: builtWk, weekComplete: covComplete, authoritativeWeek: lbPreAuthWeek })
+                  : null;
                 const preResponse = jsonOut(200, {
                   seasons, pos, include_post: includePost, min_games: minGames,
                   team: teamFilter || null, count: preRows.length,
                   source: "precompute",
                   ...(lbPreIsCurrent ? {
                     stale: lbPreStale,
-                    built_for_week: (meta.data_max_week === null || meta.data_max_week === undefined)
-                      ? null : _preNum(meta.data_max_week),
+                    built_for_week: builtWk,
                     current_week: lbPreLiveWeek, // D1's own nfl_player_weekly coverage — NOT necessarily the real world (see stale/authoritative_week)
                     authoritative_week: lbPreAuthWeek, // resolveAuthoritativeCompletedWeek() result; null = unresolved (forced stale above)
+                    finalized_through_week: finalizedThroughWeek,
+                    source_coverage: builtWk == null ? null : {
+                      week: builtWk, teams_reported: covTeamsRep, teams_expected: covTeamsExp,
+                      complete: covComplete,
+                    },
                   } : {}),
                   rows: preRows,
                 });
@@ -12222,6 +12258,29 @@ export default {
                 }
                 return preResponse;
               }
+            } else if (lbPreIsCurrent) {
+              // The in-progress season's precompute has never been built at
+              // all (no meta row, or row_count 0). For a COMPLETED season the
+              // live-query fallback below is the safe, correct answer — it
+              // just costs one slow request. For the CURRENT season it is not:
+              // this is precisely the "provisional data" gap (2026-09-28) —
+              // Sunday's games have started reporting but nothing has rebuilt
+              // the board yet — and running the live query here would be the
+              // exact multi-million-row scan (idp: 4.8-6.2M rows/request; see
+              // the cost comment a few screens down) this pass exists to keep
+              // OFF the hot path. Refuse and say so plainly instead; the
+              // scheduled rebuild (or an admin dispatch) is what fixes this,
+              // not a live fallback.
+              return jsonOut(200, {
+                seasons, pos, include_post: includePost, min_games: minGames,
+                team: teamFilter || null, count: 0, source: "precompute",
+                stale: true, built_for_week: null, current_week: null,
+                authoritative_week: null, finalized_through_week: null,
+                source_coverage: null,
+                pending: true,
+                pending_reason: "current_season_precompute_not_built",
+                rows: [],
+              });
             }
           } catch (err) {
             console.error("[leaderboard precompute] read failed, falling through:", err && err.message);
@@ -52997,6 +53056,29 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             error: `season ${season} has no weekly stats yet (max week ${covWeek}) — nothing to build`,
           });
         }
+        // Per-team coverage for covWeek — the LATEST week this build covers —
+        // so the board can be stored and served as PROVISIONAL the moment some
+        // teams report (Sunday's games) without ever being read as finalized
+        // before the rest do (Monday Night Football). teamsExpected comes from
+        // the NFL schedule (nfl_team_vegas_weekly, known before kickoff — byes
+        // already correctly reduce it below 32), never a hardcoded 32, so a
+        // bye week doesn't get permanently stuck "incomplete." Both read-only,
+        // both scoped to covWeek specifically (not the whole season).
+        let teamsReported = null, teamsExpected = null, weekComplete = null;
+        if (covWeek > 0) {
+          const repRow = await db.prepare(
+            "SELECT COUNT(DISTINCT team) AS n FROM nfl_player_weekly WHERE season = ? AND week = ?"
+          ).bind(season, covWeek).first().catch(() => null);
+          const expRow = await db.prepare(
+            "SELECT COUNT(DISTINCT team) AS n FROM nfl_team_vegas_weekly WHERE season = ? AND week = ?"
+          ).bind(season, covWeek).first().catch(() => null);
+          teamsReported = repRow ? safeInt(repRow.n, 0) : null;
+          teamsExpected = expRow ? safeInt(expRow.n, 0) : null;
+          // "Unknown" (either read failed, or the schedule table has no rows
+          // for this week yet) must never read as complete — 0/0 is not 100%.
+          const wc = computeWeekComplete(teamsReported, teamsExpected);
+          weekComplete = wc === null ? null : (wc ? 1 : 0);
+        }
         // Derived HERE. `leagueId` is declared 25 times in this file, every one
         // inside a different route's block scope — none of them reachable from
         // this one. The no-undef gate caught it before it deployed.
@@ -53016,6 +53098,21 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const aliases = (onlyPos && onlyPos !== "all") ? [onlyPos] : ALL_ALIASES;
         const built = [];
         for (const alias of aliases) {
+          // IDEMPOTENT: skip the (expensive) self-fetch + rebuild entirely when
+          // nothing this alias's stored board depends on has actually changed
+          // since it was last built — same max week, same total row count,
+          // same per-team coverage for that week. This is what lets the
+          // refresh run on a tight, durable schedule (Sunday night, Monday
+          // morning, after Monday's game, plus the existing correction passes)
+          // without re-scanning/re-writing an unchanged board every time one
+          // of those fires and upstream simply hasn't moved yet.
+          const existingMeta = await db.prepare(
+            "SELECT data_max_week, data_row_count, teams_reported FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
+          ).bind(season, alias).first().catch(() => null);
+          if (shouldSkipRebuild(existingMeta, { covWeek, covRows, teamsReported })) {
+            built.push({ pos: alias, ok: true, skipped: true, reason: "no_change" });
+            continue;
+          }
           // NO_PRECOMPUTE=1 is what makes a REBUILD possible at all. NO_CACHE=1
           // gates only caches.default; the D1 precompute block answered it
           // regardless. Harmless while a season was built once and never again,
@@ -53072,16 +53169,24 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // source_sha (migration 0140) is the cautionary case: declared in the
           // schema, never written, silently always NULL. If data_max_week were
           // inserted but not updated, week 1's value would persist through every
-          // later rebuild and the read gate would report "stale" forever.
+          // later rebuild and the read gate would report "stale" forever. Same
+          // trap for teams_reported/teams_expected/week_complete (0161) — all
+          // three must be in the DO UPDATE list or a provisional week's coverage
+          // would freeze at its FIRST build forever, never advancing toward
+          // complete as more teams report.
           stmts.push(db.prepare(
             `INSERT INTO nfl_leaderboard_precompute_meta
-               (season, pos_alias, row_count, built_at_utc, data_max_week, data_row_count)
-             VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT (season, pos_alias) DO UPDATE SET row_count      = excluded.row_count,
-                                                           built_at_utc   = excluded.built_at_utc,
-                                                           data_max_week  = excluded.data_max_week,
-                                                           data_row_count = excluded.data_row_count`
-          ).bind(season, alias, rows.length, now, covWeek, covRows));
+               (season, pos_alias, row_count, built_at_utc, data_max_week, data_row_count,
+                teams_reported, teams_expected, week_complete)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (season, pos_alias) DO UPDATE SET row_count       = excluded.row_count,
+                                                           built_at_utc    = excluded.built_at_utc,
+                                                           data_max_week   = excluded.data_max_week,
+                                                           data_row_count  = excluded.data_row_count,
+                                                           teams_reported  = excluded.teams_reported,
+                                                           teams_expected  = excluded.teams_expected,
+                                                           week_complete   = excluded.week_complete`
+          ).bind(season, alias, rows.length, now, covWeek, covRows, teamsReported, teamsExpected, weekComplete));
           // Chunked: D1 caps statements per batch well below 500.
           for (let i = 0; i < stmts.length; i += 50) {
             await db.batch(stmts.slice(i, i + 50));
@@ -53089,7 +53194,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           built.push({ pos: alias, ok: true, rows: rows.length });
         }
         const okCount = built.filter((b) => b.ok).length;
-        return jsonOut(okCount ? 200 : 500, { ok: okCount > 0, season, built });
+        const skippedCount = built.filter((b) => b.skipped).length;
+        return jsonOut(okCount ? 200 : 500, {
+          ok: okCount > 0, season, built,
+          rebuilt: okCount - skippedCount, skipped_unchanged: skippedCount,
+        });
       }
 
       if (path === "/admin/discord/post" && request.method === "POST") {
