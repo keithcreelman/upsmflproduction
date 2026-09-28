@@ -619,5 +619,82 @@ test("LC 3-WAY (review round 2): an AUTHORITATIVE-but-irregular schedule (case 3
   t.equal(mfl.writes().length, 0, "zero MFL writes");
 });
 
+// ───────────── Part 6 — third review pass (2026-09-28): a PRESENT-but-malformed schedule is not the same thing as "no schedule at all" ─────────────
+// Each test reproduces Keith's exact reported input. All 4 previously fell through to
+// contractStatus because parseYearScheduleRaw's presence threshold silently swallowed a
+// single Y-token or a garbled bracket entry, treating it as if contractInfo carried no
+// schedule at all.
+
+test("LC 36 (review round 3, case 1): a schedule fragment -- only Y1 supplied for a stated 2-year contract -- is PRESENT, not absent; incomplete, never rescued by the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "only Y1 of a stated 2-year contract is supplied -- a present, incomplete fragment, not 'no schedule found here'");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 37 (review round 3, case 2): a MALFORMED bracket schedule (a non-numeric entry) is PRESENT, not absent; never silently discarded to fall back on the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|[2K,xyz,2K]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "the middle bracket entry ('xyz') doesn't parse -- the whole bracket schedule is present but malformed, not invisible");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 38 (review round 3, case 3): a MALFORMED Y-token value (Y2-xyz has no digits, so it never even matches) leaves Y2 missing -- present-but-incomplete, never rescued by the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-2K,Y2-xyz" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "Y2's malformed value means only Y1 is actually captured -- the same present-but-incomplete case as LC 36, reached a different way");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 39 (review round 3, case 4): the MYM exception is an EXACT documented list, not 'any Vet-/Rookie- prefix plus any middle segment' -- Vet-Gibberish-MYM is not a real MYM form", () => {
+  t.equal(classifyLoaded("Vet-Gibberish-MYM"), "", "unresolved reports '' through classifyLoaded's convenience mapping");
+  t.equal(isLoaded("Vet-Gibberish-MYM"), false, "unresolved is never reported as loaded");
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-Gibberish-MYM" }] }), // blank contractInfo
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "'Gibberish' is not a documented middle segment (unlike 'WW' in Vet-WW-MYM) -- this is not a real, recognized MYM form");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 39b: a genuinely COMPLETE 1-year schedule (CL 1, one matching Y1 token) still correctly resolves flat -- the relaxed presence threshold does not regress the real 1-year case", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }] }), // no contractStatus at all -- must resolve via the schedule itself
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "ok", "a complete, reconciled 1-year schedule has no shape to compare -- flat, same as canon's 1-year rule");
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 4);
+});
+
+test("LC 2-WAY (review round 3): a present-but-malformed schedule (case 2, garbled bracket) blocks the accept exactly like a proven violation -- 503, zero MFL writes, offer stays pending", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|[2K,xyz,2K]" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  const r = await act(env, mobileBody(id));
+  t.equal(r.status, 503);
+  t.equal(r.json.code, "loaded_contract_check_unavailable");
+  t.equal(r.json.compliance.cap.status, "ok", "the cap result stays independently valid in the same response");
+  t.equal(mfl.writes("tradeResponse").length, 0, "zero MFL writes");
+  t.equal(mfl.st.pending.length, 1, "the offer stays pending");
+});
+
+test("LC 3-WAY (review round 3): a present-but-malformed schedule (case 1, a lone Y1 fragment) blocks execution recoverably -- zero MFL writes, ledger blocked_cap, never failed, cap independently intact", async () => {
+  const { env, mfl } = threeWayWorld({ row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0008"][0] = { id: "16614", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-2K" };
+  const r1 = await execute3Way(env, F.TRADE_ID);
+  t.equal(r1.blocked, true); t.equal(r1.kind, "unavailable");
+  t.equal(r1.compliance.cap.status, "ok", "the cap result stays independently valid on the same gate response");
+  t.equal(F.readRow(env).status, "collecting", "recoverable -- never failed");
+  t.equal(ledgerRow(env).state, "blocked_cap");
+  t.equal(mfl.writes().length, 0, "zero MFL writes");
+});
+
 await run("trade_loaded_contracts");
 restore();

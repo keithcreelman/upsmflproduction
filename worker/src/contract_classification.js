@@ -3,11 +3,20 @@
 // §6.G: "Loaded contracts on roster ≤ 5 at all times (front + back combined)"; "Loaded...
 // can never attach to a 1-year deal, a MYM, or a taxi contract").
 //
-// RULING (2026-09-28, THIRD revision -- a second review pass on the first fix found 6 MORE
-// fail-open cases, all of the same shape: an explicitly PRESENT schedule that is incomplete,
-// duplicated, unreconciled, nonpositive, or irregular was falling through to a plausible-
-// looking contractStatus and getting classified flat anyway, instead of being reported
-// unresolved). Loaded/flat is resolved with this priority:
+// RULING (2026-09-28, FOURTH revision -- a THIRD review pass found the presence check
+// itself was too strict in the wrong direction: a schedule with only ONE Y-token, or a
+// bracket entry that failed to parse, was being silently treated as "no schedule was found
+// here at all" and STILL fell through to contractStatus. The fix in every prior revision
+// ("once a schedule is present, contractStatus is never consulted") only works if
+// "present" is judged correctly -- on whether contractInfo contains ANY schedule attempt,
+// not on whether that attempt happened to produce >=2 usable data points). Loaded/flat is
+// resolved with this priority:
+//   0. PRESENT vs ABSENT is judged first, and separately from whether the schedule found
+//      is any good: contractInfo contains a schedule attempt (one or more Y-tokens, or a
+//      bracket list) or it does not. A single Y-token, or a bracket list with a garbled
+//      entry (e.g. "[2K,xyz,2K]"), still counts as PRESENT -- it is a malformed/incomplete
+//      schedule, not the absence of one, and must never be silently reclassified as "no
+//      schedule" just because it can't be trusted.
 //   1. contractInfo actually contains a parseable year-by-year schedule (Y-token
 //      "Y1-21 Y2-38" or bracket "[14K, 14K, 15K]" format): this is the MOST SPECIFIC signal
 //      available, so once it is present at all, contractStatus is NEVER consulted --
@@ -44,14 +53,15 @@
 //      is a real signal ONLY when it is a RECOGNIZED status family (the documented 2025
 //      legacy tokens -- Rookie, Veteran, WW, Tag, bare FL/BL -- and the 2026 compound
 //      Vet-/Rookie- scheme -- Vet-FAA, Rookie-Draft, Vet-Ext<n>, Vet-ERA, Vet-WW -- with or
-//      without a trailing -FL/-BL suffix). A RECOGNIZED MYM form specifically (Vet-MYM,
-//      Rookie-MYM, Vet-WW-MYM, or any other <prefix>-MYM built from a real prefix) is flat
-//      by canon (a MYM contract can never be loaded) -- but this recognition is restricted
-//      to that actual shape; a status merely CONTAINING the substring "mym" inside an
-//      otherwise-unrecognized string (e.g. "Gibberish-MYM") is NOT treated as a real MYM
-//      form and is not proof of anything. A status that matches none of these known
-//      families is likewise NOT treated as proof of anything, flat or loaded -- we cannot
-//      even confirm the string is a real MFL status token, let alone what it means.
+//      without a trailing -FL/-BL suffix). A RECOGNIZED MYM form -- an EXACT documented
+//      list (Vet-MYM, Rookie-MYM, Vet-WW-MYM), never a wildcard "any prefix plus any
+//      middle segment plus -MYM" pattern -- is flat by canon (a MYM contract can never be
+//      loaded). Both "Gibberish-MYM" (no real prefix at all) and "Vet-Gibberish-MYM" (a
+//      real prefix, but "Gibberish" is not a documented middle segment like "WW") are
+//      rejected -- neither is a real MYM form, and neither is proof of anything. A status
+//      that matches none of these known families is likewise NOT treated as proof of
+//      anything, flat or loaded -- we cannot even confirm the string is a real MFL status
+//      token, let alone what it means.
 //   4. Anything left -- no schedule, contractStatus blank/unrecognized, and the contract's
 //      length isn't provably 1 year -- is genuinely UNRESOLVED. The caller
 //      (trade_cap_authority.js) must treat this as `loaded_contracts: unavailable` for the
@@ -61,6 +71,13 @@
 //      expiry" cap-math convention does NOT extend to "silence is proof of flat"; a fully
 //      silent contract is unresolved here, full stop, unless some OTHER authoritative
 //      source (a schedule, a length) resolves it via priorities 1-2 above.
+//
+// One narrow, deliberate exception inside priority 1: a schedule that is PRESENT, has
+// exactly one year, and is otherwise fully authoritative (matches a stated CL of 1,
+// reconciles with TCV) has no shape to compare -- it is flat, by the identical canon logic
+// as priority 2, just reached via a verified schedule instead of an inferred length. This
+// is NOT a relaxation of "present schedule never falls back to status" -- the schedule
+// still answers the question on its own; contractStatus is still never consulted.
 //
 // The SAME schedule-authority bar (duplicate/nonpositive/complete/reconciled) applies to a
 // pre-trade EXTENSION's priced terms too (resolveExtensionLoadedStatus) -- a partial or
@@ -100,12 +117,15 @@ const KNOWN_STATUS_FAMILY_RE = new RegExp(
   "i"
 );
 
-// A RECOGNIZED MYM form specifically: a real Vet-/Rookie- prefix (optionally with one or
-// more known-shaped middle segments, e.g. "Vet-WW-MYM"), ending in "-MYM". Deliberately
-// narrower than "the string contains mym anywhere" -- a status like "Gibberish-MYM" does
-// NOT start with a real prefix and must NOT be treated as a recognized, canon-flat MYM
-// contract (2026-09-28 review, second pass).
-const MYM_FAMILY_RE = /^(vet|rookie)(-[a-z0-9]+)*-mym$/i;
+// The EXACT, documented MYM status forms -- Vet-MYM and Rookie-MYM per the MFL
+// contractStatus vocabulary notes, plus Vet-WW-MYM (an observed real value in this
+// codebase's own fixtures/history). Deliberately an EXACT list, not "a real Vet-/Rookie-
+// prefix plus any middle segment" -- that wildcard shape was itself a fail-open bug (round
+// 2 review, third pass): it accepted "Vet-Gibberish-MYM" as if "Gibberish" were a
+// documented compound like "WW". Only a form actually seen/documented is recognized; a
+// status like "Gibberish-MYM" (round-2 finding) or "Vet-Gibberish-MYM" (round-3 finding)
+// is NOT treated as a recognized, canon-flat MYM contract.
+const MYM_FAMILY_RE = /^(vet-mym|rookie-mym|vet-ww-mym)$/i;
 
 /** contractStatus alone -> "FL" | "BL" | "" | null (null = blank, unreadable, OR simply not
  * a status family this module recognizes -- none of those are proof of anything. "" =
@@ -163,6 +183,14 @@ function parseYearScheduleRaw(contractInfo) {
   const info = s(contractInfo);
   if (!info) return null;
   // 1. Y-token format: "Y1-21K Y2-38K Y3-38K" (also accepts "Y1-2K, Y2-2K" with commas).
+  // PRESENCE is judged on finding even ONE real Y-token -- a schedule fragment (e.g. just
+  // "Y1-2K" for a stated 2-year contract) is present-but-incomplete data, not the same
+  // thing as "contractInfo has no schedule at all" (round-2 review, third pass: these two
+  // must never be conflated -- a present, malformed/partial schedule must fail closed as
+  // unavailable, not silently fall through to trusting contractStatus because it looked
+  // like "no schedule was found here"). A genuinely single-year contract (CL 1 with one
+  // matching Y1 token) still resolves correctly -- see resolveLoadedStatus's length===1
+  // case -- so relaxing this threshold from 2 to 1 loses no real coverage.
   const re = /Y(\d+)\s*-\s*([0-9.]+)\s*K?/gi;
   let m; const map = {}; let rawCount = 0; let duplicate = false;
   while ((m = re.exec(info))) {
@@ -171,20 +199,23 @@ function parseYearScheduleRaw(contractInfo) {
     if (Object.prototype.hasOwnProperty.call(map, y)) duplicate = true;
     map[y] = Math.round(parseFloat(m[2]) * 1000);
   }
-  if (rawCount >= 2) {
+  if (rawCount >= 1) {
     const years = Object.keys(map).map(Number).sort((a, b) => a - b);
     return { years, values: years.map((y) => map[y]), duplicate };
   }
   // 2. Bracket format: "[14K, 14K, 15K]" -- position IS the year (1-indexed); no year can
-  //    be "missing" or "duplicated" the way a Y-token can be, so it is complete and
-  //    duplicate-free by construction relative to its own length.
+  //    be "missing" or "duplicated" the way a Y-token can be. A malformed entry (e.g.
+  //    "[2K,xyz,2K]") still counts as an explicitly PRESENT schedule attempt -- it is kept
+  //    as a NaN in `values` rather than causing the whole bracket to be silently discarded
+  //    as "nothing found here" (round-2 review, third pass); scheduleIsAuthoritative's own
+  //    "every year must be a real positive number" check rejects the NaN entry correctly.
   const bm = info.match(/\[([^\]]+)\]/);
   if (bm) {
     const arr = bm[1].split(",").map((t) => {
       const n = parseFloat(String(t).replace(/[^0-9.]/g, ""));
       return Number.isFinite(n) ? Math.round(n * 1000) : NaN;
     });
-    if (arr.length >= 2 && arr.every(Number.isFinite)) return { years: arr.map((_, i) => i + 1), values: arr, duplicate: false };
+    if (arr.length >= 1) return { years: arr.map((_, i) => i + 1), values: arr, duplicate: false };
   }
   return null;
 }
@@ -219,8 +250,8 @@ export function parseYearSchedule(contractInfo) {
  */
 function scheduleIsAuthoritative(years, values, cl, tcv, duplicate) {
   if (duplicate) return false;
-  if (!years || years.length < 2) return false;
-  if (values.some((v) => !(v > 0))) return false;   // every year must be a real positive salary
+  if (!years || years.length < 1) return false;
+  if (values.some((v) => !(v > 0))) return false;   // every year must be a real, parseable, positive salary -- also rejects a NaN entry from a malformed bracket value (e.g. "[2K,xyz,2K]")
   if (!(Number.isFinite(cl) && cl > 0)) return false;
   if (years.length !== cl) return false;
   for (let i = 0; i < cl; i++) if (years[i] !== i + 1) return false;   // exactly {1..CL}, no gaps
@@ -287,6 +318,7 @@ export function resolveLoadedStatus(contractStatus, contractInfo) {
     // evidence something is wrong with this contract's data, and a plausible-looking
     // status is not permitted to override or paper over it.
     if (scheduleIsAuthoritative(raw.years, raw.values, cl, tcv, raw.duplicate)) {
+      if (raw.values.length === 1) return { loaded: "", resolved: true };   // a genuinely complete 1-year schedule (CL 1, one matching Y1 token) has no shape to compare -- flat by the same canon rule as priority 2, just reached via a verified schedule instead
       const struct = structureOf(raw.values, tcv, cl);
       if (struct === "FLAT") return { loaded: "", resolved: true };
       if (struct === "FL" || struct === "BL") return { loaded: struct, resolved: true };
