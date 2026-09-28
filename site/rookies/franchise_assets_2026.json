@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-27T14:49:36.627929+00:00",
+    "generated_at_utc": "2026-09-28T17:48:41.001709+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -823,6 +823,30 @@
           "taxi": false
         },
         {
+          "asset_id": "P_14328",
+          "display": "Andrew Wingard",
+          "player_id": "14328",
+          "position": "S",
+          "nfl_team": "ARI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15418",
+          "display": "Camryn Bynum",
+          "player_id": "15418",
+          "position": "S",
+          "nfl_team": "IND",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_12610",
           "display": "Carson Wentz",
           "player_id": "12610",
@@ -939,30 +963,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_14328",
-          "display": "Andrew Wingard",
-          "player_id": "14328",
-          "position": "S",
-          "nfl_team": "ARI",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": "",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15418",
-          "display": "Camryn Bynum",
-          "player_id": "15418",
-          "position": "S",
-          "nfl_team": "IND",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4123,6 +4123,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17124",
+          "display": "Barrett Carter",
+          "player_id": "17124",
+          "position": "LB",
+          "nfl_team": "CIN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15716",
           "display": "Brian Robinson",
           "player_id": "15716",
@@ -4219,6 +4231,30 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17145",
+          "display": "Kevin Winston",
+          "player_id": "17145",
+          "position": "S",
+          "nfl_team": "TEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16678",
+          "display": "Sione Vaki",
+          "player_id": "16678",
+          "position": "RB",
+          "nfl_team": "DET",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_12186",
           "display": "Stefon Diggs",
           "player_id": "12186",
@@ -4240,42 +4276,6 @@
           "contract_year": 2,
           "contract_status": "Vet-WW",
           "roster_status": "INJURED_RESERVE",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17124",
-          "display": "Barrett Carter",
-          "player_id": "17124",
-          "position": "LB",
-          "nfl_team": "CIN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": "",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17145",
-          "display": "Kevin Winston",
-          "player_id": "17145",
-          "position": "S",
-          "nfl_team": "TEN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": "",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16678",
-          "display": "Sione Vaki",
-          "player_id": "16678",
-          "position": "RB",
-          "nfl_team": "DET",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": "",
-          "roster_status": "ROSTER",
           "taxi": false
         },
         {
