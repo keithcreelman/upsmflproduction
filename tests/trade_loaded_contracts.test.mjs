@@ -806,5 +806,94 @@ test("LC 3-WAY (review round 4): a real rookie-draft option contract (production
   t.equal(F.readRow(env).status, "completed");
 });
 
+// ───────────── Part 8 — fifth review pass (2026-09-28): bracket entries must be parsed as a WHOLE amount, not stripped down to whatever digits remain ─────────────
+// stripping non-digit characters before parseFloat let a NEGATIVE amount ("-2K", the minus
+// sign stripped) or trailing garbage ("2Kxyz", the letters stripped) silently pass as a
+// plausible positive number. Each bracket entry must now be a clean, complete amount --
+// nothing else -- or it is rejected outright.
+
+test("LC 46 (review round 5, case 1): a bracket entry with a NEGATIVE amount ('-2K') is not silently stripped to a positive '2K' -- unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|[-2K,2K]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "the minus sign is not part of a valid amount -- stripping it to '2K' would silently turn a negative/garbled entry into a plausible positive one");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 47 (review round 5, case 2): a bracket entry with trailing garbage ('2Kxyz') is not silently truncated to '2K' -- unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|[2Kxyz,2K]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "'2Kxyz' is not a clean, complete amount -- the same fail-open risk already closed for Y-token values (LC 43) applies equally to bracket entries");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 48: the SAME strict bracket-entry parsing applies to an extension's own priced schedule", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", preview_contract_info_string: "CL 2|TCV 4K|[-2K,2K]" }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "a negative bracket entry in an extension's priced terms is equally untrusted");
+});
+
+test("LC 49 (review round 5): a malformed SECOND schedule fragment cannot be silently ignored just because the FIRST one parsed -- a bracket group coexisting with valid Y-tokens", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-2K,Y2-2K|[xyz]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "Y1/Y2 parse cleanly and reconcile on their own, but a SECOND, differently-shaped schedule fragment ('[xyz]') is also present in the same string and must not be silently discarded just because the first fragment looked fine");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 50: a malformed second BRACKET group, alongside a first bracket group that would otherwise parse cleanly, is likewise never silently narrowed to just the first one found", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|[2K,2K][xyz]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "more than one bracket group in the same string is not a documented shape -- ambiguous, and never silently resolved from just the first group");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 51: preserving valid data -- a genuine, well-formed bracket schedule and a genuine rookie-draft option contract both still resolve correctly (regression controls for the stricter parsing above)", () => {
+  const bracket = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 3|TCV 43K|[14K, 14K, 15K]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(bracket.loaded_contracts.status, "ok", "a genuine, complete bracket schedule with clean entries still resolves (14+14+15=43=TCV, back-loaded: 14 < AAV 14.33 -- close enough within rounding to classify BL, but the key assertion is that it RESOLVES, not unavailable)");
+  t.notEqual(bracket.loaded_contracts.status, "unavailable");
+  const option = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Rookie-Draft", contractInfo: "CL 3|TCV 18K|AAV 6K|Y1-6K, Y2-6K, Y3-6K, Y4-11K Option|GTD: 13.5K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(option.loaded_contracts.status, "ok", "and a genuine rookie-draft option contract still resolves flat");
+});
+
+test("LC 2-WAY (review round 5): a bracket entry with a stripped-away negative sign blocks the accept exactly like a proven violation -- 503, zero MFL writes, offer stays pending", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|[-2K,2K]" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  const r = await act(env, mobileBody(id));
+  t.equal(r.status, 503);
+  t.equal(r.json.code, "loaded_contract_check_unavailable");
+  t.equal(r.json.compliance.cap.status, "ok", "the cap result stays independently valid in the same response");
+  t.equal(mfl.writes("tradeResponse").length, 0, "zero MFL writes");
+  t.equal(mfl.st.pending.length, 1, "the offer stays pending");
+});
+
+test("LC 3-WAY (review round 5): a malformed second schedule fragment (Y-tokens plus a stray bracket) blocks execution recoverably -- zero MFL writes, ledger blocked_cap, never failed, cap independently intact", async () => {
+  const { env, mfl } = threeWayWorld({ row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0008"][0] = { id: "16614", salary: 2000, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-2K,Y2-2K|[xyz]" };
+  const r1 = await execute3Way(env, F.TRADE_ID);
+  t.equal(r1.blocked, true); t.equal(r1.kind, "unavailable");
+  t.equal(r1.compliance.cap.status, "ok", "the cap result stays independently valid on the same gate response");
+  t.equal(F.readRow(env).status, "collecting", "recoverable -- never failed");
+  t.equal(ledgerRow(env).state, "blocked_cap");
+  t.equal(mfl.writes().length, 0, "zero MFL writes");
+});
+
 await run("trade_loaded_contracts");
 restore();

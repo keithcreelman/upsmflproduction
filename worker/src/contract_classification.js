@@ -165,6 +165,28 @@ export function parseTCV(contractInfo) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** Builds the shared "malformed" sentinel returned by parseYearScheduleRaw -- present
+ * data, unparseable, never treated as if no schedule existed. */
+function malformedSchedule() {
+  return { years: null, values: null, duplicate: false, optionYears: [], baseYears: null, baseValues: null, malformed: true };
+}
+
+/** A single bracket entry ("14K", " 2K ") parsed STRICTLY: the ENTIRE trimmed entry must be
+ * a positive number optionally suffixed with "K" -- nothing else. Unlike a naive "strip
+ * every non-digit character and parse what's left" approach, this REFUSES an entry like
+ * "-2K" (a leading minus is not part of the pattern -- stripping it would silently turn a
+ * negative/garbled amount into a positive one) or "2Kxyz" (trailing garbage after the K is
+ * not part of the pattern -- stripping it would silently truncate to a plausible-looking
+ * prefix, the exact same fail-open risk already closed for Y-token values). Returns NaN for
+ * anything that doesn't match cleanly.
+ */
+function parseBracketEntry(t) {
+  const m = /^\s*([0-9]+(?:\.[0-9]+)?)\s*K?\s*$/i.exec(String(t));
+  if (!m) return NaN;
+  const n = parseFloat(m[1]);
+  return Number.isFinite(n) ? Math.round(n * 1000) : NaN;
+}
+
 /**
  * An authoritative-CANDIDATE per-year salary schedule from contractInfo text, together with
  * which year-numbers were actually found, whether any year number was seen more than once,
@@ -174,19 +196,23 @@ export function parseTCV(contractInfo) {
  * 4th-year option is the real, observed case: "Y4-11K Option") from being force-fit into
  * the base contract's own completeness check. NOT exported: a caller that only wants the
  * values (no completeness/reconciliation/option check) should use parseYearSchedule below.
- * PRESENCE is judged separately from successful numeric parsing (2026-09-28 review, fourth
- * pass): a schedule ATTEMPT that exists in the text but never parses as real numbers (a
- * malformed value like "Y1-foo", or an unclosed "[2K,2K,2K" with no closing "]") is present
- * data, not absent data, and is reported via `malformed: true` -- the caller must never read
- * this as "no schedule was found here" and fall back to contractStatus.
+ * PRESENCE is judged separately from successful numeric parsing (2026-09-28 review): a
+ * schedule ATTEMPT that exists in the text but never parses as real numbers (a malformed
+ * value like "Y1-foo", an unclosed "[2K,2K,2K" with no closing "]", or a bracket entry like
+ * "-2K"/"2Kxyz" that isn't a clean, complete amount) is present data, not absent data, and
+ * is reported via `malformed: true` -- the caller must never read this as "no schedule was
+ * found here" and fall back to contractStatus. Likewise, a SECOND schedule-shaped fragment
+ * coexisting with one that already parsed (a bracket group alongside Y-tokens, or more than
+ * one bracket group) is never silently ignored just because the first fragment looked fine.
  * @returns null when NOTHING was attempted at all (no "Y<n>-" text, no "[" character), else
- *          { malformed: true } (a schedule was attempted but never produced usable numbers),
- *          or { years, values, duplicate, optionYears, baseYears, baseValues } -- years
- *          sorted ascending, values in the SAME order (index i is year `years[i]`, not
- *          necessarily "Year i+1" until completeness is separately confirmed); optionYears
- *          is the sorted list of year numbers labeled "Option"; baseYears/baseValues are
- *          `years`/`values` with any optionYears entries removed (identical to years/values
- *          when there are no option years at all).
+ *          { malformed: true } (a schedule was attempted but never produced usable numbers,
+ *          or more than one differently-shaped fragment was found), or
+ *          { years, values, duplicate, optionYears, baseYears, baseValues } -- years sorted
+ *          ascending, values in the SAME order (index i is year `years[i]`, not necessarily
+ *          "Year i+1" until completeness is separately confirmed); optionYears is the sorted
+ *          list of year numbers labeled "Option"; baseYears/baseValues are `years`/`values`
+ *          with any optionYears entries removed (identical to years/values when there are no
+ *          option years at all).
  */
 function parseYearScheduleRaw(contractInfo) {
   const info = s(contractInfo);
@@ -201,9 +227,8 @@ function parseYearScheduleRaw(contractInfo) {
   // The trailing lookahead requires a proper boundary (whitespace, comma, pipe, or end of
   // string) right after the value/Option label -- a numeric PREFIX glued directly to
   // trailing garbage ("Y1-2Kxyz") must NOT be silently accepted as "2K" with "xyz" just
-  // ignored (2026-09-28 review, fourth pass): that match is refused entirely here, which
-  // the `attempts > rawCount` check above already turns into `malformed: true` -- no
-  // separate handling needed.
+  // ignored: that match is refused entirely here, which the `attempts > rawCount` check
+  // above already turns into `malformed: true` -- no separate handling needed.
   const re = /Y(\d+)\s*-\s*([0-9.]+)\s*K?(\s*Option)?(?=[\s,|]|$)/gi;
   let m; const map = {}; const optionYearSet = new Set(); let rawCount = 0; let duplicate = false;
   while ((m = re.exec(info))) {
@@ -213,13 +238,21 @@ function parseYearScheduleRaw(contractInfo) {
     map[y] = Math.round(parseFloat(m[2]) * 1000);
     if (m[3]) optionYearSet.add(y);
   }
-  if (attempts > rawCount) return { years: null, values: null, duplicate: false, optionYears: [], baseYears: null, baseValues: null, malformed: true };
+  if (attempts > rawCount) return malformedSchedule();
+  // Every COMPLETE "[...]" group in the string, found up front so both branches below can
+  // check for a second, differently-shaped fragment rather than silently looking at only
+  // the first thing they happen to find.
+  const bracketMatches = info.match(/\[[^\]]*\]/g) || [];
   if (rawCount >= 1) {
     // PRESENCE is judged on finding even ONE real Y-token -- a schedule fragment (e.g. just
     // "Y1-2K" for a stated 2-year contract) is present-but-incomplete data, not the same
-    // thing as "contractInfo has no schedule at all" (round-2 review, third pass: these two
-    // must never be conflated). A genuinely single-year contract (CL 1 with one matching
-    // Y1 token) still resolves correctly -- see resolveLoadedStatus's length===1 case.
+    // thing as "contractInfo has no schedule at all" (round-2 review: these two must never
+    // be conflated). A genuinely single-year contract (CL 1 with one matching Y1 token)
+    // still resolves correctly -- see resolveLoadedStatus's length===1 case.
+    // A bracket group -- complete or not -- ALSO present in the same string is a second,
+    // conflicting schedule fragment (the documented format is Y-token OR bracket, never
+    // both); it must not be silently ignored just because the Y-tokens parsed cleanly.
+    if (bracketMatches.length > 0 || info.indexOf("[") !== -1) return malformedSchedule();
     const years = Object.keys(map).map(Number).sort((a, b) => a - b);
     const values = years.map((y) => map[y]);
     const optionYears = [...optionYearSet].sort((a, b) => a - b);
@@ -228,22 +261,21 @@ function parseYearScheduleRaw(contractInfo) {
     return { years, values, duplicate, optionYears, baseYears, baseValues };
   }
   // 2. Bracket format: "[14K, 14K, 15K]" -- position IS the year (1-indexed); no year can
-  //    be "missing" or "duplicated" the way a Y-token can be. A malformed entry (e.g.
-  //    "[2K,xyz,2K]") still counts as an explicitly PRESENT schedule attempt -- it is kept
-  //    as a NaN in `values` rather than causing the whole bracket to be silently discarded
-  //    as "nothing found here" (round-2 review, third pass); scheduleIsAuthoritative's own
-  //    "every year must be a real positive number" check rejects the NaN entry correctly.
-  //    An UNCLOSED bracket (an opening "[" with no matching "]", e.g. "[2K,2K,2K") is
-  //    likewise present -- an attempt was clearly made -- but malformed, never absent.
-  const bm = info.match(/\[([^\]]+)\]/);
-  if (bm) {
-    const arr = bm[1].split(",").map((t) => {
-      const n = parseFloat(String(t).replace(/[^0-9.]/g, ""));
-      return Number.isFinite(n) ? Math.round(n * 1000) : NaN;
-    });
+  //    be "missing" or "duplicated" the way a Y-token can be. EACH ENTRY is parsed STRICTLY
+  //    (see parseBracketEntry) -- "-2K" and "2Kxyz" are NOT silently reduced to "2K" by
+  //    stripping the characters that don't belong; they become NaN, and
+  //    scheduleIsAuthoritative's own "every year must be a real positive number" check
+  //    rejects the NaN entry correctly (a malformed entry, kept present rather than
+  //    discarding the whole bracket as "nothing found here"). More than one bracket GROUP in
+  //    the same string is never a documented shape -- ambiguous, never silently narrowed to
+  //    just the first one found. An UNCLOSED bracket (an opening "[" with no matching "]",
+  //    e.g. "[2K,2K,2K") is likewise present -- an attempt was clearly made -- but malformed.
+  if (bracketMatches.length === 1) {
+    const inner = bracketMatches[0].slice(1, -1);
+    const arr = inner.split(",").map(parseBracketEntry);
     if (arr.length >= 1) return { years: arr.map((_, i) => i + 1), values: arr, duplicate: false, optionYears: [], baseYears: arr.map((_, i) => i + 1), baseValues: arr };
-  } else if (info.indexOf("[") !== -1) {
-    return { years: null, values: null, duplicate: false, optionYears: [], baseYears: null, baseValues: null, malformed: true };
+  } else if (bracketMatches.length > 1 || info.indexOf("[") !== -1) {
+    return malformedSchedule();
   }
   return null;
 }
