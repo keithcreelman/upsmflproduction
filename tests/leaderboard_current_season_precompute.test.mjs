@@ -80,11 +80,23 @@ check('there is no wall-clock TTL', () => {
 
 console.log('\n4. the stamp is written AND updated');
 check('data_max_week appears in the DO UPDATE list, not just the INSERT', () => {
-  const m = buildRoute.match(/ON CONFLICT \(season, pos_alias\) DO UPDATE SET[\s\S]{0,400}?`/);
+  // Window widened 900 (was 400) 2026-09-28: migration 0161 added
+  // teams_reported/teams_expected/week_complete to this same SET clause for
+  // provisional-week coverage, which is exactly the class of column this
+  // check exists to catch an insert-without-update on — see the next check.
+  const m = buildRoute.match(/ON CONFLICT \(season, pos_alias\) DO UPDATE SET[\s\S]{0,900}?`/);
   assert.ok(m, 'meta upsert not found');
   assert.ok(/data_max_week\s*=\s*excluded\.data_max_week/.test(m[0]),
     'source_sha (0140) is the precedent: declared, never written, silently always NULL. ' +
     'Insert-without-update would pin week 1 forever and the gate would report stale for the rest of the season');
+});
+check('teams_reported/teams_expected/week_complete (0161) are ALSO in the DO UPDATE list', () => {
+  const m = buildRoute.match(/ON CONFLICT \(season, pos_alias\) DO UPDATE SET[\s\S]{0,900}?`/);
+  assert.ok(m, 'meta upsert not found');
+  for (const col of ['teams_reported', 'teams_expected', 'week_complete']) {
+    assert.ok(new RegExp(col + '\\s*=\\s*excluded\\.' + col).test(m[0]),
+      col + ' missing from DO UPDATE — same source_sha trap: a provisional week\'s coverage would freeze at its first build forever');
+  }
 });
 check('the builder fails closed when coverage cannot be read', () => {
   assert.ok(/refusing to build against an unknown stamp/.test(buildRoute),
