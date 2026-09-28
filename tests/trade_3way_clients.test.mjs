@@ -468,6 +468,9 @@ test("DESKTOP: signed-out and not-found are explicit messages; the list never cl
   const out = loadDesktop(env, { token: "" });
   await out.api.refresh3WayList();
   t.match(plain(out.els.tw3List.innerHTML), /Couldn't load your 3-way trades/); t.doesNotMatch(out.els.tw3List.innerHTML, /No active 3-way trades/);
+  // Regression 2026-09-28: the badge must say it doesn't know, not "0" ("0" means
+  // the worker confirmed zero) — same rule as the offered/received badges.
+  t.equal(out.els.tw3Count.textContent, "–");
   const nf = loadDesktop(env); await nf.api.open3WayDetail("00000000-0000-0000-0000-000000000000");
   t.match(plain(nf.detail().innerHTML), /doesn't exist/); t.doesNotMatch(nf.detail().innerHTML, /Loading trade/);
   const partner = loadDesktop(env, { token: "tok-B", fid: "0001" }); await partner.api.open3WayDetail(TRADE_ID);
