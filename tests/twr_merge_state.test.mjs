@@ -51,7 +51,14 @@ test("MOBILE BUILD: the accepted build 2026.09.25.2 was kept or moved FORWARD â€
   t.ok(cmp(num(v), num("2026.09.25.2")) >= 0, "not older than the accepted build");
   t.equal((read("site/m/app.js").match(/var BUILD = "([^"]+)"/) || [])[1], v);
   const idx = read("site/m/index.html");
-  for (const f of ["shared/trade_3way_view.js", "app.js", "views/trade.js"]) t.equal((idx.match(new RegExp(f.replace(/[.\/]/g, "\\$&") + "\\?v=([0-9.]+)")) || [])[1], v, `${f} stamp`);
+  const stampOf = (f) => (idx.match(new RegExp(f.replace(/[.\/]/g, "\\$&") + "\\?v=([0-9.]+)")) || [])[1];
+  t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) stamp");
+  // shared/trade_3way_view.js and views/trade.js are pinned to the build THIS
+  // merge landed with (2026.09.27.2) rather than the live `v` â€” a later,
+  // unrelated mobile release (2026.09.28.1, contract eligibility) legitimately
+  // bumped the overall build without touching either file; per-file ?v= only
+  // needs to be >= that file's own last change, not equal to the newest build.
+  for (const f of ["shared/trade_3way_view.js", "views/trade.js"]) t.equal(stampOf(f), "2026.09.27.2", `${f} stamp`);
 });
 test("BRANCH CONTENT: the Trade War Room's own work survived the merge (the ruling, the admin door, the ledger, the shared cap authority)", () => {
   const w = read("worker/src/index.js");

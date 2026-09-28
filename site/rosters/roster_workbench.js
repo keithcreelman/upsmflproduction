@@ -107,6 +107,14 @@
   var state = {
     ctx: null,
     teams: [],
+    // Server-resolved pre-season acquisition ladder (MYAC -> MYM -> Extension),
+    // from /api/league-events — same source desktop front_office.js and mobile
+    // front_office_actions.js already read (STATE.contractLadderServer /
+    // state.contractLadder.server there). See loadContractLadder() below and
+    // isPreseasonWwPickupRW/rosterContractEligibility's use of it. null/all-null
+    // until that fetch resolves — never guessed, never recomputed client-side.
+    contractLadderServer: null,
+    weekKickoffs: { 1: null, 3: null, 5: null },
     viewerFranchiseId: "",
     viewerIsAdmin: false,
     viewerAdminReason: "",
@@ -602,6 +610,29 @@
     return true;                              // pre-rule active rookie → grandfathered permanent
   }
 
+  // §C5 restructure window + §C4 off-ladder extension window — shared with
+  // front_office.js and mobile via site/shared/contract_windows.js
+  // (window.UPS_CONTRACT_WINDOWS). The shared standardExtensionWindow matrix —
+  // held veteran -> September deadline, rookie -> May deadline, IN-SEASON
+  // WW/FCFS pickup -> days 15-28, in-season trade acquisition -> 4 weeks —
+  // covers every player NOT on the pre-season acquisition ladder. This file
+  // offers no MYAC/MYM actions, but a PRE-SEASON WW/FCFS pickup is still ON
+  // that ladder (its real window is MYAC-now / MYM-at-deadline / Extension-
+  // Week3-to-Week5, a calendar boundary — never a clock started by the
+  // pickup), so it must be excluded from the off-ladder matrix and gated on
+  // the server-resolved rung instead (isPreseasonWwPickupRW /
+  // contractLadderStageRW below). Applying the in-season days-15-28 clock to
+  // a PRE-season pickup would show a player extension-eligible under the
+  // wrong clock while he is still at MYAC or MYM — see
+  // rosterContractEligibility. FAILS CLOSED throughout: no shared module, no
+  // resolvable deadline/rung -> not eligible, never silently "open".
+  function restructureWindowOpenRW() {
+    var W = window.UPS_CONTRACT_WINDOWS;
+    var deadlineYmd = contractDeadlineYmdForSeason(currentYearInt());
+    if (!W) return { open: false, reason: "window_unreadable", detail: "Restructure eligibility unavailable." };
+    return W.restructureWindowOpen(Date.now(), deadlineYmd);
+  }
+
   function rosterContractEligibility(player) {
     var years = Math.max(0, safeInt(player && player.years, 0));
     var salary = safeInt(player && player.salary, 0);
@@ -614,11 +645,44 @@
     var expiredRookie =
       info.indexOf("expired rookie") !== -1 ||
       (rookieLikeContractStatus(status) && years <= 0);
+    var extensionCandidate = !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) &&
+                              status.indexOf("tag") === -1 && !noFurtherExt;
+    var extensionEligible = false;
+    if (extensionCandidate) {
+      var wwClass = isPreseasonWwPickupRW(player);
+      if (wwClass === "yes") {
+        // On the ladder: Extension is rung 3 (Week 3 kickoff -> Week 5
+        // kickoff), resolved server-side — never the in-season day-count
+        // clock below, which does not apply to a pre-season pickup at all.
+        extensionEligible = contractLadderStageRW().stage === "extension";
+      } else if (wwClass === "unknown") {
+        // Can't place this WW pickup on the ladder OR confirm it's genuinely
+        // in-season (Week 1 kickoff or the pickup's own acquisition instant
+        // is unresolvable) — no extension window. Matches desktop/mobile's
+        // extensionDeadlineForPlayer: an unresolvable window is not an open
+        // one, even though this file's WW class is otherwise unused.
+        extensionEligible = false;
+      } else {
+        var W = window.UPS_CONTRACT_WINDOWS;
+        if (W) {
+          var season = currentYearInt();
+          var win = W.standardExtensionWindow(player, {
+            season: season,
+            contractDeadlineYmd: contractDeadlineYmdForSeason(season),
+            isRookieLikeStatus: rookieLikeContractStatus,
+            tagDeadlineDate: tagDeadlineDateForSeason
+          });
+          extensionEligible = !!win.in_window;
+        }
+        // no W -> fail closed, extensionEligible stays false
+      }
+    }
 
     return {
-      extensionEligible: !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt,
+      extensionEligible: extensionEligible,
       rookieOptionEligible: !!(rookieOption && rookieOption.eligible && !rookieOption.exercised),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
+                            && restructureWindowOpenRW().open
     };
   }
 
@@ -4029,6 +4093,129 @@
       }
     }
     return "https://upsmflproduction.keith-creelman.workers.dev/roster-workbench";
+  }
+
+  // ── Pre-season acquisition ladder (MYAC -> MYM -> Extension) ────────────
+  // Server-resolved via /api/league-events, the SAME endpoint and SAME
+  // response shape desktop front_office.js (loadContractDeadline) and mobile
+  // front_office_actions.js (app.js fetchContractCalendar) already read — see
+  // worker/src/league_events_ladder.js contractLadderStage. Not recomputed
+  // client-side: two independent client copies of this boundary is exactly
+  // what dropped `Ext:` from nine contracts on 2026-08-22 (one of three
+  // writers never received a fix). This file is the third writer; it now
+  // reads the same stamp instead of adding a fourth copy.
+  //
+  // Raw week_kickoffs values from the worker are unix SECONDS (see
+  // worker/src/index.js nflWeekFirstKickoffUnix) — mirrors front_office.js
+  // kickoffMsFromFO / mobile app.js kickoffMsFrom exactly.
+  function kickoffMsFromRW(map, week) {
+    var v = map ? map[String(week)] : null;
+    var n = typeof v === "number" ? v : parseInt(v, 10);
+    return isFinite(n) && n > 0 ? n * 1000 : null;
+  }
+
+  function contractLadderApiUrl(season) {
+    try {
+      var origin = new URL(resolveWorkerApiEndpoint(), window.location.href).origin;
+      return origin + "/api/league-events?season=" + encodeURIComponent(season) + "&from=all&limit=50&kickoffs=1,3,5";
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Fetched once per refreshData() cycle, ahead of renderTeams() (see
+  // refreshData below), so the ladder stamp is in state before any row's
+  // eligibility is computed — never a stale-then-correct flash.
+  //
+  // FAIL-CLOSED on any failure: state.contractLadderServer stays/becomes null,
+  // which isPreseasonWwPickupRW/rosterContractEligibility already treat as
+  // "unresolved" (never an open window).
+  function loadContractLadder(season) {
+    var url = contractLadderApiUrl(season);
+    if (!url) { state.contractLadderServer = null; state.weekKickoffs = { 1: null, 3: null, 5: null }; return Promise.resolve(null); }
+    return fetchJson(url, { credentials: "omit" })
+      .then(function (data) {
+        state.contractLadderServer = (data && data.contract_ladder) || null;
+        var ko = (data && data.week_kickoffs) || null;
+        state.weekKickoffs = { 1: kickoffMsFromRW(ko, 1), 3: kickoffMsFromRW(ko, 3), 5: kickoffMsFromRW(ko, 5) };
+      })
+      .catch(function () {
+        state.contractLadderServer = null;
+        state.weekKickoffs = { 1: null, 3: null, 5: null };
+      });
+  }
+
+  // Which rung is open RIGHT NOW. League-wide boundaries only (no per-player
+  // input) — verbatim-shape mirror of desktop's contractLadderStageFO_desktop
+  // / mobile's contractLadderStageFO. FAIL-CLOSED: an absent or unresolved
+  // stamp is "unresolved", never a rung.
+  function contractLadderStageRW() {
+    var srv = state.contractLadderServer || null;
+    var stage = String((srv && srv.stage) || "").toLowerCase();
+    var UNRESOLVED = { stage: "unresolved", endMs: null };
+    if (!stage || stage === "unresolved") return UNRESOLVED;
+    if (stage === "closed") return { stage: "closed", endMs: null };
+    if (stage === "myac" || stage === "mym" || stage === "extension") {
+      var endMs = null;
+      var n = srv && srv.end_unix;
+      if (typeof n === "number" && isFinite(n) && n > 0) endMs = n * 1000;
+      return { stage: stage, endMs: endMs };
+    }
+    return UNRESOLVED;
+  }
+
+  // Is THIS player on the PRE-SEASON waiver rung of the ladder? Returns
+  // "yes" | "no" | "unknown". Verbatim-as-possible port of desktop's
+  // isPreseasonWwPickupFO / mobile's preseasonWwClassFO. Classified off the
+  // CONTRACT STATUS MFL actually holds ("Vet-WW", "Vet-WW-BL", "Rookie-WW")
+  // plus the acquisition date — NOT off the acquisition label alone, which
+  // comes from a commish-maintained static JSON that cannot contain a claim
+  // made this summer.
+  //
+  // "unknown" whenever Week 1's kickoff instant or this player's acquisition
+  // instant cannot be established — never guessed.
+  function isPreseasonWwPickupRW(player) {
+    var status = safeStr(player && player.type).toLowerCase();
+    if (!/\bww\b/.test(status)) return "no";
+    if (status.indexOf("tag") !== -1) return "no";
+    if (safeInt(player && player.years, 0) !== 1) return "no";
+    // CL is the ORIGINAL contract length and never decays (a converted MYAC
+    // writes CL 2/CL 3 and keeps the WW status token) — CL===1 is "still on
+    // the 1-year default"; CL 2/3 is an already-converted deal, past this
+    // ladder entirely.
+    if (parseContractLengthValue(player && player.special) !== 1) return "no";
+    if (rookieOptionActionEligible(player)) return "no";
+    // A WW contract that changed hands by TRADE was not acquired on waivers
+    // by its current owner — the §C4 trade clock applies, not this ladder.
+    if (safeStr(player && player.acquisitionTypeLabel).toLowerCase().indexOf("trade") !== -1) return "no";
+
+    // state.weekKickoffs already holds ms instants (converted once in
+    // loadContractLadder) — not the raw unix-seconds map kickoffMsFromRW expects.
+    var startMs = (state.weekKickoffs && state.weekKickoffs[1]) || null;
+    // Exact acquisition instant when available (acquisitionDateTime, this
+    // file's own field for it — see acquisitionDateLabelForPlayer); otherwise
+    // noon ET of the acquisition day, the same fallback convention desktop
+    // and mobile use.
+    var acqMs = (function () {
+      try {
+        var dt = safeStr(player && player.acquisitionDateTime);
+        if (dt) { var d1 = new Date(dt); if (!isNaN(d1.getTime())) return d1.getTime(); }
+        var raw = safeStr(player && player.acquisitionDate).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+        var d2 = new Date(raw + "T12:00:00-04:00");
+        return isNaN(d2.getTime()) ? null : d2.getTime();
+      } catch (e) { return null; }
+    })();
+    if (acqMs != null) {
+      if (startMs == null) return "unknown";           // can't place the pickup
+      return acqMs < startMs ? "yes" : "no";            // "no" = in-season path
+    }
+    // No acquisition date. Before Week 1 there is nothing to resolve — a WW
+    // contract on the roster today cannot have been acquired in a week that
+    // hasn't started. On or after Week 1 we genuinely don't know which rule
+    // applies.
+    if (startMs == null) return "unknown";
+    return Date.now() < startMs ? "yes" : "unknown";
   }
 
   function resolveWorkerActionEndpoint() {
@@ -11290,8 +11477,13 @@
           : Promise.resolve(null);
         var adminPromise = loadViewerAdminState(state.ctx);
         var tagPromise = loadTagPlanData().catch(function () { return null; });
+        // Ahead of renderTeams() so extension eligibility for a preseason
+        // WW/FCFS pickup reads the real ladder stage on the FIRST render, not
+        // a stale-then-correct flash. Already catches internally (fail closed
+        // to null/unresolved); .catch here is just symmetry with tagPromise.
+        var ladderPromise = loadContractLadder(state.ctx && state.ctx.year).catch(function () { return null; });
 
-        return Promise.all([historyPromise, adminPromise, tagPromise]).then(function () {
+        return Promise.all([historyPromise, adminPromise, tagPromise, ladderPromise]).then(function () {
           state.pointsMode = normalizeRosterPointMode(state.pointsMode);
           renderToolbar();
           renderTeams();

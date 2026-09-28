@@ -197,6 +197,7 @@
     // legacy fallback fired silently.
     var masterCandidates = [];
     var capMathCandidates = [];
+    var contractWindowsCandidates = [];
 
     if (base) {
       cssCandidates.push(base + "roster_workbench.css?v=" + cacheKey);
@@ -204,6 +205,7 @@
       // base sits at site/rosters/ — master + cap_math are one dir up under site/shared/.
       masterCandidates.push(base + "../shared/player_profile_master.js?v=" + cacheKey);
       capMathCandidates.push(base + "../shared/cap_math.js?v=" + cacheKey);
+      contractWindowsCandidates.push(base + "../shared/contract_windows.js?v=" + cacheKey);
     }
 
     // GitHub Pages is the canonical CDN (see #88). jsDelivr removed as of
@@ -213,6 +215,7 @@
     jsCandidates.push("https://keithcreelman.github.io/upsmflproduction/rosters/roster_workbench.js?v=" + cacheKey);
     masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
     capMathCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=" + cacheKey);
+    contractWindowsCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/contract_windows.js?v=" + cacheKey);
 
     injectCssCandidates(cssCandidates);
 
@@ -221,11 +224,16 @@
     // its legacy fallback path; we just lose the unified-modal UX.
     // cap_math.js (window.UPS_CAP_MATH) MUST load before the master modal so it
     // can parse TCV/AAV/earned + compute the cap penalty (else TCV renders blank).
+    // contract_windows.js (window.UPS_CONTRACT_WINDOWS) must load before
+    // roster_workbench.js — restructure/extension eligibility fails closed
+    // without it (see roster_workbench.js rosterContractEligibility).
     injectScript(capMathCandidates, function () {
-      injectScript(masterCandidates, function () {
-        // roster_workbench.js self-initializes on load; avoid double-init
-        // because that can replace DOM after listeners are attached.
-        injectScript(jsCandidates, function () {});
+      injectScript(contractWindowsCandidates, function () {
+        injectScript(masterCandidates, function () {
+          // roster_workbench.js self-initializes on load; avoid double-init
+          // because that can replace DOM after listeners are attached.
+          injectScript(jsCandidates, function () {});
+        });
       });
     });
   }
