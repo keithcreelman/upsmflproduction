@@ -141,14 +141,14 @@ const payloadOf = (from, to, give, recv, o) => ({
   extension_requests: (o && o.ext) || [], ui: { left_team_id: from, right_team_id: to }, validation: { status: "ready" },
 });
 const clone = (o) => JSON.parse(JSON.stringify(o));
-const bulk = (start, n, salary) => Array.from({ length: n }, (_, i) => ({ id: String(start + i), salary: salary == null ? 100 : salary }));
+const bulk = (start, n, salary) => Array.from({ length: n }, (_, i) => ({ id: String(start + i), salary: salary == null ? 100 : salary, contractYear: 3, contractStatus: "Vet-FAA" }));
 
 // 0001 owns 14056, 0002 owns 13100 (the harness defaults). `s1`/`s2` are their salaries; `fill1`/`fill2` are the rest of each
 // team's payroll, so each team's used-before is exactly what a test needs.
 function world(mfl, o) {
   o = o || {};
-  mfl.st.rosters["0001"] = [{ id: "14056", salary: o.s1 == null ? 5000 : o.s1, ...(o.p1 || {}) }, ...(o.fill1 ? [{ id: "90001", salary: o.fill1 }] : []), ...(o.extra1 || [])];
-  mfl.st.rosters["0002"] = [{ id: "13100", salary: o.s2 == null ? 5000 : o.s2, ...(o.p2 || {}) }, ...(o.fill2 ? [{ id: "90002", salary: o.fill2 }] : []), ...(o.extra2 || [])];
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: o.s1 == null ? 5000 : o.s1, contractYear: 3, contractStatus: "Vet-FAA", ...(o.p1 || {}) }, ...(o.fill1 ? [{ id: "90001", salary: o.fill1, contractYear: 3, contractStatus: "Vet-FAA" }] : []), ...(o.extra1 || [])];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: o.s2 == null ? 5000 : o.s2, contractYear: 3, contractStatus: "Vet-FAA", ...(o.p2 || {}) }, ...(o.fill2 ? [{ id: "90002", salary: o.fill2, contractYear: 3, contractStatus: "Vet-FAA" }] : []), ...(o.extra2 || [])];
   if (o.adj) mfl.st.salaryAdjustments = clone(o.adj);
   if (o.league) mfl.st.league = o.league;
 }
@@ -354,13 +354,13 @@ test("CAP 14 + 15 + 16: an UNACKNOWLEDGED accept makes ZERO MFL writes and ZERO 
   // stale acknowledgment must NOT satisfy the fresh recompute
   const p1 = await act(env, mobileBody(o.id, "PREVIEW"));
   const staleSig = p1.json.cap_ack.per_franchise.find((f) => f.franchise_id === "0002").signature;
-  mfl.st.rosters["0002"].push({ id: "90003", salary: 1 });   // the projected figure moves by $1 -- the old signature no longer matches
+  mfl.st.rosters["0002"].push({ id: "90003", salary: 1, contractYear: 3, contractStatus: "Vet-FAA" });   // the projected figure moves by $1 -- the old signature no longer matches
   const staleAttempt = await act(env, { ...mobileBody(o.id), cap_ack: { signature: staleSig } });
   t.equal(staleAttempt.status, 409, "a signature computed against the OLD numbers does not satisfy the NEW ones");
   t.equal(staleAttempt.json.code, "cap_overage_ack_required");
   nothingHappened(mfl, env, "stale acknowledgment");
   // the recipient clears cap room (drops payroll) entirely -- no violation left, nothing to acknowledge
-  mfl.st.rosters["0002"] = mfl.st.rosters["0002"].filter((p) => p.id !== "90002"); mfl.st.rosters["0002"].push({ id: "90002", salary: 10000 });
+  mfl.st.rosters["0002"] = mfl.st.rosters["0002"].filter((p) => p.id !== "90002"); mfl.st.rosters["0002"].push({ id: "90002", salary: 10000, contractYear: 3, contractStatus: "Vet-FAA" });
   const retry = await act(env, mobileBody(o.id));
   t.equal(retry.status, 200, retry.text.slice(0, 200));
   t.equal(retry.json.compliance.cap.status, "ok", "the retry recomputed from the live payroll -- no violation left at all");
@@ -417,9 +417,9 @@ function threeWayWorld(o) {
   F.seedTrade(env, { legs_json: JSON.stringify(legs), ...(o.row || {}) });
   const s = o.sal || {};
   mfl.st.rosters = {
-    "0008": [{ id: "16614", salary: s.a1 == null ? 5000 : s.a1 }, ...(o.fillA ? [{ id: "90008", salary: o.fillA }] : [])],
-    "0001": [{ id: "16181", salary: s.b1 == null ? 5000 : s.b1 }, ...(o.fillB ? [{ id: "90001", salary: o.fillB }] : [])],
-    "0012": [{ id: "16650", salary: s.c1 == null ? 5000 : s.c1 }, ...(o.fillC ? [{ id: "90012", salary: o.fillC }] : [])],
+    "0008": [{ id: "16614", salary: s.a1 == null ? 5000 : s.a1, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.fillA ? [{ id: "90008", salary: o.fillA, contractYear: 3, contractStatus: "Vet-FAA" }] : [])],
+    "0001": [{ id: "16181", salary: s.b1 == null ? 5000 : s.b1, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.fillB ? [{ id: "90001", salary: o.fillB, contractYear: 3, contractStatus: "Vet-FAA" }] : [])],
+    "0012": [{ id: "16650", salary: s.c1 == null ? 5000 : s.c1, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.fillC ? [{ id: "90012", salary: o.fillC, contractYear: 3, contractStatus: "Vet-FAA" }] : [])],
   };
   if (o.adj) mfl.st.salaryAdjustments = clone(o.adj);
   return { env, mfl };

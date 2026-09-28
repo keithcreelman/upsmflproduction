@@ -53,12 +53,13 @@ test("MOBILE BUILD: the accepted build 2026.09.25.2 was kept or moved FORWARD â€
   const idx = read("site/m/index.html");
   const stampOf = (f) => (idx.match(new RegExp(f.replace(/[.\/]/g, "\\$&") + "\\?v=([0-9.]+)")) || [])[1];
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) stamp");
-  // shared/trade_3way_view.js and views/trade.js are pinned to the build THIS
-  // merge landed with (2026.09.28.3, the cap-overage acknowledgment ruling)
-  // rather than the live `v` â€” a later, unrelated mobile release could bump
-  // the overall build without touching either file; per-file ?v= only needs
-  // to be >= that file's own last change, not equal to the newest build.
-  for (const f of ["shared/trade_3way_view.js", "views/trade.js"]) t.equal(stampOf(f), "2026.09.28.3", `${f} stamp`);
+  // Both shared/trade_3way_view.js and views/trade.js genuinely changed again on this
+  // COMBINED branch (loaded-contract/lineup compliance, PR #1135, + the cap-overage
+  // acknowledgment ruling, this PR) and correctly carry the combined release's stamp
+  // (2026.09.28.4); per-file ?v= only needs to be >= that file's own last real change,
+  // not pinned to a single shared value in general -- here they happen to agree because
+  // both files were touched by this release.
+  for (const f of ["shared/trade_3way_view.js", "views/trade.js"]) t.equal(stampOf(f), "2026.09.28.4", `${f} stamp`);
 });
 test("BRANCH CONTENT: the Trade War Room's own work survived the merge (the ruling, the admin door, the ledger, the shared cap authority)", () => {
   const w = read("worker/src/index.js");

@@ -76,9 +76,13 @@ test("SHARED: a live 3-way's detail carries the same picture (cap + roster) and 
 function world(o) {
   o = o || {};
   const env = makeWorkerEnv(); const mfl = makeMfl({ tokens: { "tok-H": "0012" } }); mfl.install();
-  const bulk = (start, n) => Array.from({ length: n }, (_, i) => ({ id: String(start + i), salary: 100 }));
-  mfl.st.rosters["0001"] = [{ id: "14056", salary: o.s1 == null ? 5000 : o.s1 }, { id: "90001", salary: o.fill1 || 100000 }, ...(o.extra1 || [])];
-  mfl.st.rosters["0002"] = [{ id: "13100", salary: o.s2 == null ? 5000 : o.s2 }, { id: "90002", salary: o.fill2 || 100000 }, ...(o.extra2 || [])];
+  // A resolvable, flat, non-loaded contract for every generated player (real and filler) --
+  // previously blank, which used to be silently read as flat but is now correctly
+  // UNAVAILABLE for loaded_contracts (2026-09-28 review) and would refuse every preview/
+  // accept in this file before it ever reaches what these tests actually check.
+  const bulk = (start, n) => Array.from({ length: n }, (_, i) => ({ id: String(start + i), salary: 100, contractYear: 3, contractStatus: "Vet-FAA" }));
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: o.s1 == null ? 5000 : o.s1, contractYear: 3, contractStatus: "Vet-FAA" }, { id: "90001", salary: o.fill1 || 100000, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.extra1 || [])];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: o.s2 == null ? 5000 : o.s2, contractYear: 3, contractStatus: "Vet-FAA" }, { id: "90002", salary: o.fill2 || 100000, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.extra2 || [])];
   if (o.league) mfl.st.league = o.league;
   return { env, mfl, bulk };
 }

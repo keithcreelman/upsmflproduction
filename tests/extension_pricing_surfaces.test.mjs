@@ -91,7 +91,7 @@ const payloadOf = (ext) => ({
   teams: [{ role: "left", franchise_id: "0001", selected_assets: [player(14056, 4000)], traded_salary_adjustment_k: 0 }, { role: "right", franchise_id: "0002", selected_assets: [player(13100)], traded_salary_adjustment_k: 0 }],
   extension_requests: ext || [], ui: { left_team_id: "0001", right_team_id: "0002" }, validation: { status: "ready" },
 });
-function fresh(over) { const env = makeWorkerEnv(over); const mfl = makeMfl({ tokens: { "tok-H": "0012" } }); mfl.install(); mfl.st.salaries = LIVE(); return { env, mfl }; }
+function fresh(over) { const env = makeWorkerEnv(over); const mfl = makeMfl({ tokens: { "tok-H": "0012" } }); mfl.install(); mfl.st.salaries = LIVE(); mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA", contractYear: "1", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }]; return { env, mfl }; }
 const send = (env, payload) => callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", message: "", payload } });
 async function sendOk(env, mfl, ext) { const r = await send(env, payloadOf(ext)); t.ok(r.status < 300, `offer sent: ${r.status} ${r.text.slice(0, 250)}`); mfl.__offer = { ...mfl.st.pending[mfl.st.pending.length - 1] }; return mfl.st.pending[mfl.st.pending.length - 1].trade_id; }
 const accept = (env, id) => callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-C`, { body: { action: "ACCEPT", trade_id: id, league_id: "74598", franchise_id: "0002", year: "2026", message: "" } });
@@ -228,7 +228,7 @@ test("REVIEW OUTPUT: the commissioner sees stored vs canonical, every diff and t
 test("THREE-WAY: a 3-way is priced at creation too (a stale/non-canonical extension is never stored), and the same canonical terms pass the Discord accept", async () => {
   const env = makeWorkerEnv({ TRADE_3WAY_EXECUTE: "0" }); const mfl = makeMfl({ tokens: { "tok-H": "0012" } }); mfl.install(); bindSelf(env);
   for (const [fid, d] of [["0008", F.DISCORD.A], ["0001", F.DISCORD.B], ["0012", F.DISCORD.C]]) env.UPS_MFL_DB.raw.prepare("INSERT INTO discord_owners VALUES (?,?,?)").run(fid, "Y", d);
-  mfl.st.rosters = { "0008": [{ id: "16614", salary: 5000 }], "0001": [{ id: "16181", salary: 5000 }], "0012": [{ id: "16650", salary: 5000 }] };
+  mfl.st.rosters = { "0008": [{ id: "16614", salary: 5000 }], "0001": [{ id: "16181", salary: 5000, contractStatus: "Vet-FAA", contractYear: "1", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }], "0012": [{ id: "16650", salary: 5000, contractStatus: "Vet-FAA", contractYear: "1", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }] };
   mfl.st.salaries = [{ id: "16614", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
   const a = asset({ player_id: "16614", position: "WR", salary: 5000, years: 1, contract_info: "CL 1|TCV 5K|AAV 5K|Y1-5K" });
   const opt = (term) => ({ ...CLIENT.buildSyntheticExtensionOptions(a).find((x) => x.extension_term === term), player_id: "16614", player_name: "P16614", from_franchise_id: "0008", to_franchise_id: "0001" });

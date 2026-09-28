@@ -32,6 +32,12 @@ function fresh(over) {
   const env = makeWorkerEnv(over && over.env);
   const mfl = makeMfl({ tokens: { "tok-H": "0012" } });
   mfl.install();
+  // A resolvable, flat, non-loaded contract for the two default trade participants --
+  // previously blank (id/salary only), which used to be silently read as flat but is now
+  // correctly UNAVAILABLE for loaded_contracts (2026-09-28 review) and would refuse every
+  // accept in this file before it ever reaches what these tests actually check.
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
   if (over && over.rosters) Object.assign(mfl.st.rosters, over.rosters);
   return { env, mfl };
 }

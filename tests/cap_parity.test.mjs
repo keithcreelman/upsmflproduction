@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, callWorker, quiet } from "./fixtures/worker_harness.mjs";
+import { evaluateTradeCompliance } from "../worker/src/trade_cap_authority.js";
 
 const restore = quiet();
 const Q = "L=74598&YEAR=2026";
@@ -21,15 +22,15 @@ const WORLD = () => ({
   rosters: {
     "0001": [P(14056, 5000, { contractYear: 2, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 10K|AAV 5K|Y1-5K, Y2-5K" }),
       P(90101, 8001, { status: "INJURED_RESERVE", contractYear: 1, contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 8K|AAV 8K|Y1-8K" }),      // IR: half, rounded
-      P(90102, 2000, { status: "TAXI_SQUAD" }),
+      P(90102, 2000, { status: "TAXI_SQUAD", contractYear: 2, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|AAV 2K|Y1-2K, Y2-2K" }),
       P(90103, 3000, { contractYear: 0, contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 3K|AAV 3K|Y1-3K" }),                                  // KNOWN expired → 0
-      P(90104, 1000)],                                                                                                                        // NOTHING known → still counts
+      P(90104, 1000, { contractYear: 2, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K" })],                        // a normal flat contract (see the dedicated cap-math test below for "unknown still counts" -- it can no longer share this HTTP-path fixture)
     "0002": [P(13100, 5000, { contractYear: 1, contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }),
       P(90201, 15000, { contractYear: 3, contractStatus: "Vet-Ext2-FL", contractInfo: "CL 3|TCV 30K|AAV 10K|Y1-15K, Y2-10K, Y3-5K" }),           // front-loaded: THIS year's 15K
       P(90202, 4000, { contractYear: 2, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 8K|AAV 4K|Y1-4K, Y2-4K" })],
     "0003": [P(15000, 6000, { contractYear: 2, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 12K|AAV 6K|Y1-6K, Y2-6K" }), P(90301, 7000, { contractYear: 1, contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 7K|AAV 7K|Y1-7K" })],
     "0005": [P(90501, 5000, { contractYear: 1, contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" })],
-    "0007": [P(90701, 5000), P(90702, 3000)],
+    "0007": [P(90701, 5000, { contractYear: 1, contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }), P(90702, 3000, { contractYear: 1, contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 3K|AAV 3K|Y1-3K" })],
   },
   // the salaries export OVERLAYS a roster row (it wins where it has a row with contractYear > 0), exactly as the Front Office reads it
   salaries: [{ id: "90301", salary: "9000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 9K|AAV 9K|Y1-9K" }],
@@ -86,7 +87,7 @@ test("PARITY: identical raw exports → identical franchise totals from the Fron
   for (const fid of teams) t.ok(fid in seen, `${fid} was computed by the Trade War Room path`);
   t.equal(JSON.stringify(Object.fromEntries(teams.map((f) => [f, seen[f]]))), JSON.stringify(Object.fromEntries(teams.map((f) => [f, fo[f].used]))), "byte-equivalent franchise totals");
   // and the hand-derived numbers (so 'equal' can't mean 'equally wrong')
-  t.equal(fo["0001"].used, 5000 + 4001 + 0 + 0 + 1000 + 1500 - 200, "0001: flat + IR half (8001→4001) + taxi 0 + known-expired 0 + unknown-contract 1000 + dead money − rounding row");
+  t.equal(fo["0001"].used, 5000 + 4001 + 0 + 0 + 1000 + 1500 - 200, "0001: flat + IR half (8001→4001) + taxi 0 + known-expired 0 + a second flat contract 1000 + dead money − rounding row");
   t.equal(fo["0002"].used, 5000 + 15000 + 4000 + 5000 + 1001, "0002: front-loaded counts THIS year's 15K; '5K' = 5000; '$1,000.60' = 1001");
   t.equal(fo["0003"].used, 6000 + 9000 - 2500, "0003: the salaries export (9000) overlays the roster row (7000); trade credit −2500");
 });
@@ -95,7 +96,6 @@ test("PARITY: TAXI, IR, expired, loaded, overlay, adjustments and rounding are e
     "taxi is free": (w) => { w.rosters["0007"][0].status = "TAXI_SQUAD"; },
     "IR is half (odd salary rounds)": (w) => { w.rosters["0007"][1].status = "INJURED_RESERVE"; w.rosters["0007"][1].salary = 3001; },
     "known-expired contract is free": (w) => { w.rosters["0007"][0].contractYear = 0; w.rosters["0007"][0].contractStatus = "Vet-FAA"; },
-    "unknown contract still counts": (w) => { delete w.rosters["0007"][0].contractYear; },
     "loaded contract = this year's amount": (w) => { Object.assign(w.rosters["0007"][0], { salary: 20000, contractYear: 3, contractStatus: "Vet-Ext2-BL", contractInfo: "CL 3|TCV 30K|AAV 10K|Y1-20K, Y2-5K, Y3-5K" }); },
     "salaries overlay wins": (w) => { w.salaries.push({ id: "90701", salary: "12345", contractYear: "2", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 24K|AAV 12K|Y1-12K, Y2-12K" }); },
     "an overlay row with contractYear 0 is IGNORED": (w) => { w.salaries.push({ id: "90701", salary: "99999", contractYear: "0", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 1K|AAV 1K|Y1-1K" }); },
@@ -115,6 +115,19 @@ test("PARITY: TAXI, IR, expired, loaded, overlay, adjustments and rounding are e
     const row = p.json.compliance.cap.rows.find((r) => r.franchise_id === "0007");
     t.equal(JSON.stringify(row.used_before), JSON.stringify(fo["0007"].used), `${name}: Front Office ${fo["0007"].used} == Trade War Room ${row.used_before}`);
   }
+});
+test("PARITY (cap-math only, direct): a contract with NOTHING known -- years, status, AND contractInfo all blank -- still counts its FULL salary toward the cap, verified directly against evaluateTradeCompliance's cap block. Not through the full HTTP preview path: that SAME blank contract also makes loaded_contracts separately, honestly unavailable now (2026-09-28 review, row 6) -- the whole HTTP preview refuses before ever answering the cap question, so cap math's own 'unknown still counts' rule can only be exercised directly here, not end to end through a preview that MUST now decline to answer at all", () => {
+  const ok = (data) => ({ ok: true, status: 200, data });
+  const league = ok({ league: { salaryCapAmount: "300000", rosterSize: "35", franchises: { franchise: [{ id: "0007", name: "x" }, { id: "0001", name: "y" }] } } });
+  const rosters = ok({ rosters: { franchise: [
+    { id: "0007", player: [{ id: "90701", salary: "5000", status: "ROSTER" }] },   // NOTHING known at all -- the exact cap_math.js `unknown` shape
+    { id: "0001", player: [{ id: "90104", salary: "1000", status: "ROSTER", contractYear: "2", contractStatus: "Vet-FAA" }] },
+  ] } });
+  const c = evaluateTradeCompliance({ league, salaries: ok({ salaries: { leagueUnit: { player: [] } } }), adjustments: ok({ salaryAdjustments: "" }), rosters, movements: [{ from: "0007", to: "0001", tokens: ["90701"] }] });
+  const row = c.cap.rows.find((r) => r.franchise_id === "0007");
+  t.equal(row.used_before, 5000, "a genuinely unknown contract still counts its full salary toward the cap -- silence is not proof of expiry");
+  t.equal(c.cap.status, "ok", "the cap result is fully computed and valid");
+  t.equal(c.loaded_contracts.status, "unavailable", "...even though the loaded-contract verdict for the exact SAME blank contract is honestly unresolved -- these are two separate results, and one being unavailable must never erase or block the other's already-valid number (this is what the review's row 6 actually requires: unavailable for loaded_contracts, NOT for cap)");
 });
 test("PARITY: a WHOLE TRADE — after it lands, the Front Office's number for each team equals the Trade War Room's projected 'used after' (players, IR/taxi handling, cap-money direction, rounding)", async () => {
   const { env, mfl } = fresh();
