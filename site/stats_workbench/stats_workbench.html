@@ -103,10 +103,21 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 .asw-controls.collapsed > :not(.asw-filters-pill):not(#asw-filters-pill){display:none}
 .asw-controls.expanded > .asw-filters-pill{display:none}
 
-/* Column group controls bar — now a single "Columns" dropdown pill
-   + utility toggles (Filters/Heat/CSV) on the right. Replaces the
-   7-chip row that wrapped on narrower screens. */
-.asw-cols-bar{display:flex;gap:8px;align-items:center;background:var(--panel);padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;position:relative}
+/* Column group controls bar — a "Columns" dropdown pill + view-preset chips
+   + utility toggles (Filters/Heat/CSV) on the right.
+   flex-wrap (2026-09-28): the comment above used to claim this "replaces the
+   7-chip row that wrapped on narrower screens" — it doesn't wrap, it has no
+   flex-wrap at all, and at <=390px the row (label + 4 view chips + Save-view
+   + the Columns trigger + spacer + 3-4 utility buttons) is wider than the
+   viewport with no scroll container of its own, so it overflows the PAGE
+   itself (documentElement.scrollWidth > clientWidth) rather than just this
+   bar. Fixed the same way .asw-tabs (the position-tab row directly above
+   this one) already handles the identical problem: flex-wrap:wrap. The
+   popover is position:absolute inside this bar (top:calc(100% + 4px)), so it
+   already opens below the bar's full (now possibly multi-row) height —
+   wrapping doesn't reposition or clip it. Safe at any width: wrap is a no-op
+   once everything already fits on one line. */
+.asw-cols-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;position:relative}
 .asw-cols-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:4px}
 
 /* "Columns · N active" pill — the popover trigger */
