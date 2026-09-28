@@ -696,5 +696,115 @@ test("LC 3-WAY (review round 3): a present-but-malformed schedule (case 1, a lon
   t.equal(mfl.writes().length, 0, "zero MFL writes");
 });
 
+// ───────────── Part 7 — fourth review pass (2026-09-28): rookie-draft team options, and separating "no schedule" from "a value that never parsed" ─────────────
+// LC 40/41 use PRODUCTION-SHAPED fixtures: the exact contractInfo format MFL actually
+// serves for a rookie-draft 4th-year team option (verified against a real league salaries
+// export -- 24 of 484 rostered players carry this exact shape, all with the 3 base years
+// reconciling to CL/TCV and the option excluded, per Keith's review). LC 42-44 close the
+// remaining gap where a value that was ATTEMPTED but never parsed as a real number (no
+// digits at all, or a numeric prefix glued to trailing garbage) was being treated the same
+// as "contractInfo has no schedule here at all" and silently falling back to the status.
+
+test("LC 40 (review round 4, rookie option, PRODUCTION-SHAPED): a real rookie-draft 4th-year team option -- 3 base years reconciling to CL/TCV, the option year EXCLUDED from that check, not force-fit into it -- resolves flat, not unavailable (the exact string format served for player 17500 in a live league export)", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Rookie-Draft", contractInfo: "CL 3|TCV 18K|AAV 6K|Y1-6K, Y2-6K, Y3-6K, Y4-11K Option|GTD: 13.5K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "ok", "the 3 base years (6K,6K,6K) reconcile exactly to CL 3 / TCV 18K with the option excluded -- a complete, authoritative, flat schedule");
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 4, "flat -- does not add to the loaded count");
+});
+
+test("LC 40b: the SAME rookie option shape but with a genuinely FRONT-loaded base (not all equal) is classified correctly from the base years, the option still excluded", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 5), "0002": [{ id: "200", contractStatus: "Rookie-Draft", contractInfo: "CL 3|TCV 12K|AAV 4K|Y1-6K, Y2-3K, Y3-3K, Y4-8K Option|GTD: 9K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "blocked", "base years 6K,3K,3K sum to 12K = TCV, Y1 (6K) > AAV (4K) -> FL, and this would be the 6th loaded contract");
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 6);
+});
+
+test("LC 41 (review round 4, option EXERCISED): when CL and TCV instead cover ALL 4 years including the option (the option has become a real committed year), the schedule resolves from the FULL 4-year data -- never assumed either way, just whichever the contract's own stated CL/TCV actually reconciles against", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 5), "0002": [{ id: "200", contractStatus: "Rookie-Draft", contractInfo: "CL 4|TCV 29K|AAV 7.25K|Y1-6K, Y2-6K, Y3-6K, Y4-11K Option" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  // base-only (3 years, 18K) does NOT match CL 4 -- rejected; full (4 years, 29K) DOES match CL 4 and TCV 29K -- accepted.
+  t.equal(c.loaded_contracts.status, "blocked", "all 4 years used: 6,6,6,11 against a 7.25K AAV -> Y1 (6K) < AAV -> BL, and this would be the 6th loaded contract");
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0001").loaded_after, 6);
+});
+
+test("LC 42 (review round 4, case 1): an ENTIRE malformed value (no digits at all, e.g. 'Y1-foo,Y2-bar') is a present, attempted, unparseable schedule -- unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-foo,Y2-bar" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "neither 'foo' nor 'bar' has a single digit -- the regex never captures a value, but 'Y1-' and 'Y2-' were plainly ATTEMPTED");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 43 (review round 4, case 2): a NUMERIC PREFIX glued to trailing garbage ('Y1-2Kxyz') is never silently truncated to its leading digits -- unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-2Kxyz,Y2-2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "'2Kxyz' is not a real, cleanly-terminated value -- taking just the leading '2' and ignoring 'xyz' would risk silently accepting corrupted data that happens to reconcile by coincidence");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 44 (review round 4, case 3): an UNCLOSED bracket ('[2K,2K,2K' with no closing ']') is a present, attempted, unparseable schedule -- unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 3|TCV 6K|[2K,2K,2K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "an opening '[' with no matching ']' is plainly a schedule attempt, not the absence of one");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 44b: preserving valid contracts -- a genuine 1-year deal and a genuine option contract both still resolve correctly, proving the stricter malformed-detection above does not regress real data", () => {
+  const oneYear = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(oneYear.loaded_contracts.status, "ok", "a genuine, complete 1-year schedule still resolves flat");
+  const option = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Rookie-Draft", contractInfo: "CL 3|TCV 18K|AAV 6K|Y1-6K, Y2-6K, Y3-6K, Y4-11K Option|GTD: 13.5K" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(option.loaded_contracts.status, "ok", "and a genuine rookie-draft option contract still resolves flat");
+});
+
+test("LC 45: the SAME option-year handling applies to an extension's own priced schedule -- a labeled option year is excluded from the base completeness check there too", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", preview_contract_info_string: "CL 3|TCV 5K|Y1-1K, Y2-2K, Y3-2K, Y4-5K Option" }],
+  });
+  // base years (1K+2K+2K=5K) reconcile to CL 3 / TCV 5K with the labeled Y4 option excluded.
+  // Future years (excluding the frozen Y1): Y2=2K, Y3=2K -> equal -> flat.
+  t.equal(c.loaded_contracts.status, "ok", "the extension's 3 base years reconcile to CL 3 / TCV 5K with the labeled Y4 option excluded; the future years (Y2, Y3) are equal -- flat");
+});
+
+test("LC 2-WAY (review round 4): an entirely-malformed schedule (case 1, no digits at all) blocks the accept exactly like a proven violation -- 503, zero MFL writes, offer stays pending", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|Y1-foo,Y2-bar" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  const r = await act(env, mobileBody(id));
+  t.equal(r.status, 503);
+  t.equal(r.json.code, "loaded_contract_check_unavailable");
+  t.equal(r.json.compliance.cap.status, "ok", "the cap result stays independently valid in the same response");
+  t.equal(mfl.writes("tradeResponse").length, 0, "zero MFL writes");
+  t.equal(mfl.st.pending.length, 1, "the offer stays pending");
+});
+
+test("LC 3-WAY (review round 4): a real rookie-draft option contract (production-shaped) never blocks execution -- it resolves flat and the trade proceeds normally", async () => {
+  const { env, mfl } = threeWayWorld({ row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0008"][0] = { id: "16614", salary: 6000, contractStatus: "Rookie-Draft", contractInfo: "CL 3|TCV 18K|AAV 6K|Y1-6K, Y2-6K, Y3-6K, Y4-11K Option|GTD: 13.5K" };
+  env.TRADE_3WAY_EXECUTE = "0"; // dry-run so this test doesn't have to drive live legs
+  const r1 = await execute3Way(env, F.TRADE_ID);
+  t.equal(r1.ok, true, "a genuine, resolvable option contract never trips the loaded-contract gate");
+  t.equal(F.readRow(env).status, "completed");
+});
+
 await run("trade_loaded_contracts");
 restore();

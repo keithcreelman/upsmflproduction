@@ -167,41 +167,65 @@ export function parseTCV(contractInfo) {
 
 /**
  * An authoritative-CANDIDATE per-year salary schedule from contractInfo text, together with
- * which year-numbers were actually found and whether any year number was seen more than
- * once -- needed to tell a real, complete, well-formed schedule apart from one with a gap
- * or a duplicate (see scheduleIsAuthoritative). NOT exported: a caller that only wants the
- * values (no completeness/reconciliation check) should use parseYearSchedule below.
- * "Present" is judged on the RAW token count, not the distinct-year count, specifically so
- * a duplicated year token (which collapses to fewer distinct years) still registers as "a
- * schedule was found here" rather than silently vanishing below the presence threshold.
- * @returns { years: number[], values: number[], duplicate: boolean } (years sorted
- *          ascending, values in the SAME order -- index i is year `years[i]`, not
- *          necessarily "Year i+1" until completeness is separately confirmed) or null when
- *          nothing parseable was found at all.
+ * which year-numbers were actually found, whether any year number was seen more than once,
+ * and which years (if any) are explicitly labeled an "Option" -- needed to tell a real,
+ * complete, well-formed schedule apart from one with a gap, a duplicate, or a garbled value
+ * (see scheduleIsAuthoritative), and to keep a labeled team-option year (a rookie-draft
+ * 4th-year option is the real, observed case: "Y4-11K Option") from being force-fit into
+ * the base contract's own completeness check. NOT exported: a caller that only wants the
+ * values (no completeness/reconciliation/option check) should use parseYearSchedule below.
+ * PRESENCE is judged separately from successful numeric parsing (2026-09-28 review, fourth
+ * pass): a schedule ATTEMPT that exists in the text but never parses as real numbers (a
+ * malformed value like "Y1-foo", or an unclosed "[2K,2K,2K" with no closing "]") is present
+ * data, not absent data, and is reported via `malformed: true` -- the caller must never read
+ * this as "no schedule was found here" and fall back to contractStatus.
+ * @returns null when NOTHING was attempted at all (no "Y<n>-" text, no "[" character), else
+ *          { malformed: true } (a schedule was attempted but never produced usable numbers),
+ *          or { years, values, duplicate, optionYears, baseYears, baseValues } -- years
+ *          sorted ascending, values in the SAME order (index i is year `years[i]`, not
+ *          necessarily "Year i+1" until completeness is separately confirmed); optionYears
+ *          is the sorted list of year numbers labeled "Option"; baseYears/baseValues are
+ *          `years`/`values` with any optionYears entries removed (identical to years/values
+ *          when there are no option years at all).
  */
 function parseYearScheduleRaw(contractInfo) {
   const info = s(contractInfo);
   if (!info) return null;
-  // 1. Y-token format: "Y1-21K Y2-38K Y3-38K" (also accepts "Y1-2K, Y2-2K" with commas).
-  // PRESENCE is judged on finding even ONE real Y-token -- a schedule fragment (e.g. just
-  // "Y1-2K" for a stated 2-year contract) is present-but-incomplete data, not the same
-  // thing as "contractInfo has no schedule at all" (round-2 review, third pass: these two
-  // must never be conflated -- a present, malformed/partial schedule must fail closed as
-  // unavailable, not silently fall through to trusting contractStatus because it looked
-  // like "no schedule was found here"). A genuinely single-year contract (CL 1 with one
-  // matching Y1 token) still resolves correctly -- see resolveLoadedStatus's length===1
-  // case -- so relaxing this threshold from 2 to 1 loses no real coverage.
-  const re = /Y(\d+)\s*-\s*([0-9.]+)\s*K?/gi;
-  let m; const map = {}; let rawCount = 0; let duplicate = false;
+  // 1. Y-token format: "Y1-21K Y2-38K Y3-38K" (also accepts "Y1-2K, Y2-2K" with commas), or
+  //    a team-option year explicitly labeled "Option" right after its value ("Y4-11K
+  //    Option"). ATTEMPTS (any "Y<n>-" text, whatever follows) are counted separately from
+  //    successfully-parsed tokens -- if some Y-token was attempted but its value never
+  //    parsed as a real number (e.g. "Y1-foo", "Y2-bar"), that is a present, malformed
+  //    schedule, never the absence of one.
+  const attempts = (info.match(/Y\d+\s*-/gi) || []).length;
+  // The trailing lookahead requires a proper boundary (whitespace, comma, pipe, or end of
+  // string) right after the value/Option label -- a numeric PREFIX glued directly to
+  // trailing garbage ("Y1-2Kxyz") must NOT be silently accepted as "2K" with "xyz" just
+  // ignored (2026-09-28 review, fourth pass): that match is refused entirely here, which
+  // the `attempts > rawCount` check above already turns into `malformed: true` -- no
+  // separate handling needed.
+  const re = /Y(\d+)\s*-\s*([0-9.]+)\s*K?(\s*Option)?(?=[\s,|]|$)/gi;
+  let m; const map = {}; const optionYearSet = new Set(); let rawCount = 0; let duplicate = false;
   while ((m = re.exec(info))) {
     rawCount++;
     const y = parseInt(m[1], 10);
     if (Object.prototype.hasOwnProperty.call(map, y)) duplicate = true;
     map[y] = Math.round(parseFloat(m[2]) * 1000);
+    if (m[3]) optionYearSet.add(y);
   }
+  if (attempts > rawCount) return { years: null, values: null, duplicate: false, optionYears: [], baseYears: null, baseValues: null, malformed: true };
   if (rawCount >= 1) {
+    // PRESENCE is judged on finding even ONE real Y-token -- a schedule fragment (e.g. just
+    // "Y1-2K" for a stated 2-year contract) is present-but-incomplete data, not the same
+    // thing as "contractInfo has no schedule at all" (round-2 review, third pass: these two
+    // must never be conflated). A genuinely single-year contract (CL 1 with one matching
+    // Y1 token) still resolves correctly -- see resolveLoadedStatus's length===1 case.
     const years = Object.keys(map).map(Number).sort((a, b) => a - b);
-    return { years, values: years.map((y) => map[y]), duplicate };
+    const values = years.map((y) => map[y]);
+    const optionYears = [...optionYearSet].sort((a, b) => a - b);
+    const baseYears = years.filter((y) => !optionYearSet.has(y));
+    const baseValues = baseYears.map((y) => map[y]);
+    return { years, values, duplicate, optionYears, baseYears, baseValues };
   }
   // 2. Bracket format: "[14K, 14K, 15K]" -- position IS the year (1-indexed); no year can
   //    be "missing" or "duplicated" the way a Y-token can be. A malformed entry (e.g.
@@ -209,13 +233,17 @@ function parseYearScheduleRaw(contractInfo) {
   //    as a NaN in `values` rather than causing the whole bracket to be silently discarded
   //    as "nothing found here" (round-2 review, third pass); scheduleIsAuthoritative's own
   //    "every year must be a real positive number" check rejects the NaN entry correctly.
+  //    An UNCLOSED bracket (an opening "[" with no matching "]", e.g. "[2K,2K,2K") is
+  //    likewise present -- an attempt was clearly made -- but malformed, never absent.
   const bm = info.match(/\[([^\]]+)\]/);
   if (bm) {
     const arr = bm[1].split(",").map((t) => {
       const n = parseFloat(String(t).replace(/[^0-9.]/g, ""));
       return Number.isFinite(n) ? Math.round(n * 1000) : NaN;
     });
-    if (arr.length >= 1) return { years: arr.map((_, i) => i + 1), values: arr, duplicate: false };
+    if (arr.length >= 1) return { years: arr.map((_, i) => i + 1), values: arr, duplicate: false, optionYears: [], baseYears: arr.map((_, i) => i + 1), baseValues: arr };
+  } else if (info.indexOf("[") !== -1) {
+    return { years: null, values: null, duplicate: false, optionYears: [], baseYears: null, baseValues: null, malformed: true };
   }
   return null;
 }
@@ -313,17 +341,31 @@ export function resolveLoadedStatus(contractStatus, contractInfo) {
     // Once contractInfo actually contains a Y-token/bracket schedule, contractStatus is
     // NEVER consulted -- the schedule either cleanly proves flat/FL/BL, or the WHOLE
     // result is unresolved. A present but incomplete, duplicated, unreconciled,
-    // nonpositive, or irregular schedule must NEVER fall through to trusting
-    // contractStatus instead (2026-09-28 review, second pass): that schedule is itself
-    // evidence something is wrong with this contract's data, and a plausible-looking
-    // status is not permitted to override or paper over it.
-    if (scheduleIsAuthoritative(raw.years, raw.values, cl, tcv, raw.duplicate)) {
-      if (raw.values.length === 1) return { loaded: "", resolved: true };   // a genuinely complete 1-year schedule (CL 1, one matching Y1 token) has no shape to compare -- flat by the same canon rule as priority 2, just reached via a verified schedule instead
-      const struct = structureOf(raw.values, tcv, cl);
+    // nonpositive, malformed, or irregular schedule must NEVER fall through to trusting
+    // contractStatus instead (2026-09-28 review): that schedule is itself evidence
+    // something is wrong with this contract's data, and a plausible-looking status is not
+    // permitted to override or paper over it.
+    if (raw.malformed) return { loaded: "", resolved: false };
+    // A schedule with a labeled team-option year (the real, observed shape: a rookie-draft
+    // 4th-year option, "Y4-11K Option", with CL/TCV stating only the 3-year base) is tried
+    // BOTH ways -- excluding the option (not yet part of the committed contract) and
+    // including it (now committed) -- and whichever interpretation the contract's OWN
+    // stated CL/TCV actually reconciles against wins. This never assumes an option is
+    // exercised or unexercised: the two candidates have different lengths and CL is one
+    // fixed number, so at most one can ever satisfy the completeness check -- a lookup
+    // the data itself settles, not a guess.
+    const candidates = raw.optionYears.length
+      ? [{ years: raw.baseYears, values: raw.baseValues }, { years: raw.years, values: raw.values }]
+      : [{ years: raw.years, values: raw.values }];
+    for (const cand of candidates) {
+      if (!scheduleIsAuthoritative(cand.years, cand.values, cl, tcv, raw.duplicate)) continue;
+      if (cand.values.length === 1) return { loaded: "", resolved: true };   // a genuinely complete 1-year schedule (CL 1, one matching Y1 token) has no shape to compare -- flat by the same canon rule as priority 2, just reached via a verified schedule instead
+      const struct = structureOf(cand.values, tcv, cl);
       if (struct === "FLAT") return { loaded: "", resolved: true };
       if (struct === "FL" || struct === "BL") return { loaded: struct, resolved: true };
       // struct === "" -- Y1 equals the AAV but the schedule isn't uniform: irregular,
       // unclassifiable. Falls through to the SAME unresolved return below.
+      return { loaded: "", resolved: false };
     }
     return { loaded: "", resolved: false };
   }
@@ -385,22 +427,30 @@ export function resolveExtensionLoadedStatus(previewContractInfoString, newAavFu
   const tcv = parseTCV(previewContractInfoString);
   const raw = parseYearScheduleRaw(previewContractInfoString);
   if (!raw) return { loaded: "", resolved: false };   // no schedule at all
-  if (!scheduleIsAuthoritative(raw.years, raw.values, cl, tcv, raw.duplicate)) return { loaded: "", resolved: false };
-  const schedule = raw.values;
-  const future = schedule.slice(1);   // exclude Y1 -- frozen at the pre-extension salary
-  if (future.length < 1) return { loaded: "", resolved: false };   // no future years at all
-  if (future.length === 1) return { loaded: "", resolved: true };  // a single future year has no shape
-  if (future.every((v) => v === future[0])) return { loaded: "", resolved: true };
-  const aavFuture = Number.isFinite(newAavFuture) && newAavFuture > 0
-    ? newAavFuture
-    : future.reduce((a, b) => a + b, 0) / future.length;
-  if (!Number.isFinite(aavFuture) || aavFuture <= 0) return { loaded: "", resolved: false };
-  const y2 = future[0];
-  if (y2 > aavFuture) return { loaded: "FL", resolved: true };
-  if (y2 < aavFuture) return { loaded: "BL", resolved: true };
-  // y2 === aavFuture but the future years are NOT all equal (already ruled out above):
-  // the same irregular, unclassifiable shape as structureOf's final branch -- unresolved,
-  // not silently flat.
+  if (raw.malformed) return { loaded: "", resolved: false };   // present but never produced usable numbers
+  // Same option-year handling as resolveLoadedStatus -- see its comment.
+  const candidates = raw.optionYears.length
+    ? [{ years: raw.baseYears, values: raw.baseValues }, { years: raw.years, values: raw.values }]
+    : [{ years: raw.years, values: raw.values }];
+  for (const cand of candidates) {
+    if (!scheduleIsAuthoritative(cand.years, cand.values, cl, tcv, raw.duplicate)) continue;
+    const schedule = cand.values;
+    const future = schedule.slice(1);   // exclude Y1 -- frozen at the pre-extension salary
+    if (future.length < 1) return { loaded: "", resolved: false };   // no future years at all
+    if (future.length === 1) return { loaded: "", resolved: true };  // a single future year has no shape
+    if (future.every((v) => v === future[0])) return { loaded: "", resolved: true };
+    const aavFuture = Number.isFinite(newAavFuture) && newAavFuture > 0
+      ? newAavFuture
+      : future.reduce((a, b) => a + b, 0) / future.length;
+    if (!Number.isFinite(aavFuture) || aavFuture <= 0) return { loaded: "", resolved: false };
+    const y2 = future[0];
+    if (y2 > aavFuture) return { loaded: "FL", resolved: true };
+    if (y2 < aavFuture) return { loaded: "BL", resolved: true };
+    // y2 === aavFuture but the future years are NOT all equal (already ruled out above):
+    // the same irregular, unclassifiable shape as structureOf's final branch -- unresolved,
+    // not silently flat.
+    return { loaded: "", resolved: false };
+  }
   return { loaded: "", resolved: false };
 }
 
