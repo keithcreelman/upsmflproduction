@@ -14,13 +14,26 @@ name: nflverse stats refresh (Player Stats / FPA / Pace / EPA / SoS / ADP crossw
 # /api/data-freshness can show "last updated" per source; a single failing
 # source doesn't block the others.
 #
-# Cadence: weekly (Wed 11:00 UTC) — nflverse finalizes the prior week's data
-# Tue/Wed. Off-season runs are cheap no-ops for the current season (no games),
-# but still refresh names + the ID crosswalk (player-pool churn).
+# Cadence (widened 2026-09-28): Monday 15:00 UTC, Tuesday 12:00 + 20:00 UTC,
+# Wednesday 11:00 UTC. nflverse typically finalizes the prior week's data
+# Tue/Wed, but publication timing isn't perfectly consistent week to week —
+# the single Wednesday run left Monday-morning site visitors looking at the
+# prior week's numbers even on weeks where nflverse had already published by
+# Tuesday. Each of the four runs is a plain re-run of the SAME idempotent
+# refresh: a source that isn't published yet exits 3 ("not published yet",
+# stamped in etl_runs, not a failure — see `run()` below) and every other
+# source just re-writes the same rows, so an early run costs nothing beyond
+# CI minutes and never produces a partial/duplicate week. Wednesday stays as
+# the backstop that always finds the week finalized. Off-season runs are
+# cheap no-ops for the current season (no games), but still refresh names +
+# the ID crosswalk (player-pool churn).
 
 on:
   schedule:
-    - cron: "0 11 * * 3" # Wednesday 11:00 UTC
+    - cron: "0 15 * * 1" # Monday 15:00 UTC — early check, most weeks too soon
+    - cron: "0 12 * * 2" # Tuesday 12:00 UTC — nflverse's typical publish window
+    - cron: "0 20 * * 2" # Tuesday 20:00 UTC — catches a late Tuesday publish
+    - cron: "0 11 * * 3" # Wednesday 11:00 UTC — backstop / final correction
   workflow_dispatch:
     inputs:
       seasons:

@@ -1576,7 +1576,15 @@ table.asw-table{font-size:13px}
   var bodyEl      = document.getElementById("asw-body");
 
   // ---------- Seasons multi-select ----------
-  var defaultSeason = THIS_YEAR - 1;
+  // Defaults to the CURRENT season (THIS_YEAR). Was hardcoded to THIS_YEAR-1
+  // from this page's creation (2026-04-23, true preseason — 2026 had zero
+  // games, so "last completed season" was the only sane default at the
+  // time). Never revisited once the season started: a fresh visit landed on
+  // 2025 regardless of what week it actually was, which is what "Stats
+  // Workbench never shows this week's data" actually was (2026-09-28) — the
+  // page wasn't even looking at 2026. Mirrors the try-current-year pattern
+  // already used by this file's Fantasy-Points-Against and Vegas widgets.
+  var defaultSeason = THIS_YEAR;
   for (var y = THIS_YEAR; y >= MIN_SEASON; y--) {
     var opt = document.createElement("option");
     opt.value = String(y);
@@ -2907,6 +2915,20 @@ table.asw-table{font-size:13px}
       coverage += " · top 500 by yardage — deep bench may be cut off";
     } else if (maxSeason === nowY && state.lastApiCount === 0) {
       coverage += " · " + nowY + " hasn’t started — showing no rows yet";
+    } else if (maxSeason === nowY && state.lastBuiltForWeek != null) {
+      // Current-season freshness (2026-09-28): show what's actually finalized
+      // rather than let a silent "data through 2026" imply the season-to-date
+      // is complete. authoritative_week (live MFL scoring) is the real-world
+      // answer; built_for_week (D1's precompute) can lag it by one refresh
+      // cycle — surface BOTH only when they disagree, so a normal "just
+      // finished its regular Wednesday refresh" state stays a single number.
+      var authWk = state.lastAuthoritativeWeek;
+      coverage += " · finalized through Week " + state.lastBuiltForWeek;
+      if (authWk != null && authWk !== state.lastBuiltForWeek) {
+        coverage += " (Week " + authWk + " complete upstream — next refresh will pick it up)";
+      } else if (state.lastStale) {
+        coverage += " (refresh pending)";
+      }
     }
     metaEl.textContent = (state.lastQuery || "") + " · " + countLabel + (searchQ ? " (search)" : "") + filterHint + coverage;
 
@@ -3576,6 +3598,14 @@ table.asw-table{font-size:13px}
       // Coverage signal (A1): the worker LIMITs at 500; j.count === 500 means
       // the long tail was truncated. Stash pre-team-filter count for the meta line.
       state.lastApiCount = (j && typeof j.count === "number") ? j.count : rows.length;
+      // Freshness (2026-09-28): the worker reports built_for_week (what the
+      // precompute covers) / authoritative_week (the real completed week,
+      // derived from live MFL scoring, independent of D1) / stale for the
+      // CURRENT season only — undefined for a historical-season query, which
+      // is correct: freshness only means something for the season in progress.
+      state.lastBuiltForWeek = (j && typeof j.built_for_week === "number") ? j.built_for_week : null;
+      state.lastAuthoritativeWeek = (j && typeof j.authoritative_week === "number") ? j.authoritative_week : null;
+      state.lastStale = !!(j && j.stale);
       rows = applyLiveOwnership(rows);
       // Team filter (post-ownership-overlay)
       // Special values:
