@@ -895,5 +895,70 @@ test("LC 3-WAY (review round 5): a malformed second schedule fragment (Y-tokens 
   t.equal(mfl.writes().length, 0, "zero MFL writes");
 });
 
+// ───────────── Part 9 — sixth review pass (2026-09-28): a stray, unmatched bracket character must never be invisible to the schedule-authority check ─────────────
+// A complete bracket group followed by a second, UNCLOSED "[" was being silently accepted
+// -- the regex that only looks for COMPLETE "[...]" pairs simply never saw the stray
+// trailing "[" at all, so it registered as "exactly one bracket group found" and the whole
+// string resolved from that one group alone, the stray character never examined.
+
+test("LC 52 (review round 6): a complete bracket group followed by a stray, UNCLOSED second '[' is never silently accepted from just the first, complete group -- unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|[2K,2K][" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "the first '[2K,2K]' pair is complete and would reconcile on its own, but the trailing stray '[' is a second, unclosed fragment and must not be silently ignored");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 53 (review round 6): a STRAY closing bracket with no opening '[' at all is equally never absent -- unavailable, never falls back to the status", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "a lone ']' with no matching '[' is a present, malformed schedule attempt, not the absence of one");
+  t.equal(c.cap.status, "ok");
+});
+
+test("LC 54: the SAME stray-bracket-character rule applies to an extension's own priced schedule", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractStatus: "Vet-FAA" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+    extensionRequests: [{ player_id: "200", from_franchise_id: "0002", to_franchise_id: "0001", loaded_indicator: "NONE", preview_contract_info_string: "CL 2|TCV 4K|[2K,2K][" }],
+  });
+  t.equal(c.loaded_contracts.status, "unavailable", "a stray unclosed second bracket in an extension's priced terms is equally untrusted");
+});
+
+test("LC 55: preserving a genuine, single, well-formed bracket schedule -- exactly one '[' and one ']' in the whole string still resolves correctly (regression control for the stricter stray-bracket check above)", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": loadedIds(100, 4), "0002": [{ id: "200", contractInfo: "CL 3|TCV 43K|[14K, 14K, 15K]" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }],
+  });
+  t.notEqual(c.loaded_contracts.status, "unavailable", "exactly one open and one close bracket -- a clean, single, well-formed group -- must still resolve, not be swept up by the stray-character check");
+});
+
+test("LC 2-WAY (review round 6): a complete bracket group with a stray unclosed second fragment blocks the accept exactly like a proven violation -- 503, zero MFL writes, offer stays pending", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|[2K,2K][" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  const r = await act(env, mobileBody(id));
+  t.equal(r.status, 503);
+  t.equal(r.json.code, "loaded_contract_check_unavailable");
+  t.equal(r.json.compliance.cap.status, "ok", "the cap result stays independently valid in the same response");
+  t.equal(mfl.writes("tradeResponse").length, 0, "zero MFL writes");
+  t.equal(mfl.st.pending.length, 1, "the offer stays pending");
+});
+
+test("LC 3-WAY (review round 6): a stray closing bracket with no opening '[' blocks execution recoverably -- zero MFL writes, ledger blocked_cap, never failed, cap independently intact", async () => {
+  const { env, mfl } = threeWayWorld({ row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0008"][0] = { id: "16614", salary: 5000, contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 4K|]" };
+  const r1 = await execute3Way(env, F.TRADE_ID);
+  t.equal(r1.blocked, true); t.equal(r1.kind, "unavailable");
+  t.equal(r1.compliance.cap.status, "ok", "the cap result stays independently valid on the same gate response");
+  t.equal(F.readRow(env).status, "collecting", "recoverable -- never failed");
+  t.equal(ledgerRow(env).state, "blocked_cap");
+  t.equal(mfl.writes().length, 0, "zero MFL writes");
+});
+
 await run("trade_loaded_contracts");
 restore();

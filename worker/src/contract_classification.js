@@ -239,20 +239,26 @@ function parseYearScheduleRaw(contractInfo) {
     if (m[3]) optionYearSet.add(y);
   }
   if (attempts > rawCount) return malformedSchedule();
-  // Every COMPLETE "[...]" group in the string, found up front so both branches below can
-  // check for a second, differently-shaped fragment rather than silently looking at only
-  // the first thing they happen to find.
-  const bracketMatches = info.match(/\[[^\]]*\]/g) || [];
+  // TOTAL count of "[" and "]" CHARACTERS anywhere in the string -- not just complete
+  // "[...]" matches -- so a stray, unmatched bracket character (an extra "[" after an
+  // otherwise-complete pair, a lone "]", two separate complete groups, ...) is never
+  // silently invisible to this check just because SOME complete pair happens to exist
+  // elsewhere in the string. A single, well-formed bracket schedule has EXACTLY one "["
+  // and exactly one "]" in the whole string; anything else is a second or malformed
+  // fragment, never silently narrowed down to whichever complete pair is found first.
+  const openCount = (info.match(/\[/g) || []).length;
+  const closeCount = (info.match(/\]/g) || []).length;
   if (rawCount >= 1) {
     // PRESENCE is judged on finding even ONE real Y-token -- a schedule fragment (e.g. just
     // "Y1-2K" for a stated 2-year contract) is present-but-incomplete data, not the same
     // thing as "contractInfo has no schedule at all" (round-2 review: these two must never
     // be conflated). A genuinely single-year contract (CL 1 with one matching Y1 token)
     // still resolves correctly -- see resolveLoadedStatus's length===1 case.
-    // A bracket group -- complete or not -- ALSO present in the same string is a second,
-    // conflicting schedule fragment (the documented format is Y-token OR bracket, never
-    // both); it must not be silently ignored just because the Y-tokens parsed cleanly.
-    if (bracketMatches.length > 0 || info.indexOf("[") !== -1) return malformedSchedule();
+    // ANY bracket character at all -- open or close, complete pair or not -- coexisting
+    // with a Y-token schedule is a second, conflicting fragment (the documented format is
+    // Y-token OR bracket, never both); it must not be silently ignored just because the
+    // Y-tokens parsed cleanly.
+    if (openCount > 0 || closeCount > 0) return malformedSchedule();
     const years = Object.keys(map).map(Number).sort((a, b) => a - b);
     const values = years.map((y) => map[y]);
     const optionYears = [...optionYearSet].sort((a, b) => a - b);
@@ -266,15 +272,18 @@ function parseYearScheduleRaw(contractInfo) {
   //    stripping the characters that don't belong; they become NaN, and
   //    scheduleIsAuthoritative's own "every year must be a real positive number" check
   //    rejects the NaN entry correctly (a malformed entry, kept present rather than
-  //    discarding the whole bracket as "nothing found here"). More than one bracket GROUP in
-  //    the same string is never a documented shape -- ambiguous, never silently narrowed to
-  //    just the first one found. An UNCLOSED bracket (an opening "[" with no matching "]",
-  //    e.g. "[2K,2K,2K") is likewise present -- an attempt was clearly made -- but malformed.
-  if (bracketMatches.length === 1) {
-    const inner = bracketMatches[0].slice(1, -1);
-    const arr = inner.split(",").map(parseBracketEntry);
+  //    discarding the whole bracket as "nothing found here"). EXACTLY one "[" and one "]"
+  //    is required for a trusted single group -- more than one of either (two complete
+  //    groups, a complete group plus a stray unclosed second "[", a stray extra "]", ...)
+  //    is never a documented shape and is never silently narrowed to just the first
+  //    complete pair found. An UNCLOSED bracket (an opening "[" with no matching "]" at
+  //    all, e.g. "[2K,2K,2K") is likewise present -- an attempt was clearly made -- but
+  //    malformed.
+  if (openCount === 1 && closeCount === 1) {
+    const bm = info.match(/\[([^\]]*)\]/);
+    const arr = bm[1].split(",").map(parseBracketEntry);
     if (arr.length >= 1) return { years: arr.map((_, i) => i + 1), values: arr, duplicate: false, optionYears: [], baseYears: arr.map((_, i) => i + 1), baseValues: arr };
-  } else if (bracketMatches.length > 1 || info.indexOf("[") !== -1) {
+  } else if (openCount > 0 || closeCount > 0) {
     return malformedSchedule();
   }
   return null;
