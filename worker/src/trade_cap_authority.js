@@ -358,7 +358,19 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
       });
       const validCount = picks.filter((x) => x.valid).length;
       const satisfied = validCount >= required;
-      dropReqs.push({ franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, projected, required_drops: required, selected: picks, valid_count: validCount, satisfied });
+      // The full menu the owner can pick FROM: every one of the franchise's OWN roster players
+      // that is currently a loaded contract and isn't already being sent away in this trade --
+      // the same two checks `picks` validates a selection against, just run over the whole
+      // roster instead of just what was selected. Lets a client render a real picker without
+      // re-deriving loaded-contract classification itself (which is exactly the eyeballing gap
+      // that caused the Hammer Times miss -- see Addison/Montgomery in the investigation).
+      const roster = R.byFranchise[fid] || {};
+      const candidates = Object.keys(roster).filter((pid) => {
+        if (sentTokensByFranchise[fid].has(pid)) return false;
+        const lst = resolveLoadedStatus(roster[pid].contractStatus, roster[pid].contractInfo);
+        return lst.resolved && lst.loaded;
+      }).sort();
+      dropReqs.push({ franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, projected, required_drops: required, selected: picks, valid_count: validCount, satisfied, candidates });
       if (!satisfied) {
         loadedViolations.push({ franchise_id: fid, franchise_name: name(fid), projected, max: LOADED_CONTRACT_MAX, required_drops: required, valid_drops: validCount,
           message: `${name(fid)} would move from ${st.loadedBefore} to ${projected} loaded contracts. The maximum is ${LOADED_CONTRACT_MAX}, so ${required} conditional drop${required === 1 ? "" : "s"} of ${name(fid)}'s own loaded-contract player${required === 1 ? "" : "s"} ${required === 1 ? "is" : "are"} required before this trade can go through` +

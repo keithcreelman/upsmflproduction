@@ -58,6 +58,23 @@ test("LC 2: 5 -> 6 blocks", () => {
   t.equal(c.loaded_contracts.drop_requirements[0].franchise_id, "0001");
   t.equal(c.loaded_contracts.drop_requirements[0].required_drops, 1);
   t.equal(c.loaded_contracts.drop_requirements[0].satisfied, false);
+  // The candidate menu a picker renders FROM: 0001's own 5 pre-existing loaded contracts, never
+  // the just-received "200" (not on 0001's CURRENT roster -- consistent with how a selection of
+  // it would itself be rejected as not_on_roster) and never a player 0001 is sending away.
+  t.deepEqual(c.loaded_contracts.drop_requirements[0].candidates, ["100", "101", "102", "103", "104"]);
+});
+
+test("LC 2c: candidates excludes a loaded contract the franchise is SENDING away in this same trade", () => {
+  const c = calc({
+    rosters: rosterOf({ "0001": [...loadedIds(100, 5), { id: "999", contractStatus: "Vet-Ext2-BL" }], "0002": [{ id: "200", contractStatus: "Vet-FAA-FL" }] }),
+    movements: [{ from: "0002", to: "0001", tokens: ["200"] }, { from: "0001", to: "0002", tokens: ["999"] }],
+  });
+  // 0001 has 6 loaded (5 fillers + 999) before the trade, sends 999 away (a loaded contract,
+  // so loaded_before counts it) and receives 200 (loaded) -> still 6 after -> still 1 required.
+  const req = c.loaded_contracts.drop_requirements[0];
+  t.equal(req.required_drops, 1);
+  t.doesNotMatch(JSON.stringify(req.candidates), /"999"/, "the player being sent away can't also be offered as a drop candidate");
+  t.deepEqual(req.candidates, ["100", "101", "102", "103", "104"]);
 });
 
 test("LC 3: sending and receiving one loaded contract stays at 5 and passes", () => {
