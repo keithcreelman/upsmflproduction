@@ -3104,7 +3104,7 @@
         if (fam === "rk" && t.indexOf("DRAFT") >= 0) present["rk-draft"] = true;
       } else if (fam === "tag") present.tag = true;
       if (t === "EXPIRED" || p.isExpiredRookie) present.expired = true;
-      if (t.indexOf("FL") >= 0 || t.indexOf("BL") >= 0) anyLoaded = true;
+      if (isLoadedRow(p) === true) anyLoaded = true;
     });
     const tSel = $("#fo-filter-type");
     if (tSel) {
@@ -3180,9 +3180,14 @@
       // Loaded (FL/BL) is a CROSS-CUTTING dimension — it spans Rookie & Vet, so
       // it's its own toggle, combinable with the type hierarchy (Keith 2026-06-04:
       // "I'm not sure how to show this since those are sub types of the other").
+      // Delegates to isLoadedRow (2026-09-29 review, Keith: "use the approved
+      // classification consistently") -- this used to be its own inline
+      // -FL/-BL substring check, a FOURTH independent implementation of the
+      // same question isLoadedRow already answers. An unavailable
+      // classification does not pass this filter (never affirmatively "loaded"
+      // when it can't be determined).
       if (f.loaded) {
-        const t = String(p.type || "").toUpperCase();
-        if (t.indexOf("FL") < 0 && t.indexOf("BL") < 0) return false;
+        if (isLoadedRow(p) !== true) return false;
       }
       if (f.status) {
         if (f.status === "active" && (p.isTaxi || p.isIr)) return false;
@@ -3698,13 +3703,32 @@
     }
     return past ? ACTIVE_MAX_INSEASON : ACTIVE_MAX_PRESEASON;
   }
+  // TRI-STATE (2026-09-29 review, Keith): true = definitely loaded, false = definitely not,
+  // null = CANNOT BE DETERMINED (the shared classifier script never loaded, or this
+  // player's own contract data is unresolved). Every caller MUST check for null explicitly
+  // -- treating it as falsy would silently under-count exactly the way Keith flagged:
+  // "a missing classifier should display an honest unavailable state, not a potentially
+  // different count."
+  //
+  // This used to be a bare -FL/-BL suffix check (fixed 2026-06-02, PR #398, after LH showed
+  // 6/8 "loaded" from default-escalated deals when the real count was 3) -- correct on every
+  // live contract at the time, but never verified against the actual per-year schedule, so a
+  // genuinely loaded-but-unsuffixed contract (or a suffixed-but-actually-flat one) could
+  // silently disagree with the Trade War Room's gate. It now delegates to the SAME
+  // schedule-verifying classifier Roster Workbench uses
+  // (../../shared/loaded_contract_classification.js, a faithful port of
+  // worker/src/contract_classification.js) -- confirmed against the June 2026 LH case: the
+  // classifier's frozen-year-exclusion rule for plain Ext1/Ext2 (added 2026-09-29) resolves
+  // the SAME "default-escalated" shapes flat, via real per-year verification instead of
+  // trusting the suffix, so this fix does not reintroduce that bug.
   function isLoadedRow(p) {
-    // Loaded = an EXPLICIT front/back-loaded contract — the -FL / -BL suffix on
-    // the canonical contractStatus (Vet-FAA-FL, Vet-Ext2-BL, …). A merely
-    // non-flat year shape (default escalated extension) is NOT "loaded" and was
-    // over-counting (LH showed 6/8 vs the actual 3).
-    var t = String(p && p.type || "").toUpperCase();
-    return t.indexOf("-FL") >= 0 || t.indexOf("-BL") >= 0 || t === "FL" || t === "BL";
+    var classifier = (typeof window !== "undefined") && window.UPS_LOADED_CONTRACT_CLASSIFICATION;
+    if (!classifier || typeof classifier.resolveLoadedStatus !== "function") {
+      return null; // classifier script never loaded -- honest unavailable, never a guess
+    }
+    var r = classifier.resolveLoadedStatus(p && p.type, p && p.special);
+    if (!r || !r.resolved) return null; // this contract's own data can't be classified
+    return r.loaded !== "";
   }
   async function loadContractDeadline() {
     try {
@@ -3759,7 +3783,7 @@
     const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
     if (!teams.length) { el.innerHTML = ""; return; }
     const nTeams = teams.length;
-    let activeN = 0, taxiN = 0, irN = 0, salaryCap = 0, irAlloc = 0, loadedN = 0, threeYrN = 0, adjTotal = 0;
+    let activeN = 0, taxiN = 0, irN = 0, salaryCap = 0, irAlloc = 0, loadedN = 0, loadedUnavailableN = 0, threeYrN = 0, adjTotal = 0;
     const irEligible = [];
     teams.forEach(function (team) {
       (team.players || []).forEach(function (p) {
@@ -3773,7 +3797,9 @@
           // button will actually accept. Do not reintroduce a separate copy here.
           if (foIrDesignationEligible(STATE.nflStatus[String(p.id)])) irEligible.push(p);
         }
-        if (isLoadedRow(p)) loadedN += 1;
+        const loadedRowState = isLoadedRow(p);
+        if (loadedRowState === null) loadedUnavailableN += 1;
+        else if (loadedRowState) loadedN += 1;
         if (safeInt(p.years, 0) === 3 && ctypeClass(p.type).split(" ")[0] !== "rk") threeYrN += 1;
       });
       const s = team.summary || {};
@@ -3801,8 +3827,11 @@
       card(fmtUSD(capSpace), "Cap Space", escapeHtml("of " + fmtUSD(CAP_CEILING * nTeams)), capSpace < 0 ? "fo-sum-neg" : "fo-sum-pos") +
       card(irN + ' <span class="fo-sum-of">Players</span>', "Injured Reserve",
         escapeHtml(fmtUSD(irAlloc) + " allocated to IR") + (irAlert ? "<br>" + irAlert : ""), "") +
-      card(loadedN + ' <span class="fo-sum-of">/ ' + (LOADED_MAX * nTeams) + "</span>", "Loaded Contracts",
-        escapeHtml("max " + (LOADED_MAX * nTeams) + " (§C2)"), loadedN >= LOADED_MAX * nTeams ? "fo-sum-neg" : "") +
+      card(loadedN + (loadedUnavailableN ? " (+" + loadedUnavailableN + "?)" : "") + ' <span class="fo-sum-of">/ ' + (LOADED_MAX * nTeams) + "</span>", "Loaded Contracts",
+        loadedUnavailableN
+          ? escapeHtml(loadedUnavailableN + " contract(s) couldn't be classified — count may be understated")
+          : escapeHtml("max " + (LOADED_MAX * nTeams) + " (§C2)"),
+        loadedUnavailableN ? "fo-sum-neg" : (loadedN >= LOADED_MAX * nTeams ? "fo-sum-neg" : "")) +
       card(threeYrN + ' <span class="fo-sum-of">/ ' + (THREEYR_MAX * nTeams) + "</span>", "3-Yr Non-Rookie",
         escapeHtml("max " + (THREEYR_MAX * nTeams)), threeYrN >= THREEYR_MAX * nTeams ? "fo-sum-neg" : "");
   }
@@ -5347,10 +5376,22 @@
   // writes (openMyacLoadedForm, submitRestructure) would not count it and would
   // let a team past 5. Counting every loaded row is both consistent and the
   // safe direction for a write gate.
+  // Returns { count, unavailable } — NOT a bare number (2026-09-29 review, Keith). `count`
+  // is only trustworthy when `unavailable` is false; every caller that GATES a real write
+  // must check `unavailable` FIRST and refuse the action with an honest "can't verify right
+  // now" message, never fall through to comparing `count >= LOADED_MAX` on data that might
+  // be understated. Failing closed on uncertainty, not just on a proven violation, is the
+  // same standard this function's own taxi-inclusion already documents above.
   function loadedContractCountForTeam(fid) {
     const team = (STATE.teams || []).find(function (t) { return t.fid === fid; });
-    if (!team) return 0;
-    return (team.players || []).filter(function (q) { return isLoadedRow(q); }).length;
+    if (!team) return { count: 0, unavailable: false };
+    let count = 0, unavailable = false;
+    (team.players || []).forEach(function (q) {
+      const v = isLoadedRow(q);
+      if (v === null) unavailable = true;
+      else if (v) count += 1;
+    });
+    return { count: count, unavailable: unavailable };
   }
   // ── Loaded-MYAC basis + floors — THE one place these numbers come from ──
   //
@@ -5410,7 +5451,19 @@
     const minY1 = basis.minY1;
     const rows3 = totalYears === 3;
     const body = $("#fo-slideover-body");
-    const loadedN = loadedContractCountForTeam(p.fid);
+    const loadedState = loadedContractCountForTeam(p.fid);
+    // FAIL CLOSED on uncertainty, not just on a proven violation (2026-09-29, Keith): if the
+    // classifier couldn't determine one or more of this team's contracts, this hard gate
+    // must refuse rather than silently trust a possibly-understated count.
+    if (loadedState.unavailable) {
+      body.innerHTML =
+        '<div class="fo-card-head"><h2 style="margin:0;">Multi-Year Contract — Loaded</h2></div>' +
+        '<div class="fo-review-note">⚠ Can\'t verify ' + escapeHtml(p.franchise) + "'s loaded-contract count right now (one or more contracts on this roster couldn't be classified) — refusing to open the loaded-MYAC form until that resolves. Try again in a moment, or check Roster Workbench for a player flagged \"Loaded?\".</div>" +
+        '<button class="btn small secondary" id="fo-myacl-cancel">Back</button>';
+      $("#fo-myacl-cancel").addEventListener("click", renderSlideoverBody);
+      return;
+    }
+    const loadedN = loadedState.count;
     if (loadedN >= LOADED_MAX) {
       body.innerHTML =
         '<div class="fo-card-head"><h2 style="margin:0;">Multi-Year Contract — Loaded</h2></div>' +
@@ -5452,7 +5505,9 @@
       const yrs = readYrs();
       const err = validateYrs(yrs);
       if (err) { flashToast(err, "err"); return; }
-      if (loadedContractCountForTeam(p.fid) >= LOADED_MAX) { flashToast("At the " + LOADED_MAX + "-loaded cap — can't add another.", "err"); return; }
+      const submitLoadedState = loadedContractCountForTeam(p.fid);
+      if (submitLoadedState.unavailable) { flashToast("Can't verify the loaded-contract count right now — try again in a moment.", "err"); return; }
+      if (submitLoadedState.count >= LOADED_MAX) { flashToast("At the " + LOADED_MAX + "-loaded cap — can't add another.", "err"); return; }
       submitMyacContract(p, totalYears, yrs, statusBase);
     });
     recalc();
@@ -5927,8 +5982,13 @@
     // §C2 roster cap on loaded contracts. Surfaced as information on every
     // draft; it only gates Commit (previewing a 6th loaded shape is legitimate
     // planning — you may be about to cut or trade one of the five).
-    out.loadedNow = loadedContractCountForTeam(p.fid);
-    out.atLoadedCap = out.loadedNow >= LOADED_MAX;
+    const loadedState = loadedContractCountForTeam(p.fid);
+    out.loadedUnavailable = loadedState.unavailable;
+    out.loadedNow = loadedState.count;
+    // FAIL CLOSED on uncertainty (2026-09-29, Keith): an unavailable count must block
+    // Commit exactly like being at the cap does, never silently read as "0 of 5, plenty
+    // of room."
+    out.atLoadedCap = loadedState.unavailable || out.loadedNow >= LOADED_MAX;
     out.submittable = out.legal && out.dirty && !out.atLoadedCap;
     return out;
   }
@@ -6163,18 +6223,25 @@
   // Detail pos/years/status filters — a filtered "3 of 5 loaded" would read as
   // headroom that isn't there.
   function capRosterRuleCounts(team) {
-    const out = { loadedNow: 0, loadedNext: 0, threeNow: 0, threeNext: 0, unresolved: [] };
+    const out = { loadedNow: 0, loadedNowUnavailable: 0, loadedNext: 0, loadedNextUnavailable: 0, threeNow: 0, threeNext: 0, unresolved: [] };
     ((team && team.players) || []).forEach(function (p) {
       // Committed baseline — the exact tests the hub's counters use
       // (isLoadedRow for the suffix; 3 years remaining and NOT a rookie deal,
-      // canon §C2 "excludes rookie 3-year deals").
+      // canon §C2 "excludes rookie 3-year deals"). isLoadedRow is TRI-STATE
+      // (2026-09-29): null means "can't tell", and must never be silently read
+      // as falsy -- that would understate the count without saying so.
       if (!capContractIsExpired(p)) {
-        if (isLoadedRow(p)) out.loadedNow += 1;
+        const loadedNowState = isLoadedRow(p);
+        if (loadedNowState === null) {
+          out.loadedNowUnavailable += 1;
+          out.unresolved.push({ name: safeStr(p.name), why: "loaded status could not be classified" });
+        } else if (loadedNowState) out.loadedNow += 1;
         if (Math.max(0, safeInt(p.years, 0)) === 3 && ctypeClass(p.type).split(" ")[0] !== "rk") out.threeNow += 1;
       }
       const shape = capCounterShapeForPlayer(p);
       if (shape.counts) {
-        if (shape.loaded) out.loadedNext += 1;
+        if (shape.loaded === null) out.loadedNextUnavailable += 1;
+        else if (shape.loaded) out.loadedNext += 1;
         if (shape.years === 3 && !shape.rookie) out.threeNext += 1;
       }
       if (shape.note) out.unresolved.push({ name: safeStr(p.name), why: shape.note });
@@ -6289,12 +6356,13 @@
   //   like the presence check itself does — a contract with shape.years=4
   //   today reads as a 3-Yr contract at offset 1, not offset 0.
   function capYearLoadedThreeCounts(team, offset) {
-    const out = { loaded: 0, three: 0 };
+    const out = { loaded: 0, loadedUnavailable: 0, three: 0 };
     ((team && team.players) || []).forEach(function (p) {
       if (!capProjectedRosterSlotForOffset(p, offset)) return;
       const shape = capCounterShapeForPlayer(p);
       if (!shape.counts) return;
-      if (shape.loaded) out.loaded += 1;
+      if (shape.loaded === null) out.loadedUnavailable += 1;
+      else if (shape.loaded) out.loaded += 1;
       if ((shape.years - offset) === 3 && !shape.rookie) out.three += 1;
     });
     return out;
@@ -6914,7 +6982,7 @@
   function aggregateTeamForSummary(team, filters) {
     const out = {
       fid: team.fid, name: team.name,
-      count: 0, active: 0, taxi: 0, ir: 0, loaded: 0, threeYr: 0,
+      count: 0, active: 0, taxi: 0, ir: 0, loaded: 0, loadedUnavailable: 0, threeYr: 0,
       totalSalary: 0, totalAAV: 0, totalTCV: 0, deferredCash: 0
     };
     (team.players || []).forEach(function (p) {
@@ -6926,7 +6994,9 @@
       // Same test as capRosterRuleCounts' committed loadedNow/threeNow: an
       // expired contract no longer counts against the §C2 caps.
       if (!capContractIsExpired(p)) {
-        if (isLoadedRow(p)) out.loaded += 1;
+        const loadedSummaryState = isLoadedRow(p);
+        if (loadedSummaryState === null) out.loadedUnavailable += 1;
+        else if (loadedSummaryState) out.loaded += 1;
         if (Math.max(0, safeInt(p.years, 0)) === 3 && ctypeClass(p.type).split(" ")[0] !== "rk") out.threeYr += 1;
       }
       out.totalSalary += currentCapHit(p);              // counts vs cap (taxi=0, IR×0.5)
@@ -7068,7 +7138,7 @@
           <td class="num">${r.active}</td>
           <td class="num">${r.taxi}</td>
           <td class="num">${r.ir}</td>
-          <td class="num" title="Front/back-loaded deals — the −FL / −BL suffix (§C2, max ${LOADED_MAX})">${r.loaded}</td>
+          <td class="num${r.loadedUnavailable ? " fo-cap-unavailable" : ""}" title="${r.loadedUnavailable ? r.loadedUnavailable + " contract(s) could not be classified" : "Front/back-loaded deals — the −FL / −BL suffix (§C2, max " + LOADED_MAX + ")"}">${r.loaded}${r.loadedUnavailable ? " (+" + r.loadedUnavailable + "?)" : ""}</td>
           <td class="num" title="3 years remaining, rookie deals excluded (§C2, max ${THREEYR_MAX})">${r.threeYr}</td>
           <td class="num">${fmtUSD(r.totalSalary)}</td>
           <td class="num ${dropCls}">${r.dropPen > 0 ? fmtUSD(r.dropPen) : "—"}</td>
@@ -7084,7 +7154,7 @@
     // League totals row (sums of visible columns + aggregate %).
     const totals = rows.reduce(function (acc, r) {
       acc.count += r.count; acc.active += r.active; acc.taxi += r.taxi; acc.ir += r.ir;
-      acc.loaded += r.loaded; acc.threeYr += r.threeYr;
+      acc.loaded += r.loaded; acc.loadedUnavailable += (r.loadedUnavailable || 0); acc.threeYr += r.threeYr;
       acc.totalSalary += r.totalSalary;
       acc.dropPen   += r.dropPen;
       acc.tradeSal  += r.tradeSal;
@@ -7092,7 +7162,7 @@
       acc.totalAAV += r.totalAAV; acc.totalTCV += r.totalTCV;
       acc.deferredCash += r.deferredCash;
       return acc;
-    }, { count: 0, active: 0, taxi: 0, ir: 0, loaded: 0, threeYr: 0,
+    }, { count: 0, active: 0, taxi: 0, ir: 0, loaded: 0, loadedUnavailable: 0, threeYr: 0,
          totalSalary: 0, dropPen: 0, tradeSal: 0, totalCap: 0,
          totalAAV: 0, totalTCV: 0, deferredCash: 0 });
     const leagueCeiling = CAP_CEILING * STATE.teams.length;
@@ -7164,7 +7234,7 @@
               <td class="num">${totals.active}</td>
               <td class="num">${totals.taxi}</td>
               <td class="num">${totals.ir}</td>
-              <td class="num">${totals.loaded}</td>
+              <td class="num" title="${totals.loadedUnavailable ? totals.loadedUnavailable + " contract(s) league-wide could not be classified" : ""}">${totals.loaded}${totals.loadedUnavailable ? " (+" + totals.loadedUnavailable + "?)" : ""}</td>
               <td class="num">${totals.threeYr}</td>
               <td class="num">${fmtUSD(totals.totalSalary)}</td>
               <td class="num">${fmtUSD(totals.dropPen)}</td>
@@ -7636,16 +7706,17 @@
       // current-year numbers — so this projection only ever adds NEW data,
       // never risks nudging today's card.
       const lt = off === 0
-        ? { loaded: rules.loadedNext, three: rules.threeNext }
+        ? { loaded: rules.loadedNext, loadedUnavailable: rules.loadedNextUnavailable, three: rules.threeNext }
         : capYearLoadedThreeCounts(team, off);
-      const lCls = capLimitCls(lt.loaded, LOADED_MAX);
+      const lCls = lt.loadedUnavailable ? "unavailable" : capLimitCls(lt.loaded, LOADED_MAX);
       const thCls = capLimitCls(lt.three, THREEYR_MAX);
-      if (lt.loaded > LOADED_MAX) flags.push('<span class="flag over">over the ' + LOADED_MAX + "-loaded cap</span>");
+      if (lt.loadedUnavailable) flags.push('<span class="flag over">' + lt.loadedUnavailable + " contract(s) unverified</span>");
+      else if (lt.loaded > LOADED_MAX) flags.push('<span class="flag over">over the ' + LOADED_MAX + "-loaded cap</span>");
       else if (lt.loaded === LOADED_MAX) flags.push('<span class="flag at">at the ' + LOADED_MAX + "-loaded cap</span>");
       if (lt.three > THREEYR_MAX) flags.push('<span class="flag over">over the ' + THREEYR_MAX + "-year cap</span>");
       else if (lt.three === THREEYR_MAX) flags.push('<span class="flag at">at the ' + THREEYR_MAX + "-year cap</span>");
       const capRuleLines =
-        '<span class="line' + (lCls ? " " + lCls : "") + '" title="Front/back-loaded deals — the −FL / −BL suffix (§C2)">Loaded <strong>' + lt.loaded + "</strong><span class=\"of\">/ " + LOADED_MAX + "</span></span>" +
+        '<span class="line' + (lCls ? " " + lCls : "") + '" title="Front/back-loaded deals — the −FL / −BL suffix (§C2)">Loaded <strong>' + lt.loaded + (lt.loadedUnavailable ? " (+" + lt.loadedUnavailable + "?)" : "") + "</strong><span class=\"of\">/ " + LOADED_MAX + "</span></span>" +
         '<span class="line' + (thCls ? " " + thCls : "") + '" title="3 years remaining, rookie deals excluded (§C2)">3-Yr <strong>' + lt.three + "</strong><span class=\"of\">/ " + THREEYR_MAX + "</span></span>";
       return '<div class="fo-cap-year">' +
         '<span class="yr">' + (yr0 + off) + "</span>" +
@@ -7933,7 +8004,8 @@
           btns.push(`<button class="btn small secondary" disabled data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Loaded ${n}-year MYAC unavailable — ${escapeHtml(blocked)}" style="opacity:.45; cursor:not-allowed;">MYAC${n}-L</button>`);
           return;
         }
-        btns.push(`<button class="btn small ${active === kind ? "" : "secondary"} fo-cap-prev-btn" data-preview="${kind}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Loaded ${n}-year auction contract — split ${fmtUSD(ev.tcv)} across ${n} years, front- or back-loaded (${ev.loadedNow}/${LOADED_MAX} loaded used)">MYAC${n}-L</button>`);
+        const loadedUsedNote = ev.loadedUnavailable ? "loaded count unavailable" : `${ev.loadedNow}/${LOADED_MAX} loaded used`;
+        btns.push(`<button class="btn small ${active === kind ? "" : "secondary"} fo-cap-prev-btn" data-preview="${kind}" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Loaded ${n}-year auction contract — split ${fmtUSD(ev.tcv)} across ${n} years, front- or back-loaded (${loadedUsedNote})">MYAC${n}-L</button>`);
       });
     }
     if (canDrop) {
@@ -8156,9 +8228,11 @@
     // §C2 5-loaded roster cap. Shown on EVERY draft (not just at the limit) so
     // hitting it is never a surprise; it gates Commit only — previewing a sixth
     // loaded shape is legitimate planning (you may be about to free a slot).
-    const capNote = ev.atLoadedCap
-      ? `<span class="fo-cap-ml-capfull" title="§C2 caps a roster at ${LOADED_MAX} front/back-loaded contracts.">loaded contracts ${ev.loadedNow}/${LOADED_MAX} — at the cap</span>`
-      : `<span title="§C2 caps a roster at ${LOADED_MAX} front/back-loaded contracts (front + back combined).">loaded contracts ${ev.loadedNow}/${LOADED_MAX}</span>`;
+    const capNote = ev.loadedUnavailable
+      ? `<span class="fo-cap-ml-capfull" title="One or more of this roster's contracts couldn't be classified.">loaded contracts unavailable — can't verify right now</span>`
+      : (ev.atLoadedCap
+        ? `<span class="fo-cap-ml-capfull" title="§C2 caps a roster at ${LOADED_MAX} front/back-loaded contracts.">loaded contracts ${ev.loadedNow}/${LOADED_MAX} — at the cap</span>`
+        : `<span title="§C2 caps a roster at ${LOADED_MAX} front/back-loaded contracts (front + back combined).">loaded contracts ${ev.loadedNow}/${LOADED_MAX}</span>`);
     // Name the resulting contract status only for a draft whose arithmetic
     // actually holds — an unbalanced draft is not going to record as anything.
     const shapeLabel = !ev.loadedShape
@@ -8177,6 +8251,9 @@
       msgKls = "muted";
       msg = "Every year is the same — that's a flat MYAC, which the MYAC" + ev.years +
             " button already previews. Move money between years to front- or back-load it.";
+    } else if (ev.loadedUnavailable) {
+      msgKls = "warn";
+      msg = "Can't verify " + safeStr(p.franchise || team.name) + "'s loaded-contract count right now (one or more contracts couldn't be classified). Preview all you like — committing is refused until that resolves.";
     } else if (ev.atLoadedCap) {
       msgKls = "warn";
       msg = safeStr(p.franchise || team.name) + " already has " + ev.loadedNow + " of " + LOADED_MAX +
@@ -8187,9 +8264,10 @@
     const commitTitle = !canCommit
       ? "Only " + safeStr(p.franchise || team.name) + " (or the commish) can commit this — preview only."
       : (ev.submittable ? "Submit this " + ev.years + "-year loaded MYAC"
-         : (ev.atLoadedCap ? "At the " + LOADED_MAX + "-loaded cap (§C2) — free a slot first."
-            : (ev.legal && !ev.dirty ? "Flat is not loaded — move money between years first (or use MYAC" + ev.years + ")."
-               : "Balance the years first: " + ev.err)));
+         : (ev.loadedUnavailable ? "Can't verify the loaded-contract count right now — try again in a moment."
+            : (ev.atLoadedCap ? "At the " + LOADED_MAX + "-loaded cap (§C2) — free a slot first."
+               : (ev.legal && !ev.dirty ? "Flat is not loaded — move money between years first (or use MYAC" + ev.years + ")."
+                  : "Balance the years first: " + ev.err))));
     return `
       <tr class="fo-cap-ml-editor-row" data-ml-key="${escapeHtml(ev.key)}">
         <td colspan="9">
@@ -8944,10 +9022,21 @@
     // §C2.356 / §C5: hard-block a restructure that would create a NEW loaded
     // contract once the team is at the 5-loaded roster cap. Re-shaping an
     // already-loaded contract (or restructuring to flat) doesn't add a slot.
-    if (loadSuffix && !isLoadedRow(p) && loadedContractCountForTeam(p.fid) >= LOADED_MAX) {
-      flashToast("At the " + LOADED_MAX + "-loaded cap — this restructure would create a " +
-        (loadSuffix === "-FL" ? "front" : "back") + "-loaded contract. Trade or cut a loaded player first.", "err");
-      return;
+    if (loadSuffix) {
+      const restructureLoadedNow = isLoadedRow(p);
+      const restructureTeamState = loadedContractCountForTeam(p.fid);
+      // FAIL CLOSED on uncertainty (2026-09-29, Keith): can't tell whether THIS contract is
+      // already loaded (so the restructure wouldn't add a slot), or can't trust the team's
+      // total — refuse rather than risk silently permitting a 6th loaded contract.
+      if (restructureLoadedNow === null || restructureTeamState.unavailable) {
+        flashToast("Can't verify the loaded-contract count right now — try again in a moment.", "err");
+        return;
+      }
+      if (!restructureLoadedNow && restructureTeamState.count >= LOADED_MAX) {
+        flashToast("At the " + LOADED_MAX + "-loaded cap — this restructure would create a " +
+          (loadSuffix === "-FL" ? "front" : "back") + "-loaded contract. Trade or cut a loaded player first.", "err");
+        return;
+      }
     }
     const yearTokens = ["Y1-" + fmtK(y1).replace(/\$/, ""), "Y2-" + fmtK(y2).replace(/\$/, "")];
     if (years >= 3) yearTokens.push("Y3-" + fmtK(y3).replace(/\$/, ""));
