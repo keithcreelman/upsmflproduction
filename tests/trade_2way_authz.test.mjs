@@ -14,6 +14,10 @@ function fresh(over) {
   const env = makeWorkerEnv(over && over.env);
   const mfl = makeMfl(over && over.mfl);
   mfl.install();
+  // Same reason as trade_2way_accept_integrity.test.mjs's fresh(): a resolvable, flat
+  // contract for the two default trade participants, not a blank one (2026-09-28 review).
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
   return { env, mfl };
 }
 const Q = "L=74598&YEAR=2026";

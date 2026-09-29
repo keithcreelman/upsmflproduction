@@ -36,7 +36,10 @@ export function makeEnv(opts) {
   // The REAL calculation is exercised end to end, through the real worker, in tests/trade_cap_gate.test.mjs.
   const selfCalls = [];
   const healthy = { participants: [], cap: { status: "ok", reason: "", cap_dollars: 300000, rows: [], violations: [], message: "Every team stays under the salary cap." },
-    roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "Every team stays within its roster limits." }, extension_skipped: [] };
+    roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "Every team stays within its roster limits." },
+    loaded_contracts: { status: "ok", max: 5, rows: [], violations: [], message: "Every team stays at or under the 5 loaded-contract limit." },
+    lineup: { status: "ok", advisory: true, rows: [], warnings: [], message: "Every team can still field a complete legal lineup after this trade." },
+    extension_skipped: [] };
   const self = opts.self === false ? undefined : { fetch: async (u, init) => {
     selfCalls.push({ url: String(u), body: init && init.body ? JSON.parse(init.body) : null });
     const c = typeof opts.compliance === "function" ? await opts.compliance(selfCalls[selfCalls.length - 1]) : (opts.compliance || healthy);

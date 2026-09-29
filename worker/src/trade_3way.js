@@ -268,6 +268,8 @@ function unavailableCompliance(reason) {
     participants: [],
     cap: { status: "unavailable", reason, cap_dollars: null, rows: [], violations: [], message: UNAVAILABLE_MSG },
     roster: { status: "unavailable", advisory: true, rows: [], warnings: [], message: "We couldn't check the roster counts for this trade right now." },
+    loaded_contracts: { status: "unavailable", max: 5, rows: [], violations: [], message: "We couldn't verify the loaded-contract count for this trade right now." },
+    lineup: { status: "unavailable", advisory: true, rows: [], warnings: [], message: "We couldn't check lineup feasibility for this trade right now." },
     extension_skipped: [],
   };
 }
@@ -284,7 +286,7 @@ async function complianceViaSelf(env, row) {
     });
     const j = await r.json().catch(() => null);
     const c = j && j.ok && j.compliance;
-    if (!r.ok || !c || !c.cap || !c.roster) return unavailableCompliance("bad_response");
+    if (!r.ok || !c || !c.cap || !c.roster || !c.loaded_contracts) return unavailableCompliance("bad_response");
     return c;
   } catch (e) {
     console.error(`[3way] ${row.id}: compliance call failed: ${e?.message || e}`);
@@ -300,16 +302,24 @@ function ledgerFor(env) {
 const lkey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(row.season), execKey: safeStr(row.id) });
 const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
 
-/** A cap gate that refused BEFORE any MFL write: recoverable, never `failed`. Approvals stay; the row goes back to `collecting`. */
+/** A cap OR loaded-contract gate that refused BEFORE any MFL write: recoverable, never
+ * `failed`. Approvals stay; the row goes back to `collecting`. The `blocked_cap` ledger
+ * state name is kept unchanged for backward compatibility with the deployed enum/schema
+ * (worker/src/trade_execution.js) -- it now covers EITHER a salary-cap OR a loaded-
+ * contract post-trade violation discovered at execution time; both are "the post-trade
+ * math proved this deal can't go through as built right now, but the approvals are still
+ * good and a fix + re-check can heal it" in exactly the same way. */
 async function enterBlockedCap(env, row, gate, dmAllThree) {
-  const violations = ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
+  const violations = gate.kind === "loaded_contracts"
+    ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max }))
+    : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
   let prev = null;
   try {
     const r = await ledgerFor(env).block(lkey(row), { kind: "three_way", actorFid: padFid(row.initiator_fid), participants: [row.initiator_fid, row.team_b_fid, row.team_c_fid].map(padFid).join(","), blockInfo: info });
     prev = r.prev;
   } catch (e) { console.error(`[3way] ${row.id}: couldn't record the cap block on the ledger: ${e?.message || e}`); }
-  // back to `collecting` (conditional: only from `executing`) — the trade never goes `failed` for a cap block
+  // back to `collecting` (conditional: only from `executing`) — the trade never goes `failed` for a cap/loaded-contract block
   await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='collecting', failure_reason=NULL, updated_at_utc=? WHERE id=? AND status='executing'`).bind(nowIso(), row.id).run();
   const same = prev && prev.state === EXEC.BLOCKED_CAP && prev.block && prev.block.signature === info.signature;
   if (!same && dmAllThree) {
@@ -320,10 +330,11 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
   return info;
 }
 
-/** { ok:true, compliance } | { ok:false, kind:"blocked"|"unavailable"|"extension"|"extension_stale", message, compliance } */
+/** { ok:true, compliance } | { ok:false, kind:"blocked"|"loaded_contracts"|"unavailable"|"extension"|"extension_stale", message, compliance } */
 async function capGate(env, row) {
   const compliance = await complianceViaSelf(env, row);
   if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: `${UNAVAILABLE_MSG} Try again in a moment.`, compliance };
+  if (compliance.loaded_contracts && compliance.loaded_contracts.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the loaded-contract count for this trade right now. Try again in a moment.", compliance };
   const skipped = Array.isArray(compliance.extension_skipped) ? compliance.extension_skipped : [];
   if (skipped.length) {
     const reasons = skipped.map((x) => safeStr(x && x.reason));
@@ -335,6 +346,7 @@ async function capGate(env, row) {
     return { ok: false, kind: "extension", message: "A pre-trade extension in this trade is no longer allowed, so it can't go through. Ask the initiator to build it again.", compliance };
   }
   if (compliance.cap.status === "blocked") return { ok: false, kind: "blocked", message: safeStr(compliance.cap.message), compliance };
+  if (compliance.loaded_contracts && compliance.loaded_contracts.status === "blocked") return { ok: false, kind: "loaded_contracts", message: safeStr(compliance.loaded_contracts.message), compliance };
   return { ok: true, compliance };
 }
 function rosterNote(compliance) {
@@ -906,7 +918,7 @@ export async function recheck3WayExecution(env, ctx, id, viewer) {
   const gate = await capGate(env, row);
   if (!gate.ok) {
     await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
-    return { ok: false, http: 409, code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : "cap_exceeded", message: gate.message, compliance: gate.compliance };
+    return { ok: false, http: 409, code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contracts" ? "loaded_contract_limit" : "cap_exceeded", message: gate.message, compliance: gate.compliance };
   }
   const flip = await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting' AND team_b_state='accepted' AND team_c_state='accepted'`).bind(nowIso(), tid).run();
   if (!Number(flip?.meta?.changes ?? flip?.changes ?? 0)) return { ok: false, http: 409, code: "not_blocked", message: "This trade is already being processed." };

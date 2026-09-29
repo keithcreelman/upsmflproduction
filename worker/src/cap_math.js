@@ -89,6 +89,11 @@ export function derivePlayerCapFields(rosterRow, overlay) {
     salary, salaryResolved: salary != null,
     years: yearsRaw ? Math.max(0, Number.parseInt(yearsRaw, 10) || 0) : 0,
     unknown: blank(yearsRaw) && blank(typeRaw) && blank(infoRaw),
+    // Preserved for the Trade War Room's loaded-contract gate (worker/src/
+    // trade_cap_authority.js + worker/src/contract_classification.js) -- NOT used by
+    // currentCapHit()/franchiseCapUsed() above, which only need status/salary/years.
+    contractStatus: typeRaw || null,
+    contractInfo: infoRaw || null,
   };
 }
 

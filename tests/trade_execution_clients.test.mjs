@@ -97,13 +97,13 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   t.equal((read("site/m/app.js").match(/var BUILD = "([^"]+)"/) || [])[1], v, "app.js BUILD = version.json");
   const idx = read("site/m/index.html");
   const stampOf = (f) => (idx.match(new RegExp(f.replace(/[.\/]/g, "\\$&") + "\\?v=([0-9.]+)")) || [])[1];
-  // shared/trade_3way_view.js and views/trade.js are pinned to the build THIS
-  // fix shipped in (2026.09.27.2), not the live `v` above — a per-file ?v=
-  // only needs to be >= that file's own last change, not equal to whatever a
-  // LATER, unrelated release bumped the overall build to (it was 2026.09.28.1
-  // for a contract-eligibility fix that never touched these two files).
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.27.2", "2026.09.27.2"],
-    "the two unchanged-since scripts still carry the build they shipped in");
+  // Per-file ?v= only needs to be >= that file's own last real change, not equal to
+  // whatever the live overall build is. views/trade.js hasn't changed since this fix
+  // shipped (2026.09.27.2); shared/trade_3way_view.js genuinely changed AGAIN on this
+  // branch (the loaded-contract/lineup compliance card, 2026-09-28) and correctly
+  // carries a newer stamp of its own -- these two files diverging is expected, not a bug.
+  t.equal(stampOf("views/trade.js"), "2026.09.27.2", "the unchanged-since script still carries the build it shipped in");
+  t.ok(stampOf("shared/trade_3way_view.js") >= "2026.09.28.1", "the genuinely-changed shared view carries a fresh stamp of its own");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   t.ok(v.split(".").map(Number).join(".") >= "2026.9.25.2" && v.split(".").length === 4, "the build did not go backwards from the accepted 2026.09.25.2");
   const html = read("site/trades/trade_workbench.html");
