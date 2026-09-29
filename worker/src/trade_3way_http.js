@@ -136,7 +136,7 @@ export async function handle3WayHttp(a) {
   // select for the caller's own franchise.
   if (isSelectDrops) {
     const x = await select3WayLoadedContractDrops(env, body.id, viewer, body.player_ids);
-    if (x.ok) return out(200, { ok: true, code: x.code, message: x.message, id: safeStr(body.id), drop_requirement: x.drop_requirement || null });
+    if (x.ok) return out(200, { ok: true, code: x.code, message: x.message, id: safeStr(body.id), drop_requirement: x.drop_requirement || null, compliance: x.compliance || null });
     return fail(x.http || 409, x.code || "select_failed", x.message || "Couldn't record that selection.", x.compliance ? { compliance: x.compliance } : undefined);
   }
 
