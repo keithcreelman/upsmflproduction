@@ -19,55 +19,51 @@
     "desk": [
      {
       "speaker": "stuart",
-      "text": "Welcome back to UPS Center. Week three, and one man beat every single team in the league: {{f.week.perfect}}. Nobody else came within a game of that."
+      "text": "Week three is in the books, Rich, and there is too much here for the two of us to get through alone tonight."
      },
      {
       "speaker": "rich",
-      "text": "Same crossover, Stu, the other end of it. {{f.week.winless}} lost to the entire field, and it was not close in any of them."
+      "text": "Then let's not try it alone, Stu. Boomer, the mic is yours -- give the league the fast version."
      },
      {
-      "speaker": "stuart",
-      "text": "We will get to that division in a minute. First, the man who did the damage on offense: {{f.star.name}}. {{f.star.line}}. {{f.star.score}} points, for {{f.star.owner}}."
+      "speaker": "boomer",
+      "text": "Thank you, Rich! Brock Purdy: {{f.star.line}}. {{f.star.score}} points. For {{f.star.owner}}, the single best day anybody had in this league all week!"
      },
      {
-      "speaker": "rich",
-      "text": "By expected points it was not even a fluke, Stu -- {{f.xfp.over.1}}. That is volume and touchdowns both."
+      "speaker": "boomer",
+      "text": "And the man who needed no help at all: {{f.week.perfect}} did not just win this week -- he beat every single team in the league. Nobody else in this whole league can say that!"
      },
      {
-      "speaker": "stuart",
-      "text": "And the same owner led the league on defense too, Rich. {{f.star.idp.name}}: {{f.star.idp.line}}, good for {{f.star.idp.score}} points."
+      "speaker": "boomer",
+      "text": "And do not sleep on the upsets either -- {{f.week.upsets}}. Preseason rankings meant nothing to any of them this week!"
      },
      {
-      "speaker": "rich",
-      "text": "One roster, two league-leading performances -- and Shawn Blake still lost a game this week. That is what a triple-header does to you."
+      "speaker": "boomer",
+      "text": "Meanwhile Jahmyr Gibbs was rumblin', bumblin', stumblin' all over the box score for Brian Cutting -- {{f.player.jahmyr-gibbs.score}} points. And on that very same roster, {{f.bb.idp.bargain.1}}. A complete week, top to bottom!"
      },
      {
-      "speaker": "stuart",
-      "text": "Speaking of triple-headers, Eric Mannila started {{f.dnp.0011}} in a lineup slot this week. Never took the field. That is not a bad read, that is not checking the inactive list before kickoff."
+      "speaker": "boomer",
+      "text": "Now the other end of it, and it is not pretty. {{f.week.winless}} lost to the entire field this week -- every single opponent. Rough Sunday to be holding that lineup card."
      },
      {
-      "speaker": "rich",
-      "text": "Bargains everywhere this week, offense and defense both. {{f.bb.off.bargain.1}}, and the usage backs it up: {{f.bb.off.bargain.1.xfp}}."
+      "speaker": "boomer",
+      "text": "Busts do not get much colder than this one -- {{f.bb.off.bust.1}}. When your best receiver goes that quiet on you, there is nowhere else to hide."
      },
      {
-      "speaker": "stuart",
-      "text": "On defense the bargain was {{f.bb.idp.bargain.1}}. The bust to go with it: {{f.bb.idp.bust.1}}. Five of each, every one graded against MFL's own last projection."
+      "speaker": "boomer",
+      "text": "And Eric Mannila -- folks, he started {{f.dnp.0011}} in a starting lineup slot. Never took the field all day! You cannot get outplayed by a man who is not even suited up, but you sure can bench yourself right out of the points."
      },
      {
-      "speaker": "rich",
-      "text": "One word of caution before anybody leans on those lists too hard, Stu -- {{f.bb.unranked}}. If a name is missing, that is why, not because his week did not happen."
+      "speaker": "boomer",
+      "text": "Whoop! {{f.week.won_on_defense}} -- outscored on offense, and it did not matter one bit. Defense wins ballgames in this league too, same as it does on Sundays."
      },
      {
-      "speaker": "stuart",
-      "text": "Waiver wire earned its money too. {{f.wire.best_add}}, same week he was added -- immediate return."
+      "speaker": "boomer",
+      "text": "One more before I hand it back to the professionals. {{f.wire.best_add}}, same week he grabbed him right off the wire. Could he go all the way for Ryan Bousquet this season? Too early to say -- but that is exactly how you find out."
      },
      {
-      "speaker": "rich",
-      "text": "And here is the number that actually explains this week, Stu: of this week's losing teams, {{f.week.self_inflicted}} had a winning lineup sitting right there on the bench. {{f.week.outgunned}} genuinely could not have won it either way."
-     },
-     {
-      "speaker": "stuart",
-      "text": "Say that back to me, Rich. Most of the losses this week were sitting on a roster, not on a scoreboard. On to the divisions."
+      "speaker": "boomer",
+      "text": "That is the fast version, Stuart! Back to you two for the long one -- the divisions are next."
      }
     ],
     "place": [
@@ -82,17 +78,20 @@
      "t.pickups"
     ],
     "placeAt": {
-     "t.offidp": 1,
-     "t.performers": 3,
-     "t.bb.off.bust": 7,
-     "t.bb.off.bargain": 7,
-     "t.bb.idp.bust": 8,
-     "t.bb.idp.bargain": 8,
-     "t.xfp.over": 3,
-     "t.xfp.under": 3,
-     "t.pickups": 10
+     "t.offidp": 11,
+     "t.performers": 11,
+     "t.bb.off.bust": 11,
+     "t.bb.off.bargain": 11,
+     "t.bb.idp.bust": 11,
+     "t.bb.idp.bargain": 11,
+     "t.xfp.over": 11,
+     "t.xfp.under": 11,
+     "t.pickups": 11
     },
-    "quotes": ["q3", "q4"],
+    "quotes": [
+     "q3",
+     "q4"
+    ],
     "cards": [],
     "games": [],
     "gameNotes": {},
@@ -102,16 +101,34 @@
      "t.pickups": "This week's top waiver-wire adds by points scored."
     },
     "quoteAt": {
-     "q3": 5,
+     "q3": 11,
      "q4": 11
     },
     "views": {
-     "t.bb.off.bust": {"stack": true, "note": false},
-     "t.bb.off.bargain": {"stack": true, "note": false},
-     "t.bb.idp.bust": {"stack": true, "note": false},
-     "t.bb.idp.bargain": {"stack": true, "note": true},
-     "t.xfp.over": {"stack": true, "note": false},
-     "t.xfp.under": {"stack": true, "note": true}
+     "t.bb.off.bust": {
+      "stack": true,
+      "note": false
+     },
+     "t.bb.off.bargain": {
+      "stack": true,
+      "note": false
+     },
+     "t.bb.idp.bust": {
+      "stack": true,
+      "note": false
+     },
+     "t.bb.idp.bargain": {
+      "stack": true,
+      "note": true
+     },
+     "t.xfp.over": {
+      "stack": true,
+      "note": false
+     },
+     "t.xfp.under": {
+      "stack": true,
+      "note": true
+     }
     }
    },
    {
@@ -133,7 +150,10 @@
     "cards": [],
     "games": [],
     "gameNotes": {},
-    "pots": ["p.1", "p.2"],
+    "pots": [
+     "p.1",
+     "p.2"
+    ],
     "potNotes": {
      "p.1": [
       {
@@ -198,8 +218,14 @@
     },
     "captions": {},
     "potQuoteAt": {
-     "p.1": {"q6": 1, "q7": 6},
-     "p.2": {"q2": 2, "q1": 5}
+     "p.1": {
+      "q6": 1,
+      "q7": 6
+     },
+     "p.2": {
+      "q2": 2,
+      "q1": 5
+     }
     }
    },
    {
@@ -252,7 +278,12 @@
       "text": "Three weeks is still not a verdict, Rich, but it is not nothing either. Take us to the preview."
      }
     ],
-    "place": ["t.standings", "t.preseason", "t.burns", "t.pv.movement"],
+    "place": [
+     "t.standings",
+     "t.preseason",
+     "t.burns",
+     "t.pv.movement"
+    ],
     "placeAt": {
      "t.standings": 0,
      "t.preseason": 1,
@@ -268,8 +299,14 @@
      "t.standings": "Division winners take the top two seeds; every other seed goes by all-play, not record."
     },
     "views": {
-     "t.burns": {"stack": "always", "note": true},
-     "t.pv.movement": {"stack": true, "note": true}
+     "t.burns": {
+      "stack": "always",
+      "note": true
+     },
+     "t.pv.movement": {
+      "stack": true,
+      "note": true
+     }
     }
    },
    {
@@ -327,16 +364,36 @@
       "text": "That is the show. For Stu, I'm Rich, and this was UPS Center. Catch you all next week."
      }
     ],
-    "place": ["t.pv.games", "t.pv.ranges", "t.pv.injuries"],
+    "place": [
+     "t.pv.games",
+     "t.pv.ranges",
+     "t.pv.injuries"
+    ],
     "placeAt": {
      "t.pv.games": 5,
      "t.pv.ranges": 5,
      "t.pv.injuries": 9
     },
     "views": {
-     "t.pv.games": {"stack": true, "note": true, "rows": 6, "title": "The six week-four matchups with the most at stake"},
-     "t.pv.ranges": {"stack": false, "note": true, "cols": ["owner", "proj", "range"]},
-     "t.pv.injuries": {"stack": true, "note": true}
+     "t.pv.games": {
+      "stack": true,
+      "note": true,
+      "rows": 6,
+      "title": "The six week-four matchups with the most at stake"
+     },
+     "t.pv.ranges": {
+      "stack": false,
+      "note": true,
+      "cols": [
+       "owner",
+       "proj",
+       "range"
+      ]
+     },
+     "t.pv.injuries": {
+      "stack": true,
+      "note": true
+     }
     }
    }
   ]

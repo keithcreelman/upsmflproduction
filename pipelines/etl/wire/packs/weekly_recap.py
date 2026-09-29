@@ -2805,11 +2805,23 @@ def build(pack_id):
 
     if use_pots:
         pack.section(
-            "s1", "The Lead",
-            "The show opens here. Two anchors trade the week back and forth -- the desk format. Open on "
-            "the loudest thing that happened, measured against what the preseason rankings said would "
-            "happen. Name who tore it up and who fell apart, with real box lines. Break the scoring into "
-            "offense and IDP where it tells a story. Fold in the waiver adds that paid off.",
+            # Title/brief piloted 2026-09-29 (Keith): Stuart and Rich toss to a
+            # guest host, Boomer, for a fast quick-hit sweep of the week before
+            # handing back to the desk -- same section id, same facts/tables,
+            # same s2/s3/s4 that follow. Revert the title (and Boomer's speaker
+            # lines) to plain "The Lead" desk copy if the pilot doesn't stick.
+            "s1", "Boomer's Three-Minute Rundown",
+            "The show opens here. Stuart and Rich set up the week in a line or two, then toss BY NAME to "
+            "Boomer for a fast, lively sweep of the week's biggest verified moments -- named owners, real "
+            "box lines, one clear fact and one reaction per beat. Boomer hosts alone once the toss happens; "
+            "the desk does not interrupt his run. Lead with the loudest, most surprising result, measured "
+            "against what the preseason said would happen. Five to seven quick hits, spread across "
+            "different owners and divisions -- draw from big scores, upsets, close finishes, offense or IDP "
+            "swings, a lineup call worth roasting (only when its own verdict says the call was actually "
+            "wrong, never just a bad result), a waiver add that paid off, or an expected-points surprise. "
+            "This is a snapshot, not a replay -- point the reader at the division pages, the landscape and "
+            "the preview for the full breakdown rather than repeating them. Boomer hands back to Stuart and "
+            "Rich with one short line before the divisions.",
             fact_ids=sorted(set(star_facts + wire_facts + dnp_facts + split_facts + week_rank_facts
                 + [k for k in pack._facts if k.startswith("f.player.")]
                 + [k for k in pack._facts if k.endswith(".week_rank_own")]

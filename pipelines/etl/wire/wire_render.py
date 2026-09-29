@@ -284,9 +284,14 @@ def audit_pot_note(text, where, pot):
 
 
 # The desk. Keith 2026-09-15: "Stuart: line passes it to Rich." The speaker is
-# a whitelisted KEY, never typed text, so a typo cannot invent a third voice and
-# the label never passes through the digit or typed-quote audits.
-ANCHORS = {"stuart": "Stuart", "rich": "Rich"}
+# a whitelisted KEY, never typed text, so a typo cannot invent an unknown voice
+# and the label never passes through the digit or typed-quote audits.
+#
+# "boomer" added 2026-09-29 for the Week 3 pilot ("Boomer's Three-Minute
+# Rundown", tossed to and from inside a section's own desk -- see
+# packs/weekly_recap.py's s1). A guest voice is still just another whitelisted
+# key: nothing else about desk_lines()/desk_html() needed to change for it.
+ANCHORS = {"stuart": "Stuart", "rich": "Rich", "boomer": "Boomer"}
 
 
 def desk_lines(lines, where):
