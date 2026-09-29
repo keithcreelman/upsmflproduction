@@ -379,8 +379,19 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     }
   }
 
+  // A VALID, currently-selected conditional drop is also gone from the roster the lineup check
+  // sees -- "Show ... an updated structural lineup warning before that owner confirms" (Keith's
+  // ruling, 2026-09-29). Only a genuinely valid selection counts (an invalid one never removes
+  // the player -- the drop hasn't actually happened, and won't, until it's valid).
+  const postTradeRosterAfterDrops = postTradeRoster;
+  if (positions && dropReqs.length) {
+    for (const req of dropReqs) {
+      const dropIds = new Set(req.selected.filter((x) => x.valid).map((x) => x.player_id));
+      if (dropIds.size) postTradeRosterAfterDrops[req.franchise_id] = postTradeRosterAfterDrops[req.franchise_id].filter((r) => !dropIds.has(r.id));
+    }
+  }
   const lineup = evaluateLineupFeasibility({
-    franchises: Object.fromEntries([...parts].map((fid) => [fid, { name: name(fid), roster: positions ? postTradeRoster[fid] : null }])),
+    franchises: Object.fromEntries([...parts].map((fid) => [fid, { name: name(fid), roster: positions ? postTradeRosterAfterDrops[fid] : null }])),
     expectedFids: [...parts],
   });
 

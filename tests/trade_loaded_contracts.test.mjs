@@ -64,6 +64,45 @@ test("LC 2: 5 -> 6 blocks", () => {
   t.deepEqual(c.loaded_contracts.drop_requirements[0].candidates, ["100", "101", "102", "103", "104"]);
 });
 
+test("LC 2d: a VALID selected drop also updates the lineup-feasibility warning -- the owner sees what dropping THIS player actually costs before confirming", () => {
+  // 0001's real 18-man lineup, with 5 of those 18 spots filled by loaded contracts: two RBs (2,3),
+  // two WRs (4,5) -- all flex-coverable/redundant -- and the SOLE Punter (11), which has no
+  // flex/surplus fallback (worker/src/trade_lineup_feasibility.js's LU 3 case). 5 loaded -> a 6th
+  // received (flat position, "200") pushes to 6, requiring exactly 1 drop.
+  const roster18 = [
+    { id: "1", position: "QB" }, { id: "2", position: "RB", loaded: true }, { id: "3", position: "RB", loaded: true },
+    { id: "4", position: "WR", loaded: true }, { id: "5", position: "WR", loaded: true }, { id: "6", position: "TE" },
+    { id: "7", position: "RB" }, { id: "8", position: "WR" }, { id: "9", position: "QB" }, { id: "10", position: "PK" },
+    { id: "11", position: "PN", loaded: true }, { id: "12", position: "DL" }, { id: "13", position: "DL" },
+    { id: "14", position: "LB" }, { id: "15", position: "LB" }, { id: "16", position: "DB" }, { id: "17", position: "DB" }, { id: "18", position: "DL" },
+  ];
+  const team2_18 = roster18.map((p) => ({ id: "2" + p.id.padStart(2, "0"), position: p.position }));
+  const players = ok({ players: { player: [
+    ...roster18.map((p) => ({ id: p.id, position: p.position })),
+    ...team2_18.map((p) => ({ id: p.id, position: p.position })),
+    { id: "200", position: "WR" },
+  ] } });
+  const rosters = rosterOf({
+    "0001": roster18.map((p) => ({ id: p.id, contractStatus: p.loaded ? "Vet-Ext2-BL" : "Vet-FAA" })),
+    "0002": [{ id: "200", contractStatus: "Vet-FAA-FL" }, ...team2_18.map((p) => ({ id: p.id, contractStatus: "Vet-FAA" }))],
+  });
+  const movements = [{ from: "0002", to: "0001", tokens: ["200"] }];
+
+  const noDropYet = calc({ rosters, movements, players });
+  t.equal(noDropYet.loaded_contracts.status, "blocked", "no selection yet -- still owes the drop");
+  t.equal(noDropYet.lineup.status, "ok", "before any drop is actually selected, the roster (and its lineup) is unchanged");
+
+  const droppingPunter = calc({ rosters, movements, players, conditionalDrops: { "0001": ["11"] } });
+  t.equal(droppingPunter.loaded_contracts.status, "needs_drops", "dropping the sole Punter is a VALID, sufficient selection");
+  t.equal(droppingPunter.lineup.status, "warn", "but it costs the team its only Punter -- the lineup check must reflect the roster AFTER the drop, not before");
+  const row = droppingPunter.lineup.rows.find((r) => r.franchise_id === "0001");
+  t.ok(row && row.missing && row.missing.some((m) => m.slot === "Punter"), JSON.stringify(row));
+
+  const droppingRedundantRB = calc({ rosters, movements, players, conditionalDrops: { "0001": ["2"] } });
+  t.equal(droppingRedundantRB.loaded_contracts.status, "needs_drops");
+  t.equal(droppingRedundantRB.lineup.status, "ok", "dropping a flex-covered RB instead costs nothing -- proving the warning above is specific to WHICH player was picked, not just that a drop happened");
+});
+
 test("LC 2c: candidates excludes a loaded contract the franchise is SENDING away in this same trade", () => {
   const c = calc({
     rosters: rosterOf({ "0001": [...loadedIds(100, 5), { id: "999", contractStatus: "Vet-Ext2-BL" }], "0002": [{ id: "200", contractStatus: "Vet-FAA-FL" }] }),
