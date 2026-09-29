@@ -755,6 +755,26 @@ zero MFL writes.
 **Both flags (`TRADE_2WAY_CUTOVER_ENABLED` and `TRADE_2WAY_STAGING_ENABLED`) remain off. Nothing in
 this section has been turned on for real owners.**
 
+**The full two-flag truth table** (Keith's ruling, 2026-09-29: "document and test the full
+two-flag truth table... it must never silently reopen the bypass"), tested exhaustively in
+`tests/trade_2way_flag_truth_table.test.mjs` (5/5):
+
+| cutover | staging | legacy `/trade-offers` create | staged `/api/trades/2way` create |
+|---|---|---|---|
+| off | off | succeeds — real native MFL trade (today's actual production default) | refused, `2way_staging_disabled` |
+| off | on | succeeds — real native MFL trade, **unchanged** | succeeds — staged in D1 |
+| on | off | refused, `staging_required` | succeeds — staged in D1 (the **safety interlock**, §8.4a above) |
+| on | on | refused, `staging_required` | succeeds — staged in D1 |
+
+The property that matters, true in every row: **whenever legacy is refused, staged creation is
+reachable in that same row** — no combination ever refuses both (a total outage) and none ever
+lets legacy quietly still succeed despite cutover being on (the bypass reopening). The `off/on` row
+is the **pre-cutover testing window**, not the bypass itself — both paths being simultaneously
+available there is expected and safe (staging never touches MFL, so having it on as an option
+changes nothing about the legacy path's own behavior); the actual bypass Keith flagged was the
+normal Send button staying direct-only once cutover *should* have been on, which the `on/*` rows
+exist specifically to close.
+
 ### 8.5 Two questions Keith asked directly: cutover, and the honest boundary of what this app controls
 
 **Keith: "Address what happens to already-pending native offers at cutover, and determine
@@ -1036,3 +1056,120 @@ asked for, with every specific failure mode he named addressed by name, the deci
 and staging models specified precisely rather than assumed, a real design (not a hand-wave) for
 the native-bypass gap and its honest limits, and an explicit list of what still needs a decision
 before a single line of execution code is written.
+
+---
+
+## 12. 🚨 The completion gap, and the concrete commissioner-completion plan (2026-09-29)
+
+**A staged two-team trade CANNOT be completed today. This is the single blocking release gate for
+cutover — stated here as plainly as possible, not buried:**
+
+- The commissioner review queue that actually shipped (`site/commish/trade_review_queue.html`,
+  `GET /api/trades/2way/queue`) is **read-only by design** — no execute or drop action exists on
+  it (§2.4.2's "new UI, not built by this document" is now built, but deliberately stops at
+  read-only).
+- `select2WayLoadedContractDrops` (`worker/src/trade_2way.js`) records and validates a
+  conditional-drop selection, but **nothing anywhere calls MFL to actually drop the selected
+  player** — the same "no executor" gap this document has named since its first revision.
+- `execute2Way` defaults to dry-run (`TRADE_2WAY_STAGING_EXECUTE` unset/off) and there is no
+  commissioner-facing action anywhere that flips it live for one specific trade.
+
+**Consequence, stated once more for emphasis: turning on `TRADE_2WAY_CUTOVER_ENABLED` today would
+route every new two-team offer into a hold with no finished way out.** A fully-accepted,
+fully-compliant staged trade would simply sit — visible in the read-only queue, forever "ready,"
+never completed, with no button anywhere to finish it. §2.4/§2.4.1-§2.4.4, §6, and §7 above
+already specify, in detail, the policy this section's own implementation must eventually follow
+(fresh per-write compliance re-checks, verify-then-record for every irreversible write, the
+`partial_executed` proposed ledger state, manual-not-automatic recovery) — **this section does not
+re-decide any of that.** It states what's implemented now, what a real completion action would
+look like under that already-decided policy, and exactly what remains a decision before real
+writes are ever enabled.
+
+### 12.1 What's implemented now: read-only "ready to complete" + a byte-identical dry-run preview
+
+`GET /api/trades/2way/queue` (and the review-queue page) now marks each trade `ready_to_complete:
+true` when — and only when — the recipient has accepted AND the freshly-recomputed compliance is
+fully `"ok"` (never `"needs_drops"`, even satisfied — §2.4.1's own rule: a satisfied selection is
+not an executed drop, so a `needs_drops` trade is never "ready," only ever "held"). For a ready
+trade, the queue additionally shows a **dry-run preview**: the exact `give`/`receive` asset tokens
+and franchise ids `execute2Way` would send, computed by calling the SAME dry-run code path
+`execute2Way` already runs today (not a re-derivation — literally the same function, which already
+defaults to dry-run and already refuses to reach a real MFL call unless
+`TRADE_2WAY_STAGING_EXECUTE=1`). What the commissioner sees in the queue is therefore guaranteed
+byte-identical to what a real completion would attempt, because it IS that same code, just never
+flipped live. **This is a pure read: `listCommish2WayQueue` calls `execute2Way` in a request-scoped
+"preview-only" mode that skips the ledger lock entirely** (no `ledger.acquire()`, no D1 write, no
+MFL call under any flag state) — visiting the queue can never itself start an execution attempt,
+regardless of the global `TRADE_2WAY_STAGING_EXECUTE` flag's value.
+
+Tested in `tests/trade_2way_completion_preview.test.mjs` — a trade that is accepted-but-not-fully-
+compliant is never marked ready; a fully-ready trade's preview exactly matches what `execute2Way`
+itself would attempt; loading the queue any number of times never advances the execution ledger or
+calls MFL.
+
+### 12.2 What a real completion action would look like (design, NOT implemented)
+
+If and when a live single-trade "Complete now" commissioner action is built, it must follow
+exactly the procedure §2.4.3 already specifies, applied to the 2-way degenerate case (at most one
+drop-per-franchise plus the trade itself, never more than a 3-way's N):
+
+1. **What the commissioner sees, per §2.4.2, extended for staged 2-way specifically:** the full
+   accepted terms (read directly from the `ups_2way_trades` row, never re-derived), each
+   franchise's own confirmed drop selection by player name (if any), that selection's expected cap
+   penalty re-read fresh (not cached from selection time), and the live re-check from §12.1 —
+   surfaced as part of the SAME action, never a separate step the commissioner could skip.
+2. **Immediately before each write** (§2.4.3 step 1): re-run compliance fresh; if it no longer
+   clears, stop before this write, exactly per §2.4.3's "State 0" case, regardless of what has
+   already been confirmed in this specific completion attempt.
+3. **Perform one write, then verify it actually happened** (§2.4.3 step 2, §1.1/§7's roster
+   re-read discipline for a drop, the equivalent for the trade call) — never trust MFL's response
+   text alone.
+4. **Record the verified outcome in the execution ledger** (§2.4.3 step 3, §6's vocabulary) before
+   the next write, so the deal's true partial state is always readable from the ledger.
+5. **Sequence, per §2.4.3/§2.5:** the trade executes first; any confirmed drop is post-processing
+   afterward — a drop that lands before a failed trade is an irreversible loss with no MFL-side
+   undo, while a trade ahead of a failed drop is the recoverable `executed_needs_review` case
+   this app already has a pattern for.
+
+**Partial outcome — stop and notify (§2.4.3's State *k*, applied here):** if the trade executes
+but a required drop then fails, refuses, or comes back ambiguous, the ledger moves to
+`executed_needs_review` (already a real, shipped state — §6) with the specific evidence recorded,
+and **every owner whose asset already moved is notified immediately and explicitly** that their
+side executed but the drop did not, and that a real loaded-contract overage exists until the
+commissioner resolves it manually. If the trade itself fails outright before any drop is
+attempted, nothing has moved — notify plainly, no drop is ever attempted, the deal returns to the
+queue for another attempt once whatever blocked it (lockout, a genuine refusal, an unrelated race)
+is understood.
+
+**Cancel / recovery, applied here:** a staged trade that has **not yet** had a completion attempt
+started can always be cancelled today, exactly as already built and tested
+(`cancel2WayTrade`/`tests/trade_2way_staged.test.mjs`) — this is unaffected by anything in this
+section. Once a real completion action exists and a specific attempt is stuck mid-sequence (the
+ledger lock acquired, one write confirmed, the next not yet resolved), recovery is NOT "just
+cancel" — something real already happened on MFL's side — and follows §2.4.3's own "commissioner
+must first understand why before deciding whether to retry the remaining writes or negotiate a
+compensating resolution" rule, unchanged. No new recovery mechanism is invented here; §11's
+already-listed open item ("the compensating-resolution mechanism for a `partial_executed` deal")
+remains exactly as open as it was.
+
+### 12.3 What remains a decision before ANY real write path is enabled
+
+Every item below is a genuine decision, not an implementation detail — none of it should be
+inferred from "well, the design already covers it":
+
+- **Which sequence a specific deal follows, if any fixed rule at all** (§11, unchanged) — still
+  open, and this section deliberately does not narrow it.
+- **The exact new `steps_json` shape and the real (not proposed) `partial_executed` ledger state**
+  (§2.4.3, §11) — sketched in prose, not written as code.
+- **The compensating-resolution mechanism** for an owner whose asset already moved before the
+  sequence stopped (§6, §11) — not prescribed.
+- **The exact commissioner-facing and owner-facing notification copy** for every outcome named in
+  §12.2 (§11, unchanged).
+- **Whether an owner can themselves re-trigger their own failed drop step**, or whether this is
+  strictly commissioner-only (§6, unchanged).
+- **Whether a stuck deal needs its own aging alert**, and whether a backup-commissioner path is
+  needed (§2.4.4, §11, unchanged).
+
+**Until every item above is explicitly decided, `TRADE_2WAY_STAGING_EXECUTE` stays off and no
+commissioner-facing "complete this trade" action is built.** §12.1's read-only/dry-run surface is
+the full extent of what ships in this pass.

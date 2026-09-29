@@ -398,6 +398,18 @@ export async function listCommish2WayQueue(env, leagueId, season, opts) {
       }
     }
     try { ledger = await makeLedger(ledgerDbFor(env)).read(lkey(row)); } catch (e) { console.warn(`[2way-staged] commish queue: ledger read failed for ${row.id}: ${e?.message || e}`); }
+    // §12.1 -- read-only "ready to complete" + a dry-run preview, byte-identical to what
+    // execute2Way would attempt (deriveExecute2WayPlan, shared, not re-derived). Never touches
+    // the ledger or MFL -- see previewExecute2Way's own header for the guarantee.
+    let readyToComplete = false, notReadyReason = "terminal", dryRunPreview = null;
+    if (row.status === "collecting" || row.status === "executing") {
+      try {
+        const preview = await previewExecute2Way(env, row);
+        readyToComplete = preview.ready_to_complete;
+        notReadyReason = preview.not_ready_reason;
+        dryRunPreview = preview.dry_run_preview;
+      } catch (e) { console.warn(`[2way-staged] commish queue: completion preview failed for ${row.id}: ${e?.message || e}`); notReadyReason = "preview_unavailable"; }
+    }
     trades.push({
       ...canonical,
       compliance,
@@ -405,6 +417,9 @@ export async function listCommish2WayQueue(env, leagueId, season, opts) {
       ledger,
       age_hours_since_created: ageHours(row.created_at_utc),
       age_hours_since_updated: ageHours(row.updated_at_utc),
+      ready_to_complete: readyToComplete,
+      not_ready_reason: notReadyReason,
+      dry_run_preview: dryRunPreview,
     });
   }
   return { ok: true, league_id: safeStr(leagueId), season: safeStr(season), trades };
@@ -562,6 +577,38 @@ export async function recheck2WayExecution(env, ctx, id, viewer) {
   return { ok: true, rechecking: true };
 }
 
+// The pure give/receive derivation both execute2Way and the read-only completion-preview
+// (§12.1, listCommish2WayQueue) call -- ONE implementation, so what a commissioner previews in
+// the queue is provably byte-identical to what a real execution would attempt, never two
+// independently-written copies that could quietly drift apart. Touches nothing -- no D1 write,
+// no MFL call, no ledger read. Safe to call on a row in ANY status.
+function deriveExecute2WayPlan(row) {
+  const fromFid = padFid(row.from_fid), toFid = padFid(row.to_fid);
+  const movement = injectCapTokens(parseMovements(row)).find((m) => padFid(m.from) === fromFid) || { asset_tokens: [] };
+  const reverseMovement = injectCapTokens(parseMovements(row)).find((m) => padFid(m.from) === toFid) || { asset_tokens: [] };
+  return { fromFid, toFid, give: movement.asset_tokens || [], receive: reverseMovement.asset_tokens || [] };
+}
+
+// ═══════════════════════════════════ COMPLETION PREVIEW (§12.1 — read-only, zero writes) ═══════════════════════════════════
+// "Ready to complete": the recipient has accepted AND a FRESH compliance re-check is fully "ok"
+// (never "needs_drops", even satisfied -- §2.4.1's own rule: a satisfied selection is not an
+// executed drop). For a ready trade, also returns the exact give/receive plan execute2Way would
+// use -- the SAME function (deriveExecute2WayPlan), not a re-derivation, so the preview can never
+// silently disagree with a real completion. This function never acquires the execution ledger
+// lock, never writes to D1, and never calls MFL under any flag state -- calling it (e.g. by
+// loading the commissioner queue) can never itself start or advance an execution attempt.
+async function previewExecute2Way(env, row) {
+  const gate = await capGate2Way(env, row);
+  const readyToComplete = !!(gate.ok && row.to_state === "accepted" && (row.status === "collecting" || row.status === "executing"));
+  const plan = readyToComplete ? deriveExecute2WayPlan(row) : null;
+  return {
+    ready_to_complete: readyToComplete,
+    not_ready_reason: readyToComplete ? null : (row.to_state !== "accepted" ? "not_yet_accepted" : (gate.kind || "compliance_not_ok")),
+    dry_run_preview: plan ? { from_fid: plan.fromFid, to_fid: plan.toFid, give: plan.give, receive: plan.receive } : null,
+    compliance: gate.compliance || null,
+  };
+}
+
 // ═══════════════════════════════════ EXECUTE ═══════════════════════════════════
 // The single-leg degenerate case of execute3Way -- one MFL trade, no ring/pairwise
 // decomposition, no pass-through verification (nothing to pass through with only two
@@ -574,11 +621,7 @@ export async function execute2Way(env, id) {
   const row = await getRow(env, id);
   if (!row || safeStr(row.status) !== "executing") return { skipped: "not_executing" };
   const leagueId = safeStr(row.league_id), year = safeStr(row.season);
-  const fromFid = padFid(row.from_fid), toFid = padFid(row.to_fid);
-  const movement = injectCapTokens(parseMovements(row)).find((m) => padFid(m.from) === fromFid) || { asset_tokens: [] };
-  const reverseMovement = injectCapTokens(parseMovements(row)).find((m) => padFid(m.from) === toFid) || { asset_tokens: [] };
-  const give = movement.asset_tokens || [];
-  const receive = reverseMovement.asset_tokens || [];
+  const { fromFid, toFid, give, receive } = deriveExecute2WayPlan(row);
 
   const finish = async (status, fields) => {
     const sets = ["status=?", "updated_at_utc=?"]; const binds = [status, nowIso()];

@@ -48,6 +48,14 @@
   .trq-detail.show { display: block; }
   .trq-note { font-size: 12px; color: var(--muted); background: var(--panel2); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
   .trq-history-toggle { margin-bottom: 16px; }
+  .trq-completion { border-top: 1px dashed var(--line); margin-top: 8px; padding-top: 8px; font-size: 12px; }
+  .trq-completion-ready { color: var(--ok); font-weight: 700; }
+  .trq-completion-notready { color: var(--muted); }
+  .trq-preview { background: var(--panel2); border-radius: 8px; padding: 8px 10px; margin-top: 6px; font-size: 12px; color: var(--fg); }
+  .trq-preview b { color: var(--muted); font-weight: 600; }
+  .trq-blocker-banner { border: 2px solid var(--danger); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; background: rgba(248, 113, 113, 0.08); }
+  .trq-blocker-banner b { color: var(--danger); font-size: 15px; }
+  .trq-blocker-banner p { margin: 8px 0 0; font-size: 13px; color: var(--fg); }
 </style>
 </head>
 <body>
@@ -56,6 +64,11 @@
     <h1>Trade Review Queue</h1>
     <p>Commissioner-only. Read-only hold-and-inspect surface for staged two-team War Room trades — fresh compliance, each owner's consent and conditional-drop selections, cap-acknowledgment status, and the real execution-ledger state. There is no execute or drop action on this page.</p>
   </header>
+
+  <div class="trq-blocker-banner">
+    <b>🚨 A staged trade cannot be completed yet.</b>
+    <p>This queue can tell you a trade is <b>ready to complete</b> and show exactly what it would send to MFL (below, per trade) — but nothing here can actually send it. Conditional-drop selection has no executor, and there is no commissioner action anywhere that finishes a trade for real. Do not enable cutover expecting this queue to also let you finish what it holds.</p>
+  </div>
 
   <div id="trqAuthBanner" class="trq-auth-banner">
     <div id="trqAuthMsg"></div>
@@ -148,6 +161,33 @@
     return '<div class="trq-note"><b>Cap acknowledgment:</b> ' + (capAck.satisfied ? "all acknowledged" : "waiting — " + T.esc(rows)) + '</div>';
   }
 
+  // §12.1 -- read-only "ready to complete" + a dry-run preview that is byte-identical to what
+  // a real completion would attempt (worker/src/trade_2way.js's deriveExecute2WayPlan, shared
+  // with execute2Way itself, not re-derived here or on the server). NOTHING here is clickable;
+  // there is no completion action anywhere on this page.
+  var NOT_READY_COPY = {
+    not_yet_accepted: "waiting on the recipient's own accept",
+    loaded_contract_drops_required: "a conditional-drop selection is satisfied but has no executor yet — held, not ready",
+    cap_ack_required: "waiting on a cap-overage acknowledgment",
+    unavailable: "compliance couldn't be verified just now",
+    extension: "a pre-trade extension in this deal is no longer valid",
+    extension_stale: "a pre-trade extension's price no longer matches the current contract",
+    terminal: "this trade is no longer active",
+    preview_unavailable: "the completion preview couldn't be computed just now",
+  };
+  function renderCompletionStatus(trade) {
+    if (!trade.ready_to_complete) {
+      var why = NOT_READY_COPY[trade.not_ready_reason] || trade.not_ready_reason || "not ready";
+      return '<div class="trq-completion trq-completion-notready">Not ready to complete — ' + T.esc(why) + '.</div>';
+    }
+    var p = trade.dry_run_preview;
+    var giveList = (p && p.give || []).map(T.esc).join(", ") || "(nothing)";
+    var receiveList = (p && p.receive || []).map(T.esc).join(", ") || "(nothing)";
+    return '<div class="trq-completion trq-completion-ready">✓ Ready to complete — every check clears right now.</div>' +
+      '<div class="trq-preview"><b>Would send to MFL:</b> ' + T.esc(p.from_fid) + ' gives [' + giveList + ']  ↔  ' + T.esc(p.to_fid) + ' gives [' + receiveList + ']' +
+      '<br><span style="color:var(--muted)">Preview only — nothing here executes anything. There is no action anywhere on this page that would.</span></div>';
+  }
+
   function renderCard(trade) {
     var sv = trade.state_view || {};
     var ageH = trade.age_hours_since_updated;
@@ -163,6 +203,7 @@
     h += '<div class="trq-movs">' + movLines + '</div>';
     h += renderLedger(trade.ledger);
     h += renderCapAckSummary(trade.cap_ack);
+    h += renderCompletionStatus(trade);
     h += '<button type="button" class="trq-toggle" data-trq-toggle="' + T.esc(trade.id) + '">' + (open ? "Hide detail ↑" : "Show full compliance ↓") + '</button>';
     h += '<div class="trq-detail' + (open ? " show" : "") + '">';
     if (trade.compliance) h += T.renderCompliance(trade.compliance, {});

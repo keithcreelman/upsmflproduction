@@ -151,5 +151,55 @@ test("ROLLBACK: staged offers created while cutover was ON survive a rollback (c
   t.equal(mfl.st.imports.filter((i) => i.type === "tradeProposal").length, 0, "nothing staged before or across the rollback ever became a real MFL trade");
 });
 
+test("ROLLBACK WITH MULTIPLE EXISTING STAGED OFFERS: cycling cutover on/off/on several times, with several already-staged trades in flight, never duplicates a trade, never loses one, and never releases one as a native MFL proposal", async () => {
+  const { env, mfl } = fresh({ env: { TRADE_2WAY_CUTOVER_ENABLED: "1", TRADE_2WAY_STAGING_ENABLED: "1" } });
+  mfl.st.rosters["0001"].push({ id: "14057", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" });
+  mfl.st.rosters["0001"].push({ id: "14058", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" });
+
+  // Three staged offers exist BEFORE any flag cycling starts.
+  const ids = [];
+  for (const pid of ["14056", "14057", "14058"]) {
+    const created = await callWorker(env, "POST", `/api/trades/2way?${Q}&MFL_USER_ID=tok-B`, {
+      body: { from: { fid: "0001", name: "L.A. Looks" }, to: { fid: "0002", name: "CBP" }, movements: [{ from: "0001", to: "0002", asset_tokens: [pid] }] },
+    });
+    t.equal(created.status, 201, JSON.stringify(created.json));
+    ids.push(created.json.id);
+  }
+  const countRows = () => env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_2way_trades WHERE id IN (?,?,?)").get(...ids).n;
+  t.equal(countRows(), 3, "exactly 3 rows exist -- the baseline before any cycling");
+
+  // Cycle the cutover flag several times -- on, off, on, off, on -- exactly the "rollback,
+  // reconsider, roll forward again" sequence a real release would go through.
+  const cycle = ["1", "0", "1", "0", "1"];
+  for (const v of cycle) {
+    env.TRADE_2WAY_CUTOVER_ENABLED = v;
+    // NOT DUPLICATED: still exactly 3 rows for these ids, every single cycle -- nothing about
+    // flipping the flag ever creates a new row or touches these existing ones' row count.
+    t.equal(countRows(), 3, `row count must stay exactly 3 after flipping cutover to "${v}"`);
+    // NOT LOST: every one of the 3 is still individually readable through the real detail route,
+    // with its own real content intact (not blanked, not orphaned).
+    for (const id of ids) {
+      const detail = await callWorker(env, "GET", `/api/trades/2way?id=${id}&${Q}&MFL_USER_ID=tok-B`);
+      t.equal(detail.status, 200, `trade ${id} must still be readable after flipping cutover to "${v}"`);
+      t.equal(detail.json.trade.id, id);
+      t.equal(detail.json.trade.status, "collecting", `trade ${id} must still be exactly where it was -- never auto-advanced by a flag flip`);
+    }
+  }
+  // NOT RELEASED AS A NATIVE PROPOSAL: across the entire baseline + 5-cycle sequence, zero MFL
+  // tradeProposal imports of any kind -- these three staged offers never once touched MFL.
+  t.equal(mfl.st.imports.filter((i) => i.type === "tradeProposal").length, 0, "none of the 3 staged offers was ever released to MFL as a native proposal, at any point in the cycle");
+
+  // Each of the 3 remains independently actionable at the END of the cycle (cutover back ON) --
+  // accept one, cancel another, leave the third untouched -- proving "intact" means "still
+  // fully functional," not merely "still present as an inert row."
+  const acceptRes = await callWorker(env, "POST", `/api/trades/2way/accept?${Q}&MFL_USER_ID=tok-C`, { body: { id: ids[0] } });
+  t.ok(acceptRes.json.ok, JSON.stringify(acceptRes.json));
+  const cancelRes = await callWorker(env, "POST", `/api/trades/2way/cancel?${Q}&MFL_USER_ID=tok-B`, { body: { id: ids[1], reason: "test" } });
+  t.ok(cancelRes.json.ok, JSON.stringify(cancelRes.json));
+  const untouchedDetail = await callWorker(env, "GET", `/api/trades/2way?id=${ids[2]}&${Q}&MFL_USER_ID=tok-B`);
+  t.equal(untouchedDetail.json.trade.status, "collecting");
+  t.equal(mfl.st.imports.filter((i) => i.type === "tradeProposal").length, 0, "accepting and cancelling staged offers post-cycle still never touches MFL");
+});
+
 await run("trade_2way_cutover_switch");
 restoreConsole();

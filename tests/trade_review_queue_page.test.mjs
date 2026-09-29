@@ -171,5 +171,34 @@ test("ZERO WRITES: loading the queue page never calls anything but a GET on /api
   t.equal(paths.size, 0, "the page must never call any route other than the read-only queue endpoint");
 });
 
+test("§12.1 COMPLETION STATUS: a not-ready trade shows why, a ready trade shows the dry-run preview -- both purely descriptive text, no action anywhere -- and the page carries its own prominent 'cannot be completed yet' banner", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  const id = await stageViaHttp(env);
+  const p1 = loadPage(env, { session: "tok-commish" });
+  await settle();
+  t.match(p1.els.trqList.innerHTML, /Not ready to complete — waiting on the recipient/);
+  t.doesNotMatch(p1.els.trqList.innerHTML, /Would send to MFL/);
+
+  // Move straight to the ready state via direct SQL -- same technique
+  // tests/trade_2way_completion_preview.test.mjs uses, avoiding a race against the real accept
+  // flow's own synchronously-started execute2Way call.
+  env.UPS_MFL_DB.raw.prepare("UPDATE ups_2way_trades SET status='executing', to_state='accepted', updated_at_utc=? WHERE id=?").run(new Date().toISOString(), id);
+  const p2 = loadPage(env, { session: "tok-commish" });
+  await settle();
+  const html = p2.els.trqList.innerHTML;
+  t.match(html, /Ready to complete/);
+  t.match(html, /Would send to MFL.*0001 gives \[14056\].*0002 gives \[\(nothing\)\]/s);
+  t.match(html, /Preview only — nothing here executes anything/);
+  // Still no button anywhere, and zero MFL writes just from loading this ready state.
+  const buttonActs = [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1].trim());
+  for (const label of buttonActs) t.match(label, /^(Show full compliance|Hide detail)/);
+  t.equal(mfl.st.imports.length, 0);
+
+  // The page's own blocker banner is present regardless of any trade's state.
+  t.match(HTML, /A staged trade cannot be completed yet/);
+});
+
 await run("trade_review_queue_page");
 restoreConsole();
