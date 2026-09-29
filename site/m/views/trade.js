@@ -1126,6 +1126,29 @@
       return T.interpretAckCap({ ok: resp.ok, status: resp.status, body: resp.body });
     }).catch(function () { return T.interpretAckCap({ networkError: true }); });
   }
+  // The caller's own loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29):
+  // never writes to MFL, drops no player, never itself accepts -- it just records which of the
+  // owner's own loaded-contract players are picked, conditional on the trade going through.
+  // Needs its own request (not postTradeAction) because it carries an extra field.
+  function selectDropsAccept(tradeId, playerIds) {
+    var url = M.api.workerUrl("/api/trades/proposals/action");
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "select_drops", trade_id: tradeId, league_id: M.state.ctx.leagueId,
+        franchise_id: M.state.viewerFranchiseId, year: M.state.ctx.year,
+        loaded_contract_drops: Array.isArray(playerIds) ? playerIds : []
+      })
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return T.interpretSelectDrops({ ok: r.ok, status: r.status, body: parsed });
+      });
+    }).catch(function () { return T.interpretSelectDrops({ networkError: true }); });
+  }
   function openAcceptReview(tradeId) {
     var mount = document.getElementById("ups-m-app");
     if (!mount) return;
@@ -1141,27 +1164,62 @@
     var body = document.getElementById("ups-m-accept-body");
     var overlay = document.getElementById("ups-m-accept-overlay");
     var ack = { busy: false, message: "", ok: false };
+    var drops = { busy: false, message: "", ok: false, selections: {} };   // { franchise_id -> [player_id,...] }, LOCAL until "Confirm drop selection" submits it
     function close() { var ov = document.getElementById("ups-m-accept-overlay"); if (ov) ov.remove(); document.body.style.overflow = ""; }
     function paint(review, busy) {
-      body.innerHTML = T.renderAcceptReview(review, { busy: busy, viewerFid: M.state.viewerFranchiseId, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok });
+      var sel = {}; sel[M.state.viewerFranchiseId] = drops.selections[M.state.viewerFranchiseId] || [];
+      body.innerHTML = T.renderAcceptReview(review, { busy: busy, viewerFid: M.state.viewerFranchiseId, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok,
+        selections: sel, dropBusy: drops.busy, dropMessage: drops.message, dropOk: drops.ok });
     }
+    var lastReview = null;
     function load() {
       paint(null);
-      previewAccept(tradeId).then(function (review) { if (document.getElementById("ups-m-accept-overlay") === overlay) paint(review); });
+      previewAccept(tradeId).then(function (review) { lastReview = review; if (document.getElementById("ups-m-accept-overlay") === overlay) paint(review); });
     }
     function acknowledgeCap() {
       if (ack.busy) return;
-      ack.busy = true; ack.message = ""; paint(null, false);
+      ack.busy = true; ack.message = ""; paint(lastReview, false);
       ackCapAccept(tradeId).then(function (out) {
         ack.busy = false; ack.message = out.message; ack.ok = !!out.ok;
         load();
+      });
+    }
+    // The loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29): the
+    // RECIPIENT's own requirement, picked and confirmed right here before Accept.
+    function selectDrops(id, el) {
+      if (drops.busy) return;
+      var fid = el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : "";
+      if (!fid) return;
+      var picked = drops.selections[fid] || [];
+      drops.busy = true; drops.message = ""; paint(lastReview, false);
+      selectDropsAccept(tradeId, picked).then(function (out) {
+        drops.busy = false; drops.message = out.message; drops.ok = !!out.ok;
+        load();
+      });
+    }
+    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind
+    // only delegates [data-t3w-act] clicks, so this is a separate, once-only delegated
+    // listener on the stable overlay container (survives every repaint's innerHTML reset).
+    if (!overlay.__t3wDropsBound) {
+      overlay.__t3wDropsBound = true;
+      overlay.addEventListener("change", function (ev) {
+        var box = ev.target;
+        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+        var fid = box.getAttribute("data-t3w-drop-fid");
+        var pid = box.getAttribute("data-t3w-drop-pid");
+        var cur = drops.selections[fid] || [];
+        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
+        else { cur = cur.filter(function (x) { return x !== pid; }); }
+        drops.selections[fid] = cur;
+        paint(lastReview, false);
       });
     }
     T.bind(overlay, {
       "accept-close": close,
       "accept-retry": load,
       "accept-confirm": function () { close(); runTradeAction("accept", tradeId, ""); },
-      "ack-cap": acknowledgeCap
+      "ack-cap": acknowledgeCap,
+      "select-drops": selectDrops
     });
     load();
   }

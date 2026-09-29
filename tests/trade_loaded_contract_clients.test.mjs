@@ -9,9 +9,10 @@
 // This file proves the shipped CLIENT code (not just the worker) now surfaces the requirement and
 // lets the owner pick drops BEFORE Send Offer, using the real 409 the real worker returns.
 import fs from "node:fs";
+import vm from "node:vm";
 import { createRequire } from "node:module";
 import { t, test, run } from "./fixtures/mini_test.mjs";
-import { makeWorkerEnv, makeMfl, workerFetch, quiet } from "./fixtures/worker_harness.mjs";
+import { makeWorkerEnv, makeMfl, callWorker, workerFetch, quiet } from "./fixtures/worker_harness.mjs";
 import { makeEl, settle } from "./fixtures/fake_dom.mjs";
 
 const require = createRequire(import.meta.url);
@@ -227,6 +228,133 @@ test("MOBILE: closing the picker resolves null -- submitTradeCreateWithGatesMobi
   const res = await p;
   t.equal(res, null);
   t.equal(mfl.st.pending.length, 0, "zero MFL writes when the owner cancels");
+});
+
+// ───────────────────────────────── ACCEPT REVIEW (the RECIPIENT's own requirement) ─────────────────────────────────
+// "Each affected franchise owner must select and confirm their own loaded-contract players to
+// drop ... The receiving owner chooses their drops before accepting" (Keith's ruling, 2026-09-29).
+// This proves the REAL reviewBeforeAccept (desktop) and openAcceptReview (mobile) — not the
+// create-time picker above — let the RECIPIENT pick and confirm their own drops, against a REAL
+// worker, before Accept becomes available.
+function loadDesktopAccept(env) {
+  const start = DESK_SRC.indexOf("  // ── Accept review: salary cap (HARD rule)");
+  const end = DESK_SRC.indexOf("  async function performOfferAction(action, meta) {");
+  if (start < 0 || end < 0 || end < start) throw new Error("could not locate the desktop accept review in trade_workbench.js");
+  const code = DESK_SRC.slice(start, end);
+  const log = [];
+  const dlg = makeEl("twbAcceptReview");
+  dlg.className = ""; dlg.attrs = {}; dlg.setAttribute = (k, v) => { dlg.attrs[k] = v; }; dlg.removeAttribute = (k) => { delete dlg.attrs[k]; }; dlg.hasAttribute = (k) => k in dlg.attrs;
+  dlg.showModal = () => { dlg.attrs.open = "open"; }; dlg.close = () => { delete dlg.attrs.open; };
+  let created = false;
+  const document = { getElementById: (id) => (id === "twbAcceptReview" ? (created ? dlg : null) : id === "twbAcceptReviewBody" ? dlg : null),
+    createElement: () => dlg, body: { appendChild: () => { created = true; } } };
+  const win = { UPS_TRADE_3WAY: T };
+  const factory = new Function("window", "document", "fetch", code + "\nreturn { reviewBeforeAccept };");
+  const api = factory(win, document, workerFetch(env, log));
+  return { api, dlg, log, url: `https://worker.test/trade-offers/action?${Q}&MFL_USER_ID=tok-C` };
+}
+const previewBody2 = (id) => ({ league_id: "74598", season: "2026", trade_id: id, action: "PREVIEW", acting_franchise_id: "0002", offer_id: id });
+
+test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, a valid pick + Confirm selection satisfies it, and Accept then proceeds", async () => {
+  const { env, mfl } = world();
+  // Flip the direction: 0002 is now the one with 5 loaded fillers and RECEIVES a loaded player.
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 5)];
+  const createRes = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: offerBody() });
+  t.equal(createRes.status, 201, createRes.text.slice(0, 300));
+  const id = mfl.st.pending[mfl.st.pending.length - 1].trade_id;
+
+  const d = loadDesktopAccept(env);
+  const p = d.api.reviewBeforeAccept(d.url, previewBody2(id));
+  await settle(40);
+  t.match(d.dlg.innerHTML, /CBP would move from 5 to 6 loaded contracts/, "the REAL server message for the RECIPIENT's own franchise");
+  t.ok(!d.dlg.has("accept-confirm"), "Accept is withheld until the requirement is satisfied");
+  for (const pid of ["90000", "90001", "90002", "90003", "90004"]) t.match(d.dlg.innerHTML, new RegExp(`data-t3w-drop-pid="${pid}"`));
+  t.equal(mfl.st.done.length, 0, "zero MFL writes while the review is open");
+
+  d.dlg.check("90000", true);
+  d.dlg.click("select-drops");
+  await settle(40);
+  t.ok(d.dlg.has("accept-confirm"), "the picker's own selection satisfies the requirement and Accept is now offered");
+  // The accept-review dialog doesn't have the FULL roster/player-name data the trade BUILDER
+  // does (it only holds the two assets already in this offer) -- candidates fall back to the
+  // bare id, exactly as renderLoadedContractDrops documents (dropCandidateLabel), never a guess.
+  t.match(d.dlg.innerHTML, /Selected: Player 90000/, "the confirmed selection is shown back");
+
+  d.dlg.click("accept-confirm");
+  t.equal(await p, true);
+  t.equal(mfl.st.done.length, 0, "reviewBeforeAccept itself never accepts -- that's the caller's job, exactly like the existing cap-ack test proves");
+});
+
+// The real openAcceptReview() is module-internal (not on M.tradeView's public surface) --
+// reached the same way an owner reaches it: render the offer list, click "accept" on the row.
+// Mirrors tests/trade_cap_clients.test.mjs's loadMobile/liveMobile harness exactly.
+function loadMobileForAccept(env, tradeId) {
+  const log = [];
+  const registry = {};
+  const app = makeEl("ups-m-app");
+  app.insertAdjacentHTML = (pos, html) => {
+    for (const m of html.matchAll(/id="(ups-m-accept-overlay|ups-m-accept-body)"/g)) {
+      const el = makeEl(m[1]); el.remove = () => { delete registry[m[1]]; if (m[1] === "ups-m-accept-overlay") delete registry["ups-m-accept-body"]; };
+      registry[m[1]] = el;
+    }
+    if (registry["ups-m-accept-overlay"]) { registry["ups-m-accept-overlay"].innerHTML = html; registry["ups-m-accept-body"] = registry["ups-m-accept-overlay"]; }
+  };
+  const mount = makeEl("ups-m-main");
+  const buttons = [];
+  mount.querySelector = () => null;
+  mount.querySelectorAll = (sel) => (/\.btn-act\[data-act\]/.test(sel) ? buttons : []);
+  const U = {
+    pad4: (v) => { const dd = String(v || "").replace(/\D/g, ""); return dd ? dd.padStart(4, "0").slice(-4) : ""; },
+    safeStr: (v) => (v == null ? "" : String(v).trim()), safeInt: (v, dft) => { const n = parseInt(v, 10); return isFinite(n) ? n : (dft == null ? 0 : dft); },
+    escapeHtml: (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])),
+    fmtUsd: (n) => "$" + n,
+  };
+  const M = {
+    util: U, data: {}, actions: { reloadData: async () => {} },
+    api: { workerUrl: (p) => "https://worker.test" + p, getStoredMflUserId: () => "tok-C" },
+    state: { ctx: { leagueId: "74598", year: "2026" }, viewerFranchiseId: "0002", franchises: [], tradeOffers: { incoming: [{ trade_id: tradeId, offered_by: "0001", will_give_up: "14056", will_receive: "13100" }], outgoing: [] } },
+    ui: { showToast: () => {} },
+    route: { renderRoute: () => M.tradeView.render(mount, []), navigate() {} },
+  };
+  const doc = { getElementById: (elId) => (elId === "ups-m-app" ? app : registry[elId] || null), body: { style: {} } };
+  const sandbox = { fetch: workerFetch(env, log), console, setTimeout, Promise, URL, encodeURIComponent, decodeURIComponent, isFinite, parseInt, String, Number, JSON, Object, Array, Date, Math, document: doc };
+  sandbox.window = sandbox; sandbox.UPS_MOBILE = M; sandbox.UPS_TRADE_3WAY = T;
+  vm.createContext(sandbox);
+  vm.runInContext(MOBILE_SRC, sandbox, { filename: "site/m/views/trade.js" });
+  const attach = () => {
+    buttons.length = 0;
+    for (const m of mount.innerHTML.matchAll(/<button[^>]*data-act="([a-z]+)"[^>]*data-trade-id="([^"]+)"[^>]*>/g)) {
+      const attrs = { "data-act": m[1], "data-trade-id": m[2] };
+      buttons.push({ getAttribute: (a) => attrs[a] || null, handlers: [], addEventListener(type, fn) { this.handlers.push(fn); } });
+    }
+  };
+  mount.querySelectorAll = (sel) => { if (/\.btn-act\[data-act\]/.test(sel)) { attach(); return buttons; } return []; };
+  M.tradeView.render(mount, []);
+  return { M, mount, registry, log, sheet: () => registry["ups-m-accept-overlay"], click: async (act) => { const b = buttons.find((x) => x.getAttribute("data-act") === act); if (!b) throw new Error("no " + act + " button"); b.handlers.forEach((fn) => fn.call(b)); await settle(30); } };
+}
+
+test("MOBILE ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, a valid pick + Confirm selection satisfies it", async () => {
+  const { env, mfl } = world();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 5)];
+  const createRes = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: offerBody() });
+  t.equal(createRes.status, 201, createRes.text.slice(0, 300));
+  const id = mfl.st.pending[mfl.st.pending.length - 1].trade_id;
+
+  const app = loadMobileForAccept(env, id);
+  await app.click("accept");
+  const sheet = app.sheet;
+  t.ok(sheet(), "the review sheet opened");
+  t.match(sheet().innerHTML, /CBP would move from 5 to 6 loaded contracts/, "the REAL server message");
+  t.ok(!sheet().has("accept-confirm"), "Accept is withheld until the requirement is satisfied");
+  t.equal(mfl.st.done.length, 0);
+
+  sheet().check("90001", true);
+  sheet().click("select-drops");
+  await settle(40);
+  t.ok(sheet().has("accept-confirm"), "the selection satisfies the requirement and Accept is now offered");
+  t.match(sheet().innerHTML, /Selected: Player 90001/);
 });
 
 await run("trade_loaded_contract_clients");

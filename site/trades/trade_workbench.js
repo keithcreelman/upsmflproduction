@@ -3340,6 +3340,7 @@
       var token = 0;
       var lastReview = null;
       var ack = { busy: false, message: "", ok: false };
+      var drops = { busy: false, message: "", ok: false, selections: {} };   // { franchise_id -> [player_id,...] }, LOCAL until "Confirm drop selection" submits it
       function done(v) {
         if (settled) return;
         settled = true;
@@ -3348,7 +3349,9 @@
       }
       function paint(review) {
         lastReview = review;
-        body.innerHTML = T.renderAcceptReview(review, { viewerFid: viewerFid, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok });
+        var sel = {}; sel[viewerFid] = drops.selections[viewerFid] || [];
+        body.innerHTML = T.renderAcceptReview(review, { viewerFid: viewerFid, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok,
+          selections: sel, dropBusy: drops.busy, dropMessage: drops.message, dropOk: drops.ok });
       }
       function load() {
         var mine = ++token;
@@ -3374,7 +3377,42 @@
             load();
           });
       }
-      T.bind(dlg, { "accept-close": function () { done(false); }, "accept-retry": load, "accept-confirm": function () { done(true); }, "ack-cap": acknowledgeCap });
+      // The loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29): the
+      // RECIPIENT's own requirement, picked and confirmed right here before Accept, mirroring
+      // acknowledgeCap's pattern exactly -- POST …/action, action SELECT_DROPS (the SAME worker
+      // route), then re-load the preview, which is what actually flips canAccept once satisfied.
+      function selectDrops(id, el) {
+        if (drops.busy) return;
+        var fid = el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : "";
+        if (!fid) return;
+        var picked = drops.selections[fid] || [];
+        drops.busy = true; drops.message = ""; paint(lastReview);
+        fetchAcceptPreview(actionUrl, { league_id: previewBody.league_id, season: previewBody.season, trade_id: previewBody.trade_id, action: "SELECT_DROPS", acting_franchise_id: previewBody.acting_franchise_id, offer_id: previewBody.offer_id, loaded_contract_drops: picked })
+          .then(function (res) {
+            if (settled) return;
+            var out = T.interpretSelectDrops(res);
+            drops.busy = false; drops.message = out.message; drops.ok = !!out.ok;
+            load();
+          });
+      }
+      // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind
+      // only delegates [data-t3w-act] clicks, so this is a separate, once-only delegated
+      // listener on the stable body container (survives every repaint's innerHTML reset).
+      if (!body.__t3wDropsBound) {
+        body.__t3wDropsBound = true;
+        body.addEventListener("change", function (ev) {
+          var box = ev.target;
+          if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+          var fid = box.getAttribute("data-t3w-drop-fid");
+          var pid = box.getAttribute("data-t3w-drop-pid");
+          var cur = drops.selections[fid] || [];
+          if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
+          else { cur = cur.filter(function (x) { return x !== pid; }); }
+          drops.selections[fid] = cur;
+          paint(lastReview);
+        });
+      }
+      T.bind(dlg, { "accept-close": function () { done(false); }, "accept-retry": load, "accept-confirm": function () { done(true); }, "ack-cap": acknowledgeCap, "select-drops": selectDrops });
       dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(false); };
       load();
       if (typeof dlg.showModal === "function") {

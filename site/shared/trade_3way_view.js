@@ -364,7 +364,15 @@
       h = h.replace('data-t3w-roster="' + esc(ro.status) + '">', 'data-t3w-roster="' + esc(ro.status) + '" data-t3w-loaded-contracts="' + esc(lc.status) + '">');
       h += '<div class="t3w-cap t3w-cap-' + esc(lc.status === "needs_drops" ? "warn" : lc.status) + '" role="' + (lc.status === "ok" || lc.status === "needs_drops" ? "status" : "alert") + '"><b>' + lcTitle + '</b>' +
         (lcMsg ? '<p>' + esc(lcMsg) + '</p>' : '') + (lcRows ? '<ul class="t3w-crows" aria-label="Loaded contracts after the trade">' + lcRows + '</ul>' : '') +
-        ((lc.drop_requirements || []).length ? api.renderLoadedContractDrops(lc.drop_requirements, opts.viewerFid, Object.assign({}, opts, { interactive: false })) : '') +
+        // "Every party must see the drop requirement and selected players when viewing the
+        // offer" (Keith's ruling, 2026-09-29). Interactivity is NOT forced off here -- it
+        // follows the SAME rule cap-ack already uses one section up (api.renderCapAck): a
+        // picker only ever renders for a franchise matching `opts.viewerFid`, so renderDetail's
+        // own call (which passes no viewerFid at all) stays read-only naturally, while
+        // renderAcceptReview's call (which DOES pass the viewer's own fid) lets the affected
+        // owner pick their own drops right there in the accept-review dialog, exactly like it
+        // already lets them acknowledge a cap overage there.
+        ((lc.drop_requirements || []).length ? api.renderLoadedContractDrops(lc.drop_requirements, opts.viewerFid, opts) : '') +
         '</div>';
     }
     // ── lineup feasibility (ADVISORY, never blocks) — reuses the .t3w-rost visual tier,
