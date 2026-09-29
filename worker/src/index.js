@@ -8183,6 +8183,7 @@ export default {
         path !== "/api/trades/3way/cancel" &&
         path !== "/api/trades/3way/recheck" &&
         path !== "/api/trades/3way/ack-cap" &&
+        path !== "/api/trades/3way/select-drops" &&
         !path.startsWith("/api/trades/outbox") &&
         !path.startsWith("/api/trades/reconcile") &&
         !path.startsWith("/api/trades/refresh-after-trade")
@@ -37843,9 +37844,9 @@ const mflToSleeper = {};
           }
         },
         // Live cap/roster projection for a 3-way row (used by the accept + execute gates and the detail view).
-        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc }) => {
+        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc, conditionalDrops }) => {
           const ext = await planExtensionSalaries(season, leagueId, extensionRequests, { offerCreatedAtUtc });
-          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests });
+          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests, conditionalDrops });
           out.extension_skipped = (ext.skipped || []).map((x) => ({ player_id: safeStr(x && x.player_id), reason: safeStr(x && x.reason) }));
           if (!ext.ok && out.cap.status !== "unavailable") { out.cap = { ...out.cap, status: "unavailable", reason: "extension_salaries_unavailable", message: "We couldn't verify the salary cap for this trade right now." }; }
           return out;
@@ -38109,7 +38110,7 @@ const mflToSleeper = {};
       // Internal (commish/self) — the post-trade cap + roster picture for a 3-way's movements, from the SAME
       // authority the 2-way accept uses. Called by the 3-way engine (Discord accept + execute gates) via
       // env.SELF.fetch; not an owner route. Body: { league_id, season, movements:[{from,to,tokens[]}],
-      // extension_requests[] }. Read-only.
+      // extension_requests[], conditional_drops:{franchiseId:[playerId,...]} }. Read-only.
       if (path === "/admin/3way/compliance" && request.method === "POST") {
         const commishKey = String(env.COMMISH_API_KEY || "").trim();
         const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
@@ -38123,7 +38124,7 @@ const mflToSleeper = {};
           from: m && m.from, to: m && m.to,
           tokens: (Array.isArray(m && m.tokens) ? m.tokens : []).map(normalizeToken).filter(Boolean),
         }));
-        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: safeStr(body?.offer_created_at_utc) });
+        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: safeStr(body?.offer_created_at_utc), conditionalDrops: body?.conditional_drops });
         return jsonOut(200, { ok: true, compliance: out });
       }
 
@@ -39300,7 +39301,7 @@ const mflToSleeper = {};
             if (!hit) {
               // Not pending in MFL. If the ledger says WE executed it, that is the truth to report (never a bare "not pending"), and only
               // one of its two teams may hear it.
-              if (["ACCEPT", "PREVIEW", "ACK_CAP"].includes(action)) {
+              if (["ACCEPT", "PREVIEW", "ACK_CAP", "SELECT_DROPS"].includes(action)) {
                 let led = null;
                 try { led = await execLedger().read(execKey(leagueId, season, mflTradeId)); } catch (_) { led = null; }
                 if (led && Array.isArray(led.participants) && led.participants.includes(actFid)) return { ok: false, ledger: led };
@@ -39319,7 +39320,9 @@ const mflToSleeper = {};
             // (refreshing a stale one, since only the sender could have made it at creation) or
             // the recipient might be acknowledging their own ahead of accepting. Never the other
             // team's franchise id, and never a stranger to this offer.
-            if (action === "ACK_CAP" && actFid !== from && actFid !== to) {
+            // SELECT_DROPS (loaded-contract conditional-drop selection) is the SAME shape as
+            // ACK_CAP -- either side may call it for their OWN franchise's own requirement.
+            if ((action === "ACK_CAP" || action === "SELECT_DROPS") && actFid !== from && actFid !== to) {
               return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this offer." };
             }
             return { ok: true, from, to };
@@ -39457,8 +39460,8 @@ const mflToSleeper = {};
             });
           }
 
-          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE", "ACK_CAP"].includes(action)) {
-            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, COUNTER, or ACK_CAP in direct mode" });
+          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE", "ACK_CAP", "SELECT_DROPS"].includes(action)) {
+            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, COUNTER, ACK_CAP, or SELECT_DROPS in direct mode" });
           }
           if (!mflTradeId) {
             return jsonOut(400, { ok: false, error: "trade_id is required for direct MFL actions" });
@@ -39477,7 +39480,7 @@ const mflToSleeper = {};
           // BEFORE anything is written. Live legality is re-checked here (fail closed). See
           // worker/src/trade_accept_integrity.js.
           let acceptCompliance = null;
-          if (action === "ACCEPT" || action === "PREVIEW" || action === "ACK_CAP") {
+          if (action === "ACCEPT" || action === "PREVIEW" || action === "ACK_CAP" || action === "SELECT_DROPS") {
             const integrityFail = (http, code, message, extra) =>
               jsonOut(http, { ok: false, mode: "direct_mfl", action: "ACCEPT", code, error: message, message, ...(extra || {}) });
             const clientClaims = collectClientClaims(body);
@@ -39738,6 +39741,73 @@ const mflToSleeper = {};
                 compliance: acceptCompliance, cap_ack: { franchise_id: ackCapMyFid, amount_over: ackCapMyViolation.amount_over, signature: ackCapSig },
               });
             }
+            if (action === "SELECT_DROPS") {
+              // Select (and, by submitting, confirm) THIS caller's OWN conditional loaded-contract
+              // drops on this pending offer -- callable by either side, same shape as ACK_CAP: the
+              // sender revising a selection made at creation, or the recipient picking ahead of
+              // accepting. Never writes to MFL, never drops a player -- only records the selection
+              // (or reports there's nothing required). `body.loaded_contract_drops` (array of
+              // player ids) REPLACES this franchise's whole selection -- an empty array clears it.
+              if (acceptCompliance.loaded_contracts.status === "unavailable") {
+                return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so nothing was selected. Try again in a moment.", { compliance: acceptCompliance });
+              }
+              const selectDropsMyFid = actingFranchiseId;
+              const selectDropsIds = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
+              const selectDropsDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+              if (!selectDropsDb) return integrityFail(503, "unavailable", "Couldn't save that selection right now. Try again in a moment.");
+              // byFranchise/taxiFlags/acceptExtSalary are scoped to the ACCEPT-only block above
+              // (out of reach here) -- rebuilt locally, the SAME way, since SELECT_DROPS is its
+              // own sibling action.
+              const selectDropsByFranchise = tokensByFranchise(authLists);
+              const selectDropsTaxiFlags = {};
+              for (const team of Array.isArray(payload?.teams) ? payload.teams : []) {
+                for (const a of Array.isArray(team?.selected_assets) ? team.selected_assets : []) {
+                  const pid = safeStr(a?.player_id).replace(/\D/g, "");
+                  if (pid && parseBoolFlag(a?.taxi)) selectDropsTaxiFlags[pid] = true;
+                }
+              }
+              let selectDropsExtSalary = {};
+              if (authExtRows.length) {
+                const selectDropsExtPlan = await planExtensionSalaries(season, leagueId, authExtRows, { offerCreatedAtUtc: safeStr(candidate && candidate.created_ts) });
+                if (!selectDropsExtPlan.skipped.length) selectDropsExtSalary = selectDropsExtPlan.salary;
+                // (a stale/unpriceable extension here just leaves selectDropsExtSalary empty --
+                // the SAME condition already refuses via the ACCEPT-time check above on any real
+                // accept; SELECT_DROPS itself never blocks a trade, so it degrades gracefully.)
+              }
+              const selectDropsTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: selectDropsByFranchise, extensionRequests: authExtRows })}`;
+              // Recompute compliance WITH this exact selection applied (not the pre-fetched
+              // acceptCompliance, which reflects only what was already stored) so the response
+              // reports THIS selection's own validity, not a stale picture.
+              const selectDropsCapFids = Object.keys(selectDropsByFranchise);
+              const priorDrops = await makeConditionalDropStore(selectDropsDb).readAllForTrade({ leagueId, season, tradeKey: selectDropsTradeKey });
+              const selectDropsCompliance = await computeTradeComplianceLive({
+                season, leagueId, extensionSalary: selectDropsExtSalary, taxiFlags: selectDropsTaxiFlags,
+                movements: selectDropsCapFids.map((f) => ({ from: f, to: selectDropsCapFids.find((x) => x !== f), tokens: selectDropsByFranchise[f] })),
+                extensionRequests: authExtRows,
+                conditionalDrops: { ...priorDrops, [selectDropsMyFid]: selectDropsIds },
+              });
+              const selectDropsMyReq = (selectDropsCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === selectDropsMyFid);
+              if (!selectDropsMyReq) {
+                return jsonOut(200, { ok: true, mode: "direct_mfl", action: "SELECT_DROPS", trade_id: mflTradeId, code: "nothing_required", message: "Your team isn't projected to need a conditional drop on this trade right now.", compliance: selectDropsCompliance });
+              }
+              try {
+                await makeConditionalDropStore(selectDropsDb).setForFranchise(
+                  { leagueId, season, tradeKey: selectDropsTradeKey, tradeKind: "two_way" },
+                  { franchiseId: selectDropsMyFid, playerIds: selectDropsIds, selectedByFid: selectDropsMyFid }
+                );
+              } catch (e) {
+                console.error("[loaded-contract-drops] couldn't persist SELECT_DROPS:", e?.message || String(e));
+                return integrityFail(503, "loaded_contract_drops_unavailable", "Couldn't save that selection right now. Try again in a moment.");
+              }
+              return jsonOut(200, {
+                ok: true, mode: "direct_mfl", action: "SELECT_DROPS", trade_id: mflTradeId,
+                code: selectDropsMyReq.satisfied ? "selected" : "selected_insufficient",
+                message: selectDropsMyReq.satisfied
+                  ? `Selected: ${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drop${selectDropsMyReq.required_drops === 1 ? "" : "s"}.`
+                  : `${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drops are valid so far -- ${selectDropsMyReq.required_drops - selectDropsMyReq.valid_count} more needed.`,
+                compliance: selectDropsCompliance, drop_requirement: selectDropsMyReq,
+              });
+            }
             if (action === "PREVIEW") {
               // Read-only review for the accept confirmation: no MFL write, no outbox row, no completed state.
               if (!authLists.isValid) {
@@ -39760,7 +39830,11 @@ const mflToSleeper = {};
                   })),
                 };
               }
-              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview });
+              // loaded_contract_drops: the CURRENT drop-requirement picture is already part of
+              // acceptCompliance.loaded_contracts.drop_requirements (computed above WITH whatever
+              // selections are stored/inline) -- surfaced here under its own key so the client
+              // doesn't have to reach into the compliance object's internals to render it.
+              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_drops: acceptCompliance.loaded_contracts.drop_requirements || [] });
             }
           }
           if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {

@@ -439,7 +439,7 @@ test("LC 3-WAY: RECOVERABLE block when both accept over the limit -- collecting,
   t.equal(row.team_b_state, "accepted"); t.equal(row.team_c_state, "accepted");
   t.equal(row.failure_reason, null); t.equal(row.mfl_trade_ids, null); t.equal(row.executed_at_utc, null);
   const led = ledgerRow(env); t.equal(led.state, "blocked_cap");
-  const blk = JSON.parse(led.block_json); t.equal(blk.kind, "loaded_contracts");
+  const blk = JSON.parse(led.block_json); t.equal(blk.kind, "loaded_contract_drops_required");
   t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(mfl.st.done.length, 0);
 });
 
@@ -447,12 +447,12 @@ test("LC 3-WAY: recheck recomputes from FRESH authority -- fixing the roster let
   const { env, mfl } = threeWayWorld({ loadedC: 5, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
   mfl.st.rosters["0001"][0].contractStatus = "Vet-FAA-FL";
   const r1 = await execute3Way(env, F.TRADE_ID);
-  t.equal(r1.blocked, true); t.equal(r1.kind, "loaded_contracts");
+  t.equal(r1.blocked, true); t.equal(r1.kind, "loaded_contract_drops_required");
   t.equal(F.readRow(env).status, "collecting", "recoverable -- never failed");
   t.equal(ledgerRow(env).state, "blocked_cap");
   // a re-check while STILL over the limit: refused, recomputed, nothing changes
   const still = await recheck(env);
-  t.equal(still.status, 409); t.equal(still.json.code, "loaded_contract_limit");
+  t.equal(still.status, 409); t.equal(still.json.code, "loaded_contract_drops_required");
   t.equal(F.readRow(env).status, "collecting"); t.equal(mfl.writes().length, 0);
   // Fix: 0012 drops one of its 5 loaded contracts, opening a slot -- a fresh read must pick this up.
   // (index 0 is the real trade asset 16650 -- keep it; drop one of the loaded filler players.)
