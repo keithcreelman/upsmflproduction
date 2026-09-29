@@ -1,7 +1,18 @@
 // contract_classification.js — classifies a contract's "loaded" modifier (front-loaded /
 // back-loaded / flat) for the Trade War Room's loaded-contract limit gate (canon §2.G /
 // §6.G: "Loaded contracts on roster ≤ 5 at all times (front + back combined)"; "Loaded...
-// can never attach to a 1-year deal, a MYM, or a taxi contract").
+// can never attach to a 1-year deal, a MYM, or a taxi contract"). This is also the ONE
+// classifier for the Front Office roster workbench's own loaded-contract count and filter
+// (site/shared/loaded_contract_classification.js is a faithful, tested port of this exact
+// module for the browser -- see tests/loaded_contract_classification_parity.test.mjs, which
+// fails the build if the two ever diverge). Neither surface may run its own, different rule.
+//
+// RULING (2026-09-29, FIFTH revision -- a plain, unsuffixed Ext1/Ext2 contractStatus is no
+// longer run through the generic whole-contract Year-1-vs-AAV test at all; see the dedicated
+// comment inside resolveLoadedStatus's priority-1 branch and
+// docs/LOADED_CONTRACT_EXT_CLASSIFICATION_INVESTIGATION.md for the full canon citation and
+// live-data verification. A SUFFIXED Ext-family status is unaffected -- canon confirms that
+// shape can only come from a later restructure, a genuine, structural loaded curve.)
 //
 // RULING (2026-09-28, FOURTH revision -- a THIRD review pass found the presence check
 // itself was too strict in the wrong direction: a schedule with only ONE Y-token, or a
@@ -101,6 +112,14 @@ const s = (v) => String(v == null ? "" : v).trim();
 
 const LOADED_SUFFIX_RE = /-(FL|BL)$/i;
 const LOADED_BARE_RE = /^(FL|BL)$/i;
+
+// A contractStatus BASE (any trailing -FL/-BL already stripped) that is EXACTLY a 1- or
+// 2-year extension -- canon's only two currently-defined extension lengths
+// (docs/league_context_v1.md:465, 476-480; EXT3 is documented as legacy data, "not a live
+// option", so it is deliberately NOT matched here -- this module does not invent a rule for
+// a contract shape canon itself declines to define). Used only to decide whether the
+// frozen-first-year carve-out below applies -- never to shortcut the classification itself.
+const PLAIN_EXT_RE = /^(vet|rookie)-ext[12]$/i;
 
 // Contract-status "families" this league is documented to actually use (see the MFL
 // contractStatus vocabulary memory notes -- both the 2025 legacy singular tokens and the
@@ -395,6 +414,49 @@ export function resolveLoadedStatus(contractStatus, contractInfo) {
     // exercised or unexercised: the two candidates have different lengths and CL is one
     // fixed number, so at most one can ever satisfy the completeness check -- a lookup
     // the data itself settles, not a guess.
+    // RULING (2026-09-29, Ext1/Ext2 classification investigation): a PLAIN (no -FL/-BL
+    // suffix) Ext1 or Ext2 contractStatus is classified by comparing the extension's OWN
+    // new year(s) to EACH OTHER -- never by folding the contract's frozen, pre-extension
+    // first year into a whole-contract Y1-vs-AAV test. Canon defines it exactly this way
+    // ("2-year extension (Ext2): FL or BL allowed. Status becomes EXT2-FL (Y1 > Y2) or
+    // EXT2-BL (Y1 < Y2)" -- docs/league_context_v1.md:480 -- "Y1"/"Y2" there are the
+    // extension's OWN two new years, not the whole contract's Year 1; "1-year extension
+    // (Ext1): FL/BL NOT allowed. One year of extension -> no salary curve possible" --
+    // :479, unconditional, not merely "usually flat"). The whole-contract test this module
+    // otherwise applies (comparing Year 1 to the contract's blended AAV) is the RIGHT test
+    // for an Auction/MYAC/restructure contract, whose Year 1 is a real, freshly negotiated
+    // salary -- but for an extension, Year 1 is the CARRIED-FORWARD salary from the
+    // player's prior, unrelated contract, so comparing it to a blended AAV proves nothing
+    // about the new money's shape (the exact reasoning resolveExtensionLoadedStatus below
+    // already applies when PRICING a new extension -- this reuses that same function and
+    // that same reasoning for CLASSIFYING one already on the roster, instead of running a
+    // second, inconsistent test against the identical contract shape).
+    //   Empirically confirmed against every live 2026 roster (483 players, 2026-09-29
+    // investigation): every plain Ext2 found (Gibbs 16162, Flowers 16190, Kincaid 16213,
+    // Lamb 14832) has its two extension years EXACTLY equal -- this carve-out reclassifies
+    // real, unresolved-until-now flat contracts, not a guess papering over a genuinely
+    // uneven, mislabeled one; a plain Ext2 whose two extension years actually differ still
+    // resolves FL/BL here, suffix or no suffix, exactly like canon's own worked example.
+    //   A SUFFIXED Ext-family status (Vet-Ext1-BL, etc.) is excluded from this branch on
+    // purpose: canon's own restructure rule (:523-526) confirms a suffix on an Ext1 status
+    // specifically can ONLY come from a later restructure ("the extension status is kept,
+    // not replaced" -- the Hurts reference fixture is literally Vet-Ext1-BL) -- that is a
+    // real, structural, restructure-driven salary curve, not the extension's own shape, and
+    // must fall through to the ordinary whole-contract test below, unchanged.
+    //   Also requires >= 2 raw years in the schedule: a contract already down to its LAST
+    // year (the frozen year has already been played and MFL no longer lists it -- a real,
+    // observed shape, e.g. "Vet-Ext1 | CL 1|TCV 15K|AAV 15K|Y1-15K") has no frozen year left
+    // to exclude and no future years to compare either -- resolveExtensionLoadedStatus would
+    // wrongly report this unresolved (it excludes Y1 unconditionally, expecting it to always
+    // be the frozen year). This shape is handled correctly by the ordinary candidates loop
+    // just below instead, which already resolves a genuine 1-year schedule flat.
+    const suffixMatch = LOADED_SUFFIX_RE.exec(s(contractStatus));
+    const statusBase = suffixMatch
+      ? s(contractStatus).slice(0, s(contractStatus).length - suffixMatch[0].length).trim()
+      : s(contractStatus);
+    if (!suffixMatch && PLAIN_EXT_RE.test(statusBase) && raw.years.length >= 2) {
+      return resolveExtensionLoadedStatus(contractInfo);
+    }
     const candidates = raw.optionYears.length
       ? [{ years: raw.baseYears, values: raw.baseValues }, { years: raw.years, values: raw.values }]
       : [{ years: raw.years, values: raw.values }];

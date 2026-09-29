@@ -926,12 +926,29 @@
     return hits[0].franchiseId;
   }
 
-  function contractBucket(type) {
+  // RULING (2026-09-29, Ext1/Ext2 classification investigation, Keith): "the Trade War Room
+  // loaded-contract calculation must align with Front Office... Implement the approved
+  // canon interpretation consistently on both surfaces and the worker's enforcement path...
+  // Do not make Trade War Room display one count while Front Office displays another." This
+  // used to be a plain suffix check on `type` alone (does the raw contractStatus string end
+  // in -FL/-BL?) -- correct on every one of the league's live contracts today, per the
+  // 2026-09-29 investigation, but not GUARANTEED to stay correct, since it never verified
+  // the actual per-year schedule the way the Trade War Room's gate does. It now delegates to
+  // the shared, schedule-verifying classifier
+  // (../shared/loaded_contract_classification.js, a faithful port of the worker's own
+  // worker/src/contract_classification.js -- see tests/loaded_contract_classification_parity
+  // .test.mjs) so the two surfaces can never again silently disagree.
+  function isLoadedContractStatus(type, contractInfo) {
+    var classifier = (typeof window !== "undefined") && window.UPS_LOADED_CONTRACT_CLASSIFICATION;
+    if (classifier && typeof classifier.isLoaded === "function") {
+      return classifier.isLoaded(type, contractInfo);
+    }
+    // Defensive fallback ONLY -- the shared classifier script failed to load (network
+    // hiccup, ordering bug) or this call site genuinely has no contractInfo to check. Never
+    // crash; fall back to the OLD naive suffix-only rule rather than silently reporting
+    // "not loaded" for everything.
     var t = normType(type);
-    if (!t) return "other";
-    if (t === "tag" || t.indexOf("tag") !== -1) return "tag";
-    if (t.indexOf("rookie") !== -1) return "rookie";
-    if (
+    return !!(
       t === "fl" ||
       t === "bl" ||
       /(^|-)(fl|bl)$/.test(t) ||
@@ -941,14 +958,20 @@
       t.indexOf("front loaded") !== -1 ||
       t.indexOf("backloaded") !== -1 ||
       t.indexOf("back loaded") !== -1
-    ) {
-      return "loaded";
-    }
+    );
+  }
+
+  function contractBucket(type, contractInfo) {
+    var t = normType(type);
+    if (!t) return "other";
+    if (t === "tag" || t.indexOf("tag") !== -1) return "tag";
+    if (t.indexOf("rookie") !== -1) return "rookie";
+    if (isLoadedContractStatus(type, contractInfo)) return "loaded";
     return "other";
   }
 
-  function typeTone(type) {
-    var bucket = contractBucket(type);
+  function typeTone(type, contractInfo) {
+    var bucket = contractBucket(type, contractInfo);
     if (bucket === "tag") return "is-tag";
     if (bucket === "rookie") return "is-rookie";
     if (bucket === "loaded") return "is-loaded";
@@ -956,7 +979,7 @@
   }
 
   function isLoadedContractPlayer(player) {
-    return contractBucket(player && player.type) === "loaded";
+    return contractBucket(player && player.type, player && player.special) === "loaded";
   }
 
   function activeRosterCountForPlayers(players) {
@@ -976,7 +999,7 @@
     for (var i = 0; i < list.length; i += 1) {
       var player = list[i];
       if (!player) continue;
-      if (safeInt(player.years, 0) === 3 && contractBucket(player.type) !== "rookie") {
+      if (safeInt(player.years, 0) === 3 && contractBucket(player.type, player.special) !== "rookie") {
         threeYearNonRookie += 1;
       }
       if (isLoadedContractPlayer(player)) loaded += 1;
@@ -2892,7 +2915,7 @@
   //   * contract_sep  — non-rookie veterans with 1 yr remaining: deadline =
   //                     current-season's September contract-deadline date.
   function extensionDeadlineForPlayer(player, season) {
-    var bucket = contractBucket(player && player.type);
+    var bucket = contractBucket(player && player.type, player && player.special);
     var yearsRemaining = safeInt(player && player.years, 0);
     var option = rookieOptionStateForPlayer(player);
     var ctxYear = safeInt(season, 0);
@@ -4854,7 +4877,7 @@
   function enrichPlayer(p) {
     var out = p || {};
     out.positionGroup = positionGroupKey(out.position);
-    out.typeBucket = contractBucket(out.type);
+    out.typeBucket = contractBucket(out.type, out.special);
     if (!out.pointsByYear) out.pointsByYear = Object.create(null);
     if (!out.gamesByYear) out.gamesByYear = Object.create(null);
     if (out.pointsByYear && Object.keys(out.pointsByYear).length === 0) {
@@ -6373,7 +6396,7 @@
       return false;
     }
 
-    if (contractTypeFilterEnabledForView() && state.filterType && contractBucket(player.type) !== state.filterType) {
+    if (contractTypeFilterEnabledForView() && state.filterType && contractBucket(player.type, player.special) !== state.filterType) {
       return false;
     }
 
@@ -9591,7 +9614,7 @@
                 '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
                 '<button type="button" class="rwb-player-open rwb-player-open-stack" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">' +
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
-                  '<span class="rwb-type-pill ' + (unknownContract ? "is-pending" : typeTone(p.type)) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
+                  '<span class="rwb-type-pill ' + (unknownContract ? "is-pending" : typeTone(p.type, p.special)) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
                 newsSlotHtml(p.id, p.fid) +
                 tags.join("") +
@@ -9715,7 +9738,7 @@
               '<div class="rwb-player-line">' +
                 '<button type="button" class="rwb-player-open rwb-player-open-stack" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">' +
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
-                  '<span class="rwb-type-pill ' + (unknownContract ? "is-pending" : typeTone(p.type)) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
+                  '<span class="rwb-type-pill ' + (unknownContract ? "is-pending" : typeTone(p.type, p.special)) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
                 newsSlotHtml(p.id, p.fid) +
                 (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
@@ -11157,7 +11180,7 @@
           salary_year_2_label: String(baseYear + 1),
           salary_year_3_label: String(baseYear + 2),
           contract_type: p.type,
-          contract_bucket: contractBucket(p.type),
+          contract_bucket: contractBucket(p.type, p.special),
           special: p.special,
           status: p.status,
           taxi: p.isTaxi ? "Y" : "N"
