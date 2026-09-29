@@ -1,6 +1,6 @@
 # Loaded-Contract Conditional-Drop EXECUTION — design doc (not implemented)
 
-**Status: design/trace only, REVISION 4.** No execution code in this document has been written.
+**Status: design/trace only, REVISION 5.** No execution code in this document has been written.
 Round 1 (Keith, 2026-09-29): *"Do not merge, migrate, or deploy PR #1149 as currently written...
 Revise the execution design without assuming either operation order is safe."* Round 2 (same day,
 after reviewing round 1's §8): *"My send-time rule applies to both teams, not only the initiator
@@ -11,15 +11,29 @@ native offers at cutover, and determine whether owners can create or accept trad
 MFL outside the War Room; state the enforceable boundary honestly... Do not choose automatic
 trade-first or drop-first yet. Stage and collect each owner's named-player consent, then hold
 conditional-drop deals for commissioner review. Present the exact manual execution procedure and
-its non-atomic risks before any real drop or trade is attempted."*
+its non-atomic risks before any real drop or trade is attempted."* Round 4 (after reviewing round
+3's §2.4.3): *"Its manual execution doc §2.4.3 needs correction: after one confirmed drop, a
+later drop or the trade can fail. The statement that a failure means 'nothing was taken from
+anyone' is false. Do not treat a human following a checklist as an atomic transaction or approve
+drop-first by default. Document each partial state, owner notification, and recovery before
+selecting an execution order."*
 
-This revision answers round 3 directly: §2.4 is now the decided execution model (manual
-commissioner review, with the exact procedure and its own non-atomic risks specified — §2.1/§2.2
-remain as the reasoning for why neither automated ordering was approved), §8.3 records universal
-staging as decided over the scoped alternative, and §8.5 (new) addresses cutover for pending
-native offers and states plainly what universal staging does and does not control relative to
-MFL's own native trade tools. §9's Ext1/Ext2/IR classification question is likewise now ruled on
-and shipped as its own PR (#1152), kept deliberately separate from this branch and its migration.
+This revision answers round 4 directly: §2.4.3 is rewritten from a single, prescribed
+drop-first sequence with a blanket "nothing lost on failure" claim into a general analysis of
+every partial state a multi-write sequence (one or more drops, plus the trade) can stop in —
+state 0 (nothing executed, costless) through state *k* (some but not all writes confirmed, a
+real, non-atomic loss, now with its own `partial_executed` ledger state, explicit per-owner
+notification, and explicit non-automatic recovery) through state *N* (everything confirmed,
+success) — symmetric regardless of which write happens first, since a fixed "drops first"
+default was exactly what this correction removed, not replaced with a different default.
+
+Round 3's other items stand as previously revised: §2.4 is the decided execution model (manual
+commissioner review; §2.1/§2.2 remain as the reasoning for why neither automated ordering was
+approved), §8.3 records universal staging as decided over the scoped alternative, and §8.5
+addresses cutover for pending native offers and states plainly what universal staging does and
+does not control relative to MFL's own native trade tools. §9's Ext1/Ext2/IR classification
+question is likewise ruled on and shipped as its own PR (#1152), kept deliberately separate
+from this branch and its migration.
 
 Nothing in THIS document (the execution/staging design) is built. The SELECTION mechanism (an
 owner picking and confirming which of their own loaded-contract players to drop, conditional on a
@@ -243,7 +257,8 @@ prior draft assumed Ordering A; on Keith's instruction it is now presented, not 
 
 Given MFL genuinely cannot make "drop + trade" atomic (§2.5), and given Keith has not approved
 automating either ordering, the decided model is: **collect consent through the system, execute
-nothing through the system.** A human performs both irreversible writes, in whichever order the
+nothing through the system.** A human performs every irreversible write the deal requires — one
+or more drops, across one or more franchises, plus the trade itself — in whatever sequence the
 specific deal calls for, using the exact terms the system already computed and showed the owner
 — never re-deriving them by hand, never guessing.
 
@@ -271,56 +286,102 @@ visible to the commissioner rather than only to the confirming owner:
   buried; a queued deal that has gone stale (a roster changed since staging) must show that
   before the commissioner acts on it, not after.
 
-**2.4.3 The manual execution procedure, exactly.** For a queued deal the commissioner elects to
-execute:
+**2.4.3 The manual execution procedure — every partial state, not an assumed sequence.**
 
-1. **Re-run the final compliance check** (the same one §2.4.2 already surfaces) immediately
-   before the first write — if it no longer clears, STOP; do not execute any part of a deal that
-   has gone stale. This is the identical "re-validate immediately before whichever write happens
-   first" requirement §5 already specifies for an automated ordering; a human performing the
-   write manually does not get an exemption from it.
-2. **Execute the drop(s) first, one franchise at a time, waiting for each to verify** (§1.1 — the
-   drop write, then the mandatory re-read of `TYPE=rosters` to confirm it actually happened,
-   never trusting MFL's response text alone) before touching the trade. This fixes Ordering B
-   specifically for the MANUAL case, not because Ordering B is now judged safer in general
-   (§2.3's tradeoff is unchanged), but because a human executing by hand can **look at the
-   confirmed result and stop** if a drop fails or comes back ambiguous — the exact mitigation
-   automation can't offer, since automation has already committed to a sequence before anything
-   goes wrong. Doing the trade first would remove that option: once the trade is done, a failed
-   drop leaves the franchise over the limit with no way to un-do the trade to reconsider.
-3. **Only once every required drop is CONFIRMED** (verified via the roster re-read, not merely
-   "the call returned 200") does the commissioner execute the trade itself, via the existing,
-   unmodified mechanism (§1.2 — `executeCommishTwoPartyTrade` for 2-way, the existing 3-way leg
-   execution for 3-way).
-4. **If any drop fails, refuses, or comes back ambiguous:** STOP. Do not execute the trade. The
-   deal stays in the review queue in a `blocked_on_drop` state (reusing the execution ledger's
-   existing side-state vocabulary, §6 — `executed_needs_review`/`blocked_cap` are the precedent),
-   with the failure reason recorded. Nothing was taken from anyone (no drop confirmed, no trade
-   executed) — this is the SOFT, recoverable failure mode §2.3 described for Ordering A,
-   deliberately preserved here by executing drops first and checking each one before proceeding.
-5. **Notify both the commissioner (already true — they're the one doing this) and every owner
-   party to the deal** of the outcome — executed in full, or blocked with the specific reason —
-   using the same notification surface §2.1's "owner notification" gap already flagged as needing
-   to exist for either automated ordering. This is not optional for the manual model either.
+**Keith's correction to the prior revision of this section:** *"after one confirmed drop, a
+later drop or the trade can fail. The statement that a failure means 'nothing was taken from
+anyone' is false. Do not treat a human following a checklist as an atomic transaction or
+approve drop-first by default. Document each partial state, owner notification, and recovery
+before selecting an execution order."* The prior revision prescribed drops-before-trade and
+claimed a mid-sequence failure cost nothing — true only when the very FIRST write in the
+sequence is the one that fails, and false for every other failure point once a deal requires
+more than one irreversible write (two or more drops, possibly across two or more franchises in
+a 3-way, plus the trade itself). This revision does not prescribe an ordering and treats every
+boundary between writes as a point where real, permanent loss can already exist.
+
+A queued deal's execution is a sequence of **N independent, irreversible MFL writes** — every
+required drop (one per selected player, potentially spanning more than one franchise) plus the
+trade itself — performed one at a time, in whatever sequence the specific deal calls for (§2.4's
+opening paragraph already leaves this to the deal; this section does not narrow it to
+"drops first" by default, per Keith's instruction). Before and during EACH write in that
+sequence:
+
+1. **Re-run the final compliance check** (§2.4.2) fresh, immediately before THIS write — not
+   only before the first one. If it no longer clears, STOP before this write, regardless of how
+   many prior writes in the sequence already succeeded; do not proceed on stale numbers.
+2. **Perform the one write, then verify it actually happened** before treating it as done (§1.1's
+   mandatory roster re-read for a drop, never trusting MFL's response text alone; the equivalent
+   verification discipline for the trade call itself). Never batch writes on the assumption they
+   will all succeed together — MFL gives no such guarantee for any of them.
+3. **Record the verified outcome in the execution ledger** (§6's existing vocabulary) before
+   moving to the next write in the sequence, so the deal's true partial state is always readable
+   from the ledger, never reconstructed from memory.
+
+**Every partial state this sequence can stop in, what it means, and its recovery:**
+
+- **State 0 — nothing executed yet.** Compliance failed the re-check (step 1) before any write
+  was attempted. The deal returns to the review queue unchanged, with the reason recorded.
+  Recovery: none needed — nothing real happened. Notification: informational only, to the
+  commissioner and the deal's owners, that it's paused rather than lost.
+- **State *k*, for `1 <= k < N`** — **some writes confirmed, the sequence stopped before
+  completing.** This is the state Keith's correction is about, and it is never costless. Whichever
+  writes ARE confirmed at this point are real and irreversible: a confirmed drop means a player
+  is genuinely gone from that roster, with its real cap dead-money penalty already accruing
+  (the existing async `ups_drop_events` cron picks it up regardless of what happens to the rest
+  of the sequence, §1.1/§3.6); a confirmed trade leg ahead of a still-pending drop means those
+  assets have already changed hands. If the NEXT write then fails, refuses, or comes back
+  ambiguous, the deal stops in state *k* — permanently, until a human resolves it:
+  - The deal moves to a **new, explicit ledger state — `partial_executed`** (distinct from
+    `executed_needs_review`/`blocked_cap`, §6's existing vocabulary — neither of those names
+    "some but not all of a multi-write sequence completed"), recording exactly which of the *N*
+    writes confirmed and which failed or never ran.
+  - **Every owner whose asset already moved — a confirmed drop, or a confirmed trade leg — must
+    be notified immediately and explicitly** that their side executed but the rest of the deal
+    did not, and that it is now paused for commissioner resolution. Never left for an owner to
+    discover on their own by noticing their roster changed.
+  - **Recovery is not automatic and is not "just retry the failed write."** The commissioner
+    must first understand WHY that write failed (lockout, a genuine MFL refusal, an unrelated
+    race) before deciding whether to retry the remaining writes or to negotiate a compensating
+    resolution with the affected owner(s) for the loss already incurred. This document does not
+    prescribe that compensating mechanism — it is exactly the kind of judgment call this whole
+    design routes to a human instead of automating, and is listed unresolved in §11.
+  - This state can persist indefinitely (§2.4.4 already flags the commissioner as a single point
+    of failure) — whether a stuck `partial_executed` deal needs its own aging alert is listed
+    unresolved in §11, the same open item §2.1 already raised for `executed_needs_review`.
+- **State *N*** — **every write confirmed.** The deal completed exactly as every party agreed to
+  it. Ordinary success notification to every party, same as any other completed trade.
+
+**This analysis is symmetric regardless of which write the commissioner performs first** — a
+default "drops first" sequence was specifically what Keith's correction removed, and it is not
+reintroduced here: whether the sequence is drop/drop/trade, drop/trade, trade/drop, or any other
+order a specific deal calls for, the identical state-*k* analysis applies to whichever write is
+not yet confirmed when a later one fails. Which sequence to prefer, if any — and whether that
+should be a fixed rule or the commissioner's judgment per deal — remains unresolved (§11), now
+informed by this being a real, consequential choice either way, not a free one.
 
 **2.4.4 Non-atomic risks specific to a HUMAN performing this manually** (in addition to, not
 instead of, the underlying MFL non-atomicity in §2.5, which no model here removes):
 
-- **Delay between drop and trade is now unbounded, not seconds.** An automated ordering executes
-  the second step within moments of the first (§2.1/§2.2 measure the exposure window in
-  seconds-to-minutes on the unhappy path). A human reviewing a queue may confirm the drop(s),
-  get interrupted, and not return to release the trade for hours — during which the OTHER
-  side(s) of the trade are waiting on a deal that looks (to them) like nothing is happening, and
-  the drop-confirming franchise has already paid the drop's cap-dead-money cost with nothing yet
-  received in return. This is a real cost of choosing the manual model over automation and
-  should be weighed against the safety benefit, not treated as free.
-- **A human can perform the steps in the wrong order, or skip the compliance re-check, despite
-  the documented procedure** — automation enforces its sequence mechanically; a documented
-  procedure only enforces itself if followed. The review-queue UI should make the CORRECT
-  sequence the only available action (buttons ordered/gated to match §2.4.3, the re-check
-  surfaced automatically rather than as a separate step to remember) rather than relying on the
-  commissioner reading and following this document exactly — UI enforcement of the procedure is
-  listed as unbuilt (§11), not assumed to follow from writing the steps down.
+- **Delay between successive writes in the sequence is now unbounded, not seconds.** An
+  automated ordering executes each step within moments of the last (§2.1/§2.2 measure the
+  exposure window in seconds-to-minutes on the unhappy path). A human reviewing a queue may
+  confirm one write, get interrupted, and not return to perform the next for hours — during
+  which every party downstream of that write is waiting on a deal that looks (to them) like
+  nothing is happening, and whichever franchise's write already confirmed has already paid its
+  real cost (a dropped player's cap dead-money, or an already-moved asset) with the rest of the
+  deal not yet delivered. This is a real cost of choosing the manual model over automation, not
+  merely the state-*k* failure risk §2.4.3 documents but its slow-motion, still-pending cousin —
+  and should be weighed against the safety benefit, not treated as free.
+- **A human can skip the per-write compliance re-check, or lose track of which writes in a
+  multi-write sequence are already confirmed, despite the documented procedure** — automation
+  enforces its sequence mechanically; a documented procedure only enforces itself if followed.
+  The review-queue UI should surface the re-check automatically before each write (never a
+  separate step to remember) and show the deal's true state — which writes are confirmed, which
+  remain — read live from the `partial_executed` ledger state (§2.4.3), not from the
+  commissioner's memory of what they already did. Once §11 resolves which sequence a deal should
+  follow (if any fixed rule at all, rather than per-deal judgment), the UI should make that
+  sequence the only available action — but that sequencing decision, and the UI that enforces
+  it, are both listed as unbuilt (§11), not assumed to follow from writing this procedure down.
 - **A queued deal can go stale while waiting for review**, exactly as §2.4.2 already flags — the
   live re-check at step 1 of §2.4.3 is what catches this, but only if it is actually run every
   time, including on a deal that has sat in the queue long enough that the commissioner might
@@ -334,7 +395,7 @@ This procedure supersedes any assumption in §8.2 that staging leads directly to
 final write — §8.2's step 5 ("the worker executes the real MFL trade... executes any confirmed
 drop(s)") describes what happens ONLY if and when Keith later approves automating one of §2.1/
 §2.2's orderings. Until then, §8.2's step 5 is this section: a human, not the worker, performs
-both writes, through the review queue, following §2.4.3 exactly.
+every write the deal requires, through the review queue, following §2.4.3 exactly.
 
 ### 2.5 Residual risk, stated plainly
 
@@ -430,6 +491,12 @@ matching "revalidate immediately before each acceptance and again before executi
 ---
 
 ## 6. Partial-outcome recording and resolution
+
+This section describes partial-outcome recording for an AUTOMATED ordering (§2.1/§2.2), IF one
+is ever approved (§2.4 — currently, neither is; the decided model is manual review). For the
+decided manual model's own partial-outcome handling — a deal stopping mid-sequence with some
+but not all of its writes confirmed — see §2.4.3's `partial_executed` state, which generalizes
+this section's two-operation case to a sequence of any length.
 
 Reuses the execution ledger's existing shape (§1.2) exactly — no new states, no new table:
 
@@ -581,8 +648,9 @@ design) is:
 5. Once that final check is `ok` for both sides — a state reachable either because nobody was ever
    over the limit, or because every needed drop has been resolved — the deal is released to
    execute, per **whichever model §2 settles on**. **Currently (§2.4, Keith's 2026-09-29 ruling):
-   this means the deal enters the commissioner-review queue and a human executes both writes by
-   hand, following §2.4.3 exactly** — not the worker executing automatically. If Keith later
+   this means the deal enters the commissioner-review queue and a human executes every write the
+   deal requires by hand, one at a time, following §2.4.3 exactly** — not the worker executing
+   automatically. If Keith later
    approves automating one of §2.1/§2.2's orderings, this step becomes the worker executing the
    real MFL trade via commissioner impersonation (`executeCommishTwoPartyTrade`, reused exactly
    as 3-way already uses it) and the confirmed drop(s), in that ordering's sequence — staging
@@ -781,17 +849,29 @@ moment it runs, whichever way #1152 eventually lands. Nothing in this document d
 - Whether automating one of §2.1/§2.2's orderings is ever revisited, and if so which — §2.4's
   ruling is explicitly framed as "not yet" ("Do not choose automatic trade-first or drop-first
   **yet**"), not a permanent rejection.
+- **Which sequence a multi-write deal's manual execution should follow, if any fixed rule at
+  all** (§2.4.3's closing paragraph) — a fixed rule (always drops first, always trade first,
+  something conditional) versus leaving it to the commissioner's judgment per deal. Explicitly
+  NOT decided by removing the prior draft's "drops first by default" assumption — that removal
+  was a correction, not a decision for the opposite default.
+- **The compensating-resolution mechanism for a `partial_executed` deal** (§2.4.3, state *k*) —
+  once the commissioner understands why a mid-sequence write failed, what recovery actually
+  looks like for the owner(s) whose asset already, irreversibly moved (retry the remaining
+  writes once the cause clears; negotiate an adjustment; something else) is explicitly not
+  prescribed here.
 - The exact commissioner-facing and owner-facing notification copy for every outcome in §2.4.3
-  (executed / `blocked_on_drop` / stale-and-refused-at-recheck).
-- Whether a queued deal sitting unreviewed needs its own aging alert, and whether a
-  backup-commissioner path is needed for when the primary commissioner is unavailable (§2.4.4).
-- The review-queue UI itself (§2.4.2/§2.4.4) — enforcing the correct manual sequence through the
-  interface, not merely documenting it.
+  (state 0 / state *k* `partial_executed` / state *N* success).
+- Whether a queued deal sitting unreviewed, or a stuck `partial_executed` deal, needs its own
+  aging alert, and whether a backup-commissioner path is needed for when the primary
+  commissioner is unavailable (§2.4.4).
+- The review-queue UI itself (§2.4.2/§2.4.4) — surfacing each deal's true partial state live
+  from the ledger, and once the sequencing question above is resolved, enforcing whatever
+  sequence rule follows from it.
 - The exact consent-copy changes to the shipped selection UI (§3) — needed regardless of the
   execution model, and not yet built.
 - The lockout operating-mode open question (§4), unchanged from v1.
 - The exact new function shape for a commissioner-authenticated drop call and any new
-  `steps_json` fields it needs (including the new `blocked_on_drop` ledger state, §2.4.3) —
+  `steps_json` fields it needs (including the new `partial_executed` ledger state, §2.4.3) —
   sketched in prose (§1.1, §2.4.3, §7), not written.
 
 None of the still-open items is resolved by this document. It is the reviewable design Keith
