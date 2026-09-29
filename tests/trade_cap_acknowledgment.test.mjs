@@ -88,8 +88,13 @@ const payloadOf = (from, to, give, recv, o) => ({
 const SWAP = () => payloadOf("0001", "0002", [player(14056)], [player(13100)]);
 function world(mfl, o) {
   o = o || {};
-  mfl.st.rosters["0001"] = [{ id: "14056", salary: o.s1 == null ? 5000 : o.s1 }, ...(o.fill1 ? [{ id: "90001", salary: o.fill1 }] : [])];
-  mfl.st.rosters["0002"] = [{ id: "13100", salary: o.s2 == null ? 5000 : o.s2 }, ...(o.fill2 ? [{ id: "90002", salary: o.fill2 }] : [])];
+  // contractYear/contractStatus on every row: the combined branch also runs the loaded-contract
+  // classifier (PR #1135) at accept time -- unclassifiable contract data reads as "unavailable"
+  // there, which (independently of anything in THIS file) would block the accept before ever
+  // reaching cap-acknowledgment logic. A plain Vet-FAA keeps every scenario here classifying as
+  // "not loaded", so these tests exercise the cap-acknowledgment mechanism in isolation.
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: o.s1 == null ? 5000 : o.s1, contractYear: 3, contractStatus: "Vet-FAA", ...(o.p1 || {}) }, ...(o.fill1 ? [{ id: "90001", salary: o.fill1, contractYear: 3, contractStatus: "Vet-FAA" }] : [])];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: o.s2 == null ? 5000 : o.s2, contractYear: 3, contractStatus: "Vet-FAA", ...(o.p2 || {}) }, ...(o.fill2 ? [{ id: "90002", salary: o.fill2, contractYear: 3, contractStatus: "Vet-FAA" }] : [])];
 }
 function fresh() {
   const env = makeWorkerEnv();
@@ -249,9 +254,9 @@ function threeWayWorld(o) {
   F.seedTrade(env, { legs_json: JSON.stringify(legs), ...(o.row || {}) });
   const s = o.sal || {};
   mfl.st.rosters = {
-    "0008": [{ id: "16614", salary: s.a1 == null ? 5000 : s.a1 }, ...(o.fillA ? [{ id: "90008", salary: o.fillA }] : [])],
-    "0001": [{ id: "16181", salary: s.b1 == null ? 5000 : s.b1 }, ...(o.fillB ? [{ id: "90001", salary: o.fillB }] : [])],
-    "0012": [{ id: "16650", salary: s.c1 == null ? 5000 : s.c1 }, ...(o.fillC ? [{ id: "90012", salary: o.fillC }] : [])],
+    "0008": [{ id: "16614", salary: s.a1 == null ? 5000 : s.a1, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.fillA ? [{ id: "90008", salary: o.fillA, contractYear: 3, contractStatus: "Vet-FAA" }] : [])],
+    "0001": [{ id: "16181", salary: s.b1 == null ? 5000 : s.b1, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.fillB ? [{ id: "90001", salary: o.fillB, contractYear: 3, contractStatus: "Vet-FAA" }] : [])],
+    "0012": [{ id: "16650", salary: s.c1 == null ? 5000 : s.c1, contractYear: 3, contractStatus: "Vet-FAA" }, ...(o.fillC ? [{ id: "90012", salary: o.fillC, contractYear: 3, contractStatus: "Vet-FAA" }] : [])],
   };
   return { env, mfl };
 }
@@ -337,8 +342,8 @@ test("CROSS-TRADE: a valid signature from ONE offer does not satisfy a genuinely
   // a DIFFERENT trade (different assets -> a different payload_hash / trade_key), engineered to
   // land on the SAME dollar figures ($10,000 over CBP's cap) as trade 1, so only the trade identity differs.
   const { env: e2, mfl: m2 } = fresh();
-  m2.st.rosters["0001"] = [{ id: "77001", salary: 20000 }, { id: "90001", salary: 100000 }];
-  m2.st.rosters["0002"] = [{ id: "77002", salary: 5000 }, { id: "90002", salary: 290000 }];
+  m2.st.rosters["0001"] = [{ id: "77001", salary: 20000, contractYear: 3, contractStatus: "Vet-FAA" }, { id: "90001", salary: 100000, contractYear: 3, contractStatus: "Vet-FAA" }];
+  m2.st.rosters["0002"] = [{ id: "77002", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, { id: "90002", salary: 290000, contractYear: 3, contractStatus: "Vet-FAA" }];
   const otherPayload = payloadOf("0001", "0002", [player(77001, 20000)], [player(77002, 5000)]);
   const r2 = await create(e2, createBody(otherPayload)); const id2 = m2.st.pending[0].trade_id;
   const p2 = await act(e2, mobileBody(id2, "PREVIEW"));
