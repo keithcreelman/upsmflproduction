@@ -7,6 +7,7 @@
 //   POST /api/trades/2way/cancel                            { id }  either party (or the commissioner) cancels
 //   POST /api/trades/2way/recheck                           { id }  re-check a trade both sides accepted but a gate is holding
 //   POST /api/trades/2way/select-drops                      { id, player_ids:[...] }  select (and confirm) the CALLER's own conditional loaded-contract drops on this trade (never writes to MFL, never drops a player, never itself unblocks execution)
+//   GET  /api/trades/2way/queue                             COMMISSIONER-only, read-only review queue: every active/failed staged trade league-wide, with fresh compliance, cap-ack state, ledger state and age. No execute/drop action exists on this route or anywhere behind it (Keith's ruling, 2026-09-29: "hold and inspect... do not add a drop or trade execution button yet").
 //
 // This is entirely ADDITIVE and, on its own, changes NOTHING about existing behavior:
 // worker/src/index.js's existing /trade-offers (direct-to-MFL) route is completely
@@ -19,10 +20,10 @@
 
 import {
   createStaged2WayTrade, get2WayTrade, list2WayForFranchise, cancel2WayTrade,
-  accept2WayTrade, recheck2WayExecution, select2WayLoadedContractDrops,
+  accept2WayTrade, recheck2WayExecution, select2WayLoadedContractDrops, listCommish2WayQueue,
 } from "./trade_2way.js";
 import { padFid } from "./trade_3way_model.js";
-import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
+import { resolveTradeCaller, callerFailureBody, isAdminCaller } from "./trade_authz.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 
@@ -38,10 +39,29 @@ const CREATE_MESSAGES = {
 };
 
 // The route family this module owns — exact matches only (the global L-guard exempts exactly these).
-export const TWO_WAY_STAGED_ROUTES = ["/api/trades/2way", "/api/trades/2way/accept", "/api/trades/2way/cancel", "/api/trades/2way/recheck", "/api/trades/2way/select-drops"];
+export const TWO_WAY_STAGED_ROUTES = ["/api/trades/2way", "/api/trades/2way/accept", "/api/trades/2way/cancel", "/api/trades/2way/recheck", "/api/trades/2way/select-drops", "/api/trades/2way/queue"];
 
 export async function handle2WayStagedHttp(a) {
   const { request, url, path, env, ctx, deps, corsHeaders } = a;
+
+  // ── COMMISSIONER QUEUE (read-only) — its own identity rule, checked first and separately: ──
+  // isAdminCaller (the admin key OR a PROVEN commissioner session), never the owner-scoped
+  // "acting as" rule the rest of this file uses. No id, no franchise scoping — league-wide.
+  if (path === "/api/trades/2way/queue" && request.method === "GET") {
+    const out = (status, payload) => new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json", ...(corsHeaders || {}) } });
+    const r = await resolveTradeCaller({
+      url, body: null, env, deps,
+      defaultLeagueId: a.defaultLeagueId, defaultSeason: a.defaultSeason,
+      queryToken: a.browserMflUserId, cookieToken: a.cookieMflUserId, allowCookieToken: true,
+    });
+    if (!r.ok) return out(r.http, callerFailureBody(r));
+    if (!isAdminCaller(r.caller)) return out(403, { ok: false, code: "forbidden", error: "Commissioner only.", message: "Commissioner only." });
+    const includeAll = ["all", "1", "true"].includes(safeStr(url.searchParams.get("includeAll")).toLowerCase());
+    const q = await listCommish2WayQueue(env, r.caller.leagueId, r.caller.season, { includeAll, deps: { franchiseNames: deps.franchiseNames, playersByIds: deps.playersByIds } });
+    if (!q.ok) return out(q.http || 503, { ok: false, code: q.code || "unavailable", error: q.message || "Couldn't load the queue.", message: q.message || "Couldn't load the queue." });
+    return out(200, { ok: true, league_id: q.league_id, season: q.season, trades: q.trades });
+  }
+
   const isBase = path === "/api/trades/2way";
   const isAccept = path === "/api/trades/2way/accept";
   const isCancel = path === "/api/trades/2way/cancel";

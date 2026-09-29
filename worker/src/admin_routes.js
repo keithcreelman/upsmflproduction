@@ -103,6 +103,7 @@ export const ADMIN_ROUTES = {
   "/admin/taxi-callups/sync-weeks": ["POST"],
   "/admin/test-league/mfl-call": ["POST"],
   "/admin/test-sync/prod-rosters": ["POST"],
+  "/admin/trade-offers/live-mfl-inventory": ["GET"],
   "/admin/trade-offers/pending-ids": ["GET"],
   "/admin/trade-sentinel/test-battery": ["POST"],
   "/admin/trade-sentinel/tick": ["POST"],

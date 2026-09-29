@@ -8192,6 +8192,10 @@ export default {
         path !== "/api/trades/2way/cancel" &&
         path !== "/api/trades/2way/recheck" &&
         path !== "/api/trades/2way/select-drops" &&
+        path !== "/api/trades/2way/queue" &&
+        // The pre-send compliance preview (2026-09-29) reads league_id from its own body first,
+        // exactly like the routes just above -- same exemption, same reason.
+        path !== "/api/trades/compliance-preview" &&
         !path.startsWith("/api/trades/outbox") &&
         !path.startsWith("/api/trades/reconcile") &&
         !path.startsWith("/api/trades/refresh-after-trade")
@@ -36951,6 +36955,82 @@ const mflToSleeper = {};
         return jsonOut(200, { ok: true, league_id: leagueId, season, pending_trade_ids: ids });
       }
 
+      // ---- 🔎 Live MFL pending-trade inventory (2026-09-29, read-only) -----
+      // Answers "what does MFL itself say is pending, right now" directly —
+      // NOT a read of ups_trade_offer_watch (whose 4 all-'gone' rows and lack
+      // of a sentinel heartbeat can't by themselves prove today's count is
+      // zero). This is a PURE READ: it enumerates pendingTrades for every
+      // franchise via the same commissioner-impersonated GET the sentinel
+      // tick uses (STEP A, above), but performs NONE of the tick's other
+      // work — no D1 mirror insert/update, no act_log, no lifecycle='gone'
+      // sweep, no MFL write of any kind. Safe to call at any time, as often
+      // as wanted, with zero side effects, including while
+      // TRADE_SENTINEL_ACT_ENABLED is on (this route never reaches any of
+      // that code).
+      if (path === "/admin/trade-offers/live-mfl-inventory" && request.method === "GET") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) {
+          return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || url.searchParams.get("season") || YEAR || "");
+        if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing L/YEAR" });
+        const namesByFid = {};
+        let lg;
+        try {
+          lg = await mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true });
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `league fetch failed: ${e?.message || e}` });
+        }
+        if (!lg?.ok) return jsonOut(502, { ok: false, error: `league fetch failed: ${lg?.error || `HTTP ${lg?.status}`}` });
+        const fl = lg?.data?.league?.franchises?.franchise || [];
+        for (const f of (Array.isArray(fl) ? fl : [fl])) {
+          const id = padFranchiseId(f?.id);
+          if (id) namesByFid[id] = safeStr(f?.name) || id;
+        }
+        const fids = Object.keys(namesByFid);
+        if (!fids.length) return jsonOut(502, { ok: false, error: "league export returned no franchises" });
+        const pending = new Map();
+        const perFranchiseErrors = [];
+        for (const fid of fids) {
+          try {
+            const res = await mflExportJson(season, leagueId, "pendingTrades", { FRANCHISE_ID: fid }, { includeApiKey: true, useCookie: true });
+            if (!res?.ok) { perFranchiseErrors.push(`${fid}: ${res?.error || `HTTP ${res?.status}`}`); continue; }
+            const raw = res?.data?.pendingTrades?.pendingTrade ?? res?.data?.pendingtrades?.pendingtrade ?? [];
+            for (const r of (Array.isArray(raw) ? raw : [raw]).filter(Boolean)) {
+              const n = normalizePendingTradeRow(r);
+              const tid = safeStr(n?.trade_id).replace(/\D/g, "");
+              if (tid) pending.set(tid, n);
+            }
+          } catch (e) { perFranchiseErrors.push(`${fid}: ${e?.message || e}`); }
+        }
+        const rows = Array.from(pending.values()).map((n) => ({
+          trade_id: safeStr(n.trade_id),
+          from_franchise_id: padFranchiseId(n.from_franchise_id),
+          from_franchise_name: namesByFid[padFranchiseId(n.from_franchise_id)] || null,
+          to_franchise_id: padFranchiseId(n.to_franchise_id),
+          to_franchise_name: namesByFid[padFranchiseId(n.to_franchise_id)] || null,
+          will_give_up: safeStr(n.will_give_up) || null,
+          will_receive: safeStr(n.will_receive) || null,
+          comments: safeStr(n.comments) || null,
+          mfl_timestamp: Number(n.timestamp) || null,
+          expires_unix: n.expires || null,
+        }));
+        return jsonOut(200, {
+          ok: perFranchiseErrors.length === 0,
+          league_id: leagueId, season,
+          franchises_checked: fids.length,
+          franchises_failed: perFranchiseErrors,
+          complete: perFranchiseErrors.length === 0,
+          pending_count: rows.length,
+          pending: rows,
+          note: perFranchiseErrors.length
+            ? "One or more franchises' pendingTrades could not be read — this count is a LOWER BOUND, not proven complete."
+            : "Every franchise answered — this is MFL's live pendingTrades state for every franchise, right now.",
+        });
+      }
+
       // ---- 🛡️ Trade-offer sentinel tick (2026-07-15) -----------------------
       // Watches EVERY pending MFL offer (in-app + native-desktop), mirrors it
       // into ups_trade_offer_watch, detects offers whose assets moved in some
@@ -37985,6 +38065,50 @@ const mflToSleeper = {};
           deps: threeWayDeps,
         });
         if (resp2ws) return resp2ws;
+      }
+
+      // ---- 🪪 Pre-send compliance preview, kind-agnostic (2026-09-29) ----------
+      // Keith's ruling: "before an owner sends a two-team or three-team offer that would put
+      // EITHER franchise over five loaded contracts, show a clear popup... the projected count
+      // for EACH affected team." The existing create-time gate above (the /trade-offers 409
+      // check, ~line 38566) only ever checked the SENDER's own side -- by design, the
+      // recipient's side was always deferred to their own accept. This route is additive and
+      // changes nothing about that existing gate: it answers "what would this trade do to
+      // EVERY affected team, right now" for a trade that has not been created yet (2-way
+      // direct, staged 2-way, or 3-way alike -- `movements` alone decides the shape, nothing
+      // here assumes a party count), so the client can show the full picture to the sender
+      // before anything is sent or staged. It is informational only -- it never blocks
+      // anything itself; the real hard gates remain exactly where they already are (create for
+      // direct-MFL 2-way, accept/execute for staged 2-way and 3-way).
+      if (path === "/api/trades/compliance-preview" && request.method === "POST") {
+        let body = null;
+        try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
+        const leagueId = safeStr(body?.league_id || L || "");
+        const season = safeStr(body?.season || YEAR || "");
+        if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing league_id/season." });
+        const declaredFid = padFranchiseId(body?.from_franchise_id || "");
+        const previewAuth = await tradeCaller(body, declaredFid);
+        if (!previewAuth.ok) return tradeDeny(previewAuth);
+        if (declaredFid && previewAuth.caller.fid !== declaredFid) return tradeForbidden("You can only preview a trade as your own team.");
+        const movementsIn = Array.isArray(body?.movements) ? body.movements : [];
+        if (!movementsIn.length) return jsonOut(400, { ok: false, error: "movements is required" });
+        const partyFids = new Set();
+        const movements = [];
+        for (const m of movementsIn) {
+          const mf = padFranchiseId(m?.from), mt = padFranchiseId(m?.to);
+          if (!mf || !mt || mf === mt) return jsonOut(400, { ok: false, error: "Every movement needs two different real teams." });
+          partyFids.add(mf); partyFids.add(mt);
+          const rawTokens = Array.isArray(m?.asset_tokens) ? m.asset_tokens : (Array.isArray(m?.tokens) ? m.tokens : []);
+          const capK = Math.max(0, safeInt(m?.cap_k, 0));
+          const tokens = rawTokens.map(normalizeToken).filter(Boolean);
+          if (capK > 0) tokens.push(`BB_${capK * 1000}`);
+          movements.push({ from: mf, to: mt, tokens });
+        }
+        // The caller must be one of the trade's own parties (or the commissioner) -- never lets
+        // an unrelated owner probe another two teams' cap/roster situation.
+        if (!partyFids.has(previewAuth.caller.fid) && !previewAuth.caller.isCommish) return tradeForbidden("You can only preview a trade you're a party to.");
+        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops });
+        return jsonOut(200, { ok: true, compliance: out });
       }
 
       // Commissioner ADMINISTRATIVE cancel of a 3-way (RULING, Keith 2026-09-25). A distinct action: it

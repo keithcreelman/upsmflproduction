@@ -40,7 +40,7 @@
 
 import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
-import { EXEC } from "./trade_execution.js";
+import { EXEC, makeLedger } from "./trade_execution.js";
 import { evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
@@ -321,6 +321,73 @@ export async function list2WayForFranchise(env, leagueId, fid, opts) {
     const { names, players } = await enrich(opts && opts.deps, rows);
     return { ok: true, trades: rows.map((r) => buildCanonical2Way(r, { leagueId: safeStr(leagueId), season: safeStr(opts && opts.season), fid: f }, { names, players })) };
   } catch (e) { return dbDown(e); }
+}
+
+// ═══════════════════════════════════ COMMISSIONER QUEUE (read-only) ═══════════════════════════════════
+// League-wide, not scoped to one franchise's own trades. READ-ONLY by construction: this
+// function never writes anything (no D1 write, no MFL call of any kind, no ledger transition,
+// no cap-ack write, no conditional-drop write) -- it only READS the same fresh compliance
+// (complianceViaSelf2Way -- the exact same self-call every gate uses, never a cached or looser
+// figure), the same cap-acknowledgment store, and the same execution ledger every enforcement
+// point already reads. There is deliberately no "execute" or "drop" action anywhere in this
+// module's commissioner-facing surface -- Keith's ruling (2026-09-29): the review queue is a
+// hold-and-inspect surface for now, not an execution console.
+//
+// Per trade this returns everything a commissioner needs to judge a hold without guessing:
+//   - the canonical trade (participants, movements, state_view — same shape owners see)
+//   - compliance: freshly recomputed right now (cap/roster/loaded_contracts/lineup), including
+//     loaded_contracts.drop_requirements[].selected -- each affected owner's OWN current
+//     conditional-drop picks, already player-id-scoped to THEIR OWN roster by
+//     evaluateTradeCompliance (a sender can never populate a recipient's selected list; the
+//     compliance calculation itself only ever reads a franchise's own stored selection under
+//     its own franchise_id key)
+//   - cap_ack: each affected franchise's acknowledgment status against the LIVE cap violation
+//     (not a stale one -- evaluateCapAcknowledgment re-signs against compliance.cap.violations
+//     fetched in this same call)
+//   - ledger: the real ups_trade_executions row for this trade (state, failed_step,
+//     failure_detail, block reason, timestamps) -- "the real ledger state" Keith asked for,
+//     not a re-derivation of it from the trade row's own status column
+//   - age: hours since created, hours since last updated -- for spotting a hold that's gone
+//     stale
+export async function listCommish2WayQueue(env, leagueId, season, opts) {
+  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
+  const includeAll = !!(opts && opts.includeAll);
+  let rows;
+  try {
+    const sql = includeAll
+      ? `SELECT * FROM ups_2way_trades WHERE league_id=? AND season=? ORDER BY updated_at_utc DESC LIMIT 100`
+      : `SELECT * FROM ups_2way_trades WHERE league_id=? AND season=? AND status IN ('collecting','executing','failed') ORDER BY updated_at_utc DESC LIMIT 100`;
+    const res = await env.UPS_MFL_DB.prepare(sql).bind(safeStr(leagueId), safeStr(season)).all();
+    rows = res.results || [];
+  } catch (e) { return dbDown(e); }
+  const { names, players } = await enrich(opts && opts.deps, rows);
+  const nowMs = Date.now();
+  const ageHours = (iso) => { const t = Date.parse(safeStr(iso)); return Number.isFinite(t) ? Math.round(((nowMs - t) / 36e5) * 10) / 10 : null; };
+  const trades = [];
+  for (const row of rows) {
+    const viewer = { fid: "0000", leagueId: safeStr(row.league_id), season: safeStr(row.season), isCommish: true };
+    const canonical = buildCanonical2Way(row, viewer, { names, players });
+    let compliance = null, capAck = null, ledger = null;
+    if (row.status === "collecting" || row.status === "executing" || row.status === "failed") {
+      compliance = await complianceViaSelf2Way(env, row);
+      if (compliance && compliance.cap && Array.isArray(compliance.cap.violations) && compliance.cap.violations.length) {
+        try {
+          const acks = await capAckStoreFor(env).readAllForTrade(capAckKey(row));
+          capAck = evaluateCapAcknowledgment({ violations: compliance.cap.violations, tradeKey: safeStr(row.id), acks });
+        } catch (e) { console.warn(`[2way-staged] commish queue: cap-ack read failed for ${row.id}: ${e?.message || e}`); }
+      }
+    }
+    try { ledger = await makeLedger(ledgerDbFor(env)).read(lkey(row)); } catch (e) { console.warn(`[2way-staged] commish queue: ledger read failed for ${row.id}: ${e?.message || e}`); }
+    trades.push({
+      ...canonical,
+      compliance,
+      cap_ack: capAck,
+      ledger,
+      age_hours_since_created: ageHours(row.created_at_utc),
+      age_hours_since_updated: ageHours(row.updated_at_utc),
+    });
+  }
+  return { ok: true, league_id: safeStr(leagueId), season: safeStr(season), trades };
 }
 
 // Minimal canonical shape -- mirrors trade_3way_model.js's buildCanonical3Way's spirit
