@@ -176,6 +176,26 @@ same audit as body copy:
 Team reviews get all of this from `pipelines/etl/wire/team_review_layout.py`,
 run after `write` and before `render`.
 
+**`wire.py write` does not support pots.** It refuses outright --
+`carries pots, which the model payload does not describe yet` -- because
+`wire_voice.py`'s `build_user_payload()` only knows how to describe individual
+games (`pack["games"]`), not division crossovers (`pack["pots"]`); a pots pack
+has no `games` for it to show the model at all. This has been true since pots
+shipped for the 2026 regular season and is not accidental. Every weekly recap
+from week 2 on is a pots pack, so **its prose.json is hand-authored**, not
+generated: write it directly to the schema above (kicker/title/dek/sections,
+each section's `desk` + `place`/`placeAt`/`quotes`/`quoteAt`, `pots`/`potNotes`/
+`potQuoteAt` for the divisions section), using an already-published week's
+`*.prose.json` as the template. Two scoping traps that only `render` catches,
+not eyeballing: a section's usable facts/tables/quotes are `pack["sections"][n]`'s
+own `factIds`/`tableIds`/`quoteIds`, and **each pot has its own, separate**
+`factIds`/`quoteIds` in `pack["pots"][n]` -- broader than the section's (it
+includes every `f.team.*`/`f.pre.*` for the teams in that pot) but a quote valid
+for one pot is not automatically valid for the other. `render`'s numeric audit
+and per-pot quote check are the real gate; write a small script to check every
+`{{fact_id}}` token against the right scope before the first render attempt,
+rather than discovering it one error at a time.
+
 ### Building the twelve team reviews
 
 The packs are compared with each other (the league value-per-dollar table), so
