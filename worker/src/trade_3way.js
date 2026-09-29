@@ -215,6 +215,18 @@ function injectCapTokens(movements) {
   });
 }
 
+// The SAME {from, to, tokens} shape every compliance call needs (a bare numeric id per player,
+// `BB_<dollars>` for cap money) -- built from raw {from, to, asset_tokens, cap_k} movements,
+// whether they come from a STORED row (via parseMovements) or a not-yet-created spec's own
+// `body.movements` (the loaded-contract CREATE-time gate below, before create3WayTrade exists).
+// Exported so trade_3way_http.js's create handler can build this identically to get3WayTrade.
+export function movementsForCompliance(movements) {
+  return (Array.isArray(movements) ? movements : []).map((m) => ({
+    from: padFid(m?.from), to: padFid(m?.to),
+    tokens: injectCapTokens([m])[0].asset_tokens.map((t) => safeStr(t).replace(/^P_/, "")),
+  }));
+}
+
 // Live non-taxi salary + taxi flag per `franchise|player`, for the §A6 cap check.
 async function fetchRosterSalaryMap(env, leagueId, year) {
   try {
@@ -319,7 +331,7 @@ const capAckKey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(
 // The SAME D1 binding, a separate on-demand table (worker/src/trade_conditional_drops.js) -- the
 // loaded-contract conditional-drop selection store. Keyed the SAME way as capAckKey (the 3-way
 // trade's own stable id).
-function conditionalDropStoreFor(env) {
+export function conditionalDropStoreFor(env) {
   const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
   if (!db) throw new Error("no D1 binding for the conditional-drop store");
   return makeConditionalDropStore(db);
@@ -680,9 +692,9 @@ export async function get3WayTrade(env, id, viewer, deps) {
   // surface can show it BEFORE the partners accept. Fail-soft: an unavailable calculation is shown as unavailable.
   if (deps && typeof deps.compliance === "function" && ["collecting", "executing"].includes(safeStr(row.status))) {
     try {
-      const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
+      const movements = movementsForCompliance(parseMovements(row));
       let storedDropsForDetail = {}; try { storedDropsForDetail = await conditionalDropStoreFor(env).readAllForTrade(conditionalDropKey(row)); } catch (_) { storedDropsForDetail = {}; }
-      trade.compliance = await deps.compliance({ leagueId: safeStr(row.league_id), season: safeStr(row.season), movements: movements.map((m) => ({ ...m, tokens: m.tokens.map((t) => safeStr(t).replace(/^P_/, "")) })), extensionRequests: parseExtReqs(row), offerCreatedAtUtc: safeStr(row.created_at_utc), conditionalDrops: storedDropsForDetail });
+      trade.compliance = await deps.compliance({ leagueId: safeStr(row.league_id), season: safeStr(row.season), movements, extensionRequests: parseExtReqs(row), offerCreatedAtUtc: safeStr(row.created_at_utc), conditionalDrops: storedDropsForDetail });
     } catch (e) {
       console.warn(`[3way] compliance lookup failed: ${e?.message || e}`);
       trade.compliance = unavailableCompliance("lookup_failed");

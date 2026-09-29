@@ -999,5 +999,113 @@ test("LC 3-WAY (review round 6): a stray closing bracket with no opening '[' blo
   t.equal(mfl.writes().length, 0, "zero MFL writes");
 });
 
+// ───────── Part 7 — 3-WAY CREATION: the initiator's own requirement (Keith's ruling, 2026-09-29) ─────────
+// The Hammer Times bug: the loaded-contract check (PR #1135) was wired only into ACCEPT-time
+// compliance -- building/reviewing an offer as the SENDER showed nothing, on EITHER the 2-way
+// or the 3-way path. Fixed for 2-way by gating offer CREATION on the initiator's own
+// requirement (Part 2/6 above); this section proves the SAME gate now exists for 3-way's own
+// creation route (POST /api/trades/3way), for the initiator's own franchise only -- each OTHER
+// participant's own requirement is surfaced when THEY view/accept, and capGate() hard-blocks
+// execution regardless (Part 3 above), so this is purely about giving the BUILDER a server
+// round-trip to warn the initiator before Send 3-Way, exactly like 2-way's creation gate.
+const create3Way = (env, tok, body) => callWorker(env, "POST", `/api/trades/3way?${Q}&MFL_USER_ID=${tok}`, { body });
+const dmsSent = (mfl) => mfl.st.discord.filter((d) => !/users\/@me\/channels/.test(d.url)).length;
+function threeWayCreateWorld(o) {
+  o = o || {};
+  const env = makeWorkerEnv({ TRADE_3WAY_EXECUTE: "1", ...(o.env || {}) });
+  const mfl = makeMfl({}); mfl.install();
+  bindSelf(env);
+  for (const [fid, d] of [["0008", DISCORD.A], ["0001", DISCORD.B], ["0002", DISCORD.C]]) env.UPS_MFL_DB.raw.prepare("INSERT INTO discord_owners VALUES (?,?,?)").run(fid, "Y", d);
+  mfl.st.rosters = {
+    // 0008 (initiator, tok-A) already has 5 loaded contracts -- a 6th pushes it over.
+    "0008": [{ id: "16614", salary: 5000, contractStatus: "Vet-FAA" }, ...loadedIds(90000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus }))],
+    "0001": [{ id: "16181", salary: 5000, contractStatus: "Vet-FAA" }],
+    // 0002 sends 0008 a LOADED player -- this is what makes the initiator's own requirement fire.
+    "0002": [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }],
+  };
+  return { env, mfl };
+}
+const create3WayBody = (extra) => ({
+  initiator: { fid: "0008", name: "Real Deal Creel" }, team_b: { fid: "0001", name: "L.A. Looks" }, team_c: { fid: "0002", name: "CBP" },
+  movements: [
+    { from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0 },
+    { from: "0001", to: "0002", asset_tokens: ["P_16181"], cap_k: 0 },
+    { from: "0002", to: "0008", asset_tokens: ["P_13100"], cap_k: 0 },
+  ],
+  ...extra,
+});
+
+test("LC 3-WAY CREATE: 5 -> 6 for the INITIATOR refuses the offer before it's ever stored -- zero D1 row, zero Discord DMs", async () => {
+  const { env, mfl } = threeWayCreateWorld();
+  const r = await create3Way(env, "tok-A", create3WayBody());
+  t.equal(r.status, 409, r.text.slice(0, 300));
+  t.equal(r.json.code, "loaded_contract_drops_required");
+  t.match(r.json.error, /Real Deal Creel would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/);
+  t.equal(r.json.loaded_contract_drops_needed.franchise_id, "0008");
+  t.equal(r.json.loaded_contract_drops_needed.required_drops, 1);
+  const list = await callWorker(env, "GET", `/api/trades/3way?franchise_id=0008&MFL_USER_ID=tok-A`);
+  t.equal(list.json.three_way.length, 0, "nothing was stored");
+  t.equal(dmsSent(mfl), 0, "no partner DMs went out for a refused create");
+});
+
+test("LC 3-WAY CREATE: a player also being SENT in this same trade can't double as the initiator's conditional drop", async () => {
+  const { env } = threeWayCreateWorld();
+  // 16614 is the asset 0008 is SENDING to 0001 in this very trade -- not a loaded contract
+  // anyway, but proves the also_being_sent guard is live on the 3-way creation path too.
+  const r = await create3Way(env, "tok-A", create3WayBody({ loaded_contract_drops: ["16614"] }));
+  t.equal(r.status, 409);
+  t.equal(r.json.code, "loaded_contract_drops_required");
+  const sel = r.json.loaded_contract_drops_needed.selected.find((s) => s.player_id === "16614");
+  t.ok(sel, "the rejected selection is echoed back");
+  t.equal(sel.valid, false);
+});
+
+test("LC 3-WAY CREATE: a VALID drop from the initiator's own roster lets the offer through, persists, and satisfies capGate at accept with no further ask", async () => {
+  const { env, mfl } = threeWayCreateWorld();
+  const r = await create3Way(env, "tok-A", create3WayBody({ loaded_contract_drops: ["90000"] }));
+  t.equal(r.status, 201, r.text.slice(0, 300));
+  const id = r.json.id;
+  t.ok(id);
+  t.equal(dmsSent(mfl), 2, "both partners were DMed -- the trade really was created");
+
+  // The detail view already reflects the persisted selection as satisfied, without any further action.
+  const g = await callWorker(env, "GET", `/api/trades/3way?id=${id}&MFL_USER_ID=tok-A`);
+  t.equal(g.status, 200);
+  const myReq = g.json.trade.compliance.loaded_contracts.drop_requirements.find((d) => d.franchise_id === "0008");
+  t.ok(myReq, "the requirement is still reported even though it's satisfied");
+  t.equal(myReq.satisfied, true);
+  t.equal(myReq.selected.find((s) => s.player_id === "90000").valid, true);
+
+  // Both partners accept -- capGate never re-asks 0008 for a selection it already made at creation.
+  const ctx = ctxWait();
+  const b = await say(await handle3WayButton({ data: { custom_id: `tr3:accept:${id}` }, member: { user: { id: DISCORD.B } } }, env, ctx));
+  await ctx.flush();
+  t.doesNotMatch(b, /loaded.contract|conditional drop/i, `B's accept should not be blocked by A's already-satisfied requirement: ${b}`);
+  const c = await say(await handle3WayButton({ data: { custom_id: `tr3:accept:${id}` }, member: { user: { id: DISCORD.C } } }, env, ctx));
+  await ctx.flush();
+  t.doesNotMatch(c, /loaded.contract|conditional drop/i, `C's accept should not be re-asking A's requirement: ${c}`);
+});
+
+test("LC 3-WAY CREATE: exactly five (no drops needed) sends straight through with no gate at all", async () => {
+  const { env, mfl } = threeWayCreateWorld();
+  mfl.st.rosters["0008"] = [mfl.st.rosters["0008"][0], ...loadedIds(90000, 4).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus }))]; // only 4 fillers -> 4+1 received = 5, not 6
+  const r = await create3Way(env, "tok-A", create3WayBody());
+  t.equal(r.status, 201, r.text.slice(0, 300));
+  t.equal(dmsSent(mfl), 2);
+});
+
+test("LC 3-WAY CREATE: a genuinely unresolvable loaded-contract calculation -- even though A WOULD need a drop if it resolved -- does not gate the initiator's own offer; the fail-closed guarantee still lives at accept/execute, not creation", async () => {
+  const { env, mfl } = threeWayCreateWorld();
+  // 0008 is still 5 -> 6 here (unchanged from the base world) -- it WOULD owe a drop if this
+  // resolved. But 0001's OWN roster carries an unparseable schedule on an unrelated player, so
+  // the calculation comes back "unavailable", not "blocked" -- confirmed directly against
+  // evaluateTradeCompliance before writing this test. Creation must not fail-closed here (that
+  // guarantee is enforced at preview/accept/execute, exactly like cap).
+  mfl.st.rosters["0001"][0].contractInfo = "Y1-foo,Y2-bar";
+  const r = await create3Way(env, "tok-A", create3WayBody());
+  t.equal(r.status, 201, r.text.slice(0, 300));
+  t.equal(dmsSent(mfl), 2);
+});
+
 await run("trade_loaded_contracts");
 restore();
