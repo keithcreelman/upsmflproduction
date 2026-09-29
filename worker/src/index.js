@@ -19078,11 +19078,26 @@ export default {
           const wMaxRaw = parseInt(url.searchParams.get("week_max") || "17", 10) || 17;
           const wMax = Math.min(23, Math.max(wMin, wMaxRaw));
           const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          // Fixed 2026-09-29 (found investigating a Stats Workbench "L4W Δ"
+          // report): this used to filter `sw.score > 0`, the same conflation
+          // #1141 already fixed once in the leaderboard's PPG denominator --
+          // a real, played, scored game at exactly 0 or a negative net
+          // (sacks/turnovers outweighing production) was silently dropped
+          // from EVERY consumer of this endpoint (Floor/Ceil/Consistency/
+          // Boom%/Bust%/Trend sparkline, and the game count L4W Δ's own
+          // >=5-games gate reads). Verified live: Kyler Murray (2026) has a
+          // real -0.2 week (per #1141's own fixture) that this query
+          // dropped entirely -- gp:1, weeks:[12], ppg:12 instead of the
+          // correct gp:2, weeks:[-0.2,12], ppg:5.9 (matching #1141's
+          // corrected PPG exactly). A week with NO src_weekly row at all
+          // (a true bye) never reaches this query in the first place, so it
+          // was never at risk -- only an EXISTING row scored <= 0 was
+          // miscounted.
           const r = await db.prepare(
             "SELECT f.gsis_id AS gsis, sw.week AS week, sw.score AS score, sw.pos_group AS pos " +
             "FROM src_weekly sw JOIN ff_player_ids f ON f.mfl_id = sw.player_id " +
             "WHERE sw.season IN (" + seasonList + ") AND sw.week BETWEEN " + wMin + " AND " + wMax +
-            " AND sw.score > 0 AND f.gsis_id IS NOT NULL ORDER BY sw.season, sw.week"
+            " AND sw.score IS NOT NULL AND f.gsis_id IS NOT NULL ORDER BY sw.season, sw.week"
           ).all();
           const rows = (r && r.results) || [];
           const byG = {}, posScores = {};
