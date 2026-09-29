@@ -1,0 +1,678 @@
+{
+"0001": [
+{
+"id": "13630",
+"salary": "15000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 2| TCV 30K| AAV 20K| Y1-15K, Y2-15K| GTD: 22.5K| Ext: L.A. Looks| restructure: 2025"
+},
+{
+"id": "16582",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K"
+},
+{
+"id": "16181",
+"salary": "32000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-Ext2-FL",
+"contractInfo": "CL 2| TCV 44K| AAV 22K| Y1-32K, Y2-12K| GTD: 33K| Ext: L.A.| Restructured 2026"
+},
+{
+"id": "16414",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 2| TCV 4K| AAV 2K| Y1-2K, Y2-2K| GTD: 1K"
+},
+{
+"id": "17144",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K"
+},
+{
+"id": "15799",
+"salary": "21000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 2| TCV 32K| AAV 21K| Y1-11, Y2-21| GTD: 24K| Ext: Blake, L.A. Looks"
+},
+{
+"id": "14871",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-MYM",
+"contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K"
+},
+{
+"id": "14860",
+"salary": "21000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 2| TCV 32K| AAV 21K| Y1-11K, Y2-21K| Ext: Creel, L.A.| GTD: 24K"
+},
+{
+"id": "15001",
+"salary": "4000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Tag",
+"contractInfo": "CL 1| TCV 4K| AAV 4K| Tag| Tier 1| Formula: Avg Top 1-6 DB AAV"
+},
+{
+"id": "16189",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-ERA",
+"contractInfo": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K"
+},
+{
+"id": "16651",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "17076",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-WW-BL",
+"contractInfo": "CL 3| TCV 24K| AAV 8K| Y1-5, Y2-5, Y3-14| GTD: 18K"
+},
+{
+"id": "13592",
+"salary": "30000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-Ext1-FL",
+"contractInfo": "CL 2| TCV 46K| AAV 18K, 28K| Y1-30K, Y2-16K| GTD: 34.5K| Ext: GRID| Restructured 2026"
+},
+{
+"id": "16809",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 2|TCV 12K|AAV 1K, 11K|Y1-1K, Y2-11K|Ext: L.A.|GTD: 9K"
+},
+{
+"id": "16596",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "15798",
+"salary": "12000",
+"status": "ROSTER",
+"contractYear": "3",
+"contractStatus": "Vet-FAA-FL",
+"contractInfo": "CL 3|TCV 21K|AAV 7K|Y1-12K, Y2-1K, Y3-8K|GTD: 15.8K"
+},
+{
+"id": "15762",
+"salary": "48000",
+"status": "ROSTER",
+"contractYear": "3",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 3|TCV 144K|AAV 48K|Y1-48K, Y2-48K, Y3-48K|GTD: 108K"
+},
+{
+"id": "15742",
+"salary": "20000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 20K| AAV 20K"
+},
+{
+"id": "14163",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 5K| AAV 5K"
+},
+{
+"id": "11757",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "12221",
+"salary": "4000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 4K| AAV 4K"
+},
+{
+"id": "14893",
+"salary": "4000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 4K| AAV 4K"
+},
+{
+"id": "14059",
+"salary": "24000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 24K| AAV 24K"
+},
+{
+"id": "12323",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 2K| AAV 2K"
+},
+{
+"id": "15365",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 2|TCV 4K|AAV 2K|Y1-2K, Y2-2K|GTD: 1K"
+},
+{
+"id": "16164",
+"salary": "4000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-ERA",
+"contractInfo": "CL 1| TCV 4K| AAV 4K"
+},
+{
+"id": "16296",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 1| TCV 2K| AAV 2K"
+},
+{
+"id": "16387",
+"salary": "4000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 1| TCV 4K| AAV 4K"
+},
+{
+"id": "12263",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 1| TCV 5K| AAV 5K"
+},
+{
+"id": "16650",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K"
+},
+{
+"id": "16169",
+"salary": "7000",
+"status": "INJURED_RESERVE",
+"contractYear": "3",
+"contractStatus": "Vet-ERA",
+"contractInfo": "CL 3|TCV 21K|AAV 7K|Y1-7K, Y2-7K, Y3-7K|GTD: 15.8K"
+},
+{
+"id": "13806",
+"salary": "1000",
+"status": "INJURED_RESERVE",
+"contractYear": "1",
+"contractStatus": "Vet-MYM",
+"contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K"
+},
+{
+"id": "15768",
+"salary": "2000",
+"status": "INJURED_RESERVE",
+"contractYear": "2",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 2|TCV 14K|AAV 2K, 12K|Y1-2K, Y2-12K|Ext: L.A.|GTD: 10.5K"
+},
+{
+"id": "17047",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "2",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "17120",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "2",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "17709",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K"
+},
+{
+"id": "17510",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K"
+},
+{
+"id": "17575",
+"salary": "1000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 2K"
+},
+{
+"id": "17722",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K"
+},
+{
+"id": "17474",
+"salary": "5000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K"
+},
+{
+"id": "17519",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K"
+},
+{
+"id": "17551",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K"
+}
+],
+"0005": [
+{
+"id": "15794",
+"salary": "35000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-Ext2-BL",
+"contractInfo": "CL 2| TCV 44K| AAV 22K| Y1-9K, Y2-35K| GTD: 33K| Ext: Hammer"
+},
+{
+"id": "16627",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K"
+},
+{
+"id": "16239",
+"salary": "3000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-MYM",
+"contractInfo": "CL 3| TCV 9K| AAV 3K| Y1-3, Y2-3, Y3-3| GTD: 6.8K"
+},
+{
+"id": "17070",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K, Y4-10K Option| GTD: 11.3K"
+},
+{
+"id": "11150",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-FAA-BL",
+"contractInfo": "CL 3| TCV 45K| AAV 15K| Y1-9K, Y2-1K, Y3-35K| GTD: 33.8K"
+},
+{
+"id": "15293",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K"
+},
+{
+"id": "16186",
+"salary": "17000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 2| TCV 24K| AAV 17K| Y1-7K, Y2-17K| GTD: 18K| Ext: LH"
+},
+{
+"id": "17106",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "16667",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K"
+},
+{
+"id": "15281",
+"salary": "26000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-Ext2-BL",
+"contractInfo": "CL 2| TCV 129K| AAV 54K| Y1-26K, Y2-103K| GTD: 96.8K| Ext: Creel, Hammer| restructure: 2026"
+},
+{
+"id": "16150",
+"salary": "22000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 1| TCV 22K| AAV 22K| Y1-22K| GTD: 16.5K| Ext: \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0"
+},
+{
+"id": "14138",
+"salary": "11000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-MYM",
+"contractInfo": "CL 3| TCV 33K| AAV 11K| Y1-11K, Y2-11K, Y3-11K| GTD: 24.8K| GTD: 24750"
+},
+{
+"id": "16152",
+"salary": "11000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 3| TCV 33K| AAV 11K| Y1-11K, Y2-11K, Y3-11K| GTD: 24.8K"
+},
+{
+"id": "16583",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K"
+},
+{
+"id": "15711",
+"salary": "15000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-Ext1-BL",
+"contractInfo": "CL 2| TCV 74K| AAV 32K, 42K| Y1-15K, Y2-59K| GTD: 55.5K| Ext: PG, RealDeal| restructure: 2026"
+},
+{
+"id": "14071",
+"salary": "12000",
+"status": "ROSTER",
+"contractYear": "2",
+"contractStatus": "Vet-Ext1",
+"contractInfo": "CL 2| TCV 42K| AAV 20K, 30K| Y1-12K, Y2-30K| Ext: Hammer| GTD: 31.5K"
+},
+{
+"id": "15256",
+"salary": "30000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Tag",
+"contractInfo": "CL 1| TCV 30K| AAV 30K| GTD: 22.5K| Tag| Tier 3| Formula: Avg Top 9-31 RB AAV | 10% AAV floor (rounded up to $1K)"
+},
+{
+"id": "12860",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "17339",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "15805",
+"salary": "8000",
+"status": "ROSTER",
+"contractYear": "3",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 3|TCV 24K|AAV 8K|Y1-8K, Y2-8K, Y3-8K|GTD: 18K"
+},
+{
+"id": "13214",
+"salary": "4000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 4K| AAV 4K"
+},
+{
+"id": "14927",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "15404",
+"salary": "5000",
+"status": "ROSTER",
+"contractYear": "3",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K"
+},
+{
+"id": "14861",
+"salary": "2000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 2K| AAV 2K"
+},
+{
+"id": "15349",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "15331",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "15923",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "14080",
+"salary": "3000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 1| TCV 3K| AAV 3K"
+},
+{
+"id": "11222",
+"salary": "3000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 1| TCV 3K| AAV 3K"
+},
+{
+"id": "13418",
+"salary": "1000",
+"status": "ROSTER",
+"contractYear": "1",
+"contractStatus": "Vet-WW",
+"contractInfo": "CL 1| TCV 1K| AAV 1K"
+},
+{
+"id": "14073",
+"salary": "18000",
+"status": "INJURED_RESERVE",
+"contractYear": "3",
+"contractStatus": "Vet-FAA-BL",
+"contractInfo": "CL 3|TCV 90K|AAV 30K|Y1-18K, Y2-36K, Y3-36K|GTD: 67.5K"
+},
+{
+"id": "15350",
+"salary": "7000",
+"status": "INJURED_RESERVE",
+"contractYear": "3",
+"contractStatus": "Vet-FAA",
+"contractInfo": "CL 3|TCV 21K|AAV 7K|Y1-7K, Y2-7K, Y3-7K|GTD: 15.8K"
+},
+{
+"id": "16613",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "16686",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "16642",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "16689",
+"salary": "1000",
+"status": "TAXI_SQUAD",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K"
+},
+{
+"id": "17122",
+"salary": "1000",
+"status": "TAXI_SQUAD",
+"contractYear": "2",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K"
+},
+{
+"id": "16644",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "1",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K"
+},
+{
+"id": "17481",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K"
+},
+{
+"id": "17508",
+"salary": "5000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K"
+},
+{
+"id": "17580",
+"salary": "1000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 2K"
+},
+{
+"id": "17568",
+"salary": "2000",
+"status": "TAXI_SQUAD",
+"contractYear": "3",
+"contractStatus": "Rookie-Draft",
+"contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K"
+}
+]
+}

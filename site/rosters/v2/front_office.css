@@ -381,6 +381,10 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-year .line.at strong    { color: #d4a017; }
 .fo-cap-year .line.over strong  { color: var(--err); }
 .fo-cap-year .line.under strong { color: #d4a017; }
+/* UNAVAILABLE (2026-09-29) = the loaded-contract classifier couldn't determine one or more
+   of this team's contracts -- never blended into a trusted number. Distinct dashed/red
+   treatment, matching .fo-cap-unavailable below and roster_workbench.css's .is-unavailable. */
+.fo-cap-year .line.unavailable strong { color: var(--err); border-bottom: 1px dashed var(--err); }
 .fo-cap-year-flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
 .fo-cap-year-flags .flag {
   font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
@@ -552,6 +556,12 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-ml-shape.bl   { background: rgba(45, 212, 191, 0.16); color: #2dd4bf; border-color: rgba(45, 212, 191, 0.55); }
 .fo-cap-ml-shape.flat { background: rgba(148, 163, 184, 0.14); color: var(--muted); border-color: var(--border); }
 .fo-cap-ml-capfull { color: #d4a017; font-weight: 600; }
+
+/* UNAVAILABLE loaded-contract count (2026-09-29, Keith) -- the shared classifier couldn't
+   determine one or more contracts. Deliberately reads as a warning, not a neutral/muted
+   state: "a missing classifier should display an honest unavailable state, not a
+   potentially different count." */
+.fo-cap-unavailable { color: var(--err); font-style: italic; cursor: help; }
 
 /* Status pills for preview-only states (don't exist on real worker data). */
 .fo-status.drop-preview { background: rgba(248, 113, 113, 0.20); color: var(--err); border: 1px solid var(--err); }
