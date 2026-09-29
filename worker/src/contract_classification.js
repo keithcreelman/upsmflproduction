@@ -79,6 +79,39 @@
 // is NOT a relaxation of "present schedule never falls back to status" -- the schedule
 // still answers the question on its own; contractStatus is still never consulted.
 //
+// PRIORITY 0 (added 2026-09-29, FIFTH revision): a plain (no -FL/-BL suffix) Vet-ExtN /
+// Rookie-ExtN contractStatus is flat BY DEFINITION, checked BEFORE priority 1 ever reads
+// the schedule. Full investigation: docs/LOADED_CONTRACT_EXT1_CLASSIFICATION_INVESTIGATION.md.
+// Three independent lines of evidence, not one reading of ambiguous canon:
+//   1. Canon (:479) states an Ext1 NEVER carries a suffix, no exception -- not a labeling
+//      convention layered on a genuinely-loaded curve, but recognition that a one-year raise
+//      on top of a frozen prior-contract year "has no shape to compare" (this module's own
+//      resolveExtensionLoadedStatus docblock, for the PRICING path, below). This function
+//      (the ROSTER-classification path) applied no such carve-out and called the IDENTICAL
+//      contract shape loaded -- the same codebase disagreeing with itself about the same
+//      fact depending only on which of its own functions was asked.
+//   2. Front Office's own isLoadedRow (site/rosters/v2/front_office.js) has independently
+//      classified loaded status by LITERAL suffix presence since 2026-06-02 (PR #398: "LH
+//      was showing 6/8 'loaded' from default-escalated deals; the actual loaded count is
+//      3") -- a real, Keith-reviewed production fix for this exact failure mode, on a
+//      different codepath, four months before this investigation found the same shape
+//      breaking the trade-compliance gate this module feeds.
+//   3. A live, 483-player, all-12-franchise, player-by-player sweep (2026-09-29) comparing
+//      this function's PRE-fix output against Front Office's found ZERO disagreements
+//      anywhere else in the entire league -- not one taxi, restructured, IR-other, or any
+//      other contract family disagreed between the two implementations. The only players
+//      where they diverged were exactly this shape: a plain ExtN contractStatus, no suffix,
+//      with a frozen prior-contract year making the schedule superficially non-flat. This
+//      includes the "3-year Vet-Ext2" pattern (a 2-year extension added to 1 remaining
+//      year: Y1 frozen, Y2/Y3 the genuinely flat new extension years) -- structurally the
+//      identical frozen-year-drags-the-average-down artifact as Ext1, just on a longer
+//      total length; canon (:480) already says a flat Ext2 distribution stays plain with no
+//      suffix, which this schedule-blind carve-out now honors directly.
+// A contractStatus with a REAL suffix (earned via restructure, e.g. Vet-Ext1-BL) is
+// UNCHANGED by this carve-out -- priority 0 only matches the SUFFIX-FREE form, so a
+// restructured extension still resolves via the schedule exactly as before (and the sweep
+// above found it already agrees with the suffix in every observed case).
+//
 // The SAME schedule-authority bar (duplicate/nonpositive/complete/reconciled) applies to a
 // pre-trade EXTENSION's priced terms too (resolveExtensionLoadedStatus) -- a partial or
 // contradictory extension schedule must not fall back to being treated as flat either.
@@ -101,6 +134,12 @@ const s = (v) => String(v == null ? "" : v).trim();
 
 const LOADED_SUFFIX_RE = /-(FL|BL)$/i;
 const LOADED_BARE_RE = /^(FL|BL)$/i;
+
+// A plain ExtN status -- Vet-Ext1, Vet-Ext2, Rookie-Ext1, Rookie-Ext2, etc. -- with NO
+// trailing -FL/-BL suffix. See "PRIORITY 0" in the module header above for the evidence.
+// Deliberately matches only the bare family name (no suffix already stripped elsewhere);
+// a real suffix makes this regex simply not match, which is the point.
+const PLAIN_EXTN_RE = /^(vet|rookie)-ext\d*$/i;
 
 // Contract-status "families" this league is documented to actually use (see the MFL
 // contractStatus vocabulary memory notes -- both the 2025 legacy singular tokens and the
@@ -374,6 +413,9 @@ export function structureOf(years, tcv, cl) {
  *   (the `loaded` field is meaningless / "" when resolved is false -- never read it then).
  */
 export function resolveLoadedStatus(contractStatus, contractInfo) {
+  // Priority 0 -- see the module header. A plain (no-suffix) ExtN status is flat by
+  // definition, checked before the schedule (priority 1) is ever consulted.
+  if (PLAIN_EXTN_RE.test(s(contractStatus))) return { loaded: "", resolved: true };
   const cl = parseContractLength(contractInfo);
   const tcv = parseTCV(contractInfo);
   const raw = parseYearScheduleRaw(contractInfo);
