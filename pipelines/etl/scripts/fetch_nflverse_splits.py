@@ -187,7 +187,13 @@ def main() -> None:
     rows = compute(seasons)
     print(f"  {len(rows)} (season,gsis,bucket) split rows", file=sys.stderr)
     if not rows:
-        sys.exit("no rows")
+        # Exit 3 = "not published" -- see fetch_nflverse_ftn.py's identical
+        # fix (2026-09-29) for why a bare exit 1 here would be wrong: it
+        # would fail the whole nflverse-stats-refresh run over one
+        # legitimately-empty source and block the downstream leaderboard
+        # rebuild, which only fires on conclusion == "success".
+        print("NOT_PUBLISHED: no split rows for the requested seasons", file=sys.stderr)
+        sys.exit(3)
 
     if not args.skip_local and LOCAL_DB.exists():
         db = sqlite3.connect(str(LOCAL_DB)); db.executescript(DDL)
