@@ -2500,11 +2500,23 @@ def build(pack_id):
                   .replace(tzinfo=timezone.utc).timestamp())
         pv_src = "week_preview.py --week %d (season_sim model)" % nw
         pv_asof = "cutoff %s" % preview["generatedAtUtc"]
-        pack.source(pv_src, asof=pv_asof, rows=len(preview["games"]),
-                    note="%s (%s); %s simulated seasons, played weeks fixed; preseason inputs reproduce the "
-                         "published preseason playoff odds to within %.1f points"
-                         % ("site/wire/data/week_preview_%d_wk%02d.json" % (season, nw), pv_prov,
-                            format(int(preview["runs"]), ",d"), 100 * m["preseasonReproductionMaxPlayoffGap"]))
+        pv_path = "site/wire/data/week_preview_%d_wk%02d.json" % (season, nw)
+        # schema 1 (e.g. the committed wk02 preview) re-simulated a "banked only"
+        # state from the original preseason MFL cache and could cite how closely
+        # that cache reproduced the published preseason odds. schema 2 (2026-09-29
+        # on) no longer does that re-simulation at all -- see week_preview.py's
+        # module docstring -- so there is nothing to cite a reproduction gap for;
+        # say plainly that movement is one combined number instead.
+        if "preseasonReproductionMaxPlayoffGap" in m:
+            pv_note = ("%s (%s); %s simulated seasons, played weeks fixed; preseason inputs reproduce the "
+                       "published preseason playoff odds to within %.1f points"
+                       % (pv_path, pv_prov, format(int(preview["runs"]), ",d"),
+                          100 * m["preseasonReproductionMaxPlayoffGap"]))
+        else:
+            pv_note = ("%s (%s); %s simulated seasons, played weeks fixed; preseason-vs-now movement is one "
+                       "combined change, not split into a result effect and a strength effect (schema %d)"
+                       % (pv_path, pv_prov, format(int(preview["runs"]), ",d"), preview.get("schema", 2)))
+        pack.source(pv_src, asof=pv_asof, rows=len(preview["games"]), note=pv_note)
         pc = lambda x: "%.0f%%" % (100.0 * x)
 
         def PV(fid, label, value, unit, fmt):

@@ -3,15 +3,14 @@
 scoring ranges, lineup/injury watch and forecast movement. No waiver watch
 (Keith 2026-09-16: "NO WW watch").
 
-    python pipelines/etl/wire/week_preview.py --season 2026 --week 2 \\
-        --preseason-cache <dir the preseason forecast ran on> \\
-        --out site/wire/data/week_preview_2026_wk02.json
+    python pipelines/etl/wire/week_preview.py --season 2026 --week 4 \\
+        --live-cache <scratch dir for today's MFL fetches> \\
+        --out site/wire/data/week_preview_2026_wk04.json
 
 WHY (Keith 2026-09-16, Round 3 brief): the recap needs a "Week 2 Preview --
 What We're Watching" segment built from the live league, with win probability
 and a scoring range "only if the model supports it", assumptions and cutoff
-shown, and forecast movement that separates the banked result from projected
-strength.
+shown, and forecast movement against the preseason line.
 
 EVERYTHING HERE IS season_sim.py's OWN MODEL, not a second one:
   * same inputs (prepare(), injuries on, expected-value offense), same regression (k=0.7), same
@@ -28,15 +27,43 @@ win chance and weekly range have not been backtested game by game (the
 season_sim backtest scores season all-play, not individual weeks). Treat them
 as provisional.
 
-FORECAST MOVEMENT. Three states per team:
-  preseason      -- site/wire/data/season_sim_<season>.json, never rewritten;
-  banked only    -- the preseason run's own MFL inputs (--preseason-cache, the
-                    exact cache it read) with played weeks fixed to what
-                    happened: what the RESULT alone did;
-  entering week  -- today's rosters, projections and injury feed with played
-                    weeks fixed: adds what changed in projected STRENGTH.
-Same seed for both simulated states, so the difference is the inputs, not the
-dice.
+FORECAST MOVEMENT, REDUCED SCOPE (2026-09-29, Keith): this used to report
+three states per team -- preseason, a re-simulated "banked only" (preseason
+inputs + actual results, isolating what the RESULT alone did), and "entering
+week" (today's inputs + actual results, adding what changed in projected
+STRENGTH) -- so the movement between preseason and now could be split into a
+result effect and a strength effect.
+
+"Banked only" required --preseason-cache: a verbatim copy of the MFL API
+responses the original preseason run read, so it could be re-prepared and
+re-simulated on those exact original inputs. That directory was never
+committed and no longer exists anywhere in this repo's history. A cache
+built today would contain TODAY's rosters/injuries/projections mislabeled as
+preseason, making banked-vs-entering compare today against itself -- not a
+degraded signal, a wrong one. Tested the next-best thing (reconstructing the
+banked state from season_sim_<season>.json's saved per-team season-average
+projection and calibrated sigmas, since that file IS permanently preserved)
+against the real Week 2 banked numbers computed by the original cache before
+it was lost: playoff odds reproduced to a comparable tolerance (mean 0.0072,
+max 0.0132, vs the original method's own 0.0059 self-check gap), but title
+odds did not (mean 0.0066, max 0.0208 -- e.g. one team's real banked title
+odds were 10.7%, the reconstruction said 8.7%, a ~19% relative miss). Keith:
+the title-odds misses are reason enough to leave the approximation out
+entirely rather than publish a number that reads as precise and sometimes
+isn't.
+
+So: no banked-only state, no result/strength split, and everything derived
+from it is gone too -- mflWhy (preseason-vs-today MFL projection diff),
+mflProjectionChange (raw preseasonScores-vs-today feed diff), the "before"
+side of leagueLineupPerWeek, and mflUpdateEffect (which subtracted banked).
+switchWhy/switchEffect survive unchanged -- they compare MFL's projections to
+RotoWire's, both TODAY, never touching the lost cache.
+
+What ships instead: the published preseason odds, kept as a labelled
+reference point (a straight read of the never-rewritten season_sim file, not
+a simulation), next to today's entering-week odds, with a single COMBINED
+change between them and no claim about how much of it is the result versus
+revised strength -- see movement[].combinedPlayoffChange/combinedTitleChange.
 
 Stdlib + D1 read-only (wire_data) only. Writes one JSON and never overwrites.
 """
@@ -268,7 +295,7 @@ def projection_shift(prep_pre, prep, fid, weeks, names):
             "players": out[:6]}
 
 
-def build(season, week, runs, seed, preseason_cache, live_cache, k=S.REGRESS_DEFAULT, reuse_cache=False):
+def build(season, week, runs, seed, live_cache, k=S.REGRESS_DEFAULT, reuse_cache=False):
     through = week - 1
     cutoff = datetime.now(timezone.utc)
     if reuse_cache:
@@ -279,36 +306,13 @@ def build(season, week, runs, seed, preseason_cache, live_cache, k=S.REGRESS_DEF
         if not files:
             raise SystemExit("week_preview: --reuse-cache but %s is empty" % live_cache)
         cutoff = datetime.fromtimestamp(max(os.path.getmtime(f) for f in files), timezone.utc)
+    # Preseason odds are kept only as a labelled REFERENCE point (a plain read of
+    # this never-rewritten file) -- not re-simulated, not reconstructed. See the
+    # module docstring for why the "banked only" re-simulation was removed.
     pre_path = "site/wire/data/season_sim_%d.json" % season
     preseason = json.load(open(pre_path, encoding="utf-8"))
     pre_by = dict((t["franchiseId"], t) for t in preseason["teams"])
-
-    # ---- banked only: the preseason run's own cached inputs, nothing fetched.
-    real_fetch = S.fetch
-
-    def cached_only(url, cache_dir=None):
-        import hashlib
-        key = hashlib.sha1(url.encode()).hexdigest()[:16]
-        if not os.path.exists(os.path.join(preseason_cache, key + ".json")):
-            raise SystemExit("week_preview: %s is not in the preseason cache -- refusing to mix "
-                             "today's data into the banked-only state" % url)
-        return real_fetch(url, preseason_cache)
-
-    S.LIVE_SEASON = None
-    S.fetch = cached_only
-    try:
-        prep_pre = S.prepare(season, preseason_cache, injuries=True)
-    finally:
-        S.fetch = real_fetch
     actual = S.actual_scores_by_week(season, through, live_cache)
-    banked = run_state(prep_pre, actual, k, runs, seed)
-    # The decomposition is only honest if these cached inputs ARE the preseason
-    # forecast's: re-run them with nothing banked and compare to the published file.
-    repro = run_state(prep_pre, {}, k, runs, seed)
-    repro_gap = max(abs(repro["odds"][f]["playoff"] - pre_by[f]["pPlayoffs"]) for f in pre_by)
-    if repro_gap > 0.03:
-        raise SystemExit("week_preview: the preseason cache reproduces the published playoff odds only "
-                         "to within %.3f -- it is not the preseason run's input" % repro_gap)
 
     # ---- entering the week: today's inputs, fetched fresh (or the cached run's).
     S.LIVE_SEASON = None if reuse_cache else season
@@ -435,53 +439,17 @@ def build(season, week, runs, seed, preseason_cache, live_cache, k=S.REGRESS_DEF
                           "kickoff": kick.get(pteam(pid))})
     watch.sort(key=lambda w: -w["lineupLoss"])
 
-    # ---- why projected strength moved (see projection_shift)
+    # ---- why projected strength moved, TODAY-vs-TODAY only (see projection_shift)
+    # switchWhy -- MFL's today vs RotoWire expected points today, MFL deciding who
+    # plays (what the change of scoring source did). No preseason input touched.
     weeks = list(range(week, prep["reg_end"] + 1))
-    # Two separate "whys", one per step, so neither mixes sources:
-    #   mflWhy    -- the preseason run's MFL projections vs MFL's own today (what MFL
-    #                changed: injuries, roles, and its touchdown-rounding flips);
-    #   switchWhy -- MFL's today vs RotoWire expected points today, MFL deciding who
-    #                plays (what the change of scoring source did).
-    shift = dict((f, projection_shift(prep_pre, prep_mfl, f, weeks, pname)) for f in sorted(teams))
     switch = dict((f, projection_shift(prep_mfl, prep, f, weeks, pname)) for f in sorted(teams))
-    # Averaged from the exact team values -- averaging already-rounded numbers printed
-    # 202.2 for a true 202.13 (caught by an independent recomputation, 2026-09-16).
-    league_before = round(sum(x.pop("exactBefore") for x in shift.values()) / len(shift), 1)
-    league_now = round(sum(x.pop("exactNow") for x in shift.values()) / len(shift), 1)
+    # exactBefore here is prep_mfl's own average (today's MFL-rounded projection) --
+    # captured before popping so leagueLineupPerWeek.now needs no separate pass.
+    league_now = round(sum(x["exactBefore"] for x in switch.values()) / len(switch), 1)
     league_rw = round(sum(x.pop("exactNow") for x in switch.values()) / len(switch), 1)
     for x in switch.values():
         x.pop("exactBefore", None)
-    league_sides = dict((k, round(sum(x["sidesNow"][k] - x["sidesBefore"][k] for x in shift.values()) / len(shift), 1))
-                        for k in ("O", "D", "K"))
-
-    # WHAT MFL CHANGED, straight from its raw projectedScores feed (no absences, no
-    # lineups): every player it projects, weeks 2-14, before vs now, and by position
-    # for players projected 5+ a week either time. Keith asked whether a double-digit
-    # drop was real; the all-player total is the fair measure, not a top-N list picked
-    # by the preseason numbers (that selection exaggerates the drop).
-    def raw_proj(fetcher, cache):
-        out = {}
-        for w in weeks:
-            rows = S._as_list(fetcher(S.MFL % (season, "projectedScores", "&W=%d" % w), cache)["projectedScores"].get("playerScore"))
-            out[w] = dict((r["id"], float(r["score"])) for r in rows if r.get("id") and r.get("score") not in (None, ""))
-        return out
-    raw_pre = raw_proj(cached_only, preseason_cache)
-    raw_now = raw_proj(S.fetch, live_cache)
-    tot_pre = sum(sum(v.values()) for v in raw_pre.values())
-    tot_now = sum(sum(v.values()) for v in raw_now.values())
-    by_group = {}
-    for pid in set(p for w in weeks for p in raw_pre[w]) | set(p for w in weeks for p in raw_now[w]):
-        a = sum(raw_pre[w].get(pid, 0.0) for w in weeks) / float(len(weeks))
-        b = sum(raw_now[w].get(pid, 0.0) for w in weeks) / float(len(weeks))
-        if max(a, b) < 5.0:
-            continue
-        g = LE.pos_group((players.get(pid) or {}).get("position") or "")
-        g = {"DL": "IDP", "LB": "IDP", "DB": "IDP", "PK": "K/P", "PN": "K/P"}.get(g, g)
-        x = by_group.setdefault(g, [0, 0.0, 0.0])
-        x[0] += 1; x[1] += a; x[2] += b
-    mfl_change = {"weeks": [weeks[0], weeks[-1]], "allPlayersPct": round(100.0 * (tot_now / tot_pre - 1), 1),
-                  "byGroup": dict((g, {"players": v[0], "pct": round(100.0 * (v[2] / v[1] - 1), 1)})
-                                  for g, v in by_group.items() if v[0] >= 5 and v[1] > 0)}
 
     # ---- forecast movement
     live_path = "site/wire/data/season_sim_%d_live_wk%02d.json" % (season, through)
@@ -493,19 +461,20 @@ def build(season, week, runs, seed, preseason_cache, live_cache, k=S.REGRESS_DEF
         movement.append({
             "fid": f, "owner": who(f),
             "preseasonPlayoff": pre.get("pPlayoffs"), "preseasonTitle": pre.get("pTitle"),
-            "bankedPlayoff": round(banked["odds"][f]["playoff"], 4),
-            "bankedTitle": round(banked["odds"][f]["title"], 4),
             "afterWeekPlayoff": (live_by.get(f) or {}).get("currentPlayoffOdds"),
             "enteringPlayoff": round(now["odds"][f]["playoff"], 4),
             "enteringTitle": round(now["odds"][f]["title"], 4),
             "enteringDivision": round(now["odds"][f]["division"], 4),
-            "resultEffect": (round(banked["odds"][f]["playoff"] - pre["pPlayoffs"], 4)
-                             if pre.get("pPlayoffs") is not None else None),
-            "strengthEffect": round(now["odds"][f]["playoff"] - banked["odds"][f]["playoff"], 4),
+            # Combined change since the preseason forecast -- deliberately NOT split
+            # into a result effect and a strength effect (see module docstring:
+            # that split needed a re-simulated "banked only" state this file no
+            # longer reconstructs).
+            "combinedPlayoffChange": (round(now["odds"][f]["playoff"] - pre["pPlayoffs"], 4)
+                                      if pre.get("pPlayoffs") is not None else None),
+            "combinedTitleChange": (round(now["odds"][f]["title"] - pre["pTitle"], 4)
+                                    if pre.get("pTitle") is not None else None),
             "enteringPlayoffMflOffense": round(now_mfl["odds"][f]["playoff"], 4),
-            "mflUpdateEffect": round(now_mfl["odds"][f]["playoff"] - banked["odds"][f]["playoff"], 4),
             "switchEffect": round(now["odds"][f]["playoff"] - now_mfl["odds"][f]["playoff"], 4),
-            "mflWhy": shift[f],
             "switchWhy": switch[f],
         })
 
@@ -536,7 +505,13 @@ def build(season, week, runs, seed, preseason_cache, live_cache, k=S.REGRESS_DEF
         })
 
     return {
-        "schema": 1, "season": season, "week": week, "throughWeek": through,
+        # schema 2 (2026-09-29): dropped the banked-only re-simulation and everything
+        # derived from it (bankedPlayoff/bankedTitle, resultEffect/strengthEffect,
+        # mflUpdateEffect, mflWhy, mflProjectionChange, leagueLineupPerWeek.before/
+        # .sideChange) -- see module docstring. A reader of schema 1 files (e.g. the
+        # committed week_preview_2026_wk02.json) still gets those fields; schema 2
+        # files do not have them, by design, not by omission.
+        "schema": 2, "season": season, "week": week, "throughWeek": through,
         "generatedAtUtc": cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "provisional": True,
         "runs": runs, "seed": seed,
@@ -551,21 +526,21 @@ def build(season, week, runs, seed, preseason_cache, live_cache, k=S.REGRESS_DEF
                 "played weeks are fixed to MFL's actual results; no trades or waiver moves after the cutoff",
                 "offense is projected from RotoWire's projected stats (via Sleeper) scored with UPS rules -- a 40% chance at a touchdown counts as 40% of six points -- with MFL deciding who plays; defenders, kickers and punters use MFL's projections",
                 "single-game win chances and weekly ranges have not been tested against past seasons game by game",
+                "preseason-vs-now movement is shown as one combined change, not split into a result effect and a "
+                "strength effect -- that split needs a banked-only re-simulation on the original preseason inputs, "
+                "which are no longer available (see week_preview.py's module docstring)",
             ],
             "cutoffs": {"rostersProjectionsInjuries": cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
                         "injuryFeedWeek": inj_feed.get("week"),
                         "sleeperProjectionsUpdated": (prep.get("evCoverage") or {}).get("sleeperUpdatedAt"),
                         "preseasonInputs": preseason.get("generatedAtUtc"),
                         "afterWeekSnapshot": (live or {}).get("generatedAtUtc")},
-            "preseasonReproductionMaxPlayoffGap": round(repro_gap, 4),
             "evCoverage": prep.get("evCoverage"),
         },
         "games": games, "injuryWatch": watch[:12],
         "movement": movement, "divisionWatch": div_watch,
-        "leagueLineupPerWeek": {"before": league_before, "now": league_now, "rotowireNow": league_rw,
-                                "weeks": [weeks[0], weeks[-1]],
-                                "sideChange": league_sides},
-        "mflProjectionChange": mfl_change,
+        "leagueLineupPerWeek": {"now": league_now, "rotowireNow": league_rw,
+                                "weeks": [weeks[0], weeks[-1]]},
     }
 
 
@@ -575,7 +550,6 @@ def main():
     ap.add_argument("--week", type=int, required=True)
     ap.add_argument("--runs", type=int, default=8000)
     ap.add_argument("--seed", type=int, default=20260911)
-    ap.add_argument("--preseason-cache", required=True)
     ap.add_argument("--live-cache", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--reuse-cache", action="store_true",
@@ -583,7 +557,7 @@ def main():
     a = ap.parse_args()
     if os.path.exists(a.out):
         raise SystemExit("week_preview: %s exists -- a preview snapshot is never overwritten" % a.out)
-    out = build(a.season, a.week, a.runs, a.seed, a.preseason_cache, a.live_cache, reuse_cache=a.reuse_cache)
+    out = build(a.season, a.week, a.runs, a.seed, a.live_cache, reuse_cache=a.reuse_cache)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     open(a.out, "w", encoding="utf-8").write(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     for g in out["games"]:
