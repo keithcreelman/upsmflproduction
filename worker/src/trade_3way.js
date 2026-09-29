@@ -31,6 +31,7 @@ import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
 import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS, canView } from "./trade_3way_model.js";
 import { makeLedger, EXEC, findExecutedTrade, isMflExecuted } from "./trade_execution.js";
+import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -299,16 +300,29 @@ function ledgerFor(env) {
   if (!db) throw new Error("no D1 binding for the execution ledger");
   return makeLedger(db);
 }
+// The SAME D1 binding, a separate on-demand table (worker/src/trade_cap_ack.js) -- the
+// salary-cap overage acknowledgment store. Keyed by the 3-way trade's own `id` (a stable
+// uuid from creation through execution, unlike a 2-way trade which has no id until MFL
+// assigns one -- see trade_cap_ack.js's module doc for why 2-way instead keys by payload_hash).
+function capAckStoreFor(env) {
+  const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+  if (!db) throw new Error("no D1 binding for the cap-acknowledgment store");
+  return makeCapAckStore(db);
+}
+const capAckKey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(row.season), tradeKey: safeStr(row.id) });
 const lkey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(row.season), execKey: safeStr(row.id) });
 const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
 
-/** A cap OR loaded-contract gate that refused BEFORE any MFL write: recoverable, never
- * `failed`. Approvals stay; the row goes back to `collecting`. The `blocked_cap` ledger
- * state name is kept unchanged for backward compatibility with the deployed enum/schema
- * (worker/src/trade_execution.js) -- it now covers EITHER a salary-cap OR a loaded-
- * contract post-trade violation discovered at execution time; both are "the post-trade
- * math proved this deal can't go through as built right now, but the approvals are still
- * good and a fix + re-check can heal it" in exactly the same way. */
+/** A cap, loaded-contract, or extension/unavailable gate that refused BEFORE any MFL write:
+ * recoverable, never `failed`. Approvals stay; the row goes back to `collecting`. The
+ * `blocked_cap` ledger state name is kept unchanged for backward compatibility with the
+ * deployed enum/schema (worker/src/trade_execution.js) -- it now covers a salary-cap
+ * overage still missing its owner's acknowledgment (Keith's ruling, 2026-09-28 -- see
+ * capGate() below), a loaded-contract post-trade violation (a genuine hard block, never
+ * satisfied by any acknowledgment), or an unavailable/stale-extension check; all are "the
+ * post-trade math proved this deal can't go through as built right now, but the approvals
+ * are still good and a fix + re-check (or, for cap, an acknowledgment + re-check) can heal
+ * it" in exactly the same way. */
 async function enterBlockedCap(env, row, gate, dmAllThree) {
   const violations = gate.kind === "loaded_contracts"
     ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max }))
@@ -325,12 +339,14 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
   if (!same && dmAllThree) {
     await dmAllThree(String(gate.kind).startsWith("extension")
       ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
+      : gate.kind === "cap_ack_required"
+      ? `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use “Re-check.”`
       : `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved and everyone's accept is saved. It will go through once that's fixed (use “Re-check” on the trade).`);
   }
   return info;
 }
 
-/** { ok:true, compliance } | { ok:false, kind:"blocked"|"loaded_contracts"|"unavailable"|"extension"|"extension_stale", message, compliance } */
+/** { ok:true, compliance } | { ok:false, kind:"loaded_contracts"|"cap_ack_required"|"unavailable"|"extension"|"extension_stale", message, compliance, cap_ack? } */
 async function capGate(env, row) {
   const compliance = await complianceViaSelf(env, row);
   if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: `${UNAVAILABLE_MSG} Try again in a moment.`, compliance };
@@ -345,8 +361,23 @@ async function capGate(env, row) {
     if (reasons.every(unavailable)) return { ok: false, kind: "unavailable", message: "We couldn't verify a pre-trade extension in this trade right now. Try again in a moment.", compliance };
     return { ok: false, kind: "extension", message: "A pre-trade extension in this trade is no longer allowed, so it can't go through. Ask the initiator to build it again.", compliance };
   }
-  if (compliance.cap.status === "blocked") return { ok: false, kind: "blocked", message: safeStr(compliance.cap.message), compliance };
+  // The loaded-contract limit is a genuine hard block (PR #1135, 2026-09-28): checked FIRST,
+  // and never satisfied by any cap acknowledgment -- independent of everything below.
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "blocked") return { ok: false, kind: "loaded_contracts", message: safeStr(compliance.loaded_contracts.message), compliance };
+  // ACKNOWLEDGE, DON'T BLOCK (Keith's ruling, 2026-09-28, separate PR): a proven cap overage
+  // never itself refuses the trade -- it requires each AFFECTED franchise's own owner to have
+  // explicitly acknowledged the exact current projected figure (see worker/src/trade_cap_ack.js
+  // for how "current" is enforced -- a stale acknowledgment from before the numbers changed does
+  // not count). Each participant is tracked separately, by franchise, matching "for a three-way
+  // trade, handle each affected franchise separately."
+  if (compliance.cap.status === "blocked") {
+    const acks = await capAckStoreFor(env).readAllForTrade(capAckKey(row));
+    const ackEval = evaluateCapAcknowledgment({ violations: compliance.cap.violations, tradeKey: safeStr(row.id), acks });
+    if (!ackEval.satisfied) {
+      const waiting = ackEval.perFranchise.filter((f) => f.status !== "acknowledged").map((f) => f.franchise_name || f.franchise_id).join(", ");
+      return { ok: false, kind: "cap_ack_required", message: `${safeStr(compliance.cap.message)} Waiting on ${waiting} to acknowledge.`, compliance, cap_ack: ackEval.perFranchise };
+    }
+  }
   return { ok: true, compliance };
 }
 function rosterNote(compliance) {
@@ -629,6 +660,17 @@ export async function get3WayTrade(env, id, viewer, deps) {
     } catch (e) {
       console.warn(`[3way] compliance lookup failed: ${e?.message || e}`);
       trade.compliance = unavailableCompliance("lookup_failed");
+    }
+    // A blocked-on-cap trade's `execution.block` is a SNAPSHOT from whenever it was recorded
+    // (worker/src/trade_3way.js's enterBlockedCap) -- it does not move as owners acknowledge.
+    // Fold in the CURRENT acknowledgment picture here so the detail view (and "Re-check") show
+    // who still needs to acknowledge without requiring a re-check to see it change.
+    if (trade.execution && trade.execution.blocked && trade.execution.block && trade.compliance && trade.compliance.cap && trade.compliance.cap.status === "blocked") {
+      try {
+        const acks = await capAckStoreFor(env).readAllForTrade(capAckKey(row));
+        const ackEval = evaluateCapAcknowledgment({ violations: trade.compliance.cap.violations, tradeKey: safeStr(row.id), acks });
+        trade.execution.block.cap_ack = ackEval.perFranchise;
+      } catch (e) { console.warn(`[3way] cap-ack lookup failed (block shown without it): ${e?.message || e}`); }
     }
   }
   return { ok: true, trade };
@@ -918,12 +960,53 @@ export async function recheck3WayExecution(env, ctx, id, viewer) {
   const gate = await capGate(env, row);
   if (!gate.ok) {
     await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
-    return { ok: false, http: 409, code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contracts" ? "loaded_contract_limit" : "cap_exceeded", message: gate.message, compliance: gate.compliance };
+    return {
+      ok: false, http: 409,
+      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contracts" ? "loaded_contract_limit" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
+      message: gate.message, compliance: gate.compliance, cap_ack: gate.cap_ack || null,
+    };
   }
   const flip = await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting' AND team_b_state='accepted' AND team_c_state='accepted'`).bind(nowIso(), tid).run();
   if (!Number(flip?.meta?.changes ?? flip?.changes ?? 0)) return { ok: false, http: 409, code: "not_blocked", message: "This trade is already being processed." };
   if (ctx && ctx.waitUntil) ctx.waitUntil(execute3Way(env, tid)); else await execute3Way(env, tid);
   return { ok: true, code: "rechecking", message: "The salary cap is fine now — the trade is being processed." };
+}
+
+/**
+ * Record ONE franchise's explicit acknowledgment of its own currently-projected cap overage on
+ * this 3-way trade (Keith's ruling, 2026-09-28, separate PR: "for a three-way trade, handle each
+ * affected franchise separately"). `viewer` must be a proven session for the franchise being
+ * acknowledged -- never a body-supplied claim (mirrors every other 3-way owner action's identity
+ * check, e.g. cancel3WayTrade). Recomputes compliance FRESH in this same call; an unreadable cap
+ * calculation is never treated as "nothing to acknowledge" or as satisfied -- it fails closed.
+ * Writes nothing to MFL, and never itself flips the trade out of `collecting`/`blocked_cap` --
+ * the owner (or anyone) still needs to hit Re-check afterward, exactly like fixing any other
+ * blocked-gate condition.
+ */
+export async function ack3WayCapOverage(env, id, viewer) {
+  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
+  const tid = safeStr(id);
+  if (!ID_RE.test(tid)) return { ok: false, http: 400, code: "bad_request", message: "That isn't a valid trade id." };
+  let row; try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  if (!row || !inScope(row, viewer)) return { ok: false, http: 404, code: "not_found", message: "This 3-way trade doesn't exist." };
+  if (!canView(row, viewer)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
+  const myFid = padFid(viewer && viewer.fid);
+  const participantFids = [row.initiator_fid, row.team_b_fid, row.team_c_fid].map(padFid);
+  if (!myFid || !participantFids.includes(myFid)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
+  const compliance = await complianceViaSelf(env, row);
+  if (compliance.cap.status === "unavailable") {
+    return { ok: false, http: 503, code: "cap_check_unavailable", message: `${UNAVAILABLE_MSG} Try again in a moment.`, compliance };
+  }
+  const myViolation = (compliance.cap.violations || []).find((v) => safeStr(v.franchise_id) === myFid);
+  if (!myViolation) {
+    return { ok: true, http: 200, code: "nothing_to_acknowledge", message: "Your team isn't projected to be over the salary cap on this trade right now.", compliance };
+  }
+  const sig = capAckSignature({ tradeKey: tid, franchiseId: myFid, amountOver: myViolation.amount_over, usedAfter: myViolation.projected_used });
+  await capAckStoreFor(env).record(capAckKey(row), {
+    franchiseId: myFid, acknowledgedByFid: myFid, signature: sig,
+    amountOverDollars: myViolation.amount_over, usedAfterDollars: myViolation.projected_used, capDollars: compliance.cap.cap_dollars, tradeKind: "three_way",
+  });
+  return { ok: true, http: 200, code: "acknowledged", message: `Acknowledged: ${safeStr(myViolation.franchise_name)} would be $${Math.round(myViolation.amount_over).toLocaleString("en-US")} over the $${Math.round(compliance.cap.cap_dollars).toLocaleString("en-US")} salary cap.`, compliance, cap_ack: { franchise_id: myFid, amount_over: myViolation.amount_over, signature: sig } };
 }
 
 // ───────────────────── execute the chained 2-party trades ───────────────────

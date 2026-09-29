@@ -36,7 +36,7 @@ test("SHARED: cap ok → the Accept button is offered; cap BLOCKED or UNAVAILABL
   const ok = view(OK); t.ok(has(ok, "accept-confirm")); t.match(ok, /Salary cap — every team stays under/);
   const bad = view(BLOCKED);
   t.ok(!has(bad, "accept-confirm"), "no Accept button when the cap is blocked"); t.ok(has(bad, "accept-close"));
-  t.match(bad, /Can't be accepted — over the salary cap/); t.match(bad, /L\.A\. Looks would be \$10,000 over the \$300,000 salary cap/); t.match(bad, /over by \$10,000/);
+  t.match(bad, /Over the salary cap — needs acknowledgment/); t.match(bad, /L\.A\. Looks would be \$10,000 over the \$300,000 salary cap/); t.match(bad, /over by \$10,000/);
   const un = view(UNAVAIL);
   t.ok(!has(un, "accept-confirm"), "no Accept button when the cap can't be verified"); t.match(un, /couldn(&#39;|')t verify the salary cap/); t.match(un, /can(&#39;|')t be accepted until we can/);
   t.doesNotMatch(un, /under the salary cap|within limits/i, "unavailable never reads as compliant");
@@ -68,7 +68,7 @@ test("SHARED: every server string reaches the DOM escaped", () => {
 });
 test("SHARED: a live 3-way's detail carries the same picture (cap + roster) and a terminal one does not", () => {
   const trade = { id: "abcdefgh12", version: "v", state_view: { code: "collecting", label: "Waiting" }, permissions: {}, sides: [], participants: [], compliance: BLOCKED, terminal: false };
-  t.match(T.renderDetail(trade), /Can't be accepted — over the salary cap/);
+  t.match(T.renderDetail(trade), /Over the salary cap — needs acknowledgment/);
   t.doesNotMatch(T.renderDetail({ ...trade, terminal: true, state_view: { code: "completed", label: "Done" } }), /salary cap/);
 });
 
@@ -164,12 +164,12 @@ test("MOBILE: Accept opens a REVIEW first — one read-only preview, no ACCEPT p
   t.deepEqual(actionsOf(app.log), ["PREVIEW", "ACCEPT"]); t.equal(mfl.st.done.length, 1); t.equal(app.sheet(), undefined, "sheet closed");
 });
 test("MOBILE: a cap block is shown BEFORE anything is accepted — the teams and amounts, no Accept button, and no ACCEPT is ever posted", async () => {
-  const { env, mfl } = world({ s1: 5000, s2: 20000, fill1: 290000, fill2: 100000 });          // 0001 → 310000
+  const { env, mfl } = world({ s1: 20000, s2: 5000, fill1: 100000, fill2: 290000 });          // 0002 (the accepting owner, tok-C) → 310000
   const id = await sendOffer(env, mfl, ["14056"], ["13100"]);
   const app = liveMobile(env, id);
   await app.click("accept");
   const html = app.sheet().innerHTML;
-  t.match(html, /Can't be accepted — over the salary cap/); t.match(html, /L\.A\. Looks would be \$10,000 over the \$300,000 salary cap/);
+  t.match(html, /Over the salary cap — needs acknowledgment/); t.match(html, /CBP would be \$10,000 over the \$300,000 salary cap/);
   t.ok(!has(html, "accept-confirm")); t.ok(has(html, "accept-close"));
   app.sheet().click("accept-close"); await settle();
   t.deepEqual(actionsOf(app.log), ["PREVIEW"], "no accept was ever posted"); t.equal(mfl.st.done.length, 0); t.equal(mfl.writes("tradeResponse").length, 0);
@@ -250,11 +250,11 @@ test("DESKTOP: the review opens before any accept; with a healthy cap the owner 
   t.equal(mfl.st.done.length, 0, "the review itself never accepts");
 });
 test("DESKTOP: a cap block shows the franchise and amount, offers no Accept, and resolves false (so no ACCEPT is posted)", async () => {
-  const { env, mfl } = world({ s1: 5000, s2: 20000, fill1: 290000, fill2: 100000 });
+  const { env, mfl } = world({ s1: 20000, s2: 5000, fill1: 100000, fill2: 290000 });          // 0002 (the accepting owner, tok-C) → 310000
   const id = await sendOffer(env, mfl, ["14056"], ["13100"]);
   const d = loadDesktop(env);
   const p = d.api.reviewBeforeAccept(d.url, previewBody(id)); await settle(40);
-  t.match(d.dlg.innerHTML, /L\.A\. Looks would be \$10,000 over the \$300,000 salary cap/); t.ok(!d.dlg.has("accept-confirm")); t.ok(d.dlg.has("accept-close"));
+  t.match(d.dlg.innerHTML, /CBP would be \$10,000 over the \$300,000 salary cap/); t.ok(!d.dlg.has("accept-confirm")); t.ok(d.dlg.has("accept-close"));
   d.dlg.click("accept-close"); t.equal(await p, false); t.equal(mfl.writes("tradeResponse").length, 0);
 });
 test("DESKTOP: unavailable cap → says so with Try again; roster warning appears before confirmation as a heads-up", async () => {

@@ -158,10 +158,21 @@ function fresh(o) {
   mfl.install();
   return { env, mfl };
 }
-async function sendOffer(env, mfl, payload) {
-  const r = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, {
-    body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "", payload },
-  });
+// Attempts the create; if refused because the SENDER (the initiator, 0001) needs to acknowledge
+// their own projected overage, retries ONCE with the exact signature the server just computed --
+// the real client flow (create -> shown the figure -> acknowledge -> retry). Pass {ackCap:false}
+// to see the FIRST, unacknowledged response instead (for tests proving the create-time gate itself).
+async function createOffer(env, mfl, payload, opts) {
+  opts = opts || {};
+  const body0 = { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "", payload };
+  const r0 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: body0 });
+  if (opts.ackCap === false || r0.status < 300 || !(r0.json && r0.json.code === "cap_overage_ack_required")) return r0;
+  const r1 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: { ...body0, cap_ack: { signature: r0.json.cap_ack_needed.signature } } });
+  r1.firstResponse = r0;
+  return r1;
+}
+async function sendOffer(env, mfl, payload, opts) {
+  const r = await createOffer(env, mfl, payload, opts);
   t.ok(r.status < 300, `offer sent: ${r.status} ${r.text.slice(0, 200)}`);
   return { id: mfl.st.pending[mfl.st.pending.length - 1].trade_id, payload };
 }
@@ -184,6 +195,16 @@ function nothingHappened(mfl, env, label) {
   t.equal(outbox(env).filter((r) => r.action_type === "ACCEPT").length, 0, `${label}: no ACCEPT row written`);
   t.equal(outbox(env).filter((r) => ["VERIFIED", "COMPLETED"].includes(r.status)).length, 0, `${label}: nothing recorded as completed`);
 }
+// PREVIEW then ACCEPT, acknowledging the ACCEPTING franchise's own overage if the preview shows one
+// for them (the real client flow: preview -> read the signature -> accept with it). A test that wants
+// to see the unacknowledged accept refusal should call act() directly instead.
+async function acceptAck(env, id, fid) {
+  const p = await act(env, mobileBody(id, "PREVIEW"));
+  const mine = p.json && p.json.cap_ack && (p.json.cap_ack.per_franchise || []).find((f) => f.franchise_id === (fid || "0002"));
+  const body = mobileBody(id);
+  if (mine && mine.status !== "acknowledged") body.cap_ack = { signature: mine.signature };
+  return act(env, body);
+}
 
 // ───────────────────────────────── Part 2 — two-team accept + preview ─────────────────────────────────
 test("CAP 1: every participant stays under the cap → the accept proceeds and MFL is called once", async () => {
@@ -193,42 +214,51 @@ test("CAP 1: every participant stays under the cap → the accept proceeds and M
   t.equal(r.status, 200, r.text.slice(0, 300)); t.equal(mfl.st.done.length, 1); t.equal(r.json.compliance.cap.status, "ok");
   t.equal(r.json.compliance.cap.rows.find((x) => x.franchise_id === "0001").used_after, 205000);
 });
-test("CAP 2: the SENDER would exceed the cap → blocked before MFL (409 cap_exceeded), the franchise and amount named, nothing written", async () => {
+test("CAP 2: the SENDER would exceed the cap → the OFFER ITSELF requires the sender's acknowledgment; unacknowledged, nothing is created or written; once acknowledged, the offer (and later accept) proceed", async () => {
   const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 20000, fill1: 290000, fill2: 100000 });      // 0001: 295000 − 5000 + 20000 = 310000
+  const r0 = await createOffer(env, mfl, SWAP(), { ackCap: false });
+  t.equal(r0.status, 409); t.equal(r0.json.code, "cap_overage_ack_required"); t.equal(r0.json.ok, false);
+  t.match(r0.json.error, /This offer would put your team \$10,000 over the \$300,000 salary cap/);
+  t.equal(r0.json.cap_ack_needed.franchise_id, "0001"); t.equal(r0.json.cap_ack_needed.amount_over, 10000);
+  t.equal(mfl.st.pending.length, 0, "no offer was ever sent to MFL");
   const o = await sendOffer(env, mfl, SWAP());
   const r = await act(env, mobileBody(o.id));
-  t.equal(r.status, 409); t.equal(r.json.code, "cap_exceeded"); t.equal(r.json.ok, false);
-  t.match(r.json.message, /L\.A\. Looks would be \$10,000 over the \$300,000 salary cap after this trade/);
-  t.equal(r.json.cap_violations.length, 1); t.equal(r.json.cap_violations[0].franchise_id, "0001"); t.equal(r.json.cap_violations[0].amount_over, 10000);
-  nothingHappened(mfl, env, "sender over");
+  t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1);
+  t.equal(r.json.compliance.cap.rows.find((x) => x.franchise_id === "0001").used_after, 310000, "the acknowledged overage still shows in the projection -- it's displayed, not hidden");
 });
-test("CAP 3: the RECIPIENT would exceed the cap → blocked before MFL", async () => {
+test("CAP 3: the RECIPIENT would exceed the cap → the offer is created normally (only the SENDER's own side gates creation), but ACCEPT requires the recipient's own acknowledgment first", async () => {
   const { env, mfl } = fresh(); world(mfl, { s1: 20000, s2: 5000, fill1: 100000, fill2: 290000 });
   const o = await sendOffer(env, mfl, SWAP());
-  const r = await act(env, mobileBody(o.id));
-  t.equal(r.status, 409); t.equal(r.json.code, "cap_exceeded"); t.equal(r.json.cap_violations[0].franchise_id, "0002"); t.equal(r.json.cap_violations[0].amount_over, 10000);
-  t.match(r.json.message, /CBP would be \$10,000 over/);
-  nothingHappened(mfl, env, "recipient over");
+  const r0 = await act(env, mobileBody(o.id));
+  t.equal(r0.status, 409); t.equal(r0.json.code, "cap_overage_ack_required");
+  t.equal(r0.json.cap_ack[0].franchise_id, "0002"); t.equal(r0.json.cap_ack[0].amount_over, 10000); t.equal(r0.json.cap_ack[0].status, "missing");
+  t.match(r0.json.compliance.cap.message, /CBP would be \$10,000 over/);
+  nothingHappened(mfl, env, "recipient over, unacknowledged");
+  const r = await acceptAck(env, o.id, "0002");
+  t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1);
 });
-test("CAP 5 + 6: exactly AT the cap is allowed; ONE DOLLAR over is blocked", async () => {
+test("CAP 5 + 6: exactly AT the cap needs no acknowledgment; ONE DOLLAR over requires the SENDER's acknowledgment", async () => {
   { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15000, fill1: 285000, fill2: 100000 });          // 0001 after = 300000
     const o = await sendOffer(env, mfl, SWAP()); const r = await act(env, mobileBody(o.id));
     t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(r.json.compliance.cap.rows.find((x) => x.franchise_id === "0001").used_after, CAP); t.equal(mfl.st.done.length, 1); }
-  { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15001, fill1: 285000, fill2: 100000 });          // 300001
+  { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15001, fill1: 285000, fill2: 100000 });          // 300001, the SENDER is over
+    const r0 = await createOffer(env, mfl, SWAP(), { ackCap: false });
+    t.equal(r0.status, 409); t.equal(r0.json.code, "cap_overage_ack_required"); t.equal(r0.json.cap_ack_needed.amount_over, 1); t.match(r0.json.error, /\$1 over/);
+    t.equal(mfl.st.pending.length, 0, "no offer was ever sent to MFL");
     const o = await sendOffer(env, mfl, SWAP()); const r = await act(env, mobileBody(o.id));
-    t.equal(r.status, 409); t.equal(r.json.code, "cap_exceeded"); t.equal(r.json.cap_violations[0].amount_over, 1); t.match(r.json.message, /\$1 over/);
-    nothingHappened(mfl, env, "one dollar over"); }
+    t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1); }
 });
-test("CAP 7 + 18: a false cap total in the request is IGNORED, and an owner cannot bypass the block by changing the request body", async () => {
-  const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 20000, fill1: 290000, fill2: 100000 });          // genuinely over
+test("CAP 7 + 18: a false cap total, and a FORGED acknowledgment signature, are IGNORED -- an owner cannot bypass the requirement by lying in the request body", async () => {
+  const { env, mfl } = fresh(); world(mfl, { s1: 20000, s2: 5000, fill1: 100000, fill2: 290000 });          // the RECIPIENT (0002) is genuinely over -- offer creation is unaffected
   const o = await sendOffer(env, mfl, SWAP());
   const lies = {
     cap_total: 999999, franchise_cap: 999999, available_salary_dollars: 999999, salary_cap_amount: 999999, cap_space: 999999, used_after: 1, over_by: 0, cap_ok: true,
     compliance: { cap: { status: "ok", violations: [] } }, override_cap: true, force: true, skip_cap_check: true, commissioner_override: true, ignore_cap: true,
+    cap_ack: { signature: "totally-forged-signature-not-computed-by-the-server" },
   };
   const evilPayload = SWAP(); evilPayload.teams[0].selected_non_taxi_salary_dollars = 1; evilPayload.teams[1].available_salary_dollars = 999999; evilPayload.teams[0].salary_cap_room = 999999;
   for (const [name, body] of Object.entries({
-    "mobile shape + lies": { ...mobileBody(o.id), ...lies },
+    "mobile shape + lies (incl. a forged cap_ack signature)": { ...mobileBody(o.id), ...lies },
     "desktop shape + lies": desktopBody(o.id, o.payload, lies),
     "desktop shape + a rewritten payload with cheaper salaries and fake room": desktopBody(o.id, evilPayload, lies),
     "desktop shape with cheaper asset salaries": (() => { const p = SWAP(); p.teams[1].selected_assets[0].salary = 100; return desktopBody(o.id, p); })(),
@@ -249,25 +279,33 @@ test("CAP 8: the cap changed AFTER the proposal was created → the CURRENT amou
   { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 5000, fill1: 100000, fill2: 100000 });           // fine when sent
     const o = await sendOffer(env, mfl, SWAP());
     world(mfl, { s1: 5000, s2: 5000, fill1: 100000, fill2: 100000, adj: [{ franchise_id: "0002", amount: "200000", description: "manual commissioner adjustment" }] });   // 0002 now at 300000+… after
-    const r = await act(env, mobileBody(o.id));
-    t.equal(r.status, 409); t.equal(r.json.code, "cap_exceeded"); t.equal(r.json.cap_violations[0].franchise_id, "0002");
-    nothingHappened(mfl, env, "cap moved after sending"); }
-  { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15001, fill1: 290000, fill2: 100000 });          // over when sent…
+    const r0 = await act(env, mobileBody(o.id));
+    t.equal(r0.status, 409); t.equal(r0.json.code, "cap_overage_ack_required"); t.equal(r0.json.cap_ack[0].franchise_id, "0002");
+    nothingHappened(mfl, env, "cap moved after sending, unacknowledged");
+    const r = await acceptAck(env, o.id, "0002");
+    t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1); }
+  { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15001, fill1: 290000, fill2: 100000 });          // over when sent (the SENDER) -- creation itself needs the sender's acknowledgment for that figure
     const o = await sendOffer(env, mfl, SWAP());
-    world(mfl, { s1: 5000, s2: 15001, fill1: 200000, fill2: 100000 });                                        // …the sender cleared payroll since
+    world(mfl, { s1: 5000, s2: 15001, fill1: 200000, fill2: 100000 });                                        // …the sender cleared payroll since -- no violation left at all by accept time
     const r = await act(env, mobileBody(o.id));
     t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1); }
 });
-test("CAP 9 + 10: an existing salary adjustment, and DEAD MONEY, are part of the calculation", async () => {
+test("CAP 9 + 10: an existing salary adjustment, and DEAD MONEY, are part of the calculation -- and, when they push the SENDER over, gate offer creation on the sender's acknowledgment", async () => {
   { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15000, fill1: 285000, fill2: 100000, adj: [{ franchise_id: "0001", amount: "5000.00", description: "UPS traded salary settlement (2025 trade)" }] });   // 0001 = 290000+5000 adj +10000 = 305000
+    const r0 = await createOffer(env, mfl, SWAP(), { ackCap: false });
+    t.equal(r0.status, 409); t.equal(r0.json.code, "cap_overage_ack_required"); t.equal(r0.json.cap_ack_needed.amount_over, 5000);
+    t.equal(mfl.st.pending.length, 0, "no offer was ever sent to MFL");
     const o = await sendOffer(env, mfl, SWAP()); const r = await act(env, mobileBody(o.id));
-    t.equal(r.status, 409); t.equal(r.json.cap_violations[0].amount_over, 5000); nothingHappened(mfl, env, "adjustment"); }
+    t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1); }
   { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15000, fill1: 290000, fill2: 100000, adj: [{ franchise_id: "0001", amount: "-5000", description: "credit" }] });   // a credit brings 0001 to exactly the cap
     const o = await sendOffer(env, mfl, SWAP()); const r = await act(env, mobileBody(o.id));
     t.equal(r.status, 200, r.text.slice(0, 200)); }
   { const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 15000, fill1: 285000, fill2: 100000, adj: [{ franchise_id: "0001", amount: "3000", description: "Cut player drop penalty (dead money) — Player X" }] });   // dead money alone tips 0001 over
+    const r0 = await createOffer(env, mfl, SWAP(), { ackCap: false });
+    t.equal(r0.status, 409); t.equal(r0.json.cap_ack_needed.amount_over, 3000);
+    t.equal(mfl.st.pending.length, 0, "no offer was ever sent to MFL");
     const o = await sendOffer(env, mfl, SWAP()); const r = await act(env, mobileBody(o.id));
-    t.equal(r.status, 409); t.equal(r.json.cap_violations[0].amount_over, 3000); nothingHappened(mfl, env, "dead money"); }
+    t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1); }
 });
 test("CAP 11: a loaded / front-loaded contract counts the CURRENT-year amount (and an extension's current-year salary), not its average", async () => {
   // 14056: front-loaded — this year's salary is 15K while its AAV is only 10K
@@ -278,8 +316,10 @@ test("CAP 11: a loaded / front-loaded contract counts the CURRENT-year amount (a
   const e2 = fresh();
   world(e2.mfl, { s1: 15001, s2: 5000, fill1: 100000, fill2: 285000, p1: { contractYear: 3, contractStatus: "Vet-Ext2-FL", contractInfo: "CL 3|TCV 30K|AAV 10K|Y1-15K, Y2-10K, Y3-5K" } });
   const o2 = await sendOffer(e2.env, e2.mfl, SWAP());
-  const r2 = await act(e2.env, mobileBody(o2.id));
-  t.equal(r2.status, 409); t.equal(r2.json.cap_violations[0].franchise_id, "0002"); t.equal(r2.json.cap_violations[0].amount_over, 1, "AAV (10K) would have hidden this");
+  const r0 = await act(e2.env, mobileBody(o2.id));
+  t.equal(r0.status, 409); t.equal(r0.json.code, "cap_overage_ack_required"); t.equal(r0.json.cap_ack[0].franchise_id, "0002"); t.equal(r0.json.cap_ack[0].amount_over, 1, "AAV (10K) would have hidden this");
+  const r2 = await acceptAck(e2.env, o2.id, "0002");
+  t.equal(r2.status, 200, r2.text.slice(0, 200));
 });
 test("CAP 12 + 13: cap authority UNAVAILABLE or MALFORMED → fail closed (503 cap_check_unavailable); MFL is never called", async () => {
   const breakers = {
@@ -301,29 +341,41 @@ test("CAP 12 + 13: cap authority UNAVAILABLE or MALFORMED → fail closed (503 c
     nothingHappened(mfl, env, name);
   }
 });
-test("CAP 14 + 15 + 16: a blocked accept makes ZERO MFL writes and ZERO completed-state writes; after the cap is corrected the retry uses a FRESH calculation", async () => {
-  const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 20000, fill1: 290000, fill2: 100000 });
+test("CAP 14 + 15 + 16: an UNACKNOWLEDGED accept makes ZERO MFL writes and ZERO completed-state writes; a STALE acknowledgment (numbers changed) does not count either; a FRESH calculation governs the retry", async () => {
+  const { env, mfl } = fresh(); world(mfl, { s1: 20000, s2: 5000, fill1: 100000, fill2: 290000 });   // the RECIPIENT (0002) is over -- offer creation unaffected
   const o = await sendOffer(env, mfl, SWAP());
   const importsBefore = mfl.st.imports.length;
   const first = await act(env, mobileBody(o.id));
-  t.equal(first.status, 409); t.equal(first.json.compliance.cap.rows.find((x) => x.franchise_id === "0001").used_after, 310000);
+  t.equal(first.status, 409); t.equal(first.json.code, "cap_overage_ack_required");
+  t.equal(first.json.compliance.cap.rows.find((x) => x.franchise_id === "0002").used_after, 310000);
   t.equal(mfl.st.imports.length, importsBefore, "not a single import after the offer was sent");
-  nothingHappened(mfl, env, "blocked");
-  // the sender clears cap room (drops payroll) → the SAME offer, re-tried
-  mfl.st.rosters["0001"] = mfl.st.rosters["0001"].filter((p) => p.id !== "90001"); mfl.st.rosters["0001"].push({ id: "90001", salary: 200000, contractYear: 3, contractStatus: "Vet-FAA" });
+  nothingHappened(mfl, env, "unacknowledged");
+  // acknowledge the CURRENT figure, then change the numbers before actually accepting -- the
+  // stale acknowledgment must NOT satisfy the fresh recompute
+  const p1 = await act(env, mobileBody(o.id, "PREVIEW"));
+  const staleSig = p1.json.cap_ack.per_franchise.find((f) => f.franchise_id === "0002").signature;
+  mfl.st.rosters["0002"].push({ id: "90003", salary: 1, contractYear: 3, contractStatus: "Vet-FAA" });   // the projected figure moves by $1 -- the old signature no longer matches
+  const staleAttempt = await act(env, { ...mobileBody(o.id), cap_ack: { signature: staleSig } });
+  t.equal(staleAttempt.status, 409, "a signature computed against the OLD numbers does not satisfy the NEW ones");
+  t.equal(staleAttempt.json.code, "cap_overage_ack_required");
+  nothingHappened(mfl, env, "stale acknowledgment");
+  // the recipient clears cap room (drops payroll) entirely -- no violation left, nothing to acknowledge
+  mfl.st.rosters["0002"] = mfl.st.rosters["0002"].filter((p) => p.id !== "90002"); mfl.st.rosters["0002"].push({ id: "90002", salary: 10000, contractYear: 3, contractStatus: "Vet-FAA" });
   const retry = await act(env, mobileBody(o.id));
   t.equal(retry.status, 200, retry.text.slice(0, 200));
-  t.equal(retry.json.compliance.cap.rows.find((x) => x.franchise_id === "0001").used_before, 205000, "the retry recomputed from the live payroll");
-  t.equal(retry.json.compliance.cap.rows.find((x) => x.franchise_id === "0001").used_after, 220000);
+  t.equal(retry.json.compliance.cap.status, "ok", "the retry recomputed from the live payroll -- no violation left at all");
   t.equal(mfl.st.done.length, 1);
 });
-test("PREVIEW: a read-only review returns the same picture the accept enforces, and writes nothing", async () => {
-  const { env, mfl } = fresh(); world(mfl, { s1: 5000, s2: 20000, fill1: 290000, fill2: 100000 });
+test("PREVIEW: a read-only review returns the same picture the accept enforces, names WHO must acknowledge and the exact signature, and writes nothing", async () => {
+  const { env, mfl } = fresh(); world(mfl, { s1: 20000, s2: 5000, fill1: 100000, fill2: 290000 });   // the RECIPIENT is over -- offer creation unaffected
   const o = await sendOffer(env, mfl, SWAP());
   const importsBefore = mfl.st.imports.length;
   const p = await act(env, mobileBody(o.id, "PREVIEW"));
   t.equal(p.status, 200, p.text.slice(0, 200)); t.equal(p.json.action, "PREVIEW"); t.equal(p.json.compliance.cap.status, "blocked");
   t.equal(p.json.compliance.cap.violations[0].amount_over, 10000); t.equal(mfl.st.imports.length, importsBefore); nothingHappened(mfl, env, "preview");
+  t.equal(p.json.cap_ack.satisfied, false);
+  t.equal(p.json.cap_ack.per_franchise[0].franchise_id, "0002"); t.equal(p.json.cap_ack.per_franchise[0].status, "missing");
+  t.ok(p.json.cap_ack.per_franchise[0].signature, "PREVIEW hands back the exact signature ACCEPT will require");
   const real = await act(env, mobileBody(o.id));
   t.equal(real.status, 409); t.deepEqual(real.json.compliance.cap.rows, p.json.compliance.cap.rows, "preview == accept");
   // only the recipient may preview; a signed-out caller cannot
@@ -391,7 +443,7 @@ test("3-WAY CAP 4: the THIRD participant would exceed the cap → the accept IS 
   t.equal(row.team_b_state, "accepted", "the accept WAS recorded — a partner's consent is never discarded because someone is over the cap"); t.equal(row.status, "collecting");
   t.equal(mfl.writes().length, 0, "not one MFL write"); t.equal(env.__selfCalls.filter((u) => /\/admin\/3way\/compliance/.test(u)).length, 1, "the engine asked the worker's shared authority");
 });
-test("3-WAY CAP 4a: the LAST accept while over the cap → RECOVERABLE block: stays collecting, both approvals kept, ledger blocked_cap, zero MFL writes, never `failed`", async () => {
+test("3-WAY CAP 4a: the LAST accept while over the cap → RECOVERABLE, waiting on an acknowledgment: stays collecting, both approvals kept, ledger blocked_cap, zero MFL writes, never `failed`; the affected owner's own acknowledgment then lets it through", async () => {
   const { env, mfl } = threeWayWorld({ live: true, sal: { a1: 5000, b1: 20000, c1: 5000 }, fillA: 100000, fillB: 100000, fillC: 285000 });
   const ctx = ctxWait();
   await say(await handle3WayButton(press("accept", DISCORD.B), env, ctx));
@@ -402,7 +454,7 @@ test("3-WAY CAP 4a: the LAST accept while over the cap → RECOVERABLE block: st
   t.equal(row.status, "collecting", "NOT failed, NOT executing"); t.equal(row.team_b_state, "accepted"); t.equal(row.team_c_state, "accepted");
   t.equal(row.failure_reason, null); t.equal(row.mfl_trade_ids, null); t.equal(row.executed_at_utc, null);
   const led = ledgerRow(env); t.equal(led.state, "blocked_cap");
-  const blk = JSON.parse(led.block_json); t.equal(blk.kind, "blocked"); t.deepEqual(blk.violations.map((v) => [v.franchise_id, v.amount_over]), [["0012", 5000]]);
+  const blk = JSON.parse(led.block_json); t.equal(blk.kind, "cap_ack_required"); t.deepEqual(blk.violations.map((v) => [v.franchise_id, v.amount_over]), [["0012", 5000]]);
   t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(mfl.st.done.length, 0);
   t.equal(blockDms(mfl).length, 3, "all three owners are told once");
   // the owner's view names the blocking franchise and amount
@@ -415,8 +467,24 @@ test("3-WAY CAP 4a: the LAST accept while over the cap → RECOVERABLE block: st
   // approvals are locked in: an owner cannot cancel it any more (commissioner's administrative cancel is the exit)
   const cancel = await callWorker(env, "POST", `/api/trades/3way/cancel?${Q}&MFL_USER_ID=tok-A`, { body: { id: F.TRADE_ID } });
   t.equal(cancel.status, 409); t.equal(cancel.json.code, "cannot_cancel_all_accepted");
+  // a non-participant cannot even reach it; a participant with no overage of their own has nothing
+  // to acknowledge -- and it does NOT clear Hawks' block
+  const outsider = await callWorker(env, "POST", `/api/trades/3way/ack-cap?${Q}&MFL_USER_ID=tok-nobody`, { body: { id: F.TRADE_ID } });
+  t.ok([401, 403].includes(outsider.status), `an unrecognized caller is refused (${outsider.status})`);
+  const noViolation = await callWorker(env, "POST", `/api/trades/3way/ack-cap?${Q}&MFL_USER_ID=tok-A`, { body: { id: F.TRADE_ID } });
+  t.equal(noViolation.status, 200); t.equal(noViolation.json.code, "nothing_to_acknowledge", "team A has no overage of its own to acknowledge");
+  const stillBlocked = await recheck(env);
+  t.equal(stillBlocked.status, 409, "Hawks' own overage is still unacknowledged"); t.equal(stillBlocked.json.code, "cap_overage_ack_required");
+  t.equal(mfl.writes().length, 0, "still zero MFL writes");
+  // Hawks' own owner (tok-H → 0012) acknowledges -- and a re-check lets the trade through
+  const ack = await callWorker(env, "POST", `/api/trades/3way/ack-cap?${Q}&MFL_USER_ID=tok-H`, { body: { id: F.TRADE_ID } });
+  t.equal(ack.status, 200, ack.text.slice(0, 200)); t.equal(ack.json.code, "acknowledged"); t.equal(ack.json.cap_ack.franchise_id, "0012"); t.equal(ack.json.cap_ack.amount_over, 5000);
+  env.TRADE_3WAY_EXECUTE = "0";                                                     // dry run so the test doesn't drive live legs
+  const recheckAfterAck = await recheck(env);
+  t.equal(recheckAfterAck.status, 200, recheckAfterAck.text.slice(0, 200)); t.equal(recheckAfterAck.json.code, "rechecking");
+  t.equal(F.readRow(env).status, "completed", "the acknowledged overage no longer blocks execution -- it was displayed and acknowledged, never itself a block");
 });
-test("3-WAY CAP 4b: cap changed between the accepts → the EXECUTE gate blocks RECOVERABLY before any MFL call; re-check recomputes, and a legitimate correction lets it execute", async () => {
+test("3-WAY CAP 4b: cap changed between the accepts → the EXECUTE gate blocks RECOVERABLY before any MFL call, waiting on an acknowledgment; re-check recomputes, and the affected owner's acknowledgment lets it execute (still over cap)", async () => {
   const { env, mfl } = threeWayWorld({ live: true, sal: { a1: 5000, b1: 5000, c1: 5000 }, fillA: 100000, fillB: 100000, fillC: 100000, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
   const liveFlag = env.TRADE_3WAY_EXECUTE;
   mfl.st.salaryAdjustments = [{ franchise_id: "0012", amount: "200000", description: "manual commissioner adjustment" }];       // C is now far over
@@ -425,24 +493,28 @@ test("3-WAY CAP 4b: cap changed between the accepts → the EXECUTE gate blocks 
   let row = F.readRow(env);
   t.equal(row.status, "collecting", "recoverable — never `failed`"); t.equal(row.failure_reason, null); t.equal(row.mfl_trade_ids, null); t.equal(row.executed_at_utc, null);
   t.equal(row.team_b_state, "accepted"); t.equal(row.team_c_state, "accepted");
-  t.equal(ledgerRow(env).state, "blocked_cap");
+  t.equal(ledgerRow(env).state, "blocked_cap"); t.equal(JSON.parse(ledgerRow(env).block_json).kind, "cap_ack_required");
   t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(mfl.st.done.length, 0);
   t.equal(blockDms(mfl).length, 3, "all three owners are told once");
   // an identical re-run is the SAME problem: not announced again
   env.UPS_MFL_DB.raw.prepare("UPDATE ups_3way_trades SET status='executing'").run();
   await execute3Way(env, F.TRADE_ID);
   t.equal(blockDms(mfl).length, 3, "no repeat DM for the same block"); t.equal(F.readRow(env).status, "collecting");
-  // a re-check while STILL over the cap: refused, recomputed, nothing changes
+  // a re-check while STILL unacknowledged: refused, recomputed, nothing changes
   const still = await recheck(env);
-  t.equal(still.status, 409); t.equal(still.json.code, "cap_exceeded"); t.match(still.json.message, /Hawks would be/);
+  t.equal(still.status, 409); t.equal(still.json.code, "cap_overage_ack_required"); t.match(still.json.message, /Hawks would be/); t.match(still.json.message, /to acknowledge/);
   t.equal(F.readRow(env).status, "collecting"); t.equal(mfl.writes().length, 0);
-  // …and once the cap is legitimately corrected, a re-check runs it with a FRESH calculation
+  // Hawks' own owner (tok-H → 0012) acknowledges the CURRENT figure -- this is what actually lets
+  // it through, not a changed cap: the adjustment is left in place, so this proves the trade can
+  // genuinely execute while still $200,000 over cap once acknowledged.
+  const ack = await callWorker(env, "POST", `/api/trades/3way/ack-cap?${Q}&MFL_USER_ID=tok-H`, { body: { id: F.TRADE_ID } });
+  t.equal(ack.status, 200, ack.text.slice(0, 200)); t.equal(ack.json.cap_ack.amount_over, 5000);
   t.equal(liveFlag, "1", "(the block happened with LIVE execution on)");
-  mfl.st.salaryAdjustments = [];
   env.TRADE_3WAY_EXECUTE = "0";                                                     // dry run so the test doesn't drive live legs
   const fixed = await recheck(env);
   t.equal(fixed.status, 200, fixed.text.slice(0, 200)); t.equal(fixed.json.code, "rechecking");
   row = F.readRow(env); t.equal(row.status, "completed"); t.equal(row.failure_reason, "dry_run");
+  t.equal(row.team_b_state, "accepted");
 });
 test("3-WAY CAP 4c: re-check refuses what it must — a stranger, a trade that is not blocked, an unknown id", async () => {
   const { env } = threeWayWorld({ live: true, fillA: 100000, fillB: 100000, fillC: 100000 });

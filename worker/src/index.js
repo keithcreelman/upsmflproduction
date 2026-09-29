@@ -49,6 +49,7 @@ import {
   indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
 } from "./trade_accept_integrity.js";
 import { evaluateTradeCompliance } from "./trade_cap_authority.js";
+import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
@@ -8180,6 +8181,7 @@ export default {
         path !== "/api/trades/3way" &&
         path !== "/api/trades/3way/cancel" &&
         path !== "/api/trades/3way/recheck" &&
+        path !== "/api/trades/3way/ack-cap" &&
         !path.startsWith("/api/trades/outbox") &&
         !path.startsWith("/api/trades/reconcile") &&
         !path.startsWith("/api/trades/refresh-after-trade")
@@ -38382,6 +38384,68 @@ const mflToSleeper = {};
             return jsonOut(refusal.http, { ok: false, code: refusal.code, error_type: "extension_pricing", error: refusal.message, message: refusal.message, skipped: refusal.skipped });
           }
 
+          // SALARY-CAP OVERAGE ACKNOWLEDGMENT (Keith's ruling, 2026-09-28, separate PR from the
+          // loaded-contract/lineup work): a trade that would put a franchise over the cap may
+          // still proceed, but the AFFECTED owner must explicitly acknowledge the exact projected
+          // overage first. At OFFER CREATION this is the INITIATOR's own side -- the recipient's
+          // side (if any) is the recipient's own concern at accept time, not the sender's to
+          // acknowledge on their behalf. Recomputed fresh from live MFL data in THIS SAME
+          // request, never from the client's own numbers. If the calculation is UNAVAILABLE right
+          // now (an MFL export down, unresolved roster data, etc.), creation is NOT refused here --
+          // offer creation has never depended on cap availability, and an unrelated franchise's
+          // unresolved data must not block a sender from simply proposing a trade. The fail-closed
+          // guarantee for an unresolved/unavailable calculation is enforced where it always was:
+          // PREVIEW and ACCEPT, both of which still refuse (503) rather than ever treat unavailable
+          // as compliant or as satisfying an acknowledgment. Only a PROVEN ("blocked") overage for
+          // the sender's own franchise gates creation.
+          {
+            const capAckMoney = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
+            const createCapFids = Object.keys(tokensByFranchise(proposalAssets));
+            const createCompliance = await computeTradeComplianceLive({
+              season, leagueId,
+              movements: createCapFids.map((f) => ({ from: f, to: createCapFids.find((x) => x !== f), tokens: tokensByFranchise(proposalAssets)[f] })),
+            });
+            if (createCompliance.cap.status === "blocked") {
+              const myViolation = (createCompliance.cap.violations || []).find((v) => safeStr(v.franchise_id) === fromFranchiseId);
+              if (myViolation) {
+                const createCapAckTradeKey = `${leagueId}|${season}|${fromFranchiseId}|${toFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(proposalAssets), extensionRequests: payload?.extension_requests })}`;
+                const wantSig = capAckSignature({ tradeKey: createCapAckTradeKey, franchiseId: fromFranchiseId, amountOver: myViolation.amount_over, usedAfter: myViolation.projected_used });
+                const gotSig = safeStr(body?.cap_ack && body.cap_ack.signature);
+                if (gotSig !== wantSig) {
+                  return jsonOut(409, {
+                    ok: false, code: "cap_overage_ack_required", error_type: "cap_overage_ack_required",
+                    error: `This offer would put your team ${capAckMoney(myViolation.amount_over)} over the ${capAckMoney(createCompliance.cap.cap_dollars)} salary cap. You must acknowledge that before it can be sent.`,
+                    compliance: createCompliance,
+                    cap_ack_needed: { franchise_id: fromFranchiseId, amount_over: myViolation.amount_over, projected_used: myViolation.projected_used, cap_dollars: createCompliance.cap.cap_dollars, signature: wantSig },
+                  });
+                }
+                // Acknowledged in THIS SAME request (the fresh signature the server just
+                // computed matches what the client is presenting) — record it for the audit
+                // trail / for the accept-time staleness check, keyed by this offer's own
+                // complete authoritative terms (trade_cap_ack.js's capAckTermsKey). This record
+                // is REQUIRED, not best-effort: the accept-time check for the SENDER's overage
+                // can only ever see a PERSISTED row (there is no later request in which the
+                // sender could re-acknowledge inline), so if it can't be saved now, the sender's
+                // side of this offer could never be satisfied later -- refuse before the offer is
+                // sent to MFL at all, exactly like any other "couldn't verify/save" fail-closed
+                // path in this handler.
+                const ackDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+                if (!ackDb) {
+                  return jsonOut(503, { ok: false, code: "cap_ack_unavailable", error_type: "cap_ack_unavailable", error: "Couldn't save your acknowledgment right now, so the offer wasn't sent. Try again in a moment." });
+                }
+                try {
+                  await makeCapAckStore(ackDb).record(
+                    { leagueId, season, tradeKey: createCapAckTradeKey },
+                    { franchiseId: fromFranchiseId, acknowledgedByFid: fromFranchiseId, signature: wantSig, amountOverDollars: myViolation.amount_over, usedAfterDollars: myViolation.projected_used, capDollars: createCompliance.cap.cap_dollars, tradeKind: "two_way" }
+                  );
+                } catch (e) {
+                  console.error("[trade-cap-ack] couldn't persist the initiator's acknowledgment -- refusing the offer (not sent to MFL):", e?.message || String(e));
+                  return jsonOut(503, { ok: false, code: "cap_ack_unavailable", error_type: "cap_ack_unavailable", error: "Couldn't save your acknowledgment right now, so the offer wasn't sent. Try again in a moment." });
+                }
+              }
+            }
+          }
+
           let outboxId = "";
           let outboxBackend = "";
           let outboxWriteError = "";
@@ -39182,7 +39246,7 @@ const mflToSleeper = {};
             if (!hit) {
               // Not pending in MFL. If the ledger says WE executed it, that is the truth to report (never a bare "not pending"), and only
               // one of its two teams may hear it.
-              if (["ACCEPT", "PREVIEW"].includes(action)) {
+              if (["ACCEPT", "PREVIEW", "ACK_CAP"].includes(action)) {
                 let led = null;
                 try { led = await execLedger().read(execKey(leagueId, season, mflTradeId)); } catch (_) { led = null; }
                 if (led && Array.isArray(led.participants) && led.participants.includes(actFid)) return { ok: false, ledger: led };
@@ -39195,6 +39259,14 @@ const mflToSleeper = {};
             }
             if (["ACCEPT", "PREVIEW", "REJECT", "COUNTER"].includes(action) && actFid !== to) {
               return { ok: false, http: 403, code: "forbidden", message: "Only the team an offer was sent to can respond to it." };
+            }
+            // ACK_CAP (salary-cap overage acknowledgment) is the ONE action either side of a
+            // pending offer may call -- the sender might be acknowledging their OWN overage
+            // (refreshing a stale one, since only the sender could have made it at creation) or
+            // the recipient might be acknowledging their own ahead of accepting. Never the other
+            // team's franchise id, and never a stranger to this offer.
+            if (action === "ACK_CAP" && actFid !== from && actFid !== to) {
+              return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this offer." };
             }
             return { ok: true, from, to };
           };
@@ -39331,8 +39403,8 @@ const mflToSleeper = {};
             });
           }
 
-          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE"].includes(action)) {
-            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, or COUNTER in direct mode" });
+          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE", "ACK_CAP"].includes(action)) {
+            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, COUNTER, or ACK_CAP in direct mode" });
           }
           if (!mflTradeId) {
             return jsonOut(400, { ok: false, error: "trade_id is required for direct MFL actions" });
@@ -39351,7 +39423,7 @@ const mflToSleeper = {};
           // BEFORE anything is written. Live legality is re-checked here (fail closed). See
           // worker/src/trade_accept_integrity.js.
           let acceptCompliance = null;
-          if (action === "ACCEPT" || action === "PREVIEW") {
+          if (action === "ACCEPT" || action === "PREVIEW" || action === "ACK_CAP") {
             const integrityFail = (http, code, message, extra) =>
               jsonOut(http, { ok: false, mode: "direct_mfl", action: "ACCEPT", code, error: message, message, ...(extra || {}) });
             const clientClaims = collectClientClaims(body);
@@ -39505,8 +39577,44 @@ const mflToSleeper = {};
                 return integrityFail(503, "cap_check_unavailable", "We couldn't verify the salary cap for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
               if (acceptCompliance.cap.status === "blocked" && action === "ACCEPT") {
-                console.warn("[trade-accept] blocked by the salary cap:", JSON.stringify({ trade_id: mflTradeId, violations: acceptCompliance.cap.violations.map((v) => ({ franchise_id: v.franchise_id, amount_over: v.amount_over })) }));
-                return integrityFail(409, "cap_exceeded", acceptCompliance.cap.message + " Nothing was changed.", { compliance: acceptCompliance, cap_violations: acceptCompliance.cap.violations });
+                // ACKNOWLEDGE, DON'T BLOCK (Keith's ruling, 2026-09-28, separate PR from the
+                // loaded-contract/lineup work): a proven cap overage no longer refuses the
+                // accept outright -- it requires the AFFECTED owner's explicit acknowledgment
+                // of the exact projected figure first, recomputed fresh here (never trusted
+                // from the client). The RECIPIENT (this accept's own caller) may acknowledge
+                // their OWN overage inline, in this same request -- the fresh recompute IS the
+                // check, so there is nothing to forge. The SENDER's overage, if any, can only
+                // have been acknowledged EARLIER by the sender at offer creation (recorded in
+                // ups_trade_cap_acknowledgments, keyed by this offer's own payload_hash so it
+                // survives from creation through accept) -- the recipient cannot acknowledge on
+                // the sender's behalf, and a stale (renumbered) prior acknowledgment does not
+                // count, so a cap picture that changed since creation still blocks until the
+                // sender acknowledges again.
+                const capAckTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(authLists), extensionRequests: authExtRows })}`;
+                const capAckDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+                const capAcksStored = capAckDb ? await makeCapAckStore(capAckDb).readAllForTrade({ leagueId, season, tradeKey: capAckTradeKey }) : {};
+                const capAcksForEval = { ...capAcksStored };
+                const myCapViolation = (acceptCompliance.cap.violations || []).find((v) => safeStr(v.franchise_id) === resolvedOfferToFranchiseId);
+                if (myCapViolation) {
+                  const wantCapSig = capAckSignature({ tradeKey: capAckTradeKey, franchiseId: resolvedOfferToFranchiseId, amountOver: myCapViolation.amount_over, usedAfter: myCapViolation.projected_used });
+                  const gotCapSig = safeStr(body?.cap_ack && body.cap_ack.signature);
+                  if (gotCapSig === wantCapSig) {
+                    capAcksForEval[resolvedOfferToFranchiseId] = { signature: wantCapSig, acknowledged_by_fid: resolvedOfferToFranchiseId, acknowledged_at_utc: new Date().toISOString() };
+                    if (capAckDb) {
+                      try {
+                        await makeCapAckStore(capAckDb).record(
+                          { leagueId, season, tradeKey: capAckTradeKey },
+                          { franchiseId: resolvedOfferToFranchiseId, acknowledgedByFid: resolvedOfferToFranchiseId, signature: wantCapSig, amountOverDollars: myCapViolation.amount_over, usedAfterDollars: myCapViolation.projected_used, capDollars: acceptCompliance.cap.cap_dollars, tradeKind: "two_way" }
+                        );
+                      } catch (e) { console.warn("[trade-cap-ack] couldn't persist the recipient's acknowledgment (accept still gated on the fresh check just performed):", e?.message || String(e)); }
+                    }
+                  }
+                }
+                const capAckEval = evaluateCapAcknowledgment({ violations: acceptCompliance.cap.violations, tradeKey: capAckTradeKey, acks: capAcksForEval });
+                if (!capAckEval.satisfied) {
+                  console.warn("[trade-accept] waiting on a cap-overage acknowledgment:", JSON.stringify({ trade_id: mflTradeId, per_franchise: capAckEval.perFranchise.map((f) => ({ franchise_id: f.franchise_id, amount_over: f.amount_over, status: f.status })) }));
+                  return integrityFail(409, "cap_overage_ack_required", acceptCompliance.cap.message + " The affected team's owner must acknowledge this before it can be accepted. Nothing was changed.", { compliance: acceptCompliance, cap_ack: capAckEval.perFranchise });
+                }
               }
               if (acceptCompliance.loaded_contracts.status === "unavailable") {
                 return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
@@ -39516,12 +39624,58 @@ const mflToSleeper = {};
                 return integrityFail(409, "loaded_contract_limit", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_violations: acceptCompliance.loaded_contracts.violations });
               }
             }
+            if (action === "ACK_CAP") {
+              // Explicit acknowledgment of THIS caller's OWN projected cap overage on this
+              // pending offer -- callable by either side (see verifyTradeParty above): the
+              // sender refreshing a stale acknowledgment from creation time, or the recipient
+              // acknowledging ahead of an accept. Never writes to MFL; only records the
+              // acknowledgment row (or reports there's nothing to acknowledge).
+              const ackCapMoney = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
+              if (acceptCompliance.cap.status === "unavailable") {
+                return integrityFail(503, "cap_check_unavailable", "We couldn't verify the salary cap for this trade right now, so nothing was acknowledged. Try again in a moment.", { compliance: acceptCompliance });
+              }
+              const ackCapTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(authLists), extensionRequests: authExtRows })}`;
+              const ackCapMyFid = actingFranchiseId;
+              const ackCapMyViolation = (acceptCompliance.cap.violations || []).find((v) => safeStr(v.franchise_id) === ackCapMyFid);
+              if (!ackCapMyViolation) {
+                return jsonOut(200, { ok: true, mode: "direct_mfl", action: "ACK_CAP", trade_id: mflTradeId, code: "nothing_to_acknowledge", message: "Your team isn't projected to be over the salary cap on this trade right now.", compliance: acceptCompliance });
+              }
+              const ackCapSig = capAckSignature({ tradeKey: ackCapTradeKey, franchiseId: ackCapMyFid, amountOver: ackCapMyViolation.amount_over, usedAfter: ackCapMyViolation.projected_used });
+              const ackCapDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+              if (!ackCapDb) return integrityFail(503, "unavailable", "Couldn't save that acknowledgment right now. Try again in a moment.");
+              await makeCapAckStore(ackCapDb).record(
+                { leagueId, season, tradeKey: ackCapTradeKey },
+                { franchiseId: ackCapMyFid, acknowledgedByFid: ackCapMyFid, signature: ackCapSig, amountOverDollars: ackCapMyViolation.amount_over, usedAfterDollars: ackCapMyViolation.projected_used, capDollars: acceptCompliance.cap.cap_dollars, tradeKind: "two_way" }
+              );
+              return jsonOut(200, {
+                ok: true, mode: "direct_mfl", action: "ACK_CAP", trade_id: mflTradeId, code: "acknowledged",
+                message: `Acknowledged: ${ackCapMoney(ackCapMyViolation.amount_over)} over the ${ackCapMoney(acceptCompliance.cap.cap_dollars)} salary cap.`,
+                compliance: acceptCompliance, cap_ack: { franchise_id: ackCapMyFid, amount_over: ackCapMyViolation.amount_over, signature: ackCapSig },
+              });
+            }
             if (action === "PREVIEW") {
               // Read-only review for the accept confirmation: no MFL write, no outbox row, no completed state.
               if (!authLists.isValid) {
                 return integrityFail(409, "trade_assets_invalid", "This trade includes assets that can't be traded, so it can't be accepted. Ask the sender to send a new offer.");
               }
-              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance });
+              // cap_ack: the CURRENT acknowledgment status per violated franchise, read-only (a
+              // preview never records anything) -- lets the client show exactly who still needs
+              // to acknowledge, and what signature to send back, without guessing.
+              let capAckPreview = null;
+              if (acceptCompliance.cap.status === "blocked") {
+                const previewTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(authLists), extensionRequests: authExtRows })}`;
+                const previewAckDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+                const previewStoredAcks = previewAckDb ? await makeCapAckStore(previewAckDb).readAllForTrade({ leagueId, season, tradeKey: previewTradeKey }) : {};
+                const previewAckEval = evaluateCapAcknowledgment({ violations: acceptCompliance.cap.violations, tradeKey: previewTradeKey, acks: previewStoredAcks });
+                capAckPreview = {
+                  satisfied: previewAckEval.satisfied,
+                  per_franchise: previewAckEval.perFranchise.map((f) => ({
+                    ...f,
+                    signature: capAckSignature({ tradeKey: previewTradeKey, franchiseId: f.franchise_id, amountOver: f.amount_over, usedAfter: (acceptCompliance.cap.violations.find((v) => safeStr(v.franchise_id) === f.franchise_id) || {}).projected_used }),
+                  })),
+                };
+              }
+              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview });
             }
           }
           if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {
