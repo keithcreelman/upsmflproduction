@@ -14,26 +14,49 @@ name: nflverse stats refresh (Player Stats / FPA / Pace / EPA / SoS / ADP crossw
 # /api/data-freshness can show "last updated" per source; a single failing
 # source doesn't block the others.
 #
-# Cadence (widened 2026-09-28): Monday 15:00 UTC, Tuesday 12:00 + 20:00 UTC,
-# Wednesday 11:00 UTC. nflverse typically finalizes the prior week's data
-# Tue/Wed, but publication timing isn't perfectly consistent week to week —
-# the single Wednesday run left Monday-morning site visitors looking at the
-# prior week's numbers even on weeks where nflverse had already published by
-# Tuesday. Each of the four runs is a plain re-run of the SAME idempotent
-# refresh: a source that isn't published yet exits 3 ("not published yet",
-# stamped in etl_runs, not a failure — see `run()` below) and every other
-# source just re-writes the same rows, so an early run costs nothing beyond
-# CI minutes and never produces a partial/duplicate week. Wednesday stays as
-# the backstop that always finds the week finalized. Off-season runs are
-# cheap no-ops for the current season (no games), but still refresh names +
-# the ID crosswalk (player-pool churn).
+# Cadence (revised 2026-09-28 for PROVISIONAL weekly data — see
+# leaderboard-current-season-rebuild.yml and worker/src/index.js's
+# source_coverage/finalized_through_week fields): nflverse now publishes each
+# team's stats as soon as ITS game is over, not once the whole week is done,
+# and the site is meant to show that — "30 of 32 teams reported" — as soon as
+# Sunday's games finish, not wait for Monday Night Football. Finalizing a
+# week (all teams in) still normally lands Tue/Wed, so the six runs below
+# split into two jobs: pick up Sunday's/Monday's games as soon as reasonably
+# possible (PROVISIONAL), then the existing Tue/Wed passes that catch the
+# week actually going final plus nflverse's own late corrections:
+#   Mon 05:00 UTC (~1am ET)  — Sunday night: picks up Sunday's early/late/SNF
+#                              games as a provisional week the moment they're
+#                              done reporting.
+#   Mon 13:00 UTC (~9am ET)  — Monday morning: catches anything Sunday-night
+#                              missed (late West-coast games, a delayed
+#                              nflverse publish) well before the workday.
+#   Tue 05:00 UTC (~1am ET)  — after Monday Night Football: this is normally
+#                              what advances a week from provisional to
+#                              finalized (all 32 teams in).
+#   Tue 12:00 UTC, Tue 20:00 UTC, Wed 11:00 UTC — UNCHANGED correction passes
+#                              from the prior cadence: nflverse's own
+#                              corrections/backfills, and the final backstop
+#                              that always finds the week finalized even if
+#                              every earlier run above somehow missed it.
+# Every run is the SAME idempotent refresh re-entered: a source not published
+# yet exits 3 ("not published yet", stamped in etl_runs, not a failure — see
+# `run()` below), and the downstream leaderboard rebuild (workflow_run on
+# THIS workflow completing) is itself idempotent — it skips rebuilding a
+# board whose source coverage hasn't changed since it was last built (see
+# `/admin/leaderboard-precompute/build`'s no_change guard) — so an early run
+# that finds nothing new costs CI minutes and nothing else; it can never
+# produce a partial/duplicate week or double-count a team. Off-season runs
+# are cheap no-ops for the current season (no games), but still refresh
+# names + the ID crosswalk (player-pool churn).
 
 on:
   schedule:
-    - cron: "0 15 * * 1" # Monday 15:00 UTC — early check, most weeks too soon
-    - cron: "0 12 * * 2" # Tuesday 12:00 UTC — nflverse's typical publish window
-    - cron: "0 20 * * 2" # Tuesday 20:00 UTC — catches a late Tuesday publish
-    - cron: "0 11 * * 3" # Wednesday 11:00 UTC — backstop / final correction
+    - cron: "0 5 * * 1"  # Monday 05:00 UTC — Sunday night: provisional pickup
+    - cron: "0 13 * * 1" # Monday 13:00 UTC — Monday morning: catch-up
+    - cron: "0 5 * * 2"  # Tuesday 05:00 UTC — after Monday Night Football: usually finalizes the week
+    - cron: "0 12 * * 2" # Tuesday 12:00 UTC — correction pass (unchanged)
+    - cron: "0 20 * * 2" # Tuesday 20:00 UTC — correction pass (unchanged)
+    - cron: "0 11 * * 3" # Wednesday 11:00 UTC — backstop / final correction (unchanged)
   workflow_dispatch:
     inputs:
       seasons:
