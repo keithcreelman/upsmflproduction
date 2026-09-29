@@ -50,6 +50,7 @@ import {
 } from "./trade_accept_integrity.js";
 import { evaluateTradeCompliance } from "./trade_cap_authority.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
+import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
@@ -37480,7 +37481,7 @@ const mflToSleeper = {};
       // 2-way preview, the 3-way accept/execute gates and the 3-way detail view. Reads live MFL exports
       // (rosters, salaryAdjustments, league); any failure comes back as status "unavailable" (fail closed).
       // Client-supplied cap totals are never an input. See worker/src/trade_cap_authority.js.
-      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests }) => {
+      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests, conditionalDrops }) => {
         try {
           const opts = { includeApiKey: true, useCookie: true };
           const [rosters, league, adjustments, salaries, players] = await Promise.all([
@@ -37494,7 +37495,7 @@ const mflToSleeper = {};
             // loaded_contracts closed, since none of those read position at all.
             mflExportJson(season, leagueId, "players", { DETAILS: 1 }, opts),
           ]);
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests });
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -38382,6 +38383,59 @@ const mflToSleeper = {};
           if (Array.isArray(payload?.extension_requests) && payload.extension_requests.length && (intentBundle.extension_skipped || []).length) {
             const refusal = extensionRefusal(intentBundle.extension_skipped);
             return jsonOut(refusal.http, { ok: false, code: refusal.code, error_type: "extension_pricing", error: refusal.message, message: refusal.message, skipped: refusal.skipped });
+          }
+
+          // LOADED-CONTRACT CONDITIONAL DROPS (Keith's ruling, 2026-09-29, correcting a real gap:
+          // building/reviewing an offer as the SENDER never showed this at all -- PR #1135's check
+          // only ever ran at the RECIPIENT's accept). Checked BEFORE cap (a genuine hard block,
+          // never satisfied by a cap acknowledgment or vice versa -- they are fully independent).
+          // At OFFER CREATION this is the INITIATOR's own side, exactly like the cap check below:
+          // the recipient's own requirement (if any) is the recipient's own concern at accept.
+          // `body.loaded_contract_drops` (optional array of player ids) is the sender's proposed
+          // conditional-drop selection for THEIR OWN franchise; validated fresh against live data
+          // in THIS SAME request -- there is nothing to forge, so unlike cap there is no signature.
+          // An unresolvable loaded-contract calculation does NOT gate creation, for the identical
+          // reason the cap check below doesn't: it can be unresolvable because of a completely
+          // unrelated player elsewhere on either roster, and an unrelated data problem must not
+          // block a sender from simply proposing a trade. The fail-closed guarantee is enforced at
+          // PREVIEW/ACCEPT, exactly like cap. Only a PROVEN, unsatisfied requirement for the
+          // sender's own franchise gates creation.
+          {
+            const createDropCapFids = Object.keys(tokensByFranchise(proposalAssets));
+            const createDropSelections = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
+            const createDropCompliance = await computeTradeComplianceLive({
+              season, leagueId,
+              movements: createDropCapFids.map((f) => ({ from: f, to: createDropCapFids.find((x) => x !== f), tokens: tokensByFranchise(proposalAssets)[f] })),
+              extensionRequests: Array.isArray(payload?.extension_requests) ? payload.extension_requests : [],
+              conditionalDrops: { [fromFranchiseId]: createDropSelections },
+            });
+            if (createDropCompliance.loaded_contracts.status !== "unavailable") {
+              const myDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === fromFranchiseId);
+              if (myDropReq && !myDropReq.satisfied) {
+                return jsonOut(409, {
+                  ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required",
+                  error: myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. The maximum is 5, so " + myDropReq.required_drops + " conditional drop" + (myDropReq.required_drops === 1 ? "" : "s") + " of your own loaded-contract player" + (myDropReq.required_drops === 1 ? "" : "s") + " " + (myDropReq.required_drops === 1 ? "is" : "are") + " required before this offer can be sent.",
+                  compliance: createDropCompliance,
+                  loaded_contract_drops_needed: { franchise_id: fromFranchiseId, loaded_before: myDropReq.loaded_before, projected: myDropReq.projected, required_drops: myDropReq.required_drops, selected: myDropReq.selected, valid_count: myDropReq.valid_count },
+                });
+              }
+              if (myDropReq && myDropReq.satisfied && createDropSelections.length) {
+                const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+                if (!dropDb) {
+                  return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+                }
+                const createDropTradeKey = `${leagueId}|${season}|${fromFranchiseId}|${toFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(proposalAssets), extensionRequests: payload?.extension_requests })}`;
+                try {
+                  await makeConditionalDropStore(dropDb).setForFranchise(
+                    { leagueId, season, tradeKey: createDropTradeKey, tradeKind: "two_way" },
+                    { franchiseId: fromFranchiseId, playerIds: createDropSelections, selectedByFid: fromFranchiseId }
+                  );
+                } catch (e) {
+                  console.error("[loaded-contract-drops] couldn't persist the initiator's selection -- refusing the offer (not sent to MFL):", e?.message || String(e));
+                  return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+                }
+              }
+            }
           }
 
           // SALARY-CAP OVERAGE ACKNOWLEDGMENT (Keith's ruling, 2026-09-28, separate PR from the
@@ -39560,6 +39614,20 @@ const mflToSleeper = {};
                   if (pid && parseBoolFlag(a?.taxi)) taxiFlags[pid] = true;
                 }
               }
+              // LOADED-CONTRACT CONDITIONAL DROPS (Keith's ruling, 2026-09-29): the RECIPIENT
+              // (this accept/preview's own caller) may supply their OWN drop selection inline, in
+              // this same request (`body.loaded_contract_drops`, an array of player ids) -- the
+              // fresh recompute IS the validation, so there is nothing to forge. The SENDER's own
+              // selection, if any, can only have been made EARLIER at offer creation (persisted
+              // under the SAME trade key cap-ack uses); a third franchise never enters here in a
+              // 2-way trade. Computed BEFORE acceptCompliance so the SAME single compliance call
+              // sees both sides' selections together.
+              const dropTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(authLists), extensionRequests: authExtRows })}`;
+              const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+              const storedDrops = dropDb ? await makeConditionalDropStore(dropDb).readAllForTrade({ leagueId, season, tradeKey: dropTradeKey }) : {};
+              const inlineRecipientDrops = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : null;
+              const conditionalDropsForAccept = { ...storedDrops };
+              if (inlineRecipientDrops) conditionalDropsForAccept[resolvedOfferToFranchiseId] = inlineRecipientDrops;
               acceptCompliance = await computeTradeComplianceLive({
                 season, leagueId, rostersRes: acceptRostersRes, extensionSalary: acceptExtSalary, taxiFlags,
                 movements: capFids.map((f) => ({ from: f, to: capFids.find((x) => x !== f), tokens: byFranchise[f] })),
@@ -39572,7 +39640,24 @@ const mflToSleeper = {};
                 // client). Execution still re-derives the extension's real terms from
                 // preview_contract_info_string before anything is applied to MFL.
                 extensionRequests: authExtRows,
+                conditionalDrops: conditionalDropsForAccept,
               });
+              // The recipient's own supplied selection is persisted whenever it's actually THEIRS
+              // to give (even if the trade is still blocked on someone else's side) -- so a fresh
+              // valid pick is never lost between this attempt and a later retry once the other
+              // side also acts. Never persisted merely because it was SENT; only when it resolves
+              // against live data as this franchise's own, on-roster, genuinely loaded selection.
+              if (inlineRecipientDrops && dropDb) {
+                const myRecipientDropReq = (acceptCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === resolvedOfferToFranchiseId);
+                if (myRecipientDropReq) {
+                  try {
+                    await makeConditionalDropStore(dropDb).setForFranchise(
+                      { leagueId, season, tradeKey: dropTradeKey, tradeKind: "two_way" },
+                      { franchiseId: resolvedOfferToFranchiseId, playerIds: inlineRecipientDrops, selectedByFid: resolvedOfferToFranchiseId }
+                    );
+                  } catch (e) { console.warn("[loaded-contract-drops] couldn't persist the recipient's selection (accept still gated on the fresh check just performed):", e?.message || String(e)); }
+                }
+              }
               if (acceptCompliance.cap.status === "unavailable") {
                 return integrityFail(503, "cap_check_unavailable", "We couldn't verify the salary cap for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
@@ -39620,8 +39705,8 @@ const mflToSleeper = {};
                 return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
               if (acceptCompliance.loaded_contracts.status === "blocked" && action === "ACCEPT") {
-                console.warn("[trade-accept] blocked by the loaded-contract limit:", JSON.stringify({ trade_id: mflTradeId, violations: acceptCompliance.loaded_contracts.violations.map((v) => ({ franchise_id: v.franchise_id, projected: v.projected })) }));
-                return integrityFail(409, "loaded_contract_limit", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_violations: acceptCompliance.loaded_contracts.violations });
+                console.warn("[trade-accept] waiting on conditional loaded-contract drops:", JSON.stringify({ trade_id: mflTradeId, requirements: (acceptCompliance.loaded_contracts.drop_requirements || []).map((d) => ({ franchise_id: d.franchise_id, required: d.required_drops, valid: d.valid_count, satisfied: d.satisfied })) }));
+                return integrityFail(409, "loaded_contract_drops_required", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_drop_requirements: acceptCompliance.loaded_contracts.drop_requirements });
               }
             }
             if (action === "ACK_CAP") {

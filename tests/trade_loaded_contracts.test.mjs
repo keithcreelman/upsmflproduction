@@ -310,38 +310,71 @@ function fresh2(o) {
   mfl.install();
   return { env, mfl };
 }
-async function sendOffer(env, mfl, payload) {
-  const r = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, {
-    body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "", payload },
-  });
+// Attempts the create; if refused because the SENDER (the initiator, 0001) needs conditional
+// drops, retries ONCE with the given (possibly empty/invalid) `dropIds` -- the real client flow
+// (create -> shown the requirement -> pick drops -> retry). Pass {dropsOk:false} to see the
+// FIRST, unsatisfied response instead (for tests proving the create-time gate itself).
+async function createOffer(env, mfl, payload, opts) {
+  opts = opts || {};
+  const body0 = { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "", payload };
+  const r0 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: body0 });
+  if (opts.dropsOk === false || r0.status < 300 || !(r0.json && r0.json.code === "loaded_contract_drops_required")) return r0;
+  const r1 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: { ...body0, loaded_contract_drops: opts.dropIds || [] } });
+  r1.firstResponse = r0;
+  return r1;
+}
+async function sendOffer(env, mfl, payload, opts) {
+  const r = await createOffer(env, mfl, payload, opts);
   t.ok(r.status < 300, `offer sent: ${r.status} ${r.text.slice(0, 200)}`);
   return { id: mfl.st.pending[mfl.st.pending.length - 1].trade_id, payload };
 }
 const mobileBody = (id, action) => ({ action: action || "ACCEPT", trade_id: id, league_id: "74598", franchise_id: "0002", year: "2026", message: "" });
 const act = (env, body) => callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-C`, { body });
 
-test("LC 2-WAY: 5 -> 6 loaded blocks the accept (409 loaded_contract_limit), nothing is written", async () => {
+test("LC 2-WAY CREATE: 5 -> 6 loaded requires the SENDER's own conditional drop before the offer can even be sent; a valid drop lets it through, and the accept then proceeds with no further ask", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus })), { id: "14056", salary: 5000, contractStatus: "Vet-FAA" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
-  const { id, payload } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  const payload = payloadOf("0001", "0002", [player(14056)], [player(13100)]);
+  const r0 = await createOffer(env, mfl, payload, { dropsOk: false });
+  t.equal(r0.status, 409); t.equal(r0.json.code, "loaded_contract_drops_required");
+  t.match(r0.json.error, /would move from 5 to 6 loaded contracts/); t.match(r0.json.error, /1 conditional drop/);
+  t.equal(r0.json.loaded_contract_drops_needed.required_drops, 1);
+  t.equal(mfl.st.pending.length, 0, "no offer was ever sent to MFL");
+  // a selection that is NOT actually loaded, or not on the roster, or is the SAME player being
+  // sent, is never valid -- the requirement stays unsatisfied
+  const bad1 = await createOffer(env, mfl, payload, { dropsOk: false, dropIds: ["14056"] });   // the player being SENT
+  t.equal(bad1.status, 409); t.equal(bad1.json.code, "loaded_contract_drops_required");
+  const bad2 = await createOffer(env, mfl, payload, { dropsOk: false, dropIds: ["99999"] });   // not on the roster
+  t.equal(bad2.status, 409);
+  t.equal(mfl.st.pending.length, 0, "still nothing sent");
+  // a genuinely valid drop (one of 0001's OWN loaded contracts, not being sent) satisfies it
+  const { id } = await sendOffer(env, mfl, payload, { dropIds: ["9000"] });
+  t.equal(mfl.st.pending.length, 1);
   const r = await act(env, mobileBody(id));
-  t.equal(r.status, 409);
-  t.equal(r.json.code, "loaded_contract_limit");
-  t.match(r.json.error, /would move from 5 to 6 loaded contracts/);
-  t.equal(mfl.writes("tradeResponse").length, 0, "a blocked accept must make zero MFL writes");
-  t.equal(mfl.st.pending.length, 1, "the offer stays pending");
+  t.equal(r.status, 200, r.text.slice(0, 200));
+  t.equal(mfl.writes("tradeResponse").length, 1, "the accept the sender's drop already satisfied proceeds normally");
 });
 
-test("LC 2-WAY: false client-supplied loaded-contract totals cannot bypass the gate", async () => {
+test("LC 2-WAY CREATE: false client-supplied loaded-contract totals cannot bypass the gate, at creation or at accept", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus })), { id: "14056", salary: 5000, contractStatus: "Vet-FAA-FL" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
-  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
-  const r = await act(env, { ...mobileBody(id), compliance: { loaded_contracts: { status: "ok" } }, force: true, override: true, ignore_limit: true });
-  t.equal(r.status, 409);
-  t.equal(r.json.code, "loaded_contract_limit", "client-supplied compliance/force/override/ignore_limit fields must be completely ignored");
-  t.equal(mfl.writes("tradeResponse").length, 0);
+  const payload = payloadOf("0001", "0002", [player(14056)], [player(13100)]);
+  // 0001 is ALREADY at 6 loaded contracts before this trade (14056 is itself loaded) -- a
+  // loaded-for-loaded swap doesn't change the count, but a pre-existing violation still requires
+  // a drop; a client claiming otherwise is ignored.
+  const r0 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, {
+    body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "",
+      payload, compliance: { loaded_contracts: { status: "ok" } }, force: true, override: true, ignore_limit: true },
+  });
+  t.equal(r0.status, 409); t.equal(r0.json.code, "loaded_contract_drops_required", "client-supplied compliance/force/override/ignore_limit fields must be completely ignored");
+  t.equal(mfl.st.pending.length, 0);
+  // a genuinely valid drop still works
+  const { id } = await sendOffer(env, mfl, payload, { dropIds: ["9000"] });
+  const bypassAttempt = await act(env, { ...mobileBody(id), compliance: { loaded_contracts: { status: "ok" } }, force: true, override: true, ignore_limit: true });
+  t.equal(bypassAttempt.status, 200, "the fake fields are ignored either way -- the REAL, persisted drop is what satisfies it");
+  t.equal(mfl.writes("tradeResponse").length, 1);
 });
 
 test("LC 2-WAY: at exactly 5 (not 6), the accept proceeds and MFL is called once", async () => {
