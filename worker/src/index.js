@@ -12375,9 +12375,19 @@ export default {
                      NULLIF(COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0), 0) AS team_rz_pass_rate`;
           // IDP — now includes def_tackles_ast, def_tds, def_pressures (were
           // dropped for the cap; they're already SUM'd in the agg CTE).
+          //
+          // def_completions_allowed / def_yards_allowed fixed 2026-09-29: both
+          // are already SUM'd in the agg CTE (agg.def_completions_allowed,
+          // agg.def_yards_allowed) right alongside def_passer_rating_allowed,
+          // which WAS selected here -- but these two were never added to this
+          // projection, so the API response omitted them entirely and the
+          // frontend's "Cmp Allow"/"Yds Allow" columns rendered as a permanent
+          // wall of "--" for every IDP row despite the data existing one column
+          // over. Not a data gap -- a missing SELECT.
           const COL_IDP = `a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
                    a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds, a.def_pressures,
                    a.def_missed_tackles, a.def_missed_tackle_pct, a.def_passer_rating_allowed,
+                   a.def_completions_allowed, a.def_yards_allowed,
                    sv.s_def_adot AS def_adot`;
           const COL_SPECIAL = `a.fg_att, a.fg_made, a.xp_att, a.xp_made,
                    a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
@@ -12499,9 +12509,24 @@ export default {
                WHERE season IN (${seasonList}) AND pos_group IN (${posList})
             ),
             mfl_scoring_agg AS (
+              -- mfl_games_scored counts a week as "scored" whenever MFL computed a
+              -- REAL score for it (sw.score IS NOT NULL) -- including a genuine 0
+              -- or negative outing -- never by testing the VALUE of that score.
+              -- Fixed 2026-09-29: this used to be `COALESCE(sw.score,0) > 0`, which
+              -- conflated "MFL has not scored this game yet" (score IS NULL, e.g. a
+              -- bye/inactive/DNP week -- correctly excluded) with "MFL scored this
+              -- game at exactly 0 or a negative net (turnovers/sacks/kneel-downs
+              -- outweighing production)" -- a real played, real scored week that was
+              -- wrongly dropped from the denominator. That silently inflated MFL PPG
+              -- for every player who ever had a bad-but-real week: verified live
+              -- across 2010-2026 (src_weekly), 2,600-3,600 affected weekly rows per
+              -- historical season, 54 in 2026 alone as of this fix. A week with NO
+              -- src_weekly row at all (true bye) never enters this aggregate in the
+              -- first place, so it was never at risk -- only an EXISTING row whose
+              -- score is <= 0 was miscounted.
               SELECT f.gsis_id,
                      SUM(COALESCE(sw.score, 0))                                      AS mfl_points,
-                     SUM(CASE WHEN COALESCE(sw.score, 0) > 0 THEN 1 ELSE 0 END)      AS mfl_games_scored
+                     SUM(CASE WHEN sw.score IS NOT NULL THEN 1 ELSE 0 END)           AS mfl_games_scored
                 FROM src_weekly sw
                 JOIN ff_player_ids f ON f.mfl_id = sw.player_id
                WHERE sw.season IN (${seasonList})
