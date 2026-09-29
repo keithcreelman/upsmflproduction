@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-wk03-recap",
   "title": "2026 Week 3",
-  "generatedAtUtc": "2026-09-29T20:50:21Z",
+  "generatedAtUtc": "2026-09-29T22:08:31Z",
   "season": 2026,
   "week": 3,
   "sources": [
@@ -100,7 +100,7 @@
       "name": "week_preview.py --week 4 (season_sim model)",
       "asof": "cutoff 2026-09-29T20:47:39Z",
       "rows": 12,
-      "note": "site/wire/data/week_preview_2026_wk04.json (working copy (origin/main unavailable)); 8,000 simulated seasons, played weeks fixed; preseason-vs-now movement is one combined change, not split into a result effect and a strength effect (schema 2)"
+      "note": "site/wire/data/week_preview_2026_wk04.json (working copy (identical to origin/main)); 8,000 simulated seasons, played weeks fixed; preseason-vs-now movement is one combined change, not split into a result effect and a strength effect (schema 2)"
     }
   ],
   "coverage": {},
@@ -8698,8 +8698,8 @@
   "sections": [
     {
       "id": "s1",
-      "title": "The Lead",
-      "brief": "The show opens here. Two anchors trade the week back and forth -- the desk format. Open on the loudest thing that happened, measured against what the preseason rankings said would happen. Name who tore it up and who fell apart, with real box lines. Break the scoring into offense and IDP where it tells a story. Fold in the waiver adds that paid off.",
+      "title": "Boomer's Three-Minute Rundown",
+      "brief": "The show opens here. Stuart and Rich set up the week in a line or two, then toss BY NAME to Boomer for a fast, lively sweep of the week's biggest verified moments -- named owners, real box lines, one clear fact and one reaction per beat. Boomer hosts alone once the toss happens; the desk does not interrupt his run. Lead with the loudest, most surprising result, measured against what the preseason said would happen. Five to seven quick hits, spread across different owners and divisions -- draw from big scores, upsets, close finishes, offense or IDP swings, a lineup call worth roasting (only when its own verdict says the call was actually wrong, never just a bad result), a waiver add that paid off, or an expected-points surprise. This is a snapshot, not a replay -- point the reader at the division pages, the landscape and the preview for the full breakdown rather than repeating them. Boomer hands back to Stuart and Rich with one short line before the divisions.",
       "factIds": [
         "f.bb.idp.bargain.1",
         "f.bb.idp.bargain.2",

@@ -24,7 +24,7 @@
   packGeneratedAtUtc: 2026-09-12T22:24:58Z
   engine: claude-opus-5 (session, written by hand)
 -->
-<style data-wire-style="tokens+article" data-wire-style-sha="sha256-e7e31047">
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-49cec3fa">
 /* GENERATED - do not edit here.
    Source: site/wire/wire_tokens.css + site/wire/wire_article.css
    data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
@@ -715,9 +715,12 @@ th.wire-sortable[aria-sort="ascending"]::after { content: " \2191"; opacity: .9;
 th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9; }
 @media (max-width: 700px) { th.wire-sortable::after { content: ""; } }
 
-/* ---------- the desk: two anchors trading the week ---------- */
+/* ---------- the desk: two anchors trading the week, plus an occasional guest ---------- */
 /* Keith 2026-09-15: "Stuart: line passes it to Rich." Each line carries its
-   speaker as a generated label; with no CSS it still reads "Stuart: ...". */
+   speaker as a generated label; with no CSS it still reads "Stuart: ...".
+   "boomer" added 2026-09-29 for a guest-host segment tossed to and from inside
+   the desk -- same markup, same rule, its own badge color so a reader can tell
+   at a glance the desk handed the mic to someone else. */
 .wire-desk-line { padding: 0.6rem 0.9rem; background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; }
 .wire-desk-who {
   display: inline-block; font-family: var(--display); font-weight: 800; font-size: 0.76rem;
@@ -726,6 +729,7 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 }
 .wire-desk-stuart .wire-desk-who { color: var(--on-charcoal); background: var(--suit-dark); }
 .wire-desk-rich .wire-desk-who { color: var(--on-suit-tan); background: var(--suit-tan); }
+.wire-desk-boomer .wire-desk-who { color: var(--on-gold); background: var(--gold); }
 .wire-sechead + p.wire-desk-line { font-size: 1.12rem; }
 .wire-sec > .wire-desk-line + .wire-desk-line { margin-top: -0.55rem; }
 .wire-pot-desk { border-left: 0; padding-left: 0; }
