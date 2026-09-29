@@ -1,23 +1,32 @@
 # Loaded-Contract Conditional-Drop EXECUTION — design doc (not implemented)
 
-**Status: design/trace only, REVISION 3.** No code in this document has been written or approved.
+**Status: design/trace only, REVISION 4.** No execution code in this document has been written.
 Round 1 (Keith, 2026-09-29): *"Do not merge, migrate, or deploy PR #1149 as currently written...
 Revise the execution design without assuming either operation order is safe."* Round 2 (same day,
 after reviewing round 1's §8): *"My send-time rule applies to both teams, not only the initiator
-... That is a release blocker for the conditional-drop feature, even if the bypass existed before
-this PR. Please revise the staged-offer design to account for roster changes after creation as
-well... Also resolve the inconsistency in §8.1: it says drops have 'genuinely executed' before
-the worker creates the MFL trade, which assumes drop-first while the execution order is
-explicitly undecided."* This revision answers both: §8 is rewritten from a scoped "stage it if it
-looks risky at creation" design to a rigorous analysis of what MFL actually lets this app
-guarantee (conclusion: nothing short of staging every 2-way trade, since the risk is a property
-of a roster's state at an unpredictable future moment, not of the offer's own content), and §8's
-staging mechanism is decoupled from §2's still-open ordering decision, which it no longer assumes.
-Nothing here is built. The SELECTION mechanism (an owner picking and confirming which of their
-own loaded-contract players to drop, conditional on a trade) is built, tested, and committed —
-and a satisfied selection is verified to produce **zero** real MFL writes anywhere in the
-codebase, by direct test (`tests/trade_loaded_contracts.test.mjs`'s `LC EXEC-GATE` suite). This
-doc is what a *later*, separately-reviewed PR would build on top of that.
+... Please revise the staged-offer design to account for roster changes after creation as
+well... Also resolve the inconsistency in §8.1..."* Round 3 (same day, after reviewing round 2):
+*"Choose universal staging, not a near-limit heuristic... Address what happens to already-pending
+native offers at cutover, and determine whether owners can create or accept trades directly on
+MFL outside the War Room; state the enforceable boundary honestly... Do not choose automatic
+trade-first or drop-first yet. Stage and collect each owner's named-player consent, then hold
+conditional-drop deals for commissioner review. Present the exact manual execution procedure and
+its non-atomic risks before any real drop or trade is attempted."*
+
+This revision answers round 3 directly: §2.4 is now the decided execution model (manual
+commissioner review, with the exact procedure and its own non-atomic risks specified — §2.1/§2.2
+remain as the reasoning for why neither automated ordering was approved), §8.3 records universal
+staging as decided over the scoped alternative, and §8.5 (new) addresses cutover for pending
+native offers and states plainly what universal staging does and does not control relative to
+MFL's own native trade tools. §9's Ext1/Ext2/IR classification question is likewise now ruled on
+and shipped as its own PR (#1152), kept deliberately separate from this branch and its migration.
+
+Nothing in THIS document (the execution/staging design) is built. The SELECTION mechanism (an
+owner picking and confirming which of their own loaded-contract players to drop, conditional on a
+trade) is built, tested, and committed — and a satisfied selection is verified to produce **zero**
+real MFL writes anywhere in the codebase, by direct test (`tests/trade_loaded_contracts.test.mjs`'s
+`LC EXEC-GATE` suite). This doc is what a *later*, separately-reviewed PR would build on top of
+that, once the still-open items in §11 are resolved.
 
 **Evidence vocabulary:** **[verified]** = read directly from the worker source in this session,
 file:line cited. **[inferred]** = a design conclusion drawn from that code, not itself executed.
@@ -114,12 +123,20 @@ reversal.
 
 ---
 
-## 2. Neither ordering is assumed safe — both, in full
+## 2. Neither automatic ordering is assumed safe — both, in full — and Keith's ruling
 
-There are exactly two ways to sequence "the trade" and "the conditional drop(s) it requires."
-Both have a real, irreducible failure mode, because MFL gives no way to make the pair atomic
-(§2.5). This section presents both completely, states the residual risk plainly, and asks Keith
-to choose (or direct a manual/staged alternative) rather than assuming either is correct.
+**Keith's ruling (2026-09-29): "Do not choose automatic trade-first or drop-first yet. Stage
+and collect each owner's named-player consent, then hold conditional-drop deals for
+commissioner review. Present the exact manual execution procedure and its non-atomic risks
+before any real drop or trade is attempted."** Neither §2.1 nor §2.2 below is chosen. §2.4 is
+— not as a fallback, but as the decided interim model: no automated write of either kind exists
+or is approved. §2.1/§2.2 remain in this document because they are exactly why an automated
+ordering is not the safe default right now; §2.4 is the actual procedure.
+
+There are exactly two ways to sequence "the trade" and "the conditional drop(s) it requires" IF
+either were automated. Both have a real, irreducible failure mode, because MFL gives no way to
+make the pair atomic (§2.5). §2.1/§2.2 present both completely and state the residual risk
+plainly, as the reasoning behind Keith's ruling not to automate either one yet.
 
 ### 2.1 Ordering A — TRADE FIRST, drop(s) after
 
@@ -222,18 +239,102 @@ This is a real value judgment about which kind of failure is more acceptable in 
 an engineering question with one correct answer, and it should not be assumed. This doc's own
 prior draft assumed Ordering A; on Keith's instruction it is now presented, not assumed.
 
-### 2.4 A third option: hold the whole thing for manual resolution instead of ordering at all
+### 2.4 THE DECIDED MODEL (Keith, 2026-09-29): stage consent, hold for commissioner review
 
-Given MFL genuinely cannot make "drop + trade" atomic (§2.5), a legitimate alternative to
-choosing an ordering is **not automating the write at all**: once a franchise's selection is
-`needs_drops` (satisfied), route it into a **commissioner-review queue** — visible in a Front
-Office panel, naming the exact trade, the exact player(s) selected, and the exact expected
-penalty — where a human performs the drop and then releases the trade to execute (or performs
-both manually), rather than the system doing either write on its own. This trades speed/
-convenience for a human always being the one making the final, irreversible call, which may be
-the right choice for a rule this consequential given MFL's total lack of atomicity or undo. This
-is presented as a genuine option, not a fallback — Keith may prefer this over EITHER automated
-ordering.
+Given MFL genuinely cannot make "drop + trade" atomic (§2.5), and given Keith has not approved
+automating either ordering, the decided model is: **collect consent through the system, execute
+nothing through the system.** A human performs both irreversible writes, in whichever order the
+specific deal calls for, using the exact terms the system already computed and showed the owner
+— never re-deriving them by hand, never guessing.
+
+**2.4.1 What "staged" means here.** Once a franchise's conditional-drop selection reaches
+`needs_drops` **and** `satisfied` (every required drop chosen, validated against that
+franchise's own roster — the mechanism §8.2 already ships, unchanged), the deal does **not**
+proceed to any write. It moves into a **commissioner-review queue** instead — a new state,
+distinct from every existing trade state, that this design's `LOADED_CONTRACT_DROP_EXECUTION_LIVE
+= false` flag already guarantees can never fall through to a real MFL call (`trade_cap_authority
+.js`'s `loadedContractsPermitsWrite()`, §8.1 above — unchanged by this section, still the single
+gate every enforcement point calls).
+
+**2.4.2 What the commissioner sees.** A Front Office review panel — new UI, not built by this
+document — lists every queued deal with, per §3's already-specified consent requirements, made
+visible to the commissioner rather than only to the confirming owner:
+- The full trade terms (every asset moving, every side) exactly as both/all parties agreed to
+  them — never re-summarized or re-derived, read directly from the stored offer/3-way row.
+- Each required drop, **by player name**, per franchise, exactly as the owner selected and
+  confirmed it (§3.1).
+- Each drop's **expected cap penalty**, from the same `GET /api/cap-penalty/preview` call the
+  owner saw before confirming (§3.2) — re-read fresh at review time, not cached from
+  confirmation time, since real time may have passed and the penalty depends on live cap state.
+- A live, final `evaluateTradeCompliance` re-check (§5) — confirming the deal would still clear
+  every gate (cap, loaded-contract, lineup) if executed **right now** — surfaced plainly, not
+  buried; a queued deal that has gone stale (a roster changed since staging) must show that
+  before the commissioner acts on it, not after.
+
+**2.4.3 The manual execution procedure, exactly.** For a queued deal the commissioner elects to
+execute:
+
+1. **Re-run the final compliance check** (the same one §2.4.2 already surfaces) immediately
+   before the first write — if it no longer clears, STOP; do not execute any part of a deal that
+   has gone stale. This is the identical "re-validate immediately before whichever write happens
+   first" requirement §5 already specifies for an automated ordering; a human performing the
+   write manually does not get an exemption from it.
+2. **Execute the drop(s) first, one franchise at a time, waiting for each to verify** (§1.1 — the
+   drop write, then the mandatory re-read of `TYPE=rosters` to confirm it actually happened,
+   never trusting MFL's response text alone) before touching the trade. This fixes Ordering B
+   specifically for the MANUAL case, not because Ordering B is now judged safer in general
+   (§2.3's tradeoff is unchanged), but because a human executing by hand can **look at the
+   confirmed result and stop** if a drop fails or comes back ambiguous — the exact mitigation
+   automation can't offer, since automation has already committed to a sequence before anything
+   goes wrong. Doing the trade first would remove that option: once the trade is done, a failed
+   drop leaves the franchise over the limit with no way to un-do the trade to reconsider.
+3. **Only once every required drop is CONFIRMED** (verified via the roster re-read, not merely
+   "the call returned 200") does the commissioner execute the trade itself, via the existing,
+   unmodified mechanism (§1.2 — `executeCommishTwoPartyTrade` for 2-way, the existing 3-way leg
+   execution for 3-way).
+4. **If any drop fails, refuses, or comes back ambiguous:** STOP. Do not execute the trade. The
+   deal stays in the review queue in a `blocked_on_drop` state (reusing the execution ledger's
+   existing side-state vocabulary, §6 — `executed_needs_review`/`blocked_cap` are the precedent),
+   with the failure reason recorded. Nothing was taken from anyone (no drop confirmed, no trade
+   executed) — this is the SOFT, recoverable failure mode §2.3 described for Ordering A,
+   deliberately preserved here by executing drops first and checking each one before proceeding.
+5. **Notify both the commissioner (already true — they're the one doing this) and every owner
+   party to the deal** of the outcome — executed in full, or blocked with the specific reason —
+   using the same notification surface §2.1's "owner notification" gap already flagged as needing
+   to exist for either automated ordering. This is not optional for the manual model either.
+
+**2.4.4 Non-atomic risks specific to a HUMAN performing this manually** (in addition to, not
+instead of, the underlying MFL non-atomicity in §2.5, which no model here removes):
+
+- **Delay between drop and trade is now unbounded, not seconds.** An automated ordering executes
+  the second step within moments of the first (§2.1/§2.2 measure the exposure window in
+  seconds-to-minutes on the unhappy path). A human reviewing a queue may confirm the drop(s),
+  get interrupted, and not return to release the trade for hours — during which the OTHER
+  side(s) of the trade are waiting on a deal that looks (to them) like nothing is happening, and
+  the drop-confirming franchise has already paid the drop's cap-dead-money cost with nothing yet
+  received in return. This is a real cost of choosing the manual model over automation and
+  should be weighed against the safety benefit, not treated as free.
+- **A human can perform the steps in the wrong order, or skip the compliance re-check, despite
+  the documented procedure** — automation enforces its sequence mechanically; a documented
+  procedure only enforces itself if followed. The review-queue UI should make the CORRECT
+  sequence the only available action (buttons ordered/gated to match §2.4.3, the re-check
+  surfaced automatically rather than as a separate step to remember) rather than relying on the
+  commissioner reading and following this document exactly — UI enforcement of the procedure is
+  listed as unbuilt (§11), not assumed to follow from writing the steps down.
+- **A queued deal can go stale while waiting for review**, exactly as §2.4.2 already flags — the
+  live re-check at step 1 of §2.4.3 is what catches this, but only if it is actually run every
+  time, including on a deal that has sat in the queue long enough that the commissioner might
+  (wrongly) trust the numbers they reviewed earlier without re-pulling them.
+- **The commissioner is a single point of both authority and failure.** Every write in this
+  model requires a human to act — if the commissioner is unavailable, every queued deal simply
+  waits, with no automated fallback and no second authorized executor documented here. Whether a
+  backup-commissioner path is needed is not decided in this document.
+
+This procedure supersedes any assumption in §8.2 that staging leads directly to an AUTOMATED
+final write — §8.2's step 5 ("the worker executes the real MFL trade... executes any confirmed
+drop(s)") describes what happens ONLY if and when Keith later approves automating one of §2.1/
+§2.2's orderings. Until then, §8.2's step 5 is this section: a human, not the worker, performs
+both writes, through the review queue, following §2.4.3 exactly.
 
 ### 2.5 Residual risk, stated plainly
 
@@ -448,18 +549,19 @@ conditional-acceptance concept, no pre-accept webhook, and no way for this app t
 before MFL processes an accept it receives directly. There is nothing "on MFL's side" to
 demonstrate here — the absence of such a control is itself the finding.
 
-### 8.2 The staged-execution mechanism (ordering-agnostic — §2 is still Keith's decision)
+### 8.2 The staged-execution mechanism (independent of §2's execution model, by design)
 
 **Keith's correction to v1:** *"Resolve the inconsistency in §8.1: it says drops have 'genuinely
 executed' before the worker creates the MFL trade, which assumes drop-first while the execution
 order is explicitly undecided. Keep the staged approval flow separate from the later irreversible
 execution sequence until I rule on it."* v1 conflated two independent decisions — this version
-separates them explicitly:
+separates them explicitly, and the separation held even once §2 WAS ruled on (§2.4):
 
 - **Staging (this section) decides WHEN a 2-way trade is allowed to become a real, MFL-visible
   transaction at all.** It is a gate on *existence*, not on internal sequencing.
-- **Ordering (§2, still Keith's open decision) decides, once staging has cleared, in what
-  internal sequence the trade write and the drop write(s) happen relative to EACH OTHER.**
+- **Execution (§2 — decided as §2.4, manual commissioner review) decides, once staging has
+  cleared, HOW the trade write and the drop write(s) actually happen — currently a human
+  performing both by hand, per §2.4.3, never automated.**
 
 Given §8.1's conclusion, the staged mechanism (reusing the 3-way pattern exactly, per v1's own
 design) is:
@@ -477,18 +579,28 @@ design) is:
    — this is the SAME re-check §5 already specifies for whichever write happens first, not a new
    mechanism.
 5. Once that final check is `ok` for both sides — a state reachable either because nobody was ever
-   over the limit, or because every needed drop has been resolved per **whichever ordering §2
-   settles on** — the worker executes the real MFL trade via commissioner impersonation
-   (`executeCommishTwoPartyTrade`, reused exactly as 3-way already uses it), and, per §2's chosen
-   ordering, either before or after that call, executes any confirmed drop(s). This step's
-   internal sequence is entirely governed by §2's answer — staging does not presuppose it, and a
-   change to §2's ordering decision requires no change to this section.
+   over the limit, or because every needed drop has been resolved — the deal is released to
+   execute, per **whichever model §2 settles on**. **Currently (§2.4, Keith's 2026-09-29 ruling):
+   this means the deal enters the commissioner-review queue and a human executes both writes by
+   hand, following §2.4.3 exactly** — not the worker executing automatically. If Keith later
+   approves automating one of §2.1/§2.2's orderings, this step becomes the worker executing the
+   real MFL trade via commissioner impersonation (`executeCommishTwoPartyTrade`, reused exactly
+   as 3-way already uses it) and the confirmed drop(s), in that ordering's sequence — staging
+   itself does not presuppose which, and a future change to §2's answer requires no change to
+   this section, only to what "released to execute" triggers.
 
 This still closes the bypass for the identical structural reason 3-way already has no exposure:
 **there is nothing on MFL's own site to accept until this app itself decides to create it** — now
 true for every 2-way trade, not only the ones that looked risky at the moment they were proposed.
 
-### 8.3 Cost, and a scoped alternative if universal staging is more than Keith wants right now
+### 8.3 Cost — Keith's ruling (2026-09-29): universal staging, not the scoped alternative
+
+**Keith: "Choose universal staging, not a near-limit heuristic. New two-team War Room offers
+should remain server-side through owner acceptance and final compliance review, with no native
+MFL pending offer that can be accepted around the worker."** Decided. The scoped, heuristic
+alternative this section offered in the prior round (stage only offers meeting a proximity
+threshold) is NOT chosen — recorded below only so the cost of the decided option is stated
+plainly, not to reopen the choice.
 
 Universal staging is a materially larger change than v1's scoped version: **every** 2-way trade —
 not just loaded-contract-relevant ones — moves off MFL's native propose/accept flow and onto a
@@ -497,16 +609,7 @@ UI replacing the native inbox card on both platforms for every 2-way trade, ever
 becoming a commissioner-impersonated write instead of the owner's own session write (a change in
 authentication model for the single most common transaction type in the app, not just for
 conditional-drop cases), and full de-risking of counter-offers, revokes, and the existing 2-way
-notification/DM surface against the new staged shape.
-
-**If that scope is more than Keith wants approved right now**, the honest, explicitly-bounded
-alternative is: stage only offers meeting a heuristic threshold (e.g. either side at ≥3 or ≥4
-loaded contracts at creation, or either side's roster having changed at all since a prior
-staging-eligible check) — accepting, in writing, that this narrows the *frequency* of exposure
-without closing it, and stating that residual risk plainly to owners and to Keith rather than
-implying it is closed. This document does not recommend the scoped alternative over universal
-staging — it only offers it as the honest, smaller-scope option Keith may prefer to approve first,
-with its limits stated rather than hidden.
+notification/DM surface against the new staged shape. None of this is built yet (§11).
 
 ### 8.4 A supplementary, imperfect mitigation — explicitly not a substitute, per Keith's instruction
 
@@ -514,70 +617,133 @@ with its limits stated rather than hidden.
 polling every pending MFL trade for stale-ownership violations and auto-revoking them,
 `index.js:36940-37164`, `findOwnershipViolations`) could be extended to *also* check
 loaded-contract compliance on every still-**pending, native** offer (i.e. any 2-way trade created
-before §8.1-8.3 ship, or if only the scoped alternative in §8.3 is approved) and pre-emptively
-revoke one that would violate it. **Keith's instruction is explicit: "Do not rely on a polling
-sentinel as a guarantee."** This is recorded here only as a stopgap that narrows a window that
-already-existing polling cadence can miss — exactly the class of gap the 2026-09-25 stuck-offer
-incident (referenced elsewhere in this repo's history) already demonstrated for a different check
-— and must never be presented to owners or to Keith as closing the bypass.
+before §8.1-8.3 ship, or predating the cutover in §8.5.1 below) and pre-emptively revoke one that
+would violate it. **Keith's instruction is explicit: "Do not rely on a polling sentinel as a
+guarantee."** This is recorded here only as a stopgap that narrows a window that already-existing
+polling cadence can miss — exactly the class of gap the 2026-09-25 stuck-offer incident
+(referenced elsewhere in this repo's history) already demonstrated for a different check — and
+must never be presented to owners or to Keith as closing the bypass.
+
+### 8.5 Two questions Keith asked directly: cutover, and the honest boundary of what this app controls
+
+**Keith: "Address what happens to already-pending native offers at cutover, and determine
+whether owners can create or accept trades directly on MFL outside the War Room; state the
+enforceable boundary honestly."**
+
+#### 8.5.1 Already-pending native offers at the moment universal staging ships
+
+Universal staging changes how a **new** 2-way trade is created from that point forward. It has
+no retroactive effect on any 2-way `tradeProposal` MFL already knows about from before the
+cutover — those offers are, and remain, natively acceptable on MFL.com, exactly as exposed as
+they are today, because they were never staged and staging cannot be applied after the fact
+(MFL has no mechanism to convert an existing native proposal into a staged one). Three options,
+stated plainly rather than picking one silently:
+
+- **A. Let them expire/resolve natively, unmanaged.** Do nothing extra; every pre-cutover offer
+  either gets accepted (natively, with the exact bypass risk §8.0 describes, for exactly this
+  finite set of already-existing offers) or expires/gets revoked through MFL's own normal
+  lifecycle. Simplest, but leaves the precise gap this whole section exists to close open for
+  every offer already in flight at cutover — the population is bounded and shrinking, not
+  unbounded and ongoing, but it is not zero.
+- **B. Revoke every pending native 2-way offer at cutover.** The existing revoke mechanism
+  (`revoke2WayOffer`-equivalent, or the trade-sentinel's own revoke path, §8.4) cancels every
+  still-pending native offer at the moment staging goes live, with a notification to both
+  parties explaining why and inviting them to re-propose the identical deal through the new
+  staged flow. Closes the gap completely at cutover, at the cost of actively cancelling real,
+  possibly-agreed-but-not-yet-accepted deals that were never risky in the first place (most
+  pending offers at any moment involve no loaded-contract exposure at all) — a real, if small,
+  disruption to owners mid-negotiation.
+- **C. Extend the trade-sentinel (§8.4) to cover ONLY the pending native offers that predate
+  cutover, until they naturally clear**, rather than revoking them outright or leaving them
+  fully unmanaged. A narrower, time-bounded application of the exact mitigation §8.4 already
+  describes and already caveats as "not a guarantee" — appropriate here specifically because the
+  population it needs to cover is finite and shrinking (every pre-cutover offer eventually
+  resolves one way or another), unlike the ongoing, unbounded case §8.4 explicitly says a
+  sentinel cannot be trusted to close.
+
+**This document does not choose between A/B/C — it is Keith's decision**, the same way §2.4 was.
+Option C is noted as the one that best matches "not a guarantee, but a bounded, honest stopgap
+for a shrinking, known population" rather than either extreme.
+
+#### 8.5.2 The honest boundary: universal staging controls what THIS APP creates, not MFL itself
+
+**Directly, plainly: universal staging (§8.1-8.3) closes the bypass for every 2-way trade this
+app creates. It does not, and cannot, prevent two owners from arranging and completing a trade
+entirely through MFL.com's own native trade tools, outside the War Room altogether, using
+nothing this app built at all.**
+
+MFL is the underlying platform this app is built on top of — every owner already has a real MFL
+account with real, independent access to MFL's own site, including its own native
+propose/accept/reject trade UI, wherever the league's MFL configuration allows it (MFL's own
+"League communication" trade-permission setting, or simply MFL's default trade tools if the
+league hasn't restricted them — this document has not audited whether this league's MFL
+configuration disables native trading for regular owners; that is a separate, checkable fact,
+not assumed either way here). If it does not, two owners can propose and accept a trade on MFL
+directly, with **zero code in this app ever running**, exactly as they always could before any
+of this design existed — universal staging changes nothing about that access, because it is not
+this app's to control. This app can only govern what happens when a trade is created **through
+it**; it was never given, and MFL does not offer, any way to disable or intercept MFL's own
+native trade tools for the league's owners in general.
+
+**What this means in practice:** universal staging is a real, complete fix for the specific gap
+this section analyzes — a trade this app creates, that could otherwise be accepted around it. It
+is not, and should never be described as, a guarantee that no loaded-contract violation can ever
+reach MFL by any path, because a path this app does not create and cannot see (two owners
+transacting directly on MFL) remains genuinely open, by the nature of building on top of a
+platform this app does not own or administer. The trade-sentinel (§8.4) is the only mitigation
+that even partially reaches this class of trade (a native MFL trade this app never created at
+all is exactly the kind of "pending, native offer" it already polls) — and, as stated there,
+Keith's instruction is explicit that a polling sentinel is not a guarantee either. **If closing
+this specific residual gap matters enough to act on, the only lever available is a league-level
+MFL setting (restricting native trade permissions for regular owners, leaving trade creation to
+the commissioner/War Room only) — a commissioner/league-configuration decision, not something
+this app's code can enforce, and outside this document's scope to recommend one way or the
+other.**
 
 ---
 
-## 9. Hammer Times, L.A. Looks, and plain `Vet-Ext1` — investigated separately, no repair proposed
+## 9. Hammer Times, L.A. Looks, and plain `Vet-Ext1`/`Vet-Ext2` — RULED ON, fix shipped separately
 
-Per Keith's separate instructions (2026-09-29, both rounds), this section summarizes two
-read-only investigations that report existing roster/rule state plainly, without proposing any
-fix, grandfather clause, or production change — that judgment is Keith's. **Full detail, canon
-citations, and a recommendation live in their own documents**, referenced below rather than
-duplicated here.
+**Both questions this section originally investigated are now decided, and the fix is built —
+on its own branch, its own PR, deliberately kept separate from this feature and its migration.**
 
-**HammerTime carries 7 loaded contracts today, 6 excluding a 7th on IR (Jacobs, Josh)** — the
-live gate agrees exactly (`loaded_before: 7`). All seven are correctly, mechanically back-loaded
-by the classifier's own documented logic against real, well-formed, fully-reconciled payment
-schedules — zero unresolved contracts. **L.A. Looks separately carries 8** — investigated further
-in round 2, below.
+**Round 3 (Keith, 2026-09-29, final ruling):**
+> Plain Ext1: An unsuffixed `Vet-Ext1` or `Rookie-Ext1`... does not count toward the
+> five-loaded-contract limit merely because its frozen prior year differs from its new
+> extension year. A genuinely restructured Ext1 with a valid `-FL` or `-BL` suffix still
+> counts. I agree with the investigation's recommended interpretation.
+>
+> IR: A loaded contract on IR does count toward the five. IR changes active-roster and cap
+> treatment; it does not erase the contract. Add this ruling explicitly to canon and tests.
+>
+> Please prioritize a separate, narrow classification correction... investigate the four
+> plain Ext2 contracts you identified (Gibbs, Flowers, Lamb, Kincaid)... Apply one coherent
+> rule based on the contract's genuine loaded structure, not a blanket suffix shortcut... the
+> Trade War Room loaded-contract calculation must align with Front Office.
 
-**Whether IR counts toward the 5** — canon never mentions IR for this specific limit (only for the
-active-roster maximum and the 27-player minimum, §B3); the shipped code counts it only because
-nothing filters it out, unchanged by any of this session's work and predating it back to the
-original PR #1135 merge. Presented as a clean, standalone decision for Keith in
-`docs/LOADED_CONTRACT_EXT1_CLASSIFICATION_INVESTIGATION.md` §8, separate from the Ext1 question
-below, since neither the code nor canon offers a lean either way.
+**PR [#1152](https://github.com/keithcreelman/upsmflproduction/pull/1152) implements exactly
+this** (own branch `fix/loaded-contract-ext-classification-2026-09-29`, own migration-free
+diff, draft, not merged): `resolveLoadedStatus` now excludes a plain Ext-family contract's
+frozen prior year from its load-shape test, comparing only the extension's own new year(s) —
+verified against all four named Ext2 candidates (each genuinely flat, confirmed from real
+per-year data, not assumed from a missing suffix), the IR ruling recorded explicitly in canon
+and pinned by a test, and Front Office brought onto the identical classifier (previously an
+independent, simpler check) with a parity test proving the two surfaces can never again
+silently disagree. Full canon citations, player-level tables for HammerTime and L.A. Looks, and
+the league-wide before/after are in that PR's own
+`docs/LOADED_CONTRACT_EXT_CLASSIFICATION_INVESTIGATION.md`.
 
-**Round 2 (Keith, after reviewing round 1's brief mention of Addison/Montgomery): "Before changing
-enforcement, investigate the one-year `Vet-Ext1` classification across the league... Show the
-contract terms and consequences for Hammer and L.A. Looks, plus tests for both possible
-interpretations; recommend the rule supported by canon, but do not silently change production
-counts."** That full investigation — canon quotes with line numbers, complete loaded-contract
-tables for both named franchises, a league-wide (all 12 franchises) scan, and a recommendation —
-is `docs/LOADED_CONTRACT_EXT1_CLASSIFICATION_INVESTIGATION.md`. Its headline finding: a plain
-(no `-FL`/`-BL`) `Vet-Ext1` contract is classified loaded today purely because
-`resolveLoadedStatus` applies the same generic Year-1-vs-average test to every contract
-regardless of shape — but the **same codebase's own extension-pricing logic already treats this
-exact shape as flat**, for a documented reason (`contract_classification.js`'s
-`resolveExtensionLoadedStatus` docblock: "a single future year... has no shape to compare and is
-flat") that describes the Ext1-after-a-final-year pattern precisely. The same real contract is
-flat when priced and loaded once it's on the roster — a genuine internal inconsistency, not just
-an ambiguous reading of canon. Tests proving both interpretations' exact behavior on the real
-contract data, without changing any production file, are
-`tests/trade_loaded_contract_ext1_classification.test.mjs` (9 tests, 30 assertions).
+**The numbers, for reference here:** before the fix, HammerTime carried 7 loaded contracts (2
+over the limit) and L.A. Looks 8 (3 over) — both genuinely, mechanically computed by the
+classifier's existing logic against real, well-formed, fully-reconciled schedules, zero
+unresolved contracts. After the fix (PR #1152, not yet merged): HammerTime exactly at 5, L.A.
+Looks one under at 4. League-wide, all 12 franchises: 58 → 40 total loaded contracts,
+franchises over the limit 5 → 0.
 
-**The consequence, precisely** (full tables in the dedicated doc): under the current, shipped
-classification, HammerTime is 2 over the limit and L.A. Looks is 3 over. Under the alternate
-interpretation the internal-inconsistency evidence supports, HammerTime lands exactly at the
-limit (zero headroom) and L.A. Looks lands one UNDER it. League-wide, across all 12 franchises,
-the same alternate interpretation moves the total loaded-contract count from 58 to 44 and the
-number of franchises over the limit from 5 to 2.
-
-**The recommendation** (§7 of the dedicated doc, not applied here or anywhere in production):
-a plain `Vet-Ext1`/`Rookie-Ext1` contract with no suffix should not count toward the 5-loaded
-limit, on the strength of the internal-inconsistency evidence above — restructured Ext1s that
-have earned a real, canon-sanctioned suffix (e.g. HammerTime's Kenneth Walker III, L.A. Looks'
-Sam Darnold) are unaffected either way and correctly stay counted. This recommendation changes no
-counts on its own; it is presented for Keith's decision, separate from the IR question, and
-separate from whether a NEW trade may increase or maintain an existing over-limit count — this
-execution design and its enforcement operate on whatever the live, authoritative count already is
-at the moment they run, regardless of how either open question is eventually decided.
+**This execution design's own enforcement is, and remains, independent of the classification
+question** — it operates on whatever the live, authoritative loaded-contract count is at the
+moment it runs, whichever way #1152 eventually lands. Nothing in this document depends on
+#1152 merging first, and #1152 depends on nothing in this document.
 
 ---
 
@@ -592,27 +758,44 @@ at the moment they run, regardless of how either open question is eventually dec
 - `evaluateTradeCompliance`'s existing recalculation of cap and lineup with a drop excluded (§5)
   — already shipped this review round, reused as-is.
 
-## 11. What is explicitly NOT decided here, and needs review before ANY of this becomes code
+## 11. Decided vs. still open
 
-- **Which ordering** (§2.1 Trade-first, §2.2 Drop-first) — or the manual-review-queue alternative
-  (§2.4) — Keith wants to run with. Not assumed by this revision, and now explicitly decoupled
-  from staging (§8.2) — the ordering decision can be made independently of, and later than, the
-  staging decision.
-- **Whether to approve UNIVERSAL 2-way staging** (§8.1-8.2, this revision's conclusion: nothing
-  narrower is a guarantee) **or the explicitly-bounded scoped alternative** (§8.3, narrower scope,
-  stated residual risk) — a separate, real architectural change either way, reviewable on its own
-  before drop-execution code is written, and the larger of the two decisions in this document.
-- The exact commissioner-facing (and, newly, owner-facing per §2.1) notification copy for every
-  failure kind (`failed` vs `unconfirmed`, §2.1/§2.2/§6).
-- Whether a stale, unresolved `executed_needs_review` drop needs its own aging alert (§2.1).
-- Whether an owner can retry their own failed drop step, or whether that's commissioner-only (§6).
-- The exact consent-copy changes to the shipped selection UI (§3) — a scoped, separate UI change
-  that should land regardless of which ordering is chosen, since it's needed either way.
+**Decided by Keith, 2026-09-29:**
+- **Execution model: manual commissioner review (§2.4), not automated ordering.** Neither §2.1
+  (trade-first) nor §2.2 (drop-first) is approved for automation; the exact manual procedure and
+  its own, different non-atomic risks are specified in §2.4.3/§2.4.4.
+- **Staging: universal — every 2-way trade (§8.1-8.3)**, not the narrower, heuristic-scoped
+  alternative this document previously offered alongside it.
+- **Ext1/Ext2 loaded-contract classification and the IR ruling** (§9) — shipped as PR #1152,
+  separate from this branch, not yet merged.
+
+**Still open, and needing review before ANY execution code is written:**
+- **Cutover for already-pending native offers** (§8.5.1) — option A (do nothing extra), B (revoke
+  all at cutover), or C (sentinel-cover only the shrinking pre-cutover population) — this document
+  recommends none over another beyond noting C's shape best matches "bounded stopgap," not a
+  decision.
+- **Whether to restrict native MFL trade permissions for regular owners at the league-configuration
+  level** (§8.5.2) — the only lever that would close the residual "two owners transact directly on
+  MFL, outside this app entirely" gap universal staging cannot reach. A commissioner/league-setting
+  decision, not code.
+- Whether automating one of §2.1/§2.2's orderings is ever revisited, and if so which — §2.4's
+  ruling is explicitly framed as "not yet" ("Do not choose automatic trade-first or drop-first
+  **yet**"), not a permanent rejection.
+- The exact commissioner-facing and owner-facing notification copy for every outcome in §2.4.3
+  (executed / `blocked_on_drop` / stale-and-refused-at-recheck).
+- Whether a queued deal sitting unreviewed needs its own aging alert, and whether a
+  backup-commissioner path is needed for when the primary commissioner is unavailable (§2.4.4).
+- The review-queue UI itself (§2.4.2/§2.4.4) — enforcing the correct manual sequence through the
+  interface, not merely documenting it.
+- The exact consent-copy changes to the shipped selection UI (§3) — needed regardless of the
+  execution model, and not yet built.
 - The lockout operating-mode open question (§4), unchanged from v1.
 - The exact new function shape for a commissioner-authenticated drop call and any new
-  `steps_json` fields it needs — sketched in prose (§1.1, §7), not written.
+  `steps_json` fields it needs (including the new `blocked_on_drop` ledger state, §2.4.3) —
+  sketched in prose (§1.1, §2.4.3, §7), not written.
 
-None of the above is resolved by this document. It is the reviewable design Keith asked for, with
-every specific failure mode he named addressed by name, both orderings presented without either
-being assumed safe, a real design (not a hand-wave) for the native-bypass gap, and an explicit
-list of what still needs a decision before a single line of execution code is written.
+None of the still-open items is resolved by this document. It is the reviewable design Keith
+asked for, with every specific failure mode he named addressed by name, the decided execution
+and staging models specified precisely rather than assumed, a real design (not a hand-wave) for
+the native-bypass gap and its honest limits, and an explicit list of what still needs a decision
+before a single line of execution code is written.
