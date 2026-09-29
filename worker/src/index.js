@@ -18699,7 +18699,18 @@ export default {
           // the correct 13.7 (41 pts / 3 actual games), an ~83% understatement, on
           // every defense, on the page's own default view. weeksUsed inherited the
           // same bug and told the frontend "18 played" when 3 had been.
-          const weekHasScores = weeks.map((w, wi) => arr(scoreJobs[wi]?.playerScores?.playerScore).length > 0);
+          // Fixed 2026-09-29 (same day as the fix above -- caught by live
+          // verification after deploy): MFL's playerScores export does NOT
+          // return a truly empty array for an unplayed week. It returns a
+          // single placeholder record instead -- confirmed live,
+          // TYPE=playerScores&W=10 (unplayed) returned
+          // [{id:"", score:"", week:"10", isAvailable:"1"}], length 1 -- so
+          // ".length > 0" read every future week as scored too, silently
+          // defeating this whole fix while still reporting success. Matches
+          // the SAME predicate the scoring loop below already uses
+          // (parseFloat(s.score), NaN discarded) so a week only counts here
+          // if it would also contribute a real point value there.
+          const weekHasScores = weeks.map((w, wi) => arr(scoreJobs[wi]?.playerScores?.playerScore).some((s) => !isNaN(parseFloat(s.score))));
           // who each team played each week (needed for every scheduled week, played or
           // not, so a player's future/unplayed-week score -- there won't be one, but
           // this mapping itself is harmless to build in advance) + games ACTUALLY
