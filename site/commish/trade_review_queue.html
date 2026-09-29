@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Review Queue — UPS League</title>
+<!-- build 2026.09.29.1 — commissioner-only, READ-ONLY hold/review surface for staged 2-way
+     trades (Keith's ruling, 2026-09-29: "hold and inspect... do not add a drop or trade
+     execution button yet"). No execute/drop action exists anywhere on this page. -->
+<!--
+  Auth mirrors site/commish/commish_settings.html exactly: a forwarded MFL session
+  (window.UPS_COMMISH_MFL_USER_ID, set by mfl_hpm_embed_loader.js when embedded inside MFL) is
+  preferred; a ?APIKEY=<commish key> direct-link fallback persists to localStorage and
+  self-strips from the URL. GET /api/trades/2way/queue itself requires isAdminCaller (the admin
+  key OR a PROVEN commissioner session) -- an ordinary owner session is refused with 403,
+  server-side, regardless of anything this page does.
+-->
+<style>
+  :root {
+    --bg: #0b0f18; --panel: #141a26; --panel2: #1a2230; --line: #2a3446;
+    --fg: #e8edf5; --muted: #8a97ad; --accent: #5b8dff; --warn: #fbbf24; --ok: #4ade80; --danger: #f87171;
+    --t3w-bg: var(--panel); --t3w-fg: var(--fg); --t3w-mut: var(--muted); --t3w-line: var(--line);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .trq-shell { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  .trq-hero h1 { font-size: 22px; margin: 0 0 4px; }
+  .trq-hero p { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
+  .trq-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .trq-toolbar label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .trq-btn { min-height: 36px; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
+  .trq-btn:hover { border-color: var(--accent); }
+  .trq-count { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .trq-auth-banner { border: 1px solid var(--danger); border-radius: 10px; padding: 12px; margin-bottom: 16px; font-size: 13px; color: var(--danger); display: none; }
+  .trq-auth-banner.show { display: block; }
+  .trq-auth-banner input { width: 100%; margin-top: 8px; padding: 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg); font: inherit; }
+  .trq-empty { padding: 40px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; }
+  .trq-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .trq-card-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .trq-route { font-weight: 700; font-size: 15px; }
+  .trq-age { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .trq-age.stale { color: var(--warn); font-weight: 700; }
+  .trq-movs { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .trq-ledger { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }
+  .trq-ledger b { color: var(--fg); }
+  .trq-toggle { background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 4px 0; font-size: 13px; }
+  .trq-detail { display: none; margin-top: 10px; }
+  .trq-detail.show { display: block; }
+  .trq-note { font-size: 12px; color: var(--muted); background: var(--panel2); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+  .trq-history-toggle { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="trq-shell">
+  <header class="trq-hero">
+    <h1>Trade Review Queue</h1>
+    <p>Commissioner-only. Read-only hold-and-inspect surface for staged two-team War Room trades — fresh compliance, each owner's consent and conditional-drop selections, cap-acknowledgment status, and the real execution-ledger state. There is no execute or drop action on this page.</p>
+  </header>
+
+  <div id="trqAuthBanner" class="trq-auth-banner">
+    <div id="trqAuthMsg"></div>
+    <input type="text" id="trqApiKeyInput" placeholder="Paste the commissioner API key here, then press Enter">
+  </div>
+
+  <div class="trq-toolbar">
+    <button type="button" class="trq-btn" id="trqRefreshBtn">Refresh</button>
+    <label><input type="checkbox" id="trqIncludeAll"> Include cancelled / completed / failed history</label>
+    <span class="trq-count" id="trqCount"></span>
+  </div>
+
+  <div id="trqList"></div>
+</div>
+
+<script src="../shared/trade_3way_view.js"></script>
+<script>
+(function () {
+  "use strict";
+  function s(v) { return v == null ? "" : String(v); }
+  var qp = new URL(window.location.href).searchParams;
+  var LEAGUE = s(window.UPS_COMMISH_LEAGUE) || s(qp.get("L")) || "74598";
+  var YEAR = s(window.UPS_COMMISH_YEAR) || s(qp.get("YEAR")) || String(new Date().getFullYear());
+  var WORKER_BASE = (function () {
+    try { var o = qp.get("worker_base"); if (o) return o.replace(/\/$/, ""); } catch (e) {}
+    if (typeof window.UPS_COMMISH_API_BASE === "string" && window.UPS_COMMISH_API_BASE) return s(window.UPS_COMMISH_API_BASE).replace(/\/$/, "");
+    return "https://upsmflproduction.keith-creelman.workers.dev";
+  })();
+
+  var _mflUserId = function () { try { return s(window.UPS_COMMISH_MFL_USER_ID); } catch (e) { return ""; } };
+  // Same fallback the rest of the Commish tooling already uses (site/commish/commish_settings.html):
+  // a one-time ?APIKEY= direct link persists to localStorage and self-strips from the visible URL.
+  var _commishApiKey = function () {
+    try {
+      var u = new URL(window.location.href);
+      var fromUrl = u.searchParams.get("APIKEY");
+      if (fromUrl) {
+        try { localStorage.setItem("ups_commish_apikey", fromUrl); } catch (e) {}
+        try { u.searchParams.delete("APIKEY"); window.history.replaceState(null, "", u.toString()); } catch (e) {}
+        return fromUrl;
+      }
+    } catch (e) {}
+    try { var k = localStorage.getItem("ups_commish_apikey"); if (k) return k; } catch (e) {}
+    return "";
+  };
+  var _withAuth = function (url) {
+    var out = url;
+    var add = function (kv) { out += (out.indexOf("?") < 0 ? "?" : "&") + kv; };
+    var t = _mflUserId();
+    if (t) add("MFL_USER_ID=" + encodeURIComponent(t));
+    var k = _commishApiKey();
+    if (k) add("APIKEY=" + encodeURIComponent(k));
+    return out;
+  };
+  try { _commishApiKey(); } catch (e) {}
+
+  function apiUrl(p) { return WORKER_BASE + p + (p.indexOf("?") < 0 ? "?" : "&") + "L=" + encodeURIComponent(LEAGUE) + "&YEAR=" + encodeURIComponent(YEAR); }
+
+  function authBanner(msg) {
+    var b = document.getElementById("trqAuthBanner");
+    document.getElementById("trqAuthMsg").textContent = msg;
+    b.className = "trq-auth-banner show";
+  }
+  function clearAuthBanner() { document.getElementById("trqAuthBanner").className = "trq-auth-banner"; }
+
+  var T = window.UPS_TRADE_3WAY || null;
+  var openIds = {};
+
+  function fmtAge(hours) {
+    if (hours == null) return "";
+    if (hours < 1) return Math.round(hours * 60) + "m";
+    if (hours < 48) return Math.round(hours) + "h";
+    return Math.round(hours / 24) + "d";
+  }
+
+  function renderLedger(ledger) {
+    if (!ledger) return '<div class="trq-ledger"><b>Execution ledger:</b> no row yet — nothing has ever attempted to execute this trade.</div>';
+    var parts = ['<b>Execution ledger:</b> state <code>' + T.esc(ledger.state) + '</code>'];
+    if (ledger.failed_step) parts.push("failed step " + T.esc(ledger.failed_step));
+    if (ledger.failure_detail) parts.push(T.esc(ledger.failure_detail));
+    if (ledger.mfl_executed) parts.push("MFL executed");
+    return '<div class="trq-ledger">' + parts.join(" · ") + '</div>';
+  }
+
+  function renderCapAckSummary(capAck) {
+    if (!capAck) return "";
+    var rows = (capAck.perFranchise || []).map(function (f) {
+      return f.franchise_name + ": " + (f.status === "acknowledged" ? "acknowledged" : "waiting");
+    }).join(", ");
+    return '<div class="trq-note"><b>Cap acknowledgment:</b> ' + (capAck.satisfied ? "all acknowledged" : "waiting — " + T.esc(rows)) + '</div>';
+  }
+
+  function renderCard(trade) {
+    var sv = trade.state_view || {};
+    var ageH = trade.age_hours_since_updated;
+    var stale = ageH != null && ageH > 48;
+    var movLines = (trade.movements || []).map(function (m) {
+      return T.esc(m.from) + ' → ' + T.esc(m.to) + ': ' + (m.asset_tokens || []).map(T.esc).join(", ");
+    }).join(" · ");
+    var open = !!openIds[trade.id];
+    var h = '<div class="trq-card" data-trq-id="' + T.esc(trade.id) + '">';
+    h += '<div class="trq-card-head"><span class="trq-route">' + T.esc(trade.from_name) + ' → ' + T.esc(trade.to_name) + '</span>';
+    h += '<span class="t3w-pill t3w-tone-' + (({ pending_response: "wait", awaiting_review: "warn", executing: "busy", completed: "ok", failed: "bad", cancelled: "off", declined: "off" })[sv.code] || "off") + '">' + T.esc(sv.label) + '</span>';
+    h += '<span class="trq-age' + (stale ? " stale" : "") + '">' + fmtAge(ageH) + (stale ? " — stale" : "") + '</span></div>';
+    h += '<div class="trq-movs">' + movLines + '</div>';
+    h += renderLedger(trade.ledger);
+    h += renderCapAckSummary(trade.cap_ack);
+    h += '<button type="button" class="trq-toggle" data-trq-toggle="' + T.esc(trade.id) + '">' + (open ? "Hide detail ↑" : "Show full compliance ↓") + '</button>';
+    h += '<div class="trq-detail' + (open ? " show" : "") + '">';
+    if (trade.compliance) h += T.renderCompliance(trade.compliance, {});
+    else h += '<p class="trq-note">No live compliance on this row (this trade is no longer active).</p>';
+    h += '</div>';
+    h += '</div>';
+    return h;
+  }
+
+  function renderList(trades) {
+    var mount = document.getElementById("trqList");
+    document.getElementById("trqCount").textContent = trades.length + " trade" + (trades.length === 1 ? "" : "s");
+    if (!trades.length) { mount.innerHTML = '<div class="trq-empty">No trades to review right now.</div>'; return; }
+    mount.innerHTML = trades.map(renderCard).join("");
+    var toggles = mount.querySelectorAll("[data-trq-toggle]");
+    for (var i = 0; i < toggles.length; i++) {
+      toggles[i].addEventListener("click", function () {
+        var id = this.getAttribute("data-trq-toggle");
+        openIds[id] = !openIds[id];
+        load();
+      });
+    }
+  }
+
+  function load() {
+    if (!T) { document.getElementById("trqList").innerHTML = '<div class="trq-empty">Shared view module failed to load.</div>'; return; }
+    T.ensureStyles();
+    var includeAll = document.getElementById("trqIncludeAll").checked;
+    var url = _withAuth(apiUrl("/api/trades/2way/queue" + (includeAll ? "&includeAll=1" : "")));
+    fetch(url, { cache: "no-store", credentials: "omit" }).then(function (r) {
+      return r.text().then(function (t) { var d = null; try { d = t ? JSON.parse(t) : null; } catch (e) {} return { status: r.status, ok: r.ok, body: d }; });
+    }).then(function (res) {
+      if (!res.ok || !res.body || res.body.ok === false) {
+        if (res.status === 401 || res.status === 403) {
+          authBanner("Not authorized as commissioner (" + (res.body && res.body.code || res.status) + "). Open this page from inside MFL, or paste your commissioner API key below.");
+        }
+        document.getElementById("trqList").innerHTML = '<div class="trq-empty">Couldn\'t load the queue' + (res.body && res.body.message ? ": " + res.body.message : "") + '.</div>';
+        return;
+      }
+      clearAuthBanner();
+      renderList(res.body.trades || []);
+    }).catch(function () {
+      document.getElementById("trqList").innerHTML = '<div class="trq-empty">Couldn\'t reach the server.</div>';
+    });
+  }
+
+  document.getElementById("trqRefreshBtn").addEventListener("click", load);
+  document.getElementById("trqIncludeAll").addEventListener("change", load);
+  document.getElementById("trqApiKeyInput").addEventListener("keydown", function (ev) {
+    if (ev.key !== "Enter") return;
+    var v = this.value.trim();
+    if (!v) return;
+    try { localStorage.setItem("ups_commish_apikey", v); } catch (e) {}
+    this.value = "";
+    load();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
