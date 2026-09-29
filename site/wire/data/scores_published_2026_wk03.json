@@ -1,0 +1,2366 @@
+{
+ "allplay": {
+  "0001": {
+   "l": 8,
+   "t": 0,
+   "w": 3
+  },
+  "0002": {
+   "l": 6,
+   "t": 0,
+   "w": 5
+  },
+  "0003": {
+   "l": 11,
+   "t": 0,
+   "w": 0
+  },
+  "0004": {
+   "l": 7,
+   "t": 0,
+   "w": 4
+  },
+  "0005": {
+   "l": 3,
+   "t": 0,
+   "w": 8
+  },
+  "0006": {
+   "l": 9,
+   "t": 0,
+   "w": 2
+  },
+  "0007": {
+   "l": 10,
+   "t": 0,
+   "w": 1
+  },
+  "0008": {
+   "l": 4,
+   "t": 0,
+   "w": 7
+  },
+  "0009": {
+   "l": 0,
+   "t": 0,
+   "w": 11
+  },
+  "0010": {
+   "l": 1,
+   "t": 0,
+   "w": 10
+  },
+  "0011": {
+   "l": 5,
+   "t": 0,
+   "w": 6
+  },
+  "0012": {
+   "l": 2,
+   "t": 0,
+   "w": 9
+  }
+ },
+ "frozenAtUtc": "2026-09-29T20:09:24Z",
+ "games": [
+  {
+   "a": "0003",
+   "aScore": 153.8,
+   "b": "0009",
+   "bScore": 254.8,
+   "result": "L"
+  },
+  {
+   "a": "0003",
+   "aScore": 153.8,
+   "b": "0012",
+   "bScore": 227.5,
+   "result": "L"
+  },
+  {
+   "a": "0003",
+   "aScore": 153.8,
+   "b": "0011",
+   "bScore": 216.2,
+   "result": "L"
+  },
+  {
+   "a": "0002",
+   "aScore": 213.6,
+   "b": "0009",
+   "bScore": 254.8,
+   "result": "L"
+  },
+  {
+   "a": "0002",
+   "aScore": 213.6,
+   "b": "0012",
+   "bScore": 227.5,
+   "result": "L"
+  },
+  {
+   "a": "0002",
+   "aScore": 213.6,
+   "b": "0011",
+   "bScore": 216.2,
+   "result": "L"
+  },
+  {
+   "a": "0009",
+   "aScore": 254.8,
+   "b": "0010",
+   "bScore": 245.4,
+   "result": "W"
+  },
+  {
+   "a": "0010",
+   "aScore": 245.4,
+   "b": "0012",
+   "bScore": 227.5,
+   "result": "W"
+  },
+  {
+   "a": "0010",
+   "aScore": 245.4,
+   "b": "0011",
+   "bScore": 216.2,
+   "result": "W"
+  },
+  {
+   "a": "0005",
+   "aScore": 224.8,
+   "b": "0008",
+   "bScore": 218.9,
+   "result": "W"
+  },
+  {
+   "a": "0005",
+   "aScore": 224.8,
+   "b": "0007",
+   "bScore": 165.4,
+   "result": "W"
+  },
+  {
+   "a": "0001",
+   "aScore": 208.6,
+   "b": "0005",
+   "bScore": 224.8,
+   "result": "L"
+  },
+  {
+   "a": "0004",
+   "aScore": 212.4,
+   "b": "0008",
+   "bScore": 218.9,
+   "result": "L"
+  },
+  {
+   "a": "0004",
+   "aScore": 212.4,
+   "b": "0007",
+   "bScore": 165.4,
+   "result": "W"
+  },
+  {
+   "a": "0001",
+   "aScore": 208.6,
+   "b": "0004",
+   "bScore": 212.4,
+   "result": "L"
+  },
+  {
+   "a": "0006",
+   "aScore": 204.7,
+   "b": "0008",
+   "bScore": 218.9,
+   "result": "L"
+  },
+  {
+   "a": "0006",
+   "aScore": 204.7,
+   "b": "0007",
+   "bScore": 165.4,
+   "result": "W"
+  },
+  {
+   "a": "0001",
+   "aScore": 208.6,
+   "b": "0006",
+   "bScore": 204.7,
+   "result": "W"
+  }
+ ],
+ "players": [
+  {
+   "fid": "0003",
+   "pid": "13116",
+   "score": 22.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "16148",
+   "score": 16.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17066",
+   "score": 3.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17045",
+   "score": 13.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "13635",
+   "score": 14.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "14136",
+   "score": 18.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "15287",
+   "score": 12.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17512",
+   "score": 3.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "12676",
+   "score": 2.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17668",
+   "score": 2.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "13791",
+   "score": 1.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "13298",
+   "score": 3.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "16224",
+   "score": 0.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "15409",
+   "score": 7.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "15396",
+   "score": 3.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "16716",
+   "score": 4.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "16672",
+   "score": 11.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "13322",
+   "score": 14.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0003",
+   "pid": "13192",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "16757",
+   "score": 4.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17473",
+   "score": 1.4,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17560",
+   "score": 6.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17548",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "15694",
+   "score": 12.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "15788",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17186",
+   "score": 1.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17504",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "15238",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0003",
+   "pid": "17529",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14777",
+   "score": 30.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "12141",
+   "score": 27.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "15715",
+   "score": 23.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "15708",
+   "score": 8.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "13130",
+   "score": 22.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14835",
+   "score": 21.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "17071",
+   "score": 3.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16185",
+   "score": 39.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16214",
+   "score": 9.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "13354",
+   "score": 6.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14256",
+   "score": 9.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14940",
+   "score": 0.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14877",
+   "score": 15.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14251",
+   "score": 12.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14412",
+   "score": 7.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "13251",
+   "score": 3.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "13737",
+   "score": 5.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16719",
+   "score": 10.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16581",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14778",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16747",
+   "score": 1.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16752",
+   "score": 0.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16641",
+   "score": 36.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "13837",
+   "score": 7.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "14102",
+   "score": 12.7,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "10266",
+   "score": 2.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "13164",
+   "score": 15.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "9064",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "13672",
+   "score": 14.4,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0009",
+   "pid": "16432",
+   "score": 1.4,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "12611",
+   "score": 24.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "9431",
+   "score": 24.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "15259",
+   "score": 6.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "15710",
+   "score": 22.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "11671",
+   "score": 13.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17497",
+   "score": 12.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "16206",
+   "score": 27.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "11244",
+   "score": 15.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "16213",
+   "score": 5.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "11945",
+   "score": 10.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "11383",
+   "score": 13.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17112",
+   "score": 0.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "15808",
+   "score": 9.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "16655",
+   "score": 1.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17558",
+   "score": 0.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "13743",
+   "score": 14.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17562",
+   "score": 14.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "15868",
+   "score": 13.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0012",
+   "pid": "16677",
+   "score": 8.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "16620",
+   "score": 5.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17068",
+   "score": 9.7,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17048",
+   "score": 2.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17171",
+   "score": 2.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "14127",
+   "score": 20.9,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "14800",
+   "score": 6.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17499",
+   "score": 7.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "17220",
+   "score": 6.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "15721",
+   "score": 12.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "16283",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0012",
+   "pid": "13268",
+   "score": 8.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "10700",
+   "score": 29.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "14779",
+   "score": 16.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17472",
+   "score": 21.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16161",
+   "score": 39.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "14832",
+   "score": 23.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16615",
+   "score": 8.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "15761",
+   "score": 1.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16222",
+   "score": 8.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17104",
+   "score": 9.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "15979",
+   "score": 9.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "14630",
+   "score": 5.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "14405",
+   "score": 3.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "15815",
+   "score": 2.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17556",
+   "score": 14.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "13696",
+   "score": 12.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16679",
+   "score": null,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17132",
+   "score": 6.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "14909",
+   "score": 4.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0011",
+   "pid": "14833",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16584",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "15757",
+   "score": 19.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17269",
+   "score": 2.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16628",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16621",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "16617",
+   "score": 4.9,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "15712",
+   "score": 4.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "15779",
+   "score": 8.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17518",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17361",
+   "score": 4.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0011",
+   "pid": "17640",
+   "score": 6.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14782",
+   "score": 26.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "17039",
+   "score": 33.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14085",
+   "score": 13.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14797",
+   "score": 11.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14802",
+   "score": 9.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "17081",
+   "score": 11.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "16201",
+   "score": 9.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "15753",
+   "score": 29.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "15329",
+   "score": 2.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "16681",
+   "score": 17.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "13844",
+   "score": 1.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "12225",
+   "score": 11.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "16653",
+   "score": 4.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "16696",
+   "score": 5.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14303",
+   "score": 7.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "13813",
+   "score": 5.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "15835",
+   "score": 7.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14328",
+   "score": 8.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0002",
+   "pid": "15290",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "16586",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "16178",
+   "score": 14.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "17543",
+   "score": 29.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14842",
+   "score": 3.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "13319",
+   "score": 14.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "14907",
+   "score": 4.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "16184",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "13629",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "13189",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "12610",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0002",
+   "pid": "15418",
+   "score": 2.1,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "13589",
+   "score": 17.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "15698",
+   "score": 43.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "17044",
+   "score": 6.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "17051",
+   "score": 9.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "17500",
+   "score": 8.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "15751",
+   "score": 33.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "15282",
+   "score": 12.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16788",
+   "score": 7.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "13299",
+   "score": 30.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16896",
+   "score": 19.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "13782",
+   "score": 0.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16223",
+   "score": 28.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "13284",
+   "score": 1.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16013",
+   "score": 2.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "15846",
+   "score": 6.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16246",
+   "score": 4.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "17207",
+   "score": 4.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "17131",
+   "score": 11.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0010",
+   "pid": "17030",
+   "score": 13.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "13163",
+   "score": 5.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "14109",
+   "score": 20.7,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16080",
+   "score": 6.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16723",
+   "score": 15.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "14823",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16269",
+   "score": 7.9,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16174",
+   "score": 10.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "15822",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "16276",
+   "score": 2.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "17623",
+   "score": 1.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0010",
+   "pid": "15387",
+   "score": 3.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "16583",
+   "score": 17.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "16150",
+   "score": 14.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "14071",
+   "score": 6.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15711",
+   "score": 21.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15256",
+   "score": 19.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15281",
+   "score": 26.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "16627",
+   "score": 11.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "14861",
+   "score": 31.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15794",
+   "score": 21.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "12860",
+   "score": 4.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "17339",
+   "score": 4.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15805",
+   "score": 3.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15349",
+   "score": 1.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "13214",
+   "score": 1.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "16239",
+   "score": 9.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15404",
+   "score": 7.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "14927",
+   "score": 16.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15923",
+   "score": 7.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0005",
+   "pid": "17070",
+   "score": 20.4,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "11150",
+   "score": 32.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15293",
+   "score": 5.9,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "16186",
+   "score": 20.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "17106",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "16667",
+   "score": 5.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "14138",
+   "score": 4.1,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "16152",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "15331",
+   "score": 6.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "14080",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "11222",
+   "score": 18.9,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0005",
+   "pid": "13418",
+   "score": 4.4,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "12616",
+   "score": 33.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "12620",
+   "score": 23.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "13604",
+   "score": 9.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15253",
+   "score": 9.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "17043",
+   "score": 3.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "17501",
+   "score": 3.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "16192",
+   "score": 13.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15789",
+   "score": 23.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15797",
+   "score": 13.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "16680",
+   "score": 5.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15051",
+   "score": 13.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "14167",
+   "score": 3.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15346",
+   "score": 22.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15355",
+   "score": 12.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "17124",
+   "score": 6.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15875",
+   "score": 9.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "14182",
+   "score": 8.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "17145",
+   "score": 6.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0008",
+   "pid": "16614",
+   "score": 7.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "13674",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "16193",
+   "score": 4.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "16212",
+   "score": 14.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "16211",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "14056",
+   "score": 12.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15889",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "12186",
+   "score": 7.7,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "15716",
+   "score": 13.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "17743",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "13066",
+   "score": 22.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0008",
+   "pid": "16678",
+   "score": 5.1,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "13593",
+   "score": 27.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16167",
+   "score": 1.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "13132",
+   "score": 5.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16616",
+   "score": 7.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16194",
+   "score": 16.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "15284",
+   "score": 6.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "15756",
+   "score": 9.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17103",
+   "score": 28.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17099",
+   "score": 0.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "13719",
+   "score": 6.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17664",
+   "score": 1.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16266",
+   "score": 15.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "14249",
+   "score": 9.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16230",
+   "score": 3.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17125",
+   "score": 5.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17147",
+   "score": 3.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "15836",
+   "score": 5.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17576",
+   "score": 12.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16579",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17058",
+   "score": 0.7,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17256",
+   "score": 5.7,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17134",
+   "score": 7.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "14179",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16384",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17074",
+   "score": 8.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "15255",
+   "score": 7.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "17521",
+   "score": 1.9,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "14789",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "16604",
+   "score": 3.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0007",
+   "pid": "12140",
+   "score": 5.7,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "13592",
+   "score": 38.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16582",
+   "score": 29.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16164",
+   "score": -0.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16181",
+   "score": 9.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "15742",
+   "score": 22.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16809",
+   "score": 4.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "15762",
+   "score": 16.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "15798",
+   "score": 4.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "12263",
+   "score": 13.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16414",
+   "score": 10.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "12323",
+   "score": 8.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "14163",
+   "score": 17.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16651",
+   "score": 3.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16650",
+   "score": 5.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "14893",
+   "score": 10.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16296",
+   "score": 7.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "15001",
+   "score": 3.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "15365",
+   "score": 5.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0001",
+   "pid": "13630",
+   "score": 8.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "17144",
+   "score": 2.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "15799",
+   "score": 11.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "14871",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "14860",
+   "score": 1.1,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16189",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "17076",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16596",
+   "score": 5.1,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "11757",
+   "score": 1.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "12221",
+   "score": 11.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "14059",
+   "score": 10.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0001",
+   "pid": "16387",
+   "score": 2.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16580",
+   "score": 5.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16162",
+   "score": 42.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "15261",
+   "score": 15.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16598",
+   "score": 7.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "17042",
+   "score": 12.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "11675",
+   "score": 23.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "14836",
+   "score": 5.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "15754",
+   "score": 23.1,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "13772",
+   "score": 7.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "15368",
+   "score": 11.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "13869",
+   "score": 13.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "13208",
+   "score": 2.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "15861",
+   "score": 7.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "15869",
+   "score": 4.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "15821",
+   "score": 16.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "14218",
+   "score": 2.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "15366",
+   "score": 8.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "13714",
+   "score": 4.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16618",
+   "score": 1.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "13590",
+   "score": 11.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16190",
+   "score": 16.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16708",
+   "score": 5.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "14147",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "7836",
+   "score": 29.6,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "13671",
+   "score": 7.1,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16441",
+   "score": 1.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "12801",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16166",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "13113",
+   "score": 24.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0004",
+   "pid": "16619",
+   "score": 3.3,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "14783",
+   "score": 13.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "15237",
+   "score": 27.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "12626",
+   "score": 22.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "17053",
+   "score": 10.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16187",
+   "score": 13.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16188",
+   "score": 7.4,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16287",
+   "score": 8.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16195",
+   "score": 5.6,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "17102",
+   "score": 19.8,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "12437",
+   "score": 9.7,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "14985",
+   "score": 8.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "14171",
+   "score": 0.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "14225",
+   "score": 10.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "14892",
+   "score": 6.5,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "13697",
+   "score": 10.0,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16241",
+   "score": 7.3,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16245",
+   "score": 10.2,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "15834",
+   "score": 12.9,
+   "status": "starter"
+  },
+  {
+   "fid": "0006",
+   "pid": "15802",
+   "score": 10.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16175",
+   "score": 0.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "17462",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16165",
+   "score": 0.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "14170",
+   "score": 5.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16608",
+   "score": 11.2,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16675",
+   "score": 8.0,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "15254",
+   "score": 5.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "17105",
+   "score": 4.8,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "14057",
+   "score": null,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "16303",
+   "score": 1.5,
+   "status": "nonstarter"
+  },
+  {
+   "fid": "0006",
+   "pid": "15241",
+   "score": null,
+   "status": "nonstarter"
+  }
+ ],
+ "season": 2026,
+ "source": "D1 src_franchise_weekly_score / src_weekly / src_schedule as last synced from MFL (2026-09-29 10:01:00 UTC) -- the numbers the recap was built on",
+ "teams": {
+  "0001": 208.6,
+  "0002": 213.6,
+  "0003": 153.8,
+  "0004": 212.4,
+  "0005": 224.8,
+  "0006": 204.7,
+  "0007": 165.4,
+  "0008": 218.9,
+  "0009": 254.8,
+  "0010": 245.4,
+  "0011": 216.2,
+  "0012": 227.5
+ },
+ "week": 3
+}
