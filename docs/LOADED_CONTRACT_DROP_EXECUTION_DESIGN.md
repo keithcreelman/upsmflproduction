@@ -22,8 +22,9 @@ This revision answers round 4 directly: §2.4.3 is rewritten from a single, pres
 drop-first sequence with a blanket "nothing lost on failure" claim into a general analysis of
 every partial state a multi-write sequence (one or more drops, plus the trade) can stop in —
 state 0 (nothing executed, costless) through state *k* (some but not all writes confirmed, a
-real, non-atomic loss, now with its own `partial_executed` ledger state, explicit per-owner
-notification, and explicit non-automatic recovery) through state *N* (everything confirmed,
+real, non-atomic loss, now with its own PROPOSED `partial_executed` ledger state — design only,
+not implemented — plus explicit per-owner notification and explicit non-automatic recovery)
+through state *N* (everything confirmed,
 success) — symmetric regardless of which write happens first, since a fixed "drops first"
 default was exactly what this correction removed, not replaced with a different default.
 
@@ -331,10 +332,14 @@ sequence:
   of the sequence, §1.1/§3.6); a confirmed trade leg ahead of a still-pending drop means those
   assets have already changed hands. If the NEXT write then fails, refuses, or comes back
   ambiguous, the deal stops in state *k* — permanently, until a human resolves it:
-  - The deal moves to a **new, explicit ledger state — `partial_executed`** (distinct from
-    `executed_needs_review`/`blocked_cap`, §6's existing vocabulary — neither of those names
-    "some but not all of a multi-write sequence completed"), recording exactly which of the *N*
-    writes confirmed and which failed or never ran.
+  - **`partial_executed` is a PROPOSED ledger state — part of this design, not a state that
+    exists in the shipped execution ledger today.** Unlike `executed_needs_review`/
+    `blocked_cap` (§6, both real, already-shipped states the ledger already has), no code
+    anywhere writes or reads `partial_executed` yet; it is named here because the existing
+    vocabulary has no state that means "some but not all of a multi-write sequence
+    completed," and the ledger will need one before any of this section becomes real. If and
+    when this design is implemented, it would record exactly which of the *N* writes
+    confirmed and which failed or never ran.
   - **Every owner whose asset already moved — a confirmed drop, or a confirmed trade leg — must
     be notified immediately and explicitly** that their side executed but the rest of the deal
     did not, and that it is now paused for commissioner resolution. Never left for an owner to
