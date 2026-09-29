@@ -7888,7 +7888,8 @@
   // "acting as" request that the worker honors for the commissioner alone.
   var T3 = window.UPS_TRADE_3WAY || null;
   var twx = { listStatus: "idle", list: [], listProblem: null, seq: 0, openSeq: 0,
-              detail: null, detailStatus: "idle", detailProblem: null, detailId: "", cancel: {}, ack: {} };
+              detail: null, detailStatus: "idle", detailProblem: null, detailId: "", cancel: {}, ack: {},
+              drops: { selections: {} } };   // { franchise_id -> [player_id,...] } -- LOCAL until "Confirm drop selection" submits it
 
   function twxUrl(suffix, params) {
     var u = new URL(resolve3WayApiUrl(), window.location.href);
@@ -7976,7 +7977,8 @@
     var html;
     if (twx.detailStatus === "loading" && !twx.detail) html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
     else if (twx.detailStatus === "error" && twx.detailProblem) html = T3.renderProblem(twx.detailProblem);
-    else if (twx.detail) html = T3.renderDetail(twx.detail, { cancel: twx.cancel, recheck: twx.recheck || {}, ackBusy: twx.ack.busy, ackMessage: twx.ack.message, ackOk: twx.ack.ok });
+    else if (twx.detail) html = T3.renderDetail(twx.detail, { cancel: twx.cancel, recheck: twx.recheck || {}, ackBusy: twx.ack.busy, ackMessage: twx.ack.message, ackOk: twx.ack.ok,
+      selections: twx.drops.selections, dropBusy: twx.drops.busy, dropMessage: twx.drops.message, dropOk: twx.drops.ok });
     else html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
     body.innerHTML = html;
     T3.bind(body, {
@@ -7985,8 +7987,26 @@
       "confirm-cancel": function () { doCancel3Way(twx.detailId); },
       recheck: function () { doRecheck3Way(twx.detailId); },
       "ack-cap": function () { doAckCap3Way(twx.detailId); },
+      "select-drops": function (id, el) { doSelectDrops3Way(twx.detailId, el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : ""); },
       retry: function () { open3WayDetail(twx.detailId); }
     });
+    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T3.bind
+    // only delegates [data-t3w-act] clicks, so this is a separate, once-only delegated listener
+    // on the stable body container (survives every repaint's innerHTML reset).
+    if (!body.__t3wDropsBound) {
+      body.__t3wDropsBound = true;
+      body.addEventListener("change", function (ev) {
+        var box = ev.target;
+        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+        var fid = box.getAttribute("data-t3w-drop-fid");
+        var pid = box.getAttribute("data-t3w-drop-pid");
+        var cur = twx.drops.selections[fid] || [];
+        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
+        else { cur = cur.filter(function (x) { return x !== pid; }); }
+        twx.drops.selections[fid] = cur;
+        render3WayDetail();
+      });
+    }
     if (twx.detail && twx.cancel.confirming && !twx.cancel.busy) T3.revealConfirm(body);
     tw3Reflow();
   }
@@ -8037,6 +8057,26 @@
     twx.ack = { ok: out.ok, message: out.message };
     await open3WayDetail(id);
     twx.ack = { ok: out.ok, message: out.message };          // (open3WayDetail resets per-open state; keep the answer visible)
+    render3WayDetail();
+  }
+
+  // Select (and, by submitting, confirm) THIS caller's own conditional loaded-contract drops on
+  // a 3-way trade (Keith's ruling, 2026-09-29) -- never writes to MFL, drops no player; mirrors
+  // doAckCap3Way's exact shape. `fid` is which franchise's own picker was confirmed (from the
+  // clicked button's own data-t3w-drop-fid, always the caller's own per select3WayLoadedContractDrops's
+  // server-side identity check -- never trusted client-side, just used to read the right local selection).
+  async function doSelectDrops3Way(id, fid) {
+    if (!id || (twx.drops && twx.drops.busy)) return;
+    var picked = (fid && twx.drops.selections[fid]) || [];
+    twx.drops = { busy: true, selections: twx.drops.selections };
+    render3WayDetail();
+    var out = T3.interpretSelectDrops(await twxFetch(twxUrl("/select-drops", {}), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, player_ids: picked })
+    }));
+    if (twx.detailId !== id) return;
+    twx.drops = { ok: out.ok, message: out.message, selections: twx.drops.selections };
+    await open3WayDetail(id);
+    twx.drops = { ok: out.ok, message: out.message, selections: twx.drops.selections };   // (open3WayDetail resets per-open state; keep the answer visible)
     render3WayDetail();
   }
 

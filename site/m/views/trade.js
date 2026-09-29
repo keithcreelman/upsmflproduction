@@ -25,7 +25,8 @@
     listStatus: "idle", list: [], listProblem: null,           // idle | loading | ok | error
     wantConfirm: "", openSeq: 0,
     detailStatus: "idle", detail: null, detailProblem: null, detailId: "",
-    lastRoute: "list", cancel: {}, ack: {}, seq: 0
+    lastRoute: "list", cancel: {}, ack: {}, seq: 0,
+    drops: { selections: {} }   // { franchise_id -> [player_id,...] } -- LOCAL until "Confirm drop selection" submits it
   };
 
   function subTabs(active) {
@@ -1830,6 +1831,25 @@
     }).then(function () { M.route.renderRoute(); });
   }
 
+  // Select (and, by submitting, confirm) THIS caller's own conditional loaded-contract drops on
+  // a 3-way trade (Keith's ruling, 2026-09-29) -- never writes to MFL, drops no player; mirrors
+  // doAckCapThreeWay's exact shape. `fid` is which franchise's own picker was confirmed (from the
+  // clicked button's own data-t3w-drop-fid).
+  function doSelectDropsThreeWay(id, fid) {
+    if (tw.drops && tw.drops.busy) return;
+    var picked = (fid && tw.drops.selections[fid]) || [];
+    tw.drops = { busy: true, selections: tw.drops.selections };
+    M.route.renderRoute();
+    tw3Fetch(tw3Url("/api/trades/3way/select-drops"), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, player_ids: picked })
+    }).then(function (res) {
+      var out = T.interpretSelectDrops(res);
+      tw.drops = { ok: out.ok, message: out.message, selections: tw.drops.selections };
+      M.ui.showToast(out.message, out.ok ? "ok" : "err");
+      return loadThreeWayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
+  }
+
   function doCancelThreeWay(id) {
     if (tw.cancel.busy) return;
     tw.cancel = { busy: true, confirming: true };
@@ -1876,7 +1896,8 @@
     var body;
     if (tw.detailStatus === "loading" && !tw.detail) body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     else if (tw.detailStatus === "error" && tw.detailProblem) body = T.renderProblem(tw.detailProblem);
-    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {}, ackBusy: tw.ack && tw.ack.busy, ackMessage: tw.ack && tw.ack.message, ackOk: tw.ack && tw.ack.ok });
+    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {}, ackBusy: tw.ack && tw.ack.busy, ackMessage: tw.ack && tw.ack.message, ackOk: tw.ack && tw.ack.ok,
+      selections: tw.drops.selections, dropBusy: tw.drops.busy, dropMessage: tw.drops.message, dropOk: tw.drops.ok });
     else body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     mount.innerHTML = head + '<div style="padding:0 12px">' + body + '</div>';
     T.ensureStyles();
@@ -1886,8 +1907,26 @@
       "confirm-cancel": function () { doCancelThreeWay(id); },
       recheck: function () { doRecheckThreeWay(id); },
       "ack-cap": function () { doAckCapThreeWay(id); },
+      "select-drops": function (bid, el) { doSelectDropsThreeWay(id, el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : ""); },
       retry: function () { tw.lastRoute = "list"; M.route.renderRoute(); }
     });
+    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind only
+    // delegates [data-t3w-act] clicks, so this is a separate, once-only delegated listener on
+    // the stable mount container (survives every repaint's innerHTML reset).
+    if (!mount.__t3wDropsBound) {
+      mount.__t3wDropsBound = true;
+      mount.addEventListener("change", function (ev) {
+        var box = ev.target;
+        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+        var pfid = box.getAttribute("data-t3w-drop-fid");
+        var pid = box.getAttribute("data-t3w-drop-pid");
+        var cur = tw.drops.selections[pfid] || [];
+        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
+        else { cur = cur.filter(function (x) { return x !== pid; }); }
+        tw.drops.selections[pfid] = cur;
+        M.route.renderRoute();
+      });
+    }
     if (tw.detail && tw.cancel.confirming && !tw.cancel.busy) T.revealConfirm(mount);
   }
 
