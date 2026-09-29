@@ -507,6 +507,12 @@ table.asw-table{font-size:13px}
 .asw-table tr.asw-col-row th.col-na{opacity:.42}
 /* :not([aria-sort]) so this never fights the sort-arrow ::after on the same th. */
 .asw-table tr.asw-col-row th.col-na:not([aria-sort])::after{content:" ·n/a";font-size:8px;letter-spacing:.04em}
+/* Insufficient sample (2026-09-29): a math floor on games played, not a
+   data-availability claim -- visually closer to col-na's quiet treatment
+   than col-nodata's warning, but with its own suffix so it's never confused
+   with "doesn't apply to this position". */
+.asw-table tr.asw-col-row th.col-insufficient{opacity:.6;color:var(--accent)}
+.asw-table tr.asw-col-row th.col-insufficient:not([aria-sort])::after{content:" ·small n";font-size:8px;letter-spacing:.04em}
 .asw-datanote{
   display:flex;gap:9px;align-items:flex-start;margin:0 0 12px;padding:9px 12px;
   border:1px solid var(--border);border-left:2px solid var(--warn);border-radius:0 7px 7px 0;
@@ -514,6 +520,13 @@ table.asw-table{font-size:13px}
 }
 .asw-datanote b{color:var(--text);font-weight:600}
 .asw-datanote code{font-family:var(--font-mono);font-size:11px;color:var(--warn)}
+/* Source-freshness note (2026-09-29): informational, not a warning -- an
+   accent-colored left border (not --warn) so it reads as "here's the status"
+   rather than "something's wrong", and stays visually distinct from the
+   data-availability banner above it even though they share .asw-datanote's
+   base layout. */
+.asw-datanote.asw-source-freshness{border-left-color:var(--accent)}
+.asw-datanote.asw-source-freshness code{color:var(--accent)}
 
 @media (max-width:820px){
   .asw-shell{padding:0 14px 56px}
@@ -630,6 +643,13 @@ table.asw-table{font-size:13px}
 <!-- Known-empty-source warning for whatever columns are currently visible.
      Filled by renderDataNote(); hidden when every visible column has data. -->
 <div id="asw-datanote-slot"></div>
+
+<!-- Side-loaded ETL source freshness (FTN charting / game-script splits) --
+     separate from the box-score freshness line in #asw-meta below and from
+     the data-availability banner above; never implies one certifies the
+     other. Filled by renderSourceFreshnessNote(); hidden unless a visible
+     column actually depends on one of these sources. -->
+<div id="asw-source-freshness-slot"></div>
 
 <!-- Sticky compare bar — appears above the table when 1+ players selected -->
 <div class="asw-compare-bar" id="asw-compare-bar" hidden>
@@ -814,6 +834,80 @@ table.asw-table{font-size:13px}
   // legitimately all-empty just because the season is young -- the wording
   // below reflects that instead of implying a confirmed pipeline failure.
   var COVERAGE_EARLY_SEASON_WEEKS = 3;
+
+  // ---------- Side-loaded ETL source freshness (2026-09-29) ----------
+  // FTN charting and game-script splits are separate ETL jobs from the core
+  // box-score pipeline (nflverse_weekly) -- each with its own etl_runs row,
+  // its own chance of failing, and NO week-level granularity of its own
+  // (both tables store one SEASON-TO-DATE rollup per player, not a
+  // per-week snapshot -- confirmed against the live schema). Keith 2026-09-29:
+  // the box-score freshness line above the table must never be read as
+  // certifying these two, so their state is computed and shown separately.
+  //
+  // Which columns each source feeds, so a "no data" column can cite the
+  // ACTUAL etl_runs status instead of guessing.
+  var SOURCE_COLS = {
+    nflverse_ftn:    ["ftn_pa","ftn_screen","ftn_blitz","ftn_ct_tgt","ftn_ct_pct","ftn_catchable","ftn_scr_tgt"],
+    nflverse_splits: ["split_script"],
+  };
+  var SOURCE_LABELS = { nflverse_ftn: "FTN Charting", nflverse_splits: "Game-Script Splits" };
+  var COL_SOURCE = {}; // colKey -> source key, inverted from SOURCE_COLS once
+  Object.keys(SOURCE_COLS).forEach(function(src){ SOURCE_COLS[src].forEach(function(k){ COL_SOURCE[k] = src; }); });
+
+  // Columns whose FORMULA has a hard minimum-games floor, independent of
+  // whether the source is perfectly healthy. Script Δ needs >=3 games
+  // trailing by 7+ AND >=3 games leading by 7+ (see its own compute() a few
+  // hundred lines down) -- a player cannot possibly qualify with fewer than
+  // 6 total games played, full stop, no matter how good the splits pipeline
+  // is. That is an INSUFFICIENT-SAMPLE fact, not a data-availability one,
+  // and must never be worded as "check whether the source has published
+  // it" -- the source could be perfect and this would still be empty.
+  var MIN_GAMES_REQUIRED = { split_script: 6 };
+
+  // A local copy, not a reuse of the FPA board's own relTime() -- that one
+  // lives inside a separate nested closure (its own IIFE further down the
+  // file) and is not in scope here. Same trivial formatting either way.
+  function srcRelTime(iso) {
+    if (!iso) return "";
+    var t = Date.parse(iso); if (isNaN(t)) return "";
+    var s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 90) return "just now";
+    if (s < 5400) return Math.round(s / 60) + "m ago";
+    if (s < 172800) return Math.round(s / 3600) + "h ago";
+    return Math.round(s / 86400) + "d ago";
+  }
+
+  // → { state, last_run_utc, through_week, box_score_week } for one etl_runs
+  // source. "current" = ran at least as recently as the box-score pipeline's
+  // own last successful run (safe to assume it reflects the same week).
+  // "stale" = ran successfully, but before the box scores' latest refresh --
+  // may not reflect the current week. "failed"/"unavailable"/"never_run" are
+  // read straight off etl_runs.status. "unknown" = freshness payload not
+  // loaded yet (page still booting) or an unrecognized status.
+  function sourceFreshnessFor(sourceKey) {
+    var sf = state.sourceFreshness;
+    if (!sf || !sf.etl) return { state: "unknown" };
+    var row = null;
+    for (var i = 0; i < sf.etl.length; i++) { if (sf.etl[i].source === sourceKey) { row = sf.etl[i]; break; } }
+    if (!row) return { state: "never_run" };
+    if (row.status === "error") return { state: "failed", last_run_utc: row.last_run_utc, detail: row.detail };
+    if (row.status === "not_published") return { state: "unavailable", last_run_utc: row.last_run_utc, detail: row.detail };
+    if (row.status !== "ok") return { state: "unknown", last_run_utc: row.last_run_utc };
+    var weeklyRow = null;
+    for (var j = 0; j < sf.etl.length; j++) { if (sf.etl[j].source === "nflverse_weekly") { weeklyRow = sf.etl[j]; break; } }
+    var boxT = weeklyRow && weeklyRow.last_run_utc ? Date.parse(weeklyRow.last_run_utc) : NaN;
+    var srcT = row.last_run_utc ? Date.parse(row.last_run_utc) : NaN;
+    // If either timestamp is unreadable, don't claim staleness on a guess --
+    // "current" here means "nothing proves otherwise", consistent with this
+    // whole feature's fail-closed-on-CLAIMS, not fail-closed-on-silence
+    // stance (etl_runs.status === "ok" is itself real evidence the source
+    // is healthy; only the WEEK claim is downgraded, never invented).
+    var isCurrent = isNaN(boxT) || isNaN(srcT) || srcT >= boxT;
+    var wk = (sf.weeklyCoverage && sf.weeklyCoverage.week) || null;
+    return { state: isCurrent ? "current" : "stale", last_run_utc: row.last_run_utc,
+             through_week: isCurrent ? wk : null, box_score_week: wk };
+  }
+
   function computeColumnAvailability(rows, colKeys) {
     var total = (rows || []).length;
     var out = {};
@@ -827,16 +921,53 @@ table.asw-table{font-size:13px}
     });
     return out;
   }
-  // → { kind: "broken"|"na", why } or null. "broken" means every row in the
-  // current view is missing this column despite a large enough sample to say
-  // so -- a DATA-AVAILABILITY signal (the source hasn't reported it), never
-  // proof the statistic itself is obsolete, wrong, or not worth tracking.
-  // "na" means the stat genuinely doesn't apply to this position (quiet).
+  // → { kind: "broken"|"na"|"insufficient_sample", why } or null.
+  // "broken" means every row in the current view is missing this column
+  // despite a large enough sample to say so -- a DATA-AVAILABILITY signal
+  // (the source hasn't reported it), never proof the statistic itself is
+  // obsolete, wrong, or not worth tracking. "na" means the stat genuinely
+  // doesn't apply to this position (quiet). "insufficient_sample" means the
+  // column's OWN formula has a minimum-games floor the season hasn't
+  // reached yet -- a mathematical certainty distinct from either of the
+  // above: it says nothing about whether the source is healthy.
   function deadReason(colKey, tab, coverage) {
     var tabs = DEAD_COLS_BY_TAB[colKey];
     if (tabs && tabs.indexOf(tab) >= 0) return { kind: "na", why: "not tracked for this position" };
+
+    // Insufficient sample -- checked BEFORE the source-freshness question,
+    // because it is true regardless of whether the source is perfectly
+    // healthy (a healthy source has nothing TO report yet either).
+    var minGames = MIN_GAMES_REQUIRED[colKey];
+    if (minGames != null) {
+      var weeksPlayed = state.lastBuiltForWeek || 0;
+      if (weeksPlayed < minGames) {
+        return { kind: "insufficient_sample",
+          why: "needs ≥3 games trailing by 7+ AND ≥3 leading by 7+ (" + minGames + " total) — only " +
+               weeksPlayed + " week" + (weeksPlayed === 1 ? "" : "s") + " played this season; " +
+               "populates automatically once enough games exist, independent of source health" };
+      }
+    }
+
     var cov = coverage && coverage[colKey];
     if (cov && cov.total >= COVERAGE_MIN_SAMPLE && cov.nonNull === 0) {
+      // For columns fed by a tracked side-loaded source (FTN/splits), cite
+      // the ACTUAL etl_runs status instead of a generic guess -- but only
+      // when the source itself is the problem. If the source is current or
+      // merely stale (i.e. genuinely healthy), fall through to the generic
+      // wording below rather than falsely blaming a fine source.
+      var srcKey = COL_SOURCE[colKey];
+      if (srcKey) {
+        var sf = sourceFreshnessFor(srcKey);
+        var label = SOURCE_LABELS[srcKey] || srcKey;
+        if (sf.state === "failed") return { kind: "broken",
+          why: label + "’s last refresh failed" + (sf.last_run_utc ? " (" + srcRelTime(sf.last_run_utc) + ")" : "") +
+               " — a genuine source problem, see the freshness note above the table" };
+        if (sf.state === "never_run") return { kind: "broken",
+          why: label + " has never successfully refreshed this season — a genuine source problem" };
+        if (sf.state === "unavailable") return { kind: "broken",
+          why: label + "’s last refresh found nothing published yet" +
+               (sf.last_run_utc ? " (" + srcRelTime(sf.last_run_utc) + ")" : "") };
+      }
       var earlySeason = state.lastBuiltForWeek != null && state.lastBuiltForWeek > 0 &&
         state.lastBuiltForWeek < COVERAGE_EARLY_SEASON_WEEKS;
       return earlySeason
@@ -1789,6 +1920,32 @@ table.asw-table{font-size:13px}
     .then(function(j){ currentTeamByPid = (j && j.byId) || {}; })
     .catch(function(){});
 
+  // Side-loaded ETL source freshness (2026-09-29) -- FTN charting and
+  // game-script splits are separate ETL jobs from the box-score pipeline
+  // (nflverse_weekly), with their own etl_runs row and their own risk of
+  // failing or falling behind. /api/data-freshness already returns EVERY
+  // etl_runs row plus weeklyCoverage (the box-score pipeline's own MAX
+  // season/week) -- no new endpoint needed. Read by sourceFreshnessFor()
+  // below, which deadReason() and renderSourceFreshnessNote() both consult.
+  // Fetched once, eagerly, same pattern as leagueStatePromise/marketReady;
+  // `state` (defined further below) already exists by the time this
+  // resolves, since promise callbacks never run before the synchronous
+  // script finishes.
+  var sourceFreshnessPromise = fetch(API_BASE + "/api/data-freshness")
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ state.sourceFreshness = j || {}; })
+    .catch(function(){ state.sourceFreshness = {}; })
+    .then(function(){
+      // Re-render so the freshness note doesn't get stuck on "still loading"
+      // when this resolves after the page's first paint (the normal case --
+      // the initial render() call and this fetch both start at page load,
+      // and the network round-trip almost always finishes second). render()
+      // is a plain function declaration in this same scope, hoisted, so it
+      // exists regardless of definition order; guarded in case the page
+      // hasn't rendered anything yet at all.
+      try { if (typeof render === "function") render(); } catch (e) {}
+    });
+
   var leagueStatePromise = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(j){
@@ -2180,6 +2337,7 @@ table.asw-table{font-size:13px}
     compareRows: {},       // cached leaderboard rows keyed by gsis_id for the compare drawer
     rankByGsis: {},        // gsis_id → pos rank by MFL PPG (B2, mirrors mobile buildLeaderboardMap)
     lastApiCount: 0,       // worker row count for the last query (A1 coverage / 500-cap signal)
+    sourceFreshness: null, // /api/data-freshness payload (etl + weeklyCoverage), set once sourceFreshnessPromise resolves
   };
 
   // ---------- Per-column filter expressions ----------
@@ -2598,6 +2756,24 @@ table.asw-table{font-size:13px}
                  (broken.length === 1 ? "it" : "each") + " repopulates automatically once the source reports real values.");
     }
 
+    // INSUFFICIENT SAMPLE gets its own note, deliberately separate from the
+    // data-availability one above -- it is a math fact about games played
+    // (Script Δ needs >=3 trailing + >=3 leading games), not a claim about
+    // whether any source is healthy. Conflating the two would make a
+    // perfectly healthy splits pipeline look like a broken one.
+    var thin = (cols || []).filter(function (k) {
+      var d = deadReason(k, state.activeTab, availability);
+      return d && d.kind === "insufficient_sample";
+    });
+    if (thin.length) {
+      var thinParts = thin.map(function (k) {
+        return "<code>" + escapeHtml((COLS[k] && COLS[k].label) || k) + "</code>";
+      }).join(" ");
+      var thinWhy = deadReason(thin[0], state.activeTab, availability).why;
+      notes.push("<b>Sample too small for " + (thin.length === 1 ? "this column" : "these columns") + ":</b> " +
+                 thinParts + " — " + escapeHtml(thinWhy) + ".");
+    }
+
     // Season with nothing behind it — the worker answers 200 with zero rows for
     // a season whose weekly stats haven't been ingested (e.g. one that hasn't
     // been played yet), which otherwise just looks like a broken page.
@@ -2617,6 +2793,45 @@ table.asw-table{font-size:13px}
     slot.innerHTML = notes.length
       ? '<div class="asw-datanote"><span>⚠</span><span>' + notes.join("<br>") + "</span></div>"
       : "";
+  }
+
+  // Side-loaded ETL source freshness (2026-09-29). Shown ONLY when a
+  // currently-visible column actually depends on one of the tracked sources
+  // (FTN charting / game-script splits) -- silent otherwise, same discipline
+  // as renderDataNote. Deliberately its own function/slot/note, never merged
+  // into renderDataNote's banner: the box-score freshness line above the
+  // table (state.lastBuiltForWeek et al, rendered elsewhere into #asw-meta)
+  // must never be read as certifying these two ETL jobs, and vice versa --
+  // each is its own pipeline with its own etl_runs row.
+  function renderSourceFreshnessNote(cols) {
+    var slot = document.getElementById("asw-source-freshness-slot");
+    if (!slot) return;
+    var neededSources = {};
+    (cols || []).forEach(function (k) { var s = COL_SOURCE[k]; if (s) neededSources[s] = 1; });
+    var keys = Object.keys(neededSources);
+    if (!keys.length) { slot.innerHTML = ""; return; }
+    var lines = keys.map(function (srcKey) {
+      var label = SOURCE_LABELS[srcKey] || srcKey;
+      var sf = sourceFreshnessFor(srcKey);
+      if (sf.state === "current") {
+        return label + ": current — last refreshed " + srcRelTime(sf.last_run_utc) +
+          (sf.through_week != null ? " (Week " + sf.through_week + ", same run as the box scores)" : "");
+      }
+      if (sf.state === "stale") {
+        return label + ": may be behind — last refreshed " + srcRelTime(sf.last_run_utc) +
+          ", before the box scores' most recent refresh" +
+          (sf.box_score_week != null ? " (currently Week " + sf.box_score_week + ")" : "") +
+          " — treat its values as possibly one refresh cycle old";
+      }
+      if (sf.state === "failed") return label + ": last refresh FAILED" + (sf.last_run_utc ? " (" + srcRelTime(sf.last_run_utc) + ")" : "") + " — values below may be stale or missing";
+      if (sf.state === "unavailable") return label + ": nothing published yet as of the last check" + (sf.last_run_utc ? " (" + srcRelTime(sf.last_run_utc) + ")" : "");
+      if (sf.state === "never_run") return label + ": has never successfully refreshed for this season";
+      return label + ": freshness unknown (still loading)";
+    });
+    slot.innerHTML = '<div class="asw-datanote asw-source-freshness"><span>ℹ</span><span>' +
+      "<b>Side-loaded source freshness</b> (separate from the box-score freshness line above): " +
+      escapeHtml(lines.join(" · ")) + ". This does not certify the box-score data, and the box-score line does not certify this." +
+      "</span></div>";
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2816,11 +3031,16 @@ table.asw-table{font-size:13px}
         if (bi > 0 && ci === 0) cls.push("group-sep");
         if ((state.filters[k] || "").trim()) cls.push("has-filter");
         // Flag a column whose SOURCE is empty rather than letting it render as
-        // a wall of blank cells with no explanation.
+        // a wall of blank cells with no explanation. Three distinct kinds,
+        // three distinct prefixes -- never collapse "insufficient sample"
+        // (a math fact about games played) into "broken" (a data-
+        // availability signal) or vice versa; see deadReason()'s own doc.
         var dead = deadReason(k, state.activeTab, availability);
-        if (dead) cls.push(dead.kind === "broken" ? "col-nodata" : "col-na");
+        var DEAD_CLASS  = { broken: "col-nodata", insufficient_sample: "col-insufficient", na: "col-na" };
+        var DEAD_PREFIX = { broken: "DATA UNAVAILABLE — ", insufficient_sample: "INSUFFICIENT SAMPLE — ", na: "N/A — " };
+        if (dead) cls.push(DEAD_CLASS[dead.kind] || "col-na");
         var titleText = dead
-          ? ((dead.kind === "broken" ? "DATA UNAVAILABLE — " : "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
+          ? ((DEAD_PREFIX[dead.kind] || "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
           : (def.title || "");
         var titleAttr = titleText ? ' title="' + titleText.replace(/"/g, "&quot;") + '"' : "";
         colRow += '<th class="'+cls.join(" ")+'"'+sortAttr+titleAttr+' data-col-key="'+k+'">'+def.label+'</th>';
@@ -2953,6 +3173,7 @@ table.asw-table{font-size:13px}
     }
 
     renderDataNote(cols, state.lastApiCount, availability);
+    renderSourceFreshnessNote(cols);
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.

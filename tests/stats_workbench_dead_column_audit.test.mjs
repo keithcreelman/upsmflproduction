@@ -55,6 +55,12 @@ check("getVal extracts (deadReason's data source)", () => {
 // Minimal harness: COLS with a couple of plain fields + one `compute` column
 // (mirrors the real manifest's shape), DEAD_COLS_BY_TAB with one structural
 // entry, and a `state` object deadReason reads for the early-season wording.
+// SOURCE_COLS/COL_SOURCE/SOURCE_LABELS/MIN_GAMES_REQUIRED/sourceFreshnessFor
+// (added 2026-09-29, see tests/stats_workbench_source_freshness.test.mjs for
+// their own dedicated coverage) are real deadReason dependencies now, so
+// they're included here too -- empty, since none of THIS file's fixture
+// columns are source-tracked or sample-gated; that combination is exercised
+// in the dedicated test instead of duplicated here.
 const harness = `
   var COLS = {
     always_present: {},
@@ -65,7 +71,13 @@ const harness = `
   var DEAD_COLS_BY_TAB = { structural_na: ["kicker"] };
   var COVERAGE_MIN_SAMPLE = 10;
   var COVERAGE_EARLY_SEASON_WEEKS = 3;
-  var state = { lastBuiltForWeek: null };
+  var SOURCE_COLS = {};
+  var COL_SOURCE = {};
+  var SOURCE_LABELS = {};
+  var MIN_GAMES_REQUIRED = {};
+  var state = { lastBuiltForWeek: null, sourceFreshness: null };
+  function srcRelTime(){ return ""; }
+  function sourceFreshnessFor(){ return { state: "unknown" }; }
   ${getValSrc}
   ${availabilityFn}
   ${deadReasonFn}
