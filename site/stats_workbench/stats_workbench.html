@@ -776,6 +776,15 @@ table.asw-table{font-size:13px}
   };
   // ---------- Payload-derived column availability (replaces a hand-maintained
   // "broken columns" list, 2026-09-29) ----------
+  // WORDING, precisely (Keith 2026-09-29): a column that reads all-zero or
+  // all-null in the current view is a DATA-AVAILABILITY signal -- the source
+  // hasn't reported real values for it in this sample -- and nothing more.
+  // It is never proof that the statistic itself is obsolete, invalid, or not
+  // worth tracking; the column definition, its position eligibility, and its
+  // formula are untouched. It repopulates on its own the moment the source
+  // reports real values -- no code change needed on this side when that
+  // happens.
+  //
   // The old DEAD_COLS was a hardcoded {} last audited 2026-08-05 -- and stayed
   // empty from that day forward no matter what actually happened to the
   // pipelines behind it. That's exactly how three real gaps (PFR season
@@ -820,7 +829,9 @@ table.asw-table{font-size:13px}
   }
   // → { kind: "broken"|"na", why } or null. "broken" means every row in the
   // current view is missing this column despite a large enough sample to say
-  // so. "na" means the stat genuinely doesn't apply to this position (quiet).
+  // so -- a DATA-AVAILABILITY signal (the source hasn't reported it), never
+  // proof the statistic itself is obsolete, wrong, or not worth tracking.
+  // "na" means the stat genuinely doesn't apply to this position (quiet).
   function deadReason(colKey, tab, coverage) {
     var tabs = DEAD_COLS_BY_TAB[colKey];
     if (tabs && tabs.indexOf(tab) >= 0) return { kind: "na", why: "not tracked for this position" };
@@ -829,9 +840,9 @@ table.asw-table{font-size:13px}
       var earlySeason = state.lastBuiltForWeek != null && state.lastBuiltForWeek > 0 &&
         state.lastBuiltForWeek < COVERAGE_EARLY_SEASON_WEEKS;
       return earlySeason
-        ? { kind: "broken", why: "no player has recorded this yet this season (through Week " +
-            state.lastBuiltForWeek + ", " + cov.total + " players) — may still be early" }
-        : { kind: "broken", why: "no player in " + cov.total + " rows has recorded this — verify the source has published it" };
+        ? { kind: "broken", why: "no player has reported this yet this season (through Week " +
+            state.lastBuiltForWeek + ", " + cov.total + " players) — may simply be early, not unavailable for good" }
+        : { kind: "broken", why: "no player in " + cov.total + " rows has reported this yet — check whether the source has published it" };
     }
     return null;
   }
@@ -2577,8 +2588,14 @@ table.asw-table{font-size:13px}
       broken.forEach(function (k) { reasons[deadReason(k, state.activeTab, availability).why] = 1; });
       var keys = Object.keys(reasons);
       var why = keys.length === 1 ? keys[0] : "see each column's tooltip";
-      notes.push("<b>No data behind " + (broken.length === 1 ? "this column" : "these columns") + ":</b> " +
-                 parts + " — " + escapeHtml(why) + ". They render empty for every player.");
+      // Precise on purpose (Keith 2026-09-29): an all-empty column is a
+      // DATA-AVAILABILITY signal -- the source hasn't reported values for it
+      // yet -- never a claim that the statistic itself is invalid, retired,
+      // or not worth tracking. It repopulates on its own the moment the
+      // source reports real values; nothing needs to be removed or renamed.
+      notes.push("<b>No data reported for " + (broken.length === 1 ? "this column" : "these columns") + ":</b> " +
+                 parts + " — " + escapeHtml(why) + ". This is a data-availability signal, not proof the statistic is obsolete — " +
+                 (broken.length === 1 ? "it" : "each") + " repopulates automatically once the source reports real values.");
     }
 
     // Season with nothing behind it — the worker answers 200 with zero rows for
@@ -2803,7 +2820,7 @@ table.asw-table{font-size:13px}
         var dead = deadReason(k, state.activeTab, availability);
         if (dead) cls.push(dead.kind === "broken" ? "col-nodata" : "col-na");
         var titleText = dead
-          ? ((dead.kind === "broken" ? "NO DATA — " : "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
+          ? ((dead.kind === "broken" ? "DATA UNAVAILABLE — " : "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
           : (def.title || "");
         var titleAttr = titleText ? ' title="' + titleText.replace(/"/g, "&quot;") + '"' : "";
         colRow += '<th class="'+cls.join(" ")+'"'+sortAttr+titleAttr+' data-col-key="'+k+'">'+def.label+'</th>';

@@ -125,21 +125,41 @@ check("a thin sample proves nothing either way -- stays silent below COVERAGE_MI
 });
 
 console.log("\n4. provisional/early-season weeks get honest wording, not silence and not false confidence");
-check("early season (built week 1, below the threshold) -> softer 'may still be early' wording", () => {
+check("early season (built week 1, below the threshold) -> softer 'may simply be early' wording", () => {
   ctx.setBuiltWeek(1);
   const rows = rowsOf(20, "never_present", () => null);
   const avail = ctx.computeColumnAvailability(rows, ["never_present"]);
   const r = ctx.deadReason("never_present", "qb", avail);
   assert.strictEqual(r.kind, "broken", "still surfaced -- a real bug in week 1 deserves to be caught too, not hidden");
-  assert.match(r.why, /may still be early/i);
+  assert.match(r.why, /may simply be early/i);
 });
-check("later in the season (built week 5) -> the stronger 'verify the source' wording", () => {
+check("later in the season (built week 5) -> the stronger 'check whether the source has published it' wording", () => {
   ctx.setBuiltWeek(5);
   const rows = rowsOf(20, "never_present", () => null);
   const avail = ctx.computeColumnAvailability(rows, ["never_present"]);
   const r = ctx.deadReason("never_present", "qb", avail);
-  assert.match(r.why, /verify the source/i);
-  assert.ok(!/may still be early/i.test(r.why));
+  assert.match(r.why, /source has published it/i);
+  assert.ok(!/may simply be early/i.test(r.why));
+});
+
+console.log("\n5. wording precision (Keith 2026-09-29): a data-availability signal, never a claim the stat is obsolete");
+check("neither the early-season nor the later-season message claims the statistic itself is invalid/obsolete/dead", () => {
+  ctx.setBuiltWeek(1);
+  const early = ctx.deadReason("never_present", "qb", ctx.computeColumnAvailability(rowsOf(20, "never_present", () => null), ["never_present"]));
+  ctx.setBuiltWeek(5);
+  const later = ctx.deadReason("never_present", "qb", ctx.computeColumnAvailability(rowsOf(20, "never_present", () => null), ["never_present"]));
+  for (const r of [early, later]) {
+    assert.ok(!/obsolete|invalid|discontinued|retired|removed/i.test(r.why),
+      `wording must describe data availability, not the statistic's validity -- got: "${r.why}"`);
+  }
+});
+check("the SOURCE FILE'S own header comment states the data-availability framing explicitly", () => {
+  assert.match(SRC, /a column that reads all-zero or\s*\n?\s*\/\/\s*all-null in the current view is a DATA-AVAILABILITY signal/,
+    "the design comment above computeColumnAvailability should say this in so many words, not leave it implicit");
+  assert.match(SRC, /never proof that the statistic itself is obsolete/i);
+});
+check("the top-of-page banner states the same framing to the USER, not just in a code comment", () => {
+  assert.match(SRC, /This is a data-availability signal, not proof the statistic is obsolete/);
 });
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
