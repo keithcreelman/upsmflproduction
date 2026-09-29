@@ -2157,7 +2157,7 @@
     }
     var body;
     if (tw2s.detailStatus === "loading" && !tw2s.detail) body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
-    else if (tw2s.detailStatus === "error" && tw2s.detailProblem) body = T.renderProblem(tw2s.detailProblem);
+    else if (tw2s.detailStatus === "error" && tw2s.detailProblem) body = T.renderProblem(tw2s.detailProblem, { title: "Couldn't load this staged trade" });
     else if (tw2s.detail) body = renderStaged2WayDetailHtml(tw2s.detail);
     else body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     mount.innerHTML = head + '<div style="padding:0 12px">' + body + '</div>';

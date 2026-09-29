@@ -8410,7 +8410,7 @@
     T3.ensureStyles();
     var html;
     if (tw2s.detailStatus === "loading" && !tw2s.detail) html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
-    else if (tw2s.detailStatus === "error" && tw2s.detailProblem) html = T3.renderProblem(tw2s.detailProblem);
+    else if (tw2s.detailStatus === "error" && tw2s.detailProblem) html = T3.renderProblem(tw2s.detailProblem, { title: "Couldn't load this staged trade" });
     else if (tw2s.detail) html = render2WayStagedDetailHtml(tw2s.detail, { cancel: tw2s.cancel, accept: tw2s.accept, recheckBusy: tw2s.recheck.busy, dropBusy: tw2s.ack.dropBusy, dropMessage: tw2s.ack.dropMessage, dropOk: tw2s.ack.dropOk, ackBusy: tw2s.ack.ackBusy, ackMessage: tw2s.ack.ackMessage, ackOk: tw2s.ack.ackOk, selections: tw2s.drops.selections, playerNames: tw2s.playerNames });
     else html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
     body.innerHTML = html;
