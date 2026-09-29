@@ -90,7 +90,12 @@ function toMflAsset(a) {
 // can do both sides). Standalone parallel of /api/trade/process (index.js:11878)
 // so it's callable from the ctx.waitUntil execution context (no request-scoped
 // closures). Returns { ok, tradeId, step, error }.
-async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments }) {
+// Exported (2026-09-29) so worker/src/trade_2way.js can reuse this exact primitive for staged
+// 2-way trade execution -- it is already a pure 2-party helper with zero 3-way-specific
+// knowledge; the caller owns all state-machine/ledger bookkeeping around it. See that
+// module's own execute2Way for the (much simpler, single-leg, no ring/pairwise decomposition)
+// caller.
+export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments }) {
   const apiKey = safeStr(env.MFL_APIKEY);
   if (!apiKey) return { ok: false, step: "config", error: "MFL_APIKEY missing" };
   const giveMfl = (give || []).map(toMflAsset).filter(Boolean).join(",");
@@ -207,7 +212,7 @@ async function rosterOwnsPlayers(env, leagueId, year, fid, tokens) {
 // Append each movement's cap money as a BlindBid$ token on its giving side, so
 // the from→to leg gives `to` that cap. Players already ride asset_tokens, so a
 // cap-bearing movement is never dropped by the decomposition.
-function injectCapTokens(movements) {
+export function injectCapTokens(movements) {
   return (movements || []).map((m) => {
     const capK = Math.max(0, safeInt(m?.cap_k, 0));
     const toks = Array.isArray(m?.asset_tokens) ? m.asset_tokens.slice() : [];
@@ -229,7 +234,7 @@ export function movementsForCompliance(movements) {
 }
 
 // Live non-taxi salary + taxi flag per `franchise|player`, for the §A6 cap check.
-async function fetchRosterSalaryMap(env, leagueId, year) {
+export async function fetchRosterSalaryMap(env, leagueId, year) {
   try {
     const apiKey = safeStr(env.MFL_APIKEY);
     const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
@@ -257,7 +262,7 @@ async function fetchRosterSalaryMap(env, leagueId, year) {
 // §A6: cap money a side may attach ≤ 50% of the summed salary of the NON-TAXI
 // players it trades away → floor(sumNonTaxiSalary / 2000) in $K. Picks + taxi
 // players don't unlock cap. `from` is the giving franchise of the movement.
-function movementCapMaxK(movement, salaryByFp, taxiByFp) {
+export function movementCapMaxK(movement, salaryByFp, taxiByFp) {
   const from = padFid(movement?.from);
   let sum = 0;
   for (const tok of (movement?.asset_tokens || [])) {
@@ -278,7 +283,7 @@ function movementCapMaxK(movement, salaryByFp, taxiByFp) {
 // (worker/src/trade_cap_authority.js), reached through the worker's own /admin/3way/compliance route so this engine
 // (which runs from Discord buttons and waitUntil, with no request closures) shares it instead of copying it.
 const UNAVAILABLE_MSG = "We couldn't verify the salary cap for this trade right now.";
-function unavailableCompliance(reason) {
+export function unavailableCompliance(reason) {
   return {
     participants: [],
     cap: { status: "unavailable", reason, cap_dollars: null, rows: [], violations: [], message: UNAVAILABLE_MSG },
@@ -314,7 +319,7 @@ async function complianceViaSelf(env, row) {
   }
 }
 // The execution ledger (worker/src/trade_execution.js) — one row per 3-way, keyed by the trade id.
-function ledgerFor(env) {
+export function ledgerFor(env) {
   const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
   if (!db) throw new Error("no D1 binding for the execution ledger");
   return makeLedger(db);
@@ -323,7 +328,7 @@ function ledgerFor(env) {
 // salary-cap overage acknowledgment store. Keyed by the 3-way trade's own `id` (a stable
 // uuid from creation through execution, unlike a 2-way trade which has no id until MFL
 // assigns one -- see trade_cap_ack.js's module doc for why 2-way instead keys by payload_hash).
-function capAckStoreFor(env) {
+export function capAckStoreFor(env) {
   const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
   if (!db) throw new Error("no D1 binding for the cap-acknowledgment store");
   return makeCapAckStore(db);

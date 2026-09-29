@@ -14,6 +14,7 @@ import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./tr
 const TWR_RELEASE = "trade-war-room-2026-09-25.3";
 const TWR_FEATURES = Object.freeze({ admin_front_door: true, execution_ledger: true, recoverable_cap_block: true, shared_cap_authority: true, extension_revalidation: true, canonical_extension_pricing: true });
 import { handle3WayHttp } from "./trade_3way_http.js";
+import { handle2WayStagedHttp } from "./trade_2way_http.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
@@ -8184,6 +8185,13 @@ export default {
         path !== "/api/trades/3way/recheck" &&
         path !== "/api/trades/3way/ack-cap" &&
         path !== "/api/trades/3way/select-drops" &&
+        // Staged 2-way routes (2026-09-29) derive the league from the request/row exactly
+        // like the 3-way owner routes above -- same exemption, same reason.
+        path !== "/api/trades/2way" &&
+        path !== "/api/trades/2way/accept" &&
+        path !== "/api/trades/2way/cancel" &&
+        path !== "/api/trades/2way/recheck" &&
+        path !== "/api/trades/2way/select-drops" &&
         !path.startsWith("/api/trades/outbox") &&
         !path.startsWith("/api/trades/reconcile") &&
         !path.startsWith("/api/trades/refresh-after-trade")
@@ -37961,6 +37969,22 @@ const mflToSleeper = {};
           deps: threeWayDeps,
         });
         if (resp3w) return resp3w;
+      }
+
+      // STAGED 2-way trades (universal server-side staging, Keith's ruling 2026-09-29,
+      // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §8) -- entirely additive, changes
+      // nothing about the existing direct-to-MFL /trade-offers route above. `threeWayDeps`
+      // is already fully generic (compliance/validateExtensions/franchiseNames/playersByIds
+      // carry no 3-way-specific assumption), so it's reused here rather than duplicated.
+      if (path === "/api/trades/2way" || path.startsWith("/api/trades/2way/")) {
+        const cookieMatch2ws = (request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i);
+        const resp2ws = await handle2WayStagedHttp({
+          request, url, path, env, ctx, corsHeaders,
+          defaultLeagueId: _rdhLeagueId(), defaultSeason: YEAR,
+          browserMflUserId, cookieMflUserId: (cookieMatch2ws && cookieMatch2ws[1]) || "",
+          deps: threeWayDeps,
+        });
+        if (resp2ws) return resp2ws;
       }
 
       // Commissioner ADMINISTRATIVE cancel of a 3-way (RULING, Keith 2026-09-25). A distinct action: it
