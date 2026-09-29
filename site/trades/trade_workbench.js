@@ -4220,11 +4220,25 @@
       document.body.appendChild(dlg);
     }
     var body = document.getElementById("twbDropsDialogBody");
+    // Keith's ruling, 2026-09-29: a SATISFIED selection (the owner already picked enough valid
+    // players) is not the same thing as an EXECUTED drop -- no code anywhere drops a real player
+    // yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). If the server is refusing DESPITE a
+    // satisfied selection, that is a TERMINAL state for this dialog: showing the interactive
+    // picker again and inviting another "Confirm and send" would misrepresent this warning as
+    // something the owner can act their way past, when they already have. Show a plain, honest
+    // notice instead, with only a Close button -- never loop back into the picker.
+    var alreadySatisfied = !!(myReq[0] && myReq[0].satisfied);
     return new Promise(function (resolve) {
       var settled = false;
       var selected = [];
       function done(v) { if (settled) return; settled = true; try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); } resolve(v); }
       function draw(message, ok) {
+        if (alreadySatisfied) {
+          body.innerHTML = '<p>' + T.esc(errData && errData.error) + '</p>' +
+            '<p style="color:#9fb4d6;font-size:13px">Your selection is valid and covers the requirement -- this is held for a different reason: conditional-drop execution isn\'t built yet, so no offer that needs one can be sent right now.</p>' +
+            '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px"><button type="button" data-drops-act="cancel" class="twb-btn twb-btn-primary">Close</button></div>';
+          return;
+        }
         var sel = {}; sel[fromFranchiseId] = selected;
         var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
           playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
@@ -4236,6 +4250,11 @@
       }
       draw();
       body.onclick = function (ev) {
+        if (alreadySatisfied) {
+          var closeEl = ev.target && ev.target.closest ? ev.target.closest("[data-drops-act]") : null;
+          if (closeEl) done(null);
+          return;
+        }
         var box = ev.target && ev.target.closest ? ev.target.closest("input[data-t3w-drop-pid]") : null;
         if (box) {
           var pid = box.getAttribute("data-t3w-drop-pid");

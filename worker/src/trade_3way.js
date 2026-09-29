@@ -33,6 +33,7 @@ import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS
 import { makeLedger, EXEC, findExecutedTrade, isMflExecuted } from "./trade_execution.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
+import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -391,15 +392,21 @@ async function capGate(env, row) {
     return { ok: false, kind: "extension", message: "A pre-trade extension in this trade is no longer allowed, so it can't go through. Ask the initiator to build it again.", compliance };
   }
   // The loaded-contract limit (PR #1135) is checked FIRST, independent of the cap acknowledgment
-  // below -- a cap acknowledgment never satisfies it and vice versa. Keith's ruling (2026-09-29):
-  // it is no longer an unconditional block -- a franchise projected over 5 may still trade once
-  // its OWN owner has validly selected enough of its OWN loaded-contract players to drop
-  // (worker/src/trade_conditional_drops.js). complianceViaSelf() already forwarded whatever
-  // drops are currently stored for this trade, so `status` here already reflects them: "blocked"
-  // means at least one participant's requirement is still unsatisfied.
-  if (compliance.loaded_contracts && compliance.loaded_contracts.status === "blocked") {
+  // below -- a cap acknowledgment never satisfies it and vice versa. Keith's ruling (2026-09-25):
+  // a franchise projected over 5 may still trade once its OWN owner has validly selected enough
+  // of its OWN loaded-contract players to drop (worker/src/trade_conditional_drops.js) -- BUT
+  // (Keith's ruling, 2026-09-29, reviewing the first PR): a valid, SATISFIED selection
+  // ("needs_drops") is NOT the same thing as an EXECUTED drop, and must not itself unblock a
+  // real 3-way EXECUTION -- no code anywhere calls MFL to actually drop a player yet (see
+  // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). loadedContractsPermitsWrite() is the ONE
+  // gate for this, covering "blocked" (unsatisfied) AND "needs_drops" (satisfied but
+  // unexecuted) identically until a real executor is built and separately reviewed/approved.
+  if (compliance.loaded_contracts && !loadedContractsPermitsWrite(compliance.loaded_contracts.status)) {
     const waiting = (compliance.loaded_contracts.drop_requirements || []).filter((d) => !d.satisfied).map((d) => d.franchise_name || d.franchise_id).join(", ");
-    return { ok: false, kind: "loaded_contract_drops_required", message: `${safeStr(compliance.loaded_contracts.message)}${waiting ? ` Waiting on ${waiting} to select conditional drops.` : ""}`, compliance, drop_requirements: compliance.loaded_contracts.drop_requirements || [] };
+    const heldMsg = compliance.loaded_contracts.status === "needs_drops"
+      ? `${safeStr(compliance.loaded_contracts.message)} Conditional-drop execution isn't built yet, so this trade stays held until it is.`
+      : `${safeStr(compliance.loaded_contracts.message)}${waiting ? ` Waiting on ${waiting} to select conditional drops.` : ""}`;
+    return { ok: false, kind: "loaded_contract_drops_required", message: heldMsg, compliance, drop_requirements: compliance.loaded_contracts.drop_requirements || [] };
   }
   // ACKNOWLEDGE, DON'T BLOCK (Keith's ruling, 2026-09-28, separate PR): a proven cap overage
   // never itself refuses the trade -- it requires each AFFECTED franchise's own owner to have
@@ -710,7 +717,10 @@ export async function get3WayTrade(env, id, viewer, deps) {
         trade.execution.block.cap_ack = ackEval.perFranchise;
       } catch (e) { console.warn(`[3way] cap-ack lookup failed (block shown without it): ${e?.message || e}`); }
     }
-    if (trade.execution && trade.execution.blocked && trade.execution.block && trade.compliance && trade.compliance.loaded_contracts && trade.compliance.loaded_contracts.status === "blocked") {
+    // Also refreshes for "needs_drops" (satisfied but not yet -- and not yet ABLE to be --
+    // executed), not just "blocked", so the detail view keeps reflecting a completed selection
+    // instead of going stale the moment everyone finishes picking (Keith's ruling, 2026-09-29).
+    if (trade.execution && trade.execution.blocked && trade.execution.block && trade.compliance && trade.compliance.loaded_contracts && !loadedContractsPermitsWrite(trade.compliance.loaded_contracts.status)) {
       trade.execution.block.drop_requirements = trade.compliance.loaded_contracts.drop_requirements || [];
     }
   }
@@ -1101,10 +1111,14 @@ export async function select3WayLoadedContractDrops(env, id, viewer, playerIds) 
     return { ok: true, http: 200, code: "nothing_required", message: "Your team isn't projected to need a conditional drop on this trade right now.", compliance };
   }
   await conditionalDropStoreFor(env).setForFranchise(conditionalDropKey(row), { franchiseId: myFid, playerIds: selectedIds, selectedByFid: myFid });
+  // Satisfied is a real, useful state (it's what lets the OTHER participants stop waiting on
+  // THIS franchise) -- but never worded as if execution is now unblocked: capGate() above still
+  // refuses EXECUTE regardless, until a real executor exists (Keith's ruling, 2026-09-29).
+  const selectDropsExecutable = loadedContractsPermitsWrite(compliance.loaded_contracts.status);
   return {
     ok: true, http: 200, code: myReq.satisfied ? "selected" : "selected_insufficient",
     message: myReq.satisfied
-      ? `Selected: ${myReq.valid_count} of ${myReq.required_drops} required conditional drop${myReq.required_drops === 1 ? "" : "s"}.`
+      ? `Selected: ${myReq.valid_count} of ${myReq.required_drops} required conditional drop${myReq.required_drops === 1 ? "" : "s"}.` + (selectDropsExecutable ? "" : " Conditional-drop execution isn't built yet, so this trade stays held until it is.")
       : `${myReq.valid_count} of ${myReq.required_drops} required conditional drops are valid so far -- ${myReq.required_drops - myReq.valid_count} more needed.`,
     compliance, drop_requirement: myReq,
   };

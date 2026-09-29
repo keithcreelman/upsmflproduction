@@ -97,7 +97,7 @@ function loadDesktop(env) {
   return { api, dlg, log };
 }
 
-test("DESKTOP: a 5->6 create is refused BEFORE anything is sent, the picker shows the right franchise/count/candidates from the REAL 409, and a valid pick lets the SAME request go through", async () => {
+test("DESKTOP: a 5->6 create is refused BEFORE anything is sent, the picker shows the right franchise/count/candidates from the REAL 409, and even a fully VALID pick still HOLDS -- no conditional-drop executor exists (Keith's ruling, 2026-09-29)", async () => {
   const { env, mfl } = world();
   const d = loadDesktop(env);
   const apiUrl = `https://worker.test/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`;
@@ -115,11 +115,22 @@ test("DESKTOP: a 5->6 create is refused BEFORE anything is sent, the picker show
   t.match(d.dlg.innerHTML, /Select 1 player/, "confirming with nothing checked is refused client-side too, before any retry");
   t.equal(mfl.st.pending.length, 0);
 
+  // A genuinely valid, sufficient pick is retried against the REAL worker -- which refuses it
+  // too, since satisfying a selection is not executing it. The dialog must show this as a
+  // TERMINAL, honest notice (never loop back into the interactive picker, never imply the owner
+  // can act their way past it), and the promise must still ultimately reject -- nothing was sent.
   dialogCheck(d.dlg, "90000", true);
   dialogClick(d.dlg, "data-drops-act", "confirm");
-  const res = await p;
-  t.ok(res && res.ok !== false, "the retried create succeeded once a valid drop was picked");
-  t.equal(mfl.st.pending.length, 1, "the offer really was sent to MFL after the picker resolved");
+  await settle(40);
+  t.match(d.dlg.innerHTML, /conditional-drop execution isn't built yet/i, "the dialog now shows the TERMINAL held notice, not the picker again");
+  t.doesNotMatch(d.dlg.innerHTML, /data-t3w-drop-pid/, "no checkboxes -- nothing left for the owner to do here");
+  t.doesNotMatch(d.dlg.innerHTML, /Confirm and send/, "no retry loop -- only a Close button");
+  let threw = null;
+  dialogClick(d.dlg, "data-drops-act", "cancel");   // the terminal notice's only button, labeled "Close"
+  try { await p; } catch (e) { threw = e; }
+  t.ok(threw, "the promise still rejects -- a satisfied-but-unexecutable selection never resolves as success");
+  t.equal(threw.status, 409);
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- a fully valid, satisfied selection STILL never sends the offer");
 });
 
 test("DESKTOP: cancelling the picker throws the ORIGINAL 409 back to the caller — nothing is sent", async () => {
@@ -156,7 +167,7 @@ function loadMobile(env) {
     getElementById: (id) => {
       if (id === "ups-m-app") return app;
       if (id === "ups-m-drops-overlay") return registry["ups-m-drops-overlay"] || null;
-      if (id === "ups-m-drops-close" || id === "ups-m-drops-cancel" || id === "ups-m-drops-go") return freshButton(id);
+      if (id === "ups-m-drops-close" || id === "ups-m-drops-cancel" || id === "ups-m-drops-go" || id === "ups-m-drops-close-terminal") return freshButton(id);
       return null;
     },
     querySelector: (sel) => (sel === "#ups-m-drops-overlay .ups-m-drop-body" ? bodyChangeTarget : null),
@@ -193,7 +204,7 @@ function mobileCheck(m, pid, checked) {
   (m.bodyChangeTarget.__listeners.change || []).forEach((fn) => fn({ target: box }));
 }
 
-test("MOBILE: a 5->6 create is refused BEFORE anything is sent, the picker shows the right franchise/count/candidates from the REAL 409, and a valid pick lets the SAME request go through", async () => {
+test("MOBILE: a 5->6 create is refused BEFORE anything is sent, the picker shows the right franchise/count/candidates from the REAL 409, and even a fully VALID pick still HOLDS -- no conditional-drop executor exists (Keith's ruling, 2026-09-29)", async () => {
   const { env, mfl } = world();
   const m = loadMobile(env);
   const url = `https://worker.test/api/trades/proposals?L=74598&YEAR=2026&MFL_USER_ID=tok-B`;
@@ -211,11 +222,19 @@ test("MOBILE: a 5->6 create is refused BEFORE anything is sent, the picker shows
   t.match(m.sheet().innerHTML, /Select 1 player/, "confirming with nothing checked is refused client-side too");
   t.equal(mfl.st.pending.length, 0);
 
+  // A genuinely valid, sufficient pick is retried against the REAL worker -- which refuses it
+  // too, since satisfying a selection is not executing it. The sheet must show a TERMINAL,
+  // honest notice, never loop back into the picker, and the promise must still resolve null.
   mobileCheck(m, "90002", true);
   mobileClick(m, "ups-m-drops-go");
+  await settle(40);
+  t.match(m.sheet().innerHTML, /conditional-drop execution isn't built yet/i, "the sheet now shows the TERMINAL held notice, not the picker again");
+  t.doesNotMatch(m.sheet().innerHTML, /data-t3w-drop-pid/, "no checkboxes -- nothing left for the owner to do here");
+  t.doesNotMatch(m.sheet().innerHTML, /Confirm and send/, "no retry loop -- only a Close button");
+  mobileClick(m, "ups-m-drops-close-terminal");
   const res = await p;
-  t.ok(res && res.ok, "the retried create succeeded once a valid drop was picked");
-  t.equal(mfl.st.pending.length, 1, "the offer really was sent to MFL after the picker resolved");
+  t.equal(res, null, "a satisfied-but-unexecutable selection resolves null, matching the 'declined' convention -- never a success");
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- a fully valid, satisfied selection STILL never sends the offer");
 });
 
 test("MOBILE: closing the picker resolves null -- submitTradeCreateWithGatesMobile returns null, matching the existing 'declined' no-op convention", async () => {
@@ -255,7 +274,7 @@ function loadDesktopAccept(env) {
 }
 const previewBody2 = (id) => ({ league_id: "74598", season: "2026", trade_id: id, action: "PREVIEW", acting_franchise_id: "0002", offer_id: id });
 
-test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, a valid pick + Confirm selection satisfies it, and Accept then proceeds", async () => {
+test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, and STAYS withheld even after a fully valid pick + Confirm selection -- satisfied is not executed, so Accept never becomes available (Keith's ruling, 2026-09-29)", async () => {
   const { env, mfl } = world();
   // Flip the direction: 0002 is now the one with 5 loaded fillers and RECEIVES a loaded player.
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
@@ -275,15 +294,20 @@ test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accep
   d.dlg.check("90000", true);
   d.dlg.click("select-drops");
   await settle(40);
-  t.ok(d.dlg.has("accept-confirm"), "the picker's own selection satisfies the requirement and Accept is now offered");
-  // The accept-review dialog doesn't have the FULL roster/player-name data the trade BUILDER
-  // does (it only holds the two assets already in this offer) -- candidates fall back to the
-  // bare id, exactly as renderLoadedContractDrops documents (dropCandidateLabel), never a guess.
-  t.match(d.dlg.innerHTML, /Selected: Player 90000/, "the confirmed selection is shown back");
+  // The selection IS recorded and reported as satisfied -- SELECT_DROPS itself never writes to
+  // MFL, and satisfying a selection is real, useful progress -- but it is NOT the same thing as
+  // an EXECUTED drop, and Accept must stay withheld regardless (no code anywhere drops a real
+  // player yet -- docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md).
+  t.ok(!d.dlg.has("accept-confirm"), "Accept is STILL withheld -- a satisfied selection never unblocks it while no executor exists");
+  t.match(d.dlg.innerHTML, /Selected: Player 90000/, "the confirmed selection is shown back, by id (this dialog has no full roster data to resolve a name)");
+  t.match(d.dlg.innerHTML, /isn't (built|available) yet/i, "the review honestly explains WHY it's still held");
+  t.equal(mfl.st.done.length, 0, "SELECT_DROPS never itself writes to MFL");
 
-  d.dlg.click("accept-confirm");
-  t.equal(await p, true);
-  t.equal(mfl.st.done.length, 0, "reviewBeforeAccept itself never accepts -- that's the caller's job, exactly like the existing cap-ack test proves");
+  // With no accept-confirm button rendered, the owner's only path is Not now -- the review
+  // resolves false, exactly like any other un-acceptable state.
+  d.dlg.click("accept-close");
+  t.equal(await p, false);
+  t.equal(mfl.st.done.length, 0, "zero MFL writes across the entire review, satisfied selection included");
 });
 
 // The real openAcceptReview() is module-internal (not on M.tradeView's public surface) --
@@ -334,7 +358,7 @@ function loadMobileForAccept(env, tradeId) {
   return { M, mount, registry, log, sheet: () => registry["ups-m-accept-overlay"], click: async (act) => { const b = buttons.find((x) => x.getAttribute("data-act") === act); if (!b) throw new Error("no " + act + " button"); b.handlers.forEach((fn) => fn.call(b)); await settle(30); } };
 }
 
-test("MOBILE ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, a valid pick + Confirm selection satisfies it", async () => {
+test("MOBILE ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, and STAYS withheld even after a fully valid pick + Confirm selection -- satisfied is not executed, so Accept never becomes available (Keith's ruling, 2026-09-29)", async () => {
   const { env, mfl } = world();
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 5)];
@@ -353,8 +377,13 @@ test("MOBILE ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept
   sheet().check("90001", true);
   sheet().click("select-drops");
   await settle(40);
-  t.ok(sheet().has("accept-confirm"), "the selection satisfies the requirement and Accept is now offered");
+  // Selected and reported satisfied (SELECT_DROPS itself never writes to MFL) -- but satisfying
+  // a selection is not the same thing as an EXECUTED drop, so Accept must stay withheld
+  // regardless (Keith's ruling, 2026-09-29; docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md).
+  t.ok(!sheet().has("accept-confirm"), "Accept is STILL withheld -- a satisfied selection never unblocks it while no executor exists");
   t.match(sheet().innerHTML, /Selected: Player 90001/);
+  t.match(sheet().innerHTML, /isn't (built|available) yet/i, "the review honestly explains WHY it's still held");
+  t.equal(mfl.st.done.length, 0, "zero MFL writes across the entire review, satisfied selection included");
 });
 
 await run("trade_loaded_contract_clients");

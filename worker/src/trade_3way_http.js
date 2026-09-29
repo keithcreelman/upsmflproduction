@@ -15,6 +15,7 @@
 // scoped to that (league, season).
 
 import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance, conditionalDropStoreFor } from "./trade_3way.js";
+import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 import { padFid } from "./trade_3way_model.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
 
@@ -189,6 +190,16 @@ export async function handle3WayHttp(a) {
         return fail(409, "loaded_contract_drops_required",
           `${myDropReq.franchise_name} would move from ${myDropReq.loaded_before} to ${myDropReq.projected} loaded contracts. The maximum is 5, so ${myDropReq.required_drops} conditional drop${myDropReq.required_drops === 1 ? "" : "s"} of your own loaded-contract player${myDropReq.required_drops === 1 ? "" : "s"} ${myDropReq.required_drops === 1 ? "is" : "are"} required before this 3-way can be sent.`,
           { compliance: createDropCompliance, loaded_contract_drops_needed: { franchise_id: initiatorFid, loaded_before: myDropReq.loaded_before, projected: myDropReq.projected, required_drops: myDropReq.required_drops, selected: myDropReq.selected, valid_count: myDropReq.valid_count } });
+      }
+      // Creation itself is safe to allow through even when SATISFIED -- unlike 2-way, a 3-way
+      // trade is 100% held server-side (D1 only, never proposed to MFL) until BOTH partners
+      // accept AND capGate() passes, and capGate() ALREADY refuses EXECUTE for "needs_drops"
+      // (loadedContractsPermitsWrite(), Keith's ruling 2026-09-29) -- so there is nothing here
+      // for a native-MFL accept to bypass. Still, the initiator deserves an honest heads-up
+      // rather than silence, since this 3-way can never actually execute until an executor
+      // exists, no matter how everyone accepts.
+      if (myDropReq && myDropReq.satisfied && !loadedContractsPermitsWrite(createDropCompliance.loaded_contracts.status)) {
+        console.warn(`[3way] create: ${initiatorFid}'s selection satisfies its own requirement, but conditional-drop execution isn't built yet -- this 3-way will be created and can be accepted, but capGate() will hold it at execution.`);
       }
     }
     pendingDropPersist = (createDropCompliance.loaded_contracts && createDropCompliance.loaded_contracts.status !== "unavailable" && createDropSelections.length) ? createDropSelections : null;

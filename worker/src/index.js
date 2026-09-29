@@ -48,7 +48,7 @@ import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
   indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
 } from "./trade_accept_integrity.js";
-import { evaluateTradeCompliance } from "./trade_cap_authority.js";
+import { evaluateTradeCompliance, loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
@@ -38474,28 +38474,45 @@ const mflToSleeper = {};
             });
             if (createDropCompliance.loaded_contracts.status !== "unavailable") {
               const myDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === fromFranchiseId);
-              if (myDropReq && !myDropReq.satisfied) {
-                return jsonOut(409, {
-                  ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required",
-                  error: myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. The maximum is 5, so " + myDropReq.required_drops + " conditional drop" + (myDropReq.required_drops === 1 ? "" : "s") + " of your own loaded-contract player" + (myDropReq.required_drops === 1 ? "" : "s") + " " + (myDropReq.required_drops === 1 ? "is" : "are") + " required before this offer can be sent.",
-                  compliance: createDropCompliance,
-                  loaded_contract_drops_needed: { franchise_id: fromFranchiseId, loaded_before: myDropReq.loaded_before, projected: myDropReq.projected, required_drops: myDropReq.required_drops, selected: myDropReq.selected, valid_count: myDropReq.valid_count },
-                });
-              }
-              if (myDropReq && myDropReq.satisfied && createDropSelections.length) {
-                const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
-                if (!dropDb) {
-                  return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+              if (myDropReq) {
+                // Persist whatever selection was submitted -- informational (lets the picker show
+                // "your pick would satisfy this" and survives to a later retry once execution
+                // ships), and itself NEVER an MFL write -- before deciding whether SENDING is
+                // currently permitted at all.
+                if (createDropSelections.length) {
+                  const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+                  if (!dropDb) {
+                    return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+                  }
+                  const createDropTradeKey = `${leagueId}|${season}|${fromFranchiseId}|${toFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(proposalAssets), extensionRequests: payload?.extension_requests })}`;
+                  try {
+                    await makeConditionalDropStore(dropDb).setForFranchise(
+                      { leagueId, season, tradeKey: createDropTradeKey, tradeKind: "two_way" },
+                      { franchiseId: fromFranchiseId, playerIds: createDropSelections, selectedByFid: fromFranchiseId }
+                    );
+                  } catch (e) {
+                    console.error("[loaded-contract-drops] couldn't persist the initiator's selection -- refusing the offer (not sent to MFL):", e?.message || String(e));
+                    return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+                  }
                 }
-                const createDropTradeKey = `${leagueId}|${season}|${fromFranchiseId}|${toFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(proposalAssets), extensionRequests: payload?.extension_requests })}`;
-                try {
-                  await makeConditionalDropStore(dropDb).setForFranchise(
-                    { leagueId, season, tradeKey: createDropTradeKey, tradeKind: "two_way" },
-                    { franchiseId: fromFranchiseId, playerIds: createDropSelections, selectedByFid: fromFranchiseId }
-                  );
-                } catch (e) {
-                  console.error("[loaded-contract-drops] couldn't persist the initiator's selection -- refusing the offer (not sent to MFL):", e?.message || String(e));
-                  return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+                // Keith's ruling, 2026-09-29 (reviewing the first PR): a valid, SATISFIED
+                // selection is not the same thing as an EXECUTED drop -- no code anywhere calls
+                // MFL to actually drop a player yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md).
+                // Proposing this trade to MFL right now would create a REAL, natively-acceptable
+                // pending trade for a franchise that is still, in fact, over the limit -- so
+                // creation is refused whenever loadedContractsPermitsWrite() says no, REGARDLESS
+                // of `myDropReq.satisfied`. This is the single gate that flips once a real
+                // executor is built and separately reviewed/approved.
+                if (!loadedContractsPermitsWrite(createDropCompliance.loaded_contracts.status)) {
+                  const heldMsg = myDropReq.satisfied
+                    ? myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. Your selected drop" + (myDropReq.required_drops === 1 ? "" : "s") + " would satisfy the limit, but conditional-drop execution isn't built yet, so this offer can't be sent while " + myDropReq.franchise_name + " would still be over. Remove the loaded asset(s) from this trade, or wait until conditional drops can actually execute."
+                    : myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. The maximum is 5, so " + myDropReq.required_drops + " conditional drop" + (myDropReq.required_drops === 1 ? "" : "s") + " of " + myDropReq.franchise_name + "'s own loaded-contract player" + (myDropReq.required_drops === 1 ? "" : "s") + " " + (myDropReq.required_drops === 1 ? "is" : "are") + " required -- and conditional-drop execution isn't built yet, so this offer can't be sent while " + myDropReq.franchise_name + " would be over the limit.";
+                  return jsonOut(409, {
+                    ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required",
+                    error: heldMsg,
+                    compliance: createDropCompliance,
+                    loaded_contract_drops_needed: { franchise_id: fromFranchiseId, loaded_before: myDropReq.loaded_before, projected: myDropReq.projected, required_drops: myDropReq.required_drops, selected: myDropReq.selected, valid_count: myDropReq.valid_count, satisfied: myDropReq.satisfied, executable: false },
+                  });
                 }
               }
             }
@@ -39769,8 +39786,16 @@ const mflToSleeper = {};
               if (acceptCompliance.loaded_contracts.status === "unavailable") {
                 return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
-              if (acceptCompliance.loaded_contracts.status === "blocked" && action === "ACCEPT") {
-                console.warn("[trade-accept] waiting on conditional loaded-contract drops:", JSON.stringify({ trade_id: mflTradeId, requirements: (acceptCompliance.loaded_contracts.drop_requirements || []).map((d) => ({ franchise_id: d.franchise_id, required: d.required_drops, valid: d.valid_count, satisfied: d.satisfied })) }));
+              // Keith's ruling, 2026-09-29 (reviewing the first PR): a "needs_drops" verdict --
+              // every over-limit franchise has a VALID, SUFFICIENT selection -- is still not
+              // enough to accept for real. Selecting a drop is not the same thing as executing
+              // one, and no code anywhere calls MFL to actually drop a player yet (see
+              // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). loadedContractsPermitsWrite() is
+              // the ONE gate: today it is false for "needs_drops" exactly like "blocked", so this
+              // still refuses the accept -- flips only once a real executor is built and
+              // separately reviewed/approved.
+              if (!loadedContractsPermitsWrite(acceptCompliance.loaded_contracts.status) && action === "ACCEPT") {
+                console.warn("[trade-accept] waiting on conditional loaded-contract drops:", JSON.stringify({ trade_id: mflTradeId, status: acceptCompliance.loaded_contracts.status, requirements: (acceptCompliance.loaded_contracts.drop_requirements || []).map((d) => ({ franchise_id: d.franchise_id, required: d.required_drops, valid: d.valid_count, satisfied: d.satisfied })) }));
                 return integrityFail(409, "loaded_contract_drops_required", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_drop_requirements: acceptCompliance.loaded_contracts.drop_requirements });
               }
             }
@@ -39861,11 +39886,17 @@ const mflToSleeper = {};
                 console.error("[loaded-contract-drops] couldn't persist SELECT_DROPS:", e?.message || String(e));
                 return integrityFail(503, "loaded_contract_drops_unavailable", "Couldn't save that selection right now. Try again in a moment.");
               }
+              // A "satisfied" selection is a real, useful state (it's what lets the OTHER
+              // affected party stop waiting, once everyone has picked) -- but it is NOT the same
+              // thing as this drop having executed, and must never be worded as if sending/
+              // accepting is now unblocked (loadedContractsPermitsWrite() still refuses ACCEPT
+              // regardless -- see above). Keith's ruling, 2026-09-29.
+              const selectDropsExecutable = loadedContractsPermitsWrite(selectDropsCompliance.loaded_contracts.status);
               return jsonOut(200, {
                 ok: true, mode: "direct_mfl", action: "SELECT_DROPS", trade_id: mflTradeId,
                 code: selectDropsMyReq.satisfied ? "selected" : "selected_insufficient",
                 message: selectDropsMyReq.satisfied
-                  ? `Selected: ${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drop${selectDropsMyReq.required_drops === 1 ? "" : "s"}.`
+                  ? `Selected: ${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drop${selectDropsMyReq.required_drops === 1 ? "" : "s"}.` + (selectDropsExecutable ? "" : " Conditional-drop execution isn't built yet, so this trade stays held until it is.")
                   : `${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drops are valid so far -- ${selectDropsMyReq.required_drops - selectDropsMyReq.valid_count} more needed.`,
                 compliance: selectDropsCompliance, drop_requirement: selectDropsMyReq,
               });

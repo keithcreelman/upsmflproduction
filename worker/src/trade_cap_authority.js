@@ -45,6 +45,31 @@ import { evaluateLineupFeasibility, posGroup } from "./trade_lineup_feasibility.
 export const ROSTER_MIN = 27;   // canon B1: MFL-enforced minimum (not exposed by the API)
 export const LOADED_CONTRACT_MAX = 5;   // canon §2.G/§6.G: max 5 loaded (FL+BL combined) contracts per roster
 
+// RULING (Keith, 2026-09-29, reviewing the FIRST conditional-drop PR): "needs_drops must not
+// allow a two-team MFL acceptance or a three-team execution while no conditional-drop executor
+// exists." No code anywhere calls MFL to actually drop a player yet -- see
+// docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md for the traced write sequence and why it is not
+// built. A franchise validly SELECTING enough drops to cover its requirement ("needs_drops") is
+// NOT the same thing as those drops having actually happened, so it must not by itself permit a
+// real, irreversible MFL write -- including, for a 2-way trade, even PROPOSING it to MFL, since
+// a proposed offer becomes a real, natively-acceptable pending trade the instant it exists (see
+// the design doc's native-MFL-bypass section). Flip this to true ONLY once that executor is
+// built AND separately reviewed/approved; until then it stays false everywhere in this file.
+export const LOADED_CONTRACT_DROP_EXECUTION_LIVE = false;
+
+// The ONE function every enforcement point (2-way create/accept, 3-way create/capGate) must call
+// before treating a loaded-contract verdict as safe to act on for a REAL write. "ok" (nobody
+// over) always permits it. "needs_drops" (over, but a currently-valid selection covers it) only
+// permits it once LOADED_CONTRACT_DROP_EXECUTION_LIVE is true -- never based on `satisfied`
+// alone. "blocked" and "unavailable" never permit it. Centralized here, rather than duplicated
+// as an inline `status === "ok" || status === "needs_drops"` at each call site, specifically
+// because that exact duplication is what let a satisfied-but-unexecuted selection slip through
+// in the first PR (the client's own interpretPreview had it, index.js's create/accept gates did
+// not check it at all).
+export function loadedContractsPermitsWrite(status) {
+  return status === "ok" || (LOADED_CONTRACT_DROP_EXECUTION_LIVE && status === "needs_drops");
+}
+
 const s = (v) => String(v == null ? "" : v).trim();
 const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
 const arr = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
@@ -411,13 +436,19 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     // may proceed) | "blocked" (someone's over and does NOT yet have a satisfied selection -- a
     // hard stop, exactly like before this ruling, just now escapable via drops rather than
     // permanent) | "unavailable".
+    // `executable` (Keith's ruling, 2026-09-29): whether this verdict permits a REAL MFL write
+    // right now -- see loadedContractsPermitsWrite() above. Exposed directly on the object (not
+    // just as a function callers must remember to call) so a client can trust it without
+    // re-deriving the rule, and so a future server-side call site that only checks `status` the
+    // way the first PR's did can't silently regress -- every enforcement point in this codebase
+    // is expected to gate on `.executable`, not on `status !== "blocked"`.
     loaded_contracts: loadedUnresolved
-      ? { status: "unavailable", max: LOADED_CONTRACT_MAX, rows: [], violations: [], drop_requirements: [], message: "We couldn't verify the loaded-contract count for this trade right now (at least one contract's structure isn't resolvable from live data)." }
+      ? { status: "unavailable", max: LOADED_CONTRACT_MAX, rows: [], violations: [], drop_requirements: [], executable: false, message: "We couldn't verify the loaded-contract count for this trade right now (at least one contract's structure isn't resolvable from live data)." }
       : loadedViolations.length
-      ? { status: "blocked", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: loadedViolations, drop_requirements: dropReqs, message: loadedViolations.map((v) => v.message).join(" ") }
+      ? { status: "blocked", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: loadedViolations, drop_requirements: dropReqs, executable: false, message: loadedViolations.map((v) => v.message).join(" ") }
       : dropReqs.length
-      ? { status: "needs_drops", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], drop_requirements: dropReqs, message: dropReqs.map((d) => `${d.franchise_name}: ${d.required_drops} conditional drop${d.required_drops === 1 ? "" : "s"} selected and valid.`).join(" ") }
-      : { status: "ok", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], drop_requirements: [], message: "Every team stays at or under the 5 loaded-contract limit." },
+      ? { status: "needs_drops", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], drop_requirements: dropReqs, executable: loadedContractsPermitsWrite("needs_drops"), message: dropReqs.map((d) => `${d.franchise_name}: ${d.required_drops} conditional drop${d.required_drops === 1 ? "" : "s"} selected and valid — but conditional-drop execution isn't available yet, so this can't proceed while ${d.franchise_name} would still be over.`).join(" ") }
+      : { status: "ok", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], drop_requirements: [], executable: true, message: "Every team stays at or under the 5 loaded-contract limit." },
     lineup,
   };
 }

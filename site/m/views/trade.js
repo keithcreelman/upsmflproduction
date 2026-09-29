@@ -831,6 +831,13 @@
     if (!mount) return Promise.resolve(null);
     var existing = document.getElementById("ups-m-drops-overlay");
     if (existing) existing.remove();
+    // Keith's ruling, 2026-09-29: a SATISFIED selection (the owner already picked enough valid
+    // players) is not the same thing as an EXECUTED drop -- no code anywhere drops a real player
+    // yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). If the server refuses DESPITE a
+    // satisfied selection, this is a TERMINAL state for the sheet: showing the picker again and
+    // inviting another "Confirm and send" would misrepresent this warning as something the owner
+    // can act their way past, when they already have. Show a plain, honest notice instead.
+    var alreadySatisfied = !!(myReq[0] && myReq[0].satisfied);
     return new Promise(function (resolve) {
       var settled = false;
       var selected = [];
@@ -842,10 +849,20 @@
         resolve(v);
       }
       function draw(message, ok) {
-        var sel = {}; sel[fromFranchiseId] = selected;
-        var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
-          playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
-        });
+        var bodyHtml;
+        var navHtml;
+        if (alreadySatisfied) {
+          bodyHtml = '<p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' +
+            '<p class="sub">Your selection is valid and covers the requirement -- this is held for a different reason: conditional-drop execution isn\'t built yet, so no offer that needs one can be sent right now.</p>';
+          navHtml = '<div class="ups-m-tb-nav"><button class="btn-act otb on" id="ups-m-drops-close-terminal">Close</button></div>';
+        } else {
+          var sel = {}; sel[fromFranchiseId] = selected;
+          var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
+            playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
+          });
+          bodyHtml = '<p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' + picker;
+          navHtml = '<div class="ups-m-tb-nav"><button class="btn-act" id="ups-m-drops-cancel">Cancel</button><button class="btn-act otb on" id="ups-m-drops-go">Confirm and send</button></div>';
+        }
         var html =
           '<div class="ups-m-drop-overlay" id="ups-m-drops-overlay">' +
             '<div class="ups-m-drop-sheet">' +
@@ -854,18 +871,17 @@
                 '<div class="grip"></div>' +
                 '<div class="title">Loaded-contract limit</div>' +
               '</div>' +
-              '<div class="ups-m-drop-body"><p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' + picker +
-                '<div class="ups-m-tb-nav">' +
-                  '<button class="btn-act" id="ups-m-drops-cancel">Cancel</button>' +
-                  '<button class="btn-act otb on" id="ups-m-drops-go">Confirm and send</button>' +
-                '</div>' +
-              '</div>' +
+              '<div class="ups-m-drop-body">' + bodyHtml + navHtml + '</div>' +
             '</div>' +
           '</div>';
         var prior = document.getElementById("ups-m-drops-overlay");
         if (prior) prior.outerHTML = html; else mount.insertAdjacentHTML("beforeend", html);
         document.body.style.overflow = "hidden";
         document.getElementById("ups-m-drops-close").addEventListener("click", function () { close(null); });
+        if (alreadySatisfied) {
+          document.getElementById("ups-m-drops-close-terminal").addEventListener("click", function () { close(null); });
+          return;
+        }
         document.getElementById("ups-m-drops-cancel").addEventListener("click", function () { close(null); });
         document.getElementById("ups-m-drops-go").addEventListener("click", function () {
           if (selected.length < required) { draw("Select " + required + " player" + (required === 1 ? "" : "s") + " to drop before confirming.", false); return; }

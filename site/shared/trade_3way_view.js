@@ -349,12 +349,18 @@
     // only) still renders correctly without this section.
     var lc = c.loaded_contracts;
     if (lc) {
+      // "needs_drops" reads as an ALERT tier, not a calm status, whenever it isn\'t yet
+      // executable (today, always -- Keith\'s ruling, 2026-09-29: a valid selection is not an
+      // executed drop) -- a satisfied requirement that still can\'t go through must never look
+      // like a green light.
+      var lcHeld = lc.status === "needs_drops" && lc.executable !== true;
       var lcTitle = lc.status === "blocked" ? "Can\'t be accepted \u2014 too many loaded contracts"
+        : lcHeld ? "Held \u2014 conditional-drop execution isn\'t available yet"
         : lc.status === "needs_drops" ? "Loaded contracts \u2014 conditional on a drop"
         : lc.status === "ok" ? "Loaded contracts \u2014 every team stays at or under 5" : "Loaded contracts \u2014 couldn\'t be verified";
       var lcMsg = lc.status === "unavailable"
         ? "We couldn\'t verify the loaded-contract count for this trade right now." + (opts.gate ? " It can\'t be accepted until we can \u2014 try again in a moment." : "")
-        : lc.status === "blocked" ? str(lc.message) : "";
+        : lc.status === "blocked" || lcHeld ? str(lc.message) : "";
       var lcRows = (lc.rows || []).map(function (r) {
         var over = r.loaded_after > (lc.max || 5);
         return '<li class="' + (over ? "t3w-over" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span>' +
@@ -362,7 +368,7 @@
           (over ? '<span class="t3w-cr-flag">max ' + esc(lc.max || 5) + '</span>' : '<span class="t3w-cr-room">of ' + esc(lc.max || 5) + ' max</span>') + '</li>';
       }).join("");
       h = h.replace('data-t3w-roster="' + esc(ro.status) + '">', 'data-t3w-roster="' + esc(ro.status) + '" data-t3w-loaded-contracts="' + esc(lc.status) + '">');
-      h += '<div class="t3w-cap t3w-cap-' + esc(lc.status === "needs_drops" ? "warn" : lc.status) + '" role="' + (lc.status === "ok" || lc.status === "needs_drops" ? "status" : "alert") + '"><b>' + lcTitle + '</b>' +
+      h += '<div class="t3w-cap t3w-cap-' + esc(lcHeld ? "blocked" : lc.status === "needs_drops" ? "warn" : lc.status) + '" role="' + (lcHeld ? "alert" : (lc.status === "ok" || lc.status === "needs_drops") ? "status" : "alert") + '"><b>' + lcTitle + '</b>' +
         (lcMsg ? '<p>' + esc(lcMsg) + '</p>' : '') + (lcRows ? '<ul class="t3w-crows" aria-label="Loaded contracts after the trade">' + lcRows + '</ul>' : '') +
         // "Every party must see the drop requirement and selected players when viewing the
         // offer" (Keith's ruling, 2026-09-29). Interactivity is NOT forced off here -- it
@@ -417,13 +423,16 @@
     if (res && !res.networkError && res.ok && b && b.ok !== false && b.compliance && b.compliance.cap) {
       var cap = b.compliance.cap.status;
       var capAck = b.cap_ack || null;
-      var lc = b.compliance.loaded_contracts ? b.compliance.loaded_contracts.status : "ok";
       var capOk = cap === "ok" || (cap === "blocked" && !!capAck && capAck.satisfied);
-      // "needs_drops" (Keith's ruling, 2026-09-29) means someone is over the loaded-contract limit
-      // but EVERY over-limit franchise already has a valid, sufficient conditional-drop selection --
-      // the trade may proceed, exactly like "ok". Only "blocked" (unsatisfied) and "unavailable"
-      // (fails closed) refuse acceptance.
-      var lcOk = lc === "ok" || lc === "needs_drops";
+      // Keith's ruling, 2026-09-29 (reviewing the first PR, which had this exact bug): a
+      // "needs_drops" verdict -- someone is over the loaded-contract limit, but every over-limit
+      // franchise already has a valid, SELECTED drop -- is NOT the same thing as that drop having
+      // EXECUTED, and no code anywhere calls MFL to actually drop a player yet (see
+      // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). Read the server's own `executable` flag
+      // (worker/src/trade_cap_authority.js's loadedContractsPermitsWrite()) rather than deciding
+      // this client-side from `status` -- exactly duplicating that decision here, out of step
+      // with the server, is what let a satisfied-but-unexecuted selection through the first time.
+      var lcOk = !b.compliance.loaded_contracts || b.compliance.loaded_contracts.executable === true;
       return { kind: "ok", compliance: b.compliance, capAck: capAck, canAccept: capOk && lcOk,
         message: cap === "blocked" ? b.compliance.cap.message : cap === "unavailable" ? "We couldn\'t verify the salary cap for this trade right now." : "" };
     }
