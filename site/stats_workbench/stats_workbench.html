@@ -751,30 +751,11 @@ table.asw-table{font-size:13px}
   }
 
   // ---------- Known-empty data sources ----------
-  // Audited live against /api/advanced-stats-leaderboard on 2026-08-05: all
-  // five position groups, season 2025, weeks 1-17 (the page's own default
-  // query). Every VISIBLE column on this page came back with real data, so
-  // nothing is listed here. The map exists so that a genuinely dead column
-  // gets labelled instead of rendering as a silent wall of blanks.
-  //
-  // mfl_aav / mfl_years_remaining used to be null for 100% of rows here. Two
-  // independent causes, both fixed in the worker 2026-08-05:
-  //   1. /api/mfl-league-state's pid_to_contract emitted only
-  //      { salary, contractYear, contractInfo, contractStatus }, so
-  //      applyLiveOwnership()'s liveC.aav / liveC.yearsRemaining patch below
-  //      had never once fired. It now sends aav + yearsRemaining (+
-  //      contractLength), derived with the worker's own _parseContractData.
-  //   2. The leaderboard SQL computed years-remaining as
-  //      `years_total - contract_year + 1`, the inverse of the real meaning
-  //      (MFL counts contract_year DOWN). Corrected to contract_year.
-  // src_contracts season 2026 still has aav/contract_length empty for all 504
-  // rows, so the SQL side stays null until that backfill lands — but the live
-  // overlay now covers every rostered player regardless, which is the better
-  // source anyway (live MFL, not a manual sync).
-  var DEAD_COLS = {};
-  // Columns empty only for CERTAIN position tabs. These are real absences
-  // rather than bugs — a kicker takes no offensive snaps — but a blank column
-  // still deserves to say why. Counts verified against 2025.
+  // Columns empty only for CERTAIN position tabs. These are STRUCTURAL
+  // absences (a rule of football, not a fact about the current season's data)
+  // — a kicker never takes an offensive snap, a punter never attempts a field
+  // goal — so they stay hand-curated: they will never need re-auditing as the
+  // season/pipelines change, unlike the "broken" case below.
   var DEAD_COLS_BY_TAB = {
     off_snaps_total:    ["pk","pn"],
     off_snap_rate:      ["pk","pn"],
@@ -783,15 +764,86 @@ table.asw-table{font-size:13px}
     receiving_drops:    ["qb"],
     receiving_drop_pct: ["qb"],
     fg_att_60plus:      ["pn"],
-    fg_made_60plus:     ["pn"]
+    fg_made_60plus:     ["pn"],
+    // Found via the computed availability check below (2026-09-29): Speed
+    // Score's own formula is RB/WR/TE-only (weight vs. 40-time), so it has
+    // never had data for QB/IDP/K/P -- confirmed live on every one of these
+    // tabs -- but this was never in DEAD_COLS_BY_TAB even at the 2026-08-05
+    // audit, so it rendered as an unexplained wall of "--" since the column
+    // shipped (2026-04-23). Exactly the class of gap this rework exists to
+    // stop relying on someone noticing by hand.
+    prof_speed:         ["qb","pk","pn","dl","lb","db","flex_idp"],
   };
-  // → { kind: "broken"|"na", why } or null. "broken" means the source should
-  // have data and doesn't (loud). "na" means the stat genuinely doesn't apply
-  // to this position (quiet) — a kicker has no offensive snaps.
-  function deadReason(colKey, tab) {
-    if (DEAD_COLS[colKey]) return { kind: "broken", why: DEAD_COLS[colKey] };
+  // ---------- Payload-derived column availability (replaces a hand-maintained
+  // "broken columns" list, 2026-09-29) ----------
+  // WORDING, precisely (Keith 2026-09-29): a column that reads all-zero or
+  // all-null in the current view is a DATA-AVAILABILITY signal -- the source
+  // hasn't reported real values for it in this sample -- and nothing more.
+  // It is never proof that the statistic itself is obsolete, invalid, or not
+  // worth tracking; the column definition, its position eligibility, and its
+  // formula are untouched. It repopulates on its own the moment the source
+  // reports real values -- no code change needed on this side when that
+  // happens.
+  //
+  // The old DEAD_COLS was a hardcoded {} last audited 2026-08-05 -- and stayed
+  // empty from that day forward no matter what actually happened to the
+  // pipelines behind it. That's exactly how three real gaps (PFR season
+  // advanced stats, FTN charting, route/split feeds -- none scheduled to
+  // refresh for the live season) went unflagged for the entire 2026 season:
+  // nobody re-ran the audit once the season started drifting from it.
+  //
+  // Instead, compute it from the rows already on screen: for every visible
+  // column, what fraction of the CURRENT tab's rows (position/sub-tab scoped,
+  // but not narrowed by the user's own search or per-column filters -- see
+  // the coverageRows capture in render()) actually have a value.
+  //
+  // Deliberately NOT a null-rate THRESHOLD (e.g. "flag if <10% populated"):
+  // a genuinely rare-but-real stat (a kicker's 60+-yard attempts) can be
+  // legitimately near-zero across an entire season without the source being
+  // broken, and a threshold can't tell the two apart. What it CAN tell apart
+  // is exactly zero vs. not-quite-zero: a real event, however rare, has some
+  // chance of showing up at least once across dozens-to-hundreds of rows if
+  // the pipeline is alive -- and every one of the three actually-dead sources
+  // above was, without exception, 0 of every row on every tab that used it,
+  // not "rare." COVERAGE_MIN_SAMPLE guards the other direction: a thin sample
+  // (an early season, a narrow custom filter) cannot prove anything either
+  // way, so it says nothing rather than guessing.
+  var COVERAGE_MIN_SAMPLE = 10;
+  // Below this many weeks built for the CURRENT season, a genuinely healthy
+  // but sample-gated column (route/snap-minimum stats especially) can be
+  // legitimately all-empty just because the season is young -- the wording
+  // below reflects that instead of implying a confirmed pipeline failure.
+  var COVERAGE_EARLY_SEASON_WEEKS = 3;
+  function computeColumnAvailability(rows, colKeys) {
+    var total = (rows || []).length;
+    var out = {};
+    (colKeys || []).forEach(function(k){
+      var nonNull = 0;
+      for (var i = 0; i < rows.length; i++) {
+        var v = getVal(rows[i], k);
+        if (v != null && v !== "" && !(typeof v === "number" && isNaN(v))) nonNull++;
+      }
+      out[k] = { total: total, nonNull: nonNull };
+    });
+    return out;
+  }
+  // → { kind: "broken"|"na", why } or null. "broken" means every row in the
+  // current view is missing this column despite a large enough sample to say
+  // so -- a DATA-AVAILABILITY signal (the source hasn't reported it), never
+  // proof the statistic itself is obsolete, wrong, or not worth tracking.
+  // "na" means the stat genuinely doesn't apply to this position (quiet).
+  function deadReason(colKey, tab, coverage) {
     var tabs = DEAD_COLS_BY_TAB[colKey];
     if (tabs && tabs.indexOf(tab) >= 0) return { kind: "na", why: "not tracked for this position" };
+    var cov = coverage && coverage[colKey];
+    if (cov && cov.total >= COVERAGE_MIN_SAMPLE && cov.nonNull === 0) {
+      var earlySeason = state.lastBuiltForWeek != null && state.lastBuiltForWeek > 0 &&
+        state.lastBuiltForWeek < COVERAGE_EARLY_SEASON_WEEKS;
+      return earlySeason
+        ? { kind: "broken", why: "no player has reported this yet this season (through Week " +
+            state.lastBuiltForWeek + ", " + cov.total + " players) — may simply be early, not unavailable for good" }
+        : { kind: "broken", why: "no player in " + cov.total + " rows has reported this yet — check whether the source has published it" };
+    }
     return null;
   }
   var MIN_SEASON = 2011;
@@ -2516,7 +2568,7 @@ table.asw-table{font-size:13px}
   // Banner above the table naming any VISIBLE column whose source is empty,
   // plus the "you picked a season with no data" case. Silent when everything
   // on screen has data behind it.
-  function renderDataNote(cols, apiRowCount) {
+  function renderDataNote(cols, apiRowCount, availability) {
     var slot = document.getElementById("asw-datanote-slot");
     if (!slot) return;
     var notes = [];
@@ -2525,7 +2577,7 @@ table.asw-table{font-size:13px}
     // position" is real information but not a problem, so it stays on the
     // column header + its tooltip instead of shouting from the top of the page.
     var broken = (cols || []).filter(function (k) {
-      var d = deadReason(k, state.activeTab);
+      var d = deadReason(k, state.activeTab, availability);
       return d && d.kind === "broken";
     });
     if (broken.length) {
@@ -2533,11 +2585,17 @@ table.asw-table{font-size:13px}
         return "<code>" + escapeHtml((COLS[k] && COLS[k].label) || k) + "</code>";
       }).join(" ");
       var reasons = {};
-      broken.forEach(function (k) { reasons[deadReason(k, state.activeTab).why] = 1; });
+      broken.forEach(function (k) { reasons[deadReason(k, state.activeTab, availability).why] = 1; });
       var keys = Object.keys(reasons);
       var why = keys.length === 1 ? keys[0] : "see each column's tooltip";
-      notes.push("<b>No data behind " + (broken.length === 1 ? "this column" : "these columns") + ":</b> " +
-                 parts + " — " + escapeHtml(why) + ". They render empty for every player.");
+      // Precise on purpose (Keith 2026-09-29): an all-empty column is a
+      // DATA-AVAILABILITY signal -- the source hasn't reported values for it
+      // yet -- never a claim that the statistic itself is invalid, retired,
+      // or not worth tracking. It repopulates on its own the moment the
+      // source reports real values; nothing needs to be removed or renamed.
+      notes.push("<b>No data reported for " + (broken.length === 1 ? "this column" : "these columns") + ":</b> " +
+                 parts + " — " + escapeHtml(why) + ". This is a data-availability signal, not proof the statistic is obsolete — " +
+                 (broken.length === 1 ? "it" : "each") + " repopulates automatically once the source reports real values.");
     }
 
     // Season with nothing behind it — the worker answers 200 with zero rows for
@@ -2672,6 +2730,13 @@ table.asw-table{font-size:13px}
       }
     }
 
+    // Column-availability sample: position/sub-tab scoped like the tab itself,
+    // but captured BEFORE the user's own search or per-column filters narrow
+    // `rows` further below -- a search for one player's name should never
+    // make every other column on the page look "broken" from a sample of one.
+    var coverageRows = rows.slice();
+    var availability = computeColumnAvailability(coverageRows, cols);
+
     // Search — name + NFL team + position (B6), mirrors the mobile auction search.
     // Token-matched (2026-08-29), not raw indexOf: a plain substring test never
     // found "Kool-Aid McKinstry" from "kool aid", "B.J. Hill" from "bj hill", or
@@ -2752,10 +2817,10 @@ table.asw-table{font-size:13px}
         if ((state.filters[k] || "").trim()) cls.push("has-filter");
         // Flag a column whose SOURCE is empty rather than letting it render as
         // a wall of blank cells with no explanation.
-        var dead = deadReason(k, state.activeTab);
+        var dead = deadReason(k, state.activeTab, availability);
         if (dead) cls.push(dead.kind === "broken" ? "col-nodata" : "col-na");
         var titleText = dead
-          ? ((dead.kind === "broken" ? "NO DATA — " : "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
+          ? ((dead.kind === "broken" ? "DATA UNAVAILABLE — " : "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
           : (def.title || "");
         var titleAttr = titleText ? ' title="' + titleText.replace(/"/g, "&quot;") + '"' : "";
         colRow += '<th class="'+cls.join(" ")+'"'+sortAttr+titleAttr+' data-col-key="'+k+'">'+def.label+'</th>';
@@ -2887,7 +2952,7 @@ table.asw-table{font-size:13px}
     wireEmptySearchHandoff(bodyEl);
     }
 
-    renderDataNote(cols, state.lastApiCount);
+    renderDataNote(cols, state.lastApiCount, availability);
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.

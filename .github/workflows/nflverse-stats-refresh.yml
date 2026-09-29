@@ -163,8 +163,55 @@ jobs:
           run nflverse_routes  "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_routes.py --seasons "${STATS_SEASONS}" --skip-local
           run nflverse_ngs     "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_ngs.py --seasons "${STATS_SEASONS}" --skip-local
           run pfr_advstats     "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_pfr_advstats.py --seasons "${STATS_SEASONS}" --skip-local
+          # nflverse_ftn / nflverse_splits — added 2026-09-29. Both scripts
+          # existed and worked (nfl_player_ftn / nfl_player_splits already
+          # have real rows through 2025 -- schema and D1 write path were
+          # never the gap) but were never added to any workflow, so both
+          # tables silently stopped updating the moment the season started
+          # and the Stats Workbench's FTN-charting groups and every "Script
+          # Δ" column went blank all year with no warning. Verified LIVE
+          # before scheduling, per Keith's "don't schedule just because the
+          # script exists" instruction:
+          #   nflreadpy.load_ftn_charting(seasons=[2026]) -> 8,065 rows
+          #     through week 3, joining 97% of REG pbp plays -> 394 real
+          #     (season,gsis) FTN rows computed.
+          #   nflreadpy.load_pbp(seasons=[2026]) (same source nflverse_pbp
+          #     above already pulls successfully) -> 1,502 real
+          #     (season,gsis,bucket) split rows computed.
+          # Both sources are genuinely live and current, unlike the season-
+          # level PFR advanced stats decision below. Both scripts' "no rows"
+          # path was fixed (2026-09-29) to exit 3 ("not published") instead
+          # of a bare exit 1, matching nflverse_routes' own convention --
+          # without that fix, a legitimately empty week (e.g. before FTN has
+          # charted it) would fail this whole job and block
+          # leaderboard-current-season-rebuild.yml's workflow_run trigger,
+          # which only fires on conclusion == "success".
+          run nflverse_ftn     "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_ftn.py --seasons "${STATS_SEASONS}" --skip-local
+          run nflverse_splits  "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_splits.py --seasons "${STATS_SEASONS}" --skip-local
           run nfl_player_names "all-eras"   python3 ../pipelines/etl/scripts/fetch_nflverse_player_names.py
           run ff_player_ids    "all"        python3 ../pipelines/etl/scripts/fetch_ff_playerids.py
+
+          # fetch_pfr_season_advstats.py (Passing/Receiving/Rushing "Advanced
+          # (PFR)" column groups + IDP def_adot) is DELIBERATELY NOT
+          # scheduled here, decided 2026-09-29. Unlike nflverse_ftn/_splits
+          # above, its source genuinely has no 2026 data to fetch yet:
+          #   curl of nflverse-data's pfr_advstats release
+          #   (advstats_season_{pass,rec,rush,def}.csv) on 2026-09-29 shows
+          #   2025 as the newest season present in all four files, and the
+          #   release's own per-season asset history
+          #   (advstats_season_rec_2023.rds touched 2024-09, _2024.rds
+          #   touched 2025-09, _2025.rds touched 2026-02) shows this specific
+          #   aggregate is published well after a season is underway or over
+          #   -- not incrementally during it. Scheduling it weekly right now
+          #   would be a guaranteed no-op all season, for no cost saved (the
+          #   script also hard-requires the local Desktop SQLite mirror for
+          #   its player-id crosswalk step, unlike every other fetcher here,
+          #   so it cannot even run unmodified in this CI environment as-is).
+          # The dependent columns are correctly labelled unavailable by the
+          # Stats Workbench's own payload-derived coverage check (see
+          # site/stats_workbench/stats_workbench.html's
+          # computeColumnAvailability) rather than by anything scheduled
+          # here. Re-check when nflverse actually publishes a 2026 file.
 
           # PREGAME sources — added 2026-08-05. These were previously in NO
           # workflow at all, which is why nfl_team_vegas_weekly stopped at 2025

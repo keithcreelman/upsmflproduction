@@ -204,7 +204,17 @@ def main() -> None:
     rows = compute(seasons)
     print(f"  {len(rows)} (season,gsis) FTN rows", file=sys.stderr)
     if not rows:
-        sys.exit("no rows")
+        # Exit 3 = "not published": scheduled in nflverse-stats-refresh.yml
+        # (2026-09-29) alongside sources that already use this convention
+        # (fetch_nflverse_routes.py). The previous bare-string exit (a plain
+        # exit code 1) would mark the whole refresh run FAILED for a
+        # legitimately empty
+        # week (e.g. before nflverse has charted the week's games yet), which
+        # would block leaderboard-current-season-rebuild.yml's workflow_run
+        # trigger (gated on conclusion == "success") even though every other
+        # source in the same run succeeded.
+        print("NOT_PUBLISHED: no FTN rows for the requested seasons", file=sys.stderr)
+        sys.exit(3)
 
     if not args.skip_local and LOCAL_DB.exists():
         db = sqlite3.connect(str(LOCAL_DB)); db.executescript(DDL)
