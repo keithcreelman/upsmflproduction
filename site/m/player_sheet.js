@@ -1114,7 +1114,14 @@
     // §C2 5-loaded cap — a loaded extension also consumes a loaded slot.
     if (MY) {
       var myRoster = window.UPS_MOBILE.data.getRosterFor(window.UPS_MOBILE.state.viewerFranchiseId) || [];
-      if (MY.loadedContractCount(myRoster) >= MY.LOADED_MAX) {
+      var extLoadedCountState = MY.loadedContractCount(myRoster);
+      // FAIL CLOSED on uncertainty (2026-09-29, Keith), not just on a proven violation: refuse
+      // rather than risk silently permitting a 6th loaded contract when the count can't be trusted.
+      if (extLoadedCountState.unavailable) {
+        window.UPS_MOBILE.ui.showToast("Can't verify your loaded-contract count right now — try again in a moment.", "err");
+        return;
+      }
+      if (extLoadedCountState.count >= MY.LOADED_MAX) {
         window.UPS_MOBILE.ui.showToast("At the " + MY.LOADED_MAX + "-loaded cap — trade or cut a loaded player first.", "err");
         return;
       }
@@ -1569,8 +1576,13 @@
     if (bid < 1000) { window.UPS_MOBILE.ui.showToast("MYAC needs a base salary ≥ $1,000.", "err"); return; }
     // §C2 loaded-contract cap (5 per roster) — block before opening the form.
     var myRoster = window.UPS_MOBILE.data.getRosterFor(window.UPS_MOBILE.state.viewerFranchiseId) || [];
-    var loadedN = MY.loadedContractCount(myRoster);
-    if (loadedN >= MY.LOADED_MAX) {
+    var myacLoadedCountState = MY.loadedContractCount(myRoster);
+    // FAIL CLOSED on uncertainty (2026-09-29, Keith), not just on a proven violation.
+    if (myacLoadedCountState.unavailable) {
+      window.UPS_MOBILE.ui.showToast("Can't verify your loaded-contract count right now — try again in a moment.", "err");
+      return;
+    }
+    if (myacLoadedCountState.count >= MY.LOADED_MAX) {
       window.UPS_MOBILE.ui.showToast("At the " + MY.LOADED_MAX + "-loaded cap — trade or cut a loaded player, or use a flat MYAC.", "err");
       return;
     }
@@ -1579,7 +1591,7 @@
       totalYears: totalYears,
       statusBase: MY.myacStatusBase(rosterRow),
       constraints: constraints,
-      loadedN: loadedN,
+      loadedN: myacLoadedCountState.count,
       y1: constraints.aav,
       y2: constraints.aav
     };
@@ -1633,7 +1645,14 @@
       if (err) { window.UPS_MOBILE.ui.showToast(err, "err"); return; }
       // Re-check the loaded cap at submit (another tab may have added one).
       var myRoster = window.UPS_MOBILE.data.getRosterFor(window.UPS_MOBILE.state.viewerFranchiseId) || [];
-      if (MY.loadedContractCount(myRoster) >= MY.LOADED_MAX) {
+      var submitLoadedCountState = MY.loadedContractCount(myRoster);
+      // FAIL CLOSED on uncertainty (2026-09-29, Keith), not just on a proven violation — this
+      // is the LAST gate before a real MFL write, so it never gets a pass on this standard.
+      if (submitLoadedCountState.unavailable) {
+        window.UPS_MOBILE.ui.showToast("Can't verify your loaded-contract count right now — try again in a moment.", "err");
+        return;
+      }
+      if (submitLoadedCountState.count >= MY.LOADED_MAX) {
         window.UPS_MOBILE.ui.showToast("At the " + MY.LOADED_MAX + "-loaded cap — can't add another.", "err");
         return;
       }

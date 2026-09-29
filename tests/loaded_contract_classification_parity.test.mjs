@@ -1,18 +1,23 @@
-// PARITY: THREE surfaces -- the Trade War Room's classifier
-// (worker/src/contract_classification.js), Front Office's shared copy
-// (site/shared/loaded_contract_classification.js), AND Roster Workbench's own wrapper
-// (site/rosters/roster_workbench.js's isLoadedContractStatus, loaded exactly as a browser
-// would load it, via tests/fixtures/roster_workbench_harness.mjs) -- must agree on every
-// contract shape, always. This is the test Keith asked for after finding the surfaces had no
-// guarantee of ever staying in sync (2026-09-29, round 1): "Implement the approved canon
-// interpretation consistently on both surfaces and the worker's enforcement path, with a
-// parity test using real contract shapes. Do not make Trade War Room display one count while
-// Front Office displays another." (Round 2, after Roster Workbench's own two edge-case bugs
-// were found, added Front Office v2 -- site/rosters/v2/front_office.js -- as a REQUIRED
-// fourth surface: see tests/front_office_v2_loaded_classification.test.mjs, which runs the
-// identical real-shapes fixture against front_office.js's isLoadedRow directly, since that
-// file's data shape (single-player calls) doesn't fit this test's resolveLoadedStatus-shaped
-// assertions as cleanly as the other three.)
+// PARITY: FIVE names, FOUR independent surfaces -- worker/src/contract_classification.js is
+// both "the worker" and the engine behind the Trade War Room's compliance gate
+// (trade_cap_authority.js's evaluateTradeCompliance calls it directly, no separate copy), so
+// those two names share one surface here. The other three are real, independent code paths
+// that must all agree with it: Front Office's shared copy
+// (site/shared/loaded_contract_classification.js), Roster Workbench's own wrapper
+// (site/rosters/roster_workbench.js's isLoadedContractStatus), and desktop Front Office v2 +
+// mobile Front Office (site/rosters/v2/front_office.js's isLoadedRow, site/m/
+// front_office_myac_submit.js's isLoadedRow) -- covered in their own dedicated parity tests
+// (tests/front_office_v2_loaded_classification.test.mjs,
+// tests/mobile_front_office_loaded_classification.test.mjs) since their per-player call shape
+// doesn't fit this file's resolveLoadedStatus-shaped assertions as cleanly as the other two.
+//
+// This is the test Keith asked for after finding the surfaces had no guarantee of ever
+// staying in sync (2026-09-29, round 1): "Implement the approved canon interpretation
+// consistently on both surfaces and the worker's enforcement path, with a parity test using
+// real contract shapes. Do not make Trade War Room display one count while Front Office
+// displays another." Extended round 2 (Front Office v2) and round 6 (mobile Front Office):
+// "I asked for the loaded-contract rule to work consistently in Front Office and the Trade
+// War Room on both desktop and mobile."
 //
 // Two fixture sets:
 //   1. Every DISTINCT (contractStatus, contractInfo) pair seen on a live 2026 roster across
@@ -29,6 +34,7 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { loadRosterWorkbench } from "./fixtures/roster_workbench_harness.mjs";
+import { loadMobileMyac } from "./fixtures/mobile_myac_harness.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WORKER = await import(path.join(ROOT, "worker/src/contract_classification.js"));
@@ -42,6 +48,7 @@ vm.runInContext(
 const FO = ctx.window.UPS_LOADED_CONTRACT_CLASSIFICATION;
 
 const { hooks: RWB } = loadRosterWorkbench({ UPS_LOADED_CONTRACT_CLASSIFICATION: FO });
+const MOBILE = loadMobileMyac({ UPS_LOADED_CONTRACT_CLASSIFICATION: FO });
 
 // Objects returned from inside the vm sandbox belong to a DIFFERENT realm (their own
 // Object.prototype) than objects built in this module -- assert's STRICT deepEqual (which
@@ -57,13 +64,14 @@ test("SETUP: the shared classifier actually loaded and exposed its window global
   t.equal(typeof FO.resolveLoadedStatus, "function");
   t.equal(typeof FO.isLoaded, "function");
   t.equal(typeof RWB.isLoadedContractStatus, "function", "Roster Workbench's own wrapper must have loaded too");
+  t.equal(typeof MOBILE.isLoadedRow, "function", "mobile Front Office's own wrapper must have loaded too");
 });
 
 const REAL_SHAPES = JSON.parse(
   fs.readFileSync(path.join(ROOT, "tests/fixtures/real_contract_shapes_2026_09_29.json"), "utf8")
 );
 
-test(`PARITY (real data): all ${REAL_SHAPES.length} distinct contractStatus/contractInfo pairs seen on a live 2026 roster (2026-09-29 snapshot, all 12 franchises) classify identically on all three surfaces`, () => {
+test(`PARITY (real data): all ${REAL_SHAPES.length} distinct contractStatus/contractInfo pairs seen on a live 2026 roster (2026-09-29 snapshot, all 12 franchises) classify identically on all four surfaces (worker + shared classifier + Roster Workbench + mobile)`, () => {
   let checked = 0;
   for (const shape of REAL_SHAPES) {
     const w = WORKER.resolveLoadedStatus(shape.contractStatus, shape.contractInfo);
@@ -79,6 +87,8 @@ test(`PARITY (real data): all ${REAL_SHAPES.length} distinct contractStatus/cont
     const rwbExpected = w.resolved ? w.loaded !== "" : null;
     const rwb = RWB.isLoadedContractStatus(shape.contractStatus, shape.contractInfo);
     t.equal(rwb, rwbExpected, `Roster Workbench parity: status="${shape.contractStatus}" info="${shape.contractInfo}": worker=${JSON.stringify(w)} RWB=${rwb}`);
+    const mobile = MOBILE.isLoadedRow({ contractStatus: shape.contractStatus, contractInfo: shape.contractInfo, status: "ROSTER" });
+    t.equal(mobile, rwbExpected, `Mobile Front Office parity: status="${shape.contractStatus}" info="${shape.contractInfo}": worker=${JSON.stringify(w)} mobile=${mobile}`);
     checked += 1;
   }
   t.ok(checked === REAL_SHAPES.length, `checked all ${REAL_SHAPES.length} real shapes`);
@@ -121,7 +131,7 @@ const SYNTHETIC_SHAPES = [
   [null, null],
 ];
 
-test(`PARITY (synthetic edge cases): ${SYNTHETIC_SHAPES.length} hand-picked shapes covering every documented special case classify identically on all three surfaces`, () => {
+test(`PARITY (synthetic edge cases): ${SYNTHETIC_SHAPES.length} hand-picked shapes covering every documented special case classify identically on all four surfaces (worker + shared classifier + Roster Workbench + mobile)`, () => {
   for (const [status, info] of SYNTHETIC_SHAPES) {
     const w = WORKER.resolveLoadedStatus(status, info);
     const f = FO.resolveLoadedStatus(status, info);
@@ -129,6 +139,11 @@ test(`PARITY (synthetic edge cases): ${SYNTHETIC_SHAPES.length} hand-picked shap
     t.equal(FO.isLoaded(status, info), WORKER.isLoaded(status, info), `isLoaded() parity: status="${status}" info="${info}"`);
     const rwbExpected = w.resolved ? w.loaded !== "" : null;
     t.equal(RWB.isLoadedContractStatus(status, info), rwbExpected, `Roster Workbench parity: status="${status}" info="${info}"`);
+    t.equal(
+      MOBILE.isLoadedRow({ contractStatus: status, contractInfo: info, status: "ROSTER" }),
+      rwbExpected,
+      `Mobile Front Office parity: status="${status}" info="${info}"`
+    );
   }
 });
 
