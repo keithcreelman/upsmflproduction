@@ -66,12 +66,32 @@
 
   var LOADED_MAX = 5;   // §C2 loaded-contract roster cap (v2/front_office.js:1995)
 
-  // isLoadedRow (1996) — a loaded contract is an EXPLICIT front/back-loaded
-  // deal: the -FL / -BL suffix on the canonical contractStatus. Accepts a
-  // mobile rosterRow (contractStatus) or a desktop-style player (type).
+  // TRI-STATE (2026-09-29, Keith round 6: "It is in scope: I asked for the loaded-contract
+  // rule to work consistently in Front Office and the Trade War Room on both desktop and
+  // mobile"): true = definitely loaded, false = definitely not, null = CANNOT BE DETERMINED
+  // (the shared classifier script never loaded, or this contract's own data is unresolved).
+  // Callers MUST check for null explicitly -- never treat it as falsy, per the same "a
+  // missing classifier should display an honest unavailable state, not a potentially
+  // different count" ruling already applied to desktop's two surfaces
+  // (site/rosters/roster_workbench.js, site/rosters/v2/front_office.js).
+  //
+  // This used to be a bare -FL/-BL suffix check, mirroring desktop's OWN pre-fix isLoadedRow
+  // verbatim (isLoadedRow (1996) at the time this file was written). Desktop now delegates to
+  // the shared, schedule-verifying classifier (../shared/loaded_contract_classification.js);
+  // this file follows the SAME verbatim-mirror discipline its own header requires ("If
+  // desktop changes, copy the updated function bodies here verbatim") and does the same.
+  // Accepts a mobile rosterRow (contractStatus/contractInfo) or a desktop-style player
+  // (type/special).
   function isLoadedRow(row) {
-    var t = safeStr(row && (row.contractStatus != null ? row.contractStatus : row.type)).toUpperCase();
-    return t.indexOf("-FL") >= 0 || t.indexOf("-BL") >= 0 || t === "FL" || t === "BL";
+    var status = row && (row.contractStatus != null ? row.contractStatus : row.type);
+    var info = row && (row.contractInfo != null ? row.contractInfo : row.special);
+    var classifier = (typeof window !== "undefined") && window.UPS_LOADED_CONTRACT_CLASSIFICATION;
+    if (!classifier || typeof classifier.resolveLoadedStatus !== "function") {
+      return null; // classifier script never loaded -- honest unavailable, never a guess
+    }
+    var r = classifier.resolveLoadedStatus(status, info);
+    if (!r || !r.resolved) return null; // this contract's own data can't be classified
+    return r.loaded !== "";
   }
 
   // myacStatusBase (3115) — the acquisition method survives MYAC (§A3): a
@@ -103,15 +123,27 @@
   }
 
   // Loaded-contract count for the viewer's roster — mirror of
-  // loadedContractCountForTeam (3164): non-taxi rows whose contractStatus is
-  // FL/BL. Mobile rosterRows carry `status` ("TAXI"/"IR"/…), so taxi is
-  // detected from that (desktop used q.isTaxi).
+  // loadedContractCountForTeam (3164): non-taxi rows whose contract genuinely classifies
+  // loaded. Mobile rosterRows carry `status` ("TAXI"/"IR"/…), so taxi is detected from that
+  // (desktop used q.isTaxi).
+  //
+  // Returns { count, unavailable } — NOT a bare number (2026-09-29, mirroring desktop's
+  // loadedContractCountForTeam fail-closed fix). `count` is only trustworthy when
+  // `unavailable` is false; every caller that GATES a real write (player_sheet.js's three
+  // "at the loaded cap" checks) must check `unavailable` FIRST and refuse the action with an
+  // honest "can't verify right now" message, never fall through to comparing
+  // `count >= LOADED_MAX` on data that might be understated.
   function loadedContractCount(rosterRows) {
-    if (!Array.isArray(rosterRows)) return 0;
-    return rosterRows.filter(function (q) {
+    if (!Array.isArray(rosterRows)) return { count: 0, unavailable: false };
+    var count = 0, unavailable = false;
+    rosterRows.forEach(function (q) {
       var isTaxi = /taxi/i.test(safeStr(q && q.status));
-      return !isTaxi && isLoadedRow(q);
-    }).length;
+      if (isTaxi) return;
+      var v = isLoadedRow(q);
+      if (v === null) unavailable = true;
+      else if (v) count += 1;
+    });
+    return { count: count, unavailable: unavailable };
   }
 
   // Derive the full contract from a per-year salary array — the pre-confirm
