@@ -2,7 +2,7 @@
   "schema": 1,
   "packId": "2026-wk03-recap",
   "title": "2026 Week 3",
-  "generatedAtUtc": "2026-09-29T20:10:34Z",
+  "generatedAtUtc": "2026-09-29T20:50:21Z",
   "season": 2026,
   "week": 3,
   "sources": [
@@ -95,13 +95,18 @@
       "asof": "2026 wk3",
       "rows": 12,
       "note": "projected starter totals, captured live during the week"
+    },
+    {
+      "name": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z",
+      "rows": 12,
+      "note": "site/wire/data/week_preview_2026_wk04.json (working copy (origin/main unavailable)); 8,000 simulated seasons, played weeks fixed; preseason-vs-now movement is one combined change, not split into a result effect and a strength effect (schema 2)"
     }
   ],
   "coverage": {},
   "warnings": [
     "Signal labelling does not attempt \"Schedule-assisted\" yet -- that needs the move traced to opponent strength, not just its size. The largest real, sourced cause IS now named per row (an absence, or a still-rostered player whose own projection genuinely fell) when it clears biggest_absences()/biggest_decliners()'s materiality bar, netted against the team's own bench/replacement value -- not the player's raw number, which overstates it. A smaller or unpriced cause still reads as plain Strong/Moderate/Neutral.",
-    "Double/triple-header week -- an owner plays two or three opponents at once, so the same name appears on more than one game page.",
-    "No week_preview_2026_wk04.json, so this recap carries no next-week preview."
+    "Double/triple-header week -- an owner plays two or three opponents at once, so the same name appears on more than one game page."
   ],
   "entities": {
     "owners": [
@@ -3253,6 +3258,609 @@
       "fmt": "4.3%",
       "source": "2026-season-forecast",
       "asof": "preseason"
+    },
+    {
+      "id": "f.pv.cutoff",
+      "label": "Week 4 preview data cutoff (rosters, MFL projections, MFL injury feed)",
+      "value": "2026-09-29T20:47:39Z",
+      "unit": "text",
+      "fmt": "Tue Sep 29, 4:47 PM ET",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.div.dog-pound-4-life.line",
+      "label": "DOG POUND 4 LIFE entering week 4",
+      "value": 3,
+      "unit": "count",
+      "fmt": "DOG POUND 4 LIFE, odds to win it: Bear Dunn (7-1) 85%, Chris Klingenberg (5-3) 8%, Eric Mannila (4-4) 6%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.div.legion-of-boom.line",
+      "label": "LEGION OF BOOM entering week 4",
+      "value": 3,
+      "unit": "count",
+      "fmt": "LEGION OF BOOM, odds to win it: Shawn Blake (5-3) 53%, Derrick Whitman (5-3) 39%, Matt Gerardi (3-5) 8%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.div.maddie-mondays.line",
+      "label": "Maddie Mondays entering week 4",
+      "value": 3,
+      "unit": "count",
+      "fmt": "Maddie Mondays, odds to win it: Keith Creelman (5-3) 80%, Ryan Bousquet (2-6) 12%, Josh Martel (2-6) 8%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.div.outlast-pg-time.line",
+      "label": "Outlast PG Time entering week 4",
+      "value": 3,
+      "unit": "count",
+      "fmt": "Outlast PG Time, odds to win it: Eric Martel (6-2) 50%, Brian Cutting (3-5) 49%, Brian Cross (1-7) 1%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.division_games",
+      "label": "Division games in week 4",
+      "value": 12,
+      "unit": "count",
+      "fmt": "12 of this week's games are inside a division",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.dog_chance",
+      "label": "Featured game 1 underdog's win chance",
+      "value": 40.9,
+      "unit": "percent",
+      "fmt": "41%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.dog_same_score",
+      "label": "Featured game 1: the underdog's win alone, at the same score",
+      "value": 8.6,
+      "unit": "percent",
+      "fmt": "about 9 to Shawn Blake",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.dog_stakes",
+      "label": "Featured game 1 underdog's simulated playoff odds, seasons he wins / loses it",
+      "value": 20.4,
+      "unit": "percent",
+      "fmt": "for Shawn Blake it is 85% and 64%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.fav_chance",
+      "label": "Featured game 1 favorite's win chance",
+      "value": 59.1,
+      "unit": "percent",
+      "fmt": "59%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.fav_nuance",
+      "label": "Featured game 1: how much of the favorite's win/loss gap is the result itself",
+      "value": 10.0,
+      "unit": "percent",
+      "fmt": "the same big score that wins this game usually wins all-play and his other games that week too. At the same score, beating Shawn Blake is worth about 10 points to Derrick Whitman",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.fav_same_score",
+      "label": "Featured game 1: the favorite's win alone, at the same score",
+      "value": 10.0,
+      "unit": "percent",
+      "fmt": "at the same score, the win itself is worth about 10 points to Derrick Whitman",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.fav_stakes",
+      "label": "Featured game 1 favorite's simulated playoff odds, seasons he wins / loses it",
+      "value": 25.2,
+      "unit": "percent",
+      "fmt": "Derrick Whitman makes the playoffs in 69% of the simulated seasons where he wins this game and 43% of the ones where he loses it",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.favorite",
+      "label": "Featured game 1 favorite",
+      "value": "0002",
+      "unit": "text",
+      "fmt": "Derrick Whitman",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.flip",
+      "label": "Featured game 1 flip factor",
+      "value": 10.8,
+      "unit": "points",
+      "fmt": "Josh Allen (BUF, Shawn Blake's starter, projected 26.4, listed Questionable as of the cutoff; his game kicks off Sun Oct 4, 1:00 PM ET) -- without him Shawn Blake's lineup loses 10.8 projected points and Derrick Whitman's chance moves from 59% to 65%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.h2h",
+      "label": "Featured game 1 all-time series (regular season 2012 and 2020-2026; postseason weeks apart)",
+      "value": 2,
+      "unit": "count",
+      "fmt": "Derrick Whitman leads the regular-season series 7-5; Shawn Blake is 2-0 against him in postseason weeks; they last met in 2026 week 1, a 251.4-180.8 Derrick Whitman win",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.matchup",
+      "label": "Featured week 4 game 1",
+      "value": "0002-0010",
+      "unit": "text",
+      "fmt": "Derrick Whitman against Shawn Blake",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.ranges",
+      "label": "Featured game 1 likely week scores (10th-90th percentile)",
+      "value": 220.6,
+      "unit": "points",
+      "fmt": "Derrick Whitman projects 220.6, likely 180 to 261; Shawn Blake projects 210.3, likely 170 to 252",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.underdog",
+      "label": "Featured game 1 underdog",
+      "value": "0010",
+      "unit": "text",
+      "fmt": "Shawn Blake",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g1.upset_path",
+      "label": "Featured game 1 upset path",
+      "value": 2,
+      "unit": "count",
+      "fmt": "Shawn Blake's lineup projects ahead on defense (by 5.2) and at kicker and punter (by 0.1)",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.dog_chance",
+      "label": "Featured game 2 underdog's win chance",
+      "value": 47.1,
+      "unit": "percent",
+      "fmt": "47%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.dog_same_score",
+      "label": "Featured game 2: the underdog's win alone, at the same score",
+      "value": 8.4,
+      "unit": "percent",
+      "fmt": "about 8 to Chris Klingenberg",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.dog_stakes",
+      "label": "Featured game 2 underdog's simulated playoff odds, seasons he wins / loses it",
+      "value": 22.5,
+      "unit": "percent",
+      "fmt": "for Chris Klingenberg it is 48% and 25%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.fav_chance",
+      "label": "Featured game 2 favorite's win chance",
+      "value": 52.9,
+      "unit": "percent",
+      "fmt": "53%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.fav_nuance",
+      "label": "Featured game 2: how much of the favorite's win/loss gap is the result itself",
+      "value": 7.0,
+      "unit": "percent",
+      "fmt": "the same big score that wins this game usually wins all-play and his other games that week too. At the same score, beating Chris Klingenberg is worth about 7 points to Eric Mannila",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.fav_same_score",
+      "label": "Featured game 2: the favorite's win alone, at the same score",
+      "value": 7.0,
+      "unit": "percent",
+      "fmt": "at the same score, the win itself is worth about 7 points to Eric Mannila",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.fav_stakes",
+      "label": "Featured game 2 favorite's simulated playoff odds, seasons he wins / loses it",
+      "value": 16.8,
+      "unit": "percent",
+      "fmt": "Eric Mannila makes the playoffs in 29% of the simulated seasons where he wins this game and 12% of the ones where he loses it",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.favorite",
+      "label": "Featured game 2 favorite",
+      "value": "0011",
+      "unit": "text",
+      "fmt": "Eric Mannila",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.flip",
+      "label": "Featured game 2 flip factor",
+      "value": 3.6,
+      "unit": "points",
+      "fmt": "Mike Evans (SFO, Chris Klingenberg's starter, projected 14.3, listed Questionable as of the cutoff; his game kicks off Sun Oct 4, 4:25 PM ET) -- without him Chris Klingenberg's lineup loses 3.6 projected points and Eric Mannila's chance moves from 53% to 55%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.h2h",
+      "label": "Featured game 2 all-time series (regular season 2012 and 2020-2026; postseason weeks apart)",
+      "value": 6,
+      "unit": "count",
+      "fmt": "Eric Mannila leads the regular-season series 13-7; Eric Mannila is 4-3 against him in postseason weeks; they last met in 2026 week 1, a 223.9-153.7 Eric Mannila win",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.matchup",
+      "label": "Featured week 4 game 2",
+      "value": "0011-0012",
+      "unit": "text",
+      "fmt": "Eric Mannila against Chris Klingenberg",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.ranges",
+      "label": "Featured game 2 likely week scores (10th-90th percentile)",
+      "value": 210.1,
+      "unit": "points",
+      "fmt": "Eric Mannila projects 210.1, likely 169 to 252; Chris Klingenberg projects 207.9, likely 166 to 249",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.underdog",
+      "label": "Featured game 2 underdog",
+      "value": "0012",
+      "unit": "text",
+      "fmt": "Chris Klingenberg",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g2.upset_path",
+      "label": "Featured game 2 upset path",
+      "value": 2,
+      "unit": "count",
+      "fmt": "Chris Klingenberg's lineup projects ahead on defense (by 2.2) and at kicker and punter (by 0.5)",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.dog_chance",
+      "label": "Featured game 3 underdog's win chance",
+      "value": 47.5,
+      "unit": "percent",
+      "fmt": "48%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.dog_same_score",
+      "label": "Featured game 3: the underdog's win alone, at the same score",
+      "value": 10.2,
+      "unit": "percent",
+      "fmt": "about 10 to Ryan Bousquet",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.dog_stakes",
+      "label": "Featured game 3 underdog's simulated playoff odds, seasons he wins / loses it",
+      "value": 16.9,
+      "unit": "percent",
+      "fmt": "for Ryan Bousquet it is 26% and 9%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.fav_chance",
+      "label": "Featured game 3 favorite's win chance",
+      "value": 52.5,
+      "unit": "percent",
+      "fmt": "52%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.fav_nuance",
+      "label": "Featured game 3: how much of the favorite's win/loss gap is the result itself",
+      "value": 6.7,
+      "unit": "percent",
+      "fmt": "the same big score that wins this game usually wins all-play and his other games that week too. At the same score, beating Ryan Bousquet is worth about 7 points to Keith Creelman",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.fav_same_score",
+      "label": "Featured game 3: the favorite's win alone, at the same score",
+      "value": 6.7,
+      "unit": "percent",
+      "fmt": "at the same score, the win itself is worth about 7 points to Keith Creelman",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.fav_stakes",
+      "label": "Featured game 3 favorite's simulated playoff odds, seasons he wins / loses it",
+      "value": 15.1,
+      "unit": "percent",
+      "fmt": "Keith Creelman makes the playoffs in 91% of the simulated seasons where he wins this game and 76% of the ones where he loses it",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.favorite",
+      "label": "Featured game 3 favorite",
+      "value": "0008",
+      "unit": "text",
+      "fmt": "Keith Creelman",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.flip",
+      "label": "Featured game 3 flip factor",
+      "value": 8.4,
+      "unit": "points",
+      "fmt": "Puka Nacua (LAR, Keith Creelman's starter, projected 19.0, listed Questionable as of the cutoff; his game kicks off Sun Oct 4, 1:00 PM ET) -- without him Keith Creelman's lineup loses 8.4 projected points and Keith Creelman's chance moves from 52% to 47%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.h2h",
+      "label": "Featured game 3 all-time series (regular season 2012 and 2020-2026; postseason weeks apart)",
+      "value": -12,
+      "unit": "count",
+      "fmt": "Ryan Bousquet leads the regular-season series 16-4; Keith Creelman is 3-1 against him in postseason weeks; they last met in 2026 week 1, a 246.9-166.6 Keith Creelman win",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.matchup",
+      "label": "Featured week 4 game 3",
+      "value": "0008-0001",
+      "unit": "text",
+      "fmt": "Keith Creelman against Ryan Bousquet",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.ranges",
+      "label": "Featured game 3 likely week scores (10th-90th percentile)",
+      "value": 213.9,
+      "unit": "points",
+      "fmt": "Keith Creelman projects 213.9, likely 173 to 255; Ryan Bousquet projects 211.1, likely 170 to 252",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.underdog",
+      "label": "Featured game 3 underdog",
+      "value": "0001",
+      "unit": "text",
+      "fmt": "Ryan Bousquet",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.g3.upset_path",
+      "label": "Featured game 3 upset path",
+      "value": 1,
+      "unit": "count",
+      "fmt": "Ryan Bousquet's lineup projects ahead on defense (by 2.7)",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.inj.count",
+      "label": "Projected week 4 starters with an injury tag at the cutoff",
+      "value": 12,
+      "unit": "count",
+      "fmt": "12 projected starters",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.inj.top",
+      "label": "Tagged starter whose absence costs his lineup most",
+      "value": 15.7,
+      "unit": "points",
+      "fmt": "Caleb Williams (CHI, Josh Martel), tagged Doubtful on MFL (Hamstring) as of the cutoff -- if he sits, Josh Martel's best remaining lineup projects 15.7 points lower; his game kicks off Sun Oct 4, 1:00 PM ET",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.method",
+      "label": "How the forecast projects offense from this week on",
+      "value": 212.5,
+      "unit": "points",
+      "fmt": "offense is now projected from RotoWire's projected stats scored with UPS rules -- a 40% chance at a touchdown counts as 40% of six points -- with MFL deciding who plays, because MFL's own projections round every touchdown to all or nothing",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0001",
+      "label": "Ryan Bousquet -- playoff odds entering week 4",
+      "value": 16.8,
+      "unit": "percent",
+      "fmt": "17%, 9th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0002",
+      "label": "Derrick Whitman -- playoff odds entering week 4",
+      "value": 58.4,
+      "unit": "percent",
+      "fmt": "58%, 6th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0003",
+      "label": "Matt Gerardi -- playoff odds entering week 4",
+      "value": 13.0,
+      "unit": "percent",
+      "fmt": "13%, 10th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0004",
+      "label": "Brian Cutting -- playoff odds entering week 4",
+      "value": 93.5,
+      "unit": "percent",
+      "fmt": "93%, 2nd in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0005",
+      "label": "Eric Martel -- playoff odds entering week 4",
+      "value": 89.9,
+      "unit": "percent",
+      "fmt": "90%, 3rd in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0006",
+      "label": "Brian Cross -- playoff odds entering week 4",
+      "value": 11.1,
+      "unit": "percent",
+      "fmt": "11%, 11th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0007",
+      "label": "Josh Martel -- playoff odds entering week 4",
+      "value": 10.8,
+      "unit": "percent",
+      "fmt": "11%, 11th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0008",
+      "label": "Keith Creelman -- playoff odds entering week 4",
+      "value": 83.4,
+      "unit": "percent",
+      "fmt": "83%, 4th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0009",
+      "label": "Bear Dunn -- playoff odds entering week 4",
+      "value": 94.1,
+      "unit": "percent",
+      "fmt": "94%, the best in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0010",
+      "label": "Shawn Blake -- playoff odds entering week 4",
+      "value": 72.5,
+      "unit": "percent",
+      "fmt": "72%, 5th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0011",
+      "label": "Eric Mannila -- playoff odds entering week 4",
+      "value": 20.6,
+      "unit": "percent",
+      "fmt": "21%, 8th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.0012",
+      "label": "Chris Klingenberg -- playoff odds entering week 4",
+      "value": 36.0,
+      "unit": "percent",
+      "fmt": "36%, 7th in the league",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.bottom",
+      "label": "Worst playoff odds entering week 4",
+      "value": 10.8,
+      "unit": "percent",
+      "fmt": "Matt Gerardi at 13%, Brian Cross at 11% and Josh Martel at 11%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.fallers",
+      "label": "Biggest playoff-odds drops since the preseason",
+      "value": -41,
+      "unit": "percent",
+      "fmt": "Josh Martel (52% to 11%), Brian Cross (38% to 11%) and Eric Mannila (43% to 21%)",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.risers",
+      "label": "Biggest playoff-odds gains since the preseason",
+      "value": 31,
+      "unit": "percent",
+      "fmt": "Eric Martel (59% to 90%), Keith Creelman (54% to 83%) and Brian Cutting (70% to 93%)",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
+    },
+    {
+      "id": "f.pv.sit.top",
+      "label": "Best playoff odds entering week 4",
+      "value": 94.1,
+      "unit": "percent",
+      "fmt": "Bear Dunn at 94%, Brian Cutting at 93% and Eric Martel at 90%",
+      "source": "week_preview.py --week 4 (season_sim model)",
+      "asof": "cutoff 2026-09-29T20:47:39Z"
     },
     {
       "id": "f.star.idp.line",
@@ -7155,6 +7763,499 @@
       "note": "Preseason rank and title odds are the 2026 Season Forecast's own numbers (20,000 simulated seasons), never overwritten. Current/projected columns are that same model updated through week 2 -- see the method panel for how. \"Ending AP, middle 80% of sims\": across the 8,000 simulated seasons behind the current columns, this team's final regular-season all-play winning percentage (weeks 1-2 fixed at what actually happened, weeks 3-14 simulated) finished below the first number in one season in ten and above the second in one season in ten. Every simulated season plays all twelve teams together on the real schedule, so each season's standings add up -- but each range is one team's own spread, not a league table: the twelve ranges cannot all happen in the same season. Weekly team scores are drawn independently (no shared NFL-game correlation) and the range has not been tested against past seasons, so treat it as a rough guide. The current and projected columns score offense from RotoWire's projected stats under UPS rules (a 40% chance at a touchdown counts as 40% of six points), with MFL deciding who plays; defense, kickers and punters stay on MFL's projections. A big rank or odds move is usually about MFL's own player projections changing since the preseason snapshot, not one week's score alone -- see the Signal column for the named cause when one cleared the bar."
     },
     {
+      "id": "t.pv.games",
+      "title": "Week 4 matchups, by what is at stake (simulated)",
+      "columns": [
+        {
+          "key": "game",
+          "label": "Matchup",
+          "type": "text"
+        },
+        {
+          "key": "fav",
+          "label": "Favorite (win chance)",
+          "type": "text"
+        },
+        {
+          "key": "favpo",
+          "label": "Favorite makes playoffs: seasons he wins / loses it",
+          "type": "text"
+        },
+        {
+          "key": "dogpo",
+          "label": "Underdog makes playoffs: seasons he wins / loses it",
+          "type": "text"
+        },
+        {
+          "key": "same",
+          "label": "The win alone, at the same score (fav / dog)",
+          "type": "text"
+        },
+        {
+          "key": "series",
+          "label": "All-time series (regular season)",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Derrick Whitman vs Shawn Blake",
+          "Derrick Whitman (59%)",
+          "69% / 43%",
+          "85% / 64%",
+          "+10 / +9 pts",
+          "Derrick Whitman leads 7-5"
+        ],
+        [
+          "Eric Mannila vs Chris Klingenberg",
+          "Eric Mannila (53%)",
+          "29% / 12%",
+          "48% / 25%",
+          "+7 / +8 pts",
+          "Eric Mannila leads 13-7"
+        ],
+        [
+          "Derrick Whitman vs Matt Gerardi",
+          "Derrick Whitman (62%)",
+          "67% / 44%",
+          "22% / 7%",
+          "+6 / +8 pts",
+          "Derrick Whitman leads 7-3"
+        ],
+        [
+          "Keith Creelman vs Ryan Bousquet",
+          "Keith Creelman (52%)",
+          "91% / 76%",
+          "26% / 9%",
+          "+7 / +10 pts",
+          "Ryan Bousquet leads 16-4"
+        ],
+        [
+          "Bear Dunn vs Chris Klingenberg",
+          "Bear Dunn (74%)",
+          "96% / 87%",
+          "52% / 30%",
+          "+5 / +5 pts",
+          "Bear Dunn leads 16-5"
+        ],
+        [
+          "Shawn Blake vs Matt Gerardi",
+          "Shawn Blake (54%)",
+          "81% / 63%",
+          "20% / 7%",
+          "+5 / +6 pts",
+          "Shawn Blake leads 10-8"
+        ],
+        [
+          "Keith Creelman vs Josh Martel",
+          "Keith Creelman (56%)",
+          "90% / 75%",
+          "18% / 5%",
+          "+9 / +7 pts",
+          "Josh Martel leads 12-8"
+        ],
+        [
+          "Bear Dunn vs Eric Mannila",
+          "Bear Dunn (71%)",
+          "96% / 88%",
+          "34% / 15%",
+          "+4 / +7 pts",
+          "Bear Dunn leads 18-14"
+        ],
+        [
+          "Ryan Bousquet vs Josh Martel",
+          "Ryan Bousquet (54%)",
+          "23% / 9%",
+          "17% / 6%",
+          "+6 / +5 pts",
+          "Ryan Bousquet leads 11-10"
+        ],
+        [
+          "Eric Martel vs Brian Cross",
+          "Eric Martel (67%)",
+          "93% / 83%",
+          "19% / 7%",
+          "+2 / +3 pts",
+          "Eric Martel leads 4-2"
+        ],
+        [
+          "Brian Cutting vs Brian Cross",
+          "Brian Cutting (76%)",
+          "96% / 86%",
+          "20% / 8%",
+          "+3 / +2 pts",
+          "Brian Cutting leads 4-0"
+        ],
+        [
+          "Brian Cutting vs Eric Martel",
+          "Brian Cutting (59%)",
+          "96% / 89%",
+          "95% / 86%",
+          "+2 / +3 pts",
+          "Eric Martel leads 8-2"
+        ]
+      ],
+      "note": "Data cutoff Tue Sep 29, 4:47 PM ET; injury news and lineup calls can move every number here before kickoff. Every number comes from the same season simulation as the forecast table: 8,000 seasons, week 3 fixed at what happened, rosters, projections and MFL's injury feed as of the cutoff. Win chance is the share of simulated seasons in which that owner outscored this opponent in week 4. \"Makes playoffs: seasons he wins / loses it\" is how often he reached the playoffs in the simulated seasons where he won this game, then in the ones where he lost it -- every one of those seasons plays out the full schedule with all-play, division titles and seeding. That gap is NOT the value of the game by itself: an owner's one weekly score plays all of his games that week and his all-play, so the big score that wins this game usually wins the rest too. \"The win alone, at the same score\" compares wins and losses only where his own score was about the same, which isolates the head-to-head result. \"All-time series\" counts regular-season head-to-head games between the two OWNERS (credited season by season, whichever franchise each ran); UPS played those in 2012 and 2020-2026 -- the other seasons were all-play, with head-to-head games only in the postseason weeks. Assumptions: each team starts its best legal lineup by its week projection (replacement-level free agents fill empty slots); players MFL lists Out/IR/Suspended, plus season_sim REPORTED_ABSENCES, are removed; Questionable and Doubtful players are assumed to play; a team's week score = regressed projection + a season-long shock + a weekly swing, the two calibrated to UPS 2021-2025; team scores are drawn independently of each other -- no shared NFL-game correlation; played weeks are fixed to MFL's actual results; no trades or waiver moves after the cutoff; offense is projected from RotoWire's projected stats (via Sleeper) scored with UPS rules -- a 40% chance at a touchdown counts as 40% of six points -- with MFL deciding who plays; defenders, kickers and punters use MFL's projections; single-game win chances and weekly ranges have not been tested against past seasons game by game; preseason-vs-now movement is shown as one combined change, not split into a result effect and a strength effect -- that split needs a banked-only re-simulation on the original preseason inputs, which are no longer available (see week_preview.py's module docstring). Sorted by the two owners' combined win/loss gap."
+    },
+    {
+      "id": "t.pv.injuries",
+      "title": "Week 4 lineup and injury watch (status as of the cutoff)",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "player",
+          "label": "Projected starter",
+          "type": "text"
+        },
+        {
+          "key": "status",
+          "label": "Status at cutoff",
+          "type": "text"
+        },
+        {
+          "key": "proj",
+          "label": "Projected",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "cost",
+          "label": "Lineup cost if he sits",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "kick",
+          "label": "Kickoff",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Josh Martel",
+          "Caleb Williams (CHI)",
+          "Doubtful -- Hamstring",
+          24.7,
+          15.7,
+          "Sun Oct 4, 1:00 PM ET"
+        ],
+        [
+          "Shawn Blake",
+          "Josh Allen (BUF)",
+          "Questionable -- Knee",
+          26.4,
+          10.8,
+          "Sun Oct 4, 1:00 PM ET"
+        ],
+        [
+          "Derrick Whitman",
+          "Nico Collins (HOU)",
+          "Questionable -- Hamstring",
+          20.5,
+          10.1,
+          "Sun Oct 4, 1:00 PM ET"
+        ],
+        [
+          "Keith Creelman",
+          "Puka Nacua (LAR)",
+          "Questionable -- Hip",
+          19.0,
+          8.4,
+          "Sun Oct 4, 1:00 PM ET"
+        ],
+        [
+          "Ryan Bousquet",
+          "Jalen Coker (CAR)",
+          "Questionable -- Quadriceps",
+          15.6,
+          5.3,
+          "Sun Oct 4, 8:20 PM ET"
+        ],
+        [
+          "Keith Creelman",
+          "Dallas Goedert (PHI)",
+          "Doubtful -- Knee - MCL",
+          13.6,
+          3.7,
+          "Sun Oct 4, 1:00 PM ET"
+        ],
+        [
+          "Chris Klingenberg",
+          "Mike Evans (SFO)",
+          "Questionable -- Ribs",
+          14.3,
+          3.6,
+          "Sun Oct 4, 4:25 PM ET"
+        ],
+        [
+          "Josh Martel",
+          "Julian Love (SEA)",
+          "Questionable -- Calf",
+          11.0,
+          3.4,
+          "Sun Oct 4, 4:25 PM ET"
+        ],
+        [
+          "Brian Cutting",
+          "Justin Jefferson (MIN)",
+          "Questionable -- Ankle",
+          17.9,
+          1.9,
+          "Sun Oct 4, 4:05 PM ET"
+        ],
+        [
+          "Bear Dunn",
+          "Breece Hall (NYJ)",
+          "Questionable -- Thigh",
+          15.0,
+          1.8,
+          "Sun Oct 4, 1:00 PM ET"
+        ],
+        [
+          "Shawn Blake",
+          "Rico Dowdle (PIT)",
+          "Questionable -- Toe",
+          10.2,
+          1.4,
+          "Thu Oct 1, 8:15 PM ET"
+        ],
+        [
+          "Shawn Blake",
+          "Devin Lloyd (CAR)",
+          "Questionable -- Calf",
+          7.9,
+          0.9,
+          "Sun Oct 4, 8:20 PM ET"
+        ]
+      ],
+      "note": "Every projected starter carrying a Questionable or Doubtful tag in MFL's injury feed at Tue Sep 29, 4:47 PM ET, with MFL's own injury detail. Most Questionable players end up playing, and a tag can change until kickoff; NFL inactive lists come out about 90 minutes before each game. Lineup cost is the drop in the owner's best legal lineup (bench and replacement level included) if the player does not play. Players already listed Out or on IR are out of these lineups entirely."
+    },
+    {
+      "id": "t.pv.movement",
+      "title": "Where everybody sits: playoff odds before the season and now (simulated)",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "rec",
+          "label": "Record",
+          "type": "text"
+        },
+        {
+          "key": "pre",
+          "label": "Before the season",
+          "type": "text"
+        },
+        {
+          "key": "now",
+          "label": "Now",
+          "type": "text"
+        },
+        {
+          "key": "chg",
+          "label": "Change",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          "Bear Dunn",
+          "7-1",
+          "74%",
+          "94%",
+          "+20 pts"
+        ],
+        [
+          "Brian Cutting",
+          "3-5",
+          "70%",
+          "93%",
+          "+23 pts"
+        ],
+        [
+          "Eric Martel",
+          "6-2",
+          "59%",
+          "90%",
+          "+31 pts"
+        ],
+        [
+          "Keith Creelman",
+          "5-3",
+          "54%",
+          "83%",
+          "+29 pts"
+        ],
+        [
+          "Shawn Blake",
+          "5-3",
+          "66%",
+          "72%",
+          "+6 pts"
+        ],
+        [
+          "Derrick Whitman",
+          "5-3",
+          "51%",
+          "58%",
+          "+7 pts"
+        ],
+        [
+          "Chris Klingenberg",
+          "5-3",
+          "36%",
+          "36%",
+          "+0 pts"
+        ],
+        [
+          "Eric Mannila",
+          "4-4",
+          "43%",
+          "21%",
+          "-22 pts"
+        ],
+        [
+          "Ryan Bousquet",
+          "2-6",
+          "34%",
+          "17%",
+          "-17 pts"
+        ],
+        [
+          "Matt Gerardi",
+          "3-5",
+          "20%",
+          "13%",
+          "-7 pts"
+        ],
+        [
+          "Brian Cross",
+          "1-7",
+          "38%",
+          "11%",
+          "-27 pts"
+        ],
+        [
+          "Josh Martel",
+          "2-6",
+          "52%",
+          "11%",
+          "-41 pts"
+        ]
+      ],
+      "note": "Before the season: the published 2026 forecast. Now: the same season simulation with week 3's real results locked in, and today's rosters, injuries and projections as of Tue Sep 29, 4:47 PM ET. What moved the numbers: the week 3 results, injuries, and changed projections -- including a change in how the Wire projects offense, now RotoWire's projected stats scored with UPS rules (a 40% chance at a touchdown counts as 40% of six points) with MFL deciding who plays, because MFL's projections round every touchdown to all or nothing. Across 2018-2025 that method landed closer to actual UPS scores than MFL's projections over the rest of a season in all 8 seasons."
+    },
+    {
+      "id": "t.pv.ranges",
+      "title": "Week 4 projected scores and likely range",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "proj",
+          "label": "Projected",
+          "type": "points",
+          "align": "right"
+        },
+        {
+          "key": "range",
+          "label": "Likely range (middle 80%)",
+          "type": "text"
+        },
+        {
+          "key": "games",
+          "label": "Games",
+          "type": "count",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "Brian Cutting",
+          238.3,
+          "198 to 279",
+          2
+        ],
+        [
+          "Bear Dunn",
+          236.4,
+          "195 to 276",
+          2
+        ],
+        [
+          "Eric Martel",
+          227.3,
+          "187 to 268",
+          2
+        ],
+        [
+          "Derrick Whitman",
+          220.6,
+          "180 to 261",
+          2
+        ],
+        [
+          "Keith Creelman",
+          213.9,
+          "173 to 255",
+          2
+        ],
+        [
+          "Ryan Bousquet",
+          211.1,
+          "170 to 252",
+          2
+        ],
+        [
+          "Shawn Blake",
+          210.3,
+          "170 to 252",
+          2
+        ],
+        [
+          "Eric Mannila",
+          210.1,
+          "169 to 252",
+          2
+        ],
+        [
+          "Chris Klingenberg",
+          207.9,
+          "166 to 249",
+          2
+        ],
+        [
+          "Josh Martel",
+          207.3,
+          "167 to 248",
+          2
+        ],
+        [
+          "Matt Gerardi",
+          206.6,
+          "165 to 248",
+          2
+        ],
+        [
+          "Brian Cross",
+          205.7,
+          "166 to 247",
+          2
+        ]
+      ],
+      "note": "Projected is the owner's best legal lineup by week 4 projections (offense from RotoWire's projected stats in UPS scoring with MFL deciding who plays; defense, kickers and punters from MFL), pulled toward the league average the way the season forecast is (k=0.7). Likely range is the 10th to 90th percentile of his simulated week 4 score: one simulated week in ten lands below the first number and one in ten above the second (a team-week standard deviation of 32.0 points, calibrated to UPS 2021-2025 weekly scores). It assumes Questionable and Doubtful starters play. Not yet tested against past weeks."
+    },
+    {
       "id": "t.standings",
       "title": "Where everyone stands",
       "columns": [
@@ -7565,9 +8666,9 @@
       "note": "Usage: 27 passes, 294 air yards, 2 carries, worth 21.7 expected points (+21.6 over expected)",
       "watchUrl": "https://www.youtube.com/results?search_query=Brock+Purdy+week+3+2026+highlights",
       "video": {
-        "videoId": "RXTHrH0hzZM",
+        "channel": "NFL",
         "title": "Brock Purdy's best plays from 4-TD game vs. Cardinals | Week 3",
-        "channel": "NFL"
+        "videoId": "RXTHrH0hzZM"
       },
       "playerPhotoUrl": "https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4361741.png&w=350&h=254",
       "playerPhotoFallbackUrl": "https://www48.myfantasyleague.com/player_photos_2014/15698_thumb.jpg",
@@ -7584,9 +8685,9 @@
       "note": "Usage: 20 carries, 8 targets, worth 31.6 expected points (+10.6 over expected)",
       "watchUrl": "https://www.youtube.com/results?search_query=Jahmyr+Gibbs+week+3+2026+highlights",
       "video": {
-        "videoId": "627FVmkXsbE",
+        "channel": "NFL",
         "title": "Jahmyr Gibbs' best plays from 3-TD game | Week 3",
-        "channel": "NFL"
+        "videoId": "627FVmkXsbE"
       },
       "playerPhotoUrl": "https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4429795.png&w=350&h=254",
       "playerPhotoFallbackUrl": "https://www48.myfantasyleague.com/player_photos_2014/16162_thumb.jpg",
@@ -8133,6 +9234,22 @@
         "f.pre.0012.sim_p_last",
         "f.pre.0012.sim_p_playoffs",
         "f.pre.0012.sim_p_title",
+        "f.pv.sit.0001",
+        "f.pv.sit.0002",
+        "f.pv.sit.0003",
+        "f.pv.sit.0004",
+        "f.pv.sit.0005",
+        "f.pv.sit.0006",
+        "f.pv.sit.0007",
+        "f.pv.sit.0008",
+        "f.pv.sit.0009",
+        "f.pv.sit.0010",
+        "f.pv.sit.0011",
+        "f.pv.sit.0012",
+        "f.pv.sit.bottom",
+        "f.pv.sit.fallers",
+        "f.pv.sit.risers",
+        "f.pv.sit.top",
         "f.team.0001.div_record",
         "f.team.0001.record",
         "f.team.0001.season_pf_rank",
@@ -8185,7 +9302,91 @@
       "tableIds": [
         "t.burns",
         "t.preseason",
+        "t.pv.movement",
         "t.standings"
+      ],
+      "chartIds": [],
+      "quoteIds": [],
+      "cardIds": [],
+      "gameIds": []
+    },
+    {
+      "id": "s4",
+      "title": "Week 4 Preview -- What We're Watching",
+      "brief": "Say in the first line that these numbers are as of the data cutoff and that injury news will move them before kickoff -- in plain words; never \"provisional\" or \"expected points\" (Keith 2026-09-16 asked what both meant). The desk previews next week, it does not recap it. Three featured matchups (f.pv.g1-3): favorite and chance, what each owner's playoff odds do with a win or a loss, the upset path and the one flip factor -- one exchange each. Then one line per division (f.pv.div.*), the injury watch (a tag is the actual MFL tag -- never say a Questionable player is out). Where everybody sits lives in s3. When last week's preview is graded (f.grade.*, t.grade.*), OPEN with that scorecard -- favorites' record, likely ranges, the flip factors and the injury watch -- before previewing the new week (Keith 2026-09-16: \"We check how these calls did\"). No waiver or pickup segment (Keith 2026-09-16: \"NO WW watch\").",
+      "factIds": [
+        "f.pv.cutoff",
+        "f.pv.div.dog-pound-4-life.line",
+        "f.pv.div.legion-of-boom.line",
+        "f.pv.div.maddie-mondays.line",
+        "f.pv.div.outlast-pg-time.line",
+        "f.pv.division_games",
+        "f.pv.g1.dog_chance",
+        "f.pv.g1.dog_same_score",
+        "f.pv.g1.dog_stakes",
+        "f.pv.g1.fav_chance",
+        "f.pv.g1.fav_nuance",
+        "f.pv.g1.fav_same_score",
+        "f.pv.g1.fav_stakes",
+        "f.pv.g1.favorite",
+        "f.pv.g1.flip",
+        "f.pv.g1.h2h",
+        "f.pv.g1.matchup",
+        "f.pv.g1.ranges",
+        "f.pv.g1.underdog",
+        "f.pv.g1.upset_path",
+        "f.pv.g2.dog_chance",
+        "f.pv.g2.dog_same_score",
+        "f.pv.g2.dog_stakes",
+        "f.pv.g2.fav_chance",
+        "f.pv.g2.fav_nuance",
+        "f.pv.g2.fav_same_score",
+        "f.pv.g2.fav_stakes",
+        "f.pv.g2.favorite",
+        "f.pv.g2.flip",
+        "f.pv.g2.h2h",
+        "f.pv.g2.matchup",
+        "f.pv.g2.ranges",
+        "f.pv.g2.underdog",
+        "f.pv.g2.upset_path",
+        "f.pv.g3.dog_chance",
+        "f.pv.g3.dog_same_score",
+        "f.pv.g3.dog_stakes",
+        "f.pv.g3.fav_chance",
+        "f.pv.g3.fav_nuance",
+        "f.pv.g3.fav_same_score",
+        "f.pv.g3.fav_stakes",
+        "f.pv.g3.favorite",
+        "f.pv.g3.flip",
+        "f.pv.g3.h2h",
+        "f.pv.g3.matchup",
+        "f.pv.g3.ranges",
+        "f.pv.g3.underdog",
+        "f.pv.g3.upset_path",
+        "f.pv.inj.count",
+        "f.pv.inj.top",
+        "f.pv.method",
+        "f.pv.sit.0001",
+        "f.pv.sit.0002",
+        "f.pv.sit.0003",
+        "f.pv.sit.0004",
+        "f.pv.sit.0005",
+        "f.pv.sit.0006",
+        "f.pv.sit.0007",
+        "f.pv.sit.0008",
+        "f.pv.sit.0009",
+        "f.pv.sit.0010",
+        "f.pv.sit.0011",
+        "f.pv.sit.0012",
+        "f.pv.sit.bottom",
+        "f.pv.sit.fallers",
+        "f.pv.sit.risers",
+        "f.pv.sit.top"
+      ],
+      "tableIds": [
+        "t.pv.games",
+        "t.pv.injuries",
+        "t.pv.ranges"
       ],
       "chartIds": [],
       "quoteIds": [],
