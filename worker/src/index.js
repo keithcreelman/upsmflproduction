@@ -18017,7 +18017,16 @@ export default {
               gameday: safeStr(c[iGd]), gametime: safeStr(c[iTm]) });
           }
           const weeks = Object.keys(weeksSet).map(Number).sort((a, b) => a - b);
-          const wk = wReq || weeks[0] || 1;
+          // Default to the LATEST week with a posted line, not the earliest.
+          // nflverse's games.csv keeps every week's line forever, past and
+          // future alike -- week 1's line is still in the file in week 12 --
+          // so `weeks[0]` was always week 1 and never advanced. Fixed
+          // 2026-09-29: this board is inherently forward-looking (the whole
+          // point of "implied points" is reading what's about to happen), so
+          // the freshest week that actually HAS a line -- the current/
+          // upcoming week, since books only post a week or two ahead -- is
+          // the correct default, not the first one that was ever posted.
+          const wk = wReq || weeks[weeks.length - 1] || 1;
           const games = all.filter((g) => g.week === wk).map((g) => {
             const t = g.total, s = g.spread;
             const homeImp = (t != null && s != null) ? Math.round((t / 2 + s / 2) * 10) / 10 : null;
