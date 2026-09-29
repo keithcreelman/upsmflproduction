@@ -862,7 +862,29 @@ table.asw-table{font-size:13px}
   // is. That is an INSUFFICIENT-SAMPLE fact, not a data-availability one,
   // and must never be worded as "check whether the source has published
   // it" -- the source could be perfect and this would still be empty.
-  var MIN_GAMES_REQUIRED = { split_script: 6 };
+  //
+  // l4w_delta added 2026-09-29 (found investigating a "No data reported"
+  // report on L4W Δ): its own compute() requires c.weeks.length >= 5 before
+  // returning a value -- with 4 or fewer total weeks, "last 4 weeks" IS the
+  // entire season, so the delta against season PPG would be trivially 0,
+  // not a real momentum signal. That gate was correctly designed but was
+  // being reported as a generic "DATA UNAVAILABLE" (implying a pipeline
+  // problem) instead of what it actually is -- exactly the Script Δ
+  // situation, just with a different, currently-unreachable threshold (the
+  // 2026 season is only 3 weeks in).
+  //
+  // Each entry carries ITS OWN "why" description, not just a bare number --
+  // found the hard way adding l4w_delta as a second entry here: the
+  // original code hardcoded Script Δ's own "trailing by 7+ AND leading by
+  // 7+" wording for every column in this map, so L4W Δ's tooltip described
+  // a game-script requirement that has nothing to do with its actual
+  // formula. Invisible with only one entry (#1150 shipped this with only
+  // Script Δ ever able to occupy it); real the moment a second, differently
+  // -reasoned column joins the map.
+  var MIN_GAMES_REQUIRED = {
+    split_script: { min: 6, why: "needs ≥3 games trailing by 7+ AND ≥3 leading by 7+ (6 total)" },
+    l4w_delta:    { min: 5, why: "needs ≥5 weeks played (comparing the last 4 to a season average that would otherwise just be those same 4 weeks)" },
+  };
 
   // A local copy, not a reuse of the FPA board's own relTime() -- that one
   // lives inside a separate nested closure (its own IIFE further down the
@@ -937,14 +959,13 @@ table.asw-table{font-size:13px}
     // Insufficient sample -- checked BEFORE the source-freshness question,
     // because it is true regardless of whether the source is perfectly
     // healthy (a healthy source has nothing TO report yet either).
-    var minGames = MIN_GAMES_REQUIRED[colKey];
-    if (minGames != null) {
+    var minSpec = MIN_GAMES_REQUIRED[colKey];
+    if (minSpec != null) {
       var weeksPlayed = state.lastBuiltForWeek || 0;
-      if (weeksPlayed < minGames) {
+      if (weeksPlayed < minSpec.min) {
         return { kind: "insufficient_sample",
-          why: "needs ≥3 games trailing by 7+ AND ≥3 leading by 7+ (" + minGames + " total) — only " +
-               weeksPlayed + " week" + (weeksPlayed === 1 ? "" : "s") + " played this season; " +
-               "populates automatically once enough games exist, independent of source health" };
+          why: minSpec.why + " — only " + weeksPlayed + " week" + (weeksPlayed === 1 ? "" : "s") +
+               " played this season; populates automatically once enough games exist, independent of source health" };
       }
     }
 
@@ -2758,9 +2779,20 @@ table.asw-table{font-size:13px}
 
     // INSUFFICIENT SAMPLE gets its own note, deliberately separate from the
     // data-availability one above -- it is a math fact about games played
-    // (Script Δ needs >=3 trailing + >=3 leading games), not a claim about
-    // whether any source is healthy. Conflating the two would make a
-    // perfectly healthy splits pipeline look like a broken one.
+    // (Script Δ needs >=3 trailing + >=3 leading games; L4W Δ needs >=5
+    // weeks played), not a claim about whether any source is healthy.
+    // Conflating the two would make a perfectly healthy splits pipeline
+    // look like a broken one.
+    //
+    // Fixed 2026-09-29 (found adding l4w_delta as a second entry here --
+    // #1150 shipped this bucket with only one possible member, Script Δ, so
+    // this never got exercised): thinWhy used to be deadReason(thin[0]...),
+    // which is only correct when every flagged column shares one reason --
+    // with two DIFFERENT floors (Script Δ's 6-games trailing/leading
+    // requirement vs L4W Δ's unrelated 5-weeks-played one), the banner was
+    // reporting Script Δ's specific wording for BOTH columns. Same fix
+    // shape as the "broken" bucket just above, which already grouped by
+    // unique reason correctly.
     var thin = (cols || []).filter(function (k) {
       var d = deadReason(k, state.activeTab, availability);
       return d && d.kind === "insufficient_sample";
@@ -2769,7 +2801,10 @@ table.asw-table{font-size:13px}
       var thinParts = thin.map(function (k) {
         return "<code>" + escapeHtml((COLS[k] && COLS[k].label) || k) + "</code>";
       }).join(" ");
-      var thinWhy = deadReason(thin[0], state.activeTab, availability).why;
+      var thinReasons = {};
+      thin.forEach(function (k) { thinReasons[deadReason(k, state.activeTab, availability).why] = 1; });
+      var thinKeys = Object.keys(thinReasons);
+      var thinWhy = thinKeys.length === 1 ? thinKeys[0] : "see each column's tooltip";
       notes.push("<b>Sample too small for " + (thin.length === 1 ? "this column" : "these columns") + ":</b> " +
                  thinParts + " — " + escapeHtml(thinWhy) + ".");
     }
