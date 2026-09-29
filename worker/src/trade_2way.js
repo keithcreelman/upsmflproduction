@@ -301,10 +301,21 @@ export async function get2WayTrade(env, id, viewer, deps) {
   let row; try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
   if (!row || !inScope(row, viewer)) return { ok: false, http: 404, code: "not_found", message: "This trade doesn't exist." };
   if (!canView2Way(row, viewer)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
-  let compliance = null;
-  if (row.status === "collecting" || row.status === "executing") compliance = await complianceViaSelf2Way(env, row);
+  let compliance = null, capAck = null;
+  if (row.status === "collecting" || row.status === "executing") {
+    compliance = await complianceViaSelf2Way(env, row);
+    // The detail view needs this on a plain GET (a reload, a re-open, a deep link), not only
+    // in the moment right after an accept/recheck response -- otherwise "who still needs to
+    // acknowledge" would silently vanish the instant a dialog closes.
+    if (compliance && compliance.cap && Array.isArray(compliance.cap.violations) && compliance.cap.violations.length) {
+      try {
+        const acks = await capAckStoreFor(env).readAllForTrade(capAckKey(row));
+        capAck = evaluateCapAcknowledgment({ violations: compliance.cap.violations, tradeKey: safeStr(row.id), acks });
+      } catch (e) { console.warn(`[2way-staged] ${row.id}: cap-ack read failed (detail view): ${e?.message || e}`); }
+    }
+  }
   const { names, players } = await enrich(deps, [row]);
-  return { ok: true, trade: buildCanonical2Way(row, viewer, { names, players, compliance }) };
+  return { ok: true, trade: buildCanonical2Way(row, viewer, { names, players, compliance, capAck }) };
 }
 
 export async function list2WayForFranchise(env, leagueId, fid, opts) {
@@ -420,6 +431,7 @@ function buildCanonical2Way(row, viewer, extra) {
     permissions: { can_view: canView2Way(row, viewer), can_accept: isTo && row.status === "collecting" && row.to_state === "pending", can_cancel: (isFrom || isTo || !!(viewer && viewer.isCommish)) && (row.status === "collecting" || row.status === "executing"), can_recheck: row.status === "failed" },
     state_view: { code: stateCode, label: stateLabel, message: stateMessage },
     compliance: compliance || null,
+    cap_ack: (extra && extra.capAck) || null,
   };
 }
 

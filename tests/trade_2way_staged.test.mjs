@@ -236,6 +236,32 @@ test("ZERO MFL WRITES: cancelling a staged trade before either side finishes dec
   t.equal(row.mfl_trade_id, null);
 });
 
+// ═══════════════════════ DETAIL GET: cap_ack survives a plain reload, not only the accept response ═══════════════════════
+
+test("DETAIL: get2WayTrade exposes fresh cap_ack on a plain GET -- not only inside the accept/recheck response -- so re-opening a held trade never silently loses 'who still needs to acknowledge'", async () => {
+  const env = makeEnv({
+    compliance: () => ({
+      participants: [], cap: { status: "blocked", cap_dollars: 300000, violations: [{ franchise_id: FR.A, franchise_name: "Real Deal Creel", amount_over: 5000 }], message: "x" },
+      roster: { status: "ok", advisory: true, warnings: [], message: "" }, loaded_contracts: { status: "ok", max: 5, violations: [], message: "" },
+      lineup: { status: "ok", advisory: true, warnings: [], message: "" }, extension_skipped: [],
+    }),
+  });
+  const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+  // A plain GET, never having gone through accept at all.
+  const g = await get2WayTrade(env, created.id, viewer(FR.A, { leagueId: "74598", season: "2026" }), {});
+  t.ok(g.ok, JSON.stringify(g));
+  t.ok(g.trade.cap_ack, "cap_ack must be present on the canonical object whenever a live cap violation exists");
+  t.equal(g.trade.cap_ack.satisfied, false);
+  t.equal(g.trade.cap_ack.perFranchise[0].franchise_id, FR.A);
+});
+
+test("DETAIL: cap_ack is null when there is no live cap violation -- never a stale/fabricated entry", async () => {
+  const env = makeEnv(); // default healthy compliance
+  const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+  const g = await get2WayTrade(env, created.id, viewer(FR.A, { leagueId: "74598", season: "2026" }), {});
+  t.equal(g.trade.cap_ack, null);
+});
+
 // ═══════════════════════ HTTP surface: identity + the global L-guard exemption ═══════════════════════
 
 test("HTTP: only the proven viewer can create as their own team -- a proven session for FR.B posting a trade whose 'from' claims FR.A is refused, never trusting the body's own fid claim", async () => {
