@@ -56,7 +56,16 @@ const digits = (v) => safeStr(v).replace(/\D/g, "");
 const nowIso = () => new Date().toISOString();
 const newId = () => { try { return crypto.randomUUID(); } catch (_) { return "2w-" + digits(nowIso()) + "-" + digits(safeStr(Math.floor(Date.now() % 1e9))); } };
 
-async function enabled(env) { return await getFeatureFlag(env, "TRADE_2WAY_STAGING_ENABLED"); }
+// Cutover (worker/src/index.js's legacy-create refusal) implies staging must be usable --
+// without this OR, turning cutover on while forgetting to also turn on plain staging would
+// brick ALL 2-way trade creation league-wide (the legacy path refuses, and the staged path
+// ALSO refuses) -- exactly the kind of foot-gun this codebase's own "no fail-open guards"
+// lesson is about, just inverted (a missing flag combination silently fails CLOSED on
+// something that must keep working). Cutover being on is always sufficient on its own.
+async function enabled(env) {
+  if (await getFeatureFlag(env, "TRADE_2WAY_CUTOVER_ENABLED")) return true;
+  return await getFeatureFlag(env, "TRADE_2WAY_STAGING_ENABLED");
+}
 async function liveExecute(env) { return await getFeatureFlag(env, "TRADE_2WAY_STAGING_EXECUTE"); }
 function allowlist(env) { return safeStr(env.TRADE_2WAY_STAGING_TEST_FRANCHISES).split(",").map(padFid).filter(Boolean); }
 function franchiseAllowed(env, fid) { const a = allowlist(env); return a.length === 0 || a.includes(padFid(fid)); }

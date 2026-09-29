@@ -1,12 +1,22 @@
-// "Confirm a new offer cannot accidentally take the old native-MFL creation path after
-// cutover" (Keith's ruling, 2026-09-29). The staged and direct-MFL 2-way creation functions
-// are two SEPARATE, independently-invoked functions -- not a shared decision point with a
-// flag -- so there is no code path where calling one could silently fall through to the
-// other. Verified at the SOURCE level: each creation function's own body (sliced between its
-// own `function` line and the next function's, both located by exact, verified line anchors
-// -- not a generic heuristic, since this file mixes function-declaration and function-
-// expression styles freely, which breaks a "next `function` keyword" search) references ONLY
-// its own endpoint family, never the other's.
+// UPDATED SCOPE (2026-09-29, second ruling): the button-level story below is still true and
+// still tested -- "Stage via War Room" and "Submit Offer" are two separate, independently-
+// invoked functions, not a shared decision point with a flag. But Keith correctly identified
+// that this alone was an insufficient fix ("hiding a button alone is insufficient"): the
+// NORMAL Send button must itself stage once cutover is live server-side, which means
+// submitOfferToQueue/submitOffer NOW deliberately fall through to staging when the legacy
+// endpoint refuses (worker's TRADE_2WAY_CUTOVER_ENABLED, code "staging_required") --
+// see submitTradeCreateWithGates/submitViaStagingFallback (desktop) and
+// submitTradeCreateWithGatesMobile/submitViaStagingFallbackMobile (mobile), and their own
+// dedicated, REAL-worker, end-to-end coverage in tests/trade_cutover_send_fallback.test.mjs
+// and tests/trade_2way_cutover_switch.test.mjs (the server-side gate itself). What THIS file
+// still verifies, and what remains true even with the fallback: neither function's own body
+// contains a hardcoded, unconditional reference to the OTHER endpoint family -- the only
+// bridge between them is the explicit, server-authorized fallback path, never a silent shared
+// branch a stale client could stumble into on its own. Verified at the SOURCE level: each
+// creation function's own body (sliced between its own `function` line and the next
+// function's, both located by exact, verified line anchors -- not a generic heuristic, since
+// this file mixes function-declaration and function-expression styles freely, which breaks a
+// "next `function` keyword" search).
 //   node tests/trade_staged_no_accidental_crossover.test.mjs
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
@@ -26,13 +36,13 @@ function sliceByAnchors(lines, startLineText, startLineNum, endLineText, endLine
 }
 
 test("DESKTOP: submitStagedOfferToQueue's own body never references the direct-MFL endpoint family, and never calls submitOfferToQueue/submitTradeCreateWithGates", () => {
-  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8622, "function init2WayStagedTrade()", 8666);
+  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8687, "function init2WayStagedTrade()", 8731);
   t.doesNotMatch(body, /resolveTradeOffersApiUrl|\/trade-offers|submitTradeCreateWithGates\(|submitOfferToQueue\(/);
   t.match(body, /tw2sUrl\(/, "it must go through the staged 2-way URL builder");
 });
 
 test("DESKTOP: submitOfferToQueue's own body never references the staged endpoint family, and never calls submitStagedOfferToQueue", () => {
-  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4322, "async function retryLastSubmitRequest()", 4445);
+  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4364, "async function retryLastSubmitRequest()", 4510);
   t.doesNotMatch(body, /resolveStaged2WayApiUrl|\/api\/trades\/2way|submitStagedOfferToQueue\(/);
 });
 
@@ -43,13 +53,13 @@ test("DESKTOP: the staged URL builder resolves to the staged endpoint (it legiti
 });
 
 test("MOBILE: submitStagedOffer's own body never references the direct-MFL proposals endpoint, and never calls submitOffer/submitTradeCreateWithGatesMobile", () => {
-  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2287, "function render(mount, parts)", 2325);
+  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2340, "function render(mount, parts)", 2378);
   t.doesNotMatch(body, /\/api\/trades\/proposals|submitTradeCreateWithGatesMobile\(|[^d]submitOffer\(/);
   t.match(body, /\/api\/trades\/2way/, "it must post to the staged endpoint");
 });
 
 test("MOBILE: submitOffer's own body never references the staged endpoint, and never calls submitStagedOffer", () => {
-  const body = sliceByAnchors(mobileLines, "function submitOffer()", 947, "function mflActionVerb(action)", 1028);
+  const body = sliceByAnchors(mobileLines, "function submitOffer()", 987, "function mflActionVerb(action)", 1081);
   t.doesNotMatch(body, /\/api\/trades\/2way(?!-)|submitStagedOffer\(/);
 });
 

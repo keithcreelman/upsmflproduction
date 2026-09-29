@@ -38387,6 +38387,26 @@ const mflToSleeper = {};
         if (proposeAuth.caller.fid !== fromFranchiseId) return tradeForbidden("You can only send an offer as your own team.");
         if (proposeAuth.caller.leagueId !== leagueId) return jsonOut(400, { ok: false, code: "league_mismatch", error: "That request named two different leagues." });
         if (!payload) return jsonOut(400, { ok: false, error: "payload is required" });
+        // ---- 🔒 CUTOVER GATE (2026-09-29) ------------------------------------------------
+        // Keith's ruling: "the legacy creation endpoint must also refuse direct creation
+        // server-side while staging is enabled... hiding a button alone is insufficient."
+        // While TRADE_2WAY_CUTOVER_ENABLED is on, this route refuses to CREATE a new native
+        // 2-way tradeProposal at all -- no client (updated, cached, or a stale tab that never
+        // reloaded) can create one this way, whatever button it clicked. This is checked BEFORE
+        // any MFL call (nothing has been proposed or rejected yet), and it changes NOTHING about
+        // this route's other behavior: reading existing offers (GET, above) and every action on
+        // an ALREADY-EXISTING offer (accept/reject/revoke/ack-cap/select-drops via
+        // /trade-offers/action) are untouched -- an owner can still finish out a native offer
+        // that already existed before cutover. The client-side response to this refusal is to
+        // fall through to POST /api/trades/2way (staged creation) with the identical payload --
+        // see trade_workbench.js's submitOfferToQueue / trade.js's submitOffer.
+        if (await getFeatureFlag(env, "TRADE_2WAY_CUTOVER_ENABLED")) {
+          return jsonOut(409, {
+            ok: false, code: "staging_required", error_type: "staging_required",
+            error: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+            message: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+          });
+        }
         if (validationStatus && validationStatus !== "ready") {
           const diagnostics = buildValidationFailureDiagnostics({
             reason: "trade_payload_not_ready",
@@ -39617,6 +39637,19 @@ const mflToSleeper = {};
             // enforced here, before the original offer is rejected, so no side effect precedes it.
             if (counterFromId !== actionCaller.fid || counterToId !== partyCheck.from) {
               return jsonOut(400, { ok: false, code: "bad_counter_parties", error: "A counter has to go from your team back to the team that made the offer." });
+            }
+            // ---- 🔒 CUTOVER GATE (2026-09-29) --------------------------------------------
+            // A COUNTER creates a NEW native MFL tradeProposal (after rejecting the
+            // original) -- exactly the same bypass a direct CREATE would be, so it gets the
+            // identical refusal, checked BEFORE the original offer is rejected (the same "never
+            // leave the sender with their offer rejected and nothing sent" care the
+            // extension-pricing check just below already applies).
+            if (await getFeatureFlag(env, "TRADE_2WAY_CUTOVER_ENABLED")) {
+              return jsonOut(409, {
+                ok: false, code: "staging_required", error_type: "staging_required",
+                error: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+                message: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+              });
             }
             // A counter that promises an extension is priced from the current contract BEFORE the original offer is rejected — a refusal here must
             // never leave the sender with their offer rejected and no counter sent.

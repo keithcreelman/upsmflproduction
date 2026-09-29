@@ -104,12 +104,13 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   // again together, landing on the same stamp (2026.09.29.1). Then, staged 2-way trades
   // (2026-09-29, worker/src/trade_2way.js) genuinely changed views/trade.js AGAIN (the new
   // #league/trade/2s/<id> route, list/detail/accept/cancel/recheck/select-drops, the pre-send
-  // popup) while site/shared/trade_3way_view.js itself was NOT touched -- so the two
-  // legitimately diverge now (2026.09.29.2 vs .1). That's the "two files diverging in general
-  // is expected, not a bug" case this comment already named; this assertion tracks the CURRENT
-  // true pairing, not a fixed pin -- update it again whenever either file's own real content
-  // changes and bumps its stamp.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.29.1", "2026.09.29.2"],
+  // popup, and then the controlled cutover switch's automatic Send-flow fallback) while
+  // site/shared/trade_3way_view.js itself was NOT touched again -- so the two legitimately
+  // diverge (2026.09.29.3 vs .1). That's the "two files diverging in general is expected, not
+  // a bug" case this comment already named; this assertion tracks the CURRENT true pairing,
+  // not a fixed pin -- update it again whenever either file's own real content changes and
+  // bumps its stamp.
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.29.1", "2026.09.29.3"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   t.ok(v.split(".").map(Number).join(".") >= "2026.9.25.2" && v.split(".").length === 4, "the build did not go backwards from the accepted 2026.09.25.2");

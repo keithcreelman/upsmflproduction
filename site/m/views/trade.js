@@ -940,7 +940,47 @@
           return submitTradeCreateWithGatesMobile(url, nextBody, fromFranchiseId, attempt + 1);
         });
       }
+      // ---- 🔒 CUTOVER (2026-09-29): the legacy endpoint refused to CREATE ----
+      // Keith's ruling: the NORMAL Send button must itself stage once cutover is on, with the
+      // compliance popup shown as part of THIS SAME flow. submitOffer() calls this same
+      // function unchanged, so a stale/cached client ends up staged automatically the moment
+      // the server says so -- never a silent native-MFL send.
+      if (resp.status === 409 && resp.body && resp.body.code === "staging_required") {
+        return submitViaStagingFallbackMobile(initialBody, fromFranchiseId);
+      }
       return resp;
+    });
+  }
+
+  // The SAME payload the direct-MFL create already built (initialBody.payload), staged
+  // instead -- runs the SAME pre-send popup (runPreSendPreview) the dedicated "Stage via War
+  // Room" button uses. Resolves { ok:true, status:201, body:{ok:true, staged:true, id} } on
+  // success (submitOffer's .then must check body.staged before reading any direct-MFL-only
+  // field), { ok:true, status:0, body:{ok:false, code:"staging_declined_by_owner"} } if the
+  // owner chose "Don't send" on the popup (not a network/server failure -- a deliberate,
+  // calm no-op), or a normal failed-response shape otherwise. Never throws (matches every
+  // other branch of this function).
+  function submitViaStagingFallbackMobile(directBody, fromFranchiseId) {
+    var payload = directBody.payload || {};
+    var movements = tw2sMovementsFromPayload(payload);
+    if (!movements.length) return Promise.resolve({ ok: false, status: 400, body: { ok: false, code: "no_assets", error: "Add at least one asset to stage." } });
+    var toFid = U.pad4(directBody.to_franchise_id);
+    return runPreSendPreview(fromFranchiseId, movements, payload.extension_requests).then(function (pre) {
+      if (!pre.proceed) return { ok: true, status: 0, body: { ok: false, code: "staging_declined_by_owner" } };
+      var url2 = M.api.workerUrl("/api/trades/2way?L=" + encodeURIComponent(M.state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+      var stored2 = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+      if (stored2) url2 += "&MFL_USER_ID=" + encodeURIComponent(stored2);
+      var body2 = {
+        from: { fid: fromFranchiseId, name: directBody.from_franchise_name },
+        to: { fid: toFid, name: directBody.to_franchise_name },
+        movements: movements, extension_requests: payload.extension_requests || [],
+        loaded_contract_drops: pre.drops, notes: directBody.message || ""
+      };
+      return tw2sFetch(url2, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body2) }).then(function (res) {
+        if (res && res.networkError) return { ok: false, status: 0, body: { ok: false, error: "Couldn't reach the server." } };
+        if (res.ok && res.body && res.body.ok) return { ok: true, status: res.status, body: { ok: true, staged: true, id: res.body.id } };
+        return { ok: false, status: res.status, body: res.body || { ok: false, error: "Couldn't stage this offer." } };
+      });
     });
   }
 
@@ -1003,6 +1043,19 @@
     submitPromise.then(function (resp) {
       if (!resp) { builderState.submitting = false; renderBuilder(); return; }   // the owner declined to acknowledge/select -- already repainted above
       builderState.submitting = false;
+      if (resp.body && resp.body.code === "staging_declined_by_owner") {
+        // A deliberate "Don't send" on the cutover-fallback popup -- calm, not an error.
+        builderState.error = "";
+        M.ui.showToast("Not sent.", "info");
+        renderBuilder();
+        return;
+      }
+      if (resp.ok && resp.body && resp.body.ok !== false && resp.body.staged) {
+        M.ui.showToast("Staged — awaiting review. Held server-side; not sent to MFL. ✓", "ok");
+        closeBuilder();
+        refreshStaged2WayList().then(function () { M.route.renderRoute(); });
+        return;
+      }
       if (resp.ok && resp.body && resp.body.ok !== false) {
         M.ui.showToast(builderState.counterMode ? "Counter sent ✓" : "Offer sent ✓", "ok");
         closeBuilder();

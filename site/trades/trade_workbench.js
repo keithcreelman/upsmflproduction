@@ -4314,9 +4314,51 @@
           currentBody = Object.assign({}, currentBody, { cap_ack: { signature: data.cap_ack_needed.signature } });
           continue;
         }
+        // ---- 🔒 CUTOVER (2026-09-29): the legacy endpoint refused to CREATE ----
+        // Keith's ruling: the NORMAL Send action must itself stage once cutover is on, with
+        // the compliance popup shown as part of that SAME flow -- not a separate button the
+        // owner has to know to click instead. This is the one place that fallback lives: the
+        // normal Submit-Offer button calls this same function unchanged, so a stale/cached
+        // client that never learned about staging still ends up staged here, automatically,
+        // the moment the server tells it to be -- never a silent native-MFL send.
+        if (err && err.status === 409 && data && data.code === "staging_required") {
+          return await submitViaStagingFallback(currentBody, fromFranchiseId);
+        }
         throw err;
       }
     }
+  }
+
+  // The SAME payload the direct-MFL create already built (currentBody.payload), converted to
+  // staged movements and posted to /api/trades/2way instead -- runs the SAME pre-send
+  // loaded-contract popup (tw2sRunPreSendPreview) the dedicated "Stage via War Room" button
+  // uses, so the owner sees the identical warning regardless of which path led them here.
+  // Returns { ok:true, staged:true, id } on success (the caller must check `.staged` and NOT
+  // read direct-MFL-only fields like `.mfl.trade_id` off this result), or throws an Error
+  // shaped like fetchJsonRequest's own (`.status`/`.data`) on failure/decline so the existing
+  // catch handling in submitOfferToQueue still applies.
+  async function submitViaStagingFallback(directBody, fromFranchiseId) {
+    var payload = directBody.payload || {};
+    var movements = tw2sMovementsFromPayload(payload);
+    if (!movements.length) { var eNoAssets = new Error("Add at least one asset to stage."); eNoAssets.status = 400; eNoAssets.data = { code: "no_assets" }; throw eNoAssets; }
+    var toFid = pad4(directBody.to_franchise_id);
+    var pre = await tw2sRunPreSendPreview(fromFranchiseId, movements, payload.extension_requests);
+    if (!pre.proceed) {
+      var eDeclined = new Error("Not staged.");
+      eDeclined.status = 0; eDeclined.data = { code: "staging_declined_by_owner" }; eDeclined.__declinedStaging = true;
+      throw eDeclined;
+    }
+    var body = {
+      from: { fid: fromFranchiseId, name: directBody.from_franchise_name },
+      to: { fid: toFid, name: directBody.to_franchise_name },
+      movements: movements, extension_requests: payload.extension_requests || [],
+      loaded_contract_drops: pre.drops, notes: directBody.message || directBody.comment || ""
+    };
+    var res = await tw2sFetch(tw2sUrl("", {}), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res && !res.networkError && res.ok && res.body && res.body.ok) return { ok: true, staged: true, id: res.body.id };
+    var eFail = new Error((res && res.body && (res.body.message || res.body.error)) || (res && res.networkError ? "Couldn't reach the server." : "Couldn't stage this offer."));
+    eFail.status = res ? res.status : 0; eFail.data = res ? res.body : null;
+    throw eFail;
   }
 
   async function submitOfferToQueue() {
@@ -4381,6 +4423,22 @@
         right_trade_salary_k: payload.teams && payload.teams[1] ? safeInt(payload.teams[1].traded_salary_adjustment_k, 0) : 0
       });
       var res = await submitTradeCreateWithGates(apiUrl.toString(), body, safeStr(body.from_franchise_id));
+      // Cutover fallback landed: this was STAGED, not sent to MFL -- a completely different
+      // result shape (no .mfl/.outbox/.proposal fields exist on it), so branch here before any
+      // of the direct-MFL-specific success handling below tries to read them.
+      if (res && res.staged) {
+        resetTrade({ resetPartnerTeam: true, resetMessage: true, resetExtensions: true, resetSalary: true });
+        state.submit.lastRequestBody = null;
+        state.submit.lastRequestUrl = "";
+        state.submit.canRetry = false;
+        var stagedOkMessage = "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
+        setSubmitStatus(stagedOkMessage, "good");
+        showFeedbackModal("Offer Staged", stagedOkMessage, "good");
+        initTeamSelectors();
+        refresh2WayStagedList();
+        rerender();
+        return;
+      }
       var echoedMessage = safeStr(
         (res && res.proposal && res.proposal.comments) ||
         (res && res.offer && res.offer.message) ||
@@ -4424,6 +4482,13 @@
       await refreshBannerOffers(true);
       rerender();
     } catch (err) {
+      if (err && err.__declinedStaging) {
+        // The owner chose "Don't send" on the cutover-fallback popup -- calm status, not an
+        // error banner; nothing was sent anywhere (neither MFL nor D1).
+        setSubmitStatus("Not sent.", "");
+        renderSummary();
+        return;
+      }
       try {
         console.error("[TWB] Submit failed diagnostics:", {
           message: err && err.message,

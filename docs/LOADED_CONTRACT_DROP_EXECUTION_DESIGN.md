@@ -697,6 +697,64 @@ polling cadence can miss — exactly the class of gap the 2026-09-25 stuck-offer
 (referenced elsewhere in this repo's history) already demonstrated for a different check — and
 must never be presented to owners or to Keith as closing the bypass.
 
+### 8.4a The controlled cutover switch (2026-09-29): closing the in-app bypass server-side
+
+**Keith's correction (2026-09-29): keeping "Stage via War Room" beside the existing direct-MFL
+Send button leaves an in-app bypass — hiding a button alone is insufficient. At cutover, the
+normal Send action must stage every new two-team offer, and the legacy creation endpoint must
+also refuse direct creation server-side while staging is enabled.**
+
+**One new flag, `TRADE_2WAY_CUTOVER_ENABLED`** (default off, fails closed like every other flag
+here), checked in exactly two places in `worker/src/index.js`, both BEFORE any MFL call:
+- The legacy `POST /trade-offers` / `/api/trades/proposals` CREATE handler — refuses with
+  `409 {code:"staging_required"}`.
+- The legacy `COUNTER` action (inside `/api/trades/proposals/action`) — a counter rejects the
+  original offer and proposes a brand-new one, which is exactly the same "create a new native
+  offer" bypass as a direct create, so it gets the identical refusal, checked before the original
+  offer is rejected (no side effect on a refused attempt).
+
+Nothing else on either legacy route is touched — reading existing offers, and every action on an
+offer that already exists (accept/reject/revoke/ack-cap/select-drops), works exactly as before,
+cutover or not. This is deliberate: cutover blocks NEW native creation only, never managing what's
+already pending.
+
+**Safety interlock:** `trade_2way.js`'s own `enabled()` check (gating whether staged creation is
+allowed at all) now also passes when cutover is on, even if the separate
+`TRADE_2WAY_STAGING_ENABLED` flag was left off. Without this, turning cutover on while forgetting
+to also flip plain staging on would brick ALL 2-way trade creation league-wide (the legacy path
+refuses, and the staged path would ALSO refuse) — exactly the kind of foot-gun
+`rule_no_fail_open_guards` warns about, just inverted into a fail-CLOSED foot-gun on something that
+must keep working.
+
+**Client-side: the fallback lives in the normal Send flow, not a separate branch.**
+`submitTradeCreateWithGates`/`submitViaStagingFallback` (desktop, `trade_workbench.js`) and
+`submitTradeCreateWithGatesMobile`/`submitViaStagingFallbackMobile` (mobile, `trade.js`) are the
+SAME functions the existing "Submit Offer"/"Send offer" button already called, unchanged in every
+other respect. When the legacy create is refused with `staging_required`, they automatically:
+run the SAME pre-send compliance popup the dedicated Stage button uses, convert the SAME payload
+the direct-MFL path already built into staged movements, and POST to `/api/trades/2way` instead —
+so a client that never learned about staging (a stale tab, a cached bundle) still ends up staged
+the moment the SERVER says so, never a silent native-MFL send. The owner declining the popup is a
+calm "Not sent," never an error. The separate "Stage via War Room" button still exists as an
+explicit, always-available choice regardless of cutover state — it was never the bypass; the
+normal Send button silently staying direct-only was.
+
+**Tested** (`tests/trade_2way_cutover_switch.test.mjs`, 7/7; `tests/trade_cutover_send_fallback.test.mjs`,
+6/6 — both against the real worker + real D1 + a stateful fake MFL): cutover off preserves exactly
+today's behavior (a real MFL trade is proposed); a stale client calling the legacy CREATE or
+COUNTER endpoint directly is refused with zero MFL writes once cutover is on; an owner can still
+accept a native offer that already existed before cutover; cutover on with plain staging off still
+permits staged creation (the interlock); an off→on→off flag transition is clean and leaves no
+lingering state; and staged offers created while cutover was on survive a rollback (cutover flipped
+back off) fully intact — detail GET, accept, and cancel all keep working, because cutover only ever
+gates the legacy create route and never touches `ups_2way_trades`. The end-to-end fallback itself
+is proven against the real worker too: cutover on makes the SAME normal-Send call land as a real
+staged D1 row (readable back through the real detail route), running the popup exactly once, with
+zero MFL writes.
+
+**Both flags (`TRADE_2WAY_CUTOVER_ENABLED` and `TRADE_2WAY_STAGING_ENABLED`) remain off. Nothing in
+this section has been turned on for real owners.**
+
 ### 8.5 Two questions Keith asked directly: cutover, and the honest boundary of what this app controls
 
 **Keith: "Address what happens to already-pending native offers at cutover, and determine
@@ -738,57 +796,67 @@ stated plainly rather than picking one silently:
 Option C is noted as the one that best matches "not a guarantee, but a bounded, honest stopgap
 for a shrinking, known population" rather than either extreme.
 
-#### 8.5.1a Empirical inventory + a concrete cutover procedure (2026-09-29, after client wiring shipped)
+#### 8.5.1a Sentinel-table inventory (UNVERIFIED against MFL) + a concrete cutover procedure (2026-09-29, after client wiring shipped)
 
-**Live inventory, checked 2026-09-29:** `ups_trade_offer_watch` (the sentinel's mirror of every
-pending MFL offer, in-app AND native-desktop) holds exactly 4 rows total, ever, all
-`lifecycle: 'gone'`, all from 2026-07-22 — nothing since. `TRADE_SENTINEL_ACT_ENABLED` and
-`TRADE_SENTINEL_ADOPT_NATIVE` have both been live (`"1"`, via a D1 `ups_settings` override) since
-2026-09-18 — 11 days before this check — so native-offer tracking, not just in-app, has genuinely
-been running the whole time; the sentinel is wired into `scheduled()` on both the hourly and
-`*/5min` crons (`worker/src/index.js`'s `/admin/trade-sentinel/tick`, STEP A). **This session could
-not independently confirm the live count via MFL's own `pendingTrades` API directly** (no
-`MFL_APIKEY`/`COMMISH_API_KEY` value available in this environment) — a new, genuinely read-only
-diagnostic exists for this now (`GET /admin/trade-offers/live-mfl-inventory`, added this pass,
-tested in `tests/trade_offers_live_mfl_inventory.test.mjs`; it enumerates every franchise's
-`pendingTrades` via the same commissioner-impersonated GET the sentinel's STEP A already uses, and
-performs **zero** D1 or MFL writes of any kind), but running it requires the real
-`COMMISH_API_KEY`, which only Keith has. The fastest, zero-engineering way to get a live,
-authoritative answer right now is simply **MFL's own Commissioner → Trades → Pending Trades page**
-— no new code, no deploy, and it is the same data source this whole section is reasoning about.
+**Sentinel-table inventory, checked 2026-09-29 — NOT a confirmed live count. Keith's correction
+(2026-09-29): do not call the pending-native-offer count zero based on this table; it is
+unverified against MFL until the commissioner console or the live inventory route is actually
+checked.** `ups_trade_offer_watch` (the sentinel's mirror of every pending MFL offer, in-app AND
+native-desktop) holds exactly 4 rows total, ever, all `lifecycle: 'gone'`, all from 2026-07-22 —
+nothing since. `TRADE_SENTINEL_ACT_ENABLED` and `TRADE_SENTINEL_ADOPT_NATIVE` have both been live
+(`"1"`, via a D1 `ups_settings` override) since 2026-09-18 — 11 days before this check — so
+native-offer tracking, not just in-app, has genuinely been running the whole time; the sentinel is
+wired into `scheduled()` on both the hourly and `*/5min` crons (`worker/src/index.js`'s
+`/admin/trade-sentinel/tick`, STEP A). **None of that proves today's real MFL count is zero** — it
+only shows what this app's own mirror last recorded, and a mirror can be stale, can have missed a
+poll, or (this session cannot rule out) can have a gap in its own coverage that hasn't surfaced yet.
+**This session could not independently confirm the live count via MFL's own `pendingTrades` API
+directly** (no `MFL_APIKEY`/`COMMISH_API_KEY` value available in this environment) — a new,
+genuinely read-only diagnostic exists for this now (`GET /admin/trade-offers/live-mfl-inventory`,
+added this pass, tested in `tests/trade_offers_live_mfl_inventory.test.mjs`; it enumerates every
+franchise's `pendingTrades` via the same commissioner-impersonated GET the sentinel's STEP A already
+uses, and performs **zero** D1 or MFL writes of any kind), but running it requires the real
+`COMMISH_API_KEY`, which only Keith has. **The count remains unverified against MFL until Keith
+checks it** — either MFL's own Commissioner → Trades → Pending Trades page directly, or the new
+route with his key. Nothing in this section should be read as having settled that question.
 
-**Lockout, checked 2026-09-29:** the league's `lockout` setting is currently **`"Yes"`** (public
-`league` export). This is NOT currently a deliberate control for this feature — it predates this
-work and its purpose here is unaudited — but it is directly relevant to what a cutover can rely
-on. Real, already-shipped code (`worker/src/trade_3way.js`, `executeCommishTwoPartyTrade`) detects
-MFL's own literal response text — **"Commissioner can not impersonate another franchise with
-lockout on."`** — as a distinct failure mode; this has been observed in production MFL responses,
-not guessed. That confirms, with direct evidence: **lockout blocks commissioner-impersonated
-transactions specifically** (this app's own `executeCommishTwoPartyTrade`, used for every 3-way and
-staged-2-way execution, would itself be refused by MFL while lockout is on). **Whether lockout ALSO
+**Lockout, checked 2026-09-29 — KEPT OPEN, not resolved either direction.** The league's `lockout`
+setting is currently **`"Yes"`** (public `league` export). This is NOT currently a deliberate
+control for this feature — it predates this work and its purpose here is unaudited. Real,
+already-shipped code (`worker/src/trade_3way.js`, `executeCommishTwoPartyTrade`) detects MFL's own
+literal response text — **"Commissioner can not impersonate another franchise with lockout on."`**
+— as a distinct failure mode; this has been observed in production MFL responses, not guessed.
+That confirms, with direct evidence, one concrete consequence: **while lockout is on, MFL will
+itself refuse `executeCommishTwoPartyTrade` — the exact commissioner-impersonation primitive every
+3-way and staged-2-way EXECUTION uses.** In plain terms: **lockout, if it is ever on at the moment
+this design's own execution path runs, may prevent the eventual commissioner-execution step from
+working at all** — this is a real, live risk to the execution design itself, not a side curiosity,
+and it should be checked before that path is ever exercised for real. **Whether lockout ALSO
 restricts an ORDINARY OWNER's own native trade action (logged into their own MFL account, no
-impersonation involved) was NOT independently verified this pass** — it would require either a live
+impersonation involved) remains UNVERIFIED, in either direction** — it would require either a live
 test against MFL (out of scope: this pass makes zero real MFL writes) or Keith's own knowledge of
 MFL's documented lockout behavior. The specific error text MFL returns names impersonation only,
-which is suggestive but not proof that ordinary members are unaffected — treat this as an open
-question, not a settled fact, before relying on it for anything.
+which is suggestive but not proof that ordinary members are unaffected. Treat both halves of this
+finding — the confirmed impersonation risk to execution, and the unverified ordinary-owner
+question — as open, not settled, before relying on either for a release decision.
 
 **Concrete recommendation, given the above (this document previously offered A/B/C with no
 recommendation; here is one):** **Option C, and it requires no new engineering** — the sentinel has
 already been running in the ACT+ADOPT_NATIVE configuration for 11+ days, watching every native and
-in-app pending offer. The empirical population needing "cutover" management is, right now, zero.
-The concrete procedure:
+in-app pending offer. **The sentinel's own table shows nothing currently tracked, but that count is
+UNVERIFIED against MFL directly (see above) — step 1 below exists specifically to close that gap
+before relying on it.** The concrete procedure:
 
 1. **Before flipping the staged-2-way UI live for real owners** (client wiring shipped this pass,
    still gated by `TRADE_2WAY_STAGING_ENABLED`/`TRADE_2WAY_STAGING_EXECUTE`, both off): take one
-   final live snapshot (Keith's own MFL Commissioner console, or the new
-   `/admin/trade-offers/live-mfl-inventory` route with his key) to document exactly what, if
-   anything, is pending at that moment. Given the current empirical trend (zero for the last ~2.5
-   months), the expected answer is "nothing," but confirm rather than assume.
+   final live snapshot **verified directly against MFL** (Keith's own MFL Commissioner console, or
+   the new `/admin/trade-offers/live-mfl-inventory` route with his key) to document exactly what, if
+   anything, is pending at that moment. The sentinel table's own history (nothing tracked since
+   2026-07-22) is a reasonable prior, not a substitute for this check.
 2. **Do not revoke anything already pending** (rejects Option B) — an owner's real, possibly
    already-agreed offer that was never risky (most pending offers involve no loaded-contract
    exposure at all) should not be cancelled out from under them; that is a real, avoidable
-   disruption for a population that is empirically at or near zero.
+   disruption for whatever the verified population turns out to be.
 3. **Let every pre-cutover native offer resolve under continued sentinel observation** — no new
    code; this is what has already been running since 2026-09-18. Announce to the league (a single
    message) that new 2-way offers should go through the War Room going forward.
@@ -915,9 +983,17 @@ moment it runs, whichever way #1152 eventually lands. Nothing in this document d
 **Still open, and needing review before ANY execution code is written:**
 - **Cutover for already-pending native offers** (§8.5.1, concrete procedure added §8.5.1a
   2026-09-29) — **recommendation: Option C**, which requires zero new engineering since the
-  sentinel has already been running in the ACT+ADOPT_NATIVE configuration since 2026-09-18 and the
-  live population needing cutover management is empirically at or near zero right now. Still
+  sentinel has already been running in the ACT+ADOPT_NATIVE configuration since 2026-09-18. **The
+  sentinel's own table shows nothing tracked, but that count is UNVERIFIED against MFL directly —
+  do not treat it as a proven zero.** Step 1 of the procedure (§8.5.1a) exists specifically to get
+  a verified answer (Keith's own MFL console, or the new live-inventory route) before acting. Still
   Keith's decision to approve, not yet acted on.
+- **Lockout's effect on the eventual commissioner execution path** (§8.5.1a) — confirmed, with real
+  MFL error-text evidence, that lockout blocks commissioner-impersonated transactions specifically,
+  which is exactly what `executeCommishTwoPartyTrade` (every 3-way and staged-2-way execution) uses
+  — a live risk to that execution step if lockout is ever on when it runs, not merely a side
+  finding. Whether lockout ALSO restricts an ordinary owner's own native trade action remains
+  UNVERIFIED in either direction. Both halves stay open.
 - **Whether to restrict native MFL trade permissions for regular owners at the league-configuration
   level** (§8.5.2) — the only lever that would close the residual "two owners transact directly on
   MFL, outside this app entirely" gap universal staging cannot reach. A commissioner/league-setting
