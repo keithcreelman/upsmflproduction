@@ -51,7 +51,13 @@ test("LC 2: 5 -> 6 blocks", () => {
   t.equal(c.loaded_contracts.status, "blocked");
   t.equal(c.loaded_contracts.violations.length, 1);
   t.equal(c.loaded_contracts.violations[0].franchise_id, "0001");
-  t.match(c.loaded_contracts.violations[0].message, /L\.A\. Looks would move from 5 to 6 loaded contracts\. The maximum is 5\./);
+  t.match(c.loaded_contracts.violations[0].message, /L\.A\. Looks would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/);
+  // Keith's ruling (2026-09-29): the limit is now escapable via a valid conditional drop, not a
+  // permanent block -- the requirement itself is reported even before anyone has picked anything.
+  t.equal(c.loaded_contracts.drop_requirements.length, 1);
+  t.equal(c.loaded_contracts.drop_requirements[0].franchise_id, "0001");
+  t.equal(c.loaded_contracts.drop_requirements[0].required_drops, 1);
+  t.equal(c.loaded_contracts.drop_requirements[0].satisfied, false);
 });
 
 test("LC 3: sending and receiving one loaded contract stays at 5 and passes", () => {
