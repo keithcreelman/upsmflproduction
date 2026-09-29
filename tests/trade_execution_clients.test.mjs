@@ -99,12 +99,13 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   const stampOf = (f) => (idx.match(new RegExp(f.replace(/[.\/]/g, "\\$&") + "\\?v=([0-9.]+)")) || [])[1];
   // Per-file ?v= only needs to be >= that file's own last real change, not equal to
   // whatever the live overall build is. On this combined branch (loaded-contract/lineup
-  // compliance, PR #1135, + the cap-overage acknowledgment ruling, this PR) BOTH files
-  // genuinely changed again -- shared/trade_3way_view.js for both features' UI, and
-  // views/trade.js for the acknowledgment sheets -- so both correctly carry the combined
-  // release's stamp (2026.09.28.4). Two files diverging in general is expected, not a
-  // bug; here they happen to agree because both were touched.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.28.4", "2026.09.28.4"],
+  // compliance, PR #1135, + the cap-overage acknowledgment ruling; then again for the
+  // loaded-contract CONDITIONAL-DROP builder popup, Keith's ruling 2026-09-29) BOTH files
+  // genuinely changed again each time -- shared/trade_3way_view.js for every feature's UI,
+  // and views/trade.js for the sheets -- so both correctly carry the combined release's
+  // latest stamp (2026.09.29.1). Two files diverging in general is expected, not a bug;
+  // here they happen to agree because both were touched again by this release too.
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.29.1", "2026.09.29.1"],
     "both genuinely-changed scripts carry the combined release's stamp");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   t.ok(v.split(".").map(Number).join(".") >= "2026.9.25.2" && v.split(".").length === 4, "the build did not go backwards from the accepted 2026.09.25.2");

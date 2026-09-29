@@ -798,6 +798,128 @@
     });
   }
 
+  // Resolve names/positions for a set of candidate player ids on ONE franchise's own roster,
+  // from data the builder already has loaded (builderState.inv) -- never guessed, never
+  // re-derived client-side (that reasoning -- a schedule-based BL can look flat by suffix alone
+  // -- is exactly the Hammer Times gap this whole feature exists to close).
+  function buildPlayerNamesForFid(fid, playerIds) {
+    var inv = builderState.inv[U.pad4(fid)] || { players: [] };
+    var byId = {};
+    (inv.players || []).forEach(function (p) { byId[String(p.player_id)] = p; });
+    var out = {};
+    (playerIds || []).forEach(function (pid) {
+      var p = byId[pid];
+      if (p) out[pid] = { name: p.display || ("Player " + pid), position: p.position || "" };
+    });
+    return out;
+  }
+
+  // The INITIATOR's own loaded-contract requirement, shown at offer CREATION (Keith's ruling,
+  // 2026-09-29 -- the fix for the Hammer Times gap: building/reviewing an offer as the sender
+  // showed no warning at all). `errData` is the 409 refusal's body ({error, compliance}) --
+  // `compliance.loaded_contracts.drop_requirements` carries this franchise's `candidates` menu
+  // (worker/src/trade_cap_authority.js). Resolves the selected player-id array once the owner
+  // has picked enough and confirmed, or null on cancel/close.
+  function openCreateLoadedContractDropsSheet(errData, fromFranchiseId) {
+    var dropReqs = (errData && errData.compliance && errData.compliance.loaded_contracts && errData.compliance.loaded_contracts.drop_requirements) || [];
+    var myReq = dropReqs.filter(function (d) { return U.pad4(d.franchise_id) === fromFranchiseId; });
+    if (!myReq.length || !T || typeof T.renderLoadedContractDrops !== "function") return Promise.resolve(null);
+    var required = myReq[0].required_drops;
+    var playerNames = buildPlayerNamesForFid(fromFranchiseId, myReq[0].candidates || []);
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return Promise.resolve(null);
+    var existing = document.getElementById("ups-m-drops-overlay");
+    if (existing) existing.remove();
+    return new Promise(function (resolve) {
+      var settled = false;
+      var selected = [];
+      function close(v) {
+        if (settled) return; settled = true;
+        var ov = document.getElementById("ups-m-drops-overlay");
+        if (ov) ov.remove();
+        document.body.style.overflow = "";
+        resolve(v);
+      }
+      function draw(message, ok) {
+        var sel = {}; sel[fromFranchiseId] = selected;
+        var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
+          playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
+        });
+        var html =
+          '<div class="ups-m-drop-overlay" id="ups-m-drops-overlay">' +
+            '<div class="ups-m-drop-sheet">' +
+              '<div class="ups-m-drop-head">' +
+                '<button class="ups-m-drop-close" id="ups-m-drops-close" aria-label="Close">×</button>' +
+                '<div class="grip"></div>' +
+                '<div class="title">Loaded-contract limit</div>' +
+              '</div>' +
+              '<div class="ups-m-drop-body"><p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' + picker +
+                '<div class="ups-m-tb-nav">' +
+                  '<button class="btn-act" id="ups-m-drops-cancel">Cancel</button>' +
+                  '<button class="btn-act otb on" id="ups-m-drops-go">Confirm and send</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        var prior = document.getElementById("ups-m-drops-overlay");
+        if (prior) prior.outerHTML = html; else mount.insertAdjacentHTML("beforeend", html);
+        document.body.style.overflow = "hidden";
+        document.getElementById("ups-m-drops-close").addEventListener("click", function () { close(null); });
+        document.getElementById("ups-m-drops-cancel").addEventListener("click", function () { close(null); });
+        document.getElementById("ups-m-drops-go").addEventListener("click", function () {
+          if (selected.length < required) { draw("Select " + required + " player" + (required === 1 ? "" : "s") + " to drop before confirming.", false); return; }
+          close(selected);
+        });
+        var body = document.querySelector("#ups-m-drops-overlay .ups-m-drop-body");
+        if (body) {
+          body.addEventListener("change", function (ev) {
+            var box = ev.target;
+            if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+            var pid = box.getAttribute("data-t3w-drop-pid");
+            if (box.checked) { if (selected.indexOf(pid) === -1) selected.push(pid); }
+            else { selected = selected.filter(function (x) { return x !== pid; }); }
+          });
+        }
+      }
+      draw();
+    });
+  }
+
+  // Attempts a trade-offer CREATE, resolving the loaded-contract-drops gate and/or the cap-
+  // overage-acknowledgment gate in whichever order the worker raises them. Returns the FINAL
+  // {ok, status, body} response, or null if the owner cancelled a dialog (matching the existing
+  // "the owner declined to acknowledge" no-op convention in submitOffer's .then chain).
+  function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt) {
+    attempt = attempt || 1;
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(initialBody)
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { ok: r.ok, status: r.status, body: parsed };
+      });
+    }).then(function (resp) {
+      if (attempt > 5) return resp;
+      if (resp.status === 409 && resp.body && resp.body.code === "loaded_contract_drops_required") {
+        return openCreateLoadedContractDropsSheet(resp.body, fromFranchiseId).then(function (picked) {
+          if (!picked) return null;
+          var nextBody = Object.assign({}, initialBody, { loaded_contract_drops: picked });
+          return submitTradeCreateWithGatesMobile(url, nextBody, fromFranchiseId, attempt + 1);
+        });
+      }
+      if (resp.status === 409 && resp.body && resp.body.code === "cap_overage_ack_required" && resp.body.cap_ack_needed) {
+        return openCreateCapAckSheet(resp.body).then(function (acknowledged) {
+          if (!acknowledged) return null;
+          var nextBody = Object.assign({}, initialBody, { cap_ack: { signature: resp.body.cap_ack_needed.signature } });
+          return submitTradeCreateWithGatesMobile(url, nextBody, fromFranchiseId, attempt + 1);
+        });
+      }
+      return resp;
+    });
+  }
+
   function submitOffer() {
     builderState.submitting = true; builderState.error = ""; renderBuilder();
     var myFid = U.pad4(M.state.viewerFranchiseId);
@@ -839,35 +961,23 @@
     }
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
     if (stored) url += (url.indexOf("?") >= 0 ? "&" : "?") + "MFL_USER_ID=" + encodeURIComponent(stored);
-    fetch(url, {
-      method: "POST", mode: "cors", credentials: "omit",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    }).then(function (r) {
-      return r.text().then(function (txt) {
-        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
-        return { ok: r.ok, status: r.status, body: parsed };
-      });
-    }).then(function (resp) {
-      if (!builderState.counterMode && resp.status === 409 && resp.body && resp.body.code === "cap_overage_ack_required" && resp.body.cap_ack_needed) {
-        return openCreateCapAckSheet(resp.body).then(function (acknowledged) {
-          if (!acknowledged) { builderState.submitting = false; renderBuilder(); return null; }
-          var ackedBody = Object.assign({}, body, { cap_ack: { signature: resp.body.cap_ack_needed.signature } });
-          return fetch(url, {
-            method: "POST", mode: "cors", credentials: "omit",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(ackedBody)
-          }).then(function (r2) {
-            return r2.text().then(function (txt2) {
-              var parsed2 = null; try { parsed2 = txt2 ? JSON.parse(txt2) : null; } catch (e) {}
-              return { ok: r2.ok, status: r2.status, body: parsed2 };
-            });
+    // COUNTER goes through a different worker route/response shape that doesn't implement the
+    // create-time loaded-contract or cap gates (those are re-checked at accept regardless) --
+    // exactly the same scope this cap-ack gate already had before this change (`!counterMode`).
+    var submitPromise = builderState.counterMode
+      ? fetch(url, {
+          method: "POST", mode: "cors", credentials: "omit",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        }).then(function (r) {
+          return r.text().then(function (txt) {
+            var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+            return { ok: r.ok, status: r.status, body: parsed };
           });
-        });
-      }
-      return resp;
-    }).then(function (resp) {
-      if (!resp) return;   // the owner declined to acknowledge -- already repainted above
+        })
+      : submitTradeCreateWithGatesMobile(url, body, myFid);
+    submitPromise.then(function (resp) {
+      if (!resp) { builderState.submitting = false; renderBuilder(); return; }   // the owner declined to acknowledge/select -- already repainted above
       builderState.submitting = false;
       if (resp.ok && resp.body && resp.body.ok !== false) {
         M.ui.showToast(builderState.counterMode ? "Counter sent ✓" : "Offer sent ✓", "ok");

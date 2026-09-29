@@ -4138,6 +4138,129 @@
     });
   }
 
+  // Resolve names/positions for a set of candidate player ids on ONE franchise's own roster,
+  // from data the builder already has loaded (team.assets) -- never guessed, never re-derived.
+  function buildPlayerNamesFor(franchiseId, playerIds) {
+    var team = getTeamById(franchiseId);
+    var out = {};
+    if (!team) return out;
+    var byId = {};
+    (team.assets || []).forEach(function (a) { if (a && a.player_id) byId[safeStr(a.player_id)] = a; });
+    (playerIds || []).forEach(function (pid) {
+      var a = byId[safeStr(pid)];
+      if (a) out[pid] = { name: a.player_name || ("Player " + pid), position: a.position || "" };
+    });
+    return out;
+  }
+
+  // The INITIATOR's own loaded-contract requirement, shown at offer CREATION (Keith's ruling,
+  // 2026-09-26/29 -- the fix for the Hammer Times gap: building/reviewing an offer as the sender
+  // showed no warning at all). `errData` is the 409 refusal's body ({error, compliance,
+  // loaded_contract_drops_needed}); `compliance.loaded_contracts.drop_requirements` carries the
+  // full picture, including this franchise's `candidates` menu (worker/src/trade_cap_authority.js)
+  // -- this dialog never re-derives loaded-contract classification itself. Resolves the selected
+  // player-id array once the owner has picked enough and confirmed, or null on cancel.
+  function confirmOfferLoadedContractDrops(errData, fromFranchiseId) {
+    var T = window.UPS_TRADE_3WAY;
+    if (typeof document === "undefined" || !T || typeof T.renderLoadedContractDrops !== "function") return Promise.resolve(null);
+    var dropReqs = (errData && errData.compliance && errData.compliance.loaded_contracts && errData.compliance.loaded_contracts.drop_requirements) || [];
+    var myReq = dropReqs.filter(function (d) { return safeStr(d.franchise_id) === fromFranchiseId; });
+    if (!myReq.length) return Promise.resolve(null);
+    var required = myReq[0].required_drops;
+    var playerNames = buildPlayerNamesFor(fromFranchiseId, myReq[0].candidates || []);
+    T.ensureStyles();
+    var dlg = document.getElementById("twbDropsDialog");
+    if (!dlg) {
+      dlg = document.createElement("dialog");
+      dlg.id = "twbDropsDialog";
+      dlg.className = "twb-feedback-modal-dialog";
+      dlg.setAttribute("aria-labelledby", "twbDropsDialogTitle");
+      dlg.style.width = "min(560px, calc(100vw - 1.5rem))";
+      dlg.innerHTML = '<div class="twb-feedback-modal-shell" style="background:#0a172d;color:#eaf3ff;border:1px solid rgba(121,153,195,.34);border-radius:14px;padding:.78rem">' +
+        '<header class="twb-feedback-modal-head"><h3 id="twbDropsDialogTitle">Loaded-contract limit</h3></header>' +
+        '<div class="twb-feedback-modal-body" id="twbDropsDialogBody"></div></div>';
+      document.body.appendChild(dlg);
+    }
+    var body = document.getElementById("twbDropsDialogBody");
+    return new Promise(function (resolve) {
+      var settled = false;
+      var selected = [];
+      function done(v) { if (settled) return; settled = true; try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); } resolve(v); }
+      function draw(message, ok) {
+        var sel = {}; sel[fromFranchiseId] = selected;
+        var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
+          playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
+        });
+        body.innerHTML = '<p>' + T.esc(errData && errData.error) + '</p>' + picker +
+          '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px">' +
+          '<button type="button" data-drops-act="cancel" class="twb-btn">Cancel</button>' +
+          '<button type="button" data-drops-act="confirm" class="twb-btn twb-btn-primary">Confirm and send</button></div>';
+      }
+      draw();
+      body.onclick = function (ev) {
+        var box = ev.target && ev.target.closest ? ev.target.closest("input[data-t3w-drop-pid]") : null;
+        if (box) {
+          var pid = box.getAttribute("data-t3w-drop-pid");
+          if (box.checked) { if (selected.indexOf(pid) === -1) selected.push(pid); }
+          else { selected = selected.filter(function (x) { return x !== pid; }); }
+          draw();
+          return;
+        }
+        var el = ev.target && ev.target.closest ? ev.target.closest("[data-drops-act]") : null;
+        if (!el) return;
+        var act = el.getAttribute("data-drops-act");
+        if (act === "cancel") { done(null); return; }
+        if (act === "confirm") {
+          if (selected.length < required) {
+            draw("Select " + required + " player" + (required === 1 ? "" : "s") + " to drop before confirming.", false);
+            return;
+          }
+          done(selected);
+        }
+      };
+      dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(null); };
+      if (typeof dlg.showModal === "function") { try { dlg.showModal(); return; } catch (e) { /* fall through */ } }
+      dlg.setAttribute("open", "open");
+    });
+  }
+
+  // Attempts a trade-offer CREATE, resolving the loaded-contract-drops gate and/or the cap-
+  // overage-acknowledgment gate in whichever order the worker raises them (loaded-contract is
+  // checked first server-side, but this loop makes no assumption about order — it just keeps
+  // resolving whatever 409 comes back until either a real response or an unhandled refusal).
+  // A cancelled dialog re-throws the ORIGINAL error so the caller's existing error handling
+  // (friendlyOfferError, retry state) is unchanged.
+  async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId) {
+    var currentBody = initialBody;
+    var attempts = 0;
+    for (;;) {
+      attempts += 1;
+      if (attempts > 5) throw new Error("Too many confirmation steps — try again.");
+      try {
+        return await fetchJsonRequest(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(currentBody)
+        });
+      } catch (err) {
+        var data = err && err.data && typeof err.data === "object" ? err.data : null;
+        if (err && err.status === 409 && data && data.code === "loaded_contract_drops_required") {
+          var picked = await confirmOfferLoadedContractDrops(data, fromFranchiseId);
+          if (!picked) throw err;
+          currentBody = Object.assign({}, currentBody, { loaded_contract_drops: picked });
+          continue;
+        }
+        if (err && err.status === 409 && data && data.code === "cap_overage_ack_required" && data.cap_ack_needed) {
+          var acknowledged = await confirmOfferCapOverage(data);
+          if (!acknowledged) throw err;
+          currentBody = Object.assign({}, currentBody, { cap_ack: { signature: data.cap_ack_needed.signature } });
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
     setAcceptDebug(null);
@@ -4199,28 +4322,7 @@
         left_trade_salary_k: payload.teams && payload.teams[0] ? safeInt(payload.teams[0].traded_salary_adjustment_k, 0) : 0,
         right_trade_salary_k: payload.teams && payload.teams[1] ? safeInt(payload.teams[1].traded_salary_adjustment_k, 0) : 0
       });
-      var res;
-      try {
-        res = await fetchJsonRequest(apiUrl.toString(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-      } catch (createErr) {
-        var createData = createErr && createErr.data && typeof createErr.data === "object" ? createErr.data : null;
-        if (createErr && createErr.status === 409 && createData && createData.code === "cap_overage_ack_required" && createData.cap_ack_needed) {
-          var acknowledged = await confirmOfferCapOverage(createData);
-          if (!acknowledged) throw createErr;
-          var ackedBody = Object.assign({}, body, { cap_ack: { signature: createData.cap_ack_needed.signature } });
-          res = await fetchJsonRequest(apiUrl.toString(), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(ackedBody)
-          });
-        } else {
-          throw createErr;
-        }
-      }
+      var res = await submitTradeCreateWithGates(apiUrl.toString(), body, safeStr(body.from_franchise_id));
       var echoedMessage = safeStr(
         (res && res.proposal && res.proposal.comments) ||
         (res && res.offer && res.offer.message) ||
