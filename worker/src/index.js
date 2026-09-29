@@ -12512,7 +12512,7 @@ export default {
               -- mfl_games_scored counts a week as "scored" whenever MFL computed a
               -- REAL score for it (sw.score IS NOT NULL) -- including a genuine 0
               -- or negative outing -- never by testing the VALUE of that score.
-              -- Fixed 2026-09-29: this used to be `COALESCE(sw.score,0) > 0`, which
+              -- Fixed 2026-09-29: this used to be COALESCE(sw.score,0) > 0, which
               -- conflated "MFL has not scored this game yet" (score IS NULL, e.g. a
               -- bye/inactive/DNP week -- correctly excluded) with "MFL scored this
               -- game at exactly 0 or a negative net (turnovers/sacks/kneel-downs
