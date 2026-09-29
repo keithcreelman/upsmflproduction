@@ -18687,13 +18687,30 @@ export default {
           for (let w = wMin; w <= wMax; w++) weeks.push(w);
           const schedJobs = await Promise.all(weeks.map((w) => j(schedUrl(yr, w), 86400)));
           const scoreJobs = await Promise.all(weeks.map((w) => j(scoresUrl(yr, w), 86400)));
-          // who each team played each week + games played (for the per-game raw avg)
+          // The NFL schedule (schedJobs) is published for the WHOLE season months in
+          // advance, so it exists identically for a played week and an unplayed one --
+          // it can only ever tell you WHO a team faces, never whether that game has
+          // happened. Whether MFL has posted real scores for a week (scoreJobs) is the
+          // only honest signal of "played." Fixed 2026-09-29: gamesPlayed used to be
+          // incremented from the schedule loop alone, so the DEFAULT query (week_max
+          // defaults to 18, i.e. "season-long") counted all 18 scheduled games as
+          // "played" for every team even 3 weeks into the season -- verified live,
+          // ATL RB points-allowed-per-game read 2.4 (41 pts / 17 "games") instead of
+          // the correct 13.7 (41 pts / 3 actual games), an ~83% understatement, on
+          // every defense, on the page's own default view. weeksUsed inherited the
+          // same bug and told the frontend "18 played" when 3 had been.
+          const weekHasScores = weeks.map((w, wi) => arr(scoreJobs[wi]?.playerScores?.playerScore).length > 0);
+          // who each team played each week (needed for every scheduled week, played or
+          // not, so a player's future/unplayed-week score -- there won't be one, but
+          // this mapping itself is harmless to build in advance) + games ACTUALLY
+          // played (gated on weekHasScores, for the per-game raw avg).
           const oppOf = {}, gamesPlayed = {};
           weeks.forEach((w, wi) => {
             for (const m of arr(schedJobs[wi]?.nflSchedule?.matchup)) {
               const ts = arr(m.team); if (ts.length < 2) continue;
               const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase();
               (oppOf[ka] = oppOf[ka] || {})[wi] = kb; (oppOf[kb] = oppOf[kb] || {})[wi] = ka;
+              if (!weekHasScores[wi]) continue;
               gamesPlayed[ka] = (gamesPlayed[ka] || 0) + 1; gamesPlayed[kb] = (gamesPlayed[kb] || 0) + 1;
             }
           });
@@ -18740,7 +18757,7 @@ export default {
             }
             if (Object.keys(row).length) teams[d] = row;
           }
-          const weeksUsed = weeks.filter((w, wi) => arr(schedJobs[wi]?.nflSchedule?.matchup).length);
+          const weeksUsed = weeks.filter((w, wi) => weekHasScores[wi]);
           return jsonOut(200, { ok: true, year: yr, window: { week_min: wMin, week_max: wMax }, weeksUsed: weeksUsed, groups: groupsOut, teams: teams });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
