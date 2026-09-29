@@ -412,6 +412,28 @@ test("LC 2-WAY CREATE: 5 -> 6 loaded requires the SENDER's own conditional drop 
   t.equal(mfl.writes("tradeResponse").length, 1, "the accept the sender's drop already satisfied proceeds normally");
 });
 
+test("LC 2-WAY CREATE: 5 -> 7 (receiving TWO loaded contracts at once) requires exactly 2 drops -- one alone is refused, two lets it through", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA" }, ...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus }))];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }, { id: "13101", salary: 5000, contractStatus: "Vet-FAA-BL" }];
+  const payload = payloadOf("0001", "0002", [player(14056)], [player(13100), player(13101)]);
+  // Nothing selected at all: refused, naming exactly 2 required.
+  const r0 = await createOffer(env, mfl, payload, { dropsOk: false });
+  t.equal(r0.status, 409);
+  t.equal(r0.json.loaded_contract_drops_needed.required_drops, 2);
+  t.match(r0.json.error, /L\.A\. Looks would move from 5 to 7 loaded contracts\. The maximum is 5, so 2 conditional drops/);
+  // Exactly ONE selected: still refused -- one drop is not enough to satisfy a 2-drop requirement.
+  const r1 = await createOffer(env, mfl, payload, { dropIds: ["9000"] });
+  t.equal(r1.status, 409, r1.text.slice(0, 300));
+  t.equal(r1.json.loaded_contract_drops_needed.required_drops, 2);
+  t.equal(r1.json.loaded_contract_drops_needed.valid_count, 1);
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- one drop never silently passes a two-drop requirement");
+  // Exactly TWO selected: satisfied.
+  const { id } = await sendOffer(env, mfl, payload, { dropIds: ["9000", "9001"] });
+  t.ok(id);
+  t.equal(mfl.st.pending.length, 1);
+});
+
 test("LC 2-WAY CREATE: false client-supplied loaded-contract totals cannot bypass the gate, at creation or at accept", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus })), { id: "14056", salary: 5000, contractStatus: "Vet-FAA-FL" }];
@@ -431,6 +453,33 @@ test("LC 2-WAY CREATE: false client-supplied loaded-contract totals cannot bypas
   const bypassAttempt = await act(env, { ...mobileBody(id), compliance: { loaded_contracts: { status: "ok" } }, force: true, override: true, ignore_limit: true });
   t.equal(bypassAttempt.status, 200, "the fake fields are ignored either way -- the REAL, persisted drop is what satisfies it");
   t.equal(mfl.writes("tradeResponse").length, 1);
+});
+
+test("LC 2-WAY: an offer that was FINE when created becomes noncompliant before the recipient accepts -- held with a clear explanation, zero writes, and a valid drop lets it through", async () => {
+  const { env, mfl } = fresh2();
+  // At CREATION, 0002 has only 4 loaded -- receiving one more lands it at exactly 5, fine.
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA-FL" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA" }, ...loadedIds(9000, 4).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus }))];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  t.equal(mfl.st.pending.length, 1, "created cleanly -- nothing was over the limit at the time");
+
+  // Something ELSE lands on 0002's roster before they act on this offer (another trade, a
+  // waiver pickup -- this test doesn't care how, only that the roster genuinely changed).
+  mfl.st.rosters["0002"].push({ id: "9004", salary: 1000, contractStatus: "Vet-Ext2-BL" });
+
+  const preview = await act(env, mobileBody(id, "PREVIEW"));
+  t.equal(preview.status, 200, preview.text.slice(0, 300));
+  t.equal(preview.json.compliance.loaded_contracts.status, "blocked");
+  t.match(preview.json.compliance.loaded_contracts.message, /CBP would move from 5 to 6 loaded contracts/, "a clear, specific, recipient-facing explanation -- not a generic refusal");
+
+  const acceptRefused = await act(env, mobileBody(id));
+  t.equal(acceptRefused.status, 409);
+  t.equal(acceptRefused.json.code, "loaded_contract_drops_required");
+  t.equal(mfl.st.done.length, 0, "zero MFL writes -- the now-noncompliant offer does not execute");
+
+  const acceptedWithDrop = await act(env, { ...mobileBody(id), loaded_contract_drops: ["9000"] });
+  t.ok(acceptedWithDrop.status < 300, acceptedWithDrop.text.slice(0, 300));
+  t.equal(mfl.writes("tradeResponse").length, 1, "the SAME offer, with a valid conditional-drop plan, now goes through");
 });
 
 test("LC 2-WAY: at exactly 5 (not 6), the accept proceeds and MFL is called once", async () => {
