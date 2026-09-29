@@ -1,15 +1,21 @@
 # Loaded-Contract Conditional-Drop EXECUTION — design doc (not implemented)
 
-**Status: design/trace only, REVISED.** No code in this document has been written or approved.
-Keith's review of the first version (2026-09-29): *"Do not merge, migrate, or deploy PR #1149 as
-currently written. I am not yet approving either 'trade first, drops second' or automatic
-commissioner-impersonated drops... Revise the execution design without assuming either operation
-order is safe."* This version does that: both orderings are presented in full, the native-MFL
-bypass gets an actual design (not a rely-on-our-own-routes assumption), and every specific
-failure mode Keith named is addressed by name. Nothing here is built. The SELECTION mechanism
-(an owner picking and confirming which of their own loaded-contract players to drop, conditional
-on a trade) is built, tested, and committed — and, as of the companion fix in this same review
-round, a satisfied selection is now verified to produce **zero** real MFL writes anywhere in the
+**Status: design/trace only, REVISION 3.** No code in this document has been written or approved.
+Round 1 (Keith, 2026-09-29): *"Do not merge, migrate, or deploy PR #1149 as currently written...
+Revise the execution design without assuming either operation order is safe."* Round 2 (same day,
+after reviewing round 1's §8): *"My send-time rule applies to both teams, not only the initiator
+... That is a release blocker for the conditional-drop feature, even if the bypass existed before
+this PR. Please revise the staged-offer design to account for roster changes after creation as
+well... Also resolve the inconsistency in §8.1: it says drops have 'genuinely executed' before
+the worker creates the MFL trade, which assumes drop-first while the execution order is
+explicitly undecided."* This revision answers both: §8 is rewritten from a scoped "stage it if it
+looks risky at creation" design to a rigorous analysis of what MFL actually lets this app
+guarantee (conclusion: nothing short of staging every 2-way trade, since the risk is a property
+of a roster's state at an unpredictable future moment, not of the offer's own content), and §8's
+staging mechanism is decoupled from §2's still-open ordering decision, which it no longer assumes.
+Nothing here is built. The SELECTION mechanism (an owner picking and confirming which of their
+own loaded-contract players to drop, conditional on a trade) is built, tested, and committed —
+and a satisfied selection is verified to produce **zero** real MFL writes anywhere in the
 codebase, by direct test (`tests/trade_loaded_contracts.test.mjs`'s `LC EXEC-GATE` suite). This
 doc is what a *later*, separately-reviewed PR would build on top of that.
 
@@ -362,135 +368,216 @@ import:
 
 ---
 
-## 8. Native-MFL-bypass: a staged proposal that cannot be natively accepted
+## 8. Native-MFL-bypass: what must stay inside the War Room, and why "stage it if it's over the limit at creation" is not enough
 
-**The problem, confirmed exactly:** the 2-way CREATE gate now refuses whenever the **initiator's**
-own requirement isn't satisfied (this review round's fix). It does not, and by original design
-never did, check the **recipient's** own requirement at creation — that was always meant to be
-"the recipient's own concern at accept." This means: a 2-way trade where the initiator is fine but
-the RECIPIENT would go over the limit **still becomes a real, native MFL `tradeProposal`** the
-moment it's created — visible and independently acceptable on MFL's own site. If the recipient
-accepts there instead of through this app, MFL processes the trade for real and **no code in this
-app ever runs** — not the accept-time gate, not the drop requirement, nothing. This is real today,
-confirmed by re-reading the create/accept code paths in this review round, and it is not closed by
-this round's `needs_drops` fix (which only closes "a satisfied selection unlocks a write **through
-this app's own routes**" — it does nothing about MFL's own native accept button, which no
-worker-side code has ever gated).
+**Keith's review of §8 v1:** *"My send-time rule applies to both teams, not only the initiator...
+That is a release blocker for the conditional-drop feature, even if the bypass existed before
+this PR... Please revise the staged-offer design to account for roster changes after creation as
+well. Staging only offers that are over the limit at creation leaves an initially-clear native
+offer open to the same bypass if a roster later changes. Identify which two-team offers must
+remain entirely inside the War Room, or demonstrate an enforceable MFL-side control. Do not rely
+on a polling sentinel as a guarantee."* This section is that analysis, done rigorously rather than
+assumed, and it changes the conclusion from v1.
 
-**3-way has no equivalent exposure**, confirmed separately: a 3-way trade is 100% held server-side
-(D1 only) until BOTH partners accept AND `capGate()` clears — it never becomes a native MFL
-pending trade at any point before execution, so there is nothing for a native accept to bypass.
-This asymmetry is architectural, not incidental, and is the direct precedent for the fix below.
+### 8.0 The problem, restated completely (both teams, and not just at creation)
 
-### 8.1 Design: make an over-limit-relevant 2-way trade behave like 3-way until it's ready
+The 2-way CREATE gate refuses whenever the **initiator's** own requirement isn't satisfied. It
+never checked the **recipient's** — by original design, "the recipient's own concern at accept."
+That gap alone means a trade where the recipient would go over the limit still becomes a real
+`tradeProposal`, natively acceptable, with no code in this app ever running if the recipient
+accepts there instead. That much was already identified in v1.
 
-**When a 2-way trade's participants are ALL clear of the loaded-contract limit** (the overwhelming
-majority of trades), nothing changes: the existing native `tradeProposal`/`tradeResponse` flow
-stays exactly as it is today — fast, simple, no added complexity for the common case.
+**What v1 missed:** even a trade that is completely clean for *both* sides *at the moment of
+creation* is not safe to expose natively, because MFL gives this app no way to keep it clean.
+Between creation and whenever the recipient actually clicks Accept — a gap that could be minutes
+or weeks — **either side's roster can change for reasons that have nothing to do with this
+trade**: a different trade lands, a waiver claim processes, an extension creates a new loaded
+contract. `evaluateTradeCompliance`'s own formula is `current loaded contracts (AT THE MOMENT OF
+EVALUATION) − loaded sent + loaded received` — "current" is read fresh, every time, from whatever
+the roster actually is *then*, never frozen at creation time. A native MFL accept reads none of
+this; it just executes. So an offer that was genuinely `ok` when proposed can become a live
+violation by the time it's accepted, entirely outside this trade's own content, and MFL's native
+accept button would process it anyway with zero enforcement, exactly like the recipient-side gap
+v1 already found — just triggered by a *later* event instead of the offer's own initial state.
 
-**When a 2-way trade would affect the loaded-contract limit for EITHER side** (sender or
-recipient — checked the same way `evaluateTradeCompliance` already checks it today, just for
-*both* participants at creation instead of only the initiator), the offer is **never proposed to
-MFL at creation**. Instead:
+**A concrete illustration, not a hypothetical:** HammerTime is investigated in §9 as *already*
+carrying 6–7 loaded contracts on its live roster today — independent of any trade. Given the
+formula above, **every single 2-way trade Hammer is a party to, on either side, right now, is
+already over the limit** — not because of anything the trade itself contains, but because
+Hammer's own pre-existing roster state alone makes their projected total exceed 5 regardless of
+what moves. A trade that doesn't touch a single loaded asset, offered to or by Hammer, would still
+show a violation the moment `evaluateTradeCompliance` runs for real — which is exactly the state a
+"stage only if the offer itself looks risky at creation" rule would miss, since the offer's own
+content was never the risk; the counterparty's *standing* roster state was.
 
-1. It is stored exactly like a 3-way — a D1-only row (reusing `ups_3way_trades`'s pattern, or a
-   parallel two-party table with the identical shape) — completely invisible to MFL's
-   `pendingTrades` export, and therefore to MFL's native site, until it is ready to execute.
-2. The recipient sees and interacts with it through this app's own inbox (extending the existing
-   2-way inbox UI to also render staged offers, the same way the 3-way inbox already has its own
-   card type) — never through MFL's native pending-offers list, because it does not exist there.
-3. The recipient (and, if their own status changed since creation, the sender again) selects and
-   confirms their own conditional drop(s) through the existing, already-built selection UI.
-4. Only once **every** affected participant's requirement is `ok` — either never having been over
-   the limit, or (once §§1-7 of this design are built and separately approved) their drop(s)
-   having genuinely executed — does the **worker itself** create and immediately accept the real
-   MFL trade, via commissioner impersonation, reusing `executeCommishTwoPartyTrade` exactly as
-   3-way already does for its own legs. At no point before that moment does a native, independently
-   acceptable MFL trade exist for this deal.
+### 8.1 Which offers can be proven safe to expose natively? None, given what MFL provides.
 
-This closes the bypass completely, for the same structural reason it is already closed for
-3-way: **there is nothing on MFL's own site to accept until the app itself decides to create it.**
-It reuses `executeCommishTwoPartyTrade` (already proven in production for 3-way) rather than
-inventing a new write path, and it only changes behavior for the subset of 2-way trades that
-actually touch the loaded-contract limit — every other 2-way trade is completely unaffected.
+Working through candidate criteria, from narrowest to broadest, and why each one fails to be a
+**guarantee** (as opposed to a heuristic that reduces exposure without eliminating it):
 
-**This is a real, substantial change** (a new staging path for a subset of 2-way trades, new
-"staged offer" UI on both platforms, and the underlying create/accept HTTP surface reshaped for
-that subset) — presented here as a design for review, not implemented. It should be reviewed and
-approved as its own unit before any of §§1-7's actual drop-execution code is written, since it
-changes *when* a 2-way trade becomes real, independent of whether execution itself is built yet.
+- **"Stage only if either side is over the limit at creation"** (v1's design). Fails per §8.0 —
+  says nothing about a side that becomes over the limit *after* creation but *before* accept.
+- **"Stage only if this trade itself moves a loaded asset."** Fails for the identical reason as
+  Hammer's illustration above: a trade that moves nothing loaded can still leave a side over 5,
+  because the rule evaluates the side's *total* projected count, not merely this trade's own
+  delta. A flat-for-flat trade offered to a franchise that is independently over the limit (for
+  any reason, today or acquired later) is exactly as exposed as one that moves a loaded player.
+- **"Stage only if either side currently has ≥4 loaded contracts" (a proximity heuristic).**
+  Reduces exposure (catches Hammer's case immediately) but is still not a guarantee: a franchise
+  at 0, 1, or 2 loaded contracts today can acquire several more from *other* trades before this
+  one is accepted — there is no bound on how much a roster can change in the interval, and no
+  signal this app can read at creation time that rules that out.
+- **"Re-check compliance right before accept, then refuse the native accept if it would
+  violate."** This is not actually available — MFL's native accept has no hook this app can
+  intercept, refuse, or veto. There is no "ask us first" mechanism, no webhook, no way to make
+  MFL itself consult this app before it processes a `tradeResponse`. This was confirmed directly
+  against MFL's API surface in this and the prior investigation round: propose/accept/revoke is
+  the entire vocabulary, with no conditional or gated variant.
 
-### 8.2 A supplementary, imperfect mitigation — not a substitute
+**Conclusion: no criterion narrower than "stage every 2-way trade" can be proven to close this
+gap, because the risk is not a property of the offer's own content — it is a property of what
+either participant's roster looks like at an unpredictable future moment MFL will act on without
+asking this app anything.** This is a stronger, and different, conclusion than v1's "stage the
+ones that look risky today." Any narrower rule is a **heuristic that reduces how often the gap is
+hit, not a control that closes it** — and per Keith's instruction, a heuristic must not be
+presented as a guarantee.
 
-Until §8.1 ships, `worker/src/index.js`'s existing "trade-sentinel" sweep (`/admin/trade-sentinel/
-tick`, already polling every pending MFL trade for stale-ownership violations and auto-revoking
-them) could be extended to *also* check loaded-contract compliance on every still-**pending**
-offer, and pre-emptively revoke one that would violate it — narrowing the window a native accept
-could exploit. This is confirmed to be a real, existing mechanism (`index.js:36940-37164`,
-`findOwnershipViolations`) that currently checks ownership only, not the loaded-contract count.
-**This is explicitly a mitigation, not a guarantee** — it depends on polling cadence and can race
-a fast native accept, exactly the class of gap the 2026-09-25 stuck-offer incident (referenced
-elsewhere in this repo's history) already demonstrated for a different check. §8.1 is the actual
-fix; this is at most a stopgap while §8.1 is reviewed, and should not be presented to owners or
-Keith as closing the bypass on its own.
+**No enforceable MFL-side control exists**, confirmed by the same research this whole design
+already relies on (§1): MFL's import API is propose / accept / reject / revoke, with no
+conditional-acceptance concept, no pre-accept webhook, and no way for this app to be consulted
+before MFL processes an accept it receives directly. There is nothing "on MFL's side" to
+demonstrate here — the absence of such a control is itself the finding.
+
+### 8.2 The staged-execution mechanism (ordering-agnostic — §2 is still Keith's decision)
+
+**Keith's correction to v1:** *"Resolve the inconsistency in §8.1: it says drops have 'genuinely
+executed' before the worker creates the MFL trade, which assumes drop-first while the execution
+order is explicitly undecided. Keep the staged approval flow separate from the later irreversible
+execution sequence until I rule on it."* v1 conflated two independent decisions — this version
+separates them explicitly:
+
+- **Staging (this section) decides WHEN a 2-way trade is allowed to become a real, MFL-visible
+  transaction at all.** It is a gate on *existence*, not on internal sequencing.
+- **Ordering (§2, still Keith's open decision) decides, once staging has cleared, in what
+  internal sequence the trade write and the drop write(s) happen relative to EACH OTHER.**
+
+Given §8.1's conclusion, the staged mechanism (reusing the 3-way pattern exactly, per v1's own
+design) is:
+
+1. Every 2-way trade is created as a D1-only row (`ups_3way_trades`'s pattern, or a parallel
+   two-party table with the identical shape) — never a native MFL `tradeProposal` at creation,
+   for *every* 2-way trade, not a subset selected by risk at creation time.
+2. The recipient sees and interacts with it entirely through this app's own inbox — never MFL's
+   native pending-offers list, because for a staged trade it never appears there.
+3. The recipient (and the sender, if anything about their own requirement changed since creation)
+   selects and confirms their own conditional drop(s) via the already-built selection UI,
+   whenever `evaluateTradeCompliance` shows either side needs one.
+4. **Immediately before the trade is allowed to leave the staged state**, `evaluateTradeCompliance`
+   is re-run one final time, fresh, for both sides. If it is not `ok` for both, the trade is held
+   — this is the SAME re-check §5 already specifies for whichever write happens first, not a new
+   mechanism.
+5. Once that final check is `ok` for both sides — a state reachable either because nobody was ever
+   over the limit, or because every needed drop has been resolved per **whichever ordering §2
+   settles on** — the worker executes the real MFL trade via commissioner impersonation
+   (`executeCommishTwoPartyTrade`, reused exactly as 3-way already uses it), and, per §2's chosen
+   ordering, either before or after that call, executes any confirmed drop(s). This step's
+   internal sequence is entirely governed by §2's answer — staging does not presuppose it, and a
+   change to §2's ordering decision requires no change to this section.
+
+This still closes the bypass for the identical structural reason 3-way already has no exposure:
+**there is nothing on MFL's own site to accept until this app itself decides to create it** — now
+true for every 2-way trade, not only the ones that looked risky at the moment they were proposed.
+
+### 8.3 Cost, and a scoped alternative if universal staging is more than Keith wants right now
+
+Universal staging is a materially larger change than v1's scoped version: **every** 2-way trade —
+not just loaded-contract-relevant ones — moves off MFL's native propose/accept flow and onto a
+worker-brokered one, for its entire pending lifetime. Concretely this means: new "staged offer"
+UI replacing the native inbox card on both platforms for every 2-way trade, every 2-way accept
+becoming a commissioner-impersonated write instead of the owner's own session write (a change in
+authentication model for the single most common transaction type in the app, not just for
+conditional-drop cases), and full de-risking of counter-offers, revokes, and the existing 2-way
+notification/DM surface against the new staged shape.
+
+**If that scope is more than Keith wants approved right now**, the honest, explicitly-bounded
+alternative is: stage only offers meeting a heuristic threshold (e.g. either side at ≥3 or ≥4
+loaded contracts at creation, or either side's roster having changed at all since a prior
+staging-eligible check) — accepting, in writing, that this narrows the *frequency* of exposure
+without closing it, and stating that residual risk plainly to owners and to Keith rather than
+implying it is closed. This document does not recommend the scoped alternative over universal
+staging — it only offers it as the honest, smaller-scope option Keith may prefer to approve first,
+with its limits stated rather than hidden.
+
+### 8.4 A supplementary, imperfect mitigation — explicitly not a substitute, per Keith's instruction
+
+`worker/src/index.js`'s existing "trade-sentinel" sweep (`/admin/trade-sentinel/tick`, already
+polling every pending MFL trade for stale-ownership violations and auto-revoking them,
+`index.js:36940-37164`, `findOwnershipViolations`) could be extended to *also* check
+loaded-contract compliance on every still-**pending, native** offer (i.e. any 2-way trade created
+before §8.1-8.3 ship, or if only the scoped alternative in §8.3 is approved) and pre-emptively
+revoke one that would violate it. **Keith's instruction is explicit: "Do not rely on a polling
+sentinel as a guarantee."** This is recorded here only as a stopgap that narrows a window that
+already-existing polling cadence can miss — exactly the class of gap the 2026-09-25 stuck-offer
+incident (referenced elsewhere in this repo's history) already demonstrated for a different check
+— and must never be presented to owners or to Keith as closing the bypass.
 
 ---
 
-## 9. Hammer Times — the existing roster, investigated separately (read-only, no repair proposed)
+## 9. Hammer Times, L.A. Looks, and plain `Vet-Ext1` — investigated separately, no repair proposed
 
-Per Keith's separate instruction, this section reports the existing state of HammerTime's roster
-plainly, without proposing any fix, grandfather clause, or correction — that judgment is Keith's,
-not this design's.
+Per Keith's separate instructions (2026-09-29, both rounds), this section summarizes two
+read-only investigations that report existing roster/rule state plainly, without proposing any
+fix, grandfather clause, or production change — that judgment is Keith's. **Full detail, canon
+citations, and a recommendation live in their own documents**, referenced below rather than
+duplicated here.
 
-**Re-fetched live** (this review round) via the same public exports the trade-compliance gate
-itself reads, and cross-checked against the same live-hitting worker endpoint, both matching
-exactly: HammerTime carries **7 loaded contracts including IR, 6 excluding IR**. The live gate
-itself, run against this exact roster, reports `loaded_before: 7`.
+**HammerTime carries 7 loaded contracts today, 6 excluding a 7th on IR (Jacobs, Josh)** — the
+live gate agrees exactly (`loaded_before: 7`). All seven are correctly, mechanically back-loaded
+by the classifier's own documented logic against real, well-formed, fully-reconciled payment
+schedules — zero unresolved contracts. **L.A. Looks separately carries 8** — investigated further
+in round 2, below.
 
-| Player | Pos | Status | Why the shipped classifier calls it loaded |
-|---|---|---|---|
-| McBride, Trey (15794) | TE | ROSTER | Y1 $9K < $22K avg (CL2/TCV44K) |
-| Smith, Geno (11150) | QB | ROSTER | Y1 $9K < $15K avg (CL3/TCV45K) |
-| Addison, Jordan (16186) | WR | ROSTER | Y1 $7K < $12K avg (CL2/TCV24K) — see caveat below |
-| Chase, Ja'Marr (15281) | WR | ROSTER | Y1 $26K < $64.5K avg (CL2/TCV129K) |
-| Walker III, Kenneth (15711) | RB | ROSTER | Y1 $15K < $37K avg (CL2/TCV74K) |
-| Montgomery, David (14071) | RB | ROSTER | Y1 $12K < $21K avg (CL2/TCV42K) — see caveat below |
-| Jacobs, Josh (14073) | RB | **INJURED RESERVE** | Y1 $18K < $30K avg (CL3/TCV90K) |
+**Whether IR counts toward the 5** — canon never mentions IR for this specific limit (only for the
+active-roster maximum and the 27-player minimum, §B3); the shipped code counts it only because
+nothing filters it out, unchanged by any of this session's work and predating it back to the
+original PR #1135 merge. Presented as a clean, standalone decision for Keith in
+`docs/LOADED_CONTRACT_EXT1_CLASSIFICATION_INVESTIGATION.md` §8, separate from the Ext1 question
+below, since neither the code nor canon offers a lean either way.
 
-All seven are correctly, mechanically back-loaded by the classifier's own documented logic (Year 1
-below TCV÷CL) against real, well-formed, fully-reconciled payment schedules — zero unresolved
-contracts on this roster.
+**Round 2 (Keith, after reviewing round 1's brief mention of Addison/Montgomery): "Before changing
+enforcement, investigate the one-year `Vet-Ext1` classification across the league... Show the
+contract terms and consequences for Hammer and L.A. Looks, plus tests for both possible
+interpretations; recommend the rule supported by canon, but do not silently change production
+counts."** That full investigation — canon quotes with line numbers, complete loaded-contract
+tables for both named franchises, a league-wide (all 12 franchises) scan, and a recommendation —
+is `docs/LOADED_CONTRACT_EXT1_CLASSIFICATION_INVESTIGATION.md`. Its headline finding: a plain
+(no `-FL`/`-BL`) `Vet-Ext1` contract is classified loaded today purely because
+`resolveLoadedStatus` applies the same generic Year-1-vs-average test to every contract
+regardless of shape — but the **same codebase's own extension-pricing logic already treats this
+exact shape as flat**, for a documented reason (`contract_classification.js`'s
+`resolveExtensionLoadedStatus` docblock: "a single future year... has no shape to compare and is
+flat") that describes the Ext1-after-a-final-year pattern precisely. The same real contract is
+flat when priced and loaded once it's on the roster — a genuine internal inconsistency, not just
+an ambiguous reading of canon. Tests proving both interpretations' exact behavior on the real
+contract data, without changing any production file, are
+`tests/trade_loaded_contract_ext1_classification.test.mjs` (9 tests, 30 assertions).
 
-**Whether IR counts toward the 5 — a genuinely open question, not a settled rule:** canon
-(`docs/league_context_v1.md`) states the 5-loaded-contract maximum in three places (§2.G, §6.G,
-§C2) without ever mentioning IR. It explicitly excludes IR from the active-roster maximum and the
-27-player minimum (§B3), and separately guarantees taxi contracts can never be loaded at all
-(§C2), which is why taxi needs no carve-out in the count — but that specific reasoning does not
-extend to IR, where a loaded contract demonstrably exists today (Jacobs). **The shipped code
-counts IR players toward the 5 — but only because nothing in the scan filters them out**
-(`trade_cap_authority.js:254-270` classifies and counts every rostered player before the taxi
-skip at `:273`; the IR flag is read only for the *active*-count and cap-charge calculations,
-never for this one). This behavior predates this session entirely (present in the original PR
-#1135 merge and the version before it) and was not decided by, or changed by, this session's
-work. Whether IR *should* count is Keith's call, separate from whether a new trade may increase
-or maintain an existing over-limit count — this design and its enforcement do not depend on the
-answer either way, since they operate on whatever the live count already is.
+**The consequence, precisely** (full tables in the dedicated doc): under the current, shipped
+classification, HammerTime is 2 over the limit and L.A. Looks is 3 over. Under the alternate
+interpretation the internal-inconsistency evidence supports, HammerTime lands exactly at the
+limit (zero headroom) and L.A. Looks lands one UNDER it. League-wide, across all 12 franchises,
+the same alternate interpretation moves the total loaded-contract count from 58 to 44 and the
+number of franchises over the limit from 5 to 2.
 
-**A separate, genuinely uncertain observation, reported neutrally:** Addison and Montgomery are
-both `Vet-Ext1` (a one-year extension) with no `-FL`/`-BL` suffix. Canon §C4 states a 1-year
-extension's status suffix is never `-FL`/`-BL`. Both contracts' schedules follow the documented
-1-year-extension raise pattern exactly (the prior year's salary plus the standard positional
-raise). The shipped classifier's Year-1-vs-average test, applied to this contract shape, calls
-both back-loaded anyway — and `contract_classification.js:438-445` contains a comment, written
-about *extension pricing previews*, that this same comparison "would misclassify almost every
-extension." Whether that reasoning also applies to classifying an *existing, already-extended*
-roster contract (as opposed to pricing a new one) is a real, substantive question this
-investigation surfaces but does not resolve — it is the entire difference between HammerTime's
-count landing at 5 (at the limit, not over) or 7. Reported here as a finding for Keith's judgment,
-not asserted as a bug and not proposed as something to fix.
-
-**Also observed, not investigated further:** L.A. Looks (franchise 0001) showed `loaded_before: 8`
-in the same live gate run — out of scope for this investigation, flagged only so it isn't lost.
+**The recommendation** (§7 of the dedicated doc, not applied here or anywhere in production):
+a plain `Vet-Ext1`/`Rookie-Ext1` contract with no suffix should not count toward the 5-loaded
+limit, on the strength of the internal-inconsistency evidence above — restructured Ext1s that
+have earned a real, canon-sanctioned suffix (e.g. HammerTime's Kenneth Walker III, L.A. Looks'
+Sam Darnold) are unaffected either way and correctly stay counted. This recommendation changes no
+counts on its own; it is presented for Keith's decision, separate from the IR question, and
+separate from whether a NEW trade may increase or maintain an existing over-limit count — this
+execution design and its enforcement operate on whatever the live, authoritative count already is
+at the moment they run, regardless of how either open question is eventually decided.
 
 ---
 
@@ -499,7 +586,7 @@ in the same live gate run — out of scope for this investigation, flagged only 
 - The execution ledger (`trade_execution.js`) — no new states, no new table, no new locking
   primitive, regardless of which ordering (or the manual-queue alternative, §2.4) is chosen.
 - `executeCommishTwoPartyTrade`'s commissioner-impersonation pattern, for drops too (§4) and for
-  the staged-2-way execution moment (§8.1).
+  the staged-2-way execution moment (§8.2).
 - The drop route's own MFL-response-distrust / roster-read-verification discipline (§1.1, §7).
 - The cap-penalty cron (`ups_drop_events`) for dollar amounts — not duplicated.
 - `evaluateTradeCompliance`'s existing recalculation of cap and lineup with a drop excluded (§5)
@@ -508,9 +595,13 @@ in the same live gate run — out of scope for this investigation, flagged only 
 ## 11. What is explicitly NOT decided here, and needs review before ANY of this becomes code
 
 - **Which ordering** (§2.1 Trade-first, §2.2 Drop-first) — or the manual-review-queue alternative
-  (§2.4) — Keith wants to run with. Not assumed by this revision.
-- **The staged-2-way design** (§8.1) as the fix for the native-MFL bypass — a separate, real
-  architectural change, reviewable on its own before drop-execution code is written.
+  (§2.4) — Keith wants to run with. Not assumed by this revision, and now explicitly decoupled
+  from staging (§8.2) — the ordering decision can be made independently of, and later than, the
+  staging decision.
+- **Whether to approve UNIVERSAL 2-way staging** (§8.1-8.2, this revision's conclusion: nothing
+  narrower is a guarantee) **or the explicitly-bounded scoped alternative** (§8.3, narrower scope,
+  stated residual risk) — a separate, real architectural change either way, reviewable on its own
+  before drop-execution code is written, and the larger of the two decisions in this document.
 - The exact commissioner-facing (and, newly, owner-facing per §2.1) notification copy for every
   failure kind (`failed` vs `unconfirmed`, §2.1/§2.2/§6).
 - Whether a stale, unresolved `executed_needs_review` drop needs its own aging alert (§2.1).
