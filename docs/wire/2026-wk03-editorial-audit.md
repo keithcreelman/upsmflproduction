@@ -76,6 +76,8 @@ Tuesday cutoff; Thursday's Elias check remains outstanding.
   and [official Gibbs video](https://www.nfl.com/videos/jahmyr-gibbs-best-plays-from-3-td-game-week-3).
   The [Lions' Week 3 report](https://www.detroitlions.com/news/detroit-lions-gibbs-scores-3-tds-in-win-over-new-york-jets-goff-clark)
   documents the cutback on Gibbs's first touchdown that the Boomer line calls.
+  Boomer's spoken section is 388 words; the score calls were checked against
+  the same matchup, projection and XFP sources listed above.
 
 ## Source and validation limits
 

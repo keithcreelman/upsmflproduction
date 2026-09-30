@@ -47,6 +47,10 @@
      },
      {
       "speaker": "boomer",
+      "text": "Juwan Johnson ran past his pre-kickoff projection for Eric Martel. Eric’s closest win was over Keith Creelman, and that surprise production loomed large."
+     },
+     {
+      "speaker": "boomer",
       "text": "Matt Gerardi took the three biggest defeats of the week, each to a different opponent. Stu, Rich, the division desk is yours."
      }
     ],
@@ -62,15 +66,15 @@
      "t.pickups"
     ],
     "placeAt": {
-     "t.offidp": 7,
-     "t.performers": 7,
-     "t.bb.off.bust": 7,
-     "t.bb.off.bargain": 7,
-     "t.bb.idp.bust": 7,
-     "t.bb.idp.bargain": 7,
-     "t.xfp.over": 7,
-     "t.xfp.under": 7,
-     "t.pickups": 7
+     "t.offidp": 8,
+     "t.performers": 8,
+     "t.bb.off.bust": 8,
+     "t.bb.off.bargain": 8,
+     "t.bb.idp.bust": 8,
+     "t.bb.idp.bargain": 8,
+     "t.xfp.over": 8,
+     "t.xfp.under": 8,
+     "t.pickups": 8
     },
     "quotes": [],
     "cards": [],
