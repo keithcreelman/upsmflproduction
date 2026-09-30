@@ -188,9 +188,10 @@ test("§12.1 COMPLETION STATUS: a not-ready trade shows why, a ready trade shows
   const p2 = loadPage(env, { session: "tok-commish" });
   await settle();
   const html = p2.els.trqList.innerHTML;
-  t.match(html, /Ready to complete/);
-  t.match(html, /Would send to MFL.*0001 gives \[14056\].*0002 gives \[\(nothing\)\]/s);
-  t.match(html, /Preview only — nothing here executes anything/);
+  t.match(html, /Compliance clear — completion unavailable/, "must not say 'ready to complete' -- compliance passing is not the same fact as being executable");
+  t.doesNotMatch(html, /Ready to complete/i, "no wording anywhere may imply this trade can be executed right now");
+  t.match(html, /Dry-run preview only, if this were completed today:.*0001 gives \[14056\].*0002 gives \[\(nothing\)\].*Would send to MFL/s);
+  t.match(html, /Nothing here executes anything, and there is no completion action anywhere in this app yet/);
   // Still no button anywhere, and zero MFL writes just from loading this ready state.
   const buttonActs = [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1].trim());
   for (const label of buttonActs) t.match(label, /^(Show full compliance|Hide detail)/);

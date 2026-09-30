@@ -54,6 +54,7 @@ test("NOT READY: a freshly-created, not-yet-accepted trade is never ready_to_com
   const q = await listCommish2WayQueue(env, "74598", "2026", {});
   t.equal(q.trades.length, 1);
   t.equal(q.trades[0].ready_to_complete, false);
+  t.equal(q.trades[0].completion_available, false);
   t.equal(q.trades[0].not_ready_reason, "not_yet_accepted");
   t.equal(q.trades[0].dry_run_preview, null);
 });
@@ -96,6 +97,7 @@ test("READY: accepted + fully compliant -- ready_to_complete is true, and the dr
   const q = await listCommish2WayQueue(env, "74598", "2026", {});
   const row = q.trades.find((tr) => tr.id === created.id);
   t.equal(row.ready_to_complete, true);
+  t.equal(row.completion_available, false, "compliance passing must NEVER flip completion_available true -- no executor exists in this codebase regardless of compliance state");
   t.ok(row.dry_run_preview);
   t.equal(row.dry_run_preview.from_fid, FR.A);
   t.equal(row.dry_run_preview.to_fid, FR.B);

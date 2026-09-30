@@ -49,7 +49,9 @@
   .trq-note { font-size: 12px; color: var(--muted); background: var(--panel2); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
   .trq-history-toggle { margin-bottom: 16px; }
   .trq-completion { border-top: 1px dashed var(--line); margin-top: 8px; padding-top: 8px; font-size: 12px; }
-  .trq-completion-ready { color: var(--ok); font-weight: 700; }
+  /* Deliberately NOT --ok/bold: "compliance clear" is not "you can act on this" -- a loud
+     success color would visually contradict the wording fix above it. */
+  .trq-completion-ready { color: var(--fg); font-weight: 600; }
   .trq-completion-notready { color: var(--muted); }
   .trq-preview { background: var(--panel2); border-radius: 8px; padding: 8px 10px; margin-top: 6px; font-size: 12px; color: var(--fg); }
   .trq-preview b { color: var(--muted); font-weight: 600; }
@@ -183,9 +185,13 @@
     var p = trade.dry_run_preview;
     var giveList = (p && p.give || []).map(T.esc).join(", ") || "(nothing)";
     var receiveList = (p && p.receive || []).map(T.esc).join(", ") || "(nothing)";
-    return '<div class="trq-completion trq-completion-ready">✓ Ready to complete — every check clears right now.</div>' +
-      '<div class="trq-preview"><b>Would send to MFL:</b> ' + T.esc(p.from_fid) + ' gives [' + giveList + ']  ↔  ' + T.esc(p.to_fid) + ' gives [' + receiveList + ']' +
-      '<br><span style="color:var(--muted)">Preview only — nothing here executes anything. There is no action anywhere on this page that would.</span></div>';
+    // "ready_to_complete" means ONLY that today's compliance re-check passed -- it is NOT a
+    // statement that this trade can be executed right now. Keith's correction (2026-09-29):
+    // don't let compliance-clear imply executability when the execution flag is off and no
+    // executor exists. Two separate facts, shown as two separate lines.
+    return '<div class="trq-completion trq-completion-ready">Compliance clear — completion unavailable.</div>' +
+      '<div class="trq-preview"><b>Dry-run preview only, if this were completed today:</b> ' + T.esc(p.from_fid) + ' gives [' + giveList + ']  ↔  ' + T.esc(p.to_fid) + ' gives [' + receiveList + ']' +
+      '<br><span style="color:var(--muted)">Would send to MFL — a preview of the shape only. Nothing here executes anything, and there is no completion action anywhere in this app yet.</span></div>';
   }
 
   function renderCard(trade) {

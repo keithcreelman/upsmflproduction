@@ -418,6 +418,9 @@ export async function listCommish2WayQueue(env, leagueId, season, opts) {
       age_hours_since_created: ageHours(row.created_at_utc),
       age_hours_since_updated: ageHours(row.updated_at_utc),
       ready_to_complete: readyToComplete,
+      // Always false -- no commissioner-facing execute action exists yet, independent of
+      // whether compliance passes. See previewExecute2Way's header comment.
+      completion_available: false,
       not_ready_reason: notReadyReason,
       dry_run_preview: dryRunPreview,
     });
@@ -597,12 +600,20 @@ function deriveExecute2WayPlan(row) {
 // silently disagree with a real completion. This function never acquires the execution ledger
 // lock, never writes to D1, and never calls MFL under any flag state -- calling it (e.g. by
 // loading the commissioner queue) can never itself start or advance an execution attempt.
+// `ready_to_complete` means ONLY "today's compliance re-check passed" -- it says NOTHING about
+// whether this trade can actually be completed right now. Keith's correction (2026-09-29): "it
+// must not imply it can currently be executed when the execution flag is off or conditional
+// drops remain unimplemented." So `completion_available` is a SEPARATE, always-false field: no
+// commissioner-facing execute action exists anywhere in this codebase yet, full stop, regardless
+// of compliance state. Callers (the queue page) must display these as two independent facts, not
+// collapse "compliance clear" into "you can complete this now."
 async function previewExecute2Way(env, row) {
   const gate = await capGate2Way(env, row);
   const readyToComplete = !!(gate.ok && row.to_state === "accepted" && (row.status === "collecting" || row.status === "executing"));
   const plan = readyToComplete ? deriveExecute2WayPlan(row) : null;
   return {
     ready_to_complete: readyToComplete,
+    completion_available: false,
     not_ready_reason: readyToComplete ? null : (row.to_state !== "accepted" ? "not_yet_accepted" : (gate.kind || "compliance_not_ok")),
     dry_run_preview: plan ? { from_fid: plan.fromFid, to_fid: plan.toFid, give: plan.give, receive: plan.receive } : null,
     compliance: gate.compliance || null,

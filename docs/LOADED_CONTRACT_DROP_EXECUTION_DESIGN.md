@@ -1076,13 +1076,15 @@ cutover — stated here as plainly as possible, not buried:**
 
 **Consequence, stated once more for emphasis: turning on `TRADE_2WAY_CUTOVER_ENABLED` today would
 route every new two-team offer into a hold with no finished way out.** A fully-accepted,
-fully-compliant staged trade would simply sit — visible in the read-only queue, forever "ready,"
-never completed, with no button anywhere to finish it. §2.4/§2.4.1-§2.4.4, §6, and §7 above
-already specify, in detail, the policy this section's own implementation must eventually follow
+fully-compliant staged trade would simply sit — the compliance checks clear, but completion itself
+is unavailable, with no button anywhere to finish it. §2.4/§2.4.1-§2.4.4, §6, and §7 above already
+specify, in detail, SOME of the policy this section's own eventual implementation must follow
 (fresh per-write compliance re-checks, verify-then-record for every irreversible write, the
 `partial_executed` proposed ledger state, manual-not-automatic recovery) — **this section does not
-re-decide any of that.** It states what's implemented now, what a real completion action would
-look like under that already-decided policy, and exactly what remains a decision before real
+re-decide any of that. It also does NOT decide the one piece those sections deliberately left
+open: which order a multi-write completion follows (§2.1 vs §2.2, §2.3, §11) — see §12.2's own
+correction below.** This section states what's implemented now, presents (never assumes) what a
+real completion action would look like, and lists exactly what remains a decision before real
 writes are ever enabled.
 
 ### 12.1 What's implemented now: read-only "ready to complete" + a byte-identical dry-run preview
@@ -1107,7 +1109,37 @@ compliant is never marked ready; a fully-ready trade's preview exactly matches w
 itself would attempt; loading the queue any number of times never advances the execution ledger or
 calls MFL.
 
-### 12.2 What a real completion action would look like (design, NOT implemented)
+**Wording/state correction (2026-09-29):** Keith: *"`ready_to_complete` may mean the trade passes
+today's compliance checks, but it must not imply it can currently be executed when the execution
+flag is off or conditional drops remain unimplemented. Show 'compliance clear; completion
+unavailable' where appropriate."* `previewExecute2Way`/`listCommish2WayQueue` now return a second,
+always-`false` field, `completion_available`, alongside `ready_to_complete` — two separate facts,
+never collapsed into one. The review-queue page's copy for a ready trade changed from "✓ Ready to
+complete — every check clears right now" (which read as a green-lit call to act) to **"Compliance
+clear — completion unavailable"**, with the dry-run preview underneath re-labeled "Dry-run preview
+only, if this were completed today" and its own caveat restated as "there is no completion action
+anywhere in this app yet." The CSS for that line was also detuned from a bold `--ok` (success-green)
+style to a neutral one, since a loud success color would visually contradict text that explicitly
+says nothing is actionable. Tested in both `tests/trade_2way_completion_preview.test.mjs`
+(`completion_available` is `false` in every state, ready or not) and
+`tests/trade_review_queue_page.test.mjs` (the rendered page never contains the string "Ready to
+complete" on its own — only the corrected copy).
+
+### 12.2 What a real completion action would look like (design, NOT implemented) — CORRECTION (2026-09-29)
+
+**Keith's correction to the revision of this section that shipped earlier the same day: "I
+approved commissioner review, but I did not approve 'trade first, then drops' as a fixed
+execution order. Earlier design work explicitly left ordering open because either sequence can
+cause an irreversible partial outcome." He is right, and that earlier revision of this section
+was wrong to write "the trade executes first" as though it followed from what's already decided.
+It does not. §2.1/§2.2/§2.3/§11 (all written well before this section, in the SAME document)
+already say, explicitly and repeatedly, that the ordering is an open value judgment, not an
+engineering conclusion — §2.3: "This is a real value judgment about which kind of failure is more
+acceptable in this league, not an engineering question with one correct answer, and it should not
+be assumed"; §11: "Explicitly NOT decided by removing the prior draft's 'drops first by default'
+assumption — that removal was a correction, not a decision for the opposite default." This
+section's own step 5 (below) contradicted that. It is corrected here, not merely reworded — the
+sequence is presented for Keith's ruling, not assumed.**
 
 If and when a live single-trade "Complete now" commissioner action is built, it must follow
 exactly the procedure §2.4.3 already specifies, applied to the 2-way degenerate case (at most one
@@ -1126,20 +1158,39 @@ drop-per-franchise plus the trade itself, never more than a 3-way's N):
    text alone.
 4. **Record the verified outcome in the execution ledger** (§2.4.3 step 3, §6's vocabulary) before
    the next write, so the deal's true partial state is always readable from the ledger.
-5. **Sequence, per §2.4.3/§2.5:** the trade executes first; any confirmed drop is post-processing
-   afterward — a drop that lands before a failed trade is an irreversible loss with no MFL-side
-   undo, while a trade ahead of a failed drop is the recoverable `executed_needs_review` case
-   this app already has a pattern for.
+5. **Sequence: OPEN, needs Keith's ruling before this action can be built at all — presented here,
+   not assumed, exactly as requested:**
 
-**Partial outcome — stop and notify (§2.4.3's State *k*, applied here):** if the trade executes
-but a required drop then fails, refuses, or comes back ambiguous, the ledger moves to
-`executed_needs_review` (already a real, shipped state — §6) with the specific evidence recorded,
-and **every owner whose asset already moved is notified immediately and explicitly** that their
-side executed but the drop did not, and that a real loaded-contract overage exists until the
-commissioner resolves it manually. If the trade itself fails outright before any drop is
-attempted, nothing has moved — notify plainly, no drop is ever attempted, the deal returns to the
-queue for another attempt once whatever blocked it (lockout, a genuine refusal, an unrelated race)
-is understood.
+   - **Option A — trade first, drop(s) after** (§2.1's full analysis, unchanged, not re-decided
+     here): if a drop then fails (lockout, an explicit MFL refusal, or an ambiguous/unconfirmed
+     verification), the ledger lands at `executed_needs_review` — the trade is permanent and
+     every party gets what they agreed to; the franchise stays genuinely, verifiably over the
+     5-loaded-contract limit until a human resolves the drop. Soft, recoverable failure
+     (bookkeeping, not loss) — but the rule is exposed, even if briefly.
+   - **Option B — drop(s) first, trade after** (§2.2's full analysis, unchanged, not re-decided
+     here): if the trade then fails for the same set of ordinary reasons, **the team has
+     permanently lost a real roster player for a trade that never happened** — no partial credit,
+     strictly worse off than before agreeing to anything, and the other side gets nothing either.
+     The 5-loaded-contract limit is never even briefly exceeded — but the failure mode is hard and
+     irreversible instead of soft and recoverable.
+   - **Neither is safe in every case; §2.3 already says this is a value judgment, not an
+     engineering question.** This document does not choose between them here, exactly as §2.4.3
+     already declined to. The concrete decision sheet accompanying this correction lays out both
+     options and their failure cases for Keith's ruling; no completion action is built until that
+     ruling is made.
+
+**Partial outcome — stop and notify, stated for WHICHEVER order is eventually approved (§2.4.3's
+State *k*, applied here, not presuming an order):** whichever operation runs second, if it then
+fails, refuses, or comes back ambiguous, the ledger moves to `executed_needs_review` (already a
+real, shipped state — §6) with the specific evidence recorded, and **every owner whose asset
+already moved (from the FIRST, already-confirmed operation, whichever that turns out to be) is
+notified immediately and explicitly** that part of the deal executed and the rest did not. Under
+Option A, that means: the trade went through, a required drop did not, and a real loaded-contract
+overage exists until the commissioner resolves it manually. Under Option B, that means: a real
+player is gone from the roster and the trade that was supposed to justify it never happened — the
+more severe of the two, per §2.2. If the FIRST operation in whichever order is chosen fails
+outright before the second is ever attempted, nothing has moved — notify plainly, the deal returns
+to the queue for another attempt once whatever blocked it is understood.
 
 **Cancel / recovery, applied here:** a staged trade that has **not yet** had a completion attempt
 started can always be cancelled today, exactly as already built and tested
