@@ -83,12 +83,16 @@ def main():
     args = ap.parse_args()
     if not os.path.exists(args.local_db):
         sys.exit("local DB not found: %s" % args.local_db)
+    if args.record and os.path.exists(args.record):
+        # A rerun on already-corrected data would replace the original record
+        # (true before-state, backup path, restore point) with a no-op one.
+        sys.exit("REFUSE: record %s already exists; pass a new path" % args.record)
 
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     record = {"when": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
               "localDb": args.local_db}
 
-    con = sqlite3.connect(args.local_db, timeout=30)
+    con = sqlite3.connect("file:%s?mode=ro" % args.local_db, uri=True)
     local_before = local_state(con)
     d1_before = d1_state()
     record["before"] = {"local": local_before, "d1": d1_before}
@@ -116,31 +120,48 @@ def main():
         print("dry run -- nothing written. Re-run with --apply.")
         return
 
-    # ---- 1. local: backup, then one transaction
+    # ---- 1. local: take the write lock FIRST, back up under it, then one transaction.
+    # Locking first means a busy DB fails fast with nothing written (no orphan
+    # backup), and no other writer can change the DB between backup and update.
     if local_todo:
-        backup = os.path.join(os.path.dirname(args.local_db),
-                              "mfl_database.pre_2012wk13_playoff_fix_%s.db" % stamp)
-        dst = sqlite3.connect(backup)
-        con.backup(dst)
-        n_src = con.execute("SELECT COUNT(*) FROM weeklyresults").fetchone()[0]
-        n_dst = dst.execute("SELECT COUNT(*) FROM weeklyresults").fetchone()[0]
-        ok = dst.execute("PRAGMA quick_check").fetchone()[0]
-        dst.close()
-        if n_src != n_dst or ok != "ok":
-            sys.exit("REFUSE: backup %s failed verification (rows %d vs %d, quick_check %s)" % (backup, n_src, n_dst, ok))
-        record["localBackup"] = backup
-        print("local backup verified:", backup)
+        w = sqlite3.connect(args.local_db, timeout=30)
+        w.isolation_level = None
         try:
-            con.execute("BEGIN IMMEDIATE")
-            cur = con.execute("UPDATE weeklyresults SET is_playoff = 0 "
-                              "WHERE season = 2012 AND week = 13 AND is_playoff = 1")
+            w.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError as exc:
+            sys.exit("REFUSE: could not take the local write lock (%s) -- another process is writing "
+                     "%s. Nothing was changed; rerun when it is free." % (exc, args.local_db))
+        try:
+            flagged = w.execute("SELECT COUNT(*) FROM weeklyresults WHERE season = 2012 AND week = 13 "
+                                "AND is_playoff = 1").fetchone()[0]
+            if flagged != LOCAL_EXPECTED:
+                raise RuntimeError("under the lock %d rows are flagged, expected %d" % (flagged, LOCAL_EXPECTED))
+            backup = os.path.join(os.path.dirname(args.local_db),
+                                  "mfl_database.pre_2012wk13_playoff_fix_%s.db" % stamp)
+            reader, dst = sqlite3.connect("file:%s?mode=ro" % args.local_db, uri=True), sqlite3.connect(backup)
+            reader.backup(dst)   # a SEPARATE connection: backing up from `w` itself hangs
+            reader.close()
+            n_src = w.execute("SELECT COUNT(*) FROM weeklyresults").fetchone()[0]
+            n_dst = dst.execute("SELECT COUNT(*) FROM weeklyresults").fetchone()[0]
+            ok = dst.execute("PRAGMA quick_check").fetchone()[0]
+            dst.close()
+            if n_src != n_dst or ok != "ok":
+                raise RuntimeError("backup %s failed verification (rows %d vs %d, quick_check %s)"
+                                   % (backup, n_src, n_dst, ok))
+            record["localBackup"] = backup
+            print("local backup verified (taken under the write lock):", backup)
+            cur = w.execute("UPDATE weeklyresults SET is_playoff = 0 "
+                            "WHERE season = 2012 AND week = 13 AND is_playoff = 1")
             if cur.rowcount != LOCAL_EXPECTED:
                 raise RuntimeError("local update touched %d rows, expected %d" % (cur.rowcount, LOCAL_EXPECTED))
-            con.execute("COMMIT")
+            w.execute("COMMIT")
             print("local: %d rows corrected in one transaction" % cur.rowcount)
         except Exception as exc:
-            con.execute("ROLLBACK")
-            sys.exit("local transaction rolled back: %s" % exc)
+            if w.in_transaction:
+                w.execute("ROLLBACK")
+            sys.exit("local transaction rolled back, nothing changed: %s" % exc)
+        finally:
+            w.close()
     else:
         print("local: already corrected")
 
