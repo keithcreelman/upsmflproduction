@@ -53,13 +53,13 @@ test("DESKTOP: the staged URL builder resolves to the staged endpoint (it legiti
 });
 
 test("MOBILE: submitStagedOffer's own body never references the direct-MFL proposals endpoint, and never calls submitOffer/submitTradeCreateWithGatesMobile", () => {
-  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2340, "function render(mount, parts)", 2378);
+  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2353, "function render(mount, parts)", 2391);
   t.doesNotMatch(body, /\/api\/trades\/proposals|submitTradeCreateWithGatesMobile\(|[^d]submitOffer\(/);
   t.match(body, /\/api\/trades\/2way/, "it must post to the staged endpoint");
 });
 
 test("MOBILE: submitOffer's own body never references the staged endpoint, and never calls submitStagedOffer", () => {
-  const body = sliceByAnchors(mobileLines, "function submitOffer()", 987, "function mflActionVerb(action)", 1081);
+  const body = sliceByAnchors(mobileLines, "function submitOffer()", 1000, "function mflActionVerb(action)", 1094);
   t.doesNotMatch(body, /\/api\/trades\/2way(?!-)|submitStagedOffer\(/);
 });
 

@@ -86,7 +86,7 @@ function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
 // ══════════════════════ harness: the REAL mobile cutover-fallback functions ══════════════════════
 function loadMobileFallback(env, { token, fid, previewResult } = {}) {
   const lines = MOBILE_SRC.split("\n");
-  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 916, "function submitOffer()", 987);
+  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 916, "function submitOffer()", 1000);
   const code = gates;
   const bridge = bridgeFetch(env);
   const U = { pad4: (v) => { const d = String(v || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }, safeInt: (v, d) => { const n = parseInt(v, 10); return isFinite(n) ? n : (d == null ? 0 : d); } };

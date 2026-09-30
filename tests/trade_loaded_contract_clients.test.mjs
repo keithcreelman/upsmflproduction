@@ -249,6 +249,55 @@ test("MOBILE: closing the picker resolves null -- submitTradeCreateWithGatesMobi
   t.equal(mfl.st.pending.length, 0, "zero MFL writes when the owner cancels");
 });
 
+// ───────── CREATE-TIME: the RECIPIENT (not the sender) is over the limit -- Keith's exact
+// Hammer Times / Chig Okonkwo scenario ─────────
+// "If Hammer has 5 loaded contracts... and I offer him Chig Okonkwo as a sixth, show me before
+// Send" (Keith, 2026-09-30). Nothing for the SENDER to pick here (only Hammer can pick his own
+// drop, at his own review) -- no interactive picker opens, but the sender must still see the
+// exact warning before anything is sent, on BOTH platforms, identically.
+function hammerOfferBody() {
+  return {
+    league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0005", message: "",
+    payload: { schema_version: 1, source: "test", league_id: "74598", season: "2026",
+      teams: [
+        { role: "left", franchise_id: "0001", selected_assets: [{ asset_id: "P_14056", type: "PLAYER", player_id: "14056", player_name: "Chig Okonkwo", salary: 5000, taxi: false }], traded_salary_adjustment_k: 0 },
+        { role: "right", franchise_id: "0005", selected_assets: [{ asset_id: "P_13100", type: "PLAYER", player_id: "13100", player_name: "P13100", salary: 5000, taxi: false }], traded_salary_adjustment_k: 0 },
+      ],
+      extension_requests: [], ui: { left_team_id: "0001", right_team_id: "0005" }, validation: { status: "ready" } },
+  };
+}
+function hammerWorld() {
+  const { env, mfl } = world();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-Ext2-BL" }]; // "Chig Okonkwo" -- a loaded contract
+  mfl.st.rosters["0005"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 4), { id: "90004", salary: 1000, contractYear: 3, contractStatus: "Vet-Ext2-BL", status: "INJURED_RESERVE" }];
+  return { env, mfl };
+}
+
+test("DESKTOP CREATE — HAMMER TIMES / CHIG OKONKWO: the RECIPIENT (not the sender) would go over the limit -- no picker opens (nothing for the sender to pick), but the exact warning surfaces before anything is sent, and nothing is", async () => {
+  const { env, mfl } = hammerWorld();
+  const d = loadDesktop(env);
+  const apiUrl = `https://worker.test/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`;
+  let threw = null;
+  try { await d.api.submitTradeCreateWithGates(apiUrl, hammerOfferBody(), "0001"); } catch (e) { threw = e; }
+  t.ok(threw, "the send must be refused");
+  t.equal(threw.status, 409);
+  t.match(threw.message, /HammerTime would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/, "the sender sees the exact warning, naming HammerTime, before anything is sent");
+  t.ok(!d.dlg.hasAttribute("open"), "no interactive picker opens -- this is HammerTime's own requirement, not the sender's to pick");
+  t.equal(mfl.st.pending.length, 0, "no native MFL offer was ever sent");
+});
+
+test("MOBILE CREATE — HAMMER TIMES / CHIG OKONKWO: the SAME scenario surfaces the SAME warning to the sender, with the SAME zero-picker/zero-send behavior as desktop", async () => {
+  const { env, mfl } = hammerWorld();
+  const m = loadMobile(env);
+  const url = `https://worker.test/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`;
+  const resp = await m.api.submitTradeCreateWithGatesMobile(url, hammerOfferBody(), "0001");
+  t.ok(resp, "must NOT silently resolve as if the owner had simply declined a picker -- there was no picker to decline");
+  t.equal(resp.status, 409);
+  t.match(resp.body && resp.body.error, /HammerTime would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/, "the SAME exact warning as desktop, naming HammerTime");
+  t.ok(!m.sheet(), "no picker sheet opens on mobile either -- consistent with desktop");
+  t.equal(mfl.st.pending.length, 0, "no native MFL offer was ever sent");
+});
+
 // ───────────────────────────────── ACCEPT REVIEW (the RECIPIENT's own requirement) ─────────────────────────────────
 // "Each affected franchise owner must select and confirm their own loaded-contract players to
 // drop ... The receiving owner chooses their drops before accepting" (Keith's ruling, 2026-09-29).
@@ -276,12 +325,20 @@ const previewBody2 = (id) => ({ league_id: "74598", season: "2026", trade_id: id
 
 test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, and STAYS withheld even after a fully valid pick + Confirm selection -- satisfied is not executed, so Accept never becomes available (Keith's ruling, 2026-09-29)", async () => {
   const { env, mfl } = world();
-  // Flip the direction: 0002 is now the one with 5 loaded fillers and RECEIVES a loaded player.
+  // Flip the direction: 0002 is now the one who will RECEIVE a loaded player. At 4 loaded
+  // (under the limit), creation succeeds -- the create-time gate now also checks the
+  // RECIPIENT's own side (Keith, 2026-09-30: "show me before Send" must never depend on the
+  // recipient reviewing first, so a recipient ALREADY over the limit is refused right here too;
+  // see the dedicated create-time test below). This test's own job is the case create-time
+  // cannot catch: 0002's roster changes AFTER this offer is created but BEFORE they review it --
+  // exactly the "recalculate immediately before completion" principle -- so the picker must
+  // still appear at accept, from a live re-check, never trusted from create time.
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
-  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 5)];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 4)];
   const createRes = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: offerBody() });
   t.equal(createRes.status, 201, createRes.text.slice(0, 300));
   const id = mfl.st.pending[mfl.st.pending.length - 1].trade_id;
+  mfl.st.rosters["0002"].push(...loadedFillers(90004, 1)); // a 5th loaded contract lands on 0002 between create and accept
 
   const d = loadDesktopAccept(env);
   const p = d.api.reviewBeforeAccept(d.url, previewBody2(id));
@@ -360,11 +417,16 @@ function loadMobileForAccept(env, tradeId) {
 
 test("MOBILE ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, and STAYS withheld even after a fully valid pick + Confirm selection -- satisfied is not executed, so Accept never becomes available (Keith's ruling, 2026-09-29)", async () => {
   const { env, mfl } = world();
+  // Same setup as the DESKTOP ACCEPT test above: 0002 is under the limit at create time (the
+  // create-time gate now also checks the recipient -- see the dedicated create-time test below),
+  // and gains its 5th loaded contract AFTER creation, before this review -- proving the
+  // accept-time re-check is live, not trusted from create time.
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
-  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 5)];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 4)];
   const createRes = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: offerBody() });
   t.equal(createRes.status, 201, createRes.text.slice(0, 300));
   const id = mfl.st.pending[mfl.st.pending.length - 1].trade_id;
+  mfl.st.rosters["0002"].push(...loadedFillers(90004, 1));
 
   const app = loadMobileForAccept(env, id);
   await app.click("accept");

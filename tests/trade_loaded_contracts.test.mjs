@@ -176,6 +176,30 @@ test("LC 9: a loaded contract on taxi still counts (no taxi carve-out)", () => {
   t.equal(c.loaded_contracts.status, "blocked", "5 (incl. taxi) -> 6 must block, never silently pass because one was on taxi");
 });
 
+test("LC 9b: a loaded contract on IR still counts (no IR carve-out) -- the exact Hammer Times / Chig Okonkwo scenario Keith named", () => {
+  // Hammer Times sits at 5 loaded contracts, one of them on IR. An incoming loaded player
+  // (standing in for Chig Okonkwo) would make it 6.
+  const c = calc({
+    league: league({ franchises: { franchise: [{ id: "0001", name: "Sender Squad" }, { id: "0002", name: "Hammer Times" }] } }),
+    rosters: rosterOf({
+      "0001": [{ id: "500", contractStatus: "Vet-Ext2-BL" }], // "Chig Okonkwo" -- the incoming loaded player
+      "0002": [...loadedIds(200, 4), { id: "204", contractStatus: "Vet-Ext2-BL", status: "INJURED_RESERVE" }],
+    }),
+    movements: [{ from: "0001", to: "0002", tokens: ["500"] }],
+  });
+  t.equal(c.loaded_contracts.rows.find((r) => r.franchise_id === "0002").loaded_before, 5, "the IR player's loaded contract must be counted in the baseline, same as taxi");
+  t.equal(c.loaded_contracts.status, "blocked");
+  t.equal(c.loaded_contracts.violations.length, 1);
+  t.equal(c.loaded_contracts.violations[0].franchise_id, "0002");
+  t.match(c.loaded_contracts.violations[0].message, /Hammer Times would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/,
+    "names the affected team and the exact required-drop count, before anything is sent");
+  const req = c.loaded_contracts.drop_requirements[0];
+  t.equal(req.franchise_id, "0002");
+  t.equal(req.required_drops, 1);
+  // The picker's candidate menu must include the IR player -- not silently excluded.
+  t.deepEqual(req.candidates, ["200", "201", "202", "203", "204"], "candidates include the IR player (204), same as any other loaded contract");
+});
+
 test("LC 10: a pre-trade extension is included, attributed to the acquiring franchise -- derived from its AUTHORITATIVE FUTURE-years priced terms (excluding the frozen Y1), matching the claimed indicator", () => {
   // Y1 is always the pre-extension CURRENT salary, frozen, never repriced -- it is
   // structurally irrelevant to loaded/flat and must be excluded from the comparison
@@ -421,6 +445,41 @@ test("LC 2-WAY CREATE: 5 -> 6 loaded requires the SENDER's own conditional drop,
   t.equal(r2.status, 409);
   t.equal(r2.json.loaded_contract_drops_needed.satisfied, true);
   t.equal(mfl.st.pending.length, 0);
+});
+
+test("LC 2-WAY CREATE — HAMMER TIMES / CHIG OKONKWO, END TO END: sends to franchise 0005 (real fixture name 'HammerTime'), whose 5 loaded contracts include one on IR; the incoming player (standing in for Chig Okonkwo) is itself a loaded contract, matching Keith's own example exactly; BEFORE Send, the response names the team and the exact drop count; NO native MFL offer is ever created at any point, satisfied or not", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-Ext2-BL" }]; // the sender, giving "Chig Okonkwo" -- a loaded contract
+  mfl.st.rosters["0005"] = [
+    { id: "13100", salary: 5000, contractStatus: "Vet-FAA" }, // the recipient's own kept player
+    ...loadedIds(9000, 4),
+    { id: "9004", salary: 1000, contractStatus: "Vet-Ext2-BL", status: "INJURED_RESERVE" }, // HammerTime's 5th loaded contract, on IR
+  ];
+  const body0 = { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0005", from_franchise_name: "placeholder", to_franchise_name: "placeholder", message: "",
+    payload: payloadOf("0001", "0005", [player(14056)], [player(13100)]) };
+  const r0 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: body0 });
+  t.equal(r0.status, 409);
+  t.equal(r0.json.code, "loaded_contract_drops_required");
+  t.match(r0.json.error, /HammerTime would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/);
+  t.equal(r0.json.loaded_contract_drops_needed.required_drops, 1);
+  t.equal(r0.json.loaded_contract_drops_needed.franchise_id, "0005", "identifies HammerTime, not the sender, as the affected team");
+  const theirReq = r0.json.compliance.loaded_contracts.drop_requirements.find((d) => d.franchise_id === "0005");
+  t.deepEqual(theirReq.candidates.sort(), ["9000", "9001", "9002", "9003", "9004"], "the IR player (9004) is offered as a candidate, not excluded");
+  t.equal(mfl.st.pending.length, 0, "no native MFL offer was sent -- the sender never gets to Send an illegal offer that would leave HammerTime over the limit");
+  t.equal(mfl.st.imports.length, 0, "not even an attempted MFL write of any kind");
+  // The recipient's own requirement can only ever be satisfied by the recipient THEMSELVES, at
+  // their own accept-time review (they haven't seen this offer yet, and nothing here lets the
+  // sender pick on their behalf) -- exactly proven end to end, both platforms, by
+  // tests/trade_loaded_contract_clients.test.mjs's "DESKTOP ACCEPT"/"MOBILE ACCEPT" tests.
+
+  // The SENDER revises the offer (Keith: "The sender can revise or cancel the offer") -- Chig
+  // stays home, a flat player goes instead. HammerTime's own count is now untouched, and the
+  // real native MFL offer goes through cleanly.
+  const revisedBody = { ...body0, payload: payloadOf("0001", "0005", [player(70000)], [player(13100)]) };
+  mfl.st.rosters["0001"].push({ id: "70000", salary: 3000, contractStatus: "Vet-FAA" });
+  const r1 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: revisedBody });
+  t.ok(r1.status < 300, `a revised, compliant offer must go through cleanly: ${r1.status} ${r1.text.slice(0, 300)}`);
+  t.equal(mfl.st.pending.length, 1, "the revised offer was actually sent this time");
 });
 
 test("LC 2-WAY CREATE: 5 -> 7 (receiving TWO loaded contracts at once) requires exactly 2 drops -- one alone is refused, and even two (fully satisfied) still holds -- no executor exists", async () => {
