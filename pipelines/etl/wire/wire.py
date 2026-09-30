@@ -707,7 +707,21 @@ def cmd_render(args):
     print("render: wrote %s" % os.path.relpath(out, REPO))
     print("        numeric audit passed -- every quantity came from the pack")
     print("        status=draft (hidden from the index until you flip it)")
-    print("        next: restyle, then index, then verify")
+    # Every weekly recap from 2026 week 2 on ships as a hand-built "UPS Center"
+    # page (masthead, numbered show nav, desk cards, full-width division/
+    # scoreboard panels) -- this generic render is NOT that. It was mistaken for
+    # the finished article once already (2026-09-29, week 3) before being
+    # rebuilt by hand into 2026-wk03-ups-center.html. See site/wire/README.md,
+    # "The weekly recap's real format" for what to build instead and why
+    # `write`/`render` cannot produce it directly (pots are not describable to
+    # the model yet, and the show layout is bespoke .uc markup, not generated).
+    if family_id == "weekly" and int(pack["season"]) >= 2026 and int(pack.get("week") or 0) >= 2:
+        print("        !! THIS IS NOT THE FINISHED UPS CENTER PAGE. Weekly recaps from week 2 on")
+        print("        !! are hand-built into the .uc show format -- see site/wire/README.md,")
+        print("        !! \"The weekly recap's real format\", before treating this as done.")
+        print("        next: hand-convert into *-ups-center.html (see README), then index, then verify")
+    else:
+        print("        next: restyle, then index, then verify")
     return 0
 
 

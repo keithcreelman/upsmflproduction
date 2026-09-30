@@ -169,9 +169,10 @@ same audit as body copy:
 | `placeAt` | section | `{id: n}` -- put that figure right after paragraph `n` (0-based) |
 | `views` | section | `{id: {cols, labels, title, sortDesc, rows, stack, note}}` -- a reader's view of a pack table |
 | `{{id\|ord}}` | any text | Renders a whole-number fact as an ordinal ("7th") |
-| `desk` | section | `[{speaker, text}]` instead of `paragraphs` -- the two-anchor format. `speaker` is `stuart` or `rich`; the renderer prints the label. `placeAt`/`quoteAt` index desk lines |
+| `desk` | section | `[{speaker, text}]` instead of `paragraphs` -- the anchor-desk format. `speaker` is `stuart`, `rich`, or (2026-09-29+) `boomer` for an occasional guest-host segment tossed to and from inside a section's own desk; the renderer prints the label with its own badge color. `wire_render.py`'s `ANCHORS` is the whitelist -- a typo there is a hard build failure, not a silently-dropped line. `placeAt`/`quoteAt` index desk lines |
 | `pots` | section | Pot ids to place, exactly the pack section's `potIds` in order (2026+ regular season). One page per division pot replaces one page per game |
 | `potNotes` | section | `{potId: [{speaker, text}]}` -- required for every placed pot. Division-audited both ways: intra pots may say "division game", inter pots may not |
+| `potQuoteAt` | section | `{potId: {quoteId: n}}` -- select only substantiated quotes and place each after desk line `n`; unselected pack quotes stay out of the article |
 
 Team reviews get all of this from `pipelines/etl/wire/team_review_layout.py`,
 run after `write` and before `render`.
@@ -195,6 +196,52 @@ for one pot is not automatically valid for the other. `render`'s numeric audit
 and per-pot quote check are the real gate; write a small script to check every
 `{{fact_id}}` token against the right scope before the first render attempt,
 rather than discovering it one error at a time.
+
+### The weekly recap's real format
+
+**`wire.py render`'s plain output is not the finished weekly recap, and has not
+been since Week 2.** This bit a real session (2026-09-29): Week 3 was built,
+rendered, restyled, indexed, verified -- all green -- and reported as done. It
+was still wrong. `render`'s own `.wire-sec`/`.wire-desk-line`/`.wire-fig`
+markup is the *generic* article format, used for team reviews, the season
+forecast and one-off dispatches. The weekly recap is different: from
+`2026-wk02-ups-center.html` on, Keith's standing instruction is that it ships
+as **UPS Center**, the studio-show format --masthead, numbered show
+navigation, desk cards, full-width division and scoreboard panels -- and that
+format is **hand-built HTML**, not something `write`/`render` can produce.
+Check an article's own `<!--wire-provenance-->` comment if you need to confirm
+this for a given week: `engine: hand-authored (UPS Center)` means it went
+through this hand-conversion; anything else did not.
+
+Why `render` can't do this directly: the show's markup lives under a `.uc`
+CSS scope in `wire_article.css` (masthead `.mast`/`.brand`, desk cards
+`.lt.stuart`/`.lt.rich`/`.lt.boomer`, `.division`/`.face`/`.final` matchup
+headers, `.standings`/`.st`, `.bb`/`.bbl` bust-bargain lists, `.tablebox`/`.fr`
+schedule tables -- all real, reusable, already shipped in two live articles).
+`wire_render.py` has no code path that emits any of it; it only ever produces
+the generic `.wire-*` classes. Building the show format means writing this
+`.uc` markup by hand from the pack's own facts/tables (`franchise_logos()` in
+`wire_data.py` gives real, correct crest URLs -- never hand-type or guess
+one), reusing the pack's already-verified numbers and the desk-lines prose
+that were authored for the generic render (same facts, same claims, just
+reformatted from `wire-desk-line`/`wire-desk-who` into `.lt`/`.who`).
+
+The regular section outline, matching Weeks 1-3: `open` (the week's lead --
+Boomer's Three-Minute Rundown as of the week 3 pilot, `.lt.boomer` desk lines
+tossed to and from), `desk` (a `.wire-gamedeck` of `.division.wire-gamepage`
+pages, one per crossover, each with a `.face`/`.final` matchup header and its
+own `.desk-lines`), `bb` (bust & bargain, a `.bb` grid of `.bbl` lists), an
+optional `elias` section (only once a Thursday check exists for that week),
+`landscape` (the `.tablebox` standings sorted by current playoff odds) and the
+next week's preview (schedule `.tablebox`, division-odds line, injury-watch
+table). Keep the article filename and id on the `-ups-center` suffix (not
+`-recap`) to match; the underlying pack/prose keep their plain `-recap` id
+(check the `wire-provenance` comment: `pack: 2026-wkNN-recap` is correct even
+inside a `...-ups-center.html` file).
+
+`render`'s own output now prints an unmissable warning when you run it on a
+2026+ weekly pack for week 2 or later, for exactly this reason -- if you see
+it, the file it just wrote is a work-in-progress data check, not the article.
 
 ### Building the twelve team reviews
 

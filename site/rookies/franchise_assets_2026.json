@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-09-29T16:06:52.890708+00:00",
+    "generated_at_utc": "2026-09-30T16:05:22.241500+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2857,7 +2857,7 @@
           "salary": 7000,
           "contract_year": 2,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -2977,6 +2977,18 @@
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17059",
+          "display": "Ollie Gordon",
+          "player_id": "17059",
+          "position": "RB",
+          "nfl_team": "MIA",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie-Draft",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3216,18 +3228,6 @@
           "nfl_team": "LVR",
           "salary": 2000,
           "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
-          "asset_id": "P_17059",
-          "display": "Ollie Gordon",
-          "player_id": "17059",
-          "position": "RB",
-          "nfl_team": "MIA",
-          "salary": 2000,
-          "contract_year": 2,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
@@ -5510,7 +5510,7 @@
           "display": "J.J. McCarthy",
           "player_id": "16584",
           "position": "QB",
-          "nfl_team": "MIN",
+          "nfl_team": "NYG",
           "salary": 11000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",

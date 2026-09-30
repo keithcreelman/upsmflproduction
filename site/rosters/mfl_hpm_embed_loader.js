@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.2";
+  var BUILD = "2026.09.30.1";
   if (window.__ups_rwb_embed_loader === BUILD) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
     return;
@@ -198,6 +198,13 @@
     var masterCandidates = [];
     var capMathCandidates = [];
     var contractWindowsCandidates = [];
+    // Loaded-contract classifier (window.UPS_LOADED_CONTRACT_CLASSIFICATION), added
+    // 2026-09-30: roster_workbench.js's isLoadedContractStatus has required this
+    // global since #1152 (fail-closed to an honest "unavailable" bucket when it's
+    // missing, never a silent suffix-only guess) — this loader's own fixed script
+    // list predates that and was never updated, the same gap found and fixed the
+    // same day in the sibling FO v2 loader (fo_embed_loader.js).
+    var classifierCandidates = [];
 
     if (base) {
       cssCandidates.push(base + "roster_workbench.css?v=" + cacheKey);
@@ -206,6 +213,7 @@
       masterCandidates.push(base + "../shared/player_profile_master.js?v=" + cacheKey);
       capMathCandidates.push(base + "../shared/cap_math.js?v=" + cacheKey);
       contractWindowsCandidates.push(base + "../shared/contract_windows.js?v=" + cacheKey);
+      classifierCandidates.push(base + "../shared/loaded_contract_classification.js?v=" + cacheKey);
     }
 
     // GitHub Pages is the canonical CDN (see #88). jsDelivr removed as of
@@ -216,6 +224,7 @@
     masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
     capMathCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=" + cacheKey);
     contractWindowsCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/contract_windows.js?v=" + cacheKey);
+    classifierCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/loaded_contract_classification.js?v=" + cacheKey);
 
     injectCssCandidates(cssCandidates);
 
@@ -226,13 +235,16 @@
     // can parse TCV/AAV/earned + compute the cap penalty (else TCV renders blank).
     // contract_windows.js (window.UPS_CONTRACT_WINDOWS) must load before
     // roster_workbench.js — restructure/extension eligibility fails closed
-    // without it (see roster_workbench.js rosterContractEligibility).
+    // without it (see roster_workbench.js rosterContractEligibility). The
+    // loaded-contract classifier needs the same treatment for the same reason.
     injectScript(capMathCandidates, function () {
       injectScript(contractWindowsCandidates, function () {
-        injectScript(masterCandidates, function () {
-          // roster_workbench.js self-initializes on load; avoid double-init
-          // because that can replace DOM after listeners are attached.
-          injectScript(jsCandidates, function () {});
+        injectScript(classifierCandidates, function () {
+          injectScript(masterCandidates, function () {
+            // roster_workbench.js self-initializes on load; avoid double-init
+            // because that can replace DOM after listeners are attached.
+            injectScript(jsCandidates, function () {});
+          });
         });
       });
     });
