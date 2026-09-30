@@ -69,7 +69,8 @@
 
   <div class="trq-blocker-banner">
     <b>🚨 A staged trade cannot be completed yet.</b>
-    <p>This queue can tell you a trade is <b>ready to complete</b> and show exactly what it would send to MFL (below, per trade) — but nothing here can actually send it. Conditional-drop selection has no executor, and there is no commissioner action anywhere that finishes a trade for real. Do not enable cutover expecting this queue to also let you finish what it holds.</p>
+    <p>This queue can tell you today's compliance checks <b>clear</b> and show exactly what it would send to MFL (below, per trade) — but nothing here can actually send it, and completion is unavailable regardless of compliance. Conditional-drop selection has no executor, and there is no commissioner action anywhere that finishes a trade for real. Do not enable cutover expecting this queue to also let you finish what it holds.</p>
+    <p><b>Neither write order is decided, and neither can guarantee both safety properties at once</b> (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §2.3.1): dropping the selected player(s) before sending the trade guarantees the roster never exceeds the 5-loaded-contract limit, but if the trade then fails, the loss is real and largely irreversible. Sending the trade before the drop(s) avoids that irreversible loss, but the roster can sit over the limit — possibly for an extended period — until the drop is confirmed. When a manual completion path is eventually built, this queue must make the commissioner choose the order per deal and show which risk that choice accepts, not default silently to either one.</p>
   </div>
 
   <div id="trqAuthBanner" class="trq-auth-banner">

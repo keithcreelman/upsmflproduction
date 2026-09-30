@@ -240,19 +240,83 @@ flagged and is not retracted here — it is fully as real under a from-scratch a
 **What this ordering does NOT risk:** the loaded-contract limit is never, even momentarily,
 exceeded by this transaction.
 
-### 2.3 The actual tradeoff, stated once, plainly
+### 2.3 The actual tradeoff, stated once, plainly — CORRECTED (2026-09-29)
 
-Ordering A trades a temporary, self-correcting-in-the-success-case rule exposure (being over 5
-for a bounded window) for a **soft, recoverable** failure mode (bookkeeping stays off until a
-human fixes it — nothing was taken from anyone). Ordering B eliminates that rule exposure
-entirely, at the cost of a **hard, irreversible** failure mode (a real, permanent asset loss with
-no compensating trade) whenever the *subsequent* step — the trade itself, now the second
-operation instead of the first — fails for the same set of ordinary reasons (lockout, refusal,
-ambiguity) that can hit either operation in either order.
+**Keith's correction:** *"Calling trade-first 'soft/recoverable' understates the case where the
+trade completes and a required drop cannot: the team remains over the five-loaded-contract
+limit, potentially for an extended period."* He is right, and the prior wording of this
+paragraph was too soft. Recorded plainly:
 
-This is a real value judgment about which kind of failure is more acceptable in this league, not
-an engineering question with one correct answer, and it should not be assumed. This doc's own
-prior draft assumed Ordering A; on Keith's instruction it is now presented, not assumed.
+Ordering A (trade first) risks the franchise sitting **genuinely, verifiably over the
+5-loaded-contract limit** for as long as its compensating drop(s) stay unresolved — seconds in
+the ordinary case, but **potentially indefinitely** if the failure requires a human to notice and
+act (§2.1's own closing paragraph already says this: "the window is real, and if a drop step sits
+`executed_needs_review` unresolved for an extended time... the franchise stays over the limit for
+that entire span with no automatic escalation beyond the original DM"). Calling this "soft" is
+only true in the narrow sense that no asset is lost — it is not true in the sense that matters for
+the rule itself: the limit this whole design exists to enforce is, for real and for however long
+it takes a human to fix it, not being enforced.
+
+Ordering B (drop first) never puts the franchise over the limit because of this transaction
+(§2.3.1 below proves this from the actual compliance code, not by assertion) — at the cost of a
+**hard, irreversible** failure mode: a real, permanent asset loss with no compensating trade,
+whenever the *subsequent* step — the trade itself, now the second operation — fails for the same
+ordinary reasons (lockout, refusal, ambiguity) that can hit either operation in either order.
+
+Neither of these is free, and neither is disqualifying on its own — one is a real, open-ended
+compliance failure with no asset loss; the other is a real, largely-irreversible asset loss with
+no compliance failure. This is a genuine value judgment about which kind of failure this league
+finds more acceptable, not an engineering question with one correct answer, and Keith has not
+made that call. §12 (added later in this document, then itself corrected on 2026-09-29 for
+prematurely treating this as decided) tracks this as the same still-open question.
+
+### 2.3.1 Can any sequence guarantee the limit is never temporarily exceeded? — a direct answer
+
+**Yes, with one real qualification — Ordering B (drop-first) can structurally guarantee it, but
+only for exposure the trade itself would have caused; it cannot instantly cure a franchise that
+was already over the limit before this trade was ever proposed.**
+
+This follows directly from how `evaluateTradeCompliance` already computes both numbers today
+(`worker/src/trade_cap_authority.js`), not from a general argument about ordering:
+
+- **`loadedBefore`** (line 254) counts loaded contracts on the franchise's **live, pre-trade**
+  roster (`R.byFranchise[fid]`, an actual current-state fetch, not a projection).
+- **`loadedAfter`/`projected`** (lines 277, 298, 312-313, 365) starts from `loadedBefore` and
+  applies the trade's own net effect — `-1` for each loaded contract this franchise sends away,
+  `+1` for each loaded contract it receives — this is the number the 5-contract limit is actually
+  checked against, and it is **never true on MFL until the trade itself executes.**
+- **The drop candidates a franchise's owner can select from** (lines 392-393, `candidates =
+  Object.keys(roster).filter(...)`) are drawn from that SAME live pre-trade roster
+  (`R.byFranchise[fid]`), explicitly excluding anything already being sent away in this trade
+  (`sentTokensByFranchise[fid]`). **A drop candidate is therefore always a player the franchise
+  already, actually holds right now — never one of the incoming assets this trade would deliver,**
+  which don't exist on that roster yet to select from.
+
+Put together: if every required drop for a franchise is confirmed **before** the trade's incoming
+assets ever land, that franchise's live MFL roster only ever loses loaded contracts (from the
+drops) before it can gain any (from the trade) — it cannot pass through an over-5 state caused by
+*this transaction*, because the state that would need to be corrected (the incoming assets being
+live) never exists before the correction (the drop) already has. Ordering A has no equivalent
+guarantee: the incoming assets land the moment the trade executes, and the compensating drop is
+strictly the *next*, separate, independently-fallible step — there is no code path today, and
+none proposed in this document, that makes those two things atomic (§2.5).
+
+**The qualification:** this only protects against overage *this transaction would cause*. If a
+franchise is **already** over 5 loaded contracts on its live roster for reasons that predate this
+trade entirely (nothing today enforces the limit continuously — it is only ever checked at trade
+time, which is exactly how HammerTime's live roster reached 6+ before anyone noticed, §9), no
+ordering fixes that pre-existing overage instantly: the franchise stays over 5 until **all** of
+its required drops land, and that takes the same non-zero, sequential time regardless of whether
+the trade happens before, after, or in between them. Ordering B's guarantee is specifically that
+**the trade never makes an already-compliant franchise's overage worse, or creates a fresh one**
+— not that it can teleport a pre-existing violation to zero.
+
+**This is the limitation §3 (item 4, below) and the commissioner queue banner must show, and now
+do:** drop-first can promise "the limit itself is never exceeded by this deal," but only by
+accepting the real risk of an irreversible loss if the trade side then fails; trade-first avoids
+that irreversible loss, but cannot make the equivalent promise about the limit. No sequence gets
+both. Which one to prefer — or whether to decide per-deal rather than fix a rule — is Keith's call
+(§11), not this document's.
 
 ### 2.4 THE DECIDED MODEL (Keith, 2026-09-29): stage consent, hold for commissioner review
 
@@ -364,6 +428,37 @@ not yet confirmed when a later one fails. Which sequence to prefer, if any — a
 should be a fixed rule or the commissioner's judgment per deal — remains unresolved (§11), now
 informed by this being a real, consequential choice either way, not a free one.
 
+**2.4.3a The canonical two-write case, worked in full.** §2.4.3 above is deliberately general
+(N writes, any order). Keith asked for it concretely, for both partial-outcome directions, against
+five specific questions: what is verified before each write, what the ledger records after each
+confirmed write, who is notified immediately, what further actions are blocked, and how the
+commissioner resolves or escalates. Worked here for the simplest real case — one required drop,
+one trade — which generalizes to N drops exactly as §2.4.3 already describes (run the same
+per-write discipline once per write, in whichever order the deal calls for).
+
+**Before EITHER write, in either order:** the commissioner re-runs the same live
+`evaluateTradeCompliance` the owner last saw (§2.4.2) — not a cached number — and confirms the
+recipient (2-way) or all parties (3-way) actually accepted. If it no longer clears, stop; nothing
+below applies yet.
+
+| | **Order A: trade, then drop** | **Order B: drop, then trade** |
+|---|---|---|
+| **1. Verified before this write** | The trade's own terms are re-confirmed unchanged since staging (assets still on the right rosters, nothing double-spent) — the same check `accept2WayTrade`/`execute2Way` already run. | The selected drop is re-confirmed still valid: still on that franchise's roster, still resolves as a loaded contract, not one of the assets this trade would send away (`trade_cap_authority.js` lines 376-388 — the same validation `evaluateTradeCompliance` already runs on every read, re-run here immediately before the write, not trusted from an earlier read). |
+| **2. Write + verify** | `executeCommishTwoPartyTrade` (existing, §1.2) — MFL's response is never trusted alone; the roster is re-read afterward exactly as §1.1 already mandates for a drop, applied here to the trade leg too. | `POST /roster-workbench/action {action:"unload_player"}` (existing, ERA-gated, already used by the ERA auto-drop sweep) — it already re-fetches the live `rosters` export after posting and refuses (`ok:false`) unless the player is confirmed off that roster; an inconclusive re-fetch must be treated as `unconfirmed`, never `failed` or `done` (§2.1's own rule, applies identically here). |
+| **3. Ledger, if this write is CONFIRMED and the next one hasn't run yet** | Row moves to the proposed `partial_executed` state (§2.4.3); `steps_json` (proposed, not yet a real column — §11) records `{trade: "confirmed", drop: "pending"}` with the MFL trade id as evidence. | `steps_json` records `{drop: "confirmed", trade: "pending"}` with the drop's own verified-roster evidence (the same `verification` object `unload_player` already returns). |
+| **3b. Ledger, if this write is CONFIRMED and then the NEXT write FAILS or comes back ambiguous** | `steps_json` updates to `{trade: "confirmed", drop: "failed"\|"unconfirmed", reason: "<verbatim MFL/lockout reason>"}`; row stays `partial_executed` — never rolls back to `not_executed` or forward to `completed`. | `steps_json` updates to `{drop: "confirmed", trade: "failed"\|"unconfirmed", reason: "<verbatim reason>"}`; same rule — stays `partial_executed`. |
+| **4. Notified immediately** | Both franchises' owners (`dmAll` to `from_discord_ids`/`to_discord_ids`, the same existing helper `execute2Way` already calls) — told the trade is real and done, but the compensating drop did not confirm, so their roster may still read over the limit; the commissioner (`dmCommish`, existing) — told specifically that the DROP step needs attention, with the failure reason verbatim (never re-summarized), so lockout vs. a genuine MFL refusal vs. ambiguity are distinguishable at a glance. | Both owners — told the drop is real and done (a real player is gone, a real cap penalty is accruing), but the trade itself did not confirm, so nothing was received in return; the commissioner — told the TRADE step needs attention, same verbatim-reason discipline. |
+| **5. Further actions blocked** | This specific deal: no further automatic action (§2.4 has none anyway). This FRANCHISE: any NEW trade offer touching it should be held from staging-to-review until this `partial_executed` deal resolves — its true loaded-contract count is only "verifiably over 5, pending a drop" (a known, bounded uncertainty; §11 notes this is not yet enforced anywhere in code and should be before real writes ship). | Same per-franchise hold, for the opposite reason: this franchise's true roster composition is uncertain until the trade's outcome is known (did the counterparty's assets arrive or not) — a NEW deal proposed against it right now would be built on an unverified premise. |
+| **6. Commissioner resolves or escalates** | Re-pull the live `rosters` export directly (the same call `unload_player`'s own verification already makes) to get ground truth, independent of what the ledger last recorded. If the reason was `lockout`, toggle it off and retry ONLY the drop step (`unload_player` is idempotent — retrying when the player is already gone is a safe no-op, confirmed by its own pre-write roster read). If it was a genuine MFL refusal (the player already isn't there for some other reason), do not retry blind — resolve manually with the affected owner first. If verification itself was inconclusive, re-check before assuming either outcome — never re-attempt a write whose own prior attempt's outcome is unknown, mirroring the ledger's own "ask MFL, never retry blindly" rule (§6, `trade_execution.js`'s own header comment). | Same re-pull-live-truth-first discipline, applied to the TRADE call: `execute2Way`'s own ledger (`EXEC.EXECUTING`) already refuses to re-attempt a trade whose outcome is ambiguous — that existing guard is reused here, not re-implemented. If the trade genuinely failed and cannot be salvaged, the commissioner must negotiate a **compensating resolution** with the affected owner for the drop already lost — this document does not prescribe that mechanism (§11); there is no automated "give the player back" — the closest thing that exists is the manual, largely-fragile reinstatement path (free-agent re-add + contract restore, contingent on nobody else having claimed the player since), not a real undo. |
+
+**The asymmetry this table makes concrete:** Order A's row 6 has a real, if manual, recovery path
+for its failure (retry the drop, or fix lockout and retry). Order B's row 6, on a trade failure,
+has no recovery path at all for the asset already lost — only a negotiated compensation the
+commissioner must invent case-by-case. This is the same conclusion §2.3.1 reaches from the
+compliance math; this table reaches it independently from the recovery mechanics, which is why
+§2.3's revised framing no longer calls Order A's failure mode simply "soft" without also stating
+plainly what Order B's failure mode costs instead.
+
 **2.4.4 Non-atomic risks specific to a HUMAN performing this manually** (in addition to, not
 instead of, the underlying MFL non-atomicity in §2.5, which no model here removes):
 
@@ -443,9 +538,28 @@ unambiguous at the moment of confirmation, not imply it or leave it to be inferr
    consent element that today's "Confirm drop selection" copy does not carry, and should be
    added to the copy regardless of when real execution ships, so the selection UI itself never
    implies less authority than the eventual write will actually use.
+4. **The non-atomic ordering risk, stated plainly — SHIPPED (2026-09-29), unlike items 2/3
+   above.** Keith: *"State plainly whether any sequence can guarantee that a team never
+   temporarily exceeds five. If it cannot, show that limitation in the owner-facing consent
+   copy."* Unlike items 2/3 (deliberately deferred until real execution exists, so the copy never
+   implies more than the app can currently do), this one is true **today**, under the currently
+   decided manual-review model (§2.4) — a commissioner performing this by hand faces the exact
+   same non-atomicity as an automated write would, per §2.3.1. So it ships now, in the
+   interactive picker itself (`site/shared/trade_3way_view.js`'s `renderLoadedContractDrops`,
+   right above the "Confirm drop selection" button, visible only to the affected franchise's own
+   owner): *"This drop and the trade itself are two separate, irreversible steps a commissioner
+   performs by hand — they are not guaranteed to happen together. If the drop happens first and
+   the trade then falls through, you lose the player(s) you selected with nothing in return. If
+   the trade happens first and this drop then falls through, your roster stays over the
+   5-loaded-contract limit until the commissioner resolves it. Confirming this selection does not
+   mean either one has happened yet."* Tested in `tests/trade_2way_staged_clients.test.mjs`
+   (renders for the affected owner's own interactive picker; absent for every other viewer). The
+   commissioner review queue (`site/commish/trade_review_queue.html`) carries the equivalent
+   disclosure in its top banner, for the same reason.
 
 Selecting and confirming the drop (today, shipped) is the artifact of this consent, but it does
-not yet SAY these three things. This section is the requirement for what it must say before the
+not yet SAY all four of these things (items 1 and 4 are shipped; items 2 and 3 remain gaps, noted
+above). This section is the requirement for what it must say before the
 "confirm" click is treated as authorizing a real write — a UI/copy change scoped to the create
 and accept-review dialogs (`site/trades/trade_workbench.js`, `site/m/views/trade.js`,
 `site/shared/trade_3way_view.js`), not part of this document's code (none is written here).
@@ -1030,7 +1144,13 @@ moment it runs, whichever way #1152 eventually lands. Nothing in this document d
   all** (§2.4.3's closing paragraph) — a fixed rule (always drops first, always trade first,
   something conditional) versus leaving it to the commissioner's judgment per deal. Explicitly
   NOT decided by removing the prior draft's "drops first by default" assumption — that removal
-  was a correction, not a decision for the opposite default.
+  was a correction, not a decision for the opposite default. **§2.3.1 now proves, from the actual
+  compliance code, that drop-first is the only ordering that can guarantee this transaction never
+  pushes a franchise over the 5-loaded-contract limit — but only at the cost of the irreversible-
+  loss exposure §2.2 already documents; §2.4.3a works both orders through the same five questions
+  side by side.** That proof narrows what each option actually buys, but does not choose between
+  them — the value judgment (which failure mode this league finds more acceptable) remains
+  Keith's alone.
 - **The compensating-resolution mechanism for a `partial_executed` deal** (§2.4.3, state *k*) —
   once the commissioner understands why a mid-sequence write failed, what recovery actually
   looks like for the owner(s) whose asset already, irreversibly moved (retry the remaining
@@ -1163,19 +1283,22 @@ drop-per-franchise plus the trade itself, never more than a 3-way's N):
 
    - **Option A — trade first, drop(s) after** (§2.1's full analysis, unchanged, not re-decided
      here): if a drop then fails (lockout, an explicit MFL refusal, or an ambiguous/unconfirmed
-     verification), the ledger lands at `executed_needs_review` — the trade is permanent and
-     every party gets what they agreed to; the franchise stays genuinely, verifiably over the
-     5-loaded-contract limit until a human resolves the drop. Soft, recoverable failure
-     (bookkeeping, not loss) — but the rule is exposed, even if briefly.
+     verification), the ledger lands at `executed_needs_review` (or the proposed
+     `partial_executed`, §2.4.3a row 3) — the trade is permanent and every party gets what they
+     agreed to; the franchise stays genuinely, verifiably over the 5-loaded-contract limit,
+     **potentially for an extended period**, until a human resolves the drop (§2.3's corrected
+     framing: this is a real, open-ended compliance failure, not merely "soft bookkeeping").
    - **Option B — drop(s) first, trade after** (§2.2's full analysis, unchanged, not re-decided
      here): if the trade then fails for the same set of ordinary reasons, **the team has
      permanently lost a real roster player for a trade that never happened** — no partial credit,
      strictly worse off than before agreeing to anything, and the other side gets nothing either.
-     The 5-loaded-contract limit is never even briefly exceeded — but the failure mode is hard and
-     irreversible instead of soft and recoverable.
-   - **Neither is safe in every case; §2.3 already says this is a value judgment, not an
-     engineering question.** This document does not choose between them here, exactly as §2.4.3
-     already declined to. The concrete decision sheet accompanying this correction lays out both
+     §2.3.1 proves, from the actual compliance code (not by assertion), that this ordering
+     structurally prevents THIS transaction from ever exceeding the 5-loaded-contract limit — the
+     one thing Option A cannot promise — at the cost of this irreversible-loss exposure instead.
+   - **Neither is safe in every case; §2.3/§2.3.1 already say this plainly, and §2.4.3a works the
+     full five-question breakdown (verification, ledger, notification, blocking, recovery) for
+     both orders side by side.** This document does not choose between them here, exactly as
+     §2.4.3 already declined to. The decision sheet accompanying this correction lays out both
      options and their failure cases for Keith's ruling; no completion action is built until that
      ruling is made.
 

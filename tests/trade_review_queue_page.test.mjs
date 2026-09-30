@@ -199,6 +199,12 @@ test("§12.1 COMPLETION STATUS: a not-ready trade shows why, a ready trade shows
 
   // The page's own blocker banner is present regardless of any trade's state.
   t.match(HTML, /A staged trade cannot be completed yet/);
+  // Keith's ruling (2026-09-29): the banner itself must not say "ready to complete" either --
+  // it must state plainly that neither write order can guarantee both "never exceeds five" and
+  // "nothing lost if the other half fails."
+  t.doesNotMatch(HTML, /is <b>ready to complete<\/b>/);
+  t.match(HTML, /Neither write order is decided, and neither can guarantee both safety properties at once/);
+  t.match(HTML, /guarantees the roster never exceeds the 5-loaded-contract limit, but if the trade then fails, the loss is real and largely irreversible/);
 });
 
 await run("trade_review_queue_page");

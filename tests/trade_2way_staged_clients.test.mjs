@@ -184,6 +184,25 @@ test("DESKTOP: SENDER over five -- the sender's OWN detail view shows their own 
   t.match(html, /too many loaded contracts/i);
   t.match(html, /data-t3w-drop-fid="0001"/);
   t.match(html, /Confirm drop selection/);
+  // Keith's ruling (2026-09-29): the owner-facing consent copy must show that neither write
+  // order can guarantee both "the limit is never exceeded" and "nothing is lost if the other
+  // half fails" -- shown to the interactive picker's own owner, before they confirm.
+  t.match(html, /two separate, irreversible steps a commissioner performs by hand/);
+  t.match(html, /you lose the player\(s\) you selected with nothing in return/);
+  t.match(html, /your roster stays over the 5-loaded-contract limit until the commissioner resolves it/);
+});
+
+test("DESKTOP: the ordering-risk disclosure never renders for a viewer who ISN'T the affected franchise's own owner -- it's part of the interactive picker only", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [...fiveLoaded(40000), flat("14056")];
+  mfl.st.rosters["0002"] = [loaded("50000")];
+  const id = await stageViaHttp(env, { movements: [{ from: "0002", to: "0001", asset_tokens: ["50000"] }] });
+  const recipient = loadDesktop(env, { token: "tok-A", fid: "0002" });
+  await recipient.api.open2WayStagedDetail(id);
+  await settle();
+  const html = recipient.detail().innerHTML;
+  t.match(html, /too many loaded contracts/i, "the requirement is still visible to the other side");
+  t.doesNotMatch(html, /two separate, irreversible steps a commissioner performs by hand/, "the disclosure is scoped to the affected owner's own interactive picker, not shown to a viewer with no picker");
 });
 
 test("DESKTOP: ROSTER CHANGES AFTER CREATION -- a trade staged when everyone was fine now shows blocked once a roster changes underneath it, on a plain re-open (no cached number)", async () => {
