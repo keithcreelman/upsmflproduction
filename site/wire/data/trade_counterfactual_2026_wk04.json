@@ -1,0 +1,430 @@
+{
+  "schema": 1,
+  "season": 2026,
+  "week": 4,
+  "previewGeneratedAtUtc": "2026-09-29T20:47:39Z",
+  "tradeTimestampUnix": "1790679568",
+  "franchises": [
+    "0007",
+    "0004"
+  ],
+  "playersMoved": {
+    "fromFranchise1": [
+      "13593",
+      "14249",
+      "14789"
+    ],
+    "fromFranchise2": [
+      "13590",
+      "16618",
+      "13208"
+    ]
+  },
+  "method": "Same saved forecast inputs and banked scores; reverse only traded players. Full rerun recalibrates the model's noise; fixed-noise sensitivity keeps the published run's noise. Draft picks have no model input.",
+  "baselineReproducesPublishedOdds": true,
+  "runs": 8000,
+  "seed": 20260911,
+  "regress": 0.7,
+  "noise": {
+    "withTrade": {
+      "weekly": 30.071,
+      "season": 10.825
+    },
+    "withoutTrade": {
+      "weekly": 30.118,
+      "season": 12.232
+    }
+  },
+  "teams": {
+    "0001": {
+      "owner": "Ryan Bousquet",
+      "withTrade": {
+        "playoff": 0.1679,
+        "title": 0.0103,
+        "division": 0.122
+      },
+      "withoutTrade": {
+        "playoff": 0.1745,
+        "title": 0.0132,
+        "division": 0.12
+      },
+      "fullRerunEffectPoints": {
+        "playoff": -0.66,
+        "title": -0.3,
+        "division": 0.2
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": 1.09,
+        "title": -0.11,
+        "division": 1.4
+      },
+      "lineupPerWeek": {
+        "withTrade": 200.23,
+        "withoutTrade": 200.23
+      }
+    },
+    "0002": {
+      "owner": "Derrick Whitman",
+      "withTrade": {
+        "playoff": 0.584,
+        "title": 0.0622,
+        "division": 0.3885
+      },
+      "withoutTrade": {
+        "playoff": 0.5766,
+        "title": 0.0668,
+        "division": 0.3885
+      },
+      "fullRerunEffectPoints": {
+        "playoff": 0.74,
+        "title": -0.45,
+        "division": 0.0
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": 0.11,
+        "title": -0.38,
+        "division": 0.29
+      },
+      "lineupPerWeek": {
+        "withTrade": 208.56,
+        "withoutTrade": 208.56
+      }
+    },
+    "0003": {
+      "owner": "Matt Gerardi",
+      "withTrade": {
+        "playoff": 0.1295,
+        "title": 0.0046,
+        "division": 0.0766
+      },
+      "withoutTrade": {
+        "playoff": 0.1462,
+        "title": 0.0095,
+        "division": 0.0859
+      },
+      "fullRerunEffectPoints": {
+        "playoff": -1.67,
+        "title": -0.49,
+        "division": -0.93
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": 0.04,
+        "title": -0.21,
+        "division": 0.06
+      },
+      "lineupPerWeek": {
+        "withTrade": 193.02,
+        "withoutTrade": 193.02
+      }
+    },
+    "0004": {
+      "owner": "Brian Cutting",
+      "withTrade": {
+        "playoff": 0.9346,
+        "title": 0.3196,
+        "division": 0.4935
+      },
+      "withoutTrade": {
+        "playoff": 0.8438,
+        "title": 0.218,
+        "division": 0.3795
+      },
+      "fullRerunEffectPoints": {
+        "playoff": 9.09,
+        "title": 10.16,
+        "division": 11.4
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": 7.11,
+        "title": 9.05,
+        "division": 11.97
+      },
+      "lineupPerWeek": {
+        "withTrade": 244.26,
+        "withoutTrade": 235.11
+      }
+    },
+    "0005": {
+      "owner": "Eric Martel",
+      "withTrade": {
+        "playoff": 0.8989,
+        "title": 0.1551,
+        "division": 0.4955
+      },
+      "withoutTrade": {
+        "playoff": 0.8834,
+        "title": 0.1737,
+        "division": 0.5972
+      },
+      "fullRerunEffectPoints": {
+        "playoff": 1.55,
+        "title": -1.86,
+        "division": -10.17
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": -0.11,
+        "title": -1.81,
+        "division": -11.33
+      },
+      "lineupPerWeek": {
+        "withTrade": 228.7,
+        "withoutTrade": 228.7
+      }
+    },
+    "0006": {
+      "owner": "Brian Cross",
+      "withTrade": {
+        "playoff": 0.1108,
+        "title": 0.0105,
+        "division": 0.011
+      },
+      "withoutTrade": {
+        "playoff": 0.128,
+        "title": 0.0144,
+        "division": 0.0232
+      },
+      "fullRerunEffectPoints": {
+        "playoff": -1.73,
+        "title": -0.39,
+        "division": -1.23
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": -0.53,
+        "title": -0.2,
+        "division": -0.65
+      },
+      "lineupPerWeek": {
+        "withTrade": 200.81,
+        "withoutTrade": 200.81
+      }
+    },
+    "0007": {
+      "owner": "Josh Martel",
+      "withTrade": {
+        "playoff": 0.1084,
+        "title": 0.0046,
+        "division": 0.0759
+      },
+      "withoutTrade": {
+        "playoff": 0.2276,
+        "title": 0.0169,
+        "division": 0.1515
+      },
+      "fullRerunEffectPoints": {
+        "playoff": -11.92,
+        "title": -1.23,
+        "division": -7.56
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": -10.48,
+        "title": -1.05,
+        "division": -6.74
+      },
+      "lineupPerWeek": {
+        "withTrade": 193.69,
+        "withoutTrade": 203.86
+      }
+    },
+    "0008": {
+      "owner": "Keith Creelman",
+      "withTrade": {
+        "playoff": 0.8343,
+        "title": 0.0924,
+        "division": 0.8021
+      },
+      "withoutTrade": {
+        "playoff": 0.785,
+        "title": 0.1044,
+        "division": 0.7285
+      },
+      "fullRerunEffectPoints": {
+        "playoff": 4.93,
+        "title": -1.2,
+        "division": 7.36
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": 3.35,
+        "title": -1.11,
+        "division": 5.34
+      },
+      "lineupPerWeek": {
+        "withTrade": 218.74,
+        "withoutTrade": 218.74
+      }
+    },
+    "0009": {
+      "owner": "Bear Dunn",
+      "withTrade": {
+        "playoff": 0.9407,
+        "title": 0.2141,
+        "division": 0.8539
+      },
+      "withoutTrade": {
+        "playoff": 0.9294,
+        "title": 0.226,
+        "division": 0.8307
+      },
+      "fullRerunEffectPoints": {
+        "playoff": 1.14,
+        "title": -1.19,
+        "division": 2.31
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": -0.08,
+        "title": -2.3,
+        "division": 0.01
+      },
+      "lineupPerWeek": {
+        "withTrade": 235.24,
+        "withoutTrade": 235.24
+      }
+    },
+    "0010": {
+      "owner": "Shawn Blake",
+      "withTrade": {
+        "playoff": 0.7249,
+        "title": 0.0819,
+        "division": 0.5349
+      },
+      "withoutTrade": {
+        "playoff": 0.7136,
+        "title": 0.0936,
+        "division": 0.5256
+      },
+      "fullRerunEffectPoints": {
+        "playoff": 1.13,
+        "title": -1.17,
+        "division": 0.92
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": -0.25,
+        "title": -1.21,
+        "division": -0.35
+      },
+      "lineupPerWeek": {
+        "withTrade": 216.22,
+        "withoutTrade": 216.22
+      }
+    },
+    "0011": {
+      "owner": "Eric Mannila",
+      "withTrade": {
+        "playoff": 0.2062,
+        "title": 0.0205,
+        "division": 0.0612
+      },
+      "withoutTrade": {
+        "playoff": 0.2233,
+        "title": 0.0288,
+        "division": 0.072
+      },
+      "fullRerunEffectPoints": {
+        "playoff": -1.7,
+        "title": -0.83,
+        "division": -1.07
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": -0.11,
+        "title": -0.26,
+        "division": 0.01
+      },
+      "lineupPerWeek": {
+        "withTrade": 204.6,
+        "withoutTrade": 204.6
+      }
+    },
+    "0012": {
+      "owner": "Chris Klingenberg",
+      "withTrade": {
+        "playoff": 0.3599,
+        "title": 0.0241,
+        "division": 0.0849
+      },
+      "withoutTrade": {
+        "playoff": 0.3686,
+        "title": 0.0348,
+        "division": 0.0973
+      },
+      "fullRerunEffectPoints": {
+        "playoff": -0.87,
+        "title": -1.06,
+        "division": -1.24
+      },
+      "fixedNoiseEffectPoints": {
+        "playoff": -0.15,
+        "title": -0.4,
+        "division": -0.03
+      },
+      "lineupPerWeek": {
+        "withTrade": 206.02,
+        "withoutTrade": 206.02
+      }
+    }
+  },
+  "sensitivity": {
+    "runs": 40000,
+    "seed": 20260911,
+    "fullRerunEffectPoints": {
+      "0001": {
+        "playoff": -0.45,
+        "title": -0.28,
+        "division": 0.28
+      },
+      "0002": {
+        "playoff": 0.43,
+        "title": -0.91,
+        "division": -0.01
+      },
+      "0003": {
+        "playoff": -1.6,
+        "title": -0.34,
+        "division": -0.88
+      },
+      "0004": {
+        "playoff": 8.94,
+        "title": 10.11,
+        "division": 11.01
+      },
+      "0005": {
+        "playoff": 1.5,
+        "title": -1.53,
+        "division": -9.95
+      },
+      "0006": {
+        "playoff": -1.86,
+        "title": -0.5,
+        "division": -1.06
+      },
+      "0007": {
+        "playoff": -11.49,
+        "title": -1.4,
+        "division": -7.32
+      },
+      "0008": {
+        "playoff": 4.91,
+        "title": -1.29,
+        "division": 7.05
+      },
+      "0009": {
+        "playoff": 1.13,
+        "title": -1.26,
+        "division": 2.13
+      },
+      "0010": {
+        "playoff": 1.08,
+        "title": -1.21,
+        "division": 0.9
+      },
+      "0011": {
+        "playoff": -1.67,
+        "title": -0.65,
+        "division": -0.9
+      },
+      "0012": {
+        "playoff": -0.92,
+        "title": -0.74,
+        "division": -1.23
+      }
+    }
+  }
+}

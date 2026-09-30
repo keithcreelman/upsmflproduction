@@ -178,15 +178,19 @@
      },
      {
       "speaker": "rich",
-      "text": "Cutting won two games this week, and the model gives his remaining legal lineup its highest weekly projection. The current forecast also includes his recent trade with Josh Martel."
+      "text": "Cutting has the model’s strongest remaining legal lineup. A September trade with Josh Martel moved six players and draft picks."
      },
      {
       "speaker": "stuart",
-      "text": "Eric Martel swept and Keith Creelman took two of three. Those results are in the forecast, but the saved preview cannot separate a banked result from a trade, injury or changed player projection."
+      "text": "We replayed the saved forecast with those players returned to their prior rosters. Cutting’s playoff and title chances rose materially with the deal. The simulator does not value future picks."
      },
      {
       "speaker": "rich",
-      "text": "Josh Martel went winless, while Brian Cross won once. Their current odds are low, but we cannot responsibly assign a precise share of either movement to a single cause."
+      "text": "Eric Martel swept and Keith Creelman took two of three. Those results are banked, but we have not run separate what-if tests to price any one game."
+     },
+     {
+      "speaker": "stuart",
+      "text": "Josh Martel is the other side of the trade test: his modeled playoff chance falls with the deal. Brian Cross also sits near the bottom after a different week. This controlled replay is not an observed day-to-day odds history."
      }
     ],
     "place": [
@@ -196,8 +200,8 @@
     ],
     "placeAt": {
      "t.standings": 0,
-     "t.burns": 3,
-     "t.pv.movement": 3
+     "t.burns": 4,
+     "t.pv.movement": 4
     },
     "quotes": [],
     "cards": [],

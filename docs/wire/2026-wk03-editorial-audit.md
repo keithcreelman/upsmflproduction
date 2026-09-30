@@ -49,12 +49,9 @@ Tuesday cutoff; Thursday's Elias check remains outstanding.
   used the through-Week-3 `week_preview_2026_wk04.json`. The revised table and
   dialogue use the latter artifact only (8,000 simulations, September 29
   20:47:39 UTC cutoff), with Weeks 1–3 fixed. The preview's `afterWeekPlayoff`
-  values are null: it cannot split a team's odds change into results already
-  banked versus roster, trade, injury, or projection effects. The September 29
-  trade between Cutting and Josh Martel occurred before the cutoff, and daily
-  roster snapshots confirm Lamar Jackson moved to Cutting while Baker Mayfield
-  and Brian Thomas Jr. moved to Josh. The article mentions the transaction as
-  an included input, without assigning it a numerical effect.
+  values are null: it cannot split a team's *preseason-to-now* odds change into
+  banked results versus revised strength. That does not prevent a targeted
+  same-cutoff trade counterfactual, described below.
 
   The named teams in the odds dialogue were checked against completed results
   and the preview's current `switchWhy.lineupPerWeekNow` input:
@@ -62,14 +59,55 @@ Tuesday cutoff; Thursday's Elias check remains outstanding.
   | Team | Week 3 | Current lineup input | Supported interpretation |
   |---|---:|---:|---|
   | Bear Dunn | 3–0 | 235.2 | Sweep banked; no isolated result effect |
-  | Brian Cutting | 2–1 | 244.3 | Post-trade roster and highest lineup input; no isolated trade effect |
+  | Brian Cutting | 2–1 | 244.3 | Post-trade roster and highest lineup input; trade effect tested below |
   | Eric Martel | 3–0 | 228.7 | Sweep banked; no isolated result effect |
   | Keith Creelman | 2–1 | 218.7 | Two wins banked; no isolated result effect |
-  | Josh Martel | 0–3 | 193.7 | Losses banked and post-trade roster included; no isolated effects |
+  | Josh Martel | 0–3 | 193.7 | Losses banked and post-trade roster included; trade effect tested below |
   | Brian Cross | 1–2 | 200.8 | One win banked; no isolated result effect |
 
   The trade was recorded at September 29 10:59:28 UTC, before the forecast's
   20:47:39 UTC cutoff. Every `afterWeekPlayoff` field is null.
+
+## Same-cutoff trade test
+
+The original Week 4 model-input cache was retained locally. A compact copy of
+its prepared, non-personal simulation inputs is committed as
+`site/wire/data/week_preview_2026_wk04_inputs.json`. Running the published
+model with those inputs, its original seed (`20260911`) and 8,000 simulations
+reproduces **all twelve playoff and title odds exactly**. The same model was
+then rerun with only the six traded players returned to their September 28
+teams. Weeks 1–3 results, all other rosters, projections, injuries, schedule
+and seed were unchanged. The executable reproduction is
+`pipelines/etl/wire/trade_counterfactual.py`; the output is
+`site/wire/data/trade_counterfactual_2026_wk04.json`.
+
+```sh
+python pipelines/etl/wire/trade_counterfactual.py \
+  --inputs site/wire/data/week_preview_2026_wk04_inputs.json \
+  --preview site/wire/data/week_preview_2026_wk04.json \
+  --transactions data/mfl-snapshots/2026-09-29/transactions.json \
+  --trade-timestamp 1790679568 \
+  --out /tmp/wk04-trade-check.json
+```
+
+The September 29 MFL trade sent Lamar Jackson, Andrew Van Ginkel and Tyler
+Huntley from Josh Martel to Brian Cutting; Baker Mayfield, Brian Thomas Jr.
+and Jonathan Allen went the other way. September 28 and 29 roster snapshots
+confirm all six owners and active statuses. Future draft picks also changed
+hands, but the season simulator does not price picks.
+
+| Team | No-trade playoff | With trade | Full-rerun effect | No-trade title | With trade | Title effect |
+|---|---:|---:|---:|---:|---:|---:|
+| Brian Cutting | 84.38% | 93.46% | +9.09 points | 21.80% | 31.96% | +10.16 points |
+| Josh Martel | 22.76% | 10.84% | −11.92 points | 1.69% | 0.46% | −1.23 points |
+
+At 40,000 simulations the playoff effects are +8.94 and −11.49 points,
+respectively. Holding the *post-trade calibrated noise* fixed instead of
+refitting it produces +7.11 and −10.48 points. The article uses the full
+official-model rerun, rounded to about +9 and −12 points; the sensitivity
+checks show why these should be read as model estimates, not exact causal
+effects on an observed day-to-day odds series. It says nothing about whether
+the exchange of future picks was favorable.
 - **Visual play cards:** The pack's Brock Purdy and Jahmyr Gibbs play cards
   now render with player headshots and correct franchise crests. The highlight
   links point to the [official Purdy video](https://www.nfl.com/videos/brock-purdy-s-best-plays-from-4-td-game-vs-cardinals-week-3)
@@ -85,7 +123,9 @@ The primary internal sources are the committed Week 3 pack, the Week 3 XFP
 file, the published Week 3 scores, September 23–29 MFL roster and transaction
 snapshots, and the Week 4 preview JSON. The MFL `players` export was queried
 read-only on September 29 to map player names to MFL IDs; no downloaded export
-is committed. The Week 4 injury-watch owners were also checked against the
+is committed. The compact prepared-input snapshot and trade-test results are
+committed so the new odds attribution can be reproduced without live feeds.
+The Week 4 injury-watch owners were also checked against the
 September 29 roster (12 of 12 matched). The article's preview remains
 provisional until the Thursday Elias/stat and injury refresh.
 
