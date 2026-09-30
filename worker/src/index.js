@@ -29115,6 +29115,19 @@ const mflToSleeper = {};
         return attrs;
       };
 
+      // Small local entity-decode -- deliberately NOT sharing the `htmlDecode` const defined
+      // earlier in this same handler (~line 24673): that one lives far enough away that
+      // reusing it here would add a silent cross-section dependency for no real benefit,
+      // when the entity set needed for a player-names textarea is tiny and stable.
+      const decodeTextareaEntities = (s) =>
+        safeStr(s)
+          .replace(/&nbsp;/gi, " ")
+          .replace(/&amp;/gi, "&")
+          .replace(/&quot;/gi, '"')
+          .replace(/&#39;/gi, "'")
+          .replace(/&lt;/gi, "<")
+          .replace(/&gt;/gi, ">");
+
       const parseLoadRostForm = (html, pageUrl) => {
         const text = String(html || "");
         const formMatch = text.match(/<form\b[^>]*action\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/i);
@@ -29135,7 +29148,21 @@ const mflToSleeper = {};
           seen.add(name);
           baseFields.push([name, safeStr(attrs.value)]);
         }
-        if (!seen.has("PLAYER_NAMES")) baseFields.push(["PLAYER_NAMES", ""]);
+        // PLAYER_NAMES is MFL's own <textarea name="PLAYER_NAMES">, never an <input> -- the
+        // loop above can never see it (2026-09-30 finding, checked against a real LOADROST
+        // page: the field genuinely is a textarea there). Read its REAL content instead of
+        // assuming empty: a page that arrives with this textarea already pre-filled (a
+        // stale/queued add MFL is already tracking for this franchise, entered by the owner
+        // in a separate tab, etc.) must not have that content silently discarded and replaced
+        // with "" -- submitting "" there would submit a DIFFERENT form than the one MFL
+        // actually rendered, an unannounced data loss. The caller (fetchLoadRostFormForCookie)
+        // refuses to proceed to a write at all when this comes back non-empty -- see there.
+        const textareaMatch = text.match(/<textarea\b[^>]*name\s*=\s*("PLAYER_NAMES"|'PLAYER_NAMES'|PLAYER_NAMES)[^>]*>([\s\S]*?)<\/textarea>/i);
+        const playerNamesRaw = decodeTextareaEntities(textareaMatch ? textareaMatch[2] : "").trim();
+        if (!seen.has("PLAYER_NAMES")) {
+          seen.add("PLAYER_NAMES");
+          baseFields.push(["PLAYER_NAMES", playerNamesRaw]);
+        }
         const selectMatch = text.match(/<select\b[^>]*name\s*=\s*("ROSTER"|'ROSTER'|ROSTER)[^>]*>([\s\S]*?)<\/select>/i);
         const rosterIds = [];
         if (selectMatch) {
@@ -29146,7 +29173,7 @@ const mflToSleeper = {};
             if (value) rosterIds.push(value);
           }
         }
-        return { actionUrl, baseFields, currentRosterIds: rosterIds };
+        return { actionUrl, baseFields, currentRosterIds: rosterIds, playerNamesRaw };
       };
 
       const fetchLoadRostFormForCookie = async (cookieHeaderOverride, season, leagueId, franchiseId) => {
@@ -29165,6 +29192,23 @@ const mflToSleeper = {};
         // substring match was rejecting valid responses).
         const parsed = parseLoadRostForm(resp.text, resp.url || pageUrl);
         if (parsed) {
+          // Fail closed, BEFORE any write is attempted (rule_no_fail_open_guards.md): this
+          // code has never been verified against a real page whose PLAYER_NAMES textarea
+          // arrives pre-filled, and a drop-only automation has no basis for guessing whether
+          // forwarding that text back unchanged is safe to combine with our own ROSTER write.
+          // Every caller already gates on `formRes.ok` before ever calling
+          // postLoadRostFormForCookie (confirmed at all three call sites), so returning
+          // ok:false here stops the write everywhere this helper is used, not just here.
+          if (parsed.playerNamesRaw) {
+            return {
+              ok: false,
+              status: resp.status,
+              error: "player_names_prefilled_refusing_write",
+              pageUrl,
+              preview: resp.text.slice(0, 800),
+              player_names_raw: parsed.playerNamesRaw.slice(0, 500),
+            };
+          }
           return { ok: true, status: resp.status, pageUrl, ...parsed };
         }
         // No form found — now distinguish access-denied from generic

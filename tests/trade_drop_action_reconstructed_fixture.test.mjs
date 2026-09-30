@@ -34,18 +34,22 @@
 //   - sel_pid is present on the real page with a real name="sel_pid" attribute and IS correctly
 //     excluded by the parser's explicit name check.
 // Two real, previously-unverified details the reconstruction below had guessed at turned out to
-// differ from the actual page, though neither breaks anything:
+// differ from the actual page:
 //   - picker_filt_name exists on the real page only as id="picker_filt_name" -- it has NO name
 //     attribute at all. The parser's explicit `name === "picker_filt_name"` exclusion is therefore
 //     dead code for this specific field (the earlier `if (!name) continue` already drops it) --
 //     harmless, but the reconstruction's assumption that this field carries a name was wrong.
 //   - PLAYER_NAMES is a <textarea name="PLAYER_NAMES">, not an <input>. parseLoadRostForm's
-//     inputRe only matches <input> tags, so it never actually sees this field on the real page --
-//     the "" it ends up with comes entirely from the `if (!seen.has("PLAYER_NAMES"))` fallback,
-//     not from reading the real value. On this page that fallback happens to be correct (the real
-//     textarea is empty), but this is a latent gap: if MFL ever pre-fills that textarea, the parser
-//     would silently submit "" instead of the real default. Not exercised or fixed here -- flagged
-//     for awareness.
+//     inputRe only ever matched <input> tags, so it never actually saw this field's real value --
+//     FIXED (2026-09-30, sixth pass, Keith's correction: "the parser currently sends an empty
+//     value without reading the textarea... parse and preserve its actual value, or fail closed if
+//     a nonempty value cannot be handled safely"). parseLoadRostForm now reads the textarea's real
+//     content directly and returns it as `playerNamesRaw`, so baseFields genuinely reflects the
+//     page. Separately, fetchLoadRostFormForCookie now refuses to return ok:true at all when that
+//     value is non-empty (a drop-only automation has no basis to guess whether forwarding a
+//     pre-filled add-list back unchanged is safe) -- every caller already gates on formRes.ok
+//     before ever reaching postLoadRostFormForCookie, so this stops the write everywhere, before
+//     any POST is attempted. Covered below by "PLAYER_NAMES pre-filled -- refuses to write".
 //
 // WHAT REMAINS UNVERIFIED: the POST side. No POST was sent to real MFL -- Keith was explicit that
 // only a GET is a safe read, and this was a read. classifyDropActionResponse's behavior against a
@@ -99,12 +103,15 @@ const ledgerRow = (env, id) => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_tra
 // ═══════ THE HTML FIXTURE (see file header: reconstructed from the parser's own real,
 // documented field knowledge -- not a live capture) ═══════
 const ACTION_URL = "https://www48.myfantasyleague.com/2026/csetup";
-function loadRostPageHtml(leagueId, franchiseId, rosterIds) {
+function loadRostPageHtml(leagueId, franchiseId, rosterIds, playerNames = "") {
   const options = rosterIds.map((pid) => `<option value="${pid}">Player ${pid}</option>`).join("\n        ");
   // sel_pid / picker_filt_name are the two field names parseLoadRostForm deliberately excludes
   // (worker/src/index.js) -- real, documented knowledge of the actual page's own player-search
   // widget, included here so the parser's own exclusion logic is genuinely exercised, not just
-  // trivially satisfied by their absence.
+  // trivially satisfied by their absence. PLAYER_NAMES is a real <textarea>, matching the real
+  // page's own shape (confirmed 2026-09-30 against Keith's genuine capture) -- present by default
+  // with EMPTY content, so every existing test in this file that doesn't pass `playerNames`
+  // explicitly is exercising "textarea present but empty", not merely "textarea absent".
   return `<!DOCTYPE html><html><body>
     <form action="${ACTION_URL}?L=${leagueId}&FRANCHISE=${franchiseId}&C=LOADROST" method="POST">
       <input type="hidden" name="L" value="${leagueId}">
@@ -115,6 +122,7 @@ function loadRostPageHtml(leagueId, franchiseId, rosterIds) {
       <select name="ROSTER" multiple="multiple">
         ${options}
       </select>
+      <textarea name="PLAYER_NAMES">${playerNames}</textarea>
       <input type="submit" value="Submit">
     </form>
   </body></html>`;
@@ -234,6 +242,49 @@ test("RECONSTRUCTED-FIXTURE: a page with no parseable <form> at all is classifie
     t.equal(steps["drop:80000"].status, "failed");
     t.match(steps["drop:80000"].reason, /Unable to load commissioner roster form/);
     t.equal(ledgerRow(env, id).state, "executed_needs_review");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("RECONSTRUCTED-FIXTURE: PLAYER_NAMES pre-filled -- the real textarea value is parsed and preserved verbatim, then the write is refused rather than guessed at (Keith's correction, 2026-09-30 sixth pass: 'parse and preserve its actual value, or fail closed if a nonempty value cannot be handled safely')", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
+  const PREFILLED = "Some Stray Player Name\nAnother One";
+  const stub = installRealDropActionFetchStub(env, mfl, {
+    pageResponder: (url) => ({
+      status: 200,
+      body: loadRostPageHtml(
+        url.searchParams.get("L"),
+        url.searchParams.get("FRANCHISE"),
+        (mfl.st.rosters[url.searchParams.get("FRANCHISE")] || []).map((p) => p.id),
+        PREFILLED
+      ),
+    }),
+  });
+  try {
+    // Direct route call first (mirrors performConditionalDrop's own call exactly), to prove the
+    // PRECISE new behavior -- the real textarea content was actually read and preserved, and the
+    // refusal is the SPECIFIC new error code, not a coincidental generic "form not found" collapse.
+    const direct = await env.SELF.fetch(`https://self.invalid/roster-workbench/action?APIKEY=${encodeURIComponent(env.COMMISH_API_KEY)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "unload_player", league_id: "74598", season: "2026", franchise_id: FR.A, player_id: "80000" }),
+    });
+    const directData = await direct.json();
+    t.equal(directData.ok, false);
+    t.equal(directData.details.error, "player_names_prefilled_refusing_write", "must be the SPECIFIC new refusal, not a generic form-not-found");
+    t.equal(directData.details.player_names_raw, PREFILLED, "the real textarea content must be parsed and preserved verbatim, not silently discarded or blanked");
+    t.equal(stub.postedCalls.length, 0, "no POST attempted from this direct call");
+
+    // Full orchestration next: proves this refusal actually stops the deal and holds for review,
+    // exactly like every other proven-failure case already covered in this file.
+    const r = await executeDropFirstDeal(env, {}, id);
+    t.equal(r.ok, false);
+    t.equal(stub.postedCalls.length, 0, "the write must never happen once PLAYER_NAMES came back non-empty");
+    const steps = JSON.parse(ledgerRow(env, id).steps_json);
+    t.equal(steps["drop:80000"].status, "failed");
+    t.equal(ledgerRow(env, id).state, "executed_needs_review", "held for commissioner review, exactly like every other proven-failure case -- never silently retried");
   } finally {
     stub.restore();
   }
