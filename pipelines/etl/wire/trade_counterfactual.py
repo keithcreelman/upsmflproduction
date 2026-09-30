@@ -88,6 +88,8 @@ def main():
     ap.add_argument("--transactions", required=True)
     ap.add_argument("--trade-timestamp", required=True)
     ap.add_argument("--sensitivity-runs", type=int, default=0)
+    ap.add_argument("--seed-check", default="",
+                    help="comma-separated extra seeds; reruns both definitions at the published run count")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -112,7 +114,8 @@ def main():
     for row in preview["movement"]:
         fid = row["fid"]
         if (round(post_state["odds"][fid]["playoff"], 4) != row["enteringPlayoff"]
-                or round(post_state["odds"][fid]["title"], 4) != row["enteringTitle"]):
+                or round(post_state["odds"][fid]["title"], 4) != row["enteringTitle"]
+                or round(post_state["odds"][fid]["division"], 4) != row["enteringDivision"]):
             raise ValueError("saved inputs do not reproduce published odds for %s" % fid)
     fixed = fixed_noise_no_trade(pre, post_state, actual, runs, seed, k)
 
@@ -156,12 +159,31 @@ def main():
             raise ValueError("sensitivity runs must be at least the published run count")
         higher_post = odds_for(post, actual, n, seed, k)
         higher_pre = odds_for(pre, actual, n, seed, k)
+        higher_fixed = fixed_noise_no_trade(pre, higher_post, actual, n, seed, k)
         out["sensitivity"] = {"runs": n, "seed": seed,
                               "fullRerunEffectPoints": {
                                   fid: {m: round(100 * (higher_post["odds"][fid][m]
                                                        - higher_pre["odds"][fid][m]), 2)
                                         for m in ("playoff", "title", "division")}
+                                  for fid in sorted(post["teams"])},
+                              "fixedNoiseEffectPoints": {
+                                  fid: {m: round(100 * (higher_post["odds"][fid][m]
+                                                       - higher_fixed[fid][m]), 2)
+                                        for m in ("playoff", "title", "division")}
                                   for fid in sorted(post["teams"])}}
+    if args.seed_check:
+        # Seed spread at the published run count: the same comparison, other random draws.
+        rows = []
+        for s in [int(x) for x in args.seed_check.split(",") if x.strip()]:
+            a, b = odds_for(post, actual, runs, s, k), odds_for(pre, actual, runs, s, k)
+            fx = fixed_noise_no_trade(pre, a, actual, runs, s, k)
+            rows.append({"seed": s, "effects": {
+                fid: {"fullRerun": {m: round(100 * (a["odds"][fid][m] - b["odds"][fid][m]), 2)
+                                    for m in ("playoff", "title")},
+                      "fixedNoise": {m: round(100 * (a["odds"][fid][m] - fx[fid][m]), 2)
+                                     for m in ("playoff", "title")}}
+                for fid in out["franchises"]}})
+        out["seedCheck"] = {"runs": runs, "seeds": rows}
     if os.path.exists(args.out):
         raise ValueError("refusing to overwrite %s" % args.out)
     with open(args.out, "w", encoding="utf-8") as f:

@@ -425,6 +425,198 @@
         "title": -0.74,
         "division": -1.23
       }
+    },
+    "fixedNoiseEffectPoints": {
+      "0001": {
+        "playoff": 1.07,
+        "title": -0.1,
+        "division": 1.26
+      },
+      "0002": {
+        "playoff": -0.1,
+        "title": -0.76,
+        "division": 0.17
+      },
+      "0003": {
+        "playoff": -0.17,
+        "title": -0.14,
+        "division": -0.02
+      },
+      "0004": {
+        "playoff": 7.19,
+        "title": 9.38,
+        "division": 11.39
+      },
+      "0005": {
+        "playoff": -0.16,
+        "title": -1.95,
+        "division": -10.81
+      },
+      "0006": {
+        "playoff": -0.48,
+        "title": -0.22,
+        "division": -0.57
+      },
+      "0007": {
+        "playoff": -10.11,
+        "title": -1.19,
+        "division": -6.4
+      },
+      "0008": {
+        "playoff": 3.39,
+        "title": -1.22,
+        "division": 5.14
+      },
+      "0009": {
+        "playoff": -0.06,
+        "title": -2.07,
+        "division": -0.09
+      },
+      "0010": {
+        "playoff": -0.15,
+        "title": -1.18,
+        "division": -0.15
+      },
+      "0011": {
+        "playoff": -0.2,
+        "title": -0.26,
+        "division": 0.05
+      },
+      "0012": {
+        "playoff": -0.22,
+        "title": -0.3,
+        "division": 0.03
+      }
     }
+  },
+  "seedCheck": {
+    "runs": 8000,
+    "seeds": [
+      {
+        "seed": 1,
+        "effects": {
+          "0007": {
+            "fullRerun": {
+              "playoff": -11.72,
+              "title": -1.4
+            },
+            "fixedNoise": {
+              "playoff": -10.45,
+              "title": -1.24
+            }
+          },
+          "0004": {
+            "fullRerun": {
+              "playoff": 9.1,
+              "title": 10.51
+            },
+            "fixedNoise": {
+              "playoff": 7.49,
+              "title": 9.96
+            }
+          }
+        }
+      },
+      {
+        "seed": 2,
+        "effects": {
+          "0007": {
+            "fullRerun": {
+              "playoff": -11.97,
+              "title": -1.55
+            },
+            "fixedNoise": {
+              "playoff": -10.85,
+              "title": -1.4
+            }
+          },
+          "0004": {
+            "fullRerun": {
+              "playoff": 8.8,
+              "title": 10.36
+            },
+            "fixedNoise": {
+              "playoff": 7.02,
+              "title": 9.49
+            }
+          }
+        }
+      },
+      {
+        "seed": 3,
+        "effects": {
+          "0007": {
+            "fullRerun": {
+              "playoff": -11.79,
+              "title": -1.26
+            },
+            "fixedNoise": {
+              "playoff": -10.4,
+              "title": -0.95
+            }
+          },
+          "0004": {
+            "fullRerun": {
+              "playoff": 8.46,
+              "title": 9.73
+            },
+            "fixedNoise": {
+              "playoff": 7.0,
+              "title": 8.68
+            }
+          }
+        }
+      },
+      {
+        "seed": 4,
+        "effects": {
+          "0007": {
+            "fullRerun": {
+              "playoff": -10.99,
+              "title": -0.99
+            },
+            "fixedNoise": {
+              "playoff": -9.54,
+              "title": -0.72
+            }
+          },
+          "0004": {
+            "fullRerun": {
+              "playoff": 9.34,
+              "title": 10.34
+            },
+            "fixedNoise": {
+              "playoff": 7.15,
+              "title": 10.08
+            }
+          }
+        }
+      },
+      {
+        "seed": 5,
+        "effects": {
+          "0007": {
+            "fullRerun": {
+              "playoff": -11.46,
+              "title": -1.55
+            },
+            "fixedNoise": {
+              "playoff": -10.11,
+              "title": -1.29
+            }
+          },
+          "0004": {
+            "fullRerun": {
+              "playoff": 9.35,
+              "title": 10.54
+            },
+            "fixedNoise": {
+              "playoff": 7.63,
+              "title": 9.74
+            }
+          }
+        }
+      }
+    ]
   }
 }
